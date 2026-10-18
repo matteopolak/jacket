@@ -10,9 +10,9 @@ use crate::position::LineIndex;
 use crate::session::Session;
 use crate::{CallHierarchyCall, CallHierarchyItem, DocumentUri, Error, Position, SymbolKind};
 use jaic::ast::{DeclKind, ExprKind as E, Stmt, StmtKind as S};
+use jaic::fxhash::{HashMap, HashSet};
 use jaic::source::FileId;
 use jailint::syntax::walk;
-use std::collections::{HashMap, HashSet};
 
 /// A procedure declared as `name :: (...) { ... }` (or without a body, as a foreign one).
 #[derive(Clone, Debug)]
@@ -33,7 +33,7 @@ struct Site {
 fn sites(text: &str) -> Vec<Site> {
     let file = jaic::parser::parse_file_ide(FileId(0), text).file;
     let mut out = Vec::new();
-    collect(text, &file.stmts, &mut out, &mut HashSet::new());
+    collect(text, &file.stmts, &mut out, &mut HashSet::default());
     out
 }
 
@@ -217,7 +217,7 @@ impl Session {
             return Ok(Vec::new());
         }
         let mut grouped = Grouped::default();
-        let mut parsed: HashMap<String, (String, Vec<Site>)> = HashMap::new();
+        let mut parsed: HashMap<String, (String, Vec<Site>)> = HashMap::default();
         for reference in self.references(&uri, item.selection_range.start, false)? {
             let Ok(target) = DocumentUri::parse(&reference.uri) else {
                 continue;
@@ -280,7 +280,7 @@ impl Session {
             })
             .unwrap_or_default();
         let mut grouped = Grouped::default();
-        let mut parsed: HashMap<String, Vec<Site>> = HashMap::new();
+        let mut parsed: HashMap<String, Vec<Site>> = HashMap::default();
         for (at, (path, text, declared, _)) in calls {
             // Not the calls of a procedure nested in this one.
             if calling(&here, at).is_none_or(|s| s.name_span != me.name_span) {

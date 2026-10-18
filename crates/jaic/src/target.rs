@@ -272,7 +272,7 @@ impl std::fmt::Display for Target {
 }
 
 impl Target {
-    fn wasm_system(&self) -> &'static str {
+    fn wasm_system(self) -> &'static str {
         if self.abi == TargetAbi::Wasi {
             "unknown-wasi"
         } else {

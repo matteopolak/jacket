@@ -1,6 +1,6 @@
 //! Green threads for WASI programs (`docs/native/wasm-target.md`).
 //!
-//! WASI preview 1 has no threads, and wasm code cannot switch stacks, so Wasi_Runtime runs a
+//! WASI preview 1 has no threads, and wasm code cannot switch stacks, so `Wasi_Runtime` runs a
 //! program's threads one at a time on the host's only thread
 //! (`stdlib/Extensions/Wasi_Runtime/threads.jai`). A thread that blocks makes way by unwinding:
 //! every procedure between the thread's entry and the blocking call returns to the scheduler and
@@ -18,15 +18,15 @@
 //!   call it was in the frame and returns. On entry, if the runtime is rewinding, it jumps
 //!   straight to the recorded call, which makes the same call again with the stored arguments.
 //!
-//! Only programs that can start a thread (they reach Wasi_Runtime's `pthread_create`) are
+//! Only programs that can start a thread (they reach `Wasi_Runtime`'s `pthread_create`) are
 //! rewritten; the others are left as they are and the runtime never unwinds.
+use jaic::fxhash::{HashMap, HashSet};
 use jaic::ir::{
     Block, BlockId, CallInst, Callee, CmpOp, Conv, ConvOp, Func, FuncId, GlobalId, Inst, Linkage,
     Program, RelocTarget, Sig, Term, Ty, Val,
 };
-use std::collections::{HashMap, HashSet};
 
-/// Wasi_Runtime's `#program_export`s the rewrite relies on.
+/// `Wasi_Runtime`'s `#program_export`s the rewrite relies on.
 const SUSPEND: &str = "jaic_wasi_suspend";
 
 const SCHEDULER: &str = "jaic_wasi_run_threads";
@@ -60,7 +60,7 @@ enum Reach {
 }
 
 /// The program with its blocking procedures rewritten, or `None` when nothing needs it: the
-/// program cannot start a thread, or it has no Wasi_Runtime.
+/// program cannot start a thread, or it has no `Wasi_Runtime`.
 pub fn instrument(program: &Program) -> Option<Program> {
     let exports: HashMap<&str, usize> = program
         .funcs
@@ -95,7 +95,7 @@ pub fn instrument(program: &Program) -> Option<Program> {
         .collect();
 
     let n = program.funcs.len();
-    let mut sigs: HashMap<SigKey, usize> = HashMap::new();
+    let mut sigs: HashMap<SigKey, usize> = HashMap::default();
     let mut intern = |sig: &Sig| {
         let next = sigs.len();
         *sigs.entry(sig_key(sig)).or_insert(next)
@@ -106,7 +106,7 @@ pub fn instrument(program: &Program) -> Option<Program> {
         let Some(func) = func else {
             continue;
         };
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         for inst in func.blocks.iter().flat_map(|b| &b.insts) {
             match inst {
                 Inst::FuncAddr {
@@ -520,18 +520,28 @@ impl Body {
     }
 }
 
-/// Rewrite one procedure that may block (see the module comment).
-fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
-    let old = std::mem::take(&mut func.blocks);
-    let params = func.sig.params.len();
-    let nvals = func.vals.len();
+/// Which stretch (the code between blocking calls) defines each value, and what that makes of it.
+struct Stretches {
+    /// The stretch defining each value, or `PARAM`, `HOISTED` or `UNDEFINED`.
+    def_stretch: Vec<u32>,
+    /// Definitions that move to the new entry block.
+    hoisted: Vec<Inst>,
+    /// Values used in another stretch than the one defining them: they live in the frame.
+    spilled: Vec<bool>,
+}
 
-    // Number the stretches: each block starts one, and so does each call that may block.
+/// Number the stretches: each block starts one, and so does each call that may block.
+fn number_stretches(
+    old: &[Block],
+    params: usize,
+    nvals: usize,
+    may_block: &dyn Fn(&Callee) -> bool,
+) -> Stretches {
     let mut def_stretch = vec![UNDEFINED; nvals];
     def_stretch[..params].fill(PARAM);
     let mut hoisted = Vec::new();
     let mut stretch = 0u32;
-    for block in &old {
+    for block in old {
         let mut current = stretch;
         stretch += 1;
         for inst in &block.insts {
@@ -558,7 +568,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
             spilled[v.0 as usize] = true;
         }
     };
-    for block in &old {
+    for block in old {
         let mut current = stretch;
         stretch += 1;
         for inst in &block.insts {
@@ -570,13 +580,26 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         }
         term_uses_mut(&mut block.term.clone(), &mut |v| mark(*v, current));
     }
+    Stretches {
+        def_stretch,
+        hoisted,
+        spilled,
+    }
+}
 
-    // Frame: the resume point, the slots, then the stored values.
+/// Where things live in the frame: the resume point, the slots, then the stored values.
+struct Layout {
+    align: u64,
+    size: u64,
+    slot_offsets: Vec<u64>,
+    spill_offsets: Vec<Option<u64>>,
+}
+
+fn frame_layout(slots: &[jaic::ir::Slot], spilled: &[bool]) -> Layout {
     let mut align = 16u64;
     // Resume point and the persistent top after dynamic frame allocations.
     let mut size = 16u64;
-    let slot_offsets: Vec<u64> = func
-        .slots
+    let slot_offsets: Vec<u64> = slots
         .iter()
         .map(|slot| {
             let a = slot.align.clamp(1, 1 << 16).next_power_of_two();
@@ -588,22 +611,51 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         })
         .collect();
     size = size.next_multiple_of(8);
-    let mut spill_offsets = vec![None; nvals];
+    let mut spill_offsets = vec![None; spilled.len()];
     for (v, offset) in spill_offsets.iter_mut().enumerate() {
         if spilled[v] {
             *offset = Some(size);
             size += 8;
         }
     }
-    let size = size.next_multiple_of(align);
-
-    let mut body = Body {
-        vals: std::mem::take(&mut func.vals),
-        blocks: Vec::new(),
-    };
-    for _ in 0..=old.len() {
-        body.block();
+    Layout {
+        align,
+        size: size.next_multiple_of(align),
+        slot_offsets,
+        spill_offsets,
     }
+}
+
+/// The values and blocks the rewritten procedure's parts share.
+struct Frame {
+    control: Val,
+    top_addr: Val,
+    old_top: Val,
+    /// The frame itself: its resume point is the first word.
+    base: Val,
+    dynamic_top_addr: Val,
+    limit_int: Val,
+    /// The address of each spilled value's frame word.
+    spill_addr: Vec<Option<Val>>,
+    exhausted: usize,
+    dispatch: usize,
+    lost: usize,
+}
+
+/// Block 0: takes a frame from the thread's frame stack, then starts over or resumes.
+fn emit_prologue(
+    body: &mut Body,
+    rt: &Runtime,
+    layout: &Layout,
+    hoisted: Vec<Inst>,
+    params: usize,
+) -> Frame {
+    let Layout {
+        align,
+        size,
+        ref slot_offsets,
+        ref spill_offsets,
+    } = *layout;
     let exhausted = body.block();
     let push = body.block();
     let dispatch = body.block();
@@ -686,7 +738,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
             other => entry.push(other),
         }
     }
-    let mut spill_addr = vec![None; nvals];
+    let mut spill_addr = vec![None; spill_offsets.len()];
     for (v, offset) in spill_offsets.iter().enumerate() {
         if let Some(offset) = *offset {
             spill_addr[v] = Some(body.at(&mut entry, frame, offset));
@@ -755,8 +807,164 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         insts,
         term: Term::Jump(BlockId(1)),
     };
+    Frame {
+        control,
+        top_addr,
+        old_top,
+        base: frame,
+        dynamic_top_addr,
+        limit_int,
+        spill_addr,
+        exhausted,
+        dispatch,
+        lost,
+    }
+}
 
-    // The original blocks, split after each call that may block.
+/// A blocking call that is unwinding records its resume point and returns, leaving the frame
+/// where it is. Returns the block that does so.
+fn emit_unwind_exit(body: &mut Body, fr: &Frame, returns: &[Ty], point: u64) -> usize {
+    let leave = body.block();
+    let mut leave_insts = Vec::new();
+    let point_value = body.konst(&mut leave_insts, Ty::I64, point);
+    leave_insts.push(Inst::Store {
+        ty: Ty::I64,
+        addr: fr.base,
+        value: point_value,
+    });
+    let dummies = returns
+        .iter()
+        .map(|&ty| body.konst(&mut leave_insts, ty, 0))
+        .collect();
+    body.blocks[leave] = Block {
+        insts: leave_insts,
+        term: Term::Ret(dummies),
+    };
+    leave
+}
+
+/// Allocates `size` bytes aligned to `align` from the thread's frame stack into `dst` (the
+/// continuation cannot keep native alloca storage), saving the new top for the rewind walk.
+/// Returns whether the stack is exhausted, and the new top.
+fn emit_frame_alloc(
+    body: &mut Body,
+    fr: &Frame,
+    insts: &mut Vec<Inst>,
+    dst: Val,
+    (size, align): (Val, u64),
+) -> (Val, Val) {
+    let Frame {
+        top_addr,
+        limit_int,
+        ..
+    } = *fr;
+    let top = body.val(Ty::Ptr);
+    insts.push(Inst::Load {
+        dst: top,
+        ty: Ty::Ptr,
+        addr: top_addr,
+    });
+    let top_int = body.int_of(insts, top);
+    let padding = body.konst(insts, Ty::I64, align - 1);
+    let rounded = body.val(Ty::I64);
+    insts.push(Inst::Bin {
+        dst: rounded,
+        op: jaic::ir::BinOp::Add,
+        ty: Ty::I64,
+        a: top_int,
+        b: padding,
+    });
+    let mask = body.konst(insts, Ty::I64, !(align - 1));
+    let start = body.val(Ty::I64);
+    insts.push(Inst::Bin {
+        dst: start,
+        op: jaic::ir::BinOp::And,
+        ty: Ty::I64,
+        a: rounded,
+        b: mask,
+    });
+    insts.push(Inst::Conv {
+        dst,
+        op: ConvOp::Bitcast,
+        from: Ty::I64,
+        to: Ty::Ptr,
+        src: start,
+    });
+    let end = body.val(Ty::Ptr);
+    insts.push(Inst::PtrAdd {
+        dst: end,
+        base: dst,
+        offset: size,
+    });
+    let remaining = body.val(Ty::I64);
+    insts.push(Inst::Bin {
+        dst: remaining,
+        op: jaic::ir::BinOp::Sub,
+        ty: Ty::I64,
+        a: limit_int,
+        b: start,
+    });
+    let over = body.val(Ty::I8);
+    insts.push(Inst::Cmp {
+        dst: over,
+        op: CmpOp::UGt,
+        ty: Ty::I64,
+        a: size,
+        b: remaining,
+    });
+    let past = body.val(Ty::I8);
+    insts.push(Inst::Cmp {
+        dst: past,
+        op: CmpOp::UGt,
+        ty: Ty::I64,
+        a: start,
+        b: limit_int,
+    });
+    let wrap = body.val(Ty::I8);
+    insts.push(Inst::Cmp {
+        dst: wrap,
+        op: CmpOp::ULt,
+        ty: Ty::I64,
+        a: rounded,
+        b: top_int,
+    });
+    let bad = body.val(Ty::I8);
+    insts.push(Inst::Bin {
+        dst: bad,
+        op: jaic::ir::BinOp::Or,
+        ty: Ty::I8,
+        a: over,
+        b: past,
+    });
+    let invalid = body.val(Ty::I8);
+    insts.push(Inst::Bin {
+        dst: invalid,
+        op: jaic::ir::BinOp::Or,
+        ty: Ty::I8,
+        a: bad,
+        b: wrap,
+    });
+    (invalid, end)
+}
+
+/// The original blocks, split after each call that may block. Returns the resume points.
+fn rewrite_blocks(
+    body: &mut Body,
+    fr: &Frame,
+    def_stretch: &[u32],
+    may_block: &dyn Fn(&Callee) -> bool,
+    returns: &[Ty],
+    old: Vec<Block>,
+) -> Vec<(u64, BlockId)> {
+    let Frame {
+        control,
+        top_addr,
+        old_top,
+        dynamic_top_addr,
+        exhausted,
+        ref spill_addr,
+        ..
+    } = *fr;
     let mut resume_points: Vec<(u64, BlockId)> = Vec::new();
     let mut stretch = 0u32;
     for (b, block) in old.into_iter().enumerate() {
@@ -766,7 +974,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         let mut at = b + 1;
         let mut insts: Vec<Inst> = Vec::new();
         let mut loads: Vec<Inst> = Vec::new();
-        let mut reloaded: HashMap<u32, Val> = HashMap::new();
+        let mut reloaded: HashMap<u32, Val> = HashMap::default();
         // Uses of values from other stretches read the frame, once per stretch, at its start.
         let fetch = |v: &mut Val,
                      current: u32,
@@ -821,7 +1029,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
                 start = call_block;
                 at = call_block;
                 uses_mut(&mut inst, &mut |v| {
-                    fetch(v, current, &mut body, &mut loads, &mut reloaded)
+                    fetch(v, current, body, &mut loads, &mut reloaded);
                 });
                 let results = defs(&inst);
                 insts.push(inst);
@@ -843,23 +1051,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
                     b: unwinding_value,
                 });
                 // Unwinding: remember this call and return; the frame stays where it is.
-                let leave = body.block();
-                let mut leave_insts = Vec::new();
-                let point_value = body.konst(&mut leave_insts, Ty::I64, point);
-                leave_insts.push(Inst::Store {
-                    ty: Ty::I64,
-                    addr: frame,
-                    value: point_value,
-                });
-                let returns = func.sig.returns.clone();
-                let dummies = returns
-                    .iter()
-                    .map(|&ty| body.konst(&mut leave_insts, ty, 0))
-                    .collect();
-                body.blocks[leave] = Block {
-                    insts: leave_insts,
-                    term: Term::Ret(dummies),
-                };
+                let leave = emit_unwind_exit(body, fr, returns, point);
                 let next = body.block();
                 body.blocks[at] = Block {
                     insts: std::mem::take(&mut insts),
@@ -871,12 +1063,12 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
                 };
                 at = next;
                 for r in results {
-                    store(r, &body, &mut insts);
+                    store(r, body, &mut insts);
                 }
                 continue;
             }
             uses_mut(&mut inst, &mut |v| {
-                fetch(v, current, &mut body, &mut loads, &mut reloaded)
+                fetch(v, current, body, &mut loads, &mut reloaded);
             });
             let results = defs(&inst);
             if let Inst::StackAlloc {
@@ -887,92 +1079,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
             {
                 // Continuations cannot retain native alloca storage. Allocate from
                 // the thread frame stack and save its top for the rewind walk.
-                let top = body.val(Ty::Ptr);
-                insts.push(Inst::Load {
-                    dst: top,
-                    ty: Ty::Ptr,
-                    addr: top_addr,
-                });
-                let top_int = body.int_of(&mut insts, top);
-                let padding = body.konst(&mut insts, Ty::I64, align - 1);
-                let rounded = body.val(Ty::I64);
-                insts.push(Inst::Bin {
-                    dst: rounded,
-                    op: jaic::ir::BinOp::Add,
-                    ty: Ty::I64,
-                    a: top_int,
-                    b: padding,
-                });
-                let mask = body.konst(&mut insts, Ty::I64, !(align - 1));
-                let start = body.val(Ty::I64);
-                insts.push(Inst::Bin {
-                    dst: start,
-                    op: jaic::ir::BinOp::And,
-                    ty: Ty::I64,
-                    a: rounded,
-                    b: mask,
-                });
-                insts.push(Inst::Conv {
-                    dst,
-                    op: ConvOp::Bitcast,
-                    from: Ty::I64,
-                    to: Ty::Ptr,
-                    src: start,
-                });
-                let end = body.val(Ty::Ptr);
-                insts.push(Inst::PtrAdd {
-                    dst: end,
-                    base: dst,
-                    offset: size,
-                });
-                let remaining = body.val(Ty::I64);
-                insts.push(Inst::Bin {
-                    dst: remaining,
-                    op: jaic::ir::BinOp::Sub,
-                    ty: Ty::I64,
-                    a: limit_int,
-                    b: start,
-                });
-                let over = body.val(Ty::I8);
-                insts.push(Inst::Cmp {
-                    dst: over,
-                    op: CmpOp::UGt,
-                    ty: Ty::I64,
-                    a: size,
-                    b: remaining,
-                });
-                let past = body.val(Ty::I8);
-                insts.push(Inst::Cmp {
-                    dst: past,
-                    op: CmpOp::UGt,
-                    ty: Ty::I64,
-                    a: start,
-                    b: limit_int,
-                });
-                let wrap = body.val(Ty::I8);
-                insts.push(Inst::Cmp {
-                    dst: wrap,
-                    op: CmpOp::ULt,
-                    ty: Ty::I64,
-                    a: rounded,
-                    b: top_int,
-                });
-                let bad = body.val(Ty::I8);
-                insts.push(Inst::Bin {
-                    dst: bad,
-                    op: jaic::ir::BinOp::Or,
-                    ty: Ty::I8,
-                    a: over,
-                    b: past,
-                });
-                let invalid = body.val(Ty::I8);
-                insts.push(Inst::Bin {
-                    dst: invalid,
-                    op: jaic::ir::BinOp::Or,
-                    ty: Ty::I8,
-                    a: bad,
-                    b: wrap,
-                });
+                let (invalid, end) = emit_frame_alloc(body, fr, &mut insts, dst, (size, align));
                 let ready = body.block();
                 body.blocks[at] = Block {
                     insts: std::mem::take(&mut insts),
@@ -997,12 +1104,12 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
                 insts.push(inst);
             }
             for r in results {
-                store(r, &body, &mut insts);
+                store(r, body, &mut insts);
             }
         }
         let mut term = block.term;
         term_uses_mut(&mut term, &mut |v| {
-            fetch(v, current, &mut body, &mut loads, &mut reloaded)
+            fetch(v, current, body, &mut loads, &mut reloaded);
         });
         shift_targets(&mut term, 1);
         if matches!(term, Term::Ret(_)) {
@@ -1019,31 +1126,62 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         };
         body.blocks[start].insts.splice(0..0, loads);
     }
+    resume_points
+}
+
+/// Rewrite one procedure that may block (see the module comment).
+fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
+    let old = std::mem::take(&mut func.blocks);
+    let params = func.sig.params.len();
+    let Stretches {
+        def_stretch,
+        hoisted,
+        spilled,
+    } = number_stretches(&old, params, func.vals.len(), may_block);
+    let layout = frame_layout(&func.slots, &spilled);
+
+    let mut body = Body {
+        vals: std::mem::take(&mut func.vals),
+        blocks: Vec::new(),
+    };
+    for _ in 0..=old.len() {
+        body.block();
+    }
+    let fr = emit_prologue(&mut body, rt, &layout, hoisted, params);
+    let resume_points = rewrite_blocks(
+        &mut body,
+        &fr,
+        &def_stretch,
+        may_block,
+        &func.sig.returns,
+        old,
+    );
+
     let index = body.val(Ty::I64);
     let saved_top = body.val(Ty::Ptr);
-    body.blocks[dispatch] = Block {
+    body.blocks[fr.dispatch] = Block {
         insts: vec![
             Inst::Load {
                 dst: saved_top,
                 ty: Ty::Ptr,
-                addr: dynamic_top_addr,
+                addr: fr.dynamic_top_addr,
             },
             Inst::Store {
                 ty: Ty::Ptr,
-                addr: top_addr,
+                addr: fr.top_addr,
                 value: saved_top,
             },
             Inst::Load {
                 dst: index,
                 ty: Ty::I64,
-                addr: frame,
+                addr: fr.base,
             },
         ],
         term: Term::Switch {
             value: index,
             ty: Ty::I64,
             cases: resume_points.iter().map(|&(p, b)| (p, b)).collect(),
-            default: BlockId(lost as u32),
+            default: BlockId(fr.lost as u32),
         },
     };
     func.blocks = body.blocks;

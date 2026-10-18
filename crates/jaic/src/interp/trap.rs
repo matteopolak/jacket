@@ -38,18 +38,21 @@ impl Trap {
     }
 
     /// The failure at `loc`.
+    #[must_use]
     pub fn at(mut self, loc: Option<(u32, u32, u32)>) -> Self {
         self.loc = loc;
         self
     }
 
     /// The failure as a `kind`.
+    #[must_use]
     pub fn of_kind(mut self, kind: Option<TrapKind>) -> Self {
         self.kind = kind;
         self
     }
 
     /// The failure with its message replaced by `wrap(old message)`.
+    #[must_use]
     pub fn map_message(mut self, wrap: impl FnOnce(&str) -> String) -> Self {
         self.message = wrap(&self.message);
         self

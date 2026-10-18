@@ -37,7 +37,7 @@ use self::helpers::{
 };
 pub use self::model::AsmReg;
 use self::model::{
-    Alu, AsmCtx, BitTest, Cond, Flags, Imm, Op, Opd, REG_CLASSES, ShiftKind, lookup_op,
+    Alu, AsmArgs, AsmCtx, BitTest, Cond, Flags, Imm, Op, Opd, REG_CLASSES, ShiftKind, lookup_op,
 };
 use super::lower::{FnCtx, Operand};
 use super::scope::{EntityKind, Found};

@@ -106,12 +106,11 @@ impl Compiler {
             .iter()
             .map(|&p| self.ide_signature(p))
             .collect();
-        let active = match signatures.iter().position(|s| s.span == chosen_span) {
-            Some(i) => i,
-            None => {
-                signatures.push(self.ide_signature(call.chosen));
-                signatures.len() - 1
-            }
+        let active = if let Some(i) = signatures.iter().position(|s| s.span == chosen_span) {
+            i
+        } else {
+            signatures.push(self.ide_signature(call.chosen));
+            signatures.len() - 1
         };
         let header = self.proc(call.chosen).lit.header.clone();
         let format_param = self
@@ -211,11 +210,13 @@ impl Compiler {
         let mut out = Vec::new();
         for id in ids {
             match self.resolve_entity(id) {
-                Ok(Resolved::Proc(p))
-                | Ok(Resolved::Const {
-                    value: Value::Proc(p),
-                    ..
-                }) => out.push(p),
+                Ok(
+                    Resolved::Proc(p)
+                    | Resolved::Const {
+                        value: Value::Proc(p),
+                        ..
+                    },
+                ) => out.push(p),
                 Ok(Resolved::ProcSet(ps)) => out.extend(ps),
                 _ => {}
             }

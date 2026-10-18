@@ -163,7 +163,7 @@ impl Parser<'_> {
         for (i, token) in self.toks[from..close].iter().enumerate() {
             match &token.tok {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
-                    depth += 1
+                    depth += 1;
                 }
                 Tok::Punct(P::RParen | P::RBracket | P::RBrace) => depth = depth.saturating_sub(1),
                 Tok::Punct(P::Comma) if depth == 0 && !cast_modifier(from + i) => return true,
@@ -309,7 +309,7 @@ impl Parser<'_> {
                 )
             });
             if closes_type {
-                return self.parse_proc_expr(Default::default());
+                return self.parse_proc_expr(CallHintFlag::default());
             }
         }
         self.parse_expr()

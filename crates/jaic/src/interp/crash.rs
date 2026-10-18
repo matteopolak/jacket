@@ -334,9 +334,9 @@ mod sys {
                 // sets up for its threads.
                 action.flags = SA_SIGINFO | SA_ONSTACK;
                 let mut old: SigAction = std::mem::zeroed();
-                if sigaction(sig, std::ptr::null(), &mut old) == 0 {
+                if sigaction(sig, std::ptr::null(), &raw mut old) == 0 {
                     (*std::ptr::addr_of_mut!(PREVIOUS))[i] = Some(old);
-                    sigaction(sig, &action, std::ptr::null_mut());
+                    sigaction(sig, &raw const action, std::ptr::null_mut());
                 }
             }
         }
@@ -363,12 +363,11 @@ mod sys {
         if let Some(i) = SIGNALS.iter().position(|&s| s == sig) {
             // SAFETY: as in `install`; `PREVIOUS` is no longer written.
             unsafe {
-                match (*std::ptr::addr_of!(PREVIOUS))[i] {
-                    Some(old) => sigaction(sig, &old, std::ptr::null_mut()),
-                    None => {
-                        let default: SigAction = std::mem::zeroed();
-                        sigaction(sig, &default, std::ptr::null_mut())
-                    }
+                if let Some(old) = (*std::ptr::addr_of!(PREVIOUS))[i] {
+                    sigaction(sig, &raw const old, std::ptr::null_mut())
+                } else {
+                    let default: SigAction = std::mem::zeroed();
+                    sigaction(sig, &raw const default, std::ptr::null_mut())
                 };
             }
         }
@@ -521,7 +520,7 @@ mod sys {
                 GetStdHandle(STD_ERROR_HANDLE),
                 bytes.as_ptr().cast(),
                 bytes.len() as u32,
-                &mut written,
+                &raw mut written,
                 std::ptr::null_mut(),
             );
         }

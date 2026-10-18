@@ -1,5 +1,5 @@
 //! Software arithmetic for the C `long double` formats wider than `f64`: the x87 80-bit
-//! extended format (x86-64 System V, MinGW) and IEEE binary128 (Linux AArch64, wasm32).
+//! extended format (x86-64 System V, MinGW) and IEEE binary128 (Linux `AArch64`, wasm32).
 //!
 //! The interpreter evaluates `Long_Double` (module `Extensions/Long_Double`) operations with these
 //! on every host, so compile-time code and `jaic -interp` get the target's full precision, and
@@ -583,7 +583,7 @@ mod tests {
             f64::MIN_POSITIVE,
             5e-324,
             f64::INFINITY,
-            123456.789,
+            123_456.789,
         ];
         for fmt in ALL {
             for x in samples {

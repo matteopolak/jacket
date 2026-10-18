@@ -70,7 +70,7 @@ impl Compiler {
         match &result {
             Ok(r) => self.entity_mut(id).state = EntityState::Done(r.clone()),
             Err(e) if self.ct_traps != traps => {
-                self.entity_mut(id).state = EntityState::Failed(e.clone())
+                self.entity_mut(id).state = EntityState::Failed(e.clone());
             }
             Err(_) => self.entity_mut(id).state = EntityState::Unresolved,
         }
@@ -347,13 +347,12 @@ impl Compiler {
         let op = if multiple {
             // Evaluated once for all the names.
             // Per scope: a macro body's declaration is evaluated per expansion.
-            let values = match self.multi_consts.get(&(decl.id, scope)) {
-                Some(values) => values.clone(),
-                None => {
-                    let values = self.eval_const_all(scope, value)?;
-                    self.multi_consts.insert((decl.id, scope), values.clone());
-                    values
-                }
+            let values = if let Some(values) = self.multi_consts.get(&(decl.id, scope)) {
+                values.clone()
+            } else {
+                let values = self.eval_const_all(scope, value)?;
+                self.multi_consts.insert((decl.id, scope), values.clone());
+                values
             };
             match values.get(index) {
                 Some(op) => op.clone(),
@@ -512,8 +511,8 @@ impl Compiler {
         };
         if let Some(agg) = init {
             let g = &mut self.program.globals[global.0 as usize];
-            g.init = agg.bytes.clone();
-            g.relocs = agg.relocs.clone();
+            g.init.clone_from(&agg.bytes);
+            g.relocs.clone_from(&agg.relocs);
         }
         Ok(Resolved::Global {
             storage: ir::Storage::Data(global),

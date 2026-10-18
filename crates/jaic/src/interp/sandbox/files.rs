@@ -8,11 +8,7 @@ impl SandboxHost {
         Some(match fun {
             LibcFn::Write => {
                 let (fd, ptr, len) = (arg(0) as i32 as i64, arg(1), arg(2) as usize);
-                let bytes = if len == 0 {
-                    Vec::new()
-                } else {
-                    unsafe { std::slice::from_raw_parts(ptr as *const u8, len) }.to_vec()
-                };
+                let bytes = read_bytes(ptr, len);
                 if fd == 1 || fd == 2 {
                     self.write(&bytes, fd == 2);
                     len as u64
@@ -41,20 +37,23 @@ impl SandboxHost {
                     self.set_errno(ENOENT)
                 }
             }
-            LibcFn::Fchmod => match self.fds.contains_key(&(arg(0) as i32 as i64)) {
-                true => 0,
-                false => self.set_errno(EBADF),
-            },
+            LibcFn::Fchmod => {
+                if self.fds.contains_key(&(arg(0) as i32 as i64)) {
+                    0
+                } else {
+                    self.set_errno(EBADF)
+                }
+            }
             LibcFn::Stat | LibcFn::Lstat => {
                 let path = self.path(arg(0));
-                let result = self.fill_stat(&path, arg(1)).map(|_| 0);
+                let result = self.fill_stat(&path, arg(1)).map(|()| 0);
                 self.libc_result(result)
             }
             LibcFn::Fstat => {
                 let fd = arg(0) as i32 as i64;
                 match self.fds.get(&fd).map(|f| f.path.clone()) {
                     Some(path) => {
-                        let result = self.fill_stat(&path, arg(1)).map(|_| 0);
+                        let result = self.fill_stat(&path, arg(1)).map(|()| 0);
                         self.libc_result(result)
                     }
                     None => self.set_errno(EBADF),
@@ -100,7 +99,7 @@ impl SandboxHost {
             }
             LibcFn::Rename => {
                 let (from, to) = (self.path(arg(0)), self.path(arg(1)));
-                let result = self.rename_file(&from, &to).map(|_| 0);
+                let result = self.rename_file(&from, &to).map(|()| 0);
                 self.libc_result(result)
             }
             LibcFn::Link => {

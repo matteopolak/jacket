@@ -22,11 +22,10 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
             }
             let fs = reg.env.fs.clone();
             // Resolved now: the metaprogram may change directory before it compiles.
-            let cwd = interp
-                .host
-                .working_directory()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+            let cwd = interp.host.working_directory().map_or_else(
+                || std::env::current_dir().unwrap_or_default(),
+                PathBuf::from,
+            );
             let path = fs.canonical(&cwd.join(&value));
             if op == MetaOp::AddFile && !fs.is_file(&path) {
                 return Err(trap(if fs.is_dir(&path) {

@@ -9,7 +9,7 @@ use inkwell::types::{
 use jaic::abi::{self, Arch, Passing, PieceTy};
 use jaic::ir::{Conv, Sig, Ty, WideFloat};
 
-impl<'ctx, 'p> Backend<'ctx, 'p> {
+impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn ptr_ty(&self) -> PointerType<'ctx> {
         self.ctx.ptr_type(AddressSpace::default())
     }
@@ -65,9 +65,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         // destructor through the hidden result pointer, however small it is.
         let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
         let ret = match &ret_agg {
-            Some(layout) => match abi::classify_ret(self.arch, layout).filter(|_| !forced_sret) {
-                Some(pieces) => RetPlan::Registers(layout.clone(), pieces),
-                None => {
+            Some(layout) => {
+                if let Some(pieces) = abi::classify_ret(self.arch, layout).filter(|_| !forced_sret)
+                {
+                    RetPlan::Registers(layout.clone(), pieces)
+                } else {
                     attrs.push((0, ParamAttr::Sret(layout.size)));
                     if forced_sret && self.arch == Arch::Win64Arm {
                         // MSVC on arm64 passes this pointer in x0, not x8; `inreg` selects it.
@@ -76,7 +78,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     llvm_params.push(self.ptr_ty().into());
                     RetPlan::Sret
                 }
-            },
+            }
             None => RetPlan::Scalars(sig.returns.clone()),
         };
         let mut params = Vec::new();
@@ -96,46 +98,43 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 continue;
             }
             let layout = cabi.and_then(|c| c.params.get(i).cloned().flatten());
-            match layout {
-                Some(layout) => {
-                    let passing = if sig.c_varargs {
-                        abi::classify_vararg(self.arch, &layout)
-                    } else {
-                        abi::classify_arg(self.arch, &layout)
-                    };
-                    let passing = budget.aggregate(passing);
-                    // Win64Arm's variadic arguments straddle registers and the stack.
-                    let array = self.arch.is_aarch64()
-                        && !(sig.c_varargs && self.arch == Arch::Win64Arm)
-                        && matches!(&passing, Passing::Registers(p) if p.len() > 1);
-                    match &passing {
-                        Passing::Registers(pieces) if array => {
-                            let elem = self.piece_ty(pieces[0].ty);
-                            llvm_params.push(elem.array_type(pieces.len() as u32).into());
-                            params.push(ParamPlan::AggArray(layout, pieces.clone()));
-                            continue;
-                        }
-                        Passing::Registers(pieces) => {
-                            for p in pieces {
-                                llvm_params.push(self.piece_ty(p.ty).into());
-                            }
-                        }
-                        Passing::ByVal => {
-                            attrs.push((
-                                llvm_params.len() as u32,
-                                ParamAttr::ByVal(layout.size, layout.align.max(8)),
-                            ));
-                            llvm_params.push(self.ptr_ty().into());
-                        }
-                        Passing::Indirect => llvm_params.push(self.ptr_ty().into()),
+            if let Some(layout) = layout {
+                let passing = if sig.c_varargs {
+                    abi::classify_vararg(self.arch, &layout)
+                } else {
+                    abi::classify_arg(self.arch, &layout)
+                };
+                let passing = budget.aggregate(passing);
+                // Win64Arm's variadic arguments straddle registers and the stack.
+                let array = self.arch.is_aarch64()
+                    && !(sig.c_varargs && self.arch == Arch::Win64Arm)
+                    && matches!(&passing, Passing::Registers(p) if p.len() > 1);
+                match &passing {
+                    Passing::Registers(pieces) if array => {
+                        let elem = self.piece_ty(pieces[0].ty);
+                        llvm_params.push(elem.array_type(pieces.len() as u32).into());
+                        params.push(ParamPlan::AggArray(layout, pieces.clone()));
+                        continue;
                     }
-                    params.push(ParamPlan::Agg(layout, passing));
+                    Passing::Registers(pieces) => {
+                        for p in pieces {
+                            llvm_params.push(self.piece_ty(p.ty).into());
+                        }
+                    }
+                    Passing::ByVal => {
+                        attrs.push((
+                            llvm_params.len() as u32,
+                            ParamAttr::ByVal(layout.size, layout.align.max(8)),
+                        ));
+                        llvm_params.push(self.ptr_ty().into());
+                    }
+                    Passing::Indirect => llvm_params.push(self.ptr_ty().into()),
                 }
-                None => {
-                    budget.scalar(ty);
-                    llvm_params.push(self.ll(ty).into());
-                    params.push(ParamPlan::Scalar(ty));
-                }
+                params.push(ParamPlan::Agg(layout, passing));
+            } else {
+                budget.scalar(ty);
+                llvm_params.push(self.ll(ty).into());
+                params.push(ParamPlan::Scalar(ty));
             }
         }
         let fixed_params = &llvm_params[..fixed.unwrap_or(llvm_params.len())];

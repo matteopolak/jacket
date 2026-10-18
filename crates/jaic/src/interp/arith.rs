@@ -123,6 +123,10 @@ pub(super) fn cmp(op: CmpOp, ty: Ty, x: u64, y: u64) -> bool {
 /// Compare the low `64 - shift` bits of `x` and `y`. A `shift` of 32 on a float comparison
 /// means `f32`.
 #[inline(always)]
+#[expect(
+    clippy::float_cmp,
+    reason = "the interpreter implements Jai's `==` and `!=` on floats, which are exact IEEE comparisons"
+)]
 pub(crate) fn cmp_shifted(op: CmpOp, shift: u8, x: u64, y: u64) -> bool {
     let (ux, uy) = (x << shift, y << shift);
     let (sx, sy) = (ux as i64, uy as i64);

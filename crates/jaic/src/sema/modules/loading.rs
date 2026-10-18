@@ -93,15 +93,14 @@ impl Compiler {
         let shared;
         let own;
         let ast = if let Some(ide) = self.ide.as_mut() {
-            shared = match &self.parse_reuse {
-                Some((reuse, compile)) => reuse.borrow_mut().parse(*compile, path, file, &text),
-                None => {
-                    let parsed = crate::parser::parse_file_ide(file, &text);
-                    Rc::new(crate::parser::SharedParse {
-                        file: parsed.file,
-                        diagnostics: parsed.diagnostics,
-                    })
-                }
+            shared = if let Some((reuse, compile)) = &self.parse_reuse {
+                reuse.borrow_mut().parse(*compile, path, file, &text)
+            } else {
+                let parsed = crate::parser::parse_file_ide(file, &text);
+                Rc::new(crate::parser::SharedParse {
+                    file: parsed.file,
+                    diagnostics: parsed.diagnostics,
+                })
             };
             ide.parse_errors.extend(shared.diagnostics.iter().cloned());
             ide.errors.extend(shared.diagnostics.iter().cloned());

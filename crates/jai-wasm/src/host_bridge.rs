@@ -12,10 +12,10 @@
 //! safe to call because the page only reads and writes the ranges passed, in this module's
 //! memory (engine.mjs checks each range against the memory's size), and Rust never holds a
 //! reference into a range while the page writes it.
+use jaic::fxhash::HashMap;
 use jaic::interp::{Host, SharedHost};
 use jaic::ir;
 use std::cell::RefCell;
-use std::collections::HashMap;
 
 #[cfg(target_arch = "wasm32")]
 #[allow(unsafe_code)]
@@ -254,7 +254,7 @@ fn now_ms() -> f64 {
 thread_local! {
     /// Blocks the page asked for (`jai_host_alloc`), by address. 16-byte units keep them aligned
     /// for any value the program reads from them.
-    static HOST_BLOCKS: RefCell<HashMap<usize, Box<[u128]>>> = RefCell::new(HashMap::new());
+    static HOST_BLOCKS: RefCell<HashMap<usize, Box<[u128]>>> = RefCell::new(HashMap::default());
 }
 
 /// Zeroed memory the page fills for the program (mapped buffer ranges, strings it returns),

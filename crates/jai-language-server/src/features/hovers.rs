@@ -11,7 +11,7 @@ impl Session {
     /// What an expansion produced, for a hover. Produced code comes last, in sections of
     /// its own (`expands to`, `prints`).
     fn describe(&self, uri: &DocumentUri, e: &IdeExpansion) -> HoverText {
-        let text = self.document(uri).map(|d| d.text.as_str()).unwrap_or("");
+        let text = self.document(uri).map_or("", |d| d.text.as_str());
         let produced = |label: &str| -> Vec<Block> {
             let count = e.texts.len();
             e.texts
@@ -145,16 +145,14 @@ impl Session {
                     .min_by_key(|e| e.span.end - e.span.start)
             })
             .flatten();
-        let text = match expansion {
-            Some(e) => self.describe(uri, &e),
-            // Any other directive (or one whose expansion was not recorded): what it is.
-            None => {
-                let (_, about) = DIRECTIVES.iter().find(|(name, _)| *name == word)?;
-                HoverText::new(vec![
-                    Block::Code(format!("#{word}")),
-                    Block::Para(vec![Inline::Text(format!("{about}."))]),
-                ])
-            }
+        let text = if let Some(e) = expansion {
+            self.describe(uri, &e)
+        } else {
+            let (_, about) = DIRECTIVES.iter().find(|(name, _)| *name == word)?;
+            HoverText::new(vec![
+                Block::Code(format!("#{word}")),
+                Block::Para(vec![Inline::Text(format!("{about}."))]),
+            ])
         };
         Some((token.span.start, token.span.end, text))
     }

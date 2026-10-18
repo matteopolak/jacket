@@ -113,8 +113,7 @@ impl Session {
     /// Whether `text` is the open document's own buffer, not a copy or an edited probe.
     fn is_own_text(&self, uri: &DocumentUri, text: &str) -> bool {
         self.document(uri)
-            .ok()
-            .is_some_and(|d| std::ptr::eq(d.text.as_str(), text))
+            .is_ok_and(|d| std::ptr::eq(d.text.as_str(), text))
     }
 
     fn work_out_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
@@ -242,7 +241,7 @@ impl Session {
         let own = (environment.options)(&root).os;
         let mut unreached = self.unreached.borrow_mut();
         if unreached.0 != self.generation.get() {
-            *unreached = (self.generation.get(), Default::default());
+            *unreached = (self.generation.get(), BTreeMap::default());
         }
         // The target that answered last, then those compiled already, then the rest.
         let last = cache.answered.get(path).copied();
@@ -260,17 +259,16 @@ impl Session {
         for os in order {
             let analysis = cache.analyze_for(environment, &root, &dirs, files.clone(), Some(os));
             analysis.focus(path);
-            match analysis.skipped_span(path, byte) {
-                Some(span) => unreached
+            if let Some(span) = analysis.skipped_span(path, byte) {
+                unreached
                     .1
                     .entry((path.to_path_buf(), os as u8))
                     .or_default()
-                    .push(span),
-                None => {
-                    let found = query(analysis, path);
-                    cache.answered.insert(path.to_path_buf(), os);
-                    return found;
-                }
+                    .push(span);
+            } else {
+                let found = query(analysis, path);
+                cache.answered.insert(path.to_path_buf(), os);
+                return found;
             }
         }
         None

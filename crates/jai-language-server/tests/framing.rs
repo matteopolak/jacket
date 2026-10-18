@@ -50,5 +50,5 @@ fn an_oversized_message_is_skipped_and_the_stream_stays_in_step() {
     decoder.finish().unwrap();
     assert_eq!(output, ["{\"a\":1}", "{\"b\":2}"]);
     assert_eq!(decoder.take_oversized(), [300]);
-    assert!(decoder.take_oversized().is_empty());
+    assert_eq!(decoder.take_oversized(), [] as [usize; 0]);
 }

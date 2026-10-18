@@ -75,9 +75,7 @@ impl SandboxHost {
                 let total = size.saturating_mul(count);
                 match self.streams.get(&arg(3)).copied() {
                     Some(fd) if total > 0 => {
-                        let bytes =
-                            unsafe { std::slice::from_raw_parts(arg(0) as *const u8, total) }
-                                .to_vec();
+                        let bytes = read_bytes(arg(0), total);
                         match self.write_fd(fd, &bytes) {
                             Some(n) => (n / size) as u64,
                             None => 0,

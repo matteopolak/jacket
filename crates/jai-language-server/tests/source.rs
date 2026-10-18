@@ -133,7 +133,10 @@ fn authentic_load_declarations_drive_multifile_navigation() {
     session
         .open(helper.clone(), 1, "answer :: () -> int {return 42;}".into())
         .unwrap();
-    assert!(session.diagnostics(&main).unwrap().is_empty());
+    assert_eq!(
+        session.diagnostics(&main).unwrap(),
+        [] as [jai_language_server::Diagnostic; 0]
+    );
     let defs = session.definition(&main, at(text, "answer")).unwrap();
     assert_eq!(defs.len(), 1);
     assert_eq!(defs[0].uri, helper.as_str());
@@ -162,11 +165,9 @@ fn authentic_load_declarations_drive_multifile_navigation() {
             .any(|item| item.label == "answer")
     );
     session.close(&helper).unwrap();
-    assert!(
-        session
-            .definition(&main, at(text, "answer"))
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        session.definition(&main, at(text, "answer")).unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
 }
 
@@ -194,11 +195,9 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
             }],
         )
         .unwrap();
-    assert!(
-        session
-            .definition(&main, at(updated, "other"))
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        session.definition(&main, at(updated, "other")).unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
     let member = "value :: 1; main :: () -> int {return object.value;}";
     session
@@ -212,11 +211,9 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
             }],
         )
         .unwrap();
-    assert!(
-        session
-            .definition(&main, at(member, "value"))
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        session.definition(&main, at(member, "value")).unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
 }
 
@@ -225,9 +222,18 @@ fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
     let mut session = Session::new(Limits::default());
     let name = uri("main.jai");
     session.open(name.clone(), 1, "main :: (".into()).unwrap();
-    assert!(!session.diagnostics(&name).unwrap().is_empty());
-    assert!(!session.semantic_tokens(&name).unwrap().is_empty());
-    assert!(session.document_symbols(&name).unwrap().is_empty());
+    assert_ne!(
+        session.diagnostics(&name).unwrap(),
+        [] as [jai_language_server::Diagnostic; 0]
+    );
+    assert_ne!(
+        session.semantic_tokens(&name).unwrap(),
+        [] as [jai_language_server::SemanticToken; 0]
+    );
+    assert_eq!(
+        session.document_symbols(&name).unwrap(),
+        [] as [jai_language_server::DocumentSymbol; 0]
+    );
     let never_execute = "#run {while true {}} main :: () -> int {return 42;}";
     session
         .change(
@@ -240,7 +246,10 @@ fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
             }],
         )
         .unwrap();
-    assert!(session.diagnostics(&name).unwrap().is_empty());
+    assert_eq!(
+        session.diagnostics(&name).unwrap(),
+        [] as [jai_language_server::Diagnostic; 0]
+    );
     assert_eq!(session.document_symbols(&name).unwrap()[0].name, "main");
 }
 
@@ -306,7 +315,10 @@ fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
                 .into(),
         )
         .unwrap();
-    assert!(session.diagnostics(&main).unwrap().is_empty());
+    assert_eq!(
+        session.diagnostics(&main).unwrap(),
+        [] as [jai_language_server::Diagnostic; 0]
+    );
     let symbols = session.document_symbols(&main).unwrap();
     let color = symbols.iter().find(|s| s.name == "Color").unwrap();
     assert_eq!(color.kind, SymbolKind::Enum);

@@ -60,7 +60,7 @@ impl Session {
             return Err(Error::Limit("incremental edit count exceeded"));
         }
         let old_bytes = document.text.len() + uri.as_str().len();
-        let mut text = document.text.to_owned();
+        let mut text = document.text.clone();
         for change in changes {
             let index = LineIndex::new(&text);
             let (start, end) = if let Some(range) = change.range {

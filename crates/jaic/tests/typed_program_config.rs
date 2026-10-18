@@ -25,7 +25,7 @@ fn compile_with_dependency(
     (compiler, result)
 }
 
-const INTERFACE: &str = r#"#module_parameters ()(Implementation: $I/interface Protocol = Fallback) {
+const INTERFACE: &str = r"#module_parameters ()(Implementation: $I/interface Protocol = Fallback) {
     Protocol :: struct {
         run :: (value: s64) -> s64 {
             return value;
@@ -45,7 +45,7 @@ selected_type :: Implementation;
 read :: () -> s64 {
     return Implementation.run(7);
 }
-"#;
+";
 
 const PLAIN_IMPORT: &str = r#"Public :: #import "Choice";
 Custom :: #import "Choice"()(Implementation = Hooks);

@@ -9,8 +9,8 @@ use crate::model::{CompletionData, Location};
 use crate::semantic::{self, Decl};
 use crate::session::Session;
 use crate::{DocumentUri, MarkupKind, Range, SemanticTokenKind};
+use jaic::fxhash::HashMap;
 use jaic::sema::ide_meta::IdeSignature;
-use std::collections::HashMap;
 use std::path::Path;
 
 /// Completion lists this short carry their documentation; longer ones leave it to
@@ -74,10 +74,10 @@ impl Session {
         names: &[Vec<String>],
     ) -> HashMap<Vec<String>, String> {
         if names.is_empty() {
-            return HashMap::new();
+            return HashMap::default();
         }
         let Ok(doc) = self.document(uri) else {
-            return HashMap::new();
+            return HashMap::default();
         };
         let resolve = |a: &mut semantic::Analysis, _: &Path| {
             Some(

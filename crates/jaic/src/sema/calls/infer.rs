@@ -3,6 +3,20 @@
 
 use super::*;
 
+/// What `infer_bindings` accumulates while it walks the parameters of a polymorphic header.
+struct Inference<'a> {
+    header: &'a ast::ProcHeader,
+    slots: &'a [Slot],
+    args: &'a [CallArg],
+    span: Span,
+    def_scope: ScopeId,
+    poly_vars: Vec<Sym>,
+    bindings: Vec<(Sym, Value, TypeId)>,
+    deferred_procs: Vec<(ast::Expr, Vec<ProcId>, Span)>,
+    null_patterns: Vec<ast::Expr>,
+    deferred_defaults: Vec<(Sym, &'a ast::Param, &'a ast::Expr)>,
+}
+
 impl Compiler {
     /// Infer `$T` bindings of a polymorphic procedure from its arguments.
     pub(super) fn infer_bindings(
@@ -13,14 +27,52 @@ impl Compiler {
         args: &[CallArg],
         span: Span,
     ) -> Result<Vec<(Sym, Value, TypeId)>> {
-        let mut bindings: Vec<(Sym, Value, TypeId)> = Vec::new();
-        let mut deferred_procs = Vec::new();
-        let mut null_patterns: Vec<ast::Expr> = Vec::new();
-        let mut deferred_defaults: Vec<(Sym, &ast::Param, &ast::Expr)> = Vec::new();
-        let def_scope = self.proc(proc).scope;
-        let poly_vars = header_poly_names(header);
+        let mut st = Inference {
+            header,
+            slots,
+            args,
+            span,
+            def_scope: self.proc(proc).scope,
+            poly_vars: header_poly_names(header),
+            bindings: Vec::new(),
+            deferred_procs: Vec::new(),
+            null_patterns: Vec::new(),
+            deferred_defaults: Vec::new(),
+        };
+        self.bind_explicit_poly_args(&mut st)?;
+        for (i, param) in header.params.iter().enumerate() {
+            let arg_ops: Vec<&CallArg> = match &slots[i] {
+                Slot::Arg(a) | Slot::Spread(a) => vec![&args[*a]],
+                Slot::Variadic(list) => list.iter().map(|&a| &args[a]).collect(),
+                Slot::Default => Vec::new(),
+            };
+            if param.baked {
+                self.infer_baked_param(&mut st, i, param, &arg_ops)?;
+            } else {
+                self.infer_pattern_param(&mut st, param, &arg_ops)?;
+            }
+        }
+        self.infer_lambda_params(&mut st)?;
+        self.settle_deferred_bindings(&mut st)?;
+        self.bind_omitted_defaults(&mut st)?;
+        if header.modify.is_none() {
+            self.require_all_bound(&mut st)?;
+        }
+        let Inference {
+            bindings, ..
+        } = st;
+        match &header.modify {
+            Some(block) => self.run_modify(proc, header, block, bindings, span),
+            None => Ok(bindings),
+        }
+    }
+
+    /// Binds the `$T` parameters that were passed explicitly.
+    fn bind_explicit_poly_args(&mut self, st: &mut Inference<'_>) -> Result<()> {
+        let args = st.args;
+        let header = st.header;
         for arg in args {
-            if !is_poly_var_arg(&header.params, arg, &poly_vars) {
+            if !is_poly_var_arg(&header.params, arg, &st.poly_vars) {
                 continue;
             }
             let name = arg.name.unwrap();
@@ -32,268 +84,289 @@ impl Compiler {
             let Operand::Type(t) = op else {
                 return err(arg.span, format!("`${name}` must be given a type"));
             };
-            bindings.push((name, Value::Type(t), TypeId::TYPE));
+            st.bindings.push((name, Value::Type(t), TypeId::TYPE));
         }
-        for (i, param) in header.params.iter().enumerate() {
-            let arg_ops: Vec<&CallArg> = match &slots[i] {
-                Slot::Arg(a) | Slot::Spread(a) => vec![&args[*a]],
-                Slot::Variadic(list) => list.iter().map(|&a| &args[a]).collect(),
-                Slot::Default => Vec::new(),
-            };
-            if param.baked && param.variadic {
-                let name = param.name.map(|n| n.name).unwrap();
-                // `..names` passes on a constant view (another baked variadic) as it is.
-                if let Slot::Spread(a) = &slots[i] {
-                    let (value, ty) = self.baked_spread(def_scope, param, &args[*a])?;
-                    bindings.push((name, value, ty));
-                    continue;
-                }
-                let (value, ty) = self.baked_pack(def_scope, param, &arg_ops)?;
-                bindings.push((name, value, ty));
-                continue;
+        Ok(())
+    }
+
+    /// Binds a `$name` constant parameter from its argument or default.
+    fn infer_baked_param<'a>(
+        &mut self,
+        st: &mut Inference<'a>,
+        i: usize,
+        param: &'a ast::Param,
+        arg_ops: &[&CallArg],
+    ) -> Result<()> {
+        let def_scope = st.def_scope;
+        let span = st.span;
+        let args = st.args;
+        let slots = st.slots;
+        if param.baked && param.variadic {
+            let name = param.name.map(|n| n.name).unwrap();
+            // `..names` passes on a constant view (another baked variadic) as it is.
+            if let Slot::Spread(a) = &slots[i] {
+                let (value, ty) = self.baked_spread(def_scope, param, &args[*a])?;
+                st.bindings.push((name, value, ty));
+                return Ok(());
             }
-            if param.baked {
-                let name = param.name.map(|n| n.name).unwrap();
-                let Some(arg) = arg_ops.first() else {
-                    if let Some(d) = &param.default {
-                        // `$type: Query = .X`: the default takes the declared type. A type
-                        // naming a binding only `null` can make (`is(null)` with
-                        // `$cmp: (T, T) -> bool = null`) waits until `null` has bound it.
-                        match self.baked_default(def_scope, param, d, &bindings, span) {
-                            Ok((v, ty)) => bindings.push((name, v, ty)),
-                            Err(_) if !null_patterns.is_empty() => {
-                                deferred_defaults.push((name, param, d));
-                            }
-                            Err(e) => return Err(e),
+            let (value, ty) = self.baked_pack(def_scope, param, arg_ops)?;
+            st.bindings.push((name, value, ty));
+            return Ok(());
+        }
+        if param.baked {
+            let name = param.name.map(|n| n.name).unwrap();
+            let Some(arg) = arg_ops.first() else {
+                if let Some(d) = &param.default {
+                    // `$type: Query = .X`: the default takes the declared type. A type
+                    // naming a binding only `null` can make (`is(null)` with
+                    // `$cmp: (T, T) -> bool = null`) waits until `null` has bound it.
+                    match self.baked_default(def_scope, param, d, &st.bindings, span) {
+                        Ok((v, ty)) => st.bindings.push((name, v, ty)),
+                        Err(_) if !st.null_patterns.is_empty() => {
+                            st.deferred_defaults.push((name, param, d));
                         }
-                        continue;
+                        Err(e) => return Err(e),
                     }
-                    return err(
-                        span,
-                        format!("missing argument for baked parameter `{name}`"),
-                    );
-                };
-                // `$c: Code` takes the argument expression itself, unevaluated.
-                if let Some(t) = &param.ty
-                    && !procs::has_poly(t)
-                    && self.eval_type(def_scope, t).ok() == Some(TypeId::CODE)
-                    && let Some(id) = self.quote_code_arg(arg)
-                {
-                    bindings.push((name, Value::Code(id), TypeId::CODE));
-                    continue;
+                    return Ok(());
                 }
-                let op = match arg.op.clone() {
-                    Some(op) => op,
-                    None => {
-                        // `.{...}` / `.X` for a baked parameter: check against its declared
-                        // type, or the type of its default (`$info := Info.{}`).
-                        let declared = match (&param.ty, &param.default) {
-                            (Some(t), _) if !procs::has_poly(t) => {
-                                Some(self.eval_type(def_scope, t)?)
-                            }
-                            (None, Some(d)) => Some(self.eval_const(def_scope, d, None)?.ty()),
+                return err(
+                    span,
+                    format!("missing argument for baked parameter `{name}`"),
+                );
+            };
+            // `$c: Code` takes the argument expression itself, unevaluated.
+            if let Some(t) = &param.ty
+                && !procs::has_poly(t)
+                && self.eval_type(def_scope, t).ok() == Some(TypeId::CODE)
+                && let Some(id) = self.quote_code_arg(arg)
+            {
+                st.bindings.push((name, Value::Code(id), TypeId::CODE));
+                return Ok(());
+            }
+            let op = if let Some(op) = arg.op.clone() {
+                op
+            } else {
+                // `.{...}` / `.X` for a baked parameter: check against its declared
+                // type, or the type of its default (`$info := Info.{}`).
+                let declared = match (&param.ty, &param.default) {
+                    (Some(t), _) if !procs::has_poly(t) => Some(self.eval_type(def_scope, t)?),
+                    (None, Some(d)) => Some(self.eval_const(def_scope, d, None)?.ty()),
+                    _ => None,
+                };
+                let expr = arg.expr.clone().unwrap();
+                let op = self.eval_const(arg.scope, &expr, declared)?;
+                match declared {
+                    Some(t) => {
+                        let value = self.const_value_of_type(arg.scope, &expr, t)?;
+                        Operand::Const {
+                            ty: t,
+                            value,
+                            untyped: false,
+                        }
+                    }
+                    None => op,
+                }
+            };
+            let op_ty = op.ty();
+            let value_ty = match &op {
+                Operand::Const {
+                    ty,
+                    value,
+                    untyped: true,
+                } => self.default_untyped(*ty, value),
+                Operand::Const {
+                    ..
+                }
+                | Operand::Type(_) => op_ty,
+                _ => TypeId::VOID,
+            };
+            let value = match op {
+                Operand::Type(t) => Value::Type(t),
+                Operand::Const {
+                    value, ..
+                } => value,
+                Operand::Procs(p) if p.len() == 1 => Value::Proc(p[0]),
+                other => {
+                    // A member of a constant (`help.build`) is only known to be one when
+                    // evaluated as a constant expression.
+                    let folded = match &arg.expr {
+                        Some(expr) => match self.eval_const(arg.scope, expr, None) {
+                            Ok(Operand::Const {
+                                value, ..
+                            }) => Some(value),
                             _ => None,
-                        };
-                        let expr = arg.expr.clone().unwrap();
-                        let op = self.eval_const(arg.scope, &expr, declared)?;
-                        match declared {
-                            Some(t) => {
-                                let value = self.const_value_of_type(arg.scope, &expr, t)?;
-                                Operand::Const {
-                                    ty: t,
-                                    value,
-                                    untyped: false,
-                                }
-                            }
-                            None => op,
-                        }
-                    }
-                };
-                let op_ty = op.ty();
-                let value_ty = match &op {
-                    Operand::Const {
-                        ty,
-                        value,
-                        untyped: true,
-                    } => self.default_untyped(*ty, value),
-                    Operand::Const {
-                        ..
-                    }
-                    | Operand::Type(_) => op_ty,
-                    _ => TypeId::VOID,
-                };
-                let value = match op {
-                    Operand::Type(t) => Value::Type(t),
-                    Operand::Const {
-                        value, ..
-                    } => value,
-                    Operand::Procs(p) if p.len() == 1 => Value::Proc(p[0]),
-                    other => {
-                        // A member of a constant (`help.build`) is only known to be one when
-                        // evaluated as a constant expression.
-                        let folded = match &arg.expr {
-                            Some(expr) => match self.eval_const(arg.scope, expr, None) {
-                                Ok(Operand::Const {
-                                    value, ..
-                                }) => Some(value),
-                                _ => None,
-                            },
-                            None => None,
-                        };
-                        let _ = other;
-                        match folded {
-                            Some(value) => value,
-                            None => {
-                                return err(
-                                    arg.span,
-                                    format!(
-                                        "argument for `${name}` must be a compile-time constant"
-                                    ),
-                                );
-                            }
-                        }
-                    }
-                };
-                let value_ty = if value_ty == TypeId::VOID {
-                    match self.type_of_value(&value) {
-                        TypeId::VOID => op_ty,
-                        ty => ty,
-                    }
-                } else {
-                    value_ty
-                };
-                // The declared type may itself be polymorphic (`$T: Type`), or mention
-                // another parameter's binding (`$compare: (T, T) -> bool`).
-                let ty = match &param.ty {
-                    Some(t) if !procs::has_poly(t) => match self.eval_type(def_scope, t) {
-                        Ok(ty) => ty,
-                        // The declared type names an earlier binding (`$help: Help(T)`).
-                        Err(_) => value_ty,
-                    },
-                    // Aggregate constants carry no type of their own.
-                    _ => value_ty,
-                };
-                if let Some(t) = &param.ty
-                    && procs::has_poly(t)
-                {
-                    // Aggregate constants (`.[1, 2]`) carry no type of their own.
-                    let vt = value_ty;
-                    let represented = if let Value::Type(t) = &value {
-                        Some(*t)
-                    } else {
-                        None
+                        },
+                        None => None,
                     };
-                    self.match_pattern_value(t, vt, &mut bindings, def_scope, represented)?;
+                    let _ = other;
+                    match folded {
+                        Some(value) => value,
+                        None => {
+                            return err(
+                                arg.span,
+                                format!("argument for `${name}` must be a compile-time constant"),
+                            );
+                        }
+                    }
                 }
-                bindings.push((name, value, ty));
-                continue;
-            }
-            let Some(pattern) = &param.ty else {
-                continue;
             };
-            let implicit =
-                !procs::has_poly(pattern) && self.mentions_poly_struct(def_scope, pattern)?;
-            if !procs::has_poly(pattern) && !implicit {
-                continue;
+            let value_ty = if value_ty == TypeId::VOID {
+                match self.type_of_value(&value) {
+                    TypeId::VOID => op_ty,
+                    ty => ty,
+                }
+            } else {
+                value_ty
+            };
+            // The declared type may itself be polymorphic (`$T: Type`), or mention
+            // another parameter's binding (`$compare: (T, T) -> bool`).
+            let ty = match &param.ty {
+                Some(t) if !procs::has_poly(t) => match self.eval_type(def_scope, t) {
+                    Ok(ty) => ty,
+                    // The declared type names an earlier binding (`$help: Help(T)`).
+                    Err(_) => value_ty,
+                },
+                // Aggregate constants carry no type of their own.
+                _ => value_ty,
+            };
+            if let Some(t) = &param.ty
+                && procs::has_poly(t)
+            {
+                // Aggregate constants (`.[1, 2]`) carry no type of their own.
+                let vt = value_ty;
+                let represented = if let Value::Type(t) = &value {
+                    Some(*t)
+                } else {
+                    None
+                };
+                self.match_pattern_value(t, vt, &mut st.bindings, def_scope, represented)?;
             }
-            for (k, arg) in arg_ops.iter().enumerate() {
-                // `ifx` waits for a target type, but its branches can bind `$T` themselves. An
-                // argument kept as an expression (the overload set has a macro taking `Code`
-                // there) still binds this procedure's type variables.
-                let evaluated;
-                let op = match (&arg.op, &arg.expr) {
-                    (Some(op), _) => op,
-                    (None, _) if let Some(op) = self.ifx_binding_operand(arg) => {
+            st.bindings.push((name, value, ty));
+            return Ok(());
+        }
+        Ok(())
+    }
+
+    /// Binds the type variables of a parameter type pattern from its arguments.
+    fn infer_pattern_param<'a>(
+        &mut self,
+        st: &mut Inference<'a>,
+        param: &'a ast::Param,
+        arg_ops: &[&CallArg],
+    ) -> Result<()> {
+        let def_scope = st.def_scope;
+        let Some(pattern) = &param.ty else {
+            return Ok(());
+        };
+        let implicit =
+            !procs::has_poly(pattern) && self.mentions_poly_struct(def_scope, pattern)?;
+        if !procs::has_poly(pattern) && !implicit {
+            return Ok(());
+        }
+        for (k, arg) in arg_ops.iter().enumerate() {
+            // `ifx` waits for a target type, but its branches can bind `$T` themselves. An
+            // argument kept as an expression (the overload set has a macro taking `Code`
+            // there) still binds this procedure's type variables.
+            let evaluated;
+            let op = match (&arg.op, &arg.expr) {
+                (Some(op), _) => op,
+                (None, _) if let Some(op) = self.ifx_binding_operand(arg) => {
+                    evaluated = op;
+                    &evaluated
+                }
+                (None, Some(e)) if !is_deferred(e) => match self.check_expr_no_emit(arg.scope, e) {
+                    Ok(op) => {
                         evaluated = op;
                         &evaluated
                     }
-                    (None, Some(e)) if !is_deferred(e) => {
-                        match self.check_expr_no_emit(arg.scope, e) {
-                            Ok(op) => {
-                                evaluated = op;
-                                &evaluated
-                            }
-                            Err(_) => continue,
-                        }
-                    }
-                    _ => continue,
-                };
-                // `null` binds nothing until the other arguments are seen.
-                if matches!(
-                    op,
-                    Operand::Const {
-                        value: Value::Null,
-                        untyped: true,
-                        ..
-                    }
-                ) && !param.variadic
+                    Err(_) => continue,
+                },
+                _ => continue,
+            };
+            // `null` binds nothing until the other arguments are seen.
+            if matches!(
+                op,
+                Operand::Const {
+                    value: Value::Null,
+                    untyped: true,
+                    ..
+                }
+            ) && !param.variadic
+            {
+                st.null_patterns.push(pattern.clone());
+                continue;
+            }
+            // An overloaded or polymorphic procedure passed for a procedure-typed
+            // parameter is resolved once the other st.bindings are known.
+            if let Operand::Procs(ps) = op
+                && (ps.len() > 1 || self.proc(ps[0]).is_poly)
+                && matches!(pattern.kind, E::ProcType(_))
+            {
+                st.deferred_procs
+                    .push((pattern.clone(), ps.clone(), arg.span));
+                continue;
+            }
+            let mut ty = match op {
+                // `#char "x"` binds a type variable as `u8` (`split(s, #char ",")`).
+                Operand::Const {
+                    ty: TypeId::U8,
+                    untyped: true,
+                    ..
+                } => TypeId::U8,
+                Operand::Const {
+                    ty,
+                    value,
+                    untyped: true,
+                } => self.default_untyped(*ty, value),
+                Operand::Type(_) => TypeId::TYPE,
+                Operand::Procs(p) if p.len() == 1 && !self.proc(p[0]).is_poly => {
+                    self.proc_type(p[0], arg.span)?
+                }
+                other => other.ty(),
+            };
+            if param.variadic
+                && arg.spread
+                && let TypeKind::Array {
+                    elem, ..
+                } = self.types.kind(ty)
+            {
+                ty = *elem;
+            }
+            let represented = match op.const_value() {
+                Some(Value::Type(t)) => Some(t),
+                _ => None,
+            };
+            if k > 0 && param.variadic {
+                // Later variadic elements must match the first binding.
+                let mut probe = st.bindings.clone();
+                if let Err(error) =
+                    self.match_pattern_value(pattern, ty, &mut probe, def_scope, represented)
                 {
-                    null_patterns.push(pattern.clone());
+                    if error.kind == DiagnosticKind::InterfaceConstraint {
+                        return Err(error);
+                    }
                     continue;
-                }
-                // An overloaded or polymorphic procedure passed for a procedure-typed
-                // parameter is resolved once the other bindings are known.
-                if let Operand::Procs(ps) = op
-                    && (ps.len() > 1 || self.proc(ps[0]).is_poly)
-                    && matches!(pattern.kind, E::ProcType(_))
-                {
-                    deferred_procs.push((pattern.clone(), ps.clone(), arg.span));
-                    continue;
-                }
-                let mut ty = match op {
-                    // `#char "x"` binds a type variable as `u8` (`split(s, #char ",")`).
-                    Operand::Const {
-                        ty: TypeId::U8,
-                        untyped: true,
-                        ..
-                    } => TypeId::U8,
-                    Operand::Const {
-                        ty,
-                        value,
-                        untyped: true,
-                    } => self.default_untyped(*ty, value),
-                    Operand::Type(_) => TypeId::TYPE,
-                    Operand::Procs(p) if p.len() == 1 && !self.proc(p[0]).is_poly => {
-                        self.proc_type(p[0], arg.span)?
-                    }
-                    other => other.ty(),
-                };
-                if param.variadic
-                    && arg.spread
-                    && let TypeKind::Array {
-                        elem, ..
-                    } = self.types.kind(ty)
-                {
-                    ty = *elem;
-                }
-                let represented = match op.const_value() {
-                    Some(Value::Type(t)) => Some(t),
-                    _ => None,
-                };
-                if k > 0 && param.variadic {
-                    // Later variadic elements must match the first binding.
-                    let mut probe = bindings.clone();
-                    if let Err(error) =
-                        self.match_pattern_value(pattern, ty, &mut probe, def_scope, represented)
-                    {
-                        if error.kind == DiagnosticKind::InterfaceConstraint {
-                            return Err(error);
-                        }
-                        continue;
-                    }
-                }
-                self.match_pattern_value(pattern, ty, &mut bindings, def_scope, represented)?;
-                // Later parameter types may use this one's instance (`item: array.type`).
-                if implicit
-                    && k == 0
-                    && let Some(n) = param.name
-                    && !bindings.iter().any(|(b, _, _)| *b == n.name)
-                {
-                    bindings.push((n.name, Value::Type(ty), TypeId::TYPE));
                 }
             }
+            self.match_pattern_value(pattern, ty, &mut st.bindings, def_scope, represented)?;
+            // Later parameter types may use this one's instance (`item: array.type`).
+            if implicit
+                && k == 0
+                && let Some(n) = param.name
+                && !st.bindings.iter().any(|(b, _, _)| *b == n.name)
+            {
+                st.bindings.push((n.name, Value::Type(ty), TypeId::TYPE));
+            }
         }
-        // Lambdas are checked last: their parameter types come from the other bindings.
+        Ok(())
+    }
+
+    /// Lambdas are checked last: their parameter types come from the other bindings.
+    fn infer_lambda_params(&mut self, st: &mut Inference<'_>) -> Result<()> {
+        let def_scope = st.def_scope;
+        let args = st.args;
+        let slots = st.slots;
+        let header = st.header;
         for (i, param) in header.params.iter().enumerate() {
             let (Slot::Arg(a), Some(pattern)) = (&slots[i], &param.ty) else {
                 continue;
@@ -321,16 +394,23 @@ impl Compiler {
                     pattern,
                     (*scope, lh, body),
                     def_scope,
-                    &mut bindings,
+                    &mut st.bindings,
                     *span,
                 )?;
             }
         }
-        for (pattern, ps, arg_span) in deferred_procs {
+        Ok(())
+    }
+
+    /// Resolves what waited for the other bindings: procedures, `null` and defaults.
+    fn settle_deferred_bindings(&mut self, st: &mut Inference<'_>) -> Result<()> {
+        let def_scope = st.def_scope;
+        let span = st.span;
+        for (pattern, ps, arg_span) in std::mem::take(&mut st.deferred_procs) {
             let E::ProcType(ph) = &pattern.kind else {
                 continue;
             };
-            let known = self.const_scope(def_scope, bindings.clone(), arg_span);
+            let known = self.const_scope(def_scope, st.bindings.clone(), arg_span);
             let mut params = Vec::new();
             for p in &ph.params {
                 let Some(t) = &p.ty else {
@@ -352,25 +432,32 @@ impl Compiler {
                 return err(arg_span, "no overload matches the procedure parameter");
             };
             let ty = self.proc_type(inst, arg_span)?;
-            self.match_pattern(&pattern, ty, &mut bindings, def_scope)?;
+            self.match_pattern(&pattern, ty, &mut st.bindings, def_scope)?;
         }
         // A type variable seen only through `null` is `*void`.
         let void_ptr = self.types.pointer(TypeId::VOID);
-        for pattern in null_patterns {
-            let mut probe = bindings.clone();
+        for pattern in std::mem::take(&mut st.null_patterns) {
+            let mut probe = st.bindings.clone();
             if self
                 .match_pattern(&pattern, void_ptr, &mut probe, def_scope)
                 .is_ok()
             {
-                bindings = probe;
+                st.bindings = probe;
             }
         }
-        for (name, param, d) in deferred_defaults {
-            let (v, ty) = self.baked_default(def_scope, param, d, &bindings, span)?;
-            bindings.push((name, v, ty));
+        for (name, param, d) in std::mem::take(&mut st.deferred_defaults) {
+            let (v, ty) = self.baked_default(def_scope, param, d, &st.bindings, span)?;
+            st.bindings.push((name, v, ty));
         }
-        // An omitted argument binds what only its default determines
-        // (`platform_code: $T = 0` called without it: `T` is `s64`).
+        Ok(())
+    }
+
+    /// Binds what only the default of an omitted argument determines.
+    fn bind_omitted_defaults(&mut self, st: &mut Inference<'_>) -> Result<()> {
+        let def_scope = st.def_scope;
+        let span = st.span;
+        let slots = st.slots;
+        let header = st.header;
         for (i, param) in header.params.iter().enumerate() {
             let (Slot::Default, Some(pattern), Some(default)) =
                 (&slots[i], &param.ty, &param.default)
@@ -380,11 +467,11 @@ impl Compiler {
             if param.baked
                 || poly_names(pattern)
                     .iter()
-                    .all(|name| bindings.iter().any(|(n, _, _)| n == name))
+                    .all(|name| st.bindings.iter().any(|(n, _, _)| n == name))
             {
                 continue;
             }
-            let known = self.const_scope(def_scope, bindings.clone(), span);
+            let known = self.const_scope(def_scope, st.bindings.clone(), span);
             let ty = match self.eval_const(known, default, None)? {
                 Operand::Const {
                     ty,
@@ -394,15 +481,22 @@ impl Compiler {
                 Operand::Type(_) => TypeId::TYPE,
                 other => other.ty(),
             };
-            self.match_pattern(pattern, ty, &mut bindings, def_scope)?;
+            self.match_pattern(pattern, ty, &mut st.bindings, def_scope)?;
         }
+        Ok(())
+    }
+
+    /// Every type variable of the header must be bound unless a `#modify` block may bind it.
+    fn require_all_bound(&mut self, st: &mut Inference<'_>) -> Result<()> {
+        let span = st.span;
+        let header = st.header;
         // Defaults of the form `$T` without arguments are an error unless bound elsewhere.
         // A `#modify` block may still bind what the arguments did not determine.
-        if header.modify.is_none() {
+        {
             for param in &header.params {
                 if let Some(t) = &param.ty {
                     for name in poly_names(t) {
-                        if !bindings.iter().any(|(n, _, _)| *n == name) {
+                        if !st.bindings.iter().any(|(n, _, _)| *n == name) {
                             return err(
                                 span,
                                 format!("could not infer polymorphic type `${name}`"),
@@ -412,10 +506,7 @@ impl Compiler {
                 }
             }
         }
-        match &header.modify {
-            Some(block) => self.run_modify(proc, header, block, bindings, span),
-            None => Ok(bindings),
-        }
+        Ok(())
     }
 
     /// Match a polymorphic type pattern against a concrete type, adding bindings.
@@ -708,15 +799,14 @@ impl Compiler {
                 let actual = self.poly_struct_bindings(s);
                 let mut position = 0;
                 for a in args {
-                    let parameter = match a.name {
-                        Some(name) => parameters
+                    let parameter = if let Some(name) = a.name {
+                        parameters
                             .iter()
-                            .find(|p| p.name.map(|n| n.name) == Some(name.name)),
-                        None => {
-                            let parameter = parameters.get(position);
-                            position += 1;
-                            parameter
-                        }
+                            .find(|p| p.name.map(|n| n.name) == Some(name.name))
+                    } else {
+                        let parameter = parameters.get(position);
+                        position += 1;
+                        parameter
                     };
                     let Some(name) = parameter.and_then(|p| p.name).map(|n| n.name) else {
                         return err(a.value.span, "unknown polymorphic struct parameter");

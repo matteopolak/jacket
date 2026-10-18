@@ -1,4 +1,4 @@
-//! AArch64: NEON `tbl`. SVE and SVE2 have no entry yet: NEON runs on every SVE machine, and
+//! `AArch64`: NEON `tbl`. SVE and SVE2 have no entry yet: NEON runs on every SVE machine, and
 //! the 16-byte table form is what `byte_lookup` needs. A scalable-vector path would test
 //! `Feature::Sve` here before the NEON one.
 

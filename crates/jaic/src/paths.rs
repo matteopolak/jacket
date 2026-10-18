@@ -1,7 +1,7 @@
 //! Path helpers shared by the compiler, the language server and the linter: lexical
 //! normalisation, canonicalisation without Windows' verbatim prefix, a cache for it, and the
 //! standard library directory a native tool starts with.
-use std::collections::HashMap;
+use crate::fxhash::HashMap;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
@@ -227,7 +227,7 @@ mod tests {
     fn the_cache_starts_over_at_its_limit() {
         let cache = CanonCache::new();
         for i in 0..=CanonCache::LIMIT {
-            cache.get_or_insert_with(Path::new(&format!("/p/{i}")), |p| p.to_path_buf());
+            cache.get_or_insert_with(Path::new(&format!("/p/{i}")), std::path::Path::to_path_buf);
         }
         assert_eq!(cache.0.lock().unwrap().len(), 1);
     }

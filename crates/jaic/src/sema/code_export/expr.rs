@@ -10,7 +10,118 @@ impl Exporter<'_> {
         use ast::ExprKind as E;
         let span = e.span;
         let rec = match &e.kind {
+            E::Int(..)
+            | E::Char(..)
+            | E::Float(..)
+            | E::Str(..)
+            | E::Bool(..)
+            | E::Null
+            | E::Uninit
+            | E::Context
+            | E::PolyVar {
+                ..
+            }
+            | E::PolyRestricted {
+                ..
+            } => match self.expr_literal_record(e) {
+                Ok(rec) => rec,
+                Err(id) => return id,
+            },
+            E::Binary(..)
+            | E::Unary(..)
+            | E::Member(..)
+            | E::InferredMember(..)
+            | E::Index(..)
+            | E::Call {
+                ..
+            }
+            | E::Cast {
+                ..
+            }
+            | E::Ifx {
+                ..
+            }
+            | E::StructLit {
+                ..
+            }
+            | E::ArrayLit {
+                ..
+            }
+            | E::ArrayType {
+                ..
+            }
+            | E::ProcType(..)
+            | E::TypeDirective {
+                ..
+            }
+            | E::Proc(..)
+            | E::Lambda {
+                ..
+            }
+            | E::Block(..)
+            | E::Struct(..)
+            | E::Enum(..) => match self.expr_operator_record(e) {
+                Ok(rec) => rec,
+                Err(id) => return id,
+            },
+            E::Run {
+                ..
+            }
+            | E::Code(..)
+            | E::Insert(..)
+            | E::Location(..)
+            | E::CallerLocation
+            | E::Backtick(..)
+            | E::Exists(..)
+            | E::This
+            | E::CompileTime
+            | E::Bytes(..)
+            | E::UnknownDirective(..)
+            | E::ProcedureOfCall(..)
+            | E::ProcedureName(..)
+            | E::Bake {
+                ..
+            }
+            | E::Asm(..)
+            | E::CallerCode
+            | E::File
+            | E::Filepath
+            | E::Line => match self.expr_directive_record(e) {
+                Ok(rec) => rec,
+                Err(id) => return id,
+            },
             E::Ident(name) => return self.ident(*name, span),
+        };
+        let mut rec = rec;
+        // Typechecked expressions carry their type (Epic_Fail compares operand types).
+        if rec.field("type").is_none()
+            && matches!(
+                e.kind,
+                E::Binary(..)
+                    | E::Unary(..)
+                    | E::Int(_)
+                    | E::Float(_)
+                    | E::Str(_)
+                    | E::Char(_)
+                    | E::Bool(_)
+                    | E::Index(..)
+                    | E::Member(..)
+                    | E::Cast { .. }
+            )
+            && let Some(ty) = self.expr_type(e)
+        {
+            let ty = self.ty(ty);
+            if ty != 0 {
+                rec.ptr("type", ty);
+            }
+        }
+        self.add(rec)
+    }
+
+    fn expr_literal_record(&mut self, e: &ast::Expr) -> std::result::Result<Record, i64> {
+        use ast::ExprKind as E;
+        let span = e.span;
+        Ok(match &e.kind {
             E::Int(v) => {
                 let mut rec = self.literal(span, 1);
                 rec.int("_s64", v.get() as i64)
@@ -50,6 +161,53 @@ impl Exporter<'_> {
             }
             E::Uninit => self.literal(span, 0),
             E::Context => self.node(RecordTag::CodeContext, node::CONTEXT, span),
+            // `$T` and `$$x`: an identifier that defines a polymorphic variable. `0x80` marks the
+            // baked `$$` form, `0x100` an `/interface` restriction (jaic extensions to the flags).
+            E::PolyVar {
+                name,
+                baked,
+            } => {
+                let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
+                rec.str("name", name.as_str().as_bytes()).int(
+                    "flags",
+                    0x1 | if *baked {
+                        0x80
+                    } else {
+                        0
+                    },
+                );
+                rec.int(SyntaxKey::PolyBaked, i64::from(*baked));
+                rec
+            }
+            E::PolyRestricted {
+                name,
+                restriction,
+                interface,
+            } => {
+                let restriction = self.expr(restriction);
+                let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
+                rec.str("name", name.as_str().as_bytes())
+                    .int(
+                        "flags",
+                        0x1 | if *interface {
+                            0x100
+                        } else {
+                            0
+                        },
+                    )
+                    .ptr("polymorph_restriction", restriction)
+                    .ptr(SyntaxKey::Restriction, restriction)
+                    .int(SyntaxKey::Interface, i64::from(*interface));
+                rec
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        })
+    }
+
+    fn expr_operator_record(&mut self, e: &ast::Expr) -> std::result::Result<Record, i64> {
+        use ast::ExprKind as E;
+        let span = e.span;
+        Ok(match &e.kind {
             E::Binary(op, a, b) => {
                 let (a, b) = (self.expr(a), self.expr(b));
                 let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
@@ -265,8 +423,8 @@ impl Exporter<'_> {
             | E::ProcType(_)
             | E::TypeDirective {
                 ..
-            } => return self.type_inst(e),
-            E::Proc(lit) => return self.proc(lit, &[], None, span),
+            } => return Err(self.type_inst(e)),
+            E::Proc(lit) => return Err(self.proc(lit, &[], None, span)),
             E::Lambda {
                 header,
                 body,
@@ -278,11 +436,19 @@ impl Exporter<'_> {
                 let id = self.proc(&lit, &[], None, span);
                 let body = self.expr(body);
                 self.r.get_mut(id).unwrap().ptr(SyntaxKey::LambdaBody, body);
-                return id;
+                return Err(id);
             }
-            E::Block(block) => return self.syntax_block(block),
-            E::Struct(lit) => return self.struct_lit(lit, None, Sym::intern("")),
-            E::Enum(lit) => return self.enum_lit(lit, None, span),
+            E::Block(block) => return Err(self.syntax_block(block)),
+            E::Struct(lit) => return Err(self.struct_lit(lit, None, Sym::intern(""))),
+            E::Enum(lit) => return Err(self.enum_lit(lit, None, span)),
+            _ => unreachable!("dispatched only for this group's operations"),
+        })
+    }
+
+    fn expr_directive_record(&mut self, e: &ast::Expr) -> std::result::Result<Record, i64> {
+        use ast::ExprKind as E;
+        let span = e.span;
+        Ok(match &e.kind {
             E::Run {
                 body,
                 flags,
@@ -359,7 +525,7 @@ impl Exporter<'_> {
                 {
                     rec.set("flags", Field::Item(Item::Int(0x40))); // HAS_SCOPE_MODIFIER
                 }
-                return id;
+                return Err(id);
             }
             E::Exists(query) => {
                 let query = self.expr(query);
@@ -432,46 +598,7 @@ impl Exporter<'_> {
                     .int("bake_type", i64::from(!*constants));
                 rec
             }
-            E::Asm(block) => return self.asm_syntax(block, span),
-            // `$T` and `$$x`: an identifier that defines a polymorphic variable. `0x80` marks the
-            // baked `$$` form, `0x100` an `/interface` restriction (jaic extensions to the flags).
-            E::PolyVar {
-                name,
-                baked,
-            } => {
-                let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
-                rec.str("name", name.as_str().as_bytes()).int(
-                    "flags",
-                    0x1 | if *baked {
-                        0x80
-                    } else {
-                        0
-                    },
-                );
-                rec.int(SyntaxKey::PolyBaked, i64::from(*baked));
-                rec
-            }
-            E::PolyRestricted {
-                name,
-                restriction,
-                interface,
-            } => {
-                let restriction = self.expr(restriction);
-                let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
-                rec.str("name", name.as_str().as_bytes())
-                    .int(
-                        "flags",
-                        0x1 | if *interface {
-                            0x100
-                        } else {
-                            0
-                        },
-                    )
-                    .ptr("polymorph_restriction", restriction)
-                    .ptr(SyntaxKey::Restriction, restriction)
-                    .int(SyntaxKey::Interface, i64::from(*interface));
-                rec
-            }
+            E::Asm(block) => return Err(self.asm_syntax(block, span)),
             E::CallerCode => {
                 let mut rec = self.node(
                     RecordTag::CodeDirectiveLocation,
@@ -516,32 +643,8 @@ impl Exporter<'_> {
                     }
                 }
             }
-            _ => self.node(RecordTag::CodeNode, node::PLACEHOLDER, span),
-        };
-        let mut rec = rec;
-        // Typechecked expressions carry their type (Epic_Fail compares operand types).
-        if rec.field("type").is_none()
-            && matches!(
-                e.kind,
-                E::Binary(..)
-                    | E::Unary(..)
-                    | E::Int(_)
-                    | E::Float(_)
-                    | E::Str(_)
-                    | E::Char(_)
-                    | E::Bool(_)
-                    | E::Index(..)
-                    | E::Member(..)
-                    | E::Cast { .. }
-            )
-            && let Some(ty) = self.expr_type(e)
-        {
-            let ty = self.ty(ty);
-            if ty != 0 {
-                rec.ptr("type", ty);
-            }
-        }
-        self.add(rec)
+            _ => unreachable!("dispatched only for this group's operations"),
+        })
     }
 
     /// The type `e` checks to in the exported code's scope, when it checks there.

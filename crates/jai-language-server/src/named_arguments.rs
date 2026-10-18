@@ -53,7 +53,7 @@ impl Callable {
             let name = if i == active {
                 Some(candidate)
             } else {
-                arg.name.map(|n| n.as_str())
+                arg.name.map(jaic::intern::Sym::as_str)
             };
             if let Some(name) = name {
                 let p = self

@@ -123,9 +123,7 @@ impl SandboxHost {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let stream = self.stdin.stream;
         let on = |handle: u64| stream != 0 && handle == stream;
-        let copy = |to: u64, bytes: &[u8]| unsafe {
-            std::ptr::copy_nonoverlapping(bytes.as_ptr(), to as *mut u8, bytes.len());
-        };
+        let copy = write_bytes;
         Some(match fun {
             LibcFn::Read if arg(0) as i32 == 0 => {
                 let bytes = self.stdin.take(arg(2) as usize, None);
@@ -172,12 +170,7 @@ impl SandboxHost {
                 let length = bytes.len() as u64;
                 bytes.push(0);
                 let (line, size) = (arg(0), arg(1));
-                let (old, capacity) = unsafe {
-                    (
-                        std::ptr::read_unaligned(line as *const u64),
-                        std::ptr::read_unaligned(size as *const u64),
-                    )
-                };
+                let (old, capacity) = (read_u64(line), read_u64(size));
                 let target = if old != 0 && capacity >= bytes.len() as u64 {
                     old
                 } else {

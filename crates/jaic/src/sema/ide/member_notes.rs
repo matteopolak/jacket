@@ -469,7 +469,9 @@ pub(in crate::sema) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn Fn
                 ..
             } => {
                 walk(callee, f);
-                args.iter().for_each(|a| walk(&a.value, f));
+                for a in args {
+                    walk(&a.value, f);
+                }
             }
             E::ProcType(h) => for_header_types(h, f),
             _ => {}

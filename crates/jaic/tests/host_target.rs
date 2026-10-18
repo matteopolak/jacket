@@ -38,7 +38,7 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
             fs.insert("/lib/prelude/module.jai", "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }".as_bytes());
             let mut c = Compiler::new(options, Rc::new(fs));
             let source = format!(
-                r#"
+                r"
                 #assert OS == .{target_os};
                 #assert CPU == .{target_cpu};
                 #assert BUILD_OS == .{host_os};
@@ -47,7 +47,7 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
                 #assert type_of(CPU) == type_of(BUILD_CPU);
                 #assert (OS != BUILD_OS || CPU != BUILD_CPU) == {cross};
                 main :: () {{}}
-                "#,
+                ",
                 target_os = os_name(os),
                 target_cpu = cpu_name(cpu),
                 host_os = os_name(host.os),

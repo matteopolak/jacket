@@ -192,7 +192,7 @@ impl Compiler {
                 }
             }
         }
-        f.return_types = sig.returns.clone();
+        f.return_types.clone_from(&sig.returns);
         for (i, &rt) in sig.returns.iter().enumerate() {
             if self.is_memory_type(rt) {
                 // The caller's result slot, never null.
@@ -204,13 +204,12 @@ impl Compiler {
             }
             // Named results get a slot initialized to their default.
             if let Some(name) = sig.return_names[i] {
-                let addr = match f.return_outs[i] {
-                    Some(out) => out,
-                    None => {
-                        let size = self.size_of(rt, span)?;
-                        let align = self.align_of(rt, span)?;
-                        f.b.alloca(size, align)
-                    }
+                let addr = if let Some(out) = f.return_outs[i] {
+                    out
+                } else {
+                    let size = self.size_of(rt, span)?;
+                    let align = self.align_of(rt, span)?;
+                    f.b.alloca(size, align)
                 };
                 let default = header
                     .returns

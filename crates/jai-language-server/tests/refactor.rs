@@ -75,7 +75,7 @@ fn apply(text: &str, action: &CodeAction) -> String {
             )
         })
         .collect();
-    spans.sort();
+    spans.sort_unstable();
     for pair in spans.windows(2) {
         assert!(pair[0].1 <= pair[1].0, "overlapping edits");
     }

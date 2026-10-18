@@ -7,7 +7,7 @@ use crate::CodeAction;
 use jaic::ast::{AssignOp, DeclKind, ExprKind as E, StmtKind as S};
 use jaic::source::line_end;
 
-impl<'a> Cx<'a> {
+impl Cx<'_> {
     // ifx <-> if / else
 
     /// `x = ifx c then a else b;` as an `if` that assigns (or returns) `a` or `b`.

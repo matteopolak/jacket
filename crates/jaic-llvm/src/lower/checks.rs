@@ -14,7 +14,7 @@ use inkwell::values::{
 };
 use jaic::ir::{Ty, Val};
 
-impl<'ctx, 'p> Backend<'ctx, 'p> {
+impl<'ctx> Backend<'ctx, '_> {
     fn intrinsic_fn(&self, name: &str, tys: &[BasicTypeEnum<'ctx>]) -> R<FunctionValue<'ctx>> {
         LlvmIntrinsic::find(name)
             .and_then(|i| i.get_declaration(self.module, tys))
@@ -65,29 +65,28 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             return p;
         }
         let name = format!("__jaic_check_file.{file}");
-        let pointer = match self.module.get_global(&name) {
-            Some(g) => g.as_pointer_value(),
-            None => {
-                let path = self
-                    .program
-                    .file_paths
-                    .get(file as usize)
-                    .map(|p| jaic::display_path(std::path::Path::new(p)))
-                    .unwrap_or_default();
-                let text = self.ctx.const_string(path.as_bytes(), true);
-                let g = self.module.add_global(text.get_type(), None, &name);
-                g.set_initializer(&text);
-                g.set_constant(true);
-                g.set_linkage(Linkage::Private);
-                g.as_pointer_value()
-            }
+        let pointer = if let Some(g) = self.module.get_global(&name) {
+            g.as_pointer_value()
+        } else {
+            let path = self
+                .program
+                .file_paths
+                .get(file as usize)
+                .map(|p| jaic::display_path(std::path::Path::new(p)))
+                .unwrap_or_default();
+            let text = self.ctx.const_string(path.as_bytes(), true);
+            let g = self.module.add_global(text.get_type(), None, &name);
+            g.set_initializer(&text);
+            g.set_constant(true);
+            g.set_linkage(Linkage::Private);
+            g.as_pointer_value()
         };
         self.check_files.borrow_mut().insert(file, pointer);
         pointer
     }
 
     /// The module's `jaic.null_fail(desc, address, file)`: reports a null pointer access through
-    /// Runtime_Support and traps. `desc` is the access kind in its low byte and the source line
+    /// `Runtime_Support` and traps. `desc` is the access kind in its low byte and the source line
     /// above it. One call per check, where the check itself would need the handler's six
     /// arguments (a null check is the most common instruction sequence in an unoptimized build).
     fn null_fail_fn(&self) -> R<FunctionValue<'ctx>> {
@@ -174,7 +173,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         Ok(f)
     }
 
-    /// Report a failed check through Runtime_Support (`Program::check_failed`) with the
+    /// Report a failed check through `Runtime_Support` (`Program::check_failed`) with the
     /// current source location; nothing when the program has no reporting procedure.
     pub(super) fn report_check(
         &self,

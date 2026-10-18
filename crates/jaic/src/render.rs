@@ -144,7 +144,7 @@ pub fn detect(choice: ColorChoice) -> Style {
 /// - Colour: `--color always|never` wins; otherwise `NO_COLOR` (any value) turns it off,
 ///   `CLICOLOR_FORCE` / `FORCE_COLOR` (set, not `0`) turn it on, and else it is on for a
 ///   terminal whose `TERM` is not `dumb`. On Windows, `auto` colours only consoles known to
-///   understand ANSI sequences (Windows Terminal, ConEmu, ANSICON, a `TERM`).
+///   understand ANSI sequences (Windows Terminal, `ConEmu`, ANSICON, a `TERM`).
 /// - Layout: `JAIC_DIAGNOSTICS=plain|ascii|unicode` wins; otherwise `Plain` when stderr is
 ///   not a terminal (or `TERM=dumb`), `Unicode` for a UTF-8 locale or Windows Terminal, and
 ///   `Ascii` for other terminals.
@@ -275,7 +275,7 @@ pub struct Report<'a> {
     pub compact: bool,
 }
 
-impl<'a> Report<'a> {
+impl Report<'_> {
     pub fn new(severity: Severity, message: impl Into<String>) -> Self {
         Report {
             severity,
@@ -311,6 +311,7 @@ impl<'a> Report<'a> {
         report
     }
 
+    #[must_use]
     pub fn help(mut self, message: impl Into<String>) -> Self {
         self.help.push(Help {
             message: message.into(),
@@ -319,6 +320,7 @@ impl<'a> Report<'a> {
         self
     }
 
+    #[must_use]
     pub fn note(mut self, message: impl Into<String>) -> Self {
         self.notes.push(message.into());
         self
@@ -419,7 +421,7 @@ const UNICODE: Glyphs = Glyphs {
 struct Paint(bool);
 
 impl Paint {
-    fn on(&self, code: &str, text: &str) -> String {
+    fn on(self, code: &str, text: &str) -> String {
         if self.0 && !text.is_empty() {
             format!("\x1b[{code}m{text}\x1b[0m")
         } else {

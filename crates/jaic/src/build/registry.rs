@@ -152,10 +152,10 @@ impl Workspaces {
             WorkspaceFlag::OutputBitcode => s.output_bitcode = on,
             WorkspaceFlag::OutputLlvmIr => s.output_llvm_ir = on,
             WorkspaceFlag::OutputBitcodeBeforeOptimizations => {
-                s.output_bitcode_before_optimizations = on
+                s.output_bitcode_before_optimizations = on;
             }
             WorkspaceFlag::OutputLlvmIrBeforeOptimizations => {
-                s.output_llvm_ir_before_optimizations = on
+                s.output_llvm_ir_before_optimizations = on;
             }
             WorkspaceFlag::LlvmEnableTailCalls
             | WorkspaceFlag::LlvmEnableLoopUnrolling
@@ -187,7 +187,7 @@ impl Workspaces {
         let s = self.workspace_settings(id)?;
         match option {
             WorkspaceNumber::OutputType => {
-                s.output_type = member(option, raw, OutputType::from_raw)?
+                s.output_type = member(option, raw, OutputType::from_raw)?;
             }
             WorkspaceNumber::OsTarget => {
                 s.os = Some(match member(option, raw, OsTag::from_raw)? {
@@ -195,32 +195,34 @@ impl Workspaces {
                     OsTag::Linux => TargetOs::Linux,
                     OsTag::MacOS => TargetOs::MacOS,
                     OsTag::Wasm => TargetOs::Wasm,
-                })
+                });
             }
             WorkspaceNumber::CpuTarget => {
                 s.cpu = Some(match member(option, raw, CpuTag::from_raw)? {
                     CpuTag::X64 => TargetCpu::X64,
                     CpuTag::Arm64 => TargetCpu::Arm64,
                     CpuTag::Custom => TargetCpu::Wasm,
-                })
+                });
             }
             WorkspaceNumber::TemporaryStorageSize => s.temporary_storage_size = Some(raw as i64),
             WorkspaceNumber::ArrayBoundsCheck => {
                 s.array_bounds_check =
-                    Some(member(option, raw, ArrayBoundsCheck::from_raw)? != ArrayBoundsCheck::Off)
+                    Some(member(option, raw, ArrayBoundsCheck::from_raw)? != ArrayBoundsCheck::Off);
             }
             WorkspaceNumber::NullPointerCheck => {
-                s.null_pointer_check = Some(member(option, raw, Toggle::from_raw)? != Toggle::Off)
+                s.null_pointer_check = Some(member(option, raw, Toggle::from_raw)? != Toggle::Off);
             }
             WorkspaceNumber::ArithmeticOverflowCheck => {
-                s.arithmetic_overflow_check = Some(member(option, raw, CheckLevel::from_raw)? as u8)
+                s.arithmetic_overflow_check =
+                    Some(member(option, raw, CheckLevel::from_raw)? as u8);
             }
             WorkspaceNumber::CastBoundsCheck => {
-                s.cast_bounds_check = Some(member(option, raw, CheckLevel::from_raw)? as u8)
+                s.cast_bounds_check = Some(member(option, raw, CheckLevel::from_raw)? as u8);
             }
             WorkspaceNumber::EmitDebugInfo => {
-                s.emit_debug_info =
-                    Some(member(option, raw, DebugInfoSetting::from_raw)? != DebugInfoSetting::None)
+                s.emit_debug_info = Some(
+                    member(option, raw, DebugInfoSetting::from_raw)? != DebugInfoSetting::None,
+                );
             }
             WorkspaceNumber::DeadCodeElimination => {
                 s.dead_code_elimination =
@@ -228,20 +230,21 @@ impl Workspaces {
                         DeadCodeSetting::None => DeadCode::None,
                         DeadCodeSetting::All => DeadCode::All,
                         DeadCodeSetting::ModulesOnly => DeadCode::ModulesOnly,
-                    })
+                    });
             }
             WorkspaceNumber::RuntimeSupportDefinitions => {
-                s.runtime_support_definitions = Some(member(option, raw, RuntimeSupport::from_raw)?)
+                s.runtime_support_definitions =
+                    Some(member(option, raw, RuntimeSupport::from_raw)?);
             }
             WorkspaceNumber::BacktraceOnCrash => {
-                s.backtrace_on_crash = Some(member(option, raw, Toggle::from_raw)? == Toggle::On)
+                s.backtrace_on_crash = Some(member(option, raw, Toggle::from_raw)? == Toggle::On);
             }
             WorkspaceNumber::BitcodeOptimization => {
-                s.optimization = member(option, raw, BitcodeOptimization::from_raw)?
+                s.optimization = member(option, raw, BitcodeOptimization::from_raw)?;
             }
             WorkspaceNumber::MachineCodeOptimization => {
                 s.machine_code_optimization =
-                    member(option, raw, MachineCodeOptimization::from_raw)?
+                    member(option, raw, MachineCodeOptimization::from_raw)?;
             }
         }
         Ok(())
@@ -269,7 +272,7 @@ impl Workspaces {
                 .get_or_insert_with(Vec::new)
                 .push(PathBuf::from(value)),
             WorkspaceList::AdditionalLinkerArgument => {
-                s.additional_linker_arguments.push(value.into())
+                s.additional_linker_arguments.push(value.into());
             }
         }
         Ok(())
@@ -312,7 +315,7 @@ pub(crate) fn isolated_host_environment(
         command_line,
         make_host: Box::new(move |os| (factory_parent.borrow().env.make_host)(os)),
         report: Box::new(move |severity, message| {
-            (report_parent.borrow_mut().env.report)(severity, message)
+            (report_parent.borrow_mut().env.report)(severity, message);
         }),
         observer: None,
     });
@@ -333,7 +336,7 @@ pub fn dead_code_setting(shared: &SharedWorkspaces, id: i64) -> Option<DeadCode>
 }
 
 /// Target runtime storage settings, including changes made by the compiling
-/// workspace itself. NO_OUTPUT workspaces have no target runtime to initialize.
+/// workspace itself. `NO_OUTPUT` workspaces have no target runtime to initialize.
 pub(crate) fn runtime_storage_setting(
     shared: &SharedWorkspaces,
     id: i64,
@@ -397,7 +400,7 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
     if let Some(paths) = &settings.import_paths {
         // The module search path the metaprogram set, then the defaults (stdlib).
         let defaults = std::mem::take(&mut options.import_paths);
-        options.import_paths = paths.clone();
+        options.import_paths.clone_from(paths);
         for d in defaults {
             if !options.import_paths.contains(&d) {
                 options.import_paths.push(d);
@@ -435,7 +438,7 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         options.dead_code = mode;
     }
     if !settings.entry_point_name.is_empty() {
-        options.entry_point = settings.entry_point_name.clone();
+        options.entry_point.clone_from(&settings.entry_point_name);
     }
     if let Some(which) = &settings.runtime_support_definitions {
         // AUTO and ENTRY_POINT_AND_INIT: both; ONLY_INIT: the program has its own entry point.

@@ -442,7 +442,7 @@ mod tests {
         let b = &blocks[0];
         assert!(b.closed);
         assert_eq!(b.width, 32);
-        let whole = &text[text.find("#asm").unwrap()..text.find("} y").unwrap() + 1];
+        let whole = &text[text.find("#asm").unwrap()..=text.find("} y").unwrap()];
         assert_eq!(text_of(text, b.span()), whole);
         let kinds: Vec<_> = b.statements.iter().map(|s| &s.kind).collect();
         assert_eq!(kinds.len(), 3);

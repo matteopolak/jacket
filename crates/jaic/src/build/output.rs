@@ -91,31 +91,29 @@ pub(super) fn write_output(
     }
     let written = {
         let mut reg = shared.borrow_mut();
-        match reg.env.backend.as_mut() {
-            Some(backend) => backend.write_output(&compiler.program, &settings, &output),
-            // No backend: checking only.
-            None => {
-                if let Some(hint) = reg.env.unwritten_output_hint.clone() {
-                    let name = reg.ws(id)?.name.clone();
-                    let kind = match settings.output_type {
-                        OutputType::DynamicLibrary => "a dynamic library",
-                        OutputType::StaticLibrary => "a static library",
-                        OutputType::ObjectFile => "an object file",
-                        _ => "an executable",
-                    };
-                    (reg.env.report)(
-                        ReportSeverity::Warning,
-                        &format!(
-                            "warning: `jaic -check` does not write {} (workspace `{name}` asks for \
-                         {kind})\n\
-                         help: `jaic {main}` (or `jaic {main} -interp`) writes it",
-                            shown_path(&output),
-                            main = hint.main_file,
-                        ),
-                    );
-                }
-                Ok(())
+        if let Some(backend) = reg.env.backend.as_mut() {
+            backend.write_output(&compiler.program, &settings, &output)
+        } else {
+            if let Some(hint) = reg.env.unwritten_output_hint.clone() {
+                let name = reg.ws(id)?.name.clone();
+                let kind = match settings.output_type {
+                    OutputType::DynamicLibrary => "a dynamic library",
+                    OutputType::StaticLibrary => "a static library",
+                    OutputType::ObjectFile => "an object file",
+                    _ => "an executable",
+                };
+                (reg.env.report)(
+                    ReportSeverity::Warning,
+                    &format!(
+                        "warning: `jaic -check` does not write {} (workspace `{name}` asks for \
+                     {kind})\n\
+                     help: `jaic {main}` (or `jaic {main} -interp`) writes it",
+                        shown_path(&output),
+                        main = hint.main_file,
+                    ),
+                );
             }
+            Ok(())
         }
     };
     if let Err(message) = &written {
@@ -207,8 +205,7 @@ pub(super) fn output_path(settings: &BuildSettings, compiler: &Compiler) -> Path
             .main_module
             .and_then(|m| compiler.files.iter().find(|f| f.module == m))
             .and_then(|f| f.path.as_file()?.file_stem())
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "output".into())
+            .map_or_else(|| "output".into(), |s| s.to_string_lossy().into_owned())
     } else {
         settings.output_executable_name.clone()
     };

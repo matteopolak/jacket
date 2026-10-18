@@ -50,7 +50,7 @@ impl Compiler {
             for entry in self.scope(sid).usings.clone() {
                 match entry {
                     scope::UsingEntry::Module(m, filter) => {
-                        modules.push((m, filter.as_deref().cloned()))
+                        modules.push((m, filter.as_deref().cloned()));
                     }
                     scope::UsingEntry::Place {
                         ty, ..

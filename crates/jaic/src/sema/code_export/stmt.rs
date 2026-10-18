@@ -49,8 +49,68 @@ impl Exporter<'_> {
         use ast::StmtKind as S;
         let span = s.span;
         let id = match &s.kind {
+            S::Assign {
+                ..
+            }
+            | S::Block(..)
+            | S::If {
+                ..
+            }
+            | S::Switch(..)
+            | S::StaticSwitch(..)
+            | S::StaticIf(..)
+            | S::While(..)
+            | S::For(..)
+            | S::Break(..)
+            | S::Continue(..)
+            | S::Remove(..)
+            | S::Return {
+                ..
+            }
+            | S::Defer {
+                ..
+            }
+            | S::Case(..) => self.stmt_control(s),
+            S::Using(..)
+            | S::PushContextDefer(..)
+            | S::PushContext(..)
+            | S::Insert(..)
+            | S::Run(..)
+            | S::Assert(..) => self.stmt_context(s),
+            S::Import(..)
+            | S::Scope(..)
+            | S::Through
+            | S::Load {
+                ..
+            }
+            | S::Place(..)
+            | S::Overlay(..)
+            | S::AddContext(..)
+            | S::ModuleParameters(..)
+            | S::Placeholder(..)
+            | S::Directive(..) => self.stmt_module(s),
             S::Decl(d) => self.local_decl(d),
             S::Expr(e) => self.expr(e),
+            S::Empty => return None,
+        };
+        if !s.notes.is_empty() {
+            let notes = self.notes(&s.notes.iter().collect::<Vec<_>>());
+            let notes = self.node_list(&notes, span);
+            self.r
+                .get_mut(id)
+                .unwrap()
+                .ptr(SyntaxKey::StatementNotes, notes);
+        }
+        if let Some(c) = self.c.as_deref_mut() {
+            c.export.stmts.insert(id, Rc::new(s.clone()));
+        }
+        Some(id)
+    }
+
+    fn stmt_control(&mut self, s: &ast::Stmt) -> i64 {
+        use ast::StmtKind as S;
+        let span = s.span;
+        match &s.kind {
             S::Assign {
                 op,
                 lhs,
@@ -225,6 +285,15 @@ impl Exporter<'_> {
                     .int("is_backticked", *backtick as i64);
                 self.add(rec)
             }
+            S::Case(case) => self.case(case),
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    fn stmt_context(&mut self, s: &ast::Stmt) -> i64 {
+        use ast::StmtKind as S;
+        let span = s.span;
+        match &s.kind {
             S::Using(boxed) => {
                 let crate::ast::UsingStmt {
                     value,
@@ -293,7 +362,6 @@ impl Exporter<'_> {
                 rec.ptr("expression", e).ptr(SyntaxKey::RunBody, e);
                 self.add(rec)
             }
-            S::Case(case) => self.case(case),
             S::Assert(boxed) => {
                 let crate::ast::AssertStmt {
                     cond,
@@ -317,6 +385,14 @@ impl Exporter<'_> {
                     .ptr(SyntaxKey::AssertArgs, args);
                 self.add(rec)
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    fn stmt_module(&mut self, s: &ast::Stmt) -> i64 {
+        use ast::StmtKind as S;
+        let span = s.span;
+        match &s.kind {
             S::Import(import) => {
                 let mut rec =
                     self.node(RecordTag::CodeDirectiveImport, node::DIRECTIVE_IMPORT, span);
@@ -375,7 +451,6 @@ impl Exporter<'_> {
                 }
                 self.add(rec)
             }
-            S::Empty => return None,
             S::Scope(scope) => {
                 let mut rec = self.node(RecordTag::CodeDirectiveScope, node::DIRECTIVE_SCOPE, span);
                 rec.int(
@@ -489,19 +564,8 @@ impl Exporter<'_> {
                 .ptr(SyntaxKey::DirectiveArgs, args);
                 self.add(rec)
             }
-        };
-        if !s.notes.is_empty() {
-            let notes = self.notes(&s.notes.iter().collect::<Vec<_>>());
-            let notes = self.node_list(&notes, span);
-            self.r
-                .get_mut(id)
-                .unwrap()
-                .ptr(SyntaxKey::StatementNotes, notes);
+            _ => unreachable!("dispatched only for this group's operations"),
         }
-        if let Some(c) = self.c.as_deref_mut() {
-            c.export.stmts.insert(id, Rc::new(s.clone()));
-        }
-        Some(id)
     }
 
     /// A parameter list as a body-less procedure header (the form `#module_parameters` takes).

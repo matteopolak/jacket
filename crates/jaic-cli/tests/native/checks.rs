@@ -81,7 +81,7 @@ fn arithmetic_overflow_checks() {
         std::fs::write(
             &meta,
             format!(
-                r##"#import "Basic";
+                r#"#import "Basic";
 #import "Compiler";
 
 SOURCE :: #string END
@@ -102,7 +102,7 @@ END
     set_build_options(options, w);
     add_build_string(SOURCE, w);
 }}
-"##
+"#
             ),
         )
         .unwrap();
@@ -133,7 +133,7 @@ END
     }
 }
 
-/// A failed check in a built executable says what failed and where (through Runtime_Support's
+/// A failed check in a built executable says what failed and where (through `Runtime_Support`'s
 /// `runtime_support_check_failed`), with the interpreter's wording, before it stops.
 // rules: ptr.18 cast.33 flow.27
 #[test]
@@ -219,7 +219,7 @@ fn failed_checks_say_what_and_where() {
     let meta = dir.join("nonfatal.jai");
     std::fs::write(
         &meta,
-        r##"#import "Compiler";
+        r#"#import "Compiler";
 
 SOURCE :: #string END
 #import "Basic";
@@ -240,7 +240,7 @@ END
     set_build_options(options, w);
     add_build_string(SOURCE, w);
 }
-"##,
+"#,
     )
     .unwrap();
     let build = jaic().arg(&meta).current_dir(&dir).output().unwrap();

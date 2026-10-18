@@ -293,10 +293,10 @@ fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
     let other = DocumentUri::from_path(&dir.join("other.jai")).unwrap();
     let other_text = "#load \"unsaved.jai\"; outsider :: () { value := private_answer; }";
     s.open(other.clone(), 1, other_text.into()).unwrap();
-    assert!(
+    assert_eq!(
         s.definition(&other, at(other_text, "private_answer;"))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
     s.close(&real).unwrap();
     assert!(s.version(&stored).is_err());

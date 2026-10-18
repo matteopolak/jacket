@@ -3,11 +3,9 @@ use jaic::sema::TargetOs;
 use std::path::Path;
 
 /// Whether a module asserting `only_os` builds for `os`.
-pub(super) fn builds_for(only_os: &Option<Vec<String>>, os: TargetOs) -> bool {
+pub(super) fn builds_for(only_os: Option<&[String]>, os: TargetOs) -> bool {
     let name = jaic::target::os_member(os);
-    only_os
-        .as_ref()
-        .is_none_or(|targets| targets.iter().any(|t| t == name))
+    only_os.is_none_or(|targets| targets.iter().any(|t| t == name))
 }
 
 /// The name of the module of `dir` that `file` is part of: its folder (`Basic/x.jai`, and

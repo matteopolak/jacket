@@ -33,29 +33,27 @@ impl Compiler {
             // (`$compare := (a, b) => a == b`) is the same procedure on every
             // call and the instance is found again.
             let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
-            scope = match self.default_scopes.get(&key) {
-                Some(&s) => s,
-                None => {
-                    let module = self.scope(def_scope).module;
-                    let s = self.new_scope(ScopeKind::Block, Some(def_scope), module, None);
-                    for (n, v, t) in bindings {
-                        self.add_const(s, *n, span, v.clone(), *t);
-                    }
-                    self.default_scopes.insert(key, s);
-                    s
+            scope = if let Some(&s) = self.default_scopes.get(&key) {
+                s
+            } else {
+                let module = self.scope(def_scope).module;
+                let s = self.new_scope(ScopeKind::Block, Some(def_scope), module, None);
+                for (n, v, t) in bindings {
+                    self.add_const(s, *n, span, v.clone(), *t);
                 }
+                self.default_scopes.insert(key, s);
+                s
             };
         }
         let declared = match &param.ty {
             Some(t) if !procs::has_poly(t) => Some(self.eval_type(scope, t)?),
             _ => None,
         };
-        let (v, ty) = match declared {
-            Some(t) => (self.const_value_of_type(scope, d, t)?, t),
-            None => {
-                let ty = self.eval_const(scope, d, None)?.ty();
-                (self.const_value_of_type(scope, d, ty)?, ty)
-            }
+        let (v, ty) = if let Some(t) = declared {
+            (self.const_value_of_type(scope, d, t)?, t)
+        } else {
+            let ty = self.eval_const(scope, d, None)?.ty();
+            (self.const_value_of_type(scope, d, ty)?, ty)
         };
         Ok((v, ty))
     }
@@ -233,21 +231,20 @@ impl Compiler {
                 .map(|r| (r.offset, r.target, r.addend))
                 .collect(),
         );
-        let data = match self.packs.get(&key) {
-            Some(&g) => g,
-            None => {
-                let g = self.program.add_global(ir::Global {
-                    name: "baked.pack".into(),
-                    size: array.bytes.len().max(1) as u64,
-                    align,
-                    init: array.bytes,
-                    relocs: array.relocs,
-                    read_only: true,
-                    export: None,
-                });
-                self.packs.insert(key, g);
-                g
-            }
+        let data = if let Some(&g) = self.packs.get(&key) {
+            g
+        } else {
+            let g = self.program.add_global(ir::Global {
+                name: "baked.pack".into(),
+                size: array.bytes.len().max(1) as u64,
+                align,
+                init: array.bytes,
+                relocs: array.relocs,
+                read_only: true,
+                export: None,
+            });
+            self.packs.insert(key, g);
+            g
         };
         let mut view = value::Aggregate {
             bytes: vec![0; 16],

@@ -47,10 +47,7 @@ fn windows_error(errno: u64) -> u64 {
 
 /// The bytes of `count` units of `size` bytes at `ptr`; a count of -1 reads up to and
 /// including a zero unit.
-///
-/// # Safety
-/// `ptr` must point at that many units (or a zero-terminated run of them).
-unsafe fn counted(ptr: u64, count: i64, size: usize) -> Vec<u8> {
+fn counted(ptr: u64, count: i64, size: usize) -> Vec<u8> {
     if ptr == 0 {
         return Vec::new();
     }
@@ -58,36 +55,30 @@ unsafe fn counted(ptr: u64, count: i64, size: usize) -> Vec<u8> {
         count as usize
     } else {
         let mut n = 0;
-        while unsafe { std::slice::from_raw_parts((ptr as usize + n * size) as *const u8, size) }
-            .iter()
-            .any(|&b| b != 0)
-        {
+        while (0..size as u64).any(|i| read_u8(ptr + (n * size) as u64 + i) != 0) {
             n += 1;
         }
         n + 1
     };
-    unsafe { std::slice::from_raw_parts(ptr as *const u8, units * size) }.to_vec()
+    read_bytes(ptr, units * size)
 }
 
 /// Write `units` to `out` (room for `room` of them) the Windows way: a room of 0 asks for
 /// the count only, and too little room writes nothing and returns 0.
-///
-/// # Safety
-/// `out` must have room for `room` units.
-unsafe fn put_counted<T: Copy>(units: &[T], out: u64, room: i64) -> u64 {
+fn put_counted<T: Copy>(units: &[T], out: u64, room: i64) -> u64 {
     if room == 0 {
         return units.len() as u64;
     }
     if out == 0 || (room as usize) < units.len() {
         return 0;
     }
-    unsafe { std::ptr::copy_nonoverlapping(units.as_ptr(), out as *mut T, units.len()) };
+    write_units(out, units);
     units.len() as u64
 }
 
 /// The UTF-16 text at `ptr` up to its terminator.
 fn wide_string(ptr: u64) -> String {
-    let wide = unsafe { counted(ptr, -1, 2) };
+    let wide = counted(ptr, -1, 2);
     let units: Vec<u16> = wide
         .as_chunks::<2>()
         .0
@@ -107,12 +98,8 @@ fn put_wide_path(text: &str, out: u64, room: u64) -> u64 {
     }
     let n = wide.len() as u64;
     wide.push(0);
-    unsafe { put_counted(&wide, out, room as i64) };
+    put_counted(&wide, out, room as i64);
     n
-}
-
-fn write_u32(addr: u64, value: u32) {
-    unsafe { std::ptr::write_unaligned(addr as *mut u32, value) }
 }
 
 impl SandboxHost {
@@ -149,7 +136,7 @@ impl SandboxHost {
 
     /// Fill a `WIN32_FIND_DATAW` at `out` for `name` in `dir`.
     fn fill_find_data(&self, dir: &str, name: &str, is_dir: bool, out: u64) {
-        unsafe { std::ptr::write_bytes(out as *mut u8, 0, FIND_DATA_SIZE) };
+        fill(out, 0, FIND_DATA_SIZE);
         let attributes = if is_dir {
             FILE_ATTRIBUTE_DIRECTORY
         } else {
@@ -163,7 +150,7 @@ impl SandboxHost {
         }
         let mut wide: Vec<u16> = name.encode_utf16().take(259).collect();
         wide.push(0);
-        unsafe { put_counted(&wide, out + FIND_DATA_NAME, 260) };
+        put_counted(&wide, out + FIND_DATA_NAME, 260);
     }
 
     /// The Windows calls; `None` for any other symbol.
@@ -177,12 +164,12 @@ impl SandboxHost {
             }
             // Every code page is taken as UTF-8.
             "MultiByteToWideChar" => {
-                let text = unsafe { counted(arg(2), arg(3) as i32 as i64, 1) };
+                let text = counted(arg(2), arg(3) as i32 as i64, 1);
                 let wide: Vec<u16> = String::from_utf8_lossy(&text).encode_utf16().collect();
-                unsafe { put_counted(&wide, arg(4), arg(5) as i32 as i64) }
+                put_counted(&wide, arg(4), arg(5) as i32 as i64)
             }
             "WideCharToMultiByte" => {
-                let wide = unsafe { counted(arg(2), arg(3) as i32 as i64, 2) };
+                let wide = counted(arg(2), arg(3) as i32 as i64, 2);
                 let units: Vec<u16> = wide
                     .as_chunks::<2>()
                     .0
@@ -190,7 +177,7 @@ impl SandboxHost {
                     .map(|c| u16::from_le_bytes(*c))
                     .collect();
                 let text = String::from_utf16_lossy(&units).into_bytes();
-                unsafe { put_counted(&text, arg(4), arg(5) as i32 as i64) }
+                put_counted(&text, arg(4), arg(5) as i32 as i64)
             }
             "GetSystemTimeAsFileTime" | "GetSystemTimePreciseAsFileTime" => {
                 // FILETIME: 100 ns ticks since 1601.
@@ -335,7 +322,7 @@ impl SandboxHost {
             }
             "WriteFile" => {
                 let len = arg(2) as u32 as usize;
-                let bytes = unsafe { counted(arg(1), len as i64, 1) };
+                let bytes = counted(arg(1), len as i64, 1);
                 let written = match self.handle_fd(arg(0)) {
                     Some(fd @ (1 | 2)) => {
                         self.write(&bytes, fd == 2);

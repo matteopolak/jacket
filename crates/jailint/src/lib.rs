@@ -6,6 +6,8 @@
 //! Callers compile with [`facts::enable`] set on the compiler, then call [`lint_files`]. The
 //! `jailint` binary does this for the files on its command line ([`driver`]); the language
 //! server does it for open documents.
+#![forbid(unsafe_code)]
+
 pub mod config;
 pub mod driver;
 pub mod facts;

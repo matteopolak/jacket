@@ -111,6 +111,11 @@ impl Interp {
     ///
     /// SAFETY (all register accesses): `build` checked every register an op names against
     /// `frame.code.regs`, which `Interp::enter` made room for at `regs`.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one match over every op keeps `pc` and the register accessors in locals; \
+                  a call per op group would cost a spill and a call on the hottest path"
+    )]
     fn run_ops<const WATCH: bool>(
         &mut self,
         program: &ir::Program,
@@ -121,8 +126,17 @@ impl Interp {
         start: Option<usize>,
     ) -> Res<Flow> {
         let code = &frame.code;
+        // SAFETY: `build` checked that every register an op names lies in the frame's registers,
+        // which `regs` points at.
         let get = |i: u32| unsafe { *regs.add(i as usize) };
+        // SAFETY: as for `get`.
         let set = |i: u32, v: u64| unsafe { *regs.add(i as usize) = v };
+        // SAFETY: `build` checked that every frame offset an op names lies in the frame's slots
+        // at `stack_base`, which the interpreter stack keeps mapped while the frame runs.
+        let load_frame = |ty: Ty, off: u32| unsafe { load_raw(ty, stack_base + u64::from(off)) };
+        // SAFETY: as for `load_frame`.
+        let store_frame =
+            |ty: Ty, off: u32, v: u64| unsafe { store_raw(ty, stack_base + u64::from(off), v) };
         let ops = code.ops.as_ptr();
         // A resumed run has done its block's entry already.
         let (mut pc, mut entered) = match start {
@@ -309,7 +323,7 @@ impl Interp {
                     ty,
                     dst,
                     off,
-                } => set(dst, unsafe { load_raw(ty, stack_base + off as u64) }),
+                } => set(dst, load_frame(ty, off)),
                 Op::Store {
                     ty,
                     base,
@@ -320,7 +334,7 @@ impl Interp {
                     ty,
                     off,
                     value,
-                } => unsafe { store_raw(ty, stack_base + off as u64, get(value)) },
+                } => store_frame(ty, off, get(value)),
                 Op::StoreImm {
                     ty,
                     base,
@@ -335,7 +349,7 @@ impl Interp {
                     ty,
                     off,
                     imm,
-                } => unsafe { store_raw(ty, stack_base + off as u64, imm as i64 as u64) },
+                } => store_frame(ty, off, imm as i64 as u64),
                 Op::Load8 {
                     dst,
                     base,
@@ -363,15 +377,15 @@ impl Interp {
                 Op::LoadFrame8 {
                     dst,
                     off,
-                } => set(dst, unsafe { load_raw(Ty::I8, stack_base + off as u64) }),
+                } => set(dst, load_frame(Ty::I8, off)),
                 Op::LoadFrame32 {
                     dst,
                     off,
-                } => set(dst, unsafe { load_raw(Ty::I32, stack_base + off as u64) }),
+                } => set(dst, load_frame(Ty::I32, off)),
                 Op::LoadFrame64 {
                     dst,
                     off,
-                } => set(dst, unsafe { load_raw(Ty::I64, stack_base + off as u64) }),
+                } => set(dst, load_frame(Ty::I64, off)),
                 Op::Store8 {
                     base,
                     off,
@@ -402,15 +416,15 @@ impl Interp {
                 Op::StoreFrame8 {
                     off,
                     value,
-                } => unsafe { store_raw(Ty::I8, stack_base + off as u64, get(value)) },
+                } => store_frame(Ty::I8, off, get(value)),
                 Op::StoreFrame32 {
                     off,
                     value,
-                } => unsafe { store_raw(Ty::I32, stack_base + off as u64, get(value)) },
+                } => store_frame(Ty::I32, off, get(value)),
                 Op::StoreFrame64 {
                     off,
                     value,
-                } => unsafe { store_raw(Ty::I64, stack_base + off as u64, get(value)) },
+                } => store_frame(Ty::I64, off, get(value)),
                 Op::Copy {
                     dst,
                     src,
@@ -421,6 +435,8 @@ impl Interp {
                         self.sync_loc(code, here);
                         return self.null_trap("memory copy through a null pointer");
                     }
+                    // SAFETY: both addresses are non-null (checked above) host addresses of program
+                    // memory that the IR sized `size` bytes.
                     unsafe { copy_bytes(d, s, size) };
                 }
                 Op::MemCopy {
@@ -472,6 +488,8 @@ impl Interp {
                         self.sync_loc(code, here);
                         return self.null_trap("memory fill through a null pointer");
                     }
+                    // SAFETY: `d` is non-null (checked above) and addresses `size` writable bytes of
+                    // program memory.
                     unsafe { zero_bytes(d, size) };
                 }
                 Op::Loc {
@@ -642,12 +660,13 @@ impl Interp {
 #[inline(always)]
 pub(in crate::interp) unsafe fn load_raw(ty: Ty, addr: u64) -> u64 {
     let p = addr as *const u8;
+    // SAFETY: the caller checked that `addr` is readable for `ty`'s size.
     unsafe {
         match ty {
             Ty::I8 => *p as u64,
-            Ty::I16 => std::ptr::read_unaligned(p as *const u16) as u64,
-            Ty::I32 | Ty::F32 => std::ptr::read_unaligned(p as *const u32) as u64,
-            Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::read_unaligned(p as *const u64),
+            Ty::I16 => std::ptr::read_unaligned(p.cast::<u16>()) as u64,
+            Ty::I32 | Ty::F32 => std::ptr::read_unaligned(p.cast::<u32>()) as u64,
+            Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::read_unaligned(p.cast::<u64>()),
             Ty::F80 | Ty::F128 => unreachable!("wide floats are never loaded into registers"),
         }
     }
@@ -657,12 +676,13 @@ pub(in crate::interp) unsafe fn load_raw(ty: Ty, addr: u64) -> u64 {
 #[inline(always)]
 pub(in crate::interp) unsafe fn store_raw(ty: Ty, addr: u64, v: u64) {
     let p = addr as *mut u8;
+    // SAFETY: the caller checked that `addr` is writable for `ty`'s size.
     unsafe {
         match ty {
             Ty::I8 => *p = v as u8,
-            Ty::I16 => std::ptr::write_unaligned(p as *mut u16, v as u16),
-            Ty::I32 | Ty::F32 => std::ptr::write_unaligned(p as *mut u32, v as u32),
-            Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::write_unaligned(p as *mut u64, v),
+            Ty::I16 => std::ptr::write_unaligned(p.cast::<u16>(), v as u16),
+            Ty::I32 | Ty::F32 => std::ptr::write_unaligned(p.cast::<u32>(), v as u32),
+            Ty::I64 | Ty::F64 | Ty::Ptr => std::ptr::write_unaligned(p.cast::<u64>(), v),
             Ty::F80 | Ty::F128 => unreachable!("wide floats are never stored from registers"),
         }
     }
@@ -671,17 +691,25 @@ pub(in crate::interp) unsafe fn store_raw(ty: Ty, addr: u64, v: u64) {
 /// `memmove` without the library call for the small sizes most copies have.
 unsafe fn copy_bytes(dst: u64, src: u64, size: u32) {
     let (d, s) = (dst as *mut u8, src as *const u8);
+    // SAFETY: the caller checked that both addresses cover `size` bytes; `ptr::copy` handles
+    // overlap and the unaligned accesses need no alignment.
     unsafe {
         match size {
             8 => {
-                std::ptr::write_unaligned(d as *mut u64, std::ptr::read_unaligned(s as *const u64))
+                std::ptr::write_unaligned(
+                    d.cast::<u64>(),
+                    std::ptr::read_unaligned(s.cast::<u64>()),
+                );
             }
             16 => {
-                let v = std::ptr::read_unaligned(s as *const [u64; 2]);
-                std::ptr::write_unaligned(d as *mut [u64; 2], v);
+                let v = std::ptr::read_unaligned(s.cast::<[u64; 2]>());
+                std::ptr::write_unaligned(d.cast::<[u64; 2]>(), v);
             }
             4 => {
-                std::ptr::write_unaligned(d as *mut u32, std::ptr::read_unaligned(s as *const u32))
+                std::ptr::write_unaligned(
+                    d.cast::<u32>(),
+                    std::ptr::read_unaligned(s.cast::<u32>()),
+                );
             }
             _ => std::ptr::copy(s, d, size as usize),
         }
@@ -690,13 +718,14 @@ unsafe fn copy_bytes(dst: u64, src: u64, size: u32) {
 
 unsafe fn zero_bytes(dst: u64, size: u32) {
     let d = dst as *mut u8;
+    // SAFETY: the caller checked that `dst` is writable for `size` bytes.
     unsafe {
         match size {
             1 => *d = 0,
-            2 => std::ptr::write_unaligned(d as *mut u16, 0),
-            4 => std::ptr::write_unaligned(d as *mut u32, 0),
-            8 => std::ptr::write_unaligned(d as *mut u64, 0),
-            16 => std::ptr::write_unaligned(d as *mut [u64; 2], [0; 2]),
+            2 => std::ptr::write_unaligned(d.cast::<u16>(), 0),
+            4 => std::ptr::write_unaligned(d.cast::<u32>(), 0),
+            8 => std::ptr::write_unaligned(d.cast::<u64>(), 0),
+            16 => std::ptr::write_unaligned(d.cast::<[u64; 2]>(), [0; 2]),
             _ => std::ptr::write_bytes(d, 0, size as usize),
         }
     }

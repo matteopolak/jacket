@@ -181,22 +181,21 @@ impl Compiler {
                 "private runtime size intrinsic requires signature () -> s64 without context",
             );
         }
-        let global = match self.runtime_storage_global {
-            Some(global) => global,
-            None => {
-                let (_, size) = self.runtime_storage_settings();
-                let global = self.program.add_global(ir::Global {
-                    name: "__jaic_runtime_configuration.temporary_storage_size".into(),
-                    size: 8,
-                    align: 8,
-                    init: size.to_le_bytes().to_vec(),
-                    relocs: Vec::new(),
-                    read_only: true,
-                    export: None,
-                });
-                self.runtime_storage_global = Some(global);
-                global
-            }
+        let global = if let Some(global) = self.runtime_storage_global {
+            global
+        } else {
+            let (_, size) = self.runtime_storage_settings();
+            let global = self.program.add_global(ir::Global {
+                name: "__jaic_runtime_configuration.temporary_storage_size".into(),
+                size: 8,
+                align: 8,
+                init: size.to_le_bytes().to_vec(),
+                relocs: Vec::new(),
+                read_only: true,
+                export: None,
+            });
+            self.runtime_storage_global = Some(global);
+            global
         };
         let address = f.b.global_addr(global);
         Ok(Operand::Value {

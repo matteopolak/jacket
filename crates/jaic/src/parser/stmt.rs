@@ -844,26 +844,23 @@ pub(super) fn no_checks_if(body: Stmt, no_abc: bool, no_aoc: bool) -> Stmt {
     if !no_abc && !no_aoc {
         return body;
     }
-    match body.kind {
-        StmtKind::Block(mut block) => {
-            block.no_abc |= no_abc;
-            block.no_aoc |= no_aoc;
-            Stmt {
-                kind: StmtKind::Block(block),
-                ..body
-            }
+    if let StmtKind::Block(mut block) = body.kind {
+        block.no_abc |= no_abc;
+        block.no_aoc |= no_aoc;
+        Stmt {
+            kind: StmtKind::Block(block),
+            ..body
         }
-        _ => {
-            let span = body.span;
-            stmt(
-                StmtKind::Block(Block {
-                    stmts: vec![body],
-                    span,
-                    no_abc,
-                    no_aoc,
-                }),
+    } else {
+        let span = body.span;
+        stmt(
+            StmtKind::Block(Block {
+                stmts: vec![body],
                 span,
-            )
-        }
+                no_abc,
+                no_aoc,
+            }),
+            span,
+        )
     }
 }

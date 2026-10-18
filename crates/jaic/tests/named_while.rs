@@ -17,10 +17,10 @@ fn inserted_condition_binding_preserves_value_identity_and_labelled_control() {
 #[test]
 fn private_macro_condition_does_not_leak_to_inserted_caller_code() {
     let (c, result) = compile(
-        r#"
+        r"
         run :: (body:Code) #expand { while hidden := cast(u32)1 { #insert body; break; } }
         main :: () { run(#code { value:=hidden; }); }
-    "#,
+    ",
     );
     let error = result.expect_err("private macro binding must stay private");
     assert!(
@@ -33,9 +33,9 @@ fn private_macro_condition_does_not_leak_to_inserted_caller_code() {
 #[test]
 fn backtick_condition_without_expansion_remains_loop_local() {
     let (c, result) = compile(
-        r#"
+        r"
         main :: () { while `local := cast(u32)1 { break local; } value:=local; }
-    "#,
+    ",
     );
     let error = result.expect_err("ordinary loop binding must not escape");
     assert!(
@@ -48,11 +48,11 @@ fn backtick_condition_without_expansion_remains_loop_local() {
 #[test]
 fn private_macro_condition_preserves_an_outer_caller_binding() {
     let (c, result) = compile(
-        r#"
+        r"
         run :: (body:Code) #expand { while hidden := cast(u32)1 { #insert body; break hidden; } }
         check :: () -> int { hidden:=9; result:int; run(#code { result=hidden; }); return result; }
         #assert(check()==9);
-    "#,
+    ",
     );
     if let Err(error) = result {
         panic!("{}", error.render(&c.sources));
@@ -62,10 +62,10 @@ fn private_macro_condition_preserves_an_outer_caller_binding() {
 #[test]
 fn invalid_loop_targets_still_diagnose() {
     let (c, result) = compile(
-        r#"
+        r"
         run :: (body:Code) #expand { while `value := cast(u32)1 { #insert body; } }
         main :: () { run(#code { continue unrelated; }); }
-    "#,
+    ",
     );
     let error = result.expect_err("only an enclosing loop is a control target");
     assert!(

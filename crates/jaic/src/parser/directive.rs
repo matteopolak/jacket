@@ -156,7 +156,7 @@ impl Parser<'_> {
             RunBody::Block(self.parse_block()?)
         } else if self.at(P::Arrow) {
             // `#run -> T { ... }`: run an anonymous procedure and use its result.
-            let proc = self.parse_proc_expr(Default::default())?;
+            let proc = self.parse_proc_expr(crate::ast::CallHintFlag::default())?;
             let span = proc.span;
             RunBody::Expr(mk(
                 ExprKind::Call {

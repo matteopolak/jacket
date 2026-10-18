@@ -71,10 +71,10 @@ fn prepares_the_procedure_at_a_declaration_or_a_use() {
         .unwrap();
     assert_eq!(at_use, at_decl);
     // Not on a procedure.
-    assert!(
+    assert_eq!(
         s.prepare_call_hierarchy(&uri(), at(PROGRAM, "x := other", 0))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [jai_language_server::CallHierarchyItem; 0]
     );
 }
 
@@ -96,7 +96,10 @@ fn lists_incoming_calls_with_their_sites() {
     let main = s
         .prepare_call_hierarchy(&uri(), at(PROGRAM, "main ::", 1))
         .unwrap();
-    assert!(s.incoming_calls(&main[0]).unwrap().is_empty());
+    assert_eq!(
+        s.incoming_calls(&main[0]).unwrap(),
+        [] as [jai_language_server::CallHierarchyCall; 0]
+    );
 }
 
 #[test]
@@ -125,7 +128,10 @@ fn lists_outgoing_calls_with_their_sites() {
     let leaf = s
         .prepare_call_hierarchy(&uri(), at(PROGRAM, "leaf ::", 1))
         .unwrap();
-    assert!(s.outgoing_calls(&leaf[0]).unwrap().is_empty());
+    assert_eq!(
+        s.outgoing_calls(&leaf[0]).unwrap(),
+        [] as [jai_language_server::CallHierarchyCall; 0]
+    );
 }
 
 #[test]

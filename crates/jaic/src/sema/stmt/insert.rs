@@ -126,7 +126,7 @@ impl Compiler {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
                 ast::CodeBody::Stmt(stmt) => self
                     .check_block_stmts(f, inner, std::slice::from_ref(stmt))
-                    .and_then(|_| self.ide_require_parsed_body(stmt.span)),
+                    .and_then(|()| self.ide_require_parsed_body(stmt.span)),
                 ast::CodeBody::Block(b) if string_payload => {
                     self.check_block_stmts(f, inner, &b.stmts)
                 }
@@ -137,10 +137,10 @@ impl Compiler {
                         &ast::Stmt {
                             kind: S::Block(b.clone()),
                             span: b.span,
-                            notes: Default::default(),
+                            notes: ast::Notes::default(),
                         },
                     )
-                    .and_then(|_| self.ide_require_parsed_body(b.span)),
+                    .and_then(|()| self.ide_require_parsed_body(b.span)),
             };
             // Only a brace-less payload declares in the receiving lexical block.
             // Its wrapper supplies captured lookup without adding a lexical boundary.
@@ -172,8 +172,7 @@ impl Compiler {
                 .scope(target)
                 .names
                 .get(&name)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
+                .map_or(&[][..], Vec::as_slice);
             let mut already_bound = false;
             for old in self.bound_entities(existing) {
                 let new = self.entity(id);
@@ -293,7 +292,7 @@ impl Compiler {
                     .scope(body.scope)
                     .names
                     .get(&name)
-                    .is_none_or(|ids| ids.is_empty());
+                    .is_none_or(std::vec::Vec::is_empty);
                 let found = self
                     .scope(inserter)
                     .names

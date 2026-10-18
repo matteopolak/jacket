@@ -10,7 +10,7 @@ fn compile(source: &str, private: bool) -> Result<(), String> {
         ""
     };
     let module = format!(
-        r#"
+        r"
         Base :: struct {{ n:int; }}
         Derived :: #type,isa Base;
         Nested :: #type,isa Derived;
@@ -25,7 +25,7 @@ fn compile(source: &str, private: bool) -> Result<(), String> {
         operator + :: (a:Base,b:Base)->Base {{ return .{{a.n+b.n}}; }}
         operator - :: (a:Base,b:Base)->Base {{ return .{{a.n-b.n}}; }}
         operator ! :: (a:Base)->bool {{ return a.n==0; }}
-    "#
+    "
     );
     fs.insert("/lib/Definition/module.jai", module.as_bytes());
     fs.insert("/main.jai", source.as_bytes());

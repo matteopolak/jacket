@@ -240,7 +240,7 @@ fn driver_preserves_supplied_source_runtime_and_target_options() {
         paths: vec![root.join("app/main.jai")],
         import_dirs: Vec::new(),
         stdlib: root.join("missing-default-library"),
-        config: Default::default(),
+        config: jailint::config::Config::default(),
         jobs: 2,
         verbose: false,
         add_sources: Vec::new(),

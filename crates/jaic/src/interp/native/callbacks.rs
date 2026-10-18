@@ -82,7 +82,9 @@ fn same_gate(a: &Arc<dyn Gate>, b: &Arc<dyn Gate>) -> bool {
 
 /// Free every thunk made for `gate`'s interpreter.
 pub fn release(gate: &Arc<dyn Gate>) {
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     for family in table.iter_mut() {
         free_slots(family, |s| same_gate(&s.gate, gate));
     }
@@ -129,7 +131,7 @@ const INT: usize = 0;
 
 const FLOAT: usize = 1;
 
-/// AArch64 `sret`: the caller's result address arrives in `x8`, which no prototype parameter
+/// `AArch64` `sret`: the caller's result address arrives in `x8`, which no prototype parameter
 /// sees. These thunks are assembly stubs that park `x8` in a stack word and call a regular
 /// thunk (`a64_sret_inner`), which finds it there.
 const A64_SRET: usize = 8;
@@ -201,7 +203,9 @@ pub fn callback_addr(
             }
         },
     };
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let slots = &mut table[shape];
     let k = slot_for(slots, SLOTS, |s| {
         s.program == program && s.func == func && s.sig == *sig
@@ -345,7 +349,7 @@ macro_rules! family {
     };
 }
 
-/// The regular thunk an AArch64 `sret` stub calls: `dispatch` reads `x8` from the stub's frame.
+/// The regular thunk an `AArch64` `sret` stub calls: `dispatch` reads `x8` from the stub's frame.
 #[cfg(target_arch = "aarch64")]
 #[rustfmt::skip]
 extern "C" fn a64_sret_inner<const K: usize>(
@@ -361,7 +365,7 @@ extern "C" fn a64_sret_inner<const K: usize>(
     0
 }
 
-/// The C-callable entry of AArch64 `sret` slot `K`: saves `x8` (and the frame record) in a
+/// The C-callable entry of `AArch64` `sret` slot `K`: saves `x8` (and the frame record) in a
 /// 32-byte frame, then calls `a64_sret_inner` with the arguments untouched.
 #[cfg(target_arch = "aarch64")]
 #[unsafe(naked)]
@@ -444,7 +448,9 @@ fn dispatch(
         (None, stack)
     };
     let (gate, program, func, sig, sret) = {
-        let table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+        let table = TABLE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(slot) = &table[shape][k] else {
             drop(table);
             fatal("C called a procedure of an interpreter that has finished")
@@ -614,12 +620,12 @@ fn invoke(
             }
             Passing::Registers(pieces) => {
                 incoming.exhaust(&pieces);
-                for w in buffer.iter_mut() {
+                for w in &mut buffer {
                     *w = incoming.stack();
                 }
             }
             Passing::ByVal => {
-                for w in buffer.iter_mut() {
+                for w in &mut buffer {
                     *w = incoming.stack();
                 }
             }
@@ -639,7 +645,7 @@ fn invoke(
         let out = x8.unwrap_or(ints[0]);
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
-            std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize)
+            std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize);
         };
         return Ok(vec![out]);
     }

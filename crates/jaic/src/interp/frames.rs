@@ -26,7 +26,7 @@ impl Frame {
 }
 
 /// Preserve the debug poison exactly while copying constant blocks. In an
-/// unoptimized compiler, slice::fill otherwise executes one Rust iterator step
+/// unoptimized compiler, `slice::fill` otherwise executes one Rust iterator step
 /// per register on every interpreted call.
 #[cfg(debug_assertions)]
 pub(super) fn poison_registers(registers: &mut [u64]) {
@@ -46,10 +46,10 @@ mod register_poison_tests {
     fn every_register_keeps_the_exact_debug_pattern_and_slice_boundaries() {
         for size in [0, 1, 7, 8, 31, 32, 33, 63, 64, 65, 127, 128, 129, 1024] {
             let mut guarded = vec![0x1234_5678_9abc_def0; size + 2];
-            super::poison_registers(&mut guarded[1..1 + size]);
+            super::poison_registers(&mut guarded[1..=size]);
             assert_eq!(guarded[0], 0x1234_5678_9abc_def0);
             assert_eq!(guarded[size + 1], 0x1234_5678_9abc_def0);
-            for word in &guarded[1..1 + size] {
+            for word in &guarded[1..=size] {
                 assert_eq!(word.to_ne_bytes(), 0xdead_beef_dead_beefu64.to_ne_bytes());
             }
         }
@@ -158,8 +158,9 @@ impl Interp {
         if let Some(Some(f)) = self.frames.get(i)
             && f.code.source == code::fingerprint(func)
         {
+            let frame: *const Frame = &raw const **f;
             // SAFETY: see above.
-            return unsafe { &*(&**f as *const Frame) };
+            return unsafe { &*frame };
         }
         self.make_frame(program, id, func)
     }
@@ -216,7 +217,7 @@ impl Interp {
         if self.frames.len() <= i {
             self.frames.resize_with(i + 1, || None);
         }
-        let ptr: *const Frame = &*frame;
+        let ptr: *const Frame = &raw const *frame;
         if let Some(old) = self.frames[i].replace(frame) {
             self.retired.push(old);
         }

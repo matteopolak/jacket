@@ -187,22 +187,18 @@ impl Compiler {
             let v = match (results.first(), main_sig.returns.first()) {
                 (Some(&r), Some(&mt)) if self.types.is_integer(mt) => {
                     let have = f.b.val_ty(r);
-                    if have.size() > want.size() {
-                        f.b.conv(ir::ConvOp::Trunc, have, want, r)
-                    } else if have.size() < want.size() {
-                        let signed = self.types.int_info(mt).is_some_and(|i| i.1);
-                        f.b.conv(
-                            if signed {
+                    match have.size().cmp(&want.size()) {
+                        std::cmp::Ordering::Greater => f.b.conv(ir::ConvOp::Trunc, have, want, r),
+                        std::cmp::Ordering::Less => {
+                            let signed = self.types.int_info(mt).is_some_and(|i| i.1);
+                            let op = if signed {
                                 ir::ConvOp::SExt
                             } else {
                                 ir::ConvOp::ZExt
-                            },
-                            have,
-                            want,
-                            r,
-                        )
-                    } else {
-                        r
+                            };
+                            f.b.conv(op, have, want, r)
+                        }
+                        std::cmp::Ordering::Equal => r,
                     }
                 }
                 _ => f.b.iconst(want, 0),

@@ -103,7 +103,7 @@ fn is_deferred(expr: &ast::Expr) -> bool {
 }
 
 /// `.{300, -1} * scale`: arithmetic whose left operand is an untyped struct literal builds
-/// that literal as the parameter's type, so the operator is looked up on it (ui_builder).
+/// that literal as the parameter's type, so the operator is looked up on it (`ui_builder`).
 fn literal_arithmetic(expr: &ast::Expr) -> bool {
     match &expr.kind {
         E::Binary(ast::BinOp::Add | ast::BinOp::Sub | ast::BinOp::Mul | ast::BinOp::Div, a, _) => {
@@ -261,7 +261,7 @@ impl Compiler {
                 err(span, format!("cannot call type {}", self.types.name(t)))
             }
             other => {
-                let parameters = self.callable_operand_parameters(f, &other)?;
+                let parameters = self.callable_operand_parameters(&other)?;
                 let (ty, v) = self.rvalue(f, other, span)?;
                 let call_args = self.precheck_args(f, scope, args)?;
                 self.call_indirect(f, ty, v, parameters, call_args, span)

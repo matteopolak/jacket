@@ -208,7 +208,7 @@ pub(crate) struct Analysis {
     /// Calls with a literal format string (candidates; see `Session::format_calls`).
     pub format_calls: Vec<crate::format::FormatCall>,
     /// Names this document declares with the `@PrintLike` note.
-    pub print_like: std::collections::HashSet<String>,
+    pub print_like: jaic::fxhash::HashSet<String>,
     /// The `$` names of each procedure this document declares.
     pub type_parameters: Vec<TypeParameter>,
     /// The compiler's tokens of the text (after parse recovery), for the features that read
@@ -273,7 +273,7 @@ impl Analysis {
             loads: vec![],
             opaque_scopes: vec![],
             format_calls: vec![],
-            print_like: Default::default(),
+            print_like: jaic::fxhash::HashSet::default(),
             type_parameters: vec![],
             syntax_tokens: Rc::from([]),
             lex_errors: vec![],

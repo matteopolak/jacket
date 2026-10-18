@@ -104,8 +104,7 @@ impl Exporter<'_> {
                 let (filter_type, filter_expression) = param
                     .using_filter
                     .as_ref()
-                    .map(|filter| self.using_filter(filter))
-                    .unwrap_or((0, 0));
+                    .map_or((0, 0), |filter| self.using_filter(filter));
                 let mut using = self.node(RecordTag::CodeUsing, node::USING, param.span);
                 using
                     .ptr("expression", ident)

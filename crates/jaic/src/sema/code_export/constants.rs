@@ -1,6 +1,6 @@
 //! Numeric values of the node kinds, message kinds and instruction flags the exported records use.
 
-/// Reviewed Code_Type_Instantiation.inst_flags ABI (independent of AST enum tags).
+/// Reviewed `Code_Type_Instantiation.inst_flags` ABI (independent of AST enum tags).
 pub(super) mod inst_flags {
     pub const VARARGS: i64 = 0x1;
     pub const RESIZABLE: i64 = 0x2;

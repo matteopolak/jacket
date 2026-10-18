@@ -49,7 +49,7 @@ fn default_generic_pointers_execute_native_and_wasm_at_o0_and_o2() {
                     .arg(&object)
                     .arg("-o")
                     .arg(&module));
-                run(Command::new("node").args(["-e", r#"
+                run(Command::new("node").args(["-e", r"
                     const fs=require('fs');
                     const module=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
                     const env={}; let memory;
@@ -62,7 +62,7 @@ fn default_generic_pointers_execute_native_and_wasm_at_o0_and_o2() {
                     const instance=new WebAssembly.Instance(module,{env}); memory=instance.exports.memory;
                     const result=instance.exports.generic_pointer_check();
                     if(result!==0)throw Error('generic pointer failure '+result);
-                "#]).arg(&module));
+                "]).arg(&module));
             } else {
                 let driver = dir.join("driver.c");
                 std::fs::write(&driver,"#include <stdint.h>\nextern int32_t generic_pointer_check(void); int main(void){return generic_pointer_check();}\n").unwrap();

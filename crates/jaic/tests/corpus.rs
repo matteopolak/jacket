@@ -17,7 +17,7 @@ fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 #[test]
-#[ignore]
+#[ignore = "sweeps whole corpora; run explicitly (see docs/tools/testing.md)"]
 fn corpus_sweep() {
     // `JAIC_CORPUS_ROOT` points the sweep at another checkout (the corpora are gitignored).
     let root = std::env::var_os("JAIC_CORPUS_ROOT").map_or_else(

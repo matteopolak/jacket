@@ -93,7 +93,10 @@ fn known_argument_types_filter_unselected_overloads() {
         names(&format!("{declarations}f(\"text\", opt|); }}")),
         ["option_string"]
     );
-    assert!(names("f :: (option: Missing_Type) {}\nmain :: () { f(op|); }").is_empty());
+    assert_eq!(
+        names("f :: (option: Missing_Type) {}\nmain :: () { f(op|); }"),
+        [] as [std::string::String; 0]
+    );
 }
 
 #[test]
@@ -139,7 +142,7 @@ fn utf16_incremental_edits_recompute_the_callee_without_stale_names() {
             }],
         )
         .unwrap();
-        text.replace_range(callee..callee + 1, replacement);
+        text.replace_range(callee..=callee, replacement);
         assert_eq!(get(&s, &text), [expected]);
     }
 }
@@ -205,7 +208,10 @@ fn supplied_arguments_filter_each_overload_and_parameters_after_cursor() {
         names(&format!("{decl}main :: () {{ f(second = 2, 3, |); }}")),
         ["first"]
     );
-    assert!(names(&format!("{decl}main :: () {{ f(unknown = 1, |); }}")).is_empty());
+    assert_eq!(
+        names(&format!("{decl}main :: () {{ f(unknown = 1, |); }}")),
+        [] as [std::string::String; 0]
+    );
     let overloads = "f :: (first: int, integer_option := false) {}\nf :: (first: string, text_option := false) {}\nmain :: () { f(|); }";
     assert_eq!(names(overloads), ["first", "integer_option", "text_option"]);
 }

@@ -23,8 +23,9 @@
 #![allow(unsafe_code)]
 
 use super::*;
+use crate::fxhash::HashSet;
 use crate::macros::raw_enum;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 
 raw_enum! {
     /// A foreign procedure the thread schedulers (`threads` and the inline one here) implement.
@@ -338,7 +339,7 @@ impl Interp {
                 self.isched().mutexes.remove(&arg(0));
                 Ok(0)
             }
-            ThreadFn::MutexLock => self.inline_lock(arg(0), 1).map(|_| 0),
+            ThreadFn::MutexLock => self.inline_lock(arg(0), 1).map(|()| 0),
             ThreadFn::MutexTryLock => {
                 let me = self.isched().current;
                 let state = self.isched().mutexes.entry(arg(0)).or_default();
@@ -386,7 +387,7 @@ impl Interp {
             }
             ThreadFn::Usleep if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000),
             ThreadFn::Sleep if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000_000_000),
-            ThreadFn::SchedYield | ThreadFn::YieldNp if started => self.inline_yield().map(|_| 0),
+            ThreadFn::SchedYield | ThreadFn::YieldNp if started => self.inline_yield().map(|()| 0),
             ThreadFn::YieldForWait => self.inline_yield_for_wait(),
             _ => return None,
         };
@@ -546,7 +547,7 @@ impl Interp {
             Some(Resume::Yield) => return Ok(0),
             _ => match self.host.virtual_now_ns() {
                 Some(now) if nanoseconds > 0 => now.saturating_add(nanoseconds),
-                _ => return self.inline_yield().map(|_| 0),
+                _ => return self.inline_yield().map(|()| 0),
             },
         };
         let outcome = self.wait_until(Wait::Time, Some(until));

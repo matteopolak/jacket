@@ -17,7 +17,7 @@ fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
     let mut fs = VirtualFs::default();
     fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
     let mut c = Compiler::new(options, Rc::new(fs));
-    let source = r#"
+    let source = r"
         pick :: ($types: ..Type) -> Type { return types[2]; }
         forwarded :: ($types: ..Type) -> Type { return pick(u8,..types,s64); }
         identity :: ($types: ..Type) -> bool {
@@ -28,7 +28,7 @@ fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
         #assert(forwarded(u16,u32)==u32);
         #assert(identity(u16,u32));
         #assert(!identity(u32,u16));
-    "#;
+    ";
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.sources));
     }
@@ -39,12 +39,12 @@ fn baked_mixed_packs_preserve_values_and_order() {
     let mut options = Options::host();
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
-    let source = r#"
+    let source = r"
     encode :: ($items: ..int) -> int { result:int; for items result=result*10+it; return result; }
     forward :: ($items: ..int) -> int { return encode(1,..items,4); }
     #assert(forward(2,3)==1234);
     main :: () {}
-    "#;
+    ";
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.sources));
     }
@@ -76,18 +76,18 @@ fn mixed_segments_preserve_values_order_defaults_and_polymorphism() {
 fn invalid_spread_lengths_and_c_variadic_arity_are_diagnosed() {
     for (source, expected) in [
         (
-            r#"
+            r"
             collect :: (items: ..int) -> int { return items.count; }
             invalid :: () -> int { bad:[]int; bad.count=-1; return collect(1,..bad); }
             #assert(invalid()==0);
-        "#,
+        ",
             "variadic",
         ),
         (
-            r#"
+            r"
             foreign_call :: (prefix:int, args: ..Any) #foreign;
             main :: () { items:[]int; foreign_call(1,..items); }
-        "#,
+        ",
             "spread",
         ),
     ] {

@@ -110,11 +110,13 @@ impl Facts {
             let named: Vec<ProcId> = match &r.what {
                 IdeWhat::Procs(ps) => ps.clone(),
                 IdeWhat::Entity(e) => match &compiler.entity(*e).state {
-                    EntityState::Done(Resolved::Proc(p))
-                    | EntityState::Done(Resolved::Const {
-                        value: jaic::sema::Value::Proc(p),
-                        ..
-                    }) => vec![*p],
+                    EntityState::Done(
+                        Resolved::Proc(p)
+                        | Resolved::Const {
+                            value: jaic::sema::Value::Proc(p),
+                            ..
+                        },
+                    ) => vec![*p],
                     EntityState::Done(Resolved::ProcSet(ps)) => ps.clone(),
                     _ => Vec::new(),
                 },

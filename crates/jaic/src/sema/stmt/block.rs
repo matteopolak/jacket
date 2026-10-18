@@ -258,7 +258,7 @@ impl Compiler {
         Ok(())
     }
 
-    /// A `#if` condition inside a body: `#exists(`name)` (possibly negated) looks in the
+    /// A `#if` condition inside a body: `#exists(name)` (possibly negated) looks in the
     /// macro's caller, which constant evaluation cannot see.
     fn body_static_condition(
         &mut self,
@@ -300,7 +300,7 @@ impl Compiler {
                 f.no_aoc |= b.no_aoc;
                 let result = self.check_block_stmts(f, inner, &b.stmts);
                 (f.no_abc, f.no_aoc) = saved;
-                result?
+                result?;
             }
             S::Block(b) => self.check_block_stmts(f, inner, &b.stmts)?,
             _ => self.check_stmt(f, inner, stmt)?,
@@ -642,13 +642,13 @@ impl Compiler {
                     }
                 }
                 S::While(w) => {
-                    self.hoist_body_imports(file_scope, std::slice::from_ref(&w.body), true)
+                    self.hoist_body_imports(file_scope, std::slice::from_ref(&w.body), true);
                 }
                 S::Defer {
                     body, ..
                 } => self.hoist_body_imports(file_scope, std::slice::from_ref(body), true),
                 S::For(f) => {
-                    self.hoist_body_imports(file_scope, std::slice::from_ref(&f.body), true)
+                    self.hoist_body_imports(file_scope, std::slice::from_ref(&f.body), true);
                 }
                 _ => {}
             }

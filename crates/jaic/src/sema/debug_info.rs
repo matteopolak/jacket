@@ -245,9 +245,7 @@ impl Compiler {
             }
             TypeKind::Struct(s) => {
                 let info = self.types.struct_info(s);
-                if info.layout != LayoutState::Done {
-                    DebugTypeKind::Void
-                } else {
+                if info.layout == LayoutState::Done {
                     let fields = info
                         .fields
                         .iter()
@@ -257,6 +255,8 @@ impl Compiler {
                         fields,
                         union: info.is_union,
                     }
+                } else {
+                    DebugTypeKind::Void
                 }
             }
             TypeKind::Enum(e) => {

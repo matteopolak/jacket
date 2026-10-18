@@ -44,22 +44,19 @@ impl Compiler {
                     return err(name.span, "assignment needs a value");
                 };
                 // `ok:, t.str = f()` assigns to a member, index or dereference.
-                let place = match decl.targets().get(i) {
-                    Some(Some(e)) => {
-                        self.reject_constant_target(f, scope, e)?;
-                        self.check_expr(f, scope, e, None)?
+                let place = if let Some(Some(e)) = decl.targets().get(i) {
+                    self.reject_constant_target(f, scope, e)?;
+                    self.check_expr(f, scope, e, None)?
+                } else {
+                    let place = self.check_ident(f, scope, name.name, name.span)?;
+                    if self.ide.is_some() {
+                        let expr = ast::Expr {
+                            kind: ast::ExprKind::Ident(name.name),
+                            span: name.span,
+                        };
+                        self.ide_note_expr(&expr, &place);
                     }
-                    _ => {
-                        let place = self.check_ident(f, scope, name.name, name.span)?;
-                        if self.ide.is_some() {
-                            let expr = ast::Expr {
-                                kind: ast::ExprKind::Ident(name.name),
-                                span: name.span,
-                            };
-                            self.ide_note_expr(&expr, &place);
-                        }
-                        place
-                    }
+                    place
                 };
                 let place = place.without_callable();
                 let Operand::Place {
@@ -127,7 +124,7 @@ impl Compiler {
                 match &decl.ty {
                     Some(source) => self.callable_expression_parameters(scope, Some(source))?,
                     None => match &value {
-                        Some(op) => self.callable_operand_parameters(f, op)?,
+                        Some(op) => self.callable_operand_parameters(op)?,
                         None => None,
                     },
                 }
@@ -217,6 +214,10 @@ impl Compiler {
 
     /// A returned value that does not fit the procedure's result type: a note points at the
     /// type it had to match in the procedure's header.
+    #[expect(
+        clippy::unnecessary_box_returns,
+        reason = "the diagnostic is boxed because the error type carries it boxed; callers pass it through `map_err`"
+    )]
     pub(super) fn return_type_mismatch(
         &self,
         mut e: Box<Diagnostic>,
@@ -241,6 +242,10 @@ impl Compiler {
 
     /// A value that does not fit the declared type of `x: T = value;`: the error points at
     /// the value, with the type it had to match as a note.
+    #[expect(
+        clippy::unnecessary_box_returns,
+        reason = "the diagnostic is boxed because the error type carries it boxed; callers pass it through `map_err`"
+    )]
     fn declared_type_mismatch(
         &self,
         mut e: Box<Diagnostic>,

@@ -133,7 +133,7 @@ fn editing_a_loaders_loads_moves_the_fragments_owner() {
     // Without its `#load`, `Shapes` no longer owns the fragment, which cannot see `LIMIT`.
     s.change(&module, 3, &[full(&text.replace("#load", "// #load"))])
         .unwrap();
-    assert!(!check_errors(&s, &fragment).is_empty());
+    assert_ne!(check_errors(&s, &fragment), [] as [std::string::String; 0]);
     s.change(&module, 4, &[full(&text)]).unwrap();
     assert_eq!(check_errors(&s, &fragment), Vec::<String>::new());
     let _ = std::fs::remove_dir_all(&folder);

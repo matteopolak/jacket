@@ -360,6 +360,10 @@ impl Compiler {
         ))
     }
 
+    #[expect(
+        clippy::float_cmp,
+        reason = "constant folding of `==` between an integer and a float is exact, as at run time"
+    )]
     pub(super) fn const_equal(&self, a: &Operand, b: &Operand) -> bool {
         match (a.const_value(), b.const_value()) {
             (Some(Value::Int(x)), Some(Value::Float(y, _)))

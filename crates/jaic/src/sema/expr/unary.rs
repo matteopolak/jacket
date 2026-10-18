@@ -64,7 +64,7 @@ impl Compiler {
                     }),
                     Operand::Procs(p) if p.len() == 1 => {
                         let op = Operand::Procs(p);
-                        let parameters = self.callable_operand_parameters(f, &op)?;
+                        let parameters = self.callable_operand_parameters(&op)?;
                         let (ty, v) = self.rvalue(f, op, span)?;
                         Ok(Operand::Value {
                             ty,
@@ -87,23 +87,22 @@ impl Compiler {
                         ..
                     } if self.is_memory_type(ty) => {
                         let key = (ty, agg.bytes.clone(), agg.relocs.clone());
-                        let global = match self.const_addr_globals.get(&key) {
-                            Some(&g) => g,
-                            None => {
-                                let size = self.size_of(ty, span)?;
-                                let align = self.align_of(ty, span)?;
-                                let g = self.program.add_global(ir::Global {
-                                    name: format!("const.{}", self.program.globals.len()),
-                                    size,
-                                    align,
-                                    init: agg.bytes.clone(),
-                                    relocs: agg.relocs.clone(),
-                                    read_only: false,
-                                    export: None,
-                                });
-                                self.const_addr_globals.insert(key, g);
-                                g
-                            }
+                        let global = if let Some(&g) = self.const_addr_globals.get(&key) {
+                            g
+                        } else {
+                            let size = self.size_of(ty, span)?;
+                            let align = self.align_of(ty, span)?;
+                            let g = self.program.add_global(ir::Global {
+                                name: format!("const.{}", self.program.globals.len()),
+                                size,
+                                align,
+                                init: agg.bytes.clone(),
+                                relocs: agg.relocs.clone(),
+                                read_only: false,
+                                export: None,
+                            });
+                            self.const_addr_globals.insert(key, g);
+                            g
                         };
                         let addr = f.b.global_addr(global);
                         Ok(Operand::Value {

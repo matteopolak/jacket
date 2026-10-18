@@ -293,13 +293,13 @@ fn gnu_descriptor_name_is_not_an_arbitrary_dll_string() {
         imports::providers(&bytes, 0x8664).unwrap(),
         ["real-provider.dll"]
     );
-    assert!(
+    assert_eq!(
         imports::providers(
             &archive(&[b"not a COFF object: decoy.dll\0".to_vec()]),
             0x8664
         )
-        .unwrap()
-        .is_empty()
+        .unwrap(),
+        [] as [std::string::String; 0]
     );
 }
 

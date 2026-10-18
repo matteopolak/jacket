@@ -192,7 +192,7 @@ impl Target {
         }
     }
 
-    pub fn has(&self, f: Feature) -> bool {
+    pub fn has(self, f: Feature) -> bool {
         self.features.has(f)
     }
 }
@@ -201,7 +201,10 @@ impl Target {
 /// NEON on aarch64, nothing on wasm). Only the features this module names are listed. An
 /// unknown name gets the baseline: code for it stays correct, just not the fastest.
 fn cpu_features(family: Family, cpu: &str) -> &'static [Feature] {
-    use Feature::*;
+    use Feature::{
+        Avx, Avx2, Avx512bw, Avx512f, Avx512vbmi, Neon, Simd128, Sse2, Sse41, Sse42, Ssse3, Sve,
+        Sve2,
+    };
     match family {
         Family::X86 => {
             let cpu = cpu.to_ascii_lowercase();

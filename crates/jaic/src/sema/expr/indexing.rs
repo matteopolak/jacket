@@ -109,19 +109,17 @@ impl Compiler {
         let bty = base_op.ty();
         // `operator []` when one matches, else `operator *[]` dereferenced.
         let getter = self.try_index_operator_overload(f, scope, "[]", &base_op, &index_op, span);
-        match getter {
-            Ok(Some(result)) => return Ok(result),
-            Ok(None) | Err(_) => {
-                if let Some(result) =
-                    self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)?
-                {
-                    return Ok(result);
-                }
-                // A pointer indexes its memory when no operator for the pointee fits.
-                if self.types.pointee(bty).is_none() {
-                    getter?;
-                }
-            }
+        if let Ok(Some(result)) = getter {
+            return Ok(result);
+        }
+        if let Some(result) =
+            self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)?
+        {
+            return Ok(result);
+        }
+        // A pointer indexes its memory when no operator for the pointee fits.
+        if self.types.pointee(bty).is_none() {
+            getter?;
         }
         let index_op = self.settle_untyped(index_op, Some(TypeId::S64));
         let ity = index_op.ty();

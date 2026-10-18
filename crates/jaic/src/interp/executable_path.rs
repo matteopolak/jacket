@@ -5,7 +5,7 @@
 //! (`join(path_strip_filename(get_path_of_running_executable()), "../assets")`) runs the same
 //! either way. Compile-time code keeps the real answer (the compiler, as with any compiler).
 //!
-//! The same goes for the command line on Windows: Runtime_Support reads the arguments again
+//! The same goes for the command line on Windows: `Runtime_Support` reads the arguments again
 //! from `GetCommandLineW` (the C runtime's `argv` is in the ANSI code page), which would give
 //! `jaic file.jai -interp -- ...`. While `run_executable` is set it gets `Interp::run_arguments`
 //! quoted so that `CommandLineToArgvW` splits them back unchanged.
@@ -205,10 +205,7 @@ mod tests {
         // allocation failure, and the runtime must never need to accept NULL.
         assert!(
             interp
-                .executable_path_foreign(
-                    "CommandLineToArgvW",
-                    &[address, (&mut count as *mut i32) as u64]
-                )
+                .executable_path_foreign("CommandLineToArgvW", &[address, (&raw mut count) as u64])
                 .is_none()
         );
         assert_eq!(count, -1);
@@ -233,7 +230,7 @@ mod tests {
     }
 
     fn line(args: &[&str]) -> String {
-        let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
+        let args: Vec<String> = args.iter().map(std::string::ToString::to_string).collect();
         windows_command_line(&args)
     }
 

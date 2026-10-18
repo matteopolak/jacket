@@ -123,7 +123,7 @@ pub struct Program {
     /// Types named by debug information (`FuncDebug`, `debug_globals`), by key.
     pub debug_types: crate::fxhash::HashMap<u32, DebugType>,
     pub debug_globals: Vec<DebugGlobal>,
-    /// Runtime_Support's `__jaic_check_failed(reason, a, b, fatal, line, filename)`,
+    /// `Runtime_Support`'s `__jaic_check_failed(reason, a, b, fatal, line, filename)`,
     /// which native code calls when a check fails (bounds, casts, `#complete` switches, a
     /// missing return) to say which one and where, before it traps.
     pub check_failed: Option<FuncId>,

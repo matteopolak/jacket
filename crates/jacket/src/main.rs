@@ -4,6 +4,7 @@
 //! The tools stay separate programs, found next to this executable (or on `PATH`). A command
 //! that belongs to one of them is handed to it before clap sees the arguments, so the tool's own
 //! flags work exactly as they do when it is run alone.
+#![forbid(unsafe_code)]
 mod cli;
 mod commands;
 mod compile;

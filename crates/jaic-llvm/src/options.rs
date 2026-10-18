@@ -109,16 +109,16 @@ pub struct Codegen {
 /// Which sanitizers instrument a native build. [`link`] links the runtime they call.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Sanitize {
-    /// AddressSanitizer: heap, stack and global out-of-bounds, use-after-free, use-after-return.
+    /// `AddressSanitizer`: heap, stack and global out-of-bounds, use-after-free, use-after-return.
     pub address: bool,
-    /// The UBSan checks that exist at the LLVM IR level and match Jai semantics: accesses
+    /// The `UBSan` checks that exist at the LLVM IR level and match Jai semantics: accesses
     /// outside an object of known size (`bounds-checking`, Clang's `local-bounds`).
     pub undefined: bool,
-    /// SanitizerCoverage `trace-pc-guard` and `pc-table` for line and function coverage; the
+    /// `SanitizerCoverage` `trace-pc-guard` and `pc-table` for line and function coverage; the
     /// link adds `runtime/coverage.c`, which writes the blocks that ran at exit
     /// (`docs/tools/coverage.md`).
     pub coverage: bool,
-    /// Coverage instrumentation for libFuzzer (SanitizerCoverage: inline 8-bit counters, a PC
+    /// Coverage instrumentation for libFuzzer (`SanitizerCoverage`: inline 8-bit counters, a PC
     /// table and comparison tracing). [`link`] adds libFuzzer without its `main`, so the program
     /// starts the engine itself with `LLVMFuzzerRunDriver`.
     pub fuzzer: bool,
@@ -164,7 +164,7 @@ impl Sanitize {
     }
 
     /// Passes appended to the optimization pipeline, where Clang runs its sanitizer passes.
-    /// The bounds checks come first so that ASan does not instrument them.
+    /// The bounds checks come first so that `ASan` does not instrument them.
     pub(super) fn passes(self, opt_level: OptLevel) -> Vec<&'static str> {
         let mut passes = Vec::new();
         if self.undefined {
@@ -189,7 +189,7 @@ impl Sanitize {
     }
 }
 
-/// The SanitizerCoverage pass of `-coverage` and `-sanitize fuzzer` builds (options: [`set_coverage_options`]).
+/// The `SanitizerCoverage` pass of `-coverage` and `-sanitize fuzzer` builds (options: [`set_coverage_options`]).
 /// The fuzzer's counters and PC table are also what a coverage report reads; its traced
 /// comparisons let libFuzzer solve `if x == 0x1234` style branches.
 pub const SANCOV_PASS: &str = "sancov-module";

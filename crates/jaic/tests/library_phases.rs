@@ -28,7 +28,7 @@ impl Host for Observer {
             return None;
         }
         self.calls.set(self.calls.get() + 1);
-        Some((&*self.value as *const i64) as u64)
+        Some((&raw const *self.value) as u64)
     }
 }
 

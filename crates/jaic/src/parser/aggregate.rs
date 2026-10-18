@@ -87,7 +87,7 @@ impl Parser<'_> {
             match name {
                 "type_info_none" => flags.type_info_none = true,
                 "type_info_procedures_are_void_pointers" => {
-                    flags.type_info_procedures_are_void_pointers = true
+                    flags.type_info_procedures_are_void_pointers = true;
                 }
                 "type_info_no_size_complaint" => flags.type_info_no_size_complaint = true,
                 "no_padding" => flags.no_padding = true,

@@ -244,7 +244,7 @@ fn dead_platform_branches_are_skipped_for_a_library_target() {
                     collect(&branch.else_branch, names, taken && !value);
                 }
                 StmtKind::Decl(d) if taken => {
-                    names.extend(d.names.iter().map(|n| n.name.as_str().to_string()))
+                    names.extend(d.names.iter().map(|n| n.name.as_str().to_string()));
                 }
                 _ => {}
             }

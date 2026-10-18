@@ -463,19 +463,19 @@ fn struct_constants_procedures_and_types_resolve_in_links() {
         line_of(STRUCT_MEMBERS, "count: int")
     );
     // What is not declared in the struct is not found.
-    assert!(
+    assert_eq!(
         s.definition(&uri(), after(STRUCT_MEMBERS, "[Outer.missing", 0, 2))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
-    assert!(
+    assert_eq!(
         s.definition(&uri(), after(STRUCT_MEMBERS, "Inner.nothing", 0, 2))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
 }
 
-const POLY_STRUCT: &str = r#"Ring :: struct(Item: Type, CAPACITY: int) {
+const POLY_STRUCT: &str = r"Ring :: struct(Item: Type, CAPACITY: int) {
     items: [CAPACITY] Item;
     count: int;
 }
@@ -484,7 +484,7 @@ const POLY_STRUCT: &str = r#"Ring :: struct(Item: Type, CAPACITY: int) {
 fill :: () {}
 
 main :: () { fill(); }
-"#;
+";
 
 #[test]
 fn polymorphic_struct_fields_and_parameters_resolve_in_links() {
@@ -503,10 +503,10 @@ fn polymorphic_struct_fields_and_parameters_resolve_in_links() {
         line_of_definition(after(POLY_STRUCT, "[Ring.CAPACITY", 0, 2)),
         line_of(POLY_STRUCT, "Ring ::")
     );
-    assert!(
+    assert_eq!(
         s.definition(&uri(), after(POLY_STRUCT, "[Ring.missing", 0, 2))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
 }
 
@@ -569,10 +569,10 @@ fn module_qualified_struct_constants_resolve() {
         .definition(&uri(), after(&text, "[Shapes.Square.side", 0, 2))
         .unwrap();
     assert_eq!(field[0].range.start.line, 2);
-    assert!(
+    assert_eq!(
         s.definition(&uri(), after(&text, "Square.nothing", 0, 2))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
     std::fs::remove_dir_all(&dir).ok();
 }

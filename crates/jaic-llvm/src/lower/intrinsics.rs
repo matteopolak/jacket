@@ -15,7 +15,7 @@ use inkwell::values::{
 use jaic::abi::Arch;
 use jaic::ir::{self, AtomicOp, CmpOp, Intrinsic, Ty, WideArith, WideFloat, WideOp};
 
-impl<'ctx, 'p> Backend<'ctx, 'p> {
+impl<'ctx> Backend<'ctx, '_> {
     /// What the SIMD intrinsics (`ByteLookup`, `SignMask`) lower through: see `simd`.
     fn simd_cx(&self) -> crate::simd::Cx<'_, 'ctx> {
         crate::simd::Cx {
@@ -110,6 +110,85 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         args: &[BasicValueEnum<'ctx>],
         want: &[Ty],
     ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let ptr_arg = |i: usize| {
+            self.coerce(args[i], Ty::Ptr)
+                .map(|v| v.into_pointer_value())
+        };
+        match op {
+            Intrinsic::Memcpy
+            | Intrinsic::Memset
+            | Intrinsic::Memcmp
+            | Intrinsic::CompareAndSwap
+            | Intrinsic::AtomicLoad(..)
+            | Intrinsic::AtomicStore(..)
+            | Intrinsic::AtomicRmw(..)
+            | Intrinsic::AtomicCas(..) => self.intrinsic_memory(st, op, args, want),
+            Intrinsic::DebugBreak
+            | Intrinsic::Trap
+            | Intrinsic::CheckFailed
+            | Intrinsic::BoundsCheck
+            | Intrinsic::CompilerWrite => self.intrinsic_traps(st, op, args, want),
+            Intrinsic::Sqrt
+            | Intrinsic::Sin
+            | Intrinsic::Cos
+            | Intrinsic::Floor
+            | Intrinsic::Ceil
+            | Intrinsic::Round
+            | Intrinsic::Trunc
+            | Intrinsic::Fabs
+            | Intrinsic::Fma
+            | Intrinsic::Popcount
+            | Intrinsic::Bswap
+            | Intrinsic::Ctlz
+            | Intrinsic::Cttz
+            | Intrinsic::SAddOverflow
+            | Intrinsic::UAddOverflow
+            | Intrinsic::SSubOverflow
+            | Intrinsic::USubOverflow
+            | Intrinsic::SMulOverflow
+            | Intrinsic::UMulOverflow => self.intrinsic_math(st, op, args, want),
+            Intrinsic::ReturnAddress
+            | Intrinsic::CpuId
+            | Intrinsic::X86Xgetbv
+            | Intrinsic::X86Timestamp {
+                ..
+            }
+            | Intrinsic::X86Random {
+                ..
+            }
+            | Intrinsic::X86Fence(..)
+            | Intrinsic::X86Pause
+            | Intrinsic::X86Prefetch(..)
+            | Intrinsic::CycleCounter
+            | Intrinsic::Syscall
+            | Intrinsic::Pause => self.intrinsic_machine(st, op, args, want),
+            Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree => {
+                self.intrinsic_fibers(st, op, args, want)
+            }
+            Intrinsic::Wide(op, fmt) => self.wide(op, fmt, args),
+            Intrinsic::ByteLookup(width) => {
+                let (dst, table, idx) = (ptr_arg(0)?, ptr_arg(1)?, ptr_arg(2)?);
+                crate::simd::byte_lookup(&self.simd_cx(), width, dst, table, idx)?;
+                Ok(vec![])
+            }
+            Intrinsic::SignMask(width) => {
+                let mask = crate::simd::sign_mask(&self.simd_cx(), width, ptr_arg(0)?)?;
+                Ok(vec![mask.into()])
+            }
+            Intrinsic::IsCompileTime => {
+                let ty = want.first().copied().unwrap_or(Ty::I8);
+                Ok(vec![self.ll(ty).into_int_type().const_zero().into()])
+            }
+        }
+    }
+
+    pub(super) fn intrinsic_memory(
+        &self,
+        _st: &FnState<'ctx>,
+        op: Intrinsic,
+        args: &[BasicValueEnum<'ctx>],
+        want: &[Ty],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
         let b = &self.builder;
         let i64t = self.ctx.i64_type();
         let ptr_arg = |i: usize| {
@@ -117,13 +196,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .map(|v| v.into_pointer_value())
         };
         let size_arg = |i: usize| self.as_int(args[i]).and_then(|v| self.i64_of(v));
-        let float_unary = |name: &str| -> R<Vec<BasicValueEnum<'ctx>>> {
-            let ty = args[0].get_type();
-            let v = self
-                .call_intrinsic(name, &[ty], &[args[0].into()])?
-                .ok_or("math intrinsic produced no value")?;
-            Ok(vec![v])
-        };
         match op {
             Intrinsic::Memcpy => {
                 b.build_memmove(ptr_arg(0)?, 1, ptr_arg(1)?, 1, size_arg(2)?)?;
@@ -202,7 +274,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             }
             Intrinsic::AtomicLoad(order) => {
                 // (ptr, width) -> value. LLVM wants the alignment of an atomic access stated.
-                let ty = want.first().copied().ok_or("an atomic load has no result")?;
+                let ty = want
+                    .first()
+                    .copied()
+                    .ok_or("an atomic load has no result")?;
                 let int = self.atomic_int_ty(ty)?;
                 let load = b.build_load(int, ptr_arg(0)?, "")?;
                 let inst = load
@@ -224,7 +299,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 Ok(vec![])
             }
             Intrinsic::AtomicRmw(rmw, order) => {
-                let ty = want.first().copied().ok_or("an atomic update has no result")?;
+                let ty = want
+                    .first()
+                    .copied()
+                    .ok_or("an atomic update has no result")?;
                 let value = self.atomic_bits(args[1])?;
                 let rmw = match rmw {
                     AtomicOp::Xchg => AtomicRMWBinOp::Xchg,
@@ -238,7 +316,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 Ok(vec![self.coerce(old.into(), ty)?])
             }
             Intrinsic::AtomicCas(success, failure) => {
-                let ty = want.get(1).copied().ok_or("a compare-exchange has no value")?;
+                let ty = want
+                    .get(1)
+                    .copied()
+                    .ok_or("a compare-exchange has no value")?;
                 let old = self.atomic_bits(args[1])?;
                 let new = self.atomic_bits(args[2])?;
                 let new = b.build_int_truncate_or_bit_cast(new, old.get_type(), "")?;
@@ -254,6 +335,25 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let ok = b.build_int_z_extend(ok, self.ctx.i8_type(), "")?;
                 Ok(vec![ok.into(), self.coerce(prev, ty)?])
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    pub(super) fn intrinsic_traps(
+        &self,
+        st: &FnState<'ctx>,
+        op: Intrinsic,
+        args: &[BasicValueEnum<'ctx>],
+        _want: &[Ty],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let b = &self.builder;
+        let i64t = self.ctx.i64_type();
+        let ptr_arg = |i: usize| {
+            self.coerce(args[i], Ty::Ptr)
+                .map(|v| v.into_pointer_value())
+        };
+        let size_arg = |i: usize| self.as_int(args[i]).and_then(|v| self.i64_of(v));
+        match op {
             Intrinsic::DebugBreak => {
                 self.call_intrinsic("llvm.debugtrap", &[], &[])?;
                 Ok(vec![])
@@ -345,16 +445,26 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 )?;
                 Ok(vec![])
             }
-            Intrinsic::Wide(op, fmt) => self.wide(op, fmt, args),
-            Intrinsic::ByteLookup(width) => {
-                let (dst, table, idx) = (ptr_arg(0)?, ptr_arg(1)?, ptr_arg(2)?);
-                crate::simd::byte_lookup(&self.simd_cx(), width, dst, table, idx)?;
-                Ok(vec![])
-            }
-            Intrinsic::SignMask(width) => {
-                let mask = crate::simd::sign_mask(&self.simd_cx(), width, ptr_arg(0)?)?;
-                Ok(vec![mask.into()])
-            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    pub(super) fn intrinsic_math(
+        &self,
+        _st: &FnState<'ctx>,
+        op: Intrinsic,
+        args: &[BasicValueEnum<'ctx>],
+        _want: &[Ty],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let b = &self.builder;
+        let float_unary = |name: &str| -> R<Vec<BasicValueEnum<'ctx>>> {
+            let ty = args[0].get_type();
+            let v = self
+                .call_intrinsic(name, &[ty], &[args[0].into()])?
+                .ok_or("math intrinsic produced no value")?;
+            Ok(vec![v])
+        };
+        match op {
             Intrinsic::Sqrt => float_unary("llvm.sqrt"),
             Intrinsic::Sin => float_unary("llvm.sin"),
             Intrinsic::Cos => float_unary("llvm.cos"),
@@ -373,188 +483,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     )?
                     .ok_or("fma produced no value")?;
                 Ok(vec![v])
-            }
-            // WebAssembly code cannot see its own call stack.
-            Intrinsic::ReturnAddress if self.arch.is_wasm() => {
-                Ok(vec![self.ptr_ty().const_null().into()])
-            }
-            Intrinsic::ReturnAddress => {
-                let zero = self.ctx.i32_type().const_zero();
-                let v = self
-                    .call_intrinsic("llvm.returnaddress", &[], &[zero.into()])?
-                    .ok_or("returnaddress produced no value")?;
-                Ok(vec![v])
-            }
-            Intrinsic::CpuId => {
-                if !self.arch.is_x86_64() {
-                    return Err("CPUID requires an x86-64 target".into());
-                }
-                let i32t = self.ctx.i32_type();
-                let outputs = self.ctx.struct_type(&[i32t.into(); 4], false);
-                let ty = self.fn_type(Some(outputs.into()), &[i32t.into(); 2], false);
-                // Tied EAX/ECX inputs select leaf/subleaf. LLVM owns saving EBX under
-                // each platform ABI. Side effects and the memory clobber retain
-                // the architectural serialization boundary through optimization.
-                let asm = self.ctx.create_inline_asm(
-                    ty,
-                    "cpuid".into(),
-                    "={ax},={bx},={cx},={dx},0,2,~{memory},~{dirflag},~{fpsr},~{flags}".into(),
-                    true, false, None, false,
-                );
-                let call_args = args.iter()
-                    .map(|&v| self.as_int(v).map(Into::into))
-                    .collect::<R<Vec<BasicMetadataValueEnum>>>()?;
-                let value = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
-                    .ok_or("CPUID produced no value")?.into_struct_value();
-                (0..4).map(|i| {
-                    self.builder.build_extract_value(value, i, "").map_err(Into::into)
-                }).collect()
-            }
-            Intrinsic::X86Xgetbv => {
-                if !self.arch.is_x86_64() {
-                    return Err("XGETBV requires an x86-64 target".into());
-                }
-                let i32t = self.ctx.i32_type();
-                let outputs = self.ctx.struct_type(&[i32t.into(); 2], false);
-                let ty = self.fn_type(Some(outputs.into()), &[i32t.into()], false);
-                // Keep the architectural read even when its outputs are unused.
-                // XGETBV preserves EFLAGS and does not access process memory.
-                let asm = self.ctx.create_inline_asm(
-                    ty, "xgetbv".into(), "={dx},={ax},{cx}".into(),
-                    true, false, None, false,
-                );
-                let index = self.as_int(args[0])?;
-                let result = basic(self.builder.build_indirect_call(ty, asm, &[index.into()], "")?)
-                    .ok_or("XGETBV produced no value")?.into_struct_value();
-                (0..2).map(|i| {
-                    self.builder.build_extract_value(result, i, "").map_err(Into::into)
-                }).collect()
-            }
-            Intrinsic::X86Timestamp { aux } => {
-                if !self.arch.is_x86_64() {
-                    return Err("x86 timestamp instruction requires an x86-64 target".into());
-                }
-                let i32t = self.ctx.i32_type();
-                let fields = [i32t.into(); 3];
-                let outputs = self.ctx.struct_type(&fields[..if aux { 3 } else { 2 }], false);
-                let (instruction, constraints) = if aux {
-                    ("rdtscp", "={ax},={dx},={cx},~{memory}")
-                } else {
-                    ("rdtsc", "={ax},={dx},~{memory}")
-                };
-                let value = self.inline_asm(instruction, constraints, Some(outputs.into()))?
-                    .ok_or("timestamp instruction produced no value")?.into_struct_value();
-                let lo = self.builder.build_extract_value(value, 0, "")?.into_int_value();
-                let hi = self.builder.build_extract_value(value, 1, "")?.into_int_value();
-                let lo = self.builder.build_int_z_extend(lo, i64t, "")?;
-                let hi = self.builder.build_int_z_extend(hi, i64t, "")?;
-                let hi = self.builder.build_left_shift(hi, i64t.const_int(32, false), "")?;
-                let timestamp = self.builder.build_or(lo, hi, "")?;
-                let mut result = vec![timestamp.into()];
-                if aux { result.push(self.builder.build_extract_value(value, 2, "")?); }
-                Ok(result)
-            }
-            Intrinsic::X86Random { seed, width } => {
-                if !self.arch.is_x86_64() {
-                    return Err("x86 random instruction requires an x86-64 target".into());
-                }
-                let (ty, suffix) = match width {
-                    Ty::I16 => (self.ctx.i16_type(), "w"),
-                    Ty::I32 => (self.ctx.i32_type(), "l"),
-                    Ty::I64 => (i64t, "q"),
-                    _ => return Err("invalid x86 random instruction width".into()),
-                };
-                let outputs = self.ctx.struct_type(&[ty.into(), self.ctx.i8_type().into()], false);
-                let instruction = if seed { "rdseed" } else { "rdrand" };
-                let value = self.inline_asm(&format!("{instruction}{suffix} $0; setc $1"), "=&r,=&q,~{flags}", Some(outputs.into()))?
-                    .ok_or("random instruction produced no value")?.into_struct_value();
-                (0..2).map(|i| self.builder.build_extract_value(value, i, "").map_err(Into::into)).collect()
-            }
-            Intrinsic::X86Fence(kind) => {
-                if !self.arch.is_x86_64() {
-                    return Err("x86 memory fence requires an x86-64 target".into());
-                }
-                let instruction = match kind {
-                    ir::X86Fence::Load => "lfence",
-                    ir::X86Fence::Store => "sfence",
-                    ir::X86Fence::Full => "mfence",
-                };
-                self.inline_asm(instruction, "~{memory}", None)?;
-                Ok(vec![])
-            }
-            Intrinsic::X86Pause => {
-                if !self.arch.is_x86_64() {
-                    return Err("x86 PAUSE requires an x86-64 target".into());
-                }
-                self.inline_asm("pause", "", None)?;
-                Ok(vec![])
-            }
-            Intrinsic::X86Prefetch(hint) => {
-                if !self.arch.is_x86_64() {
-                    return Err("x86 prefetch requires an x86-64 target".into());
-                }
-                let [address] = args else {
-                    return Err("invalid x86 prefetch operands".into());
-                };
-                let pointer = self.coerce(*address, Ty::Ptr)?.into_pointer_value();
-                let ty = self.fn_type(None, &[pointer.get_type().into()], false);
-                let instruction = match hint {
-                    ir::X86Prefetch::T0 => "prefetcht0",
-                    ir::X86Prefetch::T1 => "prefetcht1",
-                    ir::X86Prefetch::T2 => "prefetcht2",
-                    ir::X86Prefetch::NonTemporal => "prefetchnta",
-                };
-                let asm = self.ctx.create_inline_asm(ty, format!("{instruction} ($0)"), "r".into(), true, false, None, false);
-                self.builder.build_indirect_call(ty, asm, &[pointer.into()], "")?;
-                Ok(vec![])
-            }
-            Intrinsic::CycleCounter => {
-                let v = match self.arch {
-                    // The user-space virtual counter; PMCCNTR is not readable from EL0.
-                    Arch::Aarch64 | Arch::Win64Arm => {
-                        self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
-                    }
-                    Arch::X86_64 | Arch::Win64 => {
-                        self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
-                    }
-                    // No cycle counter is visible to wasm code.
-                    Arch::Wasm64 => return Err("no architectural cycle counter is available on a WebAssembly target".into()),
-                };
-                Ok(vec![v.ok_or("cycle counter produced no value")?])
-            }
-            Intrinsic::Syscall => {
-                if !matches!(self.arch, Arch::X86_64 | Arch::Win64) {
-                    return Err("`syscall` in #asm needs an x86-64 target".into());
-                }
-                let i64t = self.ctx.i64_type();
-                let ty = self.fn_type(Some(i64t.into()), &[i64t.into(); 7], false);
-                // rax = number; rdi, rsi, rdx, r10, r8, r9 = arguments; rcx and r11 are clobbered.
-                let asm = self.ctx.create_inline_asm(
-                    ty,
-                    "syscall".to_string(),
-                    "={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},{r9},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}"
-                        .to_string(),
-                    true,
-                    false,
-                    None,
-                    false,
-                );
-                let call_args = args
-                    .iter()
-                    .map(|&v| self.as_int(v).map(Into::into))
-                    .collect::<R<Vec<BasicMetadataValueEnum>>>()?;
-                let v = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
-                    .ok_or("syscall produced no value")?;
-                Ok(vec![v])
-            }
-            Intrinsic::Pause => {
-                let asm = match self.arch {
-                    Arch::Aarch64 | Arch::Win64Arm => "yield",
-                    Arch::X86_64 | Arch::Win64 => "pause",
-                    Arch::Wasm64 => return Ok(vec![]),
-                };
-                self.inline_asm(asm, "", None)?;
-                Ok(vec![])
             }
             Intrinsic::Popcount | Intrinsic::Bswap => {
                 let name = if op == Intrinsic::Popcount {
@@ -609,6 +537,298 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     b.build_int_z_extend(flag, self.ctx.i8_type(), "")?.into(),
                 ])
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    pub(super) fn intrinsic_machine(
+        &self,
+        _st: &FnState<'ctx>,
+        op: Intrinsic,
+        args: &[BasicValueEnum<'ctx>],
+        _want: &[Ty],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let i64t = self.ctx.i64_type();
+        match op {
+            // WebAssembly code cannot see its own call stack.
+            Intrinsic::ReturnAddress if self.arch.is_wasm() => {
+                Ok(vec![self.ptr_ty().const_null().into()])
+            }
+            Intrinsic::ReturnAddress => {
+                let zero = self.ctx.i32_type().const_zero();
+                let v = self
+                    .call_intrinsic("llvm.returnaddress", &[], &[zero.into()])?
+                    .ok_or("returnaddress produced no value")?;
+                Ok(vec![v])
+            }
+            Intrinsic::CpuId => {
+                if !self.arch.is_x86_64() {
+                    return Err("CPUID requires an x86-64 target".into());
+                }
+                let i32t = self.ctx.i32_type();
+                let outputs = self.ctx.struct_type(&[i32t.into(); 4], false);
+                let ty = self.fn_type(Some(outputs.into()), &[i32t.into(); 2], false);
+                // Tied EAX/ECX inputs select leaf/subleaf. LLVM owns saving EBX under
+                // each platform ABI. Side effects and the memory clobber retain
+                // the architectural serialization boundary through optimization.
+                let asm = self.ctx.create_inline_asm(
+                    ty,
+                    "cpuid".into(),
+                    "={ax},={bx},={cx},={dx},0,2,~{memory},~{dirflag},~{fpsr},~{flags}".into(),
+                    true,
+                    false,
+                    None,
+                    false,
+                );
+                let call_args = args
+                    .iter()
+                    .map(|&v| self.as_int(v).map(Into::into))
+                    .collect::<R<Vec<BasicMetadataValueEnum>>>()?;
+                let value = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
+                    .ok_or("CPUID produced no value")?
+                    .into_struct_value();
+                (0..4)
+                    .map(|i| {
+                        self.builder
+                            .build_extract_value(value, i, "")
+                            .map_err(Into::into)
+                    })
+                    .collect()
+            }
+            Intrinsic::X86Xgetbv => {
+                if !self.arch.is_x86_64() {
+                    return Err("XGETBV requires an x86-64 target".into());
+                }
+                let i32t = self.ctx.i32_type();
+                let outputs = self.ctx.struct_type(&[i32t.into(); 2], false);
+                let ty = self.fn_type(Some(outputs.into()), &[i32t.into()], false);
+                // Keep the architectural read even when its outputs are unused.
+                // XGETBV preserves EFLAGS and does not access process memory.
+                let asm = self.ctx.create_inline_asm(
+                    ty,
+                    "xgetbv".into(),
+                    "={dx},={ax},{cx}".into(),
+                    true,
+                    false,
+                    None,
+                    false,
+                );
+                let index = self.as_int(args[0])?;
+                let result =
+                    basic(
+                        self.builder
+                            .build_indirect_call(ty, asm, &[index.into()], "")?,
+                    )
+                    .ok_or("XGETBV produced no value")?
+                    .into_struct_value();
+                (0..2)
+                    .map(|i| {
+                        self.builder
+                            .build_extract_value(result, i, "")
+                            .map_err(Into::into)
+                    })
+                    .collect()
+            }
+            Intrinsic::X86Timestamp {
+                aux,
+            } => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 timestamp instruction requires an x86-64 target".into());
+                }
+                let i32t = self.ctx.i32_type();
+                let fields = [i32t.into(); 3];
+                let outputs = self.ctx.struct_type(
+                    &fields[..if aux {
+                        3
+                    } else {
+                        2
+                    }],
+                    false,
+                );
+                let (instruction, constraints) = if aux {
+                    ("rdtscp", "={ax},={dx},={cx},~{memory}")
+                } else {
+                    ("rdtsc", "={ax},={dx},~{memory}")
+                };
+                let value = self
+                    .inline_asm(instruction, constraints, Some(outputs.into()))?
+                    .ok_or("timestamp instruction produced no value")?
+                    .into_struct_value();
+                let lo = self
+                    .builder
+                    .build_extract_value(value, 0, "")?
+                    .into_int_value();
+                let hi = self
+                    .builder
+                    .build_extract_value(value, 1, "")?
+                    .into_int_value();
+                let lo = self.builder.build_int_z_extend(lo, i64t, "")?;
+                let hi = self.builder.build_int_z_extend(hi, i64t, "")?;
+                let hi = self
+                    .builder
+                    .build_left_shift(hi, i64t.const_int(32, false), "")?;
+                let timestamp = self.builder.build_or(lo, hi, "")?;
+                let mut result = vec![timestamp.into()];
+                if aux {
+                    result.push(self.builder.build_extract_value(value, 2, "")?);
+                }
+                Ok(result)
+            }
+            Intrinsic::X86Random {
+                seed,
+                width,
+            } => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 random instruction requires an x86-64 target".into());
+                }
+                let (ty, suffix) = match width {
+                    Ty::I16 => (self.ctx.i16_type(), "w"),
+                    Ty::I32 => (self.ctx.i32_type(), "l"),
+                    Ty::I64 => (i64t, "q"),
+                    _ => return Err("invalid x86 random instruction width".into()),
+                };
+                let outputs = self
+                    .ctx
+                    .struct_type(&[ty.into(), self.ctx.i8_type().into()], false);
+                let instruction = if seed {
+                    "rdseed"
+                } else {
+                    "rdrand"
+                };
+                let value = self
+                    .inline_asm(
+                        &format!("{instruction}{suffix} $0; setc $1"),
+                        "=&r,=&q,~{flags}",
+                        Some(outputs.into()),
+                    )?
+                    .ok_or("random instruction produced no value")?
+                    .into_struct_value();
+                (0..2)
+                    .map(|i| {
+                        self.builder
+                            .build_extract_value(value, i, "")
+                            .map_err(Into::into)
+                    })
+                    .collect()
+            }
+            Intrinsic::X86Fence(kind) => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 memory fence requires an x86-64 target".into());
+                }
+                let instruction = match kind {
+                    ir::X86Fence::Load => "lfence",
+                    ir::X86Fence::Store => "sfence",
+                    ir::X86Fence::Full => "mfence",
+                };
+                self.inline_asm(instruction, "~{memory}", None)?;
+                Ok(vec![])
+            }
+            Intrinsic::X86Pause => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 PAUSE requires an x86-64 target".into());
+                }
+                self.inline_asm("pause", "", None)?;
+                Ok(vec![])
+            }
+            Intrinsic::X86Prefetch(hint) => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 prefetch requires an x86-64 target".into());
+                }
+                let [address] = args else {
+                    return Err("invalid x86 prefetch operands".into());
+                };
+                let pointer = self.coerce(*address, Ty::Ptr)?.into_pointer_value();
+                let ty = self.fn_type(None, &[pointer.get_type().into()], false);
+                let instruction = match hint {
+                    ir::X86Prefetch::T0 => "prefetcht0",
+                    ir::X86Prefetch::T1 => "prefetcht1",
+                    ir::X86Prefetch::T2 => "prefetcht2",
+                    ir::X86Prefetch::NonTemporal => "prefetchnta",
+                };
+                let asm = self.ctx.create_inline_asm(
+                    ty,
+                    format!("{instruction} ($0)"),
+                    "r".into(),
+                    true,
+                    false,
+                    None,
+                    false,
+                );
+                self.builder
+                    .build_indirect_call(ty, asm, &[pointer.into()], "")?;
+                Ok(vec![])
+            }
+            Intrinsic::CycleCounter => {
+                let v =
+                    match self.arch {
+                        // The user-space virtual counter; PMCCNTR is not readable from EL0.
+                        Arch::Aarch64 | Arch::Win64Arm => {
+                            self.inline_asm("mrs $0, cntvct_el0", "=r", Some(i64t.into()))?
+                        }
+                        Arch::X86_64 | Arch::Win64 => {
+                            self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
+                        }
+                        // No cycle counter is visible to wasm code.
+                        Arch::Wasm64 => return Err(
+                            "no architectural cycle counter is available on a WebAssembly target"
+                                .into(),
+                        ),
+                    };
+                Ok(vec![v.ok_or("cycle counter produced no value")?])
+            }
+            Intrinsic::Syscall => {
+                if !matches!(self.arch, Arch::X86_64 | Arch::Win64) {
+                    return Err("`syscall` in #asm needs an x86-64 target".into());
+                }
+                let i64t = self.ctx.i64_type();
+                let ty = self.fn_type(Some(i64t.into()), &[i64t.into(); 7], false);
+                // rax = number; rdi, rsi, rdx, r10, r8, r9 = arguments; rcx and r11 are clobbered.
+                let asm = self.ctx.create_inline_asm(
+                    ty,
+                    "syscall".to_string(),
+                    "={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},{r9},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}"
+                        .to_string(),
+                    true,
+                    false,
+                    None,
+                    false,
+                );
+                let call_args = args
+                    .iter()
+                    .map(|&v| self.as_int(v).map(Into::into))
+                    .collect::<R<Vec<BasicMetadataValueEnum>>>()?;
+                let v = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
+                    .ok_or("syscall produced no value")?;
+                Ok(vec![v])
+            }
+            Intrinsic::Pause => {
+                let asm = match self.arch {
+                    Arch::Aarch64 | Arch::Win64Arm => "yield",
+                    Arch::X86_64 | Arch::Win64 => "pause",
+                    Arch::Wasm64 => return Ok(vec![]),
+                };
+                self.inline_asm(asm, "", None)?;
+                Ok(vec![])
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    pub(super) fn intrinsic_fibers(
+        &self,
+        _st: &FnState<'ctx>,
+        op: Intrinsic,
+        args: &[BasicValueEnum<'ctx>],
+        _want: &[Ty],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let b = &self.builder;
+        let i64t = self.ctx.i64_type();
+        let ptr_arg = |i: usize| {
+            self.coerce(args[i], Ty::Ptr)
+                .map(|v| v.into_pointer_value())
+        };
+        let size_arg = |i: usize| self.as_int(args[i]).and_then(|v| self.i64_of(v));
+        match op {
             Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree
                 if self.arch.is_wasm() => Err(
                 "fibers are not supported when compiling for WebAssembly: wasm code cannot switch stacks"
@@ -650,10 +870,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 }
                 Ok(vec![])
             }
-            Intrinsic::IsCompileTime => {
-                let ty = want.first().copied().unwrap_or(Ty::I8);
-                Ok(vec![self.ll(ty).into_int_type().const_zero().into()])
-            }
+            _ => unreachable!("dispatched only for this group's operations"),
         }
     }
 

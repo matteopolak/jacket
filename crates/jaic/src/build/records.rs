@@ -87,7 +87,7 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
         }
         MetaOp::RecBuilder => {
             let mut reg = shared.borrow_mut();
-            reg.builders.push(Default::default());
+            reg.builders.push(crate::record_build::Builder::default());
             Ok(Rets::one(reg.builders.len() as u64))
         }
         MetaOp::RecType | MetaOp::RecBuiltin => {

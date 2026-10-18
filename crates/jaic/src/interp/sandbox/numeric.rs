@@ -32,9 +32,9 @@ pub(super) fn parse(text: &str, precision: Precision) -> Parsed {
         at += 1;
     }
     let (sign, infinity, nan) = if narrow {
-        (1u64 << 31, 0x7f800000, 0x7fc00000)
+        (1u64 << 31, 0x7f80_0000, 0x7fc0_0000)
     } else {
-        (1u64 << 63, 0x7ff0000000000000, 0x7ff8000000000000)
+        (1u64 << 63, 0x7ff0_0000_0000_0000, 0x7ff8_0000_0000_0000)
     };
     let sign = if negative {
         sign
@@ -211,9 +211,9 @@ fn hex_bits(digits: &[u8], scale: i64, narrow: bool) -> u64 {
         return 0;
     }
     let (fraction, bias, infinity) = if narrow {
-        (23i64, 127i64, 0x7f800000)
+        (23i64, 127i64, 0x7f80_0000)
     } else {
-        (52, 1023, 0x7ff0000000000000)
+        (52, 1023, 0x7ff0_0000_0000_0000)
     };
     let mut exponent = length.saturating_sub(1).saturating_add(scale);
     if exponent > bias {
@@ -317,7 +317,7 @@ fn parse_int_prefix(text: &str, base: u32) -> (i128, usize) {
         |at: usize| at + 1 < bytes.len() && bytes[at] == b'0' && (bytes[at + 1] | 0x20) == b'x';
     if (base == 0 || base == 16)
         && has_hex_prefix(i)
-        && bytes.get(i + 2).is_some_and(|b| b.is_ascii_hexdigit())
+        && bytes.get(i + 2).is_some_and(u8::is_ascii_hexdigit)
     {
         i += 2;
         base = 16;
@@ -372,15 +372,15 @@ mod tests {
     #[test]
     fn c_numeric_hexadecimal_rounding_and_subnormal_boundaries() {
         for (text, narrow, bits) in [
-            ("0x1.000001p0", true, 0x3f800000),
-            ("0x1.00000100000000000000000000000001p0", true, 0x3f800001),
+            ("0x1.000001p0", true, 0x3f80_0000),
+            ("0x1.00000100000000000000000000000001p0", true, 0x3f80_0001),
             ("0x1p-149", true, 1),
             ("0x1p-150", true, 0),
             ("0x1.00001p-150", true, 1),
             ("0x1p-1074", false, 1),
             ("0x1p-1075", false, 0),
-            ("0x1.fffffffffffffp1023", false, 0x7fefffffffffffff),
-            ("0x1.fffffffffffff8p1023", false, 0x7ff0000000000000),
+            ("0x1.fffffffffffffp1023", false, 0x7fef_ffff_ffff_ffff),
+            ("0x1.fffffffffffff8p1023", false, 0x7ff0_0000_0000_0000),
         ] {
             assert_eq!(
                 parse(
@@ -402,7 +402,7 @@ mod tests {
     fn c_numeric_hexadecimal_preserves_exact_binary_values() {
         // Construct exact hexadecimal subjects directly from IEEE fields. This
         // covers arbitrary exponents/signs without another floating parser.
-        let mut seed = 0x6d2539e97c19b5a1u64;
+        let mut seed = 0x6d25_39e9_7c19_b5a1_u64;
         for narrow in [false, true] {
             let (fraction, bias, exponent_mask, sign_mask) = if narrow {
                 (23, 127, 0xff, 1u64 << 31)
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn c_numeric_special_tokens_and_implemented_range_policy() {
-        assert_eq!(parse("-nan()tail", Precision::Binary32).bits, 0xffc00000);
+        assert_eq!(parse("-nan()tail", Precision::Binary32).bits, 0xffc0_0000);
         assert_eq!(parse("nan(bad!)", Precision::Binary64).used, 3);
         assert_eq!(parse("+INFINITY!", Precision::Binary64).used, 9);
         for text in ["inf", "nan", "0e-99999", "0x0p-99999", "0x1p-1074"] {

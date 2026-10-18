@@ -181,7 +181,7 @@ fn completion_inside_an_import_string_lists_modules() {
     }
     // Completing a partial name inside the string filters and replaces the word.
     let partial = "#import \"Basic\";\n#import \"Sing\";\nmain :: () { }\n";
-    let (s, uri, _) = {
+    let (s, uri, ()) = {
         let mut s = Session::with_environment(Limits::default(), environment());
         s.set_workspace_folders(vec![dir.clone()]);
         let uri = uri_of(&dir.join("main.jai"));

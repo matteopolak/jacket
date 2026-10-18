@@ -161,7 +161,7 @@ impl Exporter<'_> {
                 .zip(d.backtick_names())
                 .any(|(n, &b)| b && n.name == name);
         if backticked {
-            flags |= 0x200000; // HAS_SCOPE_MODIFIER
+            flags |= 0x0020_0000; // HAS_SCOPE_MODIFIER
         }
         let ty = ty.map_or(0, |t| self.ty(t));
         let alignment = self.opt_expr(d.align());
@@ -273,7 +273,7 @@ impl Exporter<'_> {
             _ => (None, None),
         };
         // IS_GLOBAL, and SCOPE_FILE below a `#scope_file`.
-        let scope = 0x100000
+        let scope = 0x0010_0000
             | if file_private {
                 0x80000
             } else {

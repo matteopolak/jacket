@@ -23,7 +23,7 @@ fn expect_success(output: Output, expected: &str) {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, [] as [u8; 0]);
 }
 
 const POSITIVES: &[(&str, &str, &str)] = &[

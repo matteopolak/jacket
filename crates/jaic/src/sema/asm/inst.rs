@@ -2,7 +2,7 @@
 use super::helpers::{
     bin, bit_intrinsic, bits, cmp, flag_not, is_zero, konst, resize, select, wide_mul,
 };
-use super::model::{Alu, AsmCtx, Flags, Op, Opd, lookup_op};
+use super::model::{Alu, AsmArgs, AsmCtx, Flags, Op, Opd, lookup_op};
 use crate::ast::{AsmInst, AsmSize};
 use crate::ir::{BinOp, CmpOp, Intrinsic, Ty, UnOp};
 use crate::sema::lower::{FnCtx, Operand};
@@ -40,21 +40,70 @@ impl Compiler {
         for o in &inst.operands {
             opds.push(self.asm_operand(f, cx, o)?);
         }
-        let n = opds.len();
-        let want = |lo: usize, hi: usize| -> Result<()> {
-            if n < lo || n > hi {
-                let expected = if lo == hi {
-                    lo.to_string()
-                } else {
-                    format!("{lo} to {hi}")
-                };
-                return err(
-                    span,
-                    format!("`{name}` takes {expected} operand(s), found {n}"),
-                );
-            }
-            Ok(())
+        let c = AsmArgs {
+            name,
+            base,
+            lock,
+            span,
+            opds,
         };
+        match op {
+            Op::Nop
+            | Op::Pause
+            | Op::Fence(..)
+            | Op::Int3
+            | Op::SetCarry(..)
+            | Op::Rdtsc
+            | Op::Rdtscp
+            | Op::Rdrand
+            | Op::Rdseed
+            | Op::Cpuid
+            | Op::Syscall => self.asm_system(f, cx, inst, &c, op)?,
+            Op::Mov
+            | Op::Movbe
+            | Op::Movzx
+            | Op::Movsx
+            | Op::Lea
+            | Op::Xchg
+            | Op::Xadd
+            | Op::Cmpxchg
+            | Op::Setcc(..)
+            | Op::Cmovcc(..) => self.asm_data_move(f, cx, inst, &c, op)?,
+            Op::Alu(..)
+            | Op::Inc
+            | Op::Dec
+            | Op::Neg
+            | Op::Not
+            | Op::Shift(..)
+            | Op::Bt(..)
+            | Op::Imul
+            | Op::Mul => self.asm_arith(f, cx, inst, &c, op)?,
+            Op::Bsf
+            | Op::Bsr
+            | Op::Popcnt
+            | Op::Lzcnt
+            | Op::Tzcnt
+            | Op::Bswap
+            | Op::Blsr
+            | Op::Blsi
+            | Op::Blsmsk => self.asm_bits(f, cx, inst, &c, op)?,
+        }
+        Ok(())
+    }
+
+    fn asm_system(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        inst: &AsmInst,
+        c: &AsmArgs,
+        op: Op,
+    ) -> Result<()> {
+        let span = c.span;
+        let name = c.name;
+        let opds = &c.opds;
+        let n = c.opds.len();
+        let want = |lo: usize, hi: usize| c.want(lo, hi);
         match op {
             Op::Nop => {
                 want(0, 0)?;
@@ -76,12 +125,11 @@ impl Compiler {
             }
             Op::SetCarry(value) => {
                 want(0, 0)?;
-                cx.flags.cf = Some(match value {
-                    Some(v) => konst(f, Ty::I8, v as u64),
-                    None => {
-                        let cf = Self::flag(f, cx.flags.cf);
-                        flag_not(f, cf)
-                    }
+                cx.flags.cf = Some(if let Some(v) = value {
+                    konst(f, Ty::I8, v as u64)
+                } else {
+                    let cf = Self::flag(f, cx.flags.cf);
+                    flag_not(f, cf)
                 });
             }
             Op::Rdtsc | Op::Rdtscp => {
@@ -132,7 +180,7 @@ impl Compiler {
                 if self.options.cpu != TargetCpu::X64 {
                     return err(span, format!("{name} requires an x86-64 target"));
                 }
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 if !matches!(sz, Ty::I16 | Ty::I32 | Ty::I64)
                     || !matches!(opds[0], Opd::Reg(r) if matches!(r.storage, Ty::I16 | Ty::I32 | Ty::I64) && r.storage.size() >= sz.size())
                 {
@@ -208,15 +256,34 @@ impl Compiler {
                     f.b.store(Ty::I64, addr, ret);
                 }
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    fn asm_data_move(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        inst: &AsmInst,
+        c: &AsmArgs,
+        op: Op,
+    ) -> Result<()> {
+        let span = c.span;
+        let opds = &c.opds;
+        let base = c.base;
+        let lock = c.lock;
+        let want = |lo: usize, hi: usize| c.want(lo, hi);
+        match op {
             Op::Mov => {
                 want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let v = self.asm_read(f, opds[1], sz, span)?;
                 self.asm_write(f, opds[0], sz, v, span)?;
             }
             Op::Movbe => {
                 want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let v = self.asm_read(f, opds[1], sz, span)?;
                 let v = if sz == Ty::I8 {
                     v
@@ -246,7 +313,7 @@ impl Compiler {
             }
             Op::Xchg => {
                 want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 // Exchanging with memory is always atomic.
                 let (target, other) = if matches!(opds[1], Opd::Mem(_)) {
                     (opds[1], opds[0])
@@ -260,7 +327,7 @@ impl Compiler {
             }
             Op::Xadd => {
                 want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let addend = self.asm_read(f, opds[1], sz, span)?;
                 let (rmw, old) = self.rmw_begin(f, opds[0], sz, lock, span)?;
                 let new = self.asm_alu(f, cx, Alu::Add, sz, old, addend);
@@ -278,7 +345,7 @@ impl Compiler {
                     } else {
                         (opds[1], opds[2], opds[0])
                     };
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let src_v = self.asm_read(f, src, sz, span)?;
                 let acc_v = self.asm_read(f, acc, sz, span)?;
                 let (rmw, old) = self.rmw_begin(f, dst, sz, lock, span)?;
@@ -289,9 +356,42 @@ impl Compiler {
                 let acc_new = select(f, sz, eq, acc_v, old);
                 self.asm_write(f, acc, sz, acc_new, span)?;
             }
+            Op::Setcc(cond) => {
+                want(1, 1)?;
+                let v = Self::eval_cond(f, cx, cond);
+                self.asm_write(f, opds[0], Ty::I8, v, span)?;
+            }
+            Op::Cmovcc(cond) => {
+                want(2, 2)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
+                let c = Self::eval_cond(f, cx, cond);
+                let src = self.asm_read(f, opds[1], sz, span)?;
+                let old = self.asm_read(f, opds[0], sz, span)?;
+                let v = select(f, sz, c, src, old);
+                self.asm_write(f, opds[0], sz, v, span)?;
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    fn asm_arith(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        inst: &AsmInst,
+        c: &AsmArgs,
+        op: Op,
+    ) -> Result<()> {
+        let span = c.span;
+        let opds = &c.opds;
+        let n = c.opds.len();
+        let lock = c.lock;
+        let want = |lo: usize, hi: usize| c.want(lo, hi);
+        match op {
             Op::Alu(alu) => {
                 want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let b = self.asm_read(f, opds[1], sz, span)?;
                 if matches!(alu, Alu::Cmp | Alu::Test) {
                     let a = self.asm_read(f, opds[0], sz, span)?;
@@ -304,7 +404,7 @@ impl Compiler {
             }
             Op::Inc | Op::Dec | Op::Neg | Op::Not => {
                 want(1, 1)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let (rmw, a) = self.rmw_begin(f, opds[0], sz, lock, span)?;
                 let res = match op {
                     Op::Not => f.b.un(UnOp::Not, sz, a),
@@ -343,9 +443,61 @@ impl Compiler {
                 let sz = self.asm_size(f, cx, inst, &opds[..1])?;
                 self.asm_bit_test(f, cx, kind, sz, opds[0], opds[1], lock, span)?;
             }
+            Op::Imul | Op::Mul => {
+                want(
+                    if op == Op::Mul {
+                        3
+                    } else {
+                        2
+                    },
+                    3,
+                )?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
+                let signed = op == Op::Imul;
+                if n == 2 {
+                    // imul dst, src
+                    let a = self.asm_read(f, opds[0], sz, span)?;
+                    let b = self.asm_read(f, opds[1], sz, span)?;
+                    let (hi, lo) = wide_mul(f, sz, a, b, true);
+                    self.asm_mul_flags(f, cx, sz, hi, lo, true);
+                    self.asm_write(f, opds[0], sz, lo, span)?;
+                } else if signed && matches!(opds[2], Opd::Imm(_)) {
+                    // imul dst, src, imm
+                    let a = self.asm_read(f, opds[1], sz, span)?;
+                    let b = self.asm_read(f, opds[2], sz, span)?;
+                    let (hi, lo) = wide_mul(f, sz, a, b, true);
+                    self.asm_mul_flags(f, cx, sz, hi, lo, true);
+                    self.asm_write(f, opds[0], sz, lo, span)?;
+                } else {
+                    // mul/imul high, low, src: high:low = low * src
+                    let a = self.asm_read(f, opds[1], sz, span)?;
+                    let b = self.asm_read(f, opds[2], sz, span)?;
+                    let (hi, lo) = wide_mul(f, sz, a, b, signed);
+                    self.asm_mul_flags(f, cx, sz, hi, lo, signed);
+                    self.asm_write(f, opds[1], sz, lo, span)?;
+                    self.asm_write(f, opds[0], sz, hi, span)?;
+                }
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    fn asm_bits(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        inst: &AsmInst,
+        c: &AsmArgs,
+        op: Op,
+    ) -> Result<()> {
+        let span = c.span;
+        let opds = &c.opds;
+        let want = |lo: usize, hi: usize| c.want(lo, hi);
+        match op {
             Op::Bsf | Op::Bsr | Op::Popcnt | Op::Lzcnt | Op::Tzcnt => {
                 want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let src = self.asm_read(f, opds[1], sz, span)?;
                 let src_zero = is_zero(f, sz, src);
                 let zero8 = konst(f, Ty::I8, 0);
@@ -389,7 +541,7 @@ impl Compiler {
             }
             Op::Bswap => {
                 want(1, 1)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let v = self.asm_read(f, opds[0], sz, span)?;
                 let v = if sz == Ty::I8 {
                     v
@@ -400,7 +552,7 @@ impl Compiler {
             }
             Op::Blsr | Op::Blsi | Op::Blsmsk => {
                 want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
+                let sz = self.asm_size(f, cx, inst, opds)?;
                 let a = self.asm_read(f, opds[1], sz, span)?;
                 let one = konst(f, sz, 1);
                 let zero = konst(f, sz, 0);
@@ -426,55 +578,7 @@ impl Compiler {
                 }
                 self.asm_write(f, opds[0], sz, res, span)?;
             }
-            Op::Imul | Op::Mul => {
-                want(
-                    if op == Op::Mul {
-                        3
-                    } else {
-                        2
-                    },
-                    3,
-                )?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
-                let signed = op == Op::Imul;
-                if n == 2 {
-                    // imul dst, src
-                    let a = self.asm_read(f, opds[0], sz, span)?;
-                    let b = self.asm_read(f, opds[1], sz, span)?;
-                    let (hi, lo) = wide_mul(f, sz, a, b, true);
-                    self.asm_mul_flags(f, cx, sz, hi, lo, true);
-                    self.asm_write(f, opds[0], sz, lo, span)?;
-                } else if signed && matches!(opds[2], Opd::Imm(_)) {
-                    // imul dst, src, imm
-                    let a = self.asm_read(f, opds[1], sz, span)?;
-                    let b = self.asm_read(f, opds[2], sz, span)?;
-                    let (hi, lo) = wide_mul(f, sz, a, b, true);
-                    self.asm_mul_flags(f, cx, sz, hi, lo, true);
-                    self.asm_write(f, opds[0], sz, lo, span)?;
-                } else {
-                    // mul/imul high, low, src: high:low = low * src
-                    let a = self.asm_read(f, opds[1], sz, span)?;
-                    let b = self.asm_read(f, opds[2], sz, span)?;
-                    let (hi, lo) = wide_mul(f, sz, a, b, signed);
-                    self.asm_mul_flags(f, cx, sz, hi, lo, signed);
-                    self.asm_write(f, opds[1], sz, lo, span)?;
-                    self.asm_write(f, opds[0], sz, hi, span)?;
-                }
-            }
-            Op::Setcc(cond) => {
-                want(1, 1)?;
-                let v = Self::eval_cond(f, cx, cond);
-                self.asm_write(f, opds[0], Ty::I8, v, span)?;
-            }
-            Op::Cmovcc(cond) => {
-                want(2, 2)?;
-                let sz = self.asm_size(f, cx, inst, &opds)?;
-                let c = Self::eval_cond(f, cx, cond);
-                let src = self.asm_read(f, opds[1], sz, span)?;
-                let old = self.asm_read(f, opds[0], sz, span)?;
-                let v = select(f, sz, c, src, old);
-                self.asm_write(f, opds[0], sz, v, span)?;
-            }
+            _ => unreachable!("dispatched only for this group's operations"),
         }
         Ok(())
     }

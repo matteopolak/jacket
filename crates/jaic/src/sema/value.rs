@@ -68,7 +68,7 @@ impl Aggregate {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        use Value::*;
+        use Value::{Bool, Bytes, Code, Float, Int, Null, Proc, String, Type, Void};
         match (self, other) {
             (Int(a), Int(b)) => a == b,
             (Float(a, ar), Float(b, br)) => a.to_bits() == b.to_bits() && ar == br,
@@ -112,7 +112,7 @@ impl std::hash::Hash for Value {
 
 impl Value {
     pub fn float(value: f64) -> Value {
-        Value::Float(value, Default::default())
+        Value::Float(value, crate::lexer::FloatLiteralPrecision::default())
     }
 
     pub fn requires_float64(&self) -> bool {
@@ -153,8 +153,8 @@ impl Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fxhash::HashSet;
     use crate::ir::{ForeignId, FuncId, GlobalId, RelocTarget};
-    use std::collections::HashSet;
 
     #[test]
     fn aggregate_identity_includes_every_relocation_component() {

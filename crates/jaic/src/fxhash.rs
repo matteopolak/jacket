@@ -1,9 +1,18 @@
 //! A fast, non-cryptographic hasher for the compiler's own maps (the multiply-rotate hash rustc
-//! uses internally). Keys are ids and identifiers from source the user controls, so SipHash's
-//! flooding resistance buys nothing, and SipHash showed up in profiles of every name lookup.
+//! uses internally). Keys are ids and identifiers from source the user controls, so `SipHash`'s
+//! flooding resistance buys nothing, and `SipHash` showed up in profiles of every name lookup.
 use std::hash::{BuildHasherDefault, Hasher};
 
+#[expect(
+    clippy::disallowed_types,
+    reason = "this alias is the sanctioned replacement"
+)]
 pub type HashMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FxHasher>>;
+
+#[expect(
+    clippy::disallowed_types,
+    reason = "this alias is the sanctioned replacement"
+)]
 pub type HashSet<K> = std::collections::HashSet<K, BuildHasherDefault<FxHasher>>;
 
 const SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;

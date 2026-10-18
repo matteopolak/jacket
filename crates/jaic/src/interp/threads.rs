@@ -188,12 +188,12 @@ mod worker_lifetime_tests {
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
         let source = format!(
-            r#"
+            r"
 CreateThread :: (security:*void, stack:u64, entry:*void, argument:*void, flags:u32, id:*u32)->u64 #foreign;
 Sleep :: (milliseconds:u32) #foreign;
 worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
 #run {{ CreateThread(null,0,cast(*void)worker,null,{},null); Sleep(5); }}
-"#,
+",
             if suspended {
                 4
             } else {
@@ -282,13 +282,13 @@ worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
             )
         };
         let source = format!(
-            r#"
+            r"
 CreateThread :: (security:*void, stack:u64, entry:*void, argument:*void, flags:u32, id:*u32)->u64 #foreign;
 Sleep :: (milliseconds:u32) #foreign;
 {foreign}
 worker :: (argument:*void)->u32 #c_call {{ {call} return 17; }}
 #run {{ CreateThread(null,0,cast(*void)worker,null,0,null); Sleep(5); }}
-"#
+"
         );
         compiler
             .compile_sources(&[ProgramSource::String(source)])

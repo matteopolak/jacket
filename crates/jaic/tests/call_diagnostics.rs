@@ -71,11 +71,11 @@ fn module_type_arguments_do_not_bypass_c_variadic_header_validation() {
 
 #[test]
 fn valid_c_varargs_and_baked_type_packs_are_distinct_from_jai_runtime_packs() {
-    let source = r#"
+    let source = r"
     foreign_call :: (tag:int, items: ..int) #foreign;
     identity :: ($types: ..Type, value:int) -> int #c_call {return value;}
     main :: () { foreign_call(1,2,3); value:=identity(int,value=4); }
-    "#;
+    ";
     let mut fs = VirtualFs::default();
     fs.insert(
         "/call-tests/prelude/module.jai",
@@ -92,7 +92,7 @@ fn valid_c_varargs_and_baked_type_packs_are_distinct_from_jai_runtime_packs() {
 
 #[test]
 fn ordinary_variadic_with_named_tail_and_valid_overloads_still_typechecks() {
-    let source = r#"
+    let source = r"
     sum :: (items: ..int, tail:int=4) -> int {
         result:=tail; for items result+=it; return result;
     }
@@ -103,7 +103,7 @@ fn ordinary_variadic_with_named_tail_and_valid_overloads_still_typechecks() {
     #assert(pick(2)==3);
     #assert(pick(2.0)==2.5);
     main :: () {}
-    "#;
+    ";
     let mut c = compiler();
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", error.render(&c.sources));

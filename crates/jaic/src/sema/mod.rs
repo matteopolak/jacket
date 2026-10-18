@@ -154,7 +154,7 @@ pub struct Options {
     pub import_paths: Vec<PathBuf>,
     /// Bootstrap entry loaded into every program (see `crate::PRELOAD_ENTRY`).
     pub preload: Option<PathBuf>,
-    /// Load Runtime_Support (entry point, context initialization) for programs.
+    /// Load `Runtime_Support` (entry point, context initialization) for programs.
     pub runtime_support: bool,
     pub temporary_storage_size: i64,
     /// Emit array bounds checks (`Build_Options.array_bounds_check != .OFF`).
@@ -178,16 +178,16 @@ pub struct Options {
     pub dead_code: DeadCode,
     /// `Build_Options.entry_point_name`: the procedure the program starts in (`main`).
     pub entry_point: String,
-    /// `Build_Options.runtime_support_definitions`: whether Runtime_Support defines the
+    /// `Build_Options.runtime_support_definitions`: whether `Runtime_Support` defines the
     /// system entry point and the runtime initialization.
     pub runtime_entry_point: bool,
     pub runtime_initialization: bool,
-    /// `Build_Options.backtrace_on_crash`: Runtime_Support installs its crash handler.
+    /// `Build_Options.backtrace_on_crash`: `Runtime_Support` installs its crash handler.
     pub backtrace_on_crash: bool,
 }
 
 /// The C `long double` of a target, when wider than `float64`: x87 extended on x86-64 System V
-/// and MinGW (`windows_gnu`), binary128 on Linux AArch64 and wasm32, plain `double` on Apple
+/// and MinGW (`windows_gnu`), binary128 on Linux `AArch64` and wasm32, plain `double` on Apple
 /// arm64 and with the Microsoft toolchain.
 pub fn long_double_for(
     os: TargetOs,
@@ -490,9 +490,9 @@ pub struct Compiler {
     /// Debug builds check `namespace_generation` against a full count of scope contents.
     #[cfg(debug_assertions)]
     namespace_check: std::cell::Cell<(usize, u64)>,
-    /// Type_Info globals per type.
+    /// `Type_Info` globals per type.
     pub type_infos: HashMap<TypeId, ir::GlobalId>,
-    /// Type_Info globals whose descriptor could not be built yet (`type_info_global`).
+    /// `Type_Info` globals whose descriptor could not be built yet (`type_info_global`).
     failed_type_infos: HashMap<TypeId, ir::GlobalId>,
     /// Descriptors only a compile-time `get_type_table()` made (kept out of the runtime table
     /// until real code asks for them), the table's state when it was last built, and the
@@ -513,7 +513,7 @@ pub struct Compiler {
     pub output: Vec<u8>,
     pub warnings: Vec<Diagnostic>,
     /// Overload sets already checked for identical parameter lists.
-    pub overload_sets_checked: std::collections::HashSet<Vec<EntityId>>,
+    pub overload_sets_checked: crate::fxhash::HashSet<Vec<EntityId>>,
     /// Imports that found no module: (importing module, wanted module). Metaprograms that
     /// intercept the workspace get a `FAILED_IMPORT` message for each.
     pub failed_imports: Vec<(String, String)>,
@@ -604,7 +604,7 @@ pub struct Compiler {
     pub named_imports_done: usize,
     /// Why each deferred item failed; shown with a later error if it is never retried.
     pub deferred_errors: Vec<Box<Diagnostic>>,
-    /// Callable metadata belongs to declarations, never structural TypeIds.
+    /// Callable metadata belongs to declarations, never structural `TypeIds`.
     pub(super) callable_entities: HashMap<EntityId, Rc<ProcTypeParams>>,
     pub(super) callable_fields: HashMap<(crate::types::StructId, usize), Rc<ProcTypeParams>>,
     /// Program parameters set by imports (`#import "Basic"()(MEMORY_DEBUGGER = DEBUG)`), by
@@ -690,7 +690,7 @@ impl Compiler {
             global.init = Vec::new();
             global.relocs = Vec::new();
         }
-        self.program.debug_types = Default::default();
+        self.program.debug_types = HashMap::default();
         self.program.debug_globals = Vec::new();
         self.interp.release_code();
     }
@@ -698,7 +698,7 @@ impl Compiler {
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
-            library_files: Default::default(),
+            library_files: std::cell::RefCell::default(),
             options,
             fs,
             canon_cache: crate::paths::CanonCache::new(),
@@ -745,7 +745,7 @@ impl Compiler {
             workspace: crate::build::TOP_LEVEL_WORKSPACE,
             runtime_info: None,
             runtime_storage_global: None,
-            runtime_storage_dependencies: Default::default(),
+            runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies::default(),
             added_sources: 0,
             lenient_failures: HashMap::default(),
             default_scopes: HashMap::default(),
@@ -780,7 +780,7 @@ impl Compiler {
             packs: HashMap::default(),
             output: Vec::new(),
             warnings: Vec::new(),
-            overload_sets_checked: Default::default(),
+            overload_sets_checked: HashSet::default(),
             failed_imports: Vec::new(),
             live_procs: Vec::new(),
             provided_texts: HashMap::default(),

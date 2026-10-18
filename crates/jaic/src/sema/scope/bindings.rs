@@ -213,8 +213,7 @@ impl Compiler {
                 .dependencies
                 .bindings
                 .get(&entity)
-                .map(Vec::as_slice)
-                .unwrap_or(std::slice::from_ref(&entity))
+                .map_or(std::slice::from_ref(&entity), Vec::as_slice)
             {
                 if !result.contains(&definition) {
                     result.push(definition);

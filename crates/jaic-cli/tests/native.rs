@@ -321,7 +321,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
         })
         .expect("sum_small_qz is compiled");
     let prologue = body.split("\nb0:").next().unwrap();
-    let mut sizes = std::collections::HashMap::new();
+    let mut sizes = jaic::fxhash::HashMap::default();
     for line in prologue.lines() {
         if let Some((slot, rest)) = line.trim().split_once(" = alloca [")
             && let Some((bytes, _)) = rest.split_once(" x i8]")
@@ -383,7 +383,7 @@ fn compiler_and_abi_regressions_run_natively() {
 }
 
 /// File reads preserve piped standard input and EOF; the fixture owns
-/// line splitting because File exports no read_stdin_line helper.
+/// line splitting because File exports no `read_stdin_line` helper.
 #[test]
 fn stdin_lines_are_read_natively() {
     use std::io::Write;

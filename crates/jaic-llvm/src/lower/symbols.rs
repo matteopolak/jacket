@@ -18,7 +18,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         self.shard.is_none_or(|s| s.plan.global_owner[i] == s.index)
     }
 
-    /// Whether a `#program_export` is one of Wasi_Runtime's C library definitions (`malloc`,
+    /// Whether a `#program_export` is one of `Wasi_Runtime`'s C library definitions (`malloc`,
     /// `fopen`, `fma`...) rather than an entry point. Those stay external symbols, which the
     /// program's references bind to, but are not exports of the wasm module: wasm-ld then drops
     /// the ones nothing calls, as it would members of a C library. `_start` is still exported.
@@ -190,8 +190,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     pub(super) fn wasm_import(&self, f: FunctionValue<'ctx>, symbol: &str, library: Option<usize>) {
         let module = library
             .and_then(|i| self.program.libraries.get(i))
-            .map(|lib| wasm_import_module(&lib.name))
-            .unwrap_or("env");
+            .map_or("env", |lib| wasm_import_module(&lib.name));
         for (key, value) in [("wasm-import-module", module), ("wasm-import-name", symbol)] {
             f.add_attribute(
                 AttributeLoc::Function,

@@ -57,13 +57,13 @@ fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
             .into_iter()
             .filter(|d| d.severity == jai_language_server::DiagnosticSeverity::Error)
             .collect();
-        if version != 2 {
-            assert!(errors.is_empty(), "{errors:?}");
-        } else {
+        if version == 2 {
             assert!(
                 !errors.is_empty(),
                 "the incomplete suffix must remain an error"
             );
+        } else {
+            assert!(errors.is_empty(), "{errors:?}");
         }
         assert!(
             errors
@@ -157,10 +157,10 @@ fn structural_parameter_types_do_not_merge_authored_names() {
 #[test]
 fn procedure_type_parameters() {
     check(
-        r#"Callback :: #type (left: s64, right: s64) -> s64;
+        r"Callback :: #type (left: s64, right: s64) -> s64;
 Record :: struct { callback: #type (item: s64) -> s64; }
 main :: () { record: Record; callback: Callback; }
-"#,
+",
         &[(0, 19, 0, 19), (0, 30, 0, 30), (1, 36, 1, 36)],
     );
 }
@@ -168,11 +168,11 @@ main :: () { record: Record; callback: Callback; }
 #[test]
 fn named_generic_callback() {
     check(
-        r#"Box :: struct (callback: (value: s64) -> s64) { value: s64; }
+        r"Box :: struct (callback: (value: s64) -> s64) { value: s64; }
 identity :: (actual: s64) -> s64 { return actual; }
 box: Box(callback = identity);
 main :: () {}
-"#,
+",
         &[(2, 9, 0, 15)],
     );
 }
@@ -180,13 +180,13 @@ main :: () {}
 #[test]
 fn inherited_member_default() {
     check(
-        r#"Base :: struct { value: s64; }
+        r"Base :: struct { value: s64; }
 Derived :: struct {
     using #as base: Base;
     base.value = 7;
 }
 main :: () { record: Derived; result := record.value; }
-"#,
+",
         &[(3, 9, 0, 17), (5, 47, 0, 17)],
     );
 }

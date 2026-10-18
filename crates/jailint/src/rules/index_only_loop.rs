@@ -205,41 +205,38 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                         bail = true;
                         return false;
                     }
-                    match element_access(cx, e, chain, &arr_text) {
-                        Some((span, how, written)) => {
-                            // `for c: 0..grid[r].count - 1`: walking a grid by row and
-                            // column reads best with both indices.
-                            let in_inner_range = chain.iter().any(|a| {
-                                matches!(a, Node::Stmt(Stmt { kind: S::For(g), .. })
-                                    if matches!(&g.over, ForOver::Range(lo, hi)
-                                        if lo.span.start <= e.span.start && e.span.end <= hi.span.end))
-                            });
-                            if in_inner_range {
-                                bail = true;
-                                return false;
-                            }
-                            uses.by_pointer |= written;
-                            if inside(&rebinds_it) || inside(&will_bind_it) {
-                                uses.captures_it = true;
-                            }
-                            uses.elements.push((span, how));
+                    if let Some((span, how, written)) = element_access(cx, e, chain, &arr_text) {
+                        // `for c: 0..grid[r].count - 1`: walking a grid by row and
+                        // column reads best with both indices.
+                        let in_inner_range = chain.iter().any(|a| {
+                            matches!(a, Node::Stmt(Stmt { kind: S::For(g), .. })
+                                if matches!(&g.over, ForOver::Range(lo, hi)
+                                    if lo.span.start <= e.span.start && e.span.end <= hi.span.end))
+                        });
+                        if in_inner_range {
+                            bail = true;
+                            return false;
                         }
-                        None => {
-                            // Indexing another array with it (`xs[i] + ys[i]`), or index
-                            // arithmetic (`xs[i + 1]`): a counting loop says that best.
-                            let in_index = chain.iter().any(|a| {
-                                matches!(a, Node::Expr(Expr { kind: E::Index(_, idx), .. })
-                                    if idx.span.start <= e.span.start && e.span.end <= idx.span.end)
-                            });
-                            if in_index {
-                                bail = true;
-                                return false;
-                            }
-                            if inside(&rebinds_index) {
-                                uses.captures_it_index = true;
-                            }
-                            uses.others.push(e.span);
+                        uses.by_pointer |= written;
+                        if inside(&rebinds_it) || inside(&will_bind_it) {
+                            uses.captures_it = true;
                         }
+                        uses.elements.push((span, how));
+                    } else {
+                        // Indexing another array with it (`xs[i] + ys[i]`), or index
+                        // arithmetic (`xs[i + 1]`): a counting loop says that best.
+                        let in_index = chain.iter().any(|a| {
+                            matches!(a, Node::Expr(Expr { kind: E::Index(_, idx), .. })
+                                if idx.span.start <= e.span.start && e.span.end <= idx.span.end)
+                        });
+                        if in_index {
+                            bail = true;
+                            return false;
+                        }
+                        if inside(&rebinds_index) {
+                            uses.captures_it_index = true;
+                        }
+                        uses.others.push(e.span);
                     }
                     return true;
                 }

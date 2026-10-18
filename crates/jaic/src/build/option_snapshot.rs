@@ -1,4 +1,4 @@
-//! Private Build_Options transport between compilers sharing a workspace registry.
+//! Private `Build_Options` transport between compilers sharing a workspace registry.
 //! The Jai facade supplies offsets from reflection, so no target layout is hardcoded.
 //! Strings/views own their contents here; opaque user pointers retain borrowed identity.
 use crate::interp::{Interp, Trap};

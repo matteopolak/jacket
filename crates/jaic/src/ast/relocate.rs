@@ -9,9 +9,9 @@
 //! left out keeps its worker value, which `parse_ahead`'s tests catch by comparing against a
 //! serial parse.
 use super::*;
+use crate::fxhash::HashSet;
 use crate::intern::Remap;
 use crate::source::FileId;
-use std::collections::HashSet;
 
 /// The file id a worker parses with. No real file has it, and `Span::NONE`'s differs.
 pub const PLACEHOLDER_FILE: FileId = FileId(u32::MAX - 1);
@@ -30,7 +30,7 @@ pub fn relocate(file: &mut File, real: FileId, ast_base: u32, syms: &Remap) {
         file: real,
         ast_base,
         syms,
-        shared: HashSet::new(),
+        shared: HashSet::default(),
     };
     file.file = real;
     for stmt in &mut file.stmts {
@@ -44,13 +44,13 @@ pub fn relocate(file: &mut File, real: FileId, ast_base: u32, syms: &Remap) {
 fn rc_mut<T>(rc: &Rc<T>) -> &mut T {
     // SAFETY: see above. A node reachable twice (`strong_count > 1`) is visited once, through
     // `Relocator::once`, so the edits never alias.
-    unsafe { &mut *(Rc::as_ptr(rc) as *mut T) }
+    unsafe { &mut *Rc::as_ptr(rc).cast_mut() }
 }
 
 impl Relocator<'_> {
     /// True the first time a shared node is met.
     fn once<T>(&mut self, rc: &Rc<T>) -> bool {
-        Rc::strong_count(rc) == 1 || self.shared.insert(Rc::as_ptr(rc) as *const ())
+        Rc::strong_count(rc) == 1 || self.shared.insert(Rc::as_ptr(rc).cast::<()>())
     }
 
     fn span(&self, span: &mut Span) {
@@ -544,7 +544,7 @@ impl Relocator<'_> {
                 self.idents(&mut f.flags);
             }
             StmtKind::Break(label) | StmtKind::Continue(label) | StmtKind::Remove(label) => {
-                self.opt_ident(label)
+                self.opt_ident(label);
             }
             StmtKind::Return {
                 values, ..
@@ -577,7 +577,7 @@ impl Relocator<'_> {
                 self.exprs(&mut assert.args);
             }
             StmtKind::Run(expr) | StmtKind::Place(expr) | StmtKind::Overlay(expr) => {
-                self.expr(expr)
+                self.expr(expr);
             }
             StmtKind::Import(import) => {
                 if self.once(import) {

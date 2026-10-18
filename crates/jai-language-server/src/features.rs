@@ -14,10 +14,10 @@ use crate::analysis::Span;
 use crate::semantic;
 use crate::session::{Session, contains};
 use crate::{DocumentUri, Location, Range, TextEdit};
+use jaic::fxhash::HashSet;
 use jaic::parser::ide_facts;
 use jaic::sema::ide_meta::{IdeCallInfo, IdeExpansion, IdeExpansionKind};
 use jaic::source::FileId;
-use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -306,7 +306,7 @@ mod tests {
     fn open_calls_find_the_callee_and_argument() {
         let text = "x := Math.clamp(a, f(b, c), ";
         let (open, chain, arg, named) = open_call(text, text.len()).unwrap();
-        assert_eq!(&text[open..open + 1], "(");
+        assert_eq!(&text[open..=open], "(");
         assert_eq!(chain, ["Math", "clamp"]);
         assert_eq!(arg, 2);
         assert_eq!(named, None);

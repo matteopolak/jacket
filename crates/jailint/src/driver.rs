@@ -18,13 +18,14 @@
 use crate::config::Config;
 use crate::{Lint, lint_files};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
+use jaic::fxhash::{HashMap, HashSet};
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::paths::CanonCache;
 use jaic::project::{self, DiskFs, LoadCache, ProjectFs, Root, RootOptions, resolve_root};
 use jaic::sema::ide::IdeRoot;
 use jaic::sema::{Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Condvar, Mutex};
@@ -104,7 +105,7 @@ impl Claims {
     fn new(roots: usize) -> Claims {
         Claims {
             state: Mutex::new(ClaimState {
-                owner: HashMap::new(),
+                owner: HashMap::default(),
                 done: vec![false; roots],
                 prefix: 0,
             }),

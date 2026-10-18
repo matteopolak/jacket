@@ -69,7 +69,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// spells out the last case before the default on purpose, so it is left alone.
 fn chain_tail(s: &Stmt, up: &[crate::syntax::Node]) -> bool {
     matches!(up.last(), Some(crate::syntax::Node::Stmt(parent))
-        if matches!(&parent.kind, S::If { else_branch: Some(e), .. } if std::ptr::eq(&**e, s)))
+        if matches!(&parent.kind, S::If { else_branch: Some(e), .. } if std::ptr::eq(&raw const **e, s)))
 }
 
 fn empty(s: &Stmt) -> bool {

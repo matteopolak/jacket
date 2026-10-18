@@ -1,5 +1,5 @@
 //! Lexical call headers are not part of structural procedure type identity.
-use super::lower::{FnCtx, Operand};
+use super::lower::Operand;
 use super::scope::{Builtin, BuiltinProc, EntityKind, EntityState, Found, Resolved};
 use super::*;
 use crate::ast::ExprKind as E;
@@ -95,7 +95,7 @@ impl Compiler {
             let parameters: Vec<_> = header
                 .params
                 .iter()
-                .filter(|p| !p.baked && !(c_call && p.variadic))
+                .filter(|p| !p.baked && (!c_call || !p.variadic))
                 .collect();
             let mut returns = Vec::new();
             for result in &header.returns {
@@ -275,12 +275,11 @@ impl Compiler {
 
     pub(super) fn callable_operand_parameters(
         &mut self,
-        _function: &FnCtx,
         operand: &Operand,
     ) -> Result<Option<Rc<ProcTypeParams>>> {
         match operand {
             Operand::Multi(values) if !values.is_empty() => {
-                self.callable_operand_parameters(_function, &values[0])
+                self.callable_operand_parameters(&values[0])
             }
             Operand::Callable {
                 parameters, ..

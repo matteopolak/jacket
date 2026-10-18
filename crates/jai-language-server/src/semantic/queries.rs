@@ -1,10 +1,11 @@
 //! Queries over a finished analysis: diagnostics, hovers, names and completions.
 use super::compile::find_file;
 use super::{Analysis, Decl, HoverFacts, SemanticAnalysisContext, SemanticCoverage, SemanticPath};
+use jaic::fxhash::HashSet;
 use jaic::intern::Sym;
 use jaic::sema::ide::IdeName;
 use jaic::source::{FileId, ImportSuggestion};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -86,7 +87,7 @@ impl Analysis {
             return Vec::new();
         };
         let mut out: Vec<(usize, usize, String)> = Vec::new();
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         for error in diagnostics {
             let found = if error.span.file == file {
                 let span = error.span;

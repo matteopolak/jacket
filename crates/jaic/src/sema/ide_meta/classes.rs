@@ -60,11 +60,13 @@ impl Compiler {
             EntityKind::Decl {
                 decl, ..
             } => match &e.state {
-                EntityState::Done(Resolved::Proc(p))
-                | EntityState::Done(Resolved::Const {
-                    value: Value::Proc(p),
-                    ..
-                }) => {
+                EntityState::Done(
+                    Resolved::Proc(p)
+                    | Resolved::Const {
+                        value: Value::Proc(p),
+                        ..
+                    },
+                ) => {
                     if self.proc(*p).is_macro {
                         IdeClass::Macro
                     } else {
@@ -75,11 +77,13 @@ impl Compiler {
                 EntityState::Done(Resolved::Global {
                     ..
                 }) => IdeClass::Variable,
-                EntityState::Done(Resolved::Const {
-                    value: Value::Type(_),
-                    ..
-                })
-                | EntityState::Done(Resolved::PolyStruct(_)) => IdeClass::Type,
+                EntityState::Done(
+                    Resolved::Const {
+                        value: Value::Type(_),
+                        ..
+                    }
+                    | Resolved::PolyStruct(_),
+                ) => IdeClass::Type,
                 EntityState::Done(Resolved::Const {
                     ..
                 }) => IdeClass::Constant,
@@ -172,11 +176,13 @@ impl Compiler {
     pub(super) fn ide_targets(&self, r: &IdeRef) -> Vec<Target> {
         match &r.what {
             IdeWhat::Entity(e) => match &self.entity(*e).state {
-                EntityState::Done(Resolved::Proc(p))
-                | EntityState::Done(Resolved::Const {
-                    value: Value::Proc(p),
-                    ..
-                }) => vec![Target::Proc(*p)],
+                EntityState::Done(
+                    Resolved::Proc(p)
+                    | Resolved::Const {
+                        value: Value::Proc(p),
+                        ..
+                    },
+                ) => vec![Target::Proc(*p)],
                 EntityState::Done(Resolved::Const {
                     value: Value::Type(t),
                     ..

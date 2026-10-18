@@ -114,10 +114,10 @@ fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
         (doc("part.jai").as_str().into(), start)
     );
     // A module the compiler cannot find has no target.
-    assert!(
+    assert_eq!(
         s.definition(&doc("main.jai"), at(MAIN, "\"Missing\"", 2))
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
 }
 

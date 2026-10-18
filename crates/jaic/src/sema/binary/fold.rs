@@ -61,7 +61,7 @@ impl Compiler {
             *lt
         };
         let cmp = |o: std::cmp::Ordering| -> Option<Value> {
-            use std::cmp::Ordering::*;
+            use std::cmp::Ordering::{Equal, Greater, Less};
             Some(Value::Bool(match op {
                 BinOp::Eq => o == Equal,
                 BinOp::Ne => o != Equal,
@@ -164,8 +164,8 @@ impl Compiler {
             (Value::Bool(a), Value::Bool(b)) => match op {
                 BinOp::Eq => Some(Value::Bool(a == b)),
                 BinOp::Ne => Some(Value::Bool(a != b)),
-                BinOp::BitAnd => Some(Value::Bool(*a & *b)),
-                BinOp::BitOr => Some(Value::Bool(*a | *b)),
+                BinOp::BitAnd => Some(Value::Bool(*a && *b)),
+                BinOp::BitOr => Some(Value::Bool(*a || *b)),
                 BinOp::BitXor => Some(Value::Bool(*a ^ *b)),
                 _ => None,
             },

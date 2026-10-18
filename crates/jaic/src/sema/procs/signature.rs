@@ -421,13 +421,15 @@ impl Compiler {
         }
         let mut seen: Vec<(EntityId, Rc<[TypeId]>, bool)> = Vec::new();
         for &id in ids {
-            let proc = match self.resolve_entity(id) {
-                Ok(Resolved::Proc(p))
-                | Ok(Resolved::Const {
-                    value: Value::Proc(p),
+            let Ok(
+                Resolved::Proc(proc)
+                | Resolved::Const {
+                    value: Value::Proc(proc),
                     ..
-                }) => p,
-                _ => continue,
+                },
+            ) = self.resolve_entity(id)
+            else {
+                continue;
             };
             if self.proc(proc).is_poly || self.proc(proc).lit.body.is_none() {
                 continue;

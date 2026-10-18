@@ -9,7 +9,7 @@ use inkwell::values::{BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use jaic::abi::Passing;
 use jaic::ir::{Func, Linkage as IrLinkage, Term, Ty, Val};
 
-impl<'ctx, 'p> Backend<'ctx, 'p> {
+impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn define_function(&self, func: &Func, function: FunctionValue<'ctx>) -> R<()> {
         let alloca_block = self.ctx.append_basic_block(function, "allocas");
         let allocas = self.ctx.create_builder();
@@ -262,6 +262,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     ) -> R<PointerValue<'ctx>> {
         // Inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
         #[allow(unsafe_code)]
+        // SAFETY: inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
         let p = unsafe {
             self.builder
                 .build_gep(self.ctx.i8_type(), base, &[offset], "")?

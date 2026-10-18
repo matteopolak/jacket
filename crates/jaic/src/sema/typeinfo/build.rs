@@ -26,7 +26,7 @@ impl Compiler {
             {
                 // A struct still being laid out (its own members ask for its type info): the
                 // size is not known yet, and `-1` marks it so until the layout is done.
-                self.size_of(ty, span).map(|s| s as i128).unwrap_or(-1)
+                self.size_of(ty, span).map_or(-1, |s| s as i128)
             }
             _ => self.size_of(ty, span)? as i128,
         };
@@ -38,12 +38,16 @@ impl Compiler {
             span,
         )?;
         match kind {
+            TypeKind::Struct(..) => self.type_info_struct(&mut agg, desc, ty, span, kind)?,
+            TypeKind::Proc(..) | TypeKind::Enum(..) => {
+                self.type_info_proc_enum(&mut agg, desc, span, kind)?;
+            }
             TypeKind::Int {
                 signed, ..
             } => self.set_field(&mut agg, desc, "signed", Value::Bool(signed), span)?,
             TypeKind::Pointer(to) => self.set_info_ptr(&mut agg, desc, "pointer_to", to, span)?,
             TypeKind::Null => {
-                self.set_info_ptr(&mut agg, desc, "pointer_to", TypeId::VOID, span)?
+                self.set_info_ptr(&mut agg, desc, "pointer_to", TypeId::VOID, span)?;
             }
             TypeKind::Array {
                 elem,
@@ -57,77 +61,6 @@ impl Compiler {
                 };
                 self.set_field(&mut agg, desc, "array_type", Value::Int(at), span)?;
                 self.set_field(&mut agg, desc, "array_count", Value::Int(count), span)?;
-            }
-            TypeKind::Proc(p) => {
-                let args = self.info_view(&p.params, span)?;
-                self.set_view(
-                    &mut agg,
-                    desc,
-                    "argument_types",
-                    p.params.len(),
-                    args,
-                    8,
-                    span,
-                )?;
-                let rets = self.info_view(&p.returns, span)?;
-                self.set_view(
-                    &mut agg,
-                    desc,
-                    "return_types",
-                    p.returns.len(),
-                    rets,
-                    8,
-                    span,
-                )?;
-                let mut flags = 0;
-                if p.no_context {
-                    flags |= 0x8;
-                }
-                if p.c_call {
-                    flags |= 0x20;
-                }
-                self.set_field(&mut agg, desc, "procedure_flags", Value::Int(flags), span)?;
-            }
-            TypeKind::Enum(e) => {
-                let info = self.types.enum_info(e).clone();
-                // Like anonymous structs, an inline `enum {...}` has no name at runtime.
-                let name = match info.name.as_str() {
-                    "enum" => "",
-                    name => name,
-                };
-                self.set_field(
-                    &mut agg,
-                    desc,
-                    "name",
-                    Value::String(name.as_bytes().into()),
-                    span,
-                )?;
-                self.set_info_ptr(&mut agg, desc, "internal_type", info.base, span)?;
-                let names: Vec<Rc<[u8]>> = info
-                    .members
-                    .iter()
-                    .map(|(n, _)| Rc::from(n.as_str().as_bytes()))
-                    .collect();
-                let names_data = self.string_view(&names, span)?;
-                self.set_view(&mut agg, desc, "names", names.len(), names_data, 8, span)?;
-                let mut values = Aggregate {
-                    bytes: Vec::new(),
-                    relocs: Vec::new(),
-                };
-                for (_, v) in &info.members {
-                    values.bytes.extend_from_slice(&(*v as i64).to_le_bytes());
-                }
-                self.set_view(
-                    &mut agg,
-                    desc,
-                    "values",
-                    info.members.len(),
-                    values,
-                    8,
-                    span,
-                )?;
-                let flags = i128::from(info.type_flags());
-                self.set_field(&mut agg, desc, "enum_type_flags", Value::Int(flags), span)?;
             }
             TypeKind::PolyStruct {
                 name, ..
@@ -163,16 +96,24 @@ impl Compiler {
                     span,
                 )?;
             }
+            _ => {}
+        }
+        Ok(agg)
+    }
+
+    fn type_info_struct(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        ty: TypeId,
+        span: Span,
+        kind: TypeKind,
+    ) -> Result<()> {
+        match kind {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
                 let info = self.types.struct_info(s).clone();
-                self.set_field(
-                    &mut agg,
-                    desc,
-                    "alignment",
-                    Value::Int(info.align as i128),
-                    span,
-                )?;
+                self.set_field(agg, desc, "alignment", Value::Int(info.align as i128), span)?;
                 // Anonymous structs are named after the keyword internally; at runtime
                 // they have no name.
                 let name = match info.name.as_str() {
@@ -180,7 +121,7 @@ impl Compiler {
                     name => name,
                 };
                 self.set_field(
-                    &mut agg,
+                    agg,
                     desc,
                     "name",
                     Value::String(name.as_bytes().into()),
@@ -209,7 +150,7 @@ impl Compiler {
                     relocs: Vec::new(),
                 };
                 if !info.poly_args.is_empty() {
-                    self.poly_struct_info(&mut agg, desc, s, &mut storage, span)?;
+                    self.poly_struct_info(agg, desc, s, &mut storage, span)?;
                 }
                 let constants = if tflags & 0x1 != 0 {
                     Vec::new()
@@ -308,29 +249,13 @@ impl Compiler {
                     self.set_view(&mut m, member_ty, "notes", notes.len(), notes_data, 8, span)?;
                     structs::write_agg(&mut members, slot as u64 * msize, &m);
                 }
-                self.set_view(
-                    &mut agg,
-                    desc,
-                    "members",
-                    order.len(),
-                    members,
-                    malign,
-                    span,
-                )?;
+                self.set_view(agg, desc, "members", order.len(), members, malign, span)?;
                 if !info.poly_args.is_empty() || !storage.bytes.is_empty() {
                     let storage_len = storage.bytes.len();
-                    self.set_view(
-                        &mut agg,
-                        desc,
-                        "constant_storage",
-                        storage_len,
-                        storage,
-                        8,
-                        span,
-                    )?;
+                    self.set_view(agg, desc, "constant_storage", storage_len, storage, 8, span)?;
                 }
                 if !bindings.is_empty() {
-                    self.set_tagged_union_bindings(&mut agg, desc, &bindings, span)?;
+                    self.set_tagged_union_bindings(agg, desc, &bindings, span)?;
                 }
                 // A tagged union (`union(tag) {..}`) is laid out as a struct.
                 let tagged = self
@@ -343,7 +268,7 @@ impl Compiler {
                     } else {
                         0x2
                     };
-                    self.set_field(&mut agg, desc, "textual_flags", Value::Int(flags), span)?;
+                    self.set_field(agg, desc, "textual_flags", Value::Int(flags), span)?;
                 }
                 let no_padding = self
                     .struct_asts
@@ -359,7 +284,7 @@ impl Compiler {
                     } else {
                         0
                     };
-                    self.set_field(&mut agg, desc, "textual_flags", Value::Int(cur | 0x4), span)?;
+                    self.set_field(agg, desc, "textual_flags", Value::Int(cur | 0x4), span)?;
                 }
                 // Every member is `= ---`: ALL_MEMBERS_UNINITIALIZED. The initializer stays
                 // set (it leaves the members untouched).
@@ -371,7 +296,7 @@ impl Compiler {
                         })
                 });
                 if all_uninit {
-                    self.set_field(&mut agg, desc, "nontextual_flags", Value::Int(0x40), span)?;
+                    self.set_field(agg, desc, "nontextual_flags", Value::Int(0x40), span)?;
                 }
                 // A struct declared inside a procedure, a block or another struct is LOCAL.
                 let local = self.struct_asts.get(&s).is_some_and(|src| {
@@ -389,7 +314,7 @@ impl Compiler {
                     })
                 });
                 if local {
-                    self.set_field(&mut agg, desc, "status_flags", Value::Int(0x4), span)?;
+                    self.set_field(agg, desc, "status_flags", Value::Int(0x4), span)?;
                 }
                 // Notes written on the struct itself: `S :: struct @thing { ... }`.
                 let struct_notes: Vec<Rc<[u8]>> = self
@@ -405,7 +330,7 @@ impl Compiler {
                     .unwrap_or_default();
                 if !struct_notes.is_empty() {
                     let data = self.string_view(&struct_notes, span)?;
-                    self.set_view(&mut agg, desc, "notes", struct_notes.len(), data, 8, span)?;
+                    self.set_view(agg, desc, "notes", struct_notes.len(), data, 8, span)?;
                 }
                 let (func, _) = self.initializer_proc(ty, span)?;
                 let Some((path, _)) = self.find_member(desc, Sym::intern("initializer"), span)?
@@ -428,8 +353,68 @@ impl Compiler {
                     addend: 0,
                 });
             }
-            _ => {}
+            _ => unreachable!("dispatched only for this group's operations"),
         }
-        Ok(agg)
+        Ok(())
+    }
+
+    fn type_info_proc_enum(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        span: Span,
+        kind: TypeKind,
+    ) -> Result<()> {
+        match kind {
+            TypeKind::Proc(p) => {
+                let args = self.info_view(&p.params, span)?;
+                self.set_view(agg, desc, "argument_types", p.params.len(), args, 8, span)?;
+                let rets = self.info_view(&p.returns, span)?;
+                self.set_view(agg, desc, "return_types", p.returns.len(), rets, 8, span)?;
+                let mut flags = 0;
+                if p.no_context {
+                    flags |= 0x8;
+                }
+                if p.c_call {
+                    flags |= 0x20;
+                }
+                self.set_field(agg, desc, "procedure_flags", Value::Int(flags), span)?;
+            }
+            TypeKind::Enum(e) => {
+                let info = self.types.enum_info(e).clone();
+                // Like anonymous structs, an inline `enum {...}` has no name at runtime.
+                let name = match info.name.as_str() {
+                    "enum" => "",
+                    name => name,
+                };
+                self.set_field(
+                    agg,
+                    desc,
+                    "name",
+                    Value::String(name.as_bytes().into()),
+                    span,
+                )?;
+                self.set_info_ptr(agg, desc, "internal_type", info.base, span)?;
+                let names: Vec<Rc<[u8]>> = info
+                    .members
+                    .iter()
+                    .map(|(n, _)| Rc::from(n.as_str().as_bytes()))
+                    .collect();
+                let names_data = self.string_view(&names, span)?;
+                self.set_view(agg, desc, "names", names.len(), names_data, 8, span)?;
+                let mut values = Aggregate {
+                    bytes: Vec::new(),
+                    relocs: Vec::new(),
+                };
+                for (_, v) in &info.members {
+                    values.bytes.extend_from_slice(&(*v as i64).to_le_bytes());
+                }
+                self.set_view(agg, desc, "values", info.members.len(), values, 8, span)?;
+                let flags = i128::from(info.type_flags());
+                self.set_field(agg, desc, "enum_type_flags", Value::Int(flags), span)?;
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
     }
 }

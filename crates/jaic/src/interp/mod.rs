@@ -51,7 +51,9 @@ pub use self::host::{Hook, Host, LocationLayout, NativeHost, PendingDataGlobal};
 pub use self::rets::Rets;
 pub use self::trap::{Trap, TrapDetails, TrapFrame, TrapKind};
 use crate::fxhash::HashMap;
-use crate::ir::{self, FuncId, GlobalId, Program, Ty};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::ir::Ty;
+use crate::ir::{self, FuncId, GlobalId, Program};
 #[cfg(target_os = "macos")]
 pub use native::main_thread;
 pub use native::{
@@ -145,7 +147,7 @@ pub struct Interp {
     pub pending_type_flags: Vec<(GlobalId, u32)>,
     /// Declaration of each struct whose descriptor exists: file path, line, column
     /// (`compiler_get_struct_location`).
-    pub struct_locations: std::collections::HashMap<GlobalId, (std::rc::Rc<str>, i64, i64)>,
+    pub struct_locations: crate::fxhash::HashMap<GlobalId, (std::rc::Rc<str>, i64, i64)>,
     /// Workspace registry for the `Compiler` module, when the embedder has one.
     pub workspaces: Option<crate::build::SharedWorkspaces>,
     /// Bodies and source text of the compiler's `Code` values, by `CodeId`.
@@ -175,8 +177,8 @@ pub struct Interp {
     pub missing_func: Option<FuncId>,
     defer_missing_bodies: bool,
     callable_request: Option<(FuncId, bool)>,
-    inspected_callables: std::collections::HashSet<FuncId>,
-    ready_callables: std::collections::HashSet<FuncId>,
+    inspected_callables: crate::fxhash::HashSet<FuncId>,
+    ready_callables: crate::fxhash::HashSet<FuncId>,
     /// Those typed exports (root record, node records), by code index, in the order the
     /// run asks for them: each `compiler_get_nodes` call gets nodes of its own, which it may
     /// edit. `code_export_cursor` counts the ones this run took; it starts over on each run.
@@ -276,7 +278,7 @@ impl Interp {
             ct_type_table: (0, 0),
             ct_type_tables: Vec::new(),
             pending_type_flags: Vec::new(),
-            struct_locations: std::collections::HashMap::new(),
+            struct_locations: crate::fxhash::HashMap::default(),
             workspaces: None,
             codes: Vec::new(),
             made_codes: Vec::new(),
@@ -291,8 +293,8 @@ impl Interp {
             missing_func: None,
             defer_missing_bodies: false,
             callable_request: None,
-            inspected_callables: std::collections::HashSet::new(),
-            ready_callables: std::collections::HashSet::new(),
+            inspected_callables: crate::fxhash::HashSet::default(),
+            ready_callables: crate::fxhash::HashSet::default(),
             code_exports: HashMap::default(),
             code_export_cursor: HashMap::default(),
             forked_child: false,
@@ -374,6 +376,7 @@ fn exit_forked_child(code: i32) -> ! {
         unsafe extern "C" {
             fn _exit(code: i32) -> !;
         }
+        // SAFETY: `_exit` ends the process at once, without unwinding, and accepts any status.
         unsafe { _exit(code) }
     }
     #[cfg(not(unix))]

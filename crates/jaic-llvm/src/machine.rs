@@ -199,12 +199,12 @@ pub(super) fn target_machine(
     Ok((machine, triple, build_target, arch))
 }
 
-/// Select instructions at -O0 with FastISel instead of GlobalISel.
+/// Select instructions at -O0 with `FastISel` instead of `GlobalISel`.
 ///
-/// LLVM turns GlobalISel on by default for unoptimized AArch64 code, and it is the slowest
+/// LLVM turns `GlobalISel` on by default for unoptimized `AArch64` code, and it is the slowest
 /// part of an unoptimized build there (about a third of codegen time, about 20% of the whole
-/// build); FastISel is the default on x86-64 and produces code of the same quality at -O0.
-/// FastISel hands any instruction it cannot select to SelectionDAG, so nothing is rejected.
+/// build); `FastISel` is the default on x86-64 and produces code of the same quality at -O0.
+/// `FastISel` hands any instruction it cannot select to `SelectionDAG`, so nothing is rejected.
 #[allow(unsafe_code)]
 fn use_fast_isel(machine: &TargetMachine) {
     use inkwell::llvm_sys::target_machine as tm;

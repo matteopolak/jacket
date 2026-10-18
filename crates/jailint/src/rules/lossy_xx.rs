@@ -33,7 +33,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
-            if *flags != Default::default() || !cx.src(e.span).starts_with("xx") {
+            if *flags != jaic::ast::CastFlags::default() || !cx.src(e.span).starts_with("xx") {
                 return true;
             }
             let Some(c) = cx.compiler.cast_fact(e.span) else {

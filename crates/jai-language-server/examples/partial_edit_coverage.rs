@@ -1,4 +1,4 @@
-//! One-file worker for tools/dev/lsp_partial_edits.py; stdout is a machine-readable report.
+//! One-file worker for `tools/dev/lsp_partial_edits.py`; stdout is a machine-readable report.
 #[path = "support/edit_coverage.rs"]
 mod edit_coverage;
 
@@ -23,8 +23,7 @@ fn run() {
     });
     let max_lines = args
         .next()
-        .map(|s| s.parse().expect("integer MAX_LINES"))
-        .unwrap_or(0);
+        .map_or(0, |s| s.parse().expect("integer MAX_LINES"));
     edit_coverage::set_progress(args.next().as_deref() == Some("--progress"));
     let file = file.canonicalize().expect("source file exists");
     let bytes = std::fs::read(&file).expect("Jai source");

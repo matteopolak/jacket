@@ -332,7 +332,7 @@ impl Compiler {
             kind: ast::StructKind::Struct,
             params: Vec::new(),
             body: Vec::new(),
-            flags: Default::default(),
+            flags: crate::ast::StructFlags::default(),
             tag: None,
             modify: None,
             notes: Vec::new(),
@@ -608,12 +608,11 @@ impl Compiler {
         if decl.kind != ast::DeclKind::Var || decl.backtick {
             return;
         }
-        let ty = match decl.ty.as_ref().map(|t| self.eval_type(scope, t)) {
-            Some(Ok(ty)) => ty,
-            _ => {
-                let root = self.root_scope;
-                self.ide_stand_in(Sym::intern("?"), decl.span, root)
-            }
+        let ty = if let Some(Ok(ty)) = decl.ty.as_ref().map(|t| self.eval_type(scope, t)) {
+            ty
+        } else {
+            let root = self.root_scope;
+            self.ide_stand_in(Sym::intern("?"), decl.span, root)
         };
         let depth = self.scope(scope).proc_depth;
         for name in &decl.names {

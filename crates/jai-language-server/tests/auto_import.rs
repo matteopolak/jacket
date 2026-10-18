@@ -8,9 +8,10 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 fn environment(os: jaic::sema::TargetOs) -> Environment {
-    let stdlib = std::env::var_os("JAIC_STDLIB")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
+    let stdlib = std::env::var_os("JAIC_STDLIB").map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
+        PathBuf::from,
+    );
     Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
@@ -270,7 +271,10 @@ fn facade_metadata_alias_cycles_terminate_and_chains_keep_the_public_name() {
             .contains("emit :: (value: s64)")
     );
     assert_eq!(auto(&list, "emit_cycle").len(), 1);
-    assert!(auto(&list, "relay").is_empty());
+    assert_eq!(
+        auto(&list, "relay"),
+        [] as [&jai_language_server::CompletionItem; 0]
+    );
 }
 
 #[test]
@@ -385,7 +389,10 @@ fn only_modules_for_the_target_os() {
     let path = Path::new("/auto-import/f/main.jai");
     let mut linux = session();
     let list = complete_at(&mut linux, path, text, "GetModuleHandl");
-    assert!(auto(&list, "GetModuleHandleW").is_empty());
+    assert_eq!(
+        auto(&list, "GetModuleHandleW"),
+        [] as [&jai_language_server::CompletionItem; 0]
+    );
     let mut windows = Session::with_environment(
         Limits::default(),
         environment(jaic::sema::TargetOs::Windows),
@@ -530,7 +537,10 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
         sources_of(&list, "print_scalar"),
         [("Basic".into(), "#import \"Basic\";\n\n".into())]
     );
-    assert!(sources_of(&list, "print_spare").is_empty());
+    assert_eq!(
+        sources_of(&list, "print_spare"),
+        [] as [(std::string::String, std::string::String); 0]
+    );
     // A file of the module sees what the module loads without an edit, and its unloaded sibling
     // by `#load`.
     let list = complete_at(&mut s, &dir.join("stdlib/Basic/part.jai"), text, "prin");
@@ -542,7 +552,10 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
         sources_of(&list, "print_spare"),
         [("spare.jai".into(), "#load \"spare.jai\";\n\n".into())]
     );
-    assert!(sources_of(&list, "print_helper").is_empty());
+    assert_eq!(
+        sources_of(&list, "print_helper"),
+        [] as [(std::string::String, std::string::String); 0]
+    );
     // Outside the stdlib, the workspace's files by `#load` and the stdlib by module.
     let list = complete_at(&mut s, &dir.join("tools/main.jai"), text, "prin");
     assert_eq!(
@@ -564,7 +577,10 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
         sources_of(&list, "print"),
         [("Basic".into(), "#import \"Basic\";\n\n".into())]
     );
-    assert!(sources_of(&list, "print_helper").is_empty());
+    assert_eq!(
+        sources_of(&list, "print_helper"),
+        [] as [(std::string::String, std::string::String); 0]
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -590,7 +606,7 @@ fn names_of_files_the_program_already_loads_need_no_edit() {
     let text = "use_them :: () {\n    from_\n}\n";
     let list = complete_at(&mut s, &dir.join("src/b.jai"), text, "from_");
     let a = list.items.iter().find(|i| i.label == "from_a").unwrap();
-    assert!(a.additional_edits.is_empty());
+    assert_eq!(a.additional_edits, [] as [jai_language_server::TextEdit; 0]);
     let c = &auto(&list, "from_c")[0];
     assert_eq!(
         c.additional_edits[0].new_text,
@@ -806,13 +822,13 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
         "#load \"loaded.jai\"; #load \"new.jai\"; main :: () { loaded_n; extra_n; fresh_n; }";
     let main = alias.join("main.jai");
     let list = complete_at(&mut s, &main, text, "loaded_n");
-    assert!(
+    assert_eq!(
         list.items
             .iter()
             .find(|i| i.label == "loaded_name")
             .unwrap()
-            .additional_edits
-            .is_empty()
+            .additional_edits,
+        [] as [jai_language_server::TextEdit; 0]
     );
     let uri = DocumentUri::from_path(&main).unwrap();
     let list = s.completion(&uri, end_of(text, "extra_n")).unwrap();
@@ -826,13 +842,13 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
     std::fs::write(dir.join("new.jai"), "fresh_name :: 3;").unwrap();
     s.file_changed(&dir.join("new.jai"), true);
     let list = s.completion(&uri, end_of(text, "fresh_n")).unwrap();
-    assert!(
+    assert_eq!(
         list.items
             .iter()
             .find(|i| i.label == "fresh_name")
             .unwrap()
-            .additional_edits
-            .is_empty()
+            .additional_edits,
+        [] as [jai_language_server::TextEdit; 0]
     );
     std::fs::write(dir.join("extra.jai"), "extra_changed :: 4;").unwrap();
     s.file_changed(&alias.join("extra.jai"), false);

@@ -6,7 +6,7 @@
 //! are listed in `tests/compiler/stdlib-targets.txt` with the first error they stop at; the test fails when
 //! a module fails that is not listed, fails differently, or passes although it is listed.
 //! The plugin loader's declared generated body needs its real empty compile-time initialization
-//! before unused-code checking, including when imported by Default_Metaprogram.
+//! before unused-code checking, including when imported by `Default_Metaprogram`.
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -192,7 +192,7 @@ fn every_stdlib_module_checks_for_every_target() {
         .collect();
     let next = Mutex::new(jobs.into_iter());
     let actual = Mutex::new(BTreeMap::new());
-    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
     std::thread::scope(|scope| {
         for _ in 0..threads {
             scope.spawn(|| {

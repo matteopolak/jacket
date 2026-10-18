@@ -10,6 +10,7 @@
 //!
 //! Every Rust tool reads the file here; `jaifmt` (written in Jai) reads its `[format]` section
 //! itself. See `docs/tools/jacket.md`.
+#![forbid(unsafe_code)]
 use std::path::{Path, PathBuf};
 
 pub mod migrate;

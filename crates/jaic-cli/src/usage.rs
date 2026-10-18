@@ -145,7 +145,7 @@ pub(super) fn subcommand_error(args: &[String]) -> CliError {
                 options.extend(rest.next().cloned());
             }
             _ if arg.starts_with('-') || !plugin_options.is_empty() => {
-                plugin_options.push(arg.to_string())
+                plugin_options.push(arg.to_string());
             }
             _ if file.is_none() => file = Some(arg.to_string()),
             _ => plugin_options.push(arg.to_string()),

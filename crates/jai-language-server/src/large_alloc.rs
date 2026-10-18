@@ -60,10 +60,12 @@ unsafe extern "C" {
 /// Blocks of `LARGE` bytes and up already go back on `free`; this covers the rest. It walks the
 /// allocator's free lists, so call it after a compile, not after every request.
 pub fn release_free_memory() {
+    // SAFETY: a null zone means every zone, and the call only returns free pages to the system.
     #[cfg(target_os = "macos")]
     unsafe {
         malloc_zone_pressure_relief(std::ptr::null_mut(), 0);
     }
+    // SAFETY: `malloc_trim` only returns free pages to the system.
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     unsafe {
         malloc_trim(0);
@@ -78,12 +80,19 @@ fn length(size: usize) -> usize {
     size.div_ceil(GRANULE) * GRANULE
 }
 
+// SAFETY: a block is either the system allocator's or a mapping of `length(size)` bytes, and
+// `mapped` depends only on the size and alignment, which `dealloc` and `realloc` receive
+// unchanged, so each block is returned to the allocator it came from. Mappings are page aligned,
+// which covers every alignment up to `GRANULE`.
 unsafe impl GlobalAlloc for LargeBlocksToOs {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if !mapped(layout.size(), layout.align()) {
+            // SAFETY: the caller upholds `GlobalAlloc::alloc`'s contract for `layout`.
             return unsafe { System.alloc(layout) };
         }
         // Fresh anonymous pages are zero, so this also serves `alloc_zeroed`.
+        // SAFETY: an anonymous private mapping at a kernel-chosen address touches no existing
+        // memory; the length is non-zero because `mapped` implies `size >= LARGE`.
         let at = unsafe {
             mmap(
                 std::ptr::null_mut(),
@@ -103,16 +112,22 @@ unsafe impl GlobalAlloc for LargeBlocksToOs {
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         if mapped(layout.size(), layout.align()) {
+            // SAFETY: the caller upholds `GlobalAlloc::alloc_zeroed`'s contract, which is
+            // `alloc`'s, and fresh mappings are zero.
             unsafe { self.alloc(layout) }
         } else {
+            // SAFETY: the caller upholds `GlobalAlloc::alloc_zeroed`'s contract for `layout`.
             unsafe { System.alloc_zeroed(layout) }
         }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if mapped(layout.size(), layout.align()) {
+            // SAFETY: `ptr` is the start of the mapping `alloc` made for this `layout`, which
+            // has the same `length`.
             unsafe { munmap(ptr.cast(), length(layout.size())) };
         } else {
+            // SAFETY: `ptr` came from `System` with this `layout`, as `mapped` is false for it.
             unsafe { System.dealloc(ptr, layout) };
         }
     }
@@ -121,14 +136,21 @@ unsafe impl GlobalAlloc for LargeBlocksToOs {
         let from = mapped(layout.size(), layout.align());
         let to = mapped(new_size, layout.align());
         if !from && !to {
+            // SAFETY: the caller upholds `GlobalAlloc::realloc`'s contract, and `ptr` came from
+            // `System` because `mapped` is false for `layout`.
             return unsafe { System.realloc(ptr, layout, new_size) };
         }
         if from && to && length(layout.size()) == length(new_size) {
             return ptr;
         }
+        // SAFETY: `GlobalAlloc::realloc`'s contract makes `new_size`, rounded up to the unchanged
+        // alignment, fit in `isize`, and the alignment is a power of two from `layout`.
         let new_layout = unsafe { Layout::from_size_align_unchecked(new_size, layout.align()) };
+        // SAFETY: `new_layout` has the caller-validated size and alignment.
         let fresh = unsafe { self.alloc(new_layout) };
         if !fresh.is_null() {
+            // SAFETY: both blocks are valid for the smaller of the two sizes and cannot overlap
+            // (`fresh` is new); `ptr` is then released as the caller's old block, once.
             unsafe {
                 std::ptr::copy_nonoverlapping(ptr, fresh, layout.size().min(new_size));
                 self.dealloc(ptr, layout);
@@ -146,6 +168,8 @@ mod tests {
     fn blocks_keep_their_contents_across_the_size_classes() {
         let a = LargeBlocksToOs;
         let sizes = [64, LARGE - 1, LARGE, 3 * LARGE + 5, 64, LARGE * 8];
+        // SAFETY: every block is allocated, resized and freed through `a` with the layout it was
+        // last given, and only the bytes within the current size are read or written.
         unsafe {
             let mut layout = Layout::from_size_align(sizes[0], 8).unwrap();
             let mut at = a.alloc(layout);

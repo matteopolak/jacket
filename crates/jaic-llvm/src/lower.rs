@@ -25,9 +25,9 @@ use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
 use inkwell::values::{FunctionValue, GlobalValue, IntValue, PointerValue};
 use jaic::abi::Arch;
+use jaic::fxhash::HashMap;
 use jaic::ir::Program;
 use std::cell::{OnceCell, RefCell};
-use std::collections::HashMap;
 
 type R<T> = Result<T, Error>;
 
@@ -61,7 +61,7 @@ struct Backend<'ctx, 'p> {
     /// Debug info builder when the program is built with debug info (`debuginfo.rs`).
     debug: Option<DebugInfo<'ctx, 'p>>,
     /// Unoptimized code: write copies and zero fills of up to `INLINE_COPY_MAX` bytes as
-    /// loads and stores. FastISel turns a `memcpy` whose pointers are not known to be aligned
+    /// loads and stores. `FastISel` turns a `memcpy` whose pointers are not known to be aligned
     /// into a library call (and every `memset` into one), which costs more than the copy.
     inline_small_copies: bool,
     simd: crate::simd::Target,
@@ -70,7 +70,7 @@ struct Backend<'ctx, 'p> {
 /// The largest copy or fill that unoptimized code writes inline.
 const INLINE_COPY_MAX: u64 = 64;
 
-impl<'ctx, 'p> Backend<'ctx, 'p> {
+impl<'ctx> Backend<'ctx, '_> {
     fn run(&mut self) -> R<()> {
         if self.shard.is_none() {
             // One module holds everything: declare it all, functions first.
@@ -201,6 +201,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         // Inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
         #[allow(unsafe_code)]
         let out_high =
+            // SAFETY: inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
             unsafe { b.build_gep(self.ctx.i8_type(), out, &[i64t.const_int(8, false)], "")? };
         b.build_store(out_high, high)?;
         b.build_return(None)?;

@@ -72,28 +72,27 @@ impl Compiler {
         let mut params = Vec::new();
         for (position, arg) in import.params.iter().enumerate() {
             // `.Member` needs the parameter's type, known only once the module is read.
-            let (value, ty) = match &arg.value.kind {
-                ast::ExprKind::InferredMember(member) => (
+            let (value, ty) = if let ast::ExprKind::InferredMember(member) = &arg.value.kind {
+                (
                     Value::String(format!("{INFERRED_PARAM}{}", member.name).as_bytes().into()),
                     TypeId::VOID,
-                ),
-                _ => {
-                    // Aggregates (`.[...]`), enums and typed numbers (`cast(u8) 3`) carry
-                    // their type along. Untyped numbers (`3`, `N` for `N :: 3`) and other
-                    // scalars get `VOID` and take their type from the value.
-                    let (value, ty, untyped) = self.eval_const_literal(from_scope, &arg.value)?;
-                    let typed = matches!(value, Value::Bytes(_))
-                        || matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_))
-                        || (!untyped && matches!(value, Value::Int(_) | Value::Float(_, _)));
-                    (
-                        value,
-                        if typed {
-                            ty
-                        } else {
-                            TypeId::VOID
-                        },
-                    )
-                }
+                )
+            } else {
+                // Aggregates (`.[...]`), enums and typed numbers (`cast(u8) 3`) carry
+                // their type along. Untyped numbers (`3`, `N` for `N :: 3`) and other
+                // scalars get `VOID` and take their type from the value.
+                let (value, ty, untyped) = self.eval_const_literal(from_scope, &arg.value)?;
+                let typed = matches!(value, Value::Bytes(_))
+                    || matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_))
+                    || (!untyped && matches!(value, Value::Int(_) | Value::Float(_, _)));
+                (
+                    value,
+                    if typed {
+                        ty
+                    } else {
+                        TypeId::VOID
+                    },
+                )
             };
             let name = arg
                 .name
@@ -143,7 +142,7 @@ impl Compiler {
             }
             ast::ImportSource::Module(name) => {
                 let host = self.scope(from_scope).module;
-                let host = self.modules[host.0 as usize].name.to_string();
+                let host = self.modules[host.0 as usize].name.clone();
                 // `remap_import`: the latest rule for this importer (or any importer) wins.
                 let (remaps, provided) = self.import_rules();
                 let wanted: String = remaps

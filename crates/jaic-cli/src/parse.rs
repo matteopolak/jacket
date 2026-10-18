@@ -180,7 +180,7 @@ pub(super) fn check_input(file: &str) -> Result<(), CliError> {
             let entry = jacket_config::project_entry(&jacket_config::Disk, path);
             match (entry, files.len()) {
                 (Some(entry), _) => {
-                    error = error.help(format!("did you mean `{}`?", entry.display()))
+                    error = error.help(format!("did you mean `{}`?", entry.display()));
                 }
                 (None, 0) => error = error.help("it holds no .jai files"),
                 (None, _) => {

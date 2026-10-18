@@ -432,9 +432,9 @@ fn protocol_exposes_the_new_requests() {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
     let send = |json: &mut JsonSession, message: serde_json::Value| -> serde_json::Value {
         let out = json.handle_json(&message.to_string()).unwrap();
-        out.last()
-            .map(|m| serde_json::from_str(m).unwrap())
-            .unwrap_or(serde_json::Value::Null)
+        out.last().map_or(serde_json::Value::Null, |m| {
+            serde_json::from_str(m).unwrap()
+        })
     };
     let init = send(
         &mut json,

@@ -38,7 +38,7 @@ pub fn instrument(program: &mut Program, layout: &TraceLayout) {
 /// report their own location, so they don't need a node either.
 /// [`quiet_but_for_callees`] of every function, scanned on as many threads as the machine has.
 fn scan_bodies(funcs: &[Option<Func>]) -> Vec<Option<Vec<u32>>> {
-    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let threads = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
     let chunk = funcs.len().div_ceil(threads).max(256);
     std::thread::scope(|scope| {
         let parts: Vec<_> = funcs
@@ -106,7 +106,7 @@ fn quiet_but_for_callees(func: &Func) -> Option<Vec<u32>> {
     // not a use by itself. The context counts as used when anything but a quiet callee gets
     // hold of it: the parameter, the slot's address or a value loaded from the slot.
     let slot_addr = context_slot_addr(func);
-    let mut loaded = std::collections::HashSet::new();
+    let mut loaded = crate::fxhash::HashSet::default();
     if let Some(slot_addr) = slot_addr {
         for block in &func.blocks {
             for inst in &block.insts {

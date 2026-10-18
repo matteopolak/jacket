@@ -43,7 +43,10 @@ fn same_shaped_callback_fields_keep_independent_headers() {
         names(&format!("{declarations}other.callback(|); }}")),
         ["private_option"]
     );
-    assert!(names(&format!("{declarations}h.callback(private_|); }}")).is_empty());
+    assert_eq!(
+        names(&format!("{declarations}h.callback(private_|); }}")),
+        [] as [std::string::String; 0]
+    );
 }
 
 #[test]
@@ -102,11 +105,11 @@ fn callback_slots_filter_both_sides_and_positional_arguments() {
         )),
         ["second"]
     );
-    assert!(
+    assert_eq!(
         names(&format!(
             "{prefix}callback(1, second = false, third = true, |); }}"
-        ))
-        .is_empty()
+        )),
+        [] as [std::string::String; 0]
     );
 }
 
@@ -138,8 +141,18 @@ fn factory_result_retains_checked_header_without_borrowing_a_type_match() {
 
 #[test]
 fn erased_array_element_and_unresolved_headers_do_not_borrow_names() {
-    assert!(names("Other :: struct { callback: (borrowed_name: bool) -> int; }\nmain :: () { other: Other; callbacks: [2](erased_name: bool) -> int; callbacks[0](|); }").is_empty());
-    assert!(names("Holder :: struct { callback: (unknown_name: Missing_Type) -> int; }\nmain :: () { h: Holder; h.callback(unk|); }").is_empty());
+    assert_eq!(
+        names(
+            "Other :: struct { callback: (borrowed_name: bool) -> int; }\nmain :: () { other: Other; callbacks: [2](erased_name: bool) -> int; callbacks[0](|); }"
+        ),
+        [] as [std::string::String; 0]
+    );
+    assert_eq!(
+        names(
+            "Holder :: struct { callback: (unknown_name: Missing_Type) -> int; }\nmain :: () { h: Holder; h.callback(unk|); }"
+        ),
+        [] as [std::string::String; 0]
+    );
 }
 
 #[test]

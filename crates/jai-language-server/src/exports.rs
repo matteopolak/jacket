@@ -192,7 +192,7 @@ fn import_paths(tokens: &[Token]) -> Vec<String> {
         for next in &tokens[i + 1..] {
             match &next.tok {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
-                    depth += 1
+                    depth += 1;
                 }
                 Tok::Punct(P::RParen | P::RBracket | P::RBrace) => {
                     depth -= 1;

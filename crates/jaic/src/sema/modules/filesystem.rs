@@ -65,7 +65,7 @@ impl FileSystem for NativeFs {
             return Vec::new();
         };
         entries
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .map(|e| {
                 (
                     e.file_name().to_string_lossy().into_owned(),
@@ -103,7 +103,8 @@ impl FileSystem for VirtualFs {
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         let p = normalize(path);
-        let mut out: std::collections::BTreeMap<String, bool> = Default::default();
+        let mut out: std::collections::BTreeMap<String, bool> =
+            std::collections::BTreeMap::default();
         for key in self.files.keys() {
             let Ok(rest) = key.strip_prefix(&p) else {
                 continue;

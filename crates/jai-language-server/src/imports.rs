@@ -52,7 +52,7 @@ impl Session {
             .diagnostics
             .iter()
             .any(|(code, range)| code == CHECK_CODE && *range == diagnostic.range);
-        if !named && !(at <= end && start <= to) {
+        if !named && (at > end || start > to) {
             return Vec::new();
         }
         // Preferred only when the compiler knows of one module that declares the name.

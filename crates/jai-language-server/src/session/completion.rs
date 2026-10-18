@@ -21,16 +21,15 @@ impl Session {
         byte: usize,
         context: &CursorContext,
     ) -> Option<Completions> {
-        let (start, member) = match context {
-            CursorContext::Member(m) => (m.word.start as usize, Some(m)),
-            _ => {
-                let ident = |c: char| c.is_alphanumeric() || c == '_';
-                let start = text[..byte]
-                    .char_indices()
-                    .rfind(|&(_, c)| !ident(c))
-                    .map_or(0, |(i, c)| i + c.len_utf8());
-                (start, None)
-            }
+        let (start, member) = if let CursorContext::Member(m) = context {
+            (m.word.start as usize, Some(m))
+        } else {
+            let ident = |c: char| c.is_alphanumeric() || c == '_';
+            let start = text[..byte]
+                .char_indices()
+                .rfind(|&(_, c)| !ident(c))
+                .map_or(0, |(i, c)| i + c.len_utf8());
+            (start, None)
         };
         let prefix = text[start..byte].to_owned();
         let (at, chain) = match member {
@@ -385,16 +384,16 @@ impl Session {
 fn rank(name: &IdeName, keyword: bool, here: Option<u32>, local: std::ops::Range<usize>) -> char {
     let in_file = here == Some(name.decl.file.0) && name.decl != jaic::source::Span::NONE;
     match () {
-        _ if keyword => '3',
+        () if keyword => '3',
         // Strictly after the declaration's start: the declaration itself is a file name.
-        _ if in_file
+        () if in_file
             && local.start < name.decl.start as usize
             && local.contains(&(name.decl.start as usize)) =>
         {
             '1'
         }
-        _ if in_file => '2',
-        _ if name.name.starts_with("__") => '}',
-        _ => '3',
+        () if in_file => '2',
+        () if name.name.starts_with("__") => '}',
+        () => '3',
     }
 }

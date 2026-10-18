@@ -83,11 +83,11 @@ mod tests {
     fn decimal_float_precision_counts_fractional_digits() {
         for (text, value, defaults, requires) in [
             ("1.5", 1.5, false, false),
-            ("1.1234567", 1.1234567, false, false),
-            ("1.12345678", 1.12345678, true, false),
-            ("1.123456780", 1.12345678, true, false),
-            ("0.123456789", 0.123456789, false, true),
-            ("12342345234.0", 12342345234.0, false, false),
+            ("1.1234567", 1.123_456_7, false, false),
+            ("1.12345678", 1.123_456_78, true, false),
+            ("1.123456780", 1.123_456_78, true, false),
+            ("0.123456789", 0.123_456_789, false, true),
+            ("12342345234.0", 12_342_345_234.0, false, false),
             ("1.0e39", 1.0e39, false, true),
         ] {
             let precision = float_literal_precision(text, value);

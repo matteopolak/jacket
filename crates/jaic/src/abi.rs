@@ -1,6 +1,6 @@
 //! C ABI classification for aggregates passed or returned by value.
 //!
-//! Covers the 64-bit ABIs the compiler targets: AArch64 AAPCS64 (Apple and
+//! Covers the 64-bit ABIs the compiler targets: `AArch64` AAPCS64 (Apple and
 //! Linux), its Windows variant, x86-64 System V, the Microsoft x64 convention
 //! (Windows) and the WebAssembly C ABI (wasm64). The IR
 //! describes an aggregate only by its flattened scalar fields (`AggLayout`),
@@ -14,7 +14,7 @@ pub enum Arch {
     X86_64,
     /// x86-64 with the Microsoft x64 calling convention (Windows, MSVC and MinGW alike).
     Win64,
-    /// AArch64 Windows (MSVC and MinGW alike): AAPCS64, except that a variadic procedure takes
+    /// `AArch64` Windows (MSVC and MinGW alike): AAPCS64, except that a variadic procedure takes
     /// every argument, fixed ones included, in x0-x7 and then on the stack, with no
     /// floating-point aggregate treatment (`classify_vararg`).
     Win64Arm,
@@ -45,7 +45,7 @@ impl Arch {
         matches!(self, Arch::X86_64 | Arch::Win64)
     }
 
-    /// Whether the CPU is AArch64 (either flavour).
+    /// Whether the CPU is `AArch64` (either flavour).
     pub fn is_aarch64(self) -> bool {
         matches!(self, Arch::Aarch64 | Arch::Win64Arm)
     }
@@ -72,7 +72,7 @@ pub enum PieceTy {
     /// An x87 `long double` (x86-64 System V): arguments go to the stack, 16-byte aligned,
     /// and results come back in `st(0)`.
     X87,
-    /// A binary128 `long double` in a 128-bit vector register (AArch64 outside Apple).
+    /// A binary128 `long double` in a 128-bit vector register (`AArch64` outside Apple).
     F128,
 }
 
@@ -90,7 +90,7 @@ pub enum Passing {
     Registers(Vec<Piece>),
     /// Copied to the stack by the callee prologue/caller (`byval`, x86-64).
     ByVal,
-    /// Caller makes a copy and passes its address (AArch64 large aggregates, and every
+    /// Caller makes a copy and passes its address (`AArch64` large aggregates, and every
     /// Win64 aggregate that is not 1, 2, 4 or 8 bytes).
     Indirect,
 }
@@ -109,7 +109,7 @@ pub fn classify_arg(arch: Arch, layout: &AggLayout) -> Passing {
 /// Classify a by-value aggregate argument of a C-variadic procedure (`varargs`), whether
 /// it is one of the fixed parameters or a variadic one.
 ///
-/// Only Windows on AArch64 differs from [`classify_arg`]: there a variadic procedure's
+/// Only Windows on `AArch64` differs from [`classify_arg`]: there a variadic procedure's
 /// arguments all travel in general registers and on the stack, so a floating-point
 /// aggregate is no different from any other: up to 16 bytes as one or two integer pieces,
 /// larger ones by reference. (The backend itself moves scalar `float`/`double` arguments

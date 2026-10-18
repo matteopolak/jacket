@@ -42,9 +42,7 @@ impl Compiler {
         stmt: &ast::Stmt,
         vis: ast::ScopeKind,
     ) -> Result<ast::ScopeKind> {
-        let target = self.target_scope(scope, file_scope, vis);
         let exported = vis == ast::ScopeKind::Export;
-        let file = self.scope_file(file_scope);
         if matches!(self.scope(scope).kind, ScopeKind::Struct(_)) {
             // Struct bodies: only constants are entities; fields are laid out separately.
             match &stmt.kind {
@@ -79,7 +77,38 @@ impl Compiler {
             return Ok(vis);
         }
         match &stmt.kind {
+            ast::StmtKind::Decl(..) => self.declare_decl_stmt(scope, file_scope, stmt, vis)?,
+            ast::StmtKind::Import(..)
+            | ast::StmtKind::Load {
+                ..
+            }
+            | ast::StmtKind::ModuleParameters(..)
+            | ast::StmtKind::Using(..) => self.declare_module_stmt(scope, file_scope, stmt, vis)?,
+            ast::StmtKind::StaticIf(..)
+            | ast::StmtKind::StaticSwitch(..)
+            | ast::StmtKind::Insert(..)
+            | ast::StmtKind::Run(..)
+            | ast::StmtKind::Assert(..)
+            | ast::StmtKind::AddContext(..)
+            | ast::StmtKind::Placeholder(..)
+            | ast::StmtKind::Directive(..)
+            | ast::StmtKind::Empty => self.declare_directive_stmt(scope, file_scope, stmt, vis)?,
             ast::StmtKind::Scope(kind) => return Ok(*kind),
+            _ => return err(stmt.span, "this statement is not allowed at file scope"),
+        }
+        Ok(vis)
+    }
+
+    fn declare_decl_stmt(
+        &mut self,
+        scope: ScopeId,
+        file_scope: ScopeId,
+        stmt: &ast::Stmt,
+        vis: ast::ScopeKind,
+    ) -> Result<()> {
+        let target = self.target_scope(scope, file_scope, vis);
+        let exported = vis == ast::ScopeKind::Export;
+        match &stmt.kind {
             ast::StmtKind::Decl(decl) => {
                 // `using _ :: struct {...}` may appear many times: each gets its own name.
                 let entity_name = |c: &Self, name: Sym| {
@@ -202,7 +231,7 @@ impl Compiler {
                                     filter: ast::UsingFilter::None,
                                 })),
                                 span: stmt.span,
-                                notes: Default::default(),
+                                notes: ast::Notes::default(),
                             },
                             exported,
                             file_scope,
@@ -211,6 +240,22 @@ impl Compiler {
                     );
                 }
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    fn declare_module_stmt(
+        &mut self,
+        scope: ScopeId,
+        file_scope: ScopeId,
+        stmt: &ast::Stmt,
+        vis: ast::ScopeKind,
+    ) -> Result<()> {
+        let target = self.target_scope(scope, file_scope, vis);
+        let exported = vis == ast::ScopeKind::Export;
+        let file = self.scope_file(file_scope);
+        match &stmt.kind {
             ast::StmtKind::Import(import) => {
                 self.validate_import_program_origin(file_scope, import)?;
                 self.note_program_params(file_scope, import);
@@ -289,46 +334,6 @@ impl Compiler {
                 let full = self.file_dir(file).join(&**path);
                 self.load_file(&full, module, *span)?;
             }
-            ast::StmtKind::StaticIf(_)
-            | ast::StmtKind::StaticSwitch(_)
-            | ast::StmtKind::Insert(_) => {
-                self.push_pending(
-                    target,
-                    Pending {
-                        stmt: stmt.clone(),
-                        exported,
-                        file_scope,
-                        state: PendingState::Waiting,
-                    },
-                );
-            }
-            ast::StmtKind::Run(expr) => self.top_level_runs.push(((**expr).clone(), file_scope)),
-            ast::StmtKind::Assert(boxed) => {
-                let crate::ast::AssertStmt {
-                    cond,
-                    message,
-                    args,
-                } = &**boxed;
-                self.asserts
-                    .push((cond.clone(), message.clone(), args.clone(), file_scope))
-            }
-            ast::StmtKind::AddContext(decl) => {
-                self.add_contexts.push((decl.clone(), file_scope));
-                // Context already made (a `#run` needed it): extend it while its layout
-                // is still open.
-                if let Some(ty) = self.context_type {
-                    let s = self.types.as_struct(ty).unwrap();
-                    if self.types.struct_info(s).layout != crate::types::LayoutState::Pending {
-                        return err(
-                            stmt.span,
-                            "#add_context after the Context type was laid out (by compile-time code that ran earlier)",
-                        );
-                    }
-                    if let Some(src) = self.struct_asts.get_mut(&s) {
-                        src.extra.push((decl.clone(), file_scope));
-                    }
-                }
-            }
             ast::StmtKind::ModuleParameters(boxed) => {
                 let crate::ast::ModuleParametersStmt {
                     params,
@@ -406,6 +411,84 @@ impl Compiler {
                     }
                 }
             }
+            ast::StmtKind::Using(boxed) => {
+                let crate::ast::UsingStmt {
+                    value,
+                    filter,
+                } = &**boxed;
+                // `using Module;` / `using SomeStruct;` at file scope: resolved lazily.
+                self.push_pending(
+                    target,
+                    Pending {
+                        stmt: ast::Stmt {
+                            kind: ast::StmtKind::Using(Box::new(ast::UsingStmt {
+                                value: value.clone(),
+                                filter: filter.clone(),
+                            })),
+                            span: stmt.span,
+                            notes: ast::Notes::default(),
+                        },
+                        exported,
+                        file_scope,
+                        state: PendingState::Waiting,
+                    },
+                );
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    fn declare_directive_stmt(
+        &mut self,
+        scope: ScopeId,
+        file_scope: ScopeId,
+        stmt: &ast::Stmt,
+        vis: ast::ScopeKind,
+    ) -> Result<()> {
+        let target = self.target_scope(scope, file_scope, vis);
+        let exported = vis == ast::ScopeKind::Export;
+        match &stmt.kind {
+            ast::StmtKind::StaticIf(_)
+            | ast::StmtKind::StaticSwitch(_)
+            | ast::StmtKind::Insert(_) => {
+                self.push_pending(
+                    target,
+                    Pending {
+                        stmt: stmt.clone(),
+                        exported,
+                        file_scope,
+                        state: PendingState::Waiting,
+                    },
+                );
+            }
+            ast::StmtKind::Run(expr) => self.top_level_runs.push(((**expr).clone(), file_scope)),
+            ast::StmtKind::Assert(boxed) => {
+                let crate::ast::AssertStmt {
+                    cond,
+                    message,
+                    args,
+                } = &**boxed;
+                self.asserts
+                    .push((cond.clone(), message.clone(), args.clone(), file_scope));
+            }
+            ast::StmtKind::AddContext(decl) => {
+                self.add_contexts.push((decl.clone(), file_scope));
+                // Context already made (a `#run` needed it): extend it while its layout
+                // is still open.
+                if let Some(ty) = self.context_type {
+                    let s = self.types.as_struct(ty).unwrap();
+                    if self.types.struct_info(s).layout != crate::types::LayoutState::Pending {
+                        return err(
+                            stmt.span,
+                            "#add_context after the Context type was laid out (by compile-time code that ran earlier)",
+                        );
+                    }
+                    if let Some(src) = self.struct_asts.get_mut(&s) {
+                        src.extra.push((decl.clone(), file_scope));
+                    }
+                }
+            }
             ast::StmtKind::Placeholder(names) => {
                 for name in names {
                     self.add_entity(
@@ -455,32 +538,9 @@ impl Compiler {
                 self.declare_library(file_scope, system, flags, args.first(), stmt.span)?;
             }
             ast::StmtKind::Directive(_) | ast::StmtKind::Empty => {}
-            ast::StmtKind::Using(boxed) => {
-                let crate::ast::UsingStmt {
-                    value,
-                    filter,
-                } = &**boxed;
-                // `using Module;` / `using SomeStruct;` at file scope: resolved lazily.
-                self.push_pending(
-                    target,
-                    Pending {
-                        stmt: ast::Stmt {
-                            kind: ast::StmtKind::Using(Box::new(ast::UsingStmt {
-                                value: value.clone(),
-                                filter: filter.clone(),
-                            })),
-                            span: stmt.span,
-                            notes: Default::default(),
-                        },
-                        exported,
-                        file_scope,
-                        state: PendingState::Waiting,
-                    },
-                );
-            }
-            _ => return err(stmt.span, "this statement is not allowed at file scope"),
+            _ => unreachable!("dispatched only for this group's operations"),
         }
-        Ok(vis)
+        Ok(())
     }
 
     /// Apply `#poke_name Module name;`: the declarations called `name` visible at the directive

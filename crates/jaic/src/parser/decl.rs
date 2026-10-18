@@ -137,7 +137,7 @@ impl Parser<'_> {
         for i in from.. {
             match self.tok_at(i) {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBracket | P::DotBrace) => {
-                    depth += 1
+                    depth += 1;
                 }
                 Tok::Punct(P::RParen | P::RBracket | P::RBrace) => depth = depth.checked_sub(1)?,
                 Tok::Punct(P::Semi) | Tok::Eof => return None,

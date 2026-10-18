@@ -49,9 +49,8 @@ impl Bridge {
 
     fn dispatch(&mut self) -> u32 {
         let bytes = std::mem::take(&mut self.input);
-        let text = match std::str::from_utf8(&bytes) {
-            Ok(text) => text,
-            Err(_) => return self.fail("language request must be UTF-8"),
+        let Ok(text) = std::str::from_utf8(&bytes) else {
+            return self.fail("language request must be UTF-8");
         };
         let messages = match self.session.handle_json(text) {
             Ok(messages) => messages,
@@ -139,7 +138,7 @@ pub extern "C" fn jai_lsp_push(byte: u32) -> u32 {
 
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_lsp_dispatch() -> u32 {
-    with(1, |bridge| bridge.dispatch())
+    with(1, Bridge::dispatch)
 }
 
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
@@ -191,10 +190,10 @@ mod tests {
         assert!(output.contains("capabilities"));
         assert!(output.contains("\"id\":1"));
         assert_eq!(bridge.push(256), 1);
-        assert!(bridge.input.is_empty());
+        assert_eq!(bridge.input, [] as [u8; 0]);
         bridge.input = vec![b' '; INPUT_LIMIT];
         assert_eq!(bridge.push(u32::from(b' ')), 1);
-        assert!(bridge.input.is_empty());
+        assert_eq!(bridge.input, [] as [u8; 0]);
         bridge.input = vec![0xff];
         assert_eq!(bridge.dispatch(), 1);
         assert!(

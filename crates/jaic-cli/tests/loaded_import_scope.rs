@@ -28,7 +28,7 @@ fn anonymous_loaded_import_runs_in_interpreter_and_compile_time() {
             String::from_utf8_lossy(&output.stderr)
         );
         assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
-        assert!(output.stderr.is_empty());
+        assert_eq!(output.stderr, [] as [u8; 0]);
     }
 }
 
@@ -76,8 +76,8 @@ fn anonymous_loaded_import_executes_native_o0_and_o2() {
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
-        assert!(output.stdout.is_empty());
-        assert!(output.stderr.is_empty());
+        assert_eq!(output.stdout, [] as [u8; 0]);
+        assert_eq!(output.stderr, [] as [u8; 0]);
         let output = Command::new(&executable).output().unwrap();
         assert!(
             output.status.success(),
@@ -85,7 +85,7 @@ fn anonymous_loaded_import_executes_native_o0_and_o2() {
             String::from_utf8_lossy(&output.stderr)
         );
         assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
-        assert!(output.stderr.is_empty());
+        assert_eq!(output.stderr, [] as [u8; 0]);
     }
     std::fs::remove_dir_all(scratch).unwrap();
 }

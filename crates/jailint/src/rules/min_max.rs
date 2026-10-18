@@ -32,9 +32,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some((inner_name, [p, q])) = two_arg_call(cx, inner) else {
                 return true;
             };
-            let other = match (literal(p), literal(q)) {
-                (Some(c), None) | (None, Some(c)) => c,
-                _ => return true,
+            let ((Some(other), None) | (None, Some(other))) = (literal(p), literal(q)) else {
+                return true;
             };
             let always = match (outer, inner_name) {
                 ("min", "max") => bound < other,

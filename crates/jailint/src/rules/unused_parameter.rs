@@ -25,9 +25,9 @@
 use crate::Finding;
 use crate::facts::Recorded;
 use crate::syntax::{Cx, Node, ProcSite};
+use jaic::fxhash::HashMap;
 use jaic::sema::scope::EntityKind;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -112,7 +112,7 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     {
         return false;
     }
-    let name = decl.names.first().map(|n| n.name.as_str()).unwrap_or("");
+    let name = decl.names.first().map_or("", |n| n.name.as_str());
     // The program's entry point is called by the runtime, not by anything in view.
     if name == cx.compiler.options.entry_point {
         return false;
@@ -340,7 +340,7 @@ thread_local! {
     /// language server lints after every edit, and the files around the edited one do not
     /// change between edits: parsing them each time was a quarter of a lint of a large program.
     static DEFS: RefCell<HashMap<PathBuf, (std::time::SystemTime, u64, Defs)>> =
-        RefCell::new(HashMap::new());
+        RefCell::new(HashMap::default());
 }
 
 /// The most files remembered.
@@ -362,7 +362,7 @@ fn file_defs(path: &Path) -> Option<Defs> {
     }
     let text = std::fs::read_to_string(path).ok()?;
     let ast = jaic::parser::parse_file(jaic::source::FileId(u32::MAX), &text).ok()?;
-    let mut found = HashMap::new();
+    let mut found = HashMap::default();
     top_level(&ast.stmts, &mut found);
     let defs = Defs::new(found);
     if let Some(stamp) = stamp {

@@ -197,14 +197,14 @@ pub(super) fn assign_slots(
             match &mut slots[positional] {
                 Some(Slot::Variadic(list)) => list.push(i),
                 Some(Slot::Spread(first)) => {
-                    slots[positional] = Some(Slot::Variadic(vec![*first, i]))
+                    slots[positional] = Some(Slot::Variadic(vec![*first, i]));
                 }
                 None => {
                     slots[positional] = Some(if arg.spread {
                         Slot::Spread(i)
                     } else {
                         Slot::Variadic(vec![i])
-                    })
+                    });
                 }
                 _ => return err(arg.span, "variadic parameter already given"),
             }

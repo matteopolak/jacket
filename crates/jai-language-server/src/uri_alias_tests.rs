@@ -69,7 +69,10 @@ fn alias_lexical_declaration_and_local_bindings_use_stored_key() {
         let rows = s.bindings(&alias, pos(&s, &alias, needle)).unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(*rows[0].0, stored);
-        assert!(!Session::source_detail(s.document(rows[0].0).unwrap(), rows[0].1).is_empty());
+        assert_ne!(
+            Session::source_detail(s.document(rows[0].0).unwrap(), rows[0].1),
+            ""
+        );
     }
 }
 

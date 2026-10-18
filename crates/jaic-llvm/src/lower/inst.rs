@@ -7,8 +7,120 @@ use inkwell::IntPredicate;
 use inkwell::values::{BasicValue, BasicValueEnum, CallSiteValue, PointerValue, ValueKind};
 use jaic::ir::{BinOp, Callee, CmpOp, ConvOp, Func, Inst, Ty, UnOp, Val};
 
-impl<'ctx, 'p> Backend<'ctx, 'p> {
+impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn inst(&self, st: &mut FnState<'ctx>, func: &Func, inst: &Inst) -> R<()> {
+        match inst {
+            Inst::IConst {
+                ..
+            }
+            | Inst::FConst {
+                ..
+            }
+            | Inst::Bin {
+                ..
+            }
+            | Inst::Un {
+                ..
+            }
+            | Inst::Cmp {
+                ..
+            }
+            | Inst::Conv {
+                ..
+            } => self.inst_arith(st, inst)?,
+            Inst::SlotAddr {
+                ..
+            }
+            | Inst::StackAlloc {
+                ..
+            }
+            | Inst::GlobalAddr {
+                ..
+            }
+            | Inst::FuncAddr {
+                ..
+            }
+            | Inst::ForeignAddr {
+                ..
+            }
+            | Inst::PtrAdd {
+                ..
+            } => self.inst_address(st, inst)?,
+            Inst::Load {
+                ..
+            }
+            | Inst::Store {
+                ..
+            }
+            | Inst::Copy {
+                ..
+            }
+            | Inst::Zero {
+                ..
+            } => self.inst_memory(st, inst)?,
+            Inst::Call(call) => {
+                let jaic::ir::CallInst {
+                    results,
+                    callee,
+                    args,
+                } = &**call;
+                let argv = args
+                    .iter()
+                    .map(|&a| self.get(st, a))
+                    .collect::<R<Vec<_>>>()?;
+                let (ptr, sig) = match callee {
+                    Callee::Func(id) => {
+                        let f = self.program.func(*id).ok_or_else(|| {
+                            Error(format!(
+                                "call to '{}' which was never lowered",
+                                self.program.func_names[id.0 as usize]
+                            ))
+                        })?;
+                        (self.func_ptr(*id)?, &f.sig)
+                    }
+                    Callee::Foreign(id) => (
+                        self.foreign(id.0 as usize),
+                        &self.program.foreigns[id.0 as usize].sig,
+                    ),
+                    Callee::Indirect(target, sig) => (self.get_ptr(st, *target)?, &**sig),
+                };
+                let out = self.call(st, ptr, sig, &argv)?;
+                for (r, v) in results.iter().zip(out) {
+                    self.set(st, *r, v);
+                }
+            }
+            Inst::Intrinsic(call) => {
+                let jaic::ir::IntrinsicInst {
+                    results,
+                    op,
+                    args,
+                } = &**call;
+                let argv = args
+                    .iter()
+                    .map(|&a| self.get(st, a))
+                    .collect::<R<Vec<_>>>()?;
+                let want: Vec<Ty> = results.iter().map(|r| func.vals[r.0 as usize]).collect();
+                let out = self.intrinsic(st, *op, &argv, &want)?;
+                for (r, v) in results.iter().zip(out) {
+                    self.set(st, *r, v);
+                }
+            }
+            Inst::Loc {
+                line,
+                col,
+                scope,
+                file,
+            } => {
+                st.loc = (*file, *line);
+                if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
+                    dbg.loc(debug, func, &self.builder, *line, *col, *scope);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn inst_arith(&self, st: &mut FnState<'ctx>, inst: &Inst) -> R<()> {
         let b = &self.builder;
         match inst {
             Inst::IConst {
@@ -131,6 +243,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let v = self.conv(st, *op, *from, *to, *src)?;
                 self.set(st, *dst, v);
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    pub(super) fn inst_address(&self, st: &mut FnState<'ctx>, inst: &Inst) -> R<()> {
+        let b = &self.builder;
+        match inst {
             Inst::SlotAddr {
                 dst,
                 slot,
@@ -180,6 +300,38 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
+            Inst::PtrAdd {
+                dst,
+                base,
+                offset,
+            } => {
+                let base_val = *base;
+                let base = self.get_ptr(st, *base)?;
+                let off = self.get_int(st, *offset)?;
+                let off = if off.get_type().get_bit_width() < 64 {
+                    b.build_int_s_extend(off, self.ctx.i64_type(), "")?
+                } else {
+                    off
+                };
+                let p = self.gep(base, off)?;
+                if st.nonnull[base_val.0 as usize] {
+                    st.nonnull[dst.0 as usize] = true;
+                } else if st.null_checks
+                    && st.facts.constant[offset.0 as usize].is_some_and(|c| c < 4096)
+                {
+                    // A real address plus a field offset is not in the first page either.
+                    st.facts.derived[dst.0 as usize] = base_val.0 + 1;
+                }
+                self.set(st, *dst, p.into());
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    pub(super) fn inst_memory(&self, st: &mut FnState<'ctx>, inst: &Inst) -> R<()> {
+        let b = &self.builder;
+        match inst {
             Inst::Load {
                 dst,
                 ty,
@@ -223,30 +375,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     };
                 }
             }
-            Inst::PtrAdd {
-                dst,
-                base,
-                offset,
-            } => {
-                let base_val = *base;
-                let base = self.get_ptr(st, *base)?;
-                let off = self.get_int(st, *offset)?;
-                let off = if off.get_type().get_bit_width() < 64 {
-                    b.build_int_s_extend(off, self.ctx.i64_type(), "")?
-                } else {
-                    off
-                };
-                let p = self.gep(base, off)?;
-                if st.nonnull[base_val.0 as usize] {
-                    st.nonnull[dst.0 as usize] = true;
-                } else if st.null_checks
-                    && st.facts.constant[offset.0 as usize].is_some_and(|c| c < 4096)
-                {
-                    // A real address plus a field offset is not in the first page either.
-                    st.facts.derived[dst.0 as usize] = base_val.0 + 1;
-                }
-                self.set(st, *dst, p.into());
-            }
             Inst::Copy {
                 dst,
                 src,
@@ -282,64 +410,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     )?;
                 }
             }
-            Inst::Call(call) => {
-                let jaic::ir::CallInst {
-                    results,
-                    callee,
-                    args,
-                } = &**call;
-                let argv = args
-                    .iter()
-                    .map(|&a| self.get(st, a))
-                    .collect::<R<Vec<_>>>()?;
-                let (ptr, sig) = match callee {
-                    Callee::Func(id) => {
-                        let f = self.program.func(*id).ok_or_else(|| {
-                            Error(format!(
-                                "call to '{}' which was never lowered",
-                                self.program.func_names[id.0 as usize]
-                            ))
-                        })?;
-                        (self.func_ptr(*id)?, &f.sig)
-                    }
-                    Callee::Foreign(id) => (
-                        self.foreign(id.0 as usize),
-                        &self.program.foreigns[id.0 as usize].sig,
-                    ),
-                    Callee::Indirect(target, sig) => (self.get_ptr(st, *target)?, &**sig),
-                };
-                let out = self.call(st, ptr, sig, &argv)?;
-                for (r, v) in results.iter().zip(out) {
-                    self.set(st, *r, v);
-                }
-            }
-            Inst::Intrinsic(call) => {
-                let jaic::ir::IntrinsicInst {
-                    results,
-                    op,
-                    args,
-                } = &**call;
-                let argv = args
-                    .iter()
-                    .map(|&a| self.get(st, a))
-                    .collect::<R<Vec<_>>>()?;
-                let want: Vec<Ty> = results.iter().map(|r| func.vals[r.0 as usize]).collect();
-                let out = self.intrinsic(st, *op, &argv, &want)?;
-                for (r, v) in results.iter().zip(out) {
-                    self.set(st, *r, v);
-                }
-            }
-            Inst::Loc {
-                line,
-                col,
-                scope,
-                file,
-            } => {
-                st.loc = (*file, *line);
-                if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
-                    dbg.loc(debug, func, &self.builder, *line, *col, *scope);
-                }
-            }
+            _ => unreachable!("dispatched only for this group's operations"),
         }
         Ok(())
     }
@@ -561,7 +632,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     }
 }
 
-pub(super) fn basic<'ctx>(call: CallSiteValue<'ctx>) -> Option<BasicValueEnum<'ctx>> {
+pub(super) fn basic(call: CallSiteValue<'_>) -> Option<BasicValueEnum<'_>> {
     match call.try_as_basic_value() {
         ValueKind::Basic(v) => Some(v),
         ValueKind::Instruction(_) => None,

@@ -154,7 +154,7 @@ macro_rules! store {
 pub(crate) use store;
 
 pub(super) const OPTIONS: &[CliOption] = {
-    use Section::*;
+    use Section::{Diagnostics, Modes, Output, Program};
     &[
         CliOption::new(&["-check"], Action::Check).help(
             Modes,

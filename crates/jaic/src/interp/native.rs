@@ -1,7 +1,7 @@
 //! Native foreign calls: dynamic library loading and calling C functions
 //! through fixed-shape trampolines.
 //!
-//! On the supported 64-bit C ABIs (System V x86-64 and AArch64) integer and
+//! On the supported 64-bit C ABIs (System V x86-64 and `AArch64`) integer and
 //! floating-point arguments are assigned to separate register files, so any
 //! signature with at most 8 integer and 8 floating-point arguments can be
 //! called through one prototype taking 8 of each. Structs passed or returned by
@@ -49,7 +49,9 @@ static EXTRA_LIBRARY_DIRS: std::sync::Mutex<Vec<std::path::PathBuf>> =
     std::sync::Mutex::new(Vec::new());
 
 pub fn add_library_dir(dir: std::path::PathBuf) {
-    let mut dirs = EXTRA_LIBRARY_DIRS.lock().unwrap_or_else(|e| e.into_inner());
+    let mut dirs = EXTRA_LIBRARY_DIRS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if !dirs.contains(&dir) {
         dirs.push(dir);
     }
@@ -59,7 +61,7 @@ pub fn add_library_dir(dir: std::path::PathBuf) {
 pub fn extra_library_dirs() -> Vec<std::path::PathBuf> {
     EXTRA_LIBRARY_DIRS
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone()
 }
 
@@ -225,6 +227,7 @@ impl Library {
                     unsafe { sys::dlopen(path.as_ptr(), sys::RTLD_NOW) }
                 }
             };
+            // SAFETY: this is a live NUL-terminated CString.
             #[cfg(not(target_os = "macos"))]
             let handle = unsafe { sys::dlopen(path.as_ptr(), sys::RTLD_NOW) };
             if !handle.is_null() {
@@ -275,8 +278,11 @@ impl Library {
 pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
     let name = std::ffi::CString::new(symbol).ok()?;
     let handle = lib.map_or(sys::RTLD_DEFAULT, |l| l.handle as *mut std::ffi::c_void);
+    // SAFETY: `handle` is `RTLD_DEFAULT` or the live handle of a library this module opened and
+    // never closes; `name` is NUL-terminated.
     let mut p = unsafe { sys::dlsym(handle, name.as_ptr()) };
     if p.is_null() {
+        // SAFETY: `RTLD_DEFAULT` is always a valid handle; `name` is NUL-terminated.
         p = unsafe { sys::dlsym(sys::RTLD_DEFAULT, name.as_ptr()) };
     }
     (!p.is_null()).then_some(p as u64)
@@ -339,7 +345,7 @@ struct Regs {
     tail: usize,
     /// Integer registers available to arguments (on x86-64, one fewer when a hidden result
     /// pointer takes `rdi`).
-    int_regs: usize,
+    int_avail: usize,
 }
 
 impl Regs {
@@ -353,7 +359,7 @@ impl Regs {
             nf: 0,
             ns: 0,
             tail: 0,
-            int_regs: if X86_64 {
+            int_avail: if X86_64 {
                 6 - sret as usize
             } else {
                 8
@@ -362,7 +368,7 @@ impl Regs {
     }
 
     fn int(&mut self, v: u64) -> Result<(), String> {
-        if self.ni == self.int_regs {
+        if self.ni == self.int_avail {
             return self.stack(v);
         }
         self.ints[self.ni] = v;
@@ -403,8 +409,8 @@ impl Regs {
     }
 
     fn stack(&mut self, v: u64) -> Result<(), String> {
-        // The prototype's integer parameters past `int_regs` are stack slots too.
-        if self.ns == STACK_SLOTS + 8 - self.int_regs {
+        // The prototype's integer parameters past `int_avail` are stack slots too.
+        if self.ns == STACK_SLOTS + 8 - self.int_avail {
             return Err("foreign call has too many stack arguments".into());
         }
         self.stack[self.ns] = v;
@@ -433,7 +439,7 @@ impl Regs {
     /// entirely in registers or entirely on the stack.
     fn fits(&self, pieces: &[Piece]) -> bool {
         let ints = pieces.iter().filter(|p| p.ty == PieceTy::I64).count();
-        self.ni + ints <= self.int_regs && self.nf + pieces.len() - ints <= 8
+        self.ni + ints <= self.int_avail && self.nf + pieces.len() - ints <= 8
     }
 
     /// After an aggregate went to the stack, AAPCS64 gives later arguments of its register
@@ -443,7 +449,7 @@ impl Regs {
             return;
         }
         if pieces.iter().any(|p| p.ty == PieceTy::I64) {
-            self.ni = self.int_regs;
+            self.ni = self.int_avail;
         } else {
             self.nf = 8;
         }
@@ -453,9 +459,9 @@ impl Regs {
     /// when there are fewer integer registers), 8 floats, and `STACK_SLOTS` more slots.
     fn prototype(&self) -> ([u64; 8], [f64; 8], [u64; STACK_SLOTS]) {
         let mut ints = [0; 8];
-        let spill = 8 - self.int_regs;
-        ints[..self.int_regs].copy_from_slice(&self.ints[..self.int_regs]);
-        ints[self.int_regs..].copy_from_slice(&self.stack[..spill]);
+        let spill = 8 - self.int_avail;
+        ints[..self.int_avail].copy_from_slice(&self.ints[..self.int_avail]);
+        ints[self.int_avail..].copy_from_slice(&self.stack[..spill]);
         let mut stack = [0; STACK_SLOTS];
         stack.copy_from_slice(&self.stack[spill..spill + STACK_SLOTS]);
         (ints, self.floats.map(|f| f64::from_bits(f as u64)), stack)
@@ -468,6 +474,7 @@ impl Regs {
 unsafe fn read_bytes(addr: u64, len: u64) -> u64 {
     let mut out = [0u8; 8];
     let len = len.min(8) as usize;
+    // SAFETY: the caller guarantees `[addr, addr + len)` is readable; `out` has room for 8.
     unsafe { std::ptr::copy_nonoverlapping(addr as *const u8, out.as_mut_ptr(), len) };
     u64::from_le_bytes(out)
 }
@@ -476,6 +483,7 @@ unsafe fn read_bytes(addr: u64, len: u64) -> u64 {
 unsafe fn write_bytes(addr: u64, value: u64, len: u64) {
     let bytes = value.to_le_bytes();
     let len = len.min(8) as usize;
+    // SAFETY: the caller guarantees `[addr, addr + len)` is writable; `bytes` has 8.
     unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, len) };
 }
 
@@ -523,8 +531,11 @@ struct Sret([u64; SRET_WORDS]);
 /// same, and the caller then also sets `al`, which a variadic callee reads to find its
 /// vector-register arguments.
 ///
-/// SAFETY: `addr` is a C function whose arguments fit the registers and slots in `regs`.
-unsafe fn call_as<R>(addr: u64, regs: &Regs) -> R {
+/// The interpreter only passes an `addr` it got from the dynamic linker (or one of its own
+/// callback stubs) for a foreign procedure the program declared, with `regs` packed from that
+/// declaration, so the callee is a C function whose arguments fit the registers and slots in
+/// `regs` and whose result is an `R`.
+fn call_as<R>(addr: u64, regs: &Regs) -> R {
     let ([i0, i1, i2, i3, i4, i5, i6, i7], [f0, f1, f2, f3, f4, f5, f6, f7], s) = regs.prototype();
     let [
         s0,
@@ -547,7 +558,10 @@ unsafe fn call_as<R>(addr: u64, regs: &Regs) -> R {
     #[cfg(target_arch = "x86_64")]
     {
         type Proto<R> = unsafe extern "C" fn(u64, ...) -> R;
+        // SAFETY: `addr` is a C function (see above); the prototype passes the registers and
+        // slots `regs` holds in the order the C ABI assigns them.
         let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: as above.
         unsafe {
             f(
                 i0, i1, i2, i3, i4, i5, i6, i7, f0, f1, f2, f3, f4, f5, f6, f7, s0, s1, s2, s3, s4,
@@ -564,7 +578,10 @@ unsafe fn call_as<R>(addr: u64, regs: &Regs) -> R {
             u64, u64, u64, u64, u64, u64, u64, u64,
             u64, u64, u64, u64, u64, u64, u64, u64,
         ) -> R;
+        // SAFETY: `addr` is a C function (see above); the prototype passes the registers and
+        // slots `regs` holds in the order the C ABI assigns them.
         let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: as above.
         unsafe {
             f(
                 i0, i1, i2, i3, i4, i5, i6, i7, f0, f1, f2, f3, f4, f5, f6, f7, s0, s1, s2, s3, s4,
@@ -588,7 +605,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     call_with(addr, args, sig)
 }
 
-/// AppKit only works on the process's main thread, but the interpreter runs on a worker
+/// `AppKit` only works on the process's main thread, but the interpreter runs on a worker
 /// with a big stack. The driver parks the main thread in `main_thread::serve`. The
 /// primary thread forwards calls according to their owning native image, including the
 /// first call into an unfamiliar library. The worker waits for each forwarded call.
@@ -664,10 +681,10 @@ pub mod main_thread {
     }
 
     /// libSystem (libc, libm, pthreads, libdispatch...) and libc++ are thread-safe and never
-    /// touch AppKit: calling them directly avoids a thread handoff per call. Everything else
+    /// touch `AppKit`: calling them directly avoids a thread handoff per call. Everything else
     /// (frameworks, and user libraries such as SDL or GLFW that call into Cocoa) is forwarded.
     fn needs_main_thread(addr: u64) -> bool {
-        use std::collections::HashMap;
+        use crate::fxhash::HashMap;
         thread_local! {
             static CACHE: std::cell::RefCell<HashMap<u64, bool>> = std::cell::RefCell::new(HashMap::default());
         }
@@ -691,7 +708,7 @@ pub mod main_thread {
             saddr: std::ptr::null_mut(),
         };
         // SAFETY: dladdr only reads the loaded-image tables and fills `info`.
-        let found = unsafe { dladdr(addr as *const std::ffi::c_void, &mut info) } != 0;
+        let found = unsafe { dladdr(addr as *const std::ffi::c_void, &raw mut info) } != 0;
         let main = if !found || info.fname.is_null() {
             true
         } else {
@@ -731,7 +748,7 @@ pub mod main_thread {
         initializing_library: bool,
     ) -> Option<Result<Rets, String>> {
         let route = ROUTE.get()?;
-        if DISABLED.load(std::sync::atomic::Ordering::SeqCst) || DIRECT.with(|d| d.get()) {
+        if DISABLED.load(std::sync::atomic::Ordering::SeqCst) || DIRECT.with(std::cell::Cell::get) {
             return None;
         }
         if std::thread::current().id() != route.worker
@@ -742,7 +759,10 @@ pub mod main_thread {
         let (done_tx, done_rx) = channel();
         // Callbacks made during the job belong to the waiting worker's call.
         let caller = callbacks::caller();
-        let carried = Carry((args as *const [u64], sig as *const Sig));
+        let carried = Carry((
+            std::ptr::from_ref::<[u64]>(args),
+            std::ptr::from_ref::<Sig>(sig),
+        ));
         let attribution = Carry(crate::interp::crash::Attribution::of_this_thread());
         let job: Job = Box::new(move || {
             let carried = carried;
@@ -812,7 +832,7 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
             match layout {
                 None => regs.stack(a)?,
                 Some(l) if matches!(abi::classify_arg(arch, l), Passing::Indirect) => {
-                    regs.stack(indirect_copy(a, l.size, &mut copies))?
+                    regs.stack(indirect_copy(a, l.size, &mut copies))?;
                 }
                 Some(l) => {
                     for k in 0..l.size.div_ceil(8) {
@@ -841,7 +861,7 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
             let full = if ty.is_float() {
                 regs.nf == 8
             } else {
-                regs.ni == regs.int_regs
+                regs.ni == regs.int_avail
             };
             if full && PACKED_STACK && ty.size() < 8 {
                 regs.packed(a, ty.size() as usize)?;
@@ -859,16 +879,17 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
             Passing::Registers(pieces) if pieces.iter().any(|p| p.ty == PieceTy::X87) => {
                 regs.align_stack()?;
                 // SAFETY: `a` points at the 16-byte value.
-                regs.stack(unsafe { read_bytes(a, 8) })?;
-                regs.stack(unsafe { read_bytes(a + 8, 8) })?;
+                let (low, high) = unsafe { (read_bytes(a, 8), read_bytes(a + 8, 8)) };
+                regs.stack(low)?;
+                regs.stack(high)?;
             }
             Passing::Registers(pieces) if !regs.fits(&pieces) => {
                 regs.exhaust(&pieces);
                 if layout.align >= 16 {
                     regs.align_stack()?;
                 }
-                // SAFETY: as below.
                 for k in 0..layout.size.div_ceil(8) {
+                    // SAFETY: `a` points at the aggregate, `layout.size` bytes long.
                     regs.stack(unsafe { read_bytes(a + k * 8, layout.size - k * 8) })?;
                 }
             }
@@ -877,6 +898,7 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
                     // SAFETY: `a` points at the aggregate, `layout.size` bytes long.
                     let v = unsafe { read_bytes(a + p.offset, layout.size - p.offset) };
                     if p.ty == PieceTy::F128 {
+                        // SAFETY: a binary128 piece spans 16 bytes of the aggregate.
                         let high = unsafe { read_bytes(a + p.offset + 8, 8) };
                         regs.quad(v as u128 | (high as u128) << 64)?;
                     } else if p.ty == PieceTy::I64 {
@@ -922,67 +944,69 @@ fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
         return Ok(scalar_call(addr, &regs, sig.returns.first().copied()));
     };
     if result_in_x0 {
-        // SAFETY: as below; the callee writes the result through the pointer in x0.
-        unsafe { call_as::<u64>(addr, &regs) };
+        // The callee writes the result through the pointer in x0.
+        call_as::<u64>(addr, &regs);
         return Ok(Rets::default());
     }
     if oversize {
         let result = if X86_64 {
-            // SAFETY: as below; the callee fills the buffer `rdi` addresses.
-            unsafe { call_as::<u64>(addr, &regs) };
+            // The callee fills the buffer `rdi` addresses.
+            call_as::<u64>(addr, &regs);
             Ok(Rets::default())
         } else {
-            // SAFETY: as below; the callee fills the buffer `x8` addresses.
+            // SAFETY: the callee's declared C signature matches these registers, and it fills the
+            // buffer `x8` addresses.
             unsafe { wide::call(addr, &regs, sig, Some((layout.size, None)), out_ptr) }
         };
         drop(copies);
         return result;
     }
-    // SAFETY (all calls below): the callee's declared C signature matches these registers.
     match ret_pieces {
         None => {
-            let r: Sret = unsafe { call_as(addr, &regs) };
+            let r: Sret = call_as(addr, &regs);
+            // SAFETY: the out-pointer addresses `layout.size` writable bytes, and `r` holds at
+            // least that many (results over `SRET_WORDS` words take the `oversize` path).
             unsafe {
                 std::ptr::copy_nonoverlapping(
-                    r.0.as_ptr() as *const u8,
+                    r.0.as_ptr().cast::<u8>(),
                     out_ptr as *mut u8,
                     layout.size as usize,
-                )
+                );
             };
         }
         Some(pieces) => {
             let int = |p: &Piece| p.ty == PieceTy::I64;
             let words: Vec<u64> = match pieces.as_slice() {
                 [] => {
-                    unsafe { call_as::<()>(addr, &regs) };
+                    call_as::<()>(addr, &regs);
                     Vec::new()
                 }
-                [a] if int(a) => vec![unsafe { call_as::<u64>(addr, &regs) }],
-                [_] => vec![unsafe { call_as::<f64>(addr, &regs) }.to_bits()],
+                [a] if int(a) => vec![call_as::<u64>(addr, &regs)],
+                [_] => vec![call_as::<f64>(addr, &regs).to_bits()],
                 [a, b] => match (int(a), int(b)) {
                     (true, true) => {
-                        let r: II = unsafe { call_as(addr, &regs) };
+                        let r: II = call_as(addr, &regs);
                         vec![r.0, r.1]
                     }
                     (true, false) => {
-                        let r: IF = unsafe { call_as(addr, &regs) };
+                        let r: IF = call_as(addr, &regs);
                         vec![r.0, r.1.to_bits()]
                     }
                     (false, true) => {
-                        let r: FI = unsafe { call_as(addr, &regs) };
+                        let r: FI = call_as(addr, &regs);
                         vec![r.0.to_bits(), r.1]
                     }
                     (false, false) => {
-                        let r: FF = unsafe { call_as(addr, &regs) };
+                        let r: FF = call_as(addr, &regs);
                         vec![r.0.to_bits(), r.1.to_bits()]
                     }
                 },
                 [_, _, _] => {
-                    let r: FFF = unsafe { call_as(addr, &regs) };
+                    let r: FFF = call_as(addr, &regs);
                     vec![r.0.to_bits(), r.1.to_bits(), r.2.to_bits()]
                 }
                 [_, _, _, _] => {
-                    let r: FFFF = unsafe { call_as(addr, &regs) };
+                    let r: FFFF = call_as(addr, &regs);
                     vec![r.0.to_bits(), r.1.to_bits(), r.2.to_bits(), r.3.to_bits()]
                 }
                 _ => return Err("unsupported C aggregate return shape".into()),
@@ -1007,7 +1031,11 @@ fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
     let mut copy = vec![0u64; size.div_ceil(8) as usize];
     // SAFETY: `a` points at the aggregate, `size` bytes long; the copy is at least as long.
     unsafe {
-        std::ptr::copy_nonoverlapping(a as *const u8, copy.as_mut_ptr() as *mut u8, size as usize)
+        std::ptr::copy_nonoverlapping(
+            a as *const u8,
+            copy.as_mut_ptr().cast::<u8>(),
+            size as usize,
+        );
     };
     let addr = copy.as_ptr() as u64;
     copies.push(copy);
@@ -1016,19 +1044,18 @@ fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
 
 /// A call whose result is a scalar (or nothing).
 fn scalar_call(addr: u64, regs: &Regs, ret: Option<Ty>) -> Rets {
-    // SAFETY: the address comes from the dynamic linker for a declared foreign procedure.
     match ret {
         Some(t) if t.is_float() => {
-            let bits = unsafe { call_as::<f64>(addr, regs) }.to_bits();
+            let bits = call_as::<f64>(addr, regs).to_bits();
             Rets::one(if t == Ty::F32 {
                 bits & 0xffff_ffff
             } else {
                 bits
             })
         }
-        Some(t) => Rets::one(mask_int(t, unsafe { call_as::<u64>(addr, regs) })),
+        Some(t) => Rets::one(mask_int(t, call_as::<u64>(addr, regs))),
         None => {
-            unsafe { call_as::<u64>(addr, regs) };
+            call_as::<u64>(addr, regs);
             Rets::default()
         }
     }

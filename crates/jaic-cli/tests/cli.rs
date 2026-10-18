@@ -607,7 +607,7 @@ fn unwritten_workspace_output_names_the_path_and_the_command() {
     .unwrap();
     std::fs::write(
         dir.join("first.jai"),
-        r##"#import "Basic";
+        r#"#import "Basic";
 #import "Compiler";
 #run {
     set_build_options_dc(.{do_output = false});
@@ -623,7 +623,7 @@ fn unwritten_workspace_output_names_the_path_and_the_command() {
     set_build_options(options, w);
     add_build_file("src/main.jai", w);
 }
-"##,
+"#,
     )
     .unwrap();
     let output = Command::new(JAIC)
@@ -719,7 +719,7 @@ fn unreferenced_struct_constant_names_a_member() {
     }
 }
 
-/// SKIP_ intercept flags leave those kinds out of TYPECHECKED messages; ERROR_CONTINUABLE lets
+/// SKIP_ intercept flags leave those kinds out of TYPECHECKED messages; `ERROR_CONTINUABLE` lets
 /// the metaprogram go on but fails the build.
 // rules: bo.1 bo.2 bo.3 bo.4
 #[test]
@@ -729,7 +729,7 @@ fn intercept_flags_and_continuable_reports_are_preserved() {
     let source = dir.join("meta.jai");
     std::fs::write(
         &source,
-        r##"#import "Basic";
+        r#"#import "Basic";
 #import "Compiler";
 #run {
     set_build_options_dc(.{do_output = false});
@@ -772,7 +772,7 @@ fn intercept_flags_and_continuable_reports_are_preserved() {
     compiler_report("continuing", mode = .ERROR_CONTINUABLE);
     print("still running\n");
 }
-"##,
+"#,
     )
     .unwrap();
     let output = Command::new(JAIC)

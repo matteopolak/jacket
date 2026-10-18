@@ -38,7 +38,7 @@ impl SandboxHost {
         if ptr == 0 {
             return 0;
         }
-        unsafe { std::ptr::copy_nonoverlapping(name.as_ptr(), ptr as *mut u8, name.len()) };
+        write_bytes(ptr, name.as_bytes());
         let table = if class {
             &mut self.objc.classes
         } else {

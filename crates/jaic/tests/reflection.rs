@@ -9,7 +9,7 @@ use bootstrap::BOOTSTRAP;
 #[test]
 fn hidden_procedure_members_keep_the_marker_and_struct_alignment() {
     check(
-        r#"
+        r"
         Record :: struct #type_info_procedures_are_void_pointers { callback: (int) -> int; n: u8; }
         info :: type_info(Record);
         #assert(info.alignment == align_of(Record));
@@ -19,7 +19,7 @@ fn hidden_procedure_members_keep_the_marker_and_struct_alignment() {
         #assert((info.members[1].flags & 8) == 0);
         #assert(info.members[1].type == type_info(u8));
         #assert(info.members[1].offset_in_bytes == 8);
-    "#,
+    ",
     );
 }
 
@@ -102,7 +102,7 @@ check :: () -> bool {
 #[test]
 fn parameters_without_defaults_retain_negative_storage_offsets() {
     check(
-        r#"
+        r"
 Box :: struct(T: Type, amount: int = 3) { value: T; }
 info :: type_info(Box(u8));
 source :: info.polymorph_source_struct;
@@ -111,14 +111,14 @@ source :: info.polymorph_source_struct;
 #assert(source.parameters[0].offset_into_constant_storage == -1);
 #assert(source.parameters[1].offset_into_constant_storage >= 0);
 #assert(info.specified_parameters.count == 2);
-"#,
+",
     );
 }
 
 #[test]
 fn instance_defaults_evaluate_against_preceding_actual_bindings() {
     check(
-        r#"
+        r"
 Box :: struct(T: Type = u8, amount: int = size_of(T)) { value: T; }
 info :: type_info(Box(u32, 4));
 check :: () -> bool {
@@ -133,14 +133,14 @@ check :: () -> bool {
 }
 
 #assert(check());
-"#,
+",
     );
 }
 
 #[test]
 fn dependent_defaults_are_concrete_on_instances_and_symbolic_on_sources() {
     check(
-        r#"
+        r"
 Box :: struct(T: Type, amount: int = size_of(T), value: T = 0) { item: T; }
 info :: type_info(Box(u32));
 check :: () -> bool {
@@ -155,7 +155,7 @@ check :: () -> bool {
         && source.parameters[2].type == null;
 }
 #assert(check());
-"#,
+",
     );
 }
 

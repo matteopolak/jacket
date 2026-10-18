@@ -126,12 +126,12 @@ fn aggregate_assignment_validation_keeps_macro_caller_scope() {
 #[test]
 fn implicit_runtime_load_passes_only_reviewed_module_parameters() {
     let mut fs = VirtualFs::default();
-    fs.insert("/lib/Runtime_Support/module.jai",r#"
+    fs.insert("/lib/Runtime_Support/module.jai",r"
         #module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);
         #assert(DEFINE_SYSTEM_ENTRY_POINT);
         #assert(!DEFINE_INITIALIZATION);
         #assert(ENABLE_BACKTRACE_ON_CRASH);
-    "#.as_bytes());
+    ".as_bytes());
     let mut options = Options::host();
     options.runtime_support = true;
     options.runtime_entry_point = true;

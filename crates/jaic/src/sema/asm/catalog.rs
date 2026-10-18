@@ -101,7 +101,7 @@ pub fn register_classes() -> Vec<RegisterClass> {
 pub fn pin_names() -> Vec<String> {
     let mut out: Vec<String> = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp"]
         .iter()
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
         .collect();
     out.extend((8..16).map(|i| format!("r{i}")));
     for (prefix, count) in [("xmm", 16), ("ymm", 16), ("zmm", 32), ("k", 8)] {

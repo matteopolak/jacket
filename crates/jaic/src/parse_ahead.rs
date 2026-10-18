@@ -58,12 +58,13 @@ mod imp {
 #[cfg(not(target_arch = "wasm32"))]
 mod imp {
     use crate::ast::{self, AstId, StmtKind, relocate};
+    use crate::fxhash::HashMap;
     use crate::intern;
     use crate::sema::{
         BootstrapModule, FileSystem, NativeFs, Options, TargetCpu, TargetOs, find_module_in,
     };
     use crate::source::{FileId, LineIndex};
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::VecDeque;
     use std::path::{Path, PathBuf};
     use std::rc::Rc;
     use std::sync::{Arc, Condvar, Mutex};
@@ -160,7 +161,7 @@ mod imp {
             if knobs.serial_parse {
                 return None;
             }
-            let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+            let cores = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
             let workers = knobs
                 .parse_threads
                 .unwrap_or_else(|| cores.saturating_sub(1).min(4));
@@ -170,7 +171,7 @@ mod imp {
             let shared = Arc::new(Shared {
                 state: Mutex::new(State {
                     queue: VecDeque::new(),
-                    entries: HashMap::new(),
+                    entries: HashMap::default(),
                     shutdown: false,
                 }),
                 work: Condvar::new(),
@@ -236,7 +237,7 @@ mod imp {
         let shared = Shared {
             state: Mutex::new(State {
                 queue: VecDeque::new(),
-                entries: HashMap::new(),
+                entries: HashMap::default(),
                 shutdown: false,
             }),
             work: Condvar::new(),

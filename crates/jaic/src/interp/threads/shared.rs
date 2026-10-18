@@ -35,12 +35,14 @@ impl Shared {
     }
 
     pub(super) fn lock(&self) -> MutexGuard<'_, Sched> {
-        self.sched.lock().unwrap_or_else(|e| e.into_inner())
+        self.sched
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// The identity C callbacks compare with `native::caller`.
     pub(in crate::interp) fn key(&self) -> usize {
-        self as *const Shared as usize
+        std::ptr::from_ref::<Shared>(self) as usize
     }
 
     /// Wait until `me` (runnable, or blocked waiting to be woken) holds the baton.
@@ -155,10 +157,13 @@ impl Shared {
                 Some(t) => {
                     self.cv
                         .wait_timeout(s, t)
-                        .unwrap_or_else(|e| e.into_inner())
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
                         .0
                 }
-                None => self.cv.wait(s).unwrap_or_else(|e| e.into_inner()),
+                None => self
+                    .cv
+                    .wait(s)
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
             };
         }
         if urgent {
@@ -227,7 +232,10 @@ impl Shared {
             .iter()
             .any(|thread| thread.adopted && !thread.finished)
         {
-            s = self.cv.wait(s).unwrap_or_else(|e| e.into_inner());
+            s = self
+                .cv
+                .wait(s)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
         }
         #[cfg(windows)]
         for thread in &mut s.threads {

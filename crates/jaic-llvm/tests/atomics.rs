@@ -133,7 +133,7 @@ fn native_scalars_alignment_and_real_thread_contention() {
         });
         let object = object(&dir, false, optimized);
         let source = dir.join("driver.c");
-        std::fs::write(&source, r#"
+        std::fs::write(&source, r"
 #include <pthread.h>
 #include <stdint.h>
 #include <stdatomic.h>
@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
     if(pthread_join(threads[0],0) || pthread_join(threads[1],0)) return 7;
     return publication_failed ? 8:0;
 }
-"#).unwrap();
+").unwrap();
         let executable = dir.join("driver");
         run(Command::new("clang")
             .args(["-std=c11", "-pthread"])
@@ -214,9 +214,9 @@ fn wasm64_scalar_operations_execute() {
         .arg(object)
         .arg("-o")
         .arg(&module));
-    let script = r#"const fs=require('fs'); const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
+    let script = r"const fs=require('fs'); const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
 const env={}; for(const i of WebAssembly.Module.imports(m)){if(i.kind!=='function')throw Error('unsupported import');env[i.name]=()=>{throw Error('unexpected runtime failure: '+i.name);};}
-const instance=new WebAssembly.Instance(m,{env}); if(instance.exports.atomic_check()!==0)throw Error('atomic scalar mismatch');"#;
+const instance=new WebAssembly.Instance(m,{env}); if(instance.exports.atomic_check()!==0)throw Error('atomic scalar mismatch');";
     run(Command::new("node").args(["-e", script]).arg(module));
 }
 
@@ -270,7 +270,7 @@ fn wasm64_shared_memory_contention() {
         }
         run(linker.arg(&object).arg("-o").arg(path));
     }
-    let script = r#"
+    let script = r"
 const fs=require('fs'),{Worker}=require('worker_threads');
 function env(m,memory){const e={memory};for(const i of WebAssembly.Module.imports(m))if(i.kind==='function')e[i.name]=()=>{throw Error('unexpected runtime failure '+i.name);};return e;}
 const primary=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
@@ -307,7 +307,7 @@ for(const producer of [false,true]){
 }
 await Promise.all(pairReady);for(const w of pair)w.postMessage('go');await Promise.all(pairDone);for(const w of pair)await w.terminate();
 })().catch(e=>{console.error(e);process.exit(1);});
-"#;
+";
     run(Command::new("node")
         .args(["-e", script])
         .arg(module)

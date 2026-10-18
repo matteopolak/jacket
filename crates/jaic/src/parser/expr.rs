@@ -532,8 +532,10 @@ impl Parser<'_> {
     fn parse_punct_primary(&mut self, p: P) -> PResult<Expr> {
         let span = self.span();
         match p {
-            P::LParen if self.paren_starts_header(0) => self.parse_proc_expr(Default::default()),
-            P::Arrow => self.parse_proc_expr(Default::default()),
+            P::LParen if self.paren_starts_header(0) => {
+                self.parse_proc_expr(CallHintFlag::default())
+            }
+            P::Arrow => self.parse_proc_expr(CallHintFlag::default()),
             P::LParen => {
                 self.bump();
                 let inner = self.parse_expr()?;
@@ -643,7 +645,7 @@ impl Parser<'_> {
         for i in 0.. {
             match self.tok_at(i) {
                 Tok::Punct(P::LBrace | P::DotBrace | P::LParen | P::LBracket | P::DotBracket) => {
-                    depth += 1
+                    depth += 1;
                 }
                 Tok::Punct(P::RBrace | P::RParen | P::RBracket) => {
                     depth -= 1;

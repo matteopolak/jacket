@@ -28,8 +28,8 @@ pub const PLAN_STRUCT: u64 = 4;
 /// A view or resizable array.
 pub const PLAN_ARRAY: u64 = 5;
 
-/// Size of `Record_Plan_Entry`: offset, kind, size, name (16 bytes), type, element_kind,
-/// element_size, target, resizable.
+/// Size of `Record_Plan_Entry`: offset, kind, size, name (16 bytes), type, `element_kind`,
+/// `element_size`, target, resizable.
 const ENTRY_SIZE: u64 = 80;
 
 /// Structs are carved out of chunks this big; bigger ones get their own block.
@@ -306,7 +306,7 @@ impl Builder {
                         .records
                         .get(id)
                         .and_then(|r| r.field_named(entry.name))
-                        .and_then(|f| f.item());
+                        .and_then(super::records::FieldRef::item);
                     match item {
                         None | Some(Item::Ref(0) | Item::Int(0)) => Ok(false),
                         Some(Item::Ref(target) | Item::Int(target)) => {

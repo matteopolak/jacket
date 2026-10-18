@@ -119,8 +119,8 @@ struct State {
     total: Duration,
     /// Body that was being lowered when each body was queued (`u32::MAX`: none), and each
     /// body's own lowering time: the queue forms a tree whose longest path bounds any speedup.
-    parent: std::collections::HashMap<u32, u32>,
-    own_time: std::collections::HashMap<u32, Duration>,
+    parent: crate::fxhash::HashMap<u32, u32>,
+    own_time: crate::fxhash::HashMap<u32, Duration>,
 }
 
 thread_local! {
@@ -267,7 +267,7 @@ pub fn report() {
         // Longest chain of queue parents, weighted by own time.
         let mut best = Duration::ZERO;
         let mut deepest = 0;
-        let mut memo: std::collections::HashMap<u32, (Duration, u32)> = Default::default();
+        let mut memo: crate::fxhash::HashMap<u32, (Duration, u32)> = crate::fxhash::HashMap::default();
         for &id in s.parent.keys() {
             let mut chain = vec![];
             let mut cur = id;

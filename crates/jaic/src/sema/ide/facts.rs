@@ -313,6 +313,7 @@ impl IdeFacts {
     }
 
     /// Also record `files` (open documents), whichever folder they are in.
+    #[must_use]
     pub fn with_files(mut self, files: Vec<PathBuf>) -> Self {
         self.files = files;
         self
@@ -387,6 +388,7 @@ impl IdeCall {
     }
 
     /// The call shape of a name that is both `self` and `other` (overloads).
+    #[must_use]
     pub fn overloaded(&self, other: &Self) -> Self {
         Self {
             parameterless: self.parameterless && other.parameterless,

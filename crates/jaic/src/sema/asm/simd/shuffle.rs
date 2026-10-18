@@ -14,11 +14,9 @@ impl Compiler {
     ) -> Result<()> {
         let SimdLocals {
             span,
-            name,
             dst,
             tmp,
             block,
-            last_imm,
             width,
             wm,
             ops,
@@ -26,6 +24,12 @@ impl Compiler {
             ..
         } = *c;
         match op {
+            SOp::Pshufb
+            | SOp::Perm(..)
+            | SOp::PermTwo(..)
+            | SOp::PermilImm(..)
+            | SOp::Perm2x128
+            | SOp::Shuf128(..) => self.simd_permutes(f, cx, c, op)?,
             SOp::Unpack(high, ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let per = block / ty.size();
@@ -176,6 +180,27 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
+            _ => unreachable!("routed by asm_simd"),
+        }
+        Ok(())
+    }
+
+    fn simd_permutes(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        c: &SimdLocals<'_>,
+        op: SOp,
+    ) -> Result<()> {
+        let span = c.span;
+        let name = c.name;
+        let dst = c.dst;
+        let tmp = c.tmp;
+        let block = c.block;
+        let last_imm = c.last_imm;
+        let width = c.width;
+        let ops = c.ops;
+        match op {
             SOp::Pshufb => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 // `ByteLookup` zeroes every index of 16 or more, pshufb only those with the top
@@ -322,10 +347,11 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            _ => unreachable!("routed by asm_simd"),
+            _ => unreachable!("dispatched only for this group's operations"),
         }
         Ok(())
     }
+
 
     pub(super) fn simd_insert(
         &mut self,
@@ -423,22 +449,17 @@ impl Compiler {
                 } else {
                     0
                 };
-                match ops {
-                    // Store: `movhps [mem], src`.
-                    [VOpd::Mem(_), src] => {
-                        let src = self.vec_ptr(f, *src, span)?;
-                        let p = self.vec_ptr(f, dst, span)?;
-                        let from = lane_addr(f, src, at);
-                        f.b.copy(p, from, 8);
-                    }
-                    // Load: `movhps dst, [a,] [mem]`.
-                    _ => {
-                        let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                        f.b.copy(tmp, s[0], 16);
-                        let to = lane_addr(f, tmp, at);
-                        f.b.copy(to, s[1], 8);
-                        self.simd_out(f, cx, dst, tmp, 16, span)?;
-                    }
+                if let [VOpd::Mem(_), src] = ops {
+                    let src = self.vec_ptr(f, *src, span)?;
+                    let p = self.vec_ptr(f, dst, span)?;
+                    let from = lane_addr(f, src, at);
+                    f.b.copy(p, from, 8);
+                } else {
+                    let (s, _) = self.simd_args(f, ops, 2, false, span)?;
+                    f.b.copy(tmp, s[0], 16);
+                    let to = lane_addr(f, tmp, at);
+                    f.b.copy(to, s[1], 8);
+                    self.simd_out(f, cx, dst, tmp, 16, span)?;
                 }
             }
             SOp::Movhlps | SOp::Movlhps => {

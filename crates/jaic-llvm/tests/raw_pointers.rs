@@ -48,7 +48,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
                 .iter()
                 .find(|g| g.name == "exported_handle")
                 .unwrap();
-            assert_eq!(global.init, 0x80000001u64.to_le_bytes());
+            assert_eq!(global.init, 0x8000_0001_u64.to_le_bytes());
             assert!(
                 global.relocs.is_empty(),
                 "raw constants must be literal pointer bits, not relocations to invented storage"
@@ -66,7 +66,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
                     .arg(&object)
                     .arg("-o")
                     .arg(&module));
-                run(Command::new("node").args(["-e", r#"
+                run(Command::new("node").args(["-e", r"
                     const fs=require('fs');
                     const module=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
                     const env={}; let memory;
@@ -79,7 +79,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
                     const instance=new WebAssembly.Instance(module,{env}); memory=instance.exports.memory;
                     const result=instance.exports.raw_pointer_check();
                     if(result!==0)throw Error('raw pointer failure '+result);
-                "#]).arg(&module));
+                "]).arg(&module));
             } else {
                 let driver = dir.join("driver.c");
                 std::fs::write(&driver,"#include <stdint.h>\nextern int32_t raw_pointer_check(void); extern uint64_t opaque_handle_value(void); int main(void){if(opaque_handle_value()!=UINT64_C(0x80000001))return 99;return raw_pointer_check();}\n").unwrap();
