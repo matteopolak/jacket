@@ -62,7 +62,7 @@ Sizes come from the same lexer `tools/jaistats.py` uses: `info.source` holds fil
 | other | wall time not in any bucket (process start and exit included) |
 | total | wall time of the process |
 
-For a build metaprogram that compiles workspaces, backend time is also inside its `front end` and `interp`, so buckets can add up to more than the total; `other` never goes negative. With `-interp`, `JAIC_PROFILE=1` adds one untimed run that records `info.interp_instructions`, the interpreted IR instruction count: nearly deterministic, so it shows small interpreter changes that wall time hides.
+For a build metaprogram that compiles workspaces, backend time is also inside its `front end` and `interp`, so buckets can add up to more than the total; `other` never goes negative. With `-interp`, `-profile` adds one untimed run that records `info.interp_instructions`, the interpreted IR instruction count: nearly deterministic, so it shows small interpreter changes that wall time hides.
 
 ### lsp
 
@@ -123,7 +123,7 @@ A binary named `jaic*` gets jaic's options; any other is driven with the referen
 
 ## Profiling
 
-- **Interpreter profile.** `JAIC_PROFILE=1` makes every interpreter count calls, blocks and instructions per procedure (self counts, merged in `crates/jaic/src/interp/profile.rs`); the CLI prints the top 40 to stderr plus a breakdown by IR instruction kind and by folded op. Counts stay comparable across interpreter changes because they count IR. Off, it costs one `Option` check per call and block.
+- **Interpreter profile.** `-profile` makes every interpreter count calls, blocks and instructions per procedure (self counts, merged in `crates/jaic/src/interp/profile.rs`); the CLI prints the top 40 to stderr plus a breakdown by IR instruction kind and by folded op. Counts stay comparable across interpreter changes because they count IR. Off, it costs one `Option` check per call and block.
 - **Native profile.** `cargo build --profile profiling -p jaic-cli`, then `samply record --save-only --unstable-presymbolicate -o prof.json.gz -- target/profiling/jaic first.jai -check` and `python3 tools/profile_report.py prof.json.gz --top 30` (`--callers NAME`, `--within NAME`, `--without NAME`). It reads the busiest thread, which is the 1 GiB compiler worker. For a hot line inside a big inlined function, resolve leaf addresses with `atos -i -o target/profiling/jaic.dSYM -l <load address> <addresses>`.
 - **Comparing two builds.** Copy the old binary (`cp target/release/jaic /tmp/jaic-before`), alternate the two on the same workload at least 5 times each, compare medians and minimums (`bench compile --compiler before=/tmp/jaic-before --compiler after=target/release/jaic`, or `--out` and `--compare` across two runs). Record peak memory with `/usr/bin/time -l` (macOS) or `-v` (Linux). For interpreter changes also compare `JAIC_PROFILE` counts, which do not depend on load. For the LLVM backend time an `-O2` build of Jails or jaison; `JAIC_CODEGEN_UNITS` and `JAIC_SPLIT_UNITS` change how time splits across threads ([LLVM backend](../native/llvm-backend.md)).
 
@@ -132,7 +132,7 @@ Patterns that past profiles found, worth checking first: weak hashes turning a `
 ## Configuration
 
 - `CARGO_TARGET_DIR` (or `target/`) locates the default `jaic`, `jailsp` and `jailint`; `--compiler`, `--server`, `--jailint`, `--jaifmt` and `--wasm` override. `JACKET_OUTPUT_DIR` moves `target/bench/`. `--no-sandbox` and `--sandbox-read PATH` (compile).
-- `JAIC_PROFILE=1` (interpreter profile), `JAIC_NATIVE_LIBS` (worktrees without `target/native-libs`), `[profile.profiling]` in the root `Cargo.toml`.
+- `-profile` (interpreter profile), `JAIC_NATIVE_LIBS` (worktrees without `target/native-libs`), `[profile.profiling]` in the root `Cargo.toml`.
 - The CI workflow `compile-bench.yml` is a manual `workflow_dispatch` job on `macos-15` (inputs `command`, `repeat`, `only`) that uploads `bench.json` and `bench.md`; it never fails a PR.
 
 ## Dependencies

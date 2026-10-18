@@ -42,14 +42,15 @@ Compile-time code is real code: opening a project and type-checking it runs its 
 
 ## Configuration
 
-Most projects need none: jailsp finds the entry file (`build.jai`, `first.jai`, `main.jai` or `src/main.jai`) and `modules/` folders on its own. If yours is laid out differently, add a `jai.toml` at the project root:
+Most projects need none: jailsp finds the entry file (`build.jai`, `first.jai`, `main.jai` or `src/main.jai`) and `modules/` folders on its own. If yours is laid out differently, add a `jacket.toml` at the project root (a legacy `jai.toml` with `build_files` still works):
 
 ```toml
-build_files = ["src/app.jai"]   # what you would pass to jaic
-import_path = ["vendor"]        # extra module folders, like jaic -I
+[project]
+entry = ["src/app.jai"]   # what you would pass to jaic
+import_path = ["vendor"]  # extra module folders, like jaic -I
 ```
 
-Lint levels come from the nearest `jailint.toml`. `JAIC_STDLIB` points the server at a different standard library.
+Lint levels come from the `[lint]` table of the nearest `jacket.toml` (else `jailint.toml`). `JAIC_STDLIB` points the server at a different standard library.
 
 The editor can send one setting: `completion.autoImport` (on by default) turns auto-import completion on or off.
 

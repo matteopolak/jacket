@@ -2,11 +2,11 @@
 
 ## What it is
 
-A design, with measurements, for checking procedure bodies on several threads. Nothing here is implemented in `sema` itself; the only code is a study probe (`crates/jaic/src/sema/body_probe.rs`, `JAIC_BODY_PROBE=1`). Motivation: on large `-check` runs the reference compiler wins only through parallelism (about 1.9 cores to `jaic`'s 1), and about 60% of `jaic -check` time on a generated 60k-line program is `drain_bodies` → `lower_body` → `check_block_stmts`.
+A design, with measurements, for checking procedure bodies on several threads. Nothing here is implemented in `sema` itself; the only code is a study probe (`crates/jaic/src/sema/body_probe.rs`, `-dev_body_probe`). Motivation: on large `-check` runs the reference compiler wins only through parallelism (about 1.9 cores to `jaic`'s 1), and about 60% of `jaic -check` time on a generated 60k-line program is `drain_bodies` → `lower_body` → `check_block_stmts`.
 
 ## What the study found
 
-Measured with `JAIC_BODY_PROBE=1 jaic -check` (release build). A body's "own" growth excludes bodies lowered on demand inside it.
+Measured with `jaic -check -dev_body_probe` (release build). A body's "own" growth excludes bodies lowered on demand inside it.
 
 | Workload | Bodies | Bodies that grew no shared table ("pure") | Self time in pure bodies | Bodies that ran compile-time code | Queue-tree critical path |
 | --- | --- | --- | --- | --- | --- |
@@ -20,7 +20,7 @@ Two conclusions:
 - **Bodies are not independent readers.** About a third to two thirds of bodies are pure by table growth, but they hold a small share of the time. The rest append to shared tables while being checked: types (12% of bodies on the 60k program), procedures and IR functions (25%), globals (16%), strings (3%), and, most of all, lazily resolve entities (24%), signatures (25%) and struct layouts (3%) that nothing resolved yet. "Pure" here only means no table grew; in-place writes (entity state, memo caches such as `module_names`, `lenient_failures`, `local_consts`) are not visible to the probe and must be audited by hand (stage 0).
 - **The work is wide, not deep.** On the 60k program the queue tree (body → bodies it caused to be queued) has depth 17 and a critical path of 3% of the total, so parallelism is plentiful. Focus is dominated by one serial thing, the interpreter running the build program.
 
-Order matters for output. `JAIC_BODY_ORDER=fifo` lowers queued bodies first-in-first-out instead of last-in-first-out; the 60k program still compiles and runs, but the LLVM IR differs from line 19 on (function numbering and names follow lowering order). Any parallel scheme must therefore commit results in the serial order, not in completion order.
+Order matters for output. `-dev_body_fifo` lowers queued bodies first-in-first-out instead of last-in-first-out; the 60k program still compiles and runs, but the LLVM IR differs from line 19 on (function numbering and names follow lowering order). Any parallel scheme must therefore commit results in the serial order, not in completion order.
 
 ## How it works today (what blocks threads)
 
@@ -45,7 +45,7 @@ Order matters for output. `JAIC_BODY_ORDER=fifo` lowers queued bodies first-in-f
 
 Rejected alternatives:
 
-- *Fine-grained locks / concurrent arenas.* Ids would be handed out in thread-completion order, so IR numbering and names change run to run (see `JAIC_BODY_ORDER=fifo`). Remapping it back is the same work as the delta design without the lock-free hot path.
+- *Fine-grained locks / concurrent arenas.* Ids would be handed out in thread-completion order, so IR numbering and names change run to run (see `-dev_body_fifo`). Remapping it back is the same work as the delta design without the lock-free hot path.
 - *Pre-resolve every declaration, then check bodies.* Sema is demand-driven and reachability comes from checking bodies (dead-code elimination), so resolving "everything the bodies need" means checking the bodies. The abort-and-resolve loop in step 3 is this idea applied lazily.
 - *Per-thread copies of the whole `Compiler`.* Memory and merge cost scale with program size on a 16 GiB machine.
 - *Splitting check from lowering.* Expressions lower directly to IR as they check; the two are one pass.
@@ -105,8 +105,8 @@ The probe is `crates/jaic/src/sema/body_probe.rs`; hook points: `lower_body_unca
 
 ## Configuration
 
-- `JAIC_BODY_PROBE=1`: print the per-body mutation histogram and queue-tree critical path to stderr at the end of `finish_program`.
-- `JAIC_BODY_ORDER=fifo`: lower queued bodies first-in-first-out (study only; output differs from the default).
+- `-dev_body_probe`: print the per-body mutation histogram and queue-tree critical path to stderr at the end of `finish_program`.
+- `-dev_body_fifo`: lower queued bodies first-in-first-out (study only; output differs from the default).
 
 ## Dependencies
 

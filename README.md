@@ -95,12 +95,15 @@ jaic build.jai
 
 Modules are found in a `modules/` folder next to your entry file, then in folders given with `-I`, then in the standard library.
 
-For the language server, put a `jai.toml` at the project root when your entry file isn't `build.jai`, `first.jai`, `main.jai` or `src/main.jai`, or when you keep modules elsewhere:
+Put a `jacket.toml` at the project root when your entry file isn't `build.jai`, `first.jai`, `main.jai` or `src/main.jai`, or when you keep modules elsewhere:
 
 ```toml
-build_files = ["build.jai"]        # what you pass to jaic
+[project]
+entry = ["build.jai"]              # what you pass to jaic
 import_path = ["vendor/modules"]   # extra module folders, like -I
 ```
+
+`jacket` is the front door: `jacket build`, `check`, `run`, `lint`, `fmt` and `lsp` take exactly the arguments of `jaic`, `jailint`, `jaifmt` and `jailsp`, and add this file's settings; see [jacket](docs/tools/jacket.md). The old `jai.toml`, `jailint.toml` and `jaifmt.toml` still work and `jacket config migrate` folds them into one `jacket.toml`.
 
 ## Formatting and linting
 
@@ -112,7 +115,7 @@ jailint src/             # lint every .jai file under src/
 jailint src/ --fix       # apply the safe fixes
 ```
 
-Lint rules can be configured with a `jailint.toml`; see the [linter docs](docs/tools/jailint.md). Formatter details are in the [jaifmt docs](docs/tools/jaifmt.md).
+Lint rules (`[lint]`) and formatter settings (`[format]`) live in `jacket.toml`; see the [linter docs](docs/tools/jailint.md). Formatter details are in the [jaifmt docs](docs/tools/jaifmt.md).
 
 ## Documentation
 

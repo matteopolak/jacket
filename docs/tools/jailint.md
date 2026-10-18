@@ -21,7 +21,7 @@ Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `
 3. **Lint** (`lib.rs`). Re-parse, build suppressions, collect procedure bodies and whether every instance checked fully, then run each enabled rule. Where the compiler did not look (an `#if` branch left out, a failed body) rules fall back to text and stay quiet.
 4. **Report.** `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes (`fix.rs`). The language server's `source.fixAll.jailint` applies one pass. A file reached from several roots is reported once.
 
-Editors: `jailsp` lints each open document using the cached compile that hover uses. Diagnostics carry the rule as `code` and a link to its `### <rule>` section below, and `deny` rules are errors. Settings come from the nearest `jailint.toml` (the browser build sends it as an open document). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
+Editors: `jailsp` lints each open document using the cached compile that hover uses. Diagnostics carry the rule as `code` and a link to its `### <rule>` section below, and `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml`, else `jailint.toml` (the browser build sends it as an open document). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
 
 ## Target checking
 
@@ -191,19 +191,20 @@ Rules are comma-separated; `all` means every rule. A `_` prefix marks an unused 
 
 ## Configuration
 
-`jailint.toml`, found by walking up from the first path (or `--config`). Only this TOML subset is read; unknown keys, rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file.
+The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). A directory with only a legacy `jailint.toml` is read the same way (the same keys, without the `[lint]` header) and the tool suggests `jacket config migrate`. Unknown settings, rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file.
 
 ```toml
+[lint]
 exclude = ["tests/corpus/negative/**", "generated/**"]   # globs relative to this file
 max_nesting = 6                                          # blocks `excessive_nesting` allows
 
-[rules]
+[lint.rules]
 excessive_nesting = "warn"
 float_equality = "warn"
 unused_parameter = "allow"
 ```
 
-It is separate from `jaifmt.toml` because the formatter is written in Jai and parses its own file. The repository's file excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks`; deliberate findings in tests carry an `allow` with the reason.
+The formatter is written in Jai and reads the `[format]` table itself; both tables live in one file. The repository's `jacket.toml` excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks`; deliberate findings in tests carry an `allow` with the reason.
 
 | Setting | Effect |
 | --- | --- |
