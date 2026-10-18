@@ -3185,8 +3185,9 @@ fn compile_time_call_into_a_missing_library_names_it() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
+    // Windows reports the library while loading it, other hosts when the call is resolved.
     assert!(
-        stderr.contains("`answer` is not available here (library `jaic_no_such_library`"),
+        stderr.contains("library `jaic_no_such_library`"),
         "{stderr}"
     );
 }
