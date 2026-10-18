@@ -143,6 +143,11 @@ impl Compiler {
         }
     }
 
+    /// Does any of `procs` accept `args`? Nothing is emitted.
+    pub(in crate::sema) fn any_accepts(&mut self, procs: &[ProcId], args: &[CallArg], span: Span) -> bool {
+        procs.iter().any(|&p| self.match_candidate(p, args, span).is_ok())
+    }
+
     pub(in crate::sema) fn try_call(
         &mut self,
         f: &mut FnCtx,
