@@ -156,11 +156,11 @@ impl Compiler {
         match source {
             ProgramSource::File(path) => self.load_file(path, m, Span::NONE),
             ProgramSource::String(text) => {
-                let label = format!("<added string {}>", self.added_sources);
+                let label = format!("added string {}", self.added_sources);
                 self.load_string(&label, text, m)
             }
             ProgramSource::ModuleString(text, module) => {
-                let label = format!("<added string {}>", self.added_sources);
+                let label = format!("added string {}", self.added_sources);
                 self.load_string(&label, text, ModuleId(*module))
             }
             ProgramSource::FileString(text, file) => {
@@ -170,7 +170,7 @@ impl Compiler {
                         "add_build_string: file scope does not belong to this workspace",
                     );
                 };
-                let label = format!("<added file string {}>", self.added_sources);
+                let label = format!("added file string {}", self.added_sources);
                 self.load_string_in_scope(&label, text, scope)
             }
             ProgramSource::CodeString(text, code) => {
@@ -181,7 +181,7 @@ impl Compiler {
                         "add_build_string: Code scope does not belong to this workspace",
                     );
                 };
-                let label = format!("<added code string {}>", self.added_sources);
+                let label = format!("added code string {}", self.added_sources);
                 self.load_string_in_scope(&label, text, scope)
             }
         }
@@ -692,7 +692,7 @@ impl Compiler {
             return;
         };
         self.program.file_paths = (0..self.sources.len())
-            .map(|i| self.sources.get(FileId(i as u32)).path.clone())
+            .map(|i| self.sources.get(FileId(i as u32)).path.to_string())
             .collect();
         self.program.stack_trace = Some(layout);
     }

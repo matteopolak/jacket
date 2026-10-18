@@ -481,7 +481,7 @@ impl Analysis {
     pub fn location(&self, span: jaic::source::Span) -> Option<(String, Rc<str>, usize, usize)> {
         let source = self.compiler.sources.try_get(span.file)?;
         Some((
-            source.path.clone(),
+            source.path.to_string(),
             source.text.clone(),
             span.start as usize,
             span.end as usize,
@@ -572,7 +572,7 @@ impl Analysis {
             if let std::collections::btree_map::Entry::Vacant(slot) = out.entry(file.0)
                 && let Some(source) = self.compiler.sources.try_get(file)
             {
-                slot.insert(source.path.clone());
+                slot.insert(source.path.to_string());
             }
         }
         out
@@ -911,13 +911,13 @@ impl Cache {
 fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
     let files = || (0..compiler.sources.len() as u32).map(FileId);
     files()
-        .find(|&f| Path::new(&compiler.sources.get(f).path) == path)
+        .find(|&f| compiler.sources.get(f).path.to_path() == path)
         .or_else(|| {
             let want = compiler.fs.canonical(path);
             files().find(|&f| {
                 compiler
                     .fs
-                    .canonical(Path::new(&compiler.sources.get(f).path))
+                    .canonical(&compiler.sources.get(f).path.to_path())
                     == want
             })
         })

@@ -1277,7 +1277,7 @@ mod worker_lifetime_tests {
         let mut compiler = Compiler::new(Options::host(), Rc::new(VirtualFs::default()));
         let source: Rc<str> = "main :: () {}".into();
         let weak = Rc::downgrade(&source);
-        compiler.sources.add("lifetime-order.jai".into(), source);
+        compiler.sources.add("lifetime-order.jai", source);
         let alive = Rc::new(std::cell::Cell::new(false));
         compiler.interp.host = Box::new(LifetimeHost {
             source: weak,

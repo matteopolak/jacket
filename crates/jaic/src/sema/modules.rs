@@ -457,7 +457,7 @@ impl Compiler {
             return Err(Box::new(self.unreadable_file(path, span)));
         };
         let text: Rc<str> = String::from_utf8_lossy(&bytes).into();
-        Ok(self.sources.add(path.display().to_string(), text))
+        Ok(self.sources.add(path, text))
     }
 
     /// Distribution boundary for library-owned helpers, checked before cache hits.
@@ -480,7 +480,7 @@ impl Compiler {
             .sources
             .try_get(self.source_origin(span.file))
             .is_some_and(|source| {
-                self.canon(Path::new(&source.path))
+                self.canon(&source.path.to_path())
                     .starts_with(self.canon(stdlib))
             });
         if from_library {
@@ -520,7 +520,7 @@ impl Compiler {
         {
             let (text, line_starts, tree) = prepared.into_parts();
             let file = self.sources.add_file(crate::source::SourceFile::with_lines(
-                path.display().to_string(),
+                path.into(),
                 text,
                 line_starts,
             ));
@@ -595,7 +595,7 @@ impl Compiler {
     }
 
     pub fn file_dir(&self, file: FileId) -> PathBuf {
-        let path = PathBuf::from(&self.sources.get(self.source_origin(file)).path);
+        let path = self.sources.get(self.source_origin(file)).path.to_path();
         path.parent().map(Path::to_path_buf).unwrap_or_default()
     }
 
@@ -1830,7 +1830,7 @@ impl Compiler {
                 self.modules[id.0 as usize]
                     .argument_imports
                     .push(Rc::new(import.clone()));
-                let label = format!("<import string {}>", self.sources.len());
+                let label = format!("import string {}", self.sources.len());
                 self.load_string(&label, source, id)?;
                 self.validate_module_arguments(id, import.span)?;
                 Ok(id)
@@ -1955,7 +1955,7 @@ impl Compiler {
                 self.modules[id.0 as usize]
                     .argument_imports
                     .push(Rc::new(import.clone()));
-                let label = format!("<provided import {name}>");
+                let label = format!("provided import {name}");
                 self.load_string(&label, &provided.value, id)?;
                 self.validate_module_arguments(id, span)?;
                 self.provided_texts.insert(provided.value.clone(), id);
@@ -2011,7 +2011,7 @@ impl Compiler {
     }
 
     /// Add source text (an `#import,string` or a workspace build string) as a
-    /// file of `module`. `label` names it in diagnostics.
+    /// file of `module`. `label` names it in diagnostics, written inside angle brackets.
     pub fn load_string(&mut self, label: &str, source: &str, module: ModuleId) -> Result<()> {
         let scope = self.modules[module.0 as usize].scope;
         self.load_string_in_scope(label, source, scope)
@@ -2025,8 +2025,9 @@ impl Compiler {
     ) -> Result<()> {
         self.interp.invalidate_callable_inspections();
         let module = self.scope(target).module;
-        let path = PathBuf::from(label);
-        let file = self.sources.add(label.to_string(), source.into());
+        let name = SourcePath::virtual_source(label);
+        let path = PathBuf::from(name.to_string());
+        let file = self.sources.add(name, source.into());
         let mut origin_scope = Some(target);
         while let Some(scope) = origin_scope {
             if let Some(origin) = self.scope(scope).file {

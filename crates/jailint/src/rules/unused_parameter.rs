@@ -226,7 +226,8 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
     let Some(file) = cx.compiler.sources.try_get(cx.file) else {
         return false;
     };
-    let path = Path::new(&file.path);
+    let file_path = file.path.to_path();
+    let path = file_path.as_ref();
     let Some(dir) = path.parent() else {
         return false;
     };

@@ -270,7 +270,7 @@ impl Compiler {
                 module
                     .files
                     .first()
-                    .map(|&f| self.sources.get(f).path.clone())
+                    .map(|&f| self.sources.get(f).path.to_string())
             })
             .unwrap_or_default();
         let mut rec = Record::new(RecordTag::MessageImport);
@@ -303,7 +303,7 @@ impl Compiler {
         }
         let import = self.module_record(r, module);
         let virtual_source = self.sources.get(file).is_virtual();
-        let path = self.sources.get(file).path.clone();
+        let path = self.sources.get(file).path.to_string();
         let mut rec = Record::new(RecordTag::MessageFile);
         rec.int("kind", message_kind::FILE)
             .int("workspace", self.workspace)
@@ -504,7 +504,7 @@ impl Compiler {
                     if let Some(file) = self.sources.try_get(span.file) {
                         let (line, column) = file.line_col(span.start);
                         location
-                            .str("fully_pathed_filename", file.path.as_bytes())
+                            .str("fully_pathed_filename", file.path.to_string().as_bytes())
                             .int("line_number", line as i64)
                             .int("character_number", column as i64);
                     }
@@ -780,7 +780,8 @@ impl Compiler {
     /// Statements of the text of a `#code` value, as source of this compiler.
     fn parse_inserted_code(&mut self, text: &str) -> Result<Vec<ast::Stmt>> {
         let source = format!("__jaic_inserted :: () {{\n{text};\n}}\n");
-        let label = format!("<compiler_get_nodes {}>", self.sources.len());
+        let label =
+            SourcePath::virtual_source(format!("compiler_get_nodes {}", self.sources.len()));
         let file = self.sources.add(label, source.as_str().into());
         let parsed = crate::parser::parse_file(file, &source).map_err(Box::new)?;
         let body = parsed.stmts.into_iter().find_map(|s| match s.kind {
@@ -2270,9 +2271,10 @@ impl Exporter<'_> {
                     }
                     kind => {
                         let text = if matches!(kind, E::File) {
-                            super::expr::forward_slashes(&src.path)
+                            super::expr::forward_slashes(&src.path.to_string())
                         } else {
-                            std::path::Path::new(&src.path)
+                            src.path
+                                .to_path()
                                 .parent()
                                 .map(|p| {
                                     format!(
@@ -2889,8 +2891,8 @@ impl Exporter<'_> {
                 if let Some(c) = self.c.as_deref()
                     && (span.file.0 as usize) < c.sources.len()
                 {
-                    let from = std::path::Path::new(&c.sources.get(span.file).path);
-                    let full = from.parent().unwrap_or(from).join(&**path);
+                    let from = c.sources.get(span.file).path.to_path();
+                    let full = from.parent().unwrap_or(&from).join(&**path);
                     rec.str("fully_pathed_filename", full.to_string_lossy().as_bytes());
                 }
                 self.add(rec)

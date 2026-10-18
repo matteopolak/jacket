@@ -20,7 +20,7 @@
 use crate::{Level, Lint};
 pub use jaic::render::Style;
 use jaic::render::{Fix, Help, Label, Report, Severity};
-use jaic::source::LineIndex;
+use jaic::source::{LineIndex, SourcePath};
 
 /// `lint` in `text` (the file's contents, indexed by `lines`), its path shown as `path`.
 /// Callers rendering many lints of one file build the index once.
@@ -36,11 +36,12 @@ pub fn render(
         Level::Deny => Severity::Error,
         _ => Severity::Warning,
     };
+    let path = SourcePath::from(path);
     let mut report = Report::new(severity, lint.message.clone());
     report.compact = false;
     report.code = Some(lint.rule);
     report.primary = Some(Label {
-        path,
+        path: &path,
         text,
         start: lint.start,
         end: lint.end,

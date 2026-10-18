@@ -35,7 +35,7 @@ fn corpus_sweep() {
     for path in &files {
         let bytes = std::fs::read(path).unwrap();
         let text: std::rc::Rc<str> = String::from_utf8_lossy(&bytes).into();
-        let id = sources.add(path.display().to_string(), text.clone());
+        let id = sources.add(path.as_path(), text.clone());
         let result = if stage == "lex" {
             jaic::lexer::lex(id, &text).map(|_| ())
         } else {

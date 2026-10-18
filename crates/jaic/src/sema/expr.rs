@@ -401,7 +401,7 @@ impl Compiler {
             E::CallerLocation => self.location_operand(f, span),
             // `#file` is the full path of the file, as loaded.
             E::File => {
-                let path = forward_slashes(&self.sources.get(span.file).path);
+                let path = forward_slashes(&self.sources.get(span.file).path.to_string());
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
                     value: Value::String(path.as_bytes().into()),
@@ -409,8 +409,8 @@ impl Compiler {
                 })
             }
             E::Filepath => {
-                let path = self.sources.get(span.file).path.clone();
-                let dir = std::path::Path::new(&path)
+                let path = self.sources.get(span.file).path.to_path();
+                let dir = path
                     .parent()
                     .map(|p| format!("{}/", forward_slashes(&p.display().to_string())))
                     .unwrap_or_default();
@@ -2045,7 +2045,7 @@ impl Compiler {
         let ty = self.preload_type("Source_Code_Location", span)?;
         let file = self.sources.get(span.file);
         let (line, col) = file.line_col(span.start);
-        let path = file.path.clone();
+        let path = file.path.to_string();
         let _ = f;
         let value = self.build_location_value(ty, &path, line as i64, col as i64, span)?;
         Ok(Operand::Const {

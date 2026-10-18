@@ -35,3 +35,7 @@ None.
 ## Dependencies
 
 `jaic::source` only. The renderer (`jaic::render`) depends on it, not the other way round.
+
+## Source names
+
+`SourceFile::path` is a `SourcePath`: `File(PathBuf)` for a file on disk, `Virtual(label)` for text with no file (`#import,string`, `add_build_string`, `#insert` expansions). A virtual source prints as `<label>` in diagnostics, `#file` and `#location`; the brackets belong to the display, not the label. Code that needs the distinction matches on the enum (`SourcePath::as_file`, `is_virtual`); `IdeRoot::Under` / `IdeRoot::Virtual` split analysis roots the same way. `Display` is the only place a name becomes text, so changing how names print means changing that impl.

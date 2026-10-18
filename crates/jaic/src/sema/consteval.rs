@@ -596,7 +596,7 @@ impl Compiler {
         let path = if depth > 1 {
             path
         } else {
-            format!("<#insert at {path}>")
+            SourcePath::virtual_source(format!("#insert at {path}"))
         };
         let file = self.sources.add(path, text);
         self.insert_depth.insert(file, depth);

@@ -16,7 +16,7 @@
 //! by each command-line tool; libraries and the language server leave it at `Style::PLAIN`.
 //! A caller that renders for someone else (the browser playground, one run per request)
 //! uses `with_style`, which applies to its own thread only.
-use crate::source::LineIndex;
+use crate::source::{LineIndex, SourcePath};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -219,7 +219,7 @@ impl Severity {
 /// A place in a source file, with the file's text.
 #[derive(Clone, Debug)]
 pub struct Label<'a> {
-    pub path: &'a str,
+    pub path: &'a SourcePath,
     pub text: &'a str,
     /// Byte range in `text`.
     pub start: usize,
@@ -555,7 +555,7 @@ impl Renderer {
         labels.extend(report.secondary.iter().map(|l| (l, false)));
         let width = self.gutter_width(&labels);
         // One section per file, the primary label's first.
-        let mut files: Vec<&str> = Vec::new();
+        let mut files: Vec<&SourcePath> = Vec::new();
         for (label, _) in &labels {
             if !files.contains(&label.path) {
                 files.push(label.path);
@@ -1035,8 +1035,8 @@ fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String
 
 /// A file name as the user sees it: relative to where the command started
 /// (`crate::set_display_base`), when that is near.
-fn shown(path: &str) -> String {
-    crate::display_path(std::path::Path::new(path))
+fn shown(path: &SourcePath) -> String {
+    crate::display_path(&path.to_path())
 }
 
 #[cfg(test)]

@@ -88,7 +88,7 @@ impl Compiler {
             if (span.file.0 as usize) < self.sources.len() {
                 let source = self.sources.get(span.file);
                 let (line, col) = source.line_col(span.start);
-                let path: Rc<str> = source.path.as_str().into();
+                let path: Rc<str> = source.path.to_string().into();
                 self.interp
                     .struct_locations
                     .insert(g, (path, i64::from(line), i64::from(col)));

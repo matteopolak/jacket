@@ -467,7 +467,7 @@ fn lint_root(
             .map(jaic::source::FileId)
             .filter_map(|f| {
                 let path =
-                    canon.get_or_insert_with(Path::new(&compiler.sources.get(f).path), canonical);
+                    canon.get_or_insert_with(&compiler.sources.get(f).path.to_path(), canonical);
                 report.contains(&path).then_some((f, path))
             })
             .collect();

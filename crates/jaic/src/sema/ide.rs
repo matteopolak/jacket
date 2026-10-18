@@ -495,20 +495,18 @@ impl Compiler {
         if let Some(&w) = ide.wanted.get(&file) {
             return w;
         }
-        let source = self.sources.get(file);
-        if source.is_virtual() {
-            let w = ide.roots.contains(&IdeRoot::Virtual);
-            ide.wanted.insert(file, w);
-            return w;
-        }
-        // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a folder name
-        // one file.
-        let path = Path::new(&source.path);
-        let key = self.fs.canonical(path);
-        let w = ide.roots.iter().any(|r| match r {
-            IdeRoot::Under(root) => path.starts_with(root) || key.starts_with(root),
-            IdeRoot::Virtual => false,
-        }) || ide.files.contains(&key);
+        let w = match &self.sources.get(file).path {
+            SourcePath::Virtual(_) => ide.roots.contains(&IdeRoot::Virtual),
+            SourcePath::File(path) => {
+                // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a
+                // folder name one file.
+                let key = self.fs.canonical(path);
+                ide.roots.iter().any(|r| match r {
+                    IdeRoot::Under(root) => path.starts_with(root) || key.starts_with(root),
+                    IdeRoot::Virtual => false,
+                }) || ide.files.contains(&key)
+            }
+        };
         ide.wanted.insert(file, w);
         w
     }
