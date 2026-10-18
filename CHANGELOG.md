@@ -20,6 +20,13 @@
 
 - Assigning to an indexed expression (`=` and the compound assignments) on a type with `operator *[]` calls it and writes through the returned pointer, where it used to say "cannot assign to a value of type"; reads keep using `operator []`.
 - A `[$N] T` parameter takes `$N` from the element count of an untyped `.[...]` argument or default (`f(.["a", "b"])` makes `N` 2), where it used to say it could not infer `$N`. A default `.[...]` whose length differs from the inferred count is an error at the default; `[$N] $T` still cannot get `$T` from an untyped literal.
+- Vectors, quaternions and square matrices of the `Math` module compare with `==` and `!=`, where it used to say no `operator==` matched.
+- `a op= b` is `a = a op b` when no `operator op=` accepts the operands (`v /= 2.0` with only `operator /= (*Vector2, Vector2)` and a `Vector2 / float`), where it used to be a no-overload error.
+- A `for_expansion` taking `*T` iterates a `T` value through its address when other `for_expansion` overloads in scope have polymorphic first parameters that do not match, where it used to say none matched.
+- A `[$N] T` module parameter with a `.[...]` default has the default's count when the import gives no value, and can be forwarded to another module's parameter.
+- An overload that is not polymorphic is preferred to `$T` when the argument needs only a mild conversion (a wider integer, a pointer to the struct), as in the reference compiler; an integer is still not made a float for it.
+- An untyped `.{...}` argument no longer matches a `string` or other built-in aggregate parameter whose members its values cannot fill (an array literal for `data`).
+- `value[xx x]` on a struct with `operator []` casts to the parameter of the overload picked for the struct, where it used to cast to an integer.
 - In `jailsp`, a statement missing only its `;` at the end of a line keeps working: goto-definition, hover and highlighting work on it, and the error is shown on its last token instead of covering the statement's first name.
 
 ### Breaking changes
