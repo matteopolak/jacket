@@ -2,6 +2,14 @@
 Rng :: struct {
     state: u64;
 
+    // With `from_input`, every choice is read from `data` instead of the seeded sequence, as a
+    // coverage-guided engine (libFuzzer) supplies it. Reads past the end give zero bytes, which
+    // select the first alternative (empty, zero, the first member).
+    from_input: bool;
+    data: *u8;
+    size: s64;
+    position: s64;
+
     // Upper bound for generated lengths; the minimizer lowers it to shrink a failing case.
     max_len: s64 = 256;
 
@@ -27,10 +35,33 @@ next :: (r: *Rng) -> u64 {
     return z ^ (z >> 31);
 }
 
-// Uniform in [0, n); 0 when n <= 0.
+// The next `bytes` (1 to 8) bytes of the input, or the low bytes of the next seeded value.
+take :: (r: *Rng, bytes: s64) -> u64 {
+    if !r.from_input {
+        value := next(r);
+        if bytes >= 8 return value;
+        return value & ((cast(u64) 1 << cast(u64) (8 * bytes)) - 1);
+    }
+    value: u64 = 0;
+    for i: 0..bytes - 1 {
+        if r.position >= r.size break;
+        byte := cast(u64) r.data[r.position];
+        value |= byte << cast(u64) (8 * i);
+        r.position += 1;
+    }
+    return value;
+}
+
+// Uniform in [0, n); 0 when n <= 0. Reads only as many input bytes as n needs.
 below :: (r: *Rng, n: s64) -> s64 {
-    if n <= 0 return 0;
-    return cast(s64) (next(r) % cast(u64) n);
+    if n <= 1 return 0;
+    bytes := 1;
+    limit: u64 = 256;
+    while bytes < 8 && cast(u64) n > limit {
+        bytes += 1;
+        limit <<= 8;
+    }
+    return cast(s64) (take(r, bytes) % cast(u64) n);
 }
 
 chance :: (r: *Rng, one_in: s64) -> bool {

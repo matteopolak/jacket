@@ -92,14 +92,14 @@ integer_bits :: (r: *Rng, size: s64, signed: bool) -> u64 {
         case 2;  return all_ones;                      // -1, or the unsigned maximum
         case 3;  return sign_bit;                      // signed minimum
         case 4;  return sign_bit - 1;                  // signed maximum
-        case 5;  return (next(r) % 17) & all_ones;     // small
-        case 6;  return (0 - (next(r) % 17)) & all_ones;  // small negative
+        case 5;  return (cast(u64) below(r, 17)) & all_ones;     // small
+        case 6;  return (0 - (cast(u64) below(r, 17))) & all_ones;  // small negative
         case 7;  return (cast(u64) 1 << cast(u64) below(r, width)) & all_ones;
         case 8;  return ((cast(u64) 1 << cast(u64) below(r, width)) - 1) & all_ones;
         case 9;  return 0x7F;
         case 10; return 0x80;
     }
-    return next(r) & all_ones;
+    return take(r, size) & all_ones;
 }
 
 float_bits :: (r: *Rng, size: s64) -> u64 {
@@ -118,7 +118,7 @@ float_bits :: (r: *Rng, size: s64) -> u64 {
             case 9;  return 0xFF7F_FFFF;   // lowest
             case 10; return 0x0080_0000;   // smallest normal
         }
-        return next(r) & 0xFFFF_FFFF;
+        return take(r, 4);
     }
     choice := below(r, 12);
     if choice == {
@@ -134,7 +134,7 @@ float_bits :: (r: *Rng, size: s64) -> u64 {
         case 9;  return 0xFFEF_FFFF_FFFF_FFFF;
         case 10; return 0x0010_0000_0000_0000;
     }
-    return next(r);
+    return take(r, 8);
 }
 
 fill_enum :: (r: *Rng, info: *Type_Info_Enum, dst: *u8) {
@@ -161,7 +161,7 @@ fill_pointer :: (r: *Rng, info: *Type_Info_Pointer, dst: *u8) {
     if pointee.type == .VOID || size <= 1 size = r.max_len;
     memory := case_alloc(r, size);
     if pointee.type == .VOID || pointee.runtime_size <= 1 {
-        for i: 0..size - 1 memory[i] = cast,trunc(u8) next(r);
+        for i: 0..size - 1 memory[i] = cast,trunc(u8) take(r, 1);
     } else {
         fill(r, pointee, memory);
     }
@@ -209,7 +209,7 @@ gen_string :: (r: *Rng) -> string {
         case 2;  // well-formed UTF-8 over every plane
             while used + 4 <= length { used += put_code_point(memory + used, random_code_point(r)); }
         case 3;  // arbitrary bytes
-            while used < length { memory[used] = cast,trunc(u8) next(r); used += 1; }
+            while used < length { memory[used] = cast,trunc(u8) take(r, 1); used += 1; }
         case 4;  // truncated, overlong, surrogate and out-of-range sequences, plus stray continuations
             while used + 4 <= length { used += put_malformed(r, memory + used); }
         case 5;  // separators, whitespace and NUL
@@ -217,7 +217,7 @@ gen_string :: (r: *Rng) -> string {
         case 6;  // base64 and number alphabets with a little noise
             while used < length { memory[used] = alphabet_byte(r); used += 1; }
         case 7;  // one repeated byte
-            byte := cast,trunc(u8) next(r);
+            byte := cast,trunc(u8) take(r, 1);
             while used < length { memory[used] = byte; used += 1; }
     }
     result: string;

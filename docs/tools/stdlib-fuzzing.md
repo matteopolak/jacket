@@ -4,8 +4,11 @@
 
 A type-driven fuzzer for stdlib procedures. It reads a module's exported procedure signatures, generates arguments from the parameter types, calls each procedure many times with edge-biased values and reports crashes, failed asserts, bounds/cast/overflow check failures, hangs and violated properties. It complements the cargo-fuzz targets in `fuzz/` (which fuzz the compiler itself, see [testing](testing.md)); it finds bugs in *Jai code*, not in `jaic`.
 
+Two modes share the generators: a seeded mode under `jaic -interp` (fast to start, deterministic, no native toolchain) and a coverage-guided mode (`--engine`) that builds the same harness natively with `-sanitize address,fuzzer` and lets libFuzzer mutate the input bytes the generators consume.
+
 ```sh
 python3 tools/fuzz/stdlib_fuzz.py String Unicode Base64 Hash Crc --jaic target/release/jaic --count 2000
+python3 tools/fuzz/stdlib_fuzz.py String --engine --time 300                           # coverage-guided
 python3 tools/fuzz/stdlib_fuzz.py String --only slice --seed 2 --count 1 --max-len 0   # reproduce
 python3 tools/fuzz/stdlib_fuzz.py --replay                                              # stored cases
 ```
@@ -38,6 +41,8 @@ Fuzz module  ─┘   (metaprogram)                (generated)                  
 
 Allocations live in `Rng.live` and are freed by `case_end` after each call. Not generated: resizable arrays, `Any`, `Type`, `Code`, procedure values; a procedure taking one is skipped.
 
+**Input bytes.** `Rng` has two sources. Seeded (default): SplitMix64 from the case seed. Input (`from_input`): every choice reads bytes from the engine's input, like a `FuzzedDataProvider`: `take(r, n)` reads n bytes (zeros past the end, which select the first alternative: empty, zero, first member), and `below(r, n)` reads only as many bytes as `n` needs, so one-byte choices stay one byte and libFuzzer's byte mutations map onto generator decisions. The generators do not know which source they use. The first input byte picks the case.
+
 **Calling.** For each procedure the metaprogram emits a thunk (`thunk_N :: (r: *Rng) { a0 := gen(r, string); ...; Target.proc(a0, ...); }`) and a `Case` table; `run_cases` (`stdlib/Fuzz/runner.jai`) calls them. The argument types are spelled from the type info (`type_text` in `discover.jai`); struct and enum types are usable only when the module exports them under their own name. Where the type info cannot show the difference (variadic `..T` looks like `[] T`; a `$constant` parameter is not flagged polymorphic), the harness fails to compile; the driver reads the error line, denies that procedure and rebuilds, and lists it under `skip`.
 
 **Oracles.**
@@ -58,7 +63,16 @@ Allocations live in `Rng.live` and are freed by `case_end` after each call. Not 
 | `hooks` | property file, relative to `tools/fuzz/` |
 | `known` | `{ "proc": ["text of a signature"] }`: expected precondition failures, reported as `known` and not as new findings |
 
-Only add modules whose procedures are pure computation over their arguments. Skip anything with side effects: files, network, processes, allocator or `context` mutation, global state (random seeding, `set_*`, `init_*`). `Fuzz` never inspects bodies, so this is a review decision per module, recorded as `deny` or by leaving the module out of `targets.json`.
+Only add modules whose procedures are pure computation over their arguments. Skip anything with side effects: files, network, processes, allocator or `context` mutation, global state (random seeding, `set_*`, `init_*`). The module's exports come from the names declared in its `module.jai` (`probe_<name> :: Target.<name>;` makes the compiler typecheck each). `Fuzz` never inspects bodies, so this is a review decision per module, recorded as `deny` or by leaving the module out of `targets.json`.
+
+## Coverage-guided mode
+
+`--engine` builds `engine-<Module>` with `jaic -O0 -sanitize address,fuzzer` ([sanitizers](../native/sanitizers.md)): SanitizerCoverage edge counters, a PC table and traced comparisons, ASan, and libFuzzer's engine without its `main`. The harness `main` (`ENGINE_BUILD :: true`) calls `run_engine`, which passes libFuzzer its arguments and `engine_input` as the callback through `LLVMFuzzerRunDriver`; `engine_input` is `#c_call`, so it enters a fresh context, points the `Rng` at the input and runs one case. A Jai runtime error ends the process, which libFuzzer reports as a crash.
+
+- Corpus: `fuzz/corpus/stdlib/<Module>/`; crashes, timeouts and OOMs: `fuzz/artifacts/stdlib/<Module>/` (both gitignored). The run uses `-fork=1 -ignore_crashes=1`, so it continues after a crash and the driver reproduces each artifact with `--trace` (prints the case name per input) to attribute and classify it. `--only NAME` fuzzes one procedure; `--time`, `--engine-max-len` (input size bound), `--opt` and `--timeout` tune the run.
+- A finding is the crash file; replay it with `engine-<Module> --trace --only <case> <file>`. Copy it into `fuzz/regressions/stdlib/` with the fix. The report line shows the file, the case and the signature (a Jai runtime error, an ASan report with its top frame, a timeout, OOM).
+- Checked: with the old `find_index_of_any_from_left` the engine finds the out-of-bounds read in seconds (`AddressSanitizer: SEGV in find_index_of_any_from_left bytes.jai:81`).
+- Needs the Homebrew `llvm` (or `libclang-rt` on Linux), found the way the ASan runtime is; see [sanitizers](../native/sanitizers.md). Memory: ASan reserves a lot of virtual space, so run one module at a time on small machines.
 
 ## Sandbox
 
@@ -78,14 +92,12 @@ Gotchas: casts check overflow, so generator code must use `cast,trunc`; `#no_abc
 - `find_index_from_left` / `find_index_of_any_from_left` (`#no_abc`) read before the string for a negative `start_index` (SIGSEGV/SIGBUS under `jaic -interp`). Fixed by clamping to 0; stored as `fuzz/regressions/stdlib/String.find_index_of_any_from_left.{4,12}.json`, tested in `stdlib/String/tests/basics.jai`.
 - `slice` asserts `index >= 0 && count >= 0`: a documented precondition, listed as `known`.
 
-## Later phases (not in v1)
+## Later phases
 
-1. **Coverage guidance.** Have `jaic` emit LLVM SanitizerCoverage instrumentation (`-fsanitize-coverage=trace-pc-guard,inline-8bit-counters`, plus `trace-cmp` for comparison feedback) on a native build of the harness and link libFuzzer. The harness gets an `LLVMFuzzerTestOneInput` entry that treats the input bytes as the `Rng` stream (a byte reader replaces `next`), so libFuzzer's mutation, corpus and minimization work on generator decisions instead of seeds. Needs a `-sanitize_coverage` build option in `jaic-llvm` and a driver mode that builds natively (`-O0`, checks on) and runs under `fork` mode like `fuzz/run.sh`. Corpus and crash artifacts would live in `fuzz/corpus/stdlib/<Module>` and `fuzz/artifacts/stdlib/`.
-2. **Native runs.** `jaic -O0` executables are far faster than the interpreter and catch what only native code shows (allocator behaviour, UB under sanitizers, see [sanitizers](../native/sanitizers.md)); first step before coverage.
-3. **Richer shapes.** Pointer-and-length pairs from the type (a `*T` followed by an integer length), `Code`-free procedure arguments (generated callbacks), struct and enum spelling for non-exported types, resizable arrays, and `context` mutation in hooks.
-4. **Value minimization.** Shrinking the generated arguments themselves (shorter strings, zeroed fields) rather than only the length bound; printing a failing call as a ready-to-paste Jai test.
-5. **CI.** Nightly job next to `fuzz.yml` running the driver with a fresh seed range and failing on new findings.
+1. **Richer shapes.** Pointer-and-length pairs from the type (a `*T` followed by an integer length), `Code`-free procedure arguments (generated callbacks), struct and enum spelling for non-exported types, resizable arrays, and `context` mutation in hooks.
+2. **Value minimization.** (Engine crashes can be shrunk with libFuzzer's `-minimize_crash=1`; value-level shrinking is the missing part.) Shrinking the generated arguments themselves (shorter strings, zeroed fields) rather than only the length bound; printing a failing call as a ready-to-paste Jai test.
+3. **CI and reports.** A coverage report tool reading the PC table and counters (`__sancov_pcs`, `__sancov_cntrs`) is planned on the same instrumentation. A nightly job next to `fuzz.yml` running `--engine` per module and failing on new findings.
 
 ## Dependencies
 
-`jaic` (metaprogram message loop, `Type_Info_Procedure`), `stdlib/Fuzz`, `Compiler` and `Basic`, `tools/bench/sandbox.py`, Python 3 standard library.
+`jaic` (metaprogram message loop, `Type_Info_Procedure`, `-sanitize fuzzer`), LLVM compiler-rt's libFuzzer archive, `stdlib/Fuzz`, `Compiler` and `Basic`, `tools/bench/sandbox.py`, Python 3 standard library.

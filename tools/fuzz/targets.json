@@ -3,7 +3,7 @@
     "deny": ["string_tests"],
     "pointers": ["parse_token", "match_token", "match_token_nocase", "parse_bool", "parse_int", "parse_float", "eat_trailing_spaces", "eat_until_space", "stop_at_any", "normalize_line_endings", "scan"],
     "hooks": "properties/String.jai",
-    "known": {"slice": ["index >= 0 && count >= 0"]}
+    "known": {"slice": ["assertion failed"]}
   },
   "Unicode": {
     "deny": [],

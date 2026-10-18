@@ -49,6 +49,15 @@ main :: () {
     assert(pointer != null);
     case_end(*r);
 
+    // Input mode reads choices from bytes; past the end every choice is zero.
+    bytes: [4] u8 = .[1, 2, 3, 4];
+    input: Rng;
+    input.from_input = true;
+    input.data = bytes.data;
+    input.size = 4;
+    assert(take(*input, 2) == 0x0201 && take(*input, 8) == 0x0403);
+    assert(below(*input, 10) == 0 && gen(*input, s32) == 0);
+
     assert(can_fill(type_info(Pair)) && !can_fill(type_info(Any)));
     assert(has_pointer(type_info(*s64)) && !has_pointer(type_info(Pair)));
     print("ok\n");

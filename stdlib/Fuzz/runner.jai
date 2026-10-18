@@ -67,3 +67,82 @@ run_cases :: (cases: [] Case) -> s32 {
     print("DONE %\n", calls);
     return 0;
 }
+
+// Coverage-guided mode. The program is built with `-sanitize fuzzer` (SanitizerCoverage plus the
+// libFuzzer engine without its `main`); `run_engine` hands the engine control, and it calls
+// `engine_input` with each input. Command line: libFuzzer's own flags and corpus directories,
+// plus `--only NAME` to fuzz one case and `--trace` to print each input's case name (to learn
+// which case a stored crash belongs to). The first input byte picks the case.
+//
+//   harness corpus/ -max_len=1024 -max_total_time=60 -artifact_prefix=crashes/
+run_engine :: (cases: [] Case) -> s32 {
+    engine_cases = cases;
+    engine_only = -1;
+
+    arguments := get_command_line_arguments();
+    forwarded: [..] *u8;
+    i := 0;
+    while i < arguments.count {
+        if arguments[i] == "--only" && i + 1 < arguments.count {
+            for cases if it.name == arguments[i + 1] engine_only = it_index;
+            if engine_only < 0 {
+                print("no case named %\n", arguments[i + 1]);
+                return 2;
+            }
+            i += 2;
+            continue;
+        }
+        if arguments[i] == "--trace" {
+            engine_trace = true;
+            i += 1;
+            continue;
+        }
+        array_add(*forwarded, to_c_string(arguments[i]));
+        i += 1;
+    }
+    array_add(*forwarded, null);
+
+    count := cast(s32) (forwarded.count - 1);
+    argv := forwarded.data;
+    return LLVMFuzzerRunDriver(*count, *argv, engine_input);
+}
+
+#scope_file
+
+engine_runtime :: #system_library "libc";
+engine_abort :: () #foreign engine_runtime "abort";
+
+LLVMFuzzerRunDriver :: (argc: *s32, argv: ***u8, callback: (data: *u8, size: u64) -> s32 #c_call) -> s32 #foreign engine_runtime;
+
+engine_cases: [] Case;
+engine_only: s64;
+engine_trace: bool;
+engine_rng: Rng;
+
+engine_print_name :: (name: string) {
+    print("CASE %\n", name);
+}
+
+engine_input :: (data: *u8, size: u64) -> s32 #c_call {
+    push_context {
+        r := *engine_rng;
+        r.from_input = true;
+        r.data = data;
+        r.size = cast(s64) size;
+        r.position = 0;
+
+        index := engine_only;
+        selector := take(r, 1);
+        if index < 0 index = cast(s64) (selector % cast(u64) engine_cases.count);
+
+        c := engine_cases[index];
+        if engine_trace {
+            engine_print_name(c.name);
+        }
+        r.pointers = c.pointers;
+        r.nullable = c.nullable;
+        c.run(r);
+        case_end(r);
+    }
+    return 0;
+}

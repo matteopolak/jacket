@@ -1,6 +1,8 @@
 // Metaprogram: lists the exported procedures of one stdlib module and prints a fuzzing harness.
 // The driver (stdlib_fuzz.py) writes a wrapper that defines the constants below and #loads this file:
 //   MODULE    the module name, e.g. "String"
+//   NAMES     the module's top-level constant names, one per line (the driver reads them from its
+//             module.jai: the compiler typechecks an export only once something refers to it)
 //   DENY      procedure names to skip, one per line
 //   ALLOW     when non-empty, the only procedure names to fuzz, one per line
 //   POINTERS  procedure names that may receive pointers (null or a fresh allocation), one per line
@@ -106,6 +108,7 @@ Target_Proc :: struct {
     append(*source, "#import \"Basic\";\n#import \"Fuzz\";\n");
     append(*source, tprint("Target :: #import \"%\";\n", MODULE));
     if HOOKS.count > 0 append(*source, tprint("#load \"%\";\n", HOOKS));
+    for lines_of(NAMES) append(*source, tprint("probe_% :: Target.%;\n", it, it));
     append(*source, "main :: () {}\n");
 
     w := compiler_create_workspace("fuzz-discovery");
@@ -115,12 +118,12 @@ Target_Proc :: struct {
     compiler_begin_intercept(w);
     add_build_string(builder_to_string(*source), w);
 
-    // The module's own file declares its exports; the same names tell which struct and enum types
-    // the harness can spell as `Target.<name>`.
-    exported: [..] string;
+    // `probe_<name> :: Target.<name>;` makes the compiler typecheck each export; the declaration's
+    // type is the export's type. The same names tell which struct and enum types the harness can
+    // spell as `Target.<name>`.
+    exported := lines_of(NAMES);
     declared: [..] *Code_Declaration;
     hooks: [..] string;
-    suffix := tprint("/%/module.jai", MODULE);
 
     while true {
         m := compiler_wait_for_message();
@@ -129,12 +132,7 @@ Target_Proc :: struct {
         tc := cast(*Message_Typechecked) m;
         for tc.declarations {
             d := it.expression;
-            if d.enclosing_load == null continue;
-            path := d.enclosing_load.fully_pathed_filename;
-            if ends_with_text(path, suffix) {
-                array_add(*exported, d.name);
-                array_add(*declared, d);
-            }
+            if starts_with_text(d.name, "probe_") array_add(*declared, d);
         }
         for tc.procedure_headers {
             h := it.expression;
@@ -149,7 +147,7 @@ Target_Proc :: struct {
     cases: [..] Target_Proc;
     for d: declared {
         if !(d.flags & .IS_CONSTANT) continue;
-        name := d.name;
+        name := slice_of(d.name, 6, d.name.count - 6);
         if d.type != null && d.type.type == .OVERLOAD_SET {
             if !listed(deny, name) print("SKIP % overload set\n", name);
             continue;
@@ -212,7 +210,7 @@ Target_Proc :: struct {
     append(*out, "CASES :: Case.[\n");
     for cases append(*out, tprint("    .{\"%.%\", thunk_%, %, %},\n", MODULE, it.name, it_index, it.pointers, it.nullable));
     for hooks append(*out, tprint("    .{\"%.%\", hook_%, true, false},\n", MODULE, it, it_index));
-    append(*out, "];\nmain :: () { exit(run_cases(CASES)); }\n");
+    append(*out, "];\nmain :: () {\n    #if ENGINE_BUILD exit(run_engine(CASES));\n    else exit(run_cases(CASES));\n}\n");
 
     print("HARNESS BEGIN\n%HARNESS END\n", builder_to_string(*out));
 }
