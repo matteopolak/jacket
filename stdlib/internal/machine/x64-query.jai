@@ -105,8 +105,12 @@ get_cpu_info :: () -> Cpu_X86 {
 Leaf :: x86_Feature_Leaf;
 
 query :: (leaf: u32, subleaf: u32) -> (a: u32, b: u32, c: u32, d: u32) {
-    a = leaf;
-    c = subleaf;
-    #asm { cpuid a, b, c, d; }
+    // Other architectures have no cpuid: report an all-zero answer, which reads as "no features".
+    #if CPU == .X64 {
+        a = leaf;
+        c = subleaf;
+        #asm { cpuid a, b, c, d; }
+    }
+
     return a, b, c, d;
 }

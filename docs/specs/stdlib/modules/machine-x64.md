@@ -269,4 +269,4 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 ## Behavioral contract and constraints
 
-The module contains routines specific to x86-64 CPUs. It is target-restricted to x64; generic equivalents belong in portable modules. Callers must satisfy instruction/feature prerequisites described by each routine. No runtime dispatch or non-x64 fallback is implied.
+The module contains routines specific to x86-64 CPUs. Importing it works on any target, but only x64 executes the instructions: on other targets `get_cpu_info` reports no vendor and no features, and `pause` and `prefetch` do nothing, while the remaining routines (fences, counters, random sources) are errors if called. Generic equivalents belong in portable modules. Callers must satisfy instruction/feature prerequisites described by each routine. No runtime dispatch or non-x64 fallback is implied.
