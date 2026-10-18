@@ -46,7 +46,7 @@ ALLOWED_LONG = {
     "crates/jaic/src/sema/code_export.rs": 3882,
     "crates/jaic/src/sema/convert.rs": 1329,
     "crates/jaic/src/sema/expr.rs": 2129,
-    "crates/jaic/src/sema/ide.rs": 3042,
+    "crates/jaic/src/sema/ide.rs": 3040,
     "crates/jaic/src/sema/ide_meta.rs": 1453,
     "crates/jaic/src/sema/procs.rs": 1734,
     "crates/jaic/src/sema/scope.rs": 1331,
