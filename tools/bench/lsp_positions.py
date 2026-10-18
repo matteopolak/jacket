@@ -5,7 +5,8 @@ import re
 
 KEYWORDS = frozenset('''if else then for while return break continue case switch struct enum union cast defer
 using inline no_inline true false null new delete push_context remove xx it it_index context size_of type_of
-type_info is_constant else if ifx operator interface'''.split())
+type_info is_constant else if ifx operator interface
+u8 u16 u32 u64 s8 s16 s32 s64 int float float32 float64 bool string void Type Any trunc no_check'''.split())
 
 
 def mask_line(line: str, block_depth: int = 0) -> tuple[str, int]:
@@ -61,7 +62,8 @@ PROC_START = re.compile(r'^([A-Za-z_]\w*)\s*::\s*\(.*\{\s*$')
 PROC_HEADER = re.compile(r'^([A-Za-z_]\w*)\s*::\s*\(.*\)[^{;]*$')
 IDENT = re.compile(r'(?<![\w.#$@])[A-Za-z_]\w*')
 MEMBER = re.compile(r'(?<![\w.$])([A-Za-z_]\w*)\.([A-Za-z_]\w*)')
-CALL = re.compile(r'(?<![\w.#$@])([A-Za-z_]\w*)\(')
+# `cast,trunc(T)` is a cast with a modifier, not a call.
+CALL = re.compile(r'(?<![\w.#$@])(?<!cast,)([A-Za-z_]\w*)\(')
 
 
 def utf16_col(line: str, col: int) -> int:
