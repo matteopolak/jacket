@@ -20,7 +20,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { WASI } from "node:wasi";
 import { goldenCaseNames, optionalConfig, readUtf8 } from "./formatter_fixture_inputs.mjs";
-import { outputDir, root } from "./repo_output.mjs";
+import { outputDir, root } from "../repo_output.mjs";
 
 const USAGE = "usage: node tools/browser/check_jaifmt_wasm.mjs engine [jai_wasm.wasm | staged-dir]\n" +
   "       node tools/browser/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]";
