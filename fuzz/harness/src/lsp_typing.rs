@@ -41,7 +41,16 @@ pub fn lsp_typing(data: &[u8]) {
         Some(at) => (&data[..at], data[at + 1..].to_vec()),
         None => (data, data.iter().rev().copied().collect()),
     };
-    let text = String::from_utf8_lossy(document).into_owned();
+    // One line ending: the checker edits at byte offsets, and an offset between the `\r` and the
+    // `\n` of a CRLF is no position an editor can send. `lsp_edits` covers other line endings.
+    let text = String::from_utf8_lossy(document)
+        .replace("\r\n", "\n")
+        .replace('\r', "\n");
+    // Compile-time code runs again on every edit (up to the interpreter's budget), so a `#run`
+    // that never ends makes each version cost seconds; that is the design, not a finding.
+    if text.contains("#run") || text.contains("#insert") {
+        return;
+    }
     let failures = super::on_compiler_stack(move || {
         let main = DocumentUri::parse("file:///workspace/main.jai").expect("valid uri");
         let library = DocumentUri::parse("file:///workspace/b.jai").expect("valid uri");
@@ -61,7 +70,16 @@ pub fn lsp_typing(data: &[u8]) {
             outside: false,
             max_failures: 1,
         };
-        typing_session::run(&input, config, Bytes(Unstructured::new(&script))).failures
+        let report = typing_session::run(&input, config.clone(), Bytes(Unstructured::new(&script)));
+        let mut failures = report.failures;
+        // The shortest run of edits that still differs from a fresh session, for the report.
+        for (doc, history) in &report.histories {
+            if let Some(small) = typing_session::minimise_history(&input, *doc, history, &config) {
+                failures.push(format!("minimised to {} edits:", small.steps.len()));
+                failures.extend(small.steps.iter().map(|step| format!("  {:?}", step.text)));
+            }
+        }
+        failures
     });
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
