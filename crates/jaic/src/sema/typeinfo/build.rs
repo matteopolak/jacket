@@ -1,5 +1,5 @@
 //! Building the type information record of a type.
-use super::tag;
+use super::descriptor_of;
 use crate::sema::scope::ScopeKind;
 use crate::sema::value::Aggregate;
 use crate::sema::*;
@@ -18,34 +18,7 @@ impl Compiler {
             relocs: Vec::new(),
         };
         let kind = self.types.kind(ty).clone();
-        let tag = match &kind {
-            TypeKind::Int {
-                ..
-            } => tag::INTEGER,
-            TypeKind::Float {
-                ..
-            }
-            | TypeKind::WideFloat(_) => tag::FLOAT,
-            TypeKind::Bool => tag::BOOL,
-            TypeKind::String => tag::STRING,
-            TypeKind::Pointer(_) | TypeKind::Null => tag::POINTER,
-            TypeKind::Proc(_) => tag::PROCEDURE,
-            TypeKind::Void => tag::VOID,
-            TypeKind::Struct(_) => tag::STRUCT,
-            TypeKind::Array {
-                ..
-            } => tag::ARRAY,
-            TypeKind::Any => tag::ANY,
-            TypeKind::Enum(_) => tag::ENUM,
-            TypeKind::Type => tag::TYPE,
-            TypeKind::Code => tag::CODE,
-            TypeKind::Distinct(_) => tag::VARIANT,
-            TypeKind::CompileTimeOnly => tag::OVERLOAD_SET,
-            TypeKind::PolyParam => tag::POLYMORPHIC_VARIABLE,
-            TypeKind::PolyStruct {
-                ..
-            } => tag::STRUCT,
-        };
+        let tag = descriptor_of(&kind).1;
         self.set_field(&mut agg, desc, "type", Value::Int(tag), span)?;
         let runtime_size = match &kind {
             TypeKind::Struct(s)

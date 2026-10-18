@@ -33,31 +33,44 @@ mod tag {
     pub const VARIANT: i128 = 18;
 }
 
+/// The descriptor of a kind of type: the Preload struct that describes it and the
+/// `Type_Info_Tag` stored in its `type` field. The runtime descriptors and the metaprogram's
+/// records are both built from this one table.
+pub(in crate::sema) fn descriptor_of(kind: &TypeKind) -> (PreludeType, i128) {
+    match kind {
+        TypeKind::Int {
+            ..
+        } => (PreludeType::TypeInfoInteger, tag::INTEGER),
+        TypeKind::Float {
+            ..
+        }
+        | TypeKind::WideFloat(_) => (PreludeType::TypeInfoFloat, tag::FLOAT),
+        TypeKind::Bool => (PreludeType::TypeInfo, tag::BOOL),
+        TypeKind::String => (PreludeType::TypeInfoString, tag::STRING),
+        TypeKind::Pointer(_) | TypeKind::Null => (PreludeType::TypeInfoPointer, tag::POINTER),
+        TypeKind::Proc(_) => (PreludeType::TypeInfoProcedure, tag::PROCEDURE),
+        TypeKind::Void => (PreludeType::TypeInfo, tag::VOID),
+        TypeKind::Struct(_)
+        | TypeKind::PolyStruct {
+            ..
+        } => (PreludeType::TypeInfoStruct, tag::STRUCT),
+        TypeKind::Array {
+            ..
+        } => (PreludeType::TypeInfoArray, tag::ARRAY),
+        TypeKind::Any => (PreludeType::TypeInfo, tag::ANY),
+        TypeKind::Enum(_) => (PreludeType::TypeInfoEnum, tag::ENUM),
+        TypeKind::Type => (PreludeType::TypeInfo, tag::TYPE),
+        TypeKind::Code => (PreludeType::TypeInfo, tag::CODE),
+        TypeKind::Distinct(_) => (PreludeType::TypeInfoVariant, tag::VARIANT),
+        TypeKind::CompileTimeOnly => (PreludeType::TypeInfo, tag::OVERLOAD_SET),
+        TypeKind::PolyParam => (PreludeType::TypeInfo, tag::POLYMORPHIC_VARIABLE),
+    }
+}
+
 impl Compiler {
     /// The Preload struct describing `ty` (`Type_Info_Struct`, `Type_Info_Integer`...).
     pub fn type_info_struct_type(&mut self, ty: TypeId, span: Span) -> Result<TypeId> {
-        let name = match self.types.kind(ty) {
-            TypeKind::Int {
-                ..
-            } => PreludeType::TypeInfoInteger,
-            TypeKind::Float {
-                ..
-            }
-            | TypeKind::WideFloat(_) => PreludeType::TypeInfoFloat,
-            TypeKind::String => PreludeType::TypeInfoString,
-            TypeKind::Pointer(_) | TypeKind::Null => PreludeType::TypeInfoPointer,
-            TypeKind::Proc(_) => PreludeType::TypeInfoProcedure,
-            TypeKind::Struct(_)
-            | TypeKind::PolyStruct {
-                ..
-            } => PreludeType::TypeInfoStruct,
-            TypeKind::Array {
-                ..
-            } => PreludeType::TypeInfoArray,
-            TypeKind::Enum(_) => PreludeType::TypeInfoEnum,
-            TypeKind::Distinct(_) => PreludeType::TypeInfoVariant,
-            _ => PreludeType::TypeInfo,
-        };
+        let name = descriptor_of(self.types.kind(ty)).0;
         self.preload_type(name, span)
     }
 
