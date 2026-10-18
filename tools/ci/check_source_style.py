@@ -31,7 +31,6 @@ ALLOWED_LONG = {
     "crates/jaic-cli/tests/diagnostics.rs": 1423,
     "crates/jaic-cli/tests/native.rs": 3184,
     "crates/jaic-llvm/src/lib.rs": 1937,
-    "crates/jaic/src/build.rs": 1807,
     "crates/jaic/src/interp/threads.rs": 1421,
     "crates/jaic/src/ir.rs": 1617,
     "crates/jaic/src/lexer.rs": 1349,
