@@ -372,11 +372,6 @@ impl Cli {
                 "`-quiet` and `-verbose` contradict each other",
             ));
         }
-        if self.no_check_bindings {
-            for plugin in self.plugins.iter_mut().filter(|p| p.module == "Check") {
-                plugin.default_parameter("CHECK_BINDINGS", "false");
-            }
-        }
         // Plugins compile the program in a workspace of their own, which `-interp` cannot start.
         if !self.plugins.is_empty() && self.mode == Mode::Interp {
             return Err(
@@ -1424,6 +1419,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         Err(code) => return code,
     };
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
+    if cli.no_check_bindings {
+        disable_check_bindings(&mut cli, &options, &stdlib);
+    }
     // `OS == .WASM` code is written for the interpreter's sandbox host (virtual clock and files,
     // cooperative threads), so compile-time code of a wasm target runs there whatever the
     // command. `jaic -interp -os wasm` runs the program there too, the way the browser does, with
@@ -1622,6 +1620,24 @@ fn create_workspaces(
         };
     }
     workspaces
+}
+
+/// `-no_check_bindings`: sets `CHECK_BINDINGS=false` on the plugins that resolve, on the import
+/// path, to the standard library's `Check` module (not on any module that merely has the name).
+fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Options, stdlib: &Path) {
+    let check = jaic::canonicalize(&stdlib.join("Check").join("module.jai")).ok();
+    for plugin in &mut cli.plugins {
+        let entry = jaic::sema::find_module_in(
+            &NativeFs,
+            &options.import_paths,
+            &plugin.module,
+            Path::new(""),
+        )
+        .and_then(|entry| jaic::canonicalize(&entry).ok());
+        if entry.is_some() && entry == check {
+            plugin.default_parameter("CHECK_BINDINGS", "false");
+        }
+    }
 }
 
 /// `-verbose`: what is about to be done.
@@ -2356,6 +2372,25 @@ mod tests {
                 .message
                 .contains("unknown option")
         );
+    }
+
+    #[test]
+    fn no_check_bindings_reaches_only_the_standard_librarys_check() {
+        let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let own = std::env::temp_dir().join(format!("jaic-check-{}", std::process::id()));
+        std::fs::create_dir_all(own.join("modules/Check")).unwrap();
+        std::fs::write(own.join("modules/Check/module.jai"), "").unwrap();
+        let mut options = jaic::sema::Options::host();
+        options.import_paths = vec![stdlib.clone()];
+        let mut c = cli(&["a.jai", "+Check"]);
+        disable_check_bindings(&mut c, &options, &stdlib);
+        assert_eq!(c.plugins[0].import_parameters(), "(CHECK_BINDINGS=false)");
+        // A module of that name found first elsewhere is somebody else's, not the library's.
+        options.import_paths = vec![own.join("modules"), stdlib.clone()];
+        let mut c = cli(&["a.jai", "+Check"]);
+        disable_check_bindings(&mut c, &options, &stdlib);
+        assert_eq!(c.plugins[0].import_parameters(), "");
+        std::fs::remove_dir_all(own).unwrap();
     }
 
     #[test]
