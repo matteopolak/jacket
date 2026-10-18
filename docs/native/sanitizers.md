@@ -17,6 +17,7 @@ Compile side (`Sanitize` in `crates/jaic-llvm/src/lib.rs`, applied in `emit_modu
 - `address`: every defined function gets the `sanitize_address` attribute, then the `asan` module pass runs after the optimization pipeline. It instruments loads and stores, adds redzones to every `Slot` alloca and global, and registers globals. A sanitized build is always one codegen unit (on Intel macOS only the first of several sanitized objects reached the debug map, so reports showed `main.8+0xc18` instead of `file.jai:9`) and at `-O0` writes a `.dSYM` ([debug info](debug-info.md)).
 - `undefined`: the `bounds-checking<rt-abort>` pass (Clang's `-fsanitize=local-bounds`): an access outside an object whose size LLVM can see calls `__ubsan_handle_local_out_of_bounds_abort`. At `-O0` `sroa` runs first so the pass can trace pointers to their objects.
 - Bounds checks run before `asan`, so ASan does not instrument the checks.
+- `fuzzer`: the `sancov-module` pass runs last, as in Clang, with edge coverage into inline 8-bit counters, a PC table (counter to program counter) and traced comparisons (`SANCOV_PASS`, `set_coverage_options`; the pass reads LLVM's command-line registry, which jaic fills once). The link adds `libclang_rt.fuzzer_no_main` found with `clang --print-file-name` plus the C++ runtime. libFuzzer's own `main` is left out because the program has one: it starts the engine with `LLVMFuzzerRunDriver(&argc, &argv, callback)` (`Fuzz.run_engine`, [stdlib fuzzing](../tools/stdlib-fuzzing.md)). Combine with `address`: `-sanitize address,fuzzer`. The counters and PC table are the inputs a coverage report would read.
 
 Other UBSan checks are deliberately absent: signed overflow wraps in Jai ([arithmetic overflow checks](../language/numbers.md)), shifts and float-to-int conversions are defined, division by zero already traps, and an alignment check would flag deliberate unaligned reads like `<< cast(*u32) byte_pointer`.
 
@@ -39,7 +40,7 @@ Link side (`link`): a Clang driver from the LLVM install jaic was built against 
 
 ## Configuration
 
-- CLI: `-sanitize address`, `undefined` or `address,undefined` (also `--sanitize`, repeatable); combines with `-O0..-O3`, debug info stays on.
+- CLI: `-sanitize address`, `undefined`, `fuzzer` or a comma-separated list such as `address,fuzzer` (also `--sanitize`, repeatable); combines with `-O0..-O3`, debug info stays on.
 - `JAIC_SANITIZER_CC`, `LLVM_SYS_231_PREFIX` (also finds `clang` and `llvm-symbolizer`); runtime `ASAN_OPTIONS`, `UBSAN_OPTIONS`.
 - Sweep: `--sanitize LIST`, `--native`, `--opt`, `--jobs` (ASan roughly doubles memory and reserves terabytes of virtual shadow space; keep jobs low on small machines).
 

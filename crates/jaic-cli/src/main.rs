@@ -743,7 +743,7 @@ const OPTIONS: &[CliOption] = {
         CliOption::new(
             &["-sanitize"],
             Action::Value {
-                what: "address, undefined or both, comma-separated",
+                what: "address, undefined and/or fuzzer, comma-separated",
                 store: store_sanitize,
             },
         )
@@ -751,7 +751,7 @@ const OPTIONS: &[CliOption] = {
         .help(
             Output,
             "-sanitize <list>",
-            "address and/or undefined, comma-separated",
+            "address, undefined and/or fuzzer, comma-separated",
         ),
         CliOption::new(&["-coverage"], Action::Switch(|cli| &mut cli.coverage))
             .build_only()
@@ -834,11 +834,11 @@ fn store_sanitize(cli: &mut Cli, option: &str, list: String) -> Result<(), CliEr
     if let Some(bad) = list
         .split(',')
         .map(str::trim)
-        .find(|s| !matches!(*s, "address" | "undefined"))
+        .find(|s| !matches!(*s, "address" | "undefined" | "fuzzer"))
     {
         return Err(
             CliError::new(format!("unknown sanitizer `{bad}` for `{option}`"))
-                .help("use address, undefined or both: `-sanitize address,undefined`"),
+                .help("use address, undefined, fuzzer or a list: `-sanitize address,fuzzer`"),
         );
     }
     cli.sanitize.push(list);

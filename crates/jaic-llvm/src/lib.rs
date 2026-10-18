@@ -134,14 +134,18 @@ pub struct Sanitize {
     /// link adds `runtime/coverage.c`, which writes the blocks that ran at exit
     /// (`docs/tools/coverage.md`).
     pub coverage: bool,
+    /// Coverage instrumentation for libFuzzer (SanitizerCoverage: inline 8-bit counters, a PC
+    /// table and comparison tracing). [`link`] adds libFuzzer without its `main`, so the program
+    /// starts the engine itself with `LLVMFuzzerRunDriver`.
+    pub fuzzer: bool,
 }
 
 impl Sanitize {
     pub fn any(self) -> bool {
-        self.address || self.undefined || self.coverage
+        self.address || self.undefined || self.coverage || self.fuzzer
     }
 
-    /// Parse a `-sanitize` value: a comma-separated list of `address` and `undefined`.
+    /// Parse a `-sanitize` value: a comma-separated list of `address`, `undefined` and `fuzzer`.
     pub fn parse(list: &str) -> Result<Sanitize, String> {
         let mut sanitize = Sanitize::default();
         for name in list.split(',') {
@@ -149,9 +153,10 @@ impl Sanitize {
                 "address" => sanitize.address = true,
                 "undefined" => sanitize.undefined = true,
                 "coverage" => sanitize.coverage = true,
+                "fuzzer" => sanitize.fuzzer = true,
                 other => {
                     return Err(format!(
-                        "unknown sanitizer `{other}`\nhelp: `-sanitize` takes address, undefined or both: `-sanitize address,undefined`"
+                        "unknown sanitizer `{other}`\nhelp: `-sanitize` takes address, undefined, fuzzer or a list: `-sanitize address,fuzzer`"
                     ));
                 }
             }
@@ -161,8 +166,14 @@ impl Sanitize {
 
     /// The Clang driver's `-fsanitize=` value; the driver then links the matching runtime.
     fn driver_flag(self) -> Option<String> {
-        let names: Vec<&str> = [(self.address, "address"), (self.undefined, "undefined")]
-            .into_iter()
+        // `fuzzer-no-link`: the instrumentation flags only. libFuzzer's own `main` would clash
+        // with the program's; `fuzzer_runtime` names the engine archive without it.
+        let names: Vec<&str> = [
+            (self.address, "address"),
+            (self.undefined, "undefined"),
+            (self.fuzzer, "fuzzer-no-link"),
+        ]
+        .into_iter()
             .filter_map(|(on, name)| on.then_some(name))
             .collect();
         (!names.is_empty()).then(|| format!("-fsanitize={}", names.join(",")))
@@ -185,11 +196,79 @@ impl Sanitize {
         if self.address {
             passes.push("asan");
         }
-        if self.coverage {
-            // Last, as Clang does: the pass numbers the blocks that are left.
-            passes.push("sancov-module");
+        if self.coverage || self.fuzzer {
+            // Last, as Clang does: the pass numbers the blocks that are left (and, for the
+            // fuzzer, after the other sanitizers so their checks are not instrumented).
+            passes.push(SANCOV_PASS);
         }
         passes
+    }
+}
+
+/// The SanitizerCoverage pass of `-coverage` and `-sanitize fuzzer` builds (options: [`set_coverage_options`]).
+/// The fuzzer's counters and PC table are also what a coverage report reads; its traced
+/// comparisons let libFuzzer solve `if x == 0x1234` style branches.
+pub const SANCOV_PASS: &str = "sancov-module";
+
+/// `sancov-module` takes its options from LLVM's command-line registry, not from pipeline
+/// parameters. A `-coverage` build numbers every basic block (level 2) with a guard and a row in
+/// the PC table; a `fuzzer` build uses edge coverage (level 3) in inline 8-bit counters, the PC
+/// table and traced compares. The registry is process-wide, so it is set once, by the first
+/// build that asks: one process builds with one of the two.
+#[allow(unsafe_code)]
+fn set_coverage_options(fuzzer: bool) {
+    static OPTIONS: std::sync::Once = std::sync::Once::new();
+    OPTIONS.call_once(|| {
+        let flags: &[&str] = if fuzzer {
+            &[
+                "-sanitizer-coverage-level=3",
+                "-sanitizer-coverage-inline-8bit-counters",
+                "-sanitizer-coverage-pc-table",
+                "-sanitizer-coverage-trace-compares",
+            ]
+        } else {
+            &[
+                "-sanitizer-coverage-level=2",
+                "-sanitizer-coverage-trace-pc-guard",
+                "-sanitizer-coverage-pc-table",
+            ]
+        };
+        let args: Vec<std::ffi::CString> = std::iter::once("jaic")
+            .chain(flags.iter().copied())
+            .map(|a| std::ffi::CString::new(a).expect("no NUL in a constant"))
+            .collect();
+        let pointers: Vec<*const std::ffi::c_char> = args.iter().map(|a| a.as_ptr()).collect();
+        // SAFETY: the strings outlive the call, which copies what it keeps.
+        unsafe {
+            inkwell::llvm_sys::support::LLVMParseCommandLineOptions(
+                pointers.len() as i32,
+                pointers.as_ptr(),
+                std::ptr::null(),
+            );
+        }
+    });
+}
+
+/// The libFuzzer engine without its `main`, found through the sanitizer driver (`clang
+/// --print-file-name`), or a message saying what to install.
+fn fuzzer_runtime(driver: &str) -> Result<PathBuf, String> {
+    let arch = std::env::consts::ARCH;
+    let name = if cfg!(target_os = "macos") {
+        "libclang_rt.fuzzer_no_main_osx.a".to_string()
+    } else {
+        format!("libclang_rt.fuzzer_no_main-{arch}.a")
+    };
+    let out = Command::new(driver)
+        .arg(format!("--print-file-name={name}"))
+        .output()
+        .map_err(|e| format!("could not run `{driver}` to find {name}: {e}"))?;
+    let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+    if path.is_absolute() && path.is_file() {
+        Ok(path)
+    } else {
+        Err(format!(
+            "`-sanitize fuzzer` needs {name} from the LLVM that built jaic (`{driver}` did not find it)\nhelp: install compiler-rt (Homebrew `llvm`, or `libclang-rt-23-dev` from apt.llvm.org) or set JAIC_SANITIZER_CC to its clang"
+        ))
     }
 }
 
@@ -446,8 +525,8 @@ fn emit_module(
             }
         }
     }
-    if options.sanitize.coverage {
-        set_coverage_options();
+    if options.sanitize.coverage || options.sanitize.fuzzer {
+        set_coverage_options(options.sanitize.fuzzer);
     }
     let mut passes: Vec<&str> = options.opt_level.pipeline().into_iter().collect();
     passes.extend(options.sanitize.passes(options.opt_level));
@@ -864,33 +943,6 @@ fn library_group(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<L
 /// host). macOS and Linux use the system `cc`; Windows uses a MinGW or MSVC toolchain,
 /// see [`LinkFlavor`] and `docs/native/windows.md`. With `debug_info`, MSVC targets also get
 /// a PDB next to the output (`foo.exe` -> `foo.pdb`).
-/// The `sancov-module` pass takes its options from LLVM's command line, not from its pass name:
-/// every basic block (level 2) gets a guard and a row in the PC table.
-#[allow(unsafe_code)]
-fn set_coverage_options() {
-    static SET: std::sync::Once = std::sync::Once::new();
-    SET.call_once(|| {
-        use std::ffi::CString;
-        let args: Vec<CString> = [
-            "jaic",
-            "-sanitizer-coverage-level=2",
-            "-sanitizer-coverage-trace-pc-guard",
-            "-sanitizer-coverage-pc-table",
-        ]
-        .map(|a| CString::new(a).unwrap())
-        .into();
-        let pointers: Vec<*const std::ffi::c_char> = args.iter().map(|a| a.as_ptr()).collect();
-        // SAFETY: the arguments outlive the call; LLVM copies what it keeps.
-        unsafe {
-            inkwell::llvm_sys::support::LLVMParseCommandLineOptions(
-                pointers.len() as i32,
-                pointers.as_ptr(),
-                std::ptr::null(),
-            );
-        }
-    });
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn link(
     objects: &[PathBuf],
@@ -927,6 +979,10 @@ pub fn link(
         let program = sanitizer_driver();
         let mut cmd = Command::new(&program);
         cmd.args(sanitize.driver_flag());
+        if sanitize.fuzzer {
+            cmd.arg(fuzzer_runtime(&program)?);
+            cmd.arg(if cfg!(target_os = "macos") { "-lc++" } else { "-lstdc++" });
+        }
         (program, cmd)
     } else {
         linker_command(flavor, target)?
@@ -1753,6 +1809,11 @@ mod tests {
         let coverage = Sanitize::parse("coverage").unwrap();
         assert_eq!(coverage.driver_flag(), None);
         assert_eq!(coverage.passes(OptLevel::O0), ["sancov-module"]);
+        let fuzz = Sanitize::parse("address,fuzzer").unwrap();
+        assert!(fuzz.any() && fuzz.fuzzer);
+        assert_eq!(fuzz.driver_flag().as_deref(), Some("-fsanitize=address,fuzzer-no-link"));
+        assert_eq!(fuzz.passes(OptLevel::O2), ["asan", "sancov-module"]);
+        assert_eq!(Sanitize::parse("fuzzer").unwrap().driver_flag().as_deref(), Some("-fsanitize=fuzzer-no-link"));
         assert!(Sanitize::parse("thread").is_err());
         assert!(check_sanitizer_target(Some(BuildTarget::windows(TargetCpu::X64, false))).is_err());
         assert!(check_sanitizer_target(Some(BuildTarget::wasm_module())).is_err());

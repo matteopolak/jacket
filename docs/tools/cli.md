@@ -40,7 +40,7 @@ The file you name is the only source file on the command line. Other files come 
 | `-very_debug` | unoptimized, with every runtime check on |
 | `-O0` to `-O3` | pick the LLVM level yourself. Don't combine these with the flavors above |
 
-A few switches turn off one thing each: `-no_inline`, `-no_split` (generate one code module instead of several), `-no_debug_info` and `-no_backtrace_on_crash`. `-sanitize address,undefined` builds with the sanitizers, and `-emit_ir out.ll` also writes the LLVM IR.
+A few switches turn off one thing each: `-no_inline`, `-no_split` (generate one code module instead of several), `-no_debug_info` and `-no_backtrace_on_crash`. `-sanitize address,undefined,fuzzer` builds with the sanitizers (`fuzzer` adds libFuzzer coverage instrumentation), and `-emit_ir out.ll` also writes the LLVM IR.
 
 If your build metaprogram sets an optimization level, these options override it. `-no_inline` and `-no_split` apply to every workspace jaic writes.
 
