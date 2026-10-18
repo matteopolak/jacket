@@ -110,4 +110,4 @@ stbir_filter :: enum u32 {
 ```
 ## Contracts and constraints
 
-This module generates Jai bindings for the bundled stb image-resize C implementation. The public functions are thin ABI calls: source/destination dimensions, channels, strides, and buffer lengths must agree, and the caller owns the buffers. Binding generation is configured by target/build parameters and depends on the Bindings_Generator and BuildCpp tooling; availability and supported formats follow the bundled upstream source.
+This module generates Jai bindings for the bundled stb image-resize C implementation. The public functions are thin ABI calls: source/destination dimensions, channels, strides, and buffer lengths must agree, and the caller owns the buffers. Binding generation is configured by target/build parameters and depends on the Bindings_Generator and BuildCpp tooling; availability and supported formats follow the underlying library.

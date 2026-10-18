@@ -1804,7 +1804,7 @@ For FDE initial-location decoding, the `R` CIE augmentation supplies the pointer
 
 ## Behavioral contract and constraints
 
-The module parses DWARF and CodeView debug information into Jai-side records for inspecting source locations, types, and symbols. The module explicitly describes the parser as incomplete. Unsupported sections/encodings may not be represented; malformed-input failure behavior is not a stable contract. Parsed data lifetime follows the parser's returned structures and allocator fields.
+The module parses DWARF and CodeView debug information into Jai-side records for inspecting source locations, types, and symbols. The parser is incomplete. Unsupported sections/encodings may not be represented; malformed-input failure behavior is not a stable contract. Parsed data lifetime follows the parser's returned structures and allocator fields.
 
 The public surface is a direct native binding: declared records, constants, and function signatures preserve the represented external ABI; this wrapper does not itself define a different ownership or error model. Native status/error values and handle lifetimes follow the external API. ABI compatibility across external-library versions is not specified unless a version note appears above.
 

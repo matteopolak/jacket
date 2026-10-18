@@ -41,7 +41,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 ## Behavioral contract and constraints
 
-This module is a Jai port of Meow Hash and exposes the hash state, update, and finalization surface. It is a non-cryptographic hash; callers must follow the input-length/alignment requirements of the selected routine and provide enough readable input. The module describes the port as functional but notes future type cleanup; no cryptographic or cross-version stability guarantee is made.
+This module is a Jai port of Meow Hash and exposes the hash state, update, and finalization surface. It is a non-cryptographic hash; callers must follow the input-length/alignment requirements of the selected routine and provide enough readable input. No cryptographic or cross-version stability guarantee is made.
 
 `reg` aliases Preload's distinct `__reg` operand type. In this module it denotes a compiler-managed 128-bit SIMD register operand for inline assembly, despite the source-level `__reg` declaration having the distinct `u16` type. It is not a 16-bit scalar value or a general-purpose storage representation. The public `MeowU64From` and `MeowU32From` expansions extract one indexed 64-bit or 32-bit lane from a register into the declared scalar result; their register arguments must remain SIMD register operands through expansion.
 

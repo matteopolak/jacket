@@ -4446,7 +4446,7 @@ The public context addition declares `generator: *Generator`. For a single modul
 
 ### Shared record metadata and vtables
 
-`Generator.extra_infos` is the public cache keyed by canonical `*Struct`, with `Struct_Extra_Info` values. `find_or_create_extra_info` is the public operation that supplies a record's derived metadata on demand, including an uncached supported polymorphic record; requiring a different owner to prepopulate every such entry is not the public behavior. The producer and printer must agree on this one model. The module does not prescribe which source file or independently assigned worker owns that production step.
+`Generator.extra_infos` is the public cache keyed by canonical `*Struct`, with `Struct_Extra_Info` values. `find_or_create_extra_info` is the public operation that supplies a record's derived metadata on demand, including an uncached supported polymorphic record; requiring a different owner to prepopulate every such entry is not the public behavior. The producer and printer must agree on this one model.
 
 `Struct_Extra_Info.modified_declarations` is the member list consumed for generated record output. `vtable_struct` represents a generated vtable record; `vtable_pointer_declaration` represents a record's own vtable-pointer member when needed. `vtable_parent`, `vtable_parent_info`, and `vtable_parent_declaration` identify inherited vtable relationships. `padding_declaration` and `raw_struct` can represent layout padding and a variant needed for inheritance. These are public typed pointers to actual shared model objects, not unrelated printer-only descriptions. `Struct.metadata` is a separate list for metadata declarations; it must not be confused with the extra-info cache.
 
@@ -4557,9 +4557,6 @@ offset checks because a generic declaration does not determine all
 instantiated layouts. The module explicitly leaves some template padding and
 inheritance cases incomplete; an emitted generic record is not a guarantee
 that every specialization has a validated native size, alignment, or offset.
-This contract is based on source inspection; no generator or compiler binary
-was run for these clarifications.
-
 ### How to extend this contract
 
 Keep constructors, the canonical cache, and printers consistent with the existing public record types. Define the supported domain for new ABI/type/template cases before claiming them equivalent. Configuration affecting these rules includes target OS/CPU, constructor/destructor strip flags, output-name normalization, `generate_c_style_api_for_vtable`, `generate_vtable_helpers`, and inheritance/layout options. Dependencies are the active `Generator`, configured options, libclang metadata, shared model constructors, and the public declaration/type printers. Allocation registries, transaction ledgers, and private session protocols remain implementation choices.

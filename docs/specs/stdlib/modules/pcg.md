@@ -23,9 +23,9 @@ Only names visible through the module’s exported scope are listed. Declaration
 The module provides state-pointer APIs and convenience overloads backed by a module-global `u64` state. Each draw transforms the pre-advance value with the XSH-RR output step: xor the old value with its right shift by 18, shift right by 27 and truncate to `u32`, then rotate right by the top five bits of the old value. It then advances with wrapping arithmetic modulo 2^64:
 
 ```jai
-state = state * PCG_DEFAULT_MULTIPLIER_64 + PCG_DEFAULT_INCREMENT_64;
+state = state * multiplier + increment;
 ```
-The module-private algorithm parameters are `PCG_DEFAULT_MULTIPLIER_64 = 6364136223846793005` and `PCG_DEFAULT_INCREMENT_64 = 1442695040888963407`; these values are recorded here to define the public sequence, not as importer-visible constants. Seeding sets the state to `cast(u64)new_seed * multiplier + increment`, also modulo 2^64; the first subsequent draw uses that seeded state as its pre-advance input. The global convenience API starts from a module-private state initialized to the increment value.
+The generator uses multiplier `6364136223846793005` and increment `1442695040888963407`; these values define the public sequence and are not importer-visible constants. Seeding sets the state to `cast(u64)new_seed * multiplier + increment`, also modulo 2^64; the first subsequent draw uses that seeded state as its pre-advance input. The global convenience API starts from a private state initialized to the increment value.
 
 `random_get_within_bound` and `random_get_within_bound2` require a nonzero bound (asserted) and return values in `[0, range)`. The float helpers scale generated values into a requested range; no min/max ordering check is specified.
 

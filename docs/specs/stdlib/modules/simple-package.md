@@ -96,7 +96,7 @@ Table_Of_Contents :: struct {
 
 ## Binary format
 
-The module's file-private magic constants are encoded little-endian: the header signature bytes are `simp` (`0x706d6973` as a little-endian u32), and the TOC signature bytes are `toc!` (`0x21636f74`). `write` emits version 1. The reader rejects versions greater than 1; it accepts lower values but does not guarantee a distinct older layout. The format is little-endian only.
+The magic values are encoded little-endian: the header signature bytes are `simp` (`0x706d6973` as a little-endian u32), and the TOC signature bytes are `toc!` (`0x21636f74`). `write` emits version 1. The reader rejects versions greater than 1; it accepts lower values but does not guarantee a distinct older layout. The format is little-endian only.
 
 The 64-byte header starts at file offset 0. Its `table_of_contents_offset` is a signed 64-bit absolute file offset. Entry payload bytes are packed from offset 64 in the selected entry order, and the TOC starts immediately after them. The 64-byte TOC preamble stores a u32 TOC signature and a signed 64-bit entry count; its reserved members are not interpreted. Each TOC entry is a u32 name byte length, that many name bytes, a zero byte, then an 8-byte payload size and an 8-byte absolute file offset. The writer emits the latter two values as u64; the reader interprets the same 64-bit words as signed s64. Names are byte strings and the stored length excludes the terminator. The TOC extends to end-of-file; there is no separate TOC byte-length field.
 

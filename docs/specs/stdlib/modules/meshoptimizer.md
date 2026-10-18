@@ -89,7 +89,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 ## Behavioral contract and constraints
 
-This package binds meshoptimizer routines for mesh simplification, remapping, cache/fetch optimization, and compression. The API mutates or fills caller-provided buffers and reports written counts/sizes through results. Buffer capacities and mesh index/attribute consistency are caller preconditions. The bundled source identifies version 0.11; native library and ABI availability vary by platform.
+This package binds meshoptimizer routines for mesh simplification, remapping, cache/fetch optimization, and compression. The API mutates or fills caller-provided buffers and reports written counts/sizes through results. Buffer capacities and mesh index/attribute consistency are caller preconditions. The binding targets meshoptimizer version 0.11; native library and ABI availability vary by platform.
 
 The public surface is a direct native binding: declared records, constants, and function signatures preserve the represented external ABI; this wrapper does not itself define a different ownership or error model. Native status/error values and handle lifetimes follow the external API. ABI compatibility across external-library versions is not specified unless a version note appears above.
 
