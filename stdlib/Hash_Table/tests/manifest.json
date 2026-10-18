@@ -8,6 +8,10 @@
     "stdout": "ok\n"
   },
   {
+    "name": "churn",
+    "stdout": "ok\n"
+  },
+  {
     "name": "duplicate-keys",
     "stdout": "ok\n"
   },

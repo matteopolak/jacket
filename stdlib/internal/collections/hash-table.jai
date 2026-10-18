@@ -73,8 +73,15 @@ expand :: (table: *Table, new_allocated := -1) {
 
 table_ensure_space :: (using table: *Table, items: s64) {
     assert(items >= 0);
-    if allocated == 0 || (slots_filled + items) * 100 >= allocated * cast(s64) table.LOAD_FACTOR_PERCENT
-        expand(table, max(allocated * 2, (count + items) * 100 / cast(s64) table.LOAD_FACTOR_PERCENT + 1));
+
+    if allocated == 0 || (slots_filled + items) * 100 >= allocated * cast(s64) table.LOAD_FACTOR_PERCENT {
+        needed := (count + items) * 100 / cast(s64) table.LOAD_FACTOR_PERCENT + 1;
+
+        // Removed entries still fill slots. When they outnumber the live ones, rehashing at
+        // the size the live entries need reclaims them instead of doubling the table.
+        if slots_filled - count > count expand(table, needed);
+        else expand(table, max(allocated * 2, needed));
+    }
 }
 
 table_resize :: (using table: *Table, expected_count: s64) {
@@ -117,20 +124,38 @@ table_find :: (table: *Table, key: table.Key_Type) -> (success: bool, table.Valu
 table_find_multiple :: (table: *Table, key: table.Key_Type) -> [] table.Value_Type {
     if table.count == 0 return .{};
 
-    count: s64;
     hash := valid_hash(table, key);
+    mask := table.allocated - 1;
 
-    for entry: table.entries if entry.hash == hash && table.compare_function(entry.key, key) count += 1;
+    // Matches sit in one probe run from the key's slot; an empty slot ends it, removed ones do not.
+    count: s64;
+    index := cast(s64) hash & mask;
+
+    for 0..table.allocated - 1 {
+        entry := table.entries.data + index;
+        if entry.hash == NEVER_OCCUPIED_HASH break;
+        if entry.hash == hash && table.compare_function(entry.key, key) count += 1;
+        index = (index + 1) & mask;
+    }
+
     if count == 0 return .{};
 
     data := cast(*table.Value_Type) talloc(count * size_of(table.Value_Type));
 
     assert(data != null);
-    index: s64;
+    found: s64;
 
-    for entry: table.entries if entry.hash == hash && table.compare_function(entry.key, key) {
-        data[index] = entry.value;
-        index += 1;
+    index = cast(s64) hash & mask;
+
+    while found < count {
+        entry := table.entries.data + index;
+
+        if entry.hash == hash && table.compare_function(entry.key, key) {
+            data[found] = entry.value;
+            found += 1;
+        }
+
+        index = (index + 1) & mask;
     }
 
     return .{ count, data };
