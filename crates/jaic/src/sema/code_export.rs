@@ -302,6 +302,7 @@ impl Compiler {
             return id;
         }
         let import = self.module_record(r, module);
+        let virtual_source = self.sources.get(file).is_virtual();
         let path = self.sources.get(file).path.clone();
         let mut rec = Record::new("Message_File");
         rec.int("kind", message_kind::FILE)
@@ -311,7 +312,7 @@ impl Compiler {
                 super::expr::forward_slashes(&path).as_bytes(),
             )
             .ptr("enclosing_import", import)
-            .int("from_a_string", path.starts_with('<') as i64)
+            .int("from_a_string", virtual_source as i64)
             .int("__file", file.0 as i64);
         let id = r.add(rec);
         self.export.files.insert(file, id);
