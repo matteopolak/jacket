@@ -370,7 +370,7 @@ fn lint_root(
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
-        report: Box::new(move |text| sink.borrow_mut().push(text.to_string())),
+        report: Box::new(move |_, text| sink.borrow_mut().push(text.to_string())),
         observer: Some(Box::new(Collect {
             prefixes: prefixes.clone(),
             done: done.clone(),

@@ -29,6 +29,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 mod option_snapshot;
+mod plugin_program;
+
+pub use plugin_program::{PluginImport, PluginProgram, plugin_metaprogram};
 
 pub use crate::builtin_keys::OutputType;
 
@@ -189,6 +192,21 @@ struct PendingLink {
     output: String,
 }
 
+/// How serious a reported message is; `-quiet` leaves out everything but errors.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReportSeverity {
+    Error,
+    Warning,
+    Info,
+}
+
+impl ReportSeverity {
+    /// Whether this is a warning or an informational note rather than an error.
+    pub fn is_chatter(self) -> bool {
+        self != ReportSeverity::Error
+    }
+}
+
 /// Everything needed to compile a workspace besides its sources.
 pub struct BuildEnv {
     pub fs: Rc<dyn FileSystem>,
@@ -205,7 +223,7 @@ pub struct BuildEnv {
     /// (`OS == .WASM` code expects the interpreter's sandbox, whatever the compiler runs on).
     pub make_host: Box<dyn Fn(TargetOs) -> Box<dyn Host>>,
     /// Where diagnostics of workspace compilations go.
-    pub report: Box<dyn FnMut(&str)>,
+    pub report: Box<dyn FnMut(ReportSeverity, &str)>,
     /// Sees each workspace compiler as it is made and when its workspace is done (tools that
     /// inspect what the metaprogram built, such as a linter).
     pub observer: Option<Box<dyn WorkspaceObserver>>,
@@ -842,7 +860,9 @@ pub(crate) fn isolated_host_environment(
         unwritten_output_hint: None,
         command_line,
         make_host: Box::new(move |os| (factory_parent.borrow().env.make_host)(os)),
-        report: Box::new(move |message| (report_parent.borrow_mut().env.report)(message)),
+        report: Box::new(move |severity, message| {
+            (report_parent.borrow_mut().env.report)(severity, message)
+        }),
         observer: None,
     });
     (shared, host)
@@ -1197,7 +1217,7 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
                 held = Some(text);
                 Stage::Open
             } else {
-                (shared.borrow_mut().env.report)(&text);
+                (shared.borrow_mut().env.report)(ReportSeverity::Error, &text);
                 failed = true;
                 if intercepted {
                     events.push(Event {
@@ -1296,7 +1316,7 @@ fn resume_failed_load(shared: &SharedWorkspaces, id: i64) -> Result<bool, String
     let Some(held) = held else {
         return Ok(false);
     };
-    (shared.borrow_mut().env.report)(&held.text);
+    (shared.borrow_mut().env.report)(ReportSeverity::Error, &held.text);
     {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
@@ -1389,7 +1409,10 @@ fn write_output(
                     Ok(Written::AwaitingLink)
                 }
                 Err(message) => {
-                    (reg.env.report)(&format!("error: writing {}: {message}", output.display()));
+                    (reg.env.report)(
+                        ReportSeverity::Error,
+                        &format!("error: writing {}: {message}", output.display()),
+                    );
                     Ok(Written::Done(false))
                 }
             };
@@ -1409,23 +1432,26 @@ fn write_output(
                         OutputType::ObjectFile => "an object file",
                         _ => "an executable",
                     };
-                    (reg.env.report)(&format!(
-                        "warning: `jaic -check` does not write {} (workspace `{name}` asks for \
+                    (reg.env.report)(
+                        ReportSeverity::Warning,
+                        &format!(
+                            "warning: `jaic -check` does not write {} (workspace `{name}` asks for \
                          {kind})\n\
                          help: `jaic {main}` (or `jaic {main} -interp`) writes it",
-                        shown_path(&output),
-                        main = hint.main_file,
-                    ));
+                            shown_path(&output),
+                            main = hint.main_file,
+                        ),
+                    );
                 }
                 Ok(())
             }
         }
     };
     if let Err(message) = &written {
-        (shared.borrow_mut().env.report)(&format!(
-            "error: writing {}: {message}",
-            output.display()
-        ));
+        (shared.borrow_mut().env.report)(
+            ReportSeverity::Error,
+            &format!("error: writing {}: {message}", output.display()),
+        );
     }
     events.push(Event {
         kind: EVENT_PHASE,
@@ -1447,19 +1473,25 @@ fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(), String> 
     let failed = match link.exit_code {
         Some(0) => false,
         Some(code) => {
-            (shared.borrow_mut().env.report)(&format!(
-                "error: the custom link command for {} failed with exit code {code}",
-                link.output
-            ));
+            (shared.borrow_mut().env.report)(
+                ReportSeverity::Error,
+                &format!(
+                    "error: the custom link command for {} failed with exit code {code}",
+                    link.output
+                ),
+            );
             true
         }
         None => {
-            (shared.borrow_mut().env.report)(&format!(
-                "error: the metaprogram did not link {} after READY_FOR_CUSTOM_LINK_COMMAND\n\
+            (shared.borrow_mut().env.report)(
+                ReportSeverity::Error,
+                &format!(
+                    "error: the metaprogram did not link {} after READY_FOR_CUSTOM_LINK_COMMAND\n\
                  help: call `compiler_custom_link_command_is_complete(workspace, exit_code)` once \
                  its link command has run",
-                link.output
-            ));
+                    link.output
+                ),
+            );
             true
         }
     };
@@ -2086,13 +2118,18 @@ pub fn call(
                 return Err(t);
             }
             let severity = match mode {
-                1 => "error",
-                2 => "warning",
-                _ => "info",
+                1 => ReportSeverity::Error,
+                2 => ReportSeverity::Warning,
+                _ => ReportSeverity::Info,
             };
-            let rendered = format!("{location}{severity}: {}", message.trim_end());
+            let label = match severity {
+                ReportSeverity::Error => "error",
+                ReportSeverity::Warning => "warning",
+                ReportSeverity::Info => "info",
+            };
+            let rendered = format!("{location}{label}: {}", message.trim_end());
             let mut reg = shared.borrow_mut();
-            (reg.env.report)(&rendered);
+            (reg.env.report)(severity, &rendered);
             if mode == 1 {
                 // A continuable error: the metaprogram goes on, but the build has failed.
                 let current = reg.current_id();

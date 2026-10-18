@@ -221,6 +221,30 @@ impl Plugin {
     }
 }
 
+impl Cli {
+    /// The metaprogram `+Plugin` stands for, compiling `path`.
+    fn plugin_metaprogram(&self, path: &Path, wasi: bool) -> String {
+        let plugins: Vec<jaic::build::PluginImport> = self
+            .plugins
+            .iter()
+            .map(|p| jaic::build::PluginImport {
+                module: p.module.clone(),
+                import_parameters: p.import_parameters(),
+                options: p.options.clone(),
+            })
+            .collect();
+        let added: Vec<String> = self.added.iter().map(Added::source).collect();
+        jaic::build::plugin_metaprogram(&jaic::build::PluginProgram {
+            plugins: &plugins,
+            main_file: path,
+            exe: self.exe.as_deref(),
+            output_path: self.output_path.as_deref(),
+            added_sources: &added,
+            wasi,
+        })
+    }
+}
+
 /// Parsed command line.
 #[derive(Default)]
 struct Cli {
@@ -1357,14 +1381,6 @@ fn install_panic_hook() {
     }));
 }
 
-/// Whether a reported line is a warning or an informational note, which `-quiet` leaves out.
-fn is_chatter(text: &str) -> bool {
-    let first = text.lines().next().unwrap_or_default();
-    ["warning: ", "info: "]
-        .iter()
-        .any(|kind| first.starts_with(kind) || first.contains(&format!(": {kind}")))
-}
-
 /// Whether `exe` names a place (`build/app`, `/tmp/app`), not just a file name.
 fn has_directory(exe: &str) -> bool {
     Path::new(exe).components().count() > 1 || Path::new(exe).is_absolute()
@@ -1505,8 +1521,8 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
                 Box::new(NativeHost)
             }
         }),
-        report: Box::new(move |text| {
-            if !(quiet && is_chatter(text)) {
+        report: Box::new(move |severity, text| {
+            if !(quiet && severity.is_chatter()) {
                 eprintln!("{text}");
             }
         }),
@@ -1565,7 +1581,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         }
         timings::time("front end", || compiler.compile_sources(&sources))
     } else {
-        let source = plugin_metaprogram(&cli, &path, wasi);
+        let source = cli.plugin_metaprogram(&path, wasi);
         timings::time("front end", || {
             compiler.compile_sources(&[ProgramSource::String(source)])
         })
@@ -1718,97 +1734,6 @@ fn flush_sandbox(host: &Rc<RefCell<SandboxHost>>) {
     let mut host = host.borrow_mut();
     let _ = std::io::stdout().write_all(&std::mem::take(&mut host.stdout));
     let _ = std::io::stderr().write_all(&std::mem::take(&mut host.stderr));
-}
-
-/// The metaprogram `+Plugin` stands for: import each plugin module, then compile `path` in a
-/// workspace using the public Compiler lifecycle procedures.
-fn plugin_metaprogram(cli: &Cli, path: &Path, wasi: bool) -> String {
-    let quote = |s: &str| {
-        let escaped = s
-            .replace('\\', "\\\\")
-            .replace('"', "\\\"")
-            .replace('\n', "\\n")
-            .replace('\r', "\\r");
-        format!("\"{escaped}\"")
-    };
-    // `-exe` and `-output_path` name the executable; otherwise it is named after the file, next
-    // to it.
-    let lossy = |p: Option<&std::ffi::OsStr>| p.map(|n| n.to_string_lossy().into_owned());
-    let target = match (&cli.exe, &cli.output_path) {
-        (Some(exe), Some(dir)) => Some(dir.join(exe)),
-        (Some(exe), None) => Some(PathBuf::from(exe)),
-        (None, Some(dir)) => Some(dir.join(path.file_stem().unwrap_or_default())),
-        (None, None) => None,
-    };
-    let (name, dir) = match &target {
-        Some(out) => (
-            lossy(out.file_name()),
-            lossy(out.parent().map(|d| d.as_os_str())),
-        ),
-        None => (lossy(path.file_stem()), None),
-    };
-    let mut text = String::from("Compiler :: #import \"Compiler\";\n");
-    for (i, plugin) in cli.plugins.iter().enumerate() {
-        text += &format!(
-            "__plugin_{i} :: #import {}{};\n",
-            quote(&plugin.module),
-            plugin.import_parameters()
-        );
-    }
-    text += "#scope_file\n__jaic_plugin_failure :: (plugins: [] *Compiler.Metaprogram_Plugin, initialized: s64, w: Workspace, message: string) {\n    for p: plugins {\n        if it_index >= initialized break;\n        if p.shutdown p.shutdown(p);\n    }\n    Compiler.compiler_set_workspace_status(.FAILED, w);\n    Compiler.compiler_report(\"\", 0, 0, message);\n}\n";
-    text += &format!(
-        "#run,stallable {{\n    w := Compiler.compiler_create_workspace(\"Target Program\");\n    plugins: [{}] *Compiler.Metaprogram_Plugin;\n",
-        cli.plugins.len()
-    );
-    text += &format!(
-        "    build := Compiler.get_build_options();\n    metaprogram := build;\n    metaprogram.output_type = .NO_OUTPUT;\n    Compiler.set_build_options(metaprogram);\n    build.output_executable_name = {};\n    build.output_path = {};\n    Compiler.set_build_options(build, w);\n",
-        quote(&name.unwrap_or_default()),
-        quote(&dir.unwrap_or_default()),
-    );
-    for (i, plugin) in cli.plugins.iter().enumerate() {
-        text += &format!(
-            "    plugins[{i}] = __plugin_{i}.get_plugin();\n    if plugins[{i}] == null __jaic_plugin_failure(plugins, {i}, w, \"plugin get_plugin returned null\");\n    plugins[{i}].workspace = w;\n"
-        );
-        let options = plugin
-            .options
-            .iter()
-            .map(|s| quote(s))
-            .collect::<Vec<_>>()
-            .join(", ");
-        text += &format!(
-            "    options_{i}: [{}] string = .[{options}];\n",
-            plugin.options.len()
-        );
-        if !plugin.options.is_empty() {
-            text += &format!(
-                "    if !plugins[{i}].init __jaic_plugin_failure(plugins, {}, w, \"plugin has options but no init hook\");\n",
-                i + 1
-            );
-        }
-        text += &format!(
-            "    if plugins[{i}].init && !plugins[{i}].init(plugins[{i}], options_{i}) __jaic_plugin_failure(plugins, {}, w, \"plugin initialization failed\");\n",
-            i + 1
-        );
-    }
-    text += "    flags: Compiler.Intercept_Flags;\n    for p: plugins if p.before_intercept p.before_intercept(p, *flags);\n    Compiler.compiler_begin_intercept(w, flags);\n    for p: plugins if p.add_source p.add_source(p);\n";
-    text += &format!(
-        "    Compiler.add_build_file({}, w);\n",
-        quote(&path.to_string_lossy())
-    );
-    for added in &cli.added {
-        text += &format!(
-            "    Compiler.add_build_string({}, w);\n",
-            quote(&added.source())
-        );
-    }
-    if wasi {
-        text += &format!(
-            "    Compiler.add_build_string({}, w);\n",
-            quote(jaic::build::WASI_RUNTIME_IMPORT)
-        );
-    }
-    text += "    failed := false;\n    while true {\n        message := Compiler.compiler_wait_for_message();\n        if message == null Compiler.compiler_report(\"\", 0, 0, \"plugin workspace ended without COMPLETE\");\n        for p: plugins if p.message p.message(p, message);\n        if message.workspace == w && message.kind == .COMPLETE {\n            complete := cast(*Compiler.Message_Complete) message;\n            failed = complete.error_code != .NONE;\n            break;\n        }\n    }\n    Compiler.compiler_end_intercept(w);\n    for p: plugins if p.finish p.finish(p);\n    for p: plugins if p.shutdown p.shutdown(p);\n    if failed Compiler.compiler_set_workspace_status(.FAILED, w);\n}\n";
-    text
 }
 
 /// Write the top-level program. `-exe`, `-output_path` and the optimization options override

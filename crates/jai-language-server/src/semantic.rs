@@ -1037,7 +1037,7 @@ fn compile(
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
-        report: Box::new(|_| {}),
+        report: Box::new(|_, _| {}),
         observer: Some(Box::new(Built {
             added: added.clone(),
             prefix: prefix.clone(),

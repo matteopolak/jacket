@@ -34,7 +34,7 @@ fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Comp
         unwritten_output_hint: None,
         command_line: Vec::new(),
         make_host: Box::new(|_| Box::new(jaic::interp::SandboxHost::default())),
-        report: Box::new(|message| panic!("unexpected child diagnostic: {message}")),
+        report: Box::new(|_, message| panic!("unexpected child diagnostic: {message}")),
         observer: Some(Box::new(Retain(captured.clone()))),
     });
     let mut compiler = Compiler::new(options, fs);

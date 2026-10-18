@@ -326,7 +326,7 @@ fn run_styled(
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
-        report: Box::new(move |text| {
+        report: Box::new(move |_, text| {
             reports
                 .borrow_mut()
                 .write(format!("{text}\n").as_bytes(), true)
