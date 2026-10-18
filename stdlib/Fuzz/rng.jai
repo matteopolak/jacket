@@ -32,6 +32,7 @@ next :: (r: *Rng) -> u64 {
     z := r.state;
     z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9;
     z = (z ^ (z >> 27)) * 0x94D049BB133111EB;
+
     return z ^ (z >> 31);
 }
 
@@ -42,25 +43,31 @@ take :: (r: *Rng, bytes: s64) -> u64 {
         if bytes >= 8 return value;
         return value & ((cast(u64) 1 << cast(u64) (8 * bytes)) - 1);
     }
+
     value: u64 = 0;
+
     for i: 0..bytes - 1 {
         if r.position >= r.size break;
         byte := cast(u64) r.data[r.position];
         value |= byte << cast(u64) (8 * i);
         r.position += 1;
     }
+
     return value;
 }
 
 // Uniform in [0, n); 0 when n <= 0. Reads only as many input bytes as n needs.
 below :: (r: *Rng, n: s64) -> s64 {
     if n <= 1 return 0;
+
     bytes := 1;
     limit: u64 = 256;
+
     while bytes < 8 && cast(u64) n > limit {
         bytes += 1;
         limit <<= 8;
     }
+
     return cast(s64) (take(r, bytes) % cast(u64) n);
 }
 

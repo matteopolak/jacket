@@ -2,10 +2,12 @@
 fuzz_string_split_join :: (r: *Rng) {
     input := gen(r, string);
     separator := gen(r, string);
+
     if separator.count == 0 return;
 
     parts := Target.split(input, separator);
     joined := Target.join(..parts, separator = separator);
+
     assert(joined == input, "split then join");
 }
 

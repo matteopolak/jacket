@@ -6,6 +6,7 @@ fuzz_unicode_round_trip :: (r: *Rng) {
     encoded := Target.character_utf32_to_utf8(code);
     cursor := encoded;
     decoded, status := Target.utf8_next_character(*cursor);
+
     assert(status == .CONVERSION_OK && decoded == code, "utf8 round trip value");
     assert(cursor.count == 0, "utf8 round trip consumes the whole encoding");
 }
@@ -15,12 +16,14 @@ fuzz_unicode_decode_bounds :: (r: *Rng) {
     input := gen(r, string);
     cursor := input;
     steps := 0;
+
     while cursor.count > 0 {
         before := cursor.count;
         Target.utf8_next_character(*cursor);
         assert(cursor.count < before && cursor.count >= 0, "decoder advances within the buffer");
         steps += 1;
     }
+
     assert(steps <= input.count);
 }
 

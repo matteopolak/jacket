@@ -2,13 +2,25 @@
 #import "Basic";
 #import "Fuzz";
 
-Color :: enum u8 { RED; GREEN; BLUE; }
-Pair :: struct { id: s32; name: string; color: Color; weights: [3] float; }
+Color :: enum u8 {
+    RED;
+    GREEN;
+    BLUE;
+}
+
+Pair :: struct {
+    id: s32;
+    name: string;
+    color: Color;
+    weights: [3] float;
+}
 
 main :: () {
     r: Rng;
+
     rng_seed(*r, 7);
     first := gen(*r, s64);
+
     case_end(*r);
     rng_seed(*r, 7);
     assert(gen(*r, s64) == first);
@@ -20,9 +32,11 @@ main :: () {
     saw_maximum := false;
     saw_invalid_enum := false;
     saw_nan := false;
+
     for seed: 1..4000 {
         rng_seed(*r, cast(u64) seed);
         text := gen(*r, string);
+
         assert(text.count <= 8 * 4);
         if text.count == 0 saw_empty = true;
         if text.count > 0 && text[0] >= 0xF8 saw_invalid_utf8 = true;
@@ -36,9 +50,11 @@ main :: () {
         for pair.weights if it != it saw_nan = true;
 
         view := gen(*r, [] u16);
+
         assert(view.count <= 8);
         case_end(*r);
     }
+
     assert(saw_empty && saw_invalid_utf8 && saw_minimum && saw_maximum && saw_invalid_enum && saw_nan);
 
     // Pointers are filled only when the target allows them, and then are never null by default.
@@ -46,6 +62,7 @@ main :: () {
     assert(gen(*r, *s64) == null);
     r.pointers = true;
     pointer := gen(*r, *s64);
+
     assert(pointer != null);
     case_end(*r);
 

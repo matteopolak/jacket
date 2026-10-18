@@ -19,24 +19,37 @@ run_cases :: (cases: [] Case) -> s32 {
 
     arguments := get_command_line_arguments();
     i := 1;
+
     while i < arguments.count {
         name := arguments[i];
+
         i += 1;
-        if name == "--list" { list = true; continue; }
+
+        if name == "--list" {
+            list = true;
+            continue;
+        }
+
         if i >= arguments.count {
             print("missing value for %\n", name);
             return 2;
         }
+
         value := arguments[i];
+
         i += 1;
         number, ok := to_integer(value);
+
         if name == {
             case "--only"; only = value;
             case "--seed"; seed = number;
             case "--count"; count = number;
             case "--max-len"; max_len = number;
-            case; print("unknown argument %\n", name); return 2;
+            case;
+                print("unknown argument %\n", name);
+                return 2;
         }
+
         if name != "--only" && !ok {
             print("bad number for %: %\n", name, value);
             return 2;
@@ -51,10 +64,13 @@ run_cases :: (cases: [] Case) -> s32 {
     r: Rng;
     r.max_len = max_len;
     calls: s64 = 0;
+
     for step: 0..count - 1 {
         for cases {
             if only.count > 0 && it.name != only continue;
+
             case_seed := seed + step;
+
             rng_seed(*r, cast(u64) case_seed);
             r.pointers = it.pointers;
             r.nullable = it.nullable;
@@ -64,7 +80,9 @@ run_cases :: (cases: [] Case) -> s32 {
             calls += 1;
         }
     }
+
     print("DONE %\n", calls);
+
     return 0;
 }
 
@@ -82,28 +100,35 @@ run_engine :: (cases: [] Case) -> s32 {
     arguments := get_command_line_arguments();
     forwarded: [..] *u8;
     i := 0;
+
     while i < arguments.count {
         if arguments[i] == "--only" && i + 1 < arguments.count {
             for cases if it.name == arguments[i + 1] engine_only = it_index;
+
             if engine_only < 0 {
                 print("no case named %\n", arguments[i + 1]);
                 return 2;
             }
+
             i += 2;
             continue;
         }
+
         if arguments[i] == "--trace" {
             engine_trace = true;
             i += 1;
             continue;
         }
+
         array_add(*forwarded, to_c_string(arguments[i]));
         i += 1;
     }
+
     array_add(*forwarded, null);
 
     count := cast(s32) (forwarded.count - 1);
     argv := forwarded.data;
+
     return LLVMFuzzerRunDriver(*count, *argv, engine_input);
 }
 
@@ -133,16 +158,20 @@ engine_input :: (data: *u8, size: u64) -> s32 #c_call {
 
         index := engine_only;
         selector := take(r, 1);
+
         if index < 0 index = cast(s64) (selector % cast(u64) engine_cases.count);
 
         c := engine_cases[index];
+
         if engine_trace {
             engine_print_name(c.name);
         }
+
         r.pointers = c.pointers;
         r.nullable = c.nullable;
         c.run(r);
         case_end(r);
     }
+
     return 0;
 }

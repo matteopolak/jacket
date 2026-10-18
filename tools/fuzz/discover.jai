@@ -18,6 +18,7 @@
 lines_of :: (text: string) -> [] string {
     result: [..] string;
     start := 0;
+
     for 0..text.count {
         if it == text.count || text[it] == 10 {
             line := slice_of(text, start, it - start);
@@ -25,6 +26,7 @@ lines_of :: (text: string) -> [] string {
             start = it + 1;
         }
     }
+
     return result;
 }
 
@@ -51,41 +53,52 @@ type_text :: (info: *Type_Info, exported: [] string) -> string {
                 if info.runtime_size == 4 return "s32";
                 return "s64";
             }
+
             if info.runtime_size == 1 return "u8";
             if info.runtime_size == 2 return "u16";
             if info.runtime_size == 4 return "u32";
+
             return "u64";
         case .FLOAT;
             if info.runtime_size == 4 return "float32";
+
             return "float64";
-        case .BOOL;   return "bool";
+        case .BOOL; return "bool";
         case .STRING; return "string";
         case .ENUM;
             name := (cast(*Type_Info_Enum) info).name;
             if listed(exported, name) return tprint("Target.%", name);
+
             return "";
         case .STRUCT;
             s := cast(*Type_Info_Struct) info;
             if !listed(exported, s.name) return "";
+
             for m: s.members {
                 if m.flags & .CONSTANT continue;
                 if type_text(m.type, exported).count == 0 return "";
             }
+
             return tprint("Target.%", s.name);
         case .POINTER;
             inner := (cast(*Type_Info_Pointer) info).pointer_to;
             if inner.type == .VOID return "*void";
+
             text := type_text(inner, exported);
             if text.count == 0 return "";
+
             return tprint("*%", text);
         case .ARRAY;
             array := cast(*Type_Info_Array) info;
             if array.array_type == .RESIZABLE return "";
+
             text := type_text(array.element_type, exported);
             if text.count == 0 return "";
             if array.array_type == .VIEW return tprint("[] %", text);
+
             return tprint("[%] %", array.array_count, text);
     }
+
     return "";
 }
 
@@ -105,10 +118,12 @@ Target_Proc :: struct {
     nullable := lines_of(NULLABLE);
 
     source: String_Builder;
+
     append(*source, "#import \"Basic\";\n#import \"Fuzz\";\n");
     append(*source, tprint("Target :: #import \"%\";\n", MODULE));
     if HOOKS.count > 0 append(*source, tprint("#load \"%\";\n", HOOKS));
     for lines_of(NAMES) append(*source, tprint("probe_% :: Target.%;\n", it, it));
+
     append(*source, "main :: () {}\n");
 
     w := compiler_create_workspace("fuzz-discovery");
@@ -129,11 +144,13 @@ Target_Proc :: struct {
         m := compiler_wait_for_message();
         if m.kind == .COMPLETE break;
         if m.kind != .TYPECHECKED continue;
+
         tc := cast(*Message_Typechecked) m;
         for tc.declarations {
             d := it.expression;
             if starts_with_text(d.name, "probe_") array_add(*declared, d);
         }
+
         for tc.procedure_headers {
             h := it.expression;
             if starts_with_text(h.name, "fuzz_") && h.enclosing_load != null
@@ -142,29 +159,46 @@ Target_Proc :: struct {
             }
         }
     }
+
     compiler_end_intercept(w);
 
     cases: [..] Target_Proc;
+
     for d: declared {
         if !(d.flags & .IS_CONSTANT) continue;
+
         name := slice_of(d.name, 6, d.name.count - 6);
+
         if d.type != null && d.type.type == .OVERLOAD_SET {
             if !listed(deny, name) print("SKIP % overload set\n", name);
             continue;
         }
+
         if d.type == null || d.type.type != .PROCEDURE continue;
         if listed(deny, name) continue;
         if allow.count > 0 && !listed(allow, name) continue;
 
         info := cast(*Type_Info_Procedure) d.type;
-        if info.procedure_flags & .IS_POLYMORPHIC { print("SKIP % polymorphic\n", name); continue; }
-        if info.procedure_flags & .IS_ELSEWHERE { print("SKIP % foreign\n", name); continue; }
-        if info.procedure_flags & .IS_COMPILE_TIME_ONLY { print("SKIP % compile-time only\n", name); continue; }
+        if info.procedure_flags & .IS_POLYMORPHIC {
+            print("SKIP % polymorphic\n", name);
+            continue;
+        }
+
+        if info.procedure_flags & .IS_ELSEWHERE {
+            print("SKIP % foreign\n", name);
+            continue;
+        }
+
+        if info.procedure_flags & .IS_COMPILE_TIME_ONLY {
+            print("SKIP % compile-time only\n", name);
+            continue;
+        }
 
         entry: Target_Proc;
         entry.name = name;
         entry.pointers = listed(pointer_ok, name);
         entry.nullable = listed(nullable, name);
+
         for arity {
             prefix := tprint("%=", name);
             if starts_with_text(it, prefix) {
@@ -172,44 +206,61 @@ Target_Proc :: struct {
                 if ok entry.arity = number;
             }
         }
+
         texts: [..] string;
         reason := "";
+
         for info.argument_types {
             if entry.arity >= 0 && it_index >= entry.arity break;
+
             text := type_text(it, exported);
             if text.count == 0 {
                 reason = tprint("argument % has a type the generators cannot build", it_index);
                 break;
             }
+
             if has_pointer(it) && !entry.pointers {
                 reason = "takes a pointer and is not listed in POINTERS";
                 break;
             }
+
             array_add(*texts, text);
         }
-        if reason.count > 0 { print("SKIP % %\n", name, reason); continue; }
+
+        if reason.count > 0 {
+            print("SKIP % %\n", name, reason);
+            continue;
+        }
+
         entry.argument_types = texts;
         array_add(*cases, entry);
     }
 
     out: String_Builder;
+
     append(*out, "#import \"Basic\";\n#import \"Fuzz\";\n");
     append(*out, tprint("Target :: #import \"%\";\n", MODULE));
     if HOOKS.count > 0 append(*out, tprint("#load \"%\";\n", HOOKS));
+
     for cases {
         append(*out, tprint("thunk_% :: (r: *Rng) {\n", it_index));
         arguments: String_Builder;
+
         for it.argument_types {
             append(*out, tprint("    a% := gen(r, %);\n", it_index, it));
             if it_index > 0 append(*arguments, ", ");
             append(*arguments, tprint("a%", it_index));
         }
+
         append(*out, tprint("    Target.%(%);\n}\n", it.name, builder_to_string(*arguments)));
     }
+
     for hooks append(*out, tprint("hook_% :: (r: *Rng) { % (r); }\n", it_index, it));
+
     append(*out, "CASES :: Case.[\n");
     for cases append(*out, tprint("    .{\"%.%\", thunk_%, %, %},\n", MODULE, it.name, it_index, it.pointers, it.nullable));
     for hooks append(*out, tprint("    .{\"%.%\", hook_%, true, false},\n", MODULE, it, it_index));
+
     append(*out, "];\nmain :: () {\n    #if ENGINE_BUILD exit(run_engine(CASES));\n    else exit(run_cases(CASES));\n}\n");
 
     print("HARNESS BEGIN\n%HARNESS END\n", builder_to_string(*out));

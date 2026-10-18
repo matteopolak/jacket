@@ -174,8 +174,8 @@ impl Sanitize {
             (self.fuzzer, "fuzzer-no-link"),
         ]
         .into_iter()
-            .filter_map(|(on, name)| on.then_some(name))
-            .collect();
+        .filter_map(|(on, name)| on.then_some(name))
+        .collect();
         (!names.is_empty()).then(|| format!("-fsanitize={}", names.join(",")))
     }
 
@@ -981,7 +981,11 @@ pub fn link(
         cmd.args(sanitize.driver_flag());
         if sanitize.fuzzer {
             cmd.arg(fuzzer_runtime(&program)?);
-            cmd.arg(if cfg!(target_os = "macos") { "-lc++" } else { "-lstdc++" });
+            cmd.arg(if cfg!(target_os = "macos") {
+                "-lc++"
+            } else {
+                "-lstdc++"
+            });
         }
         (program, cmd)
     } else {
@@ -1811,9 +1815,15 @@ mod tests {
         assert_eq!(coverage.passes(OptLevel::O0), ["sancov-module"]);
         let fuzz = Sanitize::parse("address,fuzzer").unwrap();
         assert!(fuzz.any() && fuzz.fuzzer);
-        assert_eq!(fuzz.driver_flag().as_deref(), Some("-fsanitize=address,fuzzer-no-link"));
+        assert_eq!(
+            fuzz.driver_flag().as_deref(),
+            Some("-fsanitize=address,fuzzer-no-link")
+        );
         assert_eq!(fuzz.passes(OptLevel::O2), ["asan", "sancov-module"]);
-        assert_eq!(Sanitize::parse("fuzzer").unwrap().driver_flag().as_deref(), Some("-fsanitize=fuzzer-no-link"));
+        assert_eq!(
+            Sanitize::parse("fuzzer").unwrap().driver_flag().as_deref(),
+            Some("-fsanitize=fuzzer-no-link")
+        );
         assert!(Sanitize::parse("thread").is_err());
         assert!(check_sanitizer_target(Some(BuildTarget::windows(TargetCpu::X64, false))).is_err());
         assert!(check_sanitizer_target(Some(BuildTarget::wasm_module())).is_err());
