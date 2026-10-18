@@ -10,7 +10,6 @@
     // `kernel32` is declared in stacks.jai.
     ws2_32 :: #system_library "ws2_32";
 
-    // ------------------------------------------------------------------------------------------
     // kernel32
 
     win_create_port :: (file: s64, port: s64, key: u64, threads: u32) -> s64 #foreign kernel32 "CreateIoCompletionPort";
@@ -37,7 +36,6 @@
     win_module_file_name :: (module: s64, buffer: *u16, size: u32) -> u32 #foreign kernel32 "GetModuleFileNameW";
     win_sleep :: (milliseconds: u32) #foreign kernel32 "Sleep";
 
-    // ------------------------------------------------------------------------------------------
     // Winsock
 
     win_wsa_startup :: (version: u16, data: *Wsa_Data) -> s32 #foreign ws2_32 "WSAStartup";
@@ -57,7 +55,6 @@
     win_get_address_info :: (node: *u8, service: *u8, hints: *Addrinfo, result: **Addrinfo) -> s32 #foreign ws2_32 "getaddrinfo";
     win_free_address_info :: (result: *Addrinfo) #foreign ws2_32 "freeaddrinfo";
 
-    // ------------------------------------------------------------------------------------------
     // Types and numbers
 
     // Room for the 408 bytes of WSADATA.
@@ -238,7 +235,6 @@
         return .OTHER;
     }
 
-    // ------------------------------------------------------------------------------------------
     // The sys_* calls
 
     env_text :: (name: *u8, buffer: *[256] u8) -> string {

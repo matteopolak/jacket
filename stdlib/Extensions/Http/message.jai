@@ -93,7 +93,6 @@ body_text :: (request: *Request) -> string {
     return string.{ request.body.count, request.body.data };
 }
 
-// ---------------------------------------------------------------------------------------------
 // Responses
 
 // What a handler returns when it wants full control. The headers and body must stay valid until
@@ -203,7 +202,6 @@ no_content :: () -> Response {
     return status_only(204);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Errors
 
 Http_Error_Kind :: enum u8 {

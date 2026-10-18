@@ -135,7 +135,6 @@ template_names :: (template: Template) -> [..] string {
     return names;
 }
 
-// ---------------------------------------------------------------------------------------------
 // The router
 
 Route :: struct {

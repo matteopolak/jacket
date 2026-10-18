@@ -161,7 +161,6 @@ Fd_State :: struct {
     hup: bool;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Starting and stopping
 
 engine_start :: (scheduler: *Scheduler) {
@@ -240,7 +239,6 @@ requested_backend :: () -> Backend {
     c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
 }
 
-// ---------------------------------------------------------------------------------------------
 // Operations
 
 new_op :: (engine: *Engine, kind: Op_Kind, handle: Handle) -> *Op {
@@ -353,7 +351,6 @@ cancel_op :: (fiber: *Fiber, cause: Io_Error) {
     engine_cancel(fiber.scheduler, op);
 }
 
-// ---------------------------------------------------------------------------------------------
 // From a fiber
 
 // Describes an operation for the running fiber.
@@ -447,7 +444,6 @@ error_from_result :: (result: s64) -> Io_Error {
     return error_from_code(-result);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Completions that belong to the engine itself rather than a fiber: the wake-up pipe resolver
 // threads write to (resolver.jai) and the eventfd of the file pool (files_pool.jai).
 

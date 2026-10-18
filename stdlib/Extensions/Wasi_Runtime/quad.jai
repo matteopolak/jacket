@@ -285,7 +285,6 @@ quad_to_integer :: (low: u64, high: u64, minimum: s64, maximum: u64) -> negative
     return parts.negative, value_low;
 }
 
-// ---------------------------------------------------------------------------------------------
 // The compiler-rt entry points.
 
 #program_export "__addtf3"

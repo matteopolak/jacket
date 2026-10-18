@@ -67,7 +67,6 @@ widen :: (offset: u32) -> *u8 #no_context {
     return cast(*u8) cast(u64) offset;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Entry point
 
 #program_export "_start"
@@ -104,7 +103,6 @@ wasi_start :: () #c_call {
     wasi_proc_exit(program_main(cast(s32) count, cast(**u8) table));
 }
 
-// ---------------------------------------------------------------------------------------------
 // Output, input and process
 
 #program_export "wasm_write_string"
@@ -295,7 +293,6 @@ Seconds_And_Microseconds :: struct {
     microseconds: s64;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Processes: WASI preview 1 cannot start, signal or wait for one and has no pipes, so these
 // fail (ENOSYS; no children to wait for or signal). A program that links Process still runs
 // and sees the failure where it starts one.
@@ -473,7 +470,6 @@ bytes_equal :: (a: *u8, b: *u8, count: s64) -> bool #no_context {
     return true;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Memory
 
 #program_export "memmove"

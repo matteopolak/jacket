@@ -298,7 +298,6 @@ now_nanoseconds :: () -> s64 {
     return nanoseconds;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Starting and ending fibers
 
 start_fiber :: (scheduler: *Scheduler, block: Spawn_Block) -> Fiber_Handle {
@@ -410,7 +409,6 @@ release_stack :: (scheduler: *Scheduler, fiber: *Fiber) {
     }
 } @Releases
 
-// ---------------------------------------------------------------------------------------------
 // Ready queue, parking and waking
 
 push_ready :: (scheduler: *Scheduler, fiber: *Fiber) {
@@ -482,7 +480,6 @@ cancel_fiber :: (fiber: *Fiber) {
     wake(fiber, .CANCELED);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Timers: a binary heap ordered by deadline, then by creation order. A fiber knows its slot, so
 // a canceled sleep leaves the heap at once.
 
@@ -578,7 +575,6 @@ fire_timers :: (scheduler: *Scheduler) {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // The scheduler loop
 
 run_scheduler :: (block: Spawn_Block) {
@@ -656,7 +652,6 @@ cancel_all :: (scheduler: *Scheduler) {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // The wait step: what the scheduler does when no fiber is ready. It hands the operations the
 // fibers queued to the engine, waits for completions for at most the time to the next timer
 // (forever when there is none), and lets the engine `wake` the fibers they belong to.

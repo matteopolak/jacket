@@ -5,7 +5,6 @@
 #load "support/suite.jai";
 #import "Extensions/Json";
 
-// ---------------------------------------------------------------------------------------------
 // A generic copy: it knows nothing about where the bytes come from or go
 
 copy_all :: (source: Io.Reader, sink: Io.Writer) -> s64, Io.Io_Error {
@@ -32,7 +31,6 @@ bytes_of :: (text: string) -> [] u8 {
 
 PAYLOAD :: "0123456789abcdefghijklmnopqrstuvwxyz";
 
-// ---------------------------------------------------------------------------------------------
 // Files
 
 test_file_streams :: () {
@@ -146,7 +144,6 @@ test_file_streams :: () {
     array_free(big);
 }
 
-// ---------------------------------------------------------------------------------------------
 // TCP
 
 test_tcp_streams :: () {
@@ -212,7 +209,6 @@ test_tcp_streams :: () {
     Io.close(other.listener);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Pipes
 
 test_pipe_streams :: () {
@@ -266,7 +262,6 @@ test_pipe_streams :: () {
     Io.close(a);
 }
 
-// ---------------------------------------------------------------------------------------------
 // A source of your own
 
 Trickle :: struct {
@@ -365,7 +360,6 @@ test_custom_source :: () {
     array_free(sink.sunk);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Deadlines on a reader
 
 test_deadline_on_readers :: () {
@@ -424,7 +418,6 @@ test_deadline_on_readers :: () {
     close_pair(pair);
 }
 
-// ---------------------------------------------------------------------------------------------
 // JSON from a stream
 
 Person :: struct {

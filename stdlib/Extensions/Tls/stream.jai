@@ -74,7 +74,6 @@ Tls_Stream :: struct {
     peer_name_bytes: [255] u8;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Connecting
 
 // Runs the client handshake over `reader` and `writer` and checks the server's certificate against
@@ -173,7 +172,6 @@ last_error :: (stream: *Tls_Stream) -> Tls_Error {
     return stream.failure;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Reading and writing
 
 // Waits for data and reads what is there, up to `buffer.count` bytes. 0 is the end: the peer sent
@@ -736,7 +734,6 @@ flush :: (stream: *Tls_Stream, wait: bool) -> Io.Io_Error {
     return .NONE;
 }
 
-// ---------------------------------------------------------------------------------------------
 // The handshake
 
 run_handshake :: (stream: *Tls_Stream) -> Tls_Error {

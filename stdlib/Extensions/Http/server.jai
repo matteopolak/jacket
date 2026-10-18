@@ -610,7 +610,6 @@ trim :: (array: *[..] u8, limit: int) {
     if array.count == 0 && array.allocated > limit array_reset(array);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Read buffers
 
 // The free read buffers of one scheduler. A connection takes one when bytes are waiting for it and
@@ -769,7 +768,6 @@ send_failure :: (server: *Server, stream: Link, out: *[..] u8, error: Http_Error
     reset_temporary_storage();
 }
 
-// ---------------------------------------------------------------------------------------------
 // serve
 
 Serve_State :: struct {

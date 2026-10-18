@@ -420,7 +420,6 @@ open_path :: (path: *u8, flags: s32) -> s32 #no_context {
     return fd;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Descriptors
 
 // `open` is variadic in C: the mode comes as a pointer to the extra arguments, and WASI has no
@@ -457,7 +456,6 @@ wasi_fstat :: (fd: s32, result: *Linux_File_Status) -> s32 #c_call {
     return 0;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Paths
 
 #program_export "stat"
@@ -687,7 +685,6 @@ wasi_realpath :: (path: *u8, resolved: *u8) -> *u8 #c_call {
     return into;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Directories
 
 DIRECTORY_BUFFER_BYTES :: 4096;
@@ -803,7 +800,6 @@ wasi_closedir :: (stream: *Directory_Stream) -> s32 #c_call {
     return 0;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Streams: a `FILE` is a descriptor and two flags. Nothing is buffered, so `fflush` has nothing
 // to do and a stream's position is its descriptor's.
 
@@ -990,7 +986,6 @@ wasi_fileno :: (stream: *Stream) -> s32 #c_call {
     return stream.fd;
 }
 
-// ---------------------------------------------------------------------------------------------
 // System
 
 // One processor (WASI preview 1 has no threads) and 64 KiB wasm pages.

@@ -283,7 +283,6 @@ expect_problem :: (response: Client_Response, status: int, detail := "", loc := 
     return problem;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Running tests
 
 Test_Proc :: #type ();

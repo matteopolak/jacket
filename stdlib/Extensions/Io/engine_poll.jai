@@ -332,7 +332,6 @@ poll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) -> s64 {
     return 0;
 }
 
-// ---------------------------------------------------------------------------------------------
 // kqueue
 
 Kevent :: struct {
@@ -441,7 +440,6 @@ KQ_WRITE :: -2;
     kqueue_wait_events :: (scheduler: *Scheduler, engine: *Engine, timeout: s64) {}
 }
 
-// ---------------------------------------------------------------------------------------------
 // epoll
 
 // The kernel's `struct epoll_event` is packed on x86-64 (12 bytes) and naturally aligned

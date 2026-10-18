@@ -40,7 +40,6 @@ Options :: struct {
 
 options: Options;
 
-// ---------------------------------------------------------------------------------------------
 // A connected pair, TLS or plain
 
 Pair :: struct {
@@ -143,7 +142,6 @@ close_pair :: (pair: *Pair) {
     }
 } @Releases
 
-// ---------------------------------------------------------------------------------------------
 // One transfer
 
 Transfer :: struct {
@@ -210,7 +208,6 @@ transfer :: (pair: Pair, bytes: int) -> float64 {
     return (cast(float64) bytes / (1024.0 * 1024.0)) / (elapsed / 1000.0);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Handshakes
 
 Shaker :: struct {
@@ -266,8 +263,6 @@ handshakes_per_second :: (server_config: *Tls.Tls_Config, client_config: *Tls.Tl
 
     return cast(float64) count / (elapsed / 1000.0);
 }
-
-// ---------------------------------------------------------------------------------------------
 
 median :: (values: [] float64) -> float64 {
     sorted := NewArray(values.count, float64,, temp);

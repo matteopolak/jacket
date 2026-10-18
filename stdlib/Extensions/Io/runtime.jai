@@ -190,7 +190,6 @@ run_threads :: (count: s64, entry: Thread.Thread_Proc, data: *void) {
     for 0..started - 1 finish_thread(*threads[it]);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Per-scheduler storage for libraries
 
 #scope_export

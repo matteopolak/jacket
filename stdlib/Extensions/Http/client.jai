@@ -322,7 +322,6 @@ patch :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[
     return send_with_json(client, .PATCH, url, value, headers);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Reading the body. It can be read once: by one of the whole-body calls, or in pieces with
 // `read_some` until it returns 0. A second read is a `.BODY` error. Reading to the end puts the
 // connection back in the pool; an error while reading closes it.
@@ -1131,7 +1130,6 @@ build_response :: (status: int, reason: string, headers: [] Header_Field, note: 
     return response;
 }
 
-// ---------------------------------------------------------------------------------------------
 // The body of a response
 //
 // A `Body_Source` is what is left of a response once its head is parsed: the connection, the
@@ -1590,7 +1588,6 @@ unregister_source :: (source: *Body_Source) {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // The connection pool
 
 Pool_Entry :: struct {
@@ -1778,7 +1775,6 @@ checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, stream:
     for excess close(it);
 }
 
-// ---------------------------------------------------------------------------------------------
 // TLS
 
 // The config an `https://` URL's connection is made with (null for plain http): the client's own,
