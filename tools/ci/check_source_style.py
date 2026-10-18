@@ -32,7 +32,6 @@ ALLOWED_LONG = {
     "crates/jaic-cli/tests/native.rs": 3184,
     "crates/jaic-llvm/src/lib.rs": 1937,
     "crates/jaic/src/sema/asm/simd.rs": 3025,
-    "crates/jaic/src/sema/binary.rs": 1338,
     "crates/jaic/src/sema/calls/mod.rs": 1401,
     "crates/jaic/src/sema/convert.rs": 1329,
     "crates/jaic/src/sema/ide_meta.rs": 1449,
