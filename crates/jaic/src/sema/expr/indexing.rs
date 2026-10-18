@@ -85,8 +85,56 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let base_op = self.check_expr(f, scope, base, None)?;
+        // `value[xx x]` on a struct with `operator []`: the cast takes its target from the
+        // overload picked for the struct, not from an integer index.
+        if matches!(
+            index.kind,
+            ast::ExprKind::Cast {
+                ty: None,
+                ..
+            }
+        ) && let Some(result) = self.auto_cast_index_operator(f, scope, &base_op, index, span)?
+        {
+            return Ok(result);
+        }
         let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
         self.index_operand(f, scope, base_op, index_op, index.span, span)
+    }
+
+    fn auto_cast_index_operator(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        base: &Operand,
+        index: &ast::Expr,
+        span: Span,
+    ) -> Result<Option<Operand>> {
+        let ty = base.ty();
+        if !matches!(
+            self.types.kind(self.types.repr_struct(ty)),
+            TypeKind::Struct(_)
+        ) {
+            return Ok(None);
+        }
+        let mut procs = self.operator_candidates(scope, "[]")?;
+        procs.retain(|&p| self.first_param_accepts(p, ty));
+        if procs.is_empty() {
+            return Ok(None);
+        }
+        let arg = |op: Option<Operand>, expr: Option<ast::Expr>| crate::sema::calls::CallArg {
+            name: None,
+            spread: false,
+            expr,
+            op,
+            span,
+            scope,
+        };
+        let args = vec![
+            arg(Some(base.clone()), None),
+            arg(None, Some(index.clone())),
+        ];
+        self.call_procs(f, scope, &procs, args, None, span)
+            .map(Some)
     }
 
     /// `base[index]` on checked operands.
