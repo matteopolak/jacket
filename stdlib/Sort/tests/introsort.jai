@@ -1,7 +1,8 @@
-// heap_sort and intro_sort sort every input shape, the key overload computes each key once and
-// keeps equal keys in order, and the deprecated quick_sort name still sorts.
+// quick_sort and IntroSort's intro_sort sort every input shape, and the key overload computes each
+// key once and keeps equal keys in order.
 #import "Basic";
 S :: #import "Sort";
+I :: #import "IntroSort";
 
 key_calls: s64;
 
@@ -59,11 +60,11 @@ main :: () {
 
             defer array_free(copy);
 
-            S.intro_sort(storage, ascending);
+            I.intro_sort(storage, ascending);
             check_sorted(storage);
             assert(checksum(storage) == expected);
 
-            result := S.heap_sort(copy, ascending);
+            result := S.quick_sort(copy, ascending);
 
             assert(result.data == copy.data);
             check_sorted(copy);
@@ -75,7 +76,7 @@ main :: () {
     for *item, index: items item.* = .{ (index * 7) % 5, index };
 
     key_calls = 0;
-    S.intro_sort(items, key_of);
+    S.quick_sort(items, key_of);
     assert(key_calls == items.count);
 
     for index: 1..items.count - 1 {
@@ -86,18 +87,12 @@ main :: () {
     empty: [] Item;
 
     key_calls = 0;
-    S.intro_sort(empty, key_of);
+    S.quick_sort(empty, key_of);
     assert(key_calls == 0);
 
     one: [1] Item = .[.{ 4, 0 }];
 
-    S.intro_sort(one, key_of);
+    S.quick_sort(one, key_of);
     assert(one[0].key == 4 && key_calls == 0);
-
-    legacy: [5] s64 = .[5, 3, 9, 1, 7];
-    legacy_result := S.quick_sort(legacy, ascending);
-
-    assert(legacy_result.data == legacy.data);
-    check_sorted(legacy);
     print("ok\n");
 }

@@ -18,7 +18,7 @@
     "diagnostic_contains": "cannot assign into the constant `U.offsetsFromUTF8`"
   },
   {
-    "name": "strict-continuation",
+    "name": "malformed-input",
     "stdout": "ok\n"
   }
 ]

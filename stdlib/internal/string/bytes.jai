@@ -98,7 +98,9 @@ find_index_from_left :: (s: string, substring: string, start_index := 0) -> s64 
     // Skipping to candidates by their first byte is several times faster than comparing at every offset.
     first := substring.data[0];
     last := s.count - substring.count;
-    i := max(start_index, 0);
+
+    assert(start_index >= 0, "start_index is negative: %", start_index);
+    i := start_index;
 
     while i <= last {
         if s.data[i] == first && slice(s, i, substring.count) == substring return i;
@@ -238,7 +240,7 @@ split_from_left :: (s: string, byte: u8) -> (found: bool, left: string, right: s
 
 split_from_right :: (s: string, byte: u8) -> (found: bool, left: string, right: string) {
     i := find_index_from_right(s, byte);
-    if i < 0 return false, s, "";
+    if i < 0 return false, "", s;
     return true, slice(s, 0, i), slice(s, i + 1, s.count);
 }
 

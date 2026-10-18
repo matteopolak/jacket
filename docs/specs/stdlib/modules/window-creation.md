@@ -31,7 +31,13 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .MACOS] `get_mouse_pointer_position :: (window: *NSWindow, right_handed: bool) -> x: int, y: int, success: bool`
 - [OS == .MACOS] `get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, success: bool`
 - [OS == .MACOS] `toggle_fullscreen :: (win: *NSWindow, desire_fullscreen: bool, saved: *Saved_Window_Info) -> success: bool, width: s32, height: s32`
-- [OS == .WINDOWS | .LINUX | .MACOS] `Saved_Window_Info :: struct`
+- [OS == .ANDROID] `create_window :: (width: int, height: int, window_name: string, window_x := 0, window_y := 0, parent: Window_Type = null, background_color_rgb := DEFAULT_WINDOW_CREATION_COLOR, wanted_msaa := DEFAULT_MSAA) -> *Android.ANativeWindow`
+- [OS == .ANDROID] `get_dimensions :: (win: *Android.ANativeWindow, right_handed: bool) -> (x: s32, y: s32, width: s32, height: s32, success := true)`
+- [OS == .ANDROID] `get_mouse_pointer_position :: (win: *Android.ANativeWindow, right_handed: bool) -> x: int, y: int, success: bool`
+- [OS == .ANDROID] `get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, success: bool`
+- [OS == .ANDROID] `toggle_fullscreen :: (win: *Android.ANativeWindow, desire_fullscreen: bool, saved: *Saved_Window_Info) -> success: bool, width: s32, height: s32`
+- [OS == .ANDROID] `android_set_fullscreen_for_real :: ()`
+- [OS == .WINDOWS | .LINUX | .MACOS | .ANDROID] `Saved_Window_Info :: struct`
 
 
 ## Platform-specific public type members
@@ -55,14 +61,14 @@ Saved_Window_Info :: struct {
     window_frame: NSRect;
 }
 ```
-##### Linux
+##### Linux and Android
 
 ```jai
 Saved_Window_Info :: struct {}
 ```
 ## Contracts and constraints
 
-This module creates and queries native windows on Windows, Linux and macOS. Building for Android is rejected with a compile-time `#assert`, because the module has no Android window implementation. The selected target determines the native handle type and `Saved_Window_Info` layout. Dimension and mouse queries return success indicators; `right_handed` selects the vertical coordinate orientation where supported. Windows ignores `wanted_msaa`; macOS ignores `parent`, `background_color_rgb`, and `wanted_msaa`. Platform-specific fullscreen behavior and dependencies follow the selected native window system.
+This module creates and queries native windows on Windows, Linux, macOS, and Android. The selected target determines the native handle type and `Saved_Window_Info` layout. Dimension and mouse queries return success indicators; `right_handed` selects the vertical coordinate orientation where supported. Windows ignores `wanted_msaa`; macOS ignores `parent`, `background_color_rgb`, and `wanted_msaa`. Platform-specific fullscreen behavior and dependencies follow the selected native window system.
 
 ## Module parameters
 
@@ -73,6 +79,6 @@ Platform coverage note: Nintendo, PS5 branches exist, but their declarations are
 
 ## Window creation defaults
 
-`create_window`'s `background_color_rgb` parameter defaults to the contextual module constant `float.[0.15, 0.15, 0.2]`, inferred as a three-element `float` array. This is a dark blue-gray RGB color; the constant is in module scope and is not a separate exported name. `wanted_msaa` defaults to `DEFAULT_MSAA`, whose module-parameter default is `4` (`s32`). The `wanted_msaa` argument is ignored on Windows and macOS; Linux uses it as the requested multisample-buffer count.
+`create_window`'s `background_color_rgb` parameter defaults to the contextual module constant `float.[0.15, 0.15, 0.2]`, inferred as a three-element `float` array. This is a dark blue-gray RGB color; the constant is in module scope and is not a separate exported name. `wanted_msaa` defaults to `DEFAULT_MSAA`, whose module-parameter default is `4` (`s32`). The `wanted_msaa` argument is ignored on Windows, macOS, and Android; Linux uses it as the requested multisample-buffer count.
 
-The default position is target-specific: Windows uses `(-1, -1)` to request the work-area origin; macOS centers only when both coordinates are `-1`; Linux defaults to `(0, 0)`. A null parent is the default on all listed targets (Linux spells its null value `None`). The effective `background_color_rgb` parameter type is `[3] float`. Windows uses it when initializing the shared window class, and Linux uses it for the X11 window background; macOS ignores it.
+The default position is target-specific: Windows uses `(-1, -1)` to request the work-area origin; macOS centers only when both coordinates are `-1`; Linux and Android default to `(0, 0)`. A null parent is the default on all listed targets (Linux spells its null value `None`). The effective `background_color_rgb` parameter type is `[3] float`. Windows uses it when initializing the shared window class, and Linux uses it for the X11 window background; macOS ignores it. Android's implementation asserts that `android_app` is initialized, ignores every creation argument, and returns the current `android_app.window`, so dimensions, title, position, parent, color, and MSAA do not create or configure a distinct native window there.

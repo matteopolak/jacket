@@ -123,7 +123,7 @@ show_help :: ($T: Type, flags: Argument_Flags, help_triggers: [] string) {
     members := array_copy(info.members);
 
     defer array_free(members);
-    if (flags & .SORT_HELP) != 0 Sort.intro_sort(members, (a, b) => S.compare(a.name, b.name));
+    if (flags & .SORT_HELP) != 0 Sort.quick_sort(members, (a, b) => S.compare(a.name, b.name));
 
     longest: s64;
     for member: members if (member.flags & .CONSTANT) == 0 longest = max(longest, member.name.count);

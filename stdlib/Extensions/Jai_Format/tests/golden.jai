@@ -35,7 +35,7 @@ main :: () {
         if ends_with(it, ".in.jai") array_add(*names, slice(it, 0, it.count - ".in.jai".count));
     }
 
-    intro_sort(names, compare_strings);
+    quick_sort(names, compare_strings);
     if names.count < 8 fail("expected the golden cases in %, found %", CASES, names.count);
 
     for base: names {

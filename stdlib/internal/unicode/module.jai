@@ -21,17 +21,14 @@ character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32
 
     if source_length < length return UNI_REPLACEMENT_CHAR, source_length, .SOURCE_EXHAUSTED;
 
+    // The count stops before the bad byte, so it is 0 when the first continuation is bad.
     #if strict {
-        if s[0] >= 0x80 && s[0] < 0xc0 return UNI_REPLACEMENT_CHAR, 1, .SOURCE_ILLEGAL;
-        // Consume the lead byte and the continuation bytes that were valid, so a caller that
-        // advances by the returned length always makes progress.
-        for i: 1..trailing if (s[i] & 0xc0) != 0x80 return UNI_REPLACEMENT_CHAR, i, .SOURCE_ILLEGAL;
+        for i: 1..trailing if (s[i] & 0xc0) != 0x80 return UNI_REPLACEMENT_CHAR, i - 1, .SOURCE_ILLEGAL;
     }
 
-    value: u32;
-    for i: 0..trailing value = (value << 6) + cast(u32) s[i];
-
-    value -= offsetsFromUTF8[trailing];
+    // Payload bits only: a malformed continuation byte still contributes its low six bits.
+    value := cast(u32) (s[0] & utf8_inital_byte_mask[trailing]);
+    for i: 1..trailing value = (value << 6) | cast(u32) (s[i] & 0x3f);
 
     #if strict {
         minimum: [6] u32 = .[0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000];
@@ -56,7 +53,7 @@ unicode_next_character :: (s: *u8) -> *u8 {
 
 character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string) {
     value := ch;
-    if value > UNI_MAX_UTF16 || (value >= 0xd800 && value <= 0xdfff) value = UNI_REPLACEMENT_CHAR;
+    if value > UNI_MAX_UTF16 value = UNI_REPLACEMENT_CHAR;
 
     count: s64 = 1;
     if value >= 0x10000 count = 4;

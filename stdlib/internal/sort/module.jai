@@ -16,7 +16,7 @@ intro_sort :: (array: [] $T, f: (T, T) -> $R) {
 }
 
 // Sorts by a key computed once per element. Elements with equal keys keep their order.
-intro_sort :: (array: [] $T, key: (T) -> $R) {
+sort_by_key :: (array: [] $T, key: (T) -> $R) {
     if array.count < 2 return;
 
     Keyed :: struct {
@@ -81,13 +81,13 @@ insertion_sort :: (array: [] $T, f: (T, T) -> $R) {
     }
 }
 
-quick_sort :: (array: [] $T, f: (T, T) -> $R) -> [] T #deprecated "Use intro_sort, or heap_sort for the previous algorithm." {
+quick_sort :: (array: [] $T, f: (T, T) -> $R) -> [] T {
     intro_sort(array, f);
     return array;
 }
 
-quick_sort :: (array: [] $T, f: (T) -> $R) -> [] T #deprecated "Use intro_sort." {
-    intro_sort(array, f);
+quick_sort :: (array: [] $T, f: (T) -> $R) -> [] T {
+    sort_by_key(array, f);
     return array;
 }
 

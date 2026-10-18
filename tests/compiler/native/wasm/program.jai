@@ -29,7 +29,7 @@ main :: () -> s32 {
     big: [..] s64;
     for 0..999_999 array_add(*big, (it * 7919) % 1000);
 
-    intro_sort(big, (a, b) => a - b);
+    quick_sort(big, (a, b) => a - b);
     print("sorted % % %\n", big.count, big[0], big[big.count - 1]);
 
     builder: String_Builder;

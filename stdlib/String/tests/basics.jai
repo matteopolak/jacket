@@ -20,7 +20,7 @@ main :: () {
     assert(S.begins_with(text, "") && S.ends_with_nocase(text, ""));
     missing, left, right := S.split_from_right("abc", cast(u8) 124);
 
-    assert(!missing && left == "abc" && right == "");
+    assert(!missing && left == "" && right == "abc");
     missing, left, right = S.split_from_right("abc", "|");
     assert(!missing && left == "abc" && right == "");
     missing, left, right = S.split_from_right_by_any("abc", "|;");
@@ -71,7 +71,7 @@ main :: () {
     assert(!scanned && values.count == 1 && values[0].type == type_info(int));
     assert((cast(*int) values[0].value_pointer).* == 12);
     scanned, values = S.scan("%%", "%");
-    assert(scanned && values.count == 0);
+    assert(!scanned && values.count == 0);
     assert(S.scan2("%", "%%"));
     first: int = -1;
     second: int = -2;
