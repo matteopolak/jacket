@@ -297,3 +297,36 @@ fn insertion_replaces_whole_utf16_word_and_preserves_or_normalizes_separator() {
         assert_eq!(item.replace.unwrap().start, position(&text, start));
     }
 }
+
+#[test]
+fn named_arguments_rank_before_locals_and_file_names() {
+    let items = complete(
+        "emit :: (format: string, args: ..int, to_standard_error := false) {}\n__hidden :: 1;\nmain :: () {\n    local := 1;\n    emit(\"x\", 1, |);\n}",
+    );
+    let sort = |label: &str| {
+        let item = items
+            .iter()
+            .find(|i| i.label == label)
+            .unwrap_or_else(|| panic!("{label} offered"));
+        item.sort_text.clone().unwrap_or_else(|| item.label.clone())
+    };
+    assert!(sort("to_standard_error") < sort("local"));
+    assert!(sort("local") < sort("main"));
+    // A `__` name declared in this file is the user's own and ranks with the file's other names.
+    assert_eq!(sort("__hidden").chars().next(), sort("main").chars().next());
+}
+
+#[test]
+fn a_procedure_alias_offers_the_aliased_procedures_parameters() {
+    let decl = "Impl :: struct { f :: (a: int, rest: ..int, flag := false) {} }\ng :: Impl.f;\nh :: g;\nmain :: () { ";
+    assert_eq!(names(&format!("{decl}g(1, 2, |); }}")), ["flag"]);
+    assert_eq!(names(&format!("{decl}h(1, 2, |); }}")), ["flag"]);
+    let any = "f :: (format: string, args: ..Any, flag := false) {}\nmain :: () { ";
+    assert_eq!(names(&format!("{any}f(\"%\\n\", 1, |); }}")), ["flag"]);
+    assert_eq!(
+        names(
+            "f :: (format: string, args: ..Any, flag := false) {}\nmain :: () {\n    count := 3;\n    f(\"%\\n\", 1, |);\n}\n"
+        ),
+        ["flag"]
+    );
+}

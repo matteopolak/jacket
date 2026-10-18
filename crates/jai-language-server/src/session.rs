@@ -1468,7 +1468,11 @@ impl Session {
             return Ok(list);
         }
         let mut list = self.completion_items(uri, byte)?;
-        let parameters = self.named_argument_completions(uri, byte);
+        let mut parameters = self.named_argument_completions(uri, byte);
+        // In a call's arguments the callee's parameter names come first (see `rank`).
+        for item in &mut parameters {
+            item.sort_text = Some(format!("!{}", item.label));
+        }
         if !parameters.is_empty() {
             // Both alternatives remain useful when a local expression shares a parameter name.
             list.items.extend(parameters);
@@ -1581,10 +1585,16 @@ impl Session {
             } else {
                 all.chain(keywords.map(|k| (k, true))).collect()
             };
+            let here = files
+                .iter()
+                .find(|(_, path)| path.as_str() == uri.path())
+                .map(|(id, _)| *id);
+            let declaration_start = enclosing_declaration_start(&doc.text, byte);
             for (name, keyword) in all {
                 if !name.name.to_lowercase().starts_with(&lower) {
                     continue;
                 }
+                let rank = rank(&name, keyword, here, declaration_start..byte);
                 if items.len() >= self.limits.symbols {
                     incomplete = true;
                     break;
@@ -1605,6 +1615,7 @@ impl Session {
                     offset: name.decl.start as usize,
                 });
                 items.entry(name.name.clone()).or_insert(CompletionItem {
+                    sort_text: Some(format!("{rank}{}", name.name)),
                     label: name.name,
                     kind,
                     detail: name.detail,
@@ -1968,3 +1979,37 @@ fn layout_line(layout: IdeLayout) -> String {
 #[cfg(test)]
 #[path = "uri_alias_tests.rs"]
 mod uri_alias_tests;
+
+/// Where the top-level declaration around `byte` starts: the last line before it that begins in
+/// column 0 with something other than a closing brace or a comment.
+fn enclosing_declaration_start(text: &str, byte: usize) -> usize {
+    let mut start = 0;
+    let mut at = 0;
+    for line in text[..byte].split_inclusive('\n') {
+        let top = line
+            .chars()
+            .next()
+            .is_some_and(|c| !c.is_whitespace() && c != '}')
+            && !line.starts_with("//");
+        if top {
+            start = at;
+        }
+        at += line.len();
+    }
+    start
+}
+
+/// A completion's `sortText` prefix. Editors order equally good matches by it (else by label,
+/// where `_` sorts before letters): named arguments (`!`) first, then locals of the enclosing
+/// declaration, the rest of this file, everything else, compiler internals (`__`) and last
+/// auto-imports (`~`).
+fn rank(name: &IdeName, keyword: bool, here: Option<u32>, local: std::ops::Range<usize>) -> char {
+    let in_file = here == Some(name.decl.file.0) && name.decl != jaic::source::Span::NONE;
+    match () {
+        _ if keyword => '3',
+        _ if in_file && local.contains(&(name.decl.start as usize)) => '1',
+        _ if in_file => '2',
+        _ if name.name.starts_with("__") => '}',
+        _ => '3',
+    }
+}

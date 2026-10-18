@@ -339,8 +339,11 @@ fn ranks_after_names_in_scope_and_common_modules_first() {
         .iter()
         .find(|i| i.label == "logarithm_table")
         .unwrap();
-    assert!(local.sort_text.is_none());
     let logs = auto(&list, "log");
+    assert!(
+        logs.iter()
+            .all(|i| local.sort_text.as_deref().unwrap() < i.sort_text.as_deref().unwrap())
+    );
     let modules: Vec<&str> = logs
         .iter()
         .map(|i| i.label_description.as_deref().unwrap())
