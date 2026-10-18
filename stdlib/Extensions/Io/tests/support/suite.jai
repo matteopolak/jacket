@@ -1536,28 +1536,36 @@ run_threads_here :: () {
 // ---------------------------------------------------------------------------------------------
 // Files
 
-SCRATCH :: ".scratch/io-engine";
+// The directory the file tests write in, set by `make_scratch`. Each process has its own: the
+// runner starts a test's interpreted and native runs at once, from the same folder.
+scratch: string;
 
 make_scratch :: () {
+    if scratch return;
+
     #if OS == .WINDOWS {
         kernel32 :: #system_library "kernel32";
         CreateDirectoryA :: (path: *u8, security: *void) -> s32 #foreign kernel32;
+        GetCurrentProcessId :: () -> u32 #foreign kernel32;
 
+        scratch = sprint(".scratch/io-engine-%", GetCurrentProcessId());
         CreateDirectoryA(".scratch", null);
-        CreateDirectoryA(SCRATCH, null);
+        CreateDirectoryA(temp_c_string(scratch), null);
     } else {
         libc :: #system_library "libc";
         mkdir :: (path: *u8, mode: u32) -> s32 #foreign libc;
+        getpid :: () -> s32 #foreign libc;
 
+        scratch = sprint(".scratch/io-engine-%", getpid());
         mkdir(".scratch", 0x1ed);
-        mkdir(SCRATCH, 0x1ed);
+        mkdir(temp_c_string(scratch), 0x1ed);
     }
 }
 
 test_file_round_trip :: () {
     make_scratch();
 
-    path := tprint("%/round-trip.bin", SCRATCH);
+    path := tprint("%/round-trip.bin", scratch);
 
     small := "hello, files";
 
@@ -1608,7 +1616,7 @@ test_file_round_trip :: () {
 test_file_modes_and_offsets :: () {
     make_scratch();
 
-    path := tprint("%/modes.txt", SCRATCH);
+    path := tprint("%/modes.txt", scratch);
 
     file, error := Io.open_file(path, .WRITE);
 
@@ -1690,18 +1698,18 @@ test_file_modes_and_offsets :: () {
 test_file_errors :: () {
     make_scratch();
 
-    _, error := Io.open_file(tprint("%/does-not-exist", SCRATCH), .READ);
+    _, error := Io.open_file(tprint("%/does-not-exist", scratch), .READ);
 
     assert(error == .NOT_FOUND, "missing file gave %", error);
     assert(Io.last_platform_code() != 0);
 
-    _, error = Io.read_file(tprint("%/also-missing", SCRATCH));
+    _, error = Io.read_file(tprint("%/also-missing", scratch));
     assert(error == .NOT_FOUND);
 
-    _, error = Io.open_file(SCRATCH, .WRITE);
+    _, error = Io.open_file(scratch, .WRITE);
     assert(error == .IS_A_DIRECTORY, "opening a directory for writing gave %", error);
 
-    _, error = Io.open_file(tprint("%/no-such-directory/file", SCRATCH), .WRITE);
+    _, error = Io.open_file(tprint("%/no-such-directory/file", scratch), .WRITE);
     assert(error == .NOT_FOUND, "missing directory gave %", error);
 }
 
@@ -1714,7 +1722,7 @@ File_Job :: struct {
 file_fiber :: (job: File_Job) {
     defer Io.done(job.group);
 
-    path := tprint("%/parallel-%.bin", SCRATCH, job.index);
+    path := tprint("%/parallel-%.bin", scratch, job.index);
 
     data := NewArray(20_000 + job.index * 100, u8, false);
 
@@ -1787,7 +1795,7 @@ big_reader :: (job: Big_Read) {
 test_file_cancel_and_close_under_read :: () {
     make_scratch();
 
-    path := tprint("%/big-read.bin", SCRATCH);
+    path := tprint("%/big-read.bin", scratch);
     data := NewArray(1_500_000, u8, false);
 
     defer free(data.data);

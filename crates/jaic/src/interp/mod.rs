@@ -441,6 +441,15 @@ const KEEPS_MEMORY_SYMBOLS: &[&str] = &[
     "exp",
 ];
 
+/// Is this a Linux `syscall(number, ...)` that never releases memory? `io_uring_enter` (426, the
+/// same on every CPU with io_uring) runs once per scheduler poll in `Extensions/Io`, and the
+/// completion-ring atomics after it would otherwise ask about their pages again, which means
+/// reading all of `/proc/self/maps`: with thousands of fiber stacks that was most of the run.
+fn keeps_memory_syscall(symbol: &str, args: &[u64]) -> bool {
+    const IO_URING_ENTER: u64 = 426;
+    cfg!(target_os = "linux") && symbol == "syscall" && args.first() == Some(&IO_URING_ENTER)
+}
+
 /// What a foreign call does to the interpreter's view of the world (`Interp::foreign_effects`).
 /// Set once the symbol has been looked at.
 const CLASSIFIED: u8 = 1;
@@ -1480,7 +1489,7 @@ impl Interp {
         let symbol = program.foreigns[id.0 as usize].symbol.as_str();
         let effects = self.foreign_effects(program, id);
         // Foreign code may release memory the compiler has found readable.
-        if effects & KEEPS_MEMORY == 0 {
+        if effects & KEEPS_MEMORY == 0 && !keeps_memory_syscall(symbol, args) {
             probe::invalidate();
         }
         if effects & OBSERVABLE != 0 {

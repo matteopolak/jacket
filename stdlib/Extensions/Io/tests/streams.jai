@@ -38,7 +38,7 @@ PAYLOAD :: "0123456789abcdefghijklmnopqrstuvwxyz";
 test_file_streams :: () {
     make_scratch();
 
-    path := tprint("%/streams.txt", SCRATCH);
+    path := tprint("%/streams.txt", scratch);
 
     file, error := Io.open_file(path, .WRITE);
 
@@ -121,13 +121,13 @@ test_file_streams :: () {
 
     for 0..29_999 array_add(*big, cast(u8) ((it * 13 + it / 7) & 0xff));
 
-    assert(Io.write_file(tprint("%/streams-big.bin", SCRATCH), big) == .NONE);
+    assert(Io.write_file(tprint("%/streams-big.bin", scratch), big) == .NONE);
 
-    from, error3 := Io.open_file(tprint("%/streams-big.bin", SCRATCH), .READ);
+    from, error3 := Io.open_file(tprint("%/streams-big.bin", scratch), .READ);
 
     assert(error3 == .NONE);
 
-    to, error4 := Io.open_file(tprint("%/streams-copy.bin", SCRATCH), .WRITE);
+    to, error4 := Io.open_file(tprint("%/streams-copy.bin", scratch), .WRITE);
 
     assert(error4 == .NONE);
 
@@ -138,7 +138,7 @@ test_file_streams :: () {
     Io.close(*from);
     Io.close(*to);
 
-    again, again_error := Io.read_file(tprint("%/streams-copy.bin", SCRATCH));
+    again, again_error := Io.read_file(tprint("%/streams-copy.bin", scratch));
 
     assert(again_error == .NONE && again.count == big.count && memcmp(again.data, big.data, big.count) == 0, "the copy differs");
 
@@ -489,7 +489,7 @@ test_read_json :: () {
     // A file.
     make_scratch();
 
-    path := tprint("%/streams.json", SCRATCH);
+    path := tprint("%/streams.json", scratch);
 
     assert(Io.write_file(path, JSON_TEXT) == .NONE);
 

@@ -151,10 +151,23 @@ main :: () {
         pump(5);
     }
 
+    // AppKit drops a toggleFullScreen: that arrives while another Space transition is still
+    // animating, such as the previous window test's: if the window has not started changing after
+    // 10 seconds, the request is sent again. Unconfirmed as the fix for the CI timeout.
     wait_fullscreen :: (window: Window_Type, desired: bool) {
+        Mask :: #type (receiver: *void, selector: O.Selector) -> u64 #c_call;
+        Toggle :: #type (receiver: *void, selector: O.Selector, sender: *void) #c_call;
+        style_mask := cast(Mask) O.objc_msgSend;
+        toggle := cast(Toggle) O.objc_msgSend;
+        FULL_SCREEN :: 1 << 14;
+
         for 1..8000 {
             update_window_events();
             if (desired && entered == window) || (!desired && exited == window) return;
+
+            if it % 2000 == 0 && ((style_mask(window, O.selector("styleMask")) & FULL_SCREEN) != 0) != desired {
+                toggle(window, O.selector("toggleFullScreen:"), null);
+            }
 
             sleep_milliseconds(5);
         }

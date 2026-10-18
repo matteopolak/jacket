@@ -355,7 +355,8 @@ jobs:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}
       cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 40
+    # the runtime modes, native -O2 and the suite checks run one after another
+    timeout-minutes: 75
     env:
       CARGO_INCREMENTAL: '0'
     steps:
