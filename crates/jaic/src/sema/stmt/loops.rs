@@ -490,7 +490,9 @@ impl Compiler {
                     by_pointer = true;
                 } else {
                     let home = self.proc(p).scope;
-                    let takes_it = if procs::has_poly(&t) || self.mentions_poly_struct(home, &t).unwrap_or(false) {
+                    let takes_it = if procs::has_poly(&t)
+                        || self.mentions_poly_struct(home, &t).unwrap_or(false)
+                    {
                         // A polymorphic pattern counts only when it matches this very type.
                         self.match_pattern(&t, cty, &mut Vec::new(), home).is_ok()
                     } else {

@@ -158,7 +158,11 @@ impl Compiler {
         scratch.backtick_scope = f
             .backtick_scope
             .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
-        let Ok(Operand::Place { ty, addr }) = self.check_expr(&mut scratch, scope, target, None) else {
+        let Ok(Operand::Place {
+            ty,
+            addr,
+        }) = self.check_expr(&mut scratch, scope, target, None)
+        else {
             return true;
         };
         let Ok(value) = self.check_expr(&mut scratch, scope, rhs, None) else {
@@ -177,7 +181,13 @@ impl Compiler {
             val: addr,
         };
         let by_ptr = vec![arg(ptr), arg(value.clone())];
-        let by_value = vec![arg(Operand::Place { ty, addr }), arg(value)];
+        let by_value = vec![
+            arg(Operand::Place {
+                ty,
+                addr,
+            }),
+            arg(value),
+        ];
         self.any_accepts(candidates, &by_ptr, span) || self.any_accepts(candidates, &by_value, span)
     }
 
@@ -199,7 +209,9 @@ impl Compiler {
         }
         let text = format!("{}=", calls::binop_text(bin));
         let candidates = self.operator_candidates(scope, &text)?;
-        if candidates.is_empty() || !self.operator_assign_applies(f, scope, &candidates, target, rhs, span) {
+        if candidates.is_empty()
+            || !self.operator_assign_applies(f, scope, &candidates, target, rhs, span)
+        {
             return Ok(false);
         }
         let Operand::Place {
