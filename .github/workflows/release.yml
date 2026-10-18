@@ -383,7 +383,7 @@ jobs:
           # SDL3 is source-built and packaged on all six current release targets. Audit every
           # declared runtime export and artifact hash, then compile/run ABI + headless tests
           # with the packaged static archive, outside the checkout and without system SDL3.
-          python3 "$GITHUB_WORKSPACE/tools/bindings/test_sdl3.py" --jaic "$jaic" \
+          python3 "$GITHUB_WORKSPACE/tools/bindings/run_sdl3.py" --jaic "$jaic" \
             --native "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}" \
             --platform "${{ matrix.name }}" --work "$work/sdl3"
           # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
