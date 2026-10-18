@@ -1300,16 +1300,22 @@ jobs:
           # with that and Visual Studio's bundled Clang moved away, so link.exe links.
           "$jaic" first.jai -interp
           vs="$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)")"
+          # A rename fails while a process of the run before still holds a file inside open (Windows
+          # denies it), which ends in a moment, so it is retried.
+          rename() {
+            for _ in 1 2 3 4 5 6 7 8 9 10; do mv "$1" "$2" && return 0; sleep 3; done
+            mv "$1" "$2"
+          }
           hidden=()
           for dir in "/c/Program Files/LLVM" "$vs/VC/Tools/Llvm"; do
-            if [ -d "$dir" ]; then mv "$dir" "$dir.hidden"; hidden+=("$dir"); fi
+            if [ -d "$dir" ]; then rename "$dir" "$dir.hidden"; hidden+=("$dir"); fi
           done
           rm -f build/game.exe
           set +e
           "$jaic" first.jai -interp
           status=$?
           set -e
-          for dir in "${hidden[@]}"; do mv "$dir.hidden" "$dir"; done
+          for dir in "${hidden[@]}"; do rename "$dir.hidden" "$dir"; done
           test "$status" = 0
           ls -l build
           # The same program under the interpreter (Mesa's opengl32.dll is beside jaic.exe).
