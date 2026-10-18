@@ -9,7 +9,7 @@ update_window_events :: () {
         if message.message == WM_QUIT {
             event: Event;
             event.type = .QUIT;
-            Basic.array_add(*events_this_frame, event);
+            add_to_frame(*events_this_frame, event);
             continue;
         }
 
@@ -64,7 +64,7 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
 
         // Horizontal messages retain their signed delta. The Event
         // has no axis field; UNKNOWN avoids misreporting a vertical direction.
-        Basic.array_add(*events_this_frame, event);
+        add_to_frame(*events_this_frame, event);
 
         return 0;
     }
@@ -93,7 +93,7 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
         event.window_event_type = .LOST_FOCUS;
         if input_application_has_focus event.window_event_type = .GAINED_FOCUS;
 
-        Basic.array_add(*events_this_frame, event);
+        add_to_frame(*events_this_frame, event);
 
         if !input_application_has_focus {
             reset_pointer(hwnd);
@@ -119,7 +119,7 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
     if message == WM_MOVE {
         reset_pointer(hwnd);
         bits := cast(u64) (lParam & 0xffffffff);
-        Basic.array_add(*move_records, Window_Move_Record.{ hwnd, Native_Fields.signed_word(bits), Native_Fields.high_signed_word(bits) });
+        add_to_frame(*move_records, Window_Move_Record.{ hwnd, Native_Fields.signed_word(bits), Native_Fields.high_signed_word(bits) });
         return 0;
     }
 
@@ -129,7 +129,7 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
         event: Event;
         event.type = .QUIT;
         event.window = hwnd;
-        Basic.array_add(*events_this_frame, event);
+        add_to_frame(*events_this_frame, event);
 
         return 0;
     }
@@ -254,7 +254,7 @@ emit_windows_button :: (window: HWND, key: Key_Code, down: bool, repeat: bool, f
         state.* = (state.* & ~Key_Current_State.DOWN) | .END;
     }
 
-    Basic.array_add(*events_this_frame, event);
+    add_to_frame(*events_this_frame, event);
 }
 
 emit_windows_text :: (window: HWND, codepoint: u32) {
@@ -263,5 +263,5 @@ emit_windows_text :: (window: HWND, codepoint: u32) {
     event.window = window;
     event.utf32 = codepoint;
     event.modifier_flags = windows_modifiers();
-    Basic.array_add(*events_this_frame, event);
+    add_to_frame(*events_this_frame, event);
 }

@@ -46,7 +46,7 @@ update_window_events :: () {
                     event.window = window;
                     event.utf32 = bytes[index];
                     event.modifier_flags = flags;
-                    Basic.array_add(*events_this_frame, event);
+                    add_to_frame(*events_this_frame, event);
                 }
             }
         } else if native.type == ButtonPress || native.type == ButtonRelease {
@@ -71,7 +71,7 @@ update_window_events :: () {
                     if button == 5 event.key_code = .MOUSE_WHEEL_DOWN;
                 }
 
-                Basic.array_add(*events_this_frame, event);
+                add_to_frame(*events_this_frame, event);
             } else {
                 code := Key_Code.UNKNOWN;
                 if button == 1 code = .MOUSE_BUTTON_LEFT;
@@ -89,7 +89,7 @@ update_window_events :: () {
             mouse_delta_y += dy;
         } else if native.type == ConfigureNotify {
             add_resize_record(window, native.xconfigure.width, native.xconfigure.height);
-            Basic.array_add(*move_records, Window_Move_Record.{ window, native.xconfigure.x, native.xconfigure.y });
+            add_to_frame(*move_records, Window_Move_Record.{ window, native.xconfigure.x, native.xconfigure.y });
         } else if native.type == FocusIn || native.type == FocusOut {
             input_application_has_focus = native.type == FocusIn;
             event: Event;
@@ -98,7 +98,7 @@ update_window_events :: () {
             event.window_event_type = .LOST_FOCUS;
             if input_application_has_focus event.window_event_type = .GAINED_FOCUS;
 
-            Basic.array_add(*events_this_frame, event);
+            add_to_frame(*events_this_frame, event);
 
             if !input_application_has_focus for state, index: input_button_states {
                 if (state & .DOWN) != .NONE x11_button(window, cast(Key_Code) index, false, false, .{});
@@ -111,7 +111,7 @@ update_window_events :: () {
                 event: Event;
                 event.type = .QUIT;
                 event.window = window;
-                Basic.array_add(*events_this_frame, event);
+                add_to_frame(*events_this_frame, event);
             }
         } else if native.type == DestroyNotify Connection.release_window(window);
     }
@@ -146,5 +146,5 @@ x11_button :: (window: Window, code: Key_Code, down: bool, repeat: bool, flags: 
     event.key_pressed = cast(u32) down;
     event.repeat = repeat;
     event.modifier_flags = flags;
-    Basic.array_add(*events_this_frame, event);
+    add_to_frame(*events_this_frame, event);
 }

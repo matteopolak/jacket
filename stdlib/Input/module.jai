@@ -44,8 +44,7 @@ get_window_moves :: () -> [] Window_Move_Record {
 }
 
 add_resize_record :: (hwnd: Window_Type, width: s32, height: s32) {
-    if !resize_records.allocator.proc resize_records.allocator = context.default_allocator;
-    Basic.array_add(*resize_records, Window_Resize_Record.{ hwnd, width, height });
+    add_to_frame(*resize_records, Window_Resize_Record.{ hwnd, width, height });
 }
 
 input_per_frame_event_and_flag_update :: () {
@@ -70,3 +69,10 @@ Basic :: #import "Basic";
 
 resize_records: [..] Window_Resize_Record;
 move_records: [..] Window_Move_Record;
+
+// The per-frame arrays outlive the frame's temporary storage, so they always grow with the
+// default allocator, never the caller's context allocator (a program may set it to temp).
+add_to_frame :: (array: *[..] $T, item: T) {
+    if !array.allocator.proc array.allocator = context.default_allocator;
+    Basic.array_add(array, item);
+}

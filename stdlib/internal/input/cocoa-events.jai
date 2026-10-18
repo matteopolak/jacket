@@ -32,7 +32,7 @@ update_window_events :: () {
     pool := Cocoa.autorelease_pool();
 
     defer Cocoa.release(pool);
-    for event: osx_externally_generated_events Basic.array_add(*events_this_frame, event);
+    for event: osx_externally_generated_events add_to_frame(*events_this_frame, event);
 
     Basic.array_reset_keeping_memory(*osx_externally_generated_events);
     drain_mac_notifications();
@@ -137,7 +137,7 @@ process_mac_notification :: (notification: *void) {
         add_resize_record(window, cast(s32) size.width, cast(s32) size.height);
     } else if name == "NSWindowDidMoveNotification" {
         rect := Cocoa.content_screen_rect(window);
-        Basic.array_add(*move_records, Window_Move_Record.{ window, cast(s32) rect.origin.x, cast(s32) rect.origin.y });
+        add_to_frame(*move_records, Window_Move_Record.{ window, cast(s32) rect.origin.x, cast(s32) rect.origin.y });
     } else if name == "NSWindowDidMiniaturizeNotification" {
         window_minimized = true;
     } else if name == "NSWindowDidDeminiaturizeNotification" {
@@ -169,7 +169,7 @@ process_mac_notification :: (notification: *void) {
             if input_application_has_focus event.window_event_type = .GAINED_FOCUS;
         }
 
-        Basic.array_add(*events_this_frame, event);
+        add_to_frame(*events_this_frame, event);
 
         if event.window_event_type == .LOST_FOCUS {
             for state, index: input_button_states {
@@ -280,7 +280,7 @@ emit_mac_wheel :: (window: Window_Type, delta: s32, horizontal: bool, flags: Eve
         else event.key_code = .MOUSE_WHEEL_DOWN;
     }
 
-    Basic.array_add(*events_this_frame, event);
+    add_to_frame(*events_this_frame, event);
 }
 
 sync_mac_modifier :: (window: Window_Type, code: Key_Code, down: bool, flags: Event.Modifier_Flags) {
@@ -303,7 +303,7 @@ emit_mac_button :: (window: Window_Type, code: Key_Code, down: bool, repeat: boo
         if !repeat state.* |= .START;
     } else state.* = (state.* & ~Key_Current_State.DOWN) | .END;
 
-    Basic.array_add(*events_this_frame, event);
+    add_to_frame(*events_this_frame, event);
 }
 
 emit_mac_characters :: (window: Window_Type, text: *void, repeat: bool, flags: Event.Modifier_Flags) {
@@ -334,7 +334,7 @@ emit_mac_characters :: (window: Window_Type, text: *void, repeat: bool, flags: E
         event.utf32 = unit;
         event.repeat = repeat;
         event.modifier_flags = flags;
-        Basic.array_add(*events_this_frame, event);
+        add_to_frame(*events_this_frame, event);
     }
 }
 
