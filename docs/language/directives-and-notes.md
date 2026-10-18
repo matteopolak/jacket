@@ -26,11 +26,11 @@ assert :: (cond: bool, #discard msg := "") { ... }   // msg is type-checked, nev
 
 `#must` is checked when code is generated, not during type checking, so a call passed as `Code` to a macro that never runs it is fine. `emit_call` records the call in `last_call_must`; `check_stmt` and local declarations call `check_must_used` (`sema/stmt.rs`). `_ := f()` counts as use. Calls through procedure values and operator overloads do not carry `#must`.
 
-A `#discard` argument is only type-checked (`discarded_args`, `precheck_args_deferring` in `sema/calls.rs`), so `#discard x: $T` still infers `T`, and defaults are not evaluated. Using the parameter in the callee is an error (`entity_operand`, `sema/expr.rs`). `Basic.assert` uses it when `ENABLE_ASSERT` is false.
+A `#discard` argument is only type-checked (`discarded_args`, `precheck_args_deferring` in `sema/calls/mod.rs`), so `#discard x: $T` still infers `T`, and defaults are not evaluated. Using the parameter in the callee is an error (`entity_operand`, `sema/expr.rs`). `Basic.assert` uses it when `ENABLE_ASSERT` is false.
 
 ## How to change it
 
-- New directive suffix: `parser/directive.rs`, then consume it where the directive is evaluated. New procedure flag: `HEADER_DIRECTIVES` or `OTHER_FLAGS` in `parser/procedure.rs`, read in `sema/procs.rs`.
+- New expression directive: a `Directive` variant in `parser/directive.rs` and an arm in `parse_directive_expr`; a directive suffix is consumed where the directive is evaluated. New procedure flag: a `ProcFlag` variant and an arm in `apply_proc_flag` (`parser/procedure.rs`), read in `sema/procs.rs`; `ProcFlag::kept_by_name` lists the flags that do not make the procedure a header.
 - Code that drops call results must call `check_must_used` right after the call (it matches by span). New call forms must route arguments through `precheck_args_deferring`.
 - A check that rejects programs needs a negative test in `tests/corpus/negative/` and an entry in `tests/corpus/manifest.json`.
 
@@ -47,7 +47,7 @@ Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 - | on an enum (`enum_flags @Hi {`) | `Code_Enum.notes` only {#note.9}; `Type_Info_Enum` has no notes {#note.10} |
 - `;` alone is a statement, so `if answer ;` is valid with an empty body {#note.12}.
 - `#must` on a result makes discarding it a compile error {#must.1}. `#discard` on a parameter means the callee cannot use it {#must.2} and the caller never evaluates the argument (it is only type-checked) {#must.3}. That is how `Basic.assert` costs nothing when assertions are off {#must.4}.
-- The parser sets `Return::must` per result (`-> int, bool #must` marks the second) {#must.5}. Each time `emit_call` in `sema/calls.rs` emits a call or expands a macro, it records the call's span, name and `#must` flags in `last_call_must`.
+- The parser sets `Return::must` per result (`-> int, bool #must` marks the second) {#must.5}. Each time `emit_call` in `sema/calls/emit.rs` emits a call or expands a macro, it records the call's span, name and `#must` flags in `last_call_must`.
 - The check happens when code is generated, not during type checking. That is deliberate: a call passed as `Code` to a macro that never runs it does not violate `#must` {#must.6}.
 - `a := f();`: `check_must_used(span, names)`, so only results beyond the declared names may not be `#must` {#must.7}. `_ := f();` counts as using it {#must.8}.
 - Calls through procedure values and operator overloads don't carry `#must`; the flag lives on the declaration {#must.9}.

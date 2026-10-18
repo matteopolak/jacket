@@ -89,6 +89,6 @@ Every program implicitly loads two bootstrap modules {#prelude.1}. Preload holds
 
 A program can import Runtime_Support itself with other arguments and gets its own instance {#prelude.3}. Without the entry point there is no exported `main`.
 
-`context_type` (`sema/structs.rs`) builds the `Context` struct: Preload's `FIRST_ADD_CONTEXT` comes first, resolved in Runtime_Support's scope (which defines `Context_Base`), followed by every `#add_context` in load order {#prelude.4}. The intrinsics in `prelude/intrinsics.jai` are bound by name in `sema/calls.rs` {#prelude.5}; see [intrinsics](../language/intrinsics.md).
+`context_type` (`sema/structs.rs`) builds the `Context` struct: Preload's `FIRST_ADD_CONTEXT` comes first, resolved in Runtime_Support's scope (which defines `Context_Base`), followed by every `#add_context` in load order {#prelude.4}. The intrinsics in `prelude/intrinsics.jai` are bound by name in `sema/calls/intrinsics.rs` {#prelude.5}; see [intrinsics](../language/intrinsics.md).
 
 Keep Preload declarative: no imports, `#run` or side effects. Runtime behaviour (allocators, temporary storage, crash output) belongs in Runtime_Support, whose module parameters are the contract with `load_bootstrap`.

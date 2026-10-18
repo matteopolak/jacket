@@ -24,7 +24,7 @@ Indexing emits `Intrinsic::BoundsCheck` against the fixed length or count (`sema
 
 ### Null pointers
 
-The interpreter stops on a load, store or copy below address 4096 (`null pointer dereference: read through a null pointer`). The LLVM backend does the same with `null_check` (`jaic-llvm/src/lower.rs`), calling `runtime_support_check_failed` with `ir::TRAP_NULL_POINTER`; addresses from `SlotAddr`, `GlobalAddr`, `FuncAddr`, `ForeignAddr` skip it. `Build_Options.null_pointer_check = .OFF` (the shipping presets) or `#no_abc` drops it (`ir::Func::null_checks`). `memcpy`/`memset` by name are not checked natively.
+The interpreter stops on a load, store or copy below address 4096 (`null pointer dereference: read through a null pointer`). The LLVM backend does the same with `null_check` (`jaic-llvm/src/lower.rs`), calling `runtime_support_check_failed` with `ir::CheckReason::NullPointer`; addresses from `SlotAddr`, `GlobalAddr`, `FuncAddr`, `ForeignAddr` skip it. `Build_Options.null_pointer_check = .OFF` (the shipping presets) or `#no_abc` drops it (`ir::Func::null_checks`). `memcpy`/`memset` by name are not checked natively.
 
 Boxing a place reached through a pointer into an `Any` reads nothing: `p.*` of a null `p` gives an `Any` with a type and a null value pointer, and the program goes on. This is required by existing code (jaison asserts with such an `Any`). The stop happens in the reader: `print` (the formatter under `stdlib/internal/basic/`) reports the null dereference and stops. Taking an address back (`*(p.*)`, `*p.x`) is also unchecked, which keeps the `offsetof` idiom working.
 
@@ -38,7 +38,7 @@ Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 
 - `remove v` copies the last element into the current slot, shrinks the count, and revisits the slot, so order is not preserved {#ptr.1}. It only works in a `for` over a view or dynamic array {#ptr.2}; otherwise `check_remove` (`sema/stmt.rs`) reports `remove is only valid inside a for loop over an array` {#ptr.3}.
 - `p += 1` and `p - q` scale by element size {#ptr.4}; `p - *buf[0]` is an element count {#ptr.5}.
-- Arrays (`[N]T`, `[]T`, `[..]T`) do not compare with `==` or `!=`: it is an error whose note names the type. Strings do compare. Compare lengths and elements instead (check in `check_binary`, `sema/expr.rs`).
+- Arrays (`[N]T`, `[]T`, `[..]T`) do not compare with `==` or `!=`: it is an error whose note names the type. Strings do compare. Compare lengths and elements instead (check in `check_binary`, `sema/binary.rs`).
 - `null` takes its type from context {#ptr.6}; `!p` and `p == null` test for null {#ptr.7}.
 - `*T` converts to `*void` implicitly; `cast(*int) void_ptr` goes back {#ptr.8}.
 - `arr.data` is a `*T` to the first element; pass it to hand an array to C {#ptr.9}.

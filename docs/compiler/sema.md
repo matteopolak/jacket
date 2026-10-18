@@ -28,6 +28,8 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 
 ### Calls and polymorphism
 
+`calls/` is split by phase: `mod.rs` checks a call and ranks candidates (`check_call`, `call_procs`, `arg_cost`), `infer.rs` binds `$T` and matches type patterns, `baking.rs` builds baked parameter values, `emit.rs` lowers the chosen call and its arguments, and `intrinsics.rs`, `builtins.rs`, `macro_expand.rs` and `operators.rs` handle those kinds of callee. Binary operators are in `binary.rs`: `check_binary` checks the operands (`binary_operands`), folds or dispatches to an overload, does pointer arithmetic (`pointer_offset`, `mask_pointer`), then converts both sides (`unify_binary_operands`) and emits (`emit_binary`).
+
 - A polymorphic procedure passed to a procedure-typed parameter is instantiated from the parameter's types (`instantiate_for_proc_type`); for `f: (T) -> $R` the overload set resolves after other bindings (`deferred_procs`), then `$R` binds.
 - `null` binds a type variable only when no other argument does (as `*void`); a baked default naming that variable is evaluated afterwards (`deferred_defaults`). `#char` binds `u8`. `$a: [$N] float` bound to `.[...]` infers `N`.
 - **Baked variadics** (`$types: ..Type`) become one constant `[] T` (`baked_pack`) deduplicated by contents (`Compiler::packs`). Instance keys go through `instance_key_value`, which adds a constant view's relocation targets to its bytes; without it `f(A)` and `f(G)` shared one instance.
@@ -56,7 +58,8 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 ## How to change it
 
 - Per-module state goes on `Module` (`mod.rs`). Anything that must be visible before compile-time code runs belongs in the plain pass of `expand_all`, which must stay free of calls.
-- New operator forms go next to `try_operator_assign`; new `#modify` features in `run_modify_block`.
+- New operator forms go next to `try_operator_assign`; new `#modify` features in `run_modify_block`. A new binary-operator rule goes in the `check_binary` phase it belongs to, not in front of all of them.
+- `StructInfo::fields` is an `Rc<[Field]>`: clone it (a reference-count bump) to walk the fields while calling `&mut self` methods.
 - To check more kinds of unused declarations, extend `check_declared_structs`; what it resolves must not depend on code a metaprogram adds later. Negative tests: `tests/corpus/negative/undefined-*.jai`.
 - Tests: `tests/compiler/regressions/module-member-resolution.jai`, `static-switch-add-context.jai`, `struct-modify.jai`, `modify-polymorph-forms.jai`, `tests/corpus/negative/modify-without-polymorphs*.jai`.
 
@@ -66,4 +69,4 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 
 ## Dependencies
 
-The parser, `consteval.rs` (conditions and `#run`), `structs.rs` (Context layout), `interp` (compile-time execution), `calls.rs` (candidate matching).
+The parser, `consteval.rs` (conditions and `#run`), `structs.rs` (Context layout), `interp` (compile-time execution), `calls/mod.rs` (candidate matching).

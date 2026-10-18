@@ -51,7 +51,7 @@ help: `u8` holds 0 to 255; write `cast,trunc(u8)` (or `xx,trunc`) to keep the lo
 - Cast reach: `parse_cast_value` in `parser/expr.rs` calls `parse_binary_after(first, CAST_PREC)`; move `CAST_PREC` or `binary_op` entries, and update `tests/compiler/regressions/cast-operand-precedence.jai` and the parser test `prefix_cast_takes_bitwise_and_shift_operators`.
 - Scalar conversions: `scalar_convert`; implicit ones are priced by `implicit_cost`, which also decides overload winners. Constants fold at the top of `explicit_cast`; change that and the runtime path together.
 - Operand typing: the `E::Cast` arm of `check_expr` (`sema/expr.rs`) passes the target down only when `cast_operand_needs_target` says so; widening it brings back top-down typing.
-- Bounds check: `emit_cast_check` (`sema/convert.rs`) branches to `Intrinsic::CheckFailed` (`ir::TRAP_CAST_OVERFLOW`); native code calls `runtime_support_check_failed`; messages are `ir::check_message` and `cast_help` (`sema/trap_report.rs`).
+- Bounds check: `emit_cast_check` (`sema/convert.rs`) branches to `Intrinsic::CheckFailed` (`ir::CheckReason::CastOverflow`); native code calls `runtime_support_check_failed`; messages are `ir::check_message` and `cast_help` (`sema/trap_report.rs`).
 
 Tests: `tests/compiler/regressions/lang-conversions.jai`, `cast-operand-typed-bottom-up.jai`, `cast-bounds-check.jai`, `int-to-float32-rounding.jai`, `tests/corpus/negative/cast-check-*.jai`.
 
@@ -70,12 +70,12 @@ Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 - `E.loose` and `E` convert to each other implicitly {#cast.15}.
 - A string literal converts to `*u8`; a `string` variable does not (see [strings and literals](strings-and-literals.md)) {#cast.25}. String literals also convert to `#type,distinct` and `#type,isa` string variants {#cast.26}, and `.[...]` literals take an expected distinct array type of the same shape {#cast.27}.
 - In a comparison, `xx a == b` casts `a` to `b`'s type; `check_binary` checks the other side first {#cast.11}.
-- As a call argument, `xx a | b` (also `&`, `^`) takes the parameter's type and the other operand follows it (`autocast_arithmetic` in `sema/calls.rs`) {#cast.12}. Arithmetic on an untyped struct literal works the same way: `f(.{300, -1} * scale)` builds the parameter's `Vector2` and then uses its `operator *` (`literal_arithmetic`) {#cast.10}.
+- As a call argument, `xx a | b` (also `&`, `^`) takes the parameter's type and the other operand follows it (`autocast_arithmetic` in `sema/calls/mod.rs`) {#cast.12}. Arithmetic on an untyped struct literal works the same way: `f(.{300, -1} * scale)` builds the parameter's `Vector2` and then uses its `operator *` (`literal_arithmetic`) {#cast.10}.
 - A cast does not push its type into its operand. `cast(T) expr` types `expr` bottom-up, exactly as it would be typed on its own, and then converts it. So with `w: u16 = 15`, `cast(float32) (0 - w)` subtracts in `u16` (the `0` is matched with `w`, see [numbers](numbers.md)) and converts `65521`, and `cast(float32) ((0 - w) & v)` is `u16` arithmetic. `cast(s32) (x + 100)` with `x: s8 = 100` adds in `s8` and wraps to `-56` before widening {#cast.29}.
 - Only operands with no type of their own take the cast's type: a bare `.NAME`, an untyped `.{...}` or `.[...]`, and operators or an `ifx` built only from those (`cast(Flags) (.A | .B)`). A bare number (`cast(float32) 3`, `cast(u8) 255`) or a literal-only expression stays an untyped constant and is folded at the target: `cast(float32) (1 / 3)` is `0`, integer division first {#cast.30}.
 - An expected float type from a declaration or a parameter does not reach the operands of `&`, `|`, `^` and `%`, which floats lack: `f: float32 = (ifx c then a else b) & mask;` with `s16` branches computes in `s16` and converts the result {#cast.31}.
 - `ifx c then a else b` with no expected type takes the else type when only the then value converts to it (`ifx c then 0 else some_float` is a float); otherwise the then type wins {#cast.13}.
-- A call whose single result has exactly the base type of an `#type,isa` argument returns the variant (`pa + pb` on `Position3` stays `Position3`; `emit_call` in `sema/calls.rs`) {#cast.28}.
+- A call whose single result has exactly the base type of an `#type,isa` argument returns the variant (`pa + pb` on `Position3` stays `Position3`; `emit_call` in `sema/calls/emit.rs`) {#cast.28}.
 - | `.`, `[]`, `()`, `.*` | operand | `cast(float) p.x / 2` is `(cast(float) p.x) / 2` {#cast.16} |
 - | `&`, `\|`, `^`, `<<`, `>>`, `<<<`, `>>>` | operand | `cast(float) (hex >> 16) & 0xFF` is `cast(float) ((hex >> 16) & 0xFF)` {#cast.17} |
 - | `+`, `-`, `*`, `/`, `%` | result | `cast(*u8) p + 1` is `(cast(*u8) p) + 1` {#cast.18} |

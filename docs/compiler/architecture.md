@@ -22,7 +22,7 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 - `source.rs`, `intern.rs`: files, spans, diagnostics, the global symbol interner.
 - `lexer.rs`: keywords are ordinary identifiers the parser interprets by position; directives (`#run`) and notes (`@x`) are their own token kinds.
 - `parser/`: recursive descent to `ast.rs`, stopping at the first error ([parser](parser.md)).
-- `sema/` ([sema](sema.md)) resolves names on demand, so a declaration is checked when something needs it (top-level structs are also laid out at the end, used or not). `scope.rs`/`modules.rs`: imports and scopes; `decls.rs`, `procs.rs`, `structs.rs`: declarations; `expr.rs`, `stmt.rs`, `calls.rs`, `convert.rs`: checking; `consteval.rs`: constants and `#run`; `typeinfo.rs`, `runtime_info.rs`: reflection; `bake.rs`, `modify.rs`: polymorphism; `code_export.rs`: syntax trees for metaprograms; `lower.rs`: to IR; `driver.rs`: entry points and `Options`.
+- `sema/` ([sema](sema.md)) resolves names on demand, so a declaration is checked when something needs it (top-level structs are also laid out at the end, used or not). `scope.rs`/`modules.rs`: imports and scopes; `decls.rs`, `procs.rs`, `structs.rs`: declarations; `expr.rs`, `stmt.rs`, `calls/`, `convert.rs`: checking; `consteval.rs`: constants and `#run`; `typeinfo.rs`, `runtime_info.rs`: reflection; `bake.rs`, `modify.rs`: polymorphism; `code_export.rs`: syntax trees for metaprograms; `lower.rs`: to IR; `driver.rs`: entry points and `Options`.
 - `ir.rs`: the shared [IR](ir.md).
 - `build.rs`, `records.rs`: workspaces and compiler messages for metaprograms ([workspaces](../metaprogramming/workspaces.md)).
 - `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic -interp`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. Raw memory access is confined to `interp::memory`.
@@ -31,6 +31,8 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 ## How to change it
 
 Add syntax to `lexer.rs`, `parser/` and `ast.rs` first, with tests in `parser/tests.rs`. Then teach `sema/` to check and lower it, and add a program under `tests/compiler/regressions/` or `tests/corpus/` that exits 0, or a negative case. Run the sweep (`tools/jaic-sweep.py`); everything must pass. Unsupported constructs must produce a diagnostic, never a silent success.
+
+A closed set of names the compiler matches on (directives, procedure flags, the sandbox's libc procedures, runtime check reasons, builtin keys) is an enum declared with `raw_enum!` (`macros.rs`), which derives `ALL` and the conversion from and to the name or number. Match on the enum, not on strings: the compiler then lists the cases a new variant needs.
 
 ## Configuration
 

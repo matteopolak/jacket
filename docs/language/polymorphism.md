@@ -6,7 +6,7 @@ Polymorphic procedures and structs (`$T`, `$N`, `$T/Constraint`) are instantiate
 
 ## How it works
 
-`instantiate` (`sema/procs.rs`) creates instances; `sema/calls.rs` infers `$` variables (`header_poly_names`, `is_poly_var_arg`); `instantiate_for_proc_type` handles a polymorphic procedure assigned to a procedure type.
+`instantiate` (`sema/procs.rs`) creates instances; `sema/calls/infer.rs` infers `$` variables (`header_poly_names`, `is_poly_var_arg`); `instantiate_for_proc_type` handles a polymorphic procedure assigned to a procedure type.
 
 ```jai
 mx       :: (a: $T, b: T) -> T { if a > b return a; return b; }
@@ -34,7 +34,7 @@ IntPair :: #bake_arguments Pair(T = int);        // Pair :: struct ($T: Type, $N
 
 ## How to change it
 
-New inference rules go in `calls.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order. Tests: `tests/compiler/regressions/modify-polymorph-forms.jai`, `struct-modify.jai`, `baked-struct-restriction.jai`, `variadic-struct-parameter.jai`, `poly-infer-from-ifx.jai`, `lang-poly-misc.jai`.
+New inference rules go in `calls/infer.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order. Tests: `tests/compiler/regressions/modify-polymorph-forms.jai`, `struct-modify.jai`, `baked-struct-restriction.jai`, `variadic-struct-parameter.jai`, `poly-infer-from-ifx.jai`, `lang-poly-misc.jai`.
 
 ## Rules
 

@@ -35,7 +35,8 @@ The sandbox also stands in for calls a metaprogram written for another target ma
 - **Objective-C stand-ins** (`sandbox/objc.rs`): selectors and classes are interned names, `objc_msgSend` answers 0 except `class`/`superclass`, `dlopen` of system frameworks returns a handle. Real objects still see null.
 - **Refused calls**: process creation and shared memory fail with `EPERM` / `ERROR_ACCESS_DENIED` instead of trapping. A trap in the middle of a call that holds a lock leaves the lock held forever.
 - Relative `add_build_file` and `import_path` entries resolve against the host's working directory.
-- An unknown call traps with "unavailable". To add one, add an arm to `windows_foreign` or the POSIX match in `sandbox.rs`; arguments arrive as raw `u64`s, report errors through `set_errno` and return -1.
+- **C library** (`sandbox/*.rs`): `LibcFn` (`sandbox/libc_fn.rs`) names every procedure the sandbox answers. `SandboxHost::foreign` maps the symbol to it and asks each area in turn: `stdin`, `memory`, `time`, `numeric`, `files`, `dirs`, `streams`, then `process` (output, exit, refused calls); each returns `None` for procedures it does not handle.
+- An unknown call traps with "unavailable". To add one, add a `LibcFn` variant and an arm in the area's `*_call` (or `windows_foreign` for Windows); arguments arrive as raw `u64`s, report errors through `set_errno` and return -1.
 
 ### Compile-time code for another target
 

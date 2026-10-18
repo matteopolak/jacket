@@ -6,7 +6,7 @@
 
 ## How it works
 
-`expand_macro` in `sema/calls.rs` inlines the body; `macro_code_args` picks which arguments pass as `Code`. `MacroFrame` in `sema/lower.rs` tracks the expansion stack.
+`expand_macro` in `sema/calls/macro_expand.rs` inlines the body; `macro_code_args` picks which arguments pass as `Code`. `MacroFrame` in `sema/lower.rs` tracks the expansion stack.
 
 ```jai
 macro_ret :: (v: int) #expand { if v > 2 { `return v * 10; } }

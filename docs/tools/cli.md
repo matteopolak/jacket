@@ -119,11 +119,19 @@ An unknown option suggests the closest known one. The spellings from before 0.17
 
 ## How to change it
 
-The parser is `parse` in `crates/jaic-cli/src/main.rs`. To add an option:
+Options live in one table, `OPTIONS` in `crates/jaic-cli/src/main.rs`, in `-help` order. Each `CliOption` gives the option's spellings, what it does (`Action`), whether only a build takes it, and its `-help` line. `parse` looks every argument up there, so the table also drives "did you mean" suggestions (over `names`, not `aliases`), `-name=value` splitting, the build-only error and the help text. To add an option:
 
-1. Handle it in the `match` inside `parse`.
-2. Add it to `KNOWN_OPTIONS` so typos of it get suggestions, to `VALUE_OPTIONS` if it takes a value, and to `BUILD_ONLY` if it makes no sense with `-check` or `-interp`.
-3. Add it to `usage_text`, the `-help` output.
+1. Add a field to `Cli` if it stores something.
+2. Add a row to `OPTIONS`:
+
+   ```rust
+   CliOption::new(&["-no_split"], Action::Switch(|cli| &mut cli.no_split))
+       .build_only()
+       .help(Output, "-no_split", "generate code as one module instead of several"),
+   ```
+
+   A value option uses `store!("a directory", |cli, dir| cli.output_path = Some(PathBuf::from(dir)))`, or a `store_*` function when the value needs checking. A row without `.help(...)` is accepted but not listed (its spelling is covered by another row's line). `.aliases(&[...])` adds spellings that are never suggested; keep names under three characters there, since `suggest::closest` only matches those exactly.
+3. Checks that involve several options or the mode go in `Cli::finish`.
 
 Renamed options go in `RENAMED`, which produces the "use X instead" errors. The `-msvc_format` layout is `Layout::Msvc` in `crates/jaic/src/render.rs`.
 

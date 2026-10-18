@@ -34,7 +34,7 @@ Supported: general-purpose, BMI/ADX, string, division, SSE through AVX2, FMA, AE
 - **Integer instruction**: an `Op` in `lookup_op` plus an arm in `asm_inst`, or an `XOp` in `scalar.rs` if it has implicit operands or a loop. Reuse `asm_read`/`asm_write`, `rmw_begin`/`rmw_end` (atomic when `lock_`), `asm_alu`.
 - **Small family with its own operand rules**: an `SOp` forwarding to `simd/ext.rs`.
 - **Op-mask instruction**: a `KOp` and `lookup_kop` entry in `mask.rs`.
-- **Vector instruction**: a `VOp`/`Lane` in `vec.rs` for lane-wise forms; otherwise an `SOp` in `simd.rs` (mnemonic in `lookup_simd`, `elem_size`, `dst_class` if it writes a mask or gpr, an arm in `asm_simd`).
+- **Vector instruction**: a `VOp`/`Lane` in `vec.rs` for lane-wise forms; otherwise an `SOp` in `simd.rs` (a row in `lookup_simd`'s tables: `NAMED` for a fixed mnemonic, `INT_LANE_FAMILIES` or `FLOAT_FORM_FAMILIES` for a prefix plus lane letter or float form; then `elem_size`, `dst_class` if it writes a mask or gpr, an arm in `asm_simd`).
 - **Condition code**: `Cond` + `lookup_cond` + `eval_cond`.
 - **Editor catalog** (`sema/asm/catalog.rs`): each new variant needs an arm in its feature, forms and description matches (exhaustive, the build says where). Catalog tests fail if a spelling the lookups accept is not listed. Register classes live in `REG_CLASSES`.
 - **Tests**: add a case to the matching `tests/compiler/regressions/asm-*.jai`. Record expected values on real hardware (an x86-64 C program, or under Rosetta with `ROSETTA_ADVERTISE_AVX=1`) rather than deriving them from the implementation. AVX-512 has no hardware here, so `asm-avx512-masks.jai` computes expectations in plain Jai.
