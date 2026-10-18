@@ -76,7 +76,7 @@ Run it with `python3 tools/browser/package_browser_release.py --output target/br
 ## Configuration
 
 - `cargo build -p jai-wasm --release --target wasm32-unknown-unknown`, or the build script to stage the bundle; `--target-dir` and `CARGO_TARGET_DIR` select the build directory.
-- Tests: `python3 tools/run_tests.py -p 'test_*.py'`, `node --test tools/browser/test_browser_release.mjs`. CI (`.github/workflows/ci.yml`) runs the Node checks on a debug build.
+- Tests: `python3 tools/run_tests.py -p 'test_*.py'`, `node --test tools/browser/test_*.mjs`. CI (`.github/workflows/ci.yml`) runs the Node checks on a debug build.
 - Portfolio: `MAX_TOUR_FILES` (64) and `MAX_TOUR_BYTES` (1 MiB) in `starter.ts`.
 - `tests/corpus/examples.json` keys: `directory`, `main`, `args`, `budget`, `bundle`, `stdout_contains`, `stdout_excludes`.
 

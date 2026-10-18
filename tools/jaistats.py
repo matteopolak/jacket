@@ -4,7 +4,7 @@
     python3 tools/jaistats.py [DIR ...] [--out tools/corpus-shape.json] [--max-file-lines 20000]
 
 Scans every `.jai` file under the given directories (default `corpus/upstream`) with a lightweight
-lexer (no parsing), and writes the distributions that `tools/jaibench.py` samples from. Comments and
+lexer (no parsing), and writes the distributions that `tools/bench/main.py` samples from. Comments and
 string contents are blanked first, so keywords inside them do not count. The numbers are approximate on
 purpose: the lexer is good enough to find `name :: (...) {` bodies and `struct`/`enum` declarations.
 """

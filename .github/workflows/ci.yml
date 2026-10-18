@@ -117,6 +117,7 @@ jobs:
         run: |
           python3 tools/ci/check_dependency_age.py
           python3 tools/ci/check_ci_sources.py
+          python3 tools/ci/check_repo_paths.py
       - name: Verify the wasm boundary and language server
         run: cargo test --locked -j 1 -p jai-language-server -p jai-wasm
       - name: Build and stage the real WebAssembly compiler without the native backend
@@ -126,7 +127,7 @@ jobs:
           node --version
           node tools/browser/check_scripting_wasm.mjs target/ci-wasm/jai_wasm.wasm
           node tools/browser/check_jaifmt_wasm.mjs engine target/ci-wasm/jai_wasm.wasm
-          node --test tools/browser/test_playground_contract.mjs tools/browser/test_playground_policy.mjs tools/browser/test_formatter_fixture_inputs.mjs
+          node --test tools/browser/test_*.mjs
       - name: WebGPU host bridge (mock WebGPU; the engine suspends through JSPI)
         # docs/extensions/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
         # directly (node:test in this process) rather than in a `--test` child without the flag.
@@ -181,7 +182,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/ci/check_dependency_age.py
       - name: Validate public checkout compilation inputs
-        run: python3 tools/ci/check_ci_sources.py
+        run: |
+          python3 tools/ci/check_ci_sources.py
+          python3 tools/ci/check_repo_paths.py
       - name: Verify native host and LLVM
         run: |
           uname -sm
@@ -464,7 +467,7 @@ jobs:
         run: |
           require=()
           [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
-          python3 -u tools/bindings/test_webgpu_native.py --jaic target/debug/jaic "${require[@]}"
+          python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic "${require[@]}"
       - name: WebGPU in a window (surface, configure, present, read back)
         # stdlib/Extensions/WebGPU/tests/window.jai opens a Window_Creation window and presents frames to its
         # surface: on Linux an X11 surface on Xvfb, presented by lavapipe through Vulkan's Xlib WSI.
@@ -472,7 +475,7 @@ jobs:
         run: |
           run=() require=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24") require=(--require-adapter)
-          "${run[@]}" python3 -u tools/bindings/test_webgpu_native.py --jaic target/debug/jaic --test window --frames 120 "${require[@]}"
+          "${run[@]}" python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test window --frames 120 "${require[@]}"
   stdlib-coverage:
     # Informational: the stdlib procedures the interpreter reached across a platform's shards
     # (tools/stdlib/stdlib_coverage.py).
@@ -658,7 +661,7 @@ jobs:
       - name: Offline rebuild from the source cache
         run: python3 tools/bindings/sdl3_native.py --platform "${{ matrix.platform }}" --offline
       - name: Audit version, runtime symbols, licenses and the installed SDK
-        run: python3 tools/bindings/test_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "target/native-libs/${{ matrix.platform }}"
+        run: python3 tools/bindings/run_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "target/native-libs/${{ matrix.platform }}"
       - uses: ./.github/actions/setup-unix
         if: matrix.platform == 'linux-x64'
         with:
@@ -732,6 +735,8 @@ jobs:
           "$jaic" hello.jai -exe hello
           ./hello
           printf 'x:=1;\n' | "$GITHUB_WORKSPACE/result-1/bin/jaifmt" --stdin
+          # The inner shell expands $LLVM_SYS_231_PREFIX, not this one.
+          # shellcheck disable=SC2016
           nix develop "$GITHUB_WORKSPACE" --command sh -c 'cargo --version && llvm-config --version && python3 --version && node --version && echo "$LLVM_SYS_231_PREFIX"'
   # Package channels against the latest published release: install.sh, install.ps1 and the
   # Homebrew formula rendered by tools/dev/render_packages.py, each installed for real and run. Nothing
@@ -1337,12 +1342,12 @@ jobs:
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         # stdlib/Extensions/WebGPU/tests/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
         if: ${{ !cancelled() }}
-        run: python -u tools/bindings/test_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
+        run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
       - name: WebGPU in a window (HWND surface on WARP, presented)
         # stdlib/Extensions/WebGPU/tests/window.jai: a Window_Creation window in the runner's interactive desktop
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames read back.
         if: ${{ !cancelled() }}
-        run: python -u tools/bindings/test_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter --test window --frames 120
+        run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter --test window --frames 120
       - name: Native WGL driver diagnostics and public rendering
         if: ${{ !cancelled() }}
         run: |

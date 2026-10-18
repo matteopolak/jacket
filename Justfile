@@ -1,4 +1,4 @@
-# Developer commands. `just --list` shows them; docs/tools/justfile.md explains them.
+# Developer commands. `just --list` shows them; docs/tools/development.md explains them.
 # The logic lives in tools/dev/dev.py and tools/dev/*.sh; CI runs these recipes too, so a local run and
 # CI cannot drift apart. Needs just >= 1.58 (recipe options).
 
@@ -73,6 +73,11 @@ test suite="all" crate="" jobs=default_jobs *filter:
 [group('setup')]
 hooks:
     git config core.hooksPath .githooks
+
+# Set the compiler version in Cargo.toml, both lock files, the Neovim plugin and the CHANGELOG header (tools/bump_version.py).
+[group('setup')]
+bump-version version:
+    {{ py }} tools/bump_version.py {{ version }}
 
 # Download the pinned upstream Jai projects into corpus/upstream (inert test input).
 [group('setup')]

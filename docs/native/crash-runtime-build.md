@@ -38,7 +38,7 @@ twin (`--output-dir`, default `target/native-helpers/macos-watch`).
 Edit `runtime.c` and rebuild. If the compile recipe changes, change `build.rs` and
 `tools/portable/build_portable_runtime.py` together; `tools/portable/test_portable_crash_build.py` fails if their flags
 drift. The Python script is an internal helper for tools that need the libraries and a hash receipt
-as files (`tools/native/upstream_native.py`, `tools/check_portable_crash_init.py`); it takes
+as files (`tools/native/upstream_native.py`, `tools/portable/check_portable_crash.py`); it takes
 `--output-dir` (default `target/native-helpers/<platform>/crash-runtime`) and never writes to `stdlib/`.
 
 Gotchas: a stale `libportable_crash.*` left in `stdlib/internal/runtime/crash-native/` by an older

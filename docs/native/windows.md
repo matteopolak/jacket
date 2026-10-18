@@ -24,7 +24,7 @@ Linking (`link` and `LinkFlavor` in `crates/jaic-llvm/src/lib.rs`):
 
 GCC's MinGW-w64 only targets x64. For arm64 use [llvm-mingw](https://github.com/mstorsjo/llvm-mingw): unpack a release tarball anywhere and put its `bin/` on `PATH` (append, to keep GCC's MinGW-w64 as the x64 linker).
 
-Clang's driver finds the MSVC and SDK libraries itself. `lld-link`/`link.exe` need `LIB`; without a developer prompt `crates/jaic-llvm/src/msvc.rs` works it out (newest MSVC tool set with `lib\<cpu>\msvcrt.lib`, newest Windows SDK with `ucrt` and `um`) and also finds `link.exe` and `lib.exe`. A `link` on `PATH` is used only if `link /?` prints Microsoft's banner, because Git for Windows and MSYS2 ship a coreutils `link`. Executables reserve an 8 MiB main stack. Outputs without an extension get `.exe`, `.dll` or `.lib`.
+Clang's driver finds the MSVC and SDK libraries itself. `lld-link`/`link.exe` need `LIB`; without a developer prompt `crates/jaic/src/msvc.rs` works it out (newest MSVC tool set with `lib\<cpu>\msvcrt.lib`, newest Windows SDK with `ucrt` and `um`) and also finds `link.exe` and `lib.exe`. A `link` on `PATH` is used only if `link /?` prints Microsoft's banner, because Git for Windows and MSYS2 ship a coreutils `link`. Executables reserve an 8 MiB main stack. Outputs without an extension get `.exe`, `.dll` or `.lib`.
 
 Libraries: `#system_library "kernel32"` becomes `-lkernel32` / `kernel32.lib` (names passed in lowercase, since MinGW toolchains on Linux/macOS ship only lowercase `lib<name>.a`). CRT and POSIX names (`libc`, `msvcrt`, `ucrt`, `m`, `pthread`, `dl`, ...) are dropped. A `#library "foo"` next to the source is looked up as `foo.lib`, `libfoo.lib` (MSVC) or also `foo.a`, `libfoo.a`, `foo.dll.a`, `foo.dll` (MinGW). A DLL must be next to the executable or on `PATH` at run time. When cross-compiling, host Homebrew, frameworks and `target/native-libs` are not searched. Static libraries use `*-w64-mingw32-ar`, `llvm-ar`, `llvm-lib` or `lib` (`jaic_llvm::archive`).
 
@@ -34,7 +34,7 @@ Runtime (`stdlib/Runtime_Support/module.jai`): the CRT start-up calls the export
 
 ## How to change it
 
-- ABI rules: `abi.rs` (unit tests compare with Clang's IR). Linker discovery and library naming: `LinkFlavor`, `linker_command`, `library_args` (unit tests at the bottom), `msvc.rs`. Start-up: the Windows block at the end of `Runtime_Support/module.jai`.
+- ABI rules: `abi.rs` (unit tests compare with Clang's IR). Linker discovery and library naming: `LinkFlavor`, `linker_command`, `library_args` (unit tests at the bottom), `crates/jaic/src/msvc.rs`. Start-up: the Windows block at the end of `Runtime_Support/module.jai`.
 - Gotchas:
   - Foreign *data* (`x: T #elsewhere lib`) of a `#system_library` is `dllimport`, loaded through `__imp_x`; data of a `#library` and of the C runtime (`is_windows_c_runtime`) is referenced directly.
   - `jaic` hands programs a plain working directory and `#file` (`C:\dir\main.jai`), not the `\\?\` form `canonicalize` returns (`jaic::canonicalize`), which broke drive-rooted paths.
@@ -55,4 +55,4 @@ Runtime (`stdlib/Runtime_Support/module.jai`): the CRT start-up calls the export
 
 ## Dependencies
 
-`jaic::abi`, `jaic-llvm` (`lib.rs`, `lower.rs`, `msvc.rs`), `stdlib/Runtime_Support`, and the `OS == .WINDOWS` paths in `Basic`, `File`, `Thread`, `Process`, `Default_Allocator`. Tests: `tests/compiler/native/windows/runtime.jai`, `tests/compiler/native/c-structs-by-value`, `windows_runtime_program` in `crates/jaic-cli/tests/native.rs` (cross-builds when a MinGW compiler is installed and checks the PE machine), `tools/native/windows_cross.py`. CI: `.github/workflows/windows-native.yml` cross-builds on Linux and runs on `windows-2025` and `windows-11-arm`, and separately builds `jaic` on those runners.
+`jaic::abi`, `jaic-llvm` (`lib.rs`, `lower.rs`) and `jaic` (`msvc.rs`), `stdlib/Runtime_Support`, and the `OS == .WINDOWS` paths in `Basic`, `File`, `Thread`, `Process`, `Default_Allocator`. Tests: `tests/compiler/native/windows/runtime.jai`, `tests/compiler/native/c-structs-by-value`, `windows_runtime_program` in `crates/jaic-cli/tests/native.rs` (cross-builds when a MinGW compiler is installed and checks the PE machine), `tools/native/windows_cross.py`. CI: the `windows-cross`, `windows-run-cross` and `windows-native` jobs of `.github/workflows/ci.yml` cross-build on Linux and runs on `windows-2025` and `windows-11-arm`, and separately builds `jaic` on those runners.

@@ -1,5 +1,5 @@
 # libFuzzer dictionary for Jai source: keywords, directives, operators and literal shapes.
-# Used by every source-level target (see docs/tools/fuzzing.md).
+# Used by every source-level target (see docs/tools/testing.md).
 
 # Keywords and builtin names
 "if"

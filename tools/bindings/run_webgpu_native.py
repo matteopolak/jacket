@@ -4,8 +4,8 @@ interpreted (`jaic -interp`, which loads the shared wgpu-native) and built (`jai
 the static one), on this host's GPU or a software adapter (Mesa's lavapipe on Linux, WARP on
 Windows).
 
-    python3 tools/bindings/test_webgpu_native.py --jaic target/debug/jaic [--require-adapter] [--platform windows-arm64]
-    xvfb-run -a python3 tools/bindings/test_webgpu_native.py --jaic target/debug/jaic --test window --frames 120
+    python3 tools/bindings/run_webgpu_native.py --jaic target/debug/jaic [--require-adapter] [--platform windows-arm64]
+    xvfb-run -a python3 tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test window --frames 120
 
 Fetches the pinned wgpu-native first (tools/bindings/fetch_wgpu_native.py). The test exits 77 when the
 host has no adapter; each mode then tries again asking for the fallback (software) adapter.
