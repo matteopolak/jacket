@@ -7,6 +7,8 @@ mod debuginfo;
 mod green;
 mod link_options;
 mod lower;
+#[cfg(target_os = "macos")]
+mod malloc_zone;
 use jaic::msvc;
 mod partition;
 mod simd;
@@ -785,6 +787,13 @@ fn inline_cuts(program: &Program, options: &Options) -> Vec<bool> {
         return Vec::new();
     }
     partition::inline_cuts(program, partition::INLINE_CAP)
+}
+
+/// Keep `fork` working when the process's C allocator is mimalloc's macOS zone
+/// (the `override` feature of mimalloc); call once at startup. Does nothing elsewhere.
+pub fn fix_malloc_zone_for_fork() {
+    #[cfg(target_os = "macos")]
+    malloc_zone::fix_fork();
 }
 
 /// Translate `program` to native object files, splitting codegen across threads when it

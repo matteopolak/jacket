@@ -1296,6 +1296,8 @@ fn wants_no_color(args: &[String]) -> bool {
 }
 
 fn main() -> ExitCode {
+    #[cfg(all(feature = "llvm", feature = "mimalloc"))]
+    jaic_llvm::fix_malloc_zone_for_fork();
     install_panic_hook();
     let args: Vec<String> = std::env::args().skip(1).collect();
     // Colour and layout first, so even command-line mistakes use them.

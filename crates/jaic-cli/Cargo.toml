@@ -15,6 +15,11 @@ jaic = { path = "../jaic" }
 jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
 
+# Also replace the C `malloc` family, so LLVM's C++ allocations (about a fifth of a build's
+# user time through the system allocator) use mimalloc. The crate cannot override on Windows.
+[target.'cfg(not(windows))'.dependencies]
+mimalloc = { version = "=0.1.52", optional = true, default-features = false, features = ["override"] }
+
 [features]
 default = ["dynamic-llvm", "mimalloc"]
 # Native output (`jaic`); without it jaic only checks and interprets.
