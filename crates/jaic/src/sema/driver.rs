@@ -45,7 +45,7 @@ impl Compiler {
             self.preload = Some(m);
         }
         if self.options.runtime_support {
-            let Some(entry) = self.find_module("Runtime_Support", Path::new("")) else {
+            let Some(entry) = self.runtime_support_entry() else {
                 return err(span, "Runtime_Support module not found on the import path");
             };
             let params = vec![
@@ -65,7 +65,8 @@ impl Compiler {
                     TypeId::BOOL,
                 ),
             ];
-            let m = self.load_module("Runtime_Support", &entry, params, span)?;
+            let m =
+                self.load_module(BootstrapModule::RuntimeSupport.name(), &entry, params, span)?;
             self.runtime_support = Some(m);
             self.prepare_interpreter_assertion(span)?;
         }
@@ -80,7 +81,7 @@ impl Compiler {
         let mut roots: Vec<PathBuf> = Vec::new();
         roots.extend(self.options.preload.clone());
         if self.options.runtime_support {
-            roots.extend(self.find_module("Runtime_Support", Path::new("")));
+            roots.extend(self.runtime_support_entry());
         }
         for source in sources {
             if let ProgramSource::File(path) = source {
@@ -702,14 +703,18 @@ impl Compiler {
     /// with.
     fn trace_layout(&mut self, span: Span) -> Option<ir::TraceLayout> {
         let context = self.context_type(span).ok()?;
-        let node = self.preload_type("Stack_Trace_Node", span).ok()?;
-        let info = self.preload_type("Stack_Trace_Procedure_Info", span).ok()?;
+        let node = self.preload_type(PreludeType::StackTraceNode, span).ok()?;
+        let info = self
+            .preload_type(PreludeType::StackTraceProcedureInfo, span)
+            .ok()?;
         let location = self.location_layout(span).ok()?;
         let field = |s: &mut Self, ty: TypeId, name: &str, size: u64| -> Option<u64> {
             let (offset, fty) = s.member_offset(ty, name, span).ok()??;
             (s.size_of(fty, span).ok()? == size).then_some(offset)
         };
-        let location_ty = self.preload_type("Source_Code_Location", span).ok()?;
+        let location_ty = self
+            .preload_type(PreludeType::SourceCodeLocation, span)
+            .ok()?;
         let (location_at, ty) = self.member_offset(info, "location", span).ok()??;
         if ty != location_ty {
             return None;

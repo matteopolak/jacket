@@ -520,10 +520,10 @@ impl Compiler {
                     untyped: false,
                 })
             }
-            E::UnknownDirective(d) if d.name.name.as_str() == "Context" => {
+            E::UnknownDirective(d) if d.kind == ast::DirectiveKind::Context => {
                 Ok(Operand::Type(self.context_type(span)?))
             }
-            E::UnknownDirective(d) if d.name.name.as_str() == "jaic_type" => {
+            E::UnknownDirective(d) if d.kind == ast::DirectiveKind::JaicType => {
                 Ok(Operand::Type(self.jaic_type(d.operand.as_ref(), span)?))
             }
             E::UnknownDirective(d) => err(
@@ -595,5 +595,102 @@ fn names_variable_path(expr: &ast::Expr) -> bool {
         E::Ident(_) => true,
         E::Member(base, _) => names_variable_path(base),
         _ => false,
+    }
+}
+
+/// The types of the bootstrap prelude that the compiler builds values of or checks against,
+/// named by the prelude's own spelling.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PreludeType {
+    Allocator,
+    ForFlags,
+    Reg,
+    SourceCodeLocation,
+    StackTraceNode,
+    StackTraceProcedureInfo,
+    TypeInfo,
+    TypeInfoArray,
+    TypeInfoEnum,
+    TypeInfoFloat,
+    TypeInfoInteger,
+    TypeInfoPointer,
+    TypeInfoProcedure,
+    TypeInfoString,
+    TypeInfoStruct,
+    TypeInfoStructMember,
+    TypeInfoTaggedUnionBinding,
+    TypeInfoVariant,
+}
+
+impl PreludeType {
+    pub const ALL: &'static [PreludeType] = &[
+        PreludeType::Allocator,
+        PreludeType::ForFlags,
+        PreludeType::Reg,
+        PreludeType::SourceCodeLocation,
+        PreludeType::StackTraceNode,
+        PreludeType::StackTraceProcedureInfo,
+        PreludeType::TypeInfo,
+        PreludeType::TypeInfoArray,
+        PreludeType::TypeInfoEnum,
+        PreludeType::TypeInfoFloat,
+        PreludeType::TypeInfoInteger,
+        PreludeType::TypeInfoPointer,
+        PreludeType::TypeInfoProcedure,
+        PreludeType::TypeInfoString,
+        PreludeType::TypeInfoStruct,
+        PreludeType::TypeInfoStructMember,
+        PreludeType::TypeInfoTaggedUnionBinding,
+        PreludeType::TypeInfoVariant,
+    ];
+
+    /// The name the prelude declares the type under.
+    pub const fn name(self) -> &'static str {
+        match self {
+            PreludeType::Allocator => "Allocator",
+            PreludeType::ForFlags => "For_Flags",
+            PreludeType::Reg => "__reg",
+            PreludeType::SourceCodeLocation => "Source_Code_Location",
+            PreludeType::StackTraceNode => "Stack_Trace_Node",
+            PreludeType::StackTraceProcedureInfo => "Stack_Trace_Procedure_Info",
+            PreludeType::TypeInfo => "Type_Info",
+            PreludeType::TypeInfoArray => "Type_Info_Array",
+            PreludeType::TypeInfoEnum => "Type_Info_Enum",
+            PreludeType::TypeInfoFloat => "Type_Info_Float",
+            PreludeType::TypeInfoInteger => "Type_Info_Integer",
+            PreludeType::TypeInfoPointer => "Type_Info_Pointer",
+            PreludeType::TypeInfoProcedure => "Type_Info_Procedure",
+            PreludeType::TypeInfoString => "Type_Info_String",
+            PreludeType::TypeInfoStruct => "Type_Info_Struct",
+            PreludeType::TypeInfoStructMember => "Type_Info_Struct_Member",
+            PreludeType::TypeInfoTaggedUnionBinding => "Type_Info_Tagged_Union_Binding",
+            PreludeType::TypeInfoVariant => "Type_Info_Variant",
+        }
+    }
+}
+
+#[cfg(test)]
+mod prelude_type_tests {
+    use super::PreludeType;
+
+    #[test]
+    fn every_prelude_type_is_declared_in_the_prelude() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib/prelude");
+        let mut text = String::new();
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_some_and(|e| e == "jai") {
+                text.push_str(&std::fs::read_to_string(path).unwrap());
+                text.push('\n');
+            }
+        }
+        for ty in PreludeType::ALL {
+            let declared = text.lines().any(|line| {
+                line.trim_start()
+                    .strip_prefix(ty.name())
+                    .is_some_and(|rest| rest.trim_start().starts_with("::"))
+            });
+            assert!(declared, "{} is not declared in stdlib/prelude", ty.name());
+        }
     }
 }

@@ -113,7 +113,9 @@ fn code_declares(code: &[u8], name: &str) -> bool {
 }
 
 /// Whether the metaprogram `text` calls `add_build_string` with a string literal whose code
-/// declares `name`.
+/// declares `name`. The metaprogram is a neighbouring file that was never compiled, so there is
+/// no entity to resolve the call to: this reads the tokens for the name `add_build_string`, the
+/// documented way a metaprogram adds source.
 fn adds_declaration(text: &str, name: &str) -> bool {
     let Ok(tokens) = crate::lexer::lex(FileId(u32::MAX), text) else {
         return false;

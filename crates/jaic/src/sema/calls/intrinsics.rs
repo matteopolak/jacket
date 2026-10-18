@@ -92,6 +92,7 @@ impl Compiler {
         let returns: Vec<Ty> = sig
             .returns
             .iter()
+            // An aggregate result comes back by address.
             .map(|&t| self.ir_ty(t).unwrap_or(Ty::Ptr))
             .collect();
         if matches!(

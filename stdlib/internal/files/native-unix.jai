@@ -18,9 +18,10 @@ file_open :: (name: string, for_writing := false, keep_existing_content := false
     defer free(cmode);
     handle := P.fopen(cname, cmode);
     if !handle && for_writing && keep_existing_content {
-        fallback := to_c_string("w+b");
-        defer free(fallback);
-        handle = P.fopen(cname, fallback);
+        // The file does not exist yet: update mode cannot create it, so create it empty.
+        create_mode := to_c_string("w+b");
+        defer free(create_mode);
+        handle = P.fopen(cname, create_mode);
     }
 
     if !handle && log_errors context.logger("file_open failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });

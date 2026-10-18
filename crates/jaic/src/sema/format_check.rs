@@ -4,6 +4,7 @@ use super::calls::{CallArg, Slot};
 use super::*;
 use crate::ast::ExprKind as E;
 use crate::lexer::{self, P, Tok};
+use crate::types::{ArrayKind, TypeKind};
 
 /// Arguments the directives of `format` use, read as `Basic`'s formatter reads them: `%` (or
 /// `%0`) takes the next argument, `%N` takes argument N (1-based) and a following `%` continues
@@ -85,6 +86,23 @@ impl Compiler {
             || self.proc_decl_notes.get(&p).is_some_and(|n| noted(n))
     }
 
+    /// Where `proc` takes a format string: the `string` parameter right before a variadic
+    /// `..Any`, by the parameters' resolved types rather than how they are spelled.
+    pub(super) fn format_string_param(&mut self, proc: ProcId, span: Span) -> Option<usize> {
+        let sig = self.signature(proc, span).ok()?;
+        sig.params.windows(2).position(|w| {
+            w[0].ty == TypeId::STRING
+                && w[1].variadic
+                && matches!(
+                    self.types.kind(w[1].ty),
+                    TypeKind::Array {
+                        elem: TypeId::ANY,
+                        kind: ArrayKind::View,
+                    }
+                )
+        })
+    }
+
     /// Check a call to `chosen` with literal format string and argument count.
     pub(super) fn check_format_call(
         &mut self,
@@ -93,15 +111,11 @@ impl Compiler {
         slots: &[Slot],
         args: &[CallArg],
     ) -> Result<()> {
-        let lit = &self.proc(chosen).lit;
-        let named = |e: &Option<ast::Expr>, want: &str| matches!(e, Some(ast::Expr { kind: E::Ident(n), .. }) if n.as_str() == want);
-        let params = &lit.header.params;
-        let Some(fmt) = params
-            .windows(2)
-            .position(|w| named(&w[0].ty, "string") && w[1].variadic && named(&w[1].ty, "Any"))
-        else {
+        let Some(fmt) = self.format_string_param(chosen, call) else {
             return Ok(());
         };
+        let lit = &self.proc(chosen).lit;
+        let params = &lit.header.params;
         let Some(Slot::Arg(format_arg)) = slots.get(fmt) else {
             return Ok(());
         };

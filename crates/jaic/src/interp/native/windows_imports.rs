@@ -348,6 +348,10 @@ pub(crate) fn archive(data: &[u8], expected: u16) -> Result<Archive, String> {
 }
 
 #[cfg(test)]
+#[allow(
+    dead_code,
+    reason = "only tests/windows_imports.rs, which includes this file by path, calls it"
+)]
 pub(crate) fn providers(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
     archive(data, expected).map(|archive| archive.providers)
 }

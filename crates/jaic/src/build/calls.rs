@@ -95,8 +95,13 @@ pub(super) struct Call<'a> {
 }
 
 impl Call<'_> {
+    /// Argument `i`. The Jai declaration of a primitive fixes how many it passes, so asking for
+    /// one past them is a mistake in the Rust side of that primitive.
     pub(super) fn arg(&self, i: usize) -> u64 {
-        self.args.get(i).copied().unwrap_or(0)
+        *self
+            .args
+            .get(i)
+            .expect("invariant: a primitive reads only the arguments its declaration passes")
     }
 
     /// Every pointer here comes from the program: reading or writing through one it made up is

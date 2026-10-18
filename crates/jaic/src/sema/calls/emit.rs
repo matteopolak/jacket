@@ -417,6 +417,8 @@ impl Compiler {
             f.b.zero(slot, size);
             return Ok(slot);
         }
+        // Memory types returned above; only `void` is left without a scalar type, and a discarded
+        // `void` parameter is a word of zero.
         let t = self.ir_ty(ty).unwrap_or(Ty::I64);
         Ok(if t.is_float() {
             f.b.fconst(t, 0.0)

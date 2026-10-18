@@ -116,6 +116,20 @@ impl Compiler {
     }
 
     /// Resolve the signature of a non-polymorphic procedure (or instance).
+    /// Whether `param` of `proc` is declared with the type `Code`: the type itself or a name
+    /// for it, resolved where the procedure is defined. Only a bare name can denote it, so any
+    /// other spelling (`*T`, `[] T`, `$T`) is answered without resolving.
+    pub(in crate::sema) fn param_is_code(&mut self, proc: ProcId, param: &ast::Param) -> bool {
+        let Some(ty) = &param.ty else {
+            return false;
+        };
+        if !matches!(ty.kind, ast::ExprKind::Ident(_)) {
+            return false;
+        }
+        let scope = self.proc(proc).scope;
+        self.eval_type(scope, ty).ok() == Some(TypeId::CODE)
+    }
+
     pub fn signature(&mut self, id: ProcId, span: Span) -> Result<Rc<Signature>> {
         if let Some(sig) = &self.proc(id).sig {
             return Ok(sig.clone());

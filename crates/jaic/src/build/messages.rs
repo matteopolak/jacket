@@ -1,5 +1,7 @@
 //! Compiler messages: interception, the event stream and `report`.
 
+#[cfg(target_arch = "wasm32")]
+use super::state::{INTERCEPT_REPORT_POLYMORPHS, INTERCEPT_REPORT_RUNS};
 use super::*;
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
@@ -55,18 +57,17 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
         }
         MetaOp::EventInt => {
             let reg = shared.borrow();
-            Ok(Rets::one(
-                reg.event.ints.get(arg(0) as usize).copied().unwrap_or(0) as u64,
-            ))
+            let at = arg(0) as usize;
+            match reg.event.ints.get(at) {
+                Some(&value) => Ok(Rets::one(value as u64)),
+                None => Err(Trap::new(format!("the message has no integer field {at}"))),
+            }
         }
         MetaOp::EventString => {
-            let bytes = shared
-                .borrow()
-                .event
-                .strings
-                .get(arg(0) as usize)
-                .cloned()
-                .unwrap_or_default();
+            let at = arg(0) as usize;
+            let Some(bytes) = shared.borrow().event.strings.get(at).cloned() else {
+                return Err(Trap::new(format!("the message has no string field {at}")));
+            };
             return_string(interp, &bytes, 1)?;
             Ok(Rets::default())
         }

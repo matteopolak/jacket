@@ -63,7 +63,8 @@ use crate::types::{TypeId, Types};
 pub use asm::catalog as asm_catalog;
 pub use code_export::ModifiedStmt;
 pub use driver::ProgramSource;
-pub use modules::{FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
+pub use expr::PreludeType;
+pub use modules::{BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
 pub use scope::{EntityId, ScopeId};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -267,7 +268,7 @@ impl Options {
 /// A loaded source file and its scope.
 pub struct FileInfo {
     pub id: FileId,
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub module: ModuleId,
     pub scope: ScopeId,
 }

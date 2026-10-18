@@ -20,29 +20,6 @@ MAX_LINES = 1200
 
 # path -> line count it may not grow past. Remove an entry once the file is split.
 ALLOWED_LONG = {
-    "crates/jai-language-server/src/auto_import.rs": 1241,
-    "crates/jai-language-server/src/features.rs": 1511,
-    "crates/jai-language-server/src/protocol.rs": 1841,
-    "crates/jai-language-server/src/refactor.rs": 1694,
-    "crates/jai-language-server/src/semantic.rs": 1253,
-    "crates/jai-language-server/src/session.rs": 1888,
-    "crates/jai-language-server/tests/features.rs": 1592,
-    "crates/jaic-cli/src/main.rs": 2495,
-    "crates/jaic-cli/tests/diagnostics.rs": 1423,
-    "crates/jaic-cli/tests/native.rs": 3184,
-    "crates/jaic-llvm/src/lib.rs": 1937,
-    "crates/jaic/src/interp/threads.rs": 1421,
-    "crates/jaic/src/lexer.rs": 1349,
-    "crates/jaic/src/parser/ide_facts.rs": 1230,
-    "crates/jaic/src/parser/tests.rs": 1522,
-    "crates/jaic/src/sema/asm/catalog.rs": 1644,
-    "crates/jaic/src/sema/asm/simd.rs": 3025,
-    "crates/jaic/src/sema/binary.rs": 1338,
-    "crates/jaic/src/sema/calls/mod.rs": 1401,
-    "crates/jaic/src/sema/convert.rs": 1329,
-    "crates/jaic/src/sema/ide_meta.rs": 1449,
-    "crates/jaic/src/sema/scope.rs": 1331,
-    "crates/jaic/src/sema/typeinfo.rs": 1391,
 }
 
 BANNER = re.compile(r"^\s*(//|#)\s*[-=*#~]{3,}\s*$")

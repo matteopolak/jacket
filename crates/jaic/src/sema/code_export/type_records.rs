@@ -1,5 +1,6 @@
 //! Records for types, including polymorphic struct parameters.
 use crate::records::{Item, Record, RecordTag, Records};
+use crate::sema::typeinfo::descriptor_of;
 use crate::sema::*;
 use crate::types::{ArrayKind, TypeKind};
 
@@ -85,39 +86,24 @@ impl Compiler {
                 | TypeKind::Any
                 | TypeKind::Code
         );
-        let (tag, info_tag) = match &kind {
-            TypeKind::Int {
-                ..
-            } => (RecordTag::TypeInfoInteger, 0),
-            TypeKind::Float {
-                ..
-            }
-            | TypeKind::WideFloat(_) => (RecordTag::TypeInfoFloat, 1),
-            TypeKind::Bool => (RecordTag::TypeInfo, 2),
-            TypeKind::String => (RecordTag::TypeInfoString, 3),
-            TypeKind::Pointer(_) | TypeKind::Null => (RecordTag::TypeInfoPointer, 4),
-            TypeKind::Proc(_) => (RecordTag::TypeInfoProcedure, 5),
-            TypeKind::Void => (RecordTag::TypeInfo, 6),
-            TypeKind::Struct(_) => (RecordTag::TypeInfoStruct, 7),
-            TypeKind::Array {
-                ..
-            } => (RecordTag::TypeInfoArray, 8),
-            TypeKind::CompileTimeOnly => (RecordTag::TypeInfo, 9),
-            TypeKind::PolyParam => (RecordTag::TypeInfo, 12),
-            TypeKind::PolyStruct {
-                ..
-            } => (RecordTag::TypeInfoStruct, 7),
-            TypeKind::Any => (RecordTag::TypeInfo, 10),
-            TypeKind::Enum(_) => (RecordTag::TypeInfoEnum, 11),
-            TypeKind::Type => (RecordTag::TypeInfo, 13),
-            TypeKind::Code => (RecordTag::TypeInfo, 14),
-            TypeKind::Distinct(_) => (RecordTag::TypeInfoVariant, 18),
+        let (prelude, info_tag) = descriptor_of(&kind);
+        let tag = match prelude {
+            PreludeType::TypeInfoInteger => RecordTag::TypeInfoInteger,
+            PreludeType::TypeInfoFloat => RecordTag::TypeInfoFloat,
+            PreludeType::TypeInfoString => RecordTag::TypeInfoString,
+            PreludeType::TypeInfoPointer => RecordTag::TypeInfoPointer,
+            PreludeType::TypeInfoProcedure => RecordTag::TypeInfoProcedure,
+            PreludeType::TypeInfoStruct => RecordTag::TypeInfoStruct,
+            PreludeType::TypeInfoArray => RecordTag::TypeInfoArray,
+            PreludeType::TypeInfoEnum => RecordTag::TypeInfoEnum,
+            PreludeType::TypeInfoVariant => RecordTag::TypeInfoVariant,
+            _ => RecordTag::TypeInfo,
         };
         // Registered before the fields: types may refer to themselves.
         let id = r.reserve(tag);
         self.export.types.insert(ty, id);
         let mut rec = Record::new(tag);
-        rec.int("type", info_tag).int("runtime_size", size);
+        rec.int("type", info_tag as i64).int("runtime_size", size);
         if builtin {
             rec.str("__builtin", self.types.name(ty).as_bytes());
         }

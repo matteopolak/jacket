@@ -11,7 +11,7 @@ impl Compiler {
     /// Canonical bootstrap operand marker, retaining its distinct source type.
     pub(in crate::sema) fn register_operand_type(&mut self, span: Span) -> Result<TypeId> {
         if self.preload.is_some() {
-            return self.preload_type("__reg", span);
+            return self.preload_type(PreludeType::Reg, span);
         }
         let id = self.scope(self.root_scope).names[&Sym::intern("__reg")][0];
         match self.resolve_entity(id)? {

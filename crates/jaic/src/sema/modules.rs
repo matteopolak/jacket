@@ -8,7 +8,9 @@ mod not_found;
 mod parameters;
 
 pub(super) use self::declare::file_scope_for_eval;
-pub use self::filesystem::{FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
+pub use self::filesystem::{
+    BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry,
+};
 pub(super) use self::loading::FileLoadState;
 pub use self::parameters::ParameterContract;
 use super::scope::{EntityKind, ScopeKind};
@@ -75,7 +77,7 @@ impl Compiler {
                     } => matches!(
                         decl.value.as_ref().map(|value| &value.kind),
                         Some(ast::ExprKind::UnknownDirective(directive))
-                            if decls::is_library_directive(directive.name.name.as_str())
+                            if directive.kind.is_library()
                                 && directive.flags.iter().any(|flag| flag.name.as_str() == "link_always")
                     ),
                     _ => false,

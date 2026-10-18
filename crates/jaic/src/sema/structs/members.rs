@@ -28,7 +28,7 @@ impl Compiler {
                 kind: ArrayKind::Resizable,
             } => {
                 let p = self.types.pointer(elem);
-                let alloc = self.preload_type("Allocator", span)?;
+                let alloc = self.preload_type(PreludeType::Allocator, span)?;
                 vec![
                     (s("count"), TypeId::S64, 0),
                     (s("data"), p, 8),
@@ -37,7 +37,7 @@ impl Compiler {
                 ]
             }
             TypeKind::Any => {
-                let ti = self.preload_type("Type_Info", span)?;
+                let ti = self.preload_type(PreludeType::TypeInfo, span)?;
                 let p = self.types.pointer(ti);
                 vec![(s("type"), p, 0), (s("value_pointer"), TypeId::VOID_PTR, 8)]
             }
@@ -95,7 +95,7 @@ impl Compiler {
 
     /// Where `Source_Code_Location`'s path, line and column sit in it.
     pub fn location_layout(&mut self, span: Span) -> Result<crate::interp::LocationLayout> {
-        let ty = self.preload_type("Source_Code_Location", span)?;
+        let ty = self.preload_type(PreludeType::SourceCodeLocation, span)?;
         let mut at = |name: &str| -> Result<u64> {
             match self.member_offset(ty, name, span)? {
                 Some((offset, _)) => Ok(offset),

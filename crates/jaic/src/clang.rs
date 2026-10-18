@@ -330,20 +330,22 @@ fn open_api(explicit: &str) -> Result<(Api, String), String> {
             Err(e) => error = error.or(Some(e)),
         }
     }
-    let mut fallback = None;
+    // The first libclang that loads but predates `clang_getOffsetOfBase`: used only when no
+    // installed one has it.
+    let mut without_base_offsets = None;
     for path in candidates() {
         match load_api(&path) {
             Ok(Some(api)) if api.offset_of_base.is_some() => return Ok((api, path)),
             Ok(Some(api)) => {
-                if fallback.is_none() {
-                    fallback = Some((api, path));
+                if without_base_offsets.is_none() {
+                    without_base_offsets = Some((api, path));
                 }
             }
             Ok(None) => {}
             Err(e) => error = error.or(Some(e)),
         }
     }
-    if let Some(found) = fallback {
+    if let Some(found) = without_base_offsets {
         return Ok(found);
     }
     Err(error.unwrap_or_else(|| "could not find a libclang (set JAI_LIBCLANG to its path)".into()))

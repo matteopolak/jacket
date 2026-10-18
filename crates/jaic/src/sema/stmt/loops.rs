@@ -648,12 +648,16 @@ impl Compiler {
     }
 
     /// A macro whose second parameter is the loop body (`(x, body: Code, flags)`).
-    fn proc_takes_for_body(&self, p: ProcId) -> bool {
+    fn proc_takes_for_body(&mut self, p: ProcId) -> bool {
         let info = self.proc(p);
-        info.is_macro
-            && info.lit.header.params.get(1).is_some_and(|param| {
-                matches!(&param.ty, Some(t) if matches!(&t.kind, ast::ExprKind::Ident(n) if n.as_str() == "Code"))
-            })
+        if !info.is_macro {
+            return false;
+        }
+        let lit = info.lit.clone();
+        lit.header
+            .params
+            .get(1)
+            .is_some_and(|param| self.param_is_code(p, param))
     }
 
     /// Expand a for loop through `procs`, called with `leading` arguments
@@ -683,7 +687,11 @@ impl Compiler {
             loop_scope,
         );
         let flags_value = (for_.by_pointer as i128) | ((for_.reverse as i128) << 1);
-        let flags_ty = self.preload_type("For_Flags", span).unwrap_or(TypeId::U8);
+        // A program without the bootstrap prelude has no `For_Flags`; its loop macros that
+        // take the flags take a plain byte.
+        let flags_ty = self
+            .preload_type(PreludeType::ForFlags, span)
+            .unwrap_or(TypeId::U8);
         let mut args = leading;
         args.extend([
             CallArg {

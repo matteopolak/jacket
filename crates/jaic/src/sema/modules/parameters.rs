@@ -39,7 +39,7 @@ impl Compiler {
         if arguments.iter().all(|a| a.name.is_none()) {
             return;
         }
-        let file = self.scope(file_scope).file.unwrap_or_default();
+        let file = self.scope_file(file_scope);
         let Some(entry) = self.find_module(name, &self.file_dir(file)) else {
             return;
         };

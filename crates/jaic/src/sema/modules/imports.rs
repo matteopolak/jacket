@@ -67,7 +67,7 @@ impl Compiler {
         import: &ast::Import,
     ) -> Result<ModuleId> {
         self.validate_import_program_origin(from_scope, import)?;
-        let file = self.scope(from_scope).file.unwrap_or_default();
+        let file = self.scope_file(from_scope);
         let dir = self.file_dir(file);
         let mut params = Vec::new();
         for (position, arg) in import.params.iter().enumerate() {
@@ -102,7 +102,8 @@ impl Compiler {
         }
         match &import.source {
             ast::ImportSource::Module(name)
-                if &**name == "Runtime_Support" && self.runtime_support.is_some() =>
+                if BootstrapModule::named(name) == Some(BootstrapModule::RuntimeSupport)
+                    && self.runtime_support.is_some() =>
             {
                 // One runtime per program; explicit arguments must describe that
                 // configured instance rather than silently changing or ignoring it.

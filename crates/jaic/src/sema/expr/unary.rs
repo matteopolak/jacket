@@ -161,6 +161,7 @@ impl Compiler {
                         (UnOp::Not, Value::Int(v)) => Some(Value::Bool(*v == 0)),
                         (UnOp::Not, Value::Null) => Some(Value::Bool(true)),
                         (UnOp::BitNot, Value::Int(v)) => {
+                            // Non-integer constant types (an enum value) complement as 64-bit signed.
                             let (bits, signed) = self.types.int_info(*ty).unwrap_or((64, true));
                             let bits = if *untyped {
                                 expected

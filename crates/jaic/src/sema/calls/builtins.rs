@@ -145,7 +145,7 @@ impl Compiler {
                 ) {
                     // A runtime `Type` is already a `*Type_Info`.
                     let (_, v) = self.rvalue(f, op, span)?;
-                    let info = self.preload_type("Type_Info", span)?;
+                    let info = self.preload_type(PreludeType::TypeInfo, span)?;
                     return Ok(Operand::Value {
                         ty: self.types.pointer(info),
                         val: v,
@@ -160,7 +160,7 @@ impl Compiler {
                         .iter()
                         .all(|p| p.default.is_some())
                 {
-                    let desc = self.preload_type("Type_Info_Struct", span)?;
+                    let desc = self.preload_type(PreludeType::TypeInfoStruct, span)?;
                     let (key, name) = {
                         let p = &self.poly_structs[ps.0 as usize];
                         (p.lit.id, p.name)

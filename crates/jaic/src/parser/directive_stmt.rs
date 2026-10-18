@@ -520,6 +520,7 @@ impl Parser<'_> {
         self.end_stmt("after the directive")?;
         Ok(stmt(
             StmtKind::Directive(Box::new(DirectiveStmt {
+                kind: crate::ast::DirectiveKind::of(sym.as_str()),
                 name,
                 flags,
                 args,

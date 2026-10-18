@@ -227,7 +227,7 @@ impl Compiler {
                     value: value @ Value::Int(_),
                     ..
                 }) = &args[*a].op
-                && self.preload_type("For_Flags", span).ok() == Some(param.ty)
+                && self.preload_type(PreludeType::ForFlags, span).ok() == Some(param.ty)
             {
                 self.add_const(mscope, name, param.span, value.clone(), param.ty);
                 continue;

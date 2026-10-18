@@ -35,7 +35,8 @@ pub(super) fn write_output(
     let name = output.display().to_string().into_bytes();
     events.push(Event {
         kind: EVENT_PHASE,
-        ints: vec![PHASE_PRE_WRITE_EXECUTABLE, 0],
+        // The phase, then the four file-list counts the metaprogram's reader asks for (none yet).
+        ints: vec![PHASE_PRE_WRITE_EXECUTABLE, 0, 0, 0, 0],
         strings: vec![name.clone()],
     });
     // Output preparation prunes checked-but-unreferenced bodies and freezes
@@ -205,7 +206,7 @@ pub(super) fn output_path(settings: &BuildSettings, compiler: &Compiler) -> Path
         compiler
             .main_module
             .and_then(|m| compiler.files.iter().find(|f| f.module == m))
-            .and_then(|f| f.path.file_stem())
+            .and_then(|f| f.path.as_file()?.file_stem())
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_else(|| "output".into())
     } else {

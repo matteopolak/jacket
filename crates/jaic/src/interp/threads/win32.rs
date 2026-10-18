@@ -13,7 +13,14 @@
 //!   sets the thread's last error to `ERROR_TIMEOUT`, as Windows does.
 //! - Thread ids and TLS need nothing: each scheduler thread is a real OS thread, so
 //!   `GetCurrentThreadId` and `TlsGetValue` already answer per thread.
+#[cfg(windows)]
+use super::sched::NATIVE_STACK;
+#[cfg(windows)]
+use super::worker::run_worker;
 use super::*;
+#[cfg(windows)]
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 const INFINITE: u32 = u32::MAX;
 const WAIT_OBJECT_0: u64 = 0;

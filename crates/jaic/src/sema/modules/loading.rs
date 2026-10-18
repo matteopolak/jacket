@@ -132,7 +132,7 @@ impl Compiler {
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
         self.files.push(FileInfo {
             id: file,
-            path: path.to_path_buf(),
+            path: SourcePath::File(path.to_path_buf()),
             module,
             scope: file_scope,
         });
@@ -313,12 +313,17 @@ impl Compiler {
     pub fn find_module(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
         // The public protocol name denotes the selected bootstrap even when a local
         // module happens to have that name. Otherwise its types and storage diverge.
-        if name == "Preload"
+        if BootstrapModule::named(name) == Some(BootstrapModule::Preload)
             && let Some(preload) = &self.options.preload
         {
             return Some(preload.clone());
         }
         find_module_in(&*self.fs, &self.options.import_paths, name, from_dir)
+    }
+
+    /// Where the runtime's entry file is, on the import path.
+    pub fn runtime_support_entry(&self) -> Option<PathBuf> {
+        self.find_module(BootstrapModule::RuntimeSupport.name(), Path::new(""))
     }
 
     /// A fresh module with no files yet.
@@ -365,8 +370,7 @@ impl Compiler {
         self.interp.invalidate_callable_inspections();
         let module = self.scope(target).module;
         let name = SourcePath::virtual_source(label);
-        let path = PathBuf::from(name.to_string());
-        let file = self.sources.add(name, source.into());
+        let file = self.sources.add(name.clone(), source.into());
         let mut origin_scope = Some(target);
         while let Some(scope) = origin_scope {
             if let Some(origin) = self.scope(scope).file {
@@ -380,7 +384,7 @@ impl Compiler {
         let file_scope = self.new_scope(ScopeKind::File, Some(target), module, Some(file));
         self.files.push(FileInfo {
             id: file,
-            path,
+            path: name,
             module,
             scope: file_scope,
         });
