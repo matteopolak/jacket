@@ -904,7 +904,7 @@ fn build_problems_say_what_to_change() {
             Some(2),
             &[
                 "error: unknown sanitizer `adress` for `-sanitize`",
-                "help: use address, undefined or both",
+                "help: use address, undefined, fuzzer or a list: `-sanitize address,fuzzer`",
             ],
         ),
     ];
