@@ -140,6 +140,55 @@ class PreCommitHookTests(unittest.TestCase):
         result = sh(["git", "commit", "-q", "-m", "x"], self.repo, env, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def fake_shellcheck(self):
+        """Put a stand-in shellcheck first on PATH, so the tests do not need the real one."""
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir(exist_ok=True)
+        path = bin_dir / "shellcheck"
+        path.write_text(FAKE_TOOL)
+        path.chmod(0o755)
+        self.env["PATH"] = os.pathsep.join([str(bin_dir), self.env["PATH"]])
+
+    def test_shellcheck_checks_staged_shell_files(self):
+        self.fake_shellcheck()
+        self.write("run.sh", "#!/bin/sh\ntrue\n")
+        self.write("tool", "#!/usr/bin/env bash\nBAD\n")  # no extension: found by its shebang
+        self.write("notes.txt", "BAD\n")  # not a shell file
+        sh(["git", "add", "run.sh", "tool", "notes.txt"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("tool: BAD", result.stderr)
+        self.assertNotIn("notes.txt", result.stderr)
+        self.assertIn("shellcheck <files>", result.stderr)
+
+    def test_shellcheck_checks_the_staged_content(self):
+        self.fake_shellcheck()
+        self.write("run.sh", "#!/bin/sh\nBAD\n")
+        sh(["git", "add", "run.sh"], self.repo)
+        self.write("run.sh", "#!/bin/sh\ntrue\n")  # fixed in the working tree, not staged
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+
+    def test_shellcheck_passes_clean_files_and_can_be_skipped(self):
+        self.fake_shellcheck()
+        self.write("run.sh", "#!/bin/sh\nBAD\n")
+        sh(["git", "add", "run.sh"], self.repo)
+        env = dict(self.env, JAI_HOOK_SKIP="rustfmt shellcheck")
+        result = sh(["git", "commit", "-q", "-m", "x"], self.repo, env, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_missing_shellcheck_warns_and_does_not_block(self):
+        # A PATH without the directory of any real shellcheck, keeping git and the shell tools.
+        dirs = [p for p in self.env["PATH"].split(os.pathsep) if not (Path(p) / "shellcheck").exists()]
+        if shutil.which("git", path=os.pathsep.join(dirs)) is None:
+            self.skipTest("git lives next to shellcheck")
+        self.env["PATH"] = os.pathsep.join(dirs)
+        self.write("run.sh", "#!/bin/sh\nBAD\n")
+        sh(["git", "add", "run.sh"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("shellcheck not found", result.stderr)
+
     def test_stale_lock_file_fails(self):
         if shutil.which("cargo") is None:
             self.skipTest("cargo is not installed")

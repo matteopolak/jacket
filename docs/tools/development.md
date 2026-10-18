@@ -32,6 +32,7 @@ To add a recipe: give it a doc comment (it becomes the `--list` text) and a `[gr
 | --- | --- |
 | `*.jai` | `jaifmt --check` on the export; `jailint -D warnings` on the working tree files (it needs the surrounding loaders and modules; a file another program `#load`s is linted through that program) |
 | `crates/**/*.rs` | `rustfmt --check --edition 2024` per staged blob (stdin mode, pinned nightly); `tools/dev/rust_item_spacing.py --check` |
+| `*.sh`, files with a `sh`/`bash` shebang | `shellcheck` on the export (`tools/dev/staged-files.sh shell` picks the files; CI lints every one: `shell-all`). Skipped with a warning when `shellcheck` is not installed |
 | anything | `tools/ci/check_source_style.py` (file length allowlist, banners), `check_repo_paths.py`, `check_ci_sources.py` on the working tree |
 | `Cargo.toml`, `Cargo.lock` | `cargo metadata --locked --offline` for the workspace and `fuzz/`, so a stale lock file fails here, not in CI's `--locked` builds |
 | `crates/**`, `editors/vscode/**` | `node scripts/build-grammar.ts --check` and `build-schemas.ts --check` in `editors/vscode` (needs node 24) |
@@ -40,7 +41,7 @@ Tools are found as follows: `target/jaifmt` (rebuilt with `jaic jaifmt/main.jai 
 
 | Variable | Effect |
 | --- | --- |
-| `JAI_HOOK_SKIP` | space-separated checks to skip: `jaifmt jailint rustfmt spacing repo locks editor` |
+| `JAI_HOOK_SKIP` | space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck repo locks editor` |
 | `JAI_HOOK_NO_BUILD=1` | never rebuild a stale tool |
 | `JAI_HOOK_VERBOSE=1` | say which checks run |
 
@@ -86,9 +87,11 @@ Workflows in `.github/workflows/`:
 | `release.yml` | tags ([releases](releases.md)) |
 | `compile-bench.yml`, `browser-release.yml` | manual only ([benchmarks](benchmarks.md), [browser releases](../browser/playground.md)) |
 
+Every action is pinned by full commit SHA with a version comment. `.github/dependabot.yml` opens one grouped weekly PR for the `github-actions` ecosystem (workflows and `.github/actions/*`); cargo and npm are left out on purpose, as they follow their own age policies. Review a bump like any other CI change.
+
 Shared setup lives in composite actions: `.github/actions/setup-unix` (pinned nightly Rust, Python, LLVM 23, Linux native libraries), `setup-windows`, `windows-provider`, `rust-cache` and `native-libs-cache` (see [Caches and shards](#caches-and-shards)). `tools/native/ci_native_deps.sh {developer|clipboard|full}` builds the native helper libraries the jobs link.
 
-`ci.yml` starts with a `changes` job that runs `tools/ci/ci_changes.py`, which diffs the pushed range (or PR base; anything undiffable runs everything) and sets `<area>=true|false` outputs for the path-gated jobs: `sdl3`, `clipboard-linux`, `nix`, packaging (`shellcheck`, `install-sh`, `install-ps1`, `homebrew`) and the `windows-*` jobs, plus `code`, which is false when only prose changed (see [Caches and shards](#caches-and-shards)). To gate a job on more paths, add a pattern to `AREAS` in that script (tests: `tools/ci/test_ci_changes.py`). Editing `ci.yml` or `.github/actions/` runs every area except `sdl3`, which runs only for `stdlib/Extensions/SDL3/` and its own tooling (`tools/bindings/*sdl*.py`, `tools/native/sdl3/`); the release workflow still builds and tests SDL3.
+`ci.yml` starts with a `changes` job that runs `tools/ci/ci_changes.py`, which diffs the pushed range (or PR base; anything undiffable runs everything) and sets `<area>=true|false` outputs for the path-gated jobs: `sdl3`, `clipboard-linux`, `nix`, `shell` (`shellcheck`: every `*.sh` and `.githooks/`), packaging (`install-sh`, `install-ps1`, `homebrew`) and the `windows-*` jobs, plus `code`, which is false when only prose changed (see [Caches and shards](#caches-and-shards)). To gate a job on more paths, add a pattern to `AREAS` in that script (tests: `tools/ci/test_ci_changes.py`). Editing `ci.yml` or `.github/actions/` runs every area except `sdl3`, which runs only for `stdlib/Extensions/SDL3/` and its own tooling (`tools/bindings/*sdl*.py`, `tools/native/sdl3/`); the release workflow still builds and tests SDL3.
 
 Jobs that run for every code change (`code=true`):
 

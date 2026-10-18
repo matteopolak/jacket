@@ -44,6 +44,7 @@ jobs:
       clipboard: ${{ steps.select.outputs.clipboard }}
       nix: ${{ steps.select.outputs.nix }}
       packaging: ${{ steps.select.outputs.packaging }}
+      shell: ${{ steps.select.outputs.shell }}
       windows: ${{ steps.select.outputs.windows }}
       code: ${{ steps.select.outputs.code }}
     steps:
@@ -744,15 +745,18 @@ jobs:
   # is published from here (release.yml publishes); see docs/tools/releases.md.
   shellcheck:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',shellcheck,')) && (needs.changes.outputs.packaging == 'true')
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',shellcheck,')) && (needs.changes.outputs.shell == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Lint install.sh as POSIX sh
-        run: shellcheck --version && shellcheck -s sh install.sh
+      - name: Lint every shell script
+        # *.sh and files with a sh/bash shebang, as the pre-commit hook picks them.
+        run: |
+          shellcheck --version
+          sh tools/dev/staged-files.sh shell-all | xargs shellcheck
   install-sh:
     needs: changes
     if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',install-sh,')) && (needs.changes.outputs.packaging == 'true')

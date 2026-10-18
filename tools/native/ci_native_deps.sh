@@ -39,7 +39,9 @@ full() {
   [[ "$os" == Linux ]] && audio+=(--require-device)
   python3 tools/native/audio_build_native.py "${audio[@]}"
   python3 tools/native/build_ci_native_bindings.py --output target/production-bindings/native
-  local libs="$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$(native_dir)"
+  local libs native
+  native=$(native_dir)
+  libs="$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$native"
   echo "JAIC_NATIVE_LIBS=$libs" >> "$env_file"
   if [[ "$os" == macOS || "$os" == Darwin ]]; then
     clang -Wall -Wextra -Werror stdlib/Clipboard/tests/native/guard.m -framework AppKit -o target/clipboard-guard
