@@ -1,4 +1,8 @@
-//! C-locale subject scanning and direct binary32/binary64 conversion.
+//! C-locale subject scanning and direct binary32/binary64 conversion, and the `strtod` and
+//! `strtol` families built on it.
+
+use super::*;
+
 pub(super) struct Parsed {
     pub bits: u64,
     pub used: usize,
@@ -247,6 +251,103 @@ fn hex_bits(digits: &[u8], scale: i64, narrow: bool) -> u64 {
         return infinity;
     }
     ((exponent + bias) as u64) << fraction | (quotient & ((1u64 << fraction) - 1))
+}
+
+impl SandboxHost {
+    /// `atof`/`strtod` and the `atoi`/`strtol` family.
+    pub(super) fn numeric_call(&mut self, fun: LibcFn, arg: impl Fn(usize) -> u64) -> Option<u64> {
+        Some(match fun {
+            LibcFn::Atof | LibcFn::Strtod | LibcFn::Strtof => {
+                let text = cstr(arg(0));
+                let parsed = parse(
+                    &text,
+                    if fun == LibcFn::Strtof {
+                        Precision::Binary32
+                    } else {
+                        Precision::Binary64
+                    },
+                );
+                if fun != LibcFn::Atof && arg(1) != 0 {
+                    write_u64(arg(1), arg(0) + parsed.used as u64);
+                }
+                if parsed.range_error {
+                    self.set_errno(34);
+                }
+                parsed.bits
+            }
+            LibcFn::Atoi
+            | LibcFn::Atol
+            | LibcFn::Atoll
+            | LibcFn::Strtol
+            | LibcFn::Strtoll
+            | LibcFn::Strtoul
+            | LibcFn::Strtoull => {
+                let text = cstr(arg(0));
+                let from_ascii = matches!(fun, LibcFn::Atoi | LibcFn::Atol | LibcFn::Atoll);
+                let base = if from_ascii {
+                    10
+                } else {
+                    arg(2) as u32
+                };
+                let (value, used) = parse_int_prefix(&text, base);
+                if !from_ascii && arg(1) != 0 {
+                    write_u64(arg(1), arg(0) + used as u64);
+                }
+                value as i64 as u64
+            }
+            _ => return None,
+        })
+    }
+}
+
+/// `strtol` family: returns (value, bytes consumed).
+fn parse_int_prefix(text: &str, base: u32) -> (i128, usize) {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    let mut negative = false;
+    if i < bytes.len() && (bytes[i] == b'+' || bytes[i] == b'-') {
+        negative = bytes[i] == b'-';
+        i += 1;
+    }
+    let mut base = base;
+    let has_hex_prefix =
+        |at: usize| at + 1 < bytes.len() && bytes[at] == b'0' && (bytes[at + 1] | 0x20) == b'x';
+    if (base == 0 || base == 16)
+        && has_hex_prefix(i)
+        && bytes.get(i + 2).is_some_and(|b| b.is_ascii_hexdigit())
+    {
+        i += 2;
+        base = 16;
+    } else if base == 0 {
+        base = if bytes.get(i) == Some(&b'0') {
+            8
+        } else {
+            10
+        };
+    }
+    let first = i;
+    let mut value: i128 = 0;
+    while i < bytes.len() {
+        let Some(digit) = (bytes[i] as char).to_digit(base) else {
+            break;
+        };
+        value = value
+            .saturating_mul(base as i128)
+            .saturating_add(digit as i128);
+        i += 1;
+    }
+    if i == first {
+        return (0, 0);
+    }
+    let value = if negative {
+        -value
+    } else {
+        value
+    };
+    (value, i)
 }
 
 #[cfg(test)]
