@@ -1,0 +1,7 @@
+{
+  "module": "String",
+  "proc": "String.find_index_of_any_from_left",
+  "seed": 4,
+  "max_len": 0,
+  "signature": "exit -11"
+}

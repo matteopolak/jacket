@@ -16,6 +16,7 @@
 | `dev/` | Developer workflow behind the Justfile (`dev.py`), Rust format checks, staged-file lists, PGO and packaging helpers, rule-coverage check. |
 | `developer_checks/` | The `check_developer_*` / `build_developer_*` checks of the Bindings_Generator developer tooling; `check_developer_tools.py` runs them all. |
 | `differential/` | `jaic-diff.py` (backend differential testing), `jaic-reduce.py`, `jaic-sweep.py`, the random program generator `jaigen.py`. |
+| `fuzz/` | The stdlib fuzzer: driver, discovery metaprogram, per-module config and property hooks ([stdlib fuzzing](stdlib-fuzzing.md)). |
 | `generators/` | Generators of checked-in files (below). The generated file's header names its generator. |
 | `native/` | Native dependency stages (below), the Windows cross/provider builders, `mbedtls/` and `sdl3/` sources. |
 | `native_bindings/` | The native binding generator and its verifiers (own test discovery and module names). |

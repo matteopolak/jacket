@@ -1,0 +1,30 @@
+{
+  "String": {
+    "deny": ["string_tests"],
+    "pointers": ["parse_token", "match_token", "match_token_nocase", "parse_bool", "parse_int", "parse_float", "eat_trailing_spaces", "eat_until_space", "stop_at_any", "normalize_line_endings", "scan"],
+    "hooks": "properties/String.jai",
+    "known": {"slice": ["index >= 0 && count >= 0"]}
+  },
+  "Unicode": {
+    "deny": [],
+    "pointers": ["utf8_next_character"],
+    "arity": {"character_utf8_to_utf32": 2},
+    "hooks": "properties/Unicode.jai",
+    "known": {}
+  },
+  "Base64": {
+    "deny": ["test_base64", "test_base64_url", "test_base64_module"],
+    "arity": {"base64_encode": 1, "base64_decode": 1},
+    "hooks": "properties/Base64.jai",
+    "known": {}
+  },
+  "Hash": {
+    "deny": [],
+    "hooks": "properties/Hash.jai",
+    "known": {}
+  },
+  "Crc": {
+    "deny": [],
+    "known": {}
+  }
+}
