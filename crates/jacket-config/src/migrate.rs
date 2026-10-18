@@ -16,6 +16,9 @@ use crate::{ConfigError, Files, LEGACY_FORMAT, LEGACY_LINT, LEGACY_PROJECT, Loca
 use std::path::{Path, PathBuf};
 use toml_edit::{DocumentMut, Item, Key, Table};
 
+/// How the first line of a migrated `jacket.toml` starts.
+pub const HEADER_PREFIX: &str = "# Written by `jacket config migrate`";
+
 /// A legacy file: its name, the section it becomes, and the keys renamed on the way in.
 type Legacy<'a> = (&'a str, &'a str, &'a [(&'a str, &'a str)]);
 
@@ -87,10 +90,7 @@ pub fn plan_only(fs: &dyn Files, dir: &Path, only: Option<&str>) -> Result<Plan,
         .iter()
         .filter_map(|p| p.file_name().and_then(|n| n.to_str()))
         .collect();
-    let mut text = format!(
-        "# Written by `jacket config migrate` from {}.\n\n",
-        names.join(", ")
-    );
+    let mut text = format!("{HEADER_PREFIX} from {}.\n\n", names.join(", "));
     text.push_str(&out.to_string());
     Ok(Plan {
         text,

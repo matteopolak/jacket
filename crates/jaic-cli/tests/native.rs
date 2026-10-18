@@ -2558,7 +2558,7 @@ fn build_custom_link(
     (dir, output)
 }
 
-/// A program divided into several codegen units (`JAIC_CODEGEN_UNITS=3`) hands the metaprogram
+/// A program divided into several codegen units (`-codegen_units 3`) hands the metaprogram
 /// every object, which it links into a program that runs; the IR it asked for is written once per
 /// unit, each file defining its own part.
 // rules: bo.6 bo.7 bo.8

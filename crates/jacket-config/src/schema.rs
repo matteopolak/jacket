@@ -135,6 +135,7 @@ fn is_empty_strings(s: &Strings) -> bool {
 macro_rules! is_empty {
     ($($t:ty),*) => {$(impl $t { pub fn is_empty(&self) -> bool { *self == Self::default() } })*};
 }
+
 is_empty!(Project, Toolchain, Lint, Format, Experimental);
 
 impl Config {

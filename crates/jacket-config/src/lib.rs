@@ -19,8 +19,10 @@ pub use schema::{Config, Experimental, Format, Lint, Project, Toolchain};
 
 /// The configuration file name.
 pub const FILE_NAME: &str = "jacket.toml";
+
 /// Legacy files: `jai.toml` (project), `jailint.toml` and `jaifmt.toml`.
 pub const LEGACY_PROJECT: &str = "jai.toml";
+
 pub const LEGACY_LINT: &str = "jailint.toml";
 pub const LEGACY_FORMAT: &str = "jaifmt.toml";
 pub const LEGACY_FILES: [&str; 3] = [LEGACY_PROJECT, LEGACY_LINT, LEGACY_FORMAT];
@@ -144,47 +146,46 @@ pub fn load(fs: &dyn Files, start: &Path) -> Result<Option<Loaded>, ConfigError>
 /// The settings of a located directory.
 pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError> {
     let mut notes = Vec::new();
-    let (config, from_legacy) = if location.jacket {
-        let path = location.file();
-        let text = fs.read(&path).unwrap_or_default();
-        let config = parse(&text).map_err(|message| ConfigError {
-            path: path.clone(),
-            message,
-        })?;
-        if !location.legacy.is_empty() {
-            notes.push(format!(
-                "note: {} has {}; ignoring {}",
-                path.display(),
-                FILE_NAME,
-                location.legacy.join(", ")
-            ));
-        }
-        (config, Vec::new())
-    } else {
-        let plan = migrate::plan(fs, &location.dir)?;
-        notes.push(format!(
-            "note: {} is the legacy config; run `jacket config migrate` to write {FILE_NAME}",
-            location
-                .legacy
-                .iter()
-                .map(|n| location.dir.join(n).display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-        notes.extend(plan.warnings.iter().cloned());
-        let config = parse(&plan.text).map_err(|message| {
-            // The file whose keys alone already do not fit the schema.
-            let culprit = location.legacy.iter().find(|name| {
-                migrate::plan_only(fs, &location.dir, Some(name))
-                    .is_ok_and(|p| parse(&p.text).is_err())
-            });
-            ConfigError {
-                path: location.dir.join(culprit.unwrap_or(&location.legacy[0])),
+    let (config, from_legacy) =
+        if location.jacket {
+            let path = location.file();
+            let text = fs.read(&path).unwrap_or_default();
+            let config = parse(&text).map_err(|message| ConfigError {
+                path: path.clone(),
                 message,
+            })?;
+            // The old files stay after a migration, so a file `jacket config migrate` wrote is not
+            // worth a note on every command; one written by hand next to them is.
+            if !location.legacy.is_empty() && !text.starts_with(migrate::HEADER_PREFIX) {
+                notes.push(format!(
+                    "note: {} has {FILE_NAME}; ignoring {}",
+                    location.dir.display(),
+                    location.legacy.join(", ")
+                ));
             }
-        })?;
-        (config, plan.sources)
-    };
+            (config, Vec::new())
+        } else {
+            let plan = migrate::plan(fs, &location.dir)?;
+            notes.push(format!(
+            "note: {} in {} {} the legacy config; run `jacket config migrate` to write {FILE_NAME}",
+            location.legacy.join(", "),
+            location.dir.display(),
+            if location.legacy.len() == 1 { "is" } else { "are" }
+        ));
+            notes.extend(plan.warnings.iter().cloned());
+            let config = parse(&plan.text).map_err(|message| {
+                // The file whose keys alone already do not fit the schema.
+                let culprit = location.legacy.iter().find(|name| {
+                    migrate::plan_only(fs, &location.dir, Some(name))
+                        .is_ok_and(|p| parse(&p.text).is_err())
+                });
+                ConfigError {
+                    path: location.dir.join(culprit.unwrap_or(&location.legacy[0])),
+                    message,
+                }
+            })?;
+            (config, plan.sources)
+        };
     for key in config.unknown_keys() {
         notes.push(format!("warning: unknown key `{key}` in {FILE_NAME}"));
     }
@@ -242,6 +243,16 @@ pub fn first_entry(fs: &dyn Files, base: &Path, project: Option<&Project>) -> Op
         .paths
         .into_iter()
         .find(|p| fs.is_file(p))
+}
+
+/// The entry file `jaic <directory>` would build in `dir`: `[project] entry` of the nearest
+/// `jacket.toml`, else the first inferred one that exists.
+pub fn project_entry(fs: &dyn Files, dir: &Path) -> Option<PathBuf> {
+    let project = load(fs, dir)
+        .ok()
+        .flatten()
+        .map(|loaded| loaded.config.project);
+    first_entry(fs, dir, project.as_ref())
 }
 
 #[cfg(test)]

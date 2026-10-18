@@ -114,19 +114,6 @@ fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
-/// Flags that study the compiler itself; unlisted in `-help`, and subject to change.
-#[derive(Default)]
-struct DevFlags {
-    body_probe: bool,
-    body_fifo: bool,
-    no_sink: bool,
-    no_flow: bool,
-    dump_ops: Option<String>,
-    verify_ir: bool,
-    o0_passes: Option<String>,
-    split_units: Option<usize>,
-}
-
 /// What jaic does with the program: build it (the default), only compile it, or interpret it.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum Mode {
@@ -280,17 +267,8 @@ struct Cli {
     no_inline: bool,
     /// `-no_split`: generate code in one module instead of several.
     no_split: bool,
-    /// `-codegen_units N`: exactly this many code modules.
-    codegen_units: Option<usize>,
-    /// `-parse_threads N`, `-serial_parse`: how files are parsed ahead of the checker.
-    parse_threads: Option<usize>,
-    serial_parse: bool,
-    /// `-profile`, `-profile_ops`, `-coverage_file`: the interpreter's counters.
-    profile_counts: bool,
-    profile_ops: bool,
-    coverage_file: Option<PathBuf>,
-    /// The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
-    dev: DevFlags,
+    /// `-codegen_units`, `-parse_threads`, `-profile` and the `-dev_*` flags (`tuning.rs`).
+    tuning: tuning::Tuning,
     /// `-no_backtrace_on_crash`: no crash handler in the target program.
     no_backtrace_on_crash: bool,
     /// `-add` and `-run` strings.
@@ -570,8 +548,7 @@ impl CliOption {
 
     /// The option spelt `name`.
     fn find(name: &str) -> Option<&'static CliOption> {
-        OPTIONS
-            .iter()
+        tuning::all_options()
             .find(|option| option.names.contains(&name) || option.aliases.contains(&name))
     }
 
@@ -593,6 +570,8 @@ macro_rules! store {
         }
     };
 }
+
+mod tuning;
 
 const OPTIONS: &[CliOption] = {
     use Section::*;
@@ -759,92 +738,6 @@ const OPTIONS: &[CliOption] = {
                 "generate code as one module instead of several",
             ),
         CliOption::new(
-            &["-codegen_units"],
-            store!("a number of code modules", |cli, n| cli.codegen_units =
-                Some(parse_count(&n, "-codegen_units")?)),
-        )
-        .help(
-            Output,
-            "-codegen_units <n>",
-            "generate code as exactly <n> modules (1 is -no_split; only a build uses it)",
-        ),
-        CliOption::new(
-            &["-parse_threads"],
-            store!("a number of threads", |cli, n| cli.parse_threads =
-                Some(parse_count(&n, "-parse_threads")?)),
-        )
-        .help(
-            Output,
-            "-parse_threads <n>",
-            "threads that parse files ahead of the checker (0 parses serially)",
-        ),
-        CliOption::new(
-            &["-serial_parse"],
-            Action::Switch(|cli| &mut cli.serial_parse),
-        )
-        .help(
-            Output,
-            "-serial_parse",
-            "parse every file on the checking thread",
-        ),
-        CliOption::new(&["-profile"], Action::Switch(|cli| &mut cli.profile_counts)).help(
-            Diagnostics,
-            "-profile",
-            "count what the interpreter runs per procedure and print the busiest",
-        ),
-        CliOption::new(
-            &["-profile_ops"],
-            Action::Switch(|cli| &mut cli.profile_ops),
-        ),
-        CliOption::new(
-            &["-coverage_file"],
-            store!("a file", |cli, file| cli.coverage_file =
-                Some(PathBuf::from(file))),
-        )
-        .help(
-            Diagnostics,
-            "-coverage_file <file>",
-            "(-interp) append the procedures that ran to <file>",
-        ),
-        CliOption::new(
-            &["-dev_body_probe"],
-            Action::Switch(|cli| &mut cli.dev.body_probe),
-        ),
-        CliOption::new(
-            &["-dev_body_fifo"],
-            Action::Switch(|cli| &mut cli.dev.body_fifo),
-        ),
-        CliOption::new(
-            &["-dev_no_sink"],
-            Action::Switch(|cli| &mut cli.dev.no_sink),
-        ),
-        CliOption::new(
-            &["-dev_no_flow"],
-            Action::Switch(|cli| &mut cli.dev.no_flow),
-        ),
-        CliOption::new(
-            &["-dev_dump_ops"],
-            store!("a procedure name", |cli, name| cli.dev.dump_ops =
-                Some(name)),
-        ),
-        CliOption::new(
-            &["-dev_verify_ir"],
-            Action::Switch(|cli| &mut cli.dev.verify_ir),
-        )
-        .build_only(),
-        CliOption::new(
-            &["-dev_o0_passes"],
-            store!("an LLVM pass pipeline", |cli, passes| cli.dev.o0_passes =
-                Some(passes)),
-        )
-        .build_only(),
-        CliOption::new(
-            &["-dev_split_units"],
-            store!("a number of objects", |cli, n| cli.dev.split_units =
-                Some(parse_count(&n, "-dev_split_units")?)),
-        )
-        .build_only(),
-        CliOption::new(
             &["-no_backtrace_on_crash"],
             Action::Switch(|cli| &mut cli.no_backtrace_on_crash),
         )
@@ -937,23 +830,6 @@ const OPTIONS: &[CliOption] = {
     ]
 };
 
-/// Code generation switches that hold for every workspace a backend writes.
-#[cfg(feature = "llvm")]
-#[derive(Clone, Default)]
-struct CodegenSwitches {
-    units: Option<usize>,
-    split_units: Option<usize>,
-    verify_ir: bool,
-    o0_passes: Option<String>,
-}
-
-fn parse_count(text: &str, flag: &str) -> Result<usize, CliError> {
-    text.parse().map_err(|_| {
-        CliError::new(format!("`{flag}` takes a whole number, not `{text}`"))
-            .help(format!("for example `{flag} 4`"))
-    })
-}
-
 fn store_os(cli: &mut Cli, _: &str, os: String) -> Result<(), CliError> {
     let Some(parsed) = jaic::target::parse_os(&os) else {
         let mut error = CliError::new(format!("unknown OS `{os}` for `-os`"));
@@ -995,7 +871,7 @@ fn store_sanitize(cli: &mut Cli, option: &str, list: String) -> Result<(), CliEr
 /// The `-help` lines of the options in `section`.
 fn option_help(section: Section) -> String {
     let mut lines = String::new();
-    for help in OPTIONS.iter().filter_map(|option| option.help) {
+    for help in tuning::all_options().filter_map(|option| option.help) {
         if help.section != section {
             continue;
         }
@@ -1175,9 +1051,7 @@ fn unknown_option(option: &str) -> CliError {
             .help("use -O0, -O1, -O2 or -O3");
     }
     let mut error = CliError::new(format!("unknown option `{option}`"));
-    let known = OPTIONS
-        .iter()
-        .flat_map(|option| option.names.iter().copied());
+    let known = tuning::all_options().flat_map(|option| option.names.iter().copied());
     if let Some(near) = jaic::suggest::closest(option, known) {
         error = error.help(format!("did you mean `{near}`?"));
     }
@@ -1362,13 +1236,7 @@ fn check_input(file: &str) -> Result<(), CliError> {
         Ok(meta) if meta.is_dir() => {
             let mut error = CliError::new(format!("`{file}` is a directory, not a .jai file"));
             let files = jai_files(path);
-            // The entry the project would build: `[project] entry` of its jacket.toml, else the
-            // inferred ones (`jacket_config::INFERRED_ENTRIES`).
-            let project = jacket_config::load(&jacket_config::Disk, path)
-                .ok()
-                .flatten()
-                .map(|loaded| loaded.config.project);
-            let entry = jacket_config::first_entry(&jacket_config::Disk, path, project.as_ref());
+            let entry = jacket_config::project_entry(&jacket_config::Disk, path);
             match (entry, files.len()) {
                 (Some(entry), _) => {
                     error = error.help(format!("did you mean `{}`?", entry.display()))
@@ -1520,21 +1388,7 @@ fn has_directory(exe: &str) -> bool {
 }
 
 fn run(cli: Cli) -> ExitCode {
-    jaic::knobs::set(jaic::knobs::Knobs {
-        parse_threads: cli.parse_threads,
-        serial_parse: cli.serial_parse,
-        profile: match (cli.profile_ops, cli.profile_counts) {
-            (true, _) => jaic::knobs::Profile::Ops,
-            (_, true) => jaic::knobs::Profile::Counts,
-            _ => jaic::knobs::Profile::Off,
-        },
-        coverage_file: cli.coverage_file.clone(),
-        body_probe: cli.dev.body_probe,
-        body_fifo: cli.dev.body_fifo,
-        no_sink: cli.dev.no_sink,
-        no_flow: cli.dev.no_flow,
-        dump_ops: cli.dev.dump_ops.clone(),
-    });
+    jaic::knobs::set(tuning::knobs(&cli));
     if cli.timings {
         timings::enable();
     }
@@ -2012,12 +1866,7 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
             .join(","),
         no_inline: cli.no_inline,
         no_split: cli.no_split,
-        switches: CodegenSwitches {
-            units: cli.codegen_units,
-            split_units: cli.dev.split_units,
-            verify_ir: cli.dev.verify_ir,
-            o0_passes: cli.dev.o0_passes.clone(),
-        },
+        switches: cli.tuning.switches(),
     }
 }
 
@@ -2057,7 +1906,7 @@ struct LlvmBackend {
     /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
     no_inline: bool,
     no_split: bool,
-    switches: CodegenSwitches,
+    switches: tuning::CodegenSwitches,
 }
 
 /// What one write of a workspace's output needs, worked out from its settings.
@@ -2205,10 +2054,6 @@ impl LlvmBackend {
             tail_calls: switch(WorkspaceFlag::LlvmEnableTailCalls),
             split_modules: switch(WorkspaceFlag::LlvmEnableSplitModules),
             single_unit: self.no_split,
-            units: self.switches.units,
-            split_units: self.switches.split_units,
-            verify_ir: self.switches.verify_ir.then_some(true),
-            o0_passes: self.switches.o0_passes.clone(),
             frame_pointers: settings.frame_pointers,
             no_red_zone: settings.disable_redzone,
             ir_after: wanted(settings.output_llvm_ir, ".ll"),
@@ -2218,6 +2063,7 @@ impl LlvmBackend {
                 ".unoptimized.bc",
             ),
             macos_version,
+            ..self.switches.codegen()
         };
         // `-emit_ir` wins over `output_llvm_ir_before_optimizations`.
         let emit_ir = self.emit_ir.clone().or_else(|| {

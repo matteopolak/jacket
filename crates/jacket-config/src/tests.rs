@@ -19,7 +19,9 @@ impl Files for Mem {
 
 const JAI: &str =
     "# the project\nbuild_files = [\"first.jai\"] # entry\nimport_path = [\"vendor\"]\n";
+
 const LINT: &str = "# lint settings\nexclude = [\n  \"tests/**\", # fixtures\n]\nmax_nesting = 4\n\n[rules]\n# strict here\nfloat_equality = \"deny\"\n";
+
 const FMT: &str =
     "# fmt\nindent_width = 2\nbrace_style = \"same_line\" # always\nignore = [\"a/**\"]\n";
 
@@ -106,6 +108,19 @@ fn an_invalid_legacy_file_is_an_error_naming_it() {
     let fs = Mem(vec![("/p/jai.toml", "build_files = [")]);
     let error = plan(&fs, Path::new("/p")).unwrap_err();
     assert_eq!(error.path, Path::new("/p/jai.toml"));
+}
+
+#[test]
+fn a_migrated_file_next_to_the_old_ones_is_not_noted() {
+    let fs = Mem(vec![
+        (
+            "/p/jacket.toml",
+            "# Written by `jacket config migrate` from jai.toml.\n\n[project]\nentry = [\"a.jai\"]\n",
+        ),
+        ("/p/jai.toml", "build_files = [\"a.jai\"]\n"),
+    ]);
+    let loaded = load(&fs, Path::new("/p")).unwrap().unwrap();
+    assert!(loaded.notes.is_empty(), "{:?}", loaded.notes);
 }
 
 #[test]
