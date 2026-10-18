@@ -10,7 +10,7 @@ fn collect(dir: &Path, root: &Path, out: &mut Vec<PathBuf>) {
         .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()))
         .filter_map(Result::ok)
         .collect();
-    entries.sort_by_key(|e| e.file_name());
+    entries.sort_by_key(std::fs::DirEntry::file_name);
     for entry in entries {
         let path = entry.path();
         if entry.file_name().to_string_lossy().starts_with('.') {
@@ -34,8 +34,7 @@ fn main() {
     // Bootstrap support is part of stdlib, so one tree is sufficient for every host.
     println!("cargo:rerun-if-env-changed=JAIC_STDLIB");
     let source = std::env::var_os("JAIC_STDLIB")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| manifest.join("../../stdlib"));
+        .map_or_else(|| manifest.join("../../stdlib"), PathBuf::from);
     println!("cargo:rerun-if-changed={}", source.display());
     let root = source.canonicalize().expect("standard-library source tree");
     let mut files = Vec::new();

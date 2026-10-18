@@ -54,26 +54,23 @@ impl Compiler {
         // below the length in `eax` / `edx` (absolute value, at most the element count).
         let valid_of = |this: &mut Self, f: &mut FnCtx, len: Option<VOpd>, v: &[Val]| {
             let mut out = Vec::with_capacity(n);
-            match len {
-                Some(len) => {
-                    let x = this.vec_scalar_read(f, len, Ty::I32, span)?;
-                    let neg = is_neg(f, Ty::I32, x);
-                    let zero = konst(f, Ty::I32, 0);
-                    let negated = bin(f, BinOp::Sub, Ty::I32, zero, x);
-                    let abs = select(f, Ty::I32, neg, negated, x);
-                    for i in 0..n {
-                        let k = konst(f, Ty::I32, i as u64);
-                        out.push(cmp(f, CmpOp::ULt, Ty::I32, k, abs));
-                    }
+            if let Some(len) = len {
+                let x = this.vec_scalar_read(f, len, Ty::I32, span)?;
+                let neg = is_neg(f, Ty::I32, x);
+                let zero = konst(f, Ty::I32, 0);
+                let negated = bin(f, BinOp::Sub, Ty::I32, zero, x);
+                let abs = select(f, Ty::I32, neg, negated, x);
+                for i in 0..n {
+                    let k = konst(f, Ty::I32, i as u64);
+                    out.push(cmp(f, CmpOp::ULt, Ty::I32, k, abs));
                 }
-                None => {
-                    let mut run = konst(f, Ty::I8, 1);
-                    for &e in v {
-                        let z = is_zero(f, ty, e);
-                        let nz = flag_not(f, z);
-                        run = bin(f, BinOp::And, Ty::I8, run, nz);
-                        out.push(run);
-                    }
+            } else {
+                let mut run = konst(f, Ty::I8, 1);
+                for &e in v {
+                    let z = is_zero(f, ty, e);
+                    let nz = flag_not(f, z);
+                    run = bin(f, BinOp::And, Ty::I8, run, nz);
+                    out.push(run);
                 }
             }
             Result::Ok(out)

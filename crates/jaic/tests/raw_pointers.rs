@@ -68,7 +68,7 @@ fn invalid_pointer_access_still_traps_and_forged_views_cannot_capture_memory() {
 #[test]
 fn baked_pointer_constants_retain_their_pointer_type() {
     let (c, result) = compile(
-        r#"
+        r"
         HKEY :: *void;
         HANDLE :: cast(HKEY)0x80000001;
         inspect :: ($value: $T) -> bool { return T==HKEY && type_of(value)==HKEY; }
@@ -84,7 +84,7 @@ fn baked_pointer_constants_retain_their_pointer_type() {
         Holder :: struct(value:) { pointer:*type_of(value); }
         #assert Holder(HANDLE)!=Holder(0x80000001);
         main :: () {}
-    "#,
+    ",
         TargetCpu::X64,
     );
     if let Err(e) = result {
@@ -95,7 +95,7 @@ fn baked_pointer_constants_retain_their_pointer_type() {
 #[test]
 fn pointer_bit_patterns_preserve_full_64_bit_width() {
     let (c, result) = compile(
-        r#"
+        r"
         POSITIVE :: cast(*void) 0x80000001;
         HIGH :: cast(*void) 0x1234567880000001;
         NEGATIVE :: cast(*void) -1;
@@ -107,7 +107,7 @@ fn pointer_bit_patterns_preserve_full_64_bit_width() {
         #assert (cast,no_check(u32) HIGH)==0x80000001;
         #assert (cast(*void) 0)==null;
         main :: () {}
-    "#,
+    ",
         TargetCpu::X64,
     );
     if let Err(e) = result {

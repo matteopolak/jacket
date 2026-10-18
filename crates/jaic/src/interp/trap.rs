@@ -32,24 +32,41 @@ impl Trap {
         }))
     }
 
+    /// The failure for `len` bytes of program memory at `addr` that the compiler could not read.
+    pub fn unreadable(addr: u64, len: usize) -> Self {
+        Self::new(format!(
+            "invalid memory access: {len} bytes at {addr:#x} cannot be read"
+        ))
+    }
+
+    /// The failure for `len` bytes of program memory at `addr` that the compiler could not write.
+    pub fn unwritable(addr: u64, len: usize) -> Self {
+        Self::new(format!(
+            "invalid memory access: {len} bytes at {addr:#x} cannot be written"
+        ))
+    }
+
     /// The message, consuming the trap.
     pub fn into_message(self) -> String {
         self.0.message
     }
 
     /// The failure at `loc`.
+    #[must_use]
     pub fn at(mut self, loc: Option<(u32, u32, u32)>) -> Self {
         self.loc = loc;
         self
     }
 
     /// The failure as a `kind`.
+    #[must_use]
     pub fn of_kind(mut self, kind: Option<TrapKind>) -> Self {
         self.kind = kind;
         self
     }
 
     /// The failure with its message replaced by `wrap(old message)`.
+    #[must_use]
     pub fn map_message(mut self, wrap: impl FnOnce(&str) -> String) -> Self {
         self.message = wrap(&self.message);
         self

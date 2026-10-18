@@ -67,7 +67,7 @@ fn filtered_reexports_share_actual_c_memory_native_and_wasm_o0_o2() {
                     .arg(&provider)
                     .arg("-o")
                     .arg(&module));
-                run(Command::new("node").args(["-e",r#"
+                run(Command::new("node").args(["-e",r"
                     const fs=require('fs');
                     const module=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
                     const env={};let memory;
@@ -79,7 +79,7 @@ fn filtered_reexports_share_actual_c_memory_native_and_wasm_o0_o2() {
                     env.memset=(d,v,n)=>{new Uint8Array(memory.buffer).fill(Number(v),Number(d),Number(d+n));return d;};
                     const instance=new WebAssembly.Instance(module,{env});memory=instance.exports.memory;
                     for(let i=0;i<2;i++) {const result=instance.exports.storage_alias_check();if(result!==0)throw Error('storage alias failure '+result);}
-                "#]).arg(&module));
+                "]).arg(&module));
             } else {
                 let driver = dir.join("driver.c");
                 std::fs::write(&driver,"#include <stdint.h>\nextern int32_t storage_alias_check(void); int main(void){for(int i=0;i<2;i++){int32_t r=storage_alias_check();if(r)return r;}return 0;}\n").unwrap();

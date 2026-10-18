@@ -419,7 +419,7 @@ fn interpreted_threads() {
     );
 }
 
-/// MSVC builds keep their CodeView in a PDB next to the executable (`/DEBUG /PDB:`), with line
+/// MSVC builds keep their `CodeView` in a PDB next to the executable (`/DEBUG /PDB:`), with line
 /// information for the Jai source, and write none with `-no_debug_info`. The line check needs
 /// `llvm-pdbutil` (part of the LLVM release CI installs; required when `CI` is set).
 #[test]

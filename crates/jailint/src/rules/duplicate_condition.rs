@@ -50,7 +50,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             if seen.contains(&text) {
                                 out.push(finding(
                                     v.span,
-                                    format!("`case {}` repeats an earlier case", text),
+                                    format!("`case {text}` repeats an earlier case"),
                                     Some("only the first matching case runs: was another value meant?".into()),
                                 ));
                             } else {

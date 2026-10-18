@@ -64,7 +64,7 @@ fn jaic(dir: &Path, args: &[&str]) -> Option<Output> {
     Some(output)
 }
 
-/// Runs a WASI command module through tools/wasi_run.mjs, with `stdin` as its input.
+/// Runs a WASI command module through `tools/wasi_run.mjs`, with `stdin` as its input.
 fn wasi_run(module: &Path, args: &[&str], stdin: &str) -> Output {
     let mut child = node()
         .unwrap()
@@ -157,7 +157,7 @@ main :: () -> s32 {
     }
 }
 
-/// Hash tables, a million-element sort and string building: the Wasi_Runtime heap grows the
+/// Hash tables, a million-element sort and string building: the `Wasi_Runtime` heap grows the
 /// memory well past its first pages.
 #[test]
 fn wasm_allocation_heavy_program() {
@@ -188,7 +188,7 @@ fn wasm_allocation_heavy_program() {
 
 /// The playground's language tour as a WASI command: its threads stop runs on green threads
 /// (docs/native/wasm-threads.md) and prints what the browser prints. The WebGPU imports are
-/// left unresolved (`--unknown-imports-trap`); Wasi_Runtime's `jai_host_provides` says there is
+/// left unresolved (`--unknown-imports-trap`); `Wasi_Runtime`'s `jai_host_provides` says there is
 /// no page, so the GPU stop is skipped without calling them.
 #[test]
 fn wasm_tour_runs_as_a_wasi_command() {
@@ -358,7 +358,7 @@ fn tour_runtime_provider_runs_as_wasi_with_real_workers() {
     }
 }
 
-/// A metaprogram targets wasm the way it would in Jai: os_target .WASM, cpu_target .CUSTOM,
+/// A metaprogram targets wasm the way it would in Jai: `os_target` .WASM, `cpu_target` .CUSTOM,
 /// an LLVM triple and features, and extra wasm-ld arguments.
 #[test]
 fn wasm_build_options_from_a_metaprogram() {
@@ -432,7 +432,7 @@ fn wasm_bare_module_imports_and_exports() {
 }
 
 /// jaifmt compiled to WebAssembly formats every golden case exactly as expected
-/// (tools/browser/check_jaifmt_wasm.mjs, which CI also runs against native jaifmt).
+/// (`tools/browser/check_jaifmt_wasm.mjs`, which CI also runs against native jaifmt).
 #[test]
 fn jaifmt_wasm_formats_the_golden_cases() {
     let dir = scratch("wasm-jaifmt");

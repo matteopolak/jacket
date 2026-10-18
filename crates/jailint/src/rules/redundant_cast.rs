@@ -29,7 +29,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         value,
                         flags,
                     } = &e.kind
-                        && *flags == Default::default()
+                        && *flags == jaic::ast::CastFlags::default()
                         && let Some(c) = cx.compiler.cast_fact(e.span)
                         && !c.conflicting
                         && !c.from_constant
@@ -53,7 +53,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             value,
                             flags,
                         } = &v.kind
-                        && *flags == Default::default()
+                        && *flags == jaic::ast::CastFlags::default()
                         && let Some(c) = cx.compiler.cast_fact(v.span)
                         && !c.conflicting
                         && !c.from_constant
@@ -134,7 +134,7 @@ fn spelling(cx: &Cx, value: &Expr, spelled: &HashMap<Span, String>) -> Option<St
             ty: Some(t),
             flags,
             ..
-        } if *flags == Default::default() => Some(cx.src(t.span).to_string()),
+        } if *flags == jaic::ast::CastFlags::default() => Some(cx.src(t.span).to_string()),
         _ => None,
     }
 }

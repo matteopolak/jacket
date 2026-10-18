@@ -17,11 +17,5 @@ default = ["dynamic"]
 dynamic = ["inkwell/llvm23-1-prefer-dynamic"]
 static = ["inkwell/llvm23-1-force-static"]
 
-[lints.rust]
-# Inkwell exposes GEP construction as `unsafe` (one helper in `lower`); debug info uses the
-# LLVM-C DIBuilder directly (the `raw` helpers in `debuginfo`).
-unsafe_code = "deny"
-
-[lints.clippy]
-all = "warn"
-excessive_nesting = "warn"
+[lints]
+workspace = true

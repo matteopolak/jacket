@@ -79,14 +79,14 @@ mod win32_threads {
         let mut options = Options::host();
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
-        let source = r#"
+        let source = r"
             CreateThread :: (security:*void, stack_size:u64, entry:*void, data:*void, flags:u32, id:*u32) -> u64 #foreign;
             WaitForSingleObject :: (handle:u64, timeout:u32) -> u32 #foreign;
             CloseHandle :: (handle:u64) -> s32 #foreign;
             wrong :: (data:*void) -> u64 #c_call { return 17; }
             run :: () { h:=CreateThread(null,0,cast(*void)wrong,null,0,null); WaitForSingleObject(h,5000); CloseHandle(h); }
             #run run();
-        "#;
+        ";
         let error = c
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("wide callback result must not masquerade as u32");
@@ -109,12 +109,12 @@ mod win32_threads {
             options.runtime_support = false;
             let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
             let source = format!(
-                r#"
+                r"
     CreateThread :: (security:*void,stack:u64,entry:*void,argument:*void,flags:u32,id:*u32)->u64 #foreign;
     worker :: (argument:*void)->u32 #c_call {{ return 1; }}
     Security :: struct {{ length:u32; descriptor:*void; inherit:s32; }}
     #run {{ attributes:Security; attributes.length=cast(u32)size_of(Security); CreateThread({security},{stack},cast(*void)worker,null,{flags},null); }}
-    "#
+    "
             );
             let error = compiler
                 .compile_sources(&[ProgramSource::String(source)])

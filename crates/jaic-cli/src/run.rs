@@ -72,7 +72,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     // `-check` and builds exit right after: tearing down the syntax trees and the program takes
     // about a tenth of a large check, and nothing observes it.
     let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.mode != Mode::Interp, |c| {
-        c.interp.flush_profile()
+        c.interp.flush_profile();
     });
     if let Some(host) = &sandbox {
         compiler.interp.host = Box::new(SharedHost(host.clone()));
@@ -261,7 +261,7 @@ fn create_workspaces(
 /// `-no_check_bindings`: sets `CHECK_BINDINGS=false` on the plugins that resolve, on the import
 /// path, to the standard library's `Check` module (not on any module that merely has the name).
 pub(super) fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Options, stdlib: &Path) {
-    let check = jaic::canonicalize(&stdlib.join("Check").join("module.jai")).ok();
+    let check = jaic::canonicalize(stdlib.join("Check").join("module.jai")).ok();
     for plugin in &mut cli.plugins {
         let entry = jaic::sema::find_module_in(
             &NativeFs,

@@ -6,6 +6,64 @@ use crate::ir::{self, BinOp, ConvOp, Inst, Ty, Val, inst_vals};
 
 impl Builder<'_> {
     pub(super) fn inst(&mut self, bi: usize, ii: usize, inst: &Inst) {
+        match *inst {
+            Inst::StackAlloc {
+                ..
+            }
+            | Inst::SlotAddr {
+                ..
+            }
+            | Inst::GlobalAddr {
+                ..
+            }
+            | Inst::ForeignAddr {
+                ..
+            }
+            | Inst::Load {
+                ..
+            }
+            | Inst::Store {
+                ..
+            }
+            | Inst::PtrAdd {
+                ..
+            }
+            | Inst::Copy {
+                ..
+            }
+            | Inst::Zero {
+                ..
+            } => self.inst_memory(bi, ii, inst),
+            Inst::IConst {
+                ..
+            }
+            | Inst::FConst {
+                ..
+            }
+            | Inst::FuncAddr {
+                ..
+            }
+            | Inst::Bin {
+                ..
+            }
+            | Inst::Un {
+                ..
+            }
+            | Inst::Cmp {
+                ..
+            }
+            | Inst::Conv {
+                ..
+            } => self.inst_values(bi, ii, inst),
+            Inst::Loc {
+                ..
+            }
+            | Inst::Call(..)
+            | Inst::Intrinsic(..) => self.inst_calls(bi, ii, inst),
+        }
+    }
+
+    pub(super) fn inst_memory(&mut self, bi: usize, ii: usize, inst: &Inst) {
         let slow = Op::Ir {
             block: bi as u32,
             inst: ii as u32,
@@ -21,48 +79,6 @@ impl Builder<'_> {
                 self.v(dst);
                 self.push(slow, None);
             }
-            Inst::IConst {
-                dst,
-                ty,
-                value,
-            } => {
-                let op = Op::Const {
-                    dst: self.v(dst),
-                    value: mask(ty, value),
-                };
-                self.push(op, self.single(dst).then_some(dst));
-            }
-            Inst::FConst {
-                dst,
-                ty,
-                value,
-            } => {
-                let bits = if ty == Ty::F32 {
-                    (value as f32).to_bits() as u64
-                } else {
-                    value.to_bits()
-                };
-                self.push(
-                    Op::Const {
-                        dst: self.v(dst),
-                        value: bits,
-                    },
-                    None,
-                );
-            }
-            Inst::FuncAddr {
-                func, ..
-            } if (self.late_value)(func) => self.push(slow, None),
-            Inst::FuncAddr {
-                dst,
-                func,
-            } => self.push(
-                Op::Const {
-                    dst: self.v(dst),
-                    value: super::super::FUNC_TAG | func.0 as u64,
-                },
-                None,
-            ),
             Inst::SlotAddr {
                 dst, ..
             } => {
@@ -76,96 +92,6 @@ impl Builder<'_> {
                     },
                     Some(dst),
                 );
-            }
-            Inst::Bin {
-                dst,
-                op,
-                ty,
-                a,
-                b,
-            } => self.bin(dst, op, ty, a, b),
-            Inst::Un {
-                dst,
-                op,
-                ty,
-                a,
-            } => {
-                let op = Op::Un {
-                    op,
-                    ty,
-                    dst: self.v(dst),
-                    a: self.v(a),
-                };
-                self.push(op, self.single(dst).then_some(dst));
-            }
-            Inst::Cmp {
-                dst,
-                op,
-                ty,
-                a,
-                b,
-            } => {
-                let pure = self.single(dst).then_some(dst);
-                if let Some(x) = self.int(b)
-                    && let Some(imm) = imm(x, ty)
-                {
-                    self.fold(b);
-                    let op = Op::CmpImm {
-                        op,
-                        shift: shift_of(ty),
-                        dst: self.v(dst),
-                        a: self.v(a),
-                        imm,
-                    };
-                    return self.push(op, pure);
-                }
-                let op = Op::Cmp {
-                    op,
-                    shift: shift_of(ty),
-                    dst: self.v(dst),
-                    a: self.v(a),
-                    b: self.v(b),
-                };
-                self.push(op, pure);
-            }
-            Inst::Conv {
-                dst,
-                op,
-                from,
-                to,
-                src,
-            } => {
-                // Registers hold values masked to their type, so these three only mask.
-                let width = match op {
-                    ConvOp::Trunc | ConvOp::Bitcast => Some(to),
-                    ConvOp::ZExt => Some(from),
-                    _ => None,
-                };
-                if let Some(width) = width {
-                    let keep = mask(width, u64::MAX);
-                    let (dst_reg, src_reg) = (self.v(dst), self.v(src));
-                    let op = if keep == u64::MAX {
-                        Op::Mov {
-                            dst: dst_reg,
-                            src: src_reg,
-                        }
-                    } else {
-                        Op::Ext {
-                            dst: dst_reg,
-                            src: src_reg,
-                            mask: keep as u32,
-                        }
-                    };
-                    return self.push(op, self.single(dst).then_some(dst));
-                }
-                let op = Op::Conv {
-                    op,
-                    from,
-                    to,
-                    dst: self.v(dst),
-                    src: self.v(src),
-                };
-                self.push(op, self.single(dst).then_some(dst));
             }
             Inst::GlobalAddr {
                 dst,
@@ -282,6 +208,160 @@ impl Builder<'_> {
                 }
                 Err(_) => self.push(slow, None),
             },
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    pub(super) fn inst_values(&mut self, bi: usize, ii: usize, inst: &Inst) {
+        let slow = Op::Ir {
+            block: bi as u32,
+            inst: ii as u32,
+            loc: NO_LOC,
+        };
+        match *inst {
+            Inst::IConst {
+                dst,
+                ty,
+                value,
+            } => {
+                let op = Op::Const {
+                    dst: self.v(dst),
+                    value: mask(ty, value),
+                };
+                self.push(op, self.single(dst).then_some(dst));
+            }
+            Inst::FConst {
+                dst,
+                ty,
+                value,
+            } => {
+                let bits = if ty == Ty::F32 {
+                    (value as f32).to_bits() as u64
+                } else {
+                    value.to_bits()
+                };
+                self.push(
+                    Op::Const {
+                        dst: self.v(dst),
+                        value: bits,
+                    },
+                    None,
+                );
+            }
+            Inst::FuncAddr {
+                func, ..
+            } if (self.late_value)(func) => self.push(slow, None),
+            Inst::FuncAddr {
+                dst,
+                func,
+            } => self.push(
+                Op::Const {
+                    dst: self.v(dst),
+                    value: super::super::FUNC_TAG | func.0 as u64,
+                },
+                None,
+            ),
+            Inst::Bin {
+                dst,
+                op,
+                ty,
+                a,
+                b,
+            } => self.bin(dst, op, ty, a, b),
+            Inst::Un {
+                dst,
+                op,
+                ty,
+                a,
+            } => {
+                let op = Op::Un {
+                    op,
+                    ty,
+                    dst: self.v(dst),
+                    a: self.v(a),
+                };
+                self.push(op, self.single(dst).then_some(dst));
+            }
+            Inst::Cmp {
+                dst,
+                op,
+                ty,
+                a,
+                b,
+            } => {
+                let pure = self.single(dst).then_some(dst);
+                if let Some(x) = self.int(b)
+                    && let Some(imm) = imm(x, ty)
+                {
+                    self.fold(b);
+                    let op = Op::CmpImm {
+                        op,
+                        shift: shift_of(ty),
+                        dst: self.v(dst),
+                        a: self.v(a),
+                        imm,
+                    };
+                    return self.push(op, pure);
+                }
+                let op = Op::Cmp {
+                    op,
+                    shift: shift_of(ty),
+                    dst: self.v(dst),
+                    a: self.v(a),
+                    b: self.v(b),
+                };
+                self.push(op, pure);
+            }
+            Inst::Conv {
+                dst,
+                op,
+                from,
+                to,
+                src,
+            } => {
+                // Registers hold values masked to their type, so these three only mask.
+                let width = match op {
+                    ConvOp::Trunc | ConvOp::Bitcast => Some(to),
+                    ConvOp::ZExt => Some(from),
+                    _ => None,
+                };
+                if let Some(width) = width {
+                    let keep = mask(width, u64::MAX);
+                    let (dst_reg, src_reg) = (self.v(dst), self.v(src));
+                    let op = if keep == u64::MAX {
+                        Op::Mov {
+                            dst: dst_reg,
+                            src: src_reg,
+                        }
+                    } else {
+                        Op::Ext {
+                            dst: dst_reg,
+                            src: src_reg,
+                            mask: keep as u32,
+                        }
+                    };
+                    return self.push(op, self.single(dst).then_some(dst));
+                }
+                let op = Op::Conv {
+                    op,
+                    from,
+                    to,
+                    dst: self.v(dst),
+                    src: self.v(src),
+                };
+                self.push(op, self.single(dst).then_some(dst));
+            }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    pub(super) fn inst_calls(&mut self, bi: usize, ii: usize, inst: &Inst) {
+        let slow = Op::Ir {
+            block: bi as u32,
+            inst: ii as u32,
+            loc: NO_LOC,
+        };
+        match *inst {
             Inst::Loc {
                 line,
                 col,
@@ -313,8 +393,8 @@ impl Builder<'_> {
                 let op = match inst {
                     Inst::Call(call)
                         if matches!(call.callee, ir::Callee::Func(_))
-                            && call.args.len() <= u16::MAX as usize
-                            && call.results.len() <= u16::MAX as usize =>
+                            && u16::try_from(call.args.len()).is_ok()
+                            && u16::try_from(call.results.len()).is_ok() =>
                     {
                         let ir::Callee::Func(callee) = call.callee else {
                             unreachable!("matched above");
@@ -366,6 +446,7 @@ impl Builder<'_> {
                 };
                 self.push(op, None);
             }
+            _ => unreachable!("dispatched only for this group's operations"),
         }
     }
 

@@ -404,7 +404,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             let jaic::ast::UsingStmt {
                 value, ..
             } = &**boxed;
-            e(value)
+            e(value);
         }
         S::PushContext(boxed) => {
             let jaic::ast::PushContextStmt {
@@ -458,7 +458,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             let jaic::ast::PushContextDeferStmt {
                 context: x, ..
             } = &**boxed;
-            e(x)
+            e(x);
         }
         S::Directive(boxed) => {
             let jaic::ast::DirectiveStmt {
@@ -602,7 +602,7 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
         E::Asm(block) => {
             let operands = block.items.iter().filter_map(|item| match item {
                 AsmItem::Inst(inst) => Some(&inst.operands),
-                _ => None,
+                AsmItem::Decl(_) => None,
             });
             for op in operands.flatten() {
                 match op {
@@ -671,7 +671,7 @@ fn find_procs<'a>(
             E::Proc(lit) => {
                 let header = &*lit.header;
                 let p = poly || header_is_poly(header);
-                let m = is_macro || header.flags.expand;
+                let m = is_macro || header.flags.expand();
                 // The declaration names this procedure only when it is its value.
                 let named = decl.filter(|d| d.value.as_ref().is_some_and(|v| v.span == x.span));
                 if let Some(body) = &lit.body {

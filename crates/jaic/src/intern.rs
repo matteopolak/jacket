@@ -12,10 +12,7 @@ struct Interner {
     names: Vec<&'static str>,
     /// Spellings already leaked by this thread's jobs (see `begin_job`), so a spelling met in
     /// many files is leaked once.
-    leaked: std::collections::HashSet<
-        &'static str,
-        std::hash::BuildHasherDefault<crate::fxhash::FxHasher>,
-    >,
+    leaked: crate::fxhash::HashSet<&'static str>,
     job: bool,
 }
 
@@ -32,13 +29,12 @@ impl Sym {
             }
             // Leaked once per distinct spelling; the set of identifiers is bounded by source size.
             let leaked: &'static str = if i.job {
-                match i.leaked.get(text) {
-                    Some(&known) => known,
-                    None => {
-                        let new: &'static str = Box::leak(text.to_owned().into_boxed_str());
-                        i.leaked.insert(new);
-                        new
-                    }
+                if let Some(&known) = i.leaked.get(text) {
+                    known
+                } else {
+                    let new: &'static str = Box::leak(text.to_owned().into_boxed_str());
+                    i.leaked.insert(new);
+                    new
                 }
             } else {
                 Box::leak(text.to_owned().into_boxed_str())

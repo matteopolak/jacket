@@ -216,9 +216,8 @@ impl Compiler {
                 pack.push(v);
                 continue;
             }
-            let index = match n {
-                Some(n) => lit
-                    .params
+            let index = if let Some(n) = n {
+                lit.params
                     .iter()
                     .position(|p| p.name.map(|i| i.name) == Some(n))
                     .ok_or_else(|| {
@@ -226,12 +225,11 @@ impl Compiler {
                             span,
                             format!("`{name}` has no parameter `{n}`"),
                         ))
-                    })?,
-                None => {
-                    let i = next;
-                    next += 1;
-                    i
-                }
+                    })?
+            } else {
+                let i = next;
+                next += 1;
+                i
             };
             if index >= values.len() {
                 return err(span, format!("too many arguments for `{name}`"));
@@ -241,7 +239,7 @@ impl Compiler {
         let mut bindings = self.poly_structs[ps.0 as usize].baked.clone();
         let mut key = Vec::new();
         for (i, p) in lit.params.iter().enumerate() {
-            let pname = p.name.map(|n| n.name).unwrap_or_else(|| Sym::intern("_"));
+            let pname = p.name.map_or_else(|| Sym::intern("_"), |n| n.name);
             // `x: $T`: the argument's type binds `T` (also `[$N] $T` and other patterns).
             if let Some(t) = &p.ty
                 && crate::sema::procs::has_poly(t)

@@ -209,8 +209,7 @@ impl Compiler {
                 ),
             );
         };
-        let fsigned =
-            self.types.int_info(from).is_some_and(|(_, s)| s) || from == TypeId::BOOL && false;
+        let fsigned = self.types.int_info(from).is_some_and(|(_, s)| s);
         let tsigned = self.types.int_info(to).is_some_and(|(_, s)| s);
         let val = numeric_conv(f, v, ft, tt, fsigned, tsigned);
         Ok(Operand::Value {

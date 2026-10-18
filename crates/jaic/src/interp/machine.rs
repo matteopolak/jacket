@@ -22,8 +22,8 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                 aux,
             } => {
                 let available = if aux {
-                    __cpuid_count(0x80000000, 0).eax >= 0x80000001
-                        && __cpuid_count(0x80000001, 0).edx & (1 << 27) != 0
+                    __cpuid_count(0x8000_0000, 0).eax >= 0x8000_0001
+                        && __cpuid_count(0x8000_0001, 0).edx & (1 << 27) != 0
                 } else {
                     leaf1.is_some_and(|leaf| leaf.edx & (1 << 4) != 0)
                 };
@@ -146,16 +146,16 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                 unsafe {
                     match hint {
                         X86Prefetch::T0 => {
-                            asm!("prefetcht0 [{address}]",address=in(reg) *address,options(nostack, preserves_flags))
+                            asm!("prefetcht0 [{address}]",address=in(reg) *address,options(nostack, preserves_flags));
                         }
                         X86Prefetch::T1 => {
-                            asm!("prefetcht1 [{address}]",address=in(reg) *address,options(nostack, preserves_flags))
+                            asm!("prefetcht1 [{address}]",address=in(reg) *address,options(nostack, preserves_flags));
                         }
                         X86Prefetch::T2 => {
-                            asm!("prefetcht2 [{address}]",address=in(reg) *address,options(nostack, preserves_flags))
+                            asm!("prefetcht2 [{address}]",address=in(reg) *address,options(nostack, preserves_flags));
                         }
                         X86Prefetch::NonTemporal => {
-                            asm!("prefetchnta [{address}]",address=in(reg) *address,options(nostack, preserves_flags))
+                            asm!("prefetchnta [{address}]",address=in(reg) *address,options(nostack, preserves_flags));
                         }
                     }
                 }

@@ -329,7 +329,7 @@ impl Compiler {
             BinOp::Mul => arith(WideArith::Mul),
             BinOp::Div => arith(WideArith::Div),
             _ => {
-                use std::cmp::Ordering::*;
+                use std::cmp::Ordering::{Equal, Greater, Less};
                 let order = wide_float::compare(fmt, &a, &b);
                 let yes = match op {
                     BinOp::Eq => order == Some(Equal),

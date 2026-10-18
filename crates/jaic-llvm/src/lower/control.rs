@@ -10,7 +10,7 @@ use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, PointerValue};
 use jaic::abi::Passing;
 use jaic::ir::{BlockId, Func, Sig, Term, Ty};
 
-impl<'ctx, 'p> Backend<'ctx, 'p> {
+impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn term(&self, st: &FnState<'ctx>, func: &Func, term: &Term) -> R<()> {
         let b = &self.builder;
         let block = |id: &BlockId| {
@@ -25,12 +25,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 then_block,
                 else_block,
             } => {
-                let c = match st.flags[cond.0 as usize] {
-                    Some(flag) => flag,
-                    None => {
-                        let c = self.get_int(st, *cond)?;
-                        b.build_int_compare(IntPredicate::NE, c, c.get_type().const_zero(), "")?
-                    }
+                let c = if let Some(flag) = st.flags[cond.0 as usize] {
+                    flag
+                } else {
+                    let c = self.get_int(st, *cond)?;
+                    b.build_int_compare(IntPredicate::NE, c, c.get_type().const_zero(), "")?
                 };
                 b.build_conditional_branch(c, block(then_block)?, block(else_block)?)?;
             }

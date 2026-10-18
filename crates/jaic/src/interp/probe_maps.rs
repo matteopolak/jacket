@@ -7,7 +7,7 @@ pub(super) fn region(maps: &[u8], at: u64, write: bool) -> Option<(u64, u64)> {
         .filter(|line| !line.is_empty())
     {
         let mut fields = line
-            .split(|byte| byte.is_ascii_whitespace())
+            .split(u8::is_ascii_whitespace)
             .filter(|field| !field.is_empty());
         let range = std::str::from_utf8(fields.next()?).ok()?;
         let permissions = fields.next()?;

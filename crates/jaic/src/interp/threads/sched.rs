@@ -77,7 +77,7 @@ pub(super) struct GThread {
     pub(super) native_id: u32,
     /// Main/adopted OS pthread identity. Managed workers retain theirs in `worker`.
     pub(super) native_pthread: Option<u64>,
-    /// Own the actual kernel thread handle until CloseHandle or interpreter teardown.
+    /// Own the actual kernel thread handle until `CloseHandle` or interpreter teardown.
     /// Scheduler state remains alive independently when the user closes a running thread.
     #[cfg(windows)]
     pub(super) native_handle: Option<std::os::windows::io::OwnedHandle>,

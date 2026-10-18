@@ -66,8 +66,8 @@ impl Compiler {
         let types = f.return_types.clone();
         let mut positional = 0;
         for v in values {
-            let index = match v.name {
-                Some(n) => names
+            let index = if let Some(n) = v.name {
+                names
                     .iter()
                     .position(|r| *r == Some(n.name))
                     .ok_or_else(|| {
@@ -75,11 +75,10 @@ impl Compiler {
                             n.span,
                             format!("no return value named `{}`", n.name),
                         ))
-                    })?,
-                None => {
-                    positional += 1;
-                    positional - 1
-                }
+                    })?
+            } else {
+                positional += 1;
+                positional - 1
             };
             let Some(&ty) = types.get(index) else {
                 return err(v.value.span, "too many return values");
@@ -114,7 +113,7 @@ impl Compiler {
             match op {
                 // Extra results of a returned call are dropped, like in a declaration.
                 Operand::Multi(vals) if values.len() == 1 => {
-                    ops.extend(vals.into_iter().take(types.len()))
+                    ops.extend(vals.into_iter().take(types.len()));
                 }
                 // `return f();` of a procedure without results.
                 Operand::Void if values.len() == 1 => {}
@@ -145,21 +144,18 @@ impl Compiler {
         }
         let mut scalars = Vec::new();
         for (i, &ty) in types.iter().enumerate() {
-            let v = match ops.get(i) {
-                Some(op) => {
-                    let at = spans.get(i).copied().unwrap_or(span);
-                    let op = self
-                        .convert(f, op.clone(), ty, at)
-                        .map_err(|e| self.return_type_mismatch(e, f.proc, i))?;
-                    let (_, v) = self.rvalue(f, op, at)?;
-                    v
-                }
-                None => {
-                    let addr = f.named_results[i].unwrap();
-                    match self.ir_ty(ty) {
-                        Some(t) => f.b.load(t, addr),
-                        None => addr,
-                    }
+            let v = if let Some(op) = ops.get(i) {
+                let at = spans.get(i).copied().unwrap_or(span);
+                let op = self
+                    .convert(f, op.clone(), ty, at)
+                    .map_err(|e| self.return_type_mismatch(e, f.proc, i))?;
+                let (_, v) = self.rvalue(f, op, at)?;
+                v
+            } else {
+                let addr = f.named_results[i].unwrap();
+                match self.ir_ty(ty) {
+                    Some(t) => f.b.load(t, addr),
+                    None => addr,
                 }
             };
             match f.return_outs[i] {

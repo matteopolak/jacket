@@ -15,7 +15,7 @@ impl Compiler {
         for stmt in stmts {
             match &stmt.kind {
                 ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
-                    self.collect_decl_fields(scope, decl, out)?
+                    self.collect_decl_fields(scope, decl, out)?;
                 }
                 ast::StmtKind::StaticIf(boxed) => {
                     let crate::ast::StaticIfStmt {
@@ -242,7 +242,7 @@ impl Compiler {
         Ok(())
     }
 
-    /// The synthesized `#Context` type: Preload's FIRST_ADD_CONTEXT followed by
+    /// The synthesized `#Context` type: Preload's `FIRST_ADD_CONTEXT` followed by
     /// every `#add_context` in load order.
     pub fn context_type(&mut self, span: Span) -> Result<TypeId> {
         if let Some(t) = self.context_type {
@@ -282,7 +282,7 @@ impl Compiler {
             kind: ast::StructKind::Struct,
             params: Vec::new(),
             body: Vec::new(),
-            flags: Default::default(),
+            flags: ast::StructFlags::default(),
             tag: None,
             modify: None,
             notes: Vec::new(),

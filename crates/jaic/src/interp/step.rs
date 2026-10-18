@@ -142,6 +142,8 @@ impl Interp {
                 if d < 4096 || s < 4096 {
                     return self.null_trap("memory copy through a null pointer");
                 }
+                // SAFETY: operands are host addresses of live program memory, which `ptr::copy` may
+                // overlap; the null case was trapped above.
                 unsafe { std::ptr::copy(s as *const u8, d as *mut u8, *size as usize) };
             }
             Inst::Zero {
@@ -152,6 +154,8 @@ impl Interp {
                 if d < 4096 {
                     return self.null_trap("memory fill through a null pointer");
                 }
+                // SAFETY: `d` is non-null (trapped above) and addresses `size` writable bytes of
+                // program memory.
                 unsafe { std::ptr::write_bytes(d as *mut u8, 0, *size as usize) };
             }
             Inst::Call(call) => {

@@ -1,4 +1,5 @@
 //! `jaic` command line: `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`.
+#![forbid(unsafe_code)]
 use self::cli::Cli;
 use self::options::{Action, CliError, CliOption, OPTIONS, Request, Section};
 use self::parse::{parse, report_cli_error, wants_no_color};
@@ -128,7 +129,7 @@ fn main() -> ExitCode {
         let worker = std::thread::Builder::new()
             .stack_size(1 << 30)
             .spawn(move || run(cli));
-        match worker.map(|h| h.join()) {
+        match worker.map(std::thread::JoinHandle::join) {
             Ok(Ok(code)) => code,
             _ => ExitCode::from(101),
         }
@@ -143,7 +144,7 @@ fn install_panic_hook() {
         let message = info
             .payload()
             .downcast_ref::<&str>()
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .or_else(|| info.payload().downcast_ref::<String>().cloned())
             .unwrap_or_else(|| "unknown panic".into());
         let at = info
@@ -184,7 +185,7 @@ mod tests {
 
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
         let mut argv = vec!["main.jai".to_string()];
-        argv.extend(args.iter().map(|a| a.to_string()));
+        argv.extend(args.iter().map(std::string::ToString::to_string));
         let Ok(Request::Compile(cli)) = parse(&argv) else {
             panic!("invalid command line {argv:?}");
         };
@@ -194,7 +195,7 @@ mod tests {
     }
 
     fn args(words: &[&str]) -> Vec<String> {
-        words.iter().map(|w| w.to_string()).collect()
+        words.iter().map(std::string::ToString::to_string).collect()
     }
 
     fn cli(words: &[&str]) -> Cli {

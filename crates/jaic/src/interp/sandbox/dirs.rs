@@ -16,10 +16,8 @@ impl SandboxHost {
                     self.set_errno(34); // ERANGE
                     0
                 } else {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(cwd.as_ptr(), arg(0) as *mut u8, cwd.len());
-                        *((arg(0) + cwd.len() as u64) as *mut u8) = 0;
-                    }
+                    write_bytes(arg(0), cwd.as_bytes());
+                    write_u8(arg(0) + cwd.len() as u64, 0);
                     arg(0)
                 }
             }
@@ -43,10 +41,8 @@ impl SandboxHost {
                     } else {
                         self.alloc(path.len() + 1)
                     };
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(path.as_ptr(), out as *mut u8, path.len());
-                        *((out + path.len() as u64) as *mut u8) = 0;
-                    }
+                    write_bytes(out, path.as_bytes());
+                    write_u8(out + path.len() as u64, 0);
                     out
                 }
             }
@@ -68,14 +64,7 @@ impl SandboxHost {
             }
             LibcFn::Opendir => {
                 let path = self.path(arg(0));
-                if !self.fs.is_dir(&path) {
-                    self.set_errno(if self.fs.exists_file(&path) {
-                        ENOTDIR
-                    } else {
-                        ENOENT
-                    });
-                    0
-                } else {
+                if self.fs.is_dir(&path) {
                     let mut entries = vec![(".".to_string(), true), ("..".to_string(), true)];
                     entries.extend(self.fs.list(&path));
                     let handle = self.alloc(16);
@@ -89,6 +78,13 @@ impl SandboxHost {
                         },
                     );
                     handle
+                } else {
+                    self.set_errno(if self.fs.exists_file(&path) {
+                        ENOTDIR
+                    } else {
+                        ENOENT
+                    });
+                    0
                 }
             }
             LibcFn::Readdir | LibcFn::Readdir64 => match self.dirs.get_mut(&arg(0)) {
@@ -96,19 +92,19 @@ impl SandboxHost {
                     let (name, dir) = stream.entries[stream.next].clone();
                     stream.next += 1;
                     let entry = stream.entry;
-                    unsafe {
-                        std::ptr::write_bytes(entry as *mut u8, 0, 280);
-                        write_u64(entry, stream.next as u64); // d_ino
-                        write_u64(entry + 8, stream.next as u64); // d_off
-                        std::ptr::write_unaligned((entry + 16) as *mut u16, 280);
-                        *((entry + 18) as *mut u8) = if dir {
+                    fill(entry, 0, 280);
+                    write_u64(entry, stream.next as u64); // d_ino
+                    write_u64(entry + 8, stream.next as u64); // d_off
+                    write_u16(entry + 16, 280);
+                    write_u8(
+                        entry + 18,
+                        if dir {
                             4
                         } else {
                             8
-                        };
-                        let n = name.len().min(255);
-                        std::ptr::copy_nonoverlapping(name.as_ptr(), (entry + 19) as *mut u8, n);
-                    }
+                        },
+                    );
+                    write_bytes(entry + 19, &name.as_bytes()[..name.len().min(255)]);
                     entry
                 }
                 _ => 0,
@@ -127,7 +123,7 @@ impl SandboxHost {
 
     /// `rmdir`: `0`, or `-1` with `errno` set.
     pub(super) fn rmdir(&mut self, path: &str) -> u64 {
-        let result = self.remove_dir(path).map(|_| 0);
+        let result = self.remove_dir(path).map(|()| 0);
         self.libc_result(result)
     }
 

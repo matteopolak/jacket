@@ -137,10 +137,10 @@ impl JsonSession {
             self.session.set_trusted(on);
         }
         // Trust decides what the compile may run, so every document's diagnostics change.
-        let mut messages = if trusted != self.session.trusted() {
-            self.publications()
-        } else {
+        let mut messages = if trusted == self.session.trusted() {
             Vec::new()
+        } else {
+            self.publications()
         };
         messages.extend(self.refresh());
         messages

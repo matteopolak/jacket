@@ -388,8 +388,7 @@ fn describe_vector(name: &str, op: VOp) -> String {
             Cvt::FloatToIntTrunc => "Convert packed single-precision floats to signed dwords, truncating toward zero.".into(),
         },
         VOp::Movmsk(bytes) => format!(
-            "Collect the sign bit of each {}-byte lane into the low bits of a general-purpose register.",
-            bytes
+            "Collect the sign bit of each {bytes}-byte lane into the low bits of a general-purpose register."
         ),
         VOp::Gather(index, elem) => format!(
             "Load {elem}-byte elements from base + index*scale for each {index}-byte index whose mask lane is set, clearing the mask."

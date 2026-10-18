@@ -350,8 +350,8 @@ mod callee_tests {
         ] {
             let open = source
                 .find("method(")
-                .map(|start| start + "method".len())
-                .unwrap_or_else(|| source.find('(').unwrap()) as u32;
+                .map_or_else(|| source.find('(').unwrap(), |start| start + "method".len())
+                as u32;
             assert!(
                 parse_callee_ide(FileId(7), source, open).is_none(),
                 "not a call: {source}"

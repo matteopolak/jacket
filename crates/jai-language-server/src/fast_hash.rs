@@ -1,5 +1,5 @@
 //! A quick, non-cryptographic hasher for cache keys over whole document texts. The standard
-//! `DefaultHasher` (SipHash) was a tenth of the time of a hover when many files are open,
+//! `DefaultHasher` (`SipHash`) was a tenth of the time of a hover when many files are open,
 //! since every request rehashes the open documents to find its cached compile.
 
 use std::hash::Hasher;

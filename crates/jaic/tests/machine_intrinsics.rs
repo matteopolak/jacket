@@ -279,10 +279,7 @@ mod xgetbv {
         };
         let mut high = u64::MAX;
         let mut low = u64::MAX;
-        let pointers = [
-            (&mut high as *mut u64) as u64,
-            (&mut low as *mut u64) as u64,
-        ];
+        let pointers = [(&raw mut high) as u64, (&raw mut low) as u64];
         let invalid = c
             .interp
             .call(&c.program, read, &[2, pointers[0], pointers[1]])
@@ -316,7 +313,7 @@ mod xgetbv {
                 .unwrap()[0];
             assert_eq!((actual ^ expected) & defined, 0);
             assert_eq!(actual, (high << 32) | low);
-            assert!(high <= u32::MAX as u64 && low <= u32::MAX as u64);
+            assert!(u32::try_from(high).is_ok() && u32::try_from(low).is_ok());
             assert!(
                 c.interp.effects > effects,
                 "architectural reads cannot use pure result caching"
@@ -341,7 +338,7 @@ mod xgetbv {
                 0,
                 "XINUSE result must be within XCR0"
             );
-            assert!(high <= u32::MAX as u64 && low <= u32::MAX as u64);
+            assert!(u32::try_from(high).is_ok() && u32::try_from(low).is_ok());
         } else {
             let error = c
                 .interp
@@ -543,6 +540,7 @@ mod x86_machine {
             };
             let effects = c.interp.effects;
             let actual = c.interp.call(&c.program, tsc, &[]).unwrap()[0];
+            // SAFETY: as above, `rdtsc` is available on this CPU.
             let after = unsafe {
                 _mm_lfence();
                 _rdtsc()
@@ -566,19 +564,21 @@ mod x86_machine {
         }
         let tscp = function(&c, "machine_tscp");
         let mut auxiliary = 0u32;
-        if __cpuid_count(0x80000000, 0).eax >= 0x80000001
-            && __cpuid_count(0x80000001, 0).edx & (1 << 27) != 0
+        if __cpuid_count(0x8000_0000, 0).eax >= 0x8000_0001
+            && __cpuid_count(0x8000_0001, 0).edx & (1 << 27) != 0
         {
             let mut matched = false;
             for _ in 0..100 {
                 let mut a = 0;
                 let mut b = 0;
-                let before = unsafe { __rdtscp(&mut a) };
+                // SAFETY: `rdtscp` is available (checked above) and `a` is a live local.
+                let before = unsafe { __rdtscp(&raw mut a) };
                 let actual = c
                     .interp
-                    .call(&c.program, tscp, &[(&mut auxiliary as *mut u32) as u64])
+                    .call(&c.program, tscp, &[(&raw mut auxiliary) as u64])
                     .unwrap()[0];
-                let after = unsafe { __rdtscp(&mut b) };
+                // SAFETY: as above, with `b`.
+                let after = unsafe { __rdtscp(&raw mut b) };
                 if a == b && auxiliary == a && before <= actual && actual <= after {
                     matched = true;
                     break;
@@ -591,7 +591,7 @@ mod x86_machine {
         } else {
             assert!(
                 c.interp
-                    .call(&c.program, tscp, &[(&mut auxiliary as *mut u32) as u64])
+                    .call(&c.program, tscp, &[(&raw mut auxiliary) as u64])
                     .unwrap_err()
                     .message
                     .contains("unavailable")
@@ -633,14 +633,12 @@ mod x86_machine {
             let id = function(&c, name);
             for _ in 0..64 {
                 let mut value = 0u64;
-                let result = c
-                    .interp
-                    .call(&c.program, id, &[(&mut value as *mut u64) as u64]);
+                let result = c.interp.call(&c.program, id, &[(&raw mut value) as u64]);
                 if available {
                     let flags = result.unwrap()[0];
                     assert!(flags <= 1, "other arithmetic flags must clear: {flags}");
                     if width == 16 {
-                        assert_eq!(value & !0xffff, 0x123456789abc0000);
+                        assert_eq!(value & !0xffff, 0x1234_5678_9abc_0000);
                     }
                     if width == 32 {
                         assert_eq!(value >> 32, 0);
@@ -664,11 +662,11 @@ mod x86_machine {
         let fences = function(&c, "machine_fences");
         c.interp.call(&c.program, fences, &[]).unwrap();
         let prefetch = function(&c, "machine_prefetch");
-        let mut value = 0x123456789abcdef0u64;
+        let mut value = 0x1234_5678_9abc_def0_u64;
         c.interp
-            .call(&c.program, prefetch, &[(&mut value as *mut u64) as u64])
+            .call(&c.program, prefetch, &[(&raw mut value) as u64])
             .unwrap();
-        assert_eq!(value, 0x123456789abcdef0);
+        assert_eq!(value, 0x1234_5678_9abc_def0);
     }
 
     #[test]
@@ -732,7 +730,7 @@ mod x86_machine {
         let result_parity = function("result_parity");
         let cleared_parity = function("cleared_parity");
         for low in 0u64..=255 {
-            let input = 0xabcdef1234567800 | low;
+            let input = 0xabcd_ef12_3456_7800 | low;
             for count in [0, 1, 7, 63, 64] {
                 let expected = u64::from((low as u8).count_ones().is_multiple_of(2));
                 assert_eq!(

@@ -93,7 +93,7 @@ macro_rules! asm_x64_sysv {
 }
 
 /// x86-64, Microsoft x64: also xmm6-xmm15 and the stack bounds in the thread information block
-/// (`gs:8` StackBase, `gs:0x10` StackLimit, `gs:0x1478` DeallocationStack).
+/// (`gs:8` `StackBase`, `gs:0x10` `StackLimit`, `gs:0x1478` `DeallocationStack`).
 macro_rules! asm_x64_win {
     ($u:literal, $l:literal, $decl:literal, $tail:literal) => {
         concat!(
@@ -184,7 +184,7 @@ macro_rules! asm_x64_win {
     };
 }
 
-/// AArch64, AAPCS64 (macOS, Linux, and Windows with `$tib`/`$load_tib` for the thread environment
+/// `AArch64`, AAPCS64 (macOS, Linux, and Windows with `$tib`/`$load_tib` for the thread environment
 /// block that `x18` holds): x19-x30 and d8-d15 live in a 160-byte frame.
 macro_rules! asm_aarch64 {
     ($u:literal, $l:literal, $decl:literal, $save_tib:expr, $load_tib:expr, $tail:literal) => {
@@ -252,8 +252,8 @@ macro_rules! asm_aarch64 {
     };
 }
 
-/// Windows' thread environment block, through `x18`: StackBase +8, StackLimit +16 and
-/// DeallocationStack +0x1478 (an offset too big for `ldr`'s immediate, so it goes through `x10`).
+/// Windows' thread environment block, through `x18`: `StackBase` +8, `StackLimit` +16 and
+/// `DeallocationStack` +0x1478 (an offset too big for `ldr`'s immediate, so it goes through `x10`).
 macro_rules! aarch64_save_tib {
     () => {
         concat!(

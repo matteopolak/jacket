@@ -16,7 +16,7 @@ const SOURCE: &str = r#"
 
 #[test]
 fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
-    for size in [0, 65536, 131072] {
+    for size in [0, 65536, 131_072] {
         let mut options = Options::host();
         options.runtime_support = false;
         options.temporary_storage_size = size;
@@ -158,13 +158,13 @@ fn ordinary_private_target_startup_reads_nondefault_configuration() {
         #program_export "main"
         entry :: () -> s64 #c_call {return read_size();}
     "#,
-        1048576,
+        1_048_576,
     );
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.interp.call(&c.program, entry, &[]).unwrap(),
-        vec![1048576]
+        vec![1_048_576]
     );
 }
 
@@ -180,13 +180,13 @@ fn retained_startup_callback_relocation_reads_nondefault_configuration() {
         #program_export "main"
         entry :: () -> s64 #c_call {return getter();}
     "#,
-        1048576,
+        1_048_576,
     );
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.interp.call(&c.program, entry, &[]).unwrap(),
-        vec![1048576]
+        vec![1_048_576]
     );
 }
 
@@ -204,7 +204,7 @@ fn unreachable_or_reset_callback_reads_do_not_opt_in_target_startup() {
             entry :: () -> s64 #c_call {{{call}}}
         "#
         );
-        let (c, result) = startup_reader(&runtime, 1048576);
+        let (c, result) = startup_reader(&runtime, 1_048_576);
         let error = result
             .expect_err("compile-time-only callback storage must not authorize target startup");
         assert!(
@@ -228,7 +228,7 @@ fn overwritten_retained_callback_cannot_claim_its_old_configuration_read() {
         #program_export "main"
         entry :: () -> s64 #c_call {return getter();}
     "#,
-        1048576,
+        1_048_576,
     );
     let error = result.expect_err("final retained target state replaced the old reader");
     assert!(
@@ -253,14 +253,14 @@ fn retained_startup_aggregate_and_global_cycles_preserve_reachability() {
         #program_export "main"
         entry :: () -> s64 #c_call {return root.next.callbacks[0]();}
     "#,
-        1048576,
+        1_048_576,
     );
     result.map_err(|e| e.render(&c.sources)).unwrap();
     c.finalize_runtime_configuration().unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.interp.call(&c.program, entry, &[]).unwrap(),
-        vec![1048576]
+        vec![1_048_576]
     );
 }
 
@@ -283,12 +283,12 @@ fn reviewed_public_constant_configures_target_storage_and_keeps_alias_values() {
             }}
         "#
         );
-        let (mut c, result) = startup_reader(&runtime, 1048576);
+        let (mut c, result) = startup_reader(&runtime, 1_048_576);
         result.map_err(|e| e.render(&c.sources)).unwrap();
         let entry = c.exported_func("main").unwrap();
         assert_eq!(
             c.interp.call(&c.program, entry, &[]).unwrap(),
-            vec![1048576]
+            vec![1_048_576]
         );
     }
 }
@@ -308,13 +308,13 @@ fn cached_record_layout_preserves_its_public_constant_binding_dependency() {
             return storage.bytes.count;
         }
     "#,
-        1048576,
+        1_048_576,
     );
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.interp.call(&c.program, entry, &[]).unwrap(),
-        vec![1048576]
+        vec![1_048_576]
     );
 }
 
@@ -327,13 +327,13 @@ fn runtime_scalar_public_constant_and_alias_reads_are_real_target_dependencies()
         #program_export "main"
         entry::()->s64 #c_call {return Bytes;}
     "#,
-        1048576,
+        1_048_576,
     );
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.interp.call(&c.program, entry, &[]).unwrap(),
-        vec![1048576]
+        vec![1_048_576]
     );
 }
 
@@ -351,7 +351,7 @@ fn public_constant_inspection_unused_storage_and_shadowed_names_do_not_opt_in() 
         r#"check_only::()->s64 #no_context {#assert TEMPORARY_STORAGE_SIZE==1048576; return 0;} callback:()->s64 #no_context=check_only; #program_export "main" entry::()->s64 #c_call {return callback();}"#,
     ] {
         let runtime = runtime.replace(" #program_export", "\n#program_export");
-        let (c, result) = startup_reader(&runtime, 1048576);
+        let (c, result) = startup_reader(&runtime, 1_048_576);
         let error = result
             .expect_err("compile-time inspection or a coincident number is not target consumption");
         assert!(
@@ -370,10 +370,10 @@ fn changing_final_size_cannot_leave_a_consumed_public_constant_at_an_old_value()
         #program_export "main"
         entry::()->s64 #c_call {storage[0]=1; return storage.count;}
     "#,
-        1048576,
+        1_048_576,
     );
     result.map_err(|e| e.render(&c.sources)).unwrap();
-    for size in [0, 32768, 2097152] {
+    for size in [0, 32768, 2_097_152] {
         c.options.temporary_storage_size = size;
         let error = c
             .finalize_runtime_configuration()
@@ -384,7 +384,7 @@ fn changing_final_size_cannot_leave_a_consumed_public_constant_at_an_old_value()
             error.render(&c.sources)
         );
     }
-    c.options.temporary_storage_size = 1048576;
+    c.options.temporary_storage_size = 1_048_576;
     c.finalize_runtime_configuration().unwrap();
 }
 
@@ -400,10 +400,10 @@ fn private_dynamic_reader_does_not_mask_a_stale_public_storage_extent() {
             return storage.count+__jaic_runtime_temporary_storage_size();
         }
     "#,
-        1048576,
+        1_048_576,
     );
     result.map_err(|e| e.render(&c.sources)).unwrap();
-    c.options.temporary_storage_size = 2097152;
+    c.options.temporary_storage_size = 2_097_152;
     let error = c
         .finalize_runtime_configuration()
         .expect_err("a dynamic reader cannot repair already-sized static storage");

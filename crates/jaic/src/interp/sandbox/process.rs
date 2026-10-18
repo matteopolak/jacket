@@ -13,11 +13,7 @@ impl SandboxHost {
         Some(Ok(match fun {
             LibcFn::WasmWriteString => {
                 let (len, ptr, to_stderr) = (arg(0) as usize, arg(1), arg(2) & 1 != 0);
-                let bytes = if len == 0 {
-                    Vec::new()
-                } else {
-                    unsafe { std::slice::from_raw_parts(ptr as *const u8, len) }.to_vec()
-                };
+                let bytes = read_bytes(ptr, len);
                 self.write(&bytes, to_stderr);
                 0
             }

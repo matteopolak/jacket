@@ -78,6 +78,89 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
+        match &expr.kind {
+            E::Ident(..)
+            | E::PolyVar {
+                ..
+            }
+            | E::PolyRestricted {
+                ..
+            }
+            | E::Int(..)
+            | E::Float(..)
+            | E::Char(..)
+            | E::Str(..)
+            | E::Bool(..)
+            | E::Null
+            | E::Uninit
+            | E::Context => self.check_literal_expr(f, scope, expr, expected),
+            E::Binary(..)
+            | E::Unary(..)
+            | E::Call {
+                ..
+            }
+            | E::Member(..)
+            | E::InferredMember(..)
+            | E::Index(..)
+            | E::Cast {
+                ..
+            }
+            | E::Ifx {
+                ..
+            }
+            | E::StructLit {
+                ..
+            }
+            | E::ArrayLit {
+                ..
+            }
+            | E::Lambda {
+                ..
+            }
+            | E::Block(..) => self.check_operator_expr(f, scope, expr, expected),
+            E::ArrayType {
+                ..
+            }
+            | E::ProcType(..)
+            | E::Proc(..)
+            | E::Struct(..)
+            | E::Enum(..)
+            | E::TypeDirective {
+                ..
+            } => self.check_type_expr(f, scope, expr, expected),
+            E::Run {
+                ..
+            }
+            | E::Code(..)
+            | E::Insert(..)
+            | E::Location(..)
+            | E::CallerLocation
+            | E::File
+            | E::Filepath
+            | E::Line
+            | E::ProcedureName(..)
+            | E::This
+            | E::CompileTime
+            | E::Exists(..)
+            | E::Bytes(..)
+            | E::Backtick(..)
+            | E::Bake {
+                ..
+            }
+            | E::ProcedureOfCall(..)
+            | E::CallerCode
+            | E::UnknownDirective(..)
+            | E::Asm(..) => self.check_directive_expr(f, scope, expr, expected),
+        }
+    }
+
+    fn check_literal_expr(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        expected: Option<TypeId>,
+    ) -> Result<Operand> {
         let span = expr.span;
         match &expr.kind {
             E::Ident(name) => self.check_ident(f, scope, *name, span),
@@ -136,6 +219,19 @@ impl Compiler {
                     addr: ctx,
                 })
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    fn check_operator_expr(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        expected: Option<TypeId>,
+    ) -> Result<Operand> {
+        let span = expr.span;
+        match &expr.kind {
             E::Binary(op, a, b) => self.check_binary(f, scope, *op, a, b, expected, span),
             E::Unary(op, a) => self.check_unary(f, scope, *op, a, expected, span),
             E::Call {
@@ -283,6 +379,24 @@ impl Compiler {
                 ty,
                 elems,
             } => self.check_array_literal(f, scope, ty.as_deref(), elems, expected, span),
+            E::Lambda {
+                header,
+                body,
+            } => self.check_lambda(scope, header, body, expected, span),
+            E::Block(block) => self.check_block_value(f, scope, block, expected, span),
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    fn check_type_expr(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        _expected: Option<TypeId>,
+    ) -> Result<Operand> {
+        let span = expr.span;
+        match &expr.kind {
             E::ArrayType {
                 size,
                 elem,
@@ -316,13 +430,12 @@ impl Compiler {
             E::Proc(lit) => {
                 let name = Sym::intern("anonymous_procedure");
                 let key = lit.header.id;
-                let proc = match self.anonymous_procs.get(&(key, scope)) {
-                    Some(&p) => p,
-                    None => {
-                        let p = self.new_proc(name, lit.clone(), scope, span);
-                        self.anonymous_procs.insert((key, scope), p);
-                        p
-                    }
+                let proc = if let Some(&p) = self.anonymous_procs.get(&(key, scope)) {
+                    p
+                } else {
+                    let p = self.new_proc(name, lit.clone(), scope, span);
+                    self.anonymous_procs.insert((key, scope), p);
+                    p
                 };
                 Ok(Operand::Procs(vec![proc]))
             }
@@ -354,19 +467,31 @@ impl Compiler {
                 ty,
             } => {
                 let base = self.eval_type_in(f, scope, ty)?;
-                match modifier {
-                    ast::TypeModifier::Plain => Ok(Operand::Type(base)),
-                    _ => {
-                        let isa = *modifier == ast::TypeModifier::Isa;
-                        let t = self.types.new_distinct(crate::types::DistinctInfo {
-                            name: Sym::intern("distinct"),
-                            base,
-                            isa,
-                        });
-                        Ok(Operand::Type(t))
-                    }
+                if modifier == &ast::TypeModifier::Plain {
+                    Ok(Operand::Type(base))
+                } else {
+                    let isa = *modifier == ast::TypeModifier::Isa;
+                    let t = self.types.new_distinct(crate::types::DistinctInfo {
+                        name: Sym::intern("distinct"),
+                        base,
+                        isa,
+                    });
+                    Ok(Operand::Type(t))
                 }
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+    }
+
+    fn check_directive_expr(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        expected: Option<TypeId>,
+    ) -> Result<Operand> {
+        let span = expr.span;
+        match &expr.kind {
             E::Run {
                 body,
                 flags,
@@ -534,11 +659,7 @@ impl Compiler {
                 ),
             ),
             E::Asm(block) => self.check_asm(f, scope, block),
-            E::Lambda {
-                header,
-                body,
-            } => self.check_lambda(scope, header, body, expected, span),
-            E::Block(block) => self.check_block_value(f, scope, block, expected, span),
+            _ => unreachable!("dispatched only for this group's operations"),
         }
     }
 }

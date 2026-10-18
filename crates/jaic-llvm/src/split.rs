@@ -19,7 +19,7 @@ use inkwell::llvm_sys::prelude::{LLVMModuleRef, LLVMValueRef};
 use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::Module;
 use inkwell::targets::{FileType, TargetMachine};
-use std::collections::HashMap;
+use jaic::fxhash::HashMap;
 use std::ffi::CStr;
 use std::path::{Path, PathBuf};
 
@@ -39,7 +39,7 @@ pub(crate) fn units_for(module: &Module, forced: Option<usize>) -> usize {
         return n.max(1);
     }
     let insts: usize = functions(module.as_mut_ptr()).into_iter().map(weight).sum();
-    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let cores = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
     (insts / INSTS_PER_UNIT).clamp(1, cores.min(MAX_UNITS))
 }
 
@@ -93,7 +93,9 @@ pub(crate) fn emit(
                     // it does not own before the next reads, so memory grows by about one
                     // module rather than one per unit.
                     let module = {
-                        let _turn = reading.lock().unwrap_or_else(|e| e.into_inner());
+                        let _turn = reading
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
                         let buffer = MemoryBuffer::create_from_memory_range_copy(bitcode, "jai");
                         let module = Module::parse_bitcode_from_buffer(&buffer, &context)
                             .map_err(|e| e.to_string())?;
@@ -142,6 +144,8 @@ fn keep_unit(module: &Module, owner: &HashMap<String, usize>, unit: usize) {
         return;
     }
     for g in globals(m) {
+        // SAFETY: `g` is a global of `m`, which the caller owns, and no other thread touches the
+        // module while it is being cut down.
         unsafe {
             if llvm::LLVMGetLinkage(g) == LLVMLinkage::LLVMAppendingLinkage {
                 // `llvm.used`, `llvm.global_ctors`...: unit 0 has them.
@@ -157,6 +161,7 @@ fn keep_unit(module: &Module, owner: &HashMap<String, usize>, unit: usize) {
 
 fn functions(m: LLVMModuleRef) -> Vec<LLVMValueRef> {
     let mut out = Vec::new();
+    // SAFETY: `m` is a live module and the walk follows its own function list.
     unsafe {
         let mut f = llvm::LLVMGetFirstFunction(m);
         while !f.is_null() {
@@ -169,6 +174,7 @@ fn functions(m: LLVMModuleRef) -> Vec<LLVMValueRef> {
 
 fn globals(m: LLVMModuleRef) -> Vec<LLVMValueRef> {
     let mut out = Vec::new();
+    // SAFETY: `m` is a live module and the walk follows its own global list.
     unsafe {
         let mut g = llvm::LLVMGetFirstGlobal(m);
         while !g.is_null() {
@@ -180,13 +186,16 @@ fn globals(m: LLVMModuleRef) -> Vec<LLVMValueRef> {
 }
 
 fn is_definition(f: LLVMValueRef) -> bool {
+    // SAFETY: every caller passes a function taken from a live module.
     unsafe { llvm::LLVMIsDeclaration(f) == 0 }
 }
 
 fn name(v: LLVMValueRef) -> String {
     let mut len = 0usize;
+    // SAFETY: `v` is a live value; LLVM returns a name of `len` bytes that outlives this call
+    // and is copied before returning.
     unsafe {
-        let p = llvm::LLVMGetValueName2(v, &mut len);
+        let p = llvm::LLVMGetValueName2(v, &raw mut len);
         if p.is_null() {
             return String::new();
         }
@@ -197,6 +206,8 @@ fn name(v: LLVMValueRef) -> String {
 /// Instructions in a function body.
 fn weight(f: LLVMValueRef) -> usize {
     let mut n = 0;
+    // SAFETY: `f` is a function of a live module and the walk follows its own block and
+    // instruction lists.
     unsafe {
         let mut b = llvm::LLVMGetFirstBasicBlock(f);
         while !b.is_null() {
@@ -220,9 +231,12 @@ fn expose_locals(m: LLVMModuleRef, hidden: bool) {
         .chain(
             globals(m)
                 .into_iter()
+                // SAFETY: `g` is a global of the live module `m`.
                 .filter(|&g| unsafe { !llvm::LLVMGetInitializer(g).is_null() }),
         );
     for v in defs.collect::<Vec<_>>() {
+        // SAFETY: each `v` is a function or global of the live module `m`, collected before any
+        // of them is changed; renaming and relinking invalidate none of the others.
         unsafe {
             let linkage = llvm::LLVMGetLinkage(v);
             if !matches!(
@@ -246,6 +260,9 @@ fn expose_locals(m: LLVMModuleRef, hidden: bool) {
 
 /// Turn a function definition into a declaration.
 fn strip_body(f: LLVMValueRef) {
+    // SAFETY: `f` is a definition in a module the caller owns. The blocks are collected first
+    // and every use into them is cut before any is deleted, so none is deleted while
+    // referenced, and no block or instruction is used again after its deletion.
     unsafe {
         let mut blocks = Vec::new();
         let mut b = llvm::LLVMGetFirstBasicBlock(f);
@@ -292,6 +309,8 @@ fn strip_body(f: LLVMValueRef) {
 /// subprogram).
 fn erase_debug_attachment(v: LLVMValueRef) {
     let kind: &CStr = c"dbg";
+    // SAFETY: `v` is a global of a live module, so its parent module and context exist; `kind`
+    // is a NUL-terminated string whose given length of 3 excludes the terminator.
     unsafe {
         let context = llvm::LLVMGetModuleContext(llvm::LLVMGetGlobalParent(v));
         let id = llvm::LLVMGetMDKindIDInContext(context, kind.as_ptr(), 3);

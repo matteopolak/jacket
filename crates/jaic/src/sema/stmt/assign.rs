@@ -71,16 +71,15 @@ impl Compiler {
             ast::AssignOp::Op(bin) => {
                 let getters = self.operator_candidates(scope, "[]")?;
                 let by_ptr = vec![arg(ptr_op.clone()), arg(index_op.clone())];
-                let old = match self.try_call(f, scope, &getters, by_ptr, span) {
-                    Ok(v) => v,
-                    Err(_) => {
-                        let place = Operand::Place {
-                            ty: st,
-                            addr: ptr,
-                        };
-                        let by_value = vec![arg(place), arg(index_op.clone())];
-                        self.call_procs(f, scope, &getters, by_value, None, span)?
-                    }
+                let old = if let Ok(v) = self.try_call(f, scope, &getters, by_ptr, span) {
+                    v
+                } else {
+                    let place = Operand::Place {
+                        ty: st,
+                        addr: ptr,
+                    };
+                    let by_value = vec![arg(place), arg(index_op.clone())];
+                    self.call_procs(f, scope, &getters, by_value, None, span)?
                 };
                 let (old_ty, old_val) = self.rvalue(f, old, span)?;
                 let inner = self.new_block_scope(scope);

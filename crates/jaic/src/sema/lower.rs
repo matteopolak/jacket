@@ -192,7 +192,7 @@ pub struct FnCtx {
     pub b: Builder,
     pub proc: Option<ProcId>,
     pub runtime_storage_constants: Vec<i64>,
-    /// Current `context` pointer (absent in #c_call/#no_context code).
+    /// Current `context` pointer (absent in #`c_call/#no_context` code).
     context: Option<Val>,
     context_slot: Option<Val>,
     pub return_types: Vec<TypeId>,
@@ -213,7 +213,7 @@ pub struct FnCtx {
     pub constant_only: Option<&'static str>,
     /// Macro expansion stack: (caller scope, return block, result slots, defer depth).
     pub macros: Vec<MacroFrame>,
-    /// `#insert (break=..., continue=..., remove=...) body` of for_expansion macros being
+    /// `#insert (break=..., continue=..., remove=...) body` of `for_expansion` macros being
     /// expanded (innermost last).
     pub insert_replacements: Vec<InsertReplacements>,
     /// Loop body handed to the next `for_expansion` macro expansion.
@@ -378,12 +378,12 @@ impl FnCtx {
             pending_for_body: None,
             type_only: false,
             backtick_scope: None,
-            hoisted_consts: Default::default(),
+            hoisted_consts: HashSet::default(),
             no_abc: false,
             no_aoc: false,
-            debug_scopes: Default::default(),
+            debug_scopes: HashMap::default(),
             macro_returned: false,
-            static_taken: Default::default(),
+            static_taken: HashMap::default(),
         }
     }
 }
@@ -664,13 +664,12 @@ impl Compiler {
         val: Val,
         span: Span,
     ) -> Result<()> {
-        match self.ir_ty(ty) {
-            Some(t) => f.b.store(t, addr, val),
-            None => {
-                let size = self.size_of(ty, span)?;
-                if addr != val {
-                    f.b.copy(addr, val, size);
-                }
+        if let Some(t) = self.ir_ty(ty) {
+            f.b.store(t, addr, val);
+        } else {
+            let size = self.size_of(ty, span)?;
+            if addr != val {
+                f.b.copy(addr, val, size);
             }
         }
         Ok(())

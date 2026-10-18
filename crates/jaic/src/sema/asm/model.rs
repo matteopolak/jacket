@@ -275,3 +275,31 @@ pub(super) struct Rmw {
     /// Compare-and-swap loop: (pointer, old value, retry block, exit block).
     pub(super) cas: Option<(Val, Val, BlockId, BlockId)>,
 }
+
+/// What the groups of `asm_inst` share: the instruction's name and evaluated operands.
+pub(super) struct AsmArgs<'a> {
+    pub(super) name: &'a str,
+    pub(super) base: &'a str,
+    pub(super) lock: bool,
+    pub(super) span: Span,
+    pub(super) opds: Vec<Opd>,
+}
+
+impl AsmArgs<'_> {
+    /// Checks the operand count against `lo..=hi`.
+    pub(super) fn want(&self, lo: usize, hi: usize) -> Result<()> {
+        let n = self.opds.len();
+        if n < lo || n > hi {
+            let expected = if lo == hi {
+                lo.to_string()
+            } else {
+                format!("{lo} to {hi}")
+            };
+            return err(
+                self.span,
+                format!("`{}` takes {expected} operand(s), found {n}", self.name),
+            );
+        }
+        Ok(())
+    }
+}

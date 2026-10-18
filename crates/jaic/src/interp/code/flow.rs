@@ -61,7 +61,7 @@ fn drop_jumps_to_next(list: &mut [Vec<Op>]) {
             continue;
         };
         let target = target as usize;
-        if target > p && list[p + 1..target].iter().all(|b| b.is_empty()) {
+        if target > p && list[p + 1..target].iter().all(std::vec::Vec::is_empty) {
             list[p].remove(last);
         }
     }

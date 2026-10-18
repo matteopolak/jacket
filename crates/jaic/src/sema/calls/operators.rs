@@ -124,7 +124,7 @@ impl Compiler {
         let symmetric: Vec<ProcId> = procs
             .iter()
             .copied()
-            .filter(|&p| self.proc(p).lit.header.flags.symmetric)
+            .filter(|&p| self.proc(p).lit.header.flags.symmetric())
             .collect();
         if !symmetric.is_empty() {
             let swapped = vec![args[1].clone(), args[0].clone()];
@@ -262,7 +262,10 @@ impl Compiler {
 }
 
 pub fn binop_text(op: ast::BinOp) -> &'static str {
-    use ast::BinOp::*;
+    use ast::BinOp::{
+        Add, And, BitAnd, BitOr, BitXor, Div, Eq, Ge, Gt, Le, Lt, Mul, Ne, Or, Rem, Rotl, Rotr,
+        Shl, Shr, Sub,
+    };
     match op {
         Add => "+",
         Sub => "-",

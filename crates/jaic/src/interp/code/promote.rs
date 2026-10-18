@@ -14,8 +14,8 @@
 //! The IR instructions an `Op::Ir` runs name IR values, so a value one of them reads or writes
 //! cannot be renamed; the forwarding only applies to values all of whose readers are ops.
 use super::{CodeBlock, Op};
+use crate::fxhash::HashMap;
 use crate::ir::{self, Inst, Term, Ty};
-use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Use {
@@ -459,7 +459,7 @@ pub(super) fn promote(
     // The pieces' registers, in the order of their offsets.
     let mut order: Vec<(u64, (u8, u32))> = pieces.into_iter().collect();
     order.sort_by_key(|(off, _)| *off);
-    let mut reg_of = HashMap::new();
+    let mut reg_of = HashMap::default();
     for (i, (off, (size, _))) in order.iter().enumerate() {
         reg_of.insert(*off, (base + i as u32, *size));
     }
@@ -593,7 +593,7 @@ fn pieces(func: &ir::Func, offsets: &[u64], ops: &[Op]) -> Option<HashMap<u64, (
         }
         accesses[s].push((off, size as u8));
     }
-    let mut pieces = HashMap::new();
+    let mut pieces = HashMap::default();
     for (s, list) in accesses.iter_mut().enumerate() {
         if bad[s] || list.is_empty() {
             continue;

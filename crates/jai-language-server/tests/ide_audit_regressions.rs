@@ -165,7 +165,10 @@ fn builtin_type_uses_hover_without_fabricated_source_definitions() {
     for name in ["int;", "s32;"] {
         let hover = session.hover(&uri, at(text, name)).unwrap().expect(name);
         assert!(!hover.contents.value.contains("Source syntax declaration"));
-        assert!(session.definition(&uri, at(text, name)).unwrap().is_empty());
+        assert_eq!(
+            session.definition(&uri, at(text, name)).unwrap(),
+            [] as [jai_language_server::Location; 0]
+        );
     }
 }
 
@@ -233,7 +236,10 @@ fn selector_metadata_retains_overloads_and_does_not_expose_private_or_absent_nam
             .all(|d| d.severity != DiagnosticSeverity::Error)
     );
     for name in ["secret,", "absent)"] {
-        assert!(s.definition(&uri, at(text, name)).unwrap().is_empty());
+        assert_eq!(
+            s.definition(&uri, at(text, name)).unwrap(),
+            [] as [jai_language_server::Location; 0]
+        );
     }
 }
 
@@ -264,7 +270,7 @@ fn aggregate_using_targets_keep_the_original_local_and_global_type_and_identity(
             hover.contents.value
         );
         assert!(
-            hover.contents.value.contains("R"),
+            hover.contents.value.contains('R'),
             "{}",
             hover.contents.value
         );
@@ -328,7 +334,10 @@ fn invalid_module_argument_labels_keep_failed_context_without_fabricated_targets
         coverage.program_errors > 0 && !coverage.program_complete,
         "{coverage:?}"
     );
-    assert!(s.definition(&uri, at(text, "ABSENT=")).unwrap().is_empty());
+    assert_eq!(
+        s.definition(&uri, at(text, "ABSENT=")).unwrap(),
+        [] as [jai_language_server::Location; 0]
+    );
 }
 
 #[test]

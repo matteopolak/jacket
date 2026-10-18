@@ -3,7 +3,7 @@
 //!
 //! - x86-64 System V returns an x87 `long double` in `st(0)`. Its arguments need nothing
 //!   special (they are 16-byte aligned stack slots, which `Regs` lays out).
-//! - AArch64 Linux passes and returns binary128 in whole 128-bit `q` registers, of which
+//! - `AArch64` Linux passes and returns binary128 in whole 128-bit `q` registers, of which
 //!   `call_as` only sets the low 64 bits.
 //!
 //! Both use a small assembly sequence that loads the argument registers from a block, copies
@@ -44,7 +44,11 @@ pub(super) unsafe fn call(
         value[..10].copy_from_slice(&bytes[..10]);
         // SAFETY: the out-pointer addresses `size` (16) bytes.
         unsafe {
-            std::ptr::copy_nonoverlapping(value.as_ptr(), out_ptr as *mut u8, size.min(16) as usize)
+            std::ptr::copy_nonoverlapping(
+                value.as_ptr(),
+                out_ptr as *mut u8,
+                size.min(16) as usize,
+            );
         };
         Ok(Rets::default())
     }
@@ -69,17 +73,20 @@ pub(super) unsafe fn call(
                 for p in pieces {
                     let at = out_ptr + p.offset;
                     let room = size - p.offset;
-                    // SAFETY (each write): the out-pointer addresses `size` bytes.
                     match p.ty {
                         PieceTy::I64 => {
+                            // SAFETY: the out-pointer addresses `size` bytes and `room` stays
+                            // within them.
                             unsafe { write_bytes(at, x[ni], room.min(8)) };
                             ni += 1;
                         }
                         PieceTy::F128 => {
                             let bytes = q[nq].to_le_bytes();
                             let n = room.min(16) as usize;
+                            // SAFETY: the out-pointer addresses `size` bytes and `n` stays
+                            // within them; `bytes` is host memory, so they cannot overlap.
                             unsafe {
-                                std::ptr::copy_nonoverlapping(bytes.as_ptr(), at as *mut u8, n)
+                                std::ptr::copy_nonoverlapping(bytes.as_ptr(), at as *mut u8, n);
                             };
                             nq += 1;
                         }
@@ -89,6 +96,8 @@ pub(super) unsafe fn call(
                             } else {
                                 8
                             };
+                            // SAFETY: the out-pointer addresses `size` bytes and `room`
+                            // stays within them.
                             unsafe { write_bytes(at, q[nq] as u64, room.min(width)) };
                             nq += 1;
                         }
@@ -129,7 +138,7 @@ mod x87 {
             result: [0; 16],
         };
         block.ints.copy_from_slice(&regs.ints[..6]);
-        let p: *mut Block = &mut block;
+        let p: *mut Block = &raw mut block;
         // SAFETY: the sequence restores `rsp`; `r12` (callee-saved) keeps the block address
         // across the call, `r13` the caller's stack pointer.
         unsafe {
@@ -216,7 +225,7 @@ mod vector {
             out_ints: [0; 2],
             out_quads: [0; 4],
         };
-        let p: *mut Block = &mut block;
+        let p: *mut Block = &raw mut block;
         // SAFETY: the sequence restores `sp`; `x21` (callee-saved) keeps the block address
         // across the call, `x22` the caller's stack pointer.
         unsafe {

@@ -33,7 +33,7 @@ fn project_with_an_unresolvable_import_still_answers() {
     let started = Instant::now();
     s.open(uri.clone(), 1, text).unwrap();
     let diagnostics = s.diagnostics(&uri).unwrap();
-    assert!(!diagnostics.is_empty());
+    assert_ne!(diagnostics, [] as [jai_language_server::Diagnostic; 0]);
     let elapsed = started.elapsed();
     if std::env::var("JAILSP_ENFORCE_SCALE_BUDGET").as_deref() == Ok("1") {
         assert!(elapsed < Duration::from_secs(60), "took {elapsed:?}");
@@ -81,7 +81,10 @@ fn large_document_opens_and_answers() {
     );
     let symbols = s.document_symbols(&big_uri()).unwrap();
     assert_eq!(symbols.len(), 13_001);
-    assert!(!s.semantic_tokens(&big_uri()).unwrap().is_empty());
+    assert_ne!(
+        s.semantic_tokens(&big_uri()).unwrap(),
+        [] as [jai_language_server::SemanticToken; 0]
+    );
     // Hover on the call in `main` has a type-checked answer.
     let line = text.lines().count() as u32 - 1;
     let column = text.lines().last().unwrap().find("proc_12999").unwrap() as u32 + 2;

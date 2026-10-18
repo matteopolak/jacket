@@ -3,10 +3,10 @@ use super::text::{indent_at, starts_line, stmt_extent};
 use super::{Cx, REWRITE};
 use crate::CodeAction;
 use jaic::ast::{ExprKind as E, StmtKind as S};
+use jaic::fxhash::HashSet;
 use jaic::source::line_start;
-use std::collections::HashSet;
 
-impl<'a> Cx<'a> {
+impl Cx<'_> {
     // Fill in missing cases and fields
 
     /// Add a `case .NAME;` for each member an `if x == {` on an enum does not mention.
@@ -34,7 +34,7 @@ impl<'a> Cx<'a> {
         if !members.is_enum {
             return;
         }
-        let mut named: HashSet<&str> = HashSet::new();
+        let mut named: HashSet<&str> = HashSet::default();
         for v in cases.iter().flat_map(|c| &c.values) {
             match &v.kind {
                 E::InferredMember(n) | E::Member(_, n) => {

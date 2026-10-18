@@ -1,6 +1,6 @@
 //! Laying a struct out: offsets, alignment and `using` clashes.
 use super::model::{
-    FieldDecl, FieldItem, FieldUsing, LayoutItem, OffsetNode, PathStep, UsingFilters,
+    FieldDecl, FieldItem, FieldUsing, LayoutItem, OffsetNode, PathStep, StructSource, UsingFilters,
 };
 use crate::sema::*;
 use crate::types::{Field, LayoutState, MAX_SIZE, StructId, TypeKind};
@@ -86,12 +86,9 @@ impl Compiler {
         result
     }
 
-    fn layout_struct_inner(&mut self, s: StructId) -> Result<()> {
-        let src = self
-            .struct_asts
-            .get(&s)
-            .cloned()
-            .expect("struct without source");
+    /// The members of a struct in declaration order: its fields, aliases and layout directives,
+    /// with the field declarations of `using` members resolved.
+    fn struct_field_items(&mut self, src: &StructSource) -> Result<Vec<FieldItem>> {
         let mut items = Vec::new();
         self.field_types.remove(&src.scope);
         self.field_using_order.remove(&src.scope);
@@ -159,7 +156,7 @@ impl Compiler {
         for item in &mut items {
             match item {
                 FieldItem::Declaration(scope, decl) if decl.using => {
-                    using_order.push(FieldUsing::Declaration(*scope, decl.clone()))
+                    using_order.push(FieldUsing::Declaration(*scope, decl.clone()));
                 }
                 FieldItem::Field(d) if d.using => {
                     let filter = match d.filter.as_ref() {
@@ -185,12 +182,21 @@ impl Compiler {
         for item in items {
             match item {
                 FieldItem::Declaration(scope, decl) => {
-                    self.resolve_decl_fields(scope, &decl, &mut typed_items)?
+                    self.resolve_decl_fields(scope, &decl, &mut typed_items)?;
                 }
                 other => typed_items.push(other),
             }
         }
-        let items = typed_items;
+        Ok(typed_items)
+    }
+
+    fn layout_struct_inner(&mut self, s: StructId) -> Result<()> {
+        let src = self
+            .struct_asts
+            .get(&s)
+            .cloned()
+            .expect("struct without source");
+        let items = self.struct_field_items(&src)?;
         let is_union = src.lit.kind == ast::StructKind::Union && src.lit.tag.is_none();
         let no_padding = src.lit.flags.no_padding;
         let mut fields = Vec::new();
@@ -427,7 +433,7 @@ impl Compiler {
                                         span,
                                         "overlay target offset is too large",
                                     ))
-                                })?
+                                })?;
                         }
                         PathStep::Deref => {
                             return err(

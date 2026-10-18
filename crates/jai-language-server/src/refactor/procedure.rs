@@ -5,12 +5,12 @@ use super::tree::root;
 use super::{Cx, EXTRACT, Local};
 use crate::CodeAction;
 use jaic::ast::{DeclKind, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
+use jaic::fxhash::HashSet;
 use jaic::intern::Sym;
 use jaic::source::{line_end, line_start};
 use jailint::syntax::{Node, walk};
-use std::collections::HashSet;
 
-impl<'a> Cx<'a> {
+impl Cx<'_> {
     // Extract into procedure
 
     /// Whole statements selected become a procedure; the variables they read are its
@@ -35,11 +35,11 @@ impl<'a> Cx<'a> {
             return;
         };
         let flags = &header.flags;
-        if flags.c_call
-            || flags.no_context
-            || flags.expand
-            || flags.compiler
-            || flags.intrinsic
+        if flags.c_call()
+            || flags.no_context()
+            || flags.expand()
+            || flags.compiler()
+            || flags.intrinsic()
             || header.foreign.is_some()
             || header_poly(header)
         {
@@ -234,7 +234,7 @@ impl<'a> Cx<'a> {
     fn facts(&self, selected: &[Stmt], after: &[Stmt], visible: &[Local]) -> Option<Extraction> {
         let mut declared: Vec<Sym> = Vec::new();
         let mut used: Vec<Sym> = Vec::new();
-        let mut written: HashSet<Sym> = HashSet::new();
+        let mut written: HashSet<Sym> = HashSet::default();
         let mut ok = true;
         walk(selected, &mut |n, parents| {
             match n {

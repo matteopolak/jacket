@@ -84,7 +84,7 @@ static DISPLAY_BASE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLo
 
 /// The directory paths in messages are shown relative to, when one was set.
 pub fn display_base() -> Option<&'static std::path::Path> {
-    DISPLAY_BASE.get().map(|p| p.as_path())
+    DISPLAY_BASE.get().map(std::path::PathBuf::as_path)
 }
 
 /// Set the directory paths in messages are shown relative to (once per process).

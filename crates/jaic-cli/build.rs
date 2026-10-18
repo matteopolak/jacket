@@ -113,7 +113,7 @@ fn build(out: &Path) -> Result<Vec<(String, PathBuf)>, String> {
     ])
 }
 
-/// The macOS FSEvents file watcher backend (`stdlib/internal/watching/mac.jai` binds it as
+/// The macOS `FSEvents` file watcher backend (`stdlib/internal/watching/mac.jai` binds it as
 /// `native/portable_watch`): one universal dylib. Other targets embed nothing.
 fn build_watcher(out: &Path) -> Result<Vec<(String, PathBuf)>, String> {
     if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
@@ -146,7 +146,7 @@ fn build_watcher(out: &Path) -> Result<Vec<(String, PathBuf)>, String> {
 fn run(command: &mut Command) -> Result<(), String> {
     let status = command
         .status()
-        .map_err(|e| format!("{:?}: {e}", command.get_program()))?;
+        .map_err(|e| format!("{}: {e}", command.get_program().display()))?;
     if status.success() {
         Ok(())
     } else {

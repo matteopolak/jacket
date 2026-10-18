@@ -101,17 +101,16 @@ impl Compiler {
         let addr = self.interp.global_addr(&self.program, g).map_err(|trap| {
             Box::new(self.trap_diagnostic(&trap, "cannot read using filter", Some(span)))
         })?;
-        let (count, data) = match kind {
-            ArrayKind::Fixed(n) => (n, addr),
-            _ => {
-                let Some(n) = self.interp.read_u64(addr) else {
-                    return err(span, "unreadable using filter count");
-                };
-                let Some(data) = self.interp.read_u64(addr + 8) else {
-                    return err(span, "unreadable using filter data");
-                };
-                (n, data)
-            }
+        let (count, data) = if let ArrayKind::Fixed(n) = kind {
+            (n, addr)
+        } else {
+            let Some(n) = self.interp.read_u64(addr) else {
+                return err(span, "unreadable using filter count");
+            };
+            let Some(data) = self.interp.read_u64(addr + 8) else {
+                return err(span, "unreadable using filter data");
+            };
+            (n, data)
         };
         if count > super::value::MAX_IMAGE / 16 {
             return err(span, "using filter array is too large");

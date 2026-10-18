@@ -2,10 +2,10 @@
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 
-const SETUP: &str = r#"
+const SETUP: &str = r"
 #add_context marker: s64 = 7;
 push_copy :: () #expand { copied := context; `push_context,defer_pop copied; }
-"#;
+";
 
 fn check(source: &str) {
     let mut options = Options::host();
@@ -26,7 +26,7 @@ fn overload_probes_initialize_scratch_context_storage() {
 #[test]
 fn call_context_record_callback_override_reaches_nested_calls_and_restores() {
     check(
-        r#"
+        r"
         #add_context settings: Settings;
         Settings :: struct { callback:=ordinary; }
         ordinary :: ()->s64 {return 1;}
@@ -41,7 +41,7 @@ fn call_context_record_callback_override_reaches_nested_calls_and_restores() {
             return read()==1;
         }
         #assert test();
-    "#,
+    ",
     );
 }
 

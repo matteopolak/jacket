@@ -1,6 +1,6 @@
 //! Reading and writing program memory, for the compiler and for interpreted loads and stores.
 use super::arith::plain_address;
-use super::trap::null_access;
+use super::trap::{Trap, null_access};
 use super::{FOREIGN_TAG, FUNC_TAG, Interp, Res, TAG_MASK, code};
 use crate::ir::Ty;
 
@@ -74,19 +74,14 @@ impl Interp {
         if addr < 4096 {
             return self.null_trap(null_access("write", addr));
         }
-        self.trap(format!(
-            "invalid memory access: {} bytes at {addr:#x} cannot be written",
-            bytes.len()
-        ))
+        Err(Trap::unwritable(addr, bytes.len()).at(self.loc))
     }
 
     fn unreadable<T>(&self, addr: u64, len: usize) -> Res<T> {
         if addr < 4096 {
             return self.null_trap(null_access("read", addr));
         }
-        self.trap(format!(
-            "invalid memory access: {len} bytes at {addr:#x} cannot be read"
-        ))
+        Err(Trap::unreadable(addr, len).at(self.loc))
     }
 
     /// Load a `ty` from program memory, as interpreted code does: only an address in the

@@ -567,33 +567,32 @@ impl Sources<'_> {
     fn project_files(&self, index: &mut Index, dir: &Path) -> Vec<PathBuf> {
         let key = self.key(dir);
         let dir = key.as_path();
-        let walked = match index.walked.get(dir) {
-            Some(files) => files.clone(),
-            None => {
-                let mut files = Vec::new();
-                let mut pending = vec![(dir.to_path_buf(), 0)];
-                while let Some((folder, depth)) = pending.pop() {
-                    for (entry, is_dir) in self.env.fs.list_dir(&folder) {
-                        if files.len() >= MAX_PROJECT_FILES {
-                            break;
+        let walked = if let Some(files) = index.walked.get(dir) {
+            files.clone()
+        } else {
+            let mut files = Vec::new();
+            let mut pending = vec![(dir.to_path_buf(), 0)];
+            while let Some((folder, depth)) = pending.pop() {
+                for (entry, is_dir) in self.env.fs.list_dir(&folder) {
+                    if files.len() >= MAX_PROJECT_FILES {
+                        break;
+                    }
+                    let path = folder.join(&entry);
+                    if is_dir {
+                        if depth < MAX_DEPTH
+                            && !entry.starts_with('.')
+                            && !SKIPPED_FOLDERS.contains(&entry.as_str())
+                        {
+                            pending.push((path, depth + 1));
                         }
-                        let path = folder.join(&entry);
-                        if is_dir {
-                            if depth < MAX_DEPTH
-                                && !entry.starts_with('.')
-                                && !SKIPPED_FOLDERS.contains(&entry.as_str())
-                            {
-                                pending.push((path, depth + 1));
-                            }
-                        } else if entry.ends_with(".jai") {
-                            files.push(self.key(&path));
-                        }
+                    } else if entry.ends_with(".jai") {
+                        files.push(self.key(&path));
                     }
                 }
-                let files = Rc::new(files);
-                index.walked.insert(dir.to_path_buf(), files.clone());
-                files
             }
+            let files = Rc::new(files);
+            index.walked.insert(dir.to_path_buf(), files.clone());
+            files
         };
         let mut all: BTreeSet<PathBuf> = walked.iter().cloned().collect();
         all.extend(
@@ -725,15 +724,14 @@ impl Sources<'_> {
                 .collect(),
             _ => Vec::new(),
         };
-        let (root, closure) = match found {
-            Some(found) => found,
-            None => {
-                // Up the `#load`s: a file another file loads belongs to that file's program, so
-                // it sees the names its loader declares or imports.
-                let root = self.loader_chain(index, file, base.as_deref());
-                let closure = self.closure(index, &root);
-                (root, closure)
-            }
+        let (root, closure) = if let Some(found) = found {
+            found
+        } else {
+            // Up the `#load`s: a file another file loads belongs to that file's program, so
+            // it sees the names its loader declares or imports.
+            let root = self.loader_chain(index, file, base.as_deref());
+            let closure = self.closure(index, &root);
+            (root, closure)
         };
         let root_dir = root.parent().unwrap_or(Path::new("/")).to_path_buf();
         let dir = match &base {

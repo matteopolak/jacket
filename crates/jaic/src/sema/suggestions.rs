@@ -317,7 +317,7 @@ impl Compiler {
     }
 
     /// The names a lookup from `scope` can reach without loading anything new: each enclosing
-    /// scope's own names, the modules it imports or `using`s, and Preload / Runtime_Support.
+    /// scope's own names, the modules it imports or `using`s, and Preload / `Runtime_Support`.
     fn names_visible_from(&self, scope: ScopeId) -> Vec<&'static str> {
         let mut names = Vec::new();
         let mut module_scopes = Vec::new();
@@ -393,7 +393,7 @@ impl Compiler {
         d
     }
 
-    /// `type `T` has no member `x``, with the closest member name or the members there are.
+    /// "type `T` has no member `x`", with the closest member name or the members there are.
     pub(super) fn no_member(&self, ty: crate::types::TypeId, name: Sym, span: Span) -> Diagnostic {
         use crate::types::TypeKind;
         let shown = self.types.name(ty);

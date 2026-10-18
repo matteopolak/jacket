@@ -115,7 +115,9 @@ pub(super) fn callback_addr(
     func: FuncId,
     sig: &Sig,
 ) -> Result<u64, String> {
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let k = slot_for(&mut table, SLOTS, |s| {
         s.program == program && s.func == func && s.sig == *sig
     })
@@ -134,7 +136,9 @@ pub(super) fn callback_addr(
 /// its stack arguments), `xmm` the first four XMM registers, `out` RAX and XMM0 to return.
 unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *mut [u64; 2]) {
     let (gate, program, func, sig) = {
-        let table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+        let table = TABLE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(slot) = &table[k as usize] else {
             drop(table);
             fatal("C called a procedure of an interpreter that has finished")
@@ -144,7 +148,9 @@ unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *
     // SAFETY: `common` passes its caller's argument area and its own spill area; `invoke`
     // reads only the positions the procedure's signature declares.
     let incoming = Incoming {
+        // SAFETY: as above, `i` is a position the signature declares.
         slot: |i| unsafe { slots.add(i).read() },
+        // SAFETY: as above, `i` is a position the signature declares.
         xmm: |i| unsafe { xmm.add(i).read() },
     };
     let result = enter(&*gate, program, |reenter| {
@@ -156,7 +162,9 @@ unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *
 
 /// Free every stub assigned to `gate`'s interpreter.
 pub(super) fn release(gate: &Arc<dyn Gate>) {
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     free_slots(&mut table, |s| same_gate(&s.gate, gate));
 }
 
@@ -244,7 +252,7 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
         let out = (incoming.slot)(0);
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
-            std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize)
+            std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize);
         };
         return Ok([out, 0]);
     }

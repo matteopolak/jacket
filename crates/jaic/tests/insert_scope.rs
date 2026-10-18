@@ -13,9 +13,10 @@ fn compile(source: &str) -> Result<(), String> {
 
 #[test]
 fn exact_human_declaration_insertion_is_visible_to_the_following_statement() {
-    let root = std::env::var_os("JAIC_STDLIB")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
+    let root = std::env::var_os("JAIC_STDLIB").map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
+        PathBuf::from,
+    );
     let mut options = Options::host();
     options.import_paths = vec![root.clone()];
     options.preload = Some(root.join("prelude/module.jai"));
@@ -48,7 +49,7 @@ fn unbraced_declarations_publish_but_explicit_blocks_do_not() {
 #[test]
 fn explicit_blocks_keep_locals_and_defers_inside_the_block() {
     compile(
-        r#"
+        r"
         verify::()->int {
             result:=0;
             code::#code {local:=2; defer result+=local; {local:=9;} result=1;}
@@ -56,7 +57,7 @@ fn explicit_blocks_keep_locals_and_defers_inside_the_block() {
             return result;
         }
         #assert verify()==3;
-    "#,
+    ",
     )
     .unwrap();
     let error = compile("main::(){code::#code {local:=2;} #insert code; out:=local;}")
@@ -68,7 +69,7 @@ fn explicit_blocks_keep_locals_and_defers_inside_the_block() {
 fn capture_and_explicit_scope_override_remain_distinct() {
     for (modifier, expected) in [("", 7), (",scope()", 11)] {
         compile(&format!(
-            r#"
+            r"
             verify :: ()->int {{
                 source:=7;
                 code :: #code value:=source;
@@ -79,7 +80,7 @@ fn capture_and_explicit_scope_override_remain_distinct() {
                 }}
             }}
             #assert verify()=={expected};
-        "#
+        "
         ))
         .unwrap();
     }
@@ -105,7 +106,7 @@ fn duplicate_inserted_and_receiving_declarations_are_rejected() {
 #[test]
 fn forward_constants_overloads_and_aliases_survive_insertion() {
     compile(
-        r#"
+        r"
         verify :: ()->int {
             result:=0;
             code :: #code {
@@ -123,7 +124,7 @@ fn forward_constants_overloads_and_aliases_survive_insertion() {
             return result;
         }
         #assert verify()==16;
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -131,7 +132,7 @@ fn forward_constants_overloads_and_aliases_survive_insertion() {
 #[test]
 fn inserted_using_declaration_exposes_only_its_receiving_block() {
     compile(
-        r#"
+        r"
         Record :: struct {value:int;}
         verify :: ()->int {
             code :: #code using record:=Record.{value=7};
@@ -139,18 +140,18 @@ fn inserted_using_declaration_exposes_only_its_receiving_block() {
             return value;
         }
         #assert verify()==7;
-    "#,
+    ",
     )
     .unwrap();
     let error = compile(
-        r#"
+        r"
         Record :: struct {value:int;}
         main :: () {
             code :: #code { {using record:=Record.{value=7};} }
             #insert code;
             out:=value;
         }
-    "#,
+    ",
     )
     .expect_err("nested using must not leak");
     assert!(error.contains("unknown identifier"), "{error}");
@@ -169,13 +170,13 @@ fn inserted_constants_remain_immutable() {
 #[test]
 fn inserting_inside_a_nested_receiving_block_does_not_leak_out() {
     let error = compile(
-        r#"
+        r"
         main :: () {
             code::#code value:=2;
             {#insert code; value+=1;}
             out:=value;
         }
-    "#,
+    ",
     )
     .expect_err("the receiving block still bounds visibility");
     assert!(error.contains("unknown identifier"), "{error}");
@@ -191,7 +192,7 @@ fn a_use_before_an_inserted_mutable_declaration_is_not_a_forward_local() {
 #[test]
 fn insertion_does_not_create_a_new_overload_declaration_scope() {
     compile(
-        r#"
+        r"
         verify :: ()->int {
             select :: (value:int)->int {return value+1;}
             code::#code select :: (value:bool)->int {return ifx value then 7 else 0;}
@@ -199,17 +200,17 @@ fn insertion_does_not_create_a_new_overload_declaration_scope() {
             return select(2)+select(true);
         }
         #assert verify()==10;
-    "#,
+    ",
     )
     .unwrap();
     let error = compile(
-        r#"
+        r"
         main :: () {
             select :: (value:int)->int {return value+1;}
             code::#code select :: (value:int)->int {return value+2;}
             #insert code;
         }
-    "#,
+    ",
     )
     .expect_err("a synthetic insertion lookup scope must not hide duplicate signatures");
     assert!(error.contains("identical parameter types"), "{error}");
@@ -218,7 +219,7 @@ fn insertion_does_not_create_a_new_overload_declaration_scope() {
 #[test]
 fn forward_code_value_and_sibling_receiving_blocks_are_supported() {
     compile(
-        r#"
+        r"
         verify :: ()->int {
             #insert code;
             code::#code value:=2;
@@ -229,19 +230,19 @@ fn forward_code_value_and_sibling_receiving_blocks_are_supported() {
             return sum;
         }
         #assert verify()==8;
-    "#,
+    ",
     )
     .unwrap();
 }
 
 #[test]
 fn captured_private_module_names_do_not_escape_with_new_bindings() {
-    let module = r#"
+    let module = r"
         #scope_file
         private_value :: 7;
         #scope_export
         declaration :: #code generated:=private_value;
-    "#;
+    ";
     for tail in ["return generated;", "return generated+private_value;"] {
         let source = format!(
             r#"
@@ -276,7 +277,7 @@ fn captured_private_module_names_do_not_escape_with_new_bindings() {
 #[test]
 fn callable_aliases_keep_their_selected_header_after_publication() {
     compile(
-        r#"
+        r"
         verify :: ()->int {
             operation :: (amount:int=3)->int {return amount*2;}
             code::#code callback:=operation;
@@ -286,7 +287,7 @@ fn callable_aliases_keep_their_selected_header_after_publication() {
             return callback()+callback(amount=5)+alias(amount=2);
         }
         #assert verify()==20;
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -294,7 +295,7 @@ fn callable_aliases_keep_their_selected_header_after_publication() {
 #[test]
 fn macro_private_declarations_do_not_leak_and_backtick_bindings_still_work() {
     compile(
-        r#"
+        r"
         introduce :: () #expand { `value:=7; }
         verify :: ()->int {
             code::#code introduce();
@@ -302,18 +303,18 @@ fn macro_private_declarations_do_not_leak_and_backtick_bindings_still_work() {
             return value;
         }
         #assert verify()==7;
-    "#,
+    ",
     )
     .unwrap();
     let error = compile(
-        r#"
+        r"
         hidden :: () #expand {private_value:=7;}
         main :: () {
             code::#code hidden();
             #insert code;
             out:=private_value;
         }
-    "#,
+    ",
     )
     .expect_err("macro body privacy survives insertion");
     assert!(error.contains("unknown identifier"), "{error}");
@@ -322,7 +323,7 @@ fn macro_private_declarations_do_not_leak_and_backtick_bindings_still_work() {
 #[test]
 fn inserted_local_storage_and_defers_live_until_the_receiving_block_exits() {
     compile(
-        r#"
+        r"
         verify :: ()->int {
             result:=1;
             {
@@ -336,7 +337,7 @@ fn inserted_local_storage_and_defers_live_until_the_receiving_block_exits() {
             return result;
         }
         #assert verify()==3;
-    "#,
+    ",
     )
     .unwrap();
 }

@@ -268,7 +268,7 @@ pub fn link_inputs(
     for arg in seen.concat() {
         match arg {
             LinkArg::Lib(name) if flavor == LinkFlavor::Msvc => {
-                inputs.system_libraries.push(format!("{name}.lib"))
+                inputs.system_libraries.push(format!("{name}.lib"));
             }
             LinkArg::Lib(name) => inputs.system_libraries.push(format!("-l{name}")),
             LinkArg::Framework(name) => {
@@ -278,7 +278,7 @@ pub fn link_inputs(
             LinkArg::File(path) => inputs.user_libraries.push(path),
             LinkArg::Rpath(dir) => inputs.user_libraries.push(format!("-Wl,-rpath,{dir}")),
             LinkArg::SearchDir(dir) if flavor == LinkFlavor::Msvc => {
-                inputs.user_libraries.push(format!("/LIBPATH:{dir}"))
+                inputs.user_libraries.push(format!("/LIBPATH:{dir}"));
             }
             LinkArg::SearchDir(dir) => inputs.user_libraries.push(format!("-L{dir}")),
             LinkArg::Option(option) => inputs.user_libraries.push(option),

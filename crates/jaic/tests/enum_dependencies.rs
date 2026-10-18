@@ -65,7 +65,7 @@ fn ide_forward_member_navigation_preserves_declaration_locations() {
 #[test]
 fn forward_values_qualified_members_and_implicit_numbering_keep_source_order() {
     check(
-        r#"
+        r"
         E :: enum u32 {FIRST; MASK::LAST|16; LAST::4; AFTER;}
         Q :: enum {A::Q.C+1;B;C::8;D;}
         F :: enum_flags u32 {FIRST;MASK::FIRST|LAST;LAST::4;NEXT;ZERO::0;RESTART;}
@@ -73,7 +73,7 @@ fn forward_values_qualified_members_and_implicit_numbering_keep_source_order() {
         #assert Q.A==xx 9 && Q.B==xx 10 && Q.D==xx 9;
         #assert F.MASK==xx 5 && F.NEXT==xx 8 && F.RESTART==xx 1;
         main :: () {}
-    "#,
+    ",
     );
 }
 

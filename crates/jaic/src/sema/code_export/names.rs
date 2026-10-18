@@ -17,16 +17,15 @@ impl Exporter<'_> {
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
         c.export.refresh_name_caches(c.entities.len());
-        let id = match c.export.name_lookups.get(&(scope, name)) {
-            Some(&cached) => cached?,
-            None => {
-                let found = c
-                    .lookup(scope, name)
-                    .ok()
-                    .and_then(|ids| ids.first().copied());
-                c.export.name_lookups.insert((scope, name), found);
-                found?
-            }
+        let id = if let Some(&cached) = c.export.name_lookups.get(&(scope, name)) {
+            cached?
+        } else {
+            let found = c
+                .lookup(scope, name)
+                .ok()
+                .and_then(|ids| ids.first().copied());
+            c.export.name_lookups.insert((scope, name), found);
+            found?
         };
         if let Some(&decl) = c.export.resolved_decls.get(&id) {
             return Some(decl);
@@ -107,12 +106,13 @@ impl Exporter<'_> {
     }
 
     /// Set `.VARARGS` in the `inst_flags` of a variadic parameter's declaration (`args: ..Any`),
-    /// which checkers such as Check's @PrintLike read; adds the instantiation when the
+    /// which checkers such as Check's @`PrintLike` read; adds the instantiation when the
     /// declaration has none (a polymorphic header's unresolved type).
     pub(super) fn mark_varargs(&mut self, decl: i64, span: Span) {
-        let inst = match self.r.get(decl).and_then(|d| d.field("type_inst")) {
-            Some(FieldRef::Ref(id)) => id,
-            _ => {
+        let inst =
+            if let Some(FieldRef::Ref(id)) = self.r.get(decl).and_then(|d| d.field("type_inst")) {
+                id
+            } else {
                 let rec = self.node(
                     RecordTag::CodeTypeInstantiation,
                     node::TYPE_INSTANTIATION,
@@ -126,8 +126,7 @@ impl Exporter<'_> {
                     d.set("type_inst", Field::Item(Item::Ref(id)));
                 }
                 id
-            }
-        };
+            };
         if let Some(rec) = self.r.get_mut(inst) {
             let existing = match rec.field("inst_flags") {
                 Some(FieldRef::Int(flags)) => flags,

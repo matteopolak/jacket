@@ -1,3 +1,13 @@
-# `clippy::excessive_nesting` (enabled in each crate's `[lints.clippy]`) fires on blocks nested deeper
-# than this. See docs/tools/development.md.
+# Thresholds for the workspace lints in the root `Cargo.toml` (`[workspace.lints.clippy]`).
+# `excessive_nesting` fires on blocks nested deeper than this. See docs/tools/development.md.
 excessive-nesting-threshold = 7
+cognitive-complexity-threshold = 40
+# A ratchet: set just above the longest function left after the splits (measured from 150).
+# Lower it as the remaining long dispatch functions are split.
+too-many-lines-threshold = 300
+
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "use `jaic::fxhash::HashMap` (Fx hasher; the default SipHash is slow for compiler workloads)" },
+    { path = "std::collections::HashSet", reason = "use `jaic::fxhash::HashSet` (Fx hasher; the default SipHash is slow for compiler workloads)" },
+    { path = "std::collections::LinkedList", reason = "use `Vec` or `VecDeque`; a linked list is cache-hostile and nothing here needs O(1) splicing" },
+]

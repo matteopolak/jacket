@@ -32,12 +32,12 @@ type Md = LLVMMetadataRef;
 pub enum DebugFormat {
     /// DWARF version 4 (Apple) or 5.
     Dwarf(u32),
-    /// Windows PDB-style CodeView (`-windows-msvc` targets).
+    /// Windows PDB-style `CodeView` (`-windows-msvc` targets).
     CodeView,
 }
 
 impl DebugFormat {
-    pub fn for_target(target: &jaic::target::Target) -> Self {
+    pub fn for_target(target: jaic::target::Target) -> Self {
         if target.is_windows() && target.abi == jaic::target::TargetAbi::Msvc {
             DebugFormat::CodeView
         } else if target.is_apple() {
@@ -59,24 +59,28 @@ const DW_ATE_UNSIGNED: u32 = 0x07;
 const DW_ATE_UNSIGNED_CHAR: u32 = 0x08;
 const DW_OP_DEREF: u64 = 0x06;
 
-/// Thin wrappers over the LLVM-C DIBuilder functions this module uses.
+/// Thin wrappers over the LLVM-C `DIBuilder` functions this module uses.
 mod raw {
     use super::*;
     use std::ffi::c_char;
 
     fn s(text: &str) -> (*const c_char, usize) {
-        (text.as_ptr() as *const c_char, text.len())
+        (text.as_ptr().cast::<c_char>(), text.len())
     }
 
     pub fn file(b: LLVMDIBuilderRef, name: &str, dir: &str) -> Md {
         let (n, nl) = s(name);
         let (d, dl) = s(dir);
+        // SAFETY: `b` is a live DIBuilder; the name and directory are (pointer, length) pairs that
+        // LLVM copies, so they need no terminator and may be dropped after the call.
         unsafe { di::LLVMDIBuilderCreateFile(b, n, nl, d, dl) }
     }
 
     pub fn compile_unit(b: LLVMDIBuilderRef, file: Md, optimized: bool) -> Md {
         let (p, pl) = s("jaic");
         let empty = s("");
+        // SAFETY: `b` is a live DIBuilder and `file` its file metadata; the producer and the empty
+        // strings are (pointer, length) pairs that LLVM copies.
         unsafe {
             di::LLVMDIBuilderCreateCompileUnit(
                 b,
@@ -114,6 +118,8 @@ mod raw {
     ) -> Md {
         let (n, nl) = s(name);
         let (l, ll) = s(linkage);
+        // SAFETY: `b`, `file` and `ty` are live metadata of one builder; the name and linkage name
+        // are (pointer, length) pairs that LLVM copies.
         unsafe {
             di::LLVMDIBuilderCreateFunction(
                 b,
@@ -136,14 +142,19 @@ mod raw {
 
     pub fn subroutine_type(b: LLVMDIBuilderRef, file: Md) -> Md {
         let mut params: [Md; 1] = [std::ptr::null_mut()];
+        // SAFETY: `b` and `file` are live; `params` is one null entry (an unspecified return type)
+        // that outlives the call.
         unsafe { di::LLVMDIBuilderCreateSubroutineType(b, file, params.as_mut_ptr(), 1, 0) }
     }
 
     pub fn lexical_block(b: LLVMDIBuilderRef, scope: Md, file: Md, line: u32, col: u32) -> Md {
+        // SAFETY: `b`, `scope` and `file` are live metadata of one builder.
         unsafe { di::LLVMDIBuilderCreateLexicalBlock(b, scope, file, line, col) }
     }
 
     pub fn location(ctx: &Context, line: u32, col: u32, scope: Md) -> Md {
+        // SAFETY: `ctx` is the context the module was created in and `scope` is live metadata of
+        // it; the inlined-at location is null (none).
         unsafe {
             di::LLVMDIBuilderCreateDebugLocation(
                 ctx.as_ctx_ref(),
@@ -156,25 +167,33 @@ mod raw {
     }
 
     pub fn set_location(builder: &Builder, loc: Md) {
+        // SAFETY: `builder` is a live builder and `loc` is debug-location metadata of its context.
         unsafe { inkwell::llvm_sys::core::LLVMSetCurrentDebugLocation2(builder.as_mut_ptr(), loc) }
     }
 
     pub fn set_subprogram(function: FunctionValue, sp: Md) {
+        // SAFETY: `function` is a live function and `sp` the subprogram metadata of the module's
+        // builder.
         unsafe { di::LLVMSetSubprogram(function.as_value_ref(), sp) }
     }
 
     pub fn basic(b: LLVMDIBuilderRef, name: &str, bits: u64, encoding: u32) -> Md {
         let (n, nl) = s(name);
+        // SAFETY: `b` is a live DIBuilder; the name is a (pointer, length) pair that LLVM copies.
         unsafe { di::LLVMDIBuilderCreateBasicType(b, n, nl, bits, encoding, 0) }
     }
 
     pub fn pointer(b: LLVMDIBuilderRef, pointee: Md, name: &str) -> Md {
         let (n, nl) = s(name);
+        // SAFETY: `b` is a live DIBuilder and `pointee` its metadata; the name is a (pointer,
+        // length) pair that LLVM copies.
         unsafe { di::LLVMDIBuilderCreatePointerType(b, pointee, 64, 0, 0, n, nl) }
     }
 
     pub fn typedef(b: LLVMDIBuilderRef, ty: Md, name: &str, file: Md, scope: Md) -> Md {
         let (n, nl) = s(name);
+        // SAFETY: `b`, `ty`, `file` and `scope` are live metadata of one builder; the name is a
+        // (pointer, length) pair that LLVM copies.
         unsafe { di::LLVMDIBuilderCreateTypedef(b, ty, n, nl, file, 0, scope, 0) }
     }
 
@@ -189,6 +208,8 @@ mod raw {
     ) -> Md {
         let (n, nl) = s(name);
         let empty = s("");
+        // SAFETY: `b`, `scope` and `file` are live metadata of one builder; the name and the empty
+        // identifier are (pointer, length) pairs that LLVM copies.
         unsafe {
             di::LLVMDIBuilderCreateReplaceableCompositeType(
                 b, tag, n, nl, scope, file, 0, 0, bits, align_bits, 0, empty.0, 0,
@@ -207,6 +228,8 @@ mod raw {
         ty: Md,
     ) -> Md {
         let (n, nl) = s(name);
+        // SAFETY: `b`, `scope`, `file` and `ty` are live metadata of one builder; the name is a
+        // (pointer, length) pair that LLVM copies.
         unsafe {
             di::LLVMDIBuilderCreateMemberType(
                 b,
@@ -237,6 +260,9 @@ mod raw {
         let (n, nl) = s(name);
         let empty = s("");
         let count = members.len() as u32;
+        // SAFETY: `b`, `scope` and `file` are live metadata of one builder, and `members` is a live
+        // array of its member metadata whose length is passed as the count; the name and identifier
+        // are (pointer, length) pairs that LLVM copies.
         unsafe {
             if union {
                 di::LLVMDIBuilderCreateUnionType(
@@ -279,10 +305,14 @@ mod raw {
     }
 
     pub fn replace(temp: Md, real: Md) {
+        // SAFETY: `temp` is a replaceable forward declaration from `forward_struct` and `real` the
+        // finished type of the same builder.
         unsafe { di::LLVMMetadataReplaceAllUsesWith(temp, real) }
     }
 
     pub fn array(b: LLVMDIBuilderRef, elem: Md, count: u64, bits: u64, align_bits: u32) -> Md {
+        // SAFETY: `b` and `elem` are live; the subrange and the one-element array of it outlive the
+        // call.
         unsafe {
             let mut sub = [di::LLVMDIBuilderGetOrCreateSubrange(b, 0, count as i64)];
             di::LLVMDIBuilderCreateArrayType(b, bits, align_bits, elem, sub.as_mut_ptr(), 1)
@@ -304,10 +334,15 @@ mod raw {
             .iter()
             .map(|(m, v)| {
                 let (n, nl) = s(m);
+                // SAFETY: `b` is a live DIBuilder; the enumerator name is a (pointer, length) pair
+                // that LLVM copies.
                 unsafe { di::LLVMDIBuilderCreateEnumerator(b, n, nl, *v, unsigned as i32) }
             })
             .collect();
         let (n, nl) = s(name);
+        // SAFETY: `b`, `scope`, `file` and `base` are live metadata of one builder, and `elements`
+        // is a live array of enumerator metadata whose length is passed as the count; the name is a
+        // (pointer, length) pair that LLVM copies.
         unsafe {
             di::LLVMDIBuilderCreateEnumerationType(
                 b,
@@ -326,6 +361,8 @@ mod raw {
     }
 
     pub fn expression(b: LLVMDIBuilderRef, ops: &mut [u64]) -> Md {
+        // SAFETY: `b` is a live DIBuilder and `ops` a live slice whose length is passed as the
+        // count.
         unsafe { di::LLVMDIBuilderCreateExpression(b, ops.as_mut_ptr(), ops.len()) }
     }
 
@@ -339,6 +376,8 @@ mod raw {
         ty: Md,
     ) -> Md {
         let (n, nl) = s(name);
+        // SAFETY: `b`, `scope`, `file` and `ty` are live metadata of one builder; the name is a
+        // (pointer, length) pair that LLVM copies.
         unsafe {
             if arg > 0 {
                 di::LLVMDIBuilderCreateParameterVariable(b, scope, n, nl, arg, file, line, ty, 1, 0)
@@ -356,6 +395,8 @@ mod raw {
         loc: Md,
         block: BasicBlock,
     ) {
+        // SAFETY: `b`, `var`, `expr` and `loc` are live metadata of one builder, and `storage` and
+        // `block` live values of the function being lowered.
         unsafe {
             di::LLVMDIBuilderInsertDeclareRecordAtEnd(
                 b,
@@ -381,6 +422,8 @@ mod raw {
     ) -> Md {
         let (n, nl) = s(name);
         let (l, ll) = s(linkage);
+        // SAFETY: `b`, `scope`, `file`, `ty` and `expr` are live metadata of one builder; the name
+        // and linkage name are (pointer, length) pairs that LLVM copies.
         unsafe {
             di::LLVMDIBuilderCreateGlobalVariableExpression(
                 b,
@@ -401,23 +444,28 @@ mod raw {
     }
 
     pub fn attach_global(global: GlobalValue, kind: u32, gve: Md) {
+        // SAFETY: `global` is a live global of the module and `gve` its global-variable-expression
+        // metadata.
         unsafe { inkwell::llvm_sys::core::LLVMGlobalSetMetadata(global.as_value_ref(), kind, gve) }
     }
 
     pub fn create(module: &Module) -> LLVMDIBuilderRef {
+        // SAFETY: `module` is a live module; the builder lives until `dispose`.
         unsafe { di::LLVMCreateDIBuilder(module.as_mut_ptr()) }
     }
 
     pub fn finalize(b: LLVMDIBuilderRef) {
+        // SAFETY: `b` is a live DIBuilder that has not been disposed.
         unsafe { di::LLVMDIBuilderFinalize(b) }
     }
 
     pub fn dispose(b: LLVMDIBuilderRef) {
+        // SAFETY: `b` is a live DIBuilder, and no metadata it made is used afterwards.
         unsafe { di::LLVMDisposeDIBuilder(b) }
     }
 }
 
-/// Module-wide debug info state: the DIBuilder, compile unit, files and types.
+/// Module-wide debug info state: the `DIBuilder`, compile unit, files and types.
 pub struct DebugInfo<'ctx, 'p> {
     ctx: &'ctx Context,
     builder: LLVMDIBuilderRef,
@@ -868,7 +916,7 @@ impl<'ctx> FnDebug<'ctx> {
         // (slot, value) pairs the body stores as a scalar. An aggregate parameter arrives as
         // a pointer that the body copies from; storing that pointer into the parameter's slot
         // would write the address, not the value, and past the end of a slot under 8 bytes.
-        let mut scalar_stores = std::collections::HashSet::new();
+        let mut scalar_stores = jaic::fxhash::HashSet::default();
         for inst in func.blocks.iter().flat_map(|b| &b.insts) {
             if let Inst::Store {
                 addr,
@@ -885,7 +933,7 @@ impl<'ctx> FnDebug<'ctx> {
         let deref = raw::expression(di.builder, &mut [DW_OP_DEREF]);
         let direct = raw::expression(di.builder, &mut []);
         let ptr_ty = di.ctx.ptr_type(inkwell::AddressSpace::default());
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = jaic::fxhash::HashSet::default();
         for var in &debug.vars {
             if !seen.insert((var.name.as_str(), var.scope, var.line, var.col, var.arg)) {
                 continue;

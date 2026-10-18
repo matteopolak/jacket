@@ -14,7 +14,6 @@ impl Compiler {
     ) -> Result<()> {
         let SimdLocals {
             span,
-            name,
             dst,
             tmp,
             width,
@@ -24,6 +23,9 @@ impl Compiler {
             ..
         } = *c;
         match op {
+            SOp::Aes(..) | SOp::Scatter(..) | SOp::MaskMov(..) => {
+                self.simd_aes_scatter(f, cx, c, op)?;
+            }
             SOp::Compress(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let n = width / ty.size();
@@ -38,34 +40,31 @@ impl Compiler {
                     let on = resize(f, on, Ty::I8, Ty::I64, false);
                     pos = bin(f, BinOp::Add, Ty::I64, pos, on);
                 }
-                match dst {
-                    VOpd::Mem(addr) => {
-                        // Memory receives only the active elements.
-                        let p = ptr_of(f, addr);
-                        for j in 0..n {
-                            let jv = konst(f, Ty::I64, j);
-                            let inside = cmp(f, CmpOp::ULt, Ty::I64, jv, pos);
-                            let v = load_lane(f, tmp, j, ty);
-                            when(f, inside, |f| store_lane(f, p, j, ty, v));
-                        }
+                if let VOpd::Mem(addr) = dst {
+                    // Memory receives only the active elements.
+                    let p = ptr_of(f, addr);
+                    for j in 0..n {
+                        let jv = konst(f, Ty::I64, j);
+                        let inside = cmp(f, CmpOp::ULt, Ty::I64, jv, pos);
+                        let v = load_lane(f, tmp, j, ty);
+                        when(f, inside, |f| store_lane(f, p, j, ty, v));
                     }
-                    _ => {
-                        let old = self.vec_ptr(f, dst, span)?;
-                        let zeroing = wm.is_some_and(|w| w.zeroing);
-                        for j in 0..n {
-                            let jv = konst(f, Ty::I64, j);
-                            let inside = cmp(f, CmpOp::ULt, Ty::I64, jv, pos);
-                            let v = load_lane(f, tmp, j, ty);
-                            let keep = if zeroing {
-                                konst(f, ty, 0)
-                            } else {
-                                load_lane(f, old, j, ty)
-                            };
-                            let r = select(f, ty, inside, v, keep);
-                            store_lane(f, tmp, j, ty, r);
-                        }
-                        self.simd_out(f, cx, dst, tmp, width, span)?;
+                } else {
+                    let old = self.vec_ptr(f, dst, span)?;
+                    let zeroing = wm.is_some_and(|w| w.zeroing);
+                    for j in 0..n {
+                        let jv = konst(f, Ty::I64, j);
+                        let inside = cmp(f, CmpOp::ULt, Ty::I64, jv, pos);
+                        let v = load_lane(f, tmp, j, ty);
+                        let keep = if zeroing {
+                            konst(f, ty, 0)
+                        } else {
+                            load_lane(f, old, j, ty)
+                        };
+                        let r = select(f, ty, inside, v, keep);
+                        store_lane(f, tmp, j, ty, r);
                     }
+                    self.simd_out(f, cx, dst, tmp, width, span)?;
                 }
             }
             SOp::Expand(ty) => {
@@ -182,6 +181,26 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
+            _ => unreachable!("routed by asm_simd"),
+        }
+        Ok(())
+    }
+
+    fn simd_aes_scatter(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        c: &SimdLocals<'_>,
+        op: SOp,
+    ) -> Result<()> {
+        let span = c.span;
+        let name = c.name;
+        let dst = c.dst;
+        let tmp = c.tmp;
+        let width = c.width;
+        let wm = c.wm;
+        let ops = c.ops;
+        match op {
             SOp::Aes(aes) => {
                 let (s, k) = match aes {
                     AesOp::Imc => self.simd_args(f, ops, 1, false, span)?,
@@ -339,7 +358,7 @@ impl Compiler {
                     }
                 }
             }
-            _ => unreachable!("routed by asm_simd"),
+            _ => unreachable!("dispatched only for this group's operations"),
         }
         Ok(())
     }

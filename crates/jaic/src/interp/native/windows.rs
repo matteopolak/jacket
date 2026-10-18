@@ -9,12 +9,13 @@
 //! (integer or float). Aggregates follow `abi::classify_arg(Arch::Win64)`: 1, 2, 4 or 8 bytes
 //! in one slot, anything else as a pointer to a copy; non-register results come back through
 //! a hidden pointer in the first slot.
-#[cfg(target_arch = "x86_64")]
 use super::{read_bytes, write_bytes};
 #[cfg(target_arch = "x86_64")]
 use crate::abi::{self, Arch, Passing};
 #[cfg(target_arch = "x86_64")]
 use crate::interp::Rets;
+#[cfg(target_arch = "x86_64")]
+use crate::interp::word_or_zero;
 #[cfg(target_arch = "x86_64")]
 use crate::ir::{Sig, Ty};
 use std::ffi::c_void;
@@ -538,7 +539,10 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
     ] = *slots;
     if first_float {
         type Proto<R> = unsafe extern "C" fn(f64, ...) -> R;
+        // SAFETY: `addr` is a function with this variadic prototype; the callee's declared C
+        // signature matches the slots.
         let p: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: the callee's declared C signature matches these slots.
         unsafe {
             p(
                 f(0),
@@ -569,7 +573,10 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
         }
     } else {
         type Proto<R> = unsafe extern "C" fn(u64, ...) -> R;
+        // SAFETY: `addr` is a function with this variadic prototype; the callee's declared C
+        // signature matches the slots.
         let p: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+        // SAFETY: the callee's declared C signature matches these slots.
         unsafe {
             p(
                 slots[0],
@@ -611,7 +618,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
         .filter(|_| !forced_sret)
         .and_then(|l| abi::classify_ret(Arch::Win64, l));
     let out_index = ret_layout.map(|_| sig.out_index());
-    let out_ptr = out_index.and_then(|i| args.get(i).copied()).unwrap_or(0);
+    let out_ptr = out_index.map_or(0, |i| word_or_zero(args, i));
     let mut slots: Vec<u64> = Vec::new();
     let mut first_float = false;
     // The hidden result pointer is the first argument.
@@ -643,9 +650,9 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         a as *const u8,
-                        copy.as_mut_ptr() as *mut u8,
+                        copy.as_mut_ptr().cast::<u8>(),
                         layout.size as usize,
-                    )
+                    );
                 };
                 slots.push(copy.as_ptr() as u64);
                 copies.push(copy);
@@ -659,13 +666,14 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     }
     let mut padded = [0u64; SLOTS];
     padded[..slots.len()].copy_from_slice(&slots);
-    // SAFETY (all calls): the callee's declared C signature matches these slots.
     let result = match (ret_layout, ret_pieces) {
         (Some(_), None) => {
+            // SAFETY: the callee's declared C signature matches these slots.
             unsafe { call_slots::<u64>(addr, &padded, first_float) };
             Rets::default()
         }
         (Some(layout), Some(pieces)) => {
+            // SAFETY: the callee's declared C signature matches these slots.
             let value = unsafe { call_slots::<u64>(addr, &padded, first_float) };
             if !pieces.is_empty() {
                 // SAFETY: the out-pointer addresses `layout.size` writable bytes.
@@ -675,6 +683,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
         }
         (None, _) => match sig.returns.first().copied() {
             Some(t) if t.is_float() => {
+                // SAFETY: the callee's declared C signature matches these slots.
                 let bits = unsafe { call_slots::<f64>(addr, &padded, first_float) }.to_bits();
                 Rets::one(if t == Ty::F32 {
                     bits & 0xffff_ffff
@@ -683,6 +692,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
                 })
             }
             Some(t) => {
+                // SAFETY: the callee's declared C signature matches these slots.
                 let r = unsafe { call_slots::<u64>(addr, &padded, first_float) };
                 Rets::one(match t {
                     Ty::I8 => r & 0xff,
@@ -692,6 +702,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
                 })
             }
             None => {
+                // SAFETY: the callee's declared C signature matches these slots.
                 unsafe { call_slots::<u64>(addr, &padded, first_float) };
                 Rets::default()
             }

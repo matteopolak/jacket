@@ -515,7 +515,10 @@ mod tests {
             "na"
         );
         assert!(call.args[0].literal && call.args[2].spread);
-        assert_eq!(call.args[1].name.map(|s| s.as_str()), Some("na"));
+        assert_eq!(
+            call.args[1].name.map(crate::intern::Sym::as_str),
+            Some("na")
+        );
         assert!(site("g(\"a, b\")", "b\"").is_none());
         assert!(site("g(h(1), x)", "1)").is_none());
         assert!(site("g(a,, b)", " b").is_none());

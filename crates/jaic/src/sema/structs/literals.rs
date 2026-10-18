@@ -65,8 +65,8 @@ impl Compiler {
         let (targeted, args): (Vec<&ast::Arg>, Vec<&ast::Arg>) =
             args.iter().partition(|a| a.target.is_some());
         for arg in args {
-            let (path, mty) = match arg.name {
-                Some(n) => match self.find_member(ty, n.name, n.span)? {
+            let (path, mty) = if let Some(n) = arg.name {
+                match self.find_member(ty, n.name, n.span)? {
                     Some(m) => {
                         self.ide_note_member_use(n.span, ty, n.name);
                         self.ide_note_member_ref(n.span, n.name, m.1);
@@ -75,17 +75,16 @@ impl Compiler {
                     None => {
                         return Err(Box::new(self.no_member(ty, n.name, n.span)));
                     }
-                },
-                None => {
-                    let Some(&(_, mty, off)) = members.get(positional) else {
-                        return err(
-                            arg.value.span,
-                            format!("too many values for {}", self.types.name(ty)),
-                        );
-                    };
-                    positional += 1;
-                    (vec![PathStep::Offset(off)], mty)
                 }
+            } else {
+                let Some(&(_, mty, off)) = members.get(positional) else {
+                    return err(
+                        arg.value.span,
+                        format!("too many values for {}", self.types.name(ty)),
+                    );
+                };
+                positional += 1;
+                (vec![PathStep::Offset(off)], mty)
             };
             let op = self.check_expr(f, scope, &arg.value, Some(mty))?;
             let op = self.convert(f, op, mty, arg.value.span)?;

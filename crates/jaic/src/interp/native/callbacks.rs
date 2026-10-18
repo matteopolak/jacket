@@ -10,6 +10,7 @@
 use super::{FF, FFF, FFFF, FI, IF, II, STACK_SLOTS, X86_64, read_bytes, write_bytes};
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::interp::Trap;
+use crate::interp::word_or_zero;
 use crate::ir::{FuncId, Sig};
 use std::cell::Cell;
 use std::sync::{Arc, Mutex};
@@ -82,7 +83,9 @@ fn same_gate(a: &Arc<dyn Gate>, b: &Arc<dyn Gate>) -> bool {
 
 /// Free every thunk made for `gate`'s interpreter.
 pub fn release(gate: &Arc<dyn Gate>) {
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     for family in table.iter_mut() {
         free_slots(family, |s| same_gate(&s.gate, gate));
     }
@@ -129,7 +132,7 @@ const INT: usize = 0;
 
 const FLOAT: usize = 1;
 
-/// AArch64 `sret`: the caller's result address arrives in `x8`, which no prototype parameter
+/// `AArch64` `sret`: the caller's result address arrives in `x8`, which no prototype parameter
 /// sees. These thunks are assembly stubs that park `x8` in a stack word and call a regular
 /// thunk (`a64_sret_inner`), which finds it there.
 const A64_SRET: usize = 8;
@@ -201,7 +204,9 @@ pub fn callback_addr(
             }
         },
     };
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let slots = &mut table[shape];
     let k = slot_for(slots, SLOTS, |s| {
         s.program == program && s.func == func && s.sig == *sig
@@ -244,19 +249,15 @@ trait Ret {
     fn from_words(w: &[u64]) -> Self;
 }
 
-fn word(w: &[u64], i: usize) -> u64 {
-    w.get(i).copied().unwrap_or(0)
-}
-
 fn float(w: &[u64], i: usize) -> f64 {
-    f64::from_bits(word(w, i))
+    f64::from_bits(word_or_zero(w, i))
 }
 
 impl Ret for u64 {
     const SHAPE: usize = INT;
 
     fn from_words(w: &[u64]) -> Self {
-        word(w, 0)
+        word_or_zero(w, 0)
     }
 }
 
@@ -272,7 +273,7 @@ impl Ret for II {
     const SHAPE: usize = 2;
 
     fn from_words(w: &[u64]) -> Self {
-        II(word(w, 0), word(w, 1))
+        II(word_or_zero(w, 0), word_or_zero(w, 1))
     }
 }
 
@@ -280,7 +281,7 @@ impl Ret for IF {
     const SHAPE: usize = 3;
 
     fn from_words(w: &[u64]) -> Self {
-        IF(word(w, 0), float(w, 1))
+        IF(word_or_zero(w, 0), float(w, 1))
     }
 }
 
@@ -288,7 +289,7 @@ impl Ret for FI {
     const SHAPE: usize = 4;
 
     fn from_words(w: &[u64]) -> Self {
-        FI(float(w, 0), word(w, 1))
+        FI(float(w, 0), word_or_zero(w, 1))
     }
 }
 
@@ -345,7 +346,7 @@ macro_rules! family {
     };
 }
 
-/// The regular thunk an AArch64 `sret` stub calls: `dispatch` reads `x8` from the stub's frame.
+/// The regular thunk an `AArch64` `sret` stub calls: `dispatch` reads `x8` from the stub's frame.
 #[cfg(target_arch = "aarch64")]
 #[rustfmt::skip]
 extern "C" fn a64_sret_inner<const K: usize>(
@@ -361,7 +362,7 @@ extern "C" fn a64_sret_inner<const K: usize>(
     0
 }
 
-/// The C-callable entry of AArch64 `sret` slot `K`: saves `x8` (and the frame record) in a
+/// The C-callable entry of `AArch64` `sret` slot `K`: saves `x8` (and the frame record) in a
 /// 32-byte frame, then calls `a64_sret_inner` with the arguments untouched.
 #[cfg(target_arch = "aarch64")]
 #[unsafe(naked)]
@@ -437,14 +438,16 @@ fn dispatch(
     let (x8, stack) = if shape == A64_SRET {
         let mut shifted = [0u64; STACK_SLOTS];
         for (i, w) in shifted.iter_mut().enumerate() {
-            *w = stack.get(i + 4).copied().unwrap_or(0);
+            *w = word_or_zero(&stack, i + 4);
         }
         (Some(stack[2]), shifted)
     } else {
         (None, stack)
     };
     let (gate, program, func, sig, sret) = {
-        let table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+        let table = TABLE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(slot) = &table[shape][k] else {
             drop(table);
             fatal("C called a procedure of an interpreter that has finished")
@@ -476,7 +479,7 @@ struct Incoming {
 
 impl Incoming {
     fn stack(&mut self) -> u64 {
-        let v = self.stack.get(self.ns).copied().unwrap_or(0);
+        let v = word_or_zero(&self.stack, self.ns);
         self.ns += 1;
         self.tail = 0;
         v
@@ -492,7 +495,7 @@ impl Incoming {
             return v & mask;
         }
         self.tail = at + size;
-        let slot = self.stack.get(self.ns - 1).copied().unwrap_or(0);
+        let slot = word_or_zero(&self.stack, self.ns - 1);
         (slot >> (at * 8)) & mask
     }
 
@@ -614,12 +617,12 @@ fn invoke(
             }
             Passing::Registers(pieces) => {
                 incoming.exhaust(&pieces);
-                for w in buffer.iter_mut() {
+                for w in &mut buffer {
                     *w = incoming.stack();
                 }
             }
             Passing::ByVal => {
-                for w in buffer.iter_mut() {
+                for w in &mut buffer {
                     *w = incoming.stack();
                 }
             }
@@ -639,7 +642,7 @@ fn invoke(
         let out = x8.unwrap_or(ints[0]);
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
-            std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize)
+            std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize);
         };
         return Ok(vec![out]);
     }

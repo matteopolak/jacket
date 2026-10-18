@@ -35,7 +35,7 @@ pub struct Cx<'a, 'ctx> {
     pub target: &'a Target,
 }
 
-impl<'a, 'ctx> Cx<'a, 'ctx> {
+impl<'ctx> Cx<'_, 'ctx> {
     /// An unaligned load of `lanes` bytes.
     pub(crate) fn load_bytes(&self, ptr: PointerValue<'ctx>, lanes: u32) -> R<VectorValue<'ctx>> {
         let ty = self.ctx.i8_type().vec_type(lanes);
@@ -59,7 +59,7 @@ impl<'a, 'ctx> Cx<'a, 'ctx> {
             return Ok(base);
         }
         let at = self.ctx.i64_type().const_int(offset, false);
-        // Inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
+        // SAFETY: inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
         #[allow(unsafe_code)]
         let p = unsafe {
             self.builder

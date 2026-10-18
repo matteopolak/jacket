@@ -48,7 +48,7 @@ fn enum_dependencies_execute_native_and_wasm_at_o0_and_o2() {
                     .arg(&object)
                     .arg("-o")
                     .arg(&module));
-                run(Command::new("node").args(["-e", r#"
+                run(Command::new("node").args(["-e", r"
                     const fs=require('fs');
                     const module=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
                     const env={}; let memory;
@@ -61,7 +61,7 @@ fn enum_dependencies_execute_native_and_wasm_at_o0_and_o2() {
                     const instance=new WebAssembly.Instance(module,{env}); memory=instance.exports.memory;
                     const result=instance.exports.enum_dependency_check();
                     if(result!==0)throw Error('enum dependency failure '+result);
-                "#]).arg(&module));
+                "]).arg(&module));
             } else {
                 let driver = dir.join("driver.c");
                 std::fs::write(&driver,"#include <stdint.h>\nextern int32_t enum_dependency_check(void); int main(void){return enum_dependency_check();}\n").unwrap();

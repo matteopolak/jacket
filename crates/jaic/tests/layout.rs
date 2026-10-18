@@ -11,7 +11,7 @@ fn reflected_struct_alignment_matches_completed_layout() {
     options.import_paths = vec![stdlib.clone()];
     options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
     let mut c = Compiler::new(options, Rc::new(jaic::sema::NativeFs));
-    let source = r#"
+    let source = r"
         Record :: struct { value: u64; }
         Packed :: struct #no_padding { first: u8; second: u64; }
         Wide :: struct #align 32 { value: u8; }
@@ -21,7 +21,7 @@ fn reflected_struct_alignment_matches_completed_layout() {
         #assert((cast(*Type_Info_Struct) type_info(Wide)).alignment == 32);
         #assert((cast(*Type_Info_Struct) type_info(Box(u64))).alignment == 8);
         main :: () {}
-    "#;
+    ";
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", error.render(&c.sources));
     }
@@ -76,7 +76,7 @@ fn embedded_using_filter_applies_to_member_lookup() {
         "Base :: struct { x: int; y: int; } Outer :: struct { using,only(x) base: Base; } object: Outer; #assert(*object.x == *object.base.x); #assert(*object.y == *object.base.y);",
     );
     let error = result.expect_err("filtered member must be inaccessible");
-    assert!(error.message.contains("y"), "{}", error.render(&c.sources));
+    assert!(error.message.contains('y'), "{}", error.render(&c.sources));
 }
 
 #[test]
@@ -148,7 +148,7 @@ fn overlay_dependency_cycles_and_dynamic_targets_reject() {
 #[test]
 fn forward_layouts_keep_filters_alignment_conditionals_and_cursor_semantics() {
     let (c, result) = compile(
-        r##"
+        r#"
         Inner :: struct { data:u64; other:u64; }
         R :: struct { #overlay(data) alias:u64; using,only(data) inner:Inner; tail:u8; }
         PromotedType :: struct { #overlay(data) alias:type_of(data); using inner:Inner; }
@@ -172,7 +172,7 @@ fn forward_layouts_keep_filters_alignment_conditionals_and_cursor_semantics() {
         #assert offset_of(Zero,"tail")==0 && size_of(Zero)==8;
         #assert offset_of(Packed,"alias")==1 && offset_of(Packed,"tail")==5 && size_of(Packed)==6;
         #assert offset_of(Placed,"value")==0 && size_of(Placed)==8;
-    "##,
+    "#,
     );
     if let Err(e) = result {
         panic!("{}", e.render(&c.sources));
@@ -207,7 +207,7 @@ fn long_forward_overlay_chains_do_not_recurse_in_the_layout_solver() {
 #[test]
 fn filtered_member_paths_preserve_pointer_storage_and_filters() {
     let (c, result) = compile(
-        r#"
+        r"
         Leaf :: struct {kept:s64;other:s64;}
         Wrap :: struct {link:*Leaf;using,only(kept) link;}
         check :: () -> bool {
@@ -217,7 +217,7 @@ fn filtered_member_paths_preserve_pointer_storage_and_filters() {
             return leaf.kept==9 && leaf.other==0;
         }
         #assert check();
-    "#,
+    ",
     );
     if let Err(e) = result {
         panic!("{}", e.render(&c.sources));

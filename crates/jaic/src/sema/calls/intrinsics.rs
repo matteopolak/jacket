@@ -225,14 +225,13 @@ impl Compiler {
             return err(span, bad());
         };
         let arg = &args[*a];
-        let op = match &arg.op {
-            Some(op) => op.clone(),
-            None => {
-                let expr = arg.expr.as_ref().unwrap();
-                match self.check_expr_no_emit(arg.scope, expr) {
-                    Ok(op) => op,
-                    Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
-                }
+        let op = if let Some(op) = &arg.op {
+            op.clone()
+        } else {
+            let expr = arg.expr.as_ref().unwrap();
+            match self.check_expr_no_emit(arg.scope, expr) {
+                Ok(op) => op,
+                Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
             }
         };
         match op {
@@ -327,14 +326,13 @@ impl Compiler {
             return err(span, bad());
         };
         let arg = &args[*a];
-        let op = match &arg.op {
-            Some(op) => op.clone(),
-            None => {
-                let expr = arg.expr.as_ref().unwrap();
-                match self.check_expr_no_emit(arg.scope, expr) {
-                    Ok(op) => op,
-                    Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
-                }
+        let op = if let Some(op) = &arg.op {
+            op.clone()
+        } else {
+            let expr = arg.expr.as_ref().unwrap();
+            match self.check_expr_no_emit(arg.scope, expr) {
+                Ok(op) => op,
+                Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
             }
         };
         match op {

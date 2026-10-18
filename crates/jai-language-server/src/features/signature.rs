@@ -39,35 +39,34 @@ impl Session {
             .calls(uri)
             .into_iter()
             .find(|c| c.span.start as usize == callee_start && open < c.span.end as usize);
-        let (mut signatures, active) = match recorded {
-            Some(call) => (call.signatures, call.active),
-            None => {
-                // The callee is looked up in the scope.
-                let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
-                let found = self.with_semantic(uri, text, |a, path| {
-                    let file = a.file(path)?;
-                    let scope = a.compiler.ide_scope_at(file, callee_start as u32)?;
-                    let procs = a.compiler.ide_callee(scope, &names);
-                    if procs.is_empty() {
-                        // A variable or member of procedure type.
-                        return Some(
-                            a.compiler
-                                .ide_callee_value(scope, &names)
-                                .into_iter()
-                                .collect::<Vec<_>>(),
-                        );
-                    }
-                    Some(
-                        procs
+        let (mut signatures, active) = if let Some(call) = recorded {
+            (call.signatures, call.active)
+        } else {
+            // The callee is looked up in the scope.
+            let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
+            let found = self.with_semantic(uri, text, |a, path| {
+                let file = a.file(path)?;
+                let scope = a.compiler.ide_scope_at(file, callee_start as u32)?;
+                let procs = a.compiler.ide_callee(scope, &names);
+                if procs.is_empty() {
+                    // A variable or member of procedure type.
+                    return Some(
+                        a.compiler
+                            .ide_callee_value(scope, &names)
                             .into_iter()
-                            .map(|p| a.compiler.ide_signature(p))
                             .collect::<Vec<_>>(),
-                    )
-                });
-                match found {
-                    Some(s) if !s.is_empty() => (s, 0),
-                    _ => return Ok(None),
+                    );
                 }
+                Some(
+                    procs
+                        .into_iter()
+                        .map(|p| a.compiler.ide_signature(p))
+                        .collect::<Vec<_>>(),
+                )
+            });
+            match found {
+                Some(s) if !s.is_empty() => (s, 0),
+                _ => return Ok(None),
             }
         };
         // Under the name called: an alias or a `#bake_arguments` copy names the original.

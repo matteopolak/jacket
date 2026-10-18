@@ -31,16 +31,15 @@ impl Compiler {
         }
         let mut returns = Vec::new();
         for (i, &t) in p.returns.iter().enumerate() {
-            match self.ir_ty(t) {
-                Some(rt) => returns.push(rt),
-                None => {
-                    params.push(Ty::Ptr);
-                    if p.c_call && i == 0 {
-                        c_abi.ret = Some(self.agg_layout(t, span)?);
-                        c_abi.ret_indirect = p.non_pod_return;
-                    }
-                    c_abi.params.push(None);
+            if let Some(rt) = self.ir_ty(t) {
+                returns.push(rt);
+            } else {
+                params.push(Ty::Ptr);
+                if p.c_call && i == 0 {
+                    c_abi.ret = Some(self.agg_layout(t, span)?);
+                    c_abi.ret_indirect = p.non_pod_return;
                 }
+                c_abi.params.push(None);
             }
         }
         let needs_abi =

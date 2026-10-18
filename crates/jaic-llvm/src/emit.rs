@@ -31,7 +31,7 @@ fn emit_module(
     // Select the required target feature from the program, not a module name or
     // fixture. An explicit contradictory feature is a configuration error.
     let atomic_options;
-    let options = if options.target.is_some_and(|t| t.is_wasm())
+    let options = if options.target.is_some_and(jaic::target::Target::is_wasm)
         && program.funcs.iter().flatten().flat_map(|f| &f.blocks).flat_map(|b| &b.insts).any(|i| {
             matches!(i, ir::Inst::Intrinsic(call) if matches!(call.op,
                 ir::Intrinsic::CompareAndSwap | ir::Intrinsic::AtomicLoad(_) |
@@ -61,7 +61,7 @@ fn emit_module(
     module.set_data_layout(&machine.get_target_data().get_data_layout());
     let debug = options.debug_info.then(|| {
         (
-            debuginfo::DebugFormat::for_target(&build_target),
+            debuginfo::DebugFormat::for_target(build_target),
             options.opt_level != OptLevel::O0,
         )
     });
@@ -211,7 +211,7 @@ fn discard_value_names(context: &Context) {
         inkwell::llvm_sys::core::LLVMContextSetDiscardValueNames(
             inkwell::context::AsContextRef::as_ctx_ref(&context),
             1,
-        )
+        );
     };
 }
 
@@ -344,7 +344,7 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
         return 1;
     }
     let insts: usize = program.funcs.iter().flatten().map(func_weight).sum();
-    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let cores = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
     if options.opt_level == OptLevel::O0 {
         if options.codegen.split_modules == Some(false) {
             return 1;
@@ -353,7 +353,7 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
     }
     // Optimized builds split before the optimizer only when it is worth the code it loses
     // (`partition.rs`); wasm modules stay whole.
-    let wasm = options.target.is_some_and(|t| t.is_wasm());
+    let wasm = options.target.is_some_and(jaic::target::Target::is_wasm);
     if wasm {
         return 1;
     }

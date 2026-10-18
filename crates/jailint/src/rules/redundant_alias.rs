@@ -301,7 +301,7 @@ fn return_types(cx: &Cx, header: Span) -> Option<Vec<TypeId>> {
     for &p in procs {
         let info = &cx.compiler.procs[p.0 as usize];
         let sig = info.sig.as_ref()?;
-        if sig.returns.len() != 1 || sig.return_names.iter().any(|n| n.is_some()) {
+        if sig.returns.len() != 1 || sig.return_names.iter().any(std::option::Option::is_some) {
             return None;
         }
         tys.push(sig.returns[0]);

@@ -257,7 +257,7 @@ impl Compiler {
             f.b.ret(vec![accept]);
         }
         let results = self.call_thunk(f, span)?;
-        if results.first().copied().unwrap_or(0) & 0xff == 0 {
+        if results.first().copied().unwrap_or(0).trailing_zeros() >= 8 {
             let addr = self
                 .interp
                 .global_addr(&self.program, message)

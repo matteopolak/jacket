@@ -70,7 +70,7 @@ main :: () {
 
 #[test]
 fn resolved_procedure_aliases_complete_as_functions_with_public_names() {
-    let text = r#"
+    let text = r"
 worker :: (value: s32) -> s32 { return value; }
 worker :: (value: string) -> string { return value; }
 dispatch :: worker;
@@ -81,7 +81,7 @@ main :: () {
     forward(5);
 
 }
-"#;
+";
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let items = labels(&s, after(text, "    forward(5);\n", 0, 0));
@@ -321,7 +321,7 @@ fn definition_reaches_loaded_files_and_the_stdlib() {
     assert_eq!(x[0].uri, uri().as_str());
     assert_eq!(x[0].range.start.line, 3);
     let print = s.definition(&uri(), after(main, "print", 0, 1)).unwrap();
-    assert!(!print.is_empty());
+    assert_ne!(print, [] as [jai_language_server::Location; 0]);
     assert!(
         print.iter().all(|l| l.uri.contains("/stdlib/")),
         "{print:?}"
@@ -408,10 +408,10 @@ fn type_error_in_an_unused_procedure_is_published() {
         text: text.replace("\"text\"", "3"),
     };
     s.change(&uri(), 2, &[fixed]).unwrap();
-    assert!(checks(&s).is_empty());
+    assert_eq!(checks(&s), [] as [jai_language_server::Diagnostic; 0]);
 }
 
-const LAYOUT: &str = r#"Pair :: struct { a: u8; b: s32; }
+const LAYOUT: &str = r"Pair :: struct { a: u8; b: s32; }
 Wide :: struct #align 16 { x: s32; }
 Packed :: struct { a32: u32; b64: u64 #align 4; }
 Number :: union { i: s64; f: float32; }
@@ -449,7 +449,7 @@ main :: () {
     c: Color;
     c.hi16 = 1;
 }
-"#;
+";
 
 /// The hover at the `n`th `marker` (its first character) in `LAYOUT`.
 fn layout_hover(s: &Session, marker: &str, n: usize) -> String {
@@ -636,7 +636,7 @@ fn replace_text(s: &mut Session, version: i32, text: &str) {
 fn asm_mnemonic_completion_filters_the_compilers_instruction_table() {
     let (s, text) = asm_session("vpad");
     let found = items(&s, after(&text, "vpad", 0, 0));
-    assert!(!found.is_empty());
+    assert_ne!(found, [] as [jai_language_server::CompletionItem; 0]);
     assert!(
         found.iter().all(|i| i.label.starts_with("vpad")),
         "{found:?}"
@@ -819,7 +819,7 @@ main :: () {
     assert_eq!(line("area(2, 3"), [1]);
     // No overload fits: the whole set.
     let mut both = line("area(\"x");
-    both.sort();
+    both.sort_unstable();
     assert_eq!(both, [0, 1]);
 }
 

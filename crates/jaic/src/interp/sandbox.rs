@@ -9,13 +9,16 @@
 #![allow(unsafe_code)]
 
 use super::*;
+use crate::fxhash::HashSet;
+use crate::interp::word_or_zero;
 use crate::sema::FileSystem;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 mod dirs;
 mod files;
+mod guest;
 mod libc_fn;
 mod memory;
 mod numeric;
@@ -26,6 +29,10 @@ mod streams;
 mod time;
 mod windows;
 
+use guest::{
+    copy, fill, read_bytes, read_i64, read_u8, read_u64, write_bytes, write_i32, write_u8,
+    write_u16, write_u32, write_u64, write_units,
+};
 use libc_fn::LibcFn;
 
 const EPERM: u64 = 1;
@@ -43,8 +50,8 @@ const O_CREAT: u64 = 0o100;
 const O_EXCL: u64 = 0o200;
 const O_TRUNC: u64 = 0o1000;
 const O_APPEND: u64 = 0o2000;
-const S_IFDIR: u32 = 0o040000;
-const S_IFREG: u32 = 0o100000;
+const S_IFDIR: u32 = 0o040_000;
+const S_IFREG: u32 = 0o100_000;
 
 /// The first descriptor handed out by `open` (0 to 2 are the standard streams).
 const FIRST_FD: i64 = 3;
@@ -298,7 +305,7 @@ impl SandboxHost {
         if self.errno_cell == 0 {
             self.errno_cell = self.alloc(8);
         }
-        unsafe { std::ptr::write_unaligned(self.errno_cell as *mut u32, code as u32) };
+        write_u32(self.errno_cell, code as u32);
         u64::MAX
     }
 
@@ -376,7 +383,7 @@ impl SandboxHost {
         let available = data.len().saturating_sub(file.pos);
         let n = available.min(count);
         if n > 0 {
-            unsafe { std::ptr::copy_nonoverlapping(data[file.pos..].as_ptr(), out as *mut u8, n) };
+            write_bytes(out, &data[file.pos..file.pos + n]);
         }
         file.pos += n;
         if n < count {
@@ -446,26 +453,20 @@ impl SandboxHost {
             return Err(ENOENT);
         };
         // Linux x86-64 `struct stat`.
-        unsafe {
-            std::ptr::write_bytes(out as *mut u8, 0, 144);
-            let put = |off: u64, v: u64, width: usize| {
-                std::ptr::copy_nonoverlapping(
-                    v.to_le_bytes().as_ptr(),
-                    (out + off) as *mut u8,
-                    width,
-                )
-            };
-            put(0, 1, 8); // st_dev
-            put(8, self.fs.inode(path), 8); // st_ino
-            put(16, links, 8); // st_nlink
-            put(24, mode as u64, 4);
-            put(48, size as u64, 8);
-            put(56, 4096, 8); // st_blksize
-            put(64, (size as u64).div_ceil(512), 8); // st_blocks
-            let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME);
-            for off in [72, 88, 104] {
-                put(off, mtime, 8);
-            }
+        fill(out, 0, 144);
+        let put = |off: u64, v: u64, width: usize| {
+            write_bytes(out + off, &v.to_le_bytes()[..width]);
+        };
+        put(0, 1, 8); // st_dev
+        put(8, self.fs.inode(path), 8); // st_ino
+        put(16, links, 8); // st_nlink
+        put(24, mode as u64, 4);
+        put(48, size as u64, 8);
+        put(56, 4096, 8); // st_blksize
+        put(64, (size as u64).div_ceil(512), 8); // st_blocks
+        let mtime = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME);
+        for off in [72, 88, 104] {
+            put(off, mtime, 8);
         }
         Ok(())
     }
@@ -485,7 +486,7 @@ fn cstr(ptr: u64) -> String {
     let mut bytes = Vec::new();
     let mut p = ptr;
     loop {
-        let b = unsafe { *(p as *const u8) };
+        let b = read_u8(p);
         if b == 0 {
             break;
         }
@@ -493,10 +494,6 @@ fn cstr(ptr: u64) -> String {
         p += 1;
     }
     String::from_utf8_lossy(&bytes).into_owned()
-}
-
-fn write_u64(addr: u64, value: u64) {
-    unsafe { std::ptr::write_unaligned(addr as *mut u64, value) }
 }
 
 impl Host for SandboxHost {
@@ -529,7 +526,7 @@ impl Host for SandboxHost {
         }
         // Each area answers the procedures it implements and passes on the rest.
         let fun = LibcFn::from_name(symbol)?;
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let served = self
             .stdin_foreign(fun, args)
             .or_else(|| self.memory_call(fun, arg))
@@ -613,6 +610,7 @@ impl Host for SharedHost {
 
 #[cfg(test)]
 mod tests {
+    use super::guest::read_u32;
     use super::*;
 
     fn sig() -> ir::Sig {
@@ -647,7 +645,7 @@ mod tests {
     }
 
     fn errno(host: &SandboxHost) -> u32 {
-        unsafe { std::ptr::read_unaligned(host.errno_cell as *const u32) }
+        read_u32(host.errno_cell)
     }
 
     #[test]
@@ -689,9 +687,9 @@ mod tests {
         let bits = call(
             &mut h,
             "strtof",
-            &[text.as_ptr() as u64, (&mut end as *mut u64) as u64],
+            &[text.as_ptr() as u64, (&raw mut end) as u64],
         );
-        assert_eq!(bits, 0x3f800001);
+        assert_eq!(bits, 0x3f80_0001);
         assert_eq!(end, text.as_ptr() as u64 + text.len() as u64 - 2);
     }
 
@@ -707,7 +705,7 @@ mod tests {
                 call(
                     &mut h,
                     "strtod",
-                    &[text.as_ptr() as u64, (&mut end as *mut u64) as u64]
+                    &[text.as_ptr() as u64, (&raw mut end) as u64]
                 ),
                 expected
             );
@@ -747,7 +745,7 @@ mod tests {
             call(
                 &mut h,
                 "strtod",
-                &[text.as_ptr() as u64, (&mut end as *mut u64) as u64]
+                &[text.as_ptr() as u64, (&raw mut end) as u64]
             ),
             1.0f64.to_bits()
         );
@@ -782,7 +780,7 @@ mod tests {
                 handle,
                 payload.as_ptr() as u64,
                 payload.len() as u64,
-                &mut done as *mut u32 as u64,
+                &raw mut done as u64,
                 0,
             ],
         );
@@ -811,7 +809,7 @@ mod tests {
                 handle,
                 buf.as_mut_ptr() as u64,
                 buf.len() as u64,
-                &mut done as *mut u32 as u64,
+                &raw mut done as u64,
                 0,
             ],
         );
@@ -819,11 +817,7 @@ mod tests {
         assert_eq!(&buf[..payload.len()], payload);
         let mut size = 0u64;
         assert_eq!(
-            call(
-                &mut h,
-                "GetFileSizeEx",
-                &[handle, &mut size as *mut u64 as u64]
-            ),
+            call(&mut h, "GetFileSizeEx", &[handle, &raw mut size as u64]),
             1
         );
         assert_eq!(size as usize, payload.len());

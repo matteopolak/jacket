@@ -139,11 +139,13 @@ impl Compiler {
                     ..
                 }
                 | EntityKind::Import(_) => match self.resolve_entity(*e).ok() {
-                    Some(Resolved::Proc(p))
-                    | Some(Resolved::Const {
-                        value: value::Value::Proc(p),
-                        ..
-                    }) => vec![p],
+                    Some(
+                        Resolved::Proc(p)
+                        | Resolved::Const {
+                            value: value::Value::Proc(p),
+                            ..
+                        },
+                    ) => vec![p],
                     Some(Resolved::ProcSet(ps)) => ps,
                     _ => Vec::new(),
                 },

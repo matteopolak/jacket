@@ -263,9 +263,8 @@ impl Compiler {
     /// Taking a local's address, or naming it from a macro (which may assign it), means calls
     /// and macros can change it behind any test.
     fn ide_note_macro_writes(&mut self, expr: &ast::Expr) {
-        let target = match &expr.kind {
-            E::Unary(UnOp::Star, inner) | E::Backtick(inner) => inner,
-            _ => return,
+        let (E::Unary(UnOp::Star, target) | E::Backtick(target)) = &expr.kind else {
+            return;
         };
         let id = match (
             &target.kind,

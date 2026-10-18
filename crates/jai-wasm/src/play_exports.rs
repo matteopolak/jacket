@@ -398,7 +398,7 @@ mod tests {
         assert_eq!(jai_play_push(0, 256), 1);
         with(|s| {
             assert_eq!(s.error, b"input is not a byte");
-            assert!(s.path.is_empty());
+            assert_eq!(s.path, [] as [u8; 0]);
         });
         jai_play_reset();
         assert_eq!(jai_play_push(99, 0), 1);

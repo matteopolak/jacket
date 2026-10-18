@@ -262,9 +262,9 @@ fn run_writes_workspace_output() {
 }
 
 /// A metaprogram that builds a workspace with `use_custom_link_command`, with `@LINK@` in place of
-/// what it does on READY_FOR_CUSTOM_LINK_COMMAND and `@OPTIONS@` in place of more options.
+/// what it does on `READY_FOR_CUSTOM_LINK_COMMAND` and `@OPTIONS@` in place of more options.
 #[cfg(unix)]
-const CUSTOM_LINK: &str = r##"#import "Basic";
+const CUSTOM_LINK: &str = r#"#import "Basic";
 #import "Compiler";
 #import "Process";
 
@@ -316,7 +316,7 @@ END
     }
     compiler_end_intercept(w);
 }
-"##;
+"#;
 
 /// With `use_custom_link_command` the metaprogram links the objects jaic wrote (to
 /// `intermediate_path`, with the LLVM IR asked for) and says how its link went; a metaprogram

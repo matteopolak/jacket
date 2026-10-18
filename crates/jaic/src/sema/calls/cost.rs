@@ -208,12 +208,12 @@ impl Compiler {
             Operand::Type(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
             Operand::Procs(procs) => {
                 if let TypeKind::Proc(_) = self.types.kind(param) {
-                    for &p in procs.clone().iter() {
+                    for &p in &procs.clone() {
                         if !self.proc(p).is_poly && self.proc_type(p, arg.span)? == param {
                             return Ok(convert::EXACT);
                         }
                     }
-                    for &p in procs.clone().iter() {
+                    for &p in &procs.clone() {
                         if self.proc(p).is_poly
                             && self.instantiate_for_proc_type(p, param, arg.span).is_some()
                         {

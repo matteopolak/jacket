@@ -128,7 +128,7 @@ fn changed_import_directories_retry_real_discovery() {
     fs.insert("/alternate/Unavailable/module.jai", "new_binding :: 19;");
     c.options.import_paths.push(PathBuf::from("/alternate"));
     let module = c.import_module(scope, index).unwrap().unwrap();
-    assert!(c.modules[module.0 as usize].files.len() == 1);
+    assert_eq!(c.modules[module.0 as usize].files.len(), 1);
 }
 
 #[test]

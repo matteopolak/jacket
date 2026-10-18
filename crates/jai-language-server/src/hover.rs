@@ -152,7 +152,7 @@ fn markdown_inline(inline: &[Inline]) -> String {
 }
 
 /// Backslash-escapes the characters that could start emphasis, code, links, HTML, tables
-/// or strikethrough. Escaping any ASCII punctuation is valid CommonMark, so the rendered
+/// or strikethrough. Escaping any ASCII punctuation is valid `CommonMark`, so the rendered
 /// text is unchanged.
 pub(crate) fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());

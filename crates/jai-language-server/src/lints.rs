@@ -153,7 +153,7 @@ impl Session {
                     .diagnostics
                     .iter()
                     .any(|(rule, range)| rule == l.rule && *range == diagnostic.range);
-                if !named && !(l.start <= end && start <= l.end) {
+                if !named && (l.start > end || start > l.end) {
                     continue;
                 }
                 let Some(edits) = self.edits(uri, fix) else {

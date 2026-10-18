@@ -414,7 +414,7 @@ impl OutputBackend for LlvmBackend {
             jaic_llvm::emit_objects(program, &options, &object)
         })?;
         let libraries = jaic_llvm::used_libraries(program);
-        let wasm = target.is_some_and(|t| t.is_wasm());
+        let wasm = target.is_some_and(jaic::target::Target::is_wasm);
         let mut link_args = settings.additional_linker_arguments.clone();
         link_args.extend(extra_link_args);
         let debug_info = options.debug_info;

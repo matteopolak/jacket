@@ -32,7 +32,7 @@ fn at(text: &str, marker: &str, n: usize, offset: usize) -> Position {
     }
 }
 
-const PROGRAM: &str = r#"Vec :: struct {
+const PROGRAM: &str = r"Vec :: struct {
     x: float;
     y: float;
 }
@@ -72,7 +72,7 @@ main :: () {
     }
     c: Pick = .ONE;
 }
-"#;
+";
 
 fn starts(refs: &[Location]) -> Vec<Position> {
     refs.iter().map(|r| r.range.start).collect()

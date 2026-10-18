@@ -5,12 +5,12 @@ use std::rc::Rc;
 #[path = "support/reflection_bootstrap.rs"]
 mod bootstrap;
 
-const STORAGE: &str = r#"
+const STORAGE: &str = r"
     Storage :: struct(Elem: Type, chunk: int, mode := false) { data: *Elem; }
     operator *[] :: (using storage: Storage, index: int) -> *storage.Elem {
         return data + index;
     }
-"#;
+";
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();
@@ -27,7 +27,7 @@ fn compile(source: &str) -> Result<(), String> {
 #[test]
 fn generic_by_value_receiver_supports_read_address_and_assignment() {
     compile(&format!(
-        r#"{STORAGE}
+        r"{STORAGE}
         verify :: () -> bool {{
             values: [3]s64;
             values[0] = 7;
@@ -40,7 +40,7 @@ fn generic_by_value_receiver_supports_read_address_and_assignment() {
             return before == 7 && values[1] == 17 && address == *values[0];
         }}
         #assert verify();
-    "#
+    "
     ))
     .unwrap();
 }
@@ -48,7 +48,7 @@ fn generic_by_value_receiver_supports_read_address_and_assignment() {
 #[test]
 fn pointer_held_in_local_is_loaded_instead_of_addressed_again() {
     compile(&format!(
-        r#"{STORAGE}
+        r"{STORAGE}
         verify :: () -> bool {{
             values: [3]s64;
             values[0] = 7;
@@ -62,7 +62,7 @@ fn pointer_held_in_local_is_loaded_instead_of_addressed_again() {
             return before == 7 && values[1] == 17 && address == *values[0];
         }}
         #assert verify();
-    "#
+    "
     ))
     .unwrap();
 }
@@ -70,7 +70,7 @@ fn pointer_held_in_local_is_loaded_instead_of_addressed_again() {
 #[test]
 fn by_value_receiver_accepts_temporary_structs_and_evaluates_once() {
     compile(&format!(
-        r#"{STORAGE}
+        r"{STORAGE}
         make :: (data:*s64, count:*s64) -> Storage(s64,1024) {{
             count.* += 1;
             return .{{data}};
@@ -84,7 +84,7 @@ fn by_value_receiver_accepts_temporary_structs_and_evaluates_once() {
             return before==7 && value==13 && address==*value && count==3;
         }}
         #assert verify();
-    "#
+    "
     ))
     .unwrap();
 }
@@ -92,7 +92,7 @@ fn by_value_receiver_accepts_temporary_structs_and_evaluates_once() {
 #[test]
 fn using_promoted_storage_member_preserves_element_identity() {
     compile(&format!(
-        r#"{STORAGE}
+        r"{STORAGE}
         Inner :: struct {{ storage:Storage(s64,1024); }}
         Outer :: struct {{ using inner:Inner; }}
         verify :: () -> bool {{
@@ -105,7 +105,7 @@ fn using_promoted_storage_member_preserves_element_identity() {
             return address==*value && value==13;
         }}
         #assert verify();
-    "#
+    "
     ))
     .unwrap();
 }
@@ -113,7 +113,7 @@ fn using_promoted_storage_member_preserves_element_identity() {
 #[test]
 fn ordinary_getter_wins_while_explicit_address_uses_pointer_getter() {
     compile(&format!(
-        r#"{STORAGE}
+        r"{STORAGE}
         operator [] :: (storage:Storage,index:int)->s64 {{ return 91; }}
         verify :: ()->bool {{
             value:s64=7;
@@ -122,7 +122,7 @@ fn ordinary_getter_wins_while_explicit_address_uses_pointer_getter() {
             return storage[0]==91 && *storage[0]==*value;
         }}
         #assert verify();
-    "#
+    "
     ))
     .unwrap();
 }
@@ -130,11 +130,11 @@ fn ordinary_getter_wins_while_explicit_address_uses_pointer_getter() {
 #[test]
 fn value_getter_does_not_make_result_assignable() {
     let error = compile(
-        r#"
+        r"
         Storage :: struct { value:s64; }
         operator [] :: (storage:Storage,index:int)->s64 {return storage.value;}
         main :: () {storage:Storage; storage[0]=17;}
-    "#,
+    ",
     )
     .expect_err("a value-only getter must not create storage");
     assert!(
@@ -146,11 +146,11 @@ fn value_getter_does_not_make_result_assignable() {
 #[test]
 fn nonpointer_pointer_getter_result_remains_invalid() {
     let error = compile(
-        r#"
+        r"
         Storage :: struct { value:s64; }
         operator *[] :: (storage:Storage,index:int)->s64 {return storage.value;}
         main :: () {storage:Storage; value:=storage[0];}
-    "#,
+    ",
     )
     .expect_err("pointer subscript cannot manufacture a place from an integer");
     assert!(
@@ -162,7 +162,7 @@ fn nonpointer_pointer_getter_result_remains_invalid() {
 #[test]
 fn builtin_address_fallback_evaluates_operands_once() {
     compile(&format!(
-        r#"{STORAGE}
+        r"{STORAGE}
         make :: (data:*s64,count:*s64)->*s64 {{
             count.*+=1;
             return data;
@@ -173,7 +173,7 @@ fn builtin_address_fallback_evaluates_operands_once() {
             return address==*value && count==1;
         }}
         #assert verify();
-    "#
+    "
     ))
     .unwrap();
 }
@@ -181,7 +181,7 @@ fn builtin_address_fallback_evaluates_operands_once() {
 #[test]
 fn pointer_receiver_and_result_type_queries_follow_normal_calls() {
     compile(
-        r#"
+        r"
         Storage :: struct { data:*s64; calls:s64; }
         operator *[] :: (storage:*Storage,index:int)->*s64 {
             storage.calls+=1;
@@ -197,7 +197,7 @@ fn pointer_receiver_and_result_type_queries_follow_normal_calls() {
             return value==13 && storage.calls==1;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -205,11 +205,11 @@ fn pointer_receiver_and_result_type_queries_follow_normal_calls() {
 #[test]
 fn explicit_address_rejects_nonpointer_pointer_getter_result() {
     let error = compile(
-        r#"
+        r"
         Storage :: struct { value:s64; }
         operator *[] :: (storage:Storage,index:int)->s64 {return storage.value;}
         main :: () {storage:Storage; address:=*storage[0];}
-    "#,
+    ",
     )
     .expect_err("the address form must also validate the pointer result");
     assert!(error.contains("pointer"), "{error}");
@@ -278,7 +278,7 @@ fn filtered_module_reexports_preserve_operator_visibility() {
 #[test]
 fn unrelated_pointer_getter_does_not_hide_builtin_pointer_indexing() {
     compile(&format!(
-        r#"{STORAGE}
+        r"{STORAGE}
         Other :: struct {{ value:s64; }}
         verify :: ()->bool {{
             values:[2]Other;
@@ -289,7 +289,7 @@ fn unrelated_pointer_getter_does_not_hide_builtin_pointer_indexing() {
             return pointer[0].value==7 && address==*values[1] && address.value==17;
         }}
         #assert verify();
-    "#
+    "
     ))
     .unwrap();
 }
@@ -297,7 +297,7 @@ fn unrelated_pointer_getter_does_not_hide_builtin_pointer_indexing() {
 #[test]
 fn receiver_filter_recognizes_implicit_generic_setters() {
     compile(
-        r#"
+        r"
         Slots :: struct(Elem:Type) {data:*Elem; writes:s64;}
         operator []= :: (slots:*Slots,index:int,value:slots.Elem) {
             slots.writes+=1;
@@ -309,7 +309,7 @@ fn receiver_filter_recognizes_implicit_generic_setters() {
             return value==8 && slots.writes==1;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -317,7 +317,7 @@ fn receiver_filter_recognizes_implicit_generic_setters() {
 #[test]
 fn generic_elsewhere_in_header_does_not_widen_fixed_receiver() {
     compile(
-        r#"
+        r"
         Other :: struct {data:*s64;}
         operator *[] :: (other:Other,index:$Index)->*s64 {return other.data+index;}
         Record :: struct {value:s64;}
@@ -328,7 +328,7 @@ fn generic_elsewhere_in_header_does_not_widen_fixed_receiver() {
             return pointer[1].value==13 && *pointer[1]==*values[1];
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }

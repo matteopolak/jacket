@@ -208,49 +208,43 @@ impl Compiler {
             BuiltinProc::OffsetOf => {
                 // `offset_of(T, "member")` or `offset_of(T.member)`; the member may be a dotted
                 // path (`"inner.x"`) and may come from a `using` member.
-                let (ty, path) = match args.get(1) {
-                    Some(second) => {
-                        let ty = self.eval_type_in(f, scope, &arg.value)?;
-                        let name = match self.check_expr_no_emit(scope, &second.value)? {
-                            Operand::Const {
-                                value: Value::String(s),
-                                ..
-                            } => String::from_utf8_lossy(&s).into_owned(),
-                            _ => {
-                                return err(
-                                    second.value.span,
-                                    "the member name of `offset_of` must be a constant string",
-                                );
-                            }
-                        };
-                        (ty, name)
-                    }
-                    None => {
-                        let E::Member(base, field) = &arg.value.kind else {
+                let (ty, path) = if let Some(second) = args.get(1) {
+                    let ty = self.eval_type_in(f, scope, &arg.value)?;
+                    let name = match self.check_expr_no_emit(scope, &second.value)? {
+                        Operand::Const {
+                            value: Value::String(s),
+                            ..
+                        } => String::from_utf8_lossy(&s).into_owned(),
+                        _ => {
                             return err(
-                                arg.value.span,
-                                "`offset_of` takes `(Type, \"member\")` or `Type.member`",
+                                second.value.span,
+                                "the member name of `offset_of` must be a constant string",
                             );
-                        };
-                        let ty = self.eval_type_in(f, scope, base)?;
-                        (ty, field.name.as_str().to_string())
-                    }
+                        }
+                    };
+                    (ty, name)
+                } else {
+                    let E::Member(base, field) = &arg.value.kind else {
+                        return err(
+                            arg.value.span,
+                            "`offset_of` takes `(Type, \"member\")` or `Type.member`",
+                        );
+                    };
+                    let ty = self.eval_type_in(f, scope, base)?;
+                    (ty, field.name.as_str().to_string())
                 };
                 let mut offset = 0u64;
                 let mut cur = ty;
                 for part in path.split('.') {
-                    match self.member_offset(cur, part, span)? {
-                        Some((o, t)) => {
-                            offset += o;
-                            cur = t;
-                        }
-                        None => {
-                            let tn = self.types.name(cur);
-                            return err(
-                                span,
-                                format!("`{tn}` has no member `{part}` at a fixed offset"),
-                            );
-                        }
+                    if let Some((o, t)) = self.member_offset(cur, part, span)? {
+                        offset += o;
+                        cur = t;
+                    } else {
+                        let tn = self.types.name(cur);
+                        return err(
+                            span,
+                            format!("`{tn}` has no member `{part}` at a fixed offset"),
+                        );
                     }
                 }
                 Ok(Operand::Const {
@@ -408,17 +402,17 @@ impl Compiler {
         for p in &header.params {
             let mut ty = match (&p.ty, &p.default) {
                 (Some(t), _) => self.poly_shape_type(scope, t),
-                (None, Some(d)) => self
-                    .check_expr_no_emit(scope, d)
-                    .map(|op| match op {
-                        Operand::Const {
-                            ty,
-                            value,
-                            untyped: true,
-                        } => self.default_untyped(ty, &value),
-                        other => other.ty(),
-                    })
-                    .unwrap_or(TypeId::POLY_PARAM),
+                (None, Some(d)) => {
+                    self.check_expr_no_emit(scope, d)
+                        .map_or(TypeId::POLY_PARAM, |op| match op {
+                            Operand::Const {
+                                ty,
+                                value,
+                                untyped: true,
+                            } => self.default_untyped(ty, &value),
+                            other => other.ty(),
+                        })
+                }
                 (None, None) => TypeId::POLY_PARAM,
             };
             if p.variadic {
@@ -442,7 +436,7 @@ impl Compiler {
                 returns,
                 variadic,
                 c_varargs: false,
-                c_call: header.flags.c_call,
+                c_call: header.flags.c_call(),
                 no_context: false,
                 non_pod_return: false,
             })))
@@ -473,7 +467,7 @@ impl Compiler {
                 returns,
                 variadic,
                 c_varargs: false,
-                c_call: header.flags.c_call,
+                c_call: header.flags.c_call(),
                 no_context: false,
                 non_pod_return: false,
             })))

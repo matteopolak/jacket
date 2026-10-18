@@ -33,32 +33,29 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Rc<ast::ProcLit
             });
         }
     }
-    let block = match &body.kind {
-        E::Block(block) => {
-            header.flags.lambda = ast::LambdaKind::Block;
-            (**block).clone()
-        }
-        _ => {
-            header.flags.lambda = ast::LambdaKind::Expr;
-            ast::Block {
-                stmts: vec![ast::Stmt {
-                    kind: ast::StmtKind::Return {
-                        values: vec![ast::Arg {
-                            name: None,
-                            target: None,
-                            context: false,
-                            spread: false,
-                            value: body.clone(),
-                        }],
-                        backtick: false,
-                    },
-                    span: body.span,
-                    notes: Default::default(),
-                }],
+    let block = if let E::Block(block) = &body.kind {
+        header.flags.lambda = ast::LambdaKind::Block;
+        (**block).clone()
+    } else {
+        header.flags.lambda = ast::LambdaKind::Expr;
+        ast::Block {
+            stmts: vec![ast::Stmt {
+                kind: ast::StmtKind::Return {
+                    values: vec![ast::Arg {
+                        name: None,
+                        target: None,
+                        context: false,
+                        spread: false,
+                        value: body.clone(),
+                    }],
+                    backtick: false,
+                },
                 span: body.span,
-                no_abc: false,
-                no_aoc: false,
-            }
+                notes: crate::ast::Notes::default(),
+            }],
+            span: body.span,
+            no_abc: false,
+            no_aoc: false,
         }
     };
     Rc::new(ast::ProcLit {

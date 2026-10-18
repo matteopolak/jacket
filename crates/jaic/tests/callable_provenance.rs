@@ -1,4 +1,4 @@
-//! Declaration metadata must not be selected by structural procedure TypeId.
+//! Declaration metadata must not be selected by structural procedure `TypeId`.
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
 
@@ -16,7 +16,7 @@ fn compile(source: &str) -> Result<(), String> {
 #[test]
 fn globals_parameters_and_inferred_procedure_values_keep_their_own_headers() {
     compile(
-        r#"
+        r"
         Public :: (public_flag:=true)->s64;
         Other :: (hidden_flag:=false)->s64;
         choose :: (actual:bool)->s64 {if actual return 19; return 23;}
@@ -33,7 +33,7 @@ fn globals_parameters_and_inferred_procedure_values_keep_their_own_headers() {
                 && typed(public_flag=false)==37;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -41,7 +41,7 @@ fn globals_parameters_and_inferred_procedure_values_keep_their_own_headers() {
 #[test]
 fn promoted_filtered_and_overlaid_fields_keep_declaration_identity() {
     compile(
-        r#"
+        r"
         Public :: (public_flag:=true)->s64;
         Other :: (hidden_flag:=false)->s64;
         Inner :: struct {callback:Public; hidden:s64;}
@@ -60,7 +60,7 @@ fn promoted_filtered_and_overlaid_fields_keep_declaration_identity() {
                 && *overlay.first==*overlay.second;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -68,11 +68,11 @@ fn promoted_filtered_and_overlaid_fields_keep_declaration_identity() {
 #[test]
 fn duplicate_named_arguments_reject_instead_of_overwriting() {
     let error = compile(
-        r#"
+        r"
         C :: (first:s64,second:s64)->s64;
         identity :: (a:s64,b:s64)->s64 {return a+b;}
         main :: () {value:C=identity; value(first=1,first=2,second=3);}
-    "#,
+    ",
     )
     .expect_err("duplicate named arguments must reject");
     assert!(error.contains("supplied more than once"), "{error}");
@@ -81,11 +81,11 @@ fn duplicate_named_arguments_reject_instead_of_overwriting() {
 #[test]
 fn unknown_names_without_defaults_reject() {
     let error = compile(
-        r#"
+        r"
         C :: (public_name:s64)->s64;
         D :: (private_name:s64)->s64;
         main :: () {a:C;b:D;a(private_name=3);}
-    "#,
+    ",
     )
     .expect_err("a structural peer must not supply a name");
     assert!(
@@ -97,7 +97,7 @@ fn unknown_names_without_defaults_reject() {
 #[test]
 fn type_queries_and_plain_type_aliases_retain_selected_field_header() {
     compile(
-        r#"
+        r"
         Public :: (public_flag:=true)->s64;
         Other :: (hidden_flag:=false)->s64;
         Holder :: struct {callback:Public;}
@@ -112,7 +112,7 @@ fn type_queries_and_plain_type_aliases_retain_selected_field_header() {
             return queried(public_flag=false)==23 && plain()==19 && renamed()==23;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -120,7 +120,7 @@ fn type_queries_and_plain_type_aliases_retain_selected_field_header() {
 #[test]
 fn a_factory_result_uses_its_declared_return_header() {
     compile(
-        r#"
+        r"
         Public :: (public_flag:=true)->s64;
         Other :: (hidden_flag:=false)->s64;
         choose :: (actual:bool)->s64 {if actual return 19; return 23;}
@@ -133,7 +133,7 @@ fn a_factory_result_uses_its_declared_return_header() {
             return direct(public_flag=false)==23 && indirect()==19;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -141,7 +141,7 @@ fn a_factory_result_uses_its_declared_return_header() {
 #[test]
 fn multiple_callback_results_retain_each_declared_header() {
     compile(
-        r#"
+        r"
         Public :: (public_flag:=true)->s64;
         Other :: (hidden_flag:=false)->s64;
         choose :: (actual:bool)->s64 {if actual return 19; return 23;}
@@ -155,7 +155,7 @@ fn multiple_callback_results_retain_each_declared_header() {
                 && fourth(hidden_flag=true)==19;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -175,7 +175,7 @@ fn c_ellipsis_arguments_are_preserved_after_the_named_fixed_prefix() {
 #[test]
 fn callback_context_fields_have_independent_defaults() {
     compile(
-        r#"
+        r"
         #add_context callback:(public_flag:=true)->s64;
         #add_context alternate:(hidden_flag:=false)->s64;
         choose :: (flag:bool)->s64 {if flag return 19; return 23;}
@@ -187,7 +187,7 @@ fn callback_context_fields_have_independent_defaults() {
             return context.callback()==19 && context.alternate()==23;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -198,11 +198,11 @@ fn filtered_module_alias_defaults_evaluate_in_the_declaring_private_scope() {
     let mut fs = VirtualFs::default();
     fs.insert(
         "/lib/Backing/module.jai",
-        br#"
+        br"
         #scope_file DEFAULT::true;
         #scope_export Callback :: (public_flag:=DEFAULT)->s64;
         #scope_file Secret :: (secret_flag:=false)->s64;
-    "#
+    "
         .as_slice(),
     );
     fs.insert(
@@ -247,12 +247,12 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     compiler
         .compile_sources(&[ProgramSource::String(
-            r#"
+            r"
         Public :: (public_flag:=true)->s64;
         Other :: (hidden_flag:=false)->s64;
         R :: struct {first:Public; #overlay(first) second:Other;}
         #assert size_of(R)>0;
-    "#
+    "
             .into(),
         )])
         .map_err(|e| e.render(&compiler.sources))
@@ -326,7 +326,7 @@ fn selected_procedure_alias_headers_do_not_refresh_after_new_overloads() {
 #[test]
 fn metadata_discovery_does_not_evaluate_runtime_default_expressions() {
     compile(
-        r#"
+        r"
         calls:s64;
         next :: ()->bool {calls+=1;return true;}
         Public :: (public_flag:bool=next())->s64;
@@ -343,7 +343,7 @@ fn metadata_discovery_does_not_evaluate_runtime_default_expressions() {
             return alias()==19 && calls==1 && explicit(public_flag=false)==23 && calls==1;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -359,11 +359,11 @@ fn same_shaped_field_declarations_keep_names_defaults_and_alias_provenance() {
 #[test]
 fn names_from_another_callback_declaration_are_not_accepted() {
     let error = compile(
-        r#"
+        r"
         Holder :: struct {callback:(public_option:=false)->s64;}
         Other :: struct {callback:(private_option:=false)->s64;}
         main :: () {first:Holder; second:Other; first.callback(private_option=true);}
-    "#,
+    ",
     )
     .expect_err("another same-shaped declaration cannot supply a named parameter");
     assert!(
@@ -375,7 +375,7 @@ fn names_from_another_callback_declaration_are_not_accepted() {
 #[test]
 fn named_arguments_without_defaults_follow_the_selected_declaration_order() {
     compile(
-        r#"
+        r"
         Holder :: struct {callback:(left:s64,right:s64)->s64;}
         Other :: struct {callback:(hidden_left:s64,hidden_right:s64)->s64;}
         subtract :: (a:s64,b:s64)->s64 {return a-b;}
@@ -385,7 +385,7 @@ fn named_arguments_without_defaults_follow_the_selected_declaration_order() {
             return first.callback(right=3,left=11)==8;
         }
         #assert verify();
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -393,7 +393,7 @@ fn named_arguments_without_defaults_follow_the_selected_declaration_order() {
 #[test]
 fn procedure_constant_from_run_binds_typed_struct_argument_without_losing_identity() {
     compile(
-        r#"
+        r"
         Callback :: (value:s64)->s64;
         identity :: (value:s64)->s64 { return value; }
         factory :: ()->Callback { return identity; }
@@ -403,7 +403,7 @@ fn procedure_constant_from_run_binds_typed_struct_argument_without_losing_identi
         #assert Instance.callback(9)==9;
         #assert Instance.callback==identity;
         main :: () {}
-    "#,
+    ",
     )
     .unwrap();
 }
@@ -411,7 +411,7 @@ fn procedure_constant_from_run_binds_typed_struct_argument_without_losing_identi
 #[test]
 fn annotated_procedure_sentinels_remain_constants_with_exact_pointer_bits() {
     compile(
-        r#"
+        r"
         Handler :: #type (signal:s32)->void #c_call;
         IGNORE :: cast(Handler) 1;
         ERROR :: cast(Handler) -1;
@@ -422,7 +422,7 @@ fn annotated_procedure_sentinels_remain_constants_with_exact_pointer_bits() {
         }
         #assert verify();
         main :: () {}
-    "#,
+    ",
     )
     .unwrap();
 }

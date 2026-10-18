@@ -50,7 +50,7 @@ fn faded(source: &str) -> Vec<String> {
 #[test]
 fn statements_after_return_break_and_continue_fade_once_per_block() {
     let faded = faded(
-        r#"main :: () {
+        r"main :: () {
     n := 0;
     while n < 3 {
         n += 1;
@@ -61,7 +61,7 @@ fn statements_after_return_break_and_continue_fade_once_per_block() {
     after_return := 1;
     more := 2;
 }
-"#,
+",
     );
     assert_eq!(
         faded,
@@ -75,30 +75,30 @@ fn statements_after_return_break_and_continue_fade_once_per_block() {
 
 #[test]
 fn a_return_in_one_branch_leaves_the_rest_reachable() {
-    let source = r#"f :: (flag: bool) -> int {
+    let source = r"f :: (flag: bool) -> int {
     if flag { return 1; }
     live := 2;
     return live;
 }
 main :: () { f(true); }
-"#;
+";
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
 #[test]
 fn code_after_an_if_whose_branches_both_exit_fades() {
-    let source = r#"f :: (flag: bool) -> int {
+    let source = r"f :: (flag: bool) -> int {
     if flag { return 1; } else { return 2; }
     dead := 3;
 }
 main :: () { f(true); }
-"#;
+";
     assert_eq!(faded(source), ["dead := 3"]);
 }
 
 #[test]
 fn loops_that_nothing_breaks_out_of_end_the_block() {
-    let source = r#"spin :: () {
+    let source = r"spin :: () {
     while true { }
     after_spin := 1;
 }
@@ -119,7 +119,7 @@ inner_break_only :: () {
     after_inner := 1;
 }
 main :: () { spin(); spin_int(); leaves(); leaves_deep(true); inner_break_only(); }
-"#;
+";
     assert_eq!(
         faded(source),
         ["after_spin := 1", "after_int := 1", "after_inner := 1"]
@@ -128,7 +128,7 @@ main :: () { spin(); spin_int(); leaves(); leaves_deep(true); inner_break_only()
 
 #[test]
 fn a_labelled_break_counts_for_the_loop_it_names() {
-    let source = r#"main :: (flag: bool) {
+    let source = r"main :: (flag: bool) {
     while :outer true {
         while true {
             if flag { break outer; }
@@ -137,25 +137,25 @@ fn a_labelled_break_counts_for_the_loop_it_names() {
     }
     after_outer := 2;
 }
-"#;
+";
     assert_eq!(faded(source), ["never := 1"]);
 }
 
 #[test]
 fn defer_bodies_are_not_after_the_return() {
-    let source = r#"main :: () {
+    let source = r"main :: () {
     count := 0;
     defer count += 1;
     return;
     dead := 1;
 }
-"#;
+";
     assert_eq!(faded(source), ["dead := 1"]);
 }
 
 #[test]
 fn static_if_fades_the_branch_that_was_not_taken() {
-    let source = r#"main :: () {
+    let source = r"main :: () {
     #if false {
         off := 1;
     } else {
@@ -166,13 +166,13 @@ fn static_if_fades_the_branch_that_was_not_taken() {
     }
     #if 1 == 2 { also_off := 4; } else #if true { chained := 5; } else { last := 6; }
 }
-"#;
+";
     assert_eq!(faded(source), ["off := 1", "also_off := 4", "last := 6"]);
 }
 
 #[test]
 fn if_on_a_constant_fades_the_branch_it_rules_out() {
-    let source = r#"NEVER :: false;
+    let source = r"NEVER :: false;
 ALWAYS :: true;
 main :: (flag: bool) {
     if false { a := 1; }
@@ -182,7 +182,7 @@ main :: (flag: bool) {
     x := ifx ALWAYS then 1 else 2;
     while false { never_runs := 5; }
 }
-"#;
+";
     assert_eq!(
         faded(source),
         ["a := 1", "b := 2", "c_else := 3", "2", "never_runs := 5"]
@@ -191,7 +191,7 @@ main :: (flag: bool) {
 
 #[test]
 fn comparisons_a_type_decides_fade_the_branch_they_rule_out() {
-    let source = r#"main :: (u: u64, s: s64, byte: u8, small: s8, other: u64) {
+    let source = r"main :: (u: u64, s: s64, byte: u8, small: s8, other: u64) {
     if u >= 0 { a := 1; } else { a_else := 1; }
     if s >= 0 { b := 2; } else { b_else := 2; }
     if byte > 255 { c := 3; }
@@ -201,7 +201,7 @@ fn comparisons_a_type_decides_fade_the_branch_they_rule_out() {
     if 0 > u { g := 7; }
     if u >= other { h := 8; } else { h_else := 8; }
 }
-"#;
+";
     assert_eq!(
         faded(source),
         [
@@ -217,7 +217,7 @@ fn comparisons_a_type_decides_fade_the_branch_they_rule_out() {
 
 #[test]
 fn intervals_follow_arithmetic_and_casts() {
-    let source = r#"main :: (x: u64, y: s64, z: u8) {
+    let source = r"main :: (x: u64, y: s64, z: u8) {
     if (x & 0xF) > 20 { masked := 1; }
     if (x & 0xF) > 14 { masked_live := 1; }
     if cast(u8) y < 300 { cast_live := 2; } else { cast_dead := 2; }
@@ -228,7 +228,7 @@ fn intervals_follow_arithmetic_and_casts() {
     if z >= 0 && x >= 0 { both := 7; } else { both_else := 7; }
     if z < 0 || x < 0 { either := 8; }
 }
-"#;
+";
     assert_eq!(
         faded(source),
         [
@@ -246,7 +246,7 @@ fn intervals_follow_arithmetic_and_casts() {
 
 #[test]
 fn a_branch_narrows_the_locals_its_condition_constrains() {
-    let source = r#"main :: (x: s64) {
+    let source = r"main :: (x: s64) {
     if x > 10 {
         if x < 5 { impossible := 1; }
         if x < 20 { possible := 2; }
@@ -258,7 +258,7 @@ fn a_branch_narrows_the_locals_its_condition_constrains() {
         break;
     }
 }
-"#;
+";
     assert_eq!(
         faded(source),
         ["impossible := 1", "also_impossible := 3", "in_loop := 4"]
@@ -267,7 +267,7 @@ fn a_branch_narrows_the_locals_its_condition_constrains() {
 
 #[test]
 fn narrowing_stops_where_the_local_may_change() {
-    let source = r#"bump :: (p: *s64) { p.* += 1; }
+    let source = r"bump :: (p: *s64) { p.* += 1; }
 main :: (x: s64, y: s64) {
     if x > 10 {
         x = 0;
@@ -278,13 +278,13 @@ main :: (x: s64, y: s64) {
         if y < 5 { by_pointer := 2; }
     }
 }
-"#;
+";
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
 #[test]
 fn a_switch_fades_cases_its_value_cannot_select_and_ends_when_all_exit() {
-    let source = r#"Mode :: enum { A; B; }
+    let source = r"Mode :: enum { A; B; }
 pick :: (m: Mode) -> int {
     if #complete m == {
         case .A; return 1;
@@ -301,13 +301,13 @@ narrow :: (x: s64) {
     }
 }
 main :: () { pick(.A); narrow(1); }
-"#;
+";
     assert_eq!(faded(source), ["dead_after := 3", "excluded := 1"]);
 }
 
 #[test]
 fn a_through_case_flows_into_the_next() {
-    let source = r#"main :: (x: s64) {
+    let source = r"main :: (x: s64) {
     if x > 10 {
         if x == {
             case 20; first := 1; #through;
@@ -315,13 +315,13 @@ fn a_through_case_flows_into_the_next() {
         }
     }
 }
-"#;
+";
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
 #[test]
 fn a_polymorphic_body_fades_only_what_every_instance_rules_out() {
-    let source = r#"check :: (v: $T) {
+    let source = r"check :: (v: $T) {
     if v >= 0 { positive := 1; } else { negative := 2; }
 }
 only_unsigned :: (v: $T) {
@@ -333,7 +333,7 @@ main :: () {
     only_unsigned(cast(u8) 1);
     only_unsigned(cast(u16) 1);
 }
-"#;
+";
     assert_eq!(faded(source), ["never_negative := 2"]);
 }
 
@@ -348,7 +348,7 @@ fn at(text: &str, needle: &str, delta: usize) -> Position {
 
 #[test]
 fn faded_branches_keep_hover_and_definition() {
-    let source = r#"main :: (u: u64) {
+    let source = r"main :: (u: u64) {
     outer := 5;
     if false {
         inside_false := outer + 1;
@@ -358,7 +358,7 @@ fn faded_branches_keep_hover_and_definition() {
         inside_else := outer * 2;
     }
 }
-"#;
+";
     let mut s = session();
     s.open(uri(), 1, source.into()).unwrap();
     for (needle, expected) in [
@@ -387,7 +387,7 @@ fn faded_branches_keep_hover_and_definition() {
 
 #[test]
 fn an_early_exit_narrows_the_rest_of_the_block() {
-    let source = r#"main :: (x: s64, y: s64, z: s64) {
+    let source = r"main :: (x: s64, y: s64, z: s64) {
     if x < 0 { return; }
     if x < 0 { after_return := 1; }
     while true {
@@ -399,38 +399,38 @@ fn an_early_exit_narrows_the_rest_of_the_block() {
     z = -1;
     if z < 0 { reassigned_live := 4; }
 }
-"#;
+";
     assert_eq!(faded(source), ["after_return := 1", "after_break := 2"]);
 }
 
 #[test]
 fn an_if_else_where_one_side_exits_narrows_too() {
-    let source = r#"main :: (x: s64) {
+    let source = r"main :: (x: s64) {
     if x > 3 { } else { return; }
     if x < 2 { impossible := 1; }
 }
-"#;
+";
     assert_eq!(faded(source), ["impossible := 1"]);
 }
 
 #[test]
 fn a_for_over_an_empty_range_fades_its_body() {
-    let source = r#"main :: (n: s64) {
+    let source = r"main :: (n: s64) {
     for 1..0 { empty := 1; }
     for 0..1 { once := 2; }
     for 5..n { unknown := 3; }
 }
-"#;
+";
     assert_eq!(faded(source), ["empty := 1"]);
 }
 
 #[test]
 fn the_editor_does_not_warn_of_a_missing_return_the_walk_rules_out() {
-    let source = r#"f :: (u: u8) -> int {
+    let source = r"f :: (u: u8) -> int {
     if u >= 0 { return 1; }
 }
 main :: () { f(1); }
-"#;
+";
     let mut s = session();
     s.open(uri(), 1, source.into()).unwrap();
     let warned = s

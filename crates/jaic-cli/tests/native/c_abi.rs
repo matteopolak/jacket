@@ -222,10 +222,10 @@ fn c_call_procedures_stored_in_memory() {
             "libstored.dylib",
             "stored.c",
             "-Wl,-install_name,@rpath/libstored.dylib",
-        ])
+        ]);
     } else if cfg!(windows) {
         // One DLL (and its import library) serves both the interpreter and the native build.
-        compile(&["-shared", "stored.c", "-o", "libstored.dll"])
+        compile(&["-shared", "stored.c", "-o", "libstored.dll"]);
     } else {
         compile(&[
             "-shared",
@@ -234,8 +234,8 @@ fn c_call_procedures_stored_in_memory() {
             "-o",
             "libstored.so",
             "stored.c",
-        ])
-    };
+        ]);
+    }
     let expected = "115 1006 -9\n21 -4 true true\n[9, 7, 5, 3, 1]\n133\n7 1018 8\n";
     let output = jaic()
         .args(["-interp", "stored.jai"])
@@ -289,9 +289,9 @@ fn c_thread_callbacks_block_on_jai_threads() {
             "libblocking.dylib",
             "blocking.c",
             "-Wl,-install_name,@rpath/libblocking.dylib",
-        ])
+        ]);
     } else if cfg!(windows) {
-        compile(&["-shared", "blocking.c", "-o", "libblocking.dll"])
+        compile(&["-shared", "blocking.c", "-o", "libblocking.dll"]);
     } else {
         compile(&[
             "-shared",
@@ -300,8 +300,8 @@ fn c_thread_callbacks_block_on_jai_threads() {
             "-o",
             "libblocking.so",
             "blocking.c",
-        ])
-    };
+        ]);
+    }
     let expected = "mutex: 42\ncondition: 42\njoin: 42\nsleep: 10\nnested: 61\n\
                     nested on a thread of C: 61\nnested on a Jai thread: 31\n\
                     progress while a thread waits in C: 5000050000 1\n";
@@ -587,8 +587,8 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
 }
 
 /// `#cpp_return_type_is_non_pod` on a `#c_call` procedure C++ calls through a function pointer: the
-/// result goes through the hidden pointer (`x8` on AArch64) whatever its size, in the interpreter's
-/// callback thunks (AArch64 used to refuse them) and in native builds. Skipped without a C++
+/// result goes through the hidden pointer (`x8` on `AArch64`) whatever its size, in the interpreter's
+/// callback thunks (`AArch64` used to refuse them) and in native builds. Skipped without a C++
 /// compiler; not run on Windows.
 #[test]
 fn cpp_non_pod_callback_results() {

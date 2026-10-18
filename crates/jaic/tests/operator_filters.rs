@@ -2,7 +2,7 @@
 use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
 
-const OPERATORS: &str = r#"
+const OPERATORS: &str = r"
 Value :: struct { n: int; }
 operator + :: (a:Value,b:Value)->Value { return .{a.n+b.n}; }
 operator - :: (a:Value,b:Value)->Value { return .{a.n-b.n}; }
@@ -27,7 +27,7 @@ secret :: 91;
 Private :: struct { n:int; }
 operator + :: (a:Private,b:Private)->Private { return .{a.n+b.n}; }
 operator - :: (a:Hidden,b:Hidden)->Hidden { return .{a.n-b.n}; }
-"#;
+";
 
 fn compile(main: &str, facade: Option<&str>) -> Result<(), String> {
     let mut fs = VirtualFs::default();

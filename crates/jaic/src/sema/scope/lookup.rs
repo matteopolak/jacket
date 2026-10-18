@@ -89,25 +89,22 @@ impl Compiler {
                     let Some(entry) = self.scope(sid).usings.get(k) else {
                         break;
                     };
-                    match entry {
-                        UsingEntry::Module(m, filter) => {
-                            if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
-                                continue;
-                            }
-                            let m = *m;
-                            if let Some(result) = self.merge_module_lookup(&mut found, m, name)? {
-                                return Ok(result);
-                            }
+                    if let UsingEntry::Module(m, filter) = entry {
+                        if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
+                            continue;
                         }
-                        _ => {
-                            cacheable = false;
-                            let entry = entry.clone();
-                            if found.is_empty()
-                                && let Some((target, member)) =
-                                    self.aggregate_using_member(&entry, name)?
-                            {
-                                return Ok(Found::Using(target, member));
-                            }
+                        let m = *m;
+                        if let Some(result) = self.merge_module_lookup(&mut found, m, name)? {
+                            return Ok(result);
+                        }
+                    } else {
+                        cacheable = false;
+                        let entry = entry.clone();
+                        if found.is_empty()
+                            && let Some((target, member)) =
+                                self.aggregate_using_member(&entry, name)?
+                        {
+                            return Ok(Found::Using(target, member));
                         }
                     }
                 }

@@ -1,13 +1,10 @@
 //! Canonical body interception for called procedures in system and user modules.
+use jaic::fxhash::{HashMap, HashSet};
 use jaic::{
     records::{FieldRef, Item, Records},
     sema::{Compiler, Options, VirtualFs},
 };
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-    rc::Rc,
-};
+use std::{path::Path, rc::Rc};
 
 fn refs(records: &Records, id: i64, field: &str) -> Vec<i64> {
     match records.field(id, field) {
@@ -37,13 +34,13 @@ fn retained_member_and_anonymous_bodies_have_canonical_ownership() {
     fs.insert("/lib/prelude/module.jai", "".as_bytes());
     fs.insert(
         "/app/main.jai",
-        r#"
+        r"
 R :: struct { touch :: (x:int)->int {return x+1;} }
 main :: () -> int {
     callback := (x:int)->int {return x+3;};
     return R.touch(callback(4));
 }
-"#
+"
         .as_bytes(),
     );
     let mut options = Options::host();
@@ -58,8 +55,8 @@ main :: () -> int {
     let mut records = Records::default();
     other.compile_program(Path::new("/app/main.jai")).unwrap();
     while other.export_typechecked(&mut records).is_some() {}
-    let mut bodies = HashSet::new();
-    let mut headers = HashSet::new();
+    let mut bodies = HashSet::default();
+    let mut headers = HashSet::default();
     for _ in 0..10 {
         let Some(message) = compiler.export_typechecked(&mut records) else {
             break;
@@ -97,7 +94,7 @@ main :: () -> int {
         "main, member and callback each reported once"
     );
     compiler.relower_modified().unwrap();
-    assert!(compiler.modify_procedure(&records, 999999, &[]).is_err());
+    assert!(compiler.modify_procedure(&records, 999_999, &[]).is_err());
 }
 
 #[test]
@@ -106,7 +103,7 @@ fn called_library_bodies_have_canonical_headers_and_are_reported_once() {
     fs.insert("/lib/prelude/module.jai", "".as_bytes());
     fs.insert(
         "/lib/Probe/module.jai",
-        r#"
+        r"
 ordinary :: (x:int) -> int { return hidden(x); }
 alias :: ordinary;
 generic :: (x:$T) -> T { return x; }
@@ -114,7 +111,7 @@ baked :: ($bias:int, x:$T) -> T { return x+bias; }
 #scope_file
 hidden :: (x:int) -> int { return x+1; }
 unused :: () { unavailable_unused_body(); }
-"#
+"
         .as_bytes(),
     );
     fs.insert("/app/main.jai", r#"#import "Probe"; main :: () -> int { return ordinary(1)+alias(2)+generic(3)+generic(4)+baked(2,4)+baked(2,5); }"#.as_bytes());
@@ -127,10 +124,10 @@ unused :: () { unavailable_unused_body(); }
         .compile_program(Path::new("/app/main.jai"))
         .unwrap();
     let mut records = Records::default();
-    let mut bodies: HashMap<String, Vec<i64>> = HashMap::new();
-    let mut headers: HashMap<i64, usize> = HashMap::new();
+    let mut bodies: HashMap<String, Vec<i64>> = HashMap::default();
+    let mut headers: HashMap<i64, usize> = HashMap::default();
     let mut calls = Vec::new();
-    let mut body_headers = HashSet::new();
+    let mut body_headers = HashSet::default();
     for iteration in 0..20 {
         let Some(message) = compiler.export_typechecked(&mut records) else {
             break;

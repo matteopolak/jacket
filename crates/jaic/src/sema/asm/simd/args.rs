@@ -72,7 +72,7 @@ impl Compiler {
         self.vec_store(f, cx, dst, tmp, size, span)
     }
 
-    /// Write lane flags (bit i = lane i) to a mask destination, ANDed with the write mask.
+    /// Write lane flags (bit i = lane i) to a mask destination, `ANDed` with the write mask.
     pub(super) fn simd_mask_out(
         &mut self,
         f: &mut FnCtx,

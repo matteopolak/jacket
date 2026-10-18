@@ -68,9 +68,10 @@ impl Compiler {
         if agree {
             return Ok(());
         }
-        let describe = |c: &mut Self, o: &Operand| match Self::ifx_branch_type(o) {
-            Some(t) => c.types.name(t).to_string(),
-            None => {
+        let describe = |c: &mut Self, o: &Operand| {
+            if let Some(t) = Self::ifx_branch_type(o) {
+                c.types.name(t).clone()
+            } else {
                 let d = c.settle_untyped(o.clone(), None).ty();
                 format!("{} (untyped constant)", c.types.name(d))
             }
@@ -290,7 +291,7 @@ impl Compiler {
                 let else_converted = self.convert(f, else_op, ty, else_value.span)?;
                 // Runtime selection changes the callee, not its lexical call
                 // header: inference retains the else arm's names/defaults.
-                callable_parameters = self.callable_operand_parameters(f, &else_converted)?;
+                callable_parameters = self.callable_operand_parameters(&else_converted)?;
                 let (_, ev) = self.rvalue(f, else_converted, span)?;
                 self.store_value(f, ty, addr, ev, span)?;
             }

@@ -82,7 +82,7 @@ mod tests {
             let kind = Attribute::get_named_enum_kind_id("uwtable");
             let actual = function
                 .get_enum_attribute(AttributeLoc::Function, kind)
-                .map(|attribute| attribute.get_enum_value());
+                .map(inkwell::attributes::Attribute::get_enum_value);
             assert_eq!(actual, target.is_windows().then_some(2), "target {target}");
             assert!(
                 declaration
@@ -110,7 +110,7 @@ mod tests {
         let linux = target("x86_64-unknown-linux-gnu");
         assert_eq!(
             cpu_and_features(None, None, linux),
-            ("x86-64".into(), "".into())
+            ("x86-64".into(), String::new())
         );
         assert_eq!(cpu_and_features(Some(""), None, linux).0, "x86-64");
         assert_eq!(

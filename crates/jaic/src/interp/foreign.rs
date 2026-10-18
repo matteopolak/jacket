@@ -71,7 +71,7 @@ const KEEPS_MEMORY_SYMBOLS: &[&str] = &[
 ];
 
 /// Is this a Linux `syscall(number, ...)` that never releases memory? `io_uring_enter` (426, the
-/// same on every CPU with io_uring) runs once per scheduler poll in `Extensions/Io`, and the
+/// same on every CPU with `io_uring`) runs once per scheduler poll in `Extensions/Io`, and the
 /// completion-ring atomics after it would otherwise ask about their pages again, which means
 /// reading all of `/proc/self/maps`: with thousands of fiber stacks that was most of the run.
 fn keeps_memory_syscall(symbol: &str, args: &[u64]) -> bool {
@@ -391,7 +391,7 @@ impl Interp {
         let Some(shared) = self.shared.clone().filter(|_| release) else {
             return native::call(addr, argv, sig);
         };
-        let me = shared.enter_native(self as *mut Interp as usize);
+        let me = shared.enter_native(std::ptr::from_mut::<Interp>(self) as usize);
         let result = native::calling_out((shared.key(), me), || native::call(addr, argv, sig));
         shared.leave_native(me);
         result
@@ -443,7 +443,12 @@ impl Interp {
     #[cfg(not(target_arch = "wasm32"))]
     fn thunk(&mut self, program: &Program, id: FuncId, sig: &ir::Sig) -> Result<u64, String> {
         let gate: std::sync::Arc<dyn native::Gate> = self.shared();
-        let addr = native::callback_addr(&gate, program as *const Program as u64, id, sig)?;
+        let addr = native::callback_addr(
+            &gate,
+            std::ptr::from_ref::<Program>(program) as u64,
+            id,
+            sig,
+        )?;
         if self.thunk_funcs.insert(addr, id).is_none() {
             self.unseen_thunks.push(addr);
         }

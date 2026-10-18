@@ -40,10 +40,9 @@ fn qualified_private_name_remains_an_error_without_a_fabricated_target() {
     assert!(s.diagnostics(&uri).unwrap().iter().any(|d| {
         d.severity == jai_language_server::DiagnosticSeverity::Error && d.message.contains("secret")
     }));
-    assert!(
-        s.definition(&uri, at(&source, "secret;"))
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        s.definition(&uri, at(&source, "secret;")).unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
     let definitions = s.definition(&uri, at(&source, "aggregate;")).unwrap();
     assert_eq!(definitions.len(), 1, "{definitions:?}");

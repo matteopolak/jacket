@@ -264,18 +264,14 @@ pub(crate) fn is_microsoft_linker_banner(output: &str) -> bool {
 
 /// Whether `program` is Microsoft's `link.exe`.
 pub fn is_microsoft_linker(program: &Path) -> bool {
-    Command::new(program)
-        .arg("/?")
-        .output()
-        .map(|out| {
-            let text = format!(
-                "{}{}",
-                String::from_utf8_lossy(&out.stdout),
-                String::from_utf8_lossy(&out.stderr)
-            );
-            is_microsoft_linker_banner(&text)
-        })
-        .unwrap_or(false)
+    Command::new(program).arg("/?").output().is_ok_and(|out| {
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        is_microsoft_linker_banner(&text)
+    })
 }
 
 #[cfg(test)]

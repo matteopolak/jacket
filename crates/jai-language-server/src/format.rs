@@ -125,7 +125,7 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
         }
         match &tokens[i].tok {
             Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
-                depth += 1
+                depth += 1;
             }
             Tok::Punct(P::RParen | P::RBracket | P::RBrace) => {
                 if depth == 0 {

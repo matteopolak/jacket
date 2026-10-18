@@ -45,7 +45,7 @@ pub enum Intrinsic {
     Memcpy,
     Memset,
     Memcmp,
-    /// (ptr, old, new) -> (success, old_value); width from operand type.
+    /// (ptr, old, new) -> (success, `old_value`); width from operand type.
     CompareAndSwap,
     /// `(ptr, width) -> value`: an atomic load with the memory order of the payload (`ORDER_*`).
     /// `width` is the operand size in bytes (1, 2, 4 or 8), as for `CompareAndSwap`.
@@ -67,7 +67,7 @@ pub enum Intrinsic {
     /// Fatal stops the program; otherwise it is reported as a warning and the program goes on.
     /// Native code reports through `Program::check_failed` at the current `Inst::Loc`.
     CheckFailed,
-    /// (ptr: *u8, count: s64, to_stderr: bool): compile-time `write_string`.
+    /// (ptr: *u8, count: s64, `to_stderr`: bool): compile-time `write_string`.
     CompilerWrite,
     Sqrt,
     Sin,
@@ -83,7 +83,7 @@ pub enum Intrinsic {
     ReturnAddress,
     /// Read the cycle counter (`rdtsc`).
     CycleCounter,
-    /// Real x86 RDTSC (I64), or RDTSCP (I64 timestamp, I32 IA32_TSC_AUX).
+    /// Real x86 RDTSC (I64), or RDTSCP (I64 timestamp, I32 `IA32_TSC_AUX`).
     X86Timestamp {
         aux: bool,
     },

@@ -56,7 +56,7 @@ fn execute(name: &str, source: &str) {
                     .arg(object)
                     .arg("-o")
                     .arg(&module));
-                run(Command::new("node").args(["-e",r#"const fs=require('fs');const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));let memory;const env={};for(const i of WebAssembly.Module.imports(m)){if(i.kind!=='function')throw Error('unexpected import');env[i.name]=()=>{throw Error('unexpected runtime failure '+i.name);};}env.memcpy=(d,s,n)=>{const bytes=new Uint8Array(memory.buffer);bytes.copyWithin(Number(d),Number(s),Number(s+n));return d;};const x=new WebAssembly.Instance(m,{env});memory=x.exports.memory;const result=x.exports.variadic_check();if(result!==0)throw Error('variadic failure '+result);"#]).arg(module));
+                run(Command::new("node").args(["-e",r"const fs=require('fs');const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));let memory;const env={};for(const i of WebAssembly.Module.imports(m)){if(i.kind!=='function')throw Error('unexpected import');env[i.name]=()=>{throw Error('unexpected runtime failure '+i.name);};}env.memcpy=(d,s,n)=>{const bytes=new Uint8Array(memory.buffer);bytes.copyWithin(Number(d),Number(s),Number(s+n));return d;};const x=new WebAssembly.Instance(m,{env});memory=x.exports.memory;const result=x.exports.variadic_check();if(result!==0)throw Error('variadic failure '+result);"]).arg(module));
             } else {
                 let driver = dir.join("driver.c");
                 std::fs::write(

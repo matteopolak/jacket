@@ -28,7 +28,7 @@ pub(super) fn round_f64(f: &mut FnCtx, x: Val, mode: char) -> Val {
         _ => {
             // Below 2^52, adding and removing 2^52 rounds to nearest even; above, x is integral.
             let ax = f.b.intrinsic(Intrinsic::Fabs, vec![x], &[Ty::F64])[0];
-            let big = f.b.fconst(Ty::F64, 4503599627370496.0);
+            let big = f.b.fconst(Ty::F64, 4_503_599_627_370_496.0);
             let up = bin(f, BinOp::FAdd, Ty::F64, ax, big);
             let r = bin(f, BinOp::FSub, Ty::F64, up, big);
             let zero = f.b.fconst(Ty::F64, 0.0);
@@ -163,22 +163,13 @@ pub(super) fn xor8(f: &mut FnCtx, a: Val, b: Val) -> Val {
     bin(f, BinOp::Xor, Ty::I8, a, b)
 }
 
-/// AES MixColumns (or InvMixColumns) of the 16 bytes of `s`.
+/// AES `MixColumns` (or `InvMixColumns`) of the 16 bytes of `s`.
 pub(super) fn mix_columns(f: &mut FnCtx, s: &[Val; 16], inverse: bool) -> [Val; 16] {
     let mut out = *s;
     for c in 0..4 {
         let a: Vec<Val> = (0..4).map(|r| s[4 * c + r]).collect();
         let x2: Vec<Val> = a.iter().map(|&v| xtime(f, v)).collect();
-        if !inverse {
-            for r in 0..4 {
-                // 2*a[r] ^ 3*a[r+1] ^ a[r+2] ^ a[r+3]
-                let n1 = a[(r + 1) % 4];
-                let t = xor8(f, x2[r], x2[(r + 1) % 4]);
-                let t = xor8(f, t, n1);
-                let t = xor8(f, t, a[(r + 2) % 4]);
-                out[4 * c + r] = xor8(f, t, a[(r + 3) % 4]);
-            }
-        } else {
+        if inverse {
             let x4: Vec<Val> = x2.iter().map(|&v| xtime(f, v)).collect();
             let x8: Vec<Val> = x4.iter().map(|&v| xtime(f, v)).collect();
             // 14 = 8^4^2, 11 = 8^2^1, 13 = 8^4^1, 9 = 8^1
@@ -205,6 +196,15 @@ pub(super) fn mix_columns(f: &mut FnCtx, s: &[Val; 16], inverse: bool) -> [Val; 
                 let t = xor8(f, m14[r], m11[(r + 1) % 4]);
                 let t = xor8(f, t, m13[(r + 2) % 4]);
                 out[4 * c + r] = xor8(f, t, m9[(r + 3) % 4]);
+            }
+        } else {
+            for r in 0..4 {
+                // 2*a[r] ^ 3*a[r+1] ^ a[r+2] ^ a[r+3]
+                let n1 = a[(r + 1) % 4];
+                let t = xor8(f, x2[r], x2[(r + 1) % 4]);
+                let t = xor8(f, t, n1);
+                let t = xor8(f, t, a[(r + 2) % 4]);
+                out[4 * c + r] = xor8(f, t, a[(r + 3) % 4]);
             }
         }
     }

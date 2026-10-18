@@ -197,7 +197,7 @@ impl JsonSession {
             |payload| {
                 let what = payload
                     .downcast_ref::<&str>()
-                    .map(|s| s.to_string())
+                    .map(std::string::ToString::to_string)
                     .or_else(|| payload.downcast_ref::<String>().cloned())
                     .unwrap_or_else(|| "unknown panic".into());
                 eprintln!("jailsp: internal error in `{method}`: {what}");

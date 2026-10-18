@@ -5,9 +5,9 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::FunctionType;
 use jaic::abi::{Arch, Passing, Piece};
+use jaic::fxhash::HashMap;
 use jaic::ir::{AggLayout, Linkage as IrLinkage, Program, Ty};
 use std::cell::{OnceCell, RefCell};
-use std::collections::HashMap;
 
 /// How the program is divided among modules when codegen is split (`partition.rs`).
 pub struct Plan {
@@ -75,11 +75,11 @@ pub fn lower_program<'ctx>(
         funcs: cells(program.funcs.len()),
         globals: cells(program.globals.len()),
         foreigns: cells(program.foreigns.len()),
-        foreign_symbols: RefCell::new(HashMap::new()),
+        foreign_symbols: RefCell::new(HashMap::default()),
         exports: export_names(program),
         foreign_ids: foreign_ids(program),
         null_fail: OnceCell::new(),
-        check_files: RefCell::new(HashMap::new()),
+        check_files: RefCell::new(HashMap::default()),
         debug,
         inline_small_copies: unoptimized && !arch.is_wasm(),
         no_inline: no_inline.to_vec(),
@@ -94,7 +94,7 @@ pub(super) enum ParamPlan {
     Scalar(Ty),
     /// A by-value C aggregate; the IR passes a pointer to it.
     Agg(AggLayout, Passing),
-    /// A by-value C aggregate of several register pieces on AArch64, passed as one array
+    /// A by-value C aggregate of several register pieces on `AArch64`, passed as one array
     /// parameter (`[2 x i64]`, `[4 x float]`) like Clang does: the backend then gives the whole
     /// array registers or none, where separate scalars would be split between the two.
     AggArray(AggLayout, Vec<Piece>),
@@ -133,7 +133,7 @@ fn cells<T>(n: usize) -> Vec<OnceCell<T>> {
 
 /// Program function ids by exported symbol name (the first of a repeated name).
 fn export_names(program: &Program) -> HashMap<&str, usize> {
-    let mut names = HashMap::new();
+    let mut names = HashMap::default();
     for (i, func) in program.funcs.iter().enumerate() {
         if let Some(func) = func
             && let IrLinkage::Export(name) = &func.linkage
@@ -146,7 +146,7 @@ fn export_names(program: &Program) -> HashMap<&str, usize> {
 
 /// The first foreign id of each symbol.
 pub(super) fn foreign_ids(program: &Program) -> HashMap<&str, usize> {
-    let mut ids = HashMap::new();
+    let mut ids = HashMap::default();
     for (i, foreign) in program.foreigns.iter().enumerate() {
         ids.entry(foreign.symbol.as_str()).or_insert(i);
     }

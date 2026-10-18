@@ -2,12 +2,13 @@
 use super::overlay::OverlayFs;
 use super::{BLOCK_BUDGET, BuildFacts, BuiltProgram, Environment, Program};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
+use jaic::fxhash::HashSet;
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::sema::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{Compiler, FileSystem, TargetOs};
 use jaic::source::FileId;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 

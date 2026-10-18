@@ -13,7 +13,7 @@ type LoweredLocs = (Vec<(u32, u32, u32)>, Vec<(u32, u32)>);
 /// distinct locations and where each applies.
 fn lower_locs(ops: &mut Vec<Op>, pool: &mut [u32], blocks: &mut [CodeBlock]) -> LoweredLocs {
     let mut locs: Vec<(u32, u32, u32)> = Vec::new();
-    let mut index = std::collections::HashMap::new();
+    let mut index = crate::fxhash::HashMap::default();
     let mut marks = Vec::new();
     let mut current = NO_LOC;
     let mut kept = Vec::with_capacity(ops.len());
@@ -175,7 +175,7 @@ pub(in crate::interp) fn build(
     for block in &func.blocks {
         for inst in &block.insts {
             inst_vals(inst, &mut |v| defs[v.0 as usize] += 1, &mut |v| {
-                uses[v.0 as usize] += 1
+                uses[v.0 as usize] += 1;
             });
         }
         term_uses(&block.term, &mut |v| uses[v.0 as usize] += 1);
@@ -189,7 +189,7 @@ pub(in crate::interp) fn build(
                     ty,
                     value,
                 } if defs[dst.0 as usize] == 1 => {
-                    known[dst.0 as usize] = Known::Int(mask(ty, value))
+                    known[dst.0 as usize] = Known::Int(mask(ty, value));
                 }
                 Inst::GlobalAddr {
                     dst,
@@ -199,7 +199,7 @@ pub(in crate::interp) fn build(
                     dst,
                     slot,
                 } if defs[dst.0 as usize] == 1 => {
-                    known[dst.0 as usize] = Known::Frame(frame_offsets[slot.0 as usize])
+                    known[dst.0 as usize] = Known::Frame(frame_offsets[slot.0 as usize]);
                 }
                 // Arithmetic on constants, such as `count * size_of(T)` or a pointer step, is
                 // a constant too, so later adds and multiplies take it as an immediate.

@@ -120,11 +120,13 @@ impl Compiler {
                 value: value::Value::Type(t),
                 ..
             }) => self.ide_type_hover(name.as_str(), t),
-            Some(Resolved::Const {
-                value: value::Value::Proc(p),
-                ..
-            })
-            | Some(Resolved::Proc(p)) => self.ide_proc_header(name, p),
+            Some(
+                Resolved::Const {
+                    value: value::Value::Proc(p),
+                    ..
+                }
+                | Resolved::Proc(p),
+            ) => self.ide_proc_header(name, p),
             Some(Resolved::ProcSet(ps)) => ps
                 .iter()
                 .map(|&p| self.ide_proc_header(self.proc(p).name, p))
@@ -208,11 +210,13 @@ impl Compiler {
             EntityKind::Decl {
                 decl, ..
             } => match &e.state {
-                EntityState::Done(Resolved::Proc(p))
-                | EntityState::Done(Resolved::Const {
-                    value: value::Value::Proc(p),
-                    ..
-                }) => {
+                EntityState::Done(
+                    Resolved::Proc(p)
+                    | Resolved::Const {
+                        value: value::Value::Proc(p),
+                        ..
+                    },
+                ) => {
                     call = Some(IdeCall::of_headers([&*self.proc(*p).lit.header]));
                     (IdeKind::Function, clip(&self.ide_header_text(*p)))
                 }

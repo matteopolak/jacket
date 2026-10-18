@@ -7,7 +7,8 @@
 //! `-coverage_file <file>` records which procedures ran at all: `write_coverage` appends one
 //! `path:line name` line per procedure (polymorph instances share their declaration's line).
 //! `tools/stdlib/stdlib_coverage.py` reads it.
-use std::collections::{BTreeSet, HashMap};
+use crate::fxhash::HashMap;
+use std::collections::BTreeSet;
 use std::sync::{Mutex, OnceLock};
 
 pub(crate) fn enabled() -> bool {
@@ -38,6 +39,8 @@ pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
             extern "C" fn at_exit() {
                 write_coverage();
             }
+            // SAFETY: `at_exit` is an `extern "C"` function with no captured state, valid for the
+            // life of the process.
             unsafe { atexit(at_exit) };
         }
         file
@@ -50,7 +53,9 @@ static COVERED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
 
 /// Record that the procedure declared at `path:line` ran.
 pub(crate) fn cover(path: &str, line: u32, name: &str) {
-    let mut covered = COVERED.lock().unwrap_or_else(|e| e.into_inner());
+    let mut covered = COVERED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     covered.insert(format!("{path}:{line} {name}"));
 }
 
@@ -61,7 +66,11 @@ pub fn write_coverage() {
     let Some(path) = coverage_file() else {
         return;
     };
-    let covered = std::mem::take(&mut *COVERED.lock().unwrap_or_else(|e| e.into_inner()));
+    let covered = std::mem::take(
+        &mut *COVERED
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner),
+    );
     if covered.is_empty() {
         return;
     }
@@ -123,12 +132,11 @@ impl Kinds {
                     .split(|c: char| !c.is_alphanumeric())
                     .next()
                     .unwrap_or("");
-                let index = match self.names.iter().position(|(n, _)| n == name) {
-                    Some(i) => i,
-                    None => {
-                        self.names.push((name.to_string(), 0));
-                        self.names.len() - 1
-                    }
+                let index = if let Some(i) = self.names.iter().position(|(n, _)| n == name) {
+                    i
+                } else {
+                    self.names.push((name.to_string(), 0));
+                    self.names.len() - 1
                 };
                 list.push(index);
             }
@@ -140,8 +148,10 @@ impl Kinds {
     }
 
     fn flush(&mut self, into: &Mutex<Option<HashMap<String, u64>>>) {
-        let mut table = into.lock().unwrap_or_else(|e| e.into_inner());
-        let table = table.get_or_insert_with(HashMap::new);
+        let mut table = into
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let table = table.get_or_insert_with(HashMap::default);
         for (name, n) in &mut self.names {
             *table.entry(name.clone()).or_default() += std::mem::take(n);
         }
@@ -177,14 +187,18 @@ impl Counts {
         self.ir.flush(&OPS);
         self.ops.flush(&CODE_OPS);
         {
-            let mut table = CODE_PAIRS.lock().unwrap_or_else(|e| e.into_inner());
-            let table = table.get_or_insert_with(HashMap::new);
+            let mut table = CODE_PAIRS
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let table = table.get_or_insert_with(HashMap::default);
             for (name, n) in self.pairs.drain() {
                 *table.entry(name).or_default() += n;
             }
         }
-        let mut totals = TOTALS.lock().unwrap_or_else(|e| e.into_inner());
-        let totals = totals.get_or_insert_with(HashMap::new);
+        let mut totals = TOTALS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let totals = totals.get_or_insert_with(HashMap::default);
         for (row, name) in self.rows.drain(..) {
             let Some(name) = name else {
                 continue;
@@ -202,7 +216,9 @@ pub fn report(top: usize) -> Option<String> {
     if !enabled() {
         return None;
     }
-    let totals = TOTALS.lock().unwrap_or_else(|e| e.into_inner());
+    let totals = TOTALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut rows: Vec<(&String, &Row)> = totals.iter().flat_map(|t| t.iter()).collect();
     rows.sort_by_key(|a| std::cmp::Reverse(a.1.insts));
     let all: u64 = rows.iter().map(|(_, r)| r.insts).sum();
@@ -221,7 +237,9 @@ pub fn report(top: usize) -> Option<String> {
     }
     out.push_str(&kind_line("instructions by kind:", &OPS, all));
     let ran: u64 = {
-        let table = CODE_OPS.lock().unwrap_or_else(|e| e.into_inner());
+        let table = CODE_OPS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         table.iter().flat_map(|t| t.values()).sum()
     };
     out.push_str(&kind_line(
@@ -230,7 +248,9 @@ pub fn report(top: usize) -> Option<String> {
         ran,
     ));
     {
-        let table = CODE_PAIRS.lock().unwrap_or_else(|e| e.into_inner());
+        let table = CODE_PAIRS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut pairs: Vec<(&String, &u64)> = table.iter().flat_map(|t| t.iter()).collect();
         pairs.sort_by_key(|a| std::cmp::Reverse(*a.1));
         out.push_str("op pairs within blocks:");
@@ -244,7 +264,9 @@ pub fn report(top: usize) -> Option<String> {
 
 /// One line of kind shares, as percentages of `all`.
 fn kind_line(title: &str, table: &Mutex<Option<HashMap<String, u64>>>, all: u64) -> String {
-    let table = table.lock().unwrap_or_else(|e| e.into_inner());
+    let table = table
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let mut kinds: Vec<(&String, &u64)> = table.iter().flat_map(|t| t.iter()).collect();
     kinds.sort_by_key(|a| std::cmp::Reverse(*a.1));
     let mut out = title.to_string();

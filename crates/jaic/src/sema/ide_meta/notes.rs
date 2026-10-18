@@ -115,7 +115,7 @@ impl Compiler {
                     named: arg.name.is_some(),
                     variadic,
                     spread: arg.spread,
-                    ty: arg.op.as_ref().map(|o| o.ty()),
+                    ty: arg.op.as_ref().map(super::super::lower::Operand::ty),
                 });
             }
         }

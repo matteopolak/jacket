@@ -50,7 +50,7 @@ impl Compiler {
         })
     }
 
-    /// `__jaic_build_directory: string #elsewhere;` in Runtime_Support: the directory the
+    /// `__jaic_build_directory: string #elsewhere;` in `Runtime_Support`: the directory the
     /// build started in (`crate::display_base`) with a trailing separator, or empty. Native
     /// failure reports strip it from source paths, so they read like the interpreter's.
     pub(super) fn build_directory_global(&mut self) -> ir::GlobalId {

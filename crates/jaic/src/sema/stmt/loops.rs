@@ -7,6 +7,17 @@ use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::*;
 use crate::types::{ArrayKind, TypeKind};
 
+/// What the two forms of a `for` loop share once its names and scope are set up.
+#[derive(Clone, Copy)]
+struct ForLoop<'a> {
+    for_: &'a ast::For,
+    span: Span,
+    loop_scope: ScopeId,
+    depth: u32,
+    it_name: Sym,
+    index_name: Sym,
+}
+
 impl Compiler {
     pub(super) fn check_while(
         &mut self,
@@ -237,153 +248,200 @@ impl Compiler {
         let loop_scope = self.new_block_scope(scope);
         self.ide_scope_span(loop_scope, span);
         let depth = self.scope(loop_scope).proc_depth;
-        if let (Some(a), Some(b)) = (lo, hi) {
-            // Integer range, inclusive.
-            let av = self.check_expr(f, scope, a, None)?;
-            let bv = self.check_expr(f, scope, b, None)?;
-            let ty = match (&av, &bv) {
-                (
-                    Operand::Const {
-                        untyped: true, ..
-                    },
-                    Operand::Const {
-                        untyped: true, ..
-                    },
-                ) => TypeId::S64,
-                (
-                    Operand::Const {
-                        untyped: true, ..
-                    },
-                    other,
-                ) => other.ty(),
-                (other, _) => other.ty(),
-            };
-            let ty = if self.types.is_integer(ty) {
-                ty
-            } else {
-                TypeId::S64
-            };
-            let av = self.convert(f, av, ty, a.span)?;
-            let bv = self.convert(f, bv, ty, b.span)?;
-            let (_, start) = self.rvalue(f, av, a.span)?;
-            let (_, end) = self.rvalue(f, bv, b.span)?;
-            let t = self.ir_ty(ty).unwrap();
-            let signed = self.types.int_info(ty).is_some_and(|i| i.1);
-            let it = f.b.alloca(t.size(), t.size());
-            let idx = f.b.alloca(8, 8);
-            f.b.store(
-                t,
-                it,
-                if for_.reverse {
-                    end
-                } else {
-                    start
-                },
-            );
-            let zero = f.b.iconst(Ty::I64, 0);
-            f.b.store(Ty::I64, idx, zero);
-            let head = f.b.new_block();
-            let body_block = f.b.new_block();
-            let step = f.b.new_block();
-            let exit = f.b.new_block();
-            f.b.jump(head);
-            f.b.switch_to(head);
-            let cur = f.b.load(t, it);
-            let op = match (for_.reverse, signed) {
-                (false, true) => CmpOp::SLe,
-                (false, false) => CmpOp::ULe,
-                (true, true) => CmpOp::SGe,
-                (true, false) => CmpOp::UGe,
-            };
-            let c = f.b.cmp(
-                op,
-                t,
-                cur,
-                if for_.reverse {
-                    start
-                } else {
-                    end
-                },
-            );
-            f.b.branch(c, body_block, exit);
-            f.b.switch_to(body_block);
-            let names = [it_name, index_name];
-            self.declare_loop_vars(
-                f,
-                loop_scope,
-                for_.backtick_names,
-                names,
-                [
-                    EntityKind::Local {
-                        ty,
-                        addr: it,
-                        depth,
-                    },
-                    EntityKind::Local {
-                        ty: TypeId::S64,
-                        addr: idx,
-                        depth,
-                    },
-                ],
-                span,
-            );
-            let defer_depth = f.mark_defers();
-            f.loops.push(LoopFrame {
-                label: Some(it_name),
-                break_block: exit,
-                continue_block: step,
-                defer_depth,
-                remove: None,
-            });
-            let result = self.check_scoped(f, loop_scope, &for_.body);
-            f.loops.pop();
-            result?;
-            f.b.jump(step);
-            f.b.switch_to(step);
-            // Stop at (or past, if the body moved `it`) the bound, before stepping could wrap.
-            // Otherwise the next value is still in range, so the step goes straight back to the
-            // body and only the first iteration runs the test in `head`.
-            let cur = f.b.load(t, it);
-            let past = match (for_.reverse, signed) {
-                (false, true) => CmpOp::SGe,
-                (false, false) => CmpOp::UGe,
-                (true, true) => CmpOp::SLe,
-                (true, false) => CmpOp::ULe,
-            };
-            let at_end = f.b.cmp(
-                past,
-                t,
-                cur,
-                if for_.reverse {
-                    start
-                } else {
-                    end
-                },
-            );
-            let advance = f.b.new_block();
-            f.b.branch(at_end, exit, advance);
-            f.b.switch_to(advance);
-            let one = f.b.iconst(t, 1);
-            let next = f.b.bin(
-                if for_.reverse {
-                    ir::BinOp::Sub
-                } else {
-                    ir::BinOp::Add
-                },
-                t,
-                cur,
-                one,
-            );
-            f.b.store(t, it, next);
-            let i = f.b.load(Ty::I64, idx);
-            let one64 = f.b.iconst(Ty::I64, 1);
-            let i2 = f.b.bin(ir::BinOp::Add, Ty::I64, i, one64);
-            f.b.store(Ty::I64, idx, i2);
-            f.b.jump(body_block);
-            f.b.switch_to(exit);
-            return Ok(());
+        let lp = ForLoop {
+            for_,
+            span,
+            loop_scope,
+            depth,
+            it_name,
+            index_name,
+        };
+        match (lo, hi, collection) {
+            (Some(a), Some(b), _) => self.check_for_range(f, scope, &lp, a, b),
+            (_, _, Some(c)) => self.check_for_collection(f, scope, &lp, c),
+            _ => unreachable!("a `for` iterates a range or a collection"),
         }
-        let c = collection.unwrap();
+    }
+
+    /// `for a..b`: an inclusive integer range.
+    fn check_for_range(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        lp: &ForLoop,
+        a: &ast::Expr,
+        b: &ast::Expr,
+    ) -> Result<()> {
+        let ForLoop {
+            for_,
+            span,
+            loop_scope,
+            depth,
+            it_name,
+            index_name,
+        } = *lp;
+        // Integer range, inclusive.
+        let av = self.check_expr(f, scope, a, None)?;
+        let bv = self.check_expr(f, scope, b, None)?;
+        let ty = match (&av, &bv) {
+            (
+                Operand::Const {
+                    untyped: true, ..
+                },
+                Operand::Const {
+                    untyped: true, ..
+                },
+            ) => TypeId::S64,
+            (
+                Operand::Const {
+                    untyped: true, ..
+                },
+                other,
+            ) => other.ty(),
+            (other, _) => other.ty(),
+        };
+        let ty = if self.types.is_integer(ty) {
+            ty
+        } else {
+            TypeId::S64
+        };
+        let av = self.convert(f, av, ty, a.span)?;
+        let bv = self.convert(f, bv, ty, b.span)?;
+        let (_, start) = self.rvalue(f, av, a.span)?;
+        let (_, end) = self.rvalue(f, bv, b.span)?;
+        let t = self.ir_ty(ty).unwrap();
+        let signed = self.types.int_info(ty).is_some_and(|i| i.1);
+        let it = f.b.alloca(t.size(), t.size());
+        let idx = f.b.alloca(8, 8);
+        f.b.store(
+            t,
+            it,
+            if for_.reverse {
+                end
+            } else {
+                start
+            },
+        );
+        let zero = f.b.iconst(Ty::I64, 0);
+        f.b.store(Ty::I64, idx, zero);
+        let head = f.b.new_block();
+        let body_block = f.b.new_block();
+        let step = f.b.new_block();
+        let exit = f.b.new_block();
+        f.b.jump(head);
+        f.b.switch_to(head);
+        let cur = f.b.load(t, it);
+        let op = match (for_.reverse, signed) {
+            (false, true) => CmpOp::SLe,
+            (false, false) => CmpOp::ULe,
+            (true, true) => CmpOp::SGe,
+            (true, false) => CmpOp::UGe,
+        };
+        let c = f.b.cmp(
+            op,
+            t,
+            cur,
+            if for_.reverse {
+                start
+            } else {
+                end
+            },
+        );
+        f.b.branch(c, body_block, exit);
+        f.b.switch_to(body_block);
+        let names = [it_name, index_name];
+        self.declare_loop_vars(
+            f,
+            loop_scope,
+            for_.backtick_names,
+            names,
+            [
+                EntityKind::Local {
+                    ty,
+                    addr: it,
+                    depth,
+                },
+                EntityKind::Local {
+                    ty: TypeId::S64,
+                    addr: idx,
+                    depth,
+                },
+            ],
+            span,
+        );
+        let defer_depth = f.mark_defers();
+        f.loops.push(LoopFrame {
+            label: Some(it_name),
+            break_block: exit,
+            continue_block: step,
+            defer_depth,
+            remove: None,
+        });
+        let result = self.check_scoped(f, loop_scope, &for_.body);
+        f.loops.pop();
+        result?;
+        f.b.jump(step);
+        f.b.switch_to(step);
+        // Stop at (or past, if the body moved `it`) the bound, before stepping could wrap.
+        // Otherwise the next value is still in range, so the step goes straight back to the
+        // body and only the first iteration runs the test in `head`.
+        let cur = f.b.load(t, it);
+        let past = match (for_.reverse, signed) {
+            (false, true) => CmpOp::SGe,
+            (false, false) => CmpOp::UGe,
+            (true, true) => CmpOp::SLe,
+            (true, false) => CmpOp::ULe,
+        };
+        let at_end = f.b.cmp(
+            past,
+            t,
+            cur,
+            if for_.reverse {
+                start
+            } else {
+                end
+            },
+        );
+        let advance = f.b.new_block();
+        f.b.branch(at_end, exit, advance);
+        f.b.switch_to(advance);
+        let one = f.b.iconst(t, 1);
+        let next = f.b.bin(
+            if for_.reverse {
+                ir::BinOp::Sub
+            } else {
+                ir::BinOp::Add
+            },
+            t,
+            cur,
+            one,
+        );
+        f.b.store(t, it, next);
+        let i = f.b.load(Ty::I64, idx);
+        let one64 = f.b.iconst(Ty::I64, 1);
+        let i2 = f.b.bin(ir::BinOp::Add, Ty::I64, i, one64);
+        f.b.store(Ty::I64, idx, i2);
+        f.b.jump(body_block);
+        f.b.switch_to(exit);
+        Ok(())
+    }
+
+    /// `for x: collection`: an array, a view, or a struct with a `for_expansion`.
+    fn check_for_collection(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        lp: &ForLoop,
+        c: &ast::Expr,
+    ) -> Result<()> {
+        let ForLoop {
+            for_,
+            span,
+            loop_scope,
+            depth,
+            it_name,
+            index_name,
+        } = *lp;
         // `for iterate(x)`: a call to a for_expansion-shaped macro (body: Code second).
         if for_.iterator.is_none()
             && let ast::ExprKind::Call {
@@ -531,12 +589,11 @@ impl Compiler {
         let c = in_range(f);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(body_block);
-        let data = match fixed {
-            Some(_) => caddr,
-            None => {
-                let p = f.b.ptr_offset(caddr, 8);
-                f.b.load(Ty::Ptr, p)
-            }
+        let data = if fixed.is_some() {
+            caddr
+        } else {
+            let p = f.b.ptr_offset(caddr, 8);
+            f.b.load(Ty::Ptr, p)
         };
         let i = f.b.load(Ty::I64, idx);
         let s = f.b.iconst(Ty::I64, esize);
@@ -661,7 +718,7 @@ impl Compiler {
     }
 
     /// Expand a for loop through `procs`, called with `leading` arguments
-    /// followed by the body as Code and the For_Flags.
+    /// followed by the body as Code and the `For_Flags`.
     #[allow(clippy::too_many_arguments)]
     fn check_for_expansion(
         &mut self,

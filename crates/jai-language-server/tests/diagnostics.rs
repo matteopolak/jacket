@@ -47,7 +47,7 @@ fn independent_errors_are_all_reported() {
     s.open(uri(), 1, TWO_BODIES.into()).unwrap();
     let found = checks(&s);
     let mut lines: Vec<u32> = found.iter().map(|(l, _)| *l).collect();
-    lines.sort();
+    lines.sort_unstable();
     lines.dedup();
     assert_eq!(lines, [1, 2, 4], "{found:?}");
 }
@@ -116,7 +116,7 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
         true
     );
     // Nothing is pushed to a client that pulls.
-    assert!(open(&mut json, TWO_BODIES).is_empty());
+    assert_eq!(open(&mut json, TWO_BODIES), [] as [serde_json::Value; 0]);
     let report = &messages(
         &mut json,
         serde_json::json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/diagnostic",
@@ -154,7 +154,7 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
     );
     assert_eq!(refresh[0]["method"], "workspace/diagnostic/refresh");
     let answer = serde_json::json!({"jsonrpc": "2.0", "id": refresh[0]["id"], "result": null});
-    assert!(messages(&mut json, answer).is_empty());
+    assert_eq!(messages(&mut json, answer), [] as [serde_json::Value; 0]);
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn a_clean_program_has_no_check_errors() {
     let mut s = session();
     let text = "#import \"Basic\";\nmain :: () { print(\"hi\\n\"); }\n";
     s.open(uri(), 1, text.into()).unwrap();
-    assert!(checks(&s).is_empty());
+    assert_eq!(checks(&s), [] as [(u32, std::string::String); 0]);
 }
 
 /// Declarations from an inserted `#code` value or string are visible to the statements

@@ -130,7 +130,7 @@ fn names_from_a_using_parameter_hover_and_go_to_it() {
 /// declaration (found by `examples/ide_coverage.rs`).
 #[test]
 fn a_polymorph_nothing_calls_hovers_with_its_parameters_as_types() {
-    let text = r#"Value :: struct { n: int; }
+    let text = r"Value :: struct { n: int; }
 convert :: (v: Value, $Target: Type) -> ok: bool, result: Target {
     target: Target;
     count := v.n + 1;
@@ -146,7 +146,7 @@ find :: (key: string) -> found := false, index: int = -1 {
 main :: () {
     for < it_index: 0..3 {}
 }
-"#;
+";
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
@@ -186,7 +186,7 @@ main :: () {
 
 #[test]
 fn a_sketch_carries_on_past_members_of_its_stand_ins() {
-    let text = r#"Matrix :: struct ($T: Type, $M: int, $N: int) { rows: [M] [N] T; }
+    let text = r"Matrix :: struct ($T: Type, $M: int, $N: int) { rows: [M] [N] T; }
 Counter :: struct { hits: int; }
 describe :: (x: $T, counter: *Counter) -> int {
     label := x.label;
@@ -215,7 +215,7 @@ bump :: (counter: *Counter) #expand {
     bumped := counter.hits + 1;
 }
 main :: () {}
-"#;
+";
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
@@ -257,7 +257,7 @@ main :: () {}
 
 #[test]
 fn baked_names_and_bare_polymorphic_struct_parameters_hover() {
-    let text = r#"Vector :: struct (T: Type, N: int) { x: T; #if N > 1 { y: T; } }
+    let text = r"Vector :: struct (T: Type, N: int) { x: T; #if N > 1 { y: T; } }
 Vec2 :: #bake_arguments Vector(N = 2);
 Vec2f :: Vec2(float32);
 scale :: (v: $T, by: int) -> T { return v * by; }
@@ -265,7 +265,7 @@ double :: #bake_arguments scale(by = 2);
 twice :: #bake_constants scale(T = int);
 flatten :: (v: Vec2) -> Vec2f { return .{xx v.x, xx v.y}; }
 main :: () {}
-"#;
+";
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
@@ -299,16 +299,7 @@ main :: () {}
                 .unwrap()
                 .first()
                 .map(|d| d.range.start),
-            Some(at(
-                text,
-                decl,
-                0,
-                if decl == "$T" {
-                    1
-                } else {
-                    0
-                }
-            )),
+            Some(at(text, decl, 0, usize::from(decl == "$T"))),
             "{needle}"
         );
     }

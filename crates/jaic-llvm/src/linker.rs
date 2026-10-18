@@ -54,7 +54,7 @@ pub fn link_failure(program: &str, out: &std::process::Output) -> String {
     text
 }
 
-/// `link.exe`/`lld-link` arguments that keep the objects' CodeView in a PDB named after the
+/// `link.exe`/`lld-link` arguments that keep the objects' `CodeView` in a PDB named after the
 /// output. The objects are deleted after linking, so without `/DEBUG` the debug information is
 /// lost. `/DEBUG` would otherwise also turn on incremental linking (an `.ilk` file and padded
 /// code) and keep unreferenced functions; both are turned back off to match a build without it.
@@ -102,8 +102,10 @@ pub fn archive(
     let program = match std::env::var("JAIC_AR") {
         Ok(program) => program,
         // The system `ar` on macOS writes no symbol index for wasm objects.
-        Err(_) if target.is_some_and(|t| t.is_wasm()) => wasm::find_llvm_tool("llvm-ar")
-            .ok_or("no llvm-ar found for a WebAssembly archive; set JAIC_AR")?,
+        Err(_) if target.is_some_and(jaic::target::Target::is_wasm) => {
+            wasm::find_llvm_tool("llvm-ar")
+                .ok_or("no llvm-ar found for a WebAssembly archive; set JAIC_AR")?
+        }
         Err(_) if LinkFlavor::for_target(target).is_windows() => {
             let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
             let arch = msvc::arch_dir(target.unwrap_or_else(BuildTarget::host).cpu);
@@ -354,7 +356,7 @@ pub enum OutputKind {
 /// The file name extension an output gets on `target` when its name has none, where the
 /// platform expects one: `exe`, `dll` and `lib` on Windows, `wasm` (or `a`) for WebAssembly.
 pub fn output_extension(target: Option<BuildTarget>, kind: OutputKind) -> Option<&'static str> {
-    if target.is_some_and(|t| t.is_wasm()) {
+    if target.is_some_and(jaic::target::Target::is_wasm) {
         return Some(match kind {
             OutputKind::StaticLibrary => "a",
             _ => "wasm",

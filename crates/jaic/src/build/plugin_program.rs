@@ -54,7 +54,7 @@ pub fn plugin_metaprogram(program: &PluginProgram) -> String {
     let (name, dir) = match &target {
         Some(out) => (
             lossy(out.file_name()),
-            lossy(out.parent().map(|d| d.as_os_str())),
+            lossy(out.parent().map(std::path::Path::as_os_str)),
         ),
         None => (lossy(program.main_file.file_stem()), None),
     };
@@ -128,7 +128,10 @@ mod tests {
         PluginImport {
             module: module.into(),
             import_parameters: parameters.into(),
-            options: options.iter().map(|s| s.to_string()).collect(),
+            options: options
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
         }
     }
 

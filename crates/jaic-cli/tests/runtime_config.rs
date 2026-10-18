@@ -62,7 +62,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
     }
 
     let mut build = String::from("C :: #import \"Compiler\"; #run {\n");
-    for (name, size) in [("zero", 0), ("large", 131072)] {
+    for (name, size) in [("zero", 0), ("large", 131_072)] {
         let child = format!(
             r#"
             #import "Basic";
@@ -151,9 +151,8 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
 #[test]
 fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let library = std::env::var_os("JAIC_STDLIB")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| root.join("stdlib"));
+    let library =
+        std::env::var_os("JAIC_STDLIB").map_or_else(|| root.join("stdlib"), PathBuf::from);
     let source = root.join("tests/compiler/semantics/runtime-configuration/one-megabyte.jai");
     for mode in ["-check", "-interp"] {
         let out = checked(

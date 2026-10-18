@@ -117,7 +117,7 @@ impl Probe {
     /// Can every page of `addr..addr + len` be read (or written)? Asks the system about the
     /// pages not known already.
     #[inline(always)]
-    pub(super) fn accessible(&self, addr: u64, len: usize, write: bool) -> bool {
+    fn accessible(&self, addr: u64, len: usize, write: bool) -> bool {
         // The usual access is one more field of a record just read: inside one known page.
         // Addresses below 4 KiB are never mapped (and are how null dereferences show).
         if addr >= PAGE && len != 0 && (len as u64) <= PAGE - addr % PAGE {
@@ -344,7 +344,7 @@ mod sys {
             let mut copied = 0;
             // SAFETY: Mach validates the source and destination mappings in-kernel.
             return unsafe {
-                mach_vm_read_overwrite(mach_task_self_, src, len as u64, dst, &mut copied)
+                mach_vm_read_overwrite(mach_task_self_, src, len as u64, dst, &raw mut copied)
             } == 0
                 && copied == len as u64;
         }
@@ -394,12 +394,12 @@ mod sys {
         let status = unsafe {
             mach_vm_region(
                 mach_task_self_,
-                &mut start,
-                &mut size,
+                &raw mut start,
+                &raw mut size,
                 VM_REGION_BASIC_INFO_64,
                 info.as_mut_ptr(),
-                &mut count,
-                &mut object,
+                &raw mut count,
+                &raw mut object,
             )
         };
         // The call describes the next mapping at or after `at`: one that starts later means
@@ -472,7 +472,7 @@ mod sys {
                     dst as *mut c_void,
                     src as *const c_void,
                     len,
-                    &mut copied,
+                    &raw mut copied,
                 )
             } else {
                 ReadProcessMemory(
@@ -480,7 +480,7 @@ mod sys {
                     src as *const c_void,
                     dst as *mut c_void,
                     len,
-                    &mut copied,
+                    &raw mut copied,
                 )
             }
         };
@@ -493,7 +493,7 @@ mod sys {
         let mut info: MemoryBasicInformation = unsafe { std::mem::zeroed() };
         let size = std::mem::size_of::<MemoryBasicInformation>();
         // SAFETY: VirtualQuery accepts any address and writes at most `size` bytes.
-        if unsafe { VirtualQuery(at as *const c_void, &mut info, size) } != size {
+        if unsafe { VirtualQuery(at as *const c_void, &raw mut info, size) } != size {
             return None;
         }
         let allowed = info.state == MEM_COMMIT
@@ -736,6 +736,7 @@ mod tests {
         // Three of the largest pages any host has, so the middle one is a page of its own.
         const SIZE: usize = 64 << 10;
         // SAFETY: an anonymous private mapping, unmapped below.
+        // SAFETY: an anonymous private mapping at a kernel-chosen address touches no existing memory.
         let base = unsafe { mmap(std::ptr::null_mut(), 3 * SIZE, 3, 2 | MAP_ANON, -1, 0) };
         assert_ne!(base as usize, usize::MAX);
         let start = base as u64;
@@ -743,10 +744,8 @@ mod tests {
         // The whole mapping is known readable and writable first.
         assert!(read(start, &mut byte) && write(start + 2 * SIZE as u64, &byte));
         // SAFETY: the middle third of the mapping.
-        assert_eq!(
-            unsafe { mprotect(base.wrapping_byte_add(SIZE), SIZE, 0) },
-            0
-        );
+        let protected = unsafe { mprotect(base.wrapping_byte_add(SIZE), SIZE, 0) };
+        assert_eq!(protected, 0);
         // A native thread can change page protections without calling the compiler.
         // Deliberately keep any cached mapping information from the earlier reads.
         assert!(read(start, &mut byte));

@@ -170,7 +170,7 @@ fn custom_provider_without_isolation_cannot_fall_back_to_native_execution() {
         }
     }
     let error = compile_configured("#run,host {} main :: () {}", true, |compiler| {
-        compiler.interp = jaic::interp::Interp::new(Box::new(RestrictedHost))
+        compiler.interp = jaic::interp::Interp::new(Box::new(RestrictedHost));
     })
     .expect_err("an unsupported isolation provider must be diagnosed");
     assert!(

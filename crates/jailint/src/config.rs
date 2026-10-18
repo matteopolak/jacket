@@ -14,7 +14,7 @@
 //! Anything the schema does not know under `[lint]` is an error, so a typo does not silently
 //! keep a rule on.
 use jacket_config::{Disk, Files, Lint};
-use std::collections::HashMap;
+use jaic::fxhash::HashMap;
 use std::path::{Path, PathBuf};
 
 pub const FILE_NAME: &str = jacket_config::FILE_NAME;

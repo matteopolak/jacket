@@ -1,4 +1,4 @@
-//! Numeric literal contracts from the language and Jai_Lexer specifications.
+//! Numeric literal contracts from the language and `Jai_Lexer` specifications.
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 
@@ -42,7 +42,7 @@ fn type_only_indexing_describes_an_array_field_element_without_reading_storage()
 #[test]
 fn scalar_float_intrinsics_decode_their_actual_register_width() {
     check(
-        r#"
+        r"
         sqrt :: (x: float32) -> float32 #intrinsic;
         sqrt :: (x: float64) -> float64 #intrinsic;
         sin :: (x: float32) -> float32 #intrinsic;
@@ -59,7 +59,7 @@ fn scalar_float_intrinsics_decode_their_actual_register_width() {
         #assert(round(cast(float32) -1.5) == -2 && trunc(cast(float32) -1.75) == -1);
         #assert(fabs(cast(float32) -3) == 3);
         #assert(cast,force(u32) sqrt(0h80000000) == 0x80000000);
-    "#,
+    ",
     );
 }
 

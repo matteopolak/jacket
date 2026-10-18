@@ -39,14 +39,6 @@ impl Interp {
                 width,
             ));
         }
-        if !self.probe.accessible(address, width as usize, false)
-            || (!matches!(op, I::AtomicLoad(_))
-                && !self.probe.accessible(address, width as usize, true))
-        {
-            return self.trap(format!(
-                "atomic access to inaccessible memory at {address:#x}"
-            ));
-        }
         let success = order(ordering)?;
         let failed = order(failure)?;
         match op {
@@ -62,9 +54,12 @@ impl Interp {
         }
         macro_rules! access {
             ($atomic:ty, $scalar:ty) => {{
-                // SAFETY: the width, natural alignment and mapped permissions were
-                // checked above. As for native pointers, callers must retain the
-                // allocation and use compatible atomic accesses while it is shared.
+                // SAFETY: the width and natural alignment were checked above. Like the
+                // interpreter's plain loads and stores, the access goes through the raw
+                // pointer, so a bad address faults as it would natively (asking about the
+                // mapping first read /proc/self/maps on Linux after every foreign call).
+                // Callers must retain the allocation and use compatible atomic accesses
+                // while it is shared.
                 let cell = unsafe { <$atomic>::from_ptr(address as *mut $scalar) };
                 match op {
                     I::AtomicLoad(_) => Rets::one(cell.load(success) as u64),

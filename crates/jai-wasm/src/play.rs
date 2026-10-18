@@ -144,8 +144,7 @@ fn options(main: &str, fs: &dyn FileSystem, stdlib: &Path) -> Options {
     // stdlib.
     let main_dir = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')))
         .parent()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(WORKSPACE_ROOT));
+        .map_or_else(|| PathBuf::from(WORKSPACE_ROOT), PathBuf::from);
     options.import_paths = vec![main_dir.join("modules"), stdlib.to_path_buf()];
     options.preload =
         Some(jaic::find_preload(fs, stdlib).unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)));
@@ -329,7 +328,7 @@ fn run_styled(
         report: Box::new(move |_, text| {
             reports
                 .borrow_mut()
-                .write(format!("{text}\n").as_bytes(), true)
+                .write(format!("{text}\n").as_bytes(), true);
         }),
         observer: None,
     });
@@ -573,7 +572,7 @@ mod tests {
         let mut files = BTreeMap::new();
         files.insert("main.jai".to_string(), source.as_bytes().to_vec());
         let io = PlayIo {
-            args: args.iter().map(|a| a.to_string()).collect(),
+            args: args.iter().map(std::string::ToString::to_string).collect(),
             stdin: Some(stdin.as_bytes().to_vec()),
         };
         run_with_io(&files, "main.jai", PlayOptions::default(), &io)
@@ -1077,7 +1076,7 @@ mod tests {
         );
         assert_eq!(invalid.exit_code, Some(0), "{}", invalid.rendered);
         let deadlocked = single(
-            r#"
+            r"
             pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #foreign;
             pthread_join :: (thread:u64,result:**void)->s32 #foreign;
             pthread_mutex_init :: (token:*void,attributes:*void)->s32 #foreign;
@@ -1091,7 +1090,7 @@ mod tests {
                 if pthread_create(*thread,null,cast(*void)worker,null)!=0 return 3;
                 return pthread_join(thread,null);
             }
-        "#,
+        ",
         );
         assert_eq!(deadlocked.exit_code, None);
         assert!(

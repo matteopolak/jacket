@@ -7,6 +7,7 @@
 //! null. `class` and `superclass` are the two sends whose answers compile-time code checks, so
 //! they answer a class (the receiver, and `NSObject`).
 use super::*;
+use crate::interp::word_or_zero;
 
 /// Every class takes this many bytes; subclasses add none, so stubs sized by the difference
 /// from the superclass are empty.
@@ -38,7 +39,7 @@ impl SandboxHost {
         if ptr == 0 {
             return 0;
         }
-        unsafe { std::ptr::copy_nonoverlapping(name.as_ptr(), ptr as *mut u8, name.len()) };
+        write_bytes(ptr, name.as_bytes());
         let table = if class {
             &mut self.objc.classes
         } else {
@@ -50,7 +51,7 @@ impl SandboxHost {
     }
 
     pub(super) fn objc_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         Some(match symbol {
             "sel_registerName" | "sel_getUid" => {
                 if arg(0) == 0 {

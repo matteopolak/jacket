@@ -1,4 +1,5 @@
 //! `jailint`: report (and fix) common mistakes and unidiomatic code in Jai programs.
+#![forbid(unsafe_code)]
 use jailint::config::{Config, Level};
 use jailint::render::render;
 use jailint::{Lint, RULES};
@@ -82,7 +83,7 @@ fn parse_args() -> Result<Option<Args>, String> {
         checked_files: None,
         allow_incomplete: false,
         add_sources: Vec::new(),
-        target: Default::default(),
+        target: jailint::target::Selection::default(),
         paths: Vec::new(),
         fix: false,
         config: None,
@@ -128,12 +129,12 @@ fn parse_args() -> Result<Option<Args>, String> {
                     value(&a)?
                         .parse()
                         .map_err(|_| format!("`{a}` takes a whole number, such as `{a} 6`"))?,
-                )
+                );
             }
             "-j" | "--jobs" => {
                 args.jobs = value(&a)?
                     .parse()
-                    .map_err(|_| format!("`{a}` takes a number of jobs, such as `{a} 4`"))?
+                    .map_err(|_| format!("`{a}` takes a number of jobs, such as `{a} 4`"))?;
             }
             "--color" => {
                 let when = value("--color")?;
@@ -233,20 +234,19 @@ fn run() -> Result<ExitCode, String> {
             return Err(format!("`{shown}` does not exist\nhelp: {help}"));
         }
     }
-    let mut config = match &args.config {
-        Some(path) => Config::load(path)?,
-        None => {
-            let first = jaic::canonicalize(&args.paths[0]).unwrap_or(cwd.clone());
-            let start = if first.is_dir() {
-                first
-            } else {
-                first.parent().map(PathBuf::from).unwrap_or(cwd.clone())
-            };
-            Config::find_on_disk(&start)?.unwrap_or_else(|| Config {
-                root: cwd.clone(),
-                ..Config::default()
-            })
-        }
+    let mut config = if let Some(path) = &args.config {
+        Config::load(path)?
+    } else {
+        let first = jaic::canonicalize(&args.paths[0]).unwrap_or(cwd.clone());
+        let start = if first.is_dir() {
+            first
+        } else {
+            first.parent().map(PathBuf::from).unwrap_or(cwd.clone())
+        };
+        Config::find_on_disk(&start)?.unwrap_or_else(|| Config {
+            root: cwd.clone(),
+            ..Config::default()
+        })
     };
     for note in &config.notes {
         eprintln!("jailint: {note}");
@@ -305,15 +305,15 @@ fn run() -> Result<ExitCode, String> {
     let shown = |p: &str| {
         let path = PathBuf::from(p);
         path.strip_prefix(&cwd)
-            .map(|r| r.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| p.to_string())
+            .map_or_else(|_| p.to_string(), |r| r.to_string_lossy().into_owned())
     };
     let mut errors = 0;
     let mut warnings = 0;
     // One write per report instead of one per line: a file with thousands of findings spent
     // most of its time in the line-buffered stdout's system calls.
     let mut out = std::io::BufWriter::new(std::io::stdout().lock());
-    let mut indexes: std::collections::HashMap<&str, jaic::source::LineIndex> = Default::default();
+    let mut indexes: jaic::fxhash::HashMap<&str, jaic::source::LineIndex> =
+        jaic::fxhash::HashMap::default();
     for lint in &outcome.lints {
         let Some(text) = outcome.texts.get(&lint.path) else {
             continue;
@@ -350,7 +350,8 @@ fn run() -> Result<ExitCode, String> {
         let mut later: Option<jailint::driver::Outcome> = None;
         for pass in 0..MAX_FIX_PASSES {
             let current = later.as_ref().unwrap_or(&outcome);
-            let mut by_file: std::collections::BTreeMap<&str, Vec<&Lint>> = Default::default();
+            let mut by_file: std::collections::BTreeMap<&str, Vec<&Lint>> =
+                std::collections::BTreeMap::default();
             for l in &current.lints {
                 by_file.entry(&l.path).or_default().push(l);
             }

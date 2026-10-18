@@ -182,21 +182,20 @@ impl Compiler {
 
     /// Address of the S-box (256 bytes), then the inverse S-box and the field inverse.
     pub(super) fn aes_table_ptr(&mut self, f: &mut FnCtx) -> Val {
-        let global = match self.asm_aes_tables {
-            Some(g) => g,
-            None => {
-                let g = self.program.add_global(crate::ir::Global {
-                    name: "__jaic_asm_aes_sbox".into(),
-                    size: 768,
-                    align: 16,
-                    init: aes_tables(),
-                    relocs: Vec::new(),
-                    read_only: true,
-                    export: None,
-                });
-                self.asm_aes_tables = Some(g);
-                g
-            }
+        let global = if let Some(g) = self.asm_aes_tables {
+            g
+        } else {
+            let g = self.program.add_global(crate::ir::Global {
+                name: "__jaic_asm_aes_sbox".into(),
+                size: 768,
+                align: 16,
+                init: aes_tables(),
+                relocs: Vec::new(),
+                read_only: true,
+                export: None,
+            });
+            self.asm_aes_tables = Some(g);
+            g
         };
         f.b.global_addr(global)
     }

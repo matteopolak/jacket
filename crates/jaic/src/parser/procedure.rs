@@ -2,8 +2,8 @@
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
-    AstId, CallHintFlag, Expr, ExprKind, Foreign, Param, ProcFlags, ProcHeader, ProcLit, Return,
-    UsingFilter,
+    AstId, CallHintFlag, Expr, ExprKind, Foreign, Param, ProcBits, ProcFlags, ProcHeader, ProcLit,
+    Return, UsingFilter,
 };
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
@@ -163,7 +163,7 @@ impl Parser<'_> {
         for (i, token) in self.toks[from..close].iter().enumerate() {
             match &token.tok {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
-                    depth += 1
+                    depth += 1;
                 }
                 Tok::Punct(P::RParen | P::RBracket | P::RBrace) => depth = depth.saturating_sub(1),
                 Tok::Punct(P::Comma) if depth == 0 && !cast_modifier(from + i) => return true,
@@ -192,8 +192,8 @@ impl Parser<'_> {
         self.parse_proc_flags(&mut header)?;
         header.span = start.to(self.prev_span());
         let has_external_body = header.foreign.is_some()
-            || header.flags.compiler
-            || header.flags.intrinsic
+            || header.flags.compiler()
+            || header.flags.intrinsic()
             || header.flags.elsewhere.is_some();
         let header = Rc::new(header);
         if self.at(P::LBrace) {
@@ -309,7 +309,7 @@ impl Parser<'_> {
                 )
             });
             if closes_type {
-                return self.parse_proc_expr(Default::default());
+                return self.parse_proc_expr(CallHintFlag::default());
             }
         }
         self.parse_expr()
@@ -548,23 +548,23 @@ impl Parser<'_> {
         let span = self.bump();
         let flags = &mut header.flags;
         match flag {
-            ProcFlag::CCall => flags.c_call = true,
-            ProcFlag::NoContext => flags.no_context = true,
-            ProcFlag::Expand => flags.expand = true,
-            ProcFlag::Symmetric => flags.symmetric = true,
-            ProcFlag::CppMethod => flags.cpp_method = true,
-            ProcFlag::CppReturnTypeIsNonPod => flags.cpp_return_type_is_non_pod = true,
-            ProcFlag::RuntimeSupport => flags.runtime_support = true,
-            ProcFlag::NoDebug => flags.no_debug = true,
-            ProcFlag::NoAbc => flags.no_abc = true,
-            ProcFlag::NoAoc => flags.no_aoc = true,
-            ProcFlag::NoCall => flags.no_call = true,
-            ProcFlag::TypeInfoNone => flags.type_info_none = true,
+            ProcFlag::CCall => flags.set(ProcBits::C_CALL),
+            ProcFlag::NoContext => flags.set(ProcBits::NO_CONTEXT),
+            ProcFlag::Expand => flags.set(ProcBits::EXPAND),
+            ProcFlag::Symmetric => flags.set(ProcBits::SYMMETRIC),
+            ProcFlag::CppMethod => flags.set(ProcBits::CPP_METHOD),
+            ProcFlag::CppReturnTypeIsNonPod => flags.set(ProcBits::CPP_RETURN_TYPE_IS_NON_POD),
+            ProcFlag::RuntimeSupport => flags.set(ProcBits::RUNTIME_SUPPORT),
+            ProcFlag::NoDebug => flags.set(ProcBits::NO_DEBUG),
+            ProcFlag::NoAbc => flags.set(ProcBits::NO_ABC),
+            ProcFlag::NoAoc => flags.set(ProcBits::NO_AOC),
+            ProcFlag::NoCall => flags.set(ProcBits::NO_CALL),
+            ProcFlag::TypeInfoNone => flags.set(ProcBits::TYPE_INFO_NONE),
             ProcFlag::Intrinsic | ProcFlag::Compiler => {
                 if flag == ProcFlag::Intrinsic {
-                    flags.intrinsic = true;
+                    flags.set(ProcBits::INTRINSIC);
                 } else {
-                    flags.compiler = true;
+                    flags.set(ProcBits::COMPILER);
                 }
                 if let Tok::Str(s) = self.tok() {
                     flags.builtin_name = Some(String::from_utf8_lossy(s).into_owned().into());

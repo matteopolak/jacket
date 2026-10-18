@@ -43,7 +43,7 @@ impl Compiler {
                     continue;
                 };
                 let found = self.find_member(actual, name, span)?;
-                if !found.is_some_and(|(_, ty)| ty == field.ty) {
+                if found.is_none_or(|(_, ty)| ty != field.ty) {
                     return err(
                         span,
                         format!(
@@ -86,7 +86,11 @@ impl Compiler {
                     Resolved::ProcSet(p) => p.clone(),
                     _ => Vec::new(),
                 };
-                let compatible = if !required_procs.is_empty() {
+                let compatible = if required_procs.is_empty() {
+                    found.iter().any(|value| matches!((&wanted,value),
+                        (Resolved::Const{ty:a,value:Value::Type(x)},Resolved::Const{ty:b,value:Value::Type(y)}) if a==b && x==y)
+                        || matches!((&wanted,value),(Resolved::Const{ty:a,..},Resolved::Const{ty:b,..}) if a==b && *a!=TypeId::TYPE))
+                } else {
                     let mut ok = true;
                     for required_proc in required_procs {
                         let target = self.proc_type(required_proc, span)?;
@@ -98,10 +102,6 @@ impl Compiler {
                         ok &= matched;
                     }
                     ok
-                } else {
-                    found.iter().any(|value| matches!((&wanted,value),
-                        (Resolved::Const{ty:a,value:Value::Type(x)},Resolved::Const{ty:b,value:Value::Type(y)}) if a==b && x==y)
-                        || matches!((&wanted,value),(Resolved::Const{ty:a,..},Resolved::Const{ty:b,..}) if a==b && *a!=TypeId::TYPE))
                 };
                 if !compatible {
                     return err(

@@ -177,12 +177,12 @@ pub fn binary(op: BinOp, a: Interval, b: Interval) -> Option<Interval> {
         })),
         BinOp::Add => Interval::new(a.lo.checked_add(b.lo)?, a.hi.checked_add(b.hi)?),
         BinOp::Sub => Interval::new(a.lo.checked_sub(b.hi)?, a.hi.checked_sub(b.lo)?),
-        BinOp::Mul => corners(a, b, |x, y| x.checked_mul(y)),
+        BinOp::Mul => corners(a, b, i128::checked_mul),
         BinOp::Div => {
             if b.lo <= 0 && b.hi >= 0 {
                 return None;
             }
-            corners(a, b, |x, y| x.checked_div(y))
+            corners(a, b, i128::checked_div)
         }
         BinOp::Rem => {
             let m = b.lo.checked_abs()?.max(b.hi.checked_abs()?);

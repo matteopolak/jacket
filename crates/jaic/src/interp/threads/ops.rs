@@ -12,6 +12,7 @@ use super::worker::absolute_deadline;
 #[cfg(not(windows))]
 use super::worker::run_worker;
 use crate::interp::threads_inline::ThreadFn;
+use crate::interp::word_or_zero;
 use crate::interp::*;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -33,7 +34,7 @@ impl Interp {
         if let Some(shared) = &self.shared {
             return shared.clone();
         }
-        let shared = Shared::new(self as *mut Interp as usize);
+        let shared = Shared::new(std::ptr::from_mut::<Interp>(self) as usize);
         self.shared = Some(shared.clone());
         // Another thread may want the baton from now on.
         self.multi = true;
@@ -62,7 +63,7 @@ impl Interp {
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
         // A declaration may pass fewer words than the Win32 call has parameters; the rest are 0.
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let Some(fun) = ThreadFn::from_name(symbol) else {
             return self.win32_foreign(program, symbol, args);
@@ -81,7 +82,7 @@ impl Interp {
                 self.with_sched(|s| s.mutexes.remove(&arg(0)));
                 Ok(0)
             }
-            ThreadFn::MutexLock => self.lock_mutex(arg(0), 1).map(|_| 0),
+            ThreadFn::MutexLock => self.lock_mutex(arg(0), 1).map(|()| 0),
             ThreadFn::MutexTryLock => Ok(if self.try_lock_mutex(arg(0)) {
                 0
             } else {
@@ -119,7 +120,7 @@ impl Interp {
                 self.sleep_for(Duration::from_micros(arg(0) as u32 as u64))
             }
             ThreadFn::Sleep if started => self.sleep_for(Duration::from_secs(arg(0) as u32 as u64)),
-            ThreadFn::SchedYield | ThreadFn::YieldNp if started => self.yield_now().map(|_| 0),
+            ThreadFn::SchedYield | ThreadFn::YieldNp if started => self.yield_now().map(|()| 0),
             _ => return self.win32_foreign(program, symbol, args),
         };
         Some(result.map(|v| vec![v]))
@@ -246,7 +247,7 @@ impl Interp {
             s.threads.last_mut().unwrap().suspend_count = u32::from(suspended);
             s.threads.len() - 1
         };
-        let program = program as *const Program as usize;
+        let program = std::ptr::from_ref::<Program>(program) as usize;
         let thread_shared = shared.clone();
         #[cfg(windows)]
         let spawned = win32::spawn_worker(thread_shared, program, id, func, argument);
@@ -449,7 +450,7 @@ impl Interp {
             return Ok(());
         }
         let state = self.take_exec_state();
-        s.interp = self as *mut Interp as usize;
+        s.interp = std::ptr::from_mut::<Interp>(self) as usize;
         s.current = None;
         s.last = me;
         s.pick();
@@ -477,7 +478,7 @@ impl Interp {
             let mut s = shared.lock();
             let me = s.current.unwrap_or(0);
             s.threads[me].block = reason;
-            s.interp = self as *mut Interp as usize;
+            s.interp = std::ptr::from_mut::<Interp>(self) as usize;
             s.release(Some(me));
             shared.cv.notify_all();
             let mut s = shared.acquire(s, me);

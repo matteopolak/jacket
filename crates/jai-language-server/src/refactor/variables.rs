@@ -8,7 +8,7 @@ use jaic::ast::{BinOp, DeclKind, ExprKind as E, StmtKind as S, UnOp};
 use jaic::source::{line_end, line_start};
 use jailint::syntax::{Node, walk};
 
-impl<'a> Cx<'a> {
+impl Cx<'_> {
     // Extract into variable
 
     /// `foo(a + b)` with `a + b` selected becomes `value := a + b;` above and `foo(value)`.

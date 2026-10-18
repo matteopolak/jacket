@@ -97,14 +97,14 @@ impl Compiler {
         };
         let mut f = FnCtx::new(name, ir_sig, file);
         f.proc = Some(id);
-        f.no_abc = header.flags.no_abc || !self.options.array_bounds_check;
-        f.no_aoc = header.flags.no_aoc;
+        f.no_abc = header.flags.no_abc() || !self.options.array_bounds_check;
+        f.no_aoc = header.flags.no_aoc();
         f.b.func.inline = match header.flags.inline {
             ast::CallHintFlag::Inline => ir::InlineHint::Always,
             ast::CallHintFlag::NoInline => ir::InlineHint::Never,
             ast::CallHintFlag::None => ir::InlineHint::Default,
         };
-        if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc {
+        if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc() {
             f.b.func.null_checks = true;
             self.note_check_handler(span)?;
         }
@@ -113,13 +113,13 @@ impl Compiler {
         }
         f.b.func.source_file = file.0;
         if func_id.is_some() {
-            f.b.func.debug_hidden = header.flags.no_debug;
+            f.b.func.debug_hidden = header.flags.no_debug();
             self.begin_func_debug(&mut f, id, span);
         }
         if sig.has_context
             && func_id.is_some()
             && header.flags.inline != ast::CallHintFlag::Inline
-            && !header.flags.no_debug
+            && !header.flags.no_debug()
         {
             let (line, col) = self.sources.get(span.file).line_col(span.start);
             f.b.func.trace = Some(ir::TraceInfo {
@@ -192,7 +192,7 @@ impl Compiler {
                 }
             }
         }
-        f.return_types = sig.returns.clone();
+        f.return_types.clone_from(&sig.returns);
         for (i, &rt) in sig.returns.iter().enumerate() {
             if self.is_memory_type(rt) {
                 // The caller's result slot, never null.
@@ -204,13 +204,12 @@ impl Compiler {
             }
             // Named results get a slot initialized to their default.
             if let Some(name) = sig.return_names[i] {
-                let addr = match f.return_outs[i] {
-                    Some(out) => out,
-                    None => {
-                        let size = self.size_of(rt, span)?;
-                        let align = self.align_of(rt, span)?;
-                        f.b.alloca(size, align)
-                    }
+                let addr = if let Some(out) = f.return_outs[i] {
+                    out
+                } else {
+                    let size = self.size_of(rt, span)?;
+                    let align = self.align_of(rt, span)?;
+                    f.b.alloca(size, align)
                 };
                 let default = header
                     .returns

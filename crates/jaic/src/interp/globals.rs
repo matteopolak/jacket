@@ -21,6 +21,8 @@ impl ZeroedBlock {
     pub(crate) fn new(size: usize, align: usize) -> Option<ZeroedBlock> {
         let layout = std::alloc::Layout::from_size_align(size.max(1), align).ok()?;
         // Zeroed pages are mapped lazily, so a large block nobody touches costs no memory.
+        // Zeroed pages are mapped lazily, so a large block nobody touches costs no memory.
+        // SAFETY: `layout` has a non-zero size (`size.max(1)`).
         let ptr = std::ptr::NonNull::new(unsafe { std::alloc::alloc_zeroed(layout) })?;
         Some(ZeroedBlock {
             ptr,
@@ -35,6 +37,8 @@ impl ZeroedBlock {
 
 impl Drop for ZeroedBlock {
     fn drop(&mut self) {
+        // SAFETY: `ptr` came from `alloc_zeroed` with this `layout` in `new` and is freed once,
+        // here.
         unsafe { std::alloc::dealloc(self.ptr.as_ptr(), self.layout) };
         // Its pages may be unmapped now.
         probe::invalidate();
@@ -64,12 +68,14 @@ impl Interp {
             ));
         };
         let addr = storage.addr();
+        // SAFETY: `addr` is the start of the block `storage` just allocated for `global.size` bytes
+        // (at least 1), and the copy is no longer than that.
         unsafe {
             std::ptr::copy_nonoverlapping(
                 global.init.as_ptr(),
                 addr as *mut u8,
                 global.init.len().min(global.size as usize),
-            )
+            );
         };
         self.globals[i] = Some(GlobalMem {
             _storage: storage,
@@ -83,6 +89,8 @@ impl Interp {
                 ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
             };
             let value = target.wrapping_add(r.addend as u64);
+            // SAFETY: `r.offset` addresses a pointer-sized slot inside the global's block (the IR
+            // only records relocations that fit); an unaligned write needs no alignment.
             unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
         }
         Ok(addr)
@@ -96,13 +104,15 @@ impl Interp {
         };
         let addr = m.addr;
         let global = &program.globals[i];
+        // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
+        // `global_addr`), and the copy is no longer than that.
         unsafe {
             std::ptr::write_bytes(addr as *mut u8, 0, global.size as usize);
             std::ptr::copy_nonoverlapping(
                 global.init.as_ptr(),
                 addr as *mut u8,
                 global.init.len().min(global.size as usize),
-            )
+            );
         };
         for r in &global.relocs {
             let target = match r.target {
@@ -111,6 +121,8 @@ impl Interp {
                 ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
             };
             let value = target.wrapping_add(r.addend as u64);
+            // SAFETY: `r.offset` addresses a pointer-sized slot inside the global's block (the IR
+            // only records relocations that fit).
             unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
         }
         Ok(())
@@ -127,6 +139,8 @@ impl Interp {
             let addr = m.addr;
             let global = &program.globals[i];
             let init = global.init.len().min(global.size as usize);
+            // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
+            // `global_addr`), and the copy is no longer than that.
             unsafe {
                 std::ptr::write_bytes(addr as *mut u8, 0, global.size as usize);
                 std::ptr::copy_nonoverlapping(global.init.as_ptr(), addr as *mut u8, init);
@@ -138,6 +152,8 @@ impl Interp {
                     ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
                 };
                 let value = target.wrapping_add(r.addend as u64);
+                // SAFETY: `r.offset` addresses a pointer-sized slot inside the global's block (the
+                // IR only records relocations that fit).
                 unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
             }
         }

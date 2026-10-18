@@ -45,20 +45,19 @@ pub fn parse_error(text: &str) -> Option<usize> {
         return found;
     }
     let (hash, len) = text_key(text);
-    let error = match PARSES.with(|p| {
+    let error = if let Some(found) = PARSES.with(|p| {
         p.borrow()
             .iter()
             .find(|e| (e.0, e.1) == (hash, len))
             .map(|e| e.2)
     }) {
-        Some(found) => found,
-        None => {
-            let error = jaic::parser::parse_file(FileId(0), text)
-                .err()
-                .map(|d| d.span.start as usize);
-            note_parse(text, error);
-            error
-        }
+        found
+    } else {
+        let error = jaic::parser::parse_file(FileId(0), text)
+            .err()
+            .map(|d| d.span.start as usize);
+        note_parse(text, error);
+        error
     };
     LAST_PARSE.with(|last| {
         let mut last = last.borrow_mut();

@@ -23,11 +23,11 @@ use crate::analysis::Span;
 use crate::session::Session;
 use crate::{CodeAction, DocumentUri, TextEdit};
 use jaic::ast::{Expr, File, Stmt};
+use jaic::fxhash::HashMap;
 use jaic::intern::Sym;
 use jaic::source::{DiagnosticKind, FileId};
 use jailint::syntax::{Node, walk};
 use std::cell::OnceCell;
-use std::collections::HashMap;
 
 type Sp = jaic::source::Span;
 
@@ -75,7 +75,7 @@ impl Session {
             let named = context.diagnostics.iter().any(|(code, range)| {
                 code == crate::imports::CHECK_CODE && *range == diagnostic.range
             });
-            if !named && !(a <= end && start <= b) {
+            if !named && (a > end || start > b) {
                 continue;
             }
             // The error is on the switched value, which the refactoring reads as "in the switch".

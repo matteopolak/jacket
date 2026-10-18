@@ -2,8 +2,9 @@
 use super::{Session, contains};
 use crate::analysis::{Span, TokenKind};
 use crate::{DocumentUri, Error, SemanticToken, SemanticTokenKind, SymbolKind};
+use jaic::fxhash::{HashMap, HashSet};
 use jaic::sema::ide_meta::IdeClass;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
 
 impl Session {
     /// Tokens classified by the syntax layer, refined by the type checker when the session has
@@ -24,8 +25,8 @@ impl Session {
             BTreeMap::new()
         };
         // `$T` / `$$T`: the name is a type parameter throughout its procedure.
-        let mut poly: HashMap<&str, Vec<Span>> = HashMap::new();
-        let mut poly_declarations: HashSet<Span> = HashSet::new();
+        let mut poly: HashMap<&str, Vec<Span>> = HashMap::default();
+        let mut poly_declarations: HashSet<Span> = HashSet::default();
         for parameter in &analysis.type_parameters {
             poly.entry(parameter.name.as_str())
                 .or_default()
@@ -39,7 +40,8 @@ impl Session {
             .collect();
         specs.sort_by_key(|s| s.start);
         // The first row declared at each token (a row per token would be a scan per token).
-        let mut declared: HashMap<Span, usize> = HashMap::with_capacity(analysis.rows.len());
+        let mut declared: HashMap<Span, usize> = HashMap::default();
+        declared.reserve(analysis.rows.len());
         for (at, row) in analysis.rows.iter().enumerate() {
             declared.entry(row.selection).or_insert(at);
         }
@@ -92,11 +94,11 @@ impl Session {
                 TokenKind::Keyword => pieces.push(piece(SemanticTokenKind::Keyword)),
                 TokenKind::Number => pieces.push(piece(SemanticTokenKind::Number)),
                 TokenKind::Directive if token.spelling(text).starts_with('@') => {
-                    pieces.push(piece(SemanticTokenKind::Decorator))
+                    pieces.push(piece(SemanticTokenKind::Decorator));
                 }
                 TokenKind::Directive => pieces.push(piece(SemanticTokenKind::Macro)),
                 TokenKind::Dot | TokenKind::Punctuation => {
-                    pieces.push(piece(SemanticTokenKind::Operator))
+                    pieces.push(piece(SemanticTokenKind::Operator));
                 }
                 TokenKind::Ident => {
                     let spelling = token.spelling(text);

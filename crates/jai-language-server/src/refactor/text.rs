@@ -57,7 +57,7 @@ pub(super) fn fresh(text: &str, base: &str) -> String {
     if !mentions(text, base) {
         return base.into();
     }
-    (2..)
+    (2..u32::MAX)
         .map(|n| format!("{base}{n}"))
         .find(|c| !mentions(text, c))
         .unwrap_or_else(|| base.into())

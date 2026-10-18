@@ -18,6 +18,7 @@ use super::sched::NATIVE_STACK;
 #[cfg(windows)]
 use super::worker::run_worker;
 use super::*;
+use crate::interp::word_or_zero;
 #[cfg(windows)]
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -158,7 +159,7 @@ fn compare_handles_api() -> Option<CompareHandles> {
         let name: Vec<u16> = "kernelbase.dll".encode_utf16().chain(Some(0)).collect();
         let mut module = std::ptr::null_mut();
         // SAFETY: name is terminated and module is writable. Flag 1 pins until process exit.
-        if unsafe { GetModuleHandleExW(1, name.as_ptr(), &mut module) } == 0 {
+        if unsafe { GetModuleHandleExW(1, name.as_ptr(), &raw mut module) } == 0 {
             return None;
         }
         // SAFETY: module is pinned; the name identifies the documented exact API signature.
@@ -212,12 +213,11 @@ unsafe extern "system" fn worker_entry(argument: *mut std::ffi::c_void) -> u32 {
         )
     }));
 
-    match result {
-        Ok(value) => value as u32,
-        Err(_) => {
-            eprintln!("error: unexpected Rust panic in interpreter thread entry");
-            std::process::abort();
-        }
+    if let Ok(value) = result {
+        value as u32
+    } else {
+        eprintln!("error: unexpected Rust panic in interpreter thread entry");
+        std::process::abort();
     }
 }
 
@@ -239,9 +239,9 @@ pub(super) fn spawn_worker(
         argument,
     });
     let argument = Box::into_raw(start).cast();
+    let mut native_id = 0;
     // SAFETY: the boxed entry context outlives startup and the system ABI returns DWORD.
     // CRT startup/normal return release CRT thread-local resources as well as OS state.
-    let mut native_id = 0;
     let handle = unsafe {
         _beginthreadex(
             std::ptr::null_mut(),
@@ -249,14 +249,14 @@ pub(super) fn spawn_worker(
             worker_entry,
             argument,
             0x10000,
-            &mut native_id,
+            &raw mut native_id,
         )
     };
     if handle == 0 {
         let mut error = 0;
         // Capture the CRT error before cleanup can change native error state.
         // SAFETY: _get_doserrno writes one unsigned long into our local.
-        let status = unsafe { _get_doserrno(&mut error) };
+        let status = unsafe { _get_doserrno(&raw mut error) };
         // SAFETY: the thread was not created, so its context remains solely owned here.
         unsafe {
             drop(Box::from_raw(argument.cast::<WorkerStart>()));
@@ -295,10 +295,11 @@ pub(super) fn join_worker(worker: Worker) {
 pub(super) fn native_exit_code(handle: u64) -> Result<(u64, u32), u32> {
     let mut code = 0;
     // SAFETY: Windows validates the handle and writes to one local DWORD.
-    let success = unsafe { GetExitCodeThread(handle as usize, &mut code) };
+    let success = unsafe { GetExitCodeThread(handle as usize, &raw mut code) };
     if success != 0 {
         Ok((success as u32 as u64, code))
     } else {
+        // SAFETY: reads the calling thread's last-error value.
         Err(unsafe { GetLastError() })
     }
 }
@@ -391,7 +392,7 @@ fn set_last_error(code: u32) {
     #[cfg(windows)]
     // SAFETY: SetLastError only writes the calling thread's error slot.
     unsafe {
-        SetLastError(code)
+        SetLastError(code);
     };
     #[cfg(not(windows))]
     let _ = code;
@@ -406,7 +407,18 @@ impl Interp {
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        self.win32_thread_foreign(program, symbol, args)
+            .or_else(|| self.win32_sync_foreign(symbol, args))
+    }
+
+    /// Thread creation, suspension, waiting and handles.
+    fn win32_thread_foreign(
+        &mut self,
+        program: &Program,
+        symbol: &str,
+        args: &[u64],
+    ) -> Option<Res<Vec<u64>>> {
+        let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let result: Res<u64> = match symbol {
             "CreateThread" | "_beginthreadex" => {
@@ -438,12 +450,11 @@ impl Interp {
                     Some(&Object::Thread(id)) => Some(s.threads[id].native_id),
                     _ => None,
                 });
-                match id {
-                    Some(id) => Ok(id as u64),
-                    None => {
-                        set_last_error(ERROR_INVALID_PARAMETER);
-                        Ok(0)
-                    }
+                if let Some(id) = id {
+                    Ok(id as u64)
+                } else {
+                    set_last_error(ERROR_INVALID_PARAMETER);
+                    Ok(0)
                 }
             }
             "ResumeThread" if self.owns(arg(0)) => {
@@ -459,12 +470,11 @@ impl Interp {
                     }
                     Some(previous)
                 });
-                match previous {
-                    Some(count) => Ok(count as u64),
-                    None => {
-                        set_last_error(ERROR_INVALID_PARAMETER);
-                        Ok(u32::MAX as u64)
-                    }
+                if let Some(count) = previous {
+                    Ok(count as u64)
+                } else {
+                    set_last_error(ERROR_INVALID_PARAMETER);
+                    Ok(u32::MAX as u64)
                 }
             }
             "SuspendThread" if self.owns(arg(0)) => {
@@ -610,6 +620,16 @@ impl Interp {
                 Ok(1)
             }
 
+            _ => return None,
+        };
+        Some(result.map(|v| vec![v]))
+    }
+
+    /// Locks, condition variables, semaphores, events and sleeping.
+    fn win32_sync_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<Res<Vec<u64>>> {
+        let arg = |i: usize| word_or_zero(args, i);
+        let started = self.multi;
+        let result: Res<u64> = match symbol {
             // Critical sections and SRW locks. Initialization also runs the real procedure, so
             // the memory holds a valid lock should C code ever take it directly.
             "InitializeCriticalSection"
@@ -621,7 +641,7 @@ impl Interp {
                 return None;
             }
             "EnterCriticalSection" | "AcquireSRWLockExclusive" | "AcquireSRWLockShared" => {
-                self.lock_mutex(arg(0), 1).map(|_| 0)
+                self.lock_mutex(arg(0), 1).map(|()| 0)
             }
             "TryEnterCriticalSection"
             | "TryAcquireSRWLockExclusive"
@@ -746,8 +766,8 @@ impl Interp {
                 0 => self.yield_now(),
                 ms => self.sleep_for(Duration::from_millis(ms as u64)).map(|_| ()),
             }
-            .map(|_| 0),
-            "SwitchToThread" if started => self.yield_now().map(|_| 1),
+            .map(|()| 0),
+            "SwitchToThread" if started => self.yield_now().map(|()| 1),
             _ => return None,
         };
         Some(result.map(|v| vec![v]))
@@ -840,7 +860,10 @@ impl Interp {
         let native_id = {
             let mut s = shared.lock();
             while s.threads[id].native_id == 0 {
-                s = shared.cv.wait(s).unwrap_or_else(|e| e.into_inner());
+                s = shared
+                    .cv
+                    .wait(s)
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
             }
             s.threads[id].native_id
         };
@@ -999,15 +1022,14 @@ mod handle_registry_tests {
         let (done, wait) = std::sync::mpsc::channel::<()>();
         let worker = OwnedHandle::from(std::thread::spawn(move || {
             // Closing the channel stops this real OS worker, including assertion unwind.
-            for _ in wait {}
+            for () in wait {}
         }));
         let raw = worker.as_raw_handle() as usize;
         let mut alias = 0;
         // SAFETY: -1 is our current-process pseudo handle, raw is owned, alias is local.
-        assert_ne!(
-            unsafe { DuplicateHandle(usize::MAX, raw, usize::MAX, &mut alias, 2, 0, 0) },
-            0
-        );
+        let duplicated =
+            unsafe { DuplicateHandle(usize::MAX, raw, usize::MAX, &raw mut alias, 2, 0, 0) };
+        assert_ne!(duplicated, 0);
         // SAFETY: DuplicateHandle transferred one native thread handle to alias.
         let alias = unsafe { OwnedHandle::from_raw_handle(alias as *mut _) };
         let mut interp = Interp::new(Box::new(NativeHost));
@@ -1022,11 +1044,16 @@ mod handle_registry_tests {
         // SAFETY: SetLastError/GetLastError operate on this OS thread only.
         unsafe { SetLastError(1234) };
         assert_eq!(interp.is_unmanaged_thread_alias(alias_raw), Ok(true));
-        assert_eq!(unsafe { GetLastError() }, 1234);
+        // SAFETY: as above, this thread's last-error value.
+        let last_error = unsafe { GetLastError() };
+        assert_eq!(last_error, 1234);
         drop(alias);
+        // SAFETY: as above.
         unsafe { SetLastError(5678) };
         assert_eq!(interp.is_unmanaged_thread_alias(alias_raw), Ok(false));
-        assert_eq!(unsafe { GetLastError() }, 5678);
+        // SAFETY: as above.
+        let last_error = unsafe { GetLastError() };
+        assert_eq!(last_error, 5678);
         drop(stop_worker);
         drop(interp);
     }

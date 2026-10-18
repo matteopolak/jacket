@@ -252,7 +252,7 @@ impl Compiler {
                 .entry(span)
                 .and_modify(|c| {
                     c.conflicting |=
-                        c.target != target || c.from != from || c.from_constant != from_constant
+                        c.target != target || c.from != from || c.from_constant != from_constant;
                 })
                 .or_insert(IdeCast {
                     target,

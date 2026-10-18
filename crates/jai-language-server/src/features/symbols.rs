@@ -6,8 +6,8 @@ use crate::{
     CodeLens, Command, DocumentUri, Error, FoldingRange, Location, Position, Range,
     SymbolInformation,
 };
+use jaic::fxhash::HashSet;
 use jaic::sema::ide_meta::IdeClass;
-use std::collections::HashSet;
 
 impl Session {
     // Syntax-only features

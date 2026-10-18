@@ -71,14 +71,14 @@ impl Session {
         let trusted = self.semantic.borrow().trusted();
         let recorded = std::mem::take(&mut self.semantic.borrow_mut().recorded);
         let version = self.semantic.borrow().recorded_version;
-        *self.semantic.borrow_mut() = Default::default();
+        *self.semantic.borrow_mut() = crate::semantic::Cache::default();
         {
             let mut cache = self.semantic.borrow_mut();
             cache.set_trusted(trusted);
             cache.recorded = recorded;
             cache.recorded_version = version + 1;
         }
-        *self.index.borrow_mut() = Default::default();
+        *self.index.borrow_mut() = crate::auto_import::Index::default();
         self.synced_builds.set(0);
         self.touch();
     }

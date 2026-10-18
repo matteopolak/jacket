@@ -141,10 +141,10 @@ fn block_above(text: &str, last_start: usize, last: &str) -> Vec<String> {
         };
         lines.push(text.to_owned());
     }
-    while lines.first().is_some_and(|l| l.is_empty()) {
+    while lines.first().is_some_and(std::string::String::is_empty) {
         lines.remove(0);
     }
-    while lines.last().is_some_and(|l| l.is_empty()) {
+    while lines.last().is_some_and(std::string::String::is_empty) {
         lines.pop();
     }
     lines
@@ -195,7 +195,7 @@ pub fn trailing(text: &str, at: usize) -> Option<String> {
         return None;
     }
     let ends = code.ends_with(';') || code.ends_with(',');
-    if !(ends || !code.contains("::")) || body.trim().is_empty() {
+    if (!ends && code.contains("::")) || body.trim().is_empty() {
         return None;
     }
     Some(body)

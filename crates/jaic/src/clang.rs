@@ -13,8 +13,8 @@
 //! one new enough to report base class offsets (see `open_api`).
 #![allow(unsafe_code)]
 
+use crate::fxhash::HashMap;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_char, c_int, c_uint, c_ulong, c_void};
 
 #[repr(C)]
@@ -84,11 +84,14 @@ unsafe extern "system" {
 
 #[cfg(windows)]
 unsafe fn dlopen(filename: *const c_char, _flags: c_int) -> *mut c_void {
+    // SAFETY: the caller passes a NUL-terminated path, as `dlopen` requires.
     unsafe { LoadLibraryA(filename) }
 }
 
 #[cfg(windows)]
 unsafe fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void {
+    // SAFETY: the caller passes a live module handle and a NUL-terminated symbol name, as
+    // `dlsym` requires.
     unsafe { GetProcAddress(handle, symbol.cast()) }
 }
 
@@ -103,11 +106,60 @@ unsafe fn dlsym(_handle: *mut c_void, _symbol: *const c_char) -> *mut c_void {
     std::ptr::null_mut()
 }
 
-/// The libclang entry points the bridge calls.
-struct Api {
-    create_index: unsafe extern "C" fn(c_int, c_int) -> *mut c_void,
-    dispose_index: unsafe extern "C" fn(*mut c_void),
-    parse: unsafe extern "C" fn(
+/// Declares `Api` from a table of `field: "symbol" => signature` rows: the struct of function
+/// pointers and the loader that resolves them, so a field and its symbol cannot drift apart.
+macro_rules! libclang_api {
+    ($($field:ident: $symbol:literal => fn($($arg:ty),* $(,)?) $(-> $ret:ty)?,)*) => {
+        /// The libclang entry points the bridge calls.
+        struct Api {
+            $($field: unsafe extern "C" fn($($arg),*) $(-> $ret)?,)*
+            /// `clang_getOffsetOfBase`: libclang 20+; older ones leave virtual base offsets
+            /// unknown.
+            offset_of_base: Option<unsafe extern "C" fn(CxCursor, CxCursor) -> i64>,
+        }
+
+        impl Api {
+            /// Resolves every entry point in `library`; the error names the first missing symbol.
+            fn resolve(library: &Library, path: &str) -> Result<Api, String> {
+                Ok(Api {
+                    $($field: {
+                        let address = library.symbol($symbol);
+                        if address.is_null() {
+                            return Err(format!("{path}: missing symbol {}", $symbol));
+                        }
+                        // SAFETY: `$symbol` is the libclang C function whose signature is the
+                        // field type declared in this table, and a function pointer is the same
+                        // size as the `*mut c_void` that `dlsym` returned.
+                        unsafe {
+                            std::mem::transmute::<*mut c_void, unsafe extern "C" fn($($arg),*) $(-> $ret)?>(
+                                address,
+                            )
+                        }
+                    },)*
+                    offset_of_base: {
+                        let address = library.symbol("clang_getOffsetOfBase");
+                        if address.is_null() {
+                            None
+                        } else {
+                            // SAFETY: as above, for `clang_getOffsetOfBase(CXCursor, CXCursor)`.
+                            Some(unsafe {
+                                std::mem::transmute::<
+                                    *mut c_void,
+                                    unsafe extern "C" fn(CxCursor, CxCursor) -> i64,
+                                >(address)
+                            })
+                        }
+                    },
+                })
+            }
+        }
+    };
+}
+
+libclang_api! {
+    create_index: "clang_createIndex" => fn(c_int, c_int) -> *mut c_void,
+    dispose_index: "clang_disposeIndex" => fn(*mut c_void),
+    parse: "clang_parseTranslationUnit2" => fn(
         *mut c_void,
         *const c_char,
         *const *const c_char,
@@ -117,101 +169,126 @@ struct Api {
         c_uint,
         *mut *mut c_void,
     ) -> c_int,
-    dispose_tu: unsafe extern "C" fn(*mut c_void),
-    num_diagnostics: unsafe extern "C" fn(*mut c_void) -> c_uint,
-    get_diagnostic: unsafe extern "C" fn(*mut c_void, c_uint) -> *mut c_void,
-    diagnostic_severity: unsafe extern "C" fn(*mut c_void) -> c_int,
-    format_diagnostic: unsafe extern "C" fn(*mut c_void, c_uint) -> CxString,
-    default_diagnostic_options: unsafe extern "C" fn() -> c_uint,
-    dispose_diagnostic: unsafe extern "C" fn(*mut c_void),
-    get_cstring: unsafe extern "C" fn(CxString) -> *const c_char,
-    dispose_string: unsafe extern "C" fn(CxString),
-    tu_cursor: unsafe extern "C" fn(*mut c_void) -> CxCursor,
-    visit_children: unsafe extern "C" fn(CxCursor, Visitor, *mut c_void) -> c_uint,
-    cursor_kind: unsafe extern "C" fn(CxCursor) -> c_int,
-    cursor_spelling: unsafe extern "C" fn(CxCursor) -> CxString,
-    cursor_type: unsafe extern "C" fn(CxCursor) -> CxType,
-    cursor_location: unsafe extern "C" fn(CxCursor) -> CxLocation,
-    cursor_extent: unsafe extern "C" fn(CxCursor) -> CxRange,
-    spelling_location:
-        unsafe extern "C" fn(CxLocation, *mut *mut c_void, *mut c_uint, *mut c_uint, *mut c_uint),
-    file_name: unsafe extern "C" fn(*mut c_void) -> CxString,
-    in_system_header: unsafe extern "C" fn(CxLocation) -> c_int,
-    cursor_linkage: unsafe extern "C" fn(CxCursor) -> c_int,
-    storage_class: unsafe extern "C" fn(CxCursor) -> c_int,
-    cursor_definition: unsafe extern "C" fn(CxCursor) -> CxCursor,
-    canonical_cursor: unsafe extern "C" fn(CxCursor) -> CxCursor,
-    cursor_referenced: unsafe extern "C" fn(CxCursor) -> CxCursor,
-    semantic_parent: unsafe extern "C" fn(CxCursor) -> CxCursor,
-    is_definition: unsafe extern "C" fn(CxCursor) -> c_uint,
-    enum_value: unsafe extern "C" fn(CxCursor) -> i64,
-    enum_uvalue: unsafe extern "C" fn(CxCursor) -> u64,
-    enum_int_type: unsafe extern "C" fn(CxCursor) -> CxType,
-    typedef_underlying: unsafe extern "C" fn(CxCursor) -> CxType,
-    is_bitfield: unsafe extern "C" fn(CxCursor) -> c_uint,
-    bit_width: unsafe extern "C" fn(CxCursor) -> c_int,
-    is_anonymous: unsafe extern "C" fn(CxCursor) -> c_uint,
-    is_anonymous_record: unsafe extern "C" fn(CxCursor) -> c_uint,
-    num_arguments: unsafe extern "C" fn(CxCursor) -> c_int,
-    argument: unsafe extern "C" fn(CxCursor, c_uint) -> CxCursor,
-    cursor_variadic: unsafe extern "C" fn(CxCursor) -> c_uint,
-    raw_comment: unsafe extern "C" fn(CxCursor) -> CxString,
-    comment_range: unsafe extern "C" fn(CxCursor) -> CxRange,
-    range_start: unsafe extern "C" fn(CxRange) -> CxLocation,
-    macro_function_like: unsafe extern "C" fn(CxCursor) -> c_uint,
-    macro_builtin: unsafe extern "C" fn(CxCursor) -> c_uint,
-    mangling: unsafe extern "C" fn(CxCursor) -> CxString,
-    field_offset: unsafe extern "C" fn(CxCursor) -> i64,
-    tokenize: unsafe extern "C" fn(*mut c_void, CxRange, *mut *mut CxToken, *mut c_uint),
-    dispose_tokens: unsafe extern "C" fn(*mut c_void, *mut CxToken, c_uint),
-    token_spelling: unsafe extern "C" fn(*mut c_void, CxToken) -> CxString,
-    token_kind: unsafe extern "C" fn(CxToken) -> c_int,
-    evaluate: unsafe extern "C" fn(CxCursor) -> *mut c_void,
-    eval_kind: unsafe extern "C" fn(*mut c_void) -> c_int,
-    eval_int: unsafe extern "C" fn(*mut c_void) -> i64,
-    eval_unsigned: unsafe extern "C" fn(*mut c_void) -> c_uint,
-    eval_unsigned_value: unsafe extern "C" fn(*mut c_void) -> u64,
-    eval_double: unsafe extern "C" fn(*mut c_void) -> f64,
-    eval_str: unsafe extern "C" fn(*mut c_void) -> *const c_char,
-    eval_dispose: unsafe extern "C" fn(*mut c_void),
-    type_spelling: unsafe extern "C" fn(CxType) -> CxString,
-    pointee: unsafe extern "C" fn(CxType) -> CxType,
-    result_type: unsafe extern "C" fn(CxType) -> CxType,
-    num_arg_types: unsafe extern "C" fn(CxType) -> c_int,
-    arg_type: unsafe extern "C" fn(CxType, c_uint) -> CxType,
-    type_variadic: unsafe extern "C" fn(CxType) -> c_uint,
-    array_element: unsafe extern "C" fn(CxType) -> CxType,
-    array_size: unsafe extern "C" fn(CxType) -> i64,
-    canonical_type: unsafe extern "C" fn(CxType) -> CxType,
-    type_declaration: unsafe extern "C" fn(CxType) -> CxCursor,
-    size_of: unsafe extern "C" fn(CxType) -> i64,
-    align_of: unsafe extern "C" fn(CxType) -> i64,
-    is_const: unsafe extern "C" fn(CxType) -> c_uint,
-    named_type: unsafe extern "C" fn(CxType) -> CxType,
-    type_offset_of: unsafe extern "C" fn(CxType, *const c_char) -> i64,
-    num_template_args: unsafe extern "C" fn(CxType) -> c_int,
-    cxx_method_static: unsafe extern "C" fn(CxCursor) -> c_uint,
-    cxx_method_virtual: unsafe extern "C" fn(CxCursor) -> c_uint,
-    cxx_method_pure_virtual: unsafe extern "C" fn(CxCursor) -> c_uint,
-    cxx_method_const: unsafe extern "C" fn(CxCursor) -> c_uint,
-    ctor_copy: unsafe extern "C" fn(CxCursor) -> c_uint,
-    ctor_move: unsafe extern "C" fn(CxCursor) -> c_uint,
-    cxx_manglings: unsafe extern "C" fn(CxCursor) -> *mut CxStringSet,
-    dispose_string_set: unsafe extern "C" fn(*mut CxStringSet),
-    specialized_template: unsafe extern "C" fn(CxCursor) -> CxCursor,
-    template_arg_type: unsafe extern "C" fn(CxType, c_uint) -> CxType,
-    access_specifier: unsafe extern "C" fn(CxCursor) -> c_int,
-    function_inlined: unsafe extern "C" fn(CxCursor) -> c_uint,
-    cursor_result_type: unsafe extern "C" fn(CxCursor) -> CxType,
-    objc_base_type: unsafe extern "C" fn(CxType) -> CxType,
-    objc_num_protocols: unsafe extern "C" fn(CxType) -> c_uint,
-    objc_protocol: unsafe extern "C" fn(CxType, c_uint) -> CxCursor,
-    objc_num_type_args: unsafe extern "C" fn(CxType) -> c_uint,
-    objc_type_arg: unsafe extern "C" fn(CxType, c_uint) -> CxType,
-    modified_type: unsafe extern "C" fn(CxType) -> CxType,
-    is_virtual_base: unsafe extern "C" fn(CxCursor) -> c_uint,
-    /// libclang 20+; older ones leave virtual base offsets unknown.
-    offset_of_base: Option<unsafe extern "C" fn(CxCursor, CxCursor) -> i64>,
+    dispose_tu: "clang_disposeTranslationUnit" => fn(*mut c_void),
+    num_diagnostics: "clang_getNumDiagnostics" => fn(*mut c_void) -> c_uint,
+    get_diagnostic: "clang_getDiagnostic" => fn(*mut c_void, c_uint) -> *mut c_void,
+    diagnostic_severity: "clang_getDiagnosticSeverity" => fn(*mut c_void) -> c_int,
+    format_diagnostic: "clang_formatDiagnostic" => fn(*mut c_void, c_uint) -> CxString,
+    default_diagnostic_options: "clang_defaultDiagnosticDisplayOptions" => fn() -> c_uint,
+    dispose_diagnostic: "clang_disposeDiagnostic" => fn(*mut c_void),
+    get_cstring: "clang_getCString" => fn(CxString) -> *const c_char,
+    dispose_string: "clang_disposeString" => fn(CxString),
+    tu_cursor: "clang_getTranslationUnitCursor" => fn(*mut c_void) -> CxCursor,
+    visit_children: "clang_visitChildren" => fn(CxCursor, Visitor, *mut c_void) -> c_uint,
+    cursor_kind: "clang_getCursorKind" => fn(CxCursor) -> c_int,
+    cursor_spelling: "clang_getCursorSpelling" => fn(CxCursor) -> CxString,
+    cursor_type: "clang_getCursorType" => fn(CxCursor) -> CxType,
+    cursor_location: "clang_getCursorLocation" => fn(CxCursor) -> CxLocation,
+    cursor_extent: "clang_getCursorExtent" => fn(CxCursor) -> CxRange,
+    spelling_location: "clang_getSpellingLocation" => fn(
+        CxLocation,
+        *mut *mut c_void,
+        *mut c_uint,
+        *mut c_uint,
+        *mut c_uint,
+    ),
+    file_name: "clang_getFileName" => fn(*mut c_void) -> CxString,
+    in_system_header: "clang_Location_isInSystemHeader" => fn(CxLocation) -> c_int,
+    cursor_linkage: "clang_getCursorLinkage" => fn(CxCursor) -> c_int,
+    storage_class: "clang_Cursor_getStorageClass" => fn(CxCursor) -> c_int,
+    cursor_definition: "clang_getCursorDefinition" => fn(CxCursor) -> CxCursor,
+    canonical_cursor: "clang_getCanonicalCursor" => fn(CxCursor) -> CxCursor,
+    cursor_referenced: "clang_getCursorReferenced" => fn(CxCursor) -> CxCursor,
+    semantic_parent: "clang_getCursorSemanticParent" => fn(CxCursor) -> CxCursor,
+    is_definition: "clang_isCursorDefinition" => fn(CxCursor) -> c_uint,
+    enum_value: "clang_getEnumConstantDeclValue" => fn(CxCursor) -> i64,
+    enum_uvalue: "clang_getEnumConstantDeclUnsignedValue" => fn(CxCursor) -> u64,
+    enum_int_type: "clang_getEnumDeclIntegerType" => fn(CxCursor) -> CxType,
+    typedef_underlying: "clang_getTypedefDeclUnderlyingType" => fn(CxCursor) -> CxType,
+    is_bitfield: "clang_Cursor_isBitField" => fn(CxCursor) -> c_uint,
+    bit_width: "clang_getFieldDeclBitWidth" => fn(CxCursor) -> c_int,
+    is_anonymous: "clang_Cursor_isAnonymous" => fn(CxCursor) -> c_uint,
+    is_anonymous_record: "clang_Cursor_isAnonymousRecordDecl" => fn(CxCursor) -> c_uint,
+    num_arguments: "clang_Cursor_getNumArguments" => fn(CxCursor) -> c_int,
+    argument: "clang_Cursor_getArgument" => fn(CxCursor, c_uint) -> CxCursor,
+    cursor_variadic: "clang_Cursor_isVariadic" => fn(CxCursor) -> c_uint,
+    raw_comment: "clang_Cursor_getRawCommentText" => fn(CxCursor) -> CxString,
+    comment_range: "clang_Cursor_getCommentRange" => fn(CxCursor) -> CxRange,
+    range_start: "clang_getRangeStart" => fn(CxRange) -> CxLocation,
+    macro_function_like: "clang_Cursor_isMacroFunctionLike" => fn(CxCursor) -> c_uint,
+    macro_builtin: "clang_Cursor_isMacroBuiltin" => fn(CxCursor) -> c_uint,
+    mangling: "clang_Cursor_getMangling" => fn(CxCursor) -> CxString,
+    field_offset: "clang_Cursor_getOffsetOfField" => fn(CxCursor) -> i64,
+    tokenize: "clang_tokenize" => fn(*mut c_void, CxRange, *mut *mut CxToken, *mut c_uint),
+    dispose_tokens: "clang_disposeTokens" => fn(*mut c_void, *mut CxToken, c_uint),
+    token_spelling: "clang_getTokenSpelling" => fn(*mut c_void, CxToken) -> CxString,
+    token_kind: "clang_getTokenKind" => fn(CxToken) -> c_int,
+    evaluate: "clang_Cursor_Evaluate" => fn(CxCursor) -> *mut c_void,
+    eval_kind: "clang_EvalResult_getKind" => fn(*mut c_void) -> c_int,
+    eval_int: "clang_EvalResult_getAsLongLong" => fn(*mut c_void) -> i64,
+    eval_unsigned: "clang_EvalResult_isUnsignedInt" => fn(*mut c_void) -> c_uint,
+    eval_unsigned_value: "clang_EvalResult_getAsUnsigned" => fn(*mut c_void) -> u64,
+    eval_double: "clang_EvalResult_getAsDouble" => fn(*mut c_void) -> f64,
+    eval_str: "clang_EvalResult_getAsStr" => fn(*mut c_void) -> *const c_char,
+    eval_dispose: "clang_EvalResult_dispose" => fn(*mut c_void),
+    type_spelling: "clang_getTypeSpelling" => fn(CxType) -> CxString,
+    pointee: "clang_getPointeeType" => fn(CxType) -> CxType,
+    result_type: "clang_getResultType" => fn(CxType) -> CxType,
+    num_arg_types: "clang_getNumArgTypes" => fn(CxType) -> c_int,
+    arg_type: "clang_getArgType" => fn(CxType, c_uint) -> CxType,
+    type_variadic: "clang_isFunctionTypeVariadic" => fn(CxType) -> c_uint,
+    array_element: "clang_getArrayElementType" => fn(CxType) -> CxType,
+    array_size: "clang_getArraySize" => fn(CxType) -> i64,
+    canonical_type: "clang_getCanonicalType" => fn(CxType) -> CxType,
+    type_declaration: "clang_getTypeDeclaration" => fn(CxType) -> CxCursor,
+    size_of: "clang_Type_getSizeOf" => fn(CxType) -> i64,
+    align_of: "clang_Type_getAlignOf" => fn(CxType) -> i64,
+    is_const: "clang_isConstQualifiedType" => fn(CxType) -> c_uint,
+    named_type: "clang_Type_getNamedType" => fn(CxType) -> CxType,
+    type_offset_of: "clang_Type_getOffsetOf" => fn(CxType, *const c_char) -> i64,
+    num_template_args: "clang_Type_getNumTemplateArguments" => fn(CxType) -> c_int,
+    cxx_method_static: "clang_CXXMethod_isStatic" => fn(CxCursor) -> c_uint,
+    cxx_method_virtual: "clang_CXXMethod_isVirtual" => fn(CxCursor) -> c_uint,
+    cxx_method_pure_virtual: "clang_CXXMethod_isPureVirtual" => fn(CxCursor) -> c_uint,
+    cxx_method_const: "clang_CXXMethod_isConst" => fn(CxCursor) -> c_uint,
+    ctor_copy: "clang_CXXConstructor_isCopyConstructor" => fn(CxCursor) -> c_uint,
+    ctor_move: "clang_CXXConstructor_isMoveConstructor" => fn(CxCursor) -> c_uint,
+    cxx_manglings: "clang_Cursor_getCXXManglings" => fn(CxCursor) -> *mut CxStringSet,
+    dispose_string_set: "clang_disposeStringSet" => fn(*mut CxStringSet),
+    specialized_template: "clang_getSpecializedCursorTemplate" => fn(CxCursor) -> CxCursor,
+    template_arg_type: "clang_Type_getTemplateArgumentAsType" => fn(CxType, c_uint) -> CxType,
+    access_specifier: "clang_getCXXAccessSpecifier" => fn(CxCursor) -> c_int,
+    function_inlined: "clang_Cursor_isFunctionInlined" => fn(CxCursor) -> c_uint,
+    cursor_result_type: "clang_getCursorResultType" => fn(CxCursor) -> CxType,
+    objc_base_type: "clang_Type_getObjCObjectBaseType" => fn(CxType) -> CxType,
+    objc_num_protocols: "clang_Type_getNumObjCProtocolRefs" => fn(CxType) -> c_uint,
+    objc_protocol: "clang_Type_getObjCProtocolDecl" => fn(CxType, c_uint) -> CxCursor,
+    objc_num_type_args: "clang_Type_getNumObjCTypeArgs" => fn(CxType) -> c_uint,
+    objc_type_arg: "clang_Type_getObjCTypeArg" => fn(CxType, c_uint) -> CxType,
+    modified_type: "clang_Type_getModifiedType" => fn(CxType) -> CxType,
+    is_virtual_base: "clang_isVirtualBase" => fn(CxCursor) -> c_uint,
+}
+
+/// A loaded dynamic library. It is never unloaded, so addresses resolved from it stay valid for
+/// the life of the process.
+struct Library(*mut c_void);
+
+impl Library {
+    /// Loads the library at `path` (`None` when it does not load).
+    fn open(path: &CStr) -> Option<Library> {
+        // SAFETY: `path` is NUL-terminated. Loading libclang runs its initializers, which is the
+        // point of this module; 2 is `RTLD_NOW`.
+        let handle = unsafe { dlopen(path.as_ptr(), 2) };
+        (!handle.is_null()).then_some(Library(handle))
+    }
+
+    /// The address of the exported `symbol`, or null.
+    fn symbol(&self, symbol: &str) -> *mut c_void {
+        let name = CString::new(symbol).expect("libclang symbol names contain no NUL");
+        // SAFETY: `self.0` is a live handle from `dlopen` (see `Library`) and `name` is
+        // NUL-terminated.
+        unsafe { dlsym(self.0, name.as_ptr()) }
+    }
 }
 
 #[repr(C)]
@@ -369,143 +446,51 @@ fn builtin_include_dir(libclang: &str) -> Option<String> {
 
 /// The entry points of the libclang at `path` (`None` when it does not exist or will not load).
 fn load_api(path: &str) -> Result<Option<Api>, String> {
-    {
-        let Ok(c) = CString::new(path) else {
-            return Ok(None);
-        };
-        if std::path::Path::new(path).is_absolute() && !std::path::Path::new(path).exists() {
-            return Ok(None);
-        }
-        let handle = unsafe { dlopen(c.as_ptr(), 2) };
-        if handle.is_null() {
-            return Ok(None);
-        }
-        macro_rules! sym {
-            ($name:literal) => {{
-                let n = CString::new($name).unwrap();
-                let p = unsafe { dlsym(handle, n.as_ptr()) };
-                if p.is_null() {
-                    return Err(format!("{path}: missing symbol {}", $name));
-                }
-                // The target is the `Api` field's function-pointer type, inferred per use.
-                #[allow(clippy::missing_transmute_annotations)]
-                let f = unsafe { std::mem::transmute(p) };
-                f
-            }};
-        }
-        let api = Api {
-            create_index: sym!("clang_createIndex"),
-            dispose_index: sym!("clang_disposeIndex"),
-            parse: sym!("clang_parseTranslationUnit2"),
-            dispose_tu: sym!("clang_disposeTranslationUnit"),
-            num_diagnostics: sym!("clang_getNumDiagnostics"),
-            get_diagnostic: sym!("clang_getDiagnostic"),
-            diagnostic_severity: sym!("clang_getDiagnosticSeverity"),
-            format_diagnostic: sym!("clang_formatDiagnostic"),
-            default_diagnostic_options: sym!("clang_defaultDiagnosticDisplayOptions"),
-            dispose_diagnostic: sym!("clang_disposeDiagnostic"),
-            get_cstring: sym!("clang_getCString"),
-            dispose_string: sym!("clang_disposeString"),
-            tu_cursor: sym!("clang_getTranslationUnitCursor"),
-            visit_children: sym!("clang_visitChildren"),
-            cursor_kind: sym!("clang_getCursorKind"),
-            cursor_spelling: sym!("clang_getCursorSpelling"),
-            cursor_type: sym!("clang_getCursorType"),
-            cursor_location: sym!("clang_getCursorLocation"),
-            cursor_extent: sym!("clang_getCursorExtent"),
-            spelling_location: sym!("clang_getSpellingLocation"),
-            file_name: sym!("clang_getFileName"),
-            in_system_header: sym!("clang_Location_isInSystemHeader"),
-            cursor_linkage: sym!("clang_getCursorLinkage"),
-            storage_class: sym!("clang_Cursor_getStorageClass"),
-            cursor_definition: sym!("clang_getCursorDefinition"),
-            canonical_cursor: sym!("clang_getCanonicalCursor"),
-            cursor_referenced: sym!("clang_getCursorReferenced"),
-            semantic_parent: sym!("clang_getCursorSemanticParent"),
-            is_definition: sym!("clang_isCursorDefinition"),
-            enum_value: sym!("clang_getEnumConstantDeclValue"),
-            enum_uvalue: sym!("clang_getEnumConstantDeclUnsignedValue"),
-            enum_int_type: sym!("clang_getEnumDeclIntegerType"),
-            typedef_underlying: sym!("clang_getTypedefDeclUnderlyingType"),
-            is_bitfield: sym!("clang_Cursor_isBitField"),
-            bit_width: sym!("clang_getFieldDeclBitWidth"),
-            is_anonymous: sym!("clang_Cursor_isAnonymous"),
-            is_anonymous_record: sym!("clang_Cursor_isAnonymousRecordDecl"),
-            num_arguments: sym!("clang_Cursor_getNumArguments"),
-            argument: sym!("clang_Cursor_getArgument"),
-            cursor_variadic: sym!("clang_Cursor_isVariadic"),
-            raw_comment: sym!("clang_Cursor_getRawCommentText"),
-            comment_range: sym!("clang_Cursor_getCommentRange"),
-            range_start: sym!("clang_getRangeStart"),
-            macro_function_like: sym!("clang_Cursor_isMacroFunctionLike"),
-            macro_builtin: sym!("clang_Cursor_isMacroBuiltin"),
-            mangling: sym!("clang_Cursor_getMangling"),
-            field_offset: sym!("clang_Cursor_getOffsetOfField"),
-            tokenize: sym!("clang_tokenize"),
-            dispose_tokens: sym!("clang_disposeTokens"),
-            token_spelling: sym!("clang_getTokenSpelling"),
-            token_kind: sym!("clang_getTokenKind"),
-            evaluate: sym!("clang_Cursor_Evaluate"),
-            eval_kind: sym!("clang_EvalResult_getKind"),
-            eval_int: sym!("clang_EvalResult_getAsLongLong"),
-            eval_unsigned: sym!("clang_EvalResult_isUnsignedInt"),
-            eval_unsigned_value: sym!("clang_EvalResult_getAsUnsigned"),
-            eval_double: sym!("clang_EvalResult_getAsDouble"),
-            eval_str: sym!("clang_EvalResult_getAsStr"),
-            eval_dispose: sym!("clang_EvalResult_dispose"),
-            type_spelling: sym!("clang_getTypeSpelling"),
-            pointee: sym!("clang_getPointeeType"),
-            result_type: sym!("clang_getResultType"),
-            num_arg_types: sym!("clang_getNumArgTypes"),
-            arg_type: sym!("clang_getArgType"),
-            type_variadic: sym!("clang_isFunctionTypeVariadic"),
-            array_element: sym!("clang_getArrayElementType"),
-            array_size: sym!("clang_getArraySize"),
-            canonical_type: sym!("clang_getCanonicalType"),
-            type_declaration: sym!("clang_getTypeDeclaration"),
-            size_of: sym!("clang_Type_getSizeOf"),
-            align_of: sym!("clang_Type_getAlignOf"),
-            is_const: sym!("clang_isConstQualifiedType"),
-            named_type: sym!("clang_Type_getNamedType"),
-            type_offset_of: sym!("clang_Type_getOffsetOf"),
-            num_template_args: sym!("clang_Type_getNumTemplateArguments"),
-            cxx_method_static: sym!("clang_CXXMethod_isStatic"),
-            cxx_method_virtual: sym!("clang_CXXMethod_isVirtual"),
-            cxx_method_pure_virtual: sym!("clang_CXXMethod_isPureVirtual"),
-            cxx_method_const: sym!("clang_CXXMethod_isConst"),
-            ctor_copy: sym!("clang_CXXConstructor_isCopyConstructor"),
-            ctor_move: sym!("clang_CXXConstructor_isMoveConstructor"),
-            cxx_manglings: sym!("clang_Cursor_getCXXManglings"),
-            dispose_string_set: sym!("clang_disposeStringSet"),
-            specialized_template: sym!("clang_getSpecializedCursorTemplate"),
-            template_arg_type: sym!("clang_Type_getTemplateArgumentAsType"),
-            access_specifier: sym!("clang_getCXXAccessSpecifier"),
-            function_inlined: sym!("clang_Cursor_isFunctionInlined"),
-            cursor_result_type: sym!("clang_getCursorResultType"),
-            objc_base_type: sym!("clang_Type_getObjCObjectBaseType"),
-            objc_num_protocols: sym!("clang_Type_getNumObjCProtocolRefs"),
-            objc_protocol: sym!("clang_Type_getObjCProtocolDecl"),
-            objc_num_type_args: sym!("clang_Type_getNumObjCTypeArgs"),
-            objc_type_arg: sym!("clang_Type_getObjCTypeArg"),
-            modified_type: sym!("clang_Type_getModifiedType"),
-            is_virtual_base: sym!("clang_isVirtualBase"),
-            offset_of_base: {
-                let n = CString::new("clang_getOffsetOfBase").unwrap();
-                let p = unsafe { dlsym(handle, n.as_ptr()) };
-                if p.is_null() {
-                    None
-                } else {
-                    #[allow(clippy::missing_transmute_annotations)]
-                    Some(unsafe { std::mem::transmute(p) })
-                }
-            },
-        };
-        Ok(Some(api))
+    let Ok(c) = CString::new(path) else {
+        return Ok(None);
+    };
+    if std::path::Path::new(path).is_absolute() && !std::path::Path::new(path).exists() {
+        return Ok(None);
     }
+    let Some(library) = Library::open(&c) else {
+        return Ok(None);
+    };
+    Api::resolve(&library, path).map(Some)
+}
+
+/// Cursor kinds `CXCursor_InvalidFile` through `CXCursor_InvalidCode`: what libclang answers
+/// with when there is no such cursor.
+fn is_invalid_cursor(c: &CxCursor) -> bool {
+    (70..=73).contains(&c.kind)
 }
 
 impl State {
+    fn new(api: Api, path: String) -> State {
+        State {
+            api,
+            path,
+            index: std::ptr::null_mut(),
+            tu: std::ptr::null_mut(),
+            args: Vec::new(),
+            file_name: CString::default(),
+            file_contents: Vec::new(),
+            cursors: Vec::new(),
+            cursor_ids: HashMap::default(),
+            types: Vec::new(),
+            type_ids: HashMap::default(),
+            last_text: Vec::new(),
+            last_count: 0,
+            tokens: Vec::new(),
+            manglings: Vec::new(),
+            lists: Vec::new(),
+            eval: std::ptr::null_mut(),
+        }
+    }
+
+    /// The bytes of `s`, which is disposed.
     fn string(&self, s: CxString) -> Vec<u8> {
+        // SAFETY: `s` was just returned by a libclang call, so `get_cstring` gives null or a
+        // NUL-terminated string that lives until `dispose_string`, which consumes `s`.
         unsafe {
             let p = (self.api.get_cstring)(s);
             let out = if p.is_null() {
@@ -527,23 +512,32 @@ impl State {
             c.data[2] as usize,
         );
         if let Some(&id) = self.cursor_ids.get(&key) {
-            return id as i64;
+            return i64::from(id);
         }
         self.cursors.push(c);
         let id = self.cursors.len() as u32;
         self.cursor_ids.insert(key, id);
-        id as i64
+        i64::from(id)
+    }
+
+    /// The handle for `c`, or 0 when libclang answered with "no such cursor".
+    fn cursor_handle(&mut self, c: CxCursor) -> i64 {
+        if is_invalid_cursor(&c) {
+            0
+        } else {
+            self.cursor_id(c)
+        }
     }
 
     fn type_id(&mut self, t: CxType) -> i64 {
         let key = (t.kind, t.data[0] as usize, t.data[1] as usize);
         if let Some(&id) = self.type_ids.get(&key) {
-            return id as i64;
+            return i64::from(id);
         }
         self.types.push(t);
         let id = self.types.len() as u32;
         self.type_ids.insert(key, id);
-        id as i64
+        i64::from(id)
     }
 
     fn cursor(&self, h: i64) -> CxCursor {
@@ -567,6 +561,49 @@ impl State {
             })
     }
 
+    // The four `on_*` methods are where libclang queries on handles are made. They are safe to
+    // call because `cursor`/`ty` only give values recorded since the last `clear_handles`, which
+    // runs before the translation unit those values point into is disposed, or an invalid
+    // placeholder that libclang answers with its "invalid" result. `query` is always one of
+    // `self.api`'s entry points, and `arg` a plain value (an index or another handle's value).
+
+    /// Asks libclang `query` about the cursor behind handle `h`.
+    fn on_cursor<R>(&self, h: i64, query: unsafe extern "C" fn(CxCursor) -> R) -> R {
+        // SAFETY: see the comment above `on_cursor`.
+        unsafe { query(self.cursor(h)) }
+    }
+
+    /// Like `on_cursor`, with one more argument.
+    fn on_cursor_with<A, R>(
+        &self,
+        h: i64,
+        arg: A,
+        query: unsafe extern "C" fn(CxCursor, A) -> R,
+    ) -> R {
+        // SAFETY: see the comment above `on_cursor`; `arg` is a plain value or a pointer the
+        // caller keeps alive across the call.
+        unsafe { query(self.cursor(h), arg) }
+    }
+
+    /// Asks libclang `query` about the type behind handle `h`.
+    fn on_type<R>(&self, h: i64, query: unsafe extern "C" fn(CxType) -> R) -> R {
+        // SAFETY: see the comment above `on_cursor`.
+        unsafe { query(self.ty(h)) }
+    }
+
+    /// Like `on_type`, with one more argument.
+    fn on_type_with<A, R>(&self, h: i64, arg: A, query: unsafe extern "C" fn(CxType, A) -> R) -> R {
+        // SAFETY: see the comment above `on_cursor`; `arg` is a plain value or a pointer the
+        // caller keeps alive across the call.
+        unsafe { query(self.ty(h), arg) }
+    }
+
+    /// Asks libclang `query` about the current evaluation result, if there is one.
+    fn on_eval<R>(&self, query: unsafe extern "C" fn(*mut c_void) -> R) -> Option<R> {
+        // SAFETY: a non-null `eval` came from `evaluate` and is nulled when disposed.
+        (!self.eval.is_null()).then(|| unsafe { query(self.eval) })
+    }
+
     fn clear_handles(&mut self) {
         self.cursors.clear();
         self.cursor_ids.clear();
@@ -579,6 +616,7 @@ impl State {
 
     fn release_eval(&mut self) {
         if !self.eval.is_null() {
+            // SAFETY: `eval` came from `evaluate` and has not been disposed (it is nulled here).
             unsafe { (self.api.eval_dispose)(self.eval) };
             self.eval = std::ptr::null_mut();
         }
@@ -586,6 +624,8 @@ impl State {
 
     fn dispose(&mut self) {
         self.clear_handles();
+        // SAFETY: `tu` and `index` came from `parse` and are each disposed once (nulled here);
+        // the handles that pointed into the translation unit were just cleared.
         unsafe {
             if !self.tu.is_null() {
                 (self.api.dispose_tu)(self.tu);
@@ -597,10 +637,503 @@ impl State {
             }
         }
     }
+
+    /// Executes one bridge operation: the integer result, with any text result left in
+    /// `last_text`.
+    fn run(&mut self, op: &str, a: i64, b: i64, text: &[u8]) -> Result<i64, String> {
+        if let Some(r) = self.session_op(op, a, b, text)? {
+            return Ok(r);
+        }
+        if let Some(r) = self.cursor_op(op, a, b) {
+            return Ok(r);
+        }
+        if let Some(r) = self.cursor_link_op(op, a, b) {
+            return Ok(r);
+        }
+        if let Some(r) = self.source_op(op, a) {
+            return Ok(r);
+        }
+        if let Some(r) = self.eval_op(op, a) {
+            return Ok(r);
+        }
+        if let Some(r) = self.type_op(op, a, b, text)? {
+            return Ok(r);
+        }
+        Err(format!("unknown clang operation `{op}`"))
+    }
+
+    /// Translation unit lifecycle, diagnostics and child lists.
+    fn session_op(&mut self, op: &str, a: i64, b: i64, text: &[u8]) -> Result<Option<i64>, String> {
+        let r = match op {
+            "path" => {
+                self.last_text = self.path.clone().into_bytes();
+                0
+            }
+            "reset" => {
+                self.dispose();
+                self.args.clear();
+                self.file_name = CString::default();
+                self.file_contents.clear();
+                0
+            }
+            "add_arg" => {
+                self.args
+                    .push(CString::new(text).map_err(|_| "argument contains NUL")?);
+                0
+            }
+            "file" => {
+                self.file_name = CString::new(text).map_err(|_| "file name contains NUL")?;
+                0
+            }
+            "contents" => {
+                self.file_contents = text.to_vec();
+                0
+            }
+            "parse" => self.parse(),
+            "diag_count" => self.diagnostic_count(),
+            "diag" => self.diagnostic(a),
+            "dispose" => {
+                self.dispose();
+                0
+            }
+            "last_count" => self.last_count,
+            "children" => {
+                let children = self.children(a);
+                self.last_count = children.len() as i64;
+                // Handles of consecutive new cursors are not consecutive when some
+                // already existed, so hand them out through `child`.
+                let ids: Vec<i64> = children.into_iter().map(|c| self.cursor_id(c)).collect();
+                self.lists.push(ids);
+                self.lists.len() as i64
+            }
+            "list_item" => self
+                .lists
+                .get((a as usize).wrapping_sub(1))
+                .and_then(|l| l.get(b as usize))
+                .copied()
+                .unwrap_or(0),
+            _ => return Ok(None),
+        };
+        Ok(Some(r))
+    }
+
+    /// Parses the file set up by `file`/`contents`/`add_arg`: the root cursor's handle, or 0.
+    fn parse(&mut self) -> i64 {
+        self.dispose();
+        // SAFETY: `create_index` takes plain ints.
+        self.index = unsafe { (self.api.create_index)(0, 0) };
+        let mut args = self.args.clone();
+        if let Some(dir) = builtin_include_dir(&self.path)
+            && !args.iter().any(|a| a.to_bytes() == b"-resource-dir")
+        {
+            args.push(CString::new("-isystem").unwrap());
+            args.push(CString::new(dir).unwrap());
+        }
+        let mut argv: Vec<*const c_char> = args.iter().map(|c| c.as_ptr()).collect();
+        argv.push(self.file_name.as_ptr());
+        let mut contents = self.file_contents.clone();
+        contents.push(0);
+        let mut unsaved = CxUnsaved {
+            filename: self.file_name.as_ptr(),
+            contents: contents.as_ptr().cast::<c_char>(),
+            length: self.file_contents.len() as c_ulong,
+        };
+        let mut tu: *mut c_void = std::ptr::null_mut();
+        // DetailedPreprocessingRecord (1) | KeepGoing (0x200)
+        // SAFETY: `index` was just created; `argv` holds NUL-terminated strings owned by `args`
+        // and `file_name`, and `unsaved` one NUL-terminated buffer, all alive until the call
+        // returns; the out pointer is a valid local.
+        let err = unsafe {
+            (self.api.parse)(
+                self.index,
+                std::ptr::null(),
+                argv.as_ptr(),
+                argv.len() as c_int,
+                &raw mut unsaved,
+                1,
+                1,
+                &raw mut tu,
+            )
+        };
+        self.tu = tu;
+        if err != 0 || tu.is_null() {
+            return 0;
+        }
+        // SAFETY: `tu` is the translation unit just parsed.
+        let root = unsafe { (self.api.tu_cursor)(tu) };
+        self.cursor_id(root)
+    }
+
+    fn diagnostic_count(&self) -> i64 {
+        if self.tu.is_null() {
+            return 0;
+        }
+        // SAFETY: `tu` is the live translation unit from the last `parse`.
+        i64::from(unsafe { (self.api.num_diagnostics)(self.tu) })
+    }
+
+    /// Diagnostic `index`: its severity, with the formatted text left in `last_text`.
+    fn diagnostic(&mut self, index: i64) -> i64 {
+        if self.tu.is_null() {
+            return 0;
+        }
+        // SAFETY: `tu` is the live translation unit from the last `parse`; the diagnostic is
+        // disposed after its text is copied out.
+        let (severity, message) = unsafe {
+            let d = (self.api.get_diagnostic)(self.tu, index as c_uint);
+            let severity = (self.api.diagnostic_severity)(d);
+            let message = (self.api.format_diagnostic)(d, (self.api.default_diagnostic_options)());
+            let text = self.string(message);
+            (self.api.dispose_diagnostic)(d);
+            (severity, text)
+        };
+        self.last_text = message;
+        i64::from(severity)
+    }
+
+    /// The child cursors of cursor `h`.
+    fn children(&self, h: i64) -> Vec<CxCursor> {
+        let mut list: Vec<CxCursor> = Vec::new();
+        // SAFETY: the cursor is valid (see `on_cursor`); `collect` is the visitor ABI and only
+        // casts `data` back to the `list` that outlives this call.
+        unsafe {
+            (self.api.visit_children)(self.cursor(h), collect, (&raw mut list).cast::<c_void>());
+        }
+        list
+    }
+
+    /// The file name, line and column of `loc` (an empty name when it has no file).
+    fn spelling_location(&self, loc: CxLocation) -> (Vec<u8>, c_uint, c_uint) {
+        let (mut file, mut line, mut col, mut off) = (std::ptr::null_mut(), 0, 0, 0);
+        // SAFETY: `loc` comes from a live cursor and the out pointers are valid locals; the
+        // file, when there is one, belongs to the live translation unit.
+        unsafe {
+            (self.api.spelling_location)(
+                loc,
+                &raw mut file,
+                &raw mut line,
+                &raw mut col,
+                &raw mut off,
+            );
+            let name = if file.is_null() {
+                Vec::new()
+            } else {
+                self.string((self.api.file_name)(file))
+            };
+            (name, line, col)
+        }
+    }
+
+    /// Cursor properties that are one libclang call on the cursor.
+    fn cursor_op(&mut self, op: &str, a: i64, b: i64) -> Option<i64> {
+        let r = match op {
+            "kind" => i64::from(self.on_cursor(a, self.api.cursor_kind)),
+            "linkage" => i64::from(self.on_cursor(a, self.api.cursor_linkage)),
+            "storage_class" => i64::from(self.on_cursor(a, self.api.storage_class)),
+            "is_definition" => i64::from(self.on_cursor(a, self.api.is_definition)),
+            "enum_value" => self.on_cursor(a, self.api.enum_value),
+            "enum_uvalue" => self.on_cursor(a, self.api.enum_uvalue) as i64,
+            "is_bitfield" => i64::from(self.on_cursor(a, self.api.is_bitfield)),
+            "bit_width" => i64::from(self.on_cursor(a, self.api.bit_width)),
+            "is_anonymous" => i64::from(self.on_cursor(a, self.api.is_anonymous)),
+            "is_anonymous_record" => i64::from(self.on_cursor(a, self.api.is_anonymous_record)),
+            "num_args" => i64::from(self.on_cursor(a, self.api.num_arguments)),
+            "is_variadic" => i64::from(self.on_cursor(a, self.api.cursor_variadic)),
+            "macro_function_like" => i64::from(self.on_cursor(a, self.api.macro_function_like)),
+            "macro_builtin" => i64::from(self.on_cursor(a, self.api.macro_builtin)),
+            "field_offset" => self.on_cursor(a, self.api.field_offset),
+            "is_virtual_base" => i64::from(self.on_cursor(a, self.api.is_virtual_base)),
+            // Offset in bits of base specifier `b` in a complete object of record `a` (-1 unknown).
+            "base_offset" => match self.api.offset_of_base {
+                Some(f) => self.on_cursor_with(a, self.cursor(b), f),
+                None => -1,
+            },
+            "is_static_method" => i64::from(self.on_cursor(a, self.api.cxx_method_static)),
+            "is_virtual" => i64::from(self.on_cursor(a, self.api.cxx_method_virtual)),
+            "is_pure_virtual" => i64::from(self.on_cursor(a, self.api.cxx_method_pure_virtual)),
+            "is_const_method" => i64::from(self.on_cursor(a, self.api.cxx_method_const)),
+            "is_copy_ctor" => i64::from(self.on_cursor(a, self.api.ctor_copy)),
+            "is_move_ctor" => i64::from(self.on_cursor(a, self.api.ctor_move)),
+            "is_inlined" => i64::from(self.on_cursor(a, self.api.function_inlined)),
+            "access" => i64::from(self.on_cursor(a, self.api.access_specifier)),
+            "spelling" => {
+                let spelling = self.on_cursor(a, self.api.cursor_spelling);
+                self.last_text = self.string(spelling);
+                0
+            }
+            "comment" => {
+                let comment = self.on_cursor(a, self.api.raw_comment);
+                self.last_text = self.string(comment);
+                0
+            }
+            "mangling" => {
+                let mangling = self.on_cursor(a, self.api.mangling);
+                self.last_text = self.string(mangling);
+                0
+            }
+            "manglings" => self.cxx_manglings(a),
+            "system_header" => {
+                let loc = self.on_cursor(a, self.api.cursor_location);
+                // SAFETY: `loc` is a location of a live cursor.
+                i64::from(unsafe { (self.api.in_system_header)(loc) })
+            }
+            "location" => {
+                let loc = self.on_cursor(a, self.api.cursor_location);
+                let (file, line, col) = self.spelling_location(loc);
+                if !file.is_empty() {
+                    self.last_text = file;
+                }
+                self.last_count = i64::from(col);
+                i64::from(line)
+            }
+            // Line where the cursor's attached comment starts (0 without one).
+            "comment_line" => {
+                let range = self.on_cursor(a, self.api.comment_range);
+                // SAFETY: `range` is the comment range of a live cursor.
+                let loc = unsafe { (self.api.range_start)(range) };
+                i64::from(self.spelling_location(loc).1)
+            }
+            "tokenize" => self.tokenize(a),
+            _ => return None,
+        };
+        Some(r)
+    }
+
+    /// Operations whose result is another cursor (0 when there is none), or its type.
+    fn cursor_link_op(&mut self, op: &str, a: i64, b: i64) -> Option<i64> {
+        let r = match op {
+            "type" => {
+                let t = self.on_cursor(a, self.api.cursor_type);
+                self.type_id(t)
+            }
+            "definition" => {
+                let c = self.on_cursor(a, self.api.cursor_definition);
+                self.cursor_handle(c)
+            }
+            "canonical" => {
+                let c = self.on_cursor(a, self.api.canonical_cursor);
+                self.cursor_id(c)
+            }
+            "referenced" => {
+                let c = self.on_cursor(a, self.api.cursor_referenced);
+                self.cursor_handle(c)
+            }
+            "semantic_parent" => {
+                let c = self.on_cursor(a, self.api.semantic_parent);
+                self.cursor_handle(c)
+            }
+            // The template a specialization or instantiation was made from (0 if none).
+            "specialized_template" => {
+                let c = self.on_cursor(a, self.api.specialized_template);
+                self.cursor_handle(c)
+            }
+            "enum_int_type" => {
+                let t = self.on_cursor(a, self.api.enum_int_type);
+                self.type_id(t)
+            }
+            "typedef_underlying" => {
+                let t = self.on_cursor(a, self.api.typedef_underlying);
+                self.type_id(t)
+            }
+            "arg" => {
+                let c = self.on_cursor_with(a, b as c_uint, self.api.argument);
+                self.cursor_id(c)
+            }
+            // Objective-C: the declared result type of a method cursor.
+            "cursor_result_type" => {
+                let t = self.on_cursor(a, self.api.cursor_result_type);
+                self.type_id(t)
+            }
+            _ => return None,
+        };
+        Some(r)
+    }
+
+    /// All C++ manglings of a constructor/destructor (Itanium: C1/C2, D0/D1/D2): their count,
+    /// to be read with `mangling_item`.
+    fn cxx_manglings(&mut self, h: i64) -> i64 {
+        self.manglings.clear();
+        let set = self.on_cursor(h, self.api.cxx_manglings);
+        if !set.is_null() {
+            // SAFETY: a non-null set from libclang holds `count` strings, which it owns until
+            // `dispose_string_set`; they are read without disposing and copied out first.
+            unsafe {
+                for i in 0..(*set).count as usize {
+                    let p = (self.api.get_cstring)(*(*set).strings.add(i));
+                    self.manglings.push(if p.is_null() {
+                        Vec::new()
+                    } else {
+                        CStr::from_ptr(p).to_bytes().to_vec()
+                    });
+                }
+                (self.api.dispose_string_set)(set);
+            }
+        }
+        self.manglings.len() as i64
+    }
+
+    /// Tokenizes the extent of cursor `h`: the token count, with kinds and spellings kept for
+    /// `token_kind`/`token`.
+    fn tokenize(&mut self, h: i64) -> i64 {
+        let range = self.on_cursor(h, self.api.cursor_extent);
+        let mut tokens: *mut CxToken = std::ptr::null_mut();
+        let mut count: c_uint = 0;
+        self.tokens.clear();
+        // SAFETY: `tu` is the live translation unit the cursor belongs to; libclang gives back
+        // `count` tokens that stay valid until `dispose_tokens`, after they are copied out.
+        unsafe {
+            (self.api.tokenize)(self.tu, range, &raw mut tokens, &raw mut count);
+            for i in 0..count as usize {
+                let t = *tokens.add(i);
+                let spelling = self.string((self.api.token_spelling)(self.tu, t));
+                self.tokens.push(((self.api.token_kind)(t), spelling));
+            }
+            if !tokens.is_null() {
+                (self.api.dispose_tokens)(self.tu, tokens, count);
+            }
+        }
+        i64::from(count)
+    }
+
+    /// The tokens and source text produced by `tokenize`.
+    fn source_op(&mut self, op: &str, a: i64) -> Option<i64> {
+        let r = match op {
+            "token_kind" => self.tokens.get(a as usize).map_or(0, |t| i64::from(t.0)),
+            "token" => {
+                self.last_text = self
+                    .tokens
+                    .get(a as usize)
+                    .map(|t| t.1.clone())
+                    .unwrap_or_default();
+                0
+            }
+            "mangling_item" => {
+                self.last_text = self.manglings.get(a as usize).cloned().unwrap_or_default();
+                0
+            }
+            _ => return None,
+        };
+        Some(r)
+    }
+
+    /// Constant evaluation of a cursor.
+    fn eval_op(&mut self, op: &str, a: i64) -> Option<i64> {
+        let r = match op {
+            "evaluate" => {
+                self.release_eval();
+                // SAFETY: the cursor is valid (see `on_cursor`).
+                self.eval = unsafe { (self.api.evaluate)(self.cursor(a)) };
+                self.on_eval(self.api.eval_kind).map_or(0, i64::from)
+            }
+            "eval_int" => {
+                if self.on_eval(self.api.eval_unsigned).unwrap_or(0) != 0 {
+                    self.on_eval(self.api.eval_unsigned_value).unwrap_or(0) as i64
+                } else {
+                    self.on_eval(self.api.eval_int).unwrap_or(0)
+                }
+            }
+            "eval_is_unsigned" => self.on_eval(self.api.eval_unsigned).map_or(0, i64::from),
+            "eval_double" => self
+                .on_eval(self.api.eval_double)
+                .map_or(0, |d| d.to_bits() as i64),
+            "eval_string" => {
+                if let Some(p) = self.on_eval(self.api.eval_str)
+                    && !p.is_null()
+                {
+                    // SAFETY: libclang returns a NUL-terminated string owned by the evaluation
+                    // result, which is alive here.
+                    self.last_text = unsafe { CStr::from_ptr(p) }.to_bytes().to_vec();
+                }
+                0
+            }
+            _ => return None,
+        };
+        Some(r)
+    }
+
+    /// Type queries.
+    fn type_op(&mut self, op: &str, a: i64, b: i64, text: &[u8]) -> Result<Option<i64>, String> {
+        let r = match op {
+            "t_kind" => i64::from(self.ty(a).kind),
+            "t_spelling" => {
+                let spelling = self.on_type(a, self.api.type_spelling);
+                self.last_text = self.string(spelling);
+                0
+            }
+            "t_pointee" => {
+                let t = self.on_type(a, self.api.pointee);
+                self.type_id(t)
+            }
+            "t_result" => {
+                let t = self.on_type(a, self.api.result_type);
+                self.type_id(t)
+            }
+            "t_num_args" => i64::from(self.on_type(a, self.api.num_arg_types)),
+            "t_arg" => {
+                let t = self.on_type_with(a, b as c_uint, self.api.arg_type);
+                self.type_id(t)
+            }
+            "t_variadic" => i64::from(self.on_type(a, self.api.type_variadic)),
+            "t_element" => {
+                let t = self.on_type(a, self.api.array_element);
+                self.type_id(t)
+            }
+            "t_array_size" => self.on_type(a, self.api.array_size),
+            "t_canonical" => {
+                let t = self.on_type(a, self.api.canonical_type);
+                self.type_id(t)
+            }
+            "t_decl" => {
+                let c = self.on_type(a, self.api.type_declaration);
+                self.cursor_handle(c)
+            }
+            "t_sizeof" => self.on_type(a, self.api.size_of),
+            "t_alignof" => self.on_type(a, self.api.align_of),
+            "t_const" => i64::from(self.on_type(a, self.api.is_const)),
+            "t_named" => {
+                let t = self.on_type(a, self.api.named_type);
+                self.type_id(t)
+            }
+            "t_offsetof" => {
+                let name = CString::new(text).map_err(|_| "name contains NUL")?;
+                self.on_type_with(a, name.as_ptr(), self.api.type_offset_of)
+            }
+            "t_template_arg" => {
+                let t = self.on_type_with(a, b as c_uint, self.api.template_arg_type);
+                self.type_id(t)
+            }
+            "t_num_template_args" => i64::from(self.on_type(a, self.api.num_template_args)),
+            // Objective-C: the pieces of `id<P>` / `Base<Arg>` object types.
+            "t_objc_base" => {
+                let t = self.on_type(a, self.api.objc_base_type);
+                self.type_id(t)
+            }
+            "t_objc_num_protocols" => i64::from(self.on_type(a, self.api.objc_num_protocols)),
+            "t_objc_protocol" => {
+                let c = self.on_type_with(a, b as c_uint, self.api.objc_protocol);
+                self.cursor_handle(c)
+            }
+            "t_objc_num_type_args" => i64::from(self.on_type(a, self.api.objc_num_type_args)),
+            "t_objc_type_arg" => {
+                let t = self.on_type_with(a, b as c_uint, self.api.objc_type_arg);
+                self.type_id(t)
+            }
+            // The type an attributed type (`T _Nonnull`) was made from.
+            "t_modified" => {
+                let t = self.on_type(a, self.api.modified_type);
+                self.type_id(t)
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(r))
+    }
 }
 
 extern "C" fn collect(cursor: CxCursor, _parent: CxCursor, data: *mut c_void) -> c_int {
-    let list = unsafe { &mut *(data as *mut Vec<CxCursor>) };
+    // SAFETY: `data` is the `&mut Vec<CxCursor>` that `State::children` passed to
+    // `visit_children`; it is alive and used by nobody else for the whole visit.
+    let list = unsafe { &mut *data.cast::<Vec<CxCursor>>() };
+
     list.push(cursor);
     1 // CXChildVisit_Continue
 }
@@ -611,441 +1144,19 @@ pub fn call(op: &str, a: i64, b: i64, text: &[u8]) -> Result<i64, String> {
     STATE.with(|cell| {
         let mut slot = cell.borrow_mut();
         if op == "load" {
-            if slot.is_some() {
-                return Ok(1);
+            if slot.is_none() {
+                let (api, path) = open_api(&String::from_utf8_lossy(text))?;
+                let mut state = State::new(api, path);
+                state.last_text = state.path.clone().into_bytes();
+                *slot = Some(state);
             }
-            let (api, path) = open_api(&String::from_utf8_lossy(text))?;
-            *slot = Some(State {
-                api,
-                path,
-                index: std::ptr::null_mut(),
-                tu: std::ptr::null_mut(),
-                args: Vec::new(),
-                file_name: CString::default(),
-                file_contents: Vec::new(),
-                cursors: Vec::new(),
-                cursor_ids: HashMap::default(),
-                types: Vec::new(),
-                type_ids: HashMap::default(),
-                last_text: Vec::new(),
-                last_count: 0,
-                tokens: Vec::new(),
-                manglings: Vec::new(),
-                lists: Vec::new(),
-                eval: std::ptr::null_mut(),
-            });
-            slot.as_mut().unwrap().last_text = slot.as_ref().unwrap().path.clone().into_bytes();
             return Ok(1);
         }
         let Some(s) = slot.as_mut() else {
             return Err("Bindings_Generator: libclang is not loaded".into());
         };
         s.last_text.clear();
-        let api = &s.api as *const Api;
-        // SAFETY: `api` points into `s`, which lives as long as this call and
-        // is never moved while it runs; it only sidesteps borrowing `s` twice.
-        let api = unsafe { &*api };
-        let r = match op {
-            "path" => {
-                s.last_text = s.path.clone().into_bytes();
-                0
-            }
-            "reset" => {
-                s.dispose();
-                s.args.clear();
-                s.file_name = CString::default();
-                s.file_contents.clear();
-                0
-            }
-            "add_arg" => {
-                s.args
-                    .push(CString::new(text).map_err(|_| "argument contains NUL")?);
-                0
-            }
-            "file" => {
-                s.file_name = CString::new(text).map_err(|_| "file name contains NUL")?;
-                0
-            }
-            "contents" => {
-                s.file_contents = text.to_vec();
-                0
-            }
-            "parse" => {
-                s.dispose();
-                unsafe {
-                    s.index = (api.create_index)(0, 0);
-                    let mut args = s.args.clone();
-                    if let Some(dir) = builtin_include_dir(&s.path)
-                        && !args.iter().any(|a| a.to_bytes() == b"-resource-dir")
-                    {
-                        args.push(CString::new("-isystem").unwrap());
-                        args.push(CString::new(dir).unwrap());
-                    }
-                    let mut argv: Vec<*const c_char> = args.iter().map(|c| c.as_ptr()).collect();
-                    argv.push(s.file_name.as_ptr());
-                    let mut contents = s.file_contents.clone();
-                    contents.push(0);
-                    let mut unsaved = CxUnsaved {
-                        filename: s.file_name.as_ptr(),
-                        contents: contents.as_ptr() as *const c_char,
-                        length: s.file_contents.len() as c_ulong,
-                    };
-                    let mut tu: *mut c_void = std::ptr::null_mut();
-                    // DetailedPreprocessingRecord (1) | KeepGoing (0x200)
-                    let err = (api.parse)(
-                        s.index,
-                        std::ptr::null(),
-                        argv.as_ptr(),
-                        argv.len() as c_int,
-                        &mut unsaved,
-                        1,
-                        1,
-                        &mut tu,
-                    );
-                    s.tu = tu;
-                    if err != 0 || tu.is_null() {
-                        return Ok(0);
-                    }
-                    let root = (api.tu_cursor)(tu);
-                    s.cursor_id(root)
-                }
-            }
-            "diag_count" => {
-                if s.tu.is_null() {
-                    0
-                } else {
-                    unsafe { (api.num_diagnostics)(s.tu) as i64 }
-                }
-            }
-            "diag" => unsafe {
-                let d = (api.get_diagnostic)(s.tu, a as c_uint);
-                let severity = (api.diagnostic_severity)(d);
-                let msg = (api.format_diagnostic)(d, (api.default_diagnostic_options)());
-                s.last_text = s.string(msg);
-                (api.dispose_diagnostic)(d);
-                severity as i64
-            },
-            "dispose" => {
-                s.dispose();
-                0
-            }
-            "last_count" => s.last_count,
-            "children" => {
-                let c = s.cursor(a);
-                let mut list: Vec<CxCursor> = Vec::new();
-                unsafe { (api.visit_children)(c, collect, &mut list as *mut _ as *mut c_void) };
-                s.last_count = list.len() as i64;
-                // Handles of consecutive new cursors are not consecutive when some
-                // already existed, so hand them out through `child`.
-                let ids: Vec<i64> = list.into_iter().map(|c| s.cursor_id(c)).collect();
-                s.lists.push(ids);
-                s.lists.len() as i64
-            }
-            "list_item" => s
-                .lists
-                .get((a as usize).wrapping_sub(1))
-                .and_then(|l| l.get(b as usize))
-                .copied()
-                .unwrap_or(0),
-            // ----- cursors
-            "kind" => unsafe { (api.cursor_kind)(s.cursor(a)) as i64 },
-            "spelling" => unsafe {
-                s.last_text = s.string((api.cursor_spelling)(s.cursor(a)));
-                0
-            },
-            "type" => {
-                let t = unsafe { (api.cursor_type)(s.cursor(a)) };
-                s.type_id(t)
-            }
-            "location" => unsafe {
-                let loc = (api.cursor_location)(s.cursor(a));
-                let (mut file, mut line, mut col, mut off) = (std::ptr::null_mut(), 0, 0, 0);
-                (api.spelling_location)(loc, &mut file, &mut line, &mut col, &mut off);
-                if !file.is_null() {
-                    s.last_text = s.string((api.file_name)(file));
-                }
-                s.last_count = col as i64;
-                line as i64
-            },
-            "system_header" => unsafe {
-                (api.in_system_header)((api.cursor_location)(s.cursor(a))) as i64
-            },
-            "linkage" => unsafe { (api.cursor_linkage)(s.cursor(a)) as i64 },
-            "storage_class" => unsafe { (api.storage_class)(s.cursor(a)) as i64 },
-            "definition" => {
-                let c = unsafe { (api.cursor_definition)(s.cursor(a)) };
-                if (70..=73).contains(&c.kind) {
-                    0
-                } else {
-                    s.cursor_id(c)
-                }
-            }
-            "canonical" => {
-                let c = unsafe { (api.canonical_cursor)(s.cursor(a)) };
-                s.cursor_id(c)
-            }
-            "referenced" => {
-                let c = unsafe { (api.cursor_referenced)(s.cursor(a)) };
-                if (70..=73).contains(&c.kind) {
-                    0
-                } else {
-                    s.cursor_id(c)
-                }
-            }
-            "semantic_parent" => {
-                let c = unsafe { (api.semantic_parent)(s.cursor(a)) };
-                if (70..=73).contains(&c.kind) {
-                    0
-                } else {
-                    s.cursor_id(c)
-                }
-            }
-            "is_definition" => unsafe { (api.is_definition)(s.cursor(a)) as i64 },
-            "enum_value" => unsafe { (api.enum_value)(s.cursor(a)) },
-            "enum_uvalue" => unsafe { (api.enum_uvalue)(s.cursor(a)) as i64 },
-            "enum_int_type" => {
-                let t = unsafe { (api.enum_int_type)(s.cursor(a)) };
-                s.type_id(t)
-            }
-            "typedef_underlying" => {
-                let t = unsafe { (api.typedef_underlying)(s.cursor(a)) };
-                s.type_id(t)
-            }
-            "is_bitfield" => unsafe { (api.is_bitfield)(s.cursor(a)) as i64 },
-            "bit_width" => unsafe { (api.bit_width)(s.cursor(a)) as i64 },
-            "is_anonymous" => unsafe { (api.is_anonymous)(s.cursor(a)) as i64 },
-            "is_anonymous_record" => unsafe { (api.is_anonymous_record)(s.cursor(a)) as i64 },
-            "num_args" => unsafe { (api.num_arguments)(s.cursor(a)) as i64 },
-            "arg" => {
-                let c = unsafe { (api.argument)(s.cursor(a), b as c_uint) };
-                s.cursor_id(c)
-            }
-            "is_variadic" => unsafe { (api.cursor_variadic)(s.cursor(a)) as i64 },
-            "comment" => unsafe {
-                s.last_text = s.string((api.raw_comment)(s.cursor(a)));
-                0
-            },
-            // Line where the cursor's attached comment starts (0 without one).
-            "comment_line" => unsafe {
-                let loc = (api.range_start)((api.comment_range)(s.cursor(a)));
-                let (mut file, mut line, mut col, mut off) = (std::ptr::null_mut(), 0, 0, 0);
-                (api.spelling_location)(loc, &mut file, &mut line, &mut col, &mut off);
-                line as i64
-            },
-            "macro_function_like" => unsafe { (api.macro_function_like)(s.cursor(a)) as i64 },
-            "macro_builtin" => unsafe { (api.macro_builtin)(s.cursor(a)) as i64 },
-            "mangling" => unsafe {
-                s.last_text = s.string((api.mangling)(s.cursor(a)));
-                0
-            },
-            "field_offset" => unsafe { (api.field_offset)(s.cursor(a)) },
-            "is_virtual_base" => unsafe { (api.is_virtual_base)(s.cursor(a)) as i64 },
-            // Offset in bits of base specifier `b` in a complete object of record `a` (-1 unknown).
-            "base_offset" => match api.offset_of_base {
-                Some(f) => unsafe { f(s.cursor(a), s.cursor(b)) },
-                None => -1,
-            },
-            "is_static_method" => unsafe { (api.cxx_method_static)(s.cursor(a)) as i64 },
-            "is_virtual" => unsafe { (api.cxx_method_virtual)(s.cursor(a)) as i64 },
-            "is_pure_virtual" => unsafe { (api.cxx_method_pure_virtual)(s.cursor(a)) as i64 },
-            "is_const_method" => unsafe { (api.cxx_method_const)(s.cursor(a)) as i64 },
-            "is_copy_ctor" => unsafe { (api.ctor_copy)(s.cursor(a)) as i64 },
-            "is_move_ctor" => unsafe { (api.ctor_move)(s.cursor(a)) as i64 },
-            "is_inlined" => unsafe { (api.function_inlined)(s.cursor(a)) as i64 },
-            "access" => unsafe { (api.access_specifier)(s.cursor(a)) as i64 },
-            // All C++ manglings of a constructor/destructor (Itanium: C1/C2, D0/D1/D2).
-            // Returns the count; read them with `mangling_item`.
-            "manglings" => unsafe {
-                s.manglings.clear();
-                let set = (api.cxx_manglings)(s.cursor(a));
-                if !set.is_null() {
-                    let n = (*set).count as usize;
-                    for i in 0..n {
-                        let cs = *(*set).strings.add(i);
-                        // The set owns its strings: read without disposing.
-                        let p = (api.get_cstring)(cs);
-                        s.manglings.push(if p.is_null() {
-                            Vec::new()
-                        } else {
-                            CStr::from_ptr(p).to_bytes().to_vec()
-                        });
-                    }
-                    (api.dispose_string_set)(set);
-                }
-                s.manglings.len() as i64
-            },
-            "mangling_item" => {
-                s.last_text = s.manglings.get(a as usize).cloned().unwrap_or_default();
-                0
-            }
-            // The template a specialization or instantiation was made from (0 if none).
-            "specialized_template" => {
-                let c = unsafe { (api.specialized_template)(s.cursor(a)) };
-                if (70..=73).contains(&c.kind) {
-                    0
-                } else {
-                    s.cursor_id(c)
-                }
-            }
-            "tokenize" => unsafe {
-                let c = s.cursor(a);
-                let range = (api.cursor_extent)(c);
-                let mut tokens: *mut CxToken = std::ptr::null_mut();
-                let mut count: c_uint = 0;
-                (api.tokenize)(s.tu, range, &mut tokens, &mut count);
-                s.tokens.clear();
-                for i in 0..count as usize {
-                    let t = *tokens.add(i);
-                    let spelling = s.string((api.token_spelling)(s.tu, t));
-                    s.tokens.push(((api.token_kind)(t), spelling));
-                }
-                if !tokens.is_null() {
-                    (api.dispose_tokens)(s.tu, tokens, count);
-                }
-                count as i64
-            },
-            "token_kind" => s.tokens.get(a as usize).map_or(0, |t| t.0 as i64),
-            "token" => {
-                s.last_text = s
-                    .tokens
-                    .get(a as usize)
-                    .map(|t| t.1.clone())
-                    .unwrap_or_default();
-                0
-            }
-            "evaluate" => unsafe {
-                s.release_eval();
-                s.eval = (api.evaluate)(s.cursor(a));
-                if s.eval.is_null() {
-                    0
-                } else {
-                    (api.eval_kind)(s.eval) as i64
-                }
-            },
-            "eval_int" => {
-                if s.eval.is_null() {
-                    0
-                } else {
-                    unsafe {
-                        if (api.eval_unsigned)(s.eval) != 0 {
-                            (api.eval_unsigned_value)(s.eval) as i64
-                        } else {
-                            (api.eval_int)(s.eval)
-                        }
-                    }
-                }
-            }
-            "eval_is_unsigned" => {
-                if s.eval.is_null() {
-                    0
-                } else {
-                    unsafe { (api.eval_unsigned)(s.eval) as i64 }
-                }
-            }
-            "eval_double" => {
-                if s.eval.is_null() {
-                    0
-                } else {
-                    unsafe { (api.eval_double)(s.eval).to_bits() as i64 }
-                }
-            }
-            "eval_string" => {
-                if !s.eval.is_null() {
-                    unsafe {
-                        let p = (api.eval_str)(s.eval);
-                        if !p.is_null() {
-                            s.last_text = CStr::from_ptr(p).to_bytes().to_vec();
-                        }
-                    }
-                }
-                0
-            }
-            // ----- types
-            "t_kind" => s.ty(a).kind as i64,
-            "t_spelling" => unsafe {
-                s.last_text = s.string((api.type_spelling)(s.ty(a)));
-                0
-            },
-            "t_pointee" => {
-                let t = unsafe { (api.pointee)(s.ty(a)) };
-                s.type_id(t)
-            }
-            "t_result" => {
-                let t = unsafe { (api.result_type)(s.ty(a)) };
-                s.type_id(t)
-            }
-            "t_num_args" => unsafe { (api.num_arg_types)(s.ty(a)) as i64 },
-            "t_arg" => {
-                let t = unsafe { (api.arg_type)(s.ty(a), b as c_uint) };
-                s.type_id(t)
-            }
-            "t_variadic" => unsafe { (api.type_variadic)(s.ty(a)) as i64 },
-            "t_element" => {
-                let t = unsafe { (api.array_element)(s.ty(a)) };
-                s.type_id(t)
-            }
-            "t_array_size" => unsafe { (api.array_size)(s.ty(a)) },
-            "t_canonical" => {
-                let t = unsafe { (api.canonical_type)(s.ty(a)) };
-                s.type_id(t)
-            }
-            "t_decl" => {
-                let c = unsafe { (api.type_declaration)(s.ty(a)) };
-                if (70..=73).contains(&c.kind) {
-                    0
-                } else {
-                    s.cursor_id(c)
-                }
-            }
-            "t_sizeof" => unsafe { (api.size_of)(s.ty(a)) },
-            "t_alignof" => unsafe { (api.align_of)(s.ty(a)) },
-            "t_const" => unsafe { (api.is_const)(s.ty(a)) as i64 },
-            "t_named" => {
-                let t = unsafe { (api.named_type)(s.ty(a)) };
-                s.type_id(t)
-            }
-            "t_offsetof" => unsafe {
-                let name = CString::new(text).map_err(|_| "name contains NUL")?;
-                (api.type_offset_of)(s.ty(a), name.as_ptr())
-            },
-            "t_template_arg" => {
-                let t = unsafe { (api.template_arg_type)(s.ty(a), b as c_uint) };
-                s.type_id(t)
-            }
-            // Objective-C: the declared result type of a method cursor, and the pieces of
-            // `id<P>` / `Base<Arg>` object types.
-            "cursor_result_type" => {
-                let t = unsafe { (api.cursor_result_type)(s.cursor(a)) };
-                s.type_id(t)
-            }
-            "t_objc_base" => {
-                let t = unsafe { (api.objc_base_type)(s.ty(a)) };
-                s.type_id(t)
-            }
-            "t_objc_num_protocols" => unsafe { (api.objc_num_protocols)(s.ty(a)) as i64 },
-            "t_objc_protocol" => {
-                let c = unsafe { (api.objc_protocol)(s.ty(a), b as c_uint) };
-                if (70..=73).contains(&c.kind) {
-                    0
-                } else {
-                    s.cursor_id(c)
-                }
-            }
-            "t_objc_num_type_args" => unsafe { (api.objc_num_type_args)(s.ty(a)) as i64 },
-            "t_objc_type_arg" => {
-                let t = unsafe { (api.objc_type_arg)(s.ty(a), b as c_uint) };
-                s.type_id(t)
-            }
-            // The type an attributed type (`T _Nonnull`) was made from.
-            "t_modified" => {
-                let t = unsafe { (api.modified_type)(s.ty(a)) };
-                s.type_id(t)
-            }
-            "t_num_template_args" => unsafe { (api.num_template_args)(s.ty(a)) as i64 },
-            other => return Err(format!("unknown clang operation `{other}`")),
-        };
-        let _ = b;
-        Ok(r)
+        s.run(op, a, b, text)
     })
 }
 

@@ -33,9 +33,8 @@ impl Compiler {
     ) -> Result<()> {
         let span = inst.span;
         let name = inst.mnemonic.name.as_str();
-        let dst = match ops.first() {
-            Some(&d) => d,
-            None => return err(span, format!("`{name}` needs operands")),
+        let Some(&dst) = ops.first() else {
+            return err(span, format!("`{name}` needs operands"));
         };
         let tmp = f.b.alloca(64, 16);
         f.b.zero(tmp, 64);

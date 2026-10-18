@@ -80,7 +80,7 @@ impl Compiler {
         let header = self.proc(proc).lit.header.clone();
         let sig = self.signature(proc, span)?;
         // Intrinsics expand inline.
-        if header.flags.intrinsic
+        if header.flags.intrinsic()
             && self.proc(proc).lit.body.is_none()
             && super::procs::llvm_intrinsic(&header).is_none()
         {
@@ -218,12 +218,11 @@ impl Compiler {
         arg: &CallArg,
         ty: Option<TypeId>,
     ) -> Result<Operand> {
-        match &arg.op {
-            Some(op) => Ok(op.clone()),
-            None => {
-                let expr = arg.expr.as_ref().unwrap();
-                self.check_expr(f, arg.scope, expr, ty)
-            }
+        if let Some(op) = &arg.op {
+            Ok(op.clone())
+        } else {
+            let expr = arg.expr.as_ref().unwrap();
+            self.check_expr(f, arg.scope, expr, ty)
         }
     }
 
@@ -441,9 +440,8 @@ impl Compiler {
         let mut extra = Vec::new();
         let mut next = 0;
         for arg in args {
-            let i = match arg.name {
-                Some(name) => info
-                    .names
+            let i = if let Some(name) = arg.name {
+                info.names
                     .iter()
                     .position(|&p| p == Some(name))
                     .ok_or_else(|| {
@@ -451,13 +449,12 @@ impl Compiler {
                             arg.span,
                             format!("no parameter named `{name}`"),
                         ))
-                    })?,
-                None => {
-                    while next < n && slots[next].is_some() {
-                        next += 1;
-                    }
-                    next
+                    })?
+            } else {
+                while next < n && slots[next].is_some() {
+                    next += 1;
                 }
+                next
             };
             if i >= n {
                 if c_varargs && arg.name.is_none() {

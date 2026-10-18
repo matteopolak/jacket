@@ -1,4 +1,4 @@
-//! Whole-program compilation: load Preload, Runtime_Support and the main
+//! Whole-program compilation: load Preload, `Runtime_Support` and the main
 //! file, run top-level directives, and lower everything reachable from the
 //! exported entry points.
 use super::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeKind};
@@ -37,7 +37,7 @@ impl Compiler {
         self.ide_selected_entry.as_deref()
     }
 
-    /// Load the bootstrap modules (Preload, Runtime_Support).
+    /// Load the bootstrap modules (Preload, `Runtime_Support`).
     pub fn load_bootstrap(&mut self) -> Result<()> {
         let span = Span::NONE;
         if let Some(preload) = self.options.preload.clone() {
@@ -547,10 +547,10 @@ impl Compiler {
                 for r in &program.globals[g].relocs {
                     match r.target {
                         ir::RelocTarget::Func(f) => {
-                            mark_live(&mut funcs, &mut func_work, f.0 as usize)
+                            mark_live(&mut funcs, &mut func_work, f.0 as usize);
                         }
                         ir::RelocTarget::Global(h) => {
-                            mark_live(&mut globals, &mut global_work, h.0 as usize)
+                            mark_live(&mut globals, &mut global_work, h.0 as usize);
                         }
                         ir::RelocTarget::Foreign(x) => foreigns[x.0 as usize] = true,
                     }
@@ -564,7 +564,7 @@ impl Compiler {
                     match inst {
                         ir::Inst::Call(call) => match call.callee {
                             ir::Callee::Func(g) => {
-                                mark_live(&mut funcs, &mut func_work, g.0 as usize)
+                                mark_live(&mut funcs, &mut func_work, g.0 as usize);
                             }
                             ir::Callee::Foreign(x) => foreigns[x.0 as usize] = true,
                             ir::Callee::Indirect(..) => {}
@@ -768,8 +768,8 @@ impl Compiler {
                 continue;
             };
             let g = &mut self.program.globals[global.0 as usize];
-            g.init = agg.bytes.clone();
-            g.relocs = agg.relocs.clone();
+            g.init.clone_from(&agg.bytes);
+            g.relocs.clone_from(&agg.relocs);
         }
     }
 

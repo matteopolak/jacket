@@ -155,7 +155,7 @@ fn checks(manifest: &Manifest) -> Vec<Check> {
             key,
             c_expr,
             jai_expr,
-        })
+        });
     };
     for e in &manifest.entries {
         let (jai, c) = (&e.jai, &e.c);

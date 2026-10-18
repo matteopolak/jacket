@@ -205,15 +205,15 @@ impl Compiler {
         }
         let y = if is_shift {
             let rt = self.ir_ty(rhs_ty).unwrap();
-            if rt.size() != t.size() {
+            if rt.size() == t.size() {
+                y
+            } else {
                 let conv = if rt.size() > t.size() {
                     ir::ConvOp::Trunc
                 } else {
                     ir::ConvOp::ZExt
                 };
                 f.b.conv(conv, rt, t, y)
-            } else {
-                y
             }
         } else {
             y

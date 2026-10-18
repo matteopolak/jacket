@@ -221,9 +221,7 @@ pub(super) fn incoming(input: &str) -> Result<Option<Incoming>, Value> {
 /// Debug builds panic on `jai/debugPanic`, to test that a panic is one message's error.
 pub(super) fn debug_panic(method: &str) {
     #[cfg(debug_assertions)]
-    if method == "jai/debugPanic" {
-        panic!("requested by jai/debugPanic");
-    }
+    assert!(method != "jai/debugPanic", "requested by jai/debugPanic");
     #[cfg(not(debug_assertions))]
     let _ = method;
 }

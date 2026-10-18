@@ -132,22 +132,29 @@ fn exceeded(limit: usize) -> ! {
 /// `A` with live-byte accounting; install it with `#[global_allocator]`.
 pub struct CountingAllocator<A: GlobalAlloc = System>(pub A);
 
+// SAFETY: every method forwards the caller's arguments to the inner allocator unchanged, after
+// only updating atomic counters, so the inner allocator's guarantees carry over; none of this
+// code allocates.
 unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
     #[inline]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         charge(layout.size());
+        // SAFETY: the caller upholds `GlobalAlloc::alloc`'s contract for `layout`.
         unsafe { self.0.alloc(layout) }
     }
 
     #[inline]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         charge(layout.size());
+        // SAFETY: the caller upholds `GlobalAlloc::alloc_zeroed`'s contract for `layout`.
         unsafe { self.0.alloc_zeroed(layout) }
     }
 
     #[inline]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         refund(layout.size());
+        // SAFETY: the caller upholds `GlobalAlloc::dealloc`'s contract: `ptr` came from this
+        // allocator with `layout`.
         unsafe { self.0.dealloc(ptr, layout) }
     }
 
@@ -158,6 +165,8 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
         } else {
             refund(layout.size() - new_size);
         }
+        // SAFETY: the caller upholds `GlobalAlloc::realloc`'s contract for `ptr`, `layout` and
+        // `new_size`.
         unsafe { self.0.realloc(ptr, layout, new_size) }
     }
 }
@@ -195,10 +204,13 @@ mod sys {
     }
 
     pub(super) fn write_stderr(bytes: &[u8]) {
+        // SAFETY: `bytes` is a live buffer of `bytes.len()` readable bytes; descriptor 2 is
+        // stderr (a failed write is ignored).
         unsafe { write(2, bytes.as_ptr().cast(), bytes.len()) };
     }
 
     pub(super) fn exit_now(code: i32) -> ! {
+        // SAFETY: `_exit` takes any status and does not return.
         unsafe { _exit(code) }
     }
 
@@ -208,10 +220,13 @@ mod sys {
         if ptr.is_null() {
             return 0;
         }
+        // SAFETY: `ptr` is non-null and was returned by libc's allocator (the counted wrappers
+        // and the program's own `malloc` family calls are the only sources).
         #[cfg(target_vendor = "apple")]
         unsafe {
             malloc_size(ptr)
         }
+        // SAFETY: as above.
         #[cfg(not(target_vendor = "apple"))]
         unsafe {
             malloc_usable_size(ptr)
@@ -220,7 +235,10 @@ mod sys {
 
     extern "C" fn counted_malloc(size: usize) -> *mut c_void {
         charge(size);
+
+        // SAFETY: `malloc` accepts any size.
         let p = unsafe { malloc(size) };
+
         settle(size, p);
         p
     }
@@ -231,7 +249,10 @@ mod sys {
         };
 
         charge(total);
+
+        // SAFETY: `calloc` accepts any counts; the product was checked not to overflow.
         let p = unsafe { calloc(count, size) };
+
         settle(total, p);
         p
     }
@@ -239,6 +260,8 @@ mod sys {
     extern "C" fn counted_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
         let old = block_size(ptr);
         charge(size);
+
+        // SAFETY: the caller of this `realloc` replacement passes null or a live libc block.
         let p = unsafe { realloc(ptr, size) };
 
         if p.is_null() {
@@ -252,16 +275,21 @@ mod sys {
 
     extern "C" fn counted_free(ptr: *mut c_void) {
         refund(block_size(ptr));
+
+        // SAFETY: the caller of this `free` replacement passes null or a live libc block.
         unsafe { free(ptr) }
     }
 
     extern "C" fn counted_posix_memalign(out: *mut *mut c_void, align: usize, size: usize) -> i32 {
         charge(size);
+
+        // SAFETY: the caller passes a writable `out`; `posix_memalign` validates `align`.
         let status = unsafe { posix_memalign(out, align, size) };
 
         settle(
             size,
             if status == 0 {
+                // SAFETY: on success `posix_memalign` stored the block's address through `out`.
                 unsafe { *out }
             } else {
                 std::ptr::null_mut()
@@ -273,7 +301,7 @@ mod sys {
     extern "C" fn counted_aligned_alloc(align: usize, size: usize) -> *mut c_void {
         let mut p = std::ptr::null_mut();
 
-        match counted_posix_memalign(&mut p, align.max(size_of::<usize>()), size) {
+        match counted_posix_memalign(&raw mut p, align.max(size_of::<usize>()), size) {
             0 => p,
             _ => std::ptr::null_mut(),
         }

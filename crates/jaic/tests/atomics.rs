@@ -2,12 +2,12 @@
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 
-const DECLS: &str = r#"
+const DECLS: &str = r"
 atomic_load :: (pointer: *$T) -> T #intrinsic;
 atomic_store :: (pointer: *$T, new: T) #intrinsic;
 atomic_exchange :: (pointer: *$T, new: T) -> T #intrinsic;
 compare_and_swap :: (pointer: *$T, old: T, new: T) -> (bool, T) #intrinsic;
-"#;
+";
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();
@@ -20,7 +20,7 @@ fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
 #[test]
 fn bootstrap_atomics_preserve_scalar_bits_and_previous_values() {
     let (c, result) = compile(
-        r#"
+        r"
         check :: () -> bool {
             a: u8; b: s16; c: u32; d: u64; f: float32; g: float64; flag: bool;
             atomic_store(*a, 255); atomic_store(*b, -7);
@@ -41,7 +41,7 @@ fn bootstrap_atomics_preserve_scalar_bits_and_previous_values() {
             return ok && previous == 17 && d == 23;
         }
         #assert(check());
-    "#,
+    ",
     );
     if let Err(e) = result {
         panic!("{}", e.render(&c.sources));
@@ -51,7 +51,7 @@ fn bootstrap_atomics_preserve_scalar_bits_and_previous_values() {
 #[test]
 fn atomic_enum_and_procedure_values_keep_their_types_and_identity() {
     let (c, result) = compile(
-        r#"
+        r"
         Token :: enum u32 { FIRST :: 7; SECOND :: 29; }
         first :: () -> int #no_context { return 13; }
         second :: () -> int #no_context { return 47; }
@@ -65,7 +65,7 @@ fn atomic_enum_and_procedure_values_keep_their_types_and_identity() {
             return ok && old() == 47 && procedure() == 13;
         }
         #assert(check());
-    "#,
+    ",
     );
     if let Err(e) = result {
         panic!("{}", e.render(&c.sources));

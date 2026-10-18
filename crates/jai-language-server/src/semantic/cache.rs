@@ -64,7 +64,7 @@ impl Cache {
     /// Whether compile-time code may run. A change drops every compile kept, which were made
     /// under the other setting.
     pub fn set_trusted(&mut self, trusted: bool) {
-        if self.untrusted == !trusted {
+        if self.untrusted != trusted {
             return;
         }
         *self = Self {

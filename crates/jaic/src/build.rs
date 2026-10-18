@@ -8,7 +8,7 @@
 //!
 //! Jai code reaches this module only through a few `#compiler` primitives
 //! (`__jaic_*`, see [`MetaOp`]) with a scalar/string ABI; the public
-//! `Compiler` module API (Build_Options, Message structs...) is written in Jai
+//! `Compiler` module API (`Build_Options`, Message structs...) is written in Jai
 //! on top of them in `stdlib/Compiler/module.jai`.
 use crate::builtin_keys::{
     SyntaxKey, WorkspaceFlag, WorkspaceList, WorkspaceNumber, WorkspaceText,
@@ -39,7 +39,7 @@ pub use plugin_program::{PluginImport, PluginProgram, plugin_metaprogram};
 pub use sources::parse_code_text;
 
 pub use self::calls::call;
-use self::calls::{Call, store, store_pair, unreadable};
+use self::calls::{Call, store, store_pair};
 use self::drive::step;
 pub use self::meta_op::{LANGUAGE_VERSION, MetaOp, TOP_LEVEL_WORKSPACE, compiler_version};
 pub use self::output::finish_all;

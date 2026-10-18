@@ -37,7 +37,7 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
             fs.insert("/lib/Runtime_Support/module.jai", runtime.as_bytes());
             let mut options = Options::host();
             options.import_paths = vec!["/lib".into()];
-            options.temporary_storage_size = 1048576;
+            options.temporary_storage_size = 1_048_576;
             if wasm {
                 options.os = TargetOs::Wasm;
                 options.cpu = TargetCpu::Wasm;
@@ -76,7 +76,7 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
                     .arg(object)
                     .arg("-o")
                     .arg(&module));
-                run(Command::new("node").args(["-e",r#"const fs=require('fs'); const m=new WebAssembly.Module(fs.readFileSync(process.argv[1])); if(WebAssembly.Module.imports(m).length)throw Error('unexpected imports'); const x=new WebAssembly.Instance(m,{}); const n=x.exports.configuration_startup_check(); if(n!==0)throw Error('wrong configured size '+n); if(x.exports.storage_address){const p=Number(x.exports.storage_address());const b=new Uint8Array(x.exports.memory.buffer);if(b[p]!==19||b[p+1048575]!==73)throw Error('wrong actual storage');}"#]).arg(module));
+                run(Command::new("node").args(["-e",r"const fs=require('fs'); const m=new WebAssembly.Module(fs.readFileSync(process.argv[1])); if(WebAssembly.Module.imports(m).length)throw Error('unexpected imports'); const x=new WebAssembly.Instance(m,{}); const n=x.exports.configuration_startup_check(); if(n!==0)throw Error('wrong configured size '+n); if(x.exports.storage_address){const p=Number(x.exports.storage_address());const b=new Uint8Array(x.exports.memory.buffer);if(b[p]!==19||b[p+1048575]!==73)throw Error('wrong actual storage');}"]).arg(module));
             } else {
                 let driver = dir.join("driver.c");
                 std::fs::write(&driver,if inspect_storage {

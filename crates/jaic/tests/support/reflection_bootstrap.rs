@@ -1,6 +1,6 @@
 // Deliberately scoped test bootstrap: these are the fields needed by
 // these tests, not a substitute for integrated prelude verification.
-pub const BOOTSTRAP: &str = r#"
+pub const BOOTSTRAP: &str = r"
 Type_Info :: struct { type: u32; runtime_size: s64; }
 Type_Info_Integer :: struct { using #as info: Type_Info; signed: bool; }
 Type_Info_String :: struct { using #as info: Type_Info; }
@@ -19,4 +19,4 @@ Type_Info_Struct :: struct {
     polymorph_source_struct: *Type_Info_Struct;
     initializer: (*void) #no_context; constant_storage: [] u8; notes: [] string;
 }
-"#;
+";

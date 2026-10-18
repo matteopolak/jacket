@@ -229,11 +229,7 @@ impl Session {
             } else {
                 Source::Load(f.clone())
             };
-            let rank = if matches!(source, Source::Loaded(_)) {
-                0
-            } else {
-                1
-            };
+            let rank = u32::from(!matches!(source, Source::Loaded(_)));
             let declaration_root = if program.closure.contains(&f) {
                 &program.root
             } else {
@@ -270,7 +266,7 @@ impl Session {
             for module in modules.iter() {
                 if !seen_modules.insert(module.name.clone())
                     || imported.contains(&module.name)
-                    || !builds_for(&module.only_os, program.os)
+                    || !builds_for(module.only_os.as_deref(), program.os)
                 {
                     continue;
                 }

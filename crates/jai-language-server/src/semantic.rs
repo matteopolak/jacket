@@ -65,19 +65,19 @@ impl std::fmt::Debug for SemanticPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SemanticPath")
             .field("identity", &self.identity)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
 /// Actual cached-analysis provenance and the selected compiler's options.
-/// Unknown observations stay None. Workspace IDs are scoped by coverage.context_id.
+/// Unknown observations stay None. Workspace IDs are scoped by `coverage.context_id`.
 #[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct SemanticAnalysisContext {
     /// The root argument used to create this cached analysis, including after focus switches.
     pub root: Option<SemanticPath>,
-    /// Directly observed compile_program entry argument; unknown for generated workspaces.
+    /// Directly observed `compile_program` entry argument; unknown for generated workspaces.
     pub entry: Option<SemanticPath>,
-    /// Exact selected compiler options.import_paths, preserving order and native spelling.
+    /// Exact selected compiler `options.import_paths`, preserving order and native spelling.
     pub import_dirs: Option<Vec<SemanticPath>>,
     /// Actual selected compiler.workspace, not a scanner-assigned label.
     pub workspace_id: Option<i64>,

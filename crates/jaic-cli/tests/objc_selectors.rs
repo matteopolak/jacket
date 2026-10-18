@@ -37,7 +37,7 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Exclude only a named sidecar with a structurally valid AppleDouble v2 header.
+/// Exclude only a named sidecar with a structurally valid `AppleDouble` v2 header.
 /// Ordinary and malformed ._* Jai files still enter strict UTF-8 validation.
 fn is_appledouble_metadata(path: &Path) -> bool {
     if !path
@@ -386,7 +386,7 @@ fn receiver(text: &str, call_pos: usize, receiver_arg: &str) -> Option<Receiver>
     let declared = self_type(text, call_pos).unwrap_or_default();
     let named = declared
         .strip_prefix('*')
-        .map(|t| t.trim())
+        .map(str::trim)
         .filter(|t| !t.starts_with('$') && *t != "void")
         .map(|t| {
             let t = t.split('(').next().unwrap_or(t);

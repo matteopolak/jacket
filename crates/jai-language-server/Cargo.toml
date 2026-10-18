@@ -16,10 +16,5 @@ jacket-config = { path = "../jacket-config" }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
 
-[lints.rust]
-# Only `large_alloc` (the executable's allocator) needs it.
-unsafe_code = "deny"
-
-[lints.clippy]
-all = "warn"
-excessive_nesting = "warn"
+[lints]
+workspace = true

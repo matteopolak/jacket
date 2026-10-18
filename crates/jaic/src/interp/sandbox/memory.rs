@@ -18,13 +18,7 @@ impl SandboxHost {
                     return Some(0);
                 }
                 if let Some((_, old_size)) = self.allocations.get(&old) {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            old as *const u8,
-                            new as *mut u8,
-                            (*old_size).min(size),
-                        )
-                    };
+                    copy(new, old, (*old_size).min(size));
                     self.allocations.remove(&old);
                 }
                 new
@@ -34,26 +28,19 @@ impl SandboxHost {
                 0
             }
             LibcFn::Memcpy | LibcFn::Memmove => {
-                unsafe { std::ptr::copy(arg(1) as *const u8, arg(0) as *mut u8, arg(2) as usize) };
+                copy(arg(0), arg(1), arg(2) as usize);
                 arg(0)
             }
             LibcFn::Memset => {
-                unsafe { std::ptr::write_bytes(arg(0) as *mut u8, arg(1) as u8, arg(2) as usize) };
+                fill(arg(0), arg(1) as u8, arg(2) as usize);
                 arg(0)
             }
             LibcFn::Memcmp => {
-                // An empty comparison may pass null pointers, which a slice must not hold.
-                let (a, b): (&[u8], &[u8]) = if arg(2) == 0 {
-                    (&[], &[])
-                } else {
-                    unsafe {
-                        (
-                            std::slice::from_raw_parts(arg(0) as *const u8, arg(2) as usize),
-                            std::slice::from_raw_parts(arg(1) as *const u8, arg(2) as usize),
-                        )
-                    }
-                };
-                match a.cmp(b) {
+                let (a, b) = (
+                    read_bytes(arg(0), arg(2) as usize),
+                    read_bytes(arg(1), arg(2) as usize),
+                );
+                match a.cmp(&b) {
                     std::cmp::Ordering::Less => -1i64 as u64,
                     std::cmp::Ordering::Equal => 0,
                     std::cmp::Ordering::Greater => 1,
@@ -61,7 +48,7 @@ impl SandboxHost {
             }
             LibcFn::Strlen => {
                 let mut n = 0;
-                while unsafe { *((arg(0) + n) as *const u8) } != 0 {
+                while read_u8(arg(0) + n) != 0 {
                     n += 1;
                 }
                 n
@@ -78,7 +65,7 @@ impl SandboxHost {
                     if seen == limit {
                         break 0;
                     }
-                    let (x, y) = unsafe { (*(a as *const u8), *(b as *const u8)) };
+                    let (x, y) = (read_u8(a), read_u8(b));
                     if x != y {
                         break (x as i64 - y as i64) as u64;
                     }
@@ -108,13 +95,7 @@ impl SandboxHost {
                 };
                 let text = self.alloc(message.len() + 1);
                 if text != 0 {
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            message.as_ptr(),
-                            text as *mut u8,
-                            message.len(),
-                        )
-                    };
+                    write_bytes(text, message.as_bytes());
                     self.error_texts.insert(code, text);
                 }
                 text

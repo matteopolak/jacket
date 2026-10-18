@@ -60,7 +60,7 @@ impl Compiler {
         };
         let mut out = Vec::new();
         for operand in values {
-            let parameters = self.callable_operand_parameters(&f, &operand)?;
+            let parameters = self.callable_operand_parameters(&operand)?;
             let (ty, v) = self.rvalue(&mut f, operand, span)?;
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
@@ -142,7 +142,7 @@ impl Compiler {
         );
         let callee = self.program.funcs[id.0 as usize]
             .as_ref()
-            .and_then(|func| func.first_direct_callee());
+            .and_then(super::super::ir::Func::first_direct_callee);
         let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
         let clock = self.perf.start_run();
         self.ct_executions += 1;
@@ -557,7 +557,7 @@ impl Compiler {
                 ast::CodeBody::Expr(e) => vec![ast::Stmt {
                     kind: ast::StmtKind::Expr(e.clone()),
                     span: e.span,
-                    notes: Default::default(),
+                    notes: crate::ast::Notes::default(),
                 }],
             }),
             Operand::Const {

@@ -10,8 +10,8 @@ impl SandboxHost {
                 // struct timespec { tv_sec; tv_nsec }: sleeping only moves the virtual clock.
                 let req = arg(0);
                 if req != 0 {
-                    let secs = unsafe { std::ptr::read_unaligned(req as *const u64) };
-                    let nanos = unsafe { std::ptr::read_unaligned((req + 8) as *const u64) };
+                    let secs = read_u64(req);
+                    let nanos = read_u64(req + 8);
                     self.clock_ns = self
                         .clock_ns
                         .saturating_add(secs.saturating_mul(1_000_000_000))
@@ -58,7 +58,7 @@ impl SandboxHost {
                 secs
             }
             LibcFn::GmtimeR | LibcFn::LocaltimeR => {
-                let seconds = unsafe { std::ptr::read_unaligned(arg(0) as *const i64) };
+                let seconds = read_i64(arg(0));
                 fill_tm(seconds, arg(1));
                 arg(1)
             }
@@ -109,8 +109,4 @@ fn fill_tm(seconds: i64, out: u64) {
     write_i32(out + 36, 0);
     write_u64(out + 40, 0); // tm_gmtoff
     write_u64(out + 48, 0); // tm_zone
-}
-
-fn write_i32(addr: u64, value: i32) {
-    unsafe { std::ptr::write_unaligned(addr as *mut i32, value) }
 }

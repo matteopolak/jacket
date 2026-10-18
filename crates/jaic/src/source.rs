@@ -32,6 +32,7 @@ impl Span {
         }
     }
 
+    #[must_use]
     pub fn to(self, other: Span) -> Span {
         Span {
             file: self.file,
@@ -518,27 +519,32 @@ impl Diagnostic {
         }
     }
 
+    #[must_use]
     pub fn with_kind(mut self, kind: DiagnosticKind) -> Self {
         self.kind = kind;
         self
     }
 
+    #[must_use]
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into().into_boxed_str());
         self
     }
 
+    #[must_use]
     pub fn with_note(mut self, span: Span, message: impl Into<String>) -> Self {
         self.notes.push((span, message.into()));
         self
     }
 
+    #[must_use]
     pub fn with_help(mut self, message: impl Into<String>) -> Self {
         self.help.push(message.into());
         self
     }
 
     /// A help line with the replacement it suggests.
+    #[must_use]
     pub fn with_fix(
         mut self,
         message: impl Into<String>,

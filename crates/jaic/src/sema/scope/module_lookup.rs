@@ -5,7 +5,7 @@ use crate::sema::*;
 impl Compiler {
     /// Exported declarations named `name` in a module or the modules it re-exports (after
     /// expanding pending items). Only for fixed names the compiler itself looks up
-    /// (`__arithmetic_overflow` in Runtime_Support); resolving a user's name through a
+    /// (`__arithmetic_overflow` in `Runtime_Support`); resolving a user's name through a
     /// module needs `module_lookup`, which also sees members of exported `using` globals.
     pub fn module_declarations(&mut self, module: ModuleId, name: Sym) -> Result<Vec<EntityId>> {
         // A search inside a re-export cycle skips modules, so only whole answers are kept.

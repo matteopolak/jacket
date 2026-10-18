@@ -221,7 +221,7 @@ mod map {
             }
             let mut old = 0u32;
             // SAFETY: the first `GUARD` bytes of the allocation.
-            if unsafe { VirtualProtect(base, GUARD, NO_ACCESS, &mut old) } == 0 {
+            if unsafe { VirtualProtect(base, GUARD, NO_ACCESS, &raw mut old) } == 0 {
                 // SAFETY: releasing what was just allocated.
                 unsafe { VirtualFree(base, 0, RELEASE) };
                 return None;
@@ -325,10 +325,11 @@ impl Interp {
             parent: 0,
             started: false,
         });
-        let arg = &*rec as *const FiberRec as u64;
+        let arg = &raw const *rec as u64;
         // SAFETY: `top` ends a stack this record owns, and `fiber_main` never returns.
+        let sp = unsafe { crate::fiber::host::jaic_fiber_prepare(top, fiber_main, arg) };
         rec.ctx = Context {
-            sp: unsafe { crate::fiber::host::jaic_fiber_prepare(top, fiber_main, arg) },
+            sp,
             stack_low: low,
             stack_high: top,
             stack_dealloc: low,
@@ -357,14 +358,14 @@ impl Interp {
             target.started = true;
             target.parent = from;
         }
-        let to_ctx: *mut Context = &mut target.ctx;
+        let to_ctx: *mut Context = &raw mut target.ctx;
         let state = self.take_exec_state();
         let leaving = self
             .fibers
             .entry(from)
             .or_insert_with(|| Box::new(FiberRec::root(from)));
         leaving.exec = Some(state);
-        let from_ctx: *mut Context = &mut leaving.ctx;
+        let from_ctx: *mut Context = &raw mut leaving.ctx;
         self.put_exec_state(exec);
         // SAFETY: both contexts belong to boxed records, which the map keeps until a fiber is
         // initialised again, and `to` holds a prepared or saved stack.
@@ -394,7 +395,7 @@ impl Interp {
         self.fiber_trap = Some(trap);
         let mine = self.take_exec_state();
         let root = self.fibers.get_mut(&at).expect("root checked above");
-        let root_ctx: *mut Context = &mut root.ctx;
+        let root_ctx: *mut Context = &raw mut root.ctx;
         let exec = root.exec.take().expect("root checked above");
         self.put_exec_state(exec);
         drop(mine);
@@ -402,7 +403,7 @@ impl Interp {
             .fibers
             .get_mut(&key)
             .expect("a running fiber has a record");
-        let my_ctx: *mut Context = &mut me.ctx;
+        let my_ctx: *mut Context = &raw mut me.ctx;
         // SAFETY: as in `fiber_switch`; the root is suspended in its own `fiber_switch`.
         unsafe { crate::fiber::host::jaic_fiber_switch(my_ctx, root_ctx) };
         std::process::abort()

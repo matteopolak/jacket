@@ -165,22 +165,21 @@ impl Compiler {
         match self.default_initializer(ty, span)? {
             None => f.b.zero(addr, size),
             Some(img) => {
-                let g = match self.default_globals.get(&ty) {
-                    Some(&g) => g,
-                    None => {
-                        let align = self.align_of(ty, span)?;
-                        let g = self.program.add_global(ir::Global {
-                            name: format!("default.{}", self.types.name(ty)),
-                            size,
-                            align,
-                            init: img.bytes.clone(),
-                            relocs: img.relocs.clone(),
-                            read_only: true,
-                            export: None,
-                        });
-                        self.default_globals.insert(ty, g);
-                        g
-                    }
+                let g = if let Some(&g) = self.default_globals.get(&ty) {
+                    g
+                } else {
+                    let align = self.align_of(ty, span)?;
+                    let g = self.program.add_global(ir::Global {
+                        name: format!("default.{}", self.types.name(ty)),
+                        size,
+                        align,
+                        init: img.bytes.clone(),
+                        relocs: img.relocs.clone(),
+                        read_only: true,
+                        export: None,
+                    });
+                    self.default_globals.insert(ty, g);
+                    g
                 };
                 let src = f.b.global_addr(g);
                 f.b.copy(addr, src, size);

@@ -69,7 +69,7 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn validate(&self) -> Result<(), String> {
-        let mut reviews = std::collections::HashSet::new();
+        let mut reviews = jaic::fxhash::HashSet::default();
         for review in &self.reviews {
             if review.evidence.trim().is_empty()
                 || review.fingerprint.is_empty()
@@ -94,7 +94,7 @@ impl Manifest {
                 return Err("duplicate gap review".into());
             }
         }
-        let mut oracles = std::collections::HashSet::new();
+        let mut oracles = jaic::fxhash::HashSet::default();
         for oracle in &self.oracles {
             if oracle.fingerprint.is_empty()
                 || !oracles.insert((
@@ -188,8 +188,8 @@ pub struct Report {
 
 pub fn fingerprint(text: &str) -> String {
     // Stable change detection; release identity uses SHA256 of binaries and input manifests.
-    let hash = text.bytes().fold(0xcbf29ce484222325u64, |h, b| {
-        (h ^ u64::from(b)).wrapping_mul(0x100000001b3)
+    let hash = text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
     });
     format!("fnv1a64:{hash:016x}")
 }

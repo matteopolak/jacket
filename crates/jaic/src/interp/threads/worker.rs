@@ -25,6 +25,7 @@ fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argumen
     // SAFETY: only the thread holding the baton touches the interpreter, and the program
     // stays alive until Shared::close has cancelled/joined every managed OS entry.
     let interp = unsafe { &mut *(interp as *mut Interp) };
+    // SAFETY: as above, the program outlives every managed OS entry.
     let program = unsafe { &*(program as *const Program) };
     interp.put_exec_state(state);
     let result = interp.exec(program, func, &[argument]);

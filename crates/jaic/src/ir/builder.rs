@@ -39,7 +39,7 @@ impl Builder {
         Self {
             func,
             current: BlockId(0),
-            terminated: Default::default(),
+            terminated: crate::fxhash::HashSet::default(),
             last_loc: None,
         }
     }

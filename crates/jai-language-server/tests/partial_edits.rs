@@ -34,7 +34,7 @@ fn position(text: &str, byte: usize) -> Position {
 
 #[test]
 fn custom_for_keyword_uses_selected_overload_without_changing_operand_reference() {
-    let text = r#"For_Flags :: u8;
+    let text = r"For_Flags :: u8;
 Bag :: struct { count: int; }
 Other :: struct { count: int; }
 for_expansion :: (b: Other, body: Code, flags: For_Flags) #expand {
@@ -50,7 +50,7 @@ main :: () {
     array: [3] int;
     for value: array { result := value; }
 }
-"#;
+";
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     assert!(
@@ -77,7 +77,10 @@ main :: () {
     assert_eq!(defs.len(), 1, "{defs:?}");
     assert_eq!(defs[0].range.start, at(text, "collection: Bag"));
     for needle in ["for n:", "for value:"] {
-        assert!(s.definition(&uri(), at(text, needle)).unwrap().is_empty());
+        assert_eq!(
+            s.definition(&uri(), at(text, needle)).unwrap(),
+            [] as [jai_language_server::Location; 0]
+        );
     }
 }
 
@@ -108,7 +111,7 @@ fn partial_statement_preserves_syntax_and_semantics_after_it() {
         .unwrap();
     assert!(items.items.iter().any(|i| i.label == "field"), "{items:?}");
     let diagnostics = s.diagnostics(&uri()).unwrap();
-    assert!(!diagnostics.is_empty());
+    assert_ne!(diagnostics, [] as [jai_language_server::Diagnostic; 0]);
     assert!(
         diagnostics
             .iter()
@@ -348,10 +351,9 @@ fn unicode_incremental_edit_and_restore_never_reuse_the_old_definition() {
         }],
     )
     .unwrap();
-    assert!(
-        s.definition(&uri(), at(good, "value +"))
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        s.definition(&uri(), at(good, "value +")).unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
     assert!(
         s.document_symbols(&uri())
@@ -528,10 +530,9 @@ fn custom_keyword_selection_survives_a_partial_body_and_clears_after_operand_cha
         }],
     )
     .unwrap();
-    assert!(
-        s.definition(&uri(), at(&array, "for item"))
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        s.definition(&uri(), at(&array, "for item")).unwrap(),
+        [] as [jai_language_server::Location; 0]
     );
     let operand = s.definition(&uri(), at(&array, "collection {")).unwrap();
     assert_eq!(operand.len(), 1);

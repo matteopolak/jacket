@@ -172,7 +172,12 @@ impl<'a> Lexer<'a> {
                 let text = &self.src[from..self.at];
                 // `@help("two words")`: the note stops at the space, and the leftover quote
                 // would start a string.
-                if text.iter().filter(|&&c| c == b'"').count() % 2 == 1 {
+                #[expect(
+                    clippy::naive_bytecount,
+                    reason = "the text is one short word; a bytecount dependency is not worth it"
+                )]
+                let odd_quotes = text.iter().filter(|&&b| b == b'"').count() % 2 == 1;
+                if odd_quotes {
                     return Err(self
                         .err(
                             start,

@@ -4,7 +4,13 @@ use super::{AesOp, B2, Conv, DupKind, FmaKind, SOp, Sat, U1};
 use crate::sema::asm::*;
 
 pub(in crate::sema::asm) fn elem_size(op: SOp) -> u64 {
-    use SOp::*;
+    use SOp::{
+        AddSub, Aes, Bin, BlendImm, BlendMask, BlendVar, BroadcastMask, ByteShift, Compress, Cvt,
+        DotAcc, Dp, Expand, Extend, Extract, FCmp, Fma, Gf, Half, Horizontal, Insert, IntCmp,
+        Madd52, MaskMov, MaskToVec, MovHalf, Mpsadbw, MulEven, Narrow, Pack, Palignr, Pclmul, Perm,
+        PermTwo, PermilImm, Pmaddubsw, Pmaddwd, Psadbw, Pshufb, RotImm, Round, Scatter, Sha,
+        Shuf128, ShufHalf, Shufpd, Ternlog, Testm, Unary, Unpack, Valign, VecToMask,
+    };
     match op {
         Bin(_, t)
         | RotImm(_, t)
@@ -140,7 +146,13 @@ fn size_letter(c: char) -> Option<Ty> {
 
 /// Instructions whose name alone says what they do.
 const NAMED: &[(&str, SOp)] = {
-    use SOp::*;
+    use SOp::{
+        AddSub, Aes, Bin, BlendImm, BlendMask, BlendVar, BroadcastMask, ByteShift, Comis, Compress,
+        Cvt, DotAcc, Dp, Dup, Expand, Extract, Extractps, Gf, Half, Horizontal, Insert, Insertps,
+        Madd52, MaskMov, MovHalf, Movhlps, Movlhps, Mpsadbw, MulEven, Pack, Palignr, Pclmul,
+        Pcmpstr, Perm, Perm2x128, PermTwo, PermilImm, Phminposuw, Pmaddubsw, Pmaddwd, Psadbw,
+        Pshufb, Ptest, Scatter, Sha, Shuf128, ShufHalf, Shufpd, Ternlog, Unpack, Valign,
+    };
     &[
         ("paddsb", Bin(B2::AddSatS, Ty::I8)),
         ("paddsw", Bin(B2::AddSatS, Ty::I16)),
@@ -404,7 +416,10 @@ type FloatFamily = fn(Ty, bool) -> SOp;
 /// Families named by a prefix and an integer lane letter (`b`, `w`, `d`, `q`): `psllvd`,
 /// `pcmpuw`, `pextrb`.
 const INT_LANE_FAMILIES: &[(&str, IntFamily)] = {
-    use SOp::*;
+    use SOp::{
+        Bin, BlendMask, Compress, Expand, IntCmp, MaskToVec, Perm, PermTwo, Pextr, Pinsr, RotImm,
+        Testm, Unary,
+    };
     &[
         ("psllv", |t| Bin(B2::Shlv, t)),
         ("psrlv", |t| Bin(B2::Shrv, t)),
@@ -437,7 +452,7 @@ const INT_LANE_FAMILIES: &[(&str, IntFamily)] = {
 /// Families named by a prefix and a float form (`ps`, `pd`, `ss`, `sd`), with whether the
 /// family has scalar forms.
 const FLOAT_FORM_FAMILIES: &[(&str, bool, FloatFamily)] = {
-    use SOp::*;
+    use SOp::{FCmp, Round, Unary};
     &[
         ("cmp", true, FCmp),
         ("round", true, Round),

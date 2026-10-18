@@ -499,7 +499,7 @@ impl Compiler {
     ) -> Result<TypeId> {
         procs::validate_c_variadic_header(header)?;
         // `#cpp_method` procedures use the C calling convention with the object as first argument.
-        let c_call = header.flags.c_call || header.flags.cpp_method || header.foreign.is_some();
+        let c_call = header.flags.c_call() || header.flags.cpp_method() || header.foreign.is_some();
         let mut params = Vec::new();
         let mut variadic = false;
         let mut c_varargs = false;
@@ -548,8 +548,8 @@ impl Compiler {
             variadic,
             c_varargs,
             c_call,
-            no_context: c_call || header.flags.no_context,
-            non_pod_return: header.flags.cpp_return_type_is_non_pod,
+            no_context: c_call || header.flags.no_context(),
+            non_pod_return: header.flags.cpp_return_type_is_non_pod(),
         })));
         Ok(ty)
     }
