@@ -54,10 +54,6 @@ Linux macos-x64: Linux/module.jai: #assert failed: Linux requires its documented
 Linux wasm: Linux/module.jai: #assert failed: Linux requires its documented native platform
 Linux windows-arm64: Linux/module.jai: #assert failed: Linux requires its documented native platform
 Linux windows-x64: Linux/module.jai: #assert failed: Linux requires its documented native platform
-Machine_X64 linux-arm64: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
-Machine_X64 macos-arm64: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
-Machine_X64 wasm: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
-Machine_X64 windows-arm64: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
 Metal linux-arm64: Metal/module.jai: #assert failed: Metal requires its documented native platform
 Metal linux-x64: Metal/module.jai: #assert failed: Metal requires its documented native platform
 Metal wasm: Metal/module.jai: #assert failed: Metal requires its documented native platform
