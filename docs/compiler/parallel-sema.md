@@ -88,6 +88,10 @@ So the realistic target is about 1.5–1.8x from sema alone and 2–2.4x with pa
 
 What to change first: stage 0's `Send + Sync` conversion (it unblocks the parse work too) and the write audit. Cheaper wins that stand alone and do not depend on any of this: fewer allocations in `lookup_full` (25% inclusive, 4.6% in malloc itself; a per-scope name cache keyed by `namespace_generation` is the likely fix) and mimalloc (about 8%).
 
+## Status of stage 0 and 1
+
+Nothing of stage 0 or 1 is done yet (no `Send + Sync` conversion, no context split). Name lookup now writes four generation-keyed memo tables in place during body checking: `module_names`, `module_misses`, `scope_misses` and `using_member_free` (all in `Compiler`, keyed by `namespace_generation`). They belong in the stage 0 write audit: each is a pure cache of the declarations, so a worker can keep a private copy or share a read-only one per batch. Body scopes (`Proc`, `Block`, `Macro`) are deliberately not cached because they gain `using`s without moving the generation.
+
 ## Other things that could run in parallel
 
 - **Codegen** already does: `jaic-llvm` splits into units of 5,000 instructions on one thread each (`docs/compiler/compile-speed.md`); `-check` has no codegen. Overlapping codegen with the front end was tried and rejected there.
