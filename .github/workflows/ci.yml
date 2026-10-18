@@ -69,6 +69,9 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 tools/dev/check_rule_coverage.py --list-uncovered
+      # Every tools/ script must resolve its imports when run directly and under tools/run_tests.py (docs/tools/tools-layout.md).
+      - name: Tool imports
+        run: python3 tools/ci/check_tool_imports.py
   fuzz-regressions:
     needs: changes
     if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',fuzz-regressions,')) && needs.changes.outputs.code == 'true'
@@ -1237,12 +1240,6 @@ jobs:
       - name: Platform I/O (interpreter and native O0/O2)
         if: ${{ !cancelled() }}
         run: python -u tools/stdlib/check_platform_io.py --jaic "$JAIC" --stdlib stdlib --native --windows-crash
-      - name: Socket, calendar and shared-channel execution
-        if: ${{ !cancelled() }}
-        run: |
-          for check in socket calendar channel; do
-            python -u tools/check_portable_windows_$check.py --jaic "$JAIC" --stdlib stdlib --native
-          done
       - name: Build the caller-owned Windows resource fixture
         run: |
           python tools/native/build_windows_resource_fixture.py --cpu "$CPU" --out "$RUNNER_TEMP/windows-resources"

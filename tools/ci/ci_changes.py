@@ -24,8 +24,8 @@ AREAS = {
     "clipboard": [
         "stdlib/Clipboard/**", "stdlib/internal/clipboard/**", "stdlib/internal/window/connection.jai",
         "stdlib/Basic/**", "stdlib/internal/basic/**", "crates/**", "Cargo.*", "rust-toolchain.toml",
-        "tools/*portable_clipboard.py", "tools/portable/check_clipboard_linux_package.py",
-        "tools/*clipboard_linux_*.py", "tools/ci/ci_test_scratch.py", "tools/ci/test_ci_test_scratch.py",
+        "tools/portable/*portable_clipboard*.py", "tools/portable/check_clipboard_linux_package.py",
+        "tools/portable/*clipboard_linux_*.py", "tools/ci/ci_test_scratch.py", "tools/ci/test_ci_test_scratch.py",
     ],
     "nix": ["flake.nix", "flake.lock", "nix/**", "Cargo.lock", "rust-toolchain.toml"],
     "packaging": ["install.sh", "install.ps1", "packaging/**", "tools/dev/render_packages.py"],
