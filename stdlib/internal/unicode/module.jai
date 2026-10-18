@@ -23,7 +23,9 @@ character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32
 
     #if strict {
         if s[0] >= 0x80 && s[0] < 0xc0 return UNI_REPLACEMENT_CHAR, 1, .SOURCE_ILLEGAL;
-        for i: 1..trailing if (s[i] & 0xc0) != 0x80 return UNI_REPLACEMENT_CHAR, i - 1, .SOURCE_ILLEGAL;
+        // Consume the lead byte and the continuation bytes that were valid, so a caller that
+        // advances by the returned length always makes progress.
+        for i: 1..trailing if (s[i] & 0xc0) != 0x80 return UNI_REPLACEMENT_CHAR, i, .SOURCE_ILLEGAL;
     }
 
     value: u32;
@@ -54,7 +56,7 @@ unicode_next_character :: (s: *u8) -> *u8 {
 
 character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string) {
     value := ch;
-    if value > UNI_MAX_UTF16 value = UNI_REPLACEMENT_CHAR;
+    if value > UNI_MAX_UTF16 || (value >= 0xd800 && value <= 0xdfff) value = UNI_REPLACEMENT_CHAR;
 
     count: s64 = 1;
     if value >= 0x10000 count = 4;

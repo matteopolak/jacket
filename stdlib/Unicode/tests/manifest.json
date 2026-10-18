@@ -16,5 +16,9 @@
     "name": "negative/offsets-store",
     "mode": "check-fail",
     "diagnostic_contains": "cannot assign into the constant `U.offsetsFromUTF8`"
+  },
+  {
+    "name": "strict-continuation",
+    "stdout": "ok\n"
   }
 ]
