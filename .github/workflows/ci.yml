@@ -117,6 +117,7 @@ jobs:
         run: |
           python3 tools/ci/check_dependency_age.py
           python3 tools/ci/check_ci_sources.py
+          python3 tools/ci/check_repo_paths.py
       - name: Verify the wasm boundary and language server
         run: cargo test --locked -j 1 -p jai-language-server -p jai-wasm
       - name: Build and stage the real WebAssembly compiler without the native backend
@@ -181,7 +182,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/ci/check_dependency_age.py
       - name: Validate public checkout compilation inputs
-        run: python3 tools/ci/check_ci_sources.py
+        run: |
+          python3 tools/ci/check_ci_sources.py
+          python3 tools/ci/check_repo_paths.py
       - name: Verify native host and LLVM
         run: |
           uname -sm
