@@ -22,6 +22,8 @@ pub(crate) struct Cx<'a> {
     pub doc_links: Vec<crate::rules::broken_doc_link::Broken>,
     /// The compile finished without errors (otherwise some code went unchecked).
     pub complete: bool,
+    /// The configured nesting limit (`excessive_nesting`).
+    pub max_nesting: usize,
 }
 
 /// A procedure literal with a body.
@@ -69,6 +71,7 @@ impl<'a> Cx<'a> {
             imports,
             doc_links: Vec::new(),
             complete: true,
+            max_nesting: crate::config::DEFAULT_MAX_NESTING,
         }
     }
 
@@ -576,22 +579,22 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             }
         }
         E::Asm(block) => {
-            for item in &block.items {
-                if let AsmItem::Inst(inst) = item {
-                    for op in &inst.operands {
-                        match op {
-                            AsmOperand::Value(v) => e(v),
-                            AsmOperand::Mem(m) => {
-                                for t in &m.terms {
-                                    e(&t.value);
-                                    if let Some(s) = &t.scale {
-                                        e(s);
-                                    }
-                                }
+            let operands = block.items.iter().filter_map(|item| match item {
+                AsmItem::Inst(inst) => Some(&inst.operands),
+                _ => None,
+            });
+            for op in operands.flatten() {
+                match op {
+                    AsmOperand::Value(v) => e(v),
+                    AsmOperand::Mem(m) => {
+                        for t in &m.terms {
+                            e(&t.value);
+                            if let Some(s) = &t.scale {
+                                e(s);
                             }
-                            AsmOperand::Decl(_) => {}
                         }
                     }
+                    AsmOperand::Decl(_) => {}
                 }
             }
         }

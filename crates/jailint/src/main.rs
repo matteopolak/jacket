@@ -17,6 +17,7 @@ options:
   -A <rule>           allow a rule (repeatable; `all` for every rule)
   -W <rule>           warn on a rule
   -D <rule>           deny a rule; `-D warnings` makes every warning an error
+  --max-nesting <n>   blocks `excessive_nesting` allows (default: max_nesting in jailint.toml, else 6)
   -I <dir>            add an import directory relative to invocation cwd (also -import_dir)
   -os <os>           check linux, windows, macos or wasm (default: host)
   -cpu <cpu>         check x64/x86_64 or arm64/aarch64 (default: target/host)
@@ -66,6 +67,7 @@ struct Args {
     fix: bool,
     config: Option<PathBuf>,
     levels: Vec<(String, Level)>,
+    max_nesting: Option<usize>,
     imports: Vec<PathBuf>,
     jobs: usize,
     color: jaic::render::ColorChoice,
@@ -84,6 +86,7 @@ fn parse_args() -> Result<Option<Args>, String> {
         fix: false,
         config: None,
         levels: Vec::new(),
+        max_nesting: None,
         imports: Vec::new(),
         jobs: 0,
         color: jaic::render::ColorChoice::Auto,
@@ -115,6 +118,13 @@ fn parse_args() -> Result<Option<Args>, String> {
             "-os" | "--os" => args.target.os = Some(jailint::target::parse_os(&value(&a)?)?),
             "-cpu" | "--cpu" => args.target.cpu = Some(jailint::target::parse_cpu(&value(&a)?)?),
             "-target" => args.target.triple = Some(value(&a)?),
+            "--max-nesting" => {
+                args.max_nesting = Some(
+                    value(&a)?
+                        .parse()
+                        .map_err(|_| format!("`{a}` takes a whole number, such as `{a} 6`"))?,
+                )
+            }
             "-j" | "--jobs" => {
                 args.jobs = value(&a)?
                     .parse()
@@ -146,6 +156,7 @@ fn parse_args() -> Result<Option<Args>, String> {
                     "--os",
                     "--cpu",
                     "--context",
+                    "--max-nesting",
                     "-A",
                     "-W",
                     "-D",
@@ -236,6 +247,9 @@ fn run() -> Result<ExitCode, String> {
             ..Config::default()
         },
     };
+    if args.max_nesting.is_some() {
+        config.max_nesting = args.max_nesting;
+    }
     for (rule, level) in &args.levels {
         if rule == "warnings" && *level == Level::Deny {
             config.deny_warnings = true;

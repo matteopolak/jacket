@@ -14,6 +14,7 @@ pub(crate) mod broken_doc_link;
 mod defer_in_loop;
 mod duplicate_condition;
 mod erasing_op;
+mod excessive_nesting;
 mod float_equality;
 mod identical_branches;
 mod identical_operands;
@@ -96,6 +97,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "an operation that is always `0` (`x * 0`, `x & 0`)",
         check: erasing_op::check,
+    },
+    RuleInfo {
+        name: "excessive_nesting",
+        default: Level::Allow,
+        summary: "blocks nested deeper than `max_nesting` (default 6)",
+        check: excessive_nesting::check,
     },
     RuleInfo {
         name: "float_equality",

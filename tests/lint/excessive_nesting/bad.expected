@@ -1,0 +1,24 @@
+warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
+  --> tests/lint/excessive_nesting/bad.jai:12:39
+   |
+12 |                             if it > 3 {
+   |                                       ^
+   |
+   = help: return or `continue` early, or move the inner part into its own procedure
+
+warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
+  --> tests/lint/excessive_nesting/bad.jai:34:42
+   |
+34 |                                 if x > 8 {
+   |                                          ^
+   |
+   = help: return or `continue` early, or move the inner part into its own procedure
+
+warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
+  --> tests/lint/excessive_nesting/bad.jai:39:29
+   |
+39 |                             if n == {
+   |                             ^^^^
+   |
+   = help: return or `continue` early, or move the inner part into its own procedure
+

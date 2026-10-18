@@ -104,6 +104,7 @@ pub fn lint_files(
         let suppressions = suppress::Suppressions::new(&text, &tokens, &ast);
         let mut cx = syntax::Cx::new(compiler, &facts, file, &text, &ast, &tokens, imports);
         cx.complete = complete;
+        cx.max_nesting = config.max_nesting();
         cx.doc_links = doc_links;
         for rule in wanted {
             let mut found = Vec::new();

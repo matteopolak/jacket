@@ -9,7 +9,8 @@
 //! ```
 //!
 //! Only this small subset of TOML is read: top-level `exclude` (an array of glob patterns,
-//! relative to the file's directory) and a `[rules]` table of `name = "allow" | "warn" |
+//! relative to the file's directory), `max_nesting` (an integer, for `excessive_nesting`) and a
+//! `[rules]` table of `name = "allow" | "warn" |
 //! "deny"`. Anything else is an error, so a typo does not silently keep a rule on.
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -50,13 +51,23 @@ pub struct Config {
     pub deny_warnings: bool,
     /// Glob patterns of paths not to lint, relative to `root`.
     pub exclude: Vec<String>,
+    /// How many blocks deep code may nest before `excessive_nesting` fires.
+    pub max_nesting: Option<usize>,
     /// Directory of the configuration file (or the working directory).
     pub root: PathBuf,
     /// The file the settings came from, if any.
     pub source: Option<PathBuf>,
 }
 
+/// The nesting depth `excessive_nesting` allows when nothing sets it.
+pub const DEFAULT_MAX_NESTING: usize = 6;
+
 impl Config {
+    /// The deepest block nesting `excessive_nesting` accepts.
+    pub fn max_nesting(&self) -> usize {
+        self.max_nesting.unwrap_or(DEFAULT_MAX_NESTING)
+    }
+
     /// The level of `rule`, whose default is `default`.
     pub fn level(&self, rule: &str, default: Level) -> Level {
         let level = self.levels.get(rule).copied().unwrap_or(default);
@@ -137,8 +148,16 @@ impl Config {
                 }
                 Ok(())
             }
+            ("", "max_nesting") => {
+                self.max_nesting = Some(value.parse().map_err(|_| {
+                    format!(
+                        "line {line}: `max_nesting` takes a whole number, such as `max_nesting = 6`"
+                    )
+                })?);
+                Ok(())
+            }
             ("", other) => Err(format!(
-                "line {line}: unknown setting `{other}`\nhelp: the top-level setting is `exclude = [\"pattern\", ...]`; rule levels go under `[rules]`"
+                "line {line}: unknown setting `{other}`\nhelp: the top-level settings are `exclude = [\"pattern\", ...]` and `max_nesting = 6`; rule levels go under `[rules]`"
             )),
             (_, rule) => {
                 let rule = rule.trim_matches('"');

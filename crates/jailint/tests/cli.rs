@@ -88,6 +88,10 @@ fn config_mistakes_name_the_line_and_the_fix() {
             "line 1: unknown table `[lints]`\nhelp: the only table is `[rules]`",
         ),
         ("verbose = true\n", "line 1: unknown setting `verbose`"),
+        (
+            "max_nesting = deep\n",
+            "line 1: `max_nesting` takes a whole number, such as `max_nesting = 6`",
+        ),
     ];
     for (config, expected) in cases {
         std::fs::write(dir.join("jailint.toml"), config).unwrap();
