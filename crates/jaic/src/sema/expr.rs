@@ -2126,21 +2126,26 @@ impl Compiler {
     }
 
     /// Stop the program at a failed check that has no details (`ir::Intrinsic::Trap` with an
-    /// `ir::TRAP_*` reason). Every trap with a reason goes through here or `emit_check_failed`,
+    /// `ir::CheckReason` reason). Every trap with a reason goes through here or `emit_check_failed`,
     /// so native code always has the reporting procedure.
-    pub(crate) fn emit_trap(&mut self, f: &mut FnCtx, reason: u64, span: Span) -> Result<()> {
+    pub(crate) fn emit_trap(
+        &mut self,
+        f: &mut FnCtx,
+        reason: ir::CheckReason,
+        span: Span,
+    ) -> Result<()> {
         self.note_check_handler(span)?;
-        let reason = f.b.iconst(Ty::I64, reason);
+        let reason = f.b.iconst(Ty::I64, reason as u64);
         f.b.intrinsic(ir::Intrinsic::Trap, vec![reason], &[]);
         Ok(())
     }
 
-    /// Report a failed check (`ir::Intrinsic::CheckFailed`): `reason` is an `ir::TRAP_*`, `a`
+    /// Report a failed check (`ir::Intrinsic::CheckFailed`): `reason` is an `ir::CheckReason`, `a`
     /// and `b` its `I64` details. A fatal failure stops the program.
     pub(crate) fn emit_check_failed(
         &mut self,
         f: &mut FnCtx,
-        reason: u64,
+        reason: ir::CheckReason,
         a: ir::Val,
         b: ir::Val,
         fatal: bool,
@@ -2148,7 +2153,7 @@ impl Compiler {
     ) -> Result<()> {
         self.note_check_handler(span)?;
         f.b.repeat_loc();
-        let reason = f.b.iconst(Ty::I64, reason);
+        let reason = f.b.iconst(Ty::I64, reason as u64);
         let fatal = f.b.iconst(Ty::I8, u64::from(fatal));
         f.b.intrinsic(ir::Intrinsic::CheckFailed, vec![reason, a, b, fatal], &[]);
         Ok(())

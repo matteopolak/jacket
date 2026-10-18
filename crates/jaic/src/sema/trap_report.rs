@@ -47,7 +47,7 @@ impl Compiler {
         } else if matches!(
             trap.kind,
             Some(TrapKind::Check {
-                reason: ir::TRAP_MISSING_RETURN,
+                reason: Some(ir::CheckReason::MissingReturn),
                 ..
             })
         ) && let Some(frame) = frames.first()
@@ -302,19 +302,22 @@ fn help_for(kind: TrapKind) -> Option<String> {
             reason,
             b,
             ..
-        } => match reason {
-            ir::TRAP_BOUNDS => {
+        } => match reason? {
+            ir::CheckReason::Bounds => {
                 "valid indices are 0 up to the array's count minus one; check the index or the array's length first"
             }
-            ir::TRAP_MISSING_RETURN => {
+            ir::CheckReason::MissingReturn => {
                 "every path through a procedure with results must end in `return`"
             }
-            ir::TRAP_CAST_OVERFLOW => return cast_help(b),
-            ir::TRAP_SWITCH_UNMATCHED => {
+            ir::CheckReason::CastOverflow => return cast_help(b),
+            ir::CheckReason::SwitchUnmatched => {
                 "the value is not one of the enum's members (was it cast from an integer, or left uninitialized?); add a `case;` to handle other values"
             }
-            ir::TRAP_DIVIDE_BY_ZERO => "check the divisor against zero first",
-            _ => return None,
+            ir::CheckReason::DivideByZero => "check the divisor against zero first",
+            ir::CheckReason::AsmDivide
+            | ir::CheckReason::NullPointer
+            | ir::CheckReason::AtomicAlignment
+            | ir::CheckReason::VariadicSize => return None,
         },
         TrapKind::NullPointer => {
             "check the pointer against null before using it, or make sure it is set"

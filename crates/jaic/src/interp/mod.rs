@@ -277,8 +277,12 @@ pub struct TrapDetails {
 /// What failed, for failures the report treats specially.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrapKind {
-    /// A runtime check: an `ir::TRAP_*` reason and its details (`ir::check_message`).
-    Check { reason: u64, a: u64, b: u64 },
+    /// A runtime check: an `ir::CheckReason` reason and its details (`ir::check_message`).
+    Check {
+        reason: Option<ir::CheckReason>,
+        a: u64,
+        b: u64,
+    },
     /// A load, store, copy or call through a null (or nearly null) pointer.
     NullPointer,
     /// Recursion deeper than the interpreter allows.
@@ -911,8 +915,9 @@ impl Interp {
         Err(Trap::new(message).at(self.loc).of_kind(Some(kind)))
     }
 
-    /// A failed runtime check (`ir::TRAP_*`), worded by `ir::check_message`.
-    fn check_trap<T>(&self, reason: u64, a: u64, b: u64) -> Res<T> {
+    /// A failed runtime check (`ir::CheckReason`), worded by `ir::check_message`.
+    fn check_trap<T>(&self, reason: impl Into<Option<ir::CheckReason>>, a: u64, b: u64) -> Res<T> {
+        let reason = reason.into();
         self.trap_of(
             TrapKind::Check {
                 reason,
@@ -2436,7 +2441,7 @@ impl Interp {
             BinOp::SDiv | BinOp::SRem => {
                 let (a, b) = (sext(ty, x), sext(ty, y));
                 if b == 0 {
-                    return self.check_trap(ir::TRAP_DIVIDE_BY_ZERO, 0, 0);
+                    return self.check_trap(ir::CheckReason::DivideByZero, 0, 0);
                 }
                 let r = if op == BinOp::SDiv {
                     a.wrapping_div(b)
@@ -2447,7 +2452,7 @@ impl Interp {
             }
             _ => {
                 if y == 0 {
-                    return self.check_trap(ir::TRAP_DIVIDE_BY_ZERO, 0, 0);
+                    return self.check_trap(ir::CheckReason::DivideByZero, 0, 0);
                 }
                 if op == BinOp::UDiv {
                     x / y
@@ -2462,9 +2467,9 @@ impl Interp {
     /// on stderr when the check is not fatal.
     fn check_failed(&mut self, program: &Program, a: &[u64]) -> Res<()> {
         if a[3] & 0xff != 0 {
-            return self.check_trap(a[0], a[1], a[2]);
+            return self.check_trap(ir::CheckReason::from_raw(a[0]), a[1], a[2]);
         }
-        let message = ir::check_message(a[0], a[1], a[2]);
+        let message = ir::check_message(ir::CheckReason::from_raw(a[0]), a[1], a[2]);
         let at = self
             .loc
             .and_then(|(file, line, _)| {
@@ -2561,12 +2566,13 @@ impl Interp {
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
-                return self.check_trap(a.first().copied().unwrap_or(0), 0, 0);
+                let reason = a.first().copied().and_then(ir::CheckReason::from_raw);
+                return self.check_trap(reason, 0, 0);
             }
             I::BoundsCheck => {
                 let (index, count) = (a[0] as i64, a[1] as i64);
                 if index < 0 || index >= count {
-                    return self.check_trap(ir::TRAP_BOUNDS, a[0], a[1]);
+                    return self.check_trap(ir::CheckReason::Bounds, a[0], a[1]);
                 }
                 Rets::default()
             }

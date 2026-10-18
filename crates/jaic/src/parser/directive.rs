@@ -6,6 +6,7 @@ use crate::ast::{
     TypeModifier, UnknownDirective,
 };
 use crate::lexer::{P, Tok};
+use crate::macros::raw_enum;
 use std::rc::Rc;
 
 /// `,name` or `,name(expr)` after a directive, e.g. `#run,stallable` or `#insert,scope(x)`.
@@ -14,71 +15,90 @@ pub(super) struct DirectiveFlag {
     pub arg: Option<Expr>,
 }
 
-/// Whether `#name` begins an expression (`#char "a"`, `#run f()`), rather than being a flag on the
-/// statement it follows.
+raw_enum! {
+    /// A `#directive` the parser reads in expression position.
+    pub(super) enum Directive by name {
+        CallerLocation = "caller_location",
+        CallerCode = "caller_code",
+        File = "file",
+        Line = "line",
+        Filepath = "filepath",
+        This = "this",
+        CompileTime = "compile_time",
+        Run = "run",
+        Code = "code",
+        Insert = "insert",
+        Assert = "assert",
+        Type = "type",
+        Ifx = "ifx",
+        Char = "char",
+        Location = "location",
+        ProcedureName = "procedure_name",
+        BakeArguments = "bake_arguments",
+        BakeConstants = "bake_constants",
+        ProcedureOfCall = "procedure_of_call",
+        Bytes = "bytes",
+        Exists = "exists",
+        String = "string",
+        Asm = "asm",
+    }
+}
+
+impl Directive {
+    /// Whether the directive begins an expression (`#char "a"`, `#run f()`) rather than being a
+    /// flag on the statement it follows. `#assert` and `#asm` are statements there.
+    fn starts_expr(self) -> bool {
+        !matches!(self, Directive::Assert | Directive::Asm)
+    }
+}
+
+/// Whether `#name` begins an expression rather than flagging the statement it follows.
 pub(super) fn directive_starts_expr(name: &str) -> bool {
-    matches!(
-        name,
-        "caller_location"
-            | "caller_code"
-            | "file"
-            | "line"
-            | "filepath"
-            | "this"
-            | "compile_time"
-            | "run"
-            | "code"
-            | "insert"
-            | "type"
-            | "ifx"
-            | "char"
-            | "location"
-            | "procedure_name"
-            | "bake_arguments"
-            | "bake_constants"
-            | "procedure_of_call"
-            | "bytes"
-            | "exists"
-            | "string"
-    )
+    Directive::from_name(name).is_some_and(Directive::starts_expr)
 }
 
 impl Parser<'_> {
     pub(super) fn parse_directive_expr(&mut self, name: &str) -> PResult<Expr> {
         let start = self.span();
-        let simple = |kind: ExprKind| Some(kind);
-        let kind = match name {
-            "caller_location" => simple(ExprKind::CallerLocation),
-            "caller_code" => simple(ExprKind::CallerCode),
-            "file" => simple(ExprKind::File),
-            "line" => simple(ExprKind::Line),
-            "filepath" => simple(ExprKind::Filepath),
-            "this" => simple(ExprKind::This),
-            "compile_time" => simple(ExprKind::CompileTime),
-            _ => None,
+        let Some(directive) = Directive::from_name(name) else {
+            return self.parse_unknown_directive();
         };
-        if let Some(kind) = kind {
-            self.bump();
-            return Ok(mk(kind, start));
+        match directive {
+            Directive::CallerLocation => self.parse_leaf_directive(start, ExprKind::CallerLocation),
+            Directive::CallerCode => self.parse_leaf_directive(start, ExprKind::CallerCode),
+            Directive::File => self.parse_leaf_directive(start, ExprKind::File),
+            Directive::Line => self.parse_leaf_directive(start, ExprKind::Line),
+            Directive::Filepath => self.parse_leaf_directive(start, ExprKind::Filepath),
+            Directive::This => self.parse_leaf_directive(start, ExprKind::This),
+            Directive::CompileTime => self.parse_leaf_directive(start, ExprKind::CompileTime),
+            Directive::Run => self.parse_run(),
+            Directive::Code => self.parse_code(),
+            Directive::Insert => self.parse_insert_expr(),
+            Directive::Assert => self.parse_assert_expr(),
+            Directive::Type => self.parse_type_directive(),
+            Directive::Ifx => self.parse_ifx(true),
+            Directive::Char => self.parse_char(),
+            Directive::Location => self.parse_optional_operand(start, ExprKind::Location),
+            Directive::ProcedureName => self.parse_optional_operand(start, ExprKind::ProcedureName),
+            Directive::BakeArguments => self.parse_bake(false),
+            Directive::BakeConstants => self.parse_bake(true),
+            Directive::ProcedureOfCall => self.parse_operand(start, ExprKind::ProcedureOfCall),
+            Directive::Bytes => self.parse_operand(start, ExprKind::Bytes),
+            Directive::Exists => self.parse_exists(),
+            Directive::Asm => self.parse_asm(),
+            // The lexer reads `#string` text itself; a stray `#string` token is unknown here.
+            Directive::String => self.parse_unknown_directive(),
         }
-        match name {
-            "run" => self.parse_run(),
-            "code" => self.parse_code(),
-            "insert" => self.parse_insert_expr(),
-            "assert" => self.parse_assert_expr(),
-            "type" => self.parse_type_directive(),
-            "ifx" => self.parse_ifx(true),
-            "char" => self.parse_char(),
-            "location" => self.parse_optional_operand(start, ExprKind::Location),
-            "procedure_name" => self.parse_optional_operand(start, ExprKind::ProcedureName),
-            "bake_arguments" => self.parse_bake(false),
-            "bake_constants" => self.parse_bake(true),
-            "procedure_of_call" => self.parse_operand(start, ExprKind::ProcedureOfCall),
-            "bytes" => self.parse_operand(start, ExprKind::Bytes),
-            "exists" => self.parse_exists(),
-            "asm" => self.parse_asm(),
-            _ => self.parse_unknown_directive(),
-        }
+    }
+
+    /// A directive that is a whole expression on its own, as `#line`.
+    fn parse_leaf_directive(
+        &mut self,
+        start: crate::source::Span,
+        kind: ExprKind,
+    ) -> PResult<Expr> {
+        self.bump();
+        Ok(mk(kind, start))
     }
 
     /// Flags written directly after a directive, with no space before the comma.

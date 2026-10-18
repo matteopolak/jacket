@@ -15,6 +15,7 @@ pub mod intern;
 pub mod interp;
 pub mod ir;
 pub mod lexer;
+mod macros;
 pub mod memory_limit;
 #[doc(hidden)]
 pub mod msvc;

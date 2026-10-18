@@ -30,6 +30,7 @@ compile_error!("native interpreter worker cancellation requires Rust panic=unwin
 mod pthread;
 mod win32;
 
+use super::threads_inline::ThreadFn;
 use super::*;
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -645,64 +646,69 @@ impl Interp {
     ) -> Option<Res<Vec<u64>>> {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let started = self.multi;
-        let result: Res<u64> = match symbol {
-            "pthread_create" => self.thread_create(program, arg(0), arg(2), arg(3)),
-            "pthread_join" => self.thread_join(arg(0), arg(1)),
-            "pthread_detach" => Ok(0),
-            "pthread_self" => Ok(self.me() as u64 + 1),
-            "pthread_setname_np" | "pthread_getname_np" => self.pthread_name(program, symbol, args),
-            "pthread_mutex_init" => {
+        let Some(fun) = ThreadFn::from_name(symbol) else {
+            return self.win32_foreign(program, symbol, args);
+        };
+        let result: Res<u64> = match fun {
+            ThreadFn::Create => self.thread_create(program, arg(0), arg(2), arg(3)),
+            ThreadFn::Join => self.thread_join(arg(0), arg(1)),
+            ThreadFn::Detach => Ok(0),
+            ThreadFn::SelfId => Ok(self.me() as u64 + 1),
+            ThreadFn::SetName | ThreadFn::GetName => self.pthread_name(program, fun, args),
+            ThreadFn::MutexInit => {
                 self.with_sched(|s| s.mutexes.insert(arg(0), MutexState::default()));
                 Ok(0)
             }
-            "pthread_mutex_destroy" => {
+            ThreadFn::MutexDestroy => {
                 self.with_sched(|s| s.mutexes.remove(&arg(0)));
                 Ok(0)
             }
-            "pthread_mutex_lock" => self.lock_mutex(arg(0), 1).map(|_| 0),
-            "pthread_mutex_trylock" => Ok(if self.try_lock_mutex(arg(0)) {
+            ThreadFn::MutexLock => self.lock_mutex(arg(0), 1).map(|_| 0),
+            ThreadFn::MutexTryLock => Ok(if self.try_lock_mutex(arg(0)) {
                 0
             } else {
                 EBUSY
             }),
-            "pthread_mutex_unlock" => Ok(self.unlock_mutex(arg(0)).err().unwrap_or(0)),
-            "pthread_cond_init" | "pthread_cond_destroy" => {
+            ThreadFn::MutexUnlock => Ok(self.unlock_mutex(arg(0)).err().unwrap_or(0)),
+            ThreadFn::CondInit | ThreadFn::CondDestroy => {
                 self.with_sched(|s| s.cond_waiters.remove(&arg(0)));
                 Ok(0)
             }
-            "pthread_cond_signal" => {
+            ThreadFn::CondSignal => {
                 self.wake_cond(arg(0), false);
                 Ok(0)
             }
-            "pthread_cond_broadcast" => {
+            ThreadFn::CondBroadcast => {
                 self.wake_cond(arg(0), true);
                 Ok(0)
             }
-            "pthread_cond_wait" => self.cond_wait(arg(0), arg(1), None),
-            "pthread_cond_timedwait" => {
-                match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
-                    (Ok(secs), Ok(nanos)) => {
-                        let deadline = absolute_deadline(secs, nanos);
-                        self.cond_wait(arg(0), arg(1), Some(deadline))
-                    }
+            ThreadFn::CondWait => self.cond_wait(arg(0), arg(1), None),
+            ThreadFn::CondTimedWait => match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
+                (Ok(secs), Ok(nanos)) => {
+                    let deadline = absolute_deadline(secs, nanos);
+                    self.cond_wait(arg(0), arg(1), Some(deadline))
+                }
+                (Err(trap), _) | (_, Err(trap)) => Err(trap),
+            },
+            // Sleeping and yielding only matter once another thread may exist.
+            ThreadFn::Nanosleep if started => {
+                match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
+                    (Ok(secs), Ok(nanos)) => self.sleep_for(Duration::new(secs, nanos as u32)),
                     (Err(trap), _) | (_, Err(trap)) => Err(trap),
                 }
             }
-            // Sleeping and yielding only matter once another thread may exist.
-            "nanosleep" if started => match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
-                (Ok(secs), Ok(nanos)) => self.sleep_for(Duration::new(secs, nanos as u32)),
-                (Err(trap), _) | (_, Err(trap)) => Err(trap),
-            },
-            "usleep" if started => self.sleep_for(Duration::from_micros(arg(0) as u32 as u64)),
-            "sleep" if started => self.sleep_for(Duration::from_secs(arg(0) as u32 as u64)),
-            "sched_yield" | "pthread_yield_np" if started => self.yield_now().map(|_| 0),
+            ThreadFn::Usleep if started => {
+                self.sleep_for(Duration::from_micros(arg(0) as u32 as u64))
+            }
+            ThreadFn::Sleep if started => self.sleep_for(Duration::from_secs(arg(0) as u32 as u64)),
+            ThreadFn::SchedYield | ThreadFn::YieldNp if started => self.yield_now().map(|_| 0),
             _ => return self.win32_foreign(program, symbol, args),
         };
         Some(result.map(|v| vec![v]))
     }
 
     /// Naming is an OS operation; scheduler ids must never cross the native ABI.
-    fn pthread_name(&mut self, program: &Program, symbol: &str, args: &[u64]) -> Res<u64> {
+    fn pthread_name(&mut self, program: &Program, fun: ThreadFn, args: &[u64]) -> Res<u64> {
         if program.cross_target {
             return self
                 .trap("pthread naming is unsupported for a cross-target interpreter program");
@@ -710,7 +716,7 @@ impl Interp {
         let Some(set_arity) = pthread::set_arity() else {
             return self.trap("pthread naming is unsupported on this interpreter host");
         };
-        let setting = symbol == "pthread_setname_np";
+        let setting = fun == ThreadFn::SetName;
         if args.len()
             != if setting {
                 set_arity

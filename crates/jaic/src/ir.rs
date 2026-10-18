@@ -8,6 +8,7 @@
 //! Jai calling convention (`Conv::Jai`): an optional leading context pointer,
 //! then each parameter (aggregates by pointer to a caller-owned copy), then one
 //! out-pointer per aggregate result. Scalar results are returned directly.
+use crate::macros::raw_enum;
 pub use crate::wide_float::{Arith as WideArith, WideFloat};
 use std::fmt;
 
@@ -150,40 +151,42 @@ pub enum Conv {
     C,
 }
 
-/// `Intrinsic::Trap` reason: a procedure with results fell off the end of its body.
-pub const TRAP_MISSING_RETURN: u64 = 1;
+raw_enum! {
+    /// Why a runtime check failed: the reason operand of `Intrinsic::Trap` and
+    /// `Intrinsic::CheckFailed`. `stdlib/internal/runtime/checks.jai` words the same numbers for
+    /// native code.
+    pub enum CheckReason {
+        /// A procedure with results fell off the end of its body (`Intrinsic::Trap`).
+        MissingReturn = 1,
+        /// An `#asm` divide faulted (`#DE`: divisor zero or quotient too big; `Intrinsic::Trap`).
+        AsmDivide = 2,
+        /// An array index out of range (a: the index, b: the count).
+        Bounds = 3,
+        /// An integer cast whose value does not fit the target (a: the value's bits, b:
+        /// `cast_check_code`).
+        CastOverflow = 4,
+        /// A `#complete` switch without a default matched no case (a: the value).
+        SwitchUnmatched = 5,
+        /// An integer division or remainder by zero.
+        DivideByZero = 6,
+        /// A load, store or copy through a null pointer, or just past it, as in a member of a
+        /// null struct pointer (a: `NULL_READ`..`NULL_FILL`, b: the address).
+        NullPointer = 7,
+        /// A misaligned atomic address (a: the address, b: the alignment it needs).
+        AtomicAlignment = 8,
+        /// A variadic segment larger than the pack's remaining room (a: the count, b: the room).
+        VariadicSize = 9,
+    }
+}
 
-/// `Intrinsic::Trap` reason: an `#asm` divide faulted (`#DE`: divisor zero or quotient too big).
-pub const TRAP_ASM_DIVIDE: u64 = 2;
-
-/// Check failure reason: an array index out of range (a: the index, b: the count).
-pub const TRAP_BOUNDS: u64 = 3;
-
-/// Check failure reason: an integer cast whose value does not fit the target (a: the value's
-/// bits, b: `cast_check_code`).
-pub const TRAP_CAST_OVERFLOW: u64 = 4;
-
-/// Check failure reason: a `#complete` switch without a default matched no case (a: the value).
-pub const TRAP_SWITCH_UNMATCHED: u64 = 5;
-
-/// Check failure reason: an integer division or remainder by zero.
-pub const TRAP_DIVIDE_BY_ZERO: u64 = 6;
-
-/// Check failure reason: a load, store or copy through a null pointer, or just past it, as in
-/// a member of a null struct pointer (a: `NULL_READ`..`NULL_FILL`, b: the address).
-pub const TRAP_NULL_POINTER: u64 = 7;
-
-pub const TRAP_ATOMIC_ALIGNMENT: u64 = 8;
-pub const TRAP_VARIADIC_SIZE: u64 = 9;
-
-/// `a` of a `TRAP_NULL_POINTER` failure: what the access did.
+/// `a` of a `CheckReason::NullPointer` failure: what the access did.
 pub const NULL_READ: u64 = 0;
 
 pub const NULL_WRITE: u64 = 1;
 pub const NULL_COPY: u64 = 2;
 pub const NULL_FILL: u64 = 3;
 
-/// `b` of a `TRAP_CAST_OVERFLOW` failure: the target's size in bytes (low byte), whether the
+/// `b` of a `CheckReason::CastOverflow` failure: the target's size in bytes (low byte), whether the
 /// target is signed (bit 8) and whether the value is (bit 9).
 pub fn cast_check_code(target_bytes: u64, target_signed: bool, value_signed: bool) -> u64 {
     target_bytes | u64::from(target_signed) << 8 | u64::from(value_signed) << 9
@@ -205,13 +208,19 @@ pub fn cast_check_target(code: u64) -> String {
 
 /// What a failed runtime check says, the same in the interpreter and in native code
 /// (`stdlib/internal/runtime/checks.jai`, `__jaic_check_failed`).
-pub fn check_message(reason: u64, a: u64, b: u64) -> String {
+/// `None` is a trap without a reason.
+pub fn check_message(reason: impl Into<Option<CheckReason>>, a: u64, b: u64) -> String {
+    let Some(reason) = reason.into() else {
+        return "runtime check failed".into();
+    };
     match reason {
-        TRAP_MISSING_RETURN => "reached the end of a procedure that must return a value".into(),
-        TRAP_ASM_DIVIDE => {
+        CheckReason::MissingReturn => {
+            "reached the end of a procedure that must return a value".into()
+        }
+        CheckReason::AsmDivide => {
             "#asm division fault: the divisor is zero or the quotient does not fit".into()
         }
-        TRAP_BOUNDS => {
+        CheckReason::Bounds => {
             let (index, count) = (a as i64, b as i64);
             format!(
                 "array bounds check failed: index {index} is outside an array of {count} element{}",
@@ -222,7 +231,7 @@ pub fn check_message(reason: u64, a: u64, b: u64) -> String {
                 }
             )
         }
-        TRAP_CAST_OVERFLOW => {
+        CheckReason::CastOverflow => {
             let value = if b & 0x200 != 0 {
                 (a as i64).to_string()
             } else {
@@ -230,8 +239,8 @@ pub fn check_message(reason: u64, a: u64, b: u64) -> String {
             };
             format!("cast of {value} to `{}` overflows", cast_check_target(b))
         }
-        TRAP_DIVIDE_BY_ZERO => "integer division by zero".into(),
-        TRAP_NULL_POINTER => {
+        CheckReason::DivideByZero => "integer division by zero".into(),
+        CheckReason::NullPointer => {
             let kind = match a {
                 NULL_WRITE => "write",
                 NULL_COPY => "memory copy",
@@ -246,17 +255,18 @@ pub fn check_message(reason: u64, a: u64, b: u64) -> String {
                 )
             }
         }
-        TRAP_SWITCH_UNMATCHED => {
+        CheckReason::SwitchUnmatched => {
             format!(
                 "no case of the `#complete` switch matches its value, {}",
                 a as i64
             )
         }
-        TRAP_ATOMIC_ALIGNMENT => format!("atomic address {a:#x} must be aligned to {b} bytes"),
-        TRAP_VARIADIC_SIZE => {
+        CheckReason::AtomicAlignment => {
+            format!("atomic address {a:#x} must be aligned to {b} bytes")
+        }
+        CheckReason::VariadicSize => {
             format!("variadic segment count {a} exceeds the remaining pack capacity {b}")
         }
-        _ => "runtime check failed".into(),
     }
 }
 
@@ -314,12 +324,12 @@ pub enum Intrinsic {
     /// failure memory orders of the payload.
     AtomicCas(u8, u8),
     DebugBreak,
-    /// Abort with a runtime error. An optional `i64` operand says why (`TRAP_*`), for the
+    /// Abort with a runtime error. An optional `i64` operand says why (`CheckReason`), for the
     /// message (native code reports it through `Program::check_failed` when it has one).
     Trap,
     /// (index: s64, count: s64): trap unless `0 <= index < count`.
     BoundsCheck,
-    /// (reason: `TRAP_*`, a: s64, b: s64, fatal: I8): a runtime check failed (`check_message`).
+    /// (reason: `CheckReason`, a: s64, b: s64, fatal: I8): a runtime check failed (`check_message`).
     /// Fatal stops the program; otherwise it is reported as a warning and the program goes on.
     /// Native code reports through `Program::check_failed` at the current `Inst::Loc`.
     CheckFailed,

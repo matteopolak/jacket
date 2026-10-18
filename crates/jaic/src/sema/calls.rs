@@ -7,6 +7,7 @@ use super::scope::{BuiltinProc, EntityKind, ScopeKind};
 use super::*;
 use crate::ast::ExprKind as E;
 use crate::ir::Ty;
+use crate::macros::raw_enum;
 use crate::types::{ArrayKind, TypeKind};
 
 /// How a `$$` parameter is treated at one call.
@@ -144,42 +145,18 @@ fn inferred_flags(expr: &ast::Expr) -> bool {
 /// Name of the private intrinsic that reads the workspace's temporary-storage size.
 pub(super) const RUNTIME_TEMPORARY_STORAGE_SIZE: &str = "__jaic_runtime_temporary_storage_size";
 
-/// The `atomic_*_order` intrinsics, whose trailing parameter is a constant memory order.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum OrderedAtomic {
-    Load,
-    Store,
-    Exchange,
-    Add,
-    Sub,
-    And,
-    Or,
-    Xor,
-    CompareExchange,
-}
-
-impl OrderedAtomic {
-    const ALL: [(OrderedAtomic, &'static str); 9] = [
-        (OrderedAtomic::Load, "atomic_load_order"),
-        (OrderedAtomic::Store, "atomic_store_order"),
-        (OrderedAtomic::Exchange, "atomic_exchange_order"),
-        (OrderedAtomic::Add, "atomic_fetch_add_order"),
-        (OrderedAtomic::Sub, "atomic_fetch_sub_order"),
-        (OrderedAtomic::And, "atomic_fetch_and_order"),
-        (OrderedAtomic::Or, "atomic_fetch_or_order"),
-        (OrderedAtomic::Xor, "atomic_fetch_xor_order"),
-        (
-            OrderedAtomic::CompareExchange,
-            "atomic_compare_exchange_order",
-        ),
-    ];
-
-    fn from_name(name: &str) -> Option<Self> {
-        Self::ALL.iter().find(|(_, n)| *n == name).map(|(k, _)| *k)
-    }
-
-    fn name(self) -> &'static str {
-        Self::ALL.iter().find(|(k, _)| *k == self).unwrap().1
+raw_enum! {
+    /// The `atomic_*_order` intrinsics, whose trailing parameter is a constant memory order.
+    enum OrderedAtomic by name {
+        Load = "atomic_load_order",
+        Store = "atomic_store_order",
+        Exchange = "atomic_exchange_order",
+        Add = "atomic_fetch_add_order",
+        Sub = "atomic_fetch_sub_order",
+        And = "atomic_fetch_and_order",
+        Or = "atomic_fetch_or_order",
+        Xor = "atomic_fetch_xor_order",
+        CompareExchange = "atomic_compare_exchange_order",
     }
 }
 
@@ -2467,7 +2444,7 @@ impl Compiler {
             let ready = f.b.new_block();
             f.b.branch(bad, fail, ready);
             f.b.switch_to(fail);
-            self.emit_check_failed(f, ir::TRAP_VARIADIC_SIZE, n, remaining, true, span)?;
+            self.emit_check_failed(f, ir::CheckReason::VariadicSize, n, remaining, true, span)?;
             f.b.jump(ready);
             f.b.switch_to(ready);
             count = f.b.bin(ir::BinOp::Add, Ty::I64, count, n);
@@ -2964,7 +2941,14 @@ impl Compiler {
             let ready = f.b.new_block();
             f.b.branch(bad, fail, ready);
             f.b.switch_to(fail);
-            self.emit_check_failed(f, ir::TRAP_ATOMIC_ALIGNMENT, address, required, true, span)?;
+            self.emit_check_failed(
+                f,
+                ir::CheckReason::AtomicAlignment,
+                address,
+                required,
+                true,
+                span,
+            )?;
             f.b.jump(ready);
             f.b.switch_to(ready);
             values.push(f.b.iconst(Ty::I64, width));

@@ -75,24 +75,29 @@ impl SandboxHost {
         if stdin.closed || stdin.end_pending {
             return false;
         }
+        let Some(fun) = LibcFn::from_name(symbol) else {
+            return false;
+        };
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let on = |handle: u64| stdin.stream != 0 && handle == stdin.stream;
-        match symbol {
-            "read" if arg(0) as i32 == 0 => arg(2) > 0 && !stdin.holds(1, None),
-            "fread" if on(arg(3)) => {
+        match fun {
+            LibcFn::Read if arg(0) as i32 == 0 => arg(2) > 0 && !stdin.holds(1, None),
+            LibcFn::Fread if on(arg(3)) => {
                 let want = (arg(1) as usize).saturating_mul(arg(2) as usize);
                 want > 0 && !stdin.holds(want, None)
             }
-            "fgets" if on(arg(2)) => {
+            LibcFn::Fgets if on(arg(2)) => {
                 let room = (arg(1) as i32).saturating_sub(1).max(0) as usize;
                 room > 0 && !stdin.holds(room, Some(b'\n'))
             }
-            "getline" if on(arg(2)) => !stdin.holds(usize::MAX, Some(b'\n')),
-            "getdelim" if on(arg(3)) => !stdin.holds(usize::MAX, Some(arg(2) as u8)),
-            "fgetc" | "getc" | "fgetc_unlocked" | "getc_unlocked" if on(arg(0)) => {
+            LibcFn::Getline if on(arg(2)) => !stdin.holds(usize::MAX, Some(b'\n')),
+            LibcFn::Getdelim if on(arg(3)) => !stdin.holds(usize::MAX, Some(arg(2) as u8)),
+            LibcFn::Fgetc | LibcFn::Getc | LibcFn::FgetcUnlocked | LibcFn::GetcUnlocked
+                if on(arg(0)) =>
+            {
                 !stdin.holds(1, None)
             }
-            "getchar" | "getchar_unlocked" => !stdin.holds(1, None),
+            LibcFn::Getchar | LibcFn::GetcharUnlocked => !stdin.holds(1, None),
             _ => false,
         }
     }
@@ -114,20 +119,20 @@ impl SandboxHost {
     }
 
     /// The reads of standard input; `None` for any other call.
-    pub(super) fn stdin_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+    pub(super) fn stdin_foreign(&mut self, fun: LibcFn, args: &[u64]) -> Option<u64> {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let stream = self.stdin.stream;
         let on = |handle: u64| stream != 0 && handle == stream;
         let copy = |to: u64, bytes: &[u8]| unsafe {
             std::ptr::copy_nonoverlapping(bytes.as_ptr(), to as *mut u8, bytes.len());
         };
-        Some(match symbol {
-            "read" if arg(0) as i32 == 0 => {
+        Some(match fun {
+            LibcFn::Read if arg(0) as i32 == 0 => {
                 let bytes = self.stdin.take(arg(2) as usize, None);
                 copy(arg(1), &bytes);
                 bytes.len() as u64
             }
-            "fread" if on(arg(3)) => {
+            LibcFn::Fread if on(arg(3)) => {
                 let size = arg(1) as usize;
                 let want = size.saturating_mul(arg(2) as usize);
                 if size == 0 || want == 0 {
@@ -138,7 +143,7 @@ impl SandboxHost {
                 self.stdin.at_end = bytes.len() < want;
                 (bytes.len() / size) as u64
             }
-            "fgets" if on(arg(2)) => {
+            LibcFn::Fgets if on(arg(2)) => {
                 let room = (arg(1) as i32).saturating_sub(1).max(0) as usize;
                 if room == 0 {
                     return Some(0);
@@ -151,8 +156,8 @@ impl SandboxHost {
                 copy(arg(0), &bytes);
                 arg(0)
             }
-            "getline" | "getdelim" => {
-                let (handle, delimiter) = if symbol == "getline" {
+            LibcFn::Getline | LibcFn::Getdelim => {
+                let (handle, delimiter) = if fun == LibcFn::Getline {
                     (arg(2), b'\n')
                 } else {
                     (arg(3), arg(2) as u8)
@@ -188,16 +193,20 @@ impl SandboxHost {
                 copy(target, &bytes);
                 length
             }
-            "fgetc" | "getc" | "fgetc_unlocked" | "getc_unlocked" | "getchar"
-            | "getchar_unlocked"
-                if symbol.starts_with("getchar") || on(arg(0)) =>
+            LibcFn::Fgetc
+            | LibcFn::Getc
+            | LibcFn::FgetcUnlocked
+            | LibcFn::GetcUnlocked
+            | LibcFn::Getchar
+            | LibcFn::GetcharUnlocked
+                if matches!(fun, LibcFn::Getchar | LibcFn::GetcharUnlocked) || on(arg(0)) =>
             {
                 self.stdin
                     .take(1, None)
                     .first()
                     .map_or(FAILED, |&b| u64::from(b))
             }
-            "ungetc" if on(arg(1)) => {
+            LibcFn::Ungetc if on(arg(1)) => {
                 let byte = arg(0) as i32;
                 if byte < 0 {
                     return Some(FAILED);
@@ -206,7 +215,7 @@ impl SandboxHost {
                 self.stdin.at_end = false;
                 byte as u64
             }
-            "feof" if on(arg(0)) => u64::from(self.stdin.at_end),
+            LibcFn::Feof if on(arg(0)) => u64::from(self.stdin.at_end),
             _ => return None,
         })
     }

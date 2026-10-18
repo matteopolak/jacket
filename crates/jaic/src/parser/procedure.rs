@@ -6,33 +6,53 @@ use crate::ast::{
     UsingFilter,
 };
 use crate::lexer::{P, Tok};
+use crate::macros::raw_enum;
 use std::rc::Rc;
 
-/// Directives that can follow a header's closing parenthesis.
-const HEADER_DIRECTIVES: &[&str] = &[
-    "c_call",
-    "no_context",
-    "expand",
-    "compiler",
-    "intrinsic",
-    "elsewhere",
-    "foreign",
-    "symmetric",
-    "cpp_method",
-    "cpp_return_type_is_non_pod",
-    "runtime_support",
-    "no_debug",
-    "no_abc",
-    "no_aoc",
-    "deprecated",
-    "program_export",
-    "modify",
-    "type_info_none",
-    "no_call",
-];
+raw_enum! {
+    /// A `#directive` that flags a procedure header.
+    pub(super) enum ProcFlag by name {
+        CCall = "c_call",
+        NoContext = "no_context",
+        Expand = "expand",
+        Compiler = "compiler",
+        Intrinsic = "intrinsic",
+        Elsewhere = "elsewhere",
+        Foreign = "foreign",
+        Symmetric = "symmetric",
+        CppMethod = "cpp_method",
+        CppReturnTypeIsNonPod = "cpp_return_type_is_non_pod",
+        RuntimeSupport = "runtime_support",
+        NoDebug = "no_debug",
+        NoAbc = "no_abc",
+        NoAoc = "no_aoc",
+        Deprecated = "deprecated",
+        ProgramExport = "program_export",
+        Modify = "modify",
+        TypeInfoNone = "type_info_none",
+        NoCall = "no_call",
+        Dump = "dump",
+        EntryPoint = "entry_point",
+        NoAlias = "no_alias",
+        CompileTime = "compile_time",
+    }
+}
 
-/// Directives that are kept by name in `ProcFlags::other`.
-const OTHER_FLAGS: &[&str] = &["dump", "entry_point", "no_alias", "compile_time"];
+impl ProcFlag {
+    /// Flags kept by name in `ProcFlags::other`.
+    fn kept_by_name(self) -> bool {
+        matches!(
+            self,
+            ProcFlag::Dump | ProcFlag::EntryPoint | ProcFlag::NoAlias | ProcFlag::CompileTime
+        )
+    }
+
+    /// Whether the flag right after a `)` shows the parentheses were a procedure header. The
+    /// flags kept by name also flag other things, so they do not.
+    fn marks_header(self) -> bool {
+        !self.kept_by_name()
+    }
+}
 
 fn new_header(start: crate::source::Span, inline: CallHintFlag) -> ProcHeader {
     ProcHeader {
@@ -63,7 +83,11 @@ impl Parser<'_> {
         let after = &self.toks[(close + 1).min(self.toks.len() - 1)].tok;
         match after {
             Tok::Punct(P::Arrow | P::FatArrow) => return true,
-            Tok::Directive(d) if HEADER_DIRECTIVES.contains(&d.as_str()) => return true,
+            Tok::Directive(d)
+                if ProcFlag::from_name(d.as_str()).is_some_and(ProcFlag::marks_header) =>
+            {
+                return true;
+            }
             _ => {}
         }
         self.interior_looks_like_params(self.pos + n + 1, close)
@@ -507,10 +531,10 @@ impl Parser<'_> {
                     _ => return Ok(()),
                 },
                 Tok::Directive(name) => {
-                    let name = *name;
-                    if !self.apply_directive_flag(header, name.as_str())? {
+                    let Some(flag) = ProcFlag::from_name(name.as_str()) else {
                         return Ok(());
-                    }
+                    };
+                    self.apply_proc_flag(header, flag)?;
                     continue;
                 }
                 _ => return Ok(()),
@@ -519,46 +543,35 @@ impl Parser<'_> {
         }
     }
 
-    /// Consumes the directive at the cursor if it is a procedure flag. Returns false if it is not.
-    fn apply_directive_flag(&mut self, header: &mut ProcHeader, name: &str) -> PResult<bool> {
-        let span = self.span();
+    /// Consumes the procedure flag directive at the cursor, with any operand it takes.
+    fn apply_proc_flag(&mut self, header: &mut ProcHeader, flag: ProcFlag) -> PResult<()> {
+        let span = self.bump();
         let flags = &mut header.flags;
-        match name {
-            "c_call" => flags.c_call = true,
-            "no_context" => flags.no_context = true,
-            "expand" => flags.expand = true,
-            "intrinsic" | "compiler" => {
-                self.bump();
-                if name == "intrinsic" {
-                    header.flags.intrinsic = true;
+        match flag {
+            ProcFlag::CCall => flags.c_call = true,
+            ProcFlag::NoContext => flags.no_context = true,
+            ProcFlag::Expand => flags.expand = true,
+            ProcFlag::Symmetric => flags.symmetric = true,
+            ProcFlag::CppMethod => flags.cpp_method = true,
+            ProcFlag::CppReturnTypeIsNonPod => flags.cpp_return_type_is_non_pod = true,
+            ProcFlag::RuntimeSupport => flags.runtime_support = true,
+            ProcFlag::NoDebug => flags.no_debug = true,
+            ProcFlag::NoAbc => flags.no_abc = true,
+            ProcFlag::NoAoc => flags.no_aoc = true,
+            ProcFlag::NoCall => flags.no_call = true,
+            ProcFlag::TypeInfoNone => flags.type_info_none = true,
+            ProcFlag::Intrinsic | ProcFlag::Compiler => {
+                if flag == ProcFlag::Intrinsic {
+                    flags.intrinsic = true;
                 } else {
-                    header.flags.compiler = true;
+                    flags.compiler = true;
                 }
                 if let Tok::Str(s) = self.tok() {
-                    header.flags.builtin_name =
-                        Some(String::from_utf8_lossy(s).into_owned().into());
+                    flags.builtin_name = Some(String::from_utf8_lossy(s).into_owned().into());
                     self.bump();
                 }
-                return Ok(true);
             }
-            "symmetric" => flags.symmetric = true,
-            "cpp_method" => flags.cpp_method = true,
-            "cpp_return_type_is_non_pod" => flags.cpp_return_type_is_non_pod = true,
-            "runtime_support" => flags.runtime_support = true,
-            "no_debug" => flags.no_debug = true,
-            "no_abc" => flags.no_abc = true,
-            "no_aoc" => flags.no_aoc = true,
-            "no_call" => flags.no_call = true,
-            "type_info_none" => flags.type_info_none = true,
-            "elsewhere" => {
-                self.bump();
-                let foreign = self.parse_elsewhere_library()?;
-                header.flags.elsewhere = Some(foreign.as_ref().and_then(|foreign| foreign.library));
-                header.foreign = header.foreign.take().or(foreign);
-                return Ok(true);
-            }
-            "deprecated" | "program_export" => {
-                self.bump();
+            ProcFlag::Deprecated | ProcFlag::ProgramExport => {
                 let text = match self.tok() {
                     Tok::Str(s) => {
                         let s = s.clone();
@@ -567,15 +580,18 @@ impl Parser<'_> {
                     }
                     _ => None,
                 };
-                if name == "deprecated" {
-                    header.flags.deprecated = Some(text);
+                if flag == ProcFlag::Deprecated {
+                    flags.deprecated = Some(text);
                 } else {
-                    header.flags.program_export = Some(text);
+                    flags.program_export = Some(text);
                 }
-                return Ok(true);
             }
-            "foreign" => {
-                self.bump();
+            ProcFlag::Elsewhere => {
+                let foreign = self.parse_elsewhere_library()?;
+                flags.elsewhere = Some(foreign.as_ref().and_then(|foreign| foreign.library));
+                header.foreign = header.foreign.take().or(foreign);
+            }
+            ProcFlag::Foreign => {
                 let library = if matches!(self.tok(), Tok::Ident(_)) {
                     Some(self.ident("after `#foreign`")?)
                 } else {
@@ -586,26 +602,16 @@ impl Parser<'_> {
                     library,
                     name,
                 });
-                return Ok(true);
             }
-            "modify" => {
-                self.bump();
-                header.modify = Some(self.parse_modify_body()?);
-                return Ok(true);
-            }
-            other if OTHER_FLAGS.contains(&other) => {
-                let ident = crate::ast::Ident {
-                    name: crate::intern::Sym::intern(other),
+            ProcFlag::Modify => header.modify = Some(self.parse_modify_body()?),
+            // `#dump` is followed by the body; nothing else to consume.
+            ProcFlag::Dump | ProcFlag::EntryPoint | ProcFlag::NoAlias | ProcFlag::CompileTime => {
+                flags.other.push(crate::ast::Ident {
+                    name: crate::intern::Sym::intern(flag.name()),
                     span,
-                };
-                header.flags.other.push(ident);
-                self.bump();
-                // `#dump` is followed by the body; nothing to consume here.
-                return Ok(true);
+                });
             }
-            _ => return Ok(false),
         }
-        self.bump();
-        Ok(true)
+        Ok(())
     }
 }

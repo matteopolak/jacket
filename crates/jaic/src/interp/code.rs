@@ -2050,7 +2050,7 @@ impl Interp {
                     let (index, count) = (get(index), get(count));
                     if (index as i64) < 0 || (index as i64) >= count as i64 {
                         self.sync_loc(code, here);
-                        return self.check_trap(ir::TRAP_BOUNDS, index, count);
+                        return self.check_trap(ir::CheckReason::Bounds, index, count);
                     }
                 }
                 Op::Ir {

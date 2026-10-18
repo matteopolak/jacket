@@ -23,7 +23,38 @@
 #![allow(unsafe_code)]
 
 use super::*;
+use crate::macros::raw_enum;
 use std::collections::{HashSet, VecDeque};
+
+raw_enum! {
+    /// A foreign procedure the thread schedulers (`threads` and the inline one here) implement.
+    pub(super) enum ThreadFn by name {
+        Create = "pthread_create",
+        Join = "pthread_join",
+        TryJoin = "pthread_tryjoin_np",
+        Detach = "pthread_detach",
+        SelfId = "pthread_self",
+        SetName = "pthread_setname_np",
+        GetName = "pthread_getname_np",
+        MutexInit = "pthread_mutex_init",
+        MutexDestroy = "pthread_mutex_destroy",
+        MutexLock = "pthread_mutex_lock",
+        MutexTryLock = "pthread_mutex_trylock",
+        MutexUnlock = "pthread_mutex_unlock",
+        CondInit = "pthread_cond_init",
+        CondDestroy = "pthread_cond_destroy",
+        CondSignal = "pthread_cond_signal",
+        CondBroadcast = "pthread_cond_broadcast",
+        CondWait = "pthread_cond_wait",
+        CondTimedWait = "pthread_cond_timedwait",
+        Nanosleep = "nanosleep",
+        Usleep = "usleep",
+        Sleep = "sleep",
+        SchedYield = "sched_yield",
+        YieldNp = "pthread_yield_np",
+        YieldForWait = "jai_sched_yield_for_wait",
+    }
+}
 
 const EPERM: u64 = 1;
 const EBUSY: u64 = 16;
@@ -271,10 +302,11 @@ impl Interp {
     ) -> Option<Res<Vec<u64>>> {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let started = self.multi;
-        let result: Res<u64> = match symbol {
-            "pthread_create" => self.inline_create(program, arg(0), arg(2), arg(3)),
-            "pthread_join" => self.inline_join(arg(0), arg(1)),
-            "pthread_tryjoin_np" => {
+        let fun = ThreadFn::from_name(symbol)?;
+        let result: Res<u64> = match fun {
+            ThreadFn::Create => self.inline_create(program, arg(0), arg(2), arg(3)),
+            ThreadFn::Join => self.inline_join(arg(0), arg(1)),
+            ThreadFn::TryJoin => {
                 let id = arg(0).wrapping_sub(1) as usize;
                 match self.isched().threads.get(id) {
                     Some(t) if t.state == State::Finished => {
@@ -293,21 +325,21 @@ impl Interp {
                     None => Ok(EINVAL),
                 }
             }
-            "pthread_detach" => Ok(0),
-            "pthread_self" => Ok(self.isched().current as u64 + 1),
-            "pthread_setname_np" | "pthread_getname_np" => self.trap(
+            ThreadFn::Detach => Ok(0),
+            ThreadFn::SelfId => Ok(self.isched().current as u64 + 1),
+            ThreadFn::SetName | ThreadFn::GetName => self.trap(
                 "pthread naming is unsupported by the inline scheduler (no OS pthread identity)",
             ),
-            "pthread_mutex_init" => {
+            ThreadFn::MutexInit => {
                 self.isched().mutexes.insert(arg(0), MutexState::default());
                 Ok(0)
             }
-            "pthread_mutex_destroy" => {
+            ThreadFn::MutexDestroy => {
                 self.isched().mutexes.remove(&arg(0));
                 Ok(0)
             }
-            "pthread_mutex_lock" => self.inline_lock(arg(0), 1).map(|_| 0),
-            "pthread_mutex_trylock" => {
+            ThreadFn::MutexLock => self.inline_lock(arg(0), 1).map(|_| 0),
+            ThreadFn::MutexTryLock => {
                 let me = self.isched().current;
                 let state = self.isched().mutexes.entry(arg(0)).or_default();
                 if state.owner.is_none() || state.owner == Some(me) {
@@ -319,43 +351,43 @@ impl Interp {
                     Ok(EBUSY)
                 }
             }
-            "pthread_mutex_unlock" => Ok(match self.inline_unlock(arg(0)) {
+            ThreadFn::MutexUnlock => Ok(match self.inline_unlock(arg(0)) {
                 Ok(()) => 0,
                 Err(code) => code,
             }),
-            "pthread_cond_init" | "pthread_cond_destroy" => {
+            ThreadFn::CondInit | ThreadFn::CondDestroy => {
                 self.isched().cond_waiters.remove(&arg(0));
                 Ok(0)
             }
-            "pthread_cond_signal" => {
+            ThreadFn::CondSignal => {
                 self.inline_wake(arg(0), false);
                 Ok(0)
             }
-            "pthread_cond_broadcast" => {
+            ThreadFn::CondBroadcast => {
                 self.inline_wake(arg(0), true);
                 Ok(0)
             }
-            "pthread_cond_wait" => self.inline_cond_wait(arg(0), arg(1), None),
-            "pthread_cond_timedwait" => {
-                match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
+            ThreadFn::CondWait => self.inline_cond_wait(arg(0), arg(1), None),
+            ThreadFn::CondTimedWait => match (self.fetch_u64(arg(2)), self.fetch_u64(arg(2) + 8)) {
+                (Ok(secs), Ok(nanos)) => {
+                    let deadline = secs.saturating_mul(1_000_000_000).saturating_add(nanos);
+                    self.inline_cond_wait(arg(0), arg(1), Some(deadline))
+                }
+                (Err(trap), _) | (_, Err(trap)) => Err(trap),
+            },
+            // Sleeping and yielding only matter once another thread exists.
+            ThreadFn::Nanosleep if started => {
+                match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
                     (Ok(secs), Ok(nanos)) => {
-                        let deadline = secs.saturating_mul(1_000_000_000).saturating_add(nanos);
-                        self.inline_cond_wait(arg(0), arg(1), Some(deadline))
+                        self.inline_sleep(secs.saturating_mul(1_000_000_000) + nanos)
                     }
                     (Err(trap), _) | (_, Err(trap)) => Err(trap),
                 }
             }
-            // Sleeping and yielding only matter once another thread exists.
-            "nanosleep" if started => match (self.fetch_u64(arg(0)), self.fetch_u64(arg(0) + 8)) {
-                (Ok(secs), Ok(nanos)) => {
-                    self.inline_sleep(secs.saturating_mul(1_000_000_000) + nanos)
-                }
-                (Err(trap), _) | (_, Err(trap)) => Err(trap),
-            },
-            "usleep" if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000),
-            "sleep" if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000_000_000),
-            "sched_yield" | "pthread_yield_np" if started => self.inline_yield().map(|_| 0),
-            "jai_sched_yield_for_wait" => self.inline_yield_for_wait(),
+            ThreadFn::Usleep if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000),
+            ThreadFn::Sleep if started => self.inline_sleep((arg(0) as u32 as u64) * 1_000_000_000),
+            ThreadFn::SchedYield | ThreadFn::YieldNp if started => self.inline_yield().map(|_| 0),
+            ThreadFn::YieldForWait => self.inline_yield_for_wait(),
             _ => return None,
         };
         Some(result.map(|v| vec![v]))

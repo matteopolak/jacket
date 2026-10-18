@@ -1480,7 +1480,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         let kind = b.build_and(desc, i64t.const_int(0xff, false), "")?;
         let line = b.build_right_shift(desc, i64t.const_int(8, false), false, "")?;
         let ints = [
-            i64t.const_int(jaic::ir::TRAP_NULL_POINTER, false),
+            i64t.const_int(jaic::ir::CheckReason::NullPointer as u64, false),
             kind,
             address.into_int_value(),
             self.ctx.i8_type().const_int(1, false),
@@ -1597,7 +1597,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         &self,
         st: &FnState<'ctx>,
         cond: IntValue<'ctx>,
-        reason: u64,
+        reason: jaic::ir::CheckReason,
         a: IntValue<'ctx>,
         b: IntValue<'ctx>,
     ) -> R<()> {
@@ -1606,7 +1606,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         self.builder.build_conditional_branch(cond, trap, cont)?;
         self.builder.position_at_end(trap);
         let fatal = self.ctx.i8_type().const_int(1, false);
-        self.report_check(st, reason, a, b, fatal)?;
+        self.report_check(st, reason as u64, a, b, fatal)?;
         self.call_intrinsic("llvm.trap", &[], &[])?;
         self.builder.build_unreachable()?;
         self.builder.position_at_end(cont);
@@ -2026,7 +2026,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 if y.get_zero_extended_constant().is_none_or(|c| c == 0) {
                     let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
                     let none = self.ctx.i64_type().const_zero();
-                    self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
+                    self.trap_if(st, zero, jaic::ir::CheckReason::DivideByZero, none, none)?;
                 }
                 if op == BinOp::UDiv {
                     b.build_int_unsigned_div(x, y, "")?
@@ -2039,7 +2039,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 if constant.is_none_or(|c| c == 0) {
                     let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
                     let none = self.ctx.i64_type().const_zero();
-                    self.trap_if(st, zero, jaic::ir::TRAP_DIVIDE_BY_ZERO, none, none)?;
+                    self.trap_if(st, zero, jaic::ir::CheckReason::DivideByZero, none, none)?;
                 }
                 if constant.is_some_and(|c| c != 0 && c != -1) {
                     // Neither a zero divisor nor the overflowing `INT_MIN / -1`.
@@ -2637,7 +2637,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let index = self.i64_of(self.as_int(args[0])?)?;
                 let count = self.i64_of(self.as_int(args[1])?)?;
                 let out = b.build_int_compare(IntPredicate::UGE, index, count, "")?;
-                self.trap_if(st, out, jaic::ir::TRAP_BOUNDS, index, count)?;
+                self.trap_if(st, out, jaic::ir::CheckReason::Bounds, index, count)?;
                 Ok(vec![])
             }
             Intrinsic::CompilerWrite if self.arch.is_wasm() => {

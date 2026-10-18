@@ -9,6 +9,7 @@
 #![allow(unsafe_code)]
 
 use super::*;
+use crate::macros::raw_enum;
 use crate::sema::FileSystem;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -18,6 +19,131 @@ mod numeric;
 mod objc;
 mod stdin;
 mod windows;
+
+raw_enum! {
+    /// A C library procedure the sandbox implements itself.
+    pub(super) enum LibcFn by name {
+        Write = "write",
+        WasmWriteString = "wasm_write_string",
+        Malloc = "malloc",
+        Calloc = "calloc",
+        Realloc = "realloc",
+        Free = "free",
+        Memcpy = "memcpy",
+        Memmove = "memmove",
+        Memset = "memset",
+        Memcmp = "memcmp",
+        Strlen = "strlen",
+        Strcmp = "strcmp",
+        Strncmp = "strncmp",
+        Exit = "exit",
+        ImmediateExit = "_exit",
+        Abort = "abort",
+        PthreadMutexattrInit = "pthread_mutexattr_init",
+        PthreadMutexattrDestroy = "pthread_mutexattr_destroy",
+        PthreadMutexattrSettype = "pthread_mutexattr_settype",
+        PthreadAttrInit = "pthread_attr_init",
+        PthreadAttrDestroy = "pthread_attr_destroy",
+        PthreadAttrSetstacksize = "pthread_attr_setstacksize",
+        PthreadMutexLock = "pthread_mutex_lock",
+        PthreadMutexUnlock = "pthread_mutex_unlock",
+        PthreadMutexInit = "pthread_mutex_init",
+        PthreadMutexDestroy = "pthread_mutex_destroy",
+        Isatty = "isatty",
+        Getenv = "getenv",
+        JaiHostProvides = "jai_host_provides",
+        Strerror = "strerror",
+        WasmDebugBreak = "wasm_debug_break",
+        Nanosleep = "nanosleep",
+        Usleep = "usleep",
+        Sleep = "sleep",
+        SchedYield = "sched_yield",
+        Sysconf = "sysconf",
+        Getpid = "getpid",
+        ClockGettime = "clock_gettime",
+        Gettimeofday = "gettimeofday",
+        Time = "time",
+        GmtimeR = "gmtime_r",
+        LocaltimeR = "localtime_r",
+        Atof = "atof",
+        Strtod = "strtod",
+        Strtof = "strtof",
+        Setlocale = "setlocale",
+        Atoi = "atoi",
+        Atol = "atol",
+        Atoll = "atoll",
+        Strtol = "strtol",
+        Strtoll = "strtoll",
+        Strtoul = "strtoul",
+        Strtoull = "strtoull",
+        ErrnoLocation = "__errno_location",
+        DarwinError = "__error",
+        Getcwd = "getcwd",
+        Chdir = "chdir",
+        Realpath = "realpath",
+        RealpathDarwin = "realpath$DARWIN_EXTSN",
+        Access = "access",
+        Chmod = "chmod",
+        Fchmod = "fchmod",
+        Stat = "stat",
+        Lstat = "lstat",
+        Fstat = "fstat",
+        Open = "open",
+        Open64 = "open64",
+        Close = "close",
+        Read = "read",
+        Lseek = "lseek",
+        Lseek64 = "lseek64",
+        Fopen = "fopen",
+        Fopen64 = "fopen64",
+        Fclose = "fclose",
+        Fflush = "fflush",
+        Fread = "fread",
+        Fwrite = "fwrite",
+        Fseek = "fseek",
+        Fseeko = "fseeko",
+        Fseeko64 = "fseeko64",
+        Ftell = "ftell",
+        Ftello = "ftello",
+        Ftello64 = "ftello64",
+        Rewind = "rewind",
+        Feof = "feof",
+        Ferror = "ferror",
+        Fileno = "fileno",
+        Unlink = "unlink",
+        Remove = "remove",
+        Rename = "rename",
+        Link = "link",
+        Mkdir = "mkdir",
+        Rmdir = "rmdir",
+        Opendir = "opendir",
+        Readdir = "readdir",
+        Readdir64 = "readdir64",
+        Closedir = "closedir",
+        Pipe = "pipe",
+        Pipe2 = "pipe2",
+        Socketpair = "socketpair",
+        Fork = "fork",
+        Vfork = "vfork",
+        Execv = "execv",
+        Execve = "execve",
+        Execvp = "execvp",
+        PosixSpawn = "posix_spawn",
+        PosixSpawnp = "posix_spawnp",
+        ShmOpen = "shm_open",
+        ShmUnlink = "shm_unlink",
+        Fgets = "fgets",
+        Getline = "getline",
+        Getdelim = "getdelim",
+        Fgetc = "fgetc",
+        Getc = "getc",
+        FgetcUnlocked = "fgetc_unlocked",
+        GetcUnlocked = "getc_unlocked",
+        Getchar = "getchar",
+        GetcharUnlocked = "getchar_unlocked",
+        Ungetc = "ungetc",
+    }
+}
 
 const EPERM: u64 = 1;
 const ENOENT: u64 = 2;
@@ -611,18 +737,19 @@ impl Host for SandboxHost {
         args: &[u64],
         _sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
-        if let Some(result) = self.stdin_foreign(symbol, args) {
-            return Some(Ok(vec![result]));
-        }
         if let Some(result) = self.windows_foreign(symbol, args) {
             return Some(Ok(vec![result]));
         }
         if let Some(result) = self.objc_foreign(symbol, args) {
             return Some(Ok(vec![result]));
         }
+        let fun = LibcFn::from_name(symbol)?;
+        if let Some(result) = self.stdin_foreign(fun, args) {
+            return Some(Ok(vec![result]));
+        }
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
-        Some(Ok(vec![match symbol {
-            "write" => {
+        Some(Ok(vec![match fun {
+            LibcFn::Write => {
                 let (fd, ptr, len) = (arg(0) as i32 as i64, arg(1), arg(2) as usize);
                 let bytes = if len == 0 {
                     Vec::new()
@@ -639,7 +766,7 @@ impl Host for SandboxHost {
                     }
                 }
             }
-            "wasm_write_string" => {
+            LibcFn::WasmWriteString => {
                 let (len, ptr, to_stderr) = (arg(0) as usize, arg(1), arg(2) & 1 != 0);
                 let bytes = if len == 0 {
                     Vec::new()
@@ -649,11 +776,11 @@ impl Host for SandboxHost {
                 self.write(&bytes, to_stderr);
                 0
             }
-            "malloc" => self.alloc(arg(0) as usize),
-            "calloc" => (arg(0) as usize)
+            LibcFn::Malloc => self.alloc(arg(0) as usize),
+            LibcFn::Calloc => (arg(0) as usize)
                 .checked_mul(arg(1) as usize)
                 .map_or(0, |size| self.alloc(size)),
-            "realloc" => {
+            LibcFn::Realloc => {
                 let (old, size) = (arg(0), arg(1) as usize);
                 let new = self.alloc(size);
                 if new == 0 {
@@ -672,19 +799,19 @@ impl Host for SandboxHost {
                 }
                 new
             }
-            "free" => {
+            LibcFn::Free => {
                 self.allocations.remove(&arg(0));
                 0
             }
-            "memcpy" | "memmove" => {
+            LibcFn::Memcpy | LibcFn::Memmove => {
                 unsafe { std::ptr::copy(arg(1) as *const u8, arg(0) as *mut u8, arg(2) as usize) };
                 arg(0)
             }
-            "memset" => {
+            LibcFn::Memset => {
                 unsafe { std::ptr::write_bytes(arg(0) as *mut u8, arg(1) as u8, arg(2) as usize) };
                 arg(0)
             }
-            "memcmp" => {
+            LibcFn::Memcmp => {
                 // An empty comparison may pass null pointers, which a slice must not hold.
                 let (a, b): (&[u8], &[u8]) = if arg(2) == 0 {
                     (&[], &[])
@@ -702,15 +829,15 @@ impl Host for SandboxHost {
                     std::cmp::Ordering::Greater => 1,
                 }
             }
-            "strlen" => {
+            LibcFn::Strlen => {
                 let mut n = 0;
                 while unsafe { *((arg(0) + n) as *const u8) } != 0 {
                     n += 1;
                 }
                 n
             }
-            "strcmp" | "strncmp" => {
-                let limit = if symbol == "strncmp" {
+            LibcFn::Strcmp | LibcFn::Strncmp => {
+                let limit = if fun == LibcFn::Strncmp {
                     arg(2) as usize
                 } else {
                     usize::MAX
@@ -733,25 +860,27 @@ impl Host for SandboxHost {
                     seen += 1;
                 }
             }
-            "exit" | "_exit" => return Some(Err(format!("exit({})", arg(0) as i32))),
-            "abort" => return Some(Err("abort()".into())),
+            LibcFn::Exit | LibcFn::ImmediateExit => {
+                return Some(Err(format!("exit({})", arg(0) as i32)));
+            }
+            LibcFn::Abort => return Some(Err("abort()".into())),
             // Threads are scheduled by the interpreter; these only run when no thread exists.
-            "pthread_mutexattr_init"
-            | "pthread_mutexattr_destroy"
-            | "pthread_mutexattr_settype"
-            | "pthread_attr_init"
-            | "pthread_attr_destroy"
-            | "pthread_attr_setstacksize"
-            | "pthread_mutex_lock"
-            | "pthread_mutex_unlock"
-            | "pthread_mutex_init"
-            | "pthread_mutex_destroy" => 0,
-            "isatty" => 0,
-            "getenv" => 0,
+            LibcFn::PthreadMutexattrInit
+            | LibcFn::PthreadMutexattrDestroy
+            | LibcFn::PthreadMutexattrSettype
+            | LibcFn::PthreadAttrInit
+            | LibcFn::PthreadAttrDestroy
+            | LibcFn::PthreadAttrSetstacksize
+            | LibcFn::PthreadMutexLock
+            | LibcFn::PthreadMutexUnlock
+            | LibcFn::PthreadMutexInit
+            | LibcFn::PthreadMutexDestroy => 0,
+            LibcFn::Isatty => 0,
+            LibcFn::Getenv => 0,
             // Whether the embedding page offers a host procedure (stdlib/Extensions/WebGPU): not here. The
             // browser playground's host (jai-wasm `host_bridge`) asks its page instead.
-            "jai_host_provides" => 0,
-            "strerror" => {
+            LibcFn::JaiHostProvides => 0,
+            LibcFn::Strerror => {
                 let code = arg(0) as u32 as u64;
                 if let Some(&text) = self.error_texts.get(&code) {
                     return Some(Ok(vec![text]));
@@ -780,8 +909,8 @@ impl Host for SandboxHost {
                 }
                 text
             }
-            "wasm_debug_break" => return Some(Err("debug_break() was called".into())),
-            "nanosleep" => {
+            LibcFn::WasmDebugBreak => return Some(Err("debug_break() was called".into())),
+            LibcFn::Nanosleep => {
                 // struct timespec { tv_sec; tv_nsec }: sleeping only moves the virtual clock.
                 let req = arg(0);
                 if req != 0 {
@@ -794,23 +923,23 @@ impl Host for SandboxHost {
                 }
                 0
             }
-            "usleep" => {
+            LibcFn::Usleep => {
                 self.clock_ns += (arg(0) as u32 as u64) * 1_000;
                 0
             }
-            "sleep" => {
+            LibcFn::Sleep => {
                 self.clock_ns += (arg(0) as u32 as u64) * 1_000_000_000;
                 0
             }
-            "sched_yield" => 0,
+            LibcFn::SchedYield => 0,
             // One processor, 4 KiB pages: the browser sandbox is a single cooperative thread.
-            "sysconf" => match arg(0) as i32 {
+            LibcFn::Sysconf => match arg(0) as i32 {
                 83 | 84 => 1,
                 30 => 4096,
                 _ => self.set_errno(EINVAL),
             },
-            "getpid" => 1,
-            "clock_gettime" => {
+            LibcFn::Getpid => 1,
+            LibcFn::ClockGettime => {
                 // struct timespec { tv_sec: s64; tv_nsec: s64 }; a fixed epoch plus the virtual
                 // clock keeps runs deterministic.
                 self.clock_ns += 1_000;
@@ -823,7 +952,7 @@ impl Host for SandboxHost {
                 write_u64(out + 8, ns % 1_000_000_000);
                 0
             }
-            "gettimeofday" => {
+            LibcFn::Gettimeofday => {
                 self.clock_ns += 1_000;
                 let ns = self.clock_ns + 1_700_000_000u64 * 1_000_000_000;
                 if arg(0) != 0 {
@@ -832,7 +961,7 @@ impl Host for SandboxHost {
                 }
                 0
             }
-            "time" => {
+            LibcFn::Time => {
                 self.clock_ns += 1_000;
                 let secs = 1_700_000_000u64 + self.clock_ns / 1_000_000_000;
                 if arg(0) != 0 {
@@ -840,22 +969,22 @@ impl Host for SandboxHost {
                 }
                 secs
             }
-            "gmtime_r" | "localtime_r" => {
+            LibcFn::GmtimeR | LibcFn::LocaltimeR => {
                 let seconds = unsafe { std::ptr::read_unaligned(arg(0) as *const i64) };
                 fill_tm(seconds, arg(1));
                 arg(1)
             }
-            "atof" | "strtod" | "strtof" => {
+            LibcFn::Atof | LibcFn::Strtod | LibcFn::Strtof => {
                 let text = cstr(arg(0));
                 let parsed = numeric::parse(
                     &text,
-                    if symbol == "strtof" {
+                    if fun == LibcFn::Strtof {
                         numeric::Precision::Binary32
                     } else {
                         numeric::Precision::Binary64
                     },
                 );
-                if symbol != "atof" && arg(1) != 0 {
+                if fun != LibcFn::Atof && arg(1) != 0 {
                     write_u64(arg(1), arg(0) + parsed.used as u64);
                 }
                 if parsed.range_error {
@@ -863,7 +992,7 @@ impl Host for SandboxHost {
                 }
                 parsed.bits
             }
-            "setlocale" => {
+            LibcFn::Setlocale => {
                 if arg(0) > 6 {
                     0
                 } else if arg(1) == 0 || matches!(cstr(arg(1)).as_str(), "" | "C" | "POSIX") {
@@ -872,27 +1001,34 @@ impl Host for SandboxHost {
                     0
                 }
             }
-            "atoi" | "atol" | "atoll" | "strtol" | "strtoll" | "strtoul" | "strtoull" => {
+            LibcFn::Atoi
+            | LibcFn::Atol
+            | LibcFn::Atoll
+            | LibcFn::Strtol
+            | LibcFn::Strtoll
+            | LibcFn::Strtoul
+            | LibcFn::Strtoull => {
                 let text = cstr(arg(0));
-                let base = if symbol.starts_with("ato") {
+                let from_ascii = matches!(fun, LibcFn::Atoi | LibcFn::Atol | LibcFn::Atoll);
+                let base = if from_ascii {
                     10
                 } else {
                     arg(2) as u32
                 };
                 let (value, used) = parse_int_prefix(&text, base, true);
-                if !symbol.starts_with("ato") && arg(1) != 0 {
+                if !from_ascii && arg(1) != 0 {
                     write_u64(arg(1), arg(0) + used as u64);
                 }
                 value as i64 as u64
             }
-            "__errno_location" | "__error" => {
+            LibcFn::ErrnoLocation | LibcFn::DarwinError => {
                 // The cell keeps the last error: reading it must not clear it.
                 if self.errno_cell == 0 {
                     self.errno_cell = self.alloc(8);
                 }
                 self.errno_cell
             }
-            "getcwd" => {
+            LibcFn::Getcwd => {
                 let cwd = if self.cwd.is_empty() {
                     "/".to_string()
                 } else {
@@ -909,7 +1045,7 @@ impl Host for SandboxHost {
                     arg(0)
                 }
             }
-            "chdir" => {
+            LibcFn::Chdir => {
                 let path = self.path(arg(0));
                 if self.fs.is_dir(&path) {
                     self.cwd = path;
@@ -918,7 +1054,7 @@ impl Host for SandboxHost {
                     self.set_errno(ENOENT)
                 }
             }
-            "realpath" | "realpath$DARWIN_EXTSN" => {
+            LibcFn::Realpath | LibcFn::RealpathDarwin => {
                 let path = self.path(arg(0));
                 if !self.fs.is_dir(&path) && !self.fs.exists_file(&path) {
                     self.set_errno(ENOENT);
@@ -936,7 +1072,7 @@ impl Host for SandboxHost {
                     out
                 }
             }
-            "access" => {
+            LibcFn::Access => {
                 let path = self.path(arg(0));
                 if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
                     0
@@ -946,7 +1082,7 @@ impl Host for SandboxHost {
             }
             // The virtual file system keeps no permission bits (every file is readable and
             // writable), so changing them succeeds on any path that exists.
-            "chmod" => {
+            LibcFn::Chmod => {
                 let path = self.path(arg(0));
                 if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
                     0
@@ -954,16 +1090,16 @@ impl Host for SandboxHost {
                     self.set_errno(ENOENT)
                 }
             }
-            "fchmod" => match self.fds.contains_key(&(arg(0) as i32 as i64)) {
+            LibcFn::Fchmod => match self.fds.contains_key(&(arg(0) as i32 as i64)) {
                 true => 0,
                 false => self.set_errno(EBADF),
             },
-            "stat" | "lstat" => {
+            LibcFn::Stat | LibcFn::Lstat => {
                 let path = self.path(arg(0));
                 let result = self.fill_stat(&path, arg(1)).map(|_| 0);
                 self.libc_result(result)
             }
-            "fstat" => {
+            LibcFn::Fstat => {
                 let fd = arg(0) as i32 as i64;
                 match self.fds.get(&fd).map(|f| f.path.clone()) {
                     Some(path) => {
@@ -973,29 +1109,31 @@ impl Host for SandboxHost {
                     None => self.set_errno(EBADF),
                 }
             }
-            "open" | "open64" => {
+            LibcFn::Open | LibcFn::Open64 => {
                 let path = self.path(arg(0));
                 let result = self
                     .open_file(path, arg(1) as u32 as u64)
                     .map(|fd| fd as u64);
                 self.libc_result(result)
             }
-            "close" => {
+            LibcFn::Close => {
                 if self.fds.remove(&(arg(0) as i32 as i64)).is_some() {
                     0
                 } else {
                     self.set_errno(EBADF)
                 }
             }
-            "read" => match self.read_fd(arg(0) as i32 as i64, arg(1), arg(2) as usize) {
+            LibcFn::Read => match self.read_fd(arg(0) as i32 as i64, arg(1), arg(2) as usize) {
                 Some(n) => n as u64,
                 None => self.set_errno(EBADF),
             },
-            "lseek" | "lseek64" => match self.seek(arg(0) as i32 as i64, arg(1) as i64, arg(2)) {
-                Some(p) => p as u64,
-                None => self.set_errno(EINVAL),
-            },
-            "fopen" | "fopen64" => {
+            LibcFn::Lseek | LibcFn::Lseek64 => {
+                match self.seek(arg(0) as i32 as i64, arg(1) as i64, arg(2)) {
+                    Some(p) => p as u64,
+                    None => self.set_errno(EINVAL),
+                }
+            }
+            LibcFn::Fopen | LibcFn::Fopen64 => {
                 let path = self.path(arg(0));
                 let mode = cstr(arg(1));
                 let plus = mode.contains('+');
@@ -1038,7 +1176,7 @@ impl Host for SandboxHost {
                     }
                 }
             }
-            "fclose" => match self.streams.remove(&arg(0)) {
+            LibcFn::Fclose => match self.streams.remove(&arg(0)) {
                 Some(fd) => {
                     self.fds.remove(&fd);
                     self.allocations.remove(&arg(0));
@@ -1046,8 +1184,8 @@ impl Host for SandboxHost {
                 }
                 None => self.set_errno(EBADF),
             },
-            "fflush" => 0,
-            "fread" => {
+            LibcFn::Fflush => 0,
+            LibcFn::Fread => {
                 let (size, count) = (arg(1) as usize, arg(2) as usize);
                 match self.streams.get(&arg(3)).copied() {
                     Some(fd) if size > 0 => {
@@ -1059,7 +1197,7 @@ impl Host for SandboxHost {
                     _ => 0,
                 }
             }
-            "fwrite" => {
+            LibcFn::Fwrite => {
                 let (size, count) = (arg(1) as usize, arg(2) as usize);
                 let total = size.saturating_mul(count);
                 match self.streams.get(&arg(3)).copied() {
@@ -1075,32 +1213,36 @@ impl Host for SandboxHost {
                     _ => 0,
                 }
             }
-            "fseek" | "fseeko" | "fseeko64" => match self.streams.get(&arg(0)).copied() {
-                Some(fd) => match self.seek(fd, arg(1) as i64, arg(2) as u32 as u64) {
-                    Some(_) => 0,
-                    None => self.set_errno(EINVAL),
-                },
-                None => self.set_errno(EBADF),
-            },
-            "ftell" | "ftello" | "ftello64" => match self.streams.get(&arg(0)).copied() {
-                Some(fd) => self.fds.get(&fd).map_or(u64::MAX, |f| f.pos as u64),
-                None => self.set_errno(EBADF),
-            },
-            "rewind" => {
+            LibcFn::Fseek | LibcFn::Fseeko | LibcFn::Fseeko64 => {
+                match self.streams.get(&arg(0)).copied() {
+                    Some(fd) => match self.seek(fd, arg(1) as i64, arg(2) as u32 as u64) {
+                        Some(_) => 0,
+                        None => self.set_errno(EINVAL),
+                    },
+                    None => self.set_errno(EBADF),
+                }
+            }
+            LibcFn::Ftell | LibcFn::Ftello | LibcFn::Ftello64 => {
+                match self.streams.get(&arg(0)).copied() {
+                    Some(fd) => self.fds.get(&fd).map_or(u64::MAX, |f| f.pos as u64),
+                    None => self.set_errno(EBADF),
+                }
+            }
+            LibcFn::Rewind => {
                 if let Some(fd) = self.streams.get(&arg(0)).copied() {
                     self.seek(fd, 0, 0);
                 }
                 0
             }
-            "feof" => match self.streams.get(&arg(0)).copied() {
+            LibcFn::Feof => match self.streams.get(&arg(0)).copied() {
                 Some(fd) => u64::from(self.fds.get(&fd).is_some_and(|f| f.eof)),
                 None => 0,
             },
-            "ferror" => 0,
-            "fileno" => self.streams.get(&arg(0)).map_or(u64::MAX, |fd| *fd as u64),
-            "unlink" | "remove" => {
+            LibcFn::Ferror => 0,
+            LibcFn::Fileno => self.streams.get(&arg(0)).map_or(u64::MAX, |fd| *fd as u64),
+            LibcFn::Unlink | LibcFn::Remove => {
                 let path = self.path(arg(0));
-                if self.fs.is_dir(&path) && symbol == "remove" {
+                if self.fs.is_dir(&path) && fun == LibcFn::Remove {
                     return self.rmdir(&path);
                 }
                 if self.fs.exists_file(&path) {
@@ -1112,12 +1254,12 @@ impl Host for SandboxHost {
                     self.set_errno(ENOENT)
                 }
             }
-            "rename" => {
+            LibcFn::Rename => {
                 let (from, to) = (self.path(arg(0)), self.path(arg(1)));
                 let result = self.rename_file(&from, &to).map(|_| 0);
                 self.libc_result(result)
             }
-            "link" => {
+            LibcFn::Link => {
                 let (from, to) = (self.path(arg(0)), self.path(arg(1)));
                 if !self.fs.exists_file(&from) {
                     self.set_errno(ENOENT)
@@ -1139,7 +1281,7 @@ impl Host for SandboxHost {
                     0
                 }
             }
-            "mkdir" => {
+            LibcFn::Mkdir => {
                 let path = self.path(arg(0));
                 if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
                     self.set_errno(EEXIST)
@@ -1151,11 +1293,11 @@ impl Host for SandboxHost {
                     0
                 }
             }
-            "rmdir" => {
+            LibcFn::Rmdir => {
                 let path = self.path(arg(0));
                 return self.rmdir(&path);
             }
-            "opendir" => {
+            LibcFn::Opendir => {
                 let path = self.path(arg(0));
                 if !self.fs.is_dir(&path) {
                     self.set_errno(if self.fs.exists_file(&path) {
@@ -1180,7 +1322,7 @@ impl Host for SandboxHost {
                     handle
                 }
             }
-            "readdir" | "readdir64" => match self.dirs.get_mut(&arg(0)) {
+            LibcFn::Readdir | LibcFn::Readdir64 => match self.dirs.get_mut(&arg(0)) {
                 Some(stream) if stream.next < stream.entries.len() => {
                     let (name, dir) = stream.entries[stream.next].clone();
                     stream.next += 1;
@@ -1202,7 +1344,7 @@ impl Host for SandboxHost {
                 }
                 _ => 0,
             },
-            "closedir" => match self.dirs.remove(&arg(0)) {
+            LibcFn::Closedir => match self.dirs.remove(&arg(0)) {
                 Some(stream) => {
                     self.allocations.remove(&stream.entry);
                     self.allocations.remove(&arg(0));
@@ -1213,12 +1355,17 @@ impl Host for SandboxHost {
             // Nothing a sandboxed program runs may start another process. It fails as a
             // refused call does, so code with a fallback (a build stamping its version from
             // `git`) carries on, and code that called it holding a lock lets go of it.
-            "pipe" | "pipe2" | "socketpair" | "fork" | "vfork" | "execv" | "execve" | "execvp" => {
-                self.set_errno(EPERM)
-            }
-            "posix_spawn" | "posix_spawnp" => EPERM,
+            LibcFn::Pipe
+            | LibcFn::Pipe2
+            | LibcFn::Socketpair
+            | LibcFn::Fork
+            | LibcFn::Vfork
+            | LibcFn::Execv
+            | LibcFn::Execve
+            | LibcFn::Execvp => self.set_errno(EPERM),
+            LibcFn::PosixSpawn | LibcFn::PosixSpawnp => EPERM,
             // Nor share memory with one (the memory debugger's visualizer channel).
-            "shm_open" | "shm_unlink" => self.set_errno(EPERM),
+            LibcFn::ShmOpen | LibcFn::ShmUnlink => self.set_errno(EPERM),
             _ => return None,
         }]))
     }

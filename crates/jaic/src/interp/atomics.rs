@@ -33,7 +33,11 @@ impl Interp {
             return self.trap("invalid atomic scalar width");
         }
         if !address.is_multiple_of(width) {
-            return self.trap(ir::check_message(ir::TRAP_ATOMIC_ALIGNMENT, address, width));
+            return self.trap(ir::check_message(
+                ir::CheckReason::AtomicAlignment,
+                address,
+                width,
+            ));
         }
         if !self.probe.accessible(address, width as usize, false)
             || (!matches!(op, I::AtomicLoad(_))

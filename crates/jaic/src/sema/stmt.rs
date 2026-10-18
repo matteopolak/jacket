@@ -1909,7 +1909,7 @@ impl Compiler {
     }
 
     /// The block a `#complete` switch on a (non-flags) enum without a default case jumps to when
-    /// no case matched: it reports the value (`ir::TRAP_SWITCH_UNMATCHED`) and stops. `None`
+    /// no case matched: it reports the value (`ir::CheckReason::SwitchUnmatched`) and stops. `None`
     /// for other switches. Leaves the builder where it was.
     fn unmatched_switch_check(
         &mut self,
@@ -1944,7 +1944,7 @@ impl Compiler {
             f.b.conv(op, t, Ty::I64, val)
         };
         let zero = f.b.iconst(Ty::I64, 0);
-        self.emit_check_failed(f, ir::TRAP_SWITCH_UNMATCHED, wide, zero, true, span)?;
+        self.emit_check_failed(f, ir::CheckReason::SwitchUnmatched, wide, zero, true, span)?;
         f.b.terminate(ir::Term::Unreachable);
         f.b.switch_to(here);
         Ok(Some(fail))

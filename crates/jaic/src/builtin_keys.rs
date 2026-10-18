@@ -7,35 +7,7 @@
 //! out-of-range value is rejected by [`from_raw`](SyntaxKey::from_raw), never matched by text.
 //! `tests/typed_builtin_keys.rs` fails when a declaration here and its Jai twin drift apart.
 
-macro_rules! raw_enum {
-    (
-        $(#[$meta:meta])*
-        $vis:vis enum $name:ident {
-            $($(#[$vmeta:meta])* $variant:ident = $value:expr),+ $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        $vis enum $name {
-            $($(#[$vmeta])* $variant = $value),+
-        }
-
-        impl $name {
-            pub const ALL: &'static [$name] = &[$($name::$variant),+];
-
-            /// The member whose Jai integer value is `raw`.
-            pub fn from_raw(raw: u64) -> Option<Self> {
-                Self::ALL.iter().copied().find(|member| *member as u64 == raw)
-            }
-
-            /// Member names and values, as the drift test compares them with the Jai side.
-            #[doc(hidden)]
-            pub fn declared() -> Vec<(&'static str, i64)> {
-                vec![$((stringify!($variant), $value)),+]
-            }
-        }
-    };
-}
+use crate::macros::raw_enum;
 
 raw_enum! {
     /// A `Build_Options.Output_Type`.
