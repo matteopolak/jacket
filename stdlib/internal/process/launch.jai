@@ -411,6 +411,9 @@ supervise :: (handles: Launch_Handles, argv: **u8, directory: *u8, change_direct
     child_close(handles.launch[1]);
     control := handles.control[0];
 
+    // Poll the command's exit quickly at first so short commands finish promptly, then back off to 10 ms.
+    nap: s32 = 1;
+
     while true {
         packet: Result_Packet;
         waited := wait_child(child, *packet.status, P.WNOHANG);
@@ -423,7 +426,9 @@ supervise :: (handles: Launch_Handles, argv: **u8, directory: *u8, change_direct
         }
 
         pollfd: P.pollfd = .{ fd = control, events = cast(s16) (P.POLLIN | P.POLLHUP) };
-        ready := P.poll(*pollfd, 1, 10);
+        ready := P.poll(*pollfd, 1, nap);
+        if nap < 10 nap = nap * 2;
+        if nap > 10 nap = 10;
 
         if ready < 0 {
             if P.errno() == P.EINTR continue;
