@@ -1,7 +1,9 @@
 //! Calls out to foreign symbols and native code, and the thunks that let C call back in.
+#[cfg(not(target_arch = "wasm32"))]
+use super::crash;
 use super::rets::Rets;
 use super::trap::{Trap, TrapKind};
-use super::{FOREIGN_TAG, FUNC_TAG, Interp, Res, TAG_MASK, crash, native, probe};
+use super::{FOREIGN_TAG, FUNC_TAG, Interp, Res, TAG_MASK, native, probe};
 use crate::ir::{self, ForeignId, FuncId, Program};
 
 /// C functions whose calls leave nothing observable outside the interpreter's memory, so a

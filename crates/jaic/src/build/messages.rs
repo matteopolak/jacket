@@ -1,5 +1,7 @@
 //! Compiler messages: interception, the event stream and `report`.
 
+#[cfg(target_arch = "wasm32")]
+use super::state::{INTERCEPT_REPORT_POLYMORPHS, INTERCEPT_REPORT_RUNS};
 use super::*;
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
