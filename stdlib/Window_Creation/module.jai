@@ -33,7 +33,7 @@ Window_Type :: WT.Window_Type;
 
     #load "../internal/window/cocoa-queries.jai";
 } else #if OS == .ANDROID {
-    Saved_Window_Info :: struct {}
+    #assert false, "Window_Creation does not support Android; it has no window implementation for this target";
 } else {
     #assert false, "Window_Creation has no declarations for this target";
 }
