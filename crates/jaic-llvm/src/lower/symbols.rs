@@ -5,7 +5,7 @@ use inkwell::DLLStorageClass;
 use inkwell::GlobalVisibility;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::module::Linkage;
-use inkwell::types::{BasicType, BasicTypeEnum};
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::{BasicValueEnum, FunctionValue, GlobalValue, PointerValue};
 use jaic::ir::{Foreign, Func, Global, Linkage as IrLinkage, RelocTarget};
 

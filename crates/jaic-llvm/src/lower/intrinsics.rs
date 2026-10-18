@@ -8,7 +8,7 @@ use inkwell::AtomicRMWBinOp;
 use inkwell::FloatPredicate;
 use inkwell::IntPredicate;
 use inkwell::module::Linkage;
-use inkwell::types::{BasicType, BasicTypeEnum, FunctionType};
+use inkwell::types::{BasicTypeEnum, FunctionType};
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };

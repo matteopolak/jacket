@@ -23,7 +23,6 @@ use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
-use inkwell::types::BasicType;
 use inkwell::values::{FunctionValue, GlobalValue, IntValue, PointerValue};
 use jaic::abi::Arch;
 use jaic::ir::Program;

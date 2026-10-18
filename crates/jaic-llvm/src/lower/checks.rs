@@ -8,7 +8,7 @@ use inkwell::IntPredicate;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::intrinsics::Intrinsic as LlvmIntrinsic;
 use inkwell::module::Linkage;
-use inkwell::types::{BasicType, BasicTypeEnum, FunctionType};
+use inkwell::types::{BasicTypeEnum, FunctionType};
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue,
 };
