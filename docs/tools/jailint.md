@@ -12,7 +12,7 @@ jailint -D warnings stdlib    # fail on any finding (CI)
 jailint --list                # rules and default levels
 ```
 
-Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `-D warnings`), `--config`, `--max-nesting <n>` (blocks `excessive_nesting` allows), `-I <dir>`, `-j <n>` (programs compiled at once; default one per CPU, at most 8), `--add <source>` (extra program-scope source, like jaic), `--color`, `-v`. Exit status: 0 clean, 1 a denied finding or incomplete compilation (not with `--allow-incomplete`, which still prints the programs that do not compile on the target, for a tree whose platform-specific modules only compile on their own OS), 2 usage or configuration error. Output goes through the shared `jaic::render`, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` apply as in the compiler.
+Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `-D warnings`), `--config`, `--max-nesting <n>` (blocks `excessive_nesting` allows), `-I <dir>`, `-j <n>` (programs compiled at once; default one per CPU, at most 8), `--add <source>` (extra program-scope source, like jaic), `--color`, `-v`. Exit status: 0 clean, 1 a denied finding or incomplete compilation (not with `--allow-incomplete`, for a tree whose platform-specific modules only compile on their own OS; it prints how many programs did not compile completely, and `-v` lists them), 2 usage or configuration error. Output goes through the shared `jaic::render`, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` apply as in the compiler.
 
 ## How it works
 

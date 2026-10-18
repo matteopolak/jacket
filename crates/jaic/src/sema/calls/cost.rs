@@ -95,15 +95,14 @@ impl Compiler {
                 .map(|(_, t, _)| t)
                 .collect(),
         };
-        let mut position = 0;
-        for field in fields
+        for (position, field) in fields
             .iter()
             .filter(|a| a.target.is_none() && a.name.is_none())
+            .enumerate()
         {
             let Some(&member) = members.get(position) else {
                 return Ok(false);
             };
-            position += 1;
             if matches!(field.value.kind, E::ArrayLit { .. })
                 && !matches!(
                     self.types.kind(self.types.repr(member)),

@@ -1,50 +1,9 @@
 //! A `jai.toml` that lists the project's `build.jai` among `build_files` must not change how
 //! `src/main.jai` (the program that metaprogram builds) is checked and answered.
-use jai_language_server::{DiagnosticCode, DocumentUri, Environment, Limits, Position, Session};
+use jai_language_server::DiagnosticCode;
 use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-buildfile-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
-
-fn open(folder: &Path, file: &str) -> (Session, DocumentUri, String) {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.set_workspace_folders(vec![folder.to_path_buf()]);
-    let path = folder.join(file);
-    let uri = DocumentUri::parse(&format!("file://{}", path.display())).unwrap();
-    let text = std::fs::read_to_string(&path).unwrap();
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    (s, uri, text)
-}
-
-fn position(text: &str, marker: &str) -> Position {
-    let byte = text.find(marker).unwrap();
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
+mod common;
+use common::{at, open_file, project};
 
 const BUILD: &str = "#import \"Basic\";\n#import \"Compiler\";\n#run build();\nbuild :: () {\n    \
     set_build_options_dc(.{do_output = false});\n    w := compiler_create_workspace(\"app\");\n    \
@@ -82,7 +41,7 @@ fn check_via(
         let _ = std::fs::remove_dir_all(&dir);
         return;
     };
-    let (s, uri, text) = open(&editor_dir, "src/main.jai");
+    let (s, uri, text) = open_file(&editor_dir, "src/main.jai");
     let errors: Vec<_> = s
         .diagnostics(&uri)
         .unwrap()
@@ -92,14 +51,14 @@ fn check_via(
         .collect();
     assert_eq!(errors, Vec::<String>::new(), "{name}");
     let hover = s
-        .hover(&uri, position(&text, "answer :="))
+        .hover(&uri, at(&text, "answer :="))
         .unwrap()
         .unwrap_or_else(|| panic!("{name}: no hover"))
         .contents
         .value;
     assert!(hover.contains("answer: s64"), "{name}: {hover}");
     let def = s
-        .definition(&uri, position(&text, "helper(21)"))
+        .definition(&uri, at(&text, "helper(21)"))
         .unwrap_or_else(|e| panic!("{name}: {e:?}"));
     assert!(format!("{def:?}").contains("main.jai"), "{name}: {def:?}");
     let _ = std::fs::remove_dir_all(&dir);

@@ -1,27 +1,12 @@
 //! Original callable fixtures: parameter names come from compiler metadata, not library text.
-use jai_language_server::{
-    CompletionItem, DocumentUri, Environment, Limits, Position, Range, Session, TextChange,
-};
-
-fn session() -> Session {
-    Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(|_| {
-                let mut options = jaic::sema::Options::host();
-                options.runtime_support = false;
-                options.stack_trace = false;
-                options
-            }),
-        },
-    )
-}
+use jai_language_server::{CompletionItem, DocumentUri, Range, Session, TextChange};
+mod common;
+use common::{lean_session, position};
 
 fn complete(source: &str) -> Vec<CompletionItem> {
     let byte = source.find('|').unwrap();
     let text = source.replacen('|', "", 1);
-    let mut session = session();
+    let mut session = lean_session();
     let uri = DocumentUri::parse("file:///named-arguments/main.jai").unwrap();
     session.open(uri.clone(), 1, text.clone()).unwrap();
     session
@@ -112,7 +97,7 @@ fn independent_callback_signatures_do_not_leak_other_parameter_names() {
 
 #[test]
 fn utf16_incremental_edits_recompute_the_callee_without_stale_names() {
-    let mut s = session();
+    let mut s = lean_session();
     let uri = DocumentUri::parse("file:///named-arguments/main.jai").unwrap();
     let mut text = "f :: (first := false) {}\ng :: (other := false) {}\nmain :: () { unicode := \"😀\"; f( ); }".to_owned();
     s.open(uri.clone(), 1, text.clone()).unwrap();
@@ -144,18 +129,6 @@ fn utf16_incremental_edits_recompute_the_callee_without_stale_names() {
         .unwrap();
         text.replace_range(callee..=callee, replacement);
         assert_eq!(get(&s, &text), [expected]);
-    }
-}
-
-fn position(text: &str, byte: usize) -> Position {
-    Position {
-        line: text[..byte].matches('\n').count() as u32,
-        character: text[..byte]
-            .rsplit('\n')
-            .next()
-            .unwrap()
-            .encode_utf16()
-            .count() as u32,
     }
 }
 

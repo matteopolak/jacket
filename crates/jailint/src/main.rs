@@ -26,7 +26,7 @@ options:
   --manifest <file> write JSON source-check coverage and actual target contexts
   --context <file>  check an enclosing program; report only the requested paths
   --checked-files <file> write the actual checked paths, one per line
-  --allow-incomplete  report programs that do not compile on this target without failing the run
+  --allow-incomplete  count programs that do not compile on this target without failing the run
   --add <source>     add source in the program scope (also -add)
   -j <n>              compile n programs at once (default: one per CPU, at most 8)
   --list              list the rules and their default levels
@@ -337,11 +337,22 @@ fn run() -> Result<ExitCode, String> {
     }
     let _ = out.flush();
     drop(out);
-    for (root, error) in &outcome.incomplete {
-        eprintln!(
-            "jailint: {} did not compile completely ({error}); bodies that failed were not linted",
-            shown(&root.to_string_lossy())
-        );
+    // Under --allow-incomplete these are expected (other targets' modules, files only their
+    // module loads), so one count stands in for the list unless -v asks for it.
+    if args.allow_incomplete && !args.verbose {
+        if !outcome.incomplete.is_empty() {
+            eprintln!(
+                "jailint: {} did not compile completely on this target; bodies that failed were not linted (-v lists them)",
+                count(outcome.incomplete.len(), "program"),
+            );
+        }
+    } else {
+        for (root, error) in &outcome.incomplete {
+            eprintln!(
+                "jailint: {} did not compile completely ({error}); bodies that failed were not linted",
+                shown(&root.to_string_lossy())
+            );
+        }
     }
     if args.fix {
         // Fixes that wrap or overlap another are left for the next pass, which lints the

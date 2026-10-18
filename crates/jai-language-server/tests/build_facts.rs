@@ -1,32 +1,10 @@
 //! Project discovery follows what a build metaprogram did when it ran, not a scan of its
 //! text: computed paths, files added in a loop, and import paths built with `tprint` or kept
 //! in a variable are all found, and a metaprogram that fails later leaves the last good facts.
-use jai_language_server::{DiagnosticCode, DocumentUri, Environment, Limits, Position, Session};
+use jai_language_server::{DiagnosticCode, DocumentUri, Limits, Session};
 use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-facts-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
+mod common;
+use common::{at_offset, environment, project};
 
 fn open(s: &mut Session, dir: &Path, file: &str) -> (DocumentUri, String) {
     let path = dir.join(file);
@@ -40,15 +18,6 @@ fn session(dir: &Path) -> Session {
     let mut s = Session::with_environment(Limits::default(), environment());
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     s
-}
-
-fn at(text: &str, marker: &str, offset: usize) -> Position {
-    let byte = text.find(marker).unwrap_or_else(|| panic!("no {marker:?}")) + offset;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
 }
 
 fn check_errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
@@ -79,13 +48,13 @@ const MAIN: &str = "#import \"Basic\";\nhelper :: (x: int) -> int { return x * 2
 fn works(s: &Session, uri: &DocumentUri, text: &str, what: &str) {
     assert_eq!(check_errors(s, uri), Vec::<String>::new(), "{what}");
     let hover = s
-        .hover(uri, at(text, "answer :=", 0))
+        .hover(uri, at_offset(text, "answer :=", 0))
         .unwrap()
         .unwrap_or_else(|| panic!("{what}: no hover"))
         .contents
         .value;
     assert!(hover.contains("answer: s64"), "{what}: {hover}");
-    let def = s.definition(uri, at(text, "helper(21)", 0)).unwrap();
+    let def = s.definition(uri, at_offset(text, "helper(21)", 0)).unwrap();
     assert!(format!("{def:?}").contains("main.jai"), "{what}: {def:?}");
 }
 
@@ -155,7 +124,7 @@ fn files_added_in_a_loop() {
     let (extra, extra_text) = open(&mut s, &dir, "src/extra.jai");
     assert_eq!(check_errors(&s, &extra), Vec::<String>::new());
     let hover = s
-        .hover(&extra, at(&extra_text, "extra_value", 0))
+        .hover(&extra, at_offset(&extra_text, "extra_value", 0))
         .unwrap()
         .expect("hover");
     assert!(hover.contents.value.contains("extra_value"), "{hover:?}");
@@ -200,21 +169,23 @@ fn import_path_added_with_tprint_resolves_imports() {
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     let hover = s
-        .hover(&uri, at(&text, "answer :=", 0))
+        .hover(&uri, at_offset(&text, "answer :=", 0))
         .unwrap()
         .expect("hover")
         .contents
         .value;
     assert!(hover.contains("answer: s64"), "{hover}");
     // Goto on the module string finds the file in the computed folder.
-    let found = s.definition(&uri, at(&text, "\"Tools\"", 2)).unwrap();
+    let found = s
+        .definition(&uri, at_offset(&text, "\"Tools\"", 2))
+        .unwrap();
     assert!(
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"
     );
     // So does completion of module names.
     let labels: Vec<String> = s
-        .completion(&uri, at(&text, "\"Tools\"", 2))
+        .completion(&uri, at_offset(&text, "\"Tools\"", 2))
         .unwrap()
         .items
         .into_iter()
@@ -233,7 +204,9 @@ fn import_path_kept_in_a_variable_resolves_imports() {
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
-    let found = s.definition(&uri, at(&text, "\"Tools\"", 2)).unwrap();
+    let found = s
+        .definition(&uri, at_offset(&text, "\"Tools\"", 2))
+        .unwrap();
     assert!(
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"
@@ -257,14 +230,16 @@ fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
     s.open(build_uri, 2, broken).unwrap();
     // The folder the last good run added is still searched for module names.
     let labels: Vec<String> = s
-        .completion(&uri, at(&text, "\"Tools\"", 2))
+        .completion(&uri, at_offset(&text, "\"Tools\"", 2))
         .unwrap()
         .items
         .into_iter()
         .map(|i| i.label)
         .collect();
     assert!(labels.iter().any(|l| l == "Tools"), "{labels:?}");
-    let found = s.definition(&uri, at(&text, "\"Tools\"", 2)).unwrap();
+    let found = s
+        .definition(&uri, at_offset(&text, "\"Tools\"", 2))
+        .unwrap();
     assert!(
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"

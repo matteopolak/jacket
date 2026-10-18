@@ -6,27 +6,14 @@ use jai_language_server::{
 };
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-
-fn environment(os: jaic::sema::TargetOs) -> Environment {
-    let stdlib = std::env::var_os("JAIC_STDLIB").map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
-        PathBuf::from,
-    );
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |main| {
-            let mut options = jaic::sema::Options::host();
-            options.os = os;
-            let dir = main.parent().map(PathBuf::from).unwrap_or_default();
-            options.import_paths = vec![dir.join("modules"), stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
+mod common;
+use common::{modules_environment, uri_of};
 
 fn session() -> Session {
-    Session::with_environment(Limits::default(), environment(jaic::sema::TargetOs::Linux))
+    Session::with_environment(
+        Limits::default(),
+        modules_environment(Some(jaic::sema::TargetOs::Linux)),
+    )
 }
 
 /// A fresh folder with `files` (path, text) written into it.
@@ -40,10 +27,6 @@ fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
         std::fs::write(path, text).unwrap();
     }
     dir
-}
-
-fn uri_of(path: &Path) -> DocumentUri {
-    DocumentUri::from_path(path).unwrap()
 }
 
 fn end_of(text: &str, marker: &str) -> Position {
@@ -395,7 +378,7 @@ fn only_modules_for_the_target_os() {
     );
     let mut windows = Session::with_environment(
         Limits::default(),
-        environment(jaic::sema::TargetOs::Windows),
+        modules_environment(Some(jaic::sema::TargetOs::Windows)),
     );
     let list = complete_at(&mut windows, path, text, "GetModuleHandl");
     assert_eq!(
@@ -687,8 +670,10 @@ fn notify(session: &mut JsonSession, method: &str, params: Value) {
 
 #[test]
 fn json_protocol_and_settings() {
-    let mut s =
-        JsonSession::with_environment(Limits::default(), environment(jaic::sema::TargetOs::Linux));
+    let mut s = JsonSession::with_environment(
+        Limits::default(),
+        modules_environment(Some(jaic::sema::TargetOs::Linux)),
+    );
     request(
         &mut s,
         1,
@@ -792,7 +777,7 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
             symbols: 2,
             ..Limits::default()
         },
-        environment(jaic::sema::TargetOs::Linux),
+        modules_environment(Some(jaic::sema::TargetOs::Linux)),
     );
     small.set_workspace_folders(vec![dir.clone()]);
     small

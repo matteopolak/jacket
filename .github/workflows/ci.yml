@@ -44,6 +44,7 @@ jobs:
       clipboard: ${{ steps.select.outputs.clipboard }}
       nix: ${{ steps.select.outputs.nix }}
       packaging: ${{ steps.select.outputs.packaging }}
+      shell: ${{ steps.select.outputs.shell }}
       windows: ${{ steps.select.outputs.windows }}
       code: ${{ steps.select.outputs.code }}
     steps:
@@ -195,20 +196,23 @@ jobs:
           node --version
       - uses: ./.github/actions/native-libs-cache
       - name: Build the native helper libraries
+        id: setup
         run: |
           if [ "$RUNNER_OS" = Linux ]; then bash tools/native/ci_native_deps.sh clipboard; fi
           bash tools/native/ci_native_deps.sh developer
+      # Each check runs even when an earlier one failed (once setup has
+      # succeeded), so every failure shows as its own red step and fails the job.
       - name: Format check
         id: format
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just fmt --check --lang rust
       - name: Lint
         id: lint
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just lint --lang rust
       - name: Rust and native execution tests
         id: correctness
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         # The full reference lexer requires the separately supplied sources.
         # Protected-tool rejection remains active without original native files.
         run: |
@@ -216,52 +220,53 @@ jobs:
           cargo test --workspace --no-fail-fast --locked -- --skip lex_entire_reference_without_executing_it --skip every_stdlib_module_checks_for_every_target --skip selectors_take_the_arguments_they_are_sent_with --skip selectors_exist_in_the_objective_c_runtime
       - name: Native tests with every program divided into parts
         id: split-native
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         # JACKET_TEST_CODEGEN_UNITS=4 (the tests start jaic with -codegen_units 4) divides each native build into four codegen units (call-graph parts
         # when optimized), so a code generation bug that only shows across parts fails here
         # (docs/native/llvm-backend.md). Tests about a single module pin one unit themselves.
         run: JACKET_TEST_CODEGEN_UNITS=4 cargo test -p jaic-cli --locked --test native --test optimized_split --test debug_info --test embedded_data
       - name: Stdlib type-checks and Objective-C selectors
         id: stdlib-targets
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         # Every stdlib module with -no_dce for linux, macos, windows and wasm, against
         # tests/compiler/stdlib-targets.txt (docs/tools/testing.md); every Objective-C selector
         # against its arguments and, on macOS, the runtime (docs/tools/testing.md).
         run: cargo test -p jaic-cli --locked --test stdlib_targets --test objc_selectors
       - name: Prepare hash-pinned SDL Python test inputs
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: python3 tools/bindings/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
       # The repository's Jai code must be formatted (settings: jaifmt.toml).
       - name: Jai format check
         id: jai-format
-        continue-on-error: true  # recorded, then enforced by the last step like the other checks
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just fmt --check --lang jai
       # After the Jai format check, which builds the jaifmt binary the generator tests format with.
       - name: Policy tests
         id: policy
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         # tools/run_tests.py discovers each tools/ folder (tools/ has no __init__.py), native_bindings/ and bench/ included.
         run: |
           python3 tools/run_tests.py
       # The checked-in native bindings must be exactly what the reviewed specs generate.
       - name: Generated bindings check
         id: bindings-check
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         working-directory: tools/native_bindings
         run: python3 generate.py --check --formatter ../../target/jaifmt
       # Every other generator must reproduce its checked-in files (docs/tools/tools-layout.md).
       - name: Generated sources check
         id: generated-check
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: python3 tools/generators/check_generated.py --formatter target/jaifmt
       # The repository's Jai code must be lint-free (settings: jailint.toml). An optimized
       # jailint: the debug build needs longer than the job's whole timeout to lint the tree.
       - name: Jai lint
         id: jai-lint
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just lint --lang jai --release
       - name: Backend agreement
         id: backends
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         # The interpreter, -O0 and -O2 native builds must print the same for the corpus and a
         # fixed set of generated programs (docs/tools/testing.md has the full run).
         run: |
@@ -269,7 +274,7 @@ jobs:
           python3 tools/differential/jaic-diff.py --jaic target/debug/jaic --backends interp,native,native-O2 corpus gen:1:40
       - name: WebAssembly target
         id: wasm-target
-        continue-on-error: true
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         # jaifmt compiled to wasm64 must format every golden case exactly like native jaifmt (built
         # by the Jai format check), and WASI modules must behave like the interpreter
         # (docs/native/wasm-target.md).
@@ -281,20 +286,14 @@ jobs:
           node --no-warnings tools/browser/check_jaifmt_wasm.mjs wasi target/jaifmt.wasm target/jaifmt
           python3 tools/differential/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
       - name: Native Linux File_Watcher ownership and notifications
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' }}
         id: file-watcher-native
-        continue-on-error: true
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
           cargo build --locked -p jaic-cli -p jailint
           test -x target/jaifmt
           python3 tools/stdlib/check_file_watcher_platforms.py --compiler target/debug/jaic --linter target/debug/jailint --formatter target/jaifmt --native-runtime
-      - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.bindings-check.outcome == 'failure' || steps.generated-check.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure' || steps.file-watcher-native.outcome == 'failure') }}
-        run: |
-          echo "One or more checks failed; see their original step diagnostics."
-          exit 1
   vscode-extension:
     needs: changes
     if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',vscode-extension,')) && needs.changes.outputs.code == 'true'
@@ -541,6 +540,13 @@ jobs:
         with:
           brew: freetype
           alsa: 'true'
+      - name: Install bubblewrap
+        # The third-party programs run in a sandbox (tools/bench/sandbox.py); Ubuntu 24.04 restricts
+        # the unprivileged user namespaces bubblewrap needs.
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
       - uses: ./.github/actions/native-libs-cache
@@ -560,16 +566,14 @@ jobs:
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/corpus/upstream_smoke.py --jaic target/release/jaic --platform ${{ matrix.platform }}
       - name: Check the x64-only projects
-        # Examples and projects that need an x86-64 host (CPUID, #asm, the Linux Vulkan
-        # configuration of Vk-Engine) are checked or built through the sweep's upstream cases.
+        # Cases restricted to linux-x64 in tools/upstream-cases.json (CPUID, #asm, the Linux Vulkan
+        # configuration of Vk-Engine): selected by tools/corpus/select_upstream_cases.py, run as
+        # sweep cases.
         if: ${{ matrix.platform == 'linux-x64' }}
         run: |
-          python3 tools/fetch_upstreams.py --only Ivo-Balbaert/The_Way_to_Jai ostef/Vk-Engine ostef/Linalg ostef/Jolt-Jai ostef/JoltC danieltan1517/chess-jai
-          rc=0
-          for filter in ttwj-28-28.5- ttwj-28-28.7- ttwj-30-jai-raylib-build chess-jai-ui-check chess-jai-engine-check vk-engine-; do
-            xvfb-run -a python3 -u tools/differential/jaic-sweep.py --jaic target/release/jaic --timeout 600 -v upstream --filter "$filter" || rc=1
-          done
-          exit $rc
+          read -ra repos <<< "$(python3 tools/corpus/select_upstream_cases.py --platform linux-x64 --repos)"
+          python3 tools/fetch_upstreams.py --only "${repos[@]}"
+          xvfb-run -a python3 -u tools/differential/jaic-sweep.py --jaic target/release/jaic --timeout 600 -v upstream --only-platform linux-x64
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
         with:
@@ -744,15 +748,18 @@ jobs:
   # is published from here (release.yml publishes); see docs/tools/releases.md.
   shellcheck:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',shellcheck,')) && (needs.changes.outputs.packaging == 'true')
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',shellcheck,')) && (needs.changes.outputs.shell == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Lint install.sh as POSIX sh
-        run: shellcheck --version && shellcheck -s sh install.sh
+      - name: Lint every shell script
+        # *.sh and files with a sh/bash shebang, as the pre-commit hook picks them.
+        run: |
+          shellcheck --version
+          sh tools/dev/staged-files.sh shell-all | xargs shellcheck
   install-sh:
     needs: changes
     if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',install-sh,')) && (needs.changes.outputs.packaging == 'true')
@@ -782,6 +789,22 @@ jobs:
             # the current installers either.
             if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q '^jacket-'; then
               echo "published=true" >> "$GITHUB_OUTPUT"
+              # The formula is rendered from this checkout's template, so it can install a binary
+              # (such as `jacket`) that the latest release's archive does not ship yet.
+              case "$RUNNER_OS-$RUNNER_ARCH" in
+                Linux-X64) platform=linux-x64 ;; Linux-ARM64) platform=linux-arm64 ;;
+                macOS-X64) platform=macos-x64 ;; macOS-ARM64) platform=macos-arm64 ;;
+              esac
+              gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "jacket-$platform.tar.gz" --dir "$RUNNER_TEMP/latest-release"
+              tar tzf "$RUNNER_TEMP/latest-release/jacket-$platform.tar.gz" > "$RUNNER_TEMP/latest-release/files.txt"
+              if grep -qx "jacket-$platform/jacket" "$RUNNER_TEMP/latest-release/files.txt"; then
+                echo "installable=true" >> "$GITHUB_OUTPUT"
+              else
+                msg="$GITHUB_REPOSITORY release $tag has no jacket binary, which the formula template installs, so the formula install and test are skipped until the next release."
+                echo "::notice title=Release older than the formula::$msg"
+                echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+                echo "installable=false" >> "$GITHUB_OUTPUT"
+              fi
             else
               msg="$GITHUB_REPOSITORY release $tag predates the jacket-<platform> archives, so the steps that install a published release are skipped; the locally built archive steps still run."
               echo "::notice title=No installable release::$msg"
@@ -1087,7 +1110,7 @@ jobs:
           brew audit --formula --strict jaiall/local/jacket
           brew untap jaiall/local
       - name: Install the formula from a local tap and run its test
-        if: steps.released.outputs.published == 'true'
+        if: steps.released.outputs.installable == 'true'
         run: |
           if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
           brew --version
@@ -1484,13 +1507,12 @@ jobs:
       - name: Build and run the projects
         run: python -u tools/corpus/upstream_smoke.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --platform windows-x64 --dlls "$RUNNER_TEMP/mesa"
       - name: Check the x64-only projects
+        # Cases restricted to windows-x64 in tools/upstream-cases.json, selected by
+        # tools/corpus/select_upstream_cases.py.
         run: |
-          python tools/fetch_upstreams.py --only Ivo-Balbaert/The_Way_to_Jai danieltan1517/chess-jai
-          rc=0
-          for filter in ttwj-28-28.5- ttwj-28-28.7- ttwj-30-jai-raylib-build chess-jai-ui-check chess-jai-engine-check; do
-            python -u tools/differential/jaic-sweep.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --timeout 600 -v upstream --filter "$filter" || rc=1
-          done
-          exit $rc
+          read -ra repos <<< "$(python tools/corpus/select_upstream_cases.py --platform windows-x64 --repos)"
+          python tools/fetch_upstreams.py --only "${repos[@]}"
+          python -u tools/differential/jaic-sweep.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --timeout 600 -v upstream --only-platform windows-x64
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
         with:

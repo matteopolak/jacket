@@ -21,6 +21,6 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 ## Behavioral contract and constraints
 
-The visitor traverses selected syntax-tree nodes: procedure nodes include their arguments, while headers do not descend into bodies. It intentionally omits ancillary structures such as overload records, parent links, and members, as described by the source. Callers should not treat it as a complete compiler AST walk.
+The visitor traverses selected syntax-tree nodes: procedure nodes include their arguments, while headers do not descend into bodies. It intentionally omits ancillary structures such as overload records, parent links, and members Callers should not treat it as a complete compiler AST walk.
 
 For each yielded node, the macro evaluates the supplied `Code` with two caller-scope bindings: `it: *Code_Node` is the current node, and `preorder: bool` is `true` for the pre-order event and `false` for the post-order event. The same node is therefore presented twice when it has both events; code that declares conflicting caller-scope names may collide with these bindings.

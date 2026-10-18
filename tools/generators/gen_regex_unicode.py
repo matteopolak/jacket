@@ -8,12 +8,11 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import io
-import os
 from pathlib import Path
 import sys
 import unicodedata
-import urllib.request
 import zipfile
+from toolkit.download import pinned
 from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 
@@ -49,32 +48,19 @@ class Source:
         return self.archive.read(name).decode("utf-8")
 
 
-def cache_path():
-    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
-    return Path(base) / "jaic" / f"ucd-{UCD_VERSION}.zip"
-
-
-def verified_zip(path):
-    digest = sha256_file(path)
-    if digest != UCD_SHA256:
-        raise SystemExit(f"{path}: SHA-256 {digest} does not match the pinned {UCD_SHA256}")
-    return zipfile.ZipFile(io.BytesIO(path.read_bytes()))
-
-
 def open_source(args):
     if args.ucd:
         return Source(directory=Path(args.ucd))
-    path = Path(args.zip) if args.zip else cache_path()
-    if not path.exists():
-        if args.zip:
+    if args.zip:
+        path = Path(args.zip)
+        if not path.exists():
             raise SystemExit(f"{path}: no such file")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        print(f"downloading {UCD_URL}", file=sys.stderr)
-        partial = path.with_suffix(".part")
-        with urllib.request.urlopen(UCD_URL, timeout=120) as response:
-            partial.write_bytes(response.read())
-        partial.replace(path)
-    return Source(archive=verified_zip(path))
+        digest = sha256_file(path)
+        if digest != UCD_SHA256:
+            raise SystemExit(f"{path}: SHA-256 {digest} does not match the pinned {UCD_SHA256}")
+    else:
+        path = pinned(UCD_URL, UCD_SHA256, f"ucd-{UCD_VERSION}.zip")
+    return Source(archive=zipfile.ZipFile(io.BytesIO(path.read_bytes())))
 
 
 def data_lines(text):

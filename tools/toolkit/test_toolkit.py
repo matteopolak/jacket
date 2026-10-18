@@ -11,6 +11,7 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
+from toolkit import download
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.process import run_expect
 from toolkit.repo import ROOT, cargo_target_dir, stdlib_env
@@ -82,6 +83,43 @@ class RunExpect(unittest.TestCase):
                 cwd=tmp,
             )
             self.assertTrue(result.stdout.startswith("v "))
+
+
+
+class PinnedDownloadTests(unittest.TestCase):
+    DATA = b"pinned bytes"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        patcher = mock.patch.dict(os.environ, {"XDG_CACHE_HOME": self.tmp.name})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_downloads_once_then_reads_the_cache(self):
+        with mock.patch.object(download, "_fetch", return_value=self.DATA) as fetch:
+            first = download.pinned("https://example.invalid/f", sha256_bytes(self.DATA), "f.bin")
+            second = download.pinned("https://example.invalid/f", sha256_bytes(self.DATA), "f.bin")
+        self.assertEqual(fetch.call_count, 1)
+        self.assertEqual(first, second)
+        self.assertEqual(first.read_bytes(), self.DATA)
+
+    def test_wrong_digest_exits_and_drops_the_file(self):
+        with mock.patch.object(download, "_fetch", return_value=self.DATA):
+            with self.assertRaises(SystemExit):
+                download.pinned("https://example.invalid/f", "0" * 64, "f.bin")
+        self.assertFalse((download.cache_dir() / "f.bin").exists())
+
+    def test_rate_limit_is_retried(self):
+        import urllib.error
+
+        busy = urllib.error.HTTPError("https://example.invalid/f", 429, "busy", {"Retry-After": "1"}, None)
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = self.DATA
+        with mock.patch("urllib.request.urlopen", side_effect=[busy, response]), mock.patch("time.sleep") as sleep:
+            path = download.pinned("https://example.invalid/f", sha256_bytes(self.DATA), "f.bin")
+        sleep.assert_called_once_with(1)
+        self.assertEqual(path.read_bytes(), self.DATA)
 
 
 if __name__ == "__main__":

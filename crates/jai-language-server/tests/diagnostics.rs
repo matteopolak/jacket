@@ -1,27 +1,7 @@
 //! Several type-checker errors per document, and pull diagnostics.
-use jai_language_server::{DiagnosticCode, DocumentUri, Environment, JsonSession, Limits, Session};
-use std::path::PathBuf;
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn session() -> Session {
-    Session::with_environment(Limits::default(), environment())
-}
-
-fn uri() -> DocumentUri {
-    DocumentUri::parse("file:///lsp-diagnostics-test/main.jai").unwrap()
-}
+use jai_language_server::{DiagnosticCode, JsonSession, Limits, Session};
+mod common;
+use common::{environment, session, uri};
 
 const TWO_BODIES: &str = r#"#import "Basic";
 first :: () { x: int = "hello"; }

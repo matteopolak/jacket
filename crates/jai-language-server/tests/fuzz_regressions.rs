@@ -1,7 +1,8 @@
 //! Minimized crashes found by the `lsp` and `lsp_edits` fuzz targets (fuzz/). Each request must
 //! answer or fail with an error, never panic.
-use jai_language_server::{DocumentUri, Environment, Limits, Position, Session};
-use std::path::PathBuf;
+use jai_language_server::{DocumentUri, Limits, Position, Session};
+mod common;
+use common::session;
 
 fn open(text: &str) -> (Session, DocumentUri) {
     open_in(Session::new(Limits::default()), text)
@@ -9,20 +10,7 @@ fn open(text: &str) -> (Session, DocumentUri) {
 
 /// [`open`] in a session that type-checks against the repository's stdlib.
 fn open_checked(text: &str) -> (Session, DocumentUri) {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    let environment = Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    };
-    open_in(
-        Session::with_environment(Limits::default(), environment),
-        text,
-    )
+    open_in(session(), text)
 }
 
 fn open_in(mut session: Session, text: &str) -> (Session, DocumentUri) {

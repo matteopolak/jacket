@@ -4,10 +4,12 @@
 #   Jai   jaifmt --check, jailint -D warnings
 #   Rust  rustfmt --check (pinned nightly, rustfmt.toml), tools/dev/rust_item_spacing.py --check
 #
-# Enable with `git config core.hooksPath .githooks`. Skip once with `git commit --no-verify`.
+#   Shell shellcheck on staged *.sh and sh/bash-shebang files (skipped when shellcheck is not installed)
 #   Repo  CI's style and path checks (tools/ci/check_*.py), Cargo.lock freshness, VS Code generated files
 #
-# Environment: JAI_HOOK_SKIP="jaifmt jailint rustfmt spacing repo locks editor" skips those checks,
+# Enable with `git config core.hooksPath .githooks`. Skip once with `git commit --no-verify`.
+#
+# Environment: JAI_HOOK_SKIP="jaifmt jailint rustfmt spacing shellcheck repo locks editor" skips those checks,
 # JAI_HOOK_NO_BUILD=1 never rebuilds a stale tool, JAI_HOOK_VERBOSE=1 prints what runs.
 
 root=$(git rev-parse --show-toplevel) || exit 0
@@ -25,6 +27,7 @@ warn() { echo "pre-commit: warning: $*" >&2; }
 # workspace only, as CI runs `cargo fmt --all`). The same script backs `just fmt|lint --staged`.
 jai_list=$(sh "$root/tools/dev/staged-files.sh" jai)
 rs_list=$(sh "$root/tools/dev/staged-files.sh" rust)
+sh_list=$(sh "$root/tools/dev/staged-files.sh" shell)
 all_list=$(git -c core.quotepath=off diff --cached --name-only --diff-filter=ACMR)
 [ -n "$all_list" ] || exit 0
 staged_matches() { printf '%s\n' "$all_list" | grep -q -e "$@"; }
@@ -32,7 +35,7 @@ staged_matches() { printf '%s\n' "$all_list" | grep -q -e "$@"; }
 # Check what will be committed, not what is in the working tree: export the staged blobs.
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/jai-pre-commit.XXXXXX") || exit 0
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
-printf '%s\n' "$jai_list" "$rs_list" | grep . | tr '\n' '\0' |
+printf '%s\n' "$jai_list" "$rs_list" "$sh_list" | grep . | tr '\n' '\0' |
     git checkout-index --prefix="$tmp/" -z --stdin || {
     warn "could not export the staged files; skipping the checks"
     exit 0
@@ -72,11 +75,15 @@ find_jaifmt() {
         # The newer of the release and debug builds: a stale one may not compile the current jaifmt.
         jaic=$(exe "$root/target/release/jaic") || jaic=""
         debug=$(exe "$root/target/debug/jaic") || debug=""
-        if [ -n "$debug" ] && { [ -z "$jaic" ] || [ "$debug" -nt "$jaic" ]; }; then jaic=$debug; fi
+        if [ -n "$debug" ] && { [ -z "$jaic" ] || [ -n "$(find "$debug" -newer "$jaic")" ]; }; then jaic=$debug; fi
         if [ -n "$jaic" ] && { [ -z "$bin" ] || stale "$bin" jaifmt stdlib/Extensions/Jai_Format stdlib/Extensions/Args; }; then
             say "rebuilding jaifmt"
-            "$jaic" jaifmt/main.jai -O2 -exe "$root/target/jaifmt" >/dev/null 2>&1 &&
-                bin=$(exe "$root/target/jaifmt") || warn "could not rebuild jaifmt; using the existing one"
+            if "$jaic" jaifmt/main.jai -O2 -exe "$root/target/jaifmt" >/dev/null 2>&1 &&
+                built=$(exe "$root/target/jaifmt"); then
+                bin=$built
+            else
+                warn "could not rebuild jaifmt; using the existing one"
+            fi
         fi
     fi
     [ -n "$bin" ] || bin=$(command -v jaifmt) || bin=""
@@ -191,6 +198,24 @@ EOF
             printf '%s\n' "$out" | sed "s|$tmp/||" >&2
             failed=1
             add_fix "python3 tools/dev/rust_item_spacing.py <files>"
+        fi
+    fi
+fi
+
+# --- Shell ----------------------------------------------------------------------------------
+if [ -n "$sh_list" ] && ! skipped shellcheck; then
+    if ! command -v shellcheck >/dev/null 2>&1; then
+        warn "shellcheck not found; skipping the shell lint check"
+    else
+        say "shellcheck"
+        # The staged copies, so the findings are about what will be committed.
+        if ! out=$(cd "$tmp" && with_list shellcheck <<EOF
+$sh_list
+EOF
+        ); then
+            printf '%s\n' "$out" >&2
+            failed=1
+            add_fix "shellcheck <files>"
         fi
     fi
 fi

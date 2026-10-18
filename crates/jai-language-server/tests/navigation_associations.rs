@@ -2,6 +2,8 @@
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session, TextChange};
 use jaic::sema::{Options, VirtualFs};
 use std::rc::Rc;
+mod common;
+use common::position;
 
 fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
     let uri = DocumentUri::parse("file:///navigation-associations/main.jai").unwrap();
@@ -21,7 +23,7 @@ fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
     for version in 1..=3 {
         if version > 1 {
             let suffix = "\n// 😀 UTF-16 edit\nunrelated :: (";
-            let end = position(source);
+            let end = position(source, source.len());
             let (range, text) = if version == 2 {
                 (
                     Range {
@@ -34,7 +36,10 @@ fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
                 (
                     Range {
                         start: end,
-                        end: position(&format!("{source}{suffix}")),
+                        end: {
+                            let grown = format!("{source}{suffix}");
+                            position(&grown, grown.len())
+                        },
                     },
                     String::new(),
                 )
@@ -98,19 +103,12 @@ fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
     }
 }
 
-fn position(prefix: &str) -> Position {
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-    }
-}
-
 fn check_names(source: &str, targets: &[(&str, &str)]) {
     let targets: Vec<_> = targets
         .iter()
         .map(|&(usage, declaration)| {
-            let at = position(&source[..source.find(usage).unwrap()]);
-            let target = position(&source[..source.find(declaration).unwrap()]);
+            let at = position(source, source.find(usage).unwrap());
+            let target = position(source, source.find(declaration).unwrap());
             (at.line, at.character, target.line, target.character)
         })
         .collect();

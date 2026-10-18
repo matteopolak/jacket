@@ -87,4 +87,4 @@ stbi_io_callbacks :: struct {
 ```
 ## Contracts and constraints
 
-This module generates bindings to stb_image for decoding image files or memory into pixel buffers. Returned decoded buffers are library-owned and must be released with the matching `stbi_image_free`; source data remains caller-owned. Requested channel count can differ from encoded channels, while dimensions/channel output pointers report decoded shape. Supported formats and failure behavior follow the bundled upstream version; build flags and platform support are controlled by the binding generator and native build setup.
+This module generates bindings to stb_image for decoding image files or memory into pixel buffers. Returned decoded buffers are library-owned and must be released with the matching `stbi_image_free`; source data remains caller-owned. Requested channel count can differ from encoded channels, while dimensions/channel output pointers report decoded shape. Supported formats and failure behavior follow the underlying library version; build flags and platform support are controlled by the binding generator and native build setup.

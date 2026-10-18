@@ -1,50 +1,9 @@
 //! The name after `for :` in `for :utf8_iter LYRICS { ... }` is a `for_expansion` macro: it
 //! navigates, hovers, is found by references and renamed, and is highlighted like a macro.
-use jai_language_server::{DocumentUri, Environment, Limits, Position, SemanticTokenKind, Session};
-use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-forexp-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
-
-fn open(dir: &Path, file: &str) -> (Session, DocumentUri, String) {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.set_workspace_folders(vec![dir.to_path_buf()]);
-    let path = dir.join(file);
-    let text = std::fs::read_to_string(&path).unwrap();
-    let uri = DocumentUri::from_path(&path).unwrap();
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    (s, uri, text)
-}
-
-fn at(text: &str, marker: &str, offset: usize) -> Position {
-    let byte = text.find(marker).unwrap_or_else(|| panic!("no {marker:?}")) + offset;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
+use jai_language_server::SemanticTokenKind;
+use std::path::Path;
+mod common;
+use common::{at_offset, open_file, project};
 
 const ITER: &str = "utf8_iter :: (s: string, body: Code, flags: For_Flags) #expand {\n    \
     for i: 0..s.count - 1 {\n        `it := s[i];\n        `it_index := i;\n        #insert body;\n    }\n}\n";
@@ -58,7 +17,7 @@ fn same_file(text: &str) -> String {
 }
 
 fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
-    let (s, uri, text) = open(dir, file);
+    let (s, uri, text) = open_file(dir, file);
     let diagnostics = s.diagnostics(&uri).unwrap();
     assert!(
         diagnostics
@@ -68,7 +27,7 @@ fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
     );
     // The name follows `for :`.
     let skip = 5;
-    let on = at(&text, name_marker, skip + 2);
+    let on = at_offset(&text, name_marker, skip + 2);
     let found = s.definition(&uri, on).unwrap();
     assert!(
         found.len() == 1 && found[0].uri.ends_with(decl_file),
@@ -92,7 +51,7 @@ fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
     assert_eq!(total, 3, "{edits:?}");
     // Semantic tokens: a function with the macro flag.
     let tokens = s.semantic_tokens(&uri).unwrap();
-    let want = at(&text, name_marker, skip);
+    let want = at_offset(&text, name_marker, skip);
     let token = tokens
         .iter()
         .find(|t| t.position == want)

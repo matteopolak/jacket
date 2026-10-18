@@ -13,6 +13,7 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
+import dataclasses
 from decimal import Decimal
 import json
 import os
@@ -29,16 +30,30 @@ import urllib.request
 from pathlib import Path
 
 from stdlib.case_capabilities import user_deferred_reason
+import corpus.upstream_sandbox as usb
 from repo_output import host_platform
 from toolkit.repo import ROOT
 
 UPSTREAM = ROOT / "corpus/upstream"
 CHECKS = ROOT / "tools/corpus/upstream-smoke.json"
 WINDOWS = sys.platform == "win32"
+STDLIB = ROOT / "stdlib"  # replaced by $JAIC_STDLIB in main()
 
 
 class Failure(Exception):
     pass
+
+
+def confined(ctx, argv, env, loopback=False):
+    """The command and environment to run an upstream program under: inside the check's sandbox
+    (no network, writes only to its working copy) unless the run is unconfined. `loopback` lets a
+    server and its client talk; X11 on Linux needs it for the display socket."""
+    box = ctx.get("box")
+    if box is None:
+        return argv, env
+    if loopback != box.loopback:
+        box = dataclasses.replace(box, loopback=loopback)
+    return usb.confine(box, ctx["work"] / ".scratch", argv, env)
 
 
 def tail(text, lines=25):
@@ -110,6 +125,7 @@ def check_output(text, step, label):
 def run_step(step, ctx):
     argv = expand(step["argv"], ctx)
     env = {**ctx["env"], **step.get("env", {})}
+    argv, env = confined(ctx, argv, env)
     try:
         done = subprocess.run(
             argv,
@@ -299,6 +315,7 @@ def gui_step(step, ctx):
         capture(shots / f"{ctx['id']}-before") if step.get("screenshot", True) else None
     )
     base = before() if before else None
+    argv, env = confined(ctx, argv, env, loopback=sys.platform.startswith("linux"))
     with open(log, "wb") as out:
         proc = subprocess.Popen(
             argv,
@@ -352,11 +369,14 @@ def serve_step(step, ctx):
     port = step.get("port") or free_port()
     argv = [a.replace("{port}", str(port)) for a in expand(step["argv"], ctx)]
     log = ctx["work"] / "serve.log"
+    argv, env = confined(
+        ctx, argv, {**ctx["env"], **step.get("env", {})}, loopback=True
+    )
     with open(log, "wb") as out:
         proc = subprocess.Popen(
             argv,
             cwd=ctx["cwd"],
-            env={**ctx["env"], **step.get("env", {})},
+            env=env,
             stdin=subprocess.DEVNULL,
             stdout=out,
             stderr=subprocess.STDOUT,
@@ -406,10 +426,11 @@ def lsp_step(step, ctx):
     def frame(s):
         return f"Content-Length: {len(s.encode())}\r\n\r\n{s}".encode()
 
+    argv, env = confined(ctx, argv, ctx["env"])
     proc = subprocess.Popen(
         argv,
         cwd=ctx["cwd"],
-        env=ctx["env"],
+        env=env,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -509,7 +530,22 @@ def run_check(check, args, plat, shots):
             "shots": shots,
             "id": check["id"],
             "dlls": args.dlls,
+            "box": None,
         }
+        if args.confine:
+            (work / ".scratch").mkdir()
+            extra = [Path(args.dlls[0]).parent] if args.dlls else []
+            if sys.platform.startswith("linux"):
+                extra += [p for p in (Path("/tmp/.X11-unix"),) if p.exists()]
+                if os.environ.get("XAUTHORITY"):
+                    extra.append(Path(os.environ["XAUTHORITY"]))
+            ctx["box"] = usb.make_sandbox(
+                [
+                    *usb.jaic_reads(ctx["jaic"], STDLIB, UPSTREAM, env),
+                    *extra,
+                ],
+                [work],
+            )
         for index, step in enumerate(check["steps"]):
             kind = step.get("kind", "run")
             if "only" in step and plat not in step["only"]:
@@ -572,6 +608,7 @@ def run_check(check, args, plat, shots):
 
 
 def main():
+    global STDLIB
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--jaic", required=True)
     ap.add_argument("--platform", default=host_platform())
@@ -592,6 +629,12 @@ def main():
         "--dlls",
         default=None,
         help="a directory of DLLs (Mesa's opengl32.dll) copied beside windowed programs",
+    )
+    ap.add_argument(
+        "--no-sandbox",
+        action="store_true",
+        help="run the upstream programs unconfined (they are unreviewed third-party code; "
+        "outside CI this must be asked for)",
     )
     ap.add_argument("--list", action="store_true")
     ap.add_argument(
@@ -633,6 +676,10 @@ def main():
         return 0
     if args.platform != host_platform():
         ap.error("third-party native execution requires the actual host platform")
+    try:
+        args.confine = usb.policy(args.no_sandbox)
+    except usb.Unsandboxed as e:
+        ap.error(str(e))
     if not os.environ.get("JAIC_NATIVE_LIBS") and sys.platform in (
         "darwin",
         "linux",
@@ -663,6 +710,10 @@ def main():
     if not native_paths:
         raise Failure("normal native library search path is empty")
     stdlib = Path(os.environ.get("JAIC_STDLIB", ROOT / "stdlib")).resolve(strict=True)
+    STDLIB = stdlib
+    if args.confine:
+        # Absolute: the default lookup goes through `crates/jaic/..`, which a sandbox does not mount.
+        os.environ["JAIC_STDLIB"] = str(stdlib)
     preparation = prepare_native_dependencies(
         args.platform, native_paths[0], stdlib, ROOT
     )

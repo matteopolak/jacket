@@ -1,29 +1,8 @@
 //! Doc comments: hover, completion, signature help and intra-doc links, against the
 //! repository's stdlib.
-use jai_language_server::{
-    CompletionKind, DocumentUri, Environment, Limits, MarkupKind, Position, Session, TextChange,
-};
-use std::path::PathBuf;
-
-fn session() -> Session {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = jaic::sema::Options::host();
-                options.import_paths = vec![stdlib.clone()];
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options
-            }),
-        },
-    )
-}
-
-fn uri() -> DocumentUri {
-    DocumentUri::parse("file:///lsp-doc-test/main.jai").unwrap()
-}
+use jai_language_server::{CompletionKind, DocumentUri, MarkupKind, Position, Session, TextChange};
+mod common;
+use common::{session, uri};
 
 /// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` characters.
 fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
@@ -296,7 +275,7 @@ fn stdlib_declarations_show_their_docs() {
 fn imported_declarations_show_their_authored_docs() {
     // Public signatures do not prescribe library prose or private source layout.
     let mut s = session();
-    let imported = DocumentUri::parse("file:///lsp-doc-test/documented.jai").unwrap();
+    let imported = DocumentUri::parse("file:///lsp-test/documented.jai").unwrap();
     s.open(imported, 1, "/// Visible docs across imports.\n/// ```jai\n/// M.exposed(7);\n/// ```\n/// - value: the fixture input\nexposed :: (value: int) {}".into()).unwrap();
     let text = "M :: #import,file \"documented.jai\";\nmain :: () { M.exposed(7); }";
     s.open(uri(), 1, text.into()).unwrap();
@@ -324,14 +303,12 @@ fn links_in_docs_become_markdown_links() {
     let hover = markdown_hover(&s, after(PROGRAM, "scale(point", 0, 7));
     let point = line_of(PROGRAM, "Point :: struct");
     assert!(
-        hover.contains(&format!("[Point](file:///lsp-doc-test/main.jai#L{point})")),
+        hover.contains(&format!("[Point](file:///lsp-test/main.jai#L{point})")),
         "{hover}"
     );
     let idle = line_of(PROGRAM, "IDLE;");
     assert!(
-        hover.contains(&format!(
-            "[`Mode.IDLE`](file:///lsp-doc-test/main.jai#L{idle})"
-        )),
+        hover.contains(&format!("[`Mode.IDLE`](file:///lsp-test/main.jai#L{idle})")),
         "{hover}"
     );
     let field = markdown_hover(&s, after(PROGRAM, "p.y *", 0, 2));
@@ -374,7 +351,7 @@ fn definition_hover_and_document_links_work_inside_comments() {
     let links = s.document_links(&uri()).unwrap();
     let targets: Vec<&str> = links.iter().map(|(_, t)| t.as_str()).collect();
     let point = format!(
-        "file:///lsp-doc-test/main.jai#L{}",
+        "file:///lsp-test/main.jai#L{}",
         line_of(PROGRAM, "Point :: struct")
     );
     assert!(targets.contains(&point.as_str()), "{targets:?}");
@@ -522,7 +499,7 @@ fn struct_constant_links_are_document_links_hovers_and_tokens() {
         .collect();
     for marker in ["SIDES ::", "area ::", "Inner ::", "DEPTH ::"] {
         let want = format!(
-            "file:///lsp-doc-test/main.jai#L{}",
+            "file:///lsp-test/main.jai#L{}",
             line_of(STRUCT_MEMBERS, marker)
         );
         assert!(targets.contains(&want.as_str()), "{marker}: {targets:?}");
@@ -684,7 +661,7 @@ fn signature_help_of_an_open_call_has_docs_and_links() {
     let docs = help.signatures[0].documentation.as_deref().unwrap();
     let line = line_of(&text, "divide ::");
     assert!(
-        docs.contains(&format!("[divide](file:///lsp-doc-test/main.jai#L{line})")),
+        docs.contains(&format!("[divide](file:///lsp-test/main.jai#L{line})")),
         "{docs}"
     );
 }
@@ -720,7 +697,7 @@ fn completion_docs_carry_links_eagerly_and_when_resolved() {
         .unwrap();
     let item = list.items.iter().find(|i| i.label == "hail").unwrap();
     let link = format!(
-        "[divide](file:///lsp-doc-test/main.jai#L{})",
+        "[divide](file:///lsp-test/main.jai#L{})",
         line_of(&text, "divide ::")
     );
     let eager = item.documentation.as_deref().unwrap();

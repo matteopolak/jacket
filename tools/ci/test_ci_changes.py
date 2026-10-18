@@ -16,6 +16,13 @@ class Matching(unittest.TestCase):
         self.assertFalse(ci_changes.matches(sdl3, [".github/workflows/ci.yml"], False))
         self.assertFalse(ci_changes.matches(sdl3, ["tools/native/native-libs.json"], False))
 
+    def test_shell_scripts_run_shellcheck(self):
+        shell = ci_changes.AREAS["shell"]
+        self.assertTrue(ci_changes.matches(shell, ["install.sh"]))
+        self.assertTrue(ci_changes.matches(shell, ["tools/ci/windows-llvm/prepare.sh"]))
+        self.assertTrue(ci_changes.matches(shell, [".githooks/pre-commit"]))
+        self.assertFalse(ci_changes.matches(shell, ["stdlib/Basic/module.jai"]))
+
     def test_docs_only_changes_skip_code(self):
         self.assertFalse(ci_changes.code_changed(["docs/tools/cli.md", "README.md", "docs/images/a.png"]))
         self.assertTrue(ci_changes.code_changed(["docs/tools/cli.md", "tools/ci/ci_changes.py"]))

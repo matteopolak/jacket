@@ -8,7 +8,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `SIMD_Array :: struct (count: s64, type: Type)`
 - `Simd_128 :: union`
 - `set :: ($N: s64, factor: $T) -> SIMD_Array(N, T) #no_abc #no_aoc`
-- `load :: (base: *void, $N: int, $F: Type) -> SIMD_Array(N, F) #no_abc #no_aoc` (the source declaration omits the result clause, but returns the constructed vector)
+- `load :: (base: *void, $N: int, $F: Type) -> SIMD_Array(N, F) #no_abc #no_aoc` (returns the constructed vector)
 - `load_from_offsets :: (base: *void, offsets: $O/SIMD_Array, $F: Type) -> SIMD_Array(offsets.count, F) #no_abc #no_aoc`
 - `store :: (base: *void, a: $T/SIMD_Array) #no_abc #no_aoc`
 - `store_with_offsets :: (a: $T/SIMD_Array, base: *void, offsets: $O/SIMD_Array) #no_abc #no_aoc`
@@ -72,7 +72,7 @@ Simd_128 :: union  {
 ```
 ## Behavioral contract
 
-`SIMD_Array(N, T)` is a value with `N` lanes of `T`; operations allocate no storage. `set` fills every lane with its scalar argument. `load(base, N, F)` copies `N` consecutive `F` values beginning at `base` into and returns a vector in increasing-address lane order. Although the source declaration omits a return clause, its body returns that vector; treating it as a no-result procedure loses its observable result. `store(base, a)` copies all of `a`'s lanes contiguously in lane order. These contiguous operations use byte copying and establish no stronger alignment precondition.
+`SIMD_Array(N, T)` is a value with `N` lanes of `T`; operations allocate no storage. `set` fills every lane with its scalar argument. `load(base, N, F)` copies `N` consecutive `F` values beginning at `base` into and returns a vector in increasing-address lane order. It returns that vector; ignoring the result discards the loaded value. `store(base, a)` copies all of `a`'s lanes contiguously in lane order. These contiguous operations use byte copying and establish no stronger alignment precondition.
 
 `load_from_offsets(base, offsets, F)` requires integer offset lanes and reads an `F` at each byte address `base + offsets[i]`; it returns those values in corresponding lane order. `store_with_offsets(a, base, offsets)` is intended to write each input lane to `base + offsets[i]`; offsets are byte displacements, not element indexes. Repeated gather offsets therefore repeat a value in result lanes. Repeated scatter destinations are processed in lane order, so later lanes overwrite earlier ones. The module does not validate offset type beyond its stated integer expectation, bounds, pointer validity, or alignment. However, the current source body reads from an uninitialized local result instead of the `a` parameter. Its actual scattered lane values are therefore not a defined usable contract; the intended input-to-destination mapping above follows the declared parameters, but this source defect must remain visible to implementers.
 

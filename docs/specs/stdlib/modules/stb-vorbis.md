@@ -141,4 +141,4 @@ stb_vorbis_info :: struct {
 ```
 ## Contracts and constraints
 
-This module generates bindings to stb_vorbis for decoding Ogg Vorbis streams. Decoder handles and returned samples have library-defined lifetimes and must be closed/freed with matching API calls; sample counts and channel layout are part of each decode result. It is a decoder binding, not an audio device/player. Supported stream forms and error behavior follow the bundled upstream version and target-specific generated build.
+This module generates bindings to stb_vorbis for decoding Ogg Vorbis streams. Decoder handles and returned samples have library-defined lifetimes and must be closed/freed with matching API calls; sample counts and channel layout are part of each decode result. It is a decoder binding, not an audio device/player. Supported stream forms and error behavior follow the underlying library version and target-specific generated build.

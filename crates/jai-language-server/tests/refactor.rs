@@ -1,39 +1,8 @@
 //! Refactoring code actions: extract, inline, fill in cases and fields, `ifx` rewrites.
-use jai_language_server::{
-    CodeAction, DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Range, Session,
-};
+use jai_language_server::{CodeAction, DiagnosticSeverity, Position, Range};
 use std::path::PathBuf;
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn uri() -> DocumentUri {
-    DocumentUri::parse("file:///lsp-refactor-test/main.jai").unwrap()
-}
-
-fn open(text: &str) -> Session {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.open(uri(), 1, text.into()).unwrap();
-    s
-}
-
-fn position(text: &str, byte: usize) -> Position {
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
+mod common;
+use common::{open, position, uri};
 
 /// The range of the first occurrence of `marker`.
 fn select(text: &str, marker: &str) -> Range {

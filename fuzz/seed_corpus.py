@@ -6,6 +6,7 @@ instead of storing megabytes in git. Minimize afterwards with `cargo fuzz cmin <
 
     python3 fuzz/seed_corpus.py            # all targets
     python3 fuzz/seed_corpus.py check lsp  # some targets
+    python3 fuzz/seed_corpus.py --matrix   # the target list (fuzz/targets.json) as workflow matrix JSON
 """
 import hashlib
 import json
@@ -23,21 +24,15 @@ PROGRAMS = ["tests/compiler/regressions", "stdlib/**/tests", "tests/corpus/posit
 # Source text only: modules are parsed, never compiled as a main file.
 SOURCES = PROGRAMS + ["stdlib"]
 
-# Per target: the trees to draw from and the largest file worth keeping. Compiling targets get
-# small files so libFuzzer's mutations stay fast; the lexer and parser take larger ones.
-TARGETS = {
-    "lexer": (SOURCES, 32 << 10),
-    "parser": (SOURCES, 32 << 10),
-    "check": (PROGRAMS, 8 << 10),
-    "interp": (PROGRAMS, 8 << 10),
-    "lsp": (PROGRAMS, 4 << 10),
-    "lsp_json": (PROGRAMS, 2 << 10),
-    "lsp_edits": (PROGRAMS, 4 << 10),
-    "lsp_typing": (PROGRAMS, 2 << 10),
-    # Formatter input: any source, and the third-party corpus when it is checked out, since nobody
-    # formatted it with jaifmt (the repository's own files are formatted already).
-    "jaifmt": (SOURCES + ["corpus/upstream"], 8 << 10),
-}
+# Seed trees by the group names fuzz/targets.json uses. The third-party corpus is read for the
+# formatter only, since nobody formatted it with jaifmt (the repository's own files are formatted
+# already). The target list, input sizes and seed limits live in that manifest; compiling targets
+# get small files so libFuzzer's mutations stay fast, the lexer and parser take larger ones.
+TREES = {"programs": PROGRAMS, "sources": SOURCES, "sources+upstream": SOURCES + ["corpus/upstream"]}
+
+
+def load_targets():
+    return json.loads((FUZZ / "targets.json").read_text())
 
 
 def jai_files(trees, limit):
@@ -75,9 +70,25 @@ def lsp_session(text):
 
 
 def main():
-    targets = sys.argv[1:] or list(TARGETS)
-    for target in targets:
-        trees, limit = TARGETS[target]
+    manifest = load_targets()
+    args = sys.argv[1:]
+    if args == ["--matrix"]:
+        # The workflow's matrix: {"target": [...]}.
+        print(json.dumps({"target": list(manifest)}))
+        return
+    if args[:1] == ["--settings"]:
+        # `max_len timeout` of one target, for fuzz/run.sh.
+        entry = manifest.get(args[1])
+        if entry is None:
+            raise SystemExit(f"unknown target {args[1]}")
+        print(entry["max_len"], entry["timeout"])
+        return
+    for target in args or list(manifest):
+        if target not in manifest:
+            raise SystemExit(f"unknown target {target}")
+        if manifest[target]["seeds"] is None:
+            continue
+        trees, limit = TREES[manifest[target]["seeds"]], manifest[target]["seed_limit"]
         out = FUZZ / "corpus" / target
         out.mkdir(parents=True, exist_ok=True)
         count = 0

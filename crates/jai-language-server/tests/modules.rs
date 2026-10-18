@@ -1,38 +1,9 @@
 //! Module folders found without a `jai.toml`: `modules/` in the folders above the root file up to
 //! the workspace folder, `jai.toml`'s `import_path`, and the paths a build metaprogram adds.
-use jai_language_server::{
-    DiagnosticCode, DocumentUri, Environment, Limits, SemanticTokenKind, Session,
-};
-use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |main| {
-            let mut options = jaic::sema::Options::host();
-            let dir = main.parent().map(PathBuf::from).unwrap_or_default();
-            options.import_paths = vec![dir.join("modules"), stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-modules-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
-
-fn uri_of(path: &Path) -> DocumentUri {
-    DocumentUri::from_path(path).unwrap()
-}
+use jai_language_server::{DiagnosticCode, Limits, SemanticTokenKind, Session};
+use std::path::Path;
+mod common;
+use common::{modules_environment, project, uri_of};
 
 #[test]
 fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() {
@@ -47,7 +18,7 @@ fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() 
             ),
         ],
     );
-    let mut s = Session::with_environment(Limits::default(), environment());
+    let mut s = Session::with_environment(Limits::default(), modules_environment(None));
     s.set_workspace_folders(vec![dir.clone()]);
     let uri = uri_of(&dir.join("main.jai"));
     s.open(uri.clone(), 1, text.into()).unwrap();
@@ -75,7 +46,7 @@ fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() 
 
 /// The type-checker errors of `file` when the workspace folder is `folder`.
 fn errors(folder: &Path, file: &str) -> Vec<String> {
-    let mut s = Session::with_environment(Limits::default(), environment());
+    let mut s = Session::with_environment(Limits::default(), modules_environment(None));
     s.set_workspace_folders(vec![folder.to_path_buf()]);
     let path = folder.join(file);
     let uri = uri_of(&path);
@@ -163,7 +134,7 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
         "constant-literals",
         &[("main.jai", text), ("modules/Wgpu_Like/module.jai", module)],
     );
-    let mut s = Session::with_environment(Limits::default(), environment());
+    let mut s = Session::with_environment(Limits::default(), modules_environment(None));
     s.set_workspace_folders(vec![dir.clone()]);
     let uri = uri_of(&dir.join("main.jai"));
     s.open(uri.clone(), 1, text.into()).unwrap();

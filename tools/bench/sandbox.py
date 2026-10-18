@@ -36,6 +36,9 @@ LINUX_SYSTEM_READS = ['/usr', '/bin', '/sbin', '/lib', '/lib64', '/etc']
 class Sandbox:
     reads: list[Path] = field(default_factory=list)
     writes: list[Path] = field(default_factory=list)
+    # A server under test and its client share the loopback interface: on macOS only loopback
+    # traffic is allowed; Linux shares the host network namespace, since the client runs outside.
+    loopback: bool = False
 
     def wrap(self, command: list[str]) -> list[str]:
         if sys.platform == 'darwin':
@@ -51,7 +54,7 @@ class Sandbox:
             return ' '.join(f'(subpath {quote(p)})' for p in paths)
 
         # Seatbelt matches real paths: /var/folders is /private/var/folders.
-        reads = [*MACOS_SYSTEM_READS, *real(self.reads), *real(self.writes)]
+        reads = [*MACOS_SYSTEM_READS, *developer_app(), *real(self.reads), *real(self.writes)]
         writes = real(self.writes)
         # xcrun (behind `cc` and `xcrun ld`) caches its tool lookups in the per-user temporary folder,
         # whatever TMPDIR says; refused, every lookup takes a second and the link stage looks slow.
@@ -62,6 +65,7 @@ class Sandbox:
             '(version 1)',
             '(allow default)',
             '(deny network*)',
+            *(['(allow network* (local ip "localhost:*") (remote ip "localhost:*"))'] if self.loopback else []),
             '(deny file-read-data)',
             f'(allow file-read-data (literal "/") {xcrun_cache} {subpaths(reads)})',
             '(deny file-write*)',
@@ -69,8 +73,8 @@ class Sandbox:
         ])
 
     def bwrap_arguments(self) -> list[str]:
-        arguments = ['bwrap', '--unshare-net', '--die-with-parent', '--dev', '/dev', '--proc', '/proc',
-                     '--tmpfs', '/tmp']
+        arguments = ['bwrap', *([] if self.loopback else ['--unshare-net']), '--die-with-parent',
+                     '--dev', '/dev', '--proc', '/proc', '--tmpfs', '/tmp']
         for path in LINUX_SYSTEM_READS:
             if Path(path).exists():
                 arguments += ['--ro-bind', path, path]
@@ -88,6 +92,20 @@ class Sandbox:
         if sys.platform.startswith('linux'):
             return '' if shutil.which('bwrap') else 'bwrap (bubblewrap) is not installed'
         return f'no sandbox on {sys.platform}'
+
+
+def developer_app() -> list[str]:
+    """The selected Xcode (`/Applications/Xcode_16.4.app` on CI runners, not only `Xcode.app`),
+    which the system linker and xcrun load libraries from."""
+    try:
+        selected = subprocess.run(['xcode-select', '-p'], capture_output=True, text=True).stdout.strip()
+    except OSError:
+        return []
+    parts = Path(selected).parts
+    for index, part in enumerate(parts):
+        if part.endswith('.app'):
+            return [str(Path(*parts[:index + 1]))]
+    return []
 
 
 def real(paths: list[Path]) -> list[str]:

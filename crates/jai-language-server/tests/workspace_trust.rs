@@ -1,61 +1,13 @@
 //! Workspace trust: an untrusted workspace's compile-time code (`#run`, build metaprograms,
 //! computed `#insert`) is never run, everything else keeps working, and granting trust runs
 //! it and brings its results.
-use jai_language_server::{
-    DiagnosticCode, DocumentUri, Environment, JsonSession, Limits, Position, Session,
-};
+use jai_language_server::{DiagnosticCode, DocumentUri, JsonSession, Limits, Position, Session};
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-trust-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
-
-fn uri_of(path: &Path) -> DocumentUri {
-    DocumentUri::parse(&format!("file://{}", path.display())).unwrap()
-}
-
-fn open(folder: &Path, file: &str) -> (Session, DocumentUri, String) {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.set_workspace_folders(vec![folder.to_path_buf()]);
-    let path = folder.join(file);
-    let uri = uri_of(&path);
-    let text = std::fs::read_to_string(&path).unwrap();
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    (s, uri, text)
-}
-
-fn position(text: &str, marker: &str) -> Position {
-    let byte = text.find(marker).unwrap();
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
+mod common;
+use common::{at, environment, open_file, project, uri_of};
 
 fn hover_at(s: &Session, uri: &DocumentUri, text: &str, marker: &str) -> String {
-    s.hover(uri, position(text, marker))
+    s.hover(uri, at(text, marker))
         .unwrap()
         .expect("hover")
         .contents
@@ -83,7 +35,7 @@ const RUNS: &str = "#import \"Basic\";\n\
 #[test]
 fn untrusted_runs_are_unknown_not_wrong_and_trust_brings_their_results() {
     let dir = project("runs", &[("main.jai", RUNS)]);
-    let (mut s, uri, text) = open(&dir, "main.jai");
+    let (mut s, uri, text) = open_file(&dir, "main.jai");
     // Trusted (the default): the `#run` ran.
     assert_eq!(
         check_errors(&s, &uri),
@@ -106,7 +58,7 @@ fn untrusted_runs_are_unknown_not_wrong_and_trust_brings_their_results() {
     // Hover and go to definition on the code around the `#run` still work.
     let compute = hover_at(&s, &uri, &text, "compute();");
     assert!(compute.contains("compute"), "{compute}");
-    let definition = s.definition(&uri, position(&text, "compute();")).unwrap();
+    let definition = s.definition(&uri, at(&text, "compute();")).unwrap();
     assert_eq!(definition.len(), 1);
     assert_eq!(definition[0].range.start.line, 1);
 
@@ -123,7 +75,7 @@ fn untrusted_computed_insert_reports_no_unknown_names() {
         #insert CODE;\n\
         main :: () {\n    g := GENERATED;\n    print(\"%\\n\", g);\n}\n";
     let dir = project("insert", &[("main.jai", src)]);
-    let (mut s, uri, _) = open(&dir, "main.jai");
+    let (mut s, uri, _) = open_file(&dir, "main.jai");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     s.set_trusted(false);
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
@@ -144,7 +96,7 @@ fn untrusted_build_metaprogram_does_not_run_and_the_files_it_names_still_check()
     let uses_built = "#import \"Basic\";\nmain :: () {\n    answer := extra_value + 1;\n    print(\"%\\n\", answer);\n}\n";
     let build = BUILD.replace("{SETUP}", SETUP);
     let dir = project("meta", &[("first.jai", &build), ("main.jai", main)]);
-    let (mut s, uri, text) = open(&dir, "main.jai");
+    let (mut s, uri, text) = open_file(&dir, "main.jai");
     s.set_trusted(false);
     // The program the metaprogram would build is not built, yet the file has its parse and
     // type errors, hover and definitions.
@@ -162,7 +114,7 @@ fn untrusted_build_metaprogram_does_not_run_and_the_files_it_names_still_check()
         "meta-built",
         &[("first.jai", &build), ("main.jai", uses_built)],
     );
-    let (mut s, uri, _) = open(&dir, "main.jai");
+    let (mut s, uri, _) = open_file(&dir, "main.jai");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     s.set_trusted(false);
     let errors = check_errors(&s, &uri);
@@ -209,7 +161,7 @@ fn hover_json(session: &mut JsonSession, uri: &str, at: Position, id: u64) -> St
 fn protocol_starts_untrusted_and_switches_at_runtime() {
     let dir = project("protocol", &[("main.jai", RUNS)]);
     let uri = uri_of(&dir.join("main.jai")).as_str().to_string();
-    let at = position(RUNS, "ANSWER + 1");
+    let at = at(RUNS, "ANSWER + 1");
     for switch in ["jai/setTrusted", "workspace/didChangeConfiguration"] {
         let mut s = JsonSession::with_environment(Limits::default(), environment());
         send(

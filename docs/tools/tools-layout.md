@@ -23,7 +23,7 @@
 | `numerics/` | Numerics suite runners and capability tables. |
 | `portable/` | Portable stdlib fixtures, crash/clipboard/watcher/mail checks, `portable_data/`. |
 | `stdlib/` | The stdlib test engine and the suite runners layered on it (below), platform I/O and Http conformance, extension runners. |
-| `toolkit/` | Shared helpers (below): repo root, file hashing, checked subprocess runs. |
+| `toolkit/` | Shared helpers (below): repo root, file hashing, pinned downloads, checked subprocess runs. |
 | `window_render/` | Window/render suite and its WGL lint. |
 
 Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tests.py`, `benchgen.py`, `jaistats.py`, `corpus-shape.json`, `regex_bench.py`, `profile_report.py`, `fetch_upstreams.py`, `upstream-cases.json`, `wasi_run.mjs`, `test_benchgen.py`.
@@ -41,6 +41,7 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 |---|---|
 | `toolkit.repo` | `ROOT` (the checkout), `cargo_target_dir()` (`$CARGO_TARGET_DIR` or `target/`), `stdlib_env()` (the environment with `JAIC_STDLIB` set). |
 | `toolkit.hashing` | `sha256_file(path)` (chunked), `sha256_bytes(data)`. |
+| `toolkit.download` | `pinned(url, sha256, name)`: the file cached as `$XDG_CACHE_HOME/jaic/<name>` (default `~/.cache/jaic/`), downloaded first if missing and retried with backoff on 408, 429 and 5xx; exits when the digest differs. The generators that read upstream data (`gen_io_uring.py`, `gen_regex_unicode.py`) use it. |
 | `toolkit.process` | `run_expect(command, label=..., expected=..., code=..., stderr=..., env=..., timeout=...)`: run, then raise `RuntimeError` unless stdout, status and stderr match. |
 
 `developer_checks/dev_common.py` is that folder's single entry point: importing it puts `tools/` on `sys.path`, so the checks there carry no path lines of their own. It re-exports `ROOT`, `ENV` (the compiler environment), `JAIC`, `sha256_file` and `run_checked` (`run_expect` with the checks' defaults). The `run` function each check still defines only fixes its failure label and defaults.

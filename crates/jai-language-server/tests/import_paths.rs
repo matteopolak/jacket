@@ -2,57 +2,9 @@
 //! the strings, module-name completion, `#import,file` / `#import,dir`, `../` loads, module
 //! folders from `jai.toml`, `Name.jai` against `Name/module.jai`, paths with spaces, and a
 //! missing module's diagnostic and quick fix.
-use jai_language_server::{
-    DiagnosticCode, DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Session,
-};
-use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-imports-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
-
-fn uri_of(path: &Path) -> DocumentUri {
-    DocumentUri::from_path(path).unwrap()
-}
-
-fn open(dir: &Path, file: &str) -> (Session, DocumentUri, String) {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.set_workspace_folders(vec![dir.to_path_buf()]);
-    let path = dir.join(file);
-    let text = std::fs::read_to_string(&path).unwrap();
-    let uri = uri_of(&path);
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    (s, uri, text)
-}
-
-fn at(text: &str, marker: &str, offset: usize) -> Position {
-    let byte = text.find(marker).unwrap_or_else(|| panic!("no {marker:?}")) + offset;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
+use jai_language_server::{DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, Session};
+mod common;
+use common::{at_offset, environment, open_file, project, uri_of};
 
 fn errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
     s.diagnostics(uri)
@@ -64,7 +16,7 @@ fn errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
 }
 
 fn goes_to(s: &Session, uri: &DocumentUri, text: &str, marker: &str, suffix: &str) {
-    let found = s.definition(uri, at(text, marker, 2)).unwrap();
+    let found = s.definition(uri, at_offset(text, marker, 2)).unwrap();
     assert!(
         found.len() == 1 && found[0].uri.ends_with(suffix),
         "{marker}: {found:?} (wanted {suffix}); {:?}",
@@ -95,7 +47,7 @@ fn imports_and_loads_resolve_through_every_kind_of_path() {
             ),
         ],
     );
-    let (s, uri, text) = open(&dir, "src/main.jai");
+    let (s, uri, text) = open_file(&dir, "src/main.jai");
     assert_eq!(errors(&s, &uri), Vec::<String>::new());
     for (marker, suffix) in [
         ("\"Single\"", "/src/modules/Single.jai"),
@@ -127,7 +79,7 @@ fn load_with_parent_directory_segments() {
             ("shared/more.jai", "more_value :: 1;\n"),
         ],
     );
-    let (s, uri, text) = open(&dir, "app/main.jai");
+    let (s, uri, text) = open_file(&dir, "app/main.jai");
     assert_eq!(errors(&s, &uri), Vec::<String>::new());
     assert_eq!(s.diagnostics(&uri).unwrap(), vec![]);
     goes_to(
@@ -138,7 +90,7 @@ fn load_with_parent_directory_segments() {
         "/shared/util.jai",
     );
     // The loaded file is checked as part of the program that loads it.
-    let (s2, uri2, text2) = open(&dir, "shared/util.jai");
+    let (s2, uri2, text2) = open_file(&dir, "shared/util.jai");
     assert_eq!(errors(&s2, &uri2), Vec::<String>::new());
     goes_to(&s2, &uri2, &text2, "\"more.jai\"", "/shared/more.jai");
     let _ = std::fs::remove_dir_all(&dir);
@@ -155,8 +107,8 @@ fn hover_on_a_module_string_names_the_file() {
             ("modules/Single.jai", "single_value :: 1;\n"),
         ],
     );
-    let (s, uri, text) = open(&dir, "main.jai");
-    let hover = s.hover(&uri, at(&text, "\"Single\"", 3)).unwrap();
+    let (s, uri, text) = open_file(&dir, "main.jai");
+    let hover = s.hover(&uri, at_offset(&text, "\"Single\"", 3)).unwrap();
     let hover = hover.expect("hover on the module string").contents.value;
     assert!(hover.contains("modules/Single.jai"), "{hover}");
     let _ = std::fs::remove_dir_all(&dir);
@@ -173,8 +125,8 @@ fn completion_inside_an_import_string_lists_modules() {
             ("modules/Folder/module.jai", "folder_value :: 2;\n"),
         ],
     );
-    let (s, uri, text) = open(&dir, "main.jai");
-    let list = s.completion(&uri, at(&text, "\"\";", 1)).unwrap();
+    let (s, uri, text) = open_file(&dir, "main.jai");
+    let list = s.completion(&uri, at_offset(&text, "\"\";", 1)).unwrap();
     let labels: Vec<_> = list.items.iter().map(|i| i.label.as_str()).collect();
     for want in ["Single", "Folder", "Basic", "String"] {
         assert!(labels.contains(&want), "{want} missing from {labels:?}");
@@ -188,7 +140,7 @@ fn completion_inside_an_import_string_lists_modules() {
         s.open(uri.clone(), 2, partial.into()).unwrap();
         (s, uri, ())
     };
-    let list = s.completion(&uri, at(partial, "Sing", 4)).unwrap();
+    let list = s.completion(&uri, at_offset(partial, "Sing", 4)).unwrap();
     assert!(list.items.iter().any(|i| i.label == "Single"), "{list:?}");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -203,7 +155,7 @@ fn missing_module_is_reported_with_a_quick_fix_to_the_closest_name() {
             ("modules/Single.jai", "single_value :: 1;\n"),
         ],
     );
-    let (s, uri, text) = open(&dir, "main.jai");
+    let (s, uri, text) = open_file(&dir, "main.jai");
     let diagnostics = s.diagnostics(&uri).unwrap();
     let missing = diagnostics
         .iter()
@@ -218,13 +170,13 @@ fn missing_module_is_reported_with_a_quick_fix_to_the_closest_name() {
     let (_, edits) = fix.edit.as_ref().unwrap();
     assert_eq!(edits.len(), 1);
     assert_eq!(edits[0].new_text, "Single");
-    assert_eq!(edits[0].range.start, at(&text, "Singel", 0));
-    assert_eq!(edits[0].range.end, at(&text, "Singel", 6));
+    assert_eq!(edits[0].range.start, at_offset(&text, "Singel", 0));
+    assert_eq!(edits[0].range.end, at_offset(&text, "Singel", 6));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 fn at_range(text: &str, marker: &str) -> jai_language_server::Range {
-    let p = at(text, marker, 1);
+    let p = at_offset(text, marker, 1);
     jai_language_server::Range {
         start: p,
         end: p,

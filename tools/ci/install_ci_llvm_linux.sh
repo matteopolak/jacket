@@ -2,6 +2,7 @@
 # Install signed LLVM packages on the clean Ubuntu 24.04 hosted CI runner.
 set -euo pipefail
 
+# shellcheck source=/dev/null
 source /etc/os-release
 if [[ "$ID" != ubuntu || "$VERSION_ID" != 24.04 ]]; then
   echo 'This setup supports only Ubuntu 24.04.' >&2

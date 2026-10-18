@@ -2,7 +2,9 @@
 // overloads in scope have polymorphic first parameters that do not match `T`.
 #import "Basic";
 
-Bag :: struct { count: int; }
+Bag :: struct {
+    count: int;
+}
 
 for_expansion :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
     for i: 0..bag.count - 1 {
@@ -12,11 +14,21 @@ for_expansion :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
     }
 }
 
-Wrapped :: struct($flag: bool) { count: int; }
-for_expansion :: (w: Wrapped($flag), body: Code, flags: For_Flags) #expand { #insert body; }
+Wrapped :: struct($flag: bool) {
+    count: int;
+}
 
-Boxed :: struct($T: Type) { count: int; }
-for_expansion :: (b: *Boxed($T), body: Code, flags: For_Flags) #expand { #insert body; }
+for_expansion :: (w: Wrapped($flag), body: Code, flags: For_Flags) #expand {
+    #insert body;
+}
+
+Boxed :: struct($T: Type) {
+    count: int;
+}
+
+for_expansion :: (b: *Boxed($T), body: Code, flags: For_Flags) #expand {
+    #insert body;
+}
 
 sum :: (bag: Bag) -> int {
     total := 0;
@@ -25,5 +37,5 @@ sum :: (bag: Bag) -> int {
 }
 
 main :: () {
-    assert(sum(.{4}) == 6);
+    assert(sum(.{ 4 }) == 6);
 }

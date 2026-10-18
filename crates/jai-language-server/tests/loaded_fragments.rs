@@ -1,41 +1,9 @@
 //! A file another module `#load`s is analysed as part of that module, so it sees the names the
 //! module declares or imports, even when the loader lives in another folder.
-use jai_language_server::{DiagnosticCode, DocumentUri, Environment, Limits, Position, Session};
-use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-loaded-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
-
-fn open(folder: &Path, file: &str) -> (Session, DocumentUri, String) {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.set_workspace_folders(vec![folder.to_path_buf()]);
-    let path = folder.join(file);
-    let uri = DocumentUri::from_path(&path).unwrap();
-    let text = std::fs::read_to_string(&path).unwrap();
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    (s, uri, text)
-}
+use jai_language_server::{DiagnosticCode, DocumentUri, Position, Session};
+use std::path::PathBuf;
+mod common;
+use common::{open_file, project};
 
 fn check_errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
     s.diagnostics(uri)
@@ -71,7 +39,7 @@ fn make(name: &str, files: &[(&str, String)]) -> PathBuf {
 #[test]
 fn fragment_sees_its_loaders_struct_constant_and_imports() {
     let folder = make("names", &tree(&[]));
-    let (s, uri, text) = open(&folder, "internal/fragment.jai");
+    let (s, uri, text) = open_file(&folder, "internal/fragment.jai");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     let byte = text.find("LIMIT").unwrap();
     let hover = s
@@ -98,7 +66,7 @@ fn fragment_loaded_by_several_modules_gets_the_same_owner_each_time() {
         &tree(&[("Zeta/module.jai", "#load \"../internal/fragment.jai\";\n")]),
     );
     for _ in 0..2 {
-        let (s, uri, _) = open(&folder, "internal/fragment.jai");
+        let (s, uri, _) = open_file(&folder, "internal/fragment.jai");
         assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     }
     let _ = std::fs::remove_dir_all(&folder);
@@ -107,7 +75,7 @@ fn fragment_loaded_by_several_modules_gets_the_same_owner_each_time() {
 #[test]
 fn module_root_keeps_being_its_own_program() {
     let folder = make("root", &tree(&[]));
-    let (s, uri, _) = open(&folder, "Shapes/module.jai");
+    let (s, uri, _) = open_file(&folder, "Shapes/module.jai");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     let _ = std::fs::remove_dir_all(&folder);
 }
@@ -115,7 +83,7 @@ fn module_root_keeps_being_its_own_program() {
 #[test]
 fn editing_a_loaders_loads_moves_the_fragments_owner() {
     let folder = make("edited-loads", &tree(&[]));
-    let (mut s, fragment, _) = open(&folder, "internal/fragment.jai");
+    let (mut s, fragment, _) = open_file(&folder, "internal/fragment.jai");
     assert_eq!(check_errors(&s, &fragment), Vec::<String>::new());
     let module_path = folder.join("Shapes/module.jai");
     let module = DocumentUri::from_path(&module_path).unwrap();

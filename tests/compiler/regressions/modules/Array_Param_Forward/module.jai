@@ -3,4 +3,6 @@
 
 #import "Array_Param"(NAMES);
 
-forwarded_count :: () -> int { return name_count() + NAMES.count; }
+forwarded_count :: () -> int {
+    return name_count() + NAMES.count;
+}

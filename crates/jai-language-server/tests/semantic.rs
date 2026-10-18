@@ -1,28 +1,9 @@
 //! Type-checked hover and completion against the repository's stdlib.
 use jai_language_server::{
-    CompletionItem, CompletionKind, DocumentUri, Environment, Limits, Position, Session, TextChange,
+    CompletionItem, CompletionKind, DocumentUri, Position, Session, TextChange,
 };
-use std::path::PathBuf;
-
-fn session() -> Session {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = jaic::sema::Options::host();
-                options.import_paths = vec![stdlib.clone()];
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options
-            }),
-        },
-    )
-}
-
-fn uri() -> DocumentUri {
-    DocumentUri::parse("file:///lsp-semantic-test/main.jai").unwrap()
-}
+mod common;
+use common::{session, uri};
 
 /// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` characters.
 fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
@@ -294,7 +275,7 @@ fn completion_after_a_hash_lists_directives() {
 #[test]
 fn definition_reaches_loaded_files_and_the_stdlib() {
     let mut s = session();
-    let other = DocumentUri::parse("file:///lsp-semantic-test/other.jai").unwrap();
+    let other = DocumentUri::parse("file:///lsp-test/other.jai").unwrap();
     let main = concat!(
         "#import \"Basic\";\n",
         "#load \"other.jai\";\n",
@@ -341,8 +322,8 @@ fn definition_reaches_loaded_files_and_the_stdlib() {
 #[test]
 fn completion_inside_load_and_import_strings_lists_paths_and_modules() {
     let mut s = session();
-    let helper = DocumentUri::parse("file:///lsp-semantic-test/util/helpers.jai").unwrap();
-    let local = DocumentUri::parse("file:///lsp-semantic-test/other.jai").unwrap();
+    let helper = DocumentUri::parse("file:///lsp-test/util/helpers.jai").unwrap();
+    let local = DocumentUri::parse("file:///lsp-test/other.jai").unwrap();
     s.open(helper, 1, "x :: 1;\n".into()).unwrap();
     s.open(local, 1, "y :: 2;\n".into()).unwrap();
     let text = "#import \"Bas\";\n#load \"\";\n#load \"util/h\";\n";

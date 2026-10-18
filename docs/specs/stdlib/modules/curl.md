@@ -3114,7 +3114,7 @@ Curl_URL :: struct {}
 
 ## Behavioral contract and constraints
 
-The module wraps libcurl easy/multi interfaces and related option, callback, and result types. Transfer errors use libcurl status codes; callback data and user pointers remain caller-managed for the duration required by libcurl. The source notes that Linux libcurl builds retain runtime dependencies on SSL libraries. The exact libcurl version varies by platform bundle and is not pinned as a portable API contract.
+The module wraps libcurl easy/multi interfaces and related option, callback, and result types. Transfer errors use libcurl status codes; callback data and user pointers remain caller-managed for the duration required by libcurl. Linux libcurl builds retain runtime dependencies on SSL libraries. The exact libcurl version varies by platform bundle and is not pinned as a portable API contract.
 
 The public surface is a direct native binding: declared records, constants, and function signatures preserve the represented external ABI; this wrapper does not itself define a different ownership or error model. Native status/error values and handle lifetimes follow the external API. ABI compatibility across external-library versions is not specified unless a version note appears above.
 

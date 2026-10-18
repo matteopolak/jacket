@@ -4949,7 +4949,7 @@ ImGuiContext :: struct {}
 
 ## Behavioral contract and constraints
 
-This package provides generated Jai bindings for Dear ImGui. It exposes the native API/records but does not bundle Dear ImGui source; callers must provide the corresponding library build and initialize an ImGui context/backend. Object lifetime, frame sequencing, and error behavior follow Dear ImGui. The source identifies external downloads/platform-specific libraries and warns that bindings must be regenerated against a matching ImGui release.
+This package provides generated Jai bindings for Dear ImGui. It exposes the native API/records but does not bundle Dear ImGui source; callers must provide the corresponding library build and initialize an ImGui context/backend. Object lifetime, frame sequencing, and error behavior follow Dear ImGui. Platform-specific libraries are external, and the bindings must be regenerated against a matching ImGui release.
 
 The public surface is a direct native binding: declared records, constants, and function signatures preserve the represented external ABI; this wrapper does not itself define a different ownership or error model. Native status/error values and handle lifetimes follow the external API. ABI compatibility across external-library versions is not specified unless a version note appears above.
 

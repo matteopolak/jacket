@@ -63,7 +63,7 @@ def records_in(section):
 
 
 def rewrite_records(spec):
-    section = spec.split('### Jai rewrite heap (`USE_RAW := false`)', 1)[1].split('### Raw heap', 1)[0]
+    section = spec.split('### Jai variant heap (`USE_RAW := false`)', 1)[1].split('### Raw heap', 1)[0]
     records = records_in(section)
     if set(records) != set(ORDER):
         raise ValueError('Changed contextual record family: '+repr(set(records)))

@@ -16,9 +16,11 @@ jacket-config = { path = "../jacket-config" }
 jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
 
-# Also replace the C `malloc` family, so LLVM's C++ allocations (about a fifth of a build's
-# user time through the system allocator) use mimalloc. The crate cannot override on Windows.
-[target.'cfg(not(windows))'.dependencies]
+# On macOS also replace the C `malloc` family, so LLVM's C++ allocations (about a fifth of a
+# build's user time through the system allocator) use mimalloc. Not on Linux: newer glibc frees
+# its own allocations through the exported `free` during startup, and the crate cannot override
+# on Windows (docs/compiler/compile-speed.md#allocator).
+[target.'cfg(target_os = "macos")'.dependencies]
 mimalloc = { version = "=0.1.52", optional = true, default-features = false, features = ["override"] }
 
 [features]

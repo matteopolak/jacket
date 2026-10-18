@@ -23,14 +23,21 @@ writes jaifmt's style, so a clean run needs no formatting.
 """
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import hashlib
 import re
 import sys
-import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+from toolkit.download import pinned
+from toolkit.repo import ROOT
+
 OUTPUT = ROOT / 'stdlib' / 'Extensions' / 'Io_Uring' / 'bindings.jai'
 
 TAG = 'v7.0'
@@ -354,7 +361,6 @@ def enum_prefix(name: str, names: list[str]) -> str:
 def generate(header_text: str, origin: str) -> str:
     env: dict[str, int] = {}
     layout = Layout()
-    sections: list[str] = []
     constants: list[str] = []
     enums: list[str] = []
     structs: list[str] = []
@@ -443,11 +449,7 @@ def generate(header_text: str, origin: str) -> str:
 # Command line
 
 def fetch() -> str:
-    data = urllib.request.urlopen(URL, timeout=60).read()
-    digest = hashlib.sha256(data).hexdigest()
-    if digest != SHA256:
-        raise GenError(f'{URL} has sha256 {digest}, expected {SHA256}')
-    return data.decode()
+    return pinned(URL, SHA256, f'io_uring-{TAG}.h').read_text()
 
 
 def main() -> int:

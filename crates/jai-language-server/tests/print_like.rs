@@ -2,36 +2,10 @@
 //! directives of the literal are format specifiers, hovering one names its argument, and a
 //! count that does not match the arguments is a warning.
 use jai_language_server::{
-    DiagnosticCode, DiagnosticSeverity, DocumentUri, Environment, Limits, Position,
-    SemanticTokenKind, Session,
+    DiagnosticCode, DiagnosticSeverity, Limits, Position, SemanticTokenKind, Session,
 };
-use std::path::PathBuf;
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn uri() -> DocumentUri {
-    DocumentUri::parse("file:///lsp-print-like/main.jai").unwrap()
-}
-
-fn at(text: &str, marker: &str, offset: usize) -> Position {
-    let byte = text.find(marker).unwrap_or_else(|| panic!("no {marker:?}")) + offset;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
+mod common;
+use common::{at_offset, environment, uri};
 
 /// `shout` is marked, `plain` has the same signature but no note. Neither forwards its
 /// parameters, so only the note tells them apart.
@@ -68,7 +42,7 @@ fn directives_follow_the_print_like_note_not_the_name() {
             .nth(nth)
             .map(|(i, _)| i)
             .unwrap();
-        at(SOURCE, line_marker, rel)
+        at_offset(SOURCE, line_marker, rel)
     };
     // The two `%` of the noted `shout` and the one of the library's `print` (itself noted).
     assert!(

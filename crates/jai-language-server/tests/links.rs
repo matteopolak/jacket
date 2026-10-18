@@ -1,6 +1,8 @@
 //! Go to definition and document links on `#load` / `#import`, resolved as the compiler does.
-use jai_language_server::{DocumentUri, Environment, Limits, Position, Session};
+use jai_language_server::{DocumentUri, Position, Session};
 use std::path::PathBuf;
+mod common;
+use common::{at_offset, session};
 
 fn stdlib() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -9,33 +11,8 @@ fn stdlib() -> PathBuf {
         .unwrap()
 }
 
-fn session() -> Session {
-    let stdlib = stdlib();
-    Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = jaic::sema::Options::host();
-                options.import_paths = vec![stdlib.clone()];
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options
-            }),
-        },
-    )
-}
-
 fn doc(path: &str) -> DocumentUri {
     DocumentUri::parse(&format!("file:///lsp-links-test/{path}")).unwrap()
-}
-
-fn at(text: &str, marker: &str, offset: usize) -> Position {
-    let byte = text.find(marker).unwrap() + offset;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
 }
 
 const MAIN: &str = r#"#import "Basic";
@@ -103,19 +80,19 @@ fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
         ("\"part.jai\"", doc("part.jai").as_str().into()),
     ] {
         assert_eq!(
-            target(&s, at(MAIN, marker, 2)),
+            target(&s, at_offset(MAIN, marker, 2)),
             (expected, start),
             "{marker}"
         );
     }
     // The directive itself links too.
     assert_eq!(
-        target(&s, at(MAIN, "#load", 1)),
+        target(&s, at_offset(MAIN, "#load", 1)),
         (doc("part.jai").as_str().into(), start)
     );
     // A module the compiler cannot find has no target.
     assert_eq!(
-        s.definition(&doc("main.jai"), at(MAIN, "\"Missing\"", 2))
+        s.definition(&doc("main.jai"), at_offset(MAIN, "\"Missing\"", 2))
             .unwrap(),
         [] as [jai_language_server::Location; 0]
     );
@@ -127,8 +104,8 @@ fn document_links_span_the_strings() {
     let links = s.document_links(&doc("main.jai")).unwrap();
     assert_eq!(links.len(), 7, "{links:?}");
     let (range, target) = &links[6];
-    assert_eq!(range.start, at(MAIN, "\"part.jai\"", 0));
-    assert_eq!(range.end, at(MAIN, "\"part.jai\"", 10));
+    assert_eq!(range.start, at_offset(MAIN, "\"part.jai\"", 0));
+    assert_eq!(range.end, at_offset(MAIN, "\"part.jai\"", 10));
     assert_eq!(target, doc("part.jai").as_str());
 }
 
@@ -148,12 +125,12 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
         .to_owned();
     // `B` of `B.print`: the module's entry file.
     assert_eq!(
-        target(&s, at(MAIN, "B.print", 0)),
+        target(&s, at_offset(MAIN, "B.print", 0)),
         (basic, Position::default())
     );
     // A resolved call navigates to its selected canonical overload.
     let print = s
-        .definition(&doc("main.jai"), at(MAIN, "B.print(", 3))
+        .definition(&doc("main.jai"), at_offset(MAIN, "B.print(", 3))
         .unwrap();
     assert!(
         print
@@ -163,7 +140,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
     );
     assert_eq!(print.len(), 1, "selected print overload: {print:?}");
     let overloads = s
-        .definition(&doc("main.jai"), at(MAIN, "B.print;", 3))
+        .definition(&doc("main.jai"), at_offset(MAIN, "B.print;", 3))
         .unwrap();
     assert_eq!(
         overloads.len(),
@@ -177,7 +154,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
     );
     // `deep` reaches main through Mine's exported `using Inner :: #import`.
     assert_eq!(
-        target(&s, at(MAIN, "deep()", 1)),
+        target(&s, at_offset(MAIN, "deep()", 1)),
         (
             doc("modules/inner.jai").as_str().into(),
             Position::default()
@@ -192,7 +169,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
         ("part_value", "part.jai"),
     ] {
         assert_eq!(
-            target(&s, at(MAIN, marker, 1)).0,
+            target(&s, at_offset(MAIN, marker, 1)).0,
             doc(file).as_str(),
             "{marker}"
         );

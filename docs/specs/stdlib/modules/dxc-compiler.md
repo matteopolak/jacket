@@ -6,7 +6,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 The module parameter `NINTENDO_SUPPORT := false` selects the alternate binding surface when enabled; the DXC helper and declarations described here are documented for the default Windows-only configuration.
 
-The signatures use `IMalloc`, `IStream`, and `BSTR` as opaque nominal placeholders supplied by the module's private dependency scope. They are not exported names of `dxc_compiler`; caller-facing signatures that mention them still require compatible declarations from the surrounding Windows COM/OLE ABI.
+The signatures use `IMalloc`, `IStream`, and `BSTR` as opaque nominal placeholders supplied by a scope private to the module. They are not exported names of `dxc_compiler`; caller-facing signatures that mention them still require compatible declarations from the surrounding Windows COM/OLE ABI.
 
 - `DXC_CP_UTF8 :: 65001`
 - `DXC_CP_UTF16 :: 1200`

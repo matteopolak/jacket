@@ -1,0 +1,12 @@
+{
+  "lexer": {"max_len": 16384, "timeout": 5, "seeds": "sources", "seed_limit": 32768},
+  "parser": {"max_len": 16384, "timeout": 5, "seeds": "sources", "seed_limit": 32768},
+  "check": {"max_len": 8192, "timeout": 10, "seeds": "programs", "seed_limit": 8192},
+  "interp": {"max_len": 8192, "timeout": 10, "seeds": "programs", "seed_limit": 8192},
+  "generated": {"max_len": 8192, "timeout": 10, "seeds": null},
+  "lsp": {"max_len": 4096, "timeout": 20, "seeds": "programs", "seed_limit": 4096},
+  "lsp_json": {"max_len": 4096, "timeout": 20, "seeds": "programs", "seed_limit": 2048},
+  "lsp_edits": {"max_len": 4096, "timeout": 20, "seeds": "programs", "seed_limit": 4096},
+  "lsp_typing": {"max_len": 2048, "timeout": 30, "seeds": "programs", "seed_limit": 2048},
+  "jaifmt": {"max_len": 8192, "timeout": 20, "seeds": "sources+upstream", "seed_limit": 8192}
+}
