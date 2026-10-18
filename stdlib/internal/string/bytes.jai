@@ -63,7 +63,7 @@ is_any :: (c: u8, chars: string) -> bool {
 }
 
 find_index_from_left :: (s: string, byte: u8, start_index := 0) -> s64 #no_abc {
-    for i: start_index..s.count - 1 if s[i] == byte return i;
+    for i: max(start_index, 0)..s.count - 1 if s[i] == byte return i;
     return -1;
 } @UseResult
 
@@ -78,7 +78,7 @@ find_index_from_right :: (s: string, byte: u8) -> s64 #no_abc {
 } @UseResult
 
 find_index_of_any_from_left :: (s: string, bytes: string, start_index := 0) -> s64 #no_abc {
-    for i: start_index..s.count - 1 if is_any(s[i], bytes) return i;
+    for i: max(start_index, 0)..s.count - 1 if is_any(s[i], bytes) return i;
     return -1;
 }
 

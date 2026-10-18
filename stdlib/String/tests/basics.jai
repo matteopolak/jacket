@@ -80,5 +80,7 @@ main :: () {
     assert(first == 7 && second == -2);
     assert(S.scan2("9", "%d", *first, *second) && first == 9 && second == -2);
     assert(S.wildcard_match("b5", "[a-c][0-9]") && !S.wildcard_match("d5", "[a-c][0-9]"));
+    assert(S.find_index_from_left("abc", cast(u8) 98, -5) == 1);
+    assert(S.find_index_of_any_from_left("abc", "c", -5) == 2 && S.find_index_of_any_from_left("", "c", -1) == -1);
     print("ok\n");
 }
