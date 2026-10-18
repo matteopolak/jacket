@@ -80,7 +80,7 @@ fn leaves(op: &Op) -> bool {
 }
 
 /// Ops that cannot fail and do not depend on where they are in the code.
-fn copyable(op: &Op) -> bool {
+pub(super) fn copyable(op: &Op) -> bool {
     matches!(
         op,
         Op::Const { .. }

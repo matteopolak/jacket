@@ -467,6 +467,59 @@ fn lower_locs(ops: &mut Vec<Op>, pool: &mut [u32], blocks: &mut [CodeBlock]) -> 
     (locs, marks)
 }
 
+/// The debugging switches in the environment, read once: looking one up costs a system call (and
+/// on Windows sets the thread's last error), which compiling each procedure should not repeat.
+struct Switches {
+    no_sink: bool,
+    no_flow: bool,
+    dump_ops: Option<String>,
+}
+
+fn switches() -> &'static Switches {
+    static SWITCHES: std::sync::OnceLock<Switches> = std::sync::OnceLock::new();
+    SWITCHES.get_or_init(|| Switches {
+        no_sink: std::env::var_os("JAIC_NO_SINK").is_some(),
+        no_flow: std::env::var_os("JAIC_NO_FLOW").is_some(),
+        dump_ops: std::env::var_os("JAIC_DUMP_OPS").map(|v| v.to_string_lossy().into_owned()),
+    })
+}
+
+/// The location each block starts at when its own first instruction does not set one: the one
+/// in effect at the end of a block that branches to it (the first such block, in block order).
+fn entry_locs(func: &ir::Func) -> Vec<Option<(u32, u32, u32)>> {
+    let mut entry: Vec<Option<(u32, u32, u32)>> = vec![None; func.blocks.len()];
+    for (bi, block) in func.blocks.iter().enumerate() {
+        let mut here = entry[bi];
+        for inst in &block.insts {
+            if let Inst::Loc {
+                file,
+                line,
+                col,
+                ..
+            } = *inst
+            {
+                here = Some((file, line, col));
+            }
+        }
+        let Some(here) = here else {
+            continue;
+        };
+        for next in block.term.successors() {
+            let slot = &mut entry[next.0 as usize];
+            if slot.is_none() && next.0 as usize != bi {
+                *slot = Some(here);
+            }
+        }
+    }
+    // A block that sets a location first needs no inherited one.
+    for (bi, block) in func.blocks.iter().enumerate() {
+        if matches!(block.insts.first(), Some(Inst::Loc { .. })) {
+            entry[bi] = None;
+        }
+    }
+    entry
+}
+
 pub(super) fn fingerprint(func: &ir::Func) -> (usize, usize, usize, usize) {
     (
         func.blocks.as_ptr() as usize,
@@ -577,7 +630,7 @@ pub(super) fn build(
             }
         }
     }
-    let plan = if std::env::var_os("JAIC_NO_SINK").is_some() {
+    let plan = if switches().no_sink {
         None
     } else {
         sink::plan(func, &defs, read_only)
@@ -602,9 +655,24 @@ pub(super) fn build(
         block_start_mark: 0,
     };
     let mut blocks = Vec::with_capacity(func.blocks.len());
+    let entry_locs = entry_locs(func);
     for (bi, block) in func.blocks.iter().enumerate() {
         let start = b.ops.len() as u32;
         b.block_start_mark = b.ops.len();
+        // A block with no location of its own (the failure path of a `#no_debug` macro such as
+        // `assert`) reports where the code that branched to it was, not whatever block happens
+        // to be laid out before it.
+        let inherited = entry_locs[bi];
+        if let Some((file, line, col)) = inherited {
+            b.push(
+                Op::Loc {
+                    file,
+                    line,
+                    col,
+                },
+                None,
+            );
+        }
         if let Some(plan) = &plan {
             for &(from, ii) in &plan.front[bi] {
                 b.inst(
@@ -621,6 +689,18 @@ pub(super) fn build(
             b.inst(bi, ii, inst);
         }
         b.end(bi, block);
+        // Where nothing in the block can fail or call, the location would only keep it from
+        // being seen as empty.
+        if let Some((file, line, col)) = inherited
+            && b.ops.len() > start as usize
+            && matches!(b.ops[start as usize], Op::Loc { file: f, line: l, col: c } if (f, l, c) == (file, line, col))
+            && b.ops[start as usize + 1..]
+                .iter()
+                .all(|op| flow::copyable(op) || matches!(op, Op::Loc { .. }))
+        {
+            b.ops.remove(start as usize);
+            b.pure_def.remove(start as usize);
+        }
         // Offsets are only trusted inside the block that computed them.
         for v in std::mem::take(&mut b.offset_vals) {
             b.offsets[v as usize] = None;
@@ -666,7 +746,7 @@ pub(super) fn build(
     for op in &mut ops {
         *op = specialize(*op);
     }
-    if straighten && std::env::var_os("JAIC_NO_FLOW").is_none() {
+    if straighten && !switches().no_flow {
         flow::straighten(&mut ops, &mut blocks);
     }
     let (locs, loc_marks) = lower_locs(&mut ops, &mut b.pool, &mut blocks);
@@ -702,7 +782,11 @@ pub(super) fn build(
     for (i, block) in blocks.iter().enumerate() {
         block_at[block.start as usize] = i as u32 + 1;
     }
-    if std::env::var_os("JAIC_DUMP_OPS").is_some_and(|v| func.name.contains(v.to_str().unwrap())) {
+    if switches()
+        .dump_ops
+        .as_ref()
+        .is_some_and(|v| func.name.contains(v.as_str()))
+    {
         eprintln!("== {}\n{}", func.name, func.listing());
         for (bi, bl) in blocks.iter().enumerate() {
             eprintln!(" block {bi}");

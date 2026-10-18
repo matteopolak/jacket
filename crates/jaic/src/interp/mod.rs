@@ -19,6 +19,7 @@ mod crash;
 pub use crash::CRASH_STATUS;
 mod executable_path;
 mod fibers;
+mod last_error;
 mod machine;
 mod native;
 mod probe;
@@ -1303,6 +1304,8 @@ impl Interp {
 
     #[inline(never)]
     fn make_frame<'f>(&mut self, program: &Program, id: FuncId, func: &ir::Func) -> &'f Frame {
+        // The program may be between a failed foreign call and reading its error code.
+        let _error = last_error::keep();
         let i = id.0 as usize;
         let mut offsets = Vec::with_capacity(func.slots.len());
         let mut size = 0u64;
