@@ -130,11 +130,15 @@ pub struct Sanitize {
     /// The UBSan checks that exist at the LLVM IR level and match Jai semantics: accesses
     /// outside an object of known size (`bounds-checking`, Clang's `local-bounds`).
     pub undefined: bool,
+    /// SanitizerCoverage `trace-pc-guard` and `pc-table` for line and function coverage; the
+    /// link adds `runtime/coverage.c`, which writes the blocks that ran at exit
+    /// (`docs/tools/coverage.md`).
+    pub coverage: bool,
 }
 
 impl Sanitize {
     pub fn any(self) -> bool {
-        self.address || self.undefined
+        self.address || self.undefined || self.coverage
     }
 
     /// Parse a `-sanitize` value: a comma-separated list of `address` and `undefined`.
@@ -144,6 +148,7 @@ impl Sanitize {
             match name.trim() {
                 "address" => sanitize.address = true,
                 "undefined" => sanitize.undefined = true,
+                "coverage" => sanitize.coverage = true,
                 other => {
                     return Err(format!(
                         "unknown sanitizer `{other}`\nhelp: `-sanitize` takes address, undefined or both: `-sanitize address,undefined`"
@@ -155,12 +160,12 @@ impl Sanitize {
     }
 
     /// The Clang driver's `-fsanitize=` value; the driver then links the matching runtime.
-    fn driver_flag(self) -> String {
+    fn driver_flag(self) -> Option<String> {
         let names: Vec<&str> = [(self.address, "address"), (self.undefined, "undefined")]
             .into_iter()
             .filter_map(|(on, name)| on.then_some(name))
             .collect();
-        format!("-fsanitize={}", names.join(","))
+        (!names.is_empty()).then(|| format!("-fsanitize={}", names.join(",")))
     }
 
     /// Passes appended to the optimization pipeline, where Clang runs its sanitizer passes.
@@ -179,6 +184,10 @@ impl Sanitize {
         }
         if self.address {
             passes.push("asan");
+        }
+        if self.coverage {
+            // Last, as Clang does: the pass numbers the blocks that are left.
+            passes.push("sancov-module");
         }
         passes
     }
@@ -436,6 +445,9 @@ fn emit_module(
                 );
             }
         }
+    }
+    if options.sanitize.coverage {
+        set_coverage_options();
     }
     let mut passes: Vec<&str> = options.opt_level.pipeline().into_iter().collect();
     passes.extend(options.sanitize.passes(options.opt_level));
@@ -852,6 +864,33 @@ fn library_group(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<L
 /// host). macOS and Linux use the system `cc`; Windows uses a MinGW or MSVC toolchain,
 /// see [`LinkFlavor`] and `docs/native/windows.md`. With `debug_info`, MSVC targets also get
 /// a PDB next to the output (`foo.exe` -> `foo.pdb`).
+/// The `sancov-module` pass takes its options from LLVM's command line, not from its pass name:
+/// every basic block (level 2) gets a guard and a row in the PC table.
+#[allow(unsafe_code)]
+fn set_coverage_options() {
+    static SET: std::sync::Once = std::sync::Once::new();
+    SET.call_once(|| {
+        use std::ffi::CString;
+        let args: Vec<CString> = [
+            "jaic",
+            "-sanitizer-coverage-level=2",
+            "-sanitizer-coverage-trace-pc-guard",
+            "-sanitizer-coverage-pc-table",
+        ]
+        .map(|a| CString::new(a).unwrap())
+        .into();
+        let pointers: Vec<*const std::ffi::c_char> = args.iter().map(|a| a.as_ptr()).collect();
+        // SAFETY: the arguments outlive the call; LLVM copies what it keeps.
+        unsafe {
+            inkwell::llvm_sys::support::LLVMParseCommandLineOptions(
+                pointers.len() as i32,
+                pointers.as_ptr(),
+                std::ptr::null(),
+            );
+        }
+    });
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn link(
     objects: &[PathBuf],
@@ -887,11 +926,12 @@ pub fn link(
     let (program, mut cmd) = if sanitize.any() {
         let program = sanitizer_driver();
         let mut cmd = Command::new(&program);
-        cmd.arg(sanitize.driver_flag());
+        cmd.args(sanitize.driver_flag());
         (program, cmd)
     } else {
         linker_command(flavor, target)?
     };
+    let mut coverage_source = None;
     let driver = link_options::Driver::for_command(&program, extra_args);
     let extra_args = link_options::render(extra_args, flavor, driver)?;
     let msvc_style = driver != link_options::Driver::C;
@@ -925,6 +965,14 @@ pub fn link(
             cmd.arg("-shared");
         }
         cmd.args(objects).arg("-o").arg(output);
+        if sanitize.coverage {
+            let source =
+                std::env::temp_dir().join(format!("jaic-coverage-{}.c", std::process::id()));
+            std::fs::write(&source, COVERAGE_RUNTIME)
+                .map_err(|e| format!("could not write `{}`: {e}", source.display()))?;
+            cmd.args(["-w", "-O1"]).arg(&source);
+            coverage_source = Some(source);
+        }
         if flavor == LinkFlavor::Msvc {
             // Clang's MSVC driver: the dynamic CRT, as above.
             cmd.args(["-fms-runtime-lib=dll", "-llegacy_stdio_definitions"]);
@@ -962,15 +1010,20 @@ pub fn link(
     } else {
         "install a C compiler (clang or gcc, e.g. `apt install clang`), or name a linker with the JAIC_LINKER environment variable"
     };
-    let out = cmd
-        .output()
-        .map_err(|e| linker_not_run(&program, &e, install))?;
+    let out = cmd.output();
+    if let Some(source) = coverage_source {
+        let _ = std::fs::remove_file(source);
+    }
+    let out = out.map_err(|e| linker_not_run(&program, &e, install))?;
     if out.status.success() {
         Ok(())
     } else {
         Err(link_failure(&program, &out))
     }
 }
+
+/// The C runtime a `-coverage` build links (`runtime/coverage.c`).
+const COVERAGE_RUNTIME: &str = include_str!("../runtime/coverage.c");
 
 /// The libraries a program links, as linker arguments for a metaprogram that links it itself
 /// (`use_custom_link_command`, `Message_Phase.system_libraries` and `.user_libraries`).
@@ -1680,7 +1733,10 @@ mod tests {
     fn sanitizer_lists_parse_into_flags_and_passes() {
         let both = Sanitize::parse("address,undefined").unwrap();
         assert!(both.address && both.undefined);
-        assert_eq!(both.driver_flag(), "-fsanitize=address,undefined");
+        assert_eq!(
+            both.driver_flag().as_deref(),
+            Some("-fsanitize=address,undefined")
+        );
         assert_eq!(
             both.passes(OptLevel::O2),
             ["function(bounds-checking<rt-abort>)", "asan"]
@@ -1691,9 +1747,12 @@ mod tests {
             ["function(sroa,bounds-checking<rt-abort>)"]
         );
         assert_eq!(
-            Sanitize::parse("address").unwrap().driver_flag(),
-            "-fsanitize=address"
+            Sanitize::parse("address").unwrap().driver_flag().as_deref(),
+            Some("-fsanitize=address")
         );
+        let coverage = Sanitize::parse("coverage").unwrap();
+        assert_eq!(coverage.driver_flag(), None);
+        assert_eq!(coverage.passes(OptLevel::O0), ["sancov-module"]);
         assert!(Sanitize::parse("thread").is_err());
         assert!(check_sanitizer_target(Some(BuildTarget::windows(TargetCpu::X64, false))).is_err());
         assert!(check_sanitizer_target(Some(BuildTarget::wasm_module())).is_err());

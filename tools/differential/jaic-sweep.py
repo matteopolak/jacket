@@ -23,6 +23,7 @@ _sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native", _TOOLS / "stdlib",)
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -265,7 +266,7 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None)
     return out, err, code
 
 
-def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True):
+def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True, extra_env=None):
     from stdlib_runtime import runtime_prefix, CLIPBOARD_LOCK
 
     try:
@@ -273,8 +274,13 @@ def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True):
     except ValueError as error:
         return "", "error: fixture setup: " + str(error), 1
     if not prefix:
-        return run_limited(command, cwd, timeout, limit_bytes, jaic=jaic)
-    environment = {"JAIC_TEST_CHILD_TIMEOUT_MS": str(max(1, round(timeout * 1000)))}
+        return run_limited(
+            command, cwd, timeout, limit_bytes, jaic=jaic, environment=extra_env
+        )
+    environment = {
+        "JAIC_TEST_CHILD_TIMEOUT_MS": str(max(1, round(timeout * 1000))),
+        **(extra_env or {}),
+    }
     with CLIPBOARD_LOCK:
         return run_limited(
             [*prefix, *command],
@@ -313,6 +319,31 @@ def symbolizer():
         if p
     ]
     return next((str(p) for p in candidates if p.is_file()), None)
+
+
+# `--coverage DIR`: where each native run's ingested coverage goes (docs/tools/coverage.md).
+COVERAGE_DIR = None
+
+
+def ingest_coverage(exe, source):
+    """Fold the coverage files `exe` wrote into `COVERAGE_DIR` before its debug info is deleted."""
+    runs = [str(p) for p in exe.parent.glob(f"{exe.name}.*.cov")]
+    if not runs:
+        return
+    name = re.sub(r"[^A-Za-z0-9_.-]", "_", f"{source.parent.name}_{source.stem}")
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools/coverage/report.py"),
+            "ingest",
+            "--exe",
+            str(exe),
+            "--out",
+            str(COVERAGE_DIR / f"{name}.json"),
+            *runs,
+        ],
+        check=False,
+    )
 
 
 # `run_native`'s status for a program whose build writes no executable.
@@ -380,7 +411,10 @@ def run_native(
             limit_bytes,
             metadata,
             jaic=False,
+            extra_env={"JAIC_COVERAGE_DIR": str(exe.parent)} if COVERAGE_DIR else None,
         )
+        if COVERAGE_DIR:
+            ingest_coverage(exe, path)
         report = sanitizer_report(err)
         if report:
             return out, f"error: sanitizer: {report}\n{err}", code if code != 0 else 1
@@ -445,13 +479,26 @@ def main():
         metavar="K/N",
         help="run only the K-th of N equal parts of the selected cases (CI splits sweeps this way)",
     )
+    ap.add_argument(
+        "--coverage",
+        type=Path,
+        metavar="DIR",
+        help="build native cases with -coverage and write each run's line and function hits to DIR "
+        "(report with tools/coverage/report.py); implies --native",
+    )
     a = ap.parse_args()
     # Cases run in their own directory, so a relative path would not resolve there.
     a.jaic = str(Path(a.jaic).resolve())
-    if a.sanitize or a.opt:
+    if a.sanitize or a.opt or a.coverage:
         a.native = True
-    build_flags = (["-sanitize", a.sanitize] if a.sanitize else []) + (
-        [f"-{a.opt}"] if a.opt else []
+    if a.coverage:
+        global COVERAGE_DIR
+        COVERAGE_DIR = a.coverage.resolve()
+        COVERAGE_DIR.mkdir(parents=True, exist_ok=True)
+    build_flags = (
+        (["-sanitize", a.sanitize] if a.sanitize else [])
+        + (["-coverage"] if a.coverage else [])
+        + ([f"-{a.opt}"] if a.opt else [])
     )
     if a.sanitize:
         os.environ.update(

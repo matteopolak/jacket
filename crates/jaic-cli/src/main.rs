@@ -267,6 +267,8 @@ struct Cli {
     timings: bool,
     /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for builds.
     sanitize: Vec<String>,
+    /// `-coverage`: line and function coverage instrumentation (docs/tools/coverage.md).
+    coverage: bool,
     /// `-no_dce`: type-check every declaration, modules included
     /// (`Build_Options.dead_code_elimination = .NONE`).
     no_dce: bool,
@@ -751,6 +753,13 @@ const OPTIONS: &[CliOption] = {
             "-sanitize <list>",
             "address and/or undefined, comma-separated",
         ),
+        CliOption::new(&["-coverage"], Action::Switch(|cli| &mut cli.coverage))
+            .build_only()
+            .help(
+                Output,
+                "-coverage",
+                "record line and function coverage (docs/tools/coverage.md)",
+            ),
         CliOption::new(
             &["-no_workspace_output"],
             Action::Switch(|cli| &mut cli.no_workspace_output),
@@ -1855,7 +1864,13 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
         debug_info: !cli.no_debug_info,
         target: cli.build_target().ok().flatten(),
         explicit_target: cli.target.is_some() || cli.os.is_some() || cli.cpu.is_some(),
-        sanitize: cli.sanitize.join(","),
+        sanitize: cli
+            .sanitize
+            .iter()
+            .map(String::as_str)
+            .chain(cli.coverage.then_some("coverage"))
+            .collect::<Vec<_>>()
+            .join(","),
         no_inline: cli.no_inline,
         no_split: cli.no_split,
     }
