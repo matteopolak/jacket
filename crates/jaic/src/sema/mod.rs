@@ -472,6 +472,9 @@ pub struct Compiler {
     module_names: HashMap<(ModuleId, Sym), ModuleNames>,
     /// Set while computing a `module_declarations` answer that may still change.
     module_names_unsettled: bool,
+    /// Names `module_lookup` found nothing for, with the `namespace_generation` that holds
+    /// for. Only names whose `module_names` entry is settled are kept.
+    module_misses: HashMap<(ModuleId, Sym), u64>,
     /// Debug builds check `namespace_generation` against a full count of scope contents.
     #[cfg(debug_assertions)]
     namespace_check: std::cell::Cell<(usize, u64)>,
@@ -746,6 +749,7 @@ impl Compiler {
             parse_reuse: None,
             module_names: HashMap::default(),
             module_names_unsettled: false,
+            module_misses: HashMap::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0)),
             interp: crate::interp::Interp::default(),

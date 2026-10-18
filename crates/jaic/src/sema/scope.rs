@@ -1124,6 +1124,14 @@ impl Compiler {
     /// rules drifted apart once (`GL.glViewport` failed while `glViewport` worked).
     /// `tests/compiler/regressions/module-member-resolution.jai` checks that all paths agree.
     pub fn module_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
+        // Looking up a name a module lacks walks its re-exports and `using` globals, and a
+        // scope asks every module it imports for every name it uses: remember the misses.
+        let generation = self.namespace_generation;
+        if self.reexport_visiting.is_empty()
+            && self.module_misses.get(&(module, name)) == Some(&generation)
+        {
+            return Ok(Found::Entities(Vec::new()));
+        }
         let ids = self.module_declarations(module, name)?;
         if !ids.is_empty() {
             return Ok(Found::Entities(ids));
@@ -1137,6 +1145,13 @@ impl Compiler {
             .copied()
             .filter(|&e| self.entity(e).name == name)
             .collect();
+        if params.is_empty()
+            && self.reexport_visiting.is_empty()
+            && self.namespace_generation == generation
+            && matches!(self.module_names.get(&(module, name)), Some((at, _)) if *at == generation)
+        {
+            self.module_misses.insert((module, name), generation);
+        }
         Ok(Found::Entities(params))
     }
 
