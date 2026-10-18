@@ -140,6 +140,11 @@ def main():
             if result.returncode not in {-signal.SIGSEGV, -signal.SIGBUS}:
                 raise RuntimeError("crash handler failed to preserve fatal signal termination")
         print("passed fatal-signal crash report", source.name, flush=True)
+    # The BuildCpp negative case writes the fixture and reports the failed C build; run it here, as
+    # the stdlib runtime shard that would otherwise produce it may be another CI job.
+    (output / "cpp-failure/old").unlink(missing_ok=True)
+    subprocess.run([str(compiler), "-check", str(ROOT / "stdlib/BuildCpp/tests/negative/compile.jai")], cwd=ROOT, env=env,
+                   capture_output=True, timeout=120)
     if (output / "cpp-failure/old").read_text() != "preserved":
         raise RuntimeError("failed C compilation replaced the existing output")
     leftovers = list(output.rglob("*.build-*")) + list(output.rglob("*.universal-*"))
