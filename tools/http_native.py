@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 
 import build_native_libs as native
+from host import host_platform
 
 
 def native_profile():
@@ -72,7 +73,7 @@ def complete_provider(directory, required, identity, default):
 
 
 def ensure_native_libraries(output=None, cache=None):
-    platform = native.host_dir()
+    platform = host_platform()
     profile = native_profile()
     library = profile["libraries"]["mbedtls"]
     if not native.wanted(library, platform):

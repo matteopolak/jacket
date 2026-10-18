@@ -10,13 +10,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import platform
 import re
 import shlex
 import shutil
 import subprocess
 import urllib.request
 from fetch_url import fetch
+from host import host_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN = json.loads((ROOT / "tools/audio_native_plan.json").read_text())
@@ -87,12 +87,6 @@ def controlled_runtime_receipt(result, target, kind):
     return {"platform": target, "kind": kind, "exit_code": result.returncode,
             "stdout": result.stdout, "stderr": result.stderr,
             "runtime_passed": not reasons, "failure_reasons": reasons}
-
-
-def host_platform():
-    osname = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}[platform.system()]
-    cpu = {"arm64": "arm64", "ARM64": "arm64", "aarch64": "arm64", "AMD64": "x64", "x86_64": "x64"}[platform.machine()]
-    return osname + "-" + cpu
 
 
 def command(arguments, owned=True):

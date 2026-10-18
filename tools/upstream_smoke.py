@@ -10,7 +10,6 @@ import argparse
 from decimal import Decimal
 import json
 import os
-import platform
 import re
 import shutil
 import signal
@@ -24,21 +23,12 @@ import urllib.request
 from pathlib import Path
 
 from case_capabilities import user_deferred_reason
+from host import host_platform
 
 ROOT = Path(__file__).resolve().parent.parent
 UPSTREAM = ROOT / "corpus/upstream"
 CHECKS = ROOT / "tools/upstream-smoke.json"
 WINDOWS = sys.platform == "win32"
-
-
-def host_platform():
-    machine = platform.machine().lower()
-    arm = machine in ("arm64", "aarch64")
-    if sys.platform == "darwin":
-        return "macos-arm64" if arm else "macos-x64"
-    if WINDOWS:
-        return "windows-arm64" if arm else "windows-x64"
-    return "linux-arm64" if arm else "linux-x64"
 
 
 class Failure(Exception):

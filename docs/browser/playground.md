@@ -36,7 +36,7 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
 python3 tools/build_scripting_wasm.py --release --output target/scripting-runtime
 node tools/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
-node tools/check_jai_format_wasm.mjs target/scripting-runtime
+node tools/check_jaifmt_wasm.mjs engine target/scripting-runtime
 node tools/check_playground_stdlib.mjs target/scripting-runtime
 ```
 

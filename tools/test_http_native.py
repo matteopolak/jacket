@@ -27,7 +27,7 @@ class HttpNativeSetupTests(unittest.TestCase):
         self.addCleanup(environment.stop)
         os.environ.pop("JAIC_NATIVE_LIBS", None)
         self.platform = patch.object(
-            http_native.native, "host_dir", return_value="linux-x64"
+            http_native, "host_platform", return_value="linux-x64"
         )
         self.platform.start()
         self.addCleanup(self.platform.stop)

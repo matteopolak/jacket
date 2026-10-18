@@ -23,7 +23,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_native_libs import host_dir, output_dir  # noqa: E402
+from build_native_libs import output_dir  # noqa: E402
+from host import host_platform  # noqa: E402
 from fetch_wgpu_native import fetch  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -66,7 +67,7 @@ def main() -> int:
     test = TESTS[args.test]
     out = args.out or ROOT / 'target' / f'webgpu-{args.test}'
     program_args = ['frames', str(args.frames)] if args.frames else []
-    plat = args.platform or host_dir()
+    plat = args.platform or host_platform()
     libs = output_dir(plat)
     fetch(plat, libs)
     os.environ['JAIC_NATIVE_LIBS'] = str(libs)

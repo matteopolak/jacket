@@ -26,7 +26,8 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_native_libs import host_dir, output_dir  # noqa: E402
+from build_native_libs import output_dir  # noqa: E402
+from host import host_platform  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / 'tools' / 'webgpu.json'
@@ -111,7 +112,7 @@ def main() -> int:
     ap.add_argument('--out', type=Path, help='output directory (default: target/native-libs/<platform>)')
     ap.add_argument('--force', action='store_true', help='download even when the libraries are present')
     args = ap.parse_args()
-    plat = args.platform or host_dir()
+    plat = args.platform or host_platform()
     fetch(plat, args.out or output_dir(plat), args.force)
     return 0
 

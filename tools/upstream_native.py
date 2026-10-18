@@ -6,10 +6,10 @@ failures and incomplete/incorrect build receipts are fatal.
 
 import hashlib
 import json
-import platform
 from pathlib import Path
 import subprocess
 import sys
+from host import host_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,16 +20,6 @@ def file_sha256(path):
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def host_platform():
-    system = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}[
-        platform.system()
-    ]
-    cpu = {"arm64": "arm64", "aarch64": "arm64", "amd64": "x64", "x86_64": "x64"}[
-        platform.machine().lower()
-    ]
-    return system + "-" + cpu
 
 
 def native_plan(target, native, stdlib, root=ROOT):

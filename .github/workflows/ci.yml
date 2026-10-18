@@ -122,7 +122,7 @@ jobs:
         run: |
           node --version
           node tools/check_scripting_wasm.mjs target/ci-wasm/jai_wasm.wasm
-          node tools/check_jai_format_wasm.mjs target/ci-wasm/jai_wasm.wasm
+          node tools/check_jaifmt_wasm.mjs engine target/ci-wasm/jai_wasm.wasm
       - name: WebGPU host bridge (mock WebGPU; the engine suspends through JSPI)
         # docs/extensions/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
         # directly (node:test in this process) rather than in a `--test` child without the flag.
@@ -267,7 +267,7 @@ jobs:
           python3 tools/check_platform_io.py --jaic target/debug/jaic --stdlib stdlib --wasm --case File/tests/unicode-paths
           target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
-          node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt
+          node --no-warnings tools/check_jaifmt_wasm.mjs wasi target/jaifmt.wasm target/jaifmt
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
       - name: Native Linux File_Watcher ownership and notifications
         if: runner.os == 'Linux'

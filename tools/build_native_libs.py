@@ -13,7 +13,6 @@ import argparse
 import hashlib
 import json
 import re
-import platform
 import shutil
 import subprocess
 import sys
@@ -24,6 +23,7 @@ from fetch_url import fetch as fetch_pinned
 import zipfile
 from pathlib import Path
 
+from host import host_platform
 from repo_output import output_dir as repo_output_dir, shared_output_dir
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,7 +36,7 @@ MINGW_PREFIXES = {'windows-x64-mingw': 'x86_64-w64-mingw32', 'windows-arm64-ming
 
 
 def output_dir(plat: str | None = None) -> Path:
-    return shared_output_dir('native-libs', plat or host_dir())
+    return shared_output_dir('native-libs', plat or host_platform())
 
 
 def static_name(name: str, plat: str) -> str:
@@ -56,22 +56,13 @@ def wanted(lib: dict, plat: str) -> bool:
 
 def missing(plat: str | None = None) -> list[str]:
     """Libraries whose complete shipped package has not been built for `plat`."""
-    plat = plat or host_dir()
+    plat = plat or host_platform()
     libraries = json.loads(MANIFEST.read_text())['libraries']
     out = output_dir(plat)
     manifest = json.loads(MANIFEST.read_text())
     return sorted(name for name, lib in libraries.items()
                   if wanted(lib, plat) and any(not (out / file).is_file() for file in
                       shipped_files({'libraries': {name: lib}, 'sources': manifest['sources']}, plat)))
-
-
-def host_dir() -> str:
-    system = {'Darwin': 'macos', 'Linux': 'linux', 'Windows': 'windows'}.get(platform.system())
-    machine = platform.machine()
-    arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'ARM64': 'arm64', 'x86_64': 'x64', 'AMD64': 'x64'}.get(machine)
-    if not system or not arch:
-        sys.exit(f'unsupported host {platform.system()} {machine}')
-    return f'{system}-{arch}'
 
 
 def download(url: str, digest: str) -> bytes:
@@ -381,8 +372,8 @@ def main() -> None:
                         help='build only the libraries missing from the default output directory '
                              '(CI restores it from a cache keyed on this manifest)')
     args = parser.parse_args()
-    plat = args.platform or host_dir()
-    if plat not in MINGW_PREFIXES and plat.split('-')[0] != host_dir().split('-')[0]:
+    plat = args.platform or host_platform()
+    if plat not in MINGW_PREFIXES and plat.split('-')[0] != host_platform().split('-')[0]:
         sys.exit(f'{plat}: libraries are built on the platform they are for '
                  f'(or cross-built for MinGW: {", ".join(MINGW_PREFIXES)})')
     if plat.startswith('windows') and plat not in WINDOWS_TRIPLES and plat not in MINGW_PREFIXES:

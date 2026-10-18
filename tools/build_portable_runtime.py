@@ -14,23 +14,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import platform
 import shutil
 import subprocess
+from host import host_platform
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def host_platform():
-    system = {"Darwin": "macos", "Linux": "linux"}.get(platform.system())
-    cpu = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "x64", "amd64": "x64"}.get(
-        platform.machine().lower()
-    )
-    if not system or not cpu:
-        raise ValueError(
-            "portable native crash backend requires a supported POSIX host"
-        )
-    return system + "-" + cpu
 
 
 def build_plan(target, output, temporary, cc, ar):

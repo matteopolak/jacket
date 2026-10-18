@@ -15,7 +15,6 @@ import hashlib
 import json
 import threading
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -28,6 +27,7 @@ from stdlib_test_catalog import (
     case_for_mode,
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from host import host_platform
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -55,13 +55,6 @@ def take_shard(items, part):
     across the parts, and the split is the same on every run."""
     index, count = part
     return items[index - 1 :: count]
-
-
-def host_platform():
-    os_name = {"darwin": "macos", "win32": "windows"}.get(sys.platform, "linux")
-    machine = platform.machine().lower()
-    arch = "arm64" if machine in ("arm64", "aarch64") else "x64"
-    return f"{os_name}-{arch}"
 
 
 def cases():

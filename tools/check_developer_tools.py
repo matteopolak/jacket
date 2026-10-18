@@ -17,7 +17,7 @@ import check_developer_type_emission
 import check_developer_value_emission
 import check_developer_check
 import check_developer_check_plugin
-import check_developer_cursor_source
+import check_developer_refined_emission
 import check_developer_multi_input
 import check_developer_pointer_defaults
 import check_developer_string_macros
@@ -181,7 +181,7 @@ def main():
     check_developer_value_emission.main()
     check_developer_check.main()
     check_developer_check_plugin.main()
-    check_developer_cursor_source.main()
+    check_developer_refined_emission.main()
     check_developer_multi_input.main()
     check_developer_pointer_defaults.main()
     check_developer_string_macros.main()

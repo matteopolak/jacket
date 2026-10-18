@@ -453,6 +453,7 @@ fn jaifmt_wasm_formats_the_golden_cases() {
     let output = node()
         .unwrap()
         .arg(repo_root().join("tools/check_jaifmt_wasm.mjs"))
+        .arg("wasi")
         .arg(dir.join("jaifmt.wasm"))
         .output()
         .unwrap();
