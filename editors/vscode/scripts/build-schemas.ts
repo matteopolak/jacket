@@ -1,7 +1,8 @@
 // Writes schemas/jailint.schema.json from jailint's rule table (crates/jailint/src/rules/mod.rs),
 // so a new rule is completed and validated in jailint.toml without editing the schema by hand,
 // schemas/jaifmt.schema.json from the keys Jai_Format's config parser accepts, and
-// schemas/jai.schema.json for jai.toml (the settings jailsp's project.rs parses).
+// schemas/jai.schema.json for the legacy jai.toml (the settings jailsp's project.rs parses), and
+// schemas/jacket.schema.json for jacket.toml, which holds all of them in sections.
 //
 //   node scripts/build-schemas.ts           # regenerate
 //   node scripts/build-schemas.ts --check   # fail if a committed schema is stale
@@ -106,8 +107,62 @@ const project = {
   },
 };
 
+const section = (schema: { description: string; properties: object }, text: string) => ({
+  type: "object",
+  additionalProperties: false,
+  markdownDescription: text,
+  properties: schema.properties,
+});
+const jacket = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  $id: "https://github.com/matteopolak/jacket/editors/vscode/schemas/jacket.schema.json",
+  title: "jacket.toml",
+  description: `Project settings for jacket, jaic, jailsp, jailint and jaifmt. ${DOCS}/jacket.md#jackettoml`,
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    project: {
+      type: "object",
+      additionalProperties: false,
+      markdownDescription: "What to build and where its modules are.",
+      properties: {
+        entry: paths("The files you give `jaic`, relative to this file, such as `[\"main.jai\"]`. Default: the first of `build.jai`, `first.jai`, `main.jai`, `src/main.jai` and `module.jai` that exists."),
+        import_path: paths("More folders to import modules from, relative to this file (`-import_dir`)."),
+      },
+    },
+    toolchain: {
+      type: "object",
+      additionalProperties: false,
+      markdownDescription: "The toolchain the project is written for.",
+      properties: {
+        version: { type: "string", markdownDescription: "The `x.y.z` jaic release the project is written for; tools warn when theirs differs." },
+      },
+    },
+    lint: {
+      type: "object",
+      additionalProperties: false,
+      markdownDescription: "Settings for jailint and the lints jailsp reports.",
+      properties: {
+        ...jailint.properties,
+        max_nesting: { type: "integer", minimum: 1, markdownDescription: "How many blocks deep code may nest before `excessive_nesting` fires." },
+      },
+    },
+    format: section(jaifmt, "Settings for the jaifmt formatter."),
+    experimental: {
+      type: "object",
+      additionalProperties: false,
+      markdownDescription: "Performance knobs that may change between releases; each becomes a `jaic` flag.",
+      properties: {
+        parse_threads: { type: "integer", minimum: 1, markdownDescription: "Threads that parse files ahead of the compiler (`-parse_threads`)." },
+        serial_parse: { type: "boolean", markdownDescription: "Parse files one at a time (`-serial_parse`)." },
+        codegen_units: { type: "integer", minimum: 1, markdownDescription: "Split code generation into this many units (`-codegen_units`)." },
+      },
+    },
+  },
+};
+
 let stale = false;
-for (const [name, schema] of [["jailint", jailint], ["jaifmt", jaifmt], ["jai", project]]) {
+for (const [name, schema] of [["jailint", jailint], ["jaifmt", jaifmt], ["jai", project], ["jacket", jacket]]) {
   const path = join(root, "schemas", `${name}.schema.json`);
   const text = JSON.stringify(schema, null, 2) + "\n";
   if (process.argv.includes("--check")) {

@@ -6,21 +6,28 @@ local toolchain = require('jai.toolchain')
 local M = {}
 
 M.CONFIG_FILE = 'jaifmt.toml'
+M.JACKET_FILE = 'jacket.toml'
 
----The nearest `jaifmt.toml` in `dir` or above it.
+---The nearest `jacket.toml` or `jaifmt.toml` in `dir` or above it; a directory's jacket.toml wins.
 ---@param dir string
 ---@return string?
 function M.find_config(dir)
-  local found = vim.fs.find(M.CONFIG_FILE, { path = dir, upward = true, type = 'file', limit = 1 })[1]
-  return found
+  return vim.fs.find({ M.JACKET_FILE, M.CONFIG_FILE }, { path = dir, upward = true, type = 'file', limit = 1 })[1]
 end
 
----The `ignore = [...]` globs of a `jaifmt.toml` (the one-line string array jaifmt accepts).
+---The `ignore = [...]` globs of a config file (the one-line string array jaifmt accepts). In a
+---`jacket.toml` only the `[format]` table counts.
 ---@param toml string
+---@param file? string  the config's path; a `jacket.toml` is read by section
 ---@return string[]
-function M.ignore_globs(toml)
+function M.ignore_globs(toml, file)
+  local jacket = file ~= nil and vim.fs.basename(file) == M.JACKET_FILE
+  local in_format = not jacket
   for raw in toml:gmatch('[^\r\n]+') do
-    local list = raw:match('^%s*ignore%s*=%s*%[(.*)%]%s*#?.*$')
+    if jacket and raw:match('^%s*%[') then
+      in_format = raw:match('^%s*%[%s*format%s*%]%s*#?.*$') ~= nil
+    end
+    local list = in_format and raw:match('^%s*ignore%s*=%s*%[(.*)%]%s*#?.*$')
     if list then
       local globs = {}
       for glob in list:gmatch('"([^"]*)"') do
@@ -79,7 +86,7 @@ local function apply(bufnr, formatted)
   end
 end
 
----Formats a buffer with `jaifmt`, waiting for it. Buffers ignored by `jaifmt.toml` are left alone.
+---Formats a buffer with `jaifmt`, waiting for it. Buffers ignored by the `[format]` ignore list are left alone.
 ---@param bufnr? integer
 ---@return boolean changed
 ---@return string? err
@@ -94,7 +101,7 @@ function M.format(bufnr)
   local config_path = M.find_config(dir)
   if config_path and name ~= '' then
     local ok, lines = pcall(vim.fn.readfile, config_path)
-    if ok and M.is_ignored(config_path, M.ignore_globs(table.concat(lines, '\n')), name) then
+    if ok and M.is_ignored(config_path, M.ignore_globs(table.concat(lines, '\n'), config_path), name) then
       return false
     end
   end

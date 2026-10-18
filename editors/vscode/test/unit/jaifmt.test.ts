@@ -12,6 +12,19 @@ function apply(text: string, change: ReturnType<typeof minimalReplacement>): str
   return change ? text.slice(0, change.start) + change.text + text.slice(change.end) : text;
 }
 
+describe("jacket.toml", () => {
+  it("wins over jaifmt.toml in the same directory", () => {
+    const files = new Set([path.join("/repo", "jaifmt.toml"), path.join("/repo", "jacket.toml")]);
+    assert.equal(findConfig("/repo/src", (f) => files.has(f)), path.join("/repo", "jacket.toml"));
+  });
+
+  it("reads ignore only from [format]", () => {
+    const toml = '[lint]\nignore = ["no"]\n[format]\nindent_width = 2\nignore = ["gen/**"]\n[experimental]\nignore = ["no"]\n';
+    assert.deepEqual(ignoreGlobs(toml, "/repo/jacket.toml"), ["gen/**"]);
+    assert.deepEqual(ignoreGlobs("[lint]\nexclude = []\n", "/repo/jacket.toml"), []);
+  });
+});
+
 describe("jaifmt.toml", () => {
   it("is found in the file's directory or above", () => {
     const files = new Set([path.join("/repo", "jaifmt.toml")]);

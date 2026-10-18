@@ -9,7 +9,7 @@ import { CONFIG_FILE, findConfig, ignoreGlobs, isIgnored, minimalReplacement, ru
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
 /** Settings files jailsp reads as open documents, so unsaved edits apply at once. */
-const SETTINGS_FILES = ["jailint.toml", "jai.toml"];
+const SETTINGS_FILES = ["jacket.toml", "jailint.toml", "jai.toml"];
 /** Earlier IDs of this extension: `matteopolak.jai` up to 0.4.1, then `matteopolak.jai-toolchain`. */
 export const OLD_EXTENSION_IDS = ["matteopolak.jai", "matteopolak.jai-toolchain"];
 
@@ -62,6 +62,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     return { client: () => undefined };
   }
   log = vscode.window.createOutputChannel("Jai", { log: true });
+  void offerToMigrate(context);
   serverOutput = vscode.window.createOutputChannel("Jai Language Server", { log: true });
   toolchain = new ToolchainManager(context, log);
   const expansions = new ExpansionDocuments(() => client);
@@ -193,14 +194,14 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     outputChannel: serverOutput,
     traceOutputChannel: serverOutput,
     // The stdlib comes from `JAIC_STDLIB`, the project's entry files and module folders from
-    // the nearest jai.toml (else inferred), lint levels from the nearest jailint.toml. Editor
+    // the nearest jacket.toml (else inferred), lint levels from its `[lint]` section. Editor
     // settings go as initialization options and, when they change, as
     // `workspace/didChangeConfiguration` with the whole `jai` section.
     initializationOptions: () => serverSettings(),
     synchronize: {
       configurationSection: "jai",
       // Auto-import completion indexes the project's files: tell jailsp when they change.
-      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jai.toml}"),
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jacket.toml,jai.toml}"),
     },
     middleware: {
       executeCommand: async (command, args, next) => expansions.handle(command, await next(command, args)),
@@ -219,10 +220,9 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
   }
 }
 
-// --- jailint.toml and jai.toml ------------------------------------------------------------
-// jailsp reads lint settings from the nearest jailint.toml and project settings from the
-// nearest jai.toml on disk, and also accepts either as an open document, so unsaved edits
-// apply at once. Only the text is synchronised: the document selector stays Jai-only, so no
+// --- jacket.toml (and the legacy jailint.toml and jai.toml) -------------------------------
+// jailsp reads lint and project settings from the nearest jacket.toml (else the legacy files)
+// on disk, and also accepts them as open documents, so unsaved edits apply at once. Only the text is synchronised: the document selector stays Jai-only, so no
 // other request is sent for the TOML files.
 
 function isSettingsFile(document: vscode.TextDocument): boolean {
@@ -236,6 +236,37 @@ function serverSettings(): { completion: { autoImport: boolean }; trusted: boole
     // Untrusted workspaces: jailsp runs no `#run`, build metaprogram or computed `#insert`.
     trusted: vscode.workspace.isTrusted,
   };
+}
+
+/** One notice per machine: the workspace still has the legacy config files and no jacket.toml. */
+async function offerToMigrate(context: vscode.ExtensionContext): Promise<void> {
+  const KEY = "jai.migrationNoticeShown";
+  if (context.globalState.get<boolean>(KEY)) return;
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) return;
+  const exists = async (name: string) => {
+    try {
+      await vscode.workspace.fs.stat(vscode.Uri.joinPath(folder.uri, name));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (await exists("jacket.toml")) return;
+  const legacy = [];
+  for (const name of ["jailint.toml", "jaifmt.toml", "jai.toml"]) if (await exists(name)) legacy.push(name);
+  if (legacy.length === 0) return;
+  await context.globalState.update(KEY, true);
+  const run = "Run `jacket config migrate`";
+  const choice = await vscode.window.showInformationMessage(
+    `Jai: ${legacy.join(", ")} still work, but settings now live in one jacket.toml.`,
+    run,
+  );
+  if (choice === run) {
+    const terminal = vscode.window.createTerminal({ name: "jacket", cwd: folder.uri.fsPath });
+    terminal.show();
+    terminal.sendText("jacket config migrate");
+  }
 }
 
 function openSettingsFiles(target: LanguageClient): void {
@@ -293,7 +324,7 @@ async function formatDocument(document: vscode.TextDocument, _options: vscode.Fo
     if (config) {
       try {
         const text = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.file(config))).toString("utf8");
-        if (isIgnored(config, ignoreGlobs(text), document.uri.fsPath)) {
+        if (isIgnored(config, ignoreGlobs(text, config), document.uri.fsPath)) {
           log.info(`not formatting ${document.uri.fsPath}: ignored by ${config}`);
           return [];
         }
@@ -317,7 +348,7 @@ async function formatDocument(document: vscode.TextDocument, _options: vscode.Fo
     const reason = result.stderr.trim().split(/\r?\n/).join(" ") || `exit status ${result.code}`;
     log.warn(`jaifmt: ${reason}`);
     vscode.window.setStatusBarMessage(`$(warning) jaifmt: ${reason.replace(/^(jaifmt: )?(<stdin>:)?/, "")}`, 8000);
-    if (/jaifmt\.toml/.test(reason)) void vscode.window.showErrorMessage(`Jai: ${reason} (${CONFIG_FILE})`);
+    if (/jaifmt\.toml|jacket\.toml/.test(reason)) void vscode.window.showErrorMessage(`Jai: ${reason} (${CONFIG_FILE})`);
     return [];
   }
   const change = minimalReplacement(before, result.stdout);

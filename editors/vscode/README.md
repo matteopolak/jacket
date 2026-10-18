@@ -13,7 +13,7 @@ Language support for Jai from [Jacket](https://github.com/matteopolak/jacket), t
 
   ![A type mismatch reported inline](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/error.png)
 
-- **Completion** of members, procedures, modules and directives, with auto-import: `prin` offers `print` and adds `#import "Basic";` when accepted (likewise for your own modules, and `#load` for your project's other files; `jai.completion.autoImport`). A `jai.toml` at the project root can name its build files and module folders.
+- **Completion** of members, procedures, modules and directives, with auto-import: `prin` offers `print` and adds `#import "Basic";` when accepted (likewise for your own modules, and `#load` for your project's other files; `jai.completion.autoImport`). A `jacket.toml` at the project root can name its entry files and module folders (`[project]`).
 
   ![Completing the fields of a struct](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/completion.png)
 
@@ -22,13 +22,13 @@ Language support for Jai from [Jacket](https://github.com/matteopolak/jacket), t
   ![Completing an AVX2 instruction in an #asm block](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/asm-completion.png)
 
 - **Refactorings** in the lightbulb menu: extract the selected expression into a variable, extract statements into a procedure (parameters and results worked out; declined when it cannot be done safely), inline a variable, add the missing cases of an `if x == {` on an enum, add the missing fields of a `Type.{...}` literal, and convert between `ifx` and `if`/`else`. **Call hierarchy** (incoming and outgoing calls) and **expand selection** work too.
-- **Lints** from `jailint` with quick fixes; `source.fixAll.jailint` applies every safe fix, on demand or on save. Unsaved edits to `jailint.toml` apply at once.
+- **Lints** from `jailint` with quick fixes; `source.fixAll.jailint` applies every safe fix, on demand or on save. Unsaved edits to `jacket.toml` apply at once.
 
   ![A jailint warning and its documentation link](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/lint.png)
 
   ![The quick fix for it](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/quick-fix.png)
 
-- **Formatting** with `jaifmt`, honouring `jaifmt.toml` (including its `ignore` globs); works with `editor.formatOnSave`.
+- **Formatting** with `jaifmt`, honouring the `[format]` table of `jacket.toml` or a legacy `jaifmt.toml` (including its `ignore` globs); works with `editor.formatOnSave`.
 
   ![A file before and after Format Document](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/formatting.png)
 
@@ -36,7 +36,7 @@ Language support for Jai from [Jacket](https://github.com/matteopolak/jacket), t
 - **Highlighting**: a TextMate grammar for keywords, directives, here-strings, numbers (`0x`, `0b`, `0h`, `_`), nested comments, declarations and `$T`/`$$x` polymorph variables, refined by the server's semantic tokens.
 - **Embedded languages**: a here-string whose terminator names a language is highlighted as that language: `#string WGSL`, `GLSL`, `HLSL`, `SQL`, `JSON`, `HTML`, `CSS`, `JS`, `TS`, `PY`, `SH`, `C`, `CPP`, `RUST`, `YAML`, `TOML`, `JAI` and more (ignoring case). A WGSL grammar is bundled; GLSL and Metal need an extension that provides their grammar. Other terminators (`END`) stay plain strings.
 - **Commands**: *Jai: Run File*, *Build File* and *Check File* (`jaic file.jai [-interp|-check]` in a terminal), *Restart Language Server*, *Download Toolchain*.
-- Snippets, bracket and comment configuration, a file icon, and schemas for `jailint.toml`/`jaifmt.toml`/`jai.toml` (validated by TOML extensions that read `tomlValidation`, such as Even Better TOML).
+- Snippets, bracket and comment configuration, a file icon, and schemas for `jacket.toml` and the legacy `jailint.toml`/`jaifmt.toml`/`jai.toml` (validated by TOML extensions that read `tomlValidation`, such as Even Better TOML).
 
 ## Getting the toolchain
 

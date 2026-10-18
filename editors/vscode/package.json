@@ -44,6 +44,7 @@
   "main": "./dist/extension.cjs",
   "activationEvents": [
     "workspaceContains:**/*.jai",
+    "workspaceContains:**/jacket.toml",
     "workspaceContains:**/jailint.toml"
   ],
   "capabilities": {
@@ -84,6 +85,7 @@
           "toml"
         ],
         "filenames": [
+          "jacket.toml",
           "jaifmt.toml",
           "jailint.toml",
           "jai.toml"
@@ -147,6 +149,10 @@
       }
     ],
     "tomlValidation": [
+      {
+        "fileMatch": "jacket.toml",
+        "url": "./schemas/jacket.schema.json"
+      },
       {
         "fileMatch": "jailint.toml",
         "url": "./schemas/jailint.schema.json"

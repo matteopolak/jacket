@@ -41,13 +41,13 @@ function M.parse_jailint(output)
   return items
 end
 
----Lint the project (the folder with `jai.toml`, `jailint.toml` or `.git`) into the quickfix list.
+---Lint the project (the folder with `jacket.toml`, a legacy config or `.git`) into the quickfix list.
 local function lint()
   local linter = toolchain.find('jailint')
   if not linter then
     return notify('jailint was not found: put it on PATH or run :Jai install', vim.log.levels.WARN)
   end
-  local root = vim.fs.root(0, { 'jai.toml', 'jailint.toml', '.git' }) or vim.uv.cwd() --[[@as string]]
+  local root = vim.fs.root(0, { 'jacket.toml', 'jai.toml', 'jailint.toml', '.git' }) or vim.uv.cwd() --[[@as string]]
   notify('linting ' .. root)
   vim.system({ linter.path, '--color', 'never', root }, { cwd = root, text = true, env = config.tool_env() }, vim.schedule_wrap(function(out)
     -- Exit 1 means findings at level deny; 2 a usage or configuration error.
