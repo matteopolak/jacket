@@ -50,7 +50,7 @@ One `jaic` command line instead of the `run`, `check` and `build` subcommands, w
 | `-o path` (the output file) | `-exe name` and `-output_path dir`; `-exe` may carry a directory and extension. `-o` now means an optimized build |
 | `--emit-ir file.ll` | `-emit_ir file.ll` |
 | `--no-debug-info` | `-no_debug_info` |
-| `--timings` | `-timings` (read by `tools/compile_bench.py`) |
+| `--timings` | `-timings` (read by `tools/bench`) |
 | `--sanitize`, `--target` | `-sanitize`, `-target` |
 | `--color never`, `-color` | `-no_color`; `FORCE_COLOR=1` forces colour on |
 | `-plug Name`, `-plugin Name` | `+Name`; every argument after it, up to the next `+Name`, `-` or `--`, is that plugin's own option |

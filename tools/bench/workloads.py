@@ -1,0 +1,198 @@
+"""The compile benchmark's workloads: what they exercise, where their sources come from, how to build them."""
+from __future__ import annotations
+
+import json
+import subprocess
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Protocol
+
+import toolpath  # noqa: F401  (puts tools/ on sys.path for benchgen, jaistats, repo_output)
+import benchgen
+from dialects import Mode
+from repo_output import main_checkout
+from results import ROOT
+
+CORPUS = main_checkout() / 'corpus' / 'upstream'
+COMPILE_PROGRAMS = ROOT / 'benchmarks' / 'compile'
+MICRO_PROGRAMS = ROOT / 'benchmarks'
+
+
+class Category(str, Enum):
+    STARTUP = 'startup'
+    LOTS_OF_CODE = 'lots of code'
+    REAL_PROJECT = 'real projects'
+    COMPILE_TIME = 'compile-time heavy'
+    STDLIB = 'stdlib heavy'
+    INTERPRETER = 'interpreter'
+    GENERATED_CODE = 'generated-code runtime'
+
+
+# ----------------------------------------------------------------------------------------- sources
+
+class Source(Protocol):
+    def materialize(self, scratch: Path) -> Path:
+        """The directory to compile in (writing generated files under `scratch` first)."""
+
+    def available(self) -> str:
+        """'' when the sources exist, otherwise why not."""
+
+    def measured(self, directory: Path, entry: str) -> Path:
+        """What to count lines in: the part of `directory` that is the workload's own code."""
+
+
+@dataclass(frozen=True)
+class RepoDirectory:
+    """A directory of this repository (benchmarks/compile)."""
+    directory: Path
+
+    def materialize(self, scratch: Path) -> Path:
+        return self.directory
+
+    def available(self) -> str:
+        return '' if self.directory.is_dir() else f'{self.directory} is missing'
+
+    def measured(self, directory: Path, entry: str) -> Path:
+        return directory / entry  # the directory holds many unrelated programs
+
+
+@dataclass(frozen=True)
+class CorpusProject:
+    """A pinned upstream project (`python3 tools/fetch_upstreams.py`), optionally with setup commands from
+    tools/upstream-cases.json that prepare vendored libraries first."""
+    project: str
+    setup_ids: tuple[str, ...] = ()
+
+    @property
+    def directory(self) -> Path:
+        return CORPUS / self.project
+
+    def materialize(self, scratch: Path) -> Path:
+        cases = json.loads((ROOT / 'tools' / 'upstream-cases.json').read_text()) if self.setup_ids else []
+        for case in cases:
+            if case['id'] in self.setup_ids:
+                for command in case.get('setup', []):
+                    subprocess.run(command, cwd=(CORPUS / case['path']).parent, capture_output=True,
+                                   stdin=subprocess.DEVNULL)
+        return self.directory
+
+    def available(self) -> str:
+        return '' if self.directory.is_dir() else f'{self.directory} is missing; run python3 tools/fetch_upstreams.py'
+
+    def measured(self, directory: Path, entry: str) -> Path:
+        return directory
+
+
+@dataclass(frozen=True)
+class Generated:
+    """A program from tools/benchgen.py; the text depends only on these numbers."""
+    lines: int
+    seed: int = 1
+    files: int = 1
+
+    def materialize(self, scratch: Path) -> Path:
+        directory = scratch / f'generated-{self.lines}-{self.seed}-{self.files}'
+        if not directory.exists():
+            directory.mkdir(parents=True)
+            for name, text in benchgen.generate(self.lines, self.seed, self.files).items():
+                (directory / name).write_text(text)
+        return directory
+
+    def available(self) -> str:
+        return ''
+
+    def measured(self, directory: Path, entry: str) -> Path:
+        return directory
+
+
+# --------------------------------------------------------------------------------------- workloads
+
+@dataclass(frozen=True)
+class Plan:
+    """How one mode builds a workload: the file to name on the command line, arguments for the project's
+    build metaprogram (after a lone `-`), and whether the harness may redirect the executable. A project
+    whose metaprogram chooses its own output keeps `redirect_output=False`."""
+    entry: str = 'main.jai'
+    metaprogram_args: tuple[str, ...] = ()
+    redirect_output: bool = True
+
+
+@dataclass(frozen=True)
+class Workload:
+    name: str
+    category: Category
+    source: Source
+    plans: dict[Mode, Plan]
+    # The program's output is deterministic, so compilers must agree on it before being timed.
+    compare_output: bool = False
+    # Also run the built executable and time that (the generated-code runtime).
+    runtime: bool = False
+
+    @property
+    def modes(self) -> list[Mode]:
+        return list(self.plans)
+
+
+def single(entry: str, *modes: Mode) -> dict[Mode, Plan]:
+    return {mode: Plan(entry) for mode in modes}
+
+
+CHECK_BUILD = (Mode.CHECK, Mode.BUILD)
+
+
+def program(name: str, category: Category, directory: Path, modes: tuple[Mode, ...] = CHECK_BUILD,
+            **options) -> Workload:
+    return Workload(name, category, RepoDirectory(directory), single(f'{name}.jai', *modes),
+                    compare_output=True, **options)
+
+
+def generated(lines: int, modes: tuple[Mode, ...], runtime: bool = False) -> Workload:
+    return Workload(f'gen-{lines // 1000}k', Category.LOTS_OF_CODE, Generated(lines, 1, max(1, lines // 5000)),
+                    single('main.jai', *modes), compare_output=True, runtime=runtime)
+
+
+def project(name: str, directory: str, plans: dict[Mode, Plan], setup: tuple[str, ...] = ()) -> Workload:
+    return Workload(name, Category.REAL_PROJECT, CorpusProject(directory, setup), plans)
+
+
+def interpreter_programs() -> list[Workload]:
+    names = sorted(path.stem for path in MICRO_PROGRAMS.glob('interp-*.jai'))
+    return [program(name, Category.INTERPRETER, MICRO_PROGRAMS, (Mode.INTERP,)) for name in names]
+
+
+def own_output(entry: str, *metaprogram_args: str) -> Plan:
+    """A build driven by the project's metaprogram, which decides where the executable goes."""
+    return Plan(entry, metaprogram_args, redirect_output=False)
+
+
+def all_workloads() -> list[Workload]:
+    compile_time = [program(name, Category.COMPILE_TIME, COMPILE_PROGRAMS)
+                    for name in ('run-loops', 'insert-meta', 'polymorph-explosion', 'constant-tables')]
+    return [
+        program('hello', Category.STARTUP, COMPILE_PROGRAMS, (Mode.CHECK, Mode.BUILD, Mode.INTERP)),
+        generated(2_000, (Mode.CHECK, Mode.BUILD, Mode.INTERP)),
+        generated(10_000, (Mode.CHECK, Mode.BUILD, Mode.OPTIMIZED), runtime=True),
+        generated(60_000, CHECK_BUILD),
+        project('focus', 'focus-editor--focus', {
+            Mode.CHECK: Plan('first.jai'), Mode.BUILD: own_output('first.jai'), Mode.OPTIMIZED: own_output('first.jai', 'release')}),
+        project('jails', 'SogoCZE--Jails', {
+            Mode.CHECK: Plan('build.jai'), Mode.BUILD: own_output('build.jai'),
+            Mode.OPTIMIZED: own_output('build.jai', '-release')}),
+        project('sgpu-examples', 'roeyb1--sgpu/examples', {Mode.CHECK: Plan('build.jai')}),
+        project('jaison-tests', 'rluba--jaison', single('tests.jai', *CHECK_BUILD, Mode.OPTIMIZED)),
+        project('open-jai-getrect', 'withlang-dev--open-jai/examples/33',
+                single('33.3_getrect_buttons.jai', *CHECK_BUILD, Mode.OPTIMIZED)),
+        project('chess-jai', 'danieltan1517--chess-jai', {
+            Mode.CHECK: Plan('build.jai'), Mode.BUILD: own_output('build.jai', 'ui', 'ai', 'debug'),
+            Mode.OPTIMIZED: own_output('build.jai', 'ui', 'ai', 'release')}),
+        project('forbear', 'gabrielmfern--forbear', {
+            Mode.CHECK: Plan('build.jai'), Mode.BUILD: own_output('build.jai')},
+            setup=('forbear-build',)),
+        *compile_time,
+        program('compile-time', Category.COMPILE_TIME, MICRO_PROGRAMS, CHECK_BUILD),
+        program('stdlib-imports', Category.STDLIB, COMPILE_PROGRAMS),
+        *interpreter_programs(),
+        program('runtime-compute', Category.GENERATED_CODE, COMPILE_PROGRAMS, (Mode.BUILD, Mode.OPTIMIZED),
+                runtime=True),
+    ]

@@ -231,10 +231,11 @@ jobs:
       - name: Policy tests
         id: policy
         continue-on-error: true
-        # tools/ has no __init__.py, so discovery does not descend into native_bindings/.
+        # tools/ has no __init__.py, so discovery does not descend into native_bindings/ or bench/.
         run: |
           python3 -m unittest discover -s tools -p 'test_*.py'
           python3 -m unittest discover -s tools/native_bindings -p 'test_*.py'
+          python3 -m unittest discover -s tools/bench -p 'test_*.py'
       # The checked-in native bindings must be exactly what the reviewed specs generate.
       - name: Generated bindings check
         id: bindings-check

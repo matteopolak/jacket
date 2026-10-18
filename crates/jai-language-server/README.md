@@ -57,7 +57,7 @@ The editor can send one setting: `completion.autoImport` (on by default) turns a
 
 [Jails](https://github.com/SogoCZE/Jails) is the established Jai language server, written in Jai. The two work differently. Jails parses your files itself, and gets its errors by running a separately installed Jai compiler on your build file. jailsp has the type checker built in, so it needs no other compiler, and it also offers hover, find references, rename, inlay hints, code actions and lints. Jails' own feature set is go to definition, completion, signature help and compiler errors.
 
-The [benchmarks page](../../docs/tools/benchmarks.md) explains how to time both servers on the same projects with `tools/lsp_bench.py`.
+The [benchmarks page](../../docs/tools/benchmarks.md) explains how to time a server with `python3 tools/bench/main.py lsp`, including another server given with `--server NAME=COMMAND`.
 
 ## Building from source
 

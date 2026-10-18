@@ -51,7 +51,7 @@ The geometric mean is about 8% faster. Peak RSS is 4–8% higher on corpus proje
 
 ## How to change it
 
-- Measure with `jaic x.jai -exe out -timings` on an idle machine, 5 or more warm runs (a busy process moves results 10 to 20%). `tools/compile_bench.py` ([benchmarks](../tools/benchmarks.md)) runs corpus projects; for scaling use the corpus-shaped programs from `tools/benchgen.py` (`gen-10k`/`gen-60k`/`gen-240k`).
+- Measure with `jaic x.jai -exe out -timings` on an idle machine, 5 or more warm runs (a busy process moves results 10 to 20%). `python3 tools/bench/main.py compile` ([benchmarks](../tools/benchmarks.md)) runs corpus projects, the compile-time-heavy programs in `benchmarks/compile/` and corpus-shaped programs from `tools/benchgen.py` (`gen-2k`/`gen-10k`/`gen-60k`).
 - To compare ISel strategies, run `llc -O0 -global-isel=0` on `-emit_ir` output.
 - Profile with samply ([benchmarks](../tools/benchmarks.md)). `Interp::run_code` is the main item left for metaprogram-heavy code, then `trace_enter`, then `build::call` and `write_item`.
 - Ideas left: LiveDebugValues cost at `-O0`; load CSE for null-check facts; fewer `lookup_full` clones of `using` lists in sema; interpreter speed.

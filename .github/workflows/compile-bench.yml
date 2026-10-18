@@ -1,20 +1,25 @@
-name: compile-time benchmark
+name: benchmark
 # Manual only: shared runners are too noisy to gate on timings. Compare runs of this workflow
-# with each other (same runner image), not with the committed baseline from a developer machine.
+# with each other (same runner image), not with results from a developer machine.
 on:
   workflow_dispatch:
     inputs:
+      command:
+        description: Which benchmark to run
+        type: choice
+        options: [compile, lsp, lint]
+        default: compile
       repeat:
-        description: Runs per workload (the first is the cold run)
+        description: Timed runs per result (the median is reported)
         default: '5'
       only:
-        description: Substring of the workload/mode keys to run (empty for all)
+        description: Comma-separated substrings of the result keys to run (empty for the defaults)
         default: ''
 permissions:
   contents: read
 jobs:
   bench:
-    name: compile-time benchmark (macos-15)
+    name: benchmark (macos-15)
     runs-on: macos-15
     timeout-minutes: 90
     env:
@@ -32,25 +37,26 @@ jobs:
         run: |
           tools/install_ci_llvm_macos.sh
       - name: Build the release compiler
-        run: cargo build --locked --release -p jaic-cli
+        run: cargo build --locked --release -p jaic-cli -p jai-language-server -p jailint
       - name: Fetch the upstream corpus and its native libraries
         run: |
           python3 tools/fetch_upstreams.py
           python3 tools/build_native_libs.py
       - name: Run the benchmark
         env:
+          COMMAND: ${{ inputs.command }}
           REPEAT: ${{ inputs.repeat }}
           ONLY: ${{ inputs.only }}
         run: |
-          python3 tools/compile_bench.py --jaic target/release/jaic --repeat "$REPEAT" --only "$ONLY" \
-            --out compile-bench.json --markdown compile-bench.md
+          python3 tools/bench/main.py "$COMMAND" --repeat "$REPEAT" --only "$ONLY" \
+            --out bench.json --markdown bench.md
       - name: Summary
         if: always()
-        run: test -f compile-bench.md && cat compile-bench.md >> "$GITHUB_STEP_SUMMARY" || true
+        run: test -f bench.md && cat bench.md >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: compile-bench
+          name: bench
           path: |
-            compile-bench.json
-            compile-bench.md
+            bench.json
+            bench.md

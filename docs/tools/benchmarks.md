@@ -2,64 +2,128 @@
 
 ## What it is
 
-Four harnesses, each writing JSON and Markdown and able to compare against an earlier run (compare only on the same machine, one benchmark at a time; shared CI runners are too noisy to gate on):
-
-- `tools/bench.py`: interpreter and compile-time micro-benchmarks (`benchmarks/*.jai`) plus a few corpus projects. Median wall time and interpreted instruction count.
-- `tools/compile_bench.py`: whole-project compile time (`check`, `build -O0`, `build -O2`), peak RSS and compiler phases.
-- `tools/lsp_bench.py`: language server latency, CPU and memory over stdio.
-- `tools/regex_bench.py` with `benchmarks/regex/`: `Extensions/Regex` against other engines (results in `benchmarks/results/regex.md`).
-
-Committed baselines are in `benchmarks/results/` (`compile-time-apple-m5.*`, `lsp-apple-m5.*`).
-
-## bench.py and profiling
+One harness, `tools/bench/`, times the compiler, the language server, the linter and the formatter. Each subcommand writes JSON and a Markdown summary, takes the median of N runs, reports the spread, and can compare against an earlier run.
 
 ```sh
-python3 tools/bench.py --out before.json
-# change something, rebuild
-python3 tools/bench.py --compare before.json
+python3 tools/bench/main.py compile --compiler jaic=target/release/jaic     # compile time, stages, generated-code speed
+python3 tools/bench/main.py lsp                                             # jailsp latency by request kind
+python3 tools/bench/main.py lint                                            # jailint
+python3 tools/bench/main.py fmt                                             # jaifmt, native and wasm
+python3 tools/bench/main.py compile --compare target/bench/old.json         # exit 1 on regressions
 ```
 
-Each workload runs `--repeat` times (median wall time) and once more with `JAIC_PROFILE=1` to read the total interpreted instruction count. Counts barely vary between runs, so they show small changes that wall time hides. Workloads: `compile-time`, `interp-calls`, `interp-fib`, `interp-loops`, `interp-loops-long`, `interp-foreign`, `interp-strings`, and corpus rows (`focus-check`, `jaison-tests`, `jails-check`, `sgpu-examples-check`). Vk-Engine is left out because its `Build.jai` rewrites files in the corpus.
+`tools/regex_bench.py` with `benchmarks/regex/` is separate: `Extensions/Regex` against other engines (results in `benchmarks/results/regex.md`). The files in `benchmarks/results/` were written by the harnesses this one replaced; their format is older and `--compare` cannot read them.
 
-- **Interpreter profile.** `JAIC_PROFILE=1` makes every interpreter count calls, blocks and instructions per procedure (self counts, merged in `crates/jaic/src/interp/profile.rs`); the CLI prints the top 40 to stderr plus a breakdown by IR instruction kind and by folded op. Counts stay comparable across interpreter changes because they count IR. Off, it costs one `Option` check per call and block.
-- **Native profile.** `cargo build --profile profiling -p jaic-cli`, then `samply record --save-only --unstable-presymbolicate -o prof.json.gz -- target/profiling/jaic first.jai -check` and `python3 tools/profile_report.py prof.json.gz --top 30` (`--callers NAME`, `--within NAME`, `--without NAME`). It reads the busiest thread, which is the 1 GiB compiler worker. For a hot line inside a big inlined function, resolve leaf addresses with `atos -i -o target/profiling/jaic.dSYM -l <load address> <addresses>`.
-- **Comparing two builds.** Copy the old binary (`cp target/release/jaic /tmp/jaic-before`), alternate the two on the same workload at least 5 times each, compare medians and minimums (`bench.py --jaic /tmp/jaic-before --out before.json`, then `--compare`). Record peak memory with `/usr/bin/time -l` (macOS) or `-v` (Linux). For interpreter changes also compare `JAIC_PROFILE` counts, which do not depend on load. For the LLVM backend time an `-O2` build of Jails or jaison; `JAIC_CODEGEN_UNITS` and `JAIC_SPLIT_UNITS` change how time splits across threads ([LLVM backend](../native/llvm-backend.md)).
+## How it works
 
-Patterns that past profiles found, worth checking first: weak hashes turning a `Table` into one chain (pointer keys use `knuth_hash`; Rust side uses `jaic::fxhash`); linear scans in stdlib or compiler lists on every call (the usual cause of a quadratic metaprogram); filling `Code_Node`/`Type_Info` records member by member instead of the native cached plan ([compiler records](../metaprogramming/compiler-module.md)); per-element loops in the interpreter where one `memset` would do; copying a growing list per item or clearing a whole per-procedure table per block (shows as `memcpy`/`memset` under sema or `code::build`); scanning a token list per lexer token. What remains is interpreter dispatch, sema spread thin, workspaces re-lexing the same files, and the serial `-O2` optimizer.
+Results go to `target/bench/<subcommand>.json` and `.md` (gitignored; `--out` and `--markdown` change that). Every result is one benchmarked thing (a workload under one compiler and mode, one request kind, one command), with three numbers, each summarized as median, min, max, median absolute deviation and p95:
 
-## compile_bench.py
+- `wall`: wall-clock seconds.
+- `cpu`: user + system CPU seconds of the process and the children it waited for. With threads this exceeds wall time.
+- `rss_mib`: peak resident set of the process itself (from `wait4`; a child such as a linker is not in it).
+
+Before timing, the harness reads the binary and the workload's files, then does `--warmup` untimed runs (default 1) so the OS file cache is warm. `--repeat` (default 5) timed runs follow.
+
+`--compare old.json` flags a result when its median wall time, CPU time or peak RSS grew by more than `--threshold` (relative), more than `--min-seconds` / `--min-mib` (absolute, so tiny workloads do not trip), and more than three median absolute deviations of either run (so noise does not trip). A result that worked before and fails now is a regression too, and so is growth in `interp_instructions`. Exit status is 1 for a regression or a failed workload. Compare only runs from one machine, one benchmark at a time; shared CI runners are too noisy to gate on.
+
+Common options: `--repeat`, `--warmup`, `--only A,B` (substrings of result keys), `--list`, `--timeout`, `--out`, `--markdown`, `--compare`, `--threshold`, `--min-seconds`, `--min-mib`.
+
+### compile
 
 ```sh
 cargo build --release -p jaic-cli
-python3 tools/compile_bench.py --repeat 5 --out new.json --markdown new.md
-python3 tools/compile_bench.py --only focus --modes check --compare benchmarks/results/compile-time-apple-m5.json
+python3 tools/bench/main.py compile --repeat 5
+python3 tools/bench/main.py compile --categories compile-time,startup --modes check,build
+python3 tools/bench/main.py compile --only focus/check --compare target/bench/old.json
 ```
 
-- **Workloads** (`WORKLOADS`): focus, Jails, sgpu examples (check only), jaison tests, open-jai `33.3_getrect_buttons`, chess-jai, forbear, plus generated `gen-10k`, `gen-60k`, `gen-240k` from `tools/benchgen.py` (seed 1; changing the generator makes old results incomparable). A workload may name `tools/upstream-cases.json` ids whose `setup` runs first.
-- The first run is cold (OS cache not primed); the median of the rest is warm and is what `--compare` uses. Peak RSS comes from `os.wait4` on `jaic` (children such as the linker are excluded). `-timings` makes jaic print `jaic-timing: <phase> <seconds> <calls>`: `total`, `front end`, `workspaces`, `run`, `prepare output`, `codegen` (LLVM wall time, multi-threaded for large builds), `link`, `debug info`. Phases nest.
-- `--compare` exits 1 when warm time or RSS grew more than `--threshold` (10%) and `--min-seconds` (0.1) or `--min-mib` (16), or a workload failed.
-- CI: `compile-bench.yml` is a manual `workflow_dispatch` job on `macos-15` (inputs `repeat`, `only`) that uploads the `compile-bench` artifact and never fails a PR.
-- **New workload:** an entry in `WORKLOADS` (corpus directory, `{mode: jaic arguments}`, setup ids; `{tmp}` becomes a per-run temporary directory). Skip projects that write into `corpus/upstream`. **New phase:** wrap code in `timings::time("name", || ...)` in `crates/jaic-cli/src/main.rs`. Tests: `tools/test_compile_bench.py`.
+Result keys are `<workload>/<mode>/<compiler>`. Modes: `check` (`-check`), `build` (default build), `optimized` (`-o`), `interp` (`-interp`). The workloads (`tools/bench/workloads.py`):
 
-## lsp_bench.py
+| Category | Workloads |
+| --- | --- |
+| startup | `hello` |
+| lots of code | `gen-2k`, `gen-10k`, `gen-60k`: `tools/benchgen.py` programs, seed 1 (changing the generator makes old results incomparable) |
+| real projects | focus, Jails, sgpu examples, jaison tests, open-jai GetRect, chess-jai, forbear from the [upstream corpus](upstream-corpus.md) (`python3 tools/fetch_upstreams.py`) |
+| compile-time heavy | `benchmarks/compile/`: `run-loops` (hot `#run` loops), `insert-meta` (`#insert` of generated procedures, structs and enums), `polymorph-explosion`, `constant-tables`; and `benchmarks/compile-time.jai` |
+| stdlib heavy | `stdlib-imports`: sixteen modules imported and used |
+| interpreter | `benchmarks/interp-*.jai` under `-interp` |
+| generated-code runtime | `runtime-compute` (a numeric loop, a sieve, hash table traffic, a sort) and `gen-10k`: the built executable is run and timed as `<workload>/run-<mode>/<compiler>`, its size is in the JSON (`binary_bytes`) |
+
+Sizes come from the same lexer `tools/jaistats.py` uses: `info.source` holds files, code lines, procedures and structs, and the tables show seconds per thousand lines.
+
+**Stages.** `jaic -timings` prints `jaic-timing: <phase> <seconds> <calls>` on stderr: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`. `interp` is the time compile-time code (`#run`, metaprograms, macros) spent executing in the interpreter; it is measured inside `Interp::call` and overlaps `front end`, which also covers lowering the procedures that code needs. `tools/bench/stages.py` maps phases onto common buckets:
+
+| Bucket | jaic phases |
+| --- | --- |
+| front end | `front end` minus `interp` |
+| compile-time execution | `interp` plus `run` (the program itself under `-interp`) |
+| codegen | `prepare output` + `codegen` + `debug info` |
+| link | `link` |
+| other | wall time not in any bucket (process start and exit included) |
+| total | wall time of the process |
+
+For a build metaprogram that compiles workspaces, backend time is also inside its `front end` and `interp`, so buckets can add up to more than the total; `other` never goes negative. With `-interp`, `JAIC_PROFILE=1` adds one untimed run that records `info.interp_instructions`, the interpreted IR instruction count: nearly deterministic, so it shows small interpreter changes that wall time hides.
+
+### lsp
 
 ```sh
 cargo build --release -p jai-language-server
-python3 tools/lsp_bench.py --repeat 5 --out new.json --markdown new.md
-python3 tools/lsp_bench.py --only jails --diagnostics pull --repeat 1      # smoke run
+python3 tools/bench/main.py lsp --repeat 5
+python3 tools/bench/main.py lsp --only gen-240k --diagnostics pull
 ```
 
-- Python-standard-library LSP client; each session starts a fresh server, opens documents like an editor, and times: `startup`, `first_diagnostics`, `hover_first`/`hover_warm`, `completion_member`, `references`, `document_symbols`, `semantic_tokens`, `edit_hover`, `typing_first`/`typing_median`, `completion_member_typed`. `--diagnostics pull,push` runs both styles (pull makes jailsp stop pushing). CPU is sampled outside timed windows; totals and peak RSS come from `wait4`. Positions are picked deterministically (`pick_positions`); `info.picks` in the JSON shows them.
-- Failures are data, not aborts: `timeout`, `memory` (`--max-rss`, 6144 MiB), `limit` (document over the server's size caps), `crash`, `error`, `none` (push server published nothing within `--push-wait`), `unsupported` (capability not advertised; not a failure).
-- Workloads: `focus`, `focus-main`, `jails`, `chess-jai`, `photon`, `forbear`, `protobuf`, `reflector`, `no-api`, `toml`, `jai-format` (different project shapes, so a speedup tuned to Focus shows as flat elsewhere), generated `gen-60k`/`gen-240k`, and one-file `large-25k`/`large-100k`. A `limit` on any of them is a regression.
-- `--only` takes comma-separated terms: a term with `/` matches the whole `server/workload/mode` key; a server name selects its workloads; other terms match the workload name.
-- `--server NAME=COMMAND` benchmarks another server (standard requests only; Jails needs `--diagnostics push`). The Jails comparison is in the [jailsp README](../../crates/jai-language-server/README.md#compared-with-jails).
-- `--compare` flags warm time, CPU or RSS growth over 20% and 5 ms / 16 MiB. **New metric:** add to `METRICS`, `NEEDS` and a `step(...)` in `run_session`; keep position-picker heuristics in step with `tools/test_lsp_bench.py`.
+Each session starts a fresh server over stdio, opens a workspace as an editor would and runs a fixed script on one document. `--repeat` sessions are pooled, so p50 and p95 are over every sample of every session. Workloads (`lsp_workloads.py`): `gen-60k` (12 files) and `large-25k` (one file) from benchgen, and `repo` (this repository, opened at its root, with `stdlib/Extensions/Jai_Format/format.jai` as the document); `gen-240k` and `large-100k` run when named with `--only`.
+
+Probes (`lsp_session.py`), keyed `<server>/<workload>/<probe>`: `initialize` (launch to the response), `index_ready` (until workspace symbols find the document's procedures), `did_open` (until diagnostics), `did_change_keystroke`, `did_change_paste`, `did_change_large` (each until the diagnostics for the edit arrive), `completion_member`, `completion_global`, `completion_import`, `hover_first`, `hover_warm`, `definition`, `references`, `rename`, `semantic_tokens_full`, `semantic_tokens_delta`, `document_symbols`, `workspace_symbols`, `inlay_hints`, `signature_help`, `formatting`, `range_formatting`, `file_watcher` (a file changed on disk until its new symbol is searchable; generated workspaces only) and `long_session` (many edits; `info.rss_growth_mib`). `session` has the whole session's wall time, CPU and peak RSS.
+
+A request the server does not advertise is `skipped`, not a failure. An answer that is null or empty is counted (`empty_answers`), because a fast answer to nothing is not a fast answer. A timeout, crash or memory blow-up (`--max-rss`) ends a session; the probes it did not reach are skipped. `--server NAME=COMMAND` times another server (repeatable); `--diagnostics pull` makes the client pull instead of receiving pushes.
+
+`crates/jai-language-server/examples/edit_bench.rs` stays as it is: it drives the library in-process (no stdio, one document), which the harness does not replace.
+
+### lint and fmt
+
+`lint` runs `jailint` on a generated 25k-line file, on the densest `tests/lint` case, `--fix` on a fresh copy of it for every run, and over all `tests/lint` programs with `-j 1`, `2` and `4`. The whole-repository scenario (`repo`) takes about five minutes of ten cores, so it runs only when named: `lint --only repo`. `fmt` runs `jaifmt --check` on the repository paths CI formats and on a 100k-line file, `--check` and rewrite of formatted and of unformatted input (a formatted sample with its indentation removed and its spaces collapsed, `unformat` in `cmd_fmt.py`), stdin with both, and the same stdin runs through `target/jaifmt.wasm` under node. Range formatting is reported as skipped while `jaifmt --help` lists no range option. Build the tools first (`cargo build --release -p jailint`; `jaic jaifmt/build.jai`, with `- wasm` for the wasm build).
+
+## Comparing against another compiler
+
+```sh
+python3 tools/bench/main.py compile --compiler jaic=target/release/jaic --compiler other=/path/to/other/jai
+```
+
+A binary named `jaic*` gets jaic's options; any other is driven with the reference compiler's command line (`dialects.py`). Fairness rules the harness enforces:
+
+- **Same machine, same flags.** Each compiler builds the same files with the equivalent option for each mode. Each uses its own standard library; the harness passes no module paths.
+- **Interleaved runs.** Round 1 runs compiler A then B, round 2 again A then B, so thermal drift and background load hit every compiler alike.
+- **Warm cache.** Binaries and sources are read first and one untimed run precedes the timed ones.
+- **Correctness gate.** A workload is timed only if every compiler builds it and, for workloads whose output is deterministic, prints the same output (the compile-time output, and for builds the program's). Otherwise it is listed under "Not timed" as `skipped: <compiler>: <why>` (for example `exit 1: syntax the other compiler rejects`, or `output differs`). With one compiler a failure is a `failed` result and exit status 1.
+- **CPU time next to wall time.** Compilers use threads differently (jaic's code generation is parallel); a wall-time win with a CPU-time loss, or the reverse, is information. Read both.
+- **Check and interpreter modes.** The reference has neither. `check` compiles the program from a wrapper file that sets `do_output=false`, and `interp` adds `#run main();` to it. Both therefore time the front end plus compile-time execution of the real program; the ratio compares those, not an identical code path.
+- **Stages.** Per-stage numbers come from whatever each compiler prints. A compiler that prints none has only the total, shown as `-` for the buckets. To teach the harness another format, add a parser in `stages.py` and use it from a new `Dialect`.
+- **Never commit these results.** They are written under `target/bench/`, which is gitignored. Do not copy another compiler's numbers, paths or output into the repository, its docs, commit messages or issues.
+
+## How to change it
+
+- **New compile workload:** add it to `all_workloads()` in `tools/bench/workloads.py`: a source (`RepoDirectory`, `CorpusProject`, `Generated`), a category, and a `Plan` per mode (entry file, metaprogram arguments after `-`, and whether the harness may redirect the executable: a project whose metaprogram picks its own output uses `own_output`). Set `compare_output` when the output is deterministic and `runtime` to time the executable. Compile-time-heavy programs live in `benchmarks/compile/`.
+- **New jaic phase:** wrap the code in `timings::time("name", || ...)` in `crates/jaic-cli/src/main.rs`, add it to `JaicTimings` in `stages.py`, and update `timings_report_phases` in `crates/jaic-cli/tests/cli.rs`.
+- **New LSP probe:** write a function `(Session) -> list of seconds` in `lsp_session.py`, add a `Probe` to `PROBES` with the server capability it needs. Position heuristics are in `lsp_positions.py`.
+- **New lint or fmt scenario:** add a `Scenario` in `cmd_lint.py` / `cmd_fmt.py`.
+- **Another kind of compiler:** subclass `Dialect` in `dialects.py` (command line per mode, stage parser) and choose it in `parse_compiler`.
+- Gotchas: `jaic -timings` goes before a lone `-`, which starts the metaprogram's arguments. The reference writes `.build` next to the file it compiles, so the harness compiles check and interpreter runs from a wrapper in a scratch directory. Tests: `python3 -m unittest discover -s tools/bench -p 'test_*.py'`, run by CI's policy step.
+
+## Profiling
+
+- **Interpreter profile.** `JAIC_PROFILE=1` makes every interpreter count calls, blocks and instructions per procedure (self counts, merged in `crates/jaic/src/interp/profile.rs`); the CLI prints the top 40 to stderr plus a breakdown by IR instruction kind and by folded op. Counts stay comparable across interpreter changes because they count IR. Off, it costs one `Option` check per call and block.
+- **Native profile.** `cargo build --profile profiling -p jaic-cli`, then `samply record --save-only --unstable-presymbolicate -o prof.json.gz -- target/profiling/jaic first.jai -check` and `python3 tools/profile_report.py prof.json.gz --top 30` (`--callers NAME`, `--within NAME`, `--without NAME`). It reads the busiest thread, which is the 1 GiB compiler worker. For a hot line inside a big inlined function, resolve leaf addresses with `atos -i -o target/profiling/jaic.dSYM -l <load address> <addresses>`.
+- **Comparing two builds.** Copy the old binary (`cp target/release/jaic /tmp/jaic-before`), alternate the two on the same workload at least 5 times each, compare medians and minimums (`bench compile --compiler before=/tmp/jaic-before --compiler after=target/release/jaic`, or `--out` and `--compare` across two runs). Record peak memory with `/usr/bin/time -l` (macOS) or `-v` (Linux). For interpreter changes also compare `JAIC_PROFILE` counts, which do not depend on load. For the LLVM backend time an `-O2` build of Jails or jaison; `JAIC_CODEGEN_UNITS` and `JAIC_SPLIT_UNITS` change how time splits across threads ([LLVM backend](../native/llvm-backend.md)).
+
+Patterns that past profiles found, worth checking first: weak hashes turning a `Table` into one chain (pointer keys use `knuth_hash`; Rust side uses `jaic::fxhash`); linear scans in stdlib or compiler lists on every call (the usual cause of a quadratic metaprogram); filling `Code_Node`/`Type_Info` records member by member instead of the native cached plan ([compiler records](../metaprogramming/compiler-module.md)); per-element loops in the interpreter where one `memset` would do; copying a growing list per item or clearing a whole per-procedure table per block (shows as `memcpy`/`memset` under sema or `code::build`); scanning a token list per lexer token. What remains is interpreter dispatch, sema spread thin, workspaces re-lexing the same files, and the serial `-O2` optimizer.
 
 ## Configuration
 
-`JAIC_PROFILE`, `JAIC_NATIVE_LIBS` (worktrees without `target/native-libs`), `[profile.profiling]` in the root `Cargo.toml`. Common flags: `--jaic` (default `$CARGO_TARGET_DIR/release/jaic`), `--repeat`, `--only`, `--out`, `--compare`, `--list`.
+- `CARGO_TARGET_DIR` (or `target/`) locates the default `jaic`, `jailsp` and `jailint`; `--compiler`, `--server`, `--jailint`, `--jaifmt` and `--wasm` override. `JACKET_OUTPUT_DIR` moves `target/bench/`.
+- `JAIC_PROFILE=1` (interpreter profile), `JAIC_NATIVE_LIBS` (worktrees without `target/native-libs`), `[profile.profiling]` in the root `Cargo.toml`.
+- The CI workflow `compile-bench.yml` is a manual `workflow_dispatch` job on `macos-15` (inputs `command`, `repeat`, `only`) that uploads `bench.json` and `bench.md`; it never fails a PR.
 
 ## Dependencies
 
-Python 3.11+, a release `jaic` / `jailsp`, the corpus from `tools/fetch_upstreams.py` for project workloads, native libraries for build modes, samply for native profiles.
+Python 3.11+ (standard library only), a release `jaic`, `jailsp`, `jailint` and `jaifmt` as needed, the corpus from `tools/fetch_upstreams.py` and native libraries for the real-project workloads, node 24 for the wasm formatter, samply for native profiles. Internal: `tools/benchgen.py` (generated programs), `tools/jaistats.py` (workload size), `tools/repo_output.py` (output directory).
