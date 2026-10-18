@@ -14,9 +14,16 @@ use std::process::ExitCode;
 use std::rc::Rc;
 
 /// Every Rust allocation goes through the counter that enforces `JAIC_MEMORY_LIMIT`; unarmed it
-/// costs one relaxed load per call.
+/// costs one relaxed load per call. The `mimalloc` feature swaps the system allocator under it.
+#[cfg(not(feature = "mimalloc"))]
 #[global_allocator]
-static ALLOCATOR: jaic::memory_limit::CountingAllocator = jaic::memory_limit::CountingAllocator;
+static ALLOCATOR: jaic::memory_limit::CountingAllocator =
+    jaic::memory_limit::CountingAllocator(std::alloc::System);
+
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static ALLOCATOR: jaic::memory_limit::CountingAllocator<mimalloc::MiMalloc> =
+    jaic::memory_limit::CountingAllocator(mimalloc::MiMalloc);
 
 mod crash_runtime;
 

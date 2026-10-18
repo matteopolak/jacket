@@ -1,7 +1,7 @@
 //! An exact cap on the memory a `jaic` process allocates (`JAIC_MEMORY_LIMIT`).
 //!
-//! [`CountingAllocator`] is the `jaic` binary's global allocator: it forwards to the system
-//! allocator and, once [`arm`]ed, keeps a running total of live bytes. The interpreter's own
+//! [`CountingAllocator`] is the `jaic` binary's global allocator: it forwards to an inner
+//! allocator (the system one unless the CLI's `mimalloc` feature is on) and, once [`arm`]ed, keeps a running total of live bytes. The interpreter's own
 //! memory (the stack, globals, the sandbox heap) comes from Rust allocations; the C `malloc`
 //! family a natively linked program calls at compile time or under `jaic -interp` is resolved to the
 //! counting wrappers in [`foreign_override`] instead of libc's. Crossing the limit prints one
@@ -129,26 +129,26 @@ fn exceeded(limit: usize) -> ! {
     sys::exit_now(EXIT_CODE as i32)
 }
 
-/// The system allocator with live-byte accounting; install it with `#[global_allocator]`.
-pub struct CountingAllocator;
+/// `A` with live-byte accounting; install it with `#[global_allocator]`.
+pub struct CountingAllocator<A: GlobalAlloc = System>(pub A);
 
-unsafe impl GlobalAlloc for CountingAllocator {
+unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
     #[inline]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         charge(layout.size());
-        unsafe { System.alloc(layout) }
+        unsafe { self.0.alloc(layout) }
     }
 
     #[inline]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         charge(layout.size());
-        unsafe { System.alloc_zeroed(layout) }
+        unsafe { self.0.alloc_zeroed(layout) }
     }
 
     #[inline]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         refund(layout.size());
-        unsafe { System.dealloc(ptr, layout) }
+        unsafe { self.0.dealloc(ptr, layout) }
     }
 
     #[inline]
@@ -158,7 +158,7 @@ unsafe impl GlobalAlloc for CountingAllocator {
         } else {
             refund(layout.size() - new_size);
         }
-        unsafe { System.realloc(ptr, layout, new_size) }
+        unsafe { self.0.realloc(ptr, layout, new_size) }
     }
 }
 

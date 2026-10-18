@@ -39,7 +39,7 @@ cargo run -p jaic-cli -- file.jai -check [-I dir] [-os linux|windows|macos]
 cargo run -p jaic-cli -- file.jai -interp [- metaprogram args]
 ```
 
-`jaic-cli` features: `dynamic-llvm` (default) links LLVM's shared library, `static-llvm` links it statically for [release archives](../tools/releases.md); both need LLVM 23 ([LLVM setup](../tools/llvm-setup.md)). `--no-default-features` builds a `jaic` that only checks and interprets, useful where LLVM is unavailable (e.g. an x86-64 `jaic` under Rosetta to test the interpreter's x86-64 foreign calls).
+`jaic-cli` features: `dynamic-llvm` (default) links LLVM's shared library, `static-llvm` links it statically for [release archives](../tools/releases.md); both need LLVM 23 ([LLVM setup](../tools/llvm-setup.md)). `mimalloc` (off by default) puts mimalloc under the global allocator ([compile speed](compile-speed.md#allocator)). `--no-default-features` builds a `jaic` that only checks and interprets, useful where LLVM is unavailable (e.g. an x86-64 `jaic` under Rosetta to test the interpreter's x86-64 foreign calls).
 
 ## Dependencies
 

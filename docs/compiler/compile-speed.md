@@ -32,6 +32,23 @@ Choices that matter:
 - Copying callees above 200 instructions into other parts, or fewer than 8 parts: more codegen time than the runtime it recovers.
 - Overlapping codegen with the front end: nothing in `Program` is final until the workspace completes (metaprograms can add code, change procedures and set build options; type and stack-trace tables use the final type set). Only lowering of finished procedures could overlap, and the gain is small at `-O0`.
 
+### Allocator
+
+`jaic`'s global allocator is `memory_limit::CountingAllocator<A>`, which counts live bytes for `JAIC_MEMORY_LIMIT` and forwards to `A`. `A` is `System` by default. The opt-in `jaic-cli` feature `mimalloc` swaps in mimalloc. Paired A/B runs on an Apple M5 (system build and mimalloc build alternated per run, 10 pairs each, median of the per-pair ratios):
+
+| workload | system s | mimalloc s | change | peak RSS MiB (sys / mi) |
+|---|---:|---:|---:|---:|
+| focus/check | 1.068 | 1.004 | -6.8% | 723 / 771 |
+| focus/build-O0 | 1.455 | 1.393 | -4.4% | 1114 / 1205 |
+| focus/build-O2 | 8.829 | 7.713 | -7.4% | 1285 / 1373 |
+| jails/check | 0.239 | 0.218 | -7.6% | 209 / 215 |
+| jails/build-O0 | 0.387 | 0.349 | -5.4% | 296 / 313 |
+| gen-240k/check | 0.516 | 0.449 | -13.3% | 508 / 463 |
+| gen-240k/build-O0 | 1.082 | 1.026 | -6.4% | 1124 / 1207 |
+| gen-60k/check | 0.177 | 0.156 | -11.3% | 199 / 152 |
+
+The geometric mean is about 8% faster. Peak RSS is 4–8% higher on corpus projects. That is under the 10% bar for adding a C dependency to every build, so the feature stays off and release builds use the system allocator. Re-measure with `cargo build --release -p jaic-cli --features mimalloc` against a default build if allocation patterns change a lot (for example, a new arena in sema).
+
 ## How to change it
 
 - Measure with `jaic x.jai -exe out -timings` on an idle machine, 5 or more warm runs (a busy process moves results 10 to 20%). `tools/compile_bench.py` ([benchmarks](../tools/benchmarks.md)) runs corpus projects; for scaling use the corpus-shaped programs from `tools/benchgen.py` (`gen-10k`/`gen-60k`/`gen-240k`).
@@ -43,6 +60,7 @@ Choices that matter:
 
 - `JAIC_CODEGEN_UNITS=N`, `JAIC_VERIFY_IR`, `JAIC_DSYM`: see [LLVM backend](../native/llvm-backend.md#configuration) and [debug info](../native/debug-info.md).
 - `-timings`: phase table on stderr.
+- `jaic-cli` feature `mimalloc`: mimalloc under the memory-limit counter (off by default, see [Allocator](#allocator)).
 
 ## Dependencies
 
