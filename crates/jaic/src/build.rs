@@ -39,7 +39,7 @@ pub use plugin_program::{PluginImport, PluginProgram, plugin_metaprogram};
 pub use sources::parse_code_text;
 
 pub use self::calls::call;
-use self::calls::{Call, store, store_pair, unreadable};
+use self::calls::{Call, store, store_pair};
 use self::drive::step;
 pub use self::meta_op::{LANGUAGE_VERSION, MetaOp, TOP_LEVEL_WORKSPACE, compiler_version};
 pub use self::output::finish_all;

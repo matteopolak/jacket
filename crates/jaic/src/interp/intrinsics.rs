@@ -269,9 +269,7 @@ impl Interp {
                 return s.null_trap(null_access("write", addr));
             }
             if !s.write(addr, &v) {
-                return s.trap(format!(
-                    "invalid memory access: 16 bytes at {addr:#x} cannot be written"
-                ));
+                return Err(super::Trap::unwritable(addr, 16).at(s.loc));
             }
             Ok(Vec::new())
         };

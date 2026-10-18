@@ -107,7 +107,7 @@ impl Call<'_> {
     /// Every pointer here comes from the program: reading or writing through one it made up is
     /// an error, not a crash.
     pub(super) fn load(&self, interp: &Interp, p: u64) -> Result<u64, Trap> {
-        interp.read_u64(p).ok_or_else(|| unreadable(p))
+        interp.read_u64(p).ok_or_else(|| Trap::unreadable(p, 8))
     }
 
     pub(super) fn string(&self, interp: &Interp, i: usize) -> Result<Vec<u8>, Trap> {
@@ -115,12 +115,14 @@ impl Call<'_> {
         if p == 0 {
             return Ok(Vec::new());
         }
-        let (count, data) = interp.read_pair(p).ok_or_else(|| unreadable(p))?;
+        let (count, data) = interp.read_pair(p).ok_or_else(|| Trap::unreadable(p, 16))?;
         let count = count as usize;
         if count == 0 || data == 0 {
             Ok(Vec::new())
         } else {
-            interp.read(data, count).ok_or_else(|| unreadable(data))
+            interp
+                .read(data, count)
+                .ok_or_else(|| Trap::unreadable(data, count))
         }
     }
 
@@ -216,19 +218,12 @@ pub fn call(
     }
 }
 
-/// The error for a program pointer the compiler could not read.
-pub(super) fn unreadable(p: u64) -> Trap {
-    Trap::new(format!("invalid memory access: {p:#x} cannot be read"))
-}
-
 /// Store `bytes` at program address `p`, or the error for one that cannot be written.
 pub(super) fn store(interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
     if interp.write(p, bytes) {
         Ok(())
     } else {
-        Err(Trap::new(format!(
-            "invalid memory access: {p:#x} cannot be written"
-        )))
+        Err(Trap::unwritable(p, bytes.len()))
     }
 }
 

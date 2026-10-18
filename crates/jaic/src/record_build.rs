@@ -83,19 +83,11 @@ struct PendingRef {
     expected: u64,
 }
 
-fn unwritable(p: u64) -> Trap {
-    Trap::new(format!("invalid memory access: {p:#x} cannot be written"))
-}
-
-fn unreadable(p: u64) -> Trap {
-    Trap::new(format!("invalid memory access: {p:#x} cannot be read"))
-}
-
 fn store(interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
     interp
         .write(p, bytes)
         .then_some(())
-        .ok_or_else(|| unwritable(p))
+        .ok_or_else(|| Trap::unwritable(p, bytes.len()))
 }
 
 /// Freshly allocated builder memory being filled: the bytes for `len` bytes at `base`, written
@@ -114,7 +106,7 @@ impl Image<'_> {
                 slot.copy_from_slice(value);
                 Ok(())
             }
-            None => Err(unwritable(p)),
+            None => Err(Trap::unwritable(p, value.len())),
         }
     }
 
@@ -134,7 +126,7 @@ impl Image<'_> {
                 base: p,
                 bytes,
             }),
-            None => Err(unwritable(p)),
+            None => Err(Trap::unwritable(p, len)),
         }
     }
 }
@@ -193,7 +185,7 @@ impl Builder {
             let read = |off: u64| {
                 interp
                     .read_u64(entry + off)
-                    .ok_or_else(|| unreadable(entry))
+                    .ok_or_else(|| Trap::unreadable(entry + off, 8))
             };
             entries.push(Entry {
                 offset: read(0)?,
@@ -298,7 +290,7 @@ impl Builder {
                 let result = (|| {
                     let current = interp
                         .read_u64(entry.address)
-                        .ok_or_else(|| unreadable(entry.address))?;
+                        .ok_or_else(|| Trap::unreadable(entry.address, 8))?;
                     if current != 0 {
                         return Ok(true);
                     } // Preserve a metaprogram-supplied link.
@@ -606,7 +598,7 @@ impl Builder {
         };
         let data = interp
             .read_u64(storage + 8)
-            .ok_or_else(|| unreadable(storage))?;
+            .ok_or_else(|| Trap::unreadable(storage + 8, 8))?;
         for [offset, record] in items.as_chunks::<2>().0 {
             let (Some(offset), Some(record)) = (number(offset), number(record)) else {
                 continue;

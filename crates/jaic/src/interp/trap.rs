@@ -32,6 +32,20 @@ impl Trap {
         }))
     }
 
+    /// The failure for `len` bytes of program memory at `addr` that the compiler could not read.
+    pub fn unreadable(addr: u64, len: usize) -> Self {
+        Self::new(format!(
+            "invalid memory access: {len} bytes at {addr:#x} cannot be read"
+        ))
+    }
+
+    /// The failure for `len` bytes of program memory at `addr` that the compiler could not write.
+    pub fn unwritable(addr: u64, len: usize) -> Self {
+        Self::new(format!(
+            "invalid memory access: {len} bytes at {addr:#x} cannot be written"
+        ))
+    }
+
     /// The message, consuming the trap.
     pub fn into_message(self) -> String {
         self.0.message

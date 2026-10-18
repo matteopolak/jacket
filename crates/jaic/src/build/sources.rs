@@ -179,7 +179,7 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                             let (len, ptr) = (load(interp, at)?, load(interp, at + 8)?);
                             let bytes = interp
                                 .read(ptr, len as usize)
-                                .ok_or_else(|| unreadable(ptr))?;
+                                .ok_or_else(|| Trap::unreadable(ptr, len as usize))?;
                             crate::sema::ModifiedStmt::Source(
                                 String::from_utf8_lossy(&bytes).into_owned(),
                             )
