@@ -187,3 +187,26 @@ fn a_statement_at_file_scope_does_not_hide_the_directives_after_it() {
         );
     });
 }
+
+#[test]
+fn an_unfinished_call_of_a_type_has_the_same_color_whether_or_not_signature_help_ran() {
+    on_big_stack(|| {
+        let text = "Shared :: enum u32 {\n    IMPORTED :: 3;\n}\n\nShared(1, \n    x := 1";
+        let at = Position {
+            line: 4,
+            character: 0,
+        };
+        let plain = open(text);
+        let before = kind_at(&plain, at.line, at.character);
+        let asked = open(text);
+        let _ = asked.signature_help(
+            &uri(),
+            Position {
+                line: 4,
+                character: 7,
+            },
+        );
+        assert_eq!(kind_at(&asked, at.line, at.character), before);
+        assert_eq!(before, Some(SemanticTokenKind::Type));
+    });
+}
