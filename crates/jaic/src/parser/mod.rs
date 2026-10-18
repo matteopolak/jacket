@@ -22,6 +22,7 @@ mod directive;
 mod directive_stmt;
 mod expr;
 mod ide;
+pub mod ide_facts;
 mod procedure;
 mod stmt;
 #[cfg(test)]
