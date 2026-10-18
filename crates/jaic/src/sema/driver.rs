@@ -195,6 +195,7 @@ impl Compiler {
     /// Lower everything reachable from the program's exports.
     pub fn finish_program(&mut self) -> Result<()> {
         let result = self.finish_program_inner();
+        super::body_probe::report();
         self.with_deferred_errors(result)
     }
 

@@ -233,6 +233,11 @@ impl Types {
         id
     }
 
+    /// How many types are interned.
+    pub fn type_count(&self) -> usize {
+        self.kinds.len()
+    }
+
     pub fn kind(&self, ty: TypeId) -> &TypeKind {
         &self.kinds[ty.0 as usize]
     }

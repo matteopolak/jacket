@@ -15,6 +15,7 @@ pub mod value;
 mod asm;
 mod bake;
 mod binary;
+pub mod body_probe;
 mod callable;
 mod calls;
 pub mod code_export;

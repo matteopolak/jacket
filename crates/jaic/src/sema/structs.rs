@@ -618,6 +618,7 @@ impl Compiler {
             }
             LayoutState::Pending => {}
         }
+        super::body_probe::bump(super::body_probe::C::Layout);
         self.types.struct_info_mut(s).layout = LayoutState::InProgress;
         let result = self.layout_struct_inner(s);
         if result.is_err() {
