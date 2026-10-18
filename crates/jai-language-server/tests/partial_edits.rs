@@ -703,3 +703,32 @@ fn declaration_hoisting_and_context_errors_keep_independent_later_locals() {
         );
     }
 }
+
+#[test]
+fn missing_semicolon_keeps_the_statement_and_blames_its_line() {
+    let text = "Player :: struct { x: int; }\ndraw :: (p: *Player) {}\nmain :: () {\n    player: Player;\n    draw(*player)\n    other := 1;\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let call = at(text, "draw(*player)");
+    let defs = s.definition(&uri(), call).unwrap();
+    assert_eq!(defs.len(), 1, "{defs:?}");
+    assert_eq!(defs[0].range.start, at(text, "draw ::"));
+    let hover = s.hover(&uri(), call).unwrap().expect("hover on the call");
+    assert!(hover.contents.value.contains("draw"), "{hover:?}");
+    assert!(!hover.contents.value.contains("expected"), "{hover:?}");
+    let diagnostics = s.diagnostics(&uri()).unwrap();
+    let missing: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.message.starts_with("expected `;`"))
+        .collect();
+    assert_eq!(missing.len(), 1, "{diagnostics:?}");
+    let close = position(text, text.find("player)\n").unwrap() + "player".len());
+    assert_eq!(missing[0].range.start, close, "{diagnostics:?}");
+    let tokens = s.semantic_tokens(&uri()).unwrap();
+    assert!(
+        tokens.iter().any(|t| t.position == call && t.length == 4),
+        "{tokens:?}"
+    );
+    let defs = s.definition(&uri(), at(text, "player)")).unwrap();
+    assert_eq!(defs[0].range.start, at(text, "player:"));
+}
