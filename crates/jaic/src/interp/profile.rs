@@ -1,10 +1,10 @@
-//! Opt-in execution counts per procedure (`JAIC_PROFILE=1`), to find slow compile-time code.
+//! Opt-in execution counts per procedure (`-profile`), to find slow compile-time code.
 //!
 //! Every interpreter (the main compile and each metaprogram workspace) counts calls, basic blocks
 //! and instructions executed in each procedure's own frames (callees not included), and merges them
 //! into a process-wide table when it is dropped or flushed. `report` formats the table.
 //!
-//! `JAIC_COVERAGE=<file>` records which procedures ran at all: `write_coverage` appends one
+//! `-coverage_file <file>` records which procedures ran at all: `write_coverage` appends one
 //! `path:line name` line per procedure (polymorph instances share their declaration's line).
 //! `tools/stdlib/stdlib_coverage.py` reads it.
 use std::collections::{BTreeSet, HashMap};
@@ -12,24 +12,22 @@ use std::sync::{Mutex, OnceLock};
 
 pub(crate) fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
-    *ENABLED.get_or_init(|| std::env::var_os("JAIC_PROFILE").is_some_and(|v| v != "0"))
+    *ENABLED.get_or_init(|| crate::knobs::get().profile != crate::knobs::Profile::Off)
 }
 
-/// Whether the counts are of the unoptimized control flow (the default): `JAIC_PROFILE=ops` runs
+/// Whether the counts are of the unoptimized control flow (the default): `-profile_ops` runs
 /// the straightened code instead, so the op counts show what really runs, but blocks and IR
 /// instructions are then counted only where a block is entered.
 pub(crate) fn exact() -> bool {
     static EXACT: OnceLock<bool> = OnceLock::new();
-    *EXACT.get_or_init(|| std::env::var_os("JAIC_PROFILE").is_none_or(|v| v != "ops"))
+    *EXACT.get_or_init(|| crate::knobs::get().profile != crate::knobs::Profile::Ops)
 }
 
-/// The `JAIC_COVERAGE` file, when coverage is being recorded.
+/// The `-coverage_file`, when coverage is being recorded.
 pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
     static FILE: OnceLock<Option<std::path::PathBuf>> = OnceLock::new();
     FILE.get_or_init(|| {
-        let file = std::env::var_os("JAIC_COVERAGE")
-            .filter(|v| !v.is_empty())
-            .map(std::path::PathBuf::from);
+        let file = crate::knobs::get().coverage_file.clone();
         // A program that calls `exit` under `jaic -interp` ends the process from inside the
         // interpreter, so the procedures it ran are also written from the C runtime's exit hook.
         #[cfg(not(target_arch = "wasm32"))]
@@ -56,7 +54,7 @@ pub(crate) fn cover(path: &str, line: u32, name: &str) {
     covered.insert(format!("{path}:{line} {name}"));
 }
 
-/// Append the procedures that ran since the last call to the `JAIC_COVERAGE` file (nothing when
+/// Append the procedures that ran since the last call to the `-coverage_file` (nothing when
 /// it is unset).
 pub fn write_coverage() {
     use std::io::Write;
@@ -74,7 +72,7 @@ pub fn write_coverage() {
         .open(path);
     if let Err(e) = file.and_then(|mut f| f.write_all(text.as_bytes())) {
         eprintln!(
-            "warning: could not write JAIC_COVERAGE to {}: {e}",
+            "warning: could not write the coverage file {}: {e}",
             path.display()
         );
     }

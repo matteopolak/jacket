@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 jaic = { path = "../jaic" }
+jacket-config = { path = "../jacket-config" }
 jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
 

@@ -14,6 +14,7 @@ pub mod fxhash;
 pub mod intern;
 pub mod interp;
 pub mod ir;
+pub mod knobs;
 pub mod lexer;
 mod macros;
 pub mod memory_limit;

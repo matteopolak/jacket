@@ -114,6 +114,19 @@ fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
+/// Flags that study the compiler itself; unlisted in `-help`, and subject to change.
+#[derive(Default)]
+struct DevFlags {
+    body_probe: bool,
+    body_fifo: bool,
+    no_sink: bool,
+    no_flow: bool,
+    dump_ops: Option<String>,
+    verify_ir: bool,
+    o0_passes: Option<String>,
+    split_units: Option<usize>,
+}
+
 /// What jaic does with the program: build it (the default), only compile it, or interpret it.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum Mode {
@@ -267,6 +280,17 @@ struct Cli {
     no_inline: bool,
     /// `-no_split`: generate code in one module instead of several.
     no_split: bool,
+    /// `-codegen_units N`: exactly this many code modules.
+    codegen_units: Option<usize>,
+    /// `-parse_threads N`, `-serial_parse`: how files are parsed ahead of the checker.
+    parse_threads: Option<usize>,
+    serial_parse: bool,
+    /// `-profile`, `-profile_ops`, `-coverage_file`: the interpreter's counters.
+    profile_counts: bool,
+    profile_ops: bool,
+    coverage_file: Option<PathBuf>,
+    /// The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
+    dev: DevFlags,
     /// `-no_backtrace_on_crash`: no crash handler in the target program.
     no_backtrace_on_crash: bool,
     /// `-add` and `-run` strings.
@@ -735,6 +759,92 @@ const OPTIONS: &[CliOption] = {
                 "generate code as one module instead of several",
             ),
         CliOption::new(
+            &["-codegen_units"],
+            store!("a number of code modules", |cli, n| cli.codegen_units =
+                Some(parse_count(&n, "-codegen_units")?)),
+        )
+        .help(
+            Output,
+            "-codegen_units <n>",
+            "generate code as exactly <n> modules (1 is -no_split; only a build uses it)",
+        ),
+        CliOption::new(
+            &["-parse_threads"],
+            store!("a number of threads", |cli, n| cli.parse_threads =
+                Some(parse_count(&n, "-parse_threads")?)),
+        )
+        .help(
+            Output,
+            "-parse_threads <n>",
+            "threads that parse files ahead of the checker (0 parses serially)",
+        ),
+        CliOption::new(
+            &["-serial_parse"],
+            Action::Switch(|cli| &mut cli.serial_parse),
+        )
+        .help(
+            Output,
+            "-serial_parse",
+            "parse every file on the checking thread",
+        ),
+        CliOption::new(&["-profile"], Action::Switch(|cli| &mut cli.profile_counts)).help(
+            Diagnostics,
+            "-profile",
+            "count what the interpreter runs per procedure and print the busiest",
+        ),
+        CliOption::new(
+            &["-profile_ops"],
+            Action::Switch(|cli| &mut cli.profile_ops),
+        ),
+        CliOption::new(
+            &["-coverage_file"],
+            store!("a file", |cli, file| cli.coverage_file =
+                Some(PathBuf::from(file))),
+        )
+        .help(
+            Diagnostics,
+            "-coverage_file <file>",
+            "(-interp) append the procedures that ran to <file>",
+        ),
+        CliOption::new(
+            &["-dev_body_probe"],
+            Action::Switch(|cli| &mut cli.dev.body_probe),
+        ),
+        CliOption::new(
+            &["-dev_body_fifo"],
+            Action::Switch(|cli| &mut cli.dev.body_fifo),
+        ),
+        CliOption::new(
+            &["-dev_no_sink"],
+            Action::Switch(|cli| &mut cli.dev.no_sink),
+        ),
+        CliOption::new(
+            &["-dev_no_flow"],
+            Action::Switch(|cli| &mut cli.dev.no_flow),
+        ),
+        CliOption::new(
+            &["-dev_dump_ops"],
+            store!("a procedure name", |cli, name| cli.dev.dump_ops =
+                Some(name)),
+        ),
+        CliOption::new(
+            &["-dev_verify_ir"],
+            Action::Switch(|cli| &mut cli.dev.verify_ir),
+        )
+        .build_only(),
+        CliOption::new(
+            &["-dev_o0_passes"],
+            store!("an LLVM pass pipeline", |cli, passes| cli.dev.o0_passes =
+                Some(passes)),
+        )
+        .build_only(),
+        CliOption::new(
+            &["-dev_split_units"],
+            store!("a number of objects", |cli, n| cli.dev.split_units =
+                Some(parse_count(&n, "-dev_split_units")?)),
+        )
+        .build_only(),
+        CliOption::new(
             &["-no_backtrace_on_crash"],
             Action::Switch(|cli| &mut cli.no_backtrace_on_crash),
         )
@@ -826,6 +936,23 @@ const OPTIONS: &[CliOption] = {
             .help(Diagnostics, "-V, -version, --version", "print the version"),
     ]
 };
+
+/// Code generation switches that hold for every workspace a backend writes.
+#[cfg(feature = "llvm")]
+#[derive(Clone, Default)]
+struct CodegenSwitches {
+    units: Option<usize>,
+    split_units: Option<usize>,
+    verify_ir: bool,
+    o0_passes: Option<String>,
+}
+
+fn parse_count(text: &str, flag: &str) -> Result<usize, CliError> {
+    text.parse().map_err(|_| {
+        CliError::new(format!("`{flag}` takes a whole number, not `{text}`"))
+            .help(format!("for example `{flag} 4`"))
+    })
+}
 
 fn store_os(cli: &mut Cli, _: &str, os: String) -> Result<(), CliError> {
     let Some(parsed) = jaic::target::parse_os(&os) else {
@@ -1235,12 +1362,16 @@ fn check_input(file: &str) -> Result<(), CliError> {
         Ok(meta) if meta.is_dir() => {
             let mut error = CliError::new(format!("`{file}` is a directory, not a .jai file"));
             let files = jai_files(path);
-            let entry = ["first.jai", "build.jai", "main.jai", "module.jai"]
-                .into_iter()
-                .find(|n| files.iter().any(|f| f == n));
+            // The entry the project would build: `[project] entry` of its jacket.toml, else the
+            // inferred ones (`jacket_config::INFERRED_ENTRIES`).
+            let project = jacket_config::load(&jacket_config::Disk, path)
+                .ok()
+                .flatten()
+                .map(|loaded| loaded.config.project);
+            let entry = jacket_config::first_entry(&jacket_config::Disk, path, project.as_ref());
             match (entry, files.len()) {
                 (Some(entry), _) => {
-                    error = error.help(format!("did you mean `{}`?", path.join(entry).display()))
+                    error = error.help(format!("did you mean `{}`?", entry.display()))
                 }
                 (None, 0) => error = error.help("it holds no .jai files"),
                 (None, _) => {
@@ -1389,12 +1520,27 @@ fn has_directory(exe: &str) -> bool {
 }
 
 fn run(cli: Cli) -> ExitCode {
+    jaic::knobs::set(jaic::knobs::Knobs {
+        parse_threads: cli.parse_threads,
+        serial_parse: cli.serial_parse,
+        profile: match (cli.profile_ops, cli.profile_counts) {
+            (true, _) => jaic::knobs::Profile::Ops,
+            (_, true) => jaic::knobs::Profile::Counts,
+            _ => jaic::knobs::Profile::Off,
+        },
+        coverage_file: cli.coverage_file.clone(),
+        body_probe: cli.dev.body_probe,
+        body_fifo: cli.dev.body_fifo,
+        no_sink: cli.dev.no_sink,
+        no_flow: cli.dev.no_flow,
+        dump_ops: cli.dev.dump_ops.clone(),
+    });
     if cli.timings {
         timings::enable();
     }
     let code = timings::time("total", || compile_and_run(cli));
     timings::report();
-    // Interpreters flush their `JAIC_PROFILE` counts when dropped, which has happened by now.
+    // Interpreters flush their `-profile` counts when dropped, which has happened by now.
     if let Some(report) = jaic::interp::profile::report(40) {
         eprint!("{report}");
     }
@@ -1783,7 +1929,7 @@ impl<T> std::ops::DerefMut for LeakOnExit<T> {
 impl<T> Drop for LeakOnExit<T> {
     fn drop(&mut self) {
         if self.leak {
-            // Leaking skips the interpreter's `Drop`, which is what flushes `JAIC_PROFILE` counts.
+            // Leaking skips the interpreter's `Drop`, which is what flushes `-profile` counts.
             if let Some(value) = self.value.as_mut() {
                 (self.before_leak)(value);
             }
@@ -1866,6 +2012,12 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
             .join(","),
         no_inline: cli.no_inline,
         no_split: cli.no_split,
+        switches: CodegenSwitches {
+            units: cli.codegen_units,
+            split_units: cli.dev.split_units,
+            verify_ir: cli.dev.verify_ir,
+            o0_passes: cli.dev.o0_passes.clone(),
+        },
     }
 }
 
@@ -1905,6 +2057,7 @@ struct LlvmBackend {
     /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
     no_inline: bool,
     no_split: bool,
+    switches: CodegenSwitches,
 }
 
 /// What one write of a workspace's output needs, worked out from its settings.
@@ -2052,6 +2205,10 @@ impl LlvmBackend {
             tail_calls: switch(WorkspaceFlag::LlvmEnableTailCalls),
             split_modules: switch(WorkspaceFlag::LlvmEnableSplitModules),
             single_unit: self.no_split,
+            units: self.switches.units,
+            split_units: self.switches.split_units,
+            verify_ir: self.switches.verify_ir.then_some(true),
+            o0_passes: self.switches.o0_passes.clone(),
             frame_pointers: settings.frame_pointers,
             no_red_zone: settings.disable_redzone,
             ir_after: wanted(settings.output_llvm_ir, ".ll"),

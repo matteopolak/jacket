@@ -33,12 +33,9 @@ const INSTS_PER_UNIT: usize = 10_000;
 const MAX_UNITS: usize = 4;
 
 /// How many units to split the optimized `module` into (1: don't).
-pub(crate) fn units_for(module: &Module) -> usize {
+pub(crate) fn units_for(module: &Module, forced: Option<usize>) -> usize {
     // Tests force a split of programs far below the threshold.
-    if let Some(n) = std::env::var("JAIC_SPLIT_UNITS")
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-    {
+    if let Some(n) = forced {
         return n.max(1);
     }
     let insts: usize = functions(module.as_mut_ptr()).into_iter().map(weight).sum();

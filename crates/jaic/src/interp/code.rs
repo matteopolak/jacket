@@ -15,7 +15,7 @@
 //! - instructions whose results end up unused (the folded constants) are dropped.
 //!
 //! Calls and intrinsics, which are rare and slow anyway, run through `Interp::step` on the
-//! original instruction. Profile counts (`JAIC_PROFILE`) stay in IR instructions.
+//! original instruction. Profile counts (`-profile`) stay in IR instructions.
 //!
 //! Folding a value into a later instruction reads its operands later than the IR would.
 //! That is only done for values defined exactly once (parameters count as a definition)

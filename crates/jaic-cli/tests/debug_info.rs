@@ -6,6 +6,17 @@ use std::process::Command;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
+/// A `jaic` command. `JACKET_TEST_CODEGEN_UNITS=N` (set by the CI sweep that divides every native
+/// build into parts, docs/native/llvm-backend.md) starts it with `-codegen_units N`; a test that
+/// pins its own count passes the flag again later, and the last one wins.
+fn jaic() -> Command {
+    let mut command = Command::new(JAIC);
+    if let Some(units) = std::env::var_os("JACKET_TEST_CODEGEN_UNITS") {
+        command.arg("-codegen_units").arg(units);
+    }
+    command
+}
+
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/native/debug-info/main.jai")
 }
@@ -19,14 +30,14 @@ fn build(dir: &str, name: &str, args: &[&str], units: Option<&str>, collect: boo
     let exe = dir.join(name);
     let _ = std::fs::remove_dir_all(dsym(&exe));
     let source = fixture();
-    let mut cmd = Command::new(JAIC);
+    let mut cmd = jaic();
     cmd.arg(&source)
         .arg("-exe")
         .arg(&exe)
         .args(args)
         .current_dir(source.parent().unwrap());
     if let Some(units) = units {
-        cmd.env("JAIC_CODEGEN_UNITS", units);
+        cmd.args(["-codegen_units", units]);
     }
     if collect {
         cmd.env("JAIC_DSYM", "1");

@@ -210,7 +210,7 @@ pub struct Interp {
     pub block_budget: Option<u64>,
     /// The pages of program memory the compiler found accessible (see `probe`).
     probe: Box<probe::Probe>,
-    /// Blocks and instructions run in the current frame (`JAIC_PROFILE`, see `profile`).
+    /// Blocks and instructions run in the current frame (`-profile`, see `profile`).
     frame_blocks: u64,
     frame_insts: u64,
     profile: Option<Box<profile::Counts>>,
@@ -241,7 +241,7 @@ pub struct Interp {
     fiber_trap: Option<Trap>,
     /// `release_code` ran: no code runs anymore.
     closed: bool,
-    /// Procedures already recorded for `JAIC_COVERAGE`, by `FuncId`; `None` when it is unset.
+    /// Procedures already recorded for `-coverage_file`, by `FuncId`; `None` when it is unset.
     covered: Option<Vec<bool>>,
 }
 
@@ -359,7 +359,7 @@ impl Interp {
     }
 
 
-    /// Merge this interpreter's `JAIC_PROFILE` counts into the process table (see `profile`).
+    /// Merge this interpreter's `-profile` counts into the process table (see `profile`).
     pub fn flush_profile(&mut self) {
         if let Some(counts) = self.profile.as_mut() {
             counts.flush();
@@ -380,7 +380,7 @@ fn exit_forked_child(code: i32) -> ! {
     std::process::exit(code)
 }
 
-/// Record procedure `id` for `JAIC_COVERAGE` the first time it runs.
+/// Record procedure `id` for `-coverage_file` the first time it runs.
 #[cold]
 fn record_coverage(covered: &mut Vec<bool>, program: &Program, id: FuncId, func: &ir::Func) {
     let index = id.0 as usize;

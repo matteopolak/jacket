@@ -410,13 +410,13 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
         return (None if code == 0 else False), detail
     if mode in ("interp", "wasm-interp"):
         record = Path(scratch) / f"{test.replace('/', '-')}-{mode}.coverage"
-        if args.coverage:
-            env["JAIC_COVERAGE"] = str(record)
+        coverage_flags = ["-coverage_file", str(record)] if args.coverage else []
         code, stdout, stderr = run_program(
             [
                 args.jaic,
                 str(path),
                 "-interp",
+                *coverage_flags,
                 *target,
                 *(["--", *arguments] if arguments else []),
             ],

@@ -92,10 +92,10 @@ class Dialect(ABC):
         return Invocation(self.source_command(compiler, phases.WRAPPER_NAME), where, executable)
 
     def instruction_count(self, run: Run) -> int | None:
-        """Interpreted instructions, for a compiler that can count them (run with `profiling_env`)."""
+        """Interpreted instructions, for a compiler that can count them (run with `profiling_flags`)."""
         return None
 
-    profiling_env: dict[str, str] = {}
+    profiling_flags: list[str] = []
 
 
 class JaicDialect(Dialect):
@@ -124,9 +124,9 @@ class JaicDialect(Dialect):
     def detail(self, run: Run) -> Stages:
         return with_total(self.parser.parse(run.stderr), run.wall)
 
-    # `JAIC_PROFILE=1` makes the interpreter count IR instructions. The count barely varies between runs,
+    # `-profile` makes the interpreter count IR instructions. The count barely varies between runs,
     # so it shows small interpreter changes that wall time hides.
-    profiling_env = {'JAIC_PROFILE': '1'}
+    profiling_flags = ['-profile']
     PROFILE_LINE = re.compile(r'interpreter profile: (\d+) instructions')
 
     def instruction_count(self, run: Run) -> int | None:

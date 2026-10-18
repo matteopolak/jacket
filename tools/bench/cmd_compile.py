@@ -220,10 +220,12 @@ class JobRunner:
     def count_instructions(self, job: Job, invocations: dict[str, Invocation], results: dict[str, Result]) -> None:
         """One more run per compiler that can count interpreted instructions (not timed)."""
         for c in self.compilers:
-            if not c.dialect.profiling_env:
+            if not c.dialect.profiling_flags:
                 continue
             invocation = invocations[c.name]
-            run = self.measure(invocation.command, invocation.cwd, dict(c.dialect.profiling_env))
+            # The flags go right after the compiler: anything after a lone `-` is the metaprogram's.
+            command = [invocation.command[0], *c.dialect.profiling_flags, *invocation.command[1:]]
+            run = self.measure(command, invocation.cwd, {})
             count = c.dialect.instruction_count(run)
             result = results.get(f'{job.key}/{c.name}')
             if count and result:

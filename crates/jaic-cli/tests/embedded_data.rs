@@ -5,6 +5,17 @@ use std::process::Command;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
+/// A `jaic` command. `JACKET_TEST_CODEGEN_UNITS=N` (set by the CI sweep that divides every native
+/// build into parts, docs/native/llvm-backend.md) starts it with `-codegen_units N`; a test that
+/// pins its own count passes the flag again later, and the last one wins.
+fn jaic() -> Command {
+    let mut command = Command::new(JAIC);
+    if let Some(units) = std::env::var_os("JACKET_TEST_CODEGEN_UNITS") {
+        command.arg("-codegen_units").arg(units);
+    }
+    command
+}
+
 const SOURCE: &str = r#"#import "Basic";
 
 Table :: struct {
@@ -45,7 +56,7 @@ fn build_and_run(level: &str) -> String {
     } else {
         "out"
     });
-    let build = Command::new(JAIC)
+    let build = jaic()
         .args(["main.jai", level, "-exe"])
         .arg(&exe)
         .current_dir(&dir)

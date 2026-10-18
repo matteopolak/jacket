@@ -1,4 +1,4 @@
-//! An optimized program divided into several modules before the optimizer (`JAIC_CODEGEN_UNITS`)
+//! An optimized program divided into several modules before the optimizer (`-codegen_units`)
 //! behaves like the same program built whole: calls and function pointers across modules, small
 //! callees copied for inlining, globals read and written from different modules, and read-only
 //! data and zero-filled defaults used from several places.
@@ -6,6 +6,17 @@ use std::path::Path;
 use std::process::Command;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
+
+/// A `jaic` command. `JACKET_TEST_CODEGEN_UNITS=N` (set by the CI sweep that divides every native
+/// build into parts, docs/native/llvm-backend.md) starts it with `-codegen_units N`; a test that
+/// pins its own count passes the flag again later, and the last one wins.
+fn jaic() -> Command {
+    let mut command = Command::new(JAIC);
+    if let Some(units) = std::env::var_os("JACKET_TEST_CODEGEN_UNITS") {
+        command.arg("-codegen_units").arg(units);
+    }
+    command
+}
 
 const SOURCE: &str = r#"#import "Basic";
 
@@ -74,10 +85,10 @@ fn build_and_run(units: &str, level: &str) -> String {
     } else {
         "out"
     });
-    let build = Command::new(JAIC)
+    let build = jaic()
         .args(["main.jai", level, "-exe"])
         .arg(&exe)
-        .env("JAIC_CODEGEN_UNITS", units)
+        .args(["-codegen_units", units])
         .current_dir(&dir)
         .output()
         .unwrap();
@@ -129,7 +140,7 @@ fn a_function_that_would_absorb_its_callees_keeps_the_largest_out() {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("main.jai"), driver_source()).unwrap();
     let build = |level: &str, exe: &str, ir: Option<&str>| {
-        let mut cmd = Command::new(JAIC);
+        let mut cmd = jaic();
         cmd.args(["main.jai", level, "-exe", exe]);
         if let Some(ir) = ir {
             cmd.args(["-emit_ir", ir]);

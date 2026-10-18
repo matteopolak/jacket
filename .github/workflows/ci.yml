@@ -217,10 +217,10 @@ jobs:
       - name: Native tests with every program divided into parts
         id: split-native
         continue-on-error: true
-        # JAIC_CODEGEN_UNITS=4 divides each native build into four codegen units (call-graph parts
+        # JACKET_TEST_CODEGEN_UNITS=4 (the tests start jaic with -codegen_units 4) divides each native build into four codegen units (call-graph parts
         # when optimized), so a code generation bug that only shows across parts fails here
         # (docs/native/llvm-backend.md). Tests about a single module pin one unit themselves.
-        run: JAIC_CODEGEN_UNITS=4 cargo test -p jaic-cli --locked --test native --test optimized_split --test debug_info --test embedded_data
+        run: JACKET_TEST_CODEGEN_UNITS=4 cargo test -p jaic-cli --locked --test native --test optimized_split --test debug_info --test embedded_data
       - name: Stdlib type-checks and Objective-C selectors
         id: stdlib-targets
         continue-on-error: true
