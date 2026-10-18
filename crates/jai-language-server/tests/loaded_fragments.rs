@@ -79,7 +79,7 @@ fn fragment_sees_its_loaders_struct_constant_and_imports() {
             &uri,
             Position {
                 line: 2,
-                character: (byte - text[..byte].rfind('\n').map_or(0, |n| n + 1)) as u32,
+                character: (byte - jaic::source::line_start(&text, byte)) as u32,
             },
         )
         .unwrap()

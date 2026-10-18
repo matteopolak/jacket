@@ -8,13 +8,15 @@ use jaic::ast::{
 use jaic::intern::Sym;
 use jaic::lexer::{P, Tok, Token};
 use jaic::sema::{Compiler, EntityId};
-use jaic::source::{FileId, Span};
+use jaic::source::{FileId, LineIndex, Span};
 
 pub(crate) struct Cx<'a> {
     pub compiler: &'a Compiler,
     pub facts: &'a Facts,
     pub file: FileId,
     pub text: &'a str,
+    /// The line index of `text`.
+    pub lines: &'a LineIndex,
     pub tokens: &'a [Token],
     pub procs: Vec<ProcSite<'a>>,
     pub imports: Vec<crate::rules::unused_import::Unused>,
@@ -66,6 +68,7 @@ impl<'a> Cx<'a> {
             facts,
             file,
             text,
+            lines: compiler.sources.get(file).lines(),
             tokens,
             procs,
             imports,
@@ -200,9 +203,7 @@ impl<'a> Cx<'a> {
 
     /// Start of the line holding `offset`, and the indentation written there.
     pub fn line_start(&self, offset: usize) -> (usize, &'a str) {
-        let start = self.text[..offset.min(self.text.len())]
-            .rfind('\n')
-            .map_or(0, |n| n + 1);
+        let start = jaic::source::line_start(self.text, offset);
         let rest = &self.text[start..];
         let indent = &rest[..rest.len() - rest.trim_start_matches([' ', '\t']).len()];
         (start, indent)

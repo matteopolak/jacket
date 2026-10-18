@@ -335,7 +335,7 @@ fn enclosing_struct(text: &str, pos: usize) -> Option<String> {
             b'}' => depth += 1,
             b'{' if depth > 0 => depth -= 1,
             b'{' => {
-                let line_start = text[..i].rfind('\n').map_or(0, |n| n + 1);
+                let line_start = jaic::source::line_start(text, i);
                 let head = &text[line_start..i];
                 if let Some(at) = head.find(":: struct") {
                     return head[..at].split_whitespace().last().map(str::to_string);
@@ -407,7 +407,7 @@ fn receiver(text: &str, call_pos: usize, receiver_arg: &str) -> Option<Receiver>
 /// A table entry `x.field = cast(T) sel_registerName("...")`: the field name. The selector must be
 /// the value assigned, not an argument of a call on the right.
 fn table_field(text: &str, sel_start: usize) -> Option<&str> {
-    let line_start = text[..sel_start].rfind('\n').map_or(0, |n| n + 1);
+    let line_start = jaic::source::line_start(text, sel_start);
     let head = &text[line_start..sel_start];
     let (target, value) = head.split_once('=')?;
     let target = target.trim();

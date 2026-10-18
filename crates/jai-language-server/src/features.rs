@@ -305,7 +305,7 @@ impl Session {
         let chained = ["cast", "xx", "trunc", "truncate", "no_check", "force"]
             .iter()
             .any(|w| before.ends_with(w) && !before[..before.len() - w.len()].ends_with(word));
-        let line = text[..start].rfind('\n').map_or(0, |i| i + 1);
+        let line = jaic::source::line_start(text, start);
         let in_dot_cast = after.starts_with([')', ',']) && text[line..start].contains(".(");
         if !chained && !in_dot_cast {
             return None;
@@ -943,7 +943,7 @@ impl Session {
             .into_iter()
             .filter_map(|(path, text, start, end)| {
                 // Narrow `Name :: struct {...}` to the name when the span starts there.
-                let line_start = text[..start].rfind('\n').map_or(0, |n| n + 1);
+                let line_start = jaic::source::line_start(&text, start);
                 let before = &text[line_start..start];
                 let name = before.split("::").next().unwrap_or("").trim();
                 if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -1252,7 +1252,7 @@ impl Session {
         for (span, name, instances) in polys {
             let start = (span.start as usize).min(text.len());
             // The name is earlier on the line: `name :: (x: $T)`.
-            let line_start = text[..start].rfind('\n').map_or(0, |n| n + 1);
+            let line_start = jaic::source::line_start(text, start);
             let at = text[line_start..start]
                 .find(name.as_str())
                 .map_or(start, |i| line_start + i);
@@ -1379,7 +1379,7 @@ fn inline_insert(text: &str, span: Span, code: &str) -> Option<(Span, String)> {
         } else {
             span.end
         };
-        let line_start = text[..span.start].rfind('\n').map_or(0, |n| n + 1);
+        let line_start = jaic::source::line_start(text, span.start);
         let indent: String = text[line_start..span.start]
             .chars()
             .take_while(|c| c.is_whitespace())
@@ -1422,7 +1422,7 @@ fn open_call(text: &str, byte: usize) -> Option<(usize, Vec<&str>, usize, Option
             }
             b'"' => {
                 // Skip back over a string literal on this line.
-                let line = text[..at].rfind('\n').map_or(0, |n| n + 1);
+                let line = jaic::source::line_start(text, at);
                 at = text[line..at].rfind('"').map_or(at, |q| line + q);
             }
             _ => {}

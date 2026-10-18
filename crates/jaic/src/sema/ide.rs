@@ -1863,8 +1863,9 @@ impl Compiler {
                     };
                 }
                 // A procedure's span starts at its literal: find `name :` earlier on the line.
-                let file = &self.sources.get(s.file).text;
-                let line = file[..s.start as usize].rfind('\n').map_or(0, |n| n + 1);
+                let source = self.sources.get(s.file);
+                let file = &source.text;
+                let line = source.lines().line_start(s.start as usize);
                 let found = file[line..s.start as usize]
                     .rmatch_indices(name.as_str())
                     .find(|&(at, _)| {

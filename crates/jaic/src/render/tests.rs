@@ -11,6 +11,7 @@ fn label(text: &str, needle: &str, message: Option<&str>) -> Label<'static> {
         start,
         end: start + needle.len(),
         message: message.map(str::to_string),
+        lines: None,
     }
 }
 
@@ -27,6 +28,7 @@ fn unknown_name() -> Report<'static> {
         fix: Some(Fix {
             text: SOURCE,
             edits: vec![(at, at + 6, "counter".into())],
+            lines: None,
         }),
     });
     report.notes.push("names are case-sensitive".into());
@@ -181,6 +183,7 @@ fn multi_line_spans_get_a_connector() {
         start,
         end,
         message: Some("this procedure".into()),
+        lines: None,
     });
     let text = report.render_with(UNICODE_STYLE);
     assert_eq!(
@@ -214,6 +217,7 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
         start: 0,
         end: source.len() - 1,
         message: None,
+        lines: None,
     });
     let text = report.render_with(ASCII_STYLE);
     assert!(text.contains("\n   ...\n"), "{text}");

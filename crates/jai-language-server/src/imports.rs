@@ -138,7 +138,7 @@ pub(crate) fn insertion(
     }
     match first_code {
         Some(code) => {
-            let line = text[..code].rfind('\n').map_or(0, |n| n + 1);
+            let line = jaic::source::line_start(text, code);
             (line, format!("{statement}\n\n"))
         }
         // Comments only (or nothing): after them.

@@ -52,10 +52,12 @@ fn covers_edit(stmt: &jaic::ast::Stmt, a: usize, mapped: usize) -> bool {
 }
 
 fn position(text: &str, byte: usize) -> Position {
-    let before = &text[..byte];
+    let (line, character) = jaic::source::LineIndex::new(text)
+        .utf16_position(text, byte)
+        .expect("an offset on a character boundary");
     Position {
-        line: before.matches('\n').count() as u32,
-        character: before.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
+        line,
+        character,
     }
 }
 

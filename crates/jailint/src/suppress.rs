@@ -78,7 +78,7 @@ impl Suppressions {
                 self.file.extend(rules);
                 continue;
             }
-            let line_start = text[..start].rfind('\n').map_or(0, |n| n + 1);
+            let line_start = jaic::source::line_start(text, start);
             if !text[line_start..start].trim().is_empty() {
                 self.lines.push((line_start, line_end, rules));
                 continue;

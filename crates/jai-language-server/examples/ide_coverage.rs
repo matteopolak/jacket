@@ -66,19 +66,13 @@ fn environment(stdlib: PathBuf, runtime_support: bool) -> Environment {
     }
 }
 
-/// Byte offsets where each line starts, for `position`.
-fn line_starts(text: &str) -> Vec<usize> {
-    std::iter::once(0)
-        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
-        .collect()
-}
-
-fn position(text: &str, starts: &[usize], byte: usize) -> Position {
-    let line = starts.partition_point(|&s| s <= byte) - 1;
-    let character = text[starts[line]..byte].encode_utf16().count();
+fn position(text: &str, lines: &jaic::source::LineIndex, byte: usize) -> Position {
+    let (line, character) = lines
+        .utf16_position(text, byte)
+        .expect("a token starts on a character boundary");
     Position {
-        line: line as u32,
-        character: character as u32,
+        line,
+        character,
     }
 }
 

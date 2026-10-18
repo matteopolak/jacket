@@ -18,11 +18,20 @@
 //!
 //! On a terminal it gains context lines, multi-line spans, colour and (with UTF-8) box drawing.
 use crate::{Level, Lint};
+pub use jaic::render::Style;
 use jaic::render::{Fix, Help, Label, Report, Severity};
-pub use jaic::render::{Style, line_col};
+use jaic::source::LineIndex;
 
-/// `lint` in `text` (the file's contents), its path shown as `path`.
-pub fn render(lint: &Lint, text: &str, path: &str, default: Level, style: &Style) -> String {
+/// `lint` in `text` (the file's contents, indexed by `lines`), its path shown as `path`.
+/// Callers rendering many lints of one file build the index once.
+pub fn render(
+    lint: &Lint,
+    text: &str,
+    lines: &LineIndex,
+    path: &str,
+    default: Level,
+    style: &Style,
+) -> String {
     let severity = match lint.level {
         Level::Deny => Severity::Error,
         _ => Severity::Warning,
@@ -36,6 +45,7 @@ pub fn render(lint: &Lint, text: &str, path: &str, default: Level, style: &Style
         start: lint.start,
         end: lint.end,
         message: lint.label.clone(),
+        lines: Some(lines),
     });
     if let Some(help) = &lint.help {
         report.help.push(Help {
@@ -47,6 +57,7 @@ pub fn render(lint: &Lint, text: &str, path: &str, default: Level, style: &Style
                     .iter()
                     .map(|e| (e.start, e.end, e.text.clone()))
                     .collect(),
+                lines: Some(lines),
             }),
         });
     }

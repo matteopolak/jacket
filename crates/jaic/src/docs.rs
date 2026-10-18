@@ -9,6 +9,8 @@
 //! parameter itself), and `[name]` / `[text](name)` intra-doc links with the Markdown
 //! rewriting that turns resolved links into real ones.
 
+use crate::source::line_start;
+
 /// The most lines a doc comment shows.
 pub const MAX_LINES: usize = 200;
 
@@ -35,18 +37,13 @@ fn valid(text: &str, at: usize) -> bool {
     text.is_char_boundary(at)
 }
 
-/// The start of the line holding `at`.
-fn line_start(text: &str, at: usize) -> usize {
-    text[..at].rfind('\n').map_or(0, |n| n + 1)
-}
-
 /// The line before the one starting at `start`, as (its start, its text without the newline).
 fn previous_line(text: &str, start: usize) -> Option<(usize, &str)> {
     if start == 0 {
         return None;
     }
     let end = start - 1;
-    let begin = text[..end].rfind('\n').map_or(0, |n| n + 1);
+    let begin = line_start(text, end);
     Some((begin, text[begin..end].trim_end_matches('\r')))
 }
 

@@ -1335,7 +1335,7 @@ impl Session {
         text: &str,
         byte: usize,
     ) -> Option<CompletionList> {
-        let line = &text[text[..byte].rfind('\n').map_or(0, |n| n + 1)..byte];
+        let line = &text[jaic::source::line_start(text, byte)..byte];
         let quote = line.rfind('"')?;
         let before = line[..quote].trim_end();
         // The string must be open: an even number of quotes before it on the line.
@@ -1520,7 +1520,7 @@ impl Session {
 
     /// Where the partial path being typed in an open `#load` / `#import` string starts.
     fn string_path_start(&self, text: &str, byte: usize) -> Option<usize> {
-        let line_start = text[..byte].rfind('\n').map_or(0, |n| n + 1);
+        let line_start = jaic::source::line_start(text, byte);
         let line = &text[line_start..byte];
         let quote = line.rfind('"')?;
         if !line[..quote].matches('"').count().is_multiple_of(2) {

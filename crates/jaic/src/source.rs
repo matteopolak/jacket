@@ -39,50 +39,202 @@ impl Span {
     }
 }
 
+/// Where the lines of one text start and end: the single answer to "which line and column is
+/// this offset" for the compiler, the renderer, the language server and the linter.
+///
+/// Lines end at `\n`; a `\r` before it is not part of the line (`line_end` excludes it), and
+/// neither is a `\r` ending the text. Offsets are bytes. Columns are counted in characters
+/// (`line_col`) or UTF-16 units (`utf16_position`, the language server protocol's unit).
+/// Building is one pass; every query after that is a binary search, so callers that ask
+/// about many offsets of one text build the index once and keep it (`SourceFile::lines`).
+#[derive(Clone, Debug, Default)]
+pub struct LineIndex {
+    starts: Vec<u32>,
+    ends: Vec<u32>,
+}
+
+/// Why `LineIndex::offset_utf16` found no offset.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Utf16Error {
+    /// The line is past the last one.
+    LineOutside,
+    /// The column falls between the two halves of a surrogate pair.
+    SplitsPair,
+}
+
+impl LineIndex {
+    pub fn new(text: &str) -> Self {
+        let bytes = text.as_bytes();
+        let mut starts = vec![0u32];
+        let mut ends = Vec::new();
+        for (at, _) in text.match_indices('\n') {
+            ends.push((at - usize::from(at > 0 && bytes[at - 1] == b'\r')) as u32);
+            starts.push(at as u32 + 1);
+        }
+        let last = *starts.last().unwrap_or(&0) as usize;
+        let len = text.len();
+        ends.push((len - usize::from(len > last && bytes[len - 1] == b'\r')) as u32);
+        Self {
+            starts,
+            ends,
+        }
+    }
+
+    /// The number of lines: one more than the newlines, so the empty text has one, and a text
+    /// ending in a newline has an empty last line.
+    pub fn line_count(&self) -> usize {
+        self.starts.len()
+    }
+
+    /// The zero-based line holding `offset`; offsets past the end belong to the last line.
+    pub fn line_of(&self, offset: usize) -> usize {
+        self.starts
+            .partition_point(|&start| start as usize <= offset)
+            .saturating_sub(1)
+    }
+
+    /// The offset where the line holding `offset` starts.
+    pub fn line_start(&self, offset: usize) -> usize {
+        self.starts[self.line_of(offset)] as usize
+    }
+
+    /// The offset where the line holding `offset` ends, before its `\n` and any `\r` in front
+    /// of it.
+    pub fn line_end(&self, offset: usize) -> usize {
+        self.ends[self.line_of(offset)] as usize
+    }
+
+    /// The byte range of zero-based `line`, without its line ending.
+    pub fn line_range(&self, line: usize) -> Option<(usize, usize)> {
+        Some((*self.starts.get(line)? as usize, self.ends[line] as usize))
+    }
+
+    /// The byte ranges of every line, in order.
+    pub fn lines(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        self.starts
+            .iter()
+            .zip(&self.ends)
+            .map(|(&start, &end)| (start as usize, end as usize))
+    }
+
+    /// One-based line and column of `offset` in `text` (the text the index was built from),
+    /// the column counted in characters. An offset past the end or inside a character is moved
+    /// back to the character it falls in.
+    pub fn line_col(&self, text: &str, offset: usize) -> (usize, usize) {
+        let offset = text.floor_char_boundary(offset.min(text.len()));
+        let line = self.line_of(offset);
+        let start = self.starts[line] as usize;
+        (line + 1, text[start..offset].chars().count() + 1)
+    }
+
+    /// One-based line and column of `offset`, the column counted in bytes.
+    pub fn line_byte_col(&self, offset: usize) -> (usize, usize) {
+        let line = self.line_of(offset);
+        (line + 1, offset - self.starts[line] as usize + 1)
+    }
+
+    /// Zero-based line and UTF-16 column of `offset` in `text`, or `None` for an offset past
+    /// the end or inside a character. An offset inside a line ending counts to the line's end.
+    pub fn utf16_position(&self, text: &str, offset: usize) -> Option<(u32, u32)> {
+        if offset > text.len() || !text.is_char_boundary(offset) {
+            return None;
+        }
+        let line = self.line_of(offset);
+        let end = offset.min(self.ends[line] as usize);
+        let column = text[self.starts[line] as usize..end]
+            .chars()
+            .map(|c| c.len_utf16() as u32)
+            .sum();
+        Some((line as u32, column))
+    }
+
+    /// The offset of zero-based `line` and UTF-16 column `column` in `text`. A column past the
+    /// line's end names the end.
+    pub fn offset_utf16(&self, text: &str, line: u32, column: u32) -> Result<usize, Utf16Error> {
+        let (start, end) = self
+            .line_range(line as usize)
+            .ok_or(Utf16Error::LineOutside)?;
+        let mut units = 0u32;
+        for (relative, ch) in text[start..end].char_indices() {
+            if units == column {
+                return Ok(start + relative);
+            }
+            units += ch.len_utf16() as u32;
+            if units > column {
+                return Err(Utf16Error::SplitsPair);
+            }
+        }
+        Ok(end)
+    }
+}
+
+/// The start of the line holding `offset` in `text`, for callers that ask once. For many
+/// offsets of one text, build a `LineIndex`. An offset past the end counts as the end; one
+/// inside a character is fine.
+pub fn line_start(text: &str, offset: usize) -> usize {
+    let bytes = &text.as_bytes()[..offset.min(text.len())];
+    bytes.iter().rposition(|&b| b == b'\n').map_or(0, |n| n + 1)
+}
+
+/// The end of the line holding `offset` in `text`, before its line break (a `\r` in front of
+/// the `\n` is not part of the line either); the counterpart of `line_start`.
+pub fn line_end(text: &str, offset: usize) -> usize {
+    let bytes = text.as_bytes();
+    let from = offset.min(bytes.len());
+    let end = bytes[from..]
+        .iter()
+        .position(|&b| b == b'\n')
+        .map_or(bytes.len(), |n| from + n);
+    if end > 0 && bytes[end - 1] == b'\r' {
+        end - 1
+    } else {
+        end
+    }
+}
+
 #[derive(Clone)]
 pub struct SourceFile {
     pub path: String,
     pub text: Rc<str>,
-    line_starts: Vec<u32>,
+    lines: LineIndex,
 }
 
 impl SourceFile {
     pub fn new(path: String, text: Rc<str>) -> Self {
-        let mut line_starts = vec![0];
-        for (i, b) in text.bytes().enumerate() {
-            if b == b'\n' {
-                line_starts.push(i as u32 + 1);
-            }
-        }
+        let lines = LineIndex::new(&text);
         Self {
             path,
             text,
-            line_starts,
+            lines,
         }
     }
 
-    /// One-based line and column of a byte offset.
+    /// The file's line index, built when it was added.
+    pub fn lines(&self) -> &LineIndex {
+        &self.lines
+    }
+
+    /// One-based line and column of a byte offset. The column counts bytes, as the compiler's
+    /// own locations (`#location`, debug info) do; `LineIndex::line_col` counts characters.
     pub fn line_col(&self, offset: u32) -> (u32, u32) {
-        let line = match self.line_starts.binary_search(&offset) {
-            Ok(i) => i,
-            Err(i) => i - 1,
-        };
-        (line as u32 + 1, offset - self.line_starts[line] + 1)
+        let (line, col) = self.lines.line_byte_col(offset as usize);
+        (line as u32, col as u32)
     }
 
     /// Byte offset of a one-based line and column (clamped to the file).
     pub fn offset_of(&self, line: u32, col: u32) -> u32 {
-        let index = (line.max(1) as usize - 1).min(self.line_starts.len() - 1);
-        (self.line_starts[index] + col.max(1) - 1).min(self.text.len() as u32)
+        let index = (line.max(1) as usize - 1).min(self.lines.line_count() - 1);
+        let start = self.lines.line_range(index).map_or(0, |r| r.0) as u32;
+        (start + col.max(1) - 1).min(self.text.len() as u32)
     }
 
+    /// The text of one-based `line`, without its line ending.
     pub fn line_text(&self, line: u32) -> &str {
-        let start = self.line_starts[(line - 1) as usize] as usize;
-        let end = self
-            .line_starts
-            .get(line as usize)
-            .map_or(self.text.len(), |&e| e as usize);
-        self.text[start..end].trim_end_matches(['\n', '\r'])
+        let (start, end) = self
+            .lines
+            .line_range(line as usize - 1)
+            .unwrap_or((self.text.len(), self.text.len()));
+        &self.text[start..end]
     }
 }
 
@@ -320,6 +472,7 @@ impl Diagnostic {
                     start: span.start as usize,
                     end: span.end as usize,
                     message,
+                    lines: Some(file.lines()),
                 }
             })
         };
@@ -348,6 +501,7 @@ impl Diagnostic {
                     has_location(sources, *span).then(|| Fix {
                         text: &sources.get(span.file).text,
                         edits: vec![(span.start as usize, span.end as usize, text.clone())],
+                        lines: Some(sources.get(span.file).lines()),
                     })
                 });
             report.help.push(Help {
@@ -369,3 +523,6 @@ impl fmt::Display for Diagnostic {
         write!(f, "{}", self.message)
     }
 }
+
+#[cfg(test)]
+mod tests;

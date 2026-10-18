@@ -62,12 +62,13 @@ fn rendered(lints: &[Lint], text: &str, file: &Path) -> String {
         .to_string_lossy()
         .into_owned();
     let mut out = String::new();
+    let lines = jaic::source::LineIndex::new(text);
     for l in lints {
         let default = RULES
             .iter()
             .find(|r| r.name == l.rule)
             .map_or(Level::Warn, |r| r.default);
-        out.push_str(&render(l, text, &shown, default, &Style::PLAIN));
+        out.push_str(&render(l, text, &lines, &shown, default, &Style::PLAIN));
         out.push('\n');
     }
     out

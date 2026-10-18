@@ -61,7 +61,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     && uses(cx, &g.body, &inner_vars)
                     && uses_after(cx, &f.body, &outer_vars, inner.span.end)
                 {
-                    let (line, _) = crate::render::line_col(cx.text, outer.span.start as usize);
+                    let (line, _) = cx.lines.line_col(cx.text, outer.span.start as usize);
                     let header_end = match &g.over {
                         jaic::ast::ForOver::Range(_, b) => b.span.end,
                         jaic::ast::ForOver::Collection(c) => c.span.end,

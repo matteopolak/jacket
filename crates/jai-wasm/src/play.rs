@@ -184,12 +184,13 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
     }
     if (d.span.file.0 as usize) < compiler.sources.len() {
         let file = compiler.sources.get(d.span.file);
-        let (line, column) = file.line_col(d.span.start);
+        // Characters, as the command line counts them.
+        let (line, column) = file.lines().line_col(&file.text, d.span.start as usize);
         return PlayDiagnostic {
             severity,
             file: workspace_name(&file.path),
-            line,
-            column,
+            line: line as u32,
+            column: column as u32,
             message: d.message.clone(),
             code: d.kind.code(),
         };

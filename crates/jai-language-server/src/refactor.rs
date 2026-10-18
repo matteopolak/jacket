@@ -16,7 +16,7 @@ use jaic::ast::{
     StmtKind as S, UnOp,
 };
 use jaic::intern::Sym;
-use jaic::source::{DiagnosticKind, FileId};
+use jaic::source::{DiagnosticKind, FileId, line_end, line_start};
 use jailint::syntax::{Node, walk};
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
@@ -198,19 +198,6 @@ pub(crate) fn trim(text: &str, start: usize, end: usize) -> (usize, usize) {
     (start + lead, end - trail)
 }
 
-fn line_start(text: &str, at: usize) -> usize {
-    text[..at].rfind('\n').map_or(0, |n| n + 1)
-}
-
-/// The end of the line holding `at`, before its line break.
-fn line_end(text: &str, at: usize) -> usize {
-    let end = text[at..].find('\n').map_or(text.len(), |n| at + n);
-    if text[..end].ends_with('\r') {
-        end - 1
-    } else {
-        end
-    }
-}
 
 /// The leading whitespace of the line holding `at`.
 fn indent_at(text: &str, at: usize) -> &str {

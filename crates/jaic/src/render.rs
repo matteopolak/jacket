@@ -16,8 +16,9 @@
 //! by each command-line tool; libraries and the language server leave it at `Style::PLAIN`.
 //! A caller that renders for someone else (the browser playground, one run per request)
 //! uses `with_style`, which applies to its own thread only.
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use crate::source::LineIndex;
+use std::borrow::Cow;
+use std::cell::Cell;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -224,6 +225,21 @@ pub struct Label<'a> {
     pub start: usize,
     pub end: usize,
     pub message: Option<String>,
+    /// The line index of `text`, when the caller has one (`SourceFile::lines`). Without it
+    /// the renderer builds one for each report, which is a pass over the text: a caller
+    /// rendering many reports from one large file keeps its own and passes it here.
+    pub lines: Option<&'a LineIndex>,
+}
+
+impl<'a> Label<'a> {
+    fn index(&self) -> Cow<'a, LineIndex> {
+        lines_of(self.text, self.lines)
+    }
+}
+
+/// `given`, or an index built from `text`.
+fn lines_of<'a>(text: &str, given: Option<&'a LineIndex>) -> Cow<'a, LineIndex> {
+    given.map_or_else(|| Cow::Owned(LineIndex::new(text)), Cow::Borrowed)
 }
 
 /// A fix to show under its help line: the replaced ranges of `text` and their new text.
@@ -232,6 +248,8 @@ pub struct Fix<'a> {
     pub text: &'a str,
     /// (start, end, replacement), byte ranges of `text`.
     pub edits: Vec<(usize, usize, String)>,
+    /// The line index of `text`, as in [`Label::lines`].
+    pub lines: Option<&'a LineIndex>,
 }
 
 #[derive(Clone, Debug)]
@@ -422,63 +440,9 @@ struct Renderer {
     out: String,
 }
 
-/// One-based line and column (in characters) of a byte offset.
-pub fn line_col(text: &str, offset: usize) -> (usize, usize) {
-    let offset = text.floor_char_boundary(offset.min(text.len()));
-    let starts = line_starts(text);
-    let line = starts.partition_point(|&start| start <= offset);
-    (line, text[starts[line - 1]..offset].chars().count() + 1)
-}
-
-/// Byte range of one-based `line` (without its newline).
-fn line_range(text: &str, line: usize) -> Option<(usize, usize)> {
-    let starts = line_starts(text);
-    let start = *starts.get(line.max(1) - 1)?;
-    let end = starts.get(line.max(1)).map_or(text.len(), |&next| next - 1);
-    let end = if text[start..end].ends_with('\r') {
-        end - 1
-    } else {
-        end
-    };
-    Some((start, end))
-}
-
-/// Files at least this long keep their line starts between calls.
-const CACHED_LINES_MIN: usize = 16 * 1024;
-
-thread_local! {
-    /// The last large text a report was rendered from, and where its lines start. A linter
-    /// renders thousands of reports from one file; finding a line by counting newlines from
-    /// the top each time made that quadratic.
-    static LINE_STARTS: RefCell<Option<(String, Rc<Vec<usize>>)>> = const { RefCell::new(None) };
-}
-
-/// Byte offsets where each line of `text` starts (the first is 0).
-fn line_starts(text: &str) -> Rc<Vec<usize>> {
-    let scan = || {
-        let mut starts = vec![0];
-        starts.extend(text.match_indices('\n').map(|(i, _)| i + 1));
-        Rc::new(starts)
-    };
-    if text.len() < CACHED_LINES_MIN {
-        return scan();
-    }
-    LINE_STARTS.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        // Compared by contents: another text may since have been allocated at the same address.
-        if let Some((cached, starts)) = cache.as_ref()
-            && cached == text
-        {
-            return starts.clone();
-        }
-        let starts = scan();
-        *cache = Some((text.to_string(), starts.clone()));
-        starts
-    })
-}
-
-fn line_count(text: &str) -> usize {
-    line_starts(text).len() - usize::from(text.ends_with('\n'))
+/// The number of lines `text` shows: a final newline does not start another.
+fn line_count(text: &str, lines: &LineIndex) -> usize {
+    lines.line_count() - usize::from(text.ends_with('\n'))
 }
 
 impl Renderer {
@@ -517,11 +481,12 @@ impl Renderer {
                 self.line(&head);
                 continue;
             };
-            let (line, col) = line_col(label.text, label.start);
+            let lines = label.index();
+            let (line, col) = lines.line_col(label.text, label.start);
             let head = self.header(severity, None, message);
             let location = format!("{}:{line}:{col}: ", shown(label.path));
             self.line(&format!("{location}{head}"));
-            let (start, end) = line_range(label.text, line).unwrap_or((0, 0));
+            let (start, end) = lines.line_range(line - 1).unwrap_or((0, 0));
             let source = &label.text[start..end];
             self.line(&format!("    {source}"));
             let pad: String = source
@@ -558,7 +523,7 @@ impl Renderer {
     fn msvc(&mut self, report: &Report) {
         let place = |label: Option<&Label>| {
             label.map_or(String::new(), |l| {
-                let (line, col) = line_col(l.text, l.start);
+                let (line, col) = l.index().line_col(l.text, l.start);
                 format!("{}({line},{col}): ", shown(l.path))
             })
         };
@@ -606,7 +571,7 @@ impl Renderer {
                 .filter(|(l, _)| l.path == *path)
                 .collect();
             let (first, _) = in_file[0];
-            let (line, col) = line_col(first.text, first.start);
+            let (line, col) = first.index().line_col(first.text, first.start);
             let path = shown(path);
             if self.plain || g.close.is_empty() {
                 let arrow = if i == 0 {
@@ -662,7 +627,9 @@ impl Renderer {
                         help.message
                     ));
                     self.line(&format!("{blank} {bar}"));
-                    for (n, mark, code) in changed_lines(fix.text, &fix.edits) {
+                    for (n, mark, code) in
+                        changed_lines(fix.text, &lines_of(fix.text, fix.lines), &fix.edits)
+                    {
                         let paint = match mark {
                             '-' => "31",
                             '+' => "32",
@@ -703,8 +670,9 @@ impl Renderer {
         labels
             .iter()
             .map(|(l, _)| {
-                let (line, _) = line_col(l.text, l.start);
-                let (end, _) = line_col(l.text, l.end.max(l.start));
+                let lines = l.index();
+                let (line, _) = lines.line_col(l.text, l.start);
+                let (end, _) = lines.line_col(l.text, l.end.max(l.start));
                 end.max(line + MAX_FIX_LINES) + context
             })
             .max()
@@ -717,7 +685,8 @@ impl Renderer {
     fn snippet(&mut self, labels: &[(&Label, bool)], width: usize) {
         let g = self.glyphs;
         let text = labels[0].0.text;
-        let total = line_count(text);
+        let lines = labels[0].0.index();
+        let total = line_count(text, &lines);
         let context = if self.plain {
             0
         } else {
@@ -728,8 +697,9 @@ impl Renderer {
         let spans: Vec<(usize, usize, usize, usize)> = labels
             .iter()
             .map(|(l, _)| {
-                let (a, ac) = line_col(text, l.start);
-                let (b, bc) = line_col(text, l.end.max(l.start + 1).saturating_sub(1).max(l.start));
+                let (a, ac) = lines.line_col(text, l.start);
+                let (b, bc) =
+                    lines.line_col(text, l.end.max(l.start + 1).saturating_sub(1).max(l.start));
                 (a, ac, b, bc)
             })
             .collect();
@@ -778,7 +748,9 @@ impl Renderer {
                 ));
             }
             previous = n;
-            let (start, end) = line_range(text, n).unwrap_or((text.len(), text.len()));
+            let (start, end) = lines
+                .line_range(n.max(1) - 1)
+                .unwrap_or((text.len(), text.len()));
             let source = &text[start..end];
             // Labels on this line: (first column, last column + 1, label, primary), columns
             // in characters of the shown text.
@@ -973,7 +945,12 @@ fn indent_width(text: &str, colored: bool) -> usize {
 /// The code a fix changes, as (line number, mark, text). When the fix keeps the number of
 /// lines, the changed lines as fixed (`~`); when it removes whole lines, those (`-`);
 /// otherwise the old lines (`-`) then the new (`+`). At most `MAX_FIX_LINES` of each.
-pub fn changed_lines(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String, char, String)> {
+/// `lines` indexes `text`.
+pub fn changed_lines(
+    text: &str,
+    lines: &LineIndex,
+    edits: &[(usize, usize, String)],
+) -> Vec<(String, char, String)> {
     // Only the lines the edits touch: copying and splitting the whole file for every fix made
     // rendering a linter's thousands of fixes quadratic.
     let first = edits.iter().map(|e| e.0).min().unwrap_or(0).min(text.len());
@@ -983,9 +960,9 @@ pub fn changed_lines(text: &str, edits: &[(usize, usize, String)]) -> Vec<(Strin
         .max()
         .unwrap_or(0)
         .clamp(first, text.len());
-    let start = text[..first].rfind('\n').map_or(0, |n| n + 1);
-    let end = text[last..].find('\n').map_or(text.len(), |n| last + n);
-    let base = line_col(text, start).0 - 1;
+    let start = lines.line_start(first);
+    let end = lines.line_end(last).max(last);
+    let base = lines.line_of(start);
     let window: Vec<_> = edits
         .iter()
         .map(|(a, b, new)| (a - start, b - start, new.clone()))
@@ -1016,10 +993,12 @@ fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String
         last_new = last_new.max(at + new.len());
         shift += new.len() as isize - (end - start) as isize;
     }
-    let (first_line, _) = line_col(text, first);
+    let old_lines = LineIndex::new(text);
+    let new_lines = LineIndex::new(&fixed);
+    let (first_line, _) = old_lines.line_col(text, first);
     // An edit ending at a line's start (a removed whole line) ends on the line before.
-    let (old_last, _) = line_col(text, last.saturating_sub(1).max(first));
-    let (new_last, _) = line_col(&fixed, last_new.saturating_sub(1).max(first));
+    let (old_last, _) = old_lines.line_col(text, last.saturating_sub(1).max(first));
+    let (new_last, _) = new_lines.line_col(&fixed, last_new.saturating_sub(1).max(first));
     let old: Vec<&str> = text.lines().collect();
     let new: Vec<&str> = fixed.lines().collect();
     let take = |lines: &[&str], from: usize, to: usize, mark: char, out: &mut Vec<_>| {
@@ -1043,8 +1022,8 @@ fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String
         e.2.is_empty() && e.1 > e.0 && line_start && text[..e.1].ends_with('\n')
     }) {
         for e in &edits {
-            let (a, _) = line_col(text, e.0);
-            let (b, _) = line_col(text, e.1 - 1);
+            let (a, _) = old_lines.line_col(text, e.0);
+            let (b, _) = old_lines.line_col(text, e.1 - 1);
             take(&old, a, b, '-', &mut out);
         }
     } else {

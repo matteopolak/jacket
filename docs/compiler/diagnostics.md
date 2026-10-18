@@ -29,7 +29,7 @@ Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form. Extra s
 
 ### Rendering (`crates/jaic/src/render.rs`)
 
-One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors. `Report` is its input; `Diagnostic::report` converts a compiler diagnostic and `Report::from_text` converts text with `help:`/`note:` lines. Layouts, picked once per process (`render::detect`, then `set_style`):
+Line and column numbers come from `jaic::source::LineIndex` (see [source positions](source-positions.md)); a `Label` or `Fix` carries the caller's index so rendering stays linear. One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors. `Report` is its input; `Diagnostic::report` converts a compiler diagnostic and `Report::from_text` converts text with `help:`/`note:` lines. Layouts, picked once per process (`render::detect`, then `set_style`):
 
 | Layout | When |
 |---|---|

@@ -20,7 +20,7 @@ pub(crate) const EAGER_DOCS: usize = 24;
 /// `file:///path#L<line>` for the byte `start` of `text`.
 pub(crate) fn url(path: &str, text: &str, start: usize) -> Option<String> {
     let start = text.floor_char_boundary(start.min(text.len()));
-    let line = text[..start].matches('\n').count() + 1;
+    let line = jaic::source::LineIndex::new(text).line_of(start) + 1;
     Some(format!(
         "{}#L{line}",
         DocumentUri::from_path(Path::new(path)).ok()?.as_str()

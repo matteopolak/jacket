@@ -309,10 +309,14 @@ fn run() -> Result<ExitCode, String> {
     // One write per report instead of one per line: a file with thousands of findings spent
     // most of its time in the line-buffered stdout's system calls.
     let mut out = std::io::BufWriter::new(std::io::stdout().lock());
+    let mut indexes: std::collections::HashMap<&str, jaic::source::LineIndex> = Default::default();
     for lint in &outcome.lints {
         let Some(text) = outcome.texts.get(&lint.path) else {
             continue;
         };
+        let lines = indexes
+            .entry(lint.path.as_str())
+            .or_insert_with(|| jaic::source::LineIndex::new(text));
         let default = RULES
             .iter()
             .find(|r| r.name == lint.rule)
@@ -320,7 +324,7 @@ fn run() -> Result<ExitCode, String> {
         let _ = writeln!(
             out,
             "{}",
-            render(lint, text, &shown(&lint.path), default, &style)
+            render(lint, text, lines, &shown(&lint.path), default, &style)
         );
         match lint.level {
             Level::Deny => errors += 1,

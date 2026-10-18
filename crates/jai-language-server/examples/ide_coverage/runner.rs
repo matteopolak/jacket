@@ -1,5 +1,5 @@
 use super::report::{self, Counts, Failure, File, Gap, Manifest, Missing, Report, Target};
-use super::{KEYWORDS, Role, environment, line_starts, position, role, using_modifier};
+use super::{KEYWORDS, Role, environment, position, role, using_modifier};
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, Session};
 use jaic::{
     lexer::{P, Tok},
@@ -324,7 +324,7 @@ fn run() -> Result<(Report, bool, bool), String> {
                 &progress,
                 serde_json::json!({"kind":"start","input_id":file.input_id,"redacted":true}),
             )?;
-            let starts = line_starts(&text);
+            let lines = jaic::source::LineIndex::new(&text);
             match session.diagnostics(&uri) {
                 Ok(diagnostics) => {
                     for d in diagnostics.into_iter().filter(|d| {
@@ -374,7 +374,7 @@ fn run() -> Result<(Report, bool, bool), String> {
                 };
                 file.identifiers += 1;
                 // Probe the first codepoint, never start+1 (which may split UTF8).
-                let at = position(&text, &starts, token.span.start as usize);
+                let at = position(&text, &lines, token.span.start as usize);
                 if file.identifiers % 256 == 1 {
                     checkpoint(
                         &progress,
