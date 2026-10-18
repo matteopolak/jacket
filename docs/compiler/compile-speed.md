@@ -55,6 +55,7 @@ Child processes (`run_command`): the supervisor that watches a command polls for
 - Skipping LiveDebugValues at `-O0`: loses `frame variable` locations.
 - Removing the parse mutex in `split.rs`: memory rises for no gain.
 - Copying callees above 200 instructions into other parts, or fewer than 8 parts: more codegen time than the runtime it recovers.
+- Cheaper links on macOS: `ld` run directly instead of through `cc` saves about 10 ms of driver start-up but needs the SDK path and platform version re-derived, so it was not adopted; `-no_uuid`, `-ld_classic` and `-no_adhoc_codesign` moved nothing worth the output change. The link phase is 31 ms at best for 60k lines; the occasional 100 ms or more is machine load (other processes writing and linking at once), not a fixed cost.
 - Overlapping codegen with the front end: nothing in `Program` is final until the workspace completes (metaprograms can add code, change procedures and set build options; type and stack-trace tables use the final type set). Only lowering of finished procedures could overlap, and the gain is small at `-O0`.
 
 ### Allocator
