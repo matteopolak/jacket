@@ -3111,3 +3111,28 @@ fn add_and_run_strings_in_a_build() {
     let run = Command::new(&exe).output().unwrap();
     assert_eq!(String::from_utf8_lossy(&run.stdout), "42\n");
 }
+
+/// A compile-time call into a library that cannot be found names the library, not only the symbol.
+#[test]
+fn compile_time_call_into_a_missing_library_names_it() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-missing-library");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("missing.jai");
+    std::fs::write(
+        &source,
+        "missing :: #foreign_library \"jaic_no_such_library\";\nanswer :: () -> s32 #foreign missing;\n#run answer();\nmain :: () {}\n",
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .arg(&source)
+        .arg("-check")
+        .env("JAIC_NATIVE_LIBS", &dir)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("`answer` is not available here (library `jaic_no_such_library`"),
+        "{stderr}"
+    );
+}

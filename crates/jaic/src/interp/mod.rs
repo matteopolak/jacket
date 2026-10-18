@@ -1560,9 +1560,21 @@ impl Interp {
         }
         let addr = self.foreign_addr(program, id)?;
         if addr & TAG_MASK == FOREIGN_TAG {
+            let foreign = &program.foreigns[id.0 as usize];
+            let from = foreign
+                .library
+                .map(|l| &program.libraries[l])
+                .filter(|library| !library.system)
+                .map(|library| {
+                    format!(
+                        " (library `{}` was not found or does not define it)",
+                        library.name
+                    )
+                })
+                .unwrap_or_default();
             let mut trap = self
                 .trap::<()>(format!(
-                    "foreign procedure `{symbol}` is not available here"
+                    "foreign procedure `{symbol}` is not available here{from}"
                 ))
                 .unwrap_err();
             trap.kind = Some(TrapKind::Unavailable);
