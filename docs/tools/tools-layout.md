@@ -53,7 +53,8 @@ Every generator of a checked-in file takes `--check` (exit 1 if the file differs
    import sys as _sys
    from pathlib import Path as _Path
 
-   _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+   # tools/, for folder-qualified imports
+   _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
    ```
 
    Use `parents[2]` in a sub-sub-folder (`tools/portable/portable_data/`). Imports between modules of the same folder may stay bare, except for a module that other folders import (`native/fetch_url.py`, `stdlib/stdlib_runtime.py`, ...): it and everything that touches it import its siblings qualified too, so there is only one copy of it in `sys.modules`. That includes `unittest.mock.patch("stdlib.stdlib_runtime.run_command")` target strings. `native_bindings/` keeps generic module names (`config`, `spec`), so it is never put on `sys.path` as a folder; import it as `native_bindings.config`.

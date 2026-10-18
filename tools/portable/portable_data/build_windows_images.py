@@ -7,7 +7,8 @@ downloaded, and no non-Windows execution is represented as a native build.
 import sys as _sys
 from pathlib import Path as _Path
 
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))  # tools/, for folder-qualified imports
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from pathlib import Path
 import argparse

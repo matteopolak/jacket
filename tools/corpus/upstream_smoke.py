@@ -9,7 +9,8 @@ changes the pinned sources. Exits 1 when a check that was not skipped fails.
 import sys as _sys
 from pathlib import Path as _Path
 
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 from decimal import Decimal
