@@ -200,7 +200,7 @@ impl Compiler {
             return None;
         }
         let fields = self.types.struct_info(s).fields.clone();
-        for field in fields {
+        for field in fields.iter() {
             if field.as_ {
                 if field.ty == to {
                     return Some(field.offset);

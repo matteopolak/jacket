@@ -2621,7 +2621,7 @@ impl Compiler {
         let t = self.ide_deref(t);
         match self.types.kind(t) {
             TypeKind::Struct(s) => {
-                for f in self.types.struct_info(*s).fields.clone() {
+                for f in self.types.struct_info(*s).fields.clone().iter() {
                     if f.name == Some(name) {
                         return Some(f.ty);
                     }
@@ -2708,7 +2708,7 @@ impl Compiler {
                 match self.types.kind(t).clone() {
                     TypeKind::Struct(s) => {
                         let fields = self.types.struct_info(s).fields.clone();
-                        for f in fields {
+                        for f in fields.iter() {
                             if let Some(n) = f.name {
                                 out.push(IdeName {
                                     name: n.to_string(),

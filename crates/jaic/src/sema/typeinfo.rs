@@ -725,7 +725,7 @@ impl Compiler {
         };
         self.layout_struct(vs, span)?;
         let mut flat = vec![tag.clone()];
-        for f in &self.types.struct_info(vs).fields {
+        for f in self.types.struct_info(vs).fields.iter() {
             let mut f = f.clone();
             f.offset += variants.offset;
             flat.push(f);

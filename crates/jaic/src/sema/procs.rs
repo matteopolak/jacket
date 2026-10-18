@@ -705,7 +705,7 @@ impl Compiler {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
                 let fields = self.types.struct_info(s).fields.clone();
-                for field in fields {
+                for field in fields.iter() {
                     self.flatten_fields(field.ty, base + field.offset, out, span)?;
                 }
             }

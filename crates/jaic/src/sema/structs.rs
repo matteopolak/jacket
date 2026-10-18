@@ -243,7 +243,7 @@ impl Compiler {
             ast: Some(lit.id),
             // A tagged union is a struct: the tag, then the members' union.
             is_union: lit.kind == ast::StructKind::Union && lit.tag.is_none(),
-            fields: Vec::new(),
+            fields: Rc::from([]),
             size: 0,
             align: 1,
             layout: LayoutState::Pending,
@@ -918,7 +918,7 @@ impl Compiler {
         }
         self.check_using_clashes(&fields, &filters)?;
         let info = self.types.struct_info_mut(s);
-        info.fields = fields;
+        info.fields = fields.into();
         if !filters.is_empty() {
             self.using_filters.insert(s, filters);
         }

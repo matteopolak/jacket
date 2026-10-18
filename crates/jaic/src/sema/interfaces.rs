@@ -34,7 +34,7 @@ impl Compiler {
             }
             self.layout_struct(contract, span)?;
             let fields = self.types.struct_info(contract).fields.clone();
-            for field in fields {
+            for field in fields.iter() {
                 if field.using {
                     pending.push((actual, self.types.pointee(field.ty).unwrap_or(field.ty)));
                     continue;

@@ -932,7 +932,7 @@ impl Compiler {
             TypeKind::Struct(s) => {
                 let info = self.types.struct_info(s).clone();
                 let mut members = Vec::new();
-                for field in &info.fields {
+                for field in info.fields.iter() {
                     let fty = self.type_record(r, field.ty);
                     let mut m = Record::new("Type_Info_Struct_Member");
                     m.str("name", field.name.map_or("", |n| n.as_str()).as_bytes())

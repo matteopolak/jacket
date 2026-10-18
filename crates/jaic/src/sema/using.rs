@@ -249,7 +249,7 @@ impl Compiler {
         if let TypeKind::Enum(e) = *self.types.kind(ty) {
             names.extend(self.types.enum_info(e).members.iter().map(|(n, _)| *n));
         } else if let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) {
-            for field in self.types.struct_info(s).fields.clone() {
+            for field in self.types.struct_info(s).fields.clone().iter() {
                 names.extend(field.name);
                 if field.using {
                     names.extend(self.aggregate_using_names(field.ty)?);

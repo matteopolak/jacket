@@ -837,7 +837,7 @@ impl Compiler {
                 if info.is_union {
                     return Ok(());
                 }
-                for field in &info.fields {
+                for field in info.fields.iter() {
                     self.freeze(
                         agg,
                         offset + field.offset,

@@ -112,7 +112,8 @@ pub struct StructInfo {
     pub name: Sym,
     pub ast: Option<AstId>,
     pub is_union: bool,
-    pub fields: Vec<Field>,
+    /// Shared, so a caller can hold the fields while it changes other types.
+    pub fields: std::rc::Rc<[Field]>,
     pub size: u64,
     pub align: u64,
     pub layout: LayoutState,
