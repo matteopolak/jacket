@@ -2,25 +2,25 @@
 use super::{Call, Interp, code, last_error, profile};
 use crate::ir::{self, FuncId, Program};
 
-pub(crate) struct Frame {
+pub(super) struct Frame {
     pub(super) offsets: Vec<u64>,
     /// Bytes of slots, a multiple of 16.
-    pub(crate) size: u64,
+    pub(super) size: u64,
     /// Largest slot alignment: the frame's absolute start address is a multiple of it, so
     /// `#align 64` locals land aligned (offsets alone only align relative to the frame).
     pub(super) align: u64,
     /// Bytes after the slots for the stack trace node, when the procedure keeps one.
-    pub(crate) node_size: u64,
+    pub(super) node_size: u64,
     /// The body in the interpreter's form (`code.rs`).
-    pub(crate) code: code::Code,
+    pub(super) code: code::Code,
     /// The procedure's `Stack_Trace_Procedure_Info` (`trace_info`), once made; 0 before.
-    pub(crate) trace_info: std::cell::Cell<u64>,
+    pub(super) trace_info: std::cell::Cell<u64>,
 }
 
 impl Frame {
     /// A frame's registers sit after its slots and trace node, on the same stack.
     #[inline(always)]
-    pub(crate) fn regs(&self, stack_base: u64) -> *mut u64 {
+    pub(super) fn regs(&self, stack_base: u64) -> *mut u64 {
         (stack_base + self.size + self.node_size) as *mut u64
     }
 }
@@ -59,7 +59,7 @@ mod register_poison_tests {
 /// The memory interpreted frames live on: the words of an allocation of its own, or of a mapping
 /// somebody else owns (a fiber's, `fibers.rs`). It dereferences to the words like the box it
 /// replaces, and frees only what it allocated.
-pub(crate) struct ValueStack {
+pub(super) struct ValueStack {
     words: *mut u64,
     len: usize,
     owned: bool,
@@ -77,7 +77,7 @@ impl Default for ValueStack {
 
 impl ValueStack {
     /// `len` zeroed words from the heap.
-    pub(crate) fn heap(len: usize) -> Self {
+    pub(super) fn heap(len: usize) -> Self {
         let words = Box::into_raw(vec![0u64; len].into_boxed_slice());
         ValueStack {
             words: words.cast(),
@@ -134,13 +134,13 @@ impl Drop for ValueStack {
 /// What a thread running interpreted code keeps of `Interp` while another thread has it, or
 /// while it is inside a native call.
 #[derive(Default)]
-pub(crate) struct ExecState {
-    pub(crate) stack: ValueStack,
-    pub(crate) sp: u64,
-    pub(crate) depth: usize,
+pub(super) struct ExecState {
+    pub(super) stack: ValueStack,
+    pub(super) sp: u64,
+    pub(super) depth: usize,
     pub(super) calls: Vec<Call>,
-    pub(crate) loc: Option<(u32, u32, u32)>,
-    pub(crate) trace_loc: Option<Option<(u32, u32, u32)>>,
+    pub(super) loc: Option<(u32, u32, u32)>,
+    pub(super) trace_loc: Option<Option<(u32, u32, u32)>>,
 }
 
 impl Interp {
@@ -148,7 +148,7 @@ impl Interp {
     /// replaced). The reference stays valid for as long as the interpreter lives: frames are
     /// boxed and a replaced one is kept in `retired`, since it may still be running.
     #[inline(always)]
-    pub(crate) fn frame<'f>(
+    pub(super) fn frame<'f>(
         &mut self,
         program: &Program,
         id: FuncId,
@@ -224,7 +224,7 @@ impl Interp {
         unsafe { &*ptr }
     }
 
-    pub(crate) fn take_exec_state(&mut self) -> ExecState {
+    pub(super) fn take_exec_state(&mut self) -> ExecState {
         ExecState {
             stack: std::mem::take(&mut self.stack),
             sp: self.sp,
@@ -235,7 +235,7 @@ impl Interp {
         }
     }
 
-    pub(crate) fn put_exec_state(&mut self, state: ExecState) {
+    pub(super) fn put_exec_state(&mut self, state: ExecState) {
         self.stack = state.stack;
         self.sp = state.sp;
         self.depth = state.depth;

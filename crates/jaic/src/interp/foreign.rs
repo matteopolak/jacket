@@ -241,7 +241,7 @@ impl Interp {
         flags
     }
 
-    pub(crate) fn call_foreign(
+    pub(super) fn call_foreign(
         &mut self,
         program: &Program,
         id: ForeignId,
@@ -411,7 +411,7 @@ impl Interp {
     /// wherever the program stores it (struct fields, globals, arrays); interpreted calls
     /// through a thunk address are mapped back to the procedure. Anything else is a tagged
     /// id. A procedure keeps one value for the interpreter's lifetime.
-    pub(crate) fn proc_value(&mut self, program: &Program, id: FuncId) -> u64 {
+    pub(super) fn proc_value(&mut self, program: &Program, id: FuncId) -> u64 {
         let i = id.0 as usize;
         if let Some(&v) = self.proc_values.get(i)
             && v != 0

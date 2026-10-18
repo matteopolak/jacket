@@ -9,7 +9,7 @@ pub struct Rets {
 }
 
 impl Rets {
-    pub(crate) fn collect(values: impl ExactSizeIterator<Item = u64>) -> Self {
+    pub(super) fn collect(values: impl ExactSizeIterator<Item = u64>) -> Self {
         let mut rets = Rets {
             len: values.len(),
             ..Default::default()

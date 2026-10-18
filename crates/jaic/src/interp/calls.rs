@@ -12,7 +12,7 @@ use std::sync::atomic::Ordering;
 
 /// What `exec` saved on entering a frame, to restore when it returns.
 pub(super) struct FrameExit {
-    pub(crate) id: FuncId,
+    pub(super) id: FuncId,
     /// `sp` before the frame.
     base: u64,
     saved_loc: Option<(u32, u32, u32)>,
@@ -135,7 +135,7 @@ impl Interp {
     }
 
     #[cold]
-    pub(crate) fn no_body<T>(&mut self, program: &Program, id: FuncId) -> Res<T> {
+    pub(super) fn no_body<T>(&mut self, program: &Program, id: FuncId) -> Res<T> {
         self.missing_func = Some(id);
         let name = program
             .func_names
@@ -160,7 +160,7 @@ impl Interp {
 
     /// Call procedure `id` with `args`. This is the way in from outside the dispatch loop;
     /// calls by name in interpreted code use `call_by_name`.
-    pub(crate) fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Rets> {
+    pub(super) fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Rets> {
         if let Some(&Some(hook)) = self.hooks.get(id.0 as usize) {
             return self.run_hook(program, hook, args);
         }
@@ -180,7 +180,7 @@ impl Interp {
     /// Call a procedure by name from interpreted code: arguments from the registers
     /// `pool[..nargs]` of `regs`, results into the registers `pool[nargs..nargs + nrets]`.
     #[inline(always)]
-    pub(crate) fn call_by_name(
+    pub(super) fn call_by_name(
         &mut self,
         program: &Program,
         regs: *mut u64,
@@ -334,7 +334,7 @@ impl Interp {
     /// What `run_entered` restores when a frame returns (also for a frame `resume_frames`
     /// resumed).
     #[inline(always)]
-    pub(crate) fn leave_frame(
+    pub(super) fn leave_frame(
         &mut self,
         func: &ir::Func,
         exit: FrameExit,

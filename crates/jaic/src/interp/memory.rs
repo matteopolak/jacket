@@ -50,7 +50,7 @@ impl Interp {
 
     /// `read` for a pointer an intrinsic or emulated library call was given: a trap when the
     /// memory cannot be read.
-    pub(crate) fn fetch(&self, addr: u64, len: usize) -> Res<Vec<u8>> {
+    pub(super) fn fetch(&self, addr: u64, len: usize) -> Res<Vec<u8>> {
         match self.read(addr, len) {
             Some(bytes) => Ok(bytes),
             None => self.unreadable(addr, len),
@@ -58,7 +58,7 @@ impl Interp {
     }
 
     /// `read_u64` for a pointer an intrinsic or emulated library call was given.
-    pub(crate) fn fetch_u64(&self, addr: u64) -> Res<u64> {
+    pub(super) fn fetch_u64(&self, addr: u64) -> Res<u64> {
         match self.read_u64(addr) {
             Some(v) => Ok(v),
             None => self.unreadable(addr, 8),
@@ -67,7 +67,7 @@ impl Interp {
 
     /// `write` for a pointer an intrinsic or emulated library call was given: a trap when the
     /// memory cannot be written.
-    pub(crate) fn put(&mut self, addr: u64, bytes: &[u8]) -> Res<()> {
+    pub(super) fn put(&mut self, addr: u64, bytes: &[u8]) -> Res<()> {
         if self.write(addr, bytes) {
             return Ok(());
         }
@@ -92,7 +92,7 @@ impl Interp {
     /// Load a `ty` from program memory, as interpreted code does: only an address in the
     /// never-mapped first page, or a procedure's tagged address, is refused.
     #[inline(always)]
-    pub(crate) fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
+    pub(super) fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
         if !plain_address(addr) {
             return self.load_unusual(ty, addr);
         }
@@ -113,7 +113,7 @@ impl Interp {
     }
 
     #[inline(always)]
-    pub(crate) fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
+    pub(super) fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
         if addr < 4096 {
             return self.null_trap(null_access("write", addr));
         }

@@ -188,7 +188,7 @@ impl Compiler {
 
     /// Shared promoted-field resolution for completed structs and the laid-out
     /// prefix at a #place/#overlay directive. A dynamic pointer step is explicit.
-    pub(crate) fn find_promoted_member(
+    pub(super) fn find_promoted_member(
         &mut self,
         candidates: Vec<(TypeId, u64, Sym)>,
         span: Span,

@@ -84,7 +84,7 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
 }
 
 #[inline]
-pub(crate) fn mask(ty: Ty, v: u64) -> u64 {
+pub(super) fn mask(ty: Ty, v: u64) -> u64 {
     match ty {
         Ty::I8 => v & 0xff,
         Ty::I16 => v & 0xffff,
@@ -116,7 +116,7 @@ pub(crate) fn shift_of(ty: Ty) -> u8 {
 }
 
 #[inline]
-pub(crate) fn cmp(op: CmpOp, ty: Ty, x: u64, y: u64) -> bool {
+pub(super) fn cmp(op: CmpOp, ty: Ty, x: u64, y: u64) -> bool {
     cmp_shifted(op, shift_of(ty), x, y)
 }
 
@@ -153,7 +153,7 @@ pub(crate) fn cmp_shifted(op: CmpOp, shift: u8, x: u64, y: u64) -> bool {
     }
 }
 
-pub(crate) fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
+pub(super) fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
     let f = |v: u64| {
         if from == Ty::F32 {
             f32::from_bits(v as u32) as f64

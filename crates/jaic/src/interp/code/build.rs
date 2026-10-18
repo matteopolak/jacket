@@ -139,24 +139,24 @@ pub(super) struct Offset {
     pub(super) off: i64,
 }
 
-pub(crate) struct Builder<'a> {
+pub(super) struct Builder<'a> {
     func: &'a ir::Func,
     /// Whether a procedure's value is decided at run time (`Interp::proc_value`), so its
     /// `FuncAddr` cannot become a constant.
     pub(super) late_value: &'a dyn Fn(ir::FuncId) -> bool,
-    pub(crate) defs: Vec<u32>,
+    pub(super) defs: Vec<u32>,
     /// Uses not folded away yet.
-    pub(crate) uses: Vec<u32>,
-    pub(crate) known: Vec<Known>,
-    pub(crate) offsets: Vec<Option<Offset>>,
+    pub(super) uses: Vec<u32>,
+    pub(super) known: Vec<Known>,
+    pub(super) offsets: Vec<Option<Offset>>,
     /// The values with an entry in `offsets`, cleared at the end of each block.
     pub(super) offset_vals: Vec<u32>,
-    pub(crate) ops: Vec<Op>,
-    pub(crate) pool: Vec<u32>,
+    pub(super) ops: Vec<Op>,
+    pub(super) pool: Vec<u32>,
     /// The value each op defines, when the op has no other effect (so it can be dropped).
-    pub(crate) pure_def: Vec<Option<u32>>,
+    pub(super) pure_def: Vec<Option<u32>>,
     /// First op of the block being built.
-    pub(crate) block_start_mark: usize,
+    pub(super) block_start_mark: usize,
 }
 
 pub(in crate::interp) fn build(
@@ -504,13 +504,13 @@ fn fold_bin(op: BinOp, a: u64, b: u64) -> Option<u64> {
     })
 }
 
-pub(crate) fn imm(value: u64, ty: Ty) -> Option<i32> {
+pub(super) fn imm(value: u64, ty: Ty) -> Option<i32> {
     let small = value as i64 as i32;
     (mask(ty, small as i64 as u64) == value).then_some(small)
 }
 
 impl Builder<'_> {
-    pub(crate) fn v(&self, v: Val) -> u32 {
+    pub(super) fn v(&self, v: Val) -> u32 {
         assert!(
             (v.0 as usize) < self.func.vals.len(),
             "value out of range in `{}`",
@@ -519,21 +519,21 @@ impl Builder<'_> {
         v.0
     }
 
-    pub(crate) fn single(&self, v: Val) -> bool {
+    pub(super) fn single(&self, v: Val) -> bool {
         self.defs[v.0 as usize] == 1
     }
 
-    pub(crate) fn push(&mut self, op: Op, pure_def: Option<Val>) {
+    pub(super) fn push(&mut self, op: Op, pure_def: Option<Val>) {
         self.ops.push(op);
         self.pure_def.push(pure_def.map(|v| v.0));
     }
 
     /// Mark one use of `v` as folded into another instruction.
-    pub(crate) fn fold(&mut self, v: Val) {
+    pub(super) fn fold(&mut self, v: Val) {
         self.uses[v.0 as usize] -= 1;
     }
 
-    pub(crate) fn int(&self, v: Val) -> Option<u64> {
+    pub(super) fn int(&self, v: Val) -> Option<u64> {
         match self.known[v.0 as usize] {
             Known::Int(x) => Some(x),
             _ => None,
@@ -542,7 +542,7 @@ impl Builder<'_> {
 
     /// Where an address operand points, if not just at a register: the frame, or a
     /// register plus a constant.
-    pub(crate) fn address(&mut self, addr: Val) -> Address {
+    pub(super) fn address(&mut self, addr: Val) -> Address {
         if let Known::Frame(off) = self.known[addr.0 as usize]
             && let Ok(off) = u32::try_from(off)
         {

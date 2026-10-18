@@ -239,7 +239,7 @@ impl Interp {
     }
 
     /// `SDiv`, `SRem`, `UDiv` or `URem`: the binary operations that can fail.
-    pub(crate) fn divide(&self, op: BinOp, ty: Ty, x: u64, y: u64) -> Res<u64> {
+    pub(super) fn divide(&self, op: BinOp, ty: Ty, x: u64, y: u64) -> Res<u64> {
         Ok(match op {
             BinOp::SDiv | BinOp::SRem => {
                 let (a, b) = (sext(ty, x), sext(ty, y));
@@ -291,7 +291,7 @@ impl Interp {
 }
 
 /// Reads an instruction's operands. Most fit in `small` on the Rust stack; longer lists use `heap`.
-pub(crate) fn gather<'a>(
+pub(super) fn gather<'a>(
     vals: &[u64],
     args: &[ir::Val],
     small: &'a mut [u64; 8],

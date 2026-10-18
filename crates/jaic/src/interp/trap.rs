@@ -107,7 +107,7 @@ pub enum TrapKind {
 }
 
 /// What a load or store at an address in the never-mapped first page did (`Interp::null_trap`).
-pub(crate) fn null_access(kind: &str, addr: u64) -> String {
+pub(super) fn null_access(kind: &str, addr: u64) -> String {
     if addr == 0 {
         format!("{kind} through a null pointer")
     } else {
@@ -128,7 +128,7 @@ pub struct TrapFrame {
 const MAX_TRAP_FRAMES: usize = 64;
 
 impl Trap {
-    pub(crate) fn suspends_frames(&self) -> bool {
+    pub(super) fn suspends_frames(&self) -> bool {
         matches!(
             self.kind,
             Some(TrapKind::Suspended | TrapKind::CompileDependency(_))
@@ -181,16 +181,16 @@ impl Trap {
 
 impl Interp {
     #[cold]
-    pub(crate) fn trap<T>(&self, message: impl Into<String>) -> Res<T> {
+    pub(super) fn trap<T>(&self, message: impl Into<String>) -> Res<T> {
         Err(Trap::new(message).at(self.loc))
     }
 
-    pub(crate) fn trap_of<T>(&self, kind: TrapKind, message: impl Into<String>) -> Res<T> {
+    pub(super) fn trap_of<T>(&self, kind: TrapKind, message: impl Into<String>) -> Res<T> {
         Err(Trap::new(message).at(self.loc).of_kind(Some(kind)))
     }
 
     /// A failed runtime check (`ir::CheckReason`), worded by `ir::check_message`.
-    pub(crate) fn check_trap<T>(
+    pub(super) fn check_trap<T>(
         &self,
         reason: impl Into<Option<ir::CheckReason>>,
         a: u64,
@@ -208,7 +208,7 @@ impl Interp {
     }
 
     /// An access through a null pointer: `detail` says what was done.
-    pub(crate) fn null_trap<T>(&self, detail: impl std::fmt::Display) -> Res<T> {
+    pub(super) fn null_trap<T>(&self, detail: impl std::fmt::Display) -> Res<T> {
         self.trap_of(
             TrapKind::NullPointer,
             format!("null pointer dereference: {detail}"),
