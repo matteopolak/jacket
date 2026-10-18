@@ -205,7 +205,7 @@ pub(super) fn output_path(settings: &BuildSettings, compiler: &Compiler) -> Path
         compiler
             .main_module
             .and_then(|m| compiler.files.iter().find(|f| f.module == m))
-            .and_then(|f| f.path.file_stem())
+            .and_then(|f| f.path.as_file()?.file_stem())
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_else(|| "output".into())
     } else {

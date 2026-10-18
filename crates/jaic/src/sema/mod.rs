@@ -268,7 +268,7 @@ impl Options {
 /// A loaded source file and its scope.
 pub struct FileInfo {
     pub id: FileId,
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub module: ModuleId,
     pub scope: ScopeId,
 }

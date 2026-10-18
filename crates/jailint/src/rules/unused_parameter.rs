@@ -257,7 +257,7 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
         .compiler
         .files
         .iter()
-        .map(|f| canonical(cx, &f.path))
+        .filter_map(|f| Some(canonical(cx, f.path.as_file()?)))
         .collect();
     candidates.any(|(p, _)| {
         let p = canonical(cx, p);

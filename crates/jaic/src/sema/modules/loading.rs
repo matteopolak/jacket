@@ -132,7 +132,7 @@ impl Compiler {
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
         self.files.push(FileInfo {
             id: file,
-            path: path.to_path_buf(),
+            path: SourcePath::File(path.to_path_buf()),
             module,
             scope: file_scope,
         });
@@ -370,8 +370,7 @@ impl Compiler {
         self.interp.invalidate_callable_inspections();
         let module = self.scope(target).module;
         let name = SourcePath::virtual_source(label);
-        let path = PathBuf::from(name.to_string());
-        let file = self.sources.add(name, source.into());
+        let file = self.sources.add(name.clone(), source.into());
         let mut origin_scope = Some(target);
         while let Some(scope) = origin_scope {
             if let Some(origin) = self.scope(scope).file {
@@ -385,7 +384,7 @@ impl Compiler {
         let file_scope = self.new_scope(ScopeKind::File, Some(target), module, Some(file));
         self.files.push(FileInfo {
             id: file,
-            path,
+            path: name,
             module,
             scope: file_scope,
         });
