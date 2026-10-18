@@ -28,13 +28,15 @@ class Result:
     """One benchmarked thing: a workload under one compiler and mode, one LSP request kind, one lint run.
 
     `wall`, `cpu` (user + system) and `rss_mib` each summarize the repeated runs. `stages` holds named
-    sub-measurements (compiler stages), `info` plain facts (workload size, binary size, counts)."""
+    sub-measurements (compiler stages measured the same way for every compiler), `detail` the same kind
+    of numbers from a report only one compiler prints, `info` plain facts (workload size, binary size, counts)."""
     status: Status = Status.OK
     reason: str = ''
     wall: Stat | None = None
     cpu: Stat | None = None
     rss_mib: Stat | None = None
     stages: dict[str, Stat] = field(default_factory=dict)
+    detail: dict[str, Stat] = field(default_factory=dict)
     info: dict = field(default_factory=dict)
 
     @classmethod
@@ -55,6 +57,8 @@ class Result:
                 data[name] = stat.to_json()
         if self.stages:
             data['stages'] = {name: stat.to_json() for name, stat in self.stages.items()}
+        if self.detail:
+            data['detail'] = {name: stat.to_json() for name, stat in self.detail.items()}
         if self.info:
             data['info'] = self.info
         return data
@@ -65,7 +69,8 @@ class Result:
             return Stat.from_json(data[name]) if name in data else None
 
         return cls(Status(data['status']), data.get('reason', ''), stat('wall'), stat('cpu'), stat('rss_mib'),
-                   {name: Stat.from_json(s) for name, s in data.get('stages', {}).items()}, data.get('info', {}))
+                   {name: Stat.from_json(s) for name, s in data.get('stages', {}).items()},
+                   {name: Stat.from_json(s) for name, s in data.get('detail', {}).items()}, data.get('info', {}))
 
 
 @dataclass
@@ -99,7 +104,14 @@ class Report:
 
 
 def load_report(path: Path) -> Report:
-    return Report.from_json(json.loads(path.read_text()))
+    """Read a report this harness wrote. A file in another format (older harnesses wrote different ones)
+    is refused rather than compared as if its numbers meant the same thing."""
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict) or data.get('format') != FORMAT_VERSION or 'tool' not in data:
+        found = data.get('format') if isinstance(data, dict) else None
+        raise ValueError(f'{path}: not a report in format {FORMAT_VERSION} (found format {found!r}); '
+                         'run the benchmark again to get a baseline')
+    return Report.from_json(data)
 
 
 # ------------------------------------------------------------------------------------ machine info

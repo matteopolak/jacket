@@ -1,6 +1,7 @@
 import unittest
 
-from stages import Bucket, JaicTimings, LabelledSeconds, with_total
+from phases import PhaseTiming
+from stages import Bucket, JaicTimings, with_total
 
 JAIC = '''note: something
 jaic-timing: front end 3.0 1
@@ -46,27 +47,30 @@ class JaicTimingTests(unittest.TestCase):
         self.assertEqual(JaicTimings().parse('jaic-timing: front end 1.0 1\n'), {})
 
 
-class LabelledSecondsTests(unittest.TestCase):
-    PARSER = LabelledSeconds([('front', Bucket.FRONT_END), ('run', Bucket.COMPILE_TIME), ('llvm', Bucket.CODEGEN),
-                              ('link', Bucket.LINK)])
+class PhaseTimingTests(unittest.TestCase):
+    BUILD = ('bench-phase: parsed 0.010\nbench-phase: typechecked 0.030\nbench-phase: typechecked 0.040\n'
+             'bench-phase: built 0.100\nbench-phase: pre_write 0.110\nbench-phase: post_write 0.200\n'
+             'bench-phase: complete 0.205\n')
 
-    def test_labels_units_and_unmatched_lines(self):
-        text = ('Frontend time: 0.250 seconds\nRun time: 500 ms\nLLVM: 0.1 s\nLink time = 50 ms\n'
-                'Other thing: 0.01 s\nunrelated line 3\nTotal: 1.0 s\n')
-        stages = self.PARSER.parse(text)
-        self.assertAlmostEqual(stages[Bucket.FRONT_END], 0.25)
-        self.assertAlmostEqual(stages[Bucket.COMPILE_TIME], 0.5)
-        self.assertAlmostEqual(stages[Bucket.CODEGEN], 0.1)
-        self.assertAlmostEqual(stages[Bucket.LINK], 0.05)
-        self.assertAlmostEqual(stages[Bucket.OTHER], 0.01)
-        self.assertAlmostEqual(stages[Bucket.TOTAL], 1.0)
+    def test_a_build_splits_into_front_end_codegen_and_link(self):
+        stages = PhaseTiming().parse('hello\n' + self.BUILD)
+        self.assertAlmostEqual(stages[Bucket.FRONT_END], 0.040)   # the last typechecked message
+        self.assertAlmostEqual(stages[Bucket.CODEGEN], 0.070)
+        self.assertAlmostEqual(stages[Bucket.LINK], 0.090)
+        self.assertNotIn(Bucket.COMPILE_TIME, stages)
 
-    def test_repeated_labels_add_up(self):
-        stages = self.PARSER.parse('Link: 0.1 s\nLink: 0.2 s\n')
-        self.assertAlmostEqual(stages[Bucket.LINK], 0.3)
+    def test_a_check_has_only_a_front_end(self):
+        stages = PhaseTiming().parse('bench-phase: parsed 0.01\nbench-phase: typechecked 0.05\nbench-phase: complete 0.06\n')
+        self.assertEqual(stages, {Bucket.FRONT_END: 0.05, Bucket.CODEGEN: 0.0})
 
-    def test_text_without_timings_is_empty(self):
-        self.assertEqual(self.PARSER.parse('hello\nerror: 5 problems\n'), {})
+    def test_a_build_that_never_completed_has_no_stages(self):
+        self.assertEqual(PhaseTiming().parse('bench-phase: parsed 0.01\n'), {})
+        self.assertEqual(PhaseTiming().parse('nothing'), {})
+
+    def test_the_total_and_other_come_from_the_wall_time(self):
+        stages = with_total(PhaseTiming().parse(self.BUILD), 0.25)
+        self.assertEqual(stages[Bucket.TOTAL], 0.25)
+        self.assertAlmostEqual(stages[Bucket.OTHER], 0.25 - 0.040 - 0.070 - 0.090)
 
 
 class WithTotalTests(unittest.TestCase):

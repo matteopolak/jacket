@@ -6,7 +6,7 @@ from collections import defaultdict
 from common import machine_line, median_text, skipped_section, spread, table
 from results import Report, Result, Status
 from stages import Bucket
-from stats import ratio
+from stats import Stat, ratio
 
 STAGE_ORDER = [Bucket.FRONT_END, Bucket.COMPILE_TIME, Bucket.CODEGEN, Bucket.LINK, Bucket.OTHER, Bucket.TOTAL]
 
@@ -46,6 +46,7 @@ def render(report: Report) -> str:
     groups = grouped(report)
     out += timing_tables(groups, compilers)
     out += stage_table(groups, compilers)
+    out += detail_table(groups)
     out += info_table(groups, compilers, 'binary_bytes', 'Executable size (KiB)', lambda v: f'{v / 1024:.0f}')
     out += info_table(groups, compilers, 'interp_instructions', 'Interpreted instructions (millions)',
                       lambda v: f'{v / 1e6:.3f}')
@@ -90,6 +91,16 @@ def timing_tables(groups: dict[tuple[str, str], dict[str, Result]], compilers: l
     return out
 
 
+STAGE_NOTE = ('Every compiler builds the program through the same metaprogram, which timestamps the compiler\'s '
+              'phase messages (see docs/tools/benchmarks.md). The messages cannot tell parsing, type checking and '
+              'compile-time execution apart, so all of that is `front end` and `compile-time execution` is `-`; '
+              '`link` is the span from just before the executable is written to just after, so it includes '
+              'writing objects. `total` is the wall time of that run, `other` what no phase accounts for '
+              '(start-up, the metaprogram itself, exit).')
+DETAIL_NOTE = ('The compiler\'s own `-timings` report from the direct runs above. Only jaic prints one, so these '
+               'numbers are not comparable with another compiler\'s and the table has no ratios.')
+
+
 def stage_table(groups: dict[tuple[str, str], dict[str, Result]], compilers: list[str]) -> list[str]:
     rows = []
     for (workload, mode), results in groups.items():
@@ -97,29 +108,38 @@ def stage_table(groups: dict[tuple[str, str], dict[str, Result]], compilers: lis
             continue
         timed = {name: r for name, r in results.items() if r.status is Status.OK and r.stages}
         for name, result in timed.items():
-            rows.append([f'{workload}/{mode}', name] + [stage_cell(result, b) for b in STAGE_ORDER])
+            rows.append([f'{workload}/{mode}', name] + [stage_cell(result.stages, b) for b in STAGE_ORDER])
         if len(timed) > 1:
             base = timed.get(compilers[0])
             for name, other in timed.items():
                 if base and other is not base:
                     rows.append([f'{workload}/{mode}', f'{name} / {compilers[0]}']
-                                + [stage_ratio(other, base, b) for b in STAGE_ORDER])
+                                + [stage_ratio(other.stages, base.stages, b) for b in STAGE_ORDER])
     if not rows:
         return []
-    note = ('Stages come from each compiler\'s own timing output, mapped onto common buckets (see '
-            'docs/tools/benchmarks.md). A bucket a compiler does not report is `-`. The total is the wall time of '
-            'the process; other is what no reported bucket accounts for, start-up and exit included.')
-    return ['## Stages (seconds)', '', note, '', table(['workload/mode', 'compiler'] + [b.value for b in STAGE_ORDER],
-                                                     rows, left_columns=2), '']
+    return ['## Stages (seconds)', '', STAGE_NOTE, '', table(['workload/mode', 'compiler'] + [b.value for b in STAGE_ORDER],
+                                                           rows, left_columns=2), '']
 
 
-def stage_cell(result: Result, bucket: Bucket) -> str:
-    stat = result.stages.get(bucket.value)
+def detail_table(groups: dict[tuple[str, str], dict[str, Result]]) -> list[str]:
+    rows = []
+    for (workload, mode), results in groups.items():
+        for name, result in results.items():
+            if result.status is Status.OK and result.detail:
+                rows.append([f'{workload}/{mode}', name] + [stage_cell(result.detail, b) for b in STAGE_ORDER])
+    if not rows:
+        return []
+    return ['## Compiler-reported stages: `-timings` (seconds)', '', DETAIL_NOTE, '',
+            table(['workload/mode', 'compiler'] + [b.value for b in STAGE_ORDER], rows, left_columns=2), '']
+
+
+def stage_cell(stages: dict[str, Stat], bucket: Bucket) -> str:
+    stat = stages.get(bucket.value)
     return '-' if stat is None else f'{stat.median:.3f}'
 
 
-def stage_ratio(result: Result, base: Result, bucket: Bucket) -> str:
-    a, b = result.stages.get(bucket.value), base.stages.get(bucket.value)
+def stage_ratio(stages: dict[str, Stat], base: dict[str, Stat], bucket: Bucket) -> str:
+    a, b = stages.get(bucket.value), base.get(bucket.value)
     return ratio_text(ratio(a.median, b.median)) if a and b else '-'
 
 

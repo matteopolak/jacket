@@ -65,7 +65,7 @@ def scenarios(jailint: Path, scratch: Path) -> list[Scenario]:
 
 
 def run(args: argparse.Namespace) -> int:
-    common.require_repeat(args)
+    common.check_arguments(args)
     jailint = args.jailint.resolve()
     with tempfile.TemporaryDirectory(prefix='bench-lint-') as scratch:
         todo = [s for s in scenarios(jailint, Path(scratch)) if wanted(s, args.only)]

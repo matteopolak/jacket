@@ -12,7 +12,7 @@ python3 tools/bench/main.py fmt                                             # ja
 python3 tools/bench/main.py compile --compare target/bench/old.json         # exit 1 on regressions
 ```
 
-`tools/regex_bench.py` with `benchmarks/regex/` is separate: `Extensions/Regex` against other engines (results in `benchmarks/results/regex.md`). The files in `benchmarks/results/` were written by the harnesses this one replaced; their format is older and `--compare` cannot read them.
+`tools/regex_bench.py` with `benchmarks/regex/` is separate: `Extensions/Regex` against other engines (results in `benchmarks/results/regex.md`). `benchmarks/results/` holds only the regex numbers: the compile and language-server baselines the old harnesses wrote there were removed. They measured other workloads in another format, so nothing could compare against them, and a committed baseline goes stale with every change; keep a baseline per machine from `--out` and pass it to `--compare` (a report in any other format is refused up front).
 
 ## How it works
 
@@ -51,7 +51,7 @@ Result keys are `<workload>/<mode>/<compiler>`. Modes: `check` (`-check`), `buil
 
 Sizes come from the same lexer `tools/jaistats.py` uses: `info.source` holds files, code lines, procedures and structs, and the tables show seconds per thousand lines.
 
-**Stages.** `jaic -timings` prints `jaic-timing: <phase> <seconds> <calls>` on stderr: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`. `interp` is the time compile-time code (`#run`, metaprograms, macros) spent executing in the interpreter; it is measured inside `Interp::call` and overlaps `front end`, which also covers lowering the procedures that code needs. `tools/bench/stages.py` maps phases onto common buckets:
+**Stages.** The stage table comes from a phase-timing metaprogram that every compiler runs (see [Comparing against another compiler](#comparing-against-another-compiler)). A second table, for jaic only, comes from its own report: `jaic -timings` prints `jaic-timing: <phase> <seconds> <calls>` on stderr: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`. `interp` is the time compile-time code (`#run`, metaprograms, macros) spent executing in the interpreter; it is measured inside `Interp::call` and overlaps `front end`, which also covers lowering the procedures that code needs. `tools/bench/stages.py` maps those phases onto the same bucket names:
 
 | Bucket | jaic phases |
 | --- | --- |
@@ -98,17 +98,23 @@ A binary named `jaic*` gets jaic's options; any other is driven with the referen
 - **Correctness gate.** A workload is timed only if every compiler builds it and, for workloads whose output is deterministic, prints the same output (the compile-time output, and for builds the program's). Otherwise it is listed under "Not timed" as `skipped: <compiler>: <why>` (for example `exit 1: syntax the other compiler rejects`, or `output differs`). With one compiler a failure is a `failed` result and exit status 1.
 - **CPU time next to wall time.** Compilers use threads differently (jaic's code generation is parallel); a wall-time win with a CPU-time loss, or the reverse, is information. Read both.
 - **Check and interpreter modes.** The reference has neither. `check` compiles the program from a wrapper file that sets `do_output=false`, and `interp` adds `#run main();` to it. Both therefore time the front end plus compile-time execution of the real program; the ratio compares those, not an identical code path.
-- **Stages.** Per-stage numbers come from whatever each compiler prints. A compiler that prints none has only the total, shown as `-` for the buckets. To teach the harness another format, add a parser in `stages.py` and use it from a new `Dialect`.
+- **Stages.** The reference prints no timings, so stages are not read from compiler output. Instead every compiler, jaic included, builds the program through one metaprogram, `tools/bench/phase_timing.jai`. It creates a workspace, intercepts the compiler's messages (`Message_Phase` and `COMPLETE` from the `Compiler` module) and prints `bench-phase: <name> <seconds>` as each arrives; `phases.py` turns those lines into buckets. `--phase-repeat N` (default 3, interleaved like the rest) sets how many such runs each compiler gets per workload; the wall, CPU and RSS columns come from the direct invocations, not these. What the messages can and cannot tell apart:
+  - `front end` runs to the last `TYPECHECKED_ALL_WE_CAN`. Parsing, type checking and `#run` execution all happen before it and no message marks them off from each other, so `compile-time execution` is not reported (`-`) rather than guessed. Time spent in `#run` is inside `front end` for both compilers.
+  - `codegen` is the last typecheck message to `PRE_WRITE_EXECUTABLE`; `link` is `PRE_WRITE_EXECUTABLE` to `POST_WRITE_EXECUTABLE`, which also covers writing the object files. In check and interpreter modes nothing is written, so both are 0 or `-`.
+  - The metaprogram's own start-up (loading `Basic` and `Compiler`, creating the workspace) is before the first timestamp and shows in `other` and `total`; `total` is the wall time of the phase run, not of the direct run, so it is larger than the wall column. jaic interprets the metaprogram, which also adds to its front end; compare the ratios as "this method on both", not as the speed of a plain `jaic file.jai`.
+  - Builds with their own build metaprogram (`own_output` workloads) are not covered: the wrapper would build their entry with default options. They get no stage rows.
+  - jaic's own `-timings` stays as a second table (`detail` in the JSON), jaic only and without ratios: it is finer (it splits `#run` time out) but is not the same measurement.
 - **Never commit these results.** They are written under `target/bench/`, which is gitignored. Do not copy another compiler's numbers, paths or output into the repository, its docs, commit messages or issues.
 
 ## How to change it
 
 - **New compile workload:** add it to `all_workloads()` in `tools/bench/workloads.py`: a source (`RepoDirectory`, `CorpusProject`, `Generated`), a category, and a `Plan` per mode (entry file, metaprogram arguments after `-`, and whether the harness may redirect the executable: a project whose metaprogram picks its own output uses `own_output`). Set `compare_output` when the output is deterministic and `runtime` to time the executable. Compile-time-heavy programs live in `benchmarks/compile/`.
-- **New jaic phase:** wrap the code in `timings::time("name", || ...)` in `crates/jaic-cli/src/main.rs`, add it to `JaicTimings` in `stages.py`, and update `timings_report_phases` in `crates/jaic-cli/tests/cli.rs`.
+- **New jaic phase:** wrap the code in `timings::time("name", || ...)` in `crates/jaic-cli/src/main.rs`, add it to `JaicTimings` in `stages.py` (the `-timings` detail table), and update `timings_report_phases` in `crates/jaic-cli/tests/cli.rs`.
 - **New LSP probe:** write a function `(Session) -> list of seconds` in `lsp_session.py`, add a `Probe` to `PROBES` with the server capability it needs. Position heuristics are in `lsp_positions.py`.
 - **New lint or fmt scenario:** add a `Scenario` in `cmd_lint.py` / `cmd_fmt.py`.
-- **Another kind of compiler:** subclass `Dialect` in `dialects.py` (command line per mode, stage parser) and choose it in `parse_compiler`.
-- Gotchas: `jaic -timings` goes before a lone `-`, which starts the metaprogram's arguments. The reference writes `.build` next to the file it compiles, so the harness compiles check and interpreter runs from a wrapper in a scratch directory. Tests: `python3 -m unittest discover -s tools/bench -p 'test_*.py'`, run by CI's policy step.
+- **Another kind of compiler:** subclass `Dialect` in `dialects.py` (command line per mode, and `source_command` for the phase metaprogram) and choose it in `parse_compiler`. If the compiler's messages differ, change `phase_timing.jai` and `PhaseTiming` in `phases.py`.
+- **Another phase boundary:** add a `mark("name")` in `phase_timing.jai` and read it in `PhaseTiming`.
+- Gotchas: every run happens in its own process group, killed on timeout and again when the command exits, so a stuck linker cannot outlive the benchmark. `jaic -timings` goes before a lone `-`, which starts the metaprogram's arguments. The reference writes `.build` next to the file it compiles, so the harness compiles check and interpreter runs from a wrapper in a scratch directory. Tests: `python3 -m unittest discover -s tools/bench -p 'test_*.py'`, run by CI's policy step.
 
 ## Profiling
 

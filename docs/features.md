@@ -28,12 +28,11 @@ Compile times from a release `jaic` on an Apple M5 (LLVM 23, median of warm runs
 
 | Project | Lines of Jai | Type-check | Debug build | Release build |
 | --- | ---: | ---: | ---: | ---: |
-| [Focus](https://github.com/focus-editor/focus) | 49k + 79k in modules | 1.2 s | 1.6 s | 7.8 s |
-| [chess-jai](https://github.com/danieltan1517/chess-jai) | 10k | 0.40 s | 0.70 s | 1.7 s |
-| [Jails](https://github.com/SogoCZE/Jails) | 5.6k | 0.18 s | 0.27 s | 0.81 s |
-| [jaison](https://github.com/rluba/jaison) (tests) | 2.2k | 0.03 s | 0.09 s | 0.41 s |
+| [Focus](https://github.com/focus-editor/focus) | 49k + 79k in modules | 1.0 s | 1.5 s | 8.1 s |
+| [Jails](https://github.com/SogoCZE/Jails) | 4.0k | 0.23 s | 0.32 s | 0.86 s |
+| [jaison](https://github.com/rluba/jaison) (tests) | 1.7k | 0.07 s | 0.12 s | 0.44 s |
 
-About 4 s of Focus's release build is its build script packaging the app. Method and results: [benchmarks](tools/benchmarks.md), [latest numbers](../benchmarks/results/compile-time-apple-m5.md).
+About 4 s of Focus's release build is its build script packaging the app. Method and how to rerun them (`python3 tools/bench/main.py compile --categories real`): [benchmarks](tools/benchmarks.md).
 
 ## What is missing
 

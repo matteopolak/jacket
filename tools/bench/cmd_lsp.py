@@ -268,7 +268,7 @@ def chosen_workloads(only: str):
 
 
 def run(args: argparse.Namespace) -> int:
-    common.require_repeat(args)
+    common.check_arguments(args)
     servers = parse_servers(args.server)
     workloads = chosen_workloads(args.only)
     if args.list:

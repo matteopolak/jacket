@@ -10,6 +10,8 @@ import threading
 import time
 from pathlib import Path
 
+from measure import kill_group
+
 # ---------------------------------------------------------------------------------------- framing
 
 class FrameError(ValueError):
@@ -177,7 +179,7 @@ class Client:
         self.stderr = tempfile.TemporaryFile()
         self.launched = time.perf_counter()
         self.process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=self.stderr)
+                                        stderr=self.stderr, start_new_session=True)
         self.next_id = 1
         self.responses: dict[int, tuple[float, dict]] = {}
         self.notifications: list[tuple[float, dict]] = []
@@ -332,11 +334,12 @@ class Client:
             if pid:
                 break
             if time.perf_counter() > deadline:
-                self.process.kill()
+                kill_group(self.process.pid)
                 _, status, usage = os.wait4(self.process.pid, 0)
                 break
             time.sleep(0.005)
         self.process.returncode = os.waitstatus_to_exitcode(status)
+        kill_group(self.process.pid)
         self.reader.join(2)
         self.process.stdout.close()
         self.rusage = usage

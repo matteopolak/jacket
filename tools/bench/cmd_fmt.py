@@ -98,7 +98,7 @@ def unavailable(reason: str, *keys: str) -> dict[str, Result]:
 
 
 def run(args: argparse.Namespace) -> int:
-    common.require_repeat(args)
+    common.check_arguments(args)
     jaifmt, wasm = args.jaifmt.resolve(), args.wasm.resolve()
     with tempfile.TemporaryDirectory(prefix='bench-fmt-') as scratch:
         if not jaifmt.exists():

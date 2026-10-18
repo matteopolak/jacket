@@ -12,7 +12,8 @@ from enum import Enum
 from pathlib import Path
 
 from measure import Run
-from stages import Bucket, JaicTimings, LabelledSeconds, StageParser, Stages, with_total
+import phases
+from stages import JaicTimings, StageParser, Stages, with_total
 
 
 class Mode(str, Enum):
@@ -51,13 +52,28 @@ class Invocation:
 
 class Dialect(ABC):
     name: str
+    phase_parser: StageParser = phases.PhaseTiming()
 
     @abstractmethod
     def invocation(self, compiler: Path, request: Request) -> Invocation: ...
 
     @abstractmethod
-    def stages(self, run: Run) -> Stages:
-        """Seconds per bucket from one finished run (always including the total)."""
+    def source_command(self, compiler: Path, source: str) -> list[str]:
+        """Compile the Jai file `source` (in the working directory) as a plain build."""
+
+    def detail(self, run: Run) -> Stages:
+        """Seconds per bucket from a timing report only this compiler prints (empty when it prints none).
+        Not comparable between compilers; `phase_invocation` is."""
+        return {}
+
+    def phase_invocation(self, compiler: Path, request: Request) -> Invocation:
+        """Build the request's program through `phase_timing.jai`, the same metaprogram for every compiler."""
+        where = request.scratch / 'phases'
+        where.mkdir(parents=True, exist_ok=True)
+        source = phases.program(request.entry.resolve(), where, writes_executable=request.mode.writes_executable,
+                                optimized=request.mode is Mode.OPTIMIZED, run_main=request.mode is Mode.INTERP)
+        (where / phases.WRAPPER_NAME).write_text(source)
+        return Invocation(self.source_command(compiler, phases.WRAPPER_NAME), where)
 
     def instruction_count(self, run: Run) -> int | None:
         """Interpreted instructions, for a compiler that can count them (run with `profiling_env`)."""
@@ -82,7 +98,10 @@ class JaicDialect(Dialect):
             command += ['-', *request.metaprogram_args]
         return Invocation(command, request.workdir, executable if request.redirect_output else None)
 
-    def stages(self, run: Run) -> Stages:
+    def source_command(self, compiler: Path, source: str) -> list[str]:
+        return [str(compiler), source]
+
+    def detail(self, run: Run) -> Stages:
         return with_total(self.parser.parse(run.stderr), run.wall)
 
     # `JAIC_PROFILE=1` makes the interpreter count IR instructions. The count barely varies between runs,
@@ -94,14 +113,6 @@ class JaicDialect(Dialect):
         match = self.PROFILE_LINE.search(run.stderr)
         return int(match[1]) if match else None
 
-
-# What the reference prints about its own timing, mapped onto buckets (substring of the label, bucket).
-REFERENCE_LABELS = [
-    ('front', Bucket.FRONT_END), ('parse', Bucket.FRONT_END), ('check', Bucket.FRONT_END),
-    ('run', Bucket.COMPILE_TIME), ('meta', Bucket.COMPILE_TIME),
-    ('llvm', Bucket.CODEGEN), ('gener', Bucket.CODEGEN), ('codegen', Bucket.CODEGEN),
-    ('link', Bucket.LINK),
-]
 
 # Compiles `entry` without writing anything; in interpreter mode also runs `main` at compile time.
 WRAPPER = '''#import "Compiler";
@@ -115,9 +126,6 @@ class ReferenceDialect(Dialect):
     wrapper file whose build options turn output off, and interpreter mode adds `#run main();`, so both
     measure the front end and compile-time execution of the real program."""
     name = 'reference'
-
-    def __init__(self) -> None:
-        self.parser: StageParser = LabelledSeconds(REFERENCE_LABELS)
 
     def invocation(self, compiler: Path, request: Request) -> Invocation:
         if request.mode in (Mode.CHECK, Mode.INTERP):
@@ -135,8 +143,8 @@ class ReferenceDialect(Dialect):
             command += ['-', *request.metaprogram_args]
         return Invocation(command, request.workdir, executable if request.redirect_output else None)
 
-    def stages(self, run: Run) -> Stages:
-        return with_total(self.parser.parse(run.stdout + '\n' + run.stderr), run.wall)
+    def source_command(self, compiler: Path, source: str) -> list[str]:
+        return [str(compiler), source, '-no_color']
 
 
 @dataclass(frozen=True)

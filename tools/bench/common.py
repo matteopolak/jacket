@@ -64,7 +64,7 @@ def finish(report: Report, markdown: str, args: argparse.Namespace) -> int:
         status = 1
     if args.compare:
         limits = Limits(args.threshold, args.min_seconds, args.min_mib)
-        regressions = find_regressions(load_report(args.compare), report, limits)
+        regressions = find_regressions(args.baseline, report, limits)
         for regression in regressions:
             print(f'REGRESSION {regression}')
         if regressions:
@@ -109,6 +109,12 @@ def skipped_section(report: Report) -> str:
     return '\n'.join(['', 'Not timed:', '', *lines, '']) if lines else ''
 
 
-def require_repeat(args: argparse.Namespace) -> None:
+def check_arguments(args: argparse.Namespace) -> None:
+    """Stop before any timing on options that cannot work, including a --compare file in another format."""
     if args.repeat < 1:
         sys.exit('--repeat must be at least 1')
+    if args.compare:
+        try:
+            args.baseline = load_report(args.compare)
+        except (OSError, ValueError) as error:
+            sys.exit(f'--compare: {error}')

@@ -1,7 +1,10 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from compare import Limits, find_regressions
-from results import Report, Result, Status
+from results import Report, Result, Status, load_report
 from stats import Stat
 
 
@@ -73,6 +76,21 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(again.results['a/b'].wall, original.results['a/b'].wall)
         self.assertEqual(again.results['c/d'].status, Status.SKIPPED)
         self.assertEqual(again.results['c/d'].reason, 'why')
+
+
+class LoadReportTests(unittest.TestCase):
+    def test_a_report_in_an_older_format_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'old.json'
+            path.write_text('{"format": 1, "jaic": {}, "results": {}}')
+            with self.assertRaisesRegex(ValueError, 'format 3 .*found format 1'):
+                load_report(path)
+
+    def test_a_report_written_now_loads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'new.json'
+            path.write_text(json.dumps(Report('compile', {}).to_json()))
+            self.assertEqual(load_report(path).tool, 'compile')
 
 
 if __name__ == '__main__':

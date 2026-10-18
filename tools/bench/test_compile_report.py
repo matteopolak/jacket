@@ -38,6 +38,15 @@ class RenderTests(unittest.TestCase):
         text = compile_report.render(self.report())
         self.assertIn('| hello/check | ref / jaic | - | - | - | - | - | 2.00x |', text)
 
+    def test_jaic_timings_get_their_own_table_without_ratios(self):
+        report = self.report()
+        report.results['hello/check/jaic'].detail = {'front end': stat(0.3), 'total': stat(0.5)}
+        text = compile_report.render(report)
+        detail = text.split('## Compiler-reported stages')[1].split('\n## ')[0]
+        self.assertIn('| hello/check | jaic | 0.300 |', detail)
+        self.assertNotIn('| ref', detail)
+        self.assertNotIn('Compiler-reported', compile_report.render(self.report()))
+
     def test_skipped_workloads_say_why(self):
         text = compile_report.render(self.report())
         self.assertIn('`big/build/ref`: skipped: ref: exit 1: unknown directive', text)

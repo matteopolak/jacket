@@ -16,7 +16,7 @@ from dialects import Compiler, Invocation, Mode, Request, parse_compiler
 from measure import Run, run_measured, warm_file_cache
 from results import Report, Result, checkout_info, sh
 from sizes import facts_of
-from stages import Bucket, Stages
+from stages import Bucket, Stages, with_total
 from stats import Stat
 from workloads import Workload, all_workloads
 
@@ -29,6 +29,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                              'jaic* takes jaic options, any other the reference compiler\'s.')
     parser.add_argument('--modes', default=','.join(m.value for m in Mode),
                         help='comma-separated subset of ' + ', '.join(m.value for m in Mode))
+    parser.add_argument('--phase-repeat', type=int, default=3, metavar='N',
+                        help='runs per compiler of the phase-timing metaprogram that fills the stage table '
+                             '(default 3, 0 for none)')
     parser.add_argument('--categories', default='', help='comma-separated substrings of category names to run')
     common.add_common_arguments(parser, 'compile', DEFAULTS)
 
@@ -137,7 +140,8 @@ class JobRunner:
         entry = next(iter(workload.plans.values())).entry
         facts = facts_of(workload.source.measured(workdir, entry)).to_json()
         info = {'category': workload.category.value, 'source': facts}
-        invocations = {c.name: c.dialect.invocation(c.path, self.request(job, c, workdir)) for c in self.compilers}
+        requests = {c.name: self.request(job, c, workdir) for c in self.compilers}
+        invocations = {c.name: c.dialect.invocation(c.path, requests[c.name]) for c in self.compilers}
         warm_file_cache(workdir)
         attempts = {c.name: self.attempt(job, c, invocations[c.name]) for c in self.compilers}
         reason = self.gate(job, attempts)
@@ -149,9 +153,29 @@ class JobRunner:
                 self.compile(c, invocations[c.name])
         samples = self.rounds(job, invocations)
         results = self.summarize(job, samples, invocations, info)
+        self.add_stages(job, requests, results)
         if job.mode is Mode.INTERP:
             self.count_instructions(job, invocations, results)
         return results
+
+    def add_stages(self, job: Job, requests: dict[str, Request], results: dict[str, Result]) -> None:
+        """Stage seconds from `--phase-repeat` runs per compiler of the phase-timing metaprogram, the same
+        for every compiler. A job with its own build metaprogram is not covered: the wrapper would build
+        the entry with the default options instead."""
+        if self.args.phase_repeat < 1 or job.workload.plans[job.mode].metaprogram_args:
+            return
+        invocations = {c.name: c.dialect.phase_invocation(c.path, requests[c.name]) for c in self.compilers}
+        rounds: dict[str, list[Stages]] = {c.name: [] for c in self.compilers}
+        for _ in range(self.args.phase_repeat):
+            for c in self.compilers:
+                run = self.compile(c, invocations[c.name])
+                stages = c.dialect.phase_parser.parse(run.stdout) if run.ok else {}
+                if stages:
+                    rounds[c.name].append(with_total(stages, run.wall))
+        for c in self.compilers:
+            result = results.get(f'{job.key}/{c.name}')
+            if result and rounds[c.name]:
+                result.stages = stage_stats(rounds[c.name])
 
     def count_instructions(self, job: Job, invocations: dict[str, Invocation], results: dict[str, Result]) -> None:
         """One more run per compiler that can count interpreted instructions (not timed)."""
@@ -174,7 +198,7 @@ class JobRunner:
                 invocation = invocations[c.name]
                 run = self.compile(c, invocation)
                 program = self.execute(invocation) if job.workload.runtime and run.ok else None
-                samples[c.name].append(Sample(run, c.dialect.stages(run) if run.ok else {}, program,
+                samples[c.name].append(Sample(run, c.dialect.detail(run) if run.ok else {}, program,
                                               invocation.executable.stat().st_size
                                               if invocation.executable and invocation.executable.exists() else 0))
         return samples
@@ -190,7 +214,7 @@ class JobRunner:
                 continue
             binary = max((s.binary_bytes for s in mine), default=0)
             results[f'{job.key}/{c.name}'] = result_of([s.run for s in mine], {
-                **info, **({'binary_bytes': binary} if binary else {})}, stage_stats([s.stages for s in mine]))
+                **info, **({'binary_bytes': binary} if binary else {})}, detail=stage_stats([s.detail for s in mine]))
             programs = [s.program for s in mine]
             if job.workload.runtime and all(p and p.ok for p in programs):
                 results[f'{job.workload.name}/run-{job.mode.value}/{c.name}'] = result_of(
@@ -201,14 +225,14 @@ class JobRunner:
 @dataclass
 class Sample:
     run: Run
-    stages: Stages
+    detail: Stages
     program: Run | None
     binary_bytes: int
 
 
-def result_of(runs: list[Run], info: dict, stages: dict[str, Stat] | None = None) -> Result:
+def result_of(runs: list[Run], info: dict, detail: dict[str, Stat] | None = None) -> Result:
     return Result(wall=Stat.of([r.wall for r in runs]), cpu=Stat.of([r.cpu for r in runs]),
-                  rss_mib=Stat.of([r.rss_mib for r in runs]), stages=stages or {}, info=info)
+                  rss_mib=Stat.of([r.rss_mib for r in runs]), detail=detail or {}, info=info)
 
 
 def stage_stats(rounds: list[Stages]) -> dict[str, Stat]:
@@ -235,7 +259,7 @@ def compiler_info(compiler: Compiler) -> dict:
 
 
 def run(args: argparse.Namespace) -> int:
-    common.require_repeat(args)
+    common.check_arguments(args)
     try:
         compilers = [parse_compiler(spec) for spec in args.compiler] or default_compilers()
     except ValueError as error:

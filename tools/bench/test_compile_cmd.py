@@ -1,5 +1,7 @@
 import argparse
+import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -101,9 +103,9 @@ class DialectTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_compiler('no-path')
 
-    def test_jaic_stages_total_is_the_wall_time(self):
-        self.assertEqual(JaicDialect().stages(run(wall=0.7, stderr='no timings here')), {Bucket.TOTAL: 0.7})
-        stages = JaicDialect().stages(run(wall=0.7, stderr='jaic-timing: front end 0.4 1\njaic-timing: total 0.5 1\n'))
+    def test_jaic_detail_total_is_the_wall_time(self):
+        self.assertEqual(JaicDialect().detail(run(wall=0.7, stderr='no timings here')), {Bucket.TOTAL: 0.7})
+        stages = JaicDialect().detail(run(wall=0.7, stderr='jaic-timing: front end 0.4 1\njaic-timing: total 0.5 1\n'))
         self.assertEqual(stages[Bucket.TOTAL], 0.7)  # the process, which includes start-up the compiler does not time
         self.assertAlmostEqual(stages[Bucket.OTHER], 0.3)
 
@@ -113,8 +115,22 @@ class DialectTests(unittest.TestCase):
         self.assertIsNone(dialect.instruction_count(run(stderr='nothing')))
         self.assertIsNone(ReferenceDialect().instruction_count(run(stderr='interpreter profile: 5 instructions')))
 
-    def test_reference_without_timings_reports_only_the_total(self):
-        self.assertEqual(ReferenceDialect().stages(run(wall=0.7, stdout='hello\n')), {Bucket.TOTAL: 0.7})
+    def test_the_reference_prints_no_detail(self):
+        self.assertEqual(ReferenceDialect().detail(run(wall=0.7, stdout='hello\n')), {})
+
+    def test_every_compiler_builds_the_phase_metaprogram_the_same_way(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            request = Request(Path('/w/main.jai'), Path('/w'), Mode.INTERP, (), Path(scratch))
+            jaic = JaicDialect().phase_invocation(Path('/bin/jaic'), request)
+            ref = ReferenceDialect().phase_invocation(Path('/ref/jai'), request)
+            source = (Path(scratch) / 'phases' / 'phase_timing.jai').read_text()
+        self.assertEqual(jaic.command, ['/bin/jaic', 'phase_timing.jai'])
+        self.assertEqual(ref.command, ['/ref/jai', 'phase_timing.jai', '-no_color'])
+        self.assertEqual(jaic.cwd, ref.cwd)
+        self.assertIn('ENTRY :: "/w/main.jai";', source)
+        self.assertIn('WRITES_EXECUTABLE :: false;', source)
+        self.assertIn('RUN_MAIN :: true;', source)
+        self.assertEqual(source.count('// settings:'), 1)
 
 
 class WorkloadTests(unittest.TestCase):
@@ -154,6 +170,25 @@ class MeasureTests(unittest.TestCase):
         slow = run_measured(['/bin/sleep', '5'], timeout=0.2)
         self.assertTrue(slow.timed_out)
         self.assertIn('timed out', slow.failure())
+
+    def test_a_timeout_kills_the_children_too(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            pidfile = Path(scratch) / 'child.pid'
+            result = run_measured(['/bin/sh', '-c', f'sleep 30 & echo $! > {pidfile}; wait'], timeout=0.5)
+            self.assertTrue(result.timed_out)
+            child = int(pidfile.read_text())
+        time.sleep(0.1)
+        with self.assertRaises(ProcessLookupError):
+            os.kill(child, 0)
+
+    def test_children_left_behind_by_a_finished_command_are_killed(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            pidfile = Path(scratch) / 'child.pid'
+            run_measured(['/bin/sh', '-c', f'sleep 30 > /dev/null 2>&1 & echo $! > {pidfile}'])
+            child = int(pidfile.read_text())
+        time.sleep(0.1)
+        with self.assertRaises(ProcessLookupError):
+            os.kill(child, 0)
 
     def test_failure_text_is_the_last_lines(self):
         self.assertEqual(run(returncode=1, stderr='a\nb\nc\n').failure(), 'exit 1: b | c')

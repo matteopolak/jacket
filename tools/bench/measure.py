@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import sys
 import tempfile
 import time
@@ -36,11 +37,20 @@ class Run:
         return f'exit {self.returncode}: ' + ' | '.join(line.strip()[:160] for line in tail)
 
 
+def kill_group(pid: int) -> None:
+    """SIGKILL the process group led by `pid`: the process and any children (a linker, a helper) it left behind."""
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
 def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str] | None = None,
                  timeout: float = 900, stdin_bytes: bytes | None = None) -> Run:
     """Run `command` to completion (or kill it after `timeout` seconds). Peak RSS and CPU time are the
     process's own, from wait4: children such as a linker it spawns are included in CPU time but only
-    the largest single process counts for RSS."""
+    the largest single process counts for RSS. The command runs in a process group of its own, which is
+    killed on timeout and again once the command exits, so no child outlives the run."""
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err, tempfile.TemporaryFile() as feed:
         stdin = DEVNULL
         if stdin_bytes is not None:
@@ -48,7 +58,8 @@ def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str
             feed.seek(0)
             stdin = feed
         start = time.perf_counter()
-        process = Popen(command, cwd=cwd, env=env, stdin=stdin, stdout=out, stderr=err)
+        process = Popen(command, cwd=cwd, env=env, stdin=stdin, stdout=out, stderr=err,
+                         start_new_session=True)
         deadline = start + timeout
         timed_out = False
         while True:
@@ -56,12 +67,13 @@ def run_measured(command: list[str], cwd: Path | None = None, env: dict[str, str
             if pid:
                 break
             if time.perf_counter() > deadline:
-                process.kill()
+                kill_group(process.pid)
                 _, status, usage = os.wait4(process.pid, 0)
                 timed_out = True
                 break
             time.sleep(POLL_SECONDS)
         wall = time.perf_counter() - start
+        kill_group(process.pid)
         process.returncode = os.waitstatus_to_exitcode(status)  # reaped here, not by Popen
         out.seek(0)
         err.seek(0)

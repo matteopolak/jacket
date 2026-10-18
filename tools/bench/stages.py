@@ -55,34 +55,6 @@ class JaicTimings:
         return stages
 
 
-UNITS = {'s': 1.0, 'sec': 1.0, 'seconds': 1.0, 'ms': 1e-3, 'us': 1e-6}
-
-
-class LabelledSeconds:
-    """Lines such as `Frontend time: 0.123 seconds` or `link: 45 ms`: a label, a colon, a number, a unit.
-
-    `keywords` lists (substring of the lowercased label, bucket) pairs; the first match decides, and a
-    label that matches none counts as `other`. A label containing `total` sets the total."""
-
-    LINE = re.compile(r'^\s*(?P<label>[A-Za-z][A-Za-z0-9 _()/.-]*?)\s*[:=]\s*(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>seconds|sec|ms|us|s)\b',
-                      re.MULTILINE)
-
-    def __init__(self, keywords: list[tuple[str, Bucket]]):
-        self.keywords = keywords
-
-    def bucket(self, label: str) -> Bucket:
-        lowered = label.lower()
-        return next((bucket for word, bucket in self.keywords if word in lowered), Bucket.OTHER)
-
-    def parse(self, output: str) -> Stages:
-        stages: Stages = {}
-        for match in self.LINE.finditer(output):
-            seconds = float(match['value']) * UNITS[match['unit']]
-            bucket = Bucket.TOTAL if 'total' in match['label'].lower() else self.bucket(match['label'])
-            stages[bucket] = stages.get(bucket, 0.0) + seconds
-        return stages
-
-
 def with_total(stages: Stages, wall: float) -> Stages:
     """`stages` with the total set to the wall time of the whole process, the same yardstick for every
     compiler, and `other` as what no bucket accounts for (including process start-up and exit)."""
