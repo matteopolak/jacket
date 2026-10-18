@@ -1,30 +1,9 @@
 //! Named arguments are another completion source, never a replacement for expression items.
 use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
-use jaic::lexer::{self, P, Tok, Token};
+use jaic::parser::ide_facts::{self, CallArgument, CallSite};
 use jaic::sema::ide::IdeWhat;
 use jaic::source::FileId;
 use std::collections::BTreeMap;
-
-struct Context {
-    callee: usize,
-    simple_reference: bool,
-    open: usize,
-    end: usize,
-    active: usize,
-    args: Vec<Argument>,
-    start: usize,
-    replace_end: usize,
-    prefix: String,
-    has_equals: bool,
-}
-
-#[derive(Clone)]
-struct Argument {
-    name: Option<String>,
-    spread: bool,
-    value: Option<(usize, usize)>,
-    literal: bool,
-}
 
 struct Parameter {
     name: Option<String>,
@@ -58,215 +37,15 @@ fn procedure(compiler: &jaic::sema::Compiler, id: jaic::sema::ProcId) -> Callabl
     }
 }
 
-fn opener(p: P) -> Option<P> {
-    match p {
-        P::LParen => Some(P::RParen),
-        P::LBrace | P::DotBrace => Some(P::RBrace),
-        P::LBracket | P::DotBracket => Some(P::RBracket),
-        _ => None,
-    }
-}
-
-fn context(text: &str, byte: usize) -> Option<Context> {
-    // Comments and literals are opaque to the parser, including their commas and brackets.
-    // The prefix also detects a literal/comment which has not been closed yet.
-    let regions = lexer::lexical_regions(FileId(0), text)
-        .or_else(|_| lexer::lexical_regions(FileId(0), &text[..byte]))
-        .ok()?;
-    if regions
-        .iter()
-        .any(|s| s.start as usize <= byte && byte < s.end as usize)
-    {
-        return None;
-    }
-    let (tokens, errors) = lexer::lex_ide(FileId(0), text);
-    if errors
-        .iter()
-        .any(|e| e.span.start as usize <= byte && byte <= e.span.end as usize)
-    {
-        return None;
-    }
-    let mut stack = Vec::new();
-    for (i, t) in tokens
-        .iter()
-        .enumerate()
-        .take_while(|(_, t)| (t.span.start as usize) < byte)
-    {
-        if let Tok::Punct(p) = t.tok {
-            if let Some(close) = opener(p) {
-                stack.push((i, close));
-            } else if matches!(p, P::RParen | P::RBrace | P::RBracket) {
-                if stack.last().is_some_and(|&(_, close)| close == p) {
-                    stack.pop();
-                } else {
-                    stack.clear();
-                }
-            } else if p == P::Semi {
-                // A semicolon is a statement boundary even after an unfinished call.
-                while stack.last().is_some_and(|&(_, close)| close != P::RBrace) {
-                    stack.pop();
-                }
-            }
-        }
-    }
-    let &(open, close) = stack.last()?;
-    if close != P::RParen
-        || open == 0
-        || !matches!(
-            tokens[open - 1].tok,
-            Tok::Ident(_) | Tok::Punct(P::RParen | P::RBracket | P::RBrace | P::DotStar)
-        )
-    {
-        return None;
-    }
-    let mut groups: Vec<Vec<&Token>> = vec![Vec::new()];
-    let mut nested = Vec::new();
-    let mut active = 0;
-    let mut end = text.len();
-    for (index, t) in tokens.iter().enumerate().skip(open + 1) {
-        // A declaration on a following line is a recovery boundary, not another
-        // value of the unfinished argument. Use punctuation, never symbol spelling.
-        if nested.is_empty()
-            && t.newline_before
-            && t.span.start as usize >= byte
-            && matches!(t.tok, Tok::Ident(_))
-            && tokens.get(index + 1).is_some_and(|next| {
-                matches!(next.tok, Tok::Punct(P::Colon | P::ColonEq | P::ColonColon))
-            })
-        {
-            end = t.span.start as usize;
-            break;
-        }
-        if let Tok::Punct(p) = t.tok {
-            if nested.is_empty() {
-                if p == P::RParen {
-                    end = t.span.end as usize;
-                    break;
-                }
-                if matches!(p, P::Semi | P::RBrace | P::RBracket) {
-                    end = t.span.start as usize;
-                    break;
-                }
-                if p == P::Comma {
-                    if groups.last()?.is_empty() && groups.len() > 1 {
-                        return None;
-                    } // context override `,,`
-                    groups.push(Vec::new());
-                    if (t.span.start as usize) < byte {
-                        active = groups.len() - 1;
-                    }
-                    continue;
-                }
-            }
-            if let Some(close) = opener(p) {
-                nested.push(close);
-            } else if nested.last() == Some(&p) {
-                nested.pop();
-            }
-        }
-        if !matches!(t.tok, Tok::Eof) {
-            groups.last_mut()?.push(t);
-        }
-    }
-    let current = &groups[active];
-    let before: Vec<_> = current
-        .iter()
-        .filter(|t| (t.span.start as usize) < byte)
-        .collect();
-    if before.len() > 1
-        || before
-            .first()
-            .is_some_and(|t| !matches!(t.tok, Tok::Ident(_)))
-    {
-        return None;
-    }
-    let word = before.first().copied().copied().or_else(|| {
-        current
-            .first()
-            .copied()
-            .filter(|t| t.span.start as usize == byte && matches!(t.tok, Tok::Ident(_)))
-    });
-    let start = word.map_or(byte, |t| t.span.start as usize);
-    let mut replace_end = word.map_or(byte, |t| t.span.end as usize);
-    let separator = current.get(usize::from(word.is_some()));
-    let has_equals = separator.is_some_and(|t| t.tok == Tok::Punct(P::Eq));
-    if separator.is_some_and(|t| matches!(t.tok, Tok::Punct(P::Colon | P::ColonEq))) {
-        replace_end = separator.unwrap().span.end as usize;
-    } else if separator.is_some() && !has_equals {
-        return None;
-    }
-    let args = groups
-        .iter()
-        .map(|g| {
-            let name = match g.as_slice() {
-                [
-                    Token {
-                        tok: Tok::Ident(name),
-                        ..
-                    },
-                    Token {
-                        tok: Tok::Punct(P::Eq),
-                        ..
-                    },
-                    ..,
-                ] => Some(name.as_str().to_owned()),
-                _ => None,
-            };
-            let spread = g
-                .get(if name.is_some() {
-                    2
-                } else {
-                    0
-                })
-                .is_some_and(|t| t.tok == Tok::Punct(P::DotDot));
-            let value_tokens =
-                &g[(usize::from(name.is_some()) * 2 + usize::from(spread)).min(g.len())..];
-            let value = value_tokens
-                .first()
-                .zip(value_tokens.last())
-                .map(|(first, last)| (first.span.start as usize, last.span.end as usize));
-            let literal = matches!(
-                value_tokens,
-                [Token {
-                    tok: Tok::Int(_) | Tok::Float(_),
-                    ..
-                }] | [
-                    Token {
-                        tok: Tok::Punct(P::Minus | P::Plus),
-                        ..
-                    },
-                    Token {
-                        tok: Tok::Int(_) | Tok::Float(_),
-                        ..
-                    }
-                ]
-            );
-            Argument {
-                name,
-                spread,
-                value,
-                literal,
-            }
-        })
-        .collect();
-    Some(Context {
-        callee: tokens[open - 1].span.start as usize,
-        simple_reference: matches!(tokens[open - 1].tok, Tok::Ident(_)),
-        open: tokens[open].span.start as usize,
-        end,
-        active,
-        args,
-        start,
-        replace_end,
-        prefix: text[start..byte].to_owned(),
-        has_equals,
-    })
-}
-
 impl Callable {
     /// Mirror direct-call slot assignment for the actual declaration header.
     /// Missing parameters are intentional while editing; conflicting supplied arguments aren't.
-    fn bindings(&self, args: &[Argument], active: usize, candidate: &str) -> Option<Vec<usize>> {
+    fn bindings(
+        &self,
+        args: &[CallArgument],
+        active: usize,
+        candidate: &str,
+    ) -> Option<Vec<usize>> {
         let mut slots = vec![0u8; self.params.len()]; // 0 empty, 1 scalar/spread, 2 variadic list
         let mut next = 0;
         let mut bindings = Vec::with_capacity(args.len());
@@ -274,7 +53,7 @@ impl Callable {
             let name = if i == active {
                 Some(candidate)
             } else {
-                arg.name.as_deref()
+                arg.name.map(|n| n.as_str())
             };
             if let Some(name) = name {
                 let p = self
@@ -318,7 +97,7 @@ impl Callable {
 /// Expression facts lack operand flags/values: only prove scalar incompatibility.
 fn compatible(
     compiler: &mut jaic::sema::Compiler,
-    argument: &Argument,
+    argument: &CallArgument,
     from: jaic::types::TypeId,
     constant: bool,
     to: jaic::types::TypeId,
@@ -358,7 +137,7 @@ fn callback(
     compiler: &mut jaic::sema::Compiler,
     ty: jaic::types::TypeId,
     header: &jaic::sema::ProcTypeParams,
-    ctx: &Context,
+    ctx: &CallSite,
     facts: &[Option<(jaic::types::TypeId, bool)>],
 ) -> Option<Callable> {
     let jaic::types::TypeKind::Proc(signature) = compiler.types.kind(ty) else {
@@ -430,19 +209,19 @@ fn callback(
 fn resolved(
     compiler: &mut jaic::sema::Compiler,
     file: FileId,
-    ctx: &Context,
+    ctx: &CallSite,
 ) -> Option<Vec<Callable>> {
     let ide = compiler.ide.as_ref()?;
     let selected = ide.calls.iter().find(|call| {
         call.span.file == file
             && !call.ambiguous
-            && call.span.start as usize <= ctx.callee
-            && call.span.end as usize == ctx.end
+            && call.span.start <= ctx.callee.start
+            && call.span.end == ctx.end
     });
     let mut ids = if let Some(call) = selected {
         vec![call.chosen]
-    } else if ctx.simple_reference {
-        ide.refs_at(file, ctx.callee as u32)
+    } else if ctx.callee_is_name {
+        ide.refs_at(file, ctx.callee.start)
             .iter()
             .flat_map(|r| match &r.what {
                 IdeWhat::Procs(ids) => ids.clone(),
@@ -462,15 +241,18 @@ fn resolved(
             if i == ctx.active && !ctx.has_equals {
                 return None;
             }
-            let (start, end) = arg.value?;
+            let value = arg.value?;
             ide.exprs
-                .get(&jaic::source::Span::new(file, start, end))
+                .get(&jaic::source::Span {
+                    file,
+                    ..value
+                })
                 .filter(|fact| !fact.conflicting)
                 .map(|fact| (fact.ty, fact.constant))
         })
         .collect();
     if ids.is_empty() {
-        let Some(target) = compiler.ide_call_target_at(file, ctx.open as u32) else {
+        let Some(target) = compiler.ide_call_target_at(file, ctx.open) else {
             return Some(Vec::new());
         };
         if let Some((ty, header)) = target.parameters {
@@ -546,19 +328,18 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        let Some(ctx) = context(&doc.text, byte) else {
+        let Some(ctx) = self.call_site(uri, &doc.text, byte) else {
             return Vec::new();
         };
+        let (start, end) = (ctx.word.start as usize, ctx.word.end as usize);
+        let prefix = doc.text[start..byte].to_lowercase();
         let callables = self
             .with_semantic(uri, &doc.text, |a, path| {
                 let file = a.file(path)?;
                 resolved(&mut a.compiler, file, &ctx)
             })
             .unwrap_or_default();
-        let Ok(range) = doc
-            .index
-            .range(&doc.text, Span::new(ctx.start, ctx.replace_end))
-        else {
+        let Ok(range) = doc.index.range(&doc.text, Span::new(start, end)) else {
             return Vec::new();
         };
         let mut items = BTreeMap::new();
@@ -567,7 +348,7 @@ impl Session {
                 let Some(name) = &p.name else {
                     continue;
                 };
-                if !name.to_lowercase().starts_with(&ctx.prefix.to_lowercase())
+                if !name.to_lowercase().starts_with(&prefix)
                     || callable
                         .eligible
                         .as_ref()
@@ -592,6 +373,17 @@ impl Session {
         }
         items.into_values().take(self.limits.symbols).collect()
     }
+
+    /// The call around `byte`, from the tokens of the document's analysis.
+    fn call_site(&self, uri: &DocumentUri, text: &str, byte: usize) -> Option<CallSite> {
+        let analysis = self.analysis_for(uri)?;
+        ide_facts::call_at(
+            text,
+            &analysis.syntax_tokens,
+            &analysis.lex_errors,
+            byte as u32,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -603,7 +395,9 @@ mod tests {
     #[test]
     fn incomplete_call_query_cannot_make_a_failed_body_executable() {
         let source = "Context :: struct { state: int; }\ncounter: int;\nf :: (option := false) #no_context {}\ndamaged :: () #no_context {\n    counter += 1;\n    f(op\n}\n#run damaged();\n";
-        let ctx = context(source, source.rfind("op\n").unwrap() + 2).unwrap();
+        let byte = source.rfind("op\n").unwrap() as u32 + 2;
+        let (tokens, _) = jaic::lexer::lex_ide(FileId(0), source);
+        let ctx = ide_facts::call_at(source, &tokens, &[], byte).unwrap();
         let mut fs = VirtualFs::default();
         fs.insert("/named-safety/main.jai", source.as_bytes());
         let mut options = Options::host();
@@ -625,7 +419,7 @@ mod tests {
             .unwrap();
         let errors = compiler.ide.as_ref().unwrap().parse_errors.len();
         assert!(errors > 0);
-        let procs = compiler.ide_callee_at(file, ctx.open as u32);
+        let procs = compiler.ide_callee_at(file, ctx.open);
         assert_eq!(procs.len(), 1);
         assert_eq!(compiler.proc(procs[0]).name.as_str(), "f");
         assert_eq!(

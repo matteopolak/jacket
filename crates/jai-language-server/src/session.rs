@@ -13,7 +13,7 @@ use jaic::sema::ide::{IdeKind, IdeLayout, IdeName};
 use jaic::sema::ide_meta::IdeClass;
 use std::borrow::Cow;
 use std::cell::{OnceCell, RefCell};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -1744,23 +1744,12 @@ impl Session {
         };
         // `$T` / `$$T`: the name is a type parameter throughout its procedure.
         let mut poly: HashMap<&str, Vec<Span>> = HashMap::new();
-        for pair in analysis.tokens.windows(2) {
-            let (sigil, name) = (pair[0], pair[1]);
-            if matches!(sigil.spelling(text), "$" | "$$")
-                && name.kind == TokenKind::Ident
-                && sigil.span.end == name.span.start
-                && let Some(row) = analysis
-                    .rows
-                    .iter()
-                    .filter(|r| {
-                        r.kind == SymbolKind::Function && contains(r.location, name.span.start)
-                    })
-                    .min_by_key(|r| r.location.end - r.location.start)
-            {
-                poly.entry(name.spelling(text))
-                    .or_default()
-                    .push(row.location);
-            }
+        let mut poly_declarations: HashSet<Span> = HashSet::new();
+        for parameter in &analysis.type_parameters {
+            poly.entry(parameter.name.as_str())
+                .or_default()
+                .push(parameter.scope);
+            poly_declarations.insert(parameter.declaration);
         }
         let format_calls = self.format_calls(uri);
         let mut specs: Vec<Span> = format_calls
@@ -1775,7 +1764,7 @@ impl Session {
         }
         // (span, kind, declaration, readonly, expand)
         let mut pieces: Vec<(Span, SemanticTokenKind, bool, bool, bool)> = Vec::new();
-        for (i, token) in analysis.tokens.iter().enumerate() {
+        for token in &analysis.tokens {
             let row = declared.get(&token.span).map(|&at| &analysis.rows[at]);
             let declaration = row.is_some();
             let readonly = row.is_some_and(|row| row.readonly);
@@ -1835,13 +1824,10 @@ impl Session {
                             .iter()
                             .any(|scope| contains(*scope, token.span.start))
                     }) {
-                        let sigil = i > 0
-                            && matches!(analysis.tokens[i - 1].spelling(text), "$" | "$$")
-                            && analysis.tokens[i - 1].span.end == token.span.start;
                         pieces.push((
                             token.span,
                             SemanticTokenKind::TypeParameter,
-                            sigil,
+                            poly_declarations.contains(&token.span),
                             true,
                             false,
                         ));

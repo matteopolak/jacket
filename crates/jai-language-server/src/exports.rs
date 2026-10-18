@@ -1,24 +1,14 @@
-//! What a Jai file declares at its top level and what it brings in, read from tokens alone (no
-//! parse), so a module or project file that does not parse yet still has names. This is the
-//! raw material of auto-import completion (`auto_import.rs`).
-//!
-//! The scan follows top-level structure only: a `{` after `#if` (or after the `else` of one)
-//! keeps the top level open, every other `{` (a procedure or struct body) closes it until its
-//! `}`. `#scope_file`, `#scope_module` and `#scope_export` set the visibility of what follows.
+//! What a Jai file declares at its top level and what it brings in, from the compiler's
+//! editor parse (`jaic::parser::ide_facts`), so a module or project file that does not parse
+//! yet still has the names its intact statements declare. This is the raw material of
+//! auto-import completion (`auto_import.rs`).
 use crate::model::CompletionKind;
+use jaic::ast::ImportSource;
 use jaic::lexer::{P, Tok, Token};
+use jaic::parser::ide_facts::{self, DeclClass, TopLevel, TopLevelKind};
 use jaic::source::FileId;
 
-/// Who can see a top-level declaration.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Visibility {
-    /// Importers of the module (and the rest of the program).
-    Export,
-    /// The files of its module or program only (`#scope_module`).
-    Module,
-    /// Only the declaring file, retained for resolving exported aliases.
-    File,
-}
+pub use jaic::parser::ide_facts::Visibility;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decl {
@@ -74,6 +64,11 @@ pub struct FileScan {
     pub only_os: Option<Vec<String>>,
     /// The file declares `main` at its top level (it is a program's entry, not a part).
     pub declares_main: bool,
+    /// The string literals a statement mentioning `import_path` writes (`modules.rs`).
+    pub import_paths: Vec<String>,
+    /// Byte offset of the first token (the end marker in a file of comments): where code
+    /// starts below the leading comments.
+    pub first_code: Option<usize>,
 }
 
 /// The longest signature kept, in bytes.
@@ -82,277 +77,159 @@ const SIGNATURE_BYTES: usize = 200;
 /// The most comment lines kept as a declaration's documentation.
 const DOC_LINES: usize = 40;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Frame {
-    /// A `{` that keeps the top level open (`#if`'s block).
-    Open,
-    /// Any other `{`, `(` or `[`.
-    Closed,
-}
-
 pub fn scan(text: &str) -> FileScan {
-    let Ok(tokens) = jaic::lexer::lex(FileId(0), text) else {
-        return FileScan::default();
+    let parsed = jaic::parser::parse_file_ide(FileId(0), text);
+    let tokens = &parsed.tokens;
+    let mut out = FileScan {
+        builds: build_files(tokens),
+        import_paths: import_paths(tokens),
+        first_code: tokens.first().map(|t| t.span.start as usize),
+        ..FileScan::default()
     };
-    scan_tokens(text, &tokens)
-}
-
-fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
-    let mut out = FileScan::default();
-    let mut frames: Vec<Frame> = Vec::new();
-    let mut visibility = Visibility::Export;
-    // The next `{` belongs to `#if` (or its `else`).
-    let mut static_block = false;
-    // The last `}` closed an `#if` block (so `else {` continues it).
-    let mut closed_static = false;
-    let top = |frames: &[Frame]| frames.iter().all(|f| *f == Frame::Open);
-    let mut i = 0;
-    while i < tokens.len() {
-        let token = &tokens[i];
-        let at_top = top(&frames);
-        let after_static = closed_static;
-        closed_static = false;
-        match &token.tok {
-            Tok::Punct(P::LBrace) => {
-                frames.push(if static_block && at_top {
-                    Frame::Open
-                } else {
-                    Frame::Closed
-                });
-                static_block = false;
-            }
-            Tok::Punct(P::DotBrace | P::DotBracket | P::LParen | P::LBracket) => {
-                frames.push(Frame::Closed);
-            }
-            Tok::Punct(P::RBrace | P::RParen | P::RBracket) => {
-                closed_static = frames.pop() == Some(Frame::Open);
-            }
-            Tok::Punct(P::Semi) if at_top => static_block = false,
-            Tok::Ident(word) if at_top && after_static && word.as_str() == "else" => {
-                static_block = true;
-            }
-            Tok::Directive(name) if at_top => match name.as_str() {
-                "if" => static_block = true,
-                "scope_file" => visibility = Visibility::File,
-                "scope_module" => visibility = Visibility::Module,
-                "scope_export" => visibility = Visibility::Export,
-                "load" | "import" => {
-                    if let Some(mut directive) = directive_at(tokens, i, None, !frames.is_empty()) {
-                        directive.visibility = visibility;
-                        if name.as_str() == "load" {
-                            out.loads.push(directive);
-                        } else {
-                            out.imports.push(directive);
-                        }
-                    }
-                }
-                "assert" => {
-                    if let Some(targets) = asserted_targets(&tokens[i + 1..]) {
-                        out.only_os = Some(targets);
-                    }
-                }
-                _ => {}
-            },
-            Tok::Ident(name)
-                if name.as_str() == "add_build_file"
-                    && matches!(
-                        tokens.get(i + 1).map(|t| &t.tok),
-                        Some(Tok::Punct(P::LParen))
-                    ) =>
-            {
-                if let Some(Tok::Str(bytes)) = tokens.get(i + 2).map(|t| &t.tok) {
-                    out.builds.push(String::from_utf8_lossy(bytes).into_owned());
+    for item in ide_facts::top_level(&parsed.file) {
+        match item.kind {
+            TopLevelKind::Decl(decl) => out.declaration(text, tokens, decl, &item),
+            TopLevelKind::Import(import) => {
+                if let ImportSource::Module(path) = &import.source {
+                    let name = import.name.map(|n| n.name.as_str().to_owned());
+                    out.imports.push(directive(tokens, path, name, &item));
                 }
             }
-            Tok::Ident(name) if at_top && starts_statement(tokens, i) => {
-                let next = tokens.get(i + 1).map(|t| &t.tok);
-                if let Some(Tok::Punct(P::ColonColon | P::Colon | P::ColonEq)) = next {
-                    let constant = matches!(next, Some(Tok::Punct(P::ColonColon)));
-                    // `Name :: #import "X";` binds a module: an import, not a declaration.
-                    if constant
-                        && let Some(Tok::Directive(d)) = tokens.get(i + 2).map(|t| &t.tok)
-                        && d.as_str() == "import"
-                    {
-                        if let Some(mut directive) =
-                            directive_at(tokens, i + 2, Some(name.as_str()), !frames.is_empty())
-                        {
-                            directive.visibility = visibility;
-                            out.imports.push(directive);
-                        }
-                        i += 2;
-                    } else {
-                        if name.as_str() == "main" {
-                            out.declares_main = true;
-                        }
-                        if let Some(kind) = kind_of(tokens, i + 2, constant) {
-                            out.symbols.push(Symbol {
-                                name: name.as_str().into(),
-                                kind,
-                                offset: token.span.start as usize,
-                            });
-                        }
-                        if let Some(kind) = kind_of(tokens, i + 2, constant) {
-                            let decl = Decl {
-                                name: name.as_str().into(),
-                                lower: name.as_str().to_lowercase(),
-                                kind,
-                                visibility,
-                                signature: signature(text, tokens, i),
-                                doc: doc_above(text, token.span.start as usize),
-                                alias: constant.then(|| alias_path(tokens, i + 2)).flatten(),
-                            };
-                            if visibility != Visibility::File {
-                                out.decls.push(decl.clone());
-                            }
-                            out.local_decls.push(decl);
-                        }
-                    }
+            TopLevelKind::Load(path, _) => out.loads.push(directive(tokens, path, None, &item)),
+            TopLevelKind::Assert(assert) => {
+                if let Some(targets) = ide_facts::asserted_targets(assert) {
+                    out.only_os = Some(targets.iter().map(|t| t.as_str().to_owned()).collect());
                 }
             }
-            _ => {}
         }
-        i += 1;
     }
     out
 }
 
-fn alias_path(tokens: &[Token], mut i: usize) -> Option<Vec<String>> {
-    let mut path = Vec::new();
-    loop {
-        let Tok::Ident(name) = &tokens.get(i)?.tok else {
-            return None;
+impl FileScan {
+    fn declaration(
+        &mut self,
+        text: &str,
+        tokens: &[Token],
+        decl: &jaic::ast::Decl,
+        item: &TopLevel,
+    ) {
+        let start = item.span.start as usize;
+        let kind = match ide_facts::decl_class(decl) {
+            DeclClass::Variable => CompletionKind::Variable,
+            DeclClass::Procedure => CompletionKind::Function,
+            DeclClass::Struct => CompletionKind::Struct,
+            DeclClass::Enum => CompletionKind::Enum,
+            DeclClass::TypeAlias => CompletionKind::TypeAlias,
+            DeclClass::Constant => CompletionKind::Constant,
+            // A library is no name to complete.
+            DeclClass::Library => return,
         };
-        path.push(name.as_str().into());
-        i += 1;
-        match &tokens.get(i)?.tok {
-            Tok::Punct(P::Semi) | Tok::Eof => return Some(path),
-            Tok::Punct(P::Dot) => i += 1,
-            _ => return None,
+        let alias = ide_facts::alias_path(decl).map(|path| {
+            path.iter()
+                .map(|n| n.as_str().to_owned())
+                .collect::<Vec<_>>()
+        });
+        for name in &decl.names {
+            let name_text = name.name.as_str();
+            self.declares_main |= name_text == "main";
+            self.symbols.push(Symbol {
+                name: name_text.into(),
+                kind,
+                offset: name.span.start as usize,
+            });
+            let decl = Decl {
+                name: name_text.into(),
+                lower: name_text.to_lowercase(),
+                kind,
+                visibility: item.visibility,
+                signature: signature(text, tokens, start),
+                doc: doc_above(text, start),
+                alias: alias.clone(),
+            };
+            if item.visibility != Visibility::File {
+                self.decls.push(decl.clone());
+            }
+            self.local_decls.push(decl);
         }
     }
 }
 
-/// Whether the identifier at `i` begins a statement: first in the file, after `;`, a brace or
-/// a scope directive, or first on its line.
-fn starts_statement(tokens: &[Token], i: usize) -> bool {
-    if i == 0 || tokens[i].newline_before {
-        return true;
-    }
-    match &tokens[i - 1].tok {
-        Tok::Punct(P::Semi | P::LBrace | P::RBrace) => true,
-        Tok::Directive(d) => d.as_str().starts_with("scope_"),
-        _ => false,
-    }
-}
-
-/// The `#load`/`#import` at `i` (flags such as `,file` make it no module import).
-fn directive_at(tokens: &[Token], i: usize, name: Option<&str>, nested: bool) -> Option<Directive> {
-    let Some(Token {
-        tok: Tok::Str(bytes),
-        span,
-        ..
-    }) = tokens.get(i + 1)
-    else {
-        return None;
+/// An `#import` or `#load` statement; it ends past its `;`.
+fn directive(tokens: &[Token], path: &str, name: Option<String>, item: &TopLevel) -> Directive {
+    let end = item.span.end;
+    let next = tokens.partition_point(|t| t.span.start < end);
+    let end = match tokens.get(next) {
+        Some(t) if t.tok == Tok::Punct(P::Semi) => t.span.end,
+        _ => end,
     };
-    let end = match tokens.get(i + 2) {
-        Some(Token {
-            tok: Tok::Punct(P::Semi),
-            span,
-            ..
-        }) => span.end,
-        _ => span.end,
-    };
-    Some(Directive {
-        path: String::from_utf8_lossy(bytes).into_owned(),
-        name: name.map(Into::into),
+    Directive {
+        path: path.to_owned(),
+        name,
         end: end as usize,
-        nested,
-        visibility: Visibility::Export,
-    })
+        nested: item.nested,
+        visibility: item.visibility,
+    }
 }
 
-/// The targets of `#assert OS == .A || OS == .B ...` (to its `;`, string or `,`); `None` when
-/// the condition names no target or compares with anything but `==`.
-fn asserted_targets(tokens: &[Token]) -> Option<Vec<String>> {
+/// The string literals written next to an `import_path`.
+fn import_paths(tokens: &[Token]) -> Vec<String> {
     let mut found = Vec::new();
-    let mut i = 0;
-    while let Some(token) = tokens.get(i) {
-        match &token.tok {
-            Tok::Punct(P::Semi | P::Comma) | Tok::Str(_) => break,
-            Tok::Ident(os) if os.as_str() == "OS" => {
-                let rest: Vec<&Tok> = tokens[i + 1..].iter().take(3).map(|t| &t.tok).collect();
-                match rest.as_slice() {
-                    [Tok::Punct(P::EqEq), Tok::Punct(P::Dot), Tok::Ident(target)] => {
-                        found.push(target.as_str().to_string());
-                        i += 3;
-                    }
-                    _ => return None,
-                }
-            }
-            _ => {}
+    for (i, token) in tokens.iter().enumerate() {
+        if !matches!(&token.tok, Tok::Ident(name) if name.as_str() == "import_path") {
+            continue;
         }
-        i += 1;
-        if i > 64 {
-            break;
+        // The rest of the statement: up to the `;` that is not inside brackets.
+        let mut depth = 0i32;
+        for next in &tokens[i + 1..] {
+            match &next.tok {
+                Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
+                    depth += 1
+                }
+                Tok::Punct(P::RParen | P::RBracket | P::RBrace) => {
+                    depth -= 1;
+                    if depth < 0 {
+                        break;
+                    }
+                }
+                Tok::Punct(P::Semi) if depth <= 0 => break,
+                Tok::Str(s) => {
+                    if let Ok(s) = std::str::from_utf8(s)
+                        && !s.is_empty()
+                        && !s.contains(['%', '\n'])
+                    {
+                        found.push(s.to_string());
+                    }
+                }
+                _ => {}
+            }
         }
     }
-    (!found.is_empty()).then_some(found)
+    found
 }
 
-/// The kind of a declaration whose value starts at `at` (after `::`, `:` or `:=`); `None` for a
-/// library (`#library`, `#system_library`), which is no name to complete.
-fn kind_of(tokens: &[Token], at: usize, constant: bool) -> Option<CompletionKind> {
-    if !constant {
-        return Some(CompletionKind::Variable);
-    }
-    let Some(first) = tokens.get(at) else {
-        return Some(CompletionKind::Constant);
+/// The string literal of each `add_build_file("x", ...)` call.
+fn build_files(tokens: &[Token]) -> Vec<String> {
+    tokens
+        .windows(3)
+        .filter_map(|w| match (&w[0].tok, &w[1].tok, &w[2].tok) {
+            (Tok::Ident(name), Tok::Punct(P::LParen), Tok::Str(bytes))
+                if name.as_str() == "add_build_file" =>
+            {
+                Some(String::from_utf8_lossy(bytes).into_owned())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// The declaration starting at byte `start` up to its body or `;`, on one line.
+fn signature(text: &str, tokens: &[Token], start: usize) -> String {
+    let i = tokens.partition_point(|t| (t.span.start as usize) < start);
+    let Some(first) = tokens.get(i) else {
+        return String::new();
     };
-    Some(match &first.tok {
-        Tok::Ident(w) if matches!(w.as_str(), "struct" | "union") => CompletionKind::Struct,
-        Tok::Ident(w) if matches!(w.as_str(), "enum" | "enum_flags") => CompletionKind::Enum,
-        Tok::Directive(d) => match d.as_str() {
-            "type" => CompletionKind::TypeAlias,
-            "bake_arguments" | "bake_constants" | "procedure_of_call" => CompletionKind::Function,
-            "library" | "system_library" | "foreign_library" | "foreign_system_library" => {
-                return None;
-            }
-            _ => CompletionKind::Constant,
-        },
-        Tok::Punct(P::LParen) => {
-            // A procedure when its parameter list is followed by `->`, a body or a directive
-            // (`#expand`, `#foreign`, ...); `(1 + 2);` is a constant.
-            let mut depth = 0usize;
-            let mut j = at;
-            while let Some(t) = tokens.get(j) {
-                match t.tok {
-                    Tok::Punct(P::LParen) => depth += 1,
-                    Tok::Punct(P::RParen) => {
-                        depth -= 1;
-                        if depth == 0 {
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-                j += 1;
-            }
-            match tokens.get(j + 1).map(|t| &t.tok) {
-                Some(Tok::Punct(P::Arrow | P::LBrace) | Tok::Directive(_)) => {
-                    CompletionKind::Function
-                }
-                _ => CompletionKind::Constant,
-            }
-        }
-        _ => CompletionKind::Constant,
-    })
-}
-
-/// The declaration at `i` up to its body or `;`, on one line.
-fn signature(text: &str, tokens: &[Token], i: usize) -> String {
-    let start = tokens[i].span.start as usize;
-    let mut end = tokens[i].span.end as usize;
+    let mut end = first.span.end as usize;
     let mut depth = 0usize;
     for t in tokens[i..].iter().take(400) {
         match t.tok {

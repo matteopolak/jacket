@@ -3,10 +3,12 @@ use crate::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, SymbolKind,
     position::LineIndex,
 };
-use jaic::ast::{Block, Decl, DeclKind, EnumItem, ExprKind, ScopeKind, Stmt, StmtKind, StructLit};
+use jaic::ast::{Block, Decl, EnumItem, ExprKind, Stmt, StmtKind, StructLit};
 use jaic::intern::Sym;
 use jaic::lexer::{P, Tok};
+use jaic::parser::ide_facts::{self, DeclClass, TopLevelKind, Visibility};
 use jaic::source::{Diagnostic as CompilerDiagnostic, FileId, Severity};
+use std::rc::Rc;
 
 /// Byte range into the document text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -207,12 +209,28 @@ pub(crate) struct Analysis {
     pub format_calls: Vec<crate::format::FormatCall>,
     /// Names this document declares with the `@PrintLike` note.
     pub print_like: std::collections::HashSet<String>,
+    /// The `$` names of each procedure this document declares.
+    pub type_parameters: Vec<TypeParameter>,
+    /// The compiler's tokens of the text (after parse recovery), for the features that read
+    /// syntax the rows do not keep, and the lexical errors among them.
+    pub syntax_tokens: Rc<[jaic::lexer::Token]>,
+    pub lex_errors: Vec<jaic::source::Span>,
     /// `#load` / `#import` strings.
     pub links: Vec<crate::links::Link>,
     pub complete: bool,
     /// Hash and length of the text this was built from, so a session can keep it while a
     /// document is unchanged (`Session::rebuild`).
     pub key: (u64, usize),
+}
+
+/// A name a procedure introduces with `$` (`$T`, `$$n`): it is a type parameter throughout the
+/// procedure's declaration.
+#[derive(Clone)]
+pub(crate) struct TypeParameter {
+    pub name: Sym,
+    /// The name after its sigil.
+    pub declaration: Span,
+    pub scope: Span,
 }
 
 fn span_of(span: jaic::source::Span) -> Span {
@@ -256,6 +274,9 @@ impl Analysis {
             opaque_scopes: vec![],
             format_calls: vec![],
             print_like: Default::default(),
+            type_parameters: vec![],
+            syntax_tokens: Rc::from([]),
+            lex_errors: vec![],
             links: vec![],
             complete: false,
             key: crate::semantic::text_key(text),
@@ -265,6 +286,7 @@ impl Analysis {
         for error in &lex_errors {
             result.compiler_diagnostic(&index, text, error, DiagnosticCode::Lexer);
         }
+        result.lex_errors = lex_errors.iter().map(|e| e.span).collect();
         // One entry per token but the end marker: sized once, not grown by doubling.
         let mut converted = editor_tokens(&tokens);
         if converted.len() > limits.tokens {
@@ -283,7 +305,6 @@ impl Analysis {
         }
         result.tokens = converted;
         result.format_calls = crate::format::calls(&tokens, text);
-        result.print_like = crate::format::local_print_like(&tokens);
         result.links = crate::links::links(&tokens);
         if nesting(&tokens) > limits.recursive_tokens {
             result.diagnostic(
@@ -294,6 +315,7 @@ impl Analysis {
                 DiagnosticCode::Limit,
                 "Conservative parser recursion budget exceeded; tokens remain available.",
             );
+            result.syntax_tokens = tokens.into();
             return result;
         }
         let expected_rows = (tokens.len() / 16).min(limits.rows);
@@ -318,7 +340,6 @@ impl Analysis {
         // those current tokens too, or an unaffected name may still look like a string.
         result.tokens = editor_tokens(&parsed.tokens);
         result.format_calls = crate::format::calls(&parsed.tokens, text);
-        result.print_like = crate::format::local_print_like(&parsed.tokens);
         result.links = crate::links::links(&parsed.tokens);
         if result.tokens.len() > limits.tokens {
             let at = result.tokens[limits.tokens].span;
@@ -327,15 +348,15 @@ impl Analysis {
                 "Token budget exceeded after recovery; syntax navigation is unavailable for this version.");
             return result;
         }
+        result.procedure_facts(&parsed.file);
+        result.syntax_tokens = parsed.tokens.into();
         let parsed = parsed.file;
         let context = Context {
             text,
             limits,
         };
         result.rows.reserve(expected_rows);
-        let whole = Span::new(0, text.len());
-        let mut private = false;
-        result.top_level(&parsed.stmts, whole, &mut private, uri, &index, &context);
+        result.top_level(&parsed, uri, &index, &context);
         if result.rows.len() >= limits.rows {
             result.diagnostic(
                 &index,
@@ -428,118 +449,84 @@ impl Analysis {
         Some(id)
     }
 
+    /// The `@PrintLike` names and `$` parameters of the document's procedures.
+    fn procedure_facts(&mut self, file: &jaic::ast::File) {
+        for procedure in ide_facts::procedures(file) {
+            if procedure.has_note("PrintLike") {
+                self.print_like
+                    .insert(procedure.name.name.as_str().to_owned());
+            }
+            let scope = span_of(procedure.span);
+            self.type_parameters.extend(
+                ide_facts::type_parameters(procedure.header)
+                    .into_iter()
+                    .map(|name| TypeParameter {
+                        name: name.name,
+                        declaration: span_of(name.span),
+                        scope,
+                    }),
+            );
+        }
+    }
+
     fn top_level(
         &mut self,
-        stmts: &[Stmt],
-        scope: Span,
-        private: &mut bool,
+        file: &jaic::ast::File,
         uri: &DocumentUri,
         index: &LineIndex,
         context: &Context,
     ) {
-        for stmt in stmts {
-            match &stmt.kind {
-                StmtKind::Scope(kind) => *private = *kind == ScopeKind::File,
-                StmtKind::Decl(decl) => {
-                    self.declaration(
-                        decl,
-                        span_of(stmt.span),
-                        scope,
-                        None,
-                        false,
-                        *private,
-                        context,
-                    );
+        let whole = Span::new(0, context.text.len());
+        for item in ide_facts::top_level(file) {
+            let span = span_of(item.span);
+            let private = item.visibility == Visibility::File;
+            match item.kind {
+                TopLevelKind::Decl(decl) => {
+                    self.declaration(decl, span, whole, None, false, private, context);
                 }
-                StmtKind::Import(import) => {
+                TopLevelKind::Import(import) => {
                     if let Some(name) = import.name {
                         self.add(
                             name.name,
                             SymbolKind::Namespace,
-                            span_of(stmt.span),
+                            span,
                             span_of(name.span),
-                            scope,
+                            whole,
                             None,
                             false,
-                            *private,
+                            private,
                             true,
                             context,
                         );
                     }
                 }
-                StmtKind::StaticIf(boxed) => {
-                    let jaic::ast::StaticIfStmt {
-                        then_branch,
-                        else_branch,
-                        ..
-                    } = &**boxed;
-                    let mut inner = *private;
-                    self.top_level(then_branch, scope, &mut inner, uri, index, context);
-                    let mut inner = *private;
-                    self.top_level(else_branch, scope, &mut inner, uri, index, context);
-                }
-                StmtKind::Load {
-                    path,
-                    span,
-                } => {
-                    let span = span_of(*span);
-                    if let Ok(target) = uri.load(path) {
-                        self.loads.push((target, span));
-                    } else {
-                        self.diagnostic(
-                            index,
-                            context.text,
-                            span,
-                            DiagnosticSeverity::Warning,
-                            DiagnosticCode::Source,
-                            "This #load target is unavailable in the closed document VFS.",
-                        );
-                    }
-                }
-                _ => {}
+                TopLevelKind::Load(path, at) => match uri.load(path) {
+                    Ok(target) => self.loads.push((target, span_of(at))),
+                    Err(_) => self.diagnostic(
+                        index,
+                        context.text,
+                        span_of(at),
+                        DiagnosticSeverity::Warning,
+                        DiagnosticCode::Source,
+                        "This #load target is unavailable in the closed document VFS.",
+                    ),
+                },
+                TopLevelKind::Assert(_) => {}
             }
         }
     }
 
-    /// The declaration's value decides the symbol kind: a procedure, struct, enum, type, library
-    /// or plain constant.
+    /// The declaration's value decides the symbol kind, and whether it is read-only.
     fn kind_of(decl: &Decl) -> (SymbolKind, bool) {
-        if decl.kind == DeclKind::Var {
-            return (SymbolKind::Variable, false);
+        match ide_facts::decl_class(decl) {
+            DeclClass::Variable => (SymbolKind::Variable, false),
+            DeclClass::Procedure => (SymbolKind::Function, false),
+            DeclClass::Struct => (SymbolKind::Struct, false),
+            DeclClass::Enum => (SymbolKind::Enum, false),
+            DeclClass::TypeAlias => (SymbolKind::TypeAlias, false),
+            DeclClass::Library => (SymbolKind::Namespace, true),
+            DeclClass::Constant => (SymbolKind::Constant, true),
         }
-        let kind = match decl.value.as_ref().map(|value| &value.kind) {
-            Some(
-                ExprKind::Proc(_)
-                | ExprKind::Lambda {
-                    ..
-                }
-                | ExprKind::ProcType(_),
-            ) => SymbolKind::Function,
-            Some(ExprKind::Struct(_)) => SymbolKind::Struct,
-            Some(ExprKind::Enum(_)) => SymbolKind::Enum,
-            Some(
-                ExprKind::TypeDirective {
-                    ..
-                }
-                | ExprKind::ArrayType {
-                    ..
-                }
-                | ExprKind::Unary(jaic::ast::UnOp::Star, _),
-            ) => SymbolKind::TypeAlias,
-            Some(ExprKind::UnknownDirective(directive))
-                if matches!(
-                    directive.name.name.as_str(),
-                    "library" | "system_library" | "foreign_library" | "foreign_system_library"
-                ) =>
-            {
-                SymbolKind::Namespace
-            }
-            _ => SymbolKind::Constant,
-        };
-        (
-            kind,
-            matches!(kind, SymbolKind::Constant | SymbolKind::Namespace),
-        )
     }
 
     #[allow(clippy::too_many_arguments)]

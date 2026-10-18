@@ -270,7 +270,7 @@ impl Sources<'_> {
         entries.into_iter().collect()
     }
 
-    fn scan(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {
+    pub(crate) fn scan(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {
         let key = self.key(path);
         let path = key.as_path();
         if let Some(text) = self.open.get(path) {
@@ -982,7 +982,8 @@ impl Session {
                         format!("auto-import from {module}"),
                     ),
                 };
-                let (offset, new_text) = crate::imports::insertion(text, after, &statement);
+                let (offset, new_text) =
+                    crate::imports::insertion(text, after, current.first_code, &statement);
                 let range = self.range_of(uri, Span::new(offset, offset))?;
                 Some(CompletionItem {
                     label: decl.name.clone(),

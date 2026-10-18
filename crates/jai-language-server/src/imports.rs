@@ -16,8 +16,7 @@ use crate::document::DocumentUri;
 use crate::lints::ActionContext;
 use crate::model::{CodeAction, TextEdit};
 use crate::session::Session;
-use jaic::ast::{ImportSource, StmtKind};
-use jaic::source::{FileId, ImportSuggestion};
+use jaic::source::ImportSuggestion;
 
 /// The code of the type checker's diagnostic on the wire.
 pub const CHECK_CODE: &str = "check";
@@ -104,46 +103,31 @@ impl Session {
 /// Each of `imports` that `text` does not already have (at its top level), as the statement,
 /// the byte offset to insert at and the text inserted.
 fn planned(text: &str, imports: &[ImportSuggestion]) -> Vec<(String, usize, String)> {
-    let Ok(file) = jaic::parser::parse_file(FileId(0), text) else {
-        return Vec::new();
-    };
-    let existing: Vec<(&str, Option<&str>, usize)> = file
-        .stmts
-        .iter()
-        .filter_map(|stmt| match &stmt.kind {
-            StmtKind::Import(import) => match &import.source {
-                ImportSource::Module(module) => Some((
-                    &**module,
-                    import.name.as_ref().map(|n| n.name.as_str()),
-                    stmt.span.end as usize,
-                )),
-                _ => None,
-            },
-            _ => None,
-        })
-        .collect();
-    let after_imports = existing.iter().map(|(_, _, end)| *end).max();
+    let scan = crate::exports::scan(text);
+    let existing: Vec<_> = scan.imports.iter().filter(|i| !i.nested).collect();
+    let after_imports = existing.iter().map(|i| i.end).max();
     imports
         .iter()
         .filter(|i| {
             !existing
                 .iter()
-                .any(|(module, name, _)| *module == i.module && *name == i.name.as_deref())
+                .any(|e| e.path == i.module && e.name.as_deref() == i.name.as_deref())
         })
         .map(|i| {
             let statement = i.statement();
-            let (offset, new_text) = insertion(text, after_imports, &statement);
+            let (offset, new_text) = insertion(text, after_imports, scan.first_code, &statement);
             (statement, offset, new_text)
         })
         .collect()
 }
 
 /// Where `statement` goes in `text` and the text inserted there: on the line after the last
-/// import (which ends at `after_imports`), else above the first line of code with a blank line
-/// after it.
+/// import (which ends at `after_imports`), else above the line of `first_code` (the first
+/// token) with a blank line after it.
 pub(crate) fn insertion(
     text: &str,
     after_imports: Option<usize>,
+    first_code: Option<usize>,
     statement: &str,
 ) -> (usize, String) {
     if let Some(end) = after_imports {
@@ -152,9 +136,6 @@ pub(crate) fn insertion(
             None => (text.len(), format!("\n{statement}")),
         };
     }
-    let first_code = jaic::lexer::lex(FileId(0), text)
-        .ok()
-        .and_then(|tokens| tokens.first().map(|t| t.span.start as usize));
     match first_code {
         Some(code) => {
             let line = text[..code].rfind('\n').map_or(0, |n| n + 1);
@@ -213,7 +194,7 @@ mod tests {
         let text = "#import \"Basic\";\n#import \"Math\";\n\nmain :: () {}\n";
         let end = text.find("\"Math\";").unwrap() + "\"Math\";".len();
         assert_eq!(
-            insertion(text, Some(end), "#import \"File\";"),
+            insertion(text, Some(end), None, "#import \"File\";"),
             (
                 text.find("\n\nmain").unwrap() + 1,
                 "#import \"File\";\n".into()
@@ -224,12 +205,13 @@ mod tests {
     #[test]
     fn goes_below_leading_comments() {
         let text = "// A program.\n/* more */\n\nmain :: () {}\n";
+        let first = crate::exports::scan(text).first_code;
         assert_eq!(
-            insertion(text, None, "#import \"Basic\";"),
+            insertion(text, None, first, "#import \"Basic\";"),
             (text.find("main").unwrap(), "#import \"Basic\";\n\n".into())
         );
         assert_eq!(
-            insertion("main :: () {}", None, "#import \"Basic\";"),
+            insertion("main :: () {}", None, Some(0), "#import \"Basic\";"),
             (0, "#import \"Basic\";\n\n".into())
         );
     }

@@ -16,52 +16,11 @@
 //!    recorded `import_path` replaces the scan for that entry, computed paths included.
 use crate::auto_import::{Index, Sources};
 use crate::project::{self, CONFIG_FILE, INFERRED_ENTRIES};
-use jaic::lexer::{P, Tok};
-use jaic::source::FileId;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 /// Entry files of a metaprogram scanned at most.
 const MAX_META_FILES: usize = 8;
-
-/// The string literals written next to an `import_path` in `text`.
-pub(crate) fn declared_import_paths(text: &str) -> Vec<String> {
-    let Ok(tokens) = jaic::lexer::lex(FileId(0), text) else {
-        return Vec::new();
-    };
-    let mut found = Vec::new();
-    for (i, token) in tokens.iter().enumerate() {
-        if !matches!(&token.tok, Tok::Ident(name) if name.as_str() == "import_path") {
-            continue;
-        }
-        // The rest of the statement: up to the `;` that is not inside brackets.
-        let mut depth = 0i32;
-        for next in &tokens[i + 1..] {
-            match &next.tok {
-                Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
-                    depth += 1
-                }
-                Tok::Punct(P::RParen | P::RBracket | P::RBrace) => {
-                    depth -= 1;
-                    if depth < 0 {
-                        break;
-                    }
-                }
-                Tok::Punct(P::Semi) if depth <= 0 => break,
-                Tok::Str(s) => {
-                    if let Ok(s) = std::str::from_utf8(s)
-                        && !s.is_empty()
-                        && !s.contains(['%', '\n'])
-                    {
-                        found.push(s.to_string());
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    found
-}
 
 impl Sources<'_> {
     /// The module folders to search before the standard library for the program rooted at
@@ -140,9 +99,9 @@ impl Sources<'_> {
             .filter(|e| seen.insert(e.clone()))
             .take(MAX_META_FILES)
         {
-            let Some(text) = self.read(&entry) else {
+            if self.read(&entry).is_none() {
                 continue;
-            };
+            }
             deps.push(entry.clone());
             // A metaprogram that ran: the folders its build options really had.
             if let Some(facts) = index.builds.get(&self.key(&entry)) {
@@ -155,7 +114,7 @@ impl Sources<'_> {
                 continue;
             }
             let here = entry.parent().unwrap_or(Path::new("/")).to_path_buf();
-            for path in declared_import_paths(&text) {
+            for path in &self.scan(index, &entry).import_paths {
                 let path = Path::new(&path);
                 if path.is_absolute() {
                     dirs.push(project::normalize(path));
@@ -213,8 +172,6 @@ impl crate::Session {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn reads_literal_import_paths_from_a_metaprogram() {
         let text = r#"
@@ -225,6 +182,9 @@ mod tests {
             log("import_path is %", import_path);
             other(".");
         "#;
-        assert_eq!(declared_import_paths(text), ["vendor", "modules"]);
+        assert_eq!(
+            crate::exports::scan(text).import_paths,
+            ["vendor", "modules"]
+        );
     }
 }
