@@ -25,7 +25,7 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 - `sema/` ([sema](sema.md)) resolves names on demand, so a declaration is checked when something needs it (top-level structs are also laid out at the end, used or not). `scope.rs`/`modules.rs`: imports and scopes; `decls.rs`, `procs.rs`, `structs.rs`: declarations; `expr.rs`, `stmt.rs`, `calls/`, `convert.rs`: checking; `consteval.rs`: constants and `#run`; `typeinfo.rs`, `runtime_info.rs`: reflection; `bake.rs`, `modify.rs`: polymorphism; `code_export.rs`: syntax trees for metaprograms; `lower.rs`: to IR; `driver.rs`: entry points and `Options`.
 - `ir.rs`: the shared [IR](ir.md).
 - `build.rs`, `records.rs`: workspaces and compiler messages for metaprograms ([workspaces](../metaprogramming/workspaces.md)).
-- `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic -interp`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. Raw memory access is confined to `interp::memory`.
+- `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic -interp`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. The compiler's own reads and writes of program memory go through `interp::memory`, which uses the fault-safe copies in `interp::probe`; interpreted loads and stores use raw pointers, like the native program.
 - `stdlib/` (including `stdlib/prelude/`) is plain Jai, loaded through `sema::FileSystem` (real or virtual).
 
 ### Threading
