@@ -237,14 +237,53 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
         }
         v
     });
-    let canon = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
-    let own = canon(path);
-    let loaded: Vec<PathBuf> = cx.compiler.files.iter().map(|f| canon(&f.path)).collect();
-    variants.iter().any(|(p, defs)| {
-        let p = canon(p);
-        p != own
-            && !loaded.contains(&p)
-            && defs.get(name).is_some_and(|l| l.iter().any(|s| s == sig))
+    // Most names have no variant elsewhere: look for those (not this file itself, found by
+    // its path as the compiler spelled it) before canonicalizing any path, a system call each
+    // that costs more than the rest of the lint on a large file.
+    let mut candidates = variants
+        .iter()
+        .filter(|(p, defs)| {
+            p.as_path() != path && defs.get(name).is_some_and(|l| l.iter().any(|s| s == sig))
+        })
+        .peekable();
+    if candidates.peek().is_none() {
+        return false;
+    }
+    let own = canonical(path);
+    let loaded: Vec<PathBuf> = cx
+        .compiler
+        .files
+        .iter()
+        .map(|f| canonical(&f.path))
+        .collect();
+    candidates.any(|(p, _)| {
+        let p = canonical(p);
+        p != own && !loaded.contains(&p)
+    })
+}
+
+/// `path` with symlinks resolved, remembered: a program names hundreds of files and this runs
+/// for each procedure with an unused parameter, so asking the file system each time was most of
+/// a lint. Only paths that resolved are kept.
+fn canonical(path: &Path) -> PathBuf {
+    thread_local! {
+        static KNOWN: std::cell::RefCell<HashMap<PathBuf, PathBuf>> = std::cell::RefCell::default();
+    }
+    KNOWN.with(|known| {
+        if let Some(found) = known.borrow().get(path) {
+            return found.clone();
+        }
+        match path.canonicalize() {
+            Ok(found) => {
+                let mut known = known.borrow_mut();
+                if known.len() >= 20_000 {
+                    known.clear();
+                }
+                known.insert(path.to_path_buf(), found.clone());
+                found
+            }
+            Err(_) => path.to_path_buf(),
+        }
     })
 }
 
