@@ -21,11 +21,11 @@ match exactly; stderr must match when every backend exited normally. A backend w
 another's succeeds is a disagreement, except that a backend may decline a program it cannot run
 (see `unsupported` below); those are reported as skips, not passes.
 """
+
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS / "stdlib",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse, importlib.util, json, os, re, select, shutil, subprocess, sys, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor
@@ -87,7 +87,7 @@ def cases(name, gen_dir, gen_size=1.0):
             if "runtime" in c:
                 yield Case(c["id"], ROOT / "tests/corpus" / c["source"])
     elif name in ("regressions", "modules"):
-        from stdlib_test_catalog import validated_entries
+        from stdlib.stdlib_test_catalog import validated_entries
 
         wanted = "compiler" if name == "regressions" else "modules"
         for c in validated_entries():
@@ -104,7 +104,6 @@ def cases(name, gen_dir, gen_size=1.0):
                 yield Case(c["id"], c["path"], ROOT / "stdlib")
     elif name.startswith("gen:"):
         _, seed, count = (name.split(":") + ["1"])[:3]
-        sys.path.insert(0, str(ROOT / "tools"))
         import jaigen
         for s in range(int(seed), int(seed) + int(count)):
             d = gen_dir / f"gen-{s}"

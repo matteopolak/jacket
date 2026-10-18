@@ -1,3 +1,8 @@
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import hashlib
 import json
 from pathlib import Path
@@ -5,8 +10,8 @@ from sdl_test_support import temporary_directory, remove_fixture_metadata
 import shutil
 import unittest
 from unittest.mock import patch
-import sdl3_native as sdl
-import build_native_libs as pipeline
+from bindings import sdl3_native as sdl
+from native import build_native_libs as pipeline
 
 class BuildContract(unittest.TestCase):
     def test_six_platforms_are_explicit(self):

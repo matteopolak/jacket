@@ -1,10 +1,15 @@
 """Fresh/unset-Cargo CI setup controls; no native compiler or workload."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import tempfile
 from pathlib import Path
 import unittest
 
-from ci_test_scratch import assigned_scratch
+from ci.ci_test_scratch import assigned_scratch
 
 
 class ScratchSelection(unittest.TestCase):

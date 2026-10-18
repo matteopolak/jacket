@@ -1,4 +1,10 @@
 """Regression fixtures are authored from the public specification formats."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import importlib.util
 from pathlib import Path
 import sys
@@ -6,7 +12,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "native_bindings"))
-from spec import parse_spec
+from native_bindings.spec import parse_spec
 
 
 class SpecTests(unittest.TestCase):

@@ -9,11 +9,11 @@ Clones https://github.com/shader-slang/slang at a pinned tag into
 (glslang, glsl-module) into <sgpu>/modules/slang/<mac|linux>/. Idempotent: reruns reuse the clone and
 build directory, and skip the install when the files are already present (use --force to redo it).
 """
+
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import glob

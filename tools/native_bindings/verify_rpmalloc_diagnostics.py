@@ -54,10 +54,10 @@ def main():
         if digest(target) != expected:
             raise ValueError('Pinned SDK input mismatch: '+name)
     # Builders loaded from the immutable capture resolve their ROOT to it.
-    sys.path.insert(0, str(snapshot/'tools/native_bindings'))
-    prepare = importlib.import_module('prepare_rpmalloc').prepare
-    build = importlib.import_module('build_rpmalloc').build
-    profiles = importlib.import_module('rpmalloc_profiles').PROFILES
+    sys.path.insert(0, str(snapshot / 'tools'))
+    prepare = importlib.import_module('native_bindings.prepare_rpmalloc').prepare
+    build = importlib.import_module('native_bindings.build_rpmalloc').build
+    profiles = importlib.import_module('native_bindings.rpmalloc_profiles').PROFILES
     prepared = prepare(vendor, work/'prepared')
     native_inputs = {str(p.relative_to(work)): digest(p) for p in prepared.iterdir() if p.is_file()}
     for p in prepared.iterdir():

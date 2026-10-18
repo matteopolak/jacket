@@ -1,3 +1,8 @@
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import unittest
 import hashlib
 import json
@@ -5,7 +10,7 @@ import os
 import subprocess
 from sdl_test_support import temporary_directory, remove_fixture_metadata
 from pathlib import Path
-import sdl3_gen as gen
+from bindings import sdl3_gen as gen
 
 class Types(unittest.TestCase):
     def test_anonymous_record_paths_normalize_native_and_clang_separators(self):

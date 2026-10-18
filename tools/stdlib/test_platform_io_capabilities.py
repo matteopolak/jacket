@@ -1,5 +1,10 @@
 """Selection/accounting controls; no synthetic bytes count as OS execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import unittest
 import json
 import subprocess
@@ -8,7 +13,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from check_platform_io import CONTRACTS, main, run_wasm_contract, wasm_contract_reason
-from stdlib_test_catalog import unavailable_reason, validated_entries
+from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = {c["id"]: c for c in validated_entries()}

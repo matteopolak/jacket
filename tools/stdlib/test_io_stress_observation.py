@@ -1,5 +1,10 @@
 """Supervisor/configuration tests only; no Jai/native/network execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import contextlib
 import io
 import json
@@ -10,7 +15,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import io_stress as stress
-from ci_test_scratch import assigned_scratch
+from ci.ci_test_scratch import assigned_scratch
 
 
 class Observation(unittest.TestCase):

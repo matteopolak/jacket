@@ -8,8 +8,7 @@ and graphics profiles belong to their independent consumers and remain intact.
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import hashlib
@@ -17,7 +16,7 @@ import json
 import os
 from pathlib import Path
 
-import build_native_libs as native
+from native import build_native_libs as native
 from repo_output import host_platform
 
 

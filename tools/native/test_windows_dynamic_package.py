@@ -1,5 +1,10 @@
 """Package/supervisor controls only; no Windows DLL is executed."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import os
 import json
 from pathlib import Path
@@ -7,8 +12,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import build_native_libs as builder
-import stdlib_runtime as runtime
+from native import build_native_libs as builder
+from stdlib import stdlib_runtime as runtime
 
 
 class DynamicPackage(unittest.TestCase):

@@ -1,5 +1,10 @@
 """Runner policy tests only; SDK/compiler/native execution is deliberately absent."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import ast
 import argparse
 from pathlib import Path
@@ -10,9 +15,9 @@ import sys
 from unittest.mock import patch
 import unittest
 
-import stdlib_runtime
-import stdlib_coverage
-from stdlib_test_catalog import validated_entries, unavailable_reason
+from stdlib import stdlib_runtime
+from stdlib import stdlib_coverage
+from stdlib.stdlib_test_catalog import validated_entries, unavailable_reason
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRATCH = os.environ.get("RUNNER_TEMP") or os.environ.get("TMPDIR") or tempfile.gettempdir()
@@ -61,7 +66,7 @@ class RunnerContracts(unittest.TestCase):
         sweep = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(sweep)
         with patch(
-            "stdlib_runtime.runtime_prefix",
+            "stdlib.stdlib_runtime.runtime_prefix",
             side_effect=ValueError("real restoration guard required"),
         ):
             stdout, stderr, code = sweep.run_fixture(
@@ -132,7 +137,7 @@ class RunnerContracts(unittest.TestCase):
         self.assertNotEqual(sweep.PLATFORM_UNAVAILABLE, sweep.HEADLESS_BUILD)
 
     def test_ci_builds_only_the_verified_profile_cohort_with_real_callbacks(self):
-        import build_ci_native_bindings
+        from native import build_ci_native_bindings
 
         libraries, profiles, abi = build_ci_native_bindings.selected_libraries()
         self.assertEqual(abi, 8)

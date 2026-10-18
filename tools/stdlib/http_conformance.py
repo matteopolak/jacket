@@ -30,8 +30,7 @@ Exit status: 0 when everything that ran passed, 1 otherwise.
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS / "native",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import os
@@ -44,8 +43,8 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from http_native import ensure_native_libraries
-from stdlib_test_catalog import validated_entries
+from native.http_native import ensure_native_libraries
+from stdlib.stdlib_test_catalog import validated_entries
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"

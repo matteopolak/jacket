@@ -12,8 +12,7 @@ from __future__ import annotations
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "bindings",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import hashlib
@@ -25,7 +24,7 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
-from fetch_url import fetch as fetch_pinned
+from native.fetch_url import fetch as fetch_pinned
 import zipfile
 from pathlib import Path
 
@@ -281,7 +280,7 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
         install_prebuilt(lib, src, out, plat)
         return
     if lib.get('builder') == 'sdl3':
-        import sdl3_native
+        from bindings import sdl3_native
         sdl3_native.build(out, plat)
         return
     with tempfile.TemporaryDirectory() as tmp_name:

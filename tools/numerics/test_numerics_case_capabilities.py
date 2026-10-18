@@ -1,5 +1,10 @@
 """Catalogue/ASan dispatch policy only; mocked dispatch is not native proof."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import contextlib
 import importlib.util
 import io
@@ -9,7 +14,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from stdlib_test_catalog import unavailable_reason, validated_entries
+from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {
@@ -120,7 +125,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
             patch.object(sweep, "use_native_libs"),
             patch.object(sweep, "stale_sources", return_value=None),
             patch.object(sweep, "symbolizer", return_value=None),
-            patch("stdlib_runtime.host_platform", return_value=platform),
+            patch("stdlib.stdlib_runtime.host_platform", return_value=platform),
             patch.object(sweep, "run_native", return_value=dispatch_result) as dispatch,
             contextlib.redirect_stdout(output),
             self.assertRaises(SystemExit) as exit_status,

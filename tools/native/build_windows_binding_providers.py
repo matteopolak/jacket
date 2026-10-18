@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Build real ABI8 fixture archives for a selected Windows SDK, never the host."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import hashlib
 import json
@@ -11,11 +16,10 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools/native_bindings"))
-from build_dependencies import prepare_source  # noqa: E402
-from prepare_rpmalloc import prepare  # noqa: E402
-from rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
-from config import RPMALLOC_SDK_BUILD_OPTIONS  # noqa: E402
+from native_bindings.build_dependencies import prepare_source  # noqa: E402
+from native_bindings.prepare_rpmalloc import prepare  # noqa: E402
+from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
+from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS  # noqa: E402
 
 TARGETS = {
     "windows-x64-mingw": ("x86_64-w64-mingw32", "IMAGE_FILE_MACHINE_AMD64"),

@@ -5,6 +5,12 @@ Requires our source-built compiler/formatter and freshly built native libraries.
 Uses only NEW producer sources through the ordinary bindings staging boundary.
 This scope does not replace the full public inventory/configuration verifier.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import hashlib
 import json
@@ -14,9 +20,9 @@ import platform
 import subprocess
 from contextlib import ExitStack
 
-from config import RPMALLOC_SDK_BUILD_OPTIONS
-from rpmalloc_profiles import PROFILES
-from prepare_rpmalloc import prepare
+from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
+from native_bindings.rpmalloc_profiles import PROFILES
+from native_bindings.prepare_rpmalloc import prepare
 from verify import select_stdlib, place_private_unit, ROOT
 from configure_rpmalloc import select_for_verification
 

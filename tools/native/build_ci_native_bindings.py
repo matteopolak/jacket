@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Real pinned C provider closure for CI; no Jai implementation or staging overlay."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import ctypes
 import hashlib
@@ -13,10 +18,9 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools/native_bindings"))
-from build_dependencies import INPUTS  # noqa: E402
-from rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
-from build_rpmalloc import platform_c_flags  # noqa: E402
+from native_bindings.build_dependencies import INPUTS  # noqa: E402
+from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
+from native_bindings.build_rpmalloc import platform_c_flags  # noqa: E402
 
 
 def selected_libraries():

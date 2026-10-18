@@ -1,7 +1,12 @@
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 from sdl_test_support import temporary_directory, remove_fixture_metadata
 import unittest
 from pathlib import Path
-import sdl3_coverage as cov
+from bindings import sdl3_coverage as cov
 
 class HeaderDiscovery(unittest.TestCase):
     def discover(self,text):

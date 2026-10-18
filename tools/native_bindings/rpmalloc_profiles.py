@@ -6,11 +6,16 @@ the profiles listed in ci-rpmalloc-profiles.json are built and bound; any other 
 compile-time error in the modules.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import json
 from itertools import product
 from pathlib import Path
 
-from config import RPMALLOC_SDK_BUILD_OPTIONS
+from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 
 SUPPORTED = json.loads(Path(__file__).with_name("ci-rpmalloc-profiles.json").read_text())["sdk_profiles"]
 

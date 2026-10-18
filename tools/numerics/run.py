@@ -3,8 +3,7 @@
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 from pathlib import Path
 import argparse
@@ -16,7 +15,6 @@ import time
 from target_contracts import ORACLE, target_contract
 
 root = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(root / "tools"))
 from repo_output import output_dir
 parser = argparse.ArgumentParser()
 parser.add_argument("--compiler", type=Path, required=True)

@@ -1,5 +1,10 @@
 """Catalogue reporting control only; no compiler/program execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import contextlib
 import io
 import json
@@ -8,8 +13,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import stdlib_runtime as runtime
-from ci_test_scratch import assigned_scratch
+from stdlib import stdlib_runtime as runtime
+from ci.ci_test_scratch import assigned_scratch
 
 
 class DisabledAccounting(unittest.TestCase):

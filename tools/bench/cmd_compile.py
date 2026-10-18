@@ -1,6 +1,11 @@
 """`compile`: time one or more compilers on the same workloads, interleaved and gated on correctness."""
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import os
 import shutil
@@ -15,7 +20,7 @@ from compile_report import render
 from dialects import Compiler, Invocation, Mode, Request, parse_compiler
 from measure import Run, run_measured, warm_file_cache
 from results import ROOT, Report, Result, checkout_info, sh
-from sandbox import Sandbox, environment
+from bench.sandbox import Sandbox, environment
 from sizes import facts_of
 from stages import Bucket, Stages, with_total
 from stats import Stat

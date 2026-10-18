@@ -1,10 +1,15 @@
 """Required termination outcomes are protocols, not generic exit-zero cases."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 from pathlib import Path
 import unittest
 
-from stdlib_runtime import contract_result
-from stdlib_test_catalog import case_for_mode, unavailable_reason, validated_entries
+from stdlib.stdlib_runtime import contract_result
+from stdlib.stdlib_test_catalog import case_for_mode, unavailable_reason, validated_entries
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {

@@ -17,8 +17,7 @@ fails a case on any sanitizer report (docs/native/sanitizers.md).
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native", _TOOLS / "stdlib",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import json
@@ -115,7 +114,7 @@ def cases(name):
                     [],
                 )
     elif name in ("regressions", "modules"):
-        from stdlib_test_catalog import validated_entries
+        from stdlib.stdlib_test_catalog import validated_entries
 
         wanted = "compiler" if name == "regressions" else "modules"
         for c in validated_entries():
@@ -175,8 +174,7 @@ def use_native_libs():
     building any that are missing. Worktrees share the main checkout's target/."""
     if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in ("darwin", "linux"):
         return
-    sys.path.insert(0, str(ROOT / "tools"))
-    import build_native_libs
+    from native import build_native_libs
 
     if build_native_libs.missing():
         subprocess.run(
@@ -267,7 +265,7 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None)
 
 
 def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True, extra_env=None):
-    from stdlib_runtime import runtime_prefix, CLIPBOARD_LOCK
+    from stdlib.stdlib_runtime import runtime_prefix, CLIPBOARD_LOCK
 
     try:
         prefix = runtime_prefix(metadata or {}, os.environ)
@@ -424,7 +422,7 @@ def run_native(
 
 
 def main():
-    from stdlib_runtime import shard, take_shard
+    from stdlib.stdlib_runtime import shard, take_shard
 
     ap = argparse.ArgumentParser()
     ap.add_argument("sets", nargs="+")
@@ -545,7 +543,7 @@ def main():
                         stdin=subprocess.DEVNULL,
                     )
     if "modules" in a.sets:
-        from stdlib_runtime import build_data_fixtures
+        from stdlib.stdlib_runtime import build_data_fixtures
 
         build_data_fixtures()
     todo = take_shard(
@@ -559,7 +557,7 @@ def main():
         if cid in UPSTREAM_DISABLED:
             return cid, None, "", UPSTREAM_DISABLED[cid], DISABLED
         if cid in UPSTREAM_PLATFORMS:
-            from stdlib_runtime import host_platform
+            from stdlib.stdlib_runtime import host_platform
 
             only = UPSTREAM_PLATFORMS[cid]
             if host_platform() not in only["only"]:
@@ -567,11 +565,11 @@ def main():
                 return cid, None, "", reason, PLATFORM_UNAVAILABLE
         metadata = CASE_METADATA.get(cid, {})
         if metadata:
-            from stdlib_test_catalog import (
+            from stdlib.stdlib_test_catalog import (
                 unavailable_reason,
                 disabled_reason,
             )
-            from stdlib_runtime import host_platform, program_arguments, prepare_program
+            from stdlib.stdlib_runtime import host_platform, program_arguments, prepare_program
 
             rejected = disabled_reason(metadata)
             if rejected:
@@ -649,11 +647,11 @@ def main():
                 jaic=False,
             )
         if expect and expect.get("mode") == "check-fail":
-            from stdlib_runtime import contract_result
+            from stdlib.stdlib_runtime import contract_result
 
             ok = contract_result(expect, None if code == -1 else code, out + err)
             if expect.get("positive_baseline"):
-                from stdlib_test_catalog import validated_entries
+                from stdlib.stdlib_test_catalog import validated_entries
 
                 baseline = next(
                     c
@@ -670,7 +668,7 @@ def main():
                     ok = False
                     err += "\npositive baseline failed:\n" + baseline_err
         elif expect and "error_contains" in expect:
-            from stdlib_runtime import contract_result
+            from stdlib.stdlib_runtime import contract_result
 
             ok = contract_result(expect, code, out, err, native=a.native and mode == "run")
         elif expect and "stdout_one_of" in expect:

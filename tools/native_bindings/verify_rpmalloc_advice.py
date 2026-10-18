@@ -24,10 +24,10 @@ def main():
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_advice_probe.c', 'docs/specs/stdlib/modules/rpmalloc.md',
         'jaifmt.toml', 'jailint.toml'))
     work = Path(tempfile.mkdtemp(prefix='advice-', dir=args.output_root))
-    sys.path.insert(0, str(snapshot/'tools/native_bindings'))
-    prepare = importlib.import_module('prepare_rpmalloc').prepare
-    build = importlib.import_module('build_rpmalloc').build
-    profiles = importlib.import_module('rpmalloc_profiles').PROFILES
+    sys.path.insert(0, str(snapshot / 'tools'))
+    prepare = importlib.import_module('native_bindings.prepare_rpmalloc').prepare
+    build = importlib.import_module('native_bindings.build_rpmalloc').build
+    profiles = importlib.import_module('native_bindings.rpmalloc_profiles').PROFILES
     profile = next(p for p in profiles if not p['raw'] and p['statistics'] and not p['adaptive'] and
                    not p['global_cache'] and p['thread_cache'] and p['assertions'] and p['validation'])
     prepared_source = prepare(args.vendor, work/'prepared')

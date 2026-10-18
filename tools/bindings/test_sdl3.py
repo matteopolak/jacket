@@ -3,6 +3,12 @@
 Use --jaic with a source-built compiler or a packaged compiler. No system SDL fallback.
 """
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import ctypes
 import hashlib
@@ -12,7 +18,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from sdl3_native import ROOT, host
+from bindings.sdl3_native import ROOT, host
 from repo_output import output_dir
 
 def audit(native,plat):
@@ -32,7 +38,7 @@ def audit(native,plat):
     assert (prefix/sdk['cmake_dir']/'SDL3Config.cmake').is_file()
     assert (prefix/'include/SDL3/SDL.h').is_file()
     if plat.startswith('windows'):
-        from sdl3_native import WINDOWS_ARTIFACTS
+        from bindings.sdl3_native import WINDOWS_ARTIFACTS
         assert meta['artifact_roles']=={name:role for name,(source,role) in WINDOWS_ARTIFACTS.items()}
         assert (native/'SDL3.lib').read_bytes()!=(native/'SDL3-import.lib').read_bytes()
         for name,(source,role) in WINDOWS_ARTIFACTS.items():

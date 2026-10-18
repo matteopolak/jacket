@@ -1,5 +1,10 @@
 """Numeric vectors and mocked supervisor controls; no network/native execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import importlib.util
 import json
 from pathlib import Path
@@ -11,8 +16,7 @@ from unittest.mock import Mock, patch
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools"))
-assigned_scratch = importlib.import_module("ci_test_scratch").assigned_scratch
+assigned_scratch = importlib.import_module("ci.ci_test_scratch").assigned_scratch
 
 spec = importlib.util.spec_from_file_location(
     "failure_observer", ROOT / "tools/stdlib/io_failure_observer.py"

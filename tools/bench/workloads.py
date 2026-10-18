@@ -1,6 +1,11 @@
 """The compile benchmark's workloads: what they exercise, where their sources come from, how to build them."""
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import json
 import shutil
 import subprocess
@@ -9,7 +14,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Protocol
 
-import toolpath  # noqa: F401  (puts tools/ on sys.path for benchgen, jaistats, repo_output)
 import benchgen
 from dialects import Mode
 from repo_output import main_checkout

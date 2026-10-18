@@ -4,16 +4,22 @@
 This backend is distinct from both reviewed public Jai implementations. Parse
 heap-disabled/enabled SDK configurations separately and reject unknown C forms.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import hashlib
 import json
 from pathlib import Path
 import re
 import subprocess
-from config import RPMALLOC_SDK_BUILD_OPTIONS
+from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from rpmalloc_heap_facade import public_c_header, layout_probes
-from rpmalloc_profiles import PROFILES, parameters, select_blocks, heap_module, callbacks_module
-from prepare_rpmalloc import patch_provenance
+from native_bindings.rpmalloc_profiles import PROFILES, parameters, select_blocks, heap_module, callbacks_module
+from native_bindings.prepare_rpmalloc import patch_provenance
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'stdlib/internal/bindings/rpmalloc-sdk'

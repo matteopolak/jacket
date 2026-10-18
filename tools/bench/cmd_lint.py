@@ -1,6 +1,11 @@
 """`lint`: jailint on the whole repository, one large file, `--fix` on a copy, and `-j` scaling."""
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import re
 import shutil
@@ -8,7 +13,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import toolpath  # noqa: F401  (puts tools/ on sys.path for benchgen, jaistats, repo_output)
 import benchgen
 import common
 from common import Defaults

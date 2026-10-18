@@ -1,5 +1,10 @@
 """Source-only intent/dispatch/accounting checks; no Linux syscall or fault run."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import contextlib
 import io
@@ -10,9 +15,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from ci_test_scratch import assigned_scratch
-import stdlib_runtime as runtime
-from stdlib_test_catalog import validated_entries
+from ci.ci_test_scratch import assigned_scratch
+from stdlib import stdlib_runtime as runtime
+from stdlib.stdlib_test_catalog import validated_entries
 
 ROOT = Path(__file__).resolve().parents[2]
 

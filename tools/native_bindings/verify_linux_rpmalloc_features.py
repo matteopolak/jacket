@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Compile all accepted ABI8 domains against actual Linux headers, never run target code."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import hashlib
 import json
@@ -9,9 +14,9 @@ from pathlib import Path
 import platform
 import subprocess
 
-from build_rpmalloc import platform_c_flags
-from prepare_rpmalloc import ROOT, prepare
-from rpmalloc_profiles import PROFILES, c_definitions
+from native_bindings.build_rpmalloc import platform_c_flags
+from native_bindings.prepare_rpmalloc import ROOT, prepare
+from native_bindings.rpmalloc_profiles import PROFILES, c_definitions
 
 
 def sha(path):

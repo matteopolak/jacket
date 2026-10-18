@@ -2,7 +2,7 @@
 
 ## What it is
 
-`tools/` holds the repo's build, check, generation and CI scripts (Python and Node, standard library only). Scripts are grouped into one folder per subsystem; the files left at the top are shared helpers and the ones the benchmark harness (`tools/bench/`) imports by bare name.
+`tools/` holds the repo's build, check, generation and CI scripts (Python and Node, standard library only). Scripts are grouped into one folder per subsystem; the files left at the top (`repo_output.py`, `benchgen.py`, `jaistats.py`, ...) are shared helpers every folder imports by bare name.
 
 ## Folders
 
@@ -42,14 +42,27 @@ Every generator of a checked-in file takes `--check` (exit 1 if the file differs
 
 ## How tests are discovered
 
-`tools/` has no `__init__.py`, so `unittest discover -s tools` skips subfolders. `python3 tools/run_tests.py [-p PATTERN] [-v]` runs one `discover` per folder (including `native_bindings/` and `bench/`) with every folder on `PYTHONPATH`. CI, `just test` and the workflows that run a single test file all go through it. Three Node tests (`tools/browser/test_*.mjs`) run in the wasm CI job with `node --test`.
+`tools/` has no `__init__.py`, so `unittest discover -s tools` skips subfolders. `python3 tools/run_tests.py [-p PATTERN] [-v]` runs one `discover` per folder (including `native_bindings/` and `bench/`) with `tools/` on `PYTHONPATH` (and unittest putting the folder under test on `sys.path`, so a test imports its sibling modules by bare name). CI, `just test` and the workflows that run a single test file all go through it. Three Node tests (`tools/browser/test_*.mjs`) run in the wasm CI job with `node --test`.
 
 ## How to add a tool
 
 1. Put it in the folder of its subsystem; name tests `test_<thing>.py` next to what they test.
-2. Modules are imported by bare name. A script that imports from another folder starts with the `_sys.path[:0] = [...]` block the existing ones use (see `tools/stdlib/http_conformance.py`).
+2. Imports across folders are qualified by folder: `from native.fetch_url import fetch`, `from stdlib import stdlib_runtime`. The helpers at the top of `tools/` stay bare (`import repo_output`). A script that imports either way starts with the same three lines, before any other project import, so `tools/` is on `sys.path` when it runs directly (`python3 tools/<folder>/x.py` only puts `tools/<folder>/` there; the test runner and CI add nothing):
+
+   ```python
+   import sys as _sys
+   from pathlib import Path as _Path
+
+   _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+   ```
+
+   Use `parents[2]` in a sub-sub-folder (`tools/portable/portable_data/`). Imports between modules of the same folder may stay bare, except for a module that other folders import (`native/fetch_url.py`, `stdlib/stdlib_runtime.py`, ...): it and everything that touches it import its siblings qualified too, so there is only one copy of it in `sys.modules`. That includes `unittest.mock.patch("stdlib.stdlib_runtime.run_command")` target strings. `native_bindings/` keeps generic module names (`config`, `spec`), so it is never put on `sys.path` as a folder; import it as `native_bindings.config`.
 3. A script at `tools/<folder>/x.py` finds the repo root with `Path(__file__).resolve().parents[2]`.
 4. Reference it by its full path (`tools/<folder>/x.py`) in workflows, the Justfile, docs and `tools/ci/ci_changes.py` path filters.
+
+## Import check
+
+`python3 tools/ci/check_tool_imports.py` (the `rule coverage` job in `ci.yml`) loads every `tools/**/*.py` in a fresh interpreter twice, the way CI runs a script (only its own folder on `sys.path`) and the way `run_tests.py` imports it, and fails on any project module that does not resolve. It runs the module body only up to its last top-level import, checks imports nested in functions statically, and skips optional third-party modules. Run it after moving or renaming anything under `tools/`.
 
 ## Configuration and dependencies
 

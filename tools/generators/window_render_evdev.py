@@ -4,10 +4,16 @@
 Only reviewed public declarations are inputs. Contextual native C types are maintained
 separately from public SDK headers in internal/gamepad/linux-abi.jai.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 from pathlib import Path
 import re
 
-from jai_codegen import emit_generated, generator_parser
+from generators.jai_codegen import emit_generated, generator_parser
 
 ROOT = Path(__file__).resolve().parents[2]
 

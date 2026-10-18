@@ -1,9 +1,14 @@
 """Debug mode selection policies; no mocked result is native provider proof."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import unittest
 
-from stdlib_runtime import contract_result
-from stdlib_test_catalog import unavailable_reason, validated_entries
+from stdlib.stdlib_runtime import contract_result
+from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 
 
 class DebugCapabilities(unittest.TestCase):

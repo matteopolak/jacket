@@ -1,12 +1,17 @@
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from stdlib_coverage import code_lines, declarations
-from stdlib_runtime import contract_result, run_mode, program_arguments, runtime_prefix
-from stdlib_test_catalog import validated_entries, unavailable_reason
+from stdlib.stdlib_coverage import code_lines, declarations
+from stdlib.stdlib_runtime import contract_result, run_mode, program_arguments, runtime_prefix
+from stdlib.stdlib_test_catalog import validated_entries, unavailable_reason
 
 
 class CatalogueTests(unittest.TestCase):
@@ -82,7 +87,7 @@ class CatalogueTests(unittest.TestCase):
         args = SimpleNamespace(jaic="own-jaic", opt="O0", timeout=5, coverage=None, dlls=None)
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "program.jai"
-            with patch("stdlib_runtime.run_command", side_effect=[
+            with patch("stdlib.stdlib_runtime.run_command", side_effect=[
                 (1, "", "program has no `main` procedure; unknown identifier genuine_error"),
                 (1, "", "unknown identifier genuine_error"),
             ]):
@@ -92,7 +97,7 @@ class CatalogueTests(unittest.TestCase):
     def test_timeout_is_not_reclassified_as_compile_time_only(self):
         args = SimpleNamespace(jaic="own-jaic", opt="O0", timeout=5, coverage=None, dlls=None)
         with TemporaryDirectory() as temporary:
-            with patch("stdlib_runtime.run_command", return_value=(None, "", "program has no `main` procedure")):
+            with patch("stdlib.stdlib_runtime.run_command", return_value=(None, "", "program has no `main` procedure")):
                 passed, detail = run_mode(args, "program", Path(temporary) / "program.jai", "native", temporary)
                 self.assertIs(passed, False, detail)
 

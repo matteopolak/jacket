@@ -18,15 +18,14 @@ errors remain failures.
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS / "numerics",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import json
 import os
 from pathlib import Path
 
-from case_capabilities import user_deferred_reason
-from numerics_case_capabilities import (
+from stdlib.case_capabilities import user_deferred_reason
+from numerics.numerics_case_capabilities import (
     apply_numerics_capabilities,
     numerics_unavailable_reason,
 )

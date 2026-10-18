@@ -1,16 +1,15 @@
 """Independent Python math and IEEE struct oracles; emits durable Jai assertions."""
+
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 from pathlib import Path
 import math, random, struct
 from fractions import Fraction
 root=Path(__file__).resolve().parents[2]
 import sys
-sys.path.insert(0,str(root/'tools'))
 from repo_output import output_dir
 rng=random.Random(0x986831)
 lines=['#import "Basic";', 'M :: #import "Math";', 'H :: #import "Float16";', 'C :: #import "Color_Interpolation";',

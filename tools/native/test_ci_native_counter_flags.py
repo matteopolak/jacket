@@ -1,10 +1,15 @@
 """Compile-command contracts only; real Linux SDK build stays required in CI."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-import build_ci_native_bindings as tool
+from native import build_ci_native_bindings as tool
 
 
 class CounterFeatures(unittest.TestCase):

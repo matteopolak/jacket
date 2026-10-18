@@ -9,8 +9,7 @@ changes the pinned sources. Exits 1 when a check that was not skipped fails.
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native", _TOOLS / "stdlib",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 from decimal import Decimal
@@ -28,7 +27,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from case_capabilities import user_deferred_reason
+from stdlib.case_capabilities import user_deferred_reason
 from repo_output import host_platform
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -638,8 +637,7 @@ def main():
         "linux",
         "win32",
     ):
-        sys.path.insert(0, str(ROOT / "tools"))
-        import build_native_libs
+        from native import build_native_libs
 
         plat = args.platform if WINDOWS else None
         if build_native_libs.missing(plat):
@@ -654,7 +652,7 @@ def main():
         os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir(plat))
     shots = Path(args.screenshots)
     shots.mkdir(parents=True, exist_ok=True)
-    from upstream_native import prepare_native_dependencies
+    from native.upstream_native import prepare_native_dependencies
 
     native_paths = [
         Path(path).resolve(strict=True)

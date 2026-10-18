@@ -3,15 +3,20 @@
 Mocked dispatch verifies harness accounting, not native functionality.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import json
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-import http_conformance
-import stdlib_runtime
-import stdlib_test_catalog as catalog
+from stdlib import http_conformance
+from stdlib import stdlib_runtime
+from stdlib import stdlib_test_catalog as catalog
 
 
 class HttpCoverageTests(unittest.TestCase):

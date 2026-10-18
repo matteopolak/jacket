@@ -52,10 +52,10 @@ def main():
         ),
     )
     work = Path(tempfile.mkdtemp(prefix="domains-", dir=args.output_root))
-    sys.path.insert(0, str(snapshot / "tools/native_bindings"))
-    prepare = importlib.import_module("prepare_rpmalloc").prepare
-    builder = importlib.import_module("build_rpmalloc")
-    profiles = importlib.import_module("rpmalloc_profiles")
+    sys.path.insert(0, str(snapshot / "tools"))
+    prepare = importlib.import_module("native_bindings.prepare_rpmalloc").prepare
+    builder = importlib.import_module("native_bindings.build_rpmalloc")
+    profiles = importlib.import_module("native_bindings.rpmalloc_profiles")
     prepared = prepare(args.vendor, work / "prepared")
     repeated = prepare(args.vendor, work / "reproduced")
     hashes = {p.name: digest(p) for p in prepared.iterdir() if p.is_file()}

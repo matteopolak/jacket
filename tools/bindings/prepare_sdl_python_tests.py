@@ -10,8 +10,7 @@ tests are staged, not a replacement SDK or fabricated configuration.
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS / "native",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import hashlib
@@ -19,7 +18,7 @@ import json
 from pathlib import Path
 import tarfile
 import urllib.request
-from fetch_url import fetch
+from native.fetch_url import fetch
 from sdl_test_support import repository_root
 
 

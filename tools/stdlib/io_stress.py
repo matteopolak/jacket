@@ -27,8 +27,7 @@ directories). interop.jai starts openssl processes on ports and is not part of i
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS / "native",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import hashlib
@@ -42,7 +41,7 @@ import time
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from http_native import ensure_native_libraries
+from native.http_native import ensure_native_libraries
 from check_io_burst_diagnostics import observe_process
 from io_failure_observer import FailureGroup, source_identity
 

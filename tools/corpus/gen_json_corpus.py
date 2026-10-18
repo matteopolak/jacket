@@ -8,13 +8,12 @@ so the Json tests need no file system (they also run under wasm).
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(_TOOLS / "generators")]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import os
 
-from jai_codegen import write_or_check
+from generators.jai_codegen import write_or_check
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "stdlib", "Extensions", "Json", "tests", "fixtures")
 SOURCE = os.path.join(ROOT, "JSONTestSuite", "test_parsing")

@@ -6,11 +6,11 @@ target/sdl3/lint/ make every other target's exact source visible to its existing
 This is source/type/lint validation, never execution of foreign target binaries.
 """
 from __future__ import annotations
+
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import hashlib
@@ -19,7 +19,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-from sdl3_gen import ROOT, TARGETS
+from bindings.sdl3_gen import ROOT, TARGETS
 from repo_output import output_dir
 
 

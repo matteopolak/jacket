@@ -1,5 +1,10 @@
 """CI diagnostic policy tests only; never execute Jai, native SDKs or X11."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import io
 from pathlib import Path
 import tempfile
@@ -10,7 +15,7 @@ from clipboard_linux_diagnostics import failure_diagnostic, report_failure
 from check_clipboard_linux_package import require_runtime_verification
 
 
-from ci_test_scratch import assigned_scratch
+from ci.ci_test_scratch import assigned_scratch
 
 
 class ClipboardDiagnostics(unittest.TestCase):

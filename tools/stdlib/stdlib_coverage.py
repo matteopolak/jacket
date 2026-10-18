@@ -6,6 +6,12 @@ This source-level heuristic is not a reviewed API inventory, behavior coverage,
 or completion gate. Macro name matches do not prove execution. Contract tests,
 producer suites, target checks and native ABI tests are required independently.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import re
 import sys
@@ -13,8 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 STDLIB = ROOT / "stdlib"
-sys.path.insert(0, str(ROOT / "tools"))
-import stdlib_runtime  # noqa: E402
+from stdlib import stdlib_runtime  # noqa: E402
 
 DECL = re.compile(r"^\s*(operator\s*\S+?|[A-Za-z_][A-Za-z0-9_]*)\s*::\s*(.*)$")
 PROC_START = re.compile(r"^(inline\s+|no_inline\s+)?\(")

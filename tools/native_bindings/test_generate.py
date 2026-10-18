@@ -1,3 +1,8 @@
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import sys
 from pathlib import Path
 import unittest
@@ -6,13 +11,13 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "native_bindings"))
 from generate import (generate_facade, split_arguments, authored_signatures, normalized_signature,
                       normalize_member_lines, member_declarations_with_owners)
-from spec import parse_spec
+from native_bindings.spec import parse_spec
 
 
 class GeneratorTests(unittest.TestCase):
     def test_android_native_command_bodies_use_full_layout_branch(self):
         from generate import condition_for
-        from spec import Declaration
+        from native_bindings.spec import Declaration
         for name in ('android_app_read_cmd', 'android_app_pre_exec_cmd', 'android_app_post_exec_cmd'):
             body = Declaration(name + ' :: (app: *Android_App)', '')
             foreign = Declaration(name + ' :: (app: *Android_App) #foreign lib_glue', '')
@@ -27,7 +32,7 @@ class GeneratorTests(unittest.TestCase):
         self.assertNotEqual(normalized_signature('f :: (x := "#discard")'), normalized_signature('f :: (x := "")'))
 
     def test_shader_compiler_is_a_shared_acyclic_interface_dependency(self):
-        from config import IMPORTS
+        from native_bindings.config import IMPORTS
         self.assertNotIn('d3d11', IMPORTS['d3d_compiler'])
         self.assertIn('d3d_compiler', IMPORTS['d3d11'])
         self.assertIn('d3d_compiler', IMPORTS['d3d12'])

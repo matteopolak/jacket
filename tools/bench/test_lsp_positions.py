@@ -1,6 +1,10 @@
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import unittest
 
-import toolpath  # noqa: F401
 import benchgen
 from lsp_positions import (delete_lines_edit, insert_edit, mask_line, pick_positions, replace_edit, typing_script,
                            utf16_col)

@@ -4,6 +4,12 @@
 All downloads and outputs stay inside this clean-room workspace. No Git access,
 credentials, reference binaries, or reference Jai sources are involved.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import hashlib
 import json
@@ -16,13 +22,12 @@ import tempfile
 import time
 import urllib.request
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from fetch_url import fetch  # noqa: E402
-from sdl_sdk_headers import prepare_runtime_headers
-from config import RPMALLOC_SDK_BUILD_OPTIONS
-from prepare_rpmalloc import prepare as prepare_rpmalloc
-from rpmalloc_profiles import PROFILES
-from build_rpmalloc import build as build_rpmalloc
+from native.fetch_url import fetch  # noqa: E402
+from native_bindings.sdl_sdk_headers import prepare_runtime_headers
+from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
+from native_bindings.prepare_rpmalloc import prepare as prepare_rpmalloc
+from native_bindings.rpmalloc_profiles import PROFILES
+from native_bindings.build_rpmalloc import build as build_rpmalloc
 
 ROOT = Path(__file__).resolve().parents[2]
 

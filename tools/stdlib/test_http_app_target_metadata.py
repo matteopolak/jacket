@@ -1,10 +1,15 @@
 """Exact native Http fixtures; no production behavior or target execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 from pathlib import Path
 import sys
 import unittest
 
-from stdlib_test_catalog import unavailable_reason, validated_entries
+from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]

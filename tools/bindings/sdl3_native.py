@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Pinned SDL3 native build; also called by build_native_libs.py. Never consults another checkout."""
 from __future__ import annotations
+
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import hashlib
@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import tarfile
 import urllib.request
-from fetch_url import fetch
+from native.fetch_url import fetch
 from pathlib import Path
 
 from repo_output import output_dir
@@ -277,8 +277,8 @@ def build(out,plat,cache=None,offline=False,jobs=2):
             shutil.copy2(f,out/f.name,follow_symlinks=True)
         names=['libSDL3.a']+[f.name for f in out.glob(f'libSDL3*.{ext}*')]
     lic=out/'licenses/sdl3';lic.mkdir(parents=True,exist_ok=True)
-    from build_native_libs import copy_licenses
-    from sdl3_gen import native_notices
+    from native.build_native_libs import copy_licenses
+    from bindings.sdl3_gen import native_notices
     copy_licenses('sdl3',source,src,out)
     # Match the exact LF/UTF-8 checked-in generated notice asset on Windows too.
     (lic/'THIRD-PARTY-NOTICES.txt').write_bytes(native_notices(src).encode('utf-8'))

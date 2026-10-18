@@ -1,5 +1,10 @@
 """HTTP setup/dispatch policy tests; mocked SDK builds are not native evidence."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import json
 import hashlib
 import io
@@ -11,8 +16,8 @@ import tarfile
 import unittest
 from unittest.mock import patch
 
-import http_native
-import test_http_conformance_coverage as coverage_tests
+from native import http_native
+from stdlib import test_http_conformance_coverage as coverage_tests
 
 
 class HttpNativeSetupTests(unittest.TestCase):
@@ -137,7 +142,7 @@ class HttpNativeSetupTests(unittest.TestCase):
         self.assertNotIn("JAIC_NATIVE_LIBS", os.environ)
 
     def test_conformance_sets_parent_provider_before_every_child(self):
-        import http_conformance
+        from stdlib import http_conformance
 
         provider = self.root / "provided"
         observed = []

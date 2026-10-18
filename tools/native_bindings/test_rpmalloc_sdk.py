@@ -1,3 +1,8 @@
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import sys
 from pathlib import Path
 import unittest
@@ -8,12 +13,11 @@ import json
 import re
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/native_bindings'))
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 from repo_output import output_dir
 from vendor_rpmalloc import native_type, record
 from verify import ROOT, place_private_unit
 from generate import condition_for
-from spec import Declaration
+from native_bindings.spec import Declaration
 
 
 class NativeAllocatorTranslationTests(unittest.TestCase):

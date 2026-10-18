@@ -3,6 +3,12 @@
 This module deliberately does not infer behavior from legacy tests. Native
 macro arithmetic follows the corresponding public C APIs.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import re
 from bitfields import body as bitfield_body
 
@@ -186,7 +192,7 @@ def forwarding_body(module, declaration, declarations, parts, parse):
         native_declarations = list(declarations)
         for pfn in declarations:
             if pfn.name == 'PFN_' + name and pfn.condition == declaration.condition:
-                from spec import Declaration
+                from native_bindings.spec import Declaration
                 signature = pfn.code.split('#type', 1)[1].replace('#c_call', '#foreign libvulkan')
                 native_declarations.append(Declaration(name + ' :: ' + signature, pfn.condition))
         for raw in native_declarations:

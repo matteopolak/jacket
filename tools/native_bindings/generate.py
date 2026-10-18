@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 """Generate native ABI facades exclusively from the reviewed public specs."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 from collections import Counter, defaultdict
 from dataclasses import replace
@@ -9,12 +15,12 @@ from pathlib import Path
 import re
 import subprocess
 
-from spec import parse_spec
-from config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES, RPMALLOC_PUBLIC_CONSTRAINTS
+from native_bindings.spec import parse_spec
+from native_bindings.config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES, RPMALLOC_PUBLIC_CONSTRAINTS
 from wrappers import simple_body, forwarding_body
 from objc import materialize_methods
 from bitfields import body as bitfield_body
-from spec import Declaration, Shape
+from native_bindings.spec import Declaration, Shape
 from rpmalloc_context import render_context
 from conditions import possible
 

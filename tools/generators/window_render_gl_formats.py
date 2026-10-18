@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """Emit private GL texel descriptions from our reviewed-format/native-SDK mapping ledger."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import json
 from pathlib import Path
 
-from jai_codegen import emit_generated, generator_parser
+from generators.jai_codegen import emit_generated, generator_parser
 
 ROOT = Path(__file__).resolve().parents[2]
 

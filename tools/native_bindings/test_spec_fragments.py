@@ -1,8 +1,13 @@
 """Reviewed field fences supplement a same-target member inventory."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import unittest
 
-from spec import parse_spec
+from native_bindings.spec import parse_spec
 
 
 class FieldFragments(unittest.TestCase):

@@ -1,5 +1,10 @@
 """Immutable captures may use local outputs without capturing themselves."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import tempfile
 from pathlib import Path
 import subprocess
@@ -7,7 +12,6 @@ import sys
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import shared_snapshot
 from repo_output import output_dir
 

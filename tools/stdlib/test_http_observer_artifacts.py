@@ -1,11 +1,16 @@
 """CI capture-retention policy only; never launches the HTTP workload."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-from ci_test_scratch import assigned_scratch
+from ci.ci_test_scratch import assigned_scratch
 
 WORKFLOW = (
     Path(__file__).resolve().parents[2] / ".github/workflows/http-conformance.yml"

@@ -25,10 +25,10 @@ def main():
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-adaptive-cache.jai', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_adaptive_probe.c',
         'docs/specs/stdlib/modules/rpmalloc.md', 'jailint.toml', 'jaifmt.toml'))
     work = Path(tempfile.mkdtemp(prefix='no-thread-', dir=args.output_root))
-    sys.path.insert(0, str(snapshot/'tools/native_bindings'))
-    prepare = importlib.import_module('prepare_rpmalloc').prepare
-    build = importlib.import_module('build_rpmalloc').build
-    profiles = importlib.import_module('rpmalloc_profiles').PROFILES
+    sys.path.insert(0, str(snapshot / 'tools'))
+    prepare = importlib.import_module('native_bindings.prepare_rpmalloc').prepare
+    build = importlib.import_module('native_bindings.build_rpmalloc').build
+    profiles = importlib.import_module('native_bindings.rpmalloc_profiles').PROFILES
     prepared = prepare(args.vendor, work/'prepared')
     selected_profiles = [p for p in profiles if not p['global_cache'] and not p['thread_cache'] and not p['adaptive'] and
         p['assertions'] and p['validation'] and (not p['raw'] or not p['public_heaps'])]

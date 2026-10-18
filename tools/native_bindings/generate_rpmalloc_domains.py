@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 """Derive complete private domain globals from the pinned official C SDK."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import difflib
 import json
@@ -7,7 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from prepare_rpmalloc import ROOT, prepare
+from native_bindings.prepare_rpmalloc import ROOT, prepare
 
 
 def generate(vendor, work):

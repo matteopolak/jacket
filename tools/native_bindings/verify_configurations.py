@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 """Check generated alternatives separately, including unavailable mobile targets."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import argparse
 import hashlib
 import json
@@ -9,7 +15,7 @@ import sys
 from itertools import product
 
 from generate import MODULES
-from spec import parse_spec
+from native_bindings.spec import parse_spec
 from verify import ROOT, TARGET_CONFIGS, select_stdlib, invoke, public_source
 
 # (module, parameter values, import suffix, applicable OS values)

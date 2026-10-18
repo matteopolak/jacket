@@ -6,6 +6,12 @@ loads straight into its own scope, so the declarations are the public names. Aut
 (field accessors, ancillary-data macros, the FD_* wrappers) are never emitted; they live in the
 hand-written socket-*.jai files next to the generated ones.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
+
 import sys as _sys
 from pathlib import Path as _Path
 
@@ -16,8 +22,8 @@ from collections import defaultdict
 from pathlib import Path
 import re
 
-from jai_codegen import emit_generated, generator_parser
-from spec import parse_spec
+from generators.jai_codegen import emit_generated, generator_parser
+from native_bindings.spec import parse_spec
 
 ROOT = Path(__file__).resolve().parents[2]
 OSES = ["macos", "linux", "android", "windows"]

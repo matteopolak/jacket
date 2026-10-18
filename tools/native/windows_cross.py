@@ -17,8 +17,7 @@ docs/native/windows.md.
 import sys as _sys
 from pathlib import Path as _Path
 
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(d) for d in (_TOOLS / "stdlib",)]  # modules from other tools/ folders
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))  # tools/, for folder-qualified imports
 
 import argparse
 import concurrent.futures
@@ -33,8 +32,7 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
-import stdlib_runtime  # noqa: E402
+from stdlib import stdlib_runtime  # noqa: E402
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
 WINDOWS_PROGRAMS = [
@@ -361,7 +359,7 @@ def ensure_cross_host_bindings(host):
     Host shared providers and target PE libraries have distinct search paths.
     An explicit caller build directory is required; no local temp fallback.
     """
-    import build_ci_native_bindings
+    from native import build_ci_native_bindings
 
     _, profiles, _ = build_ci_native_bindings.selected_libraries()
     required = {"binding_callback_context", "rpmalloc_callback_probe"}
@@ -524,7 +522,7 @@ def use_cross_libs(args):
         ],
         check=True,
     )
-    import build_native_libs
+    from native import build_native_libs
 
     target_libraries = build_native_libs.output_dir(platform)
     subprocess.run(
