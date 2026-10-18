@@ -343,7 +343,7 @@ fn is_ident_start(c: u8) -> bool {
     c.is_ascii_alphabetic() || c == b'_' || c >= 0x80
 }
 
-fn is_ident_char(c: u8) -> bool {
+pub(crate) fn is_ident_char(c: u8) -> bool {
     c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80
 }
 

@@ -762,6 +762,25 @@ fn asm_completion_works_in_an_unterminated_block() {
 }
 
 #[test]
+fn asm_completion_works_after_a_bare_unterminated_open_brace() {
+    let mut s = session();
+    let text = "main :: () {\n    #asm {";
+    s.open(uri(), 1, text.into()).unwrap();
+    let found = items(&s, after(text, "#asm {", 0, 0));
+    assert!(
+        found.iter().any(|i| i.label == "add"),
+        "{:?}",
+        found.iter().map(|i| &i.label).collect::<Vec<_>>()
+    );
+    assert!(found.iter().any(|i| i.kind == CompletionKind::Snippet));
+    // A comment holding the directive is not a block.
+    let text = "main :: () {\n    // #asm {\n    ad";
+    replace_text(&mut s, 2, text);
+    let found = items(&s, after(text, "    ad", 0, 0));
+    assert!(found.iter().all(|i| i.kind != CompletionKind::Instruction));
+}
+
+#[test]
 fn asm_items_are_not_offered_outside_asm_blocks() {
     let (mut s, _) = asm_session("");
     let text = ASM

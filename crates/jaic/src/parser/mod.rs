@@ -17,6 +17,7 @@
 //! - `directive_stmt` statement-level directives (`#import`, `#load`, `#if`, `#run`, ...)
 mod aggregate;
 mod asm;
+pub mod asm_ide;
 mod decl;
 mod directive;
 mod directive_stmt;

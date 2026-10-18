@@ -3,299 +3,43 @@
 //! signature help.
 //!
 //! The instruction data is the compiler's own table (`jaic::sema::asm_catalog`), so what is
-//! offered is exactly what compiles. A block is found by a tolerant scan of the text rather
-//! than the parser: while an instruction is being typed the block usually does not parse,
-//! and an unterminated `#asm {` still gets help (its body runs to the brace that closes it,
-//! or to the end of the file).
+//! offered is exactly what compiles. Blocks, statements and operands come from
+//! `jaic::parser::asm_ide`, which is tolerant of what is being typed: an unterminated
+//! `#asm {` still gets help (its body runs to the brace that closes it, or to the end of the
+//! file).
 use crate::hover::{Block, HoverText, Inline};
 use crate::session::{Session, contains, repair};
 use crate::{
     CompletionItem, CompletionKind, CompletionList, DocumentUri, SignatureHelp,
     SignatureInformation, SymbolKind, semantic,
 };
+use jaic::lexer::{P, Tok};
+use jaic::parser::asm_ide::{
+    AsmBlockSyntax, AsmPlace, AsmStmtKind, AsmStmtSyntax, asm_blocks, parse_asm_statement,
+    word_range,
+};
 use jaic::sema::asm_catalog::{self as catalog, AsmInstruction};
 use jaic::sema::ide::{IdeKind, IdeName};
+use jaic::source::{FileId, Span};
 use std::collections::BTreeMap;
 
-fn ident(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'_'
+fn slice(text: &str, span: Span) -> &str {
+    text.get(span.start as usize..span.end as usize)
+        .unwrap_or("")
 }
 
-/// `text` with comments and the contents of strings replaced by spaces, offsets kept.
-fn code_only(text: &str) -> Vec<u8> {
-    let b = text.as_bytes();
-    let mut out = b.to_vec();
-    let mut i = 0;
-    while i < b.len() {
-        if b[i] == b'/' && b.get(i + 1) == Some(&b'/') {
-            while i < b.len() && b[i] != b'\n' {
-                out[i] = b' ';
-                i += 1;
-            }
-        } else if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
-            // Block comments nest.
-            let mut depth = 0usize;
-            while i < b.len() {
-                let pair = (b[i], b.get(i + 1).copied());
-                if pair == (b'/', Some(b'*')) || pair == (b'*', Some(b'/')) {
-                    out[i] = b' ';
-                    out[i + 1] = b' ';
-                    i += 2;
-                    if pair.0 == b'/' {
-                        depth += 1;
-                    } else {
-                        depth -= 1;
-                        if depth == 0 {
-                            break;
-                        }
-                    }
-                    continue;
-                }
-                if b[i] != b'\n' {
-                    out[i] = b' ';
-                }
-                i += 1;
-            }
-        } else if b[i] == b'"' {
-            i += 1;
-            while i < b.len() && b[i] != b'"' && b[i] != b'\n' {
-                if b[i] == b'\\' && i + 1 < b.len() && b[i + 1] != b'\n' {
-                    out[i] = b' ';
-                    i += 1;
-                }
-                out[i] = b' ';
-                i += 1;
-            }
-            i += 1;
-        } else {
-            i += 1;
-        }
-    }
-    out
-}
-
-fn str_of(code: &[u8], start: usize, end: usize) -> &str {
-    std::str::from_utf8(&code[start..end]).unwrap_or("")
-}
-
-/// The identifier characters just before `byte`.
-fn word_before(code: &[u8], byte: usize) -> usize {
-    let mut start = byte;
-    while start > 0 && ident(code[start - 1]) {
-        start -= 1;
-    }
-    start
-}
-
-fn skip_ws(code: &[u8], mut at: usize, end: usize) -> usize {
-    while at < end && code[at].is_ascii_whitespace() {
-        at += 1;
-    }
-    at
-}
-
-fn ident_end(code: &[u8], mut at: usize, end: usize) -> usize {
-    while at < end && ident(code[at]) {
-        at += 1;
-    }
-    at
-}
-
-/// One `#asm` block found by the scan.
-struct AsmBlock {
-    /// The `#` of `#asm`.
-    directive: usize,
-    /// The `{`.
-    open: usize,
-    /// The closing `}`, or the end of the text when the block is unterminated.
-    end: usize,
-    closed: bool,
-    /// Default vector width in bytes from the feature modifiers.
-    width: u64,
-}
-
-enum Place {
-    /// Between `#asm` and `{`: a feature modifier is being typed (its first byte).
-    Features(usize),
-    Body(AsmBlock),
-}
-
-/// Where `byte` is relative to the `#asm` blocks of `code`.
-fn locate(code: &[u8], byte: usize) -> Option<Place> {
-    let mut from = 0;
-    while let Some(found) = code[from..].windows(4).position(|w| w == b"#asm") {
-        let at = from + found;
-        if at >= byte {
-            return None;
-        }
-        let after = at + 4;
-        from = after;
-        if code.get(after).is_some_and(|&c| ident(c)) {
-            continue;
-        }
-        // Header: feature names separated by commas, then `{`.
-        let mut j = after;
-        let mut width = 16;
-        loop {
-            while j < code.len() && (code[j].is_ascii_whitespace() || code[j] == b',') {
-                j += 1;
-            }
-            let end = ident_end(code, j, code.len());
-            if end == j {
-                break;
-            }
-            let name = str_of(code, j, end);
-            if name.starts_with("AVX512") {
-                width = 64;
-            } else if name.starts_with("AVX") && width < 32 {
-                width = 32;
-            }
-            j = end;
-        }
-        if byte > after && byte <= j {
-            return Some(Place::Features(word_before(code, byte)));
-        }
-        if code.get(j) != Some(&b'{') {
-            continue;
-        }
-        let mut depth = 1;
-        let mut k = j + 1;
-        while k < code.len() {
-            match code[k] {
-                b'{' => depth += 1,
-                b'}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                _ => {}
-            }
-            k += 1;
-        }
-        if byte > j && byte <= k {
-            return Some(Place::Body(AsmBlock {
-                directive: at,
-                open: j,
-                end: k.min(code.len()),
-                closed: k < code.len(),
-                width,
-            }));
-        }
-        from = k.min(code.len());
-    }
-    None
-}
-
-/// A parsed (possibly partial) `#asm` statement; ranges are byte offsets into the text.
-#[derive(Debug)]
-enum Stmt {
-    Empty,
-    /// `name: class` or `name:`, optionally pinned.
-    Decl {
-        name: (usize, usize),
-        class: Option<(usize, usize)>,
-        /// Start of the text after `===`, if any.
-        pin: Option<usize>,
-    },
-    /// `name === reg`: pins an existing variable.
-    Pin,
-    Inst {
-        mnemonic: (usize, usize),
-        suffix: Option<(usize, usize)>,
-        /// Start of the operand list (after the whitespace following the mnemonic).
-        operands: Option<usize>,
-    },
-    Other,
-}
-
-fn pin_after(code: &[u8], at: usize, end: usize) -> Option<usize> {
-    code[at..end]
-        .windows(3)
-        .position(|w| w == b"===")
-        .map(|p| at + p + 3)
-}
-
-fn parse_stmt(code: &[u8], start: usize, end: usize) -> Stmt {
-    let p = skip_ws(code, start, end);
-    if p == end {
-        return Stmt::Empty;
-    }
-    let q = ident_end(code, p, end);
-    if q == p {
-        return Stmt::Other;
-    }
-    let r = skip_ws(code, q, end);
-    if r < end && code[r] == b':' && code.get(r + 1) != Some(&b':') {
-        let c = skip_ws(code, r + 1, end);
-        let ce = ident_end(code, c, end);
-        return Stmt::Decl {
-            name: (p, q),
-            class: (ce > c).then_some((c, ce)),
-            pin: pin_after(code, r + 1, end),
-        };
-    }
-    if code[r..end].starts_with(b"===") {
-        return Stmt::Pin;
-    }
-    let mut s = q;
-    let mut suffix = None;
-    if s < end && code[s] == b'.' {
-        let e = ident_end(code, s + 1, end);
-        suffix = Some((s + 1, e));
-        s = e;
-    } else if s < end && code[s] == b'?' {
-        while s < end && !code[s].is_ascii_whitespace() {
-            s += 1;
-        }
-    }
-    let operands = (s < end && code[s].is_ascii_whitespace()).then(|| skip_ws(code, s, end));
-    if operands.is_none() && s < end {
-        return Stmt::Other;
-    }
-    Stmt::Inst {
-        mnemonic: (p, q),
-        suffix,
-        operands,
-    }
-}
-
-/// The operands of `[start, end)`, split at commas outside `[...]` (untrimmed ranges).
-fn split_operands(code: &[u8], start: usize, end: usize) -> Vec<(usize, usize)> {
-    let mut out = Vec::new();
-    let mut depth = 0i32;
-    let mut from = start;
-    for (i, &c) in code.iter().enumerate().take(end).skip(start) {
-        match c {
-            b'[' | b'(' => depth += 1,
-            b']' | b')' => depth -= 1,
-            b',' if depth <= 0 => {
-                out.push((from, i));
-                from = i + 1;
-            }
-            _ => {}
-        }
-    }
-    out.push((from, end));
-    out
-}
-
-/// `name:` (not `::`) at the start of an operand: the name and what follows the colon.
-fn inline_decl(code: &[u8], start: usize, end: usize) -> Option<((usize, usize), usize)> {
-    let p = skip_ws(code, start, end);
-    let q = ident_end(code, p, end);
-    if q == p || code[p].is_ascii_digit() {
-        return None;
-    }
-    let r = skip_ws(code, q, end);
-    (r < end && code[r] == b':' && code.get(r + 1) != Some(&b':')).then_some(((p, q), r + 1))
+/// The block and place `byte` is in.
+fn locate(blocks: &[AsmBlockSyntax], byte: usize) -> Option<(&AsmBlockSyntax, AsmPlace)> {
+    blocks
+        .iter()
+        .find_map(|b| b.place(byte).map(|place| (b, place)))
 }
 
 /// A register declared in a block.
 struct Reg {
     name: String,
     class: &'static str,
-    span: (usize, usize),
+    span: Span,
 }
 
 fn class_name(name: &str) -> &'static str {
@@ -305,65 +49,33 @@ fn class_name(name: &str) -> &'static str {
         .map_or("gpr", |c| c.name)
 }
 
-/// Statement ranges of a block body.
-fn statements(code: &[u8], block: &AsmBlock) -> Vec<(usize, usize)> {
-    let mut out = Vec::new();
-    let mut from = block.open + 1;
-    for (i, &c) in code.iter().enumerate().take(block.end).skip(block.open + 1) {
-        if c == b';' {
-            out.push((from, i));
-            from = i + 1;
-        }
-    }
-    out.push((from, block.end));
-    out
-}
-
-fn width_of(code: &[u8], suffix: Option<(usize, usize)>, default: u64) -> u64 {
-    match suffix.map(|(s, e)| str_of(code, s, e)) {
-        Some("x") => 16,
-        Some("y") => 32,
-        Some("z") => 64,
-        _ => default,
-    }
-}
-
 /// Registers the block declares: `x: class;` statements and inline `x:` operands.
-fn registers(code: &[u8], block: &AsmBlock) -> Vec<Reg> {
+fn registers(text: &str, block: &AsmBlockSyntax) -> Vec<Reg> {
     let mut out = Vec::new();
-    for (start, end) in statements(code, block) {
-        match parse_stmt(code, start, end) {
-            Stmt::Decl {
-                name,
-                class,
-                ..
+    for stmt in &block.statements {
+        match &stmt.kind {
+            AsmStmtKind::Decl {
+                decl, ..
             } => out.push(Reg {
-                name: str_of(code, name.0, name.1).into(),
-                class: class.map_or("gpr", |(s, e)| class_name(str_of(code, s, e))),
-                span: name,
+                name: slice(text, decl.name).into(),
+                class: decl.class.map_or("gpr", |c| class_name(slice(text, c))),
+                span: decl.name,
             }),
-            Stmt::Inst {
-                mnemonic,
-                suffix,
-                operands: Some(ops),
-            } => {
-                let mnemonic = str_of(code, mnemonic.0, mnemonic.1);
-                let width = width_of(code, suffix, block.width);
-                for (i, (s, e)) in split_operands(code, ops, end).into_iter().enumerate() {
-                    let Some((name, after)) = inline_decl(code, s, e) else {
+            AsmStmtKind::Inst(inst) => {
+                let mnemonic = slice(text, inst.mnemonic);
+                let width = block.width_for(text, inst.suffix);
+                for (i, op) in inst.operands.iter().enumerate() {
+                    let Some(decl) = op.decl else {
                         continue;
                     };
-                    let c = skip_ws(code, after, e);
-                    let ce = ident_end(code, c, e);
-                    let class = if ce > c {
-                        class_name(str_of(code, c, ce))
-                    } else {
-                        catalog::inline_register_class(mnemonic, width, i).unwrap_or("gpr")
+                    let class = match decl.class {
+                        Some(c) => class_name(slice(text, c)),
+                        None => catalog::inline_register_class(mnemonic, width, i).unwrap_or("gpr"),
                     };
                     out.push(Reg {
-                        name: str_of(code, name.0, name.1).into(),
+                        name: slice(text, decl.name).into(),
                         class,
-                        span: name,
+                        span: decl.name,
                     });
                 }
             }
@@ -389,68 +101,39 @@ enum Slot {
     },
 }
 
-fn slot(code: &[u8], start: usize, byte: usize) -> Option<Slot> {
-    Some(match parse_stmt(code, start, byte) {
-        Stmt::Empty => Slot::Mnemonic,
-        Stmt::Decl {
+/// The slot at the end of `stmt`, a statement cut at the cursor.
+fn slot(text: &str, stmt: &AsmStmtSyntax) -> Option<Slot> {
+    let byte = stmt.span.end;
+    Some(match &stmt.kind {
+        AsmStmtKind::Empty => Slot::Mnemonic,
+        AsmStmtKind::Decl {
             pin: Some(_), ..
         }
-        | Stmt::Pin => Slot::Pin,
-        Stmt::Decl {
-            class, ..
-        } => {
-            // Only while the class itself is typed: nothing may follow it.
-            let at = class.map_or(byte, |(_, e)| e);
-            if at != byte {
-                return None;
-            }
-            Slot::Class
-        }
-        Stmt::Inst {
-            mnemonic,
-            suffix,
-            operands,
-        } => match operands {
-            None if suffix.is_some_and(|(_, e)| e == byte) => Slot::Suffix,
-            None if mnemonic.1 == byte => Slot::Mnemonic,
+        | AsmStmtKind::Pin => Slot::Pin,
+        // Only while the class itself is typed: nothing may follow it.
+        AsmStmtKind::Decl {
+            decl, ..
+        } => decl.class_open.then_some(Slot::Class)?,
+        AsmStmtKind::Inst(inst) => match inst.operands.last() {
+            None if inst.suffix.is_some_and(|s| s.end == byte) => Slot::Suffix,
+            None if inst.mnemonic.end == byte => Slot::Mnemonic,
             None => return None,
-            Some(ops) => {
-                let parts = split_operands(code, ops, byte);
-                let (s, e) = *parts.last()?;
-                if pin_after(code, s, e).is_some() {
+            Some(op) => {
+                if op.pin.is_some() {
                     Slot::Pin
-                } else if let Some((_, after)) = inline_decl(code, s, e) {
+                } else if let Some(decl) = op.decl {
                     // `tmp: cl|` names the class of an inline declaration.
-                    let c = skip_ws(code, after, e);
-                    if ident_end(code, c, e) != e {
-                        return None;
-                    }
-                    Slot::Class
+                    decl.class_open.then_some(Slot::Class)?
                 } else {
                     Slot::Operand {
-                        mnemonic: str_of(code, mnemonic.0, mnemonic.1).into(),
-                        index: parts.len() - 1,
+                        mnemonic: slice(text, inst.mnemonic).into(),
+                        index: inst.operands.len() - 1,
                     }
                 }
             }
         },
-        Stmt::Other => return None,
+        AsmStmtKind::Other => return None,
     })
-}
-
-/// The start of the statement holding `byte` in `block`.
-fn statement_start(code: &[u8], block: &AsmBlock, byte: usize) -> usize {
-    code[block.open + 1..byte]
-        .iter()
-        .rposition(|&c| c == b';')
-        .map_or(block.open + 1, |p| block.open + 1 + p + 1)
-}
-
-fn statement_end(code: &[u8], block: &AsmBlock, byte: usize) -> usize {
-    code[byte..block.end]
-        .iter()
-        .position(|&c| c == b';')
-        .map_or(block.end, |p| byte + p)
 }
 
 /// The Markdown documentation of an instruction.
@@ -505,10 +188,13 @@ impl Session {
         if !text.contains("#asm") {
             return None;
         }
-        let code = code_only(text);
-        let block = match locate(&code, byte)? {
-            Place::Features(start) => {
-                let typed = str_of(&code, start, byte).to_ascii_uppercase();
+        let blocks = asm_blocks(text);
+        let (block, place) = locate(&blocks, byte)?;
+        match place {
+            AsmPlace::Features {
+                word_start,
+            } => {
+                let typed = text[word_start as usize..byte].to_ascii_uppercase();
                 return Some(CompletionList {
                     is_incomplete: false,
                     items: catalog::feature_modifiers()
@@ -518,14 +204,15 @@ impl Session {
                         .collect(),
                 });
             }
-            Place::Body(block) => block,
-        };
-        let start = statement_start(&code, &block, byte);
-        let word = word_before(&code, byte);
-        let prefix = str_of(&code, word, byte);
+            AsmPlace::Body => {}
+        }
+        let start = block.statement_at(byte)?.span.start as usize;
+        let stmt = parse_asm_statement(text, start, byte);
+        let (word, _) = word_range(text, byte);
+        let prefix = &text[word..byte];
         let lower = prefix.to_ascii_lowercase();
         let mut incomplete = false;
-        let items: Vec<CompletionItem> = match slot(&code, start, byte)? {
+        let items: Vec<CompletionItem> = match slot(text, &stmt)? {
             Slot::Mnemonic => {
                 let mut items: Vec<CompletionItem> = Vec::new();
                 for i in catalog::instructions() {
@@ -580,8 +267,8 @@ impl Session {
                     return Some(CompletionList::default());
                 }
                 let mut items = BTreeMap::new();
-                for reg in registers(&code, &block) {
-                    if reg.span.1 <= word && reg.name.starts_with(prefix) {
+                for reg in registers(text, block) {
+                    if reg.span.end as usize <= word && reg.name.starts_with(prefix) {
                         items.entry(reg.name.clone()).or_insert(CompletionItem {
                             label: reg.name,
                             kind: CompletionKind::Variable,
@@ -590,7 +277,7 @@ impl Session {
                         });
                     }
                 }
-                for name in self.asm_scope_names(uri, text, &code, &block) {
+                for name in self.asm_scope_names(uri, text, block) {
                     if !name.name.starts_with(prefix) || items.len() >= self.limits.symbols {
                         continue;
                     }
@@ -621,13 +308,12 @@ impl Session {
         &self,
         uri: &DocumentUri,
         text: &str,
-        code: &[u8],
-        block: &AsmBlock,
+        block: &AsmBlockSyntax,
     ) -> Vec<IdeName> {
         let Ok((uri, doc)) = self.document_entry(uri) else {
             return Vec::new();
         };
-        let at = block.directive;
+        let at = block.directive.start as usize;
         let blank = |from: usize, to: usize| -> String {
             let mut bytes = text.as_bytes().to_vec();
             for b in &mut bytes[from..to] {
@@ -640,12 +326,15 @@ impl Session {
         if self.environment.is_some() {
             // Without the block; braces it left open (an unterminated block took the
             // procedure's `}`) are closed at the end, which keeps every offset.
-            let mut probe = blank(at, (block.end + usize::from(block.closed)).min(code.len()));
-            let open = code_only(&probe).iter().fold(0i64, |depth, &c| match c {
-                b'{' => depth + 1,
-                b'}' => depth - 1,
-                _ => depth,
-            });
+            let mut probe = blank(at, (block.span().end as usize).min(text.len()));
+            let open = jaic::lexer::lex_ide(FileId(0), &probe)
+                .0
+                .iter()
+                .fold(0i64, |depth, t| match t.tok {
+                    Tok::Punct(P::LBrace | P::DotBrace) => depth + 1,
+                    Tok::Punct(P::RBrace) => depth - 1,
+                    _ => depth,
+                });
             if open > 0 {
                 probe.push('\n');
                 probe.push_str(&"}".repeat(open as usize));
@@ -701,20 +390,16 @@ impl Session {
         if !text.contains("#asm") {
             return None;
         }
-        let code = code_only(text);
-        let Place::Body(block) = locate(&code, byte)? else {
+        let blocks = asm_blocks(text);
+        let (block, AsmPlace::Body) = locate(&blocks, byte)? else {
             return None;
         };
-        let start = statement_start(&code, &block, byte);
-        let end = statement_end(&code, &block, byte);
-        if let Stmt::Inst {
-            mnemonic: (ms, me),
-            ..
-        } = parse_stmt(&code, start, end)
-            && ms <= byte
-            && byte <= me
+        if let AsmStmtKind::Inst(inst) = &block.statement_at(byte)?.kind
+            && inst.mnemonic.start as usize <= byte
+            && byte <= inst.mnemonic.end as usize
         {
-            let i = catalog::instruction(str_of(&code, ms, me))?;
+            let (ms, me) = (inst.mnemonic.start as usize, inst.mnemonic.end as usize);
+            let i = catalog::instruction(slice(text, inst.mnemonic))?;
             let text = HoverText::new(vec![
                 Block::Code(i.forms.join("\n")),
                 Block::Para(vec![Inline::Text(i.description.clone())]),
@@ -725,10 +410,9 @@ impl Session {
             ]);
             return Some((ms, me, text));
         }
-        let ws = word_before(&code, byte);
-        let we = ident_end(&code, byte, code.len());
-        let word = str_of(&code, ws, we);
-        let reg = registers(&code, &block)
+        let (ws, we) = word_range(text, byte);
+        let word = &text[ws..we];
+        let reg = registers(text, block)
             .into_iter()
             .find(|r| r.name == word && !word.is_empty())?;
         let description = catalog::register_classes()
@@ -750,15 +434,15 @@ impl Session {
         if !text.contains("#asm") {
             return None;
         }
-        let code = code_only(text);
-        let Place::Body(block) = locate(&code, byte)? else {
+        let blocks = asm_blocks(text);
+        let (block, AsmPlace::Body) = locate(&blocks, byte)? else {
             return None;
         };
-        let start = statement_start(&code, &block, byte);
+        let start = block.statement_at(byte)?.span.start as usize;
         let Slot::Operand {
             mnemonic,
             index,
-        } = slot(&code, start, byte)?
+        } = slot(text, &parse_asm_statement(text, start, byte))?
         else {
             return None;
         };
@@ -792,16 +476,22 @@ impl Session {
 mod tests {
     use super::*;
 
-    fn place(text: &str, marker: &str) -> Option<Place> {
+    fn place(text: &str, marker: &str) -> Option<(Vec<AsmBlockSyntax>, AsmPlace)> {
         let byte = text.find(marker).unwrap() + marker.len();
-        locate(&code_only(text), byte)
+        let blocks = asm_blocks(text);
+        let place = locate(&blocks, byte)?.1;
+        Some((blocks, place))
     }
 
     #[test]
     fn blocks_are_found_without_parsing() {
-        let text = "f :: () {\n    #asm AVX2 {\n        vpad|\n}\n";
-        assert!(matches!(place(text, "vpad"), Some(Place::Body(b)) if b.width == 32));
-        assert!(matches!(place(text, "#asm AV"), Some(Place::Features(_))));
+        let text = "f :: () {\n    #asm AVX2 {\n        vpad\n}\n";
+        let (blocks, here) = place(text, "vpad").unwrap();
+        assert_eq!((here, blocks[0].width), (AsmPlace::Body, 32));
+        assert!(matches!(
+            place(text, "#asm AV"),
+            Some((_, AsmPlace::Features { .. }))
+        ));
         assert!(place(text, "f ::").is_none());
         let commented = "// #asm { add\nx := 1;";
         assert!(place(commented, "x :=").is_none());
@@ -811,31 +501,37 @@ mod tests {
 
     #[test]
     fn slots_follow_the_statement_shape() {
-        let code = code_only("#asm { mov.q x, ab; t: gp");
-        let at = |m: &str| {
-            let s = std::str::from_utf8(&code).unwrap();
-            s.find(m).unwrap() + m.len()
+        let text = "#asm { mov.q x, ab; t: gp";
+        let at = |m: &str| text.find(m).unwrap() + m.len();
+        let blocks = asm_blocks(text);
+        let slot_at = |m: &str| {
+            let byte = at(m);
+            let start = blocks[0].statement_at(byte).unwrap().span.start as usize;
+            slot(text, &parse_asm_statement(text, start, byte))
         };
-        let Place::Body(block) = locate(&code, at("ab")).unwrap() else {
-            panic!()
-        };
-        let start = statement_start(&code, &block, at("ab"));
         assert!(matches!(
-            slot(&code, start, at("ab")),
+            slot_at("ab"),
             Some(Slot::Operand {
                 index: 1,
                 ..
             })
         ));
-        assert!(matches!(
-            slot(&code, start, at("mov")),
-            Some(Slot::Mnemonic)
-        ));
-        assert!(matches!(
-            slot(&code, start, at("mov.q")),
-            Some(Slot::Suffix)
-        ));
-        let start = statement_start(&code, &block, at("gp"));
-        assert!(matches!(slot(&code, start, at("gp")), Some(Slot::Class)));
+        assert!(matches!(slot_at("mov"), Some(Slot::Mnemonic)));
+        assert!(matches!(slot_at("mov.q"), Some(Slot::Suffix)));
+        assert!(matches!(slot_at("gp"), Some(Slot::Class)));
+    }
+
+    #[test]
+    fn an_unterminated_block_still_has_a_body() {
+        let text = "f :: () {\n    #asm {\n        mov.q x, 1;\n        ad";
+        let blocks = asm_blocks(text);
+        assert_eq!(blocks.len(), 1);
+        assert!(!blocks[0].closed);
+        assert_eq!(blocks[0].body.end as usize, text.len());
+        let byte = text.len();
+        assert_eq!(blocks[0].place(byte), Some(AsmPlace::Body));
+        let start = blocks[0].statement_at(byte).unwrap().span.start as usize;
+        let stmt = parse_asm_statement(text, start, byte);
+        assert!(matches!(slot(text, &stmt), Some(Slot::Mnemonic)));
     }
 }
