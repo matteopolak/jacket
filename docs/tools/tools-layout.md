@@ -16,7 +16,7 @@
 | `dev/` | Developer workflow behind the Justfile (`dev.py`), Rust format checks, staged-file lists, PGO and packaging helpers, rule-coverage check. |
 | `developer_checks/` | The `check_developer_*` / `build_developer_*` checks of the Bindings_Generator developer tooling; `check_developer_tools.py` runs them all. |
 | `differential/` | `jaic-diff.py` (backend differential testing), `jaic-reduce.py`, `jaic-sweep.py`, the random program generator `jaigen.py`. |
-| `generators/` | Scripts that produced checked-in files. The generated file's header names its generator. |
+| `generators/` | Generators of checked-in files (below). The generated file's header names its generator. |
 | `native/` | Native dependency stages (below), the Windows cross/provider builders, `mbedtls/` and `sdl3/` sources. |
 | `native_bindings/` | The native binding generator and its verifiers (own test discovery and module names). |
 | `numerics/` | Numerics suite runners and capability tables. |
@@ -30,6 +30,14 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 
 - **Native dependency stages** (`native/`): `build_native_libs.py` builds the pinned third-party C libraries from `native-libs.json`; `build_ci_native_bindings.py` builds the rpmalloc/SDK probe providers for the bindings checks; `upstream_native.py` prepares the helpers the upstream smoke run needs; `ci_native_deps.sh` is the CI entry that calls them in order. They overlap only in host detection, now shared as `repo_output.host_platform()`.
 - **Stdlib runners** (`stdlib/`, `portable/`): `stdlib_runtime.py` runs the catalogued `stdlib/**/tests` cases; `check_portable_stdlib.py` builds fixtures and runs what a catalogued case cannot; `check_stdlib_suites.py` is the orchestrator that invokes every suite. Orchestrator, suite and engine are separate layers, so they are not merged.
+
+## Generated files
+
+Every generator of a checked-in file takes `--check` (exit 1 if the file differs from what it would write) and parses its arguments, so `--help` writes nothing. Generators of Jai format their output through the repository formatter (`--formatter`, default `target/jaifmt`, built by `just fmt --check --lang jai` or `jaic jaifmt/main.jai -O2 -exe target/jaifmt`) via `jai_codegen.emit_generated`; edit a generator, rerun it without `--check`, commit both.
+
+`python3 tools/generators/check_generated.py` runs them all with `--check` (CI step "Generated sources check"; `--offline` skips `gen_io_uring.py` and `gen_regex_unicode.py`, which download their pinned input). It covers `tools/generators/*`, `tools/corpus/gen_json_corpus.py`, `gen_http_corpus.py` and `tools/developer_checks/generate_developer_binding_model.py`; add a new generator to its lists. The native bindings (`native_bindings/generate.py`) and SDL3 bindings (`bindings/sdl3_gen.py`) have their own CI steps. Not checked in CI: `corpus/gen_regex_corpus.py` (needs the Rust oracle), the rpmalloc and AppKit generators in `native_bindings/` (need vendored SDK inputs) and `bindings/webgpu_gen.py` (`--check-header` needs a `webgpu.h`).
+
+`generate_socket_abi.py` reads `docs/specs/stdlib/modules/socket.md` with the spec parser of `native_bindings/spec.py`, so a parser change can move the Socket ABI files too.
 
 ## How tests are discovered
 

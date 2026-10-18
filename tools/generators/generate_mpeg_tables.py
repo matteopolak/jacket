@@ -2,11 +2,12 @@
 """Emit reviewed immutable MPEG tables, grouped by independent codec responsibility."""
 from pathlib import Path
 import re
-import subprocess
+
+from jai_codegen import emit_generated, generator_parser
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "docs/specs/stdlib/modules"
-groups = [
+GROUPS = [
     ("Video scan and reconstruction", ["PICTURE_RATE", "ZIG_ZAG", "INTRA_QUANT_MATRIX",
                                       "NON_INTRA_QUANT_MATRIX", "PREMULTIPLIER_MATRIX"]),
     ("Video entropy coding", ["DCT_SIZE_LUMINANCE", "DCT_SIZE_CHROMINANCE", "DCT_COEFF",
@@ -19,19 +20,25 @@ groups = [
                                          "QUANT_LUT_STEP_2", "QUANT_LUT_STEP_3", "QUANT_LUT_STEP4",
                                          "QUANT_TAB", "SYNTHESIS_WINDOW"]),
 ]
-text = (SPEC / "pl-mpeg.md").read_text()
-declarations = {}
-for line in text.splitlines():
-    match = re.match(r"- `([A-Z][A-Z_0-9]* (?:[^`]*))`", line)
-    if match and "..." not in match[1]:
-        declaration = match[1]
-        declarations[declaration.split()[0]] = declaration + ";"
-for declaration in re.findall(r"```jai\n(.*?)\n```", (SPEC / "pl-mpeg-public-tables.md").read_text(), re.S):
-    declarations[declaration.split()[0]] = declaration.strip()
-output = "// Generated from the public specifications by tools/generators/generate_mpeg_tables.py.\n"
-for title, names in groups:
-    output += "\n// " + title + ".\n\n"
-    output += "\n\n".join(declarations[name] for name in names) + "\n"
-path = ROOT / "stdlib/internal/media/mpeg/tables.jai"
-path.write_text(output)
-subprocess.run([str(ROOT / "target/jaifmt"), "--config", str(ROOT / "jaifmt.toml"), str(path)], check=True)
+
+
+def main():
+    args = generator_parser(__doc__).parse_args()
+    text = (SPEC / "pl-mpeg.md").read_text()
+    declarations = {}
+    for line in text.splitlines():
+        match = re.match(r"- `([A-Z][A-Z_0-9]* (?:[^`]*))`", line)
+        if match and "..." not in match[1]:
+            declaration = match[1]
+            declarations[declaration.split()[0]] = declaration + ";"
+    for declaration in re.findall(r"```jai\n(.*?)\n```", (SPEC / "pl-mpeg-public-tables.md").read_text(), re.S):
+        declarations[declaration.split()[0]] = declaration.strip()
+    output = "// Generated from the public specifications by tools/generators/generate_mpeg_tables.py.\n"
+    for title, names in GROUPS:
+        output += "\n// " + title + ".\n\n"
+        output += "\n\n".join(declarations[name] for name in names) + "\n"
+    emit_generated(ROOT / "stdlib/internal/media/mpeg/tables.jai", output, args.formatter, args.check)
+
+
+if __name__ == "__main__":
+    main()

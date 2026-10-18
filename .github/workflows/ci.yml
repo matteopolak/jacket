@@ -241,6 +241,11 @@ jobs:
         continue-on-error: true
         working-directory: tools/native_bindings
         run: python3 generate.py --check --formatter ../../target/jaifmt
+      # Every other generator must reproduce its checked-in files (docs/tools/tools-layout.md).
+      - name: Generated sources check
+        id: generated-check
+        continue-on-error: true
+        run: python3 tools/generators/check_generated.py --formatter target/jaifmt
       # The repository's Jai code must be lint-free (settings: jailint.toml). An optimized
       # jailint: the debug build needs longer than the job's whole timeout to lint the tree.
       - name: Jai lint
@@ -279,7 +284,7 @@ jobs:
           test -x target/jaifmt
           python3 tools/stdlib/check_file_watcher_platforms.py --compiler target/debug/jaic --linter target/debug/jailint --formatter target/jaifmt --native-runtime
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.bindings-check.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure' || steps.file-watcher-native.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.bindings-check.outcome == 'failure' || steps.generated-check.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure' || steps.file-watcher-native.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

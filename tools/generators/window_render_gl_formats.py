@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """Emit private GL texel descriptions from our reviewed-format/native-SDK mapping ledger."""
-import argparse
 import json
 from pathlib import Path
-import subprocess
+
+from jai_codegen import emit_generated, generator_parser
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--formatter", type=Path, default=ROOT / "target/window-jaifmt")
-    parser.add_argument("--check", action="store_true")
+    parser = generator_parser(__doc__)
     args = parser.parse_args()
     metadata = json.loads((ROOT / "tools/generators/window-render-gl-formats.json").read_text())
     rows = metadata["scalar_formats"] + metadata["block_formats"]
@@ -39,18 +37,8 @@ def main():
         lines.append(f"        {branch} tf == .{name} result.internal = GL.GL_{internal};")
         first = False
     lines += ["        else return .{}, false;", "    }", "    return result, true;", "}"]
-    staging = ROOT / "target/window-generated/gl-formats.jai"
-    staging.parent.mkdir(parents=True, exist_ok=True)
-    staging.write_text("\n".join(lines) + "\n")
-    subprocess.run([str(args.formatter.resolve(strict=True)), "--config", str(ROOT / "jaifmt.toml"), str(staging)], check=True)
-    destination = ROOT / "stdlib/internal/rendering/gl-formats.jai"
-    result = staging.read_bytes()
-    if args.check:
-        if destination.read_bytes() != result:
-            raise SystemExit("GL format regeneration differs")
-    else:
-        destination.write_bytes(result)
-    print(f"verified {len(rows)} native texel/block mappings")
+    emit_generated(ROOT / "stdlib/internal/rendering/gl-formats.jai", "\n".join(lines) + "\n", args.formatter, args.check)
+    print(f"{'Verified' if args.check else 'Generated'} {len(rows)} native texel/block mappings")
 
 
 if __name__ == "__main__":

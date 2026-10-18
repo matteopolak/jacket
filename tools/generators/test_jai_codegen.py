@@ -12,7 +12,7 @@ class GeneratedFormatting(unittest.TestCase):
             path = Path(temporary) / "generated.jai"
             source = "Item::struct{value:s64;}\n"
             path.write_text(source)
-            with self.assertRaisesRegex(ValueError, "stale generated source"):
+            with self.assertRaisesRegex(SystemExit, "stale generated source"):
                 emit_generated(path, source, check=True)
             self.assertEqual(path.read_text(), source)
             emit_generated(path, source)

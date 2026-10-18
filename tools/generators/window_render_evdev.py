@@ -4,10 +4,10 @@
 Only reviewed public declarations are inputs. Contextual native C types are maintained
 separately from public SDK headers in internal/gamepad/linux-abi.jai.
 """
-import argparse
 from pathlib import Path
 import re
-import subprocess
+
+from jai_codegen import emit_generated, generator_parser
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -27,9 +27,7 @@ def responsibility(name):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--formatter", type=Path, default=ROOT / "target/window-jaifmt")
-    parser.add_argument("--check", action="store_true")
+    parser = generator_parser(__doc__)
     args = parser.parse_args()
     source = (ROOT / "docs/specs/stdlib/modules/gamepad.md").read_text()
     declarations = re.findall(r"^- (?:\[[^]]+\] )?`(libevdev[^`]+#foreign evdev_library)`", source, re.MULTILINE)
@@ -43,18 +41,8 @@ def main():
     text += "libevdev :: struct {}\nlibevdev_uinput :: struct {}\n\n"
     text += "\n\n".join("// " + name + "\n" + "\n".join(sorted(group)) for name, group in groups.items())
     text += '\n\n#load "../internal/gamepad/linux-abi.jai";\n'
-    staging = ROOT / "target/window-generated/evdev.jai"
-    staging.parent.mkdir(parents=True, exist_ok=True)
-    staging.write_text(text)
-    subprocess.run([str(args.formatter.resolve(strict=True)), "--config", str(ROOT / "jaifmt.toml"), str(staging)], check=True)
-    destination = ROOT / "stdlib/Gamepad/evdev.jai"
-    result = staging.read_bytes()
-    if args.check:
-        if destination.read_bytes() != result:
-            raise SystemExit("native declaration regeneration differs")
-    else:
-        destination.write_bytes(result)
-    print(f"verified {len(declarations)} reviewed native declarations")
+    emit_generated(ROOT / "stdlib/Gamepad/evdev.jai", text, args.formatter, args.check)
+    print(f"{'Verified' if args.check else 'Generated'} {len(declarations)} reviewed native declarations")
 
 
 if __name__ == "__main__":

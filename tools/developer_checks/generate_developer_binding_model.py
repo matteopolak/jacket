@@ -4,9 +4,16 @@
 No implementation bodies, corpus inputs or SDK implementation source are read.
 Files are grouped by model responsibility, independently of inventory ordering.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(_TOOLS / "generators")]  # modules from other tools/ folders
+
 from pathlib import Path
 import re
-import subprocess
+
+from jai_codegen import emit_generated, generator_parser
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "docs/specs/stdlib/modules/bindings-generator.md"
@@ -50,7 +57,9 @@ def aggregate(text, name, platform=None):
 
 
 def main():
+    args = generator_parser(__doc__).parse_args()
     text = SPEC.read_text()
+    outputs = {}
     groups = {
         "type-model.jai": ["CType", "Function_Type", "Expression", "Type_Reference", "Literal", "Macro_Value",
                            "Unary_Operator", "Binary_Operator", "Paren_Expression", "Struct_Literal"],
@@ -67,10 +76,8 @@ def main():
                                      "CXSourceLocation", "CXSourceRange", "CXDiagnosticSeverity", "CXIndexOptions", "CXEvalResultKind",
                                      "CXVirtualFileOverlayImpl", "CXModuleMapDescriptorImpl"],
     }
-    directory = ROOT / "stdlib/Bindings_Generator"
-    directory.mkdir(exist_ok=True)
     for filename, names in groups.items():
-        source = "// Public data contract from the reviewed specification; private algorithms are independent.\n\n"
+        source = "// Public data contract from the specification; private algorithms are independent.\n\n"
         if filename == "native-model.jai":
             source += "CXFile :: *void;\n\n"
         for name in names:
@@ -84,7 +91,7 @@ def main():
                 source += aggregate(text, name) + "\n"
         if filename == "generation-options.jai":
             source += '\n#scope_file\n#if OS == .WINDOWS W :: #import "Windows";\n'
-        (directory / filename).write_text(source)
+        outputs[filename] = source
     unix_inventory = text.split("### Unix-specific declarations", 1)[1].split("### Windows-specific declarations", 1)[0]
     windows_inventory = text.split("### Windows-specific declarations", 1)[1].split("## Public type members", 1)[0]
     api_names = ["CINDEX_VERSION_MAJOR", "CINDEX_VERSION_MINOR", "CXIndex", "CXTranslationUnit", "CXClientData",
@@ -119,7 +126,7 @@ def main():
                  "clang_ModuleMapDescriptor_create", "clang_ModuleMapDescriptor_setFrameworkModuleName",
                  "clang_ModuleMapDescriptor_setUmbrellaHeader", "clang_ModuleMapDescriptor_writeToBuffer",
                  "clang_ModuleMapDescriptor_dispose"]
-    source = "// Native parser subset; declarations from the reviewed platform-specific inventories.\n"
+    source = "// Native parser subset; declarations from the platform-specific inventories.\n"
     for name in api_names:
         def declaration(inventory):
             result = re.search(rf"^- `({name} :: [^`]+)`", inventory, re.MULTILINE)
@@ -132,15 +139,16 @@ def main():
         else:
             source += "#if OS == .WINDOWS {\n" + windows + "} else {\n" + unix + "}\n"
     source += '\n#scope_file\nlibclang :: #foreign_library "../internal/developer-tools/clang-bindings/clang";\n'
-    (directory / "native-parser-api.jai").write_text(source)
+    outputs["native-parser-api.jai"] = source
     # The remaining native reexports are ABI bindings, not generator algorithms.
     # Sort independently of inventory order and retain exact reviewed signatures.
     reviewed = {}
     for platform, inventory in [("Unix", unix_inventory), ("Windows", windows_inventory)]:
         reviewed[platform] = dict(re.findall(r"^- `([A-Za-z_][A-Za-z_0-9]*) :: ([^`]+)`", inventory, re.MULTILINE))
-    implemented = {name for names in groups.values() for name in names} | set(api_names) | {"CXFile"}
-    extended_models = "// Additional reviewed native ABI types; no native implementation bodies are reproduced.\n\n"
-    extended_api = "// Additional reviewed native ABI reexports. Invocation coverage is tracked separately.\n\n"
+    # Library_Symbols is generator state, authored in generator-state.jai.
+    implemented = {name for names in groups.values() for name in names} | set(api_names) | {"CXFile", "Library_Symbols"}
+    extended_models = "// Additional native ABI types; no native implementation bodies are reproduced.\n\n"
+    extended_api = "// Additional native ABI reexports. Invocation coverage is tracked separately.\n\n"
     for name in sorted(set(reviewed["Unix"]) | set(reviewed["Windows"])):
         if name in implemented:
             continue
@@ -165,10 +173,10 @@ def main():
             extended_api += body + "\n"
         else:
             extended_models += body + "\n"
-    (directory / "native-extended-model.jai").write_text(extended_models)
+    outputs["native-extended-model.jai"] = extended_models
     extended_api += '\n#scope_file\nlibclang :: #foreign_library "../internal/developer-tools/clang-bindings/clang";\n'
     extended_api += '#if OS == .WINDOWS { time_t :: s64; } else { Native_POSIX :: #import "POSIX"; time_t :: Native_POSIX.time_t; }\n'
-    (directory / "native-extended-api.jai").write_text(extended_api)
+    outputs["native-extended-api.jai"] = extended_api
     # Exact compatibility arrays are specified in the reviewed refinement.
     names = ["RESERVED_NAMES", "RESERVED_TYPE_NAMES", "TYPEDEFS_TO_UNWRAP", "TYPEDEF_PREFIXES_TO_UNWRAP", "MACROS_TO_IGNORE"]
     constants = []
@@ -176,9 +184,10 @@ def main():
         line = re.search(rf"^- `{name}`: (.*)$", text, re.MULTILINE)[1]
         values = re.findall(r"`([^`]+)`", line)
         constants.append(f"{name} :: string.[" + ", ".join('"' + value + '"' for value in values) + "];\n")
-    (directory / "compatibility-names.jai").write_text("\n".join(constants))
+    outputs["compatibility-names.jai"] = "\n".join(constants)
     groups = {"common_replacements": [], "windows_replacements": [], "other_replacements": []}
-    for line in text.splitlines():
+    compatibility = text.split("## Compatibility constants and literal conversion", 1)[1].split("\n## ", 1)[0]
+    for line in compatibility.splitlines():
         if not line.startswith("| `"):
             continue
         columns = line.split("|")
@@ -195,15 +204,10 @@ def main():
     source += '    append(*builder, "]");\n    return builder_to_string(*builder);\n}\n\n#scope_file\n#import "Basic";\n'
     for name, pairs in groups.items():
         source += '\n' + name + ' :: [2] string.[' + ', '.join('string.["' + c + '", "' + jai + '"]' for c, jai in pairs) + '];\n'
-    (directory / "compatibility-tokens.jai").write_text(source)
-    generated = [
-        directory / filename for filename in ["type-model.jai", "declaration-model.jai", "generation-options.jai",
-                                               "model-flags.jai", "native-model.jai", "compatibility-names.jai",
-                                               "compatibility-tokens.jai", "native-parser-model.jai", "native-parser-api.jai",
-                                               "native-extended-model.jai", "native-extended-api.jai"]]
-    subprocess.run([str(ROOT / "target/jaifmt"), "--config", str(ROOT / "jaifmt.toml"),
-                    *[str(path) for path in generated]], cwd=ROOT, check=True)
-    print("Generated thematic public model files and exact reviewed compatibility arrays")
+    outputs["compatibility-tokens.jai"] = source
+    for filename, source in outputs.items():
+        emit_generated(ROOT / "stdlib/Bindings_Generator" / filename, source, args.formatter, args.check)
+    print(f"{'Verified' if args.check else 'Generated'} {len(outputs)} public model and compatibility files")
 
 
 if __name__ == "__main__":

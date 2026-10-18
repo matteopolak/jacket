@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 """Emit the runtime lexer's public data declarations from the reviewed API page."""
 from pathlib import Path
-import argparse
 import re
-from jai_codegen import DEFAULT_FORMATTER, emit_generated
+
+from jai_codegen import emit_generated, generator_parser
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--formatter", type=Path, default=DEFAULT_FORMATTER)
-    parser.add_argument("--check", action="store_true")
-    args = parser.parse_args()
+    args = generator_parser(__doc__).parse_args()
     source = (ROOT / "docs/specs/stdlib/modules/jai-lexer.md").read_text()
     inventory = source.split("## Public type members")[0]
     constants = re.findall(r"^- `([A-Z_]+) :: (\d+|false)`$", inventory, re.M)
@@ -63,7 +60,7 @@ def main():
     helper = ROOT / "stdlib/internal/jai-lexer/keywords.jai"
     helper.parent.mkdir(parents=True, exist_ok=True)
     emit_generated(helper, "\n".join(lines) + "\n", args.formatter, args.check)
-    print(out)
+    print(f"{'Verified' if args.check else 'Generated'} {out.relative_to(ROOT)} and {helper.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
