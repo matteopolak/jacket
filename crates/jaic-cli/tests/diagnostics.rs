@@ -778,6 +778,15 @@ fn missing_import_folder_names_its_path() {
             "#import,file \"gone.jai\";",
             "error: file `gone.jai` does not exist",
         ),
+        // Module arguments after the path are not part of the path.
+        (
+            "#import,file \"../gone.jai\"(VALIDATION = true);",
+            "error: file `../gone.jai` does not exist",
+        ),
+        (
+            "#import,dir \"gone\"(VALIDATION = true);",
+            "error: folder `gone` does not exist",
+        ),
     ] {
         let output = jaic_on(
             &dir,

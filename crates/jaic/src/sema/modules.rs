@@ -387,7 +387,7 @@ impl Compiler {
         // An `#import,file` or `#import,dir` span covers the directive, not only its path.
         let import = snippet.starts_with("#import");
         let shown = match snippet.split_once('"') {
-            Some((_, rest)) if import => rest.trim_end_matches([';', '"', ' ']).to_string(),
+            Some((_, rest)) if import => rest.split('"').next().unwrap_or(rest).to_string(),
             _ => snippet.trim_matches('"').to_string(),
         };
         let shown = if shown.is_empty() || shown.contains('\n') {
