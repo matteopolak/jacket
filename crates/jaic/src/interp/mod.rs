@@ -476,6 +476,8 @@ struct Frame {
     node_size: u64,
     /// The body in the interpreter's form (`code.rs`).
     code: code::Code,
+    /// The procedure's `Stack_Trace_Procedure_Info` (`trace_info`), once made; 0 before.
+    trace_info: std::cell::Cell<u64>,
 }
 
 impl Frame {
@@ -1321,7 +1323,19 @@ impl Interp {
                     .get(f.0 as usize)
                     .is_none_or(|g| g.as_ref().is_none_or(|g| g.sig.conv == ir::Conv::C))
         };
-        let code = code::build(func, &offsets, &late_value);
+        // Straightened control flow skips some block entries, which `JAIC_PROFILE` counts.
+        let code = code::build(
+            func,
+            &offsets,
+            &late_value,
+            &|g| {
+                program
+                    .globals
+                    .get(g.0 as usize)
+                    .is_some_and(|g| g.read_only)
+            },
+            self.profile.is_none() || !profile::exact(),
+        );
         let node_size = match &program.stack_trace {
             Some(layout) if func.trace.is_some() => layout.node.size.next_multiple_of(8),
             _ => 0,
@@ -1332,6 +1346,7 @@ impl Interp {
             align: frame_align,
             node_size,
             code,
+            trace_info: std::cell::Cell::new(0),
         });
         if self.frames.len() <= i {
             self.frames.resize_with(i + 1, || None);
@@ -2004,7 +2019,14 @@ impl Interp {
                 // set (`context` is the first).
                 let args =
                     unsafe { std::slice::from_raw_parts(entered.regs, func.sig.params.len()) };
-                pushed = self.trace_enter(program, id, func, args, entered.stack_base + frame.size);
+                pushed = self.trace_enter(
+                    program,
+                    id,
+                    func,
+                    frame,
+                    args,
+                    entered.stack_base + frame.size,
+                );
                 self.trace_loc = None;
             } else if self.trace_loc.is_none() {
                 self.trace_loc = Some(self.loc);
@@ -2067,11 +2089,13 @@ impl Interp {
     /// Push this call onto `context.stack_trace`: the node lives in the caller-visible stack
     /// frame at `node`, and the caller's node learns the line the call was made from.
     /// Returns the context slot and the previous top, to restore on return.
+    #[inline]
     fn trace_enter(
         &mut self,
         program: &Program,
         id: FuncId,
         func: &ir::Func,
+        frame: &Frame,
         args: &[u64],
         node: u64,
     ) -> Option<(u64, u64)> {
@@ -2097,7 +2121,14 @@ impl Interp {
                 hash = std::ptr::read_unaligned((previous + n.hash) as *const u64);
             }
             hash = (hash ^ (id.0 as u64) ^ ((line as u64) << 32)).wrapping_mul(0x0100_0000_01b3);
-            let info_addr = self.trace_info(program, id, info);
+            let info_addr = match frame.trace_info.get() {
+                0 => {
+                    let addr = self.trace_info(program, id, info);
+                    frame.trace_info.set(addr);
+                    addr
+                }
+                addr => addr,
+            };
             std::ptr::write_unaligned((node + n.next) as *mut u64, previous);
             std::ptr::write_unaligned((node + n.info) as *mut u64, info_addr);
             std::ptr::write_unaligned((node + n.hash) as *mut u64, hash);

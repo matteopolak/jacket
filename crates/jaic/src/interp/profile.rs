@@ -15,6 +15,14 @@ pub(crate) fn enabled() -> bool {
     *ENABLED.get_or_init(|| std::env::var_os("JAIC_PROFILE").is_some_and(|v| v != "0"))
 }
 
+/// Whether the counts are of the unoptimized control flow (the default): `JAIC_PROFILE=ops` runs
+/// the straightened code instead, so the op counts show what really runs, but blocks and IR
+/// instructions are then counted only where a block is entered.
+pub(crate) fn exact() -> bool {
+    static EXACT: OnceLock<bool> = OnceLock::new();
+    *EXACT.get_or_init(|| std::env::var_os("JAIC_PROFILE").is_none_or(|v| v != "ops"))
+}
+
 /// The `JAIC_COVERAGE` file, when coverage is being recorded.
 pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
     static FILE: OnceLock<Option<std::path::PathBuf>> = OnceLock::new();
@@ -87,12 +95,16 @@ static OPS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
 /// The interpreter's own ops executed by kind (`code.rs`: folded loads, immediates...).
 static CODE_OPS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
 
+/// Adjacent op pairs executed within a block, by kind (`code.rs` ops), to find what to fuse.
+static CODE_PAIRS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
+
 /// Counts of one interpreter, indexed by `FuncId`.
 #[derive(Default)]
 pub(crate) struct Counts {
     rows: Vec<(Row, Option<String>)>,
     ir: Kinds,
     ops: Kinds,
+    pairs: HashMap<String, u64>,
 }
 
 /// Executions by kind name, with each block's kinds cached by the block's address.
@@ -155,11 +167,24 @@ impl Counts {
     pub(crate) fn block<T: std::fmt::Debug>(&mut self, block: &crate::ir::Block, ops: &[T]) {
         self.ir.count(&block.insts);
         self.ops.count(ops);
+        let key = (ops.as_ptr() as usize, ops.len());
+        let kinds = self.ops.blocks.get(&key).cloned().unwrap_or_default();
+        for w in kinds.windows(2) {
+            let name = format!("{} {}", self.ops.names[w[0]].0, self.ops.names[w[1]].0);
+            *self.pairs.entry(name).or_default() += 1;
+        }
     }
 
     pub(crate) fn flush(&mut self) {
         self.ir.flush(&OPS);
         self.ops.flush(&CODE_OPS);
+        {
+            let mut table = CODE_PAIRS.lock().unwrap_or_else(|e| e.into_inner());
+            let table = table.get_or_insert_with(HashMap::new);
+            for (name, n) in self.pairs.drain() {
+                *table.entry(name).or_default() += n;
+            }
+        }
         let mut totals = TOTALS.lock().unwrap_or_else(|e| e.into_inner());
         let totals = totals.get_or_insert_with(HashMap::new);
         for (row, name) in self.rows.drain(..) {
@@ -204,18 +229,28 @@ pub fn report(top: usize) -> Option<String> {
     out.push_str(&kind_line(
         &format!("{ran} interpreter ops by kind:"),
         &CODE_OPS,
-        all,
+        ran,
     ));
+    {
+        let table = CODE_PAIRS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut pairs: Vec<(&String, &u64)> = table.iter().flat_map(|t| t.iter()).collect();
+        pairs.sort_by_key(|a| std::cmp::Reverse(*a.1));
+        out.push_str("op pairs within blocks:");
+        for (name, n) in pairs.into_iter().take(24) {
+            out.push_str(&format!(" [{name}] {n}"));
+        }
+        out.push('\n');
+    }
     Some(out)
 }
 
-/// One line of kind shares, as percentages of `all` IR instructions.
+/// One line of kind shares, as percentages of `all`.
 fn kind_line(title: &str, table: &Mutex<Option<HashMap<String, u64>>>, all: u64) -> String {
     let table = table.lock().unwrap_or_else(|e| e.into_inner());
     let mut kinds: Vec<(&String, &u64)> = table.iter().flat_map(|t| t.iter()).collect();
     kinds.sort_by_key(|a| std::cmp::Reverse(*a.1));
     let mut out = title.to_string();
-    for (name, n) in kinds.into_iter().take(16) {
+    for (name, n) in kinds.into_iter().take(40) {
         out.push_str(&format!(
             " {name} {:.1}%",
             100.0 * *n as f64 / all.max(1) as f64

@@ -216,6 +216,20 @@ pub(super) fn visit(op: &mut Op, pool: &mut [u32], f: &mut impl FnMut(Use, &mut 
         Op::Zero {
             dst, ..
         } => f(Read, dst),
+        Op::MemCopy {
+            dst,
+            src,
+            len,
+        }
+        | Op::MemSet {
+            dst,
+            value: src,
+            len,
+        } => {
+            f(Read, dst);
+            f(Read, src);
+            f(Read, len);
+        }
         Op::Call {
             at,
             nargs,
@@ -250,6 +264,9 @@ pub(super) fn visit(op: &mut Op, pool: &mut [u32], f: &mut impl FnMut(Use, &mut 
             f(Read, b);
         }
         Op::BranchCmpImm {
+            a, ..
+        }
+        | Op::BranchTest {
             a, ..
         } => f(Read, a),
         Op::Ret1 {
@@ -299,7 +316,70 @@ fn pure(op: &Op) -> bool {
             | Op::MulImm { .. }
             | Op::Cmp { .. }
             | Op::CmpImm { .. }
+            | Op::Bin { .. }
+            | Op::BinImm { .. }
+            | Op::Un { .. }
+            | Op::Conv { .. }
     )
+}
+
+/// Whether `op`, which writes `reg`, leaves a value that `mask` keeps whole: it is the width of
+/// its type, or one bit for a comparison. (Registers hold values masked to their type.)
+fn fits(op: &Op, reg: u32, mask: u32) -> bool {
+    let within = |bits: u64| bits & !(mask as u64) == 0;
+    let bytes = |n: u64| {
+        if n >= 8 {
+            u64::MAX
+        } else {
+            (1u64 << (n * 8)) - 1
+        }
+    };
+    match *op {
+        Op::Cmp {
+            dst, ..
+        }
+        | Op::CmpImm {
+            dst, ..
+        } => dst == reg && within(1),
+        Op::Bin {
+            dst,
+            ty,
+            ..
+        }
+        | Op::BinImm {
+            dst,
+            ty,
+            ..
+        } => dst == reg && within(bytes(ty.size())),
+        Op::Load {
+            dst,
+            ty,
+            ..
+        }
+        | Op::LoadFrame {
+            dst,
+            ty,
+            ..
+        } => dst == reg && within(bytes(ty.size())),
+        Op::Load8 {
+            dst, ..
+        }
+        | Op::LoadFrame8 {
+            dst, ..
+        } => dst == reg && within(0xff),
+        Op::Load32 {
+            dst, ..
+        }
+        | Op::LoadFrame32 {
+            dst, ..
+        } => dst == reg && within(0xffff_ffff),
+        Op::Ext {
+            dst,
+            mask: inner,
+            ..
+        } => dst == reg && within(inner as u64),
+        _ => false,
+    }
 }
 
 /// How many edges reach each block of `func`; the entry block's count includes the call.
@@ -537,6 +617,7 @@ impl Pass<'_> {
         self.dead = vec![false; self.ops.len()];
         self.count();
         self.alias_entry_stores();
+        self.relax_exts();
         for _ in 0..2 {
             for b in 0..self.blocks.len() {
                 self.forward_stores(b);
@@ -595,6 +676,46 @@ impl Pass<'_> {
             }
         });
         (read, write)
+    }
+
+    /// An `Ext` whose operand an earlier op of its block just computed within the mask is a move
+    /// (a comparison stored to a `bool`, an `s32` operation stored to an `s32` local), which the
+    /// passes below can then fold into the op that computes it.
+    fn relax_exts(&mut self) {
+        for b in 0..self.blocks.len() {
+            let (start, end) = (self.blocks[b].start as usize, self.blocks[b].end as usize);
+            for i in start..end {
+                let Op::Ext {
+                    dst,
+                    src,
+                    mask,
+                } = self.ops[i]
+                else {
+                    continue;
+                };
+                if self.dead[i] {
+                    continue;
+                }
+                for j in (start..i).rev() {
+                    if self.dead[j] {
+                        continue;
+                    }
+                    if self.opaque(j, src) {
+                        break;
+                    }
+                    let (_, write) = self.touches(j, src);
+                    if write {
+                        if fits(&self.ops[j], src, mask) {
+                            self.ops[i] = Op::Mov {
+                                dst,
+                                src,
+                            };
+                        }
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     /// `piece = t` in the entry block, where nothing else ever writes the piece and `t` is
@@ -661,6 +782,9 @@ impl Pass<'_> {
                         target: 0,
                         ..
                     } | Op::BranchCmpImm {
+                        target: 0,
+                        ..
+                    } | Op::BranchTest {
                         target: 0,
                         ..
                     }

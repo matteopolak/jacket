@@ -23,7 +23,7 @@ Choices that matter:
 
 ### Interpreter speed
 
-`#run`, metaprograms, `jaic -interp` and the playground run in `interp/` ([interpreter](interpreter.md#the-interpreters-code-form)). It uses one flat op array with a program counter, registers on the interpreter stack (a call is `enter` plus an argument copy), specialized load/store/div/call ops, boxed `Trap` to keep `Res<u64>` at 16 bytes, and a region cache in the memory probe (`interp/probe.rs`) flushed by an epoch that `invalidate()` bumps after any foreign call that can unmap memory. Known remaining costs: `trace_enter` under `jaic -interp`, second-table dispatch for compare ops, and calls recursing on the Rust stack.
+`#run`, metaprograms, `jaic -interp` and the playground run in `interp/` ([interpreter](interpreter.md#the-interpreters-code-form)). It uses one flat op array with a program counter, registers on the interpreter stack (a call is `enter` plus an argument copy), specialized load/store/div/call ops, boxed `Trap` to keep `Res<u64>` at 16 bytes, and a region cache in the memory probe (`interp/probe.rs`) flushed by an epoch that `invalidate()` bumps after any foreign call that can unmap memory. Constant `#run` thunks are profiled like any other call (`LeakOnExit` flushes the profile before leaking). Remaining costs: call overhead (about a quarter of `interp-strings`; `run_ops` recurses per call), dispatch mispredicts, `trace_enter` under `jaic -interp`, second-table dispatch for compare ops, and calls recursing on the Rust stack.
 
 ### Rejected experiments
 

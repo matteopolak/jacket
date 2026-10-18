@@ -21,7 +21,9 @@
 //! That is only done for values defined exactly once (parameters count as a definition)
 //! whose definition cannot run again in between: constants anywhere, and other values
 //! within one block.
+mod flow;
 mod promote;
+mod sink;
 
 use super::{Frame, Interp, Res, Trap, TrapKind, bin_total, cmp_shifted, divides, mask, shift_of};
 use crate::ir::{
@@ -256,6 +258,18 @@ pub(super) enum Op {
         dst: u32,
         size: u32,
     },
+    /// The `Memcpy` intrinsic: `len` bytes from `src` to `dst` (they may overlap).
+    MemCopy {
+        dst: u32,
+        src: u32,
+        len: u32,
+    },
+    /// The `Memset` intrinsic: `len` bytes of `value`'s low byte at `dst`.
+    MemSet {
+        dst: u32,
+        value: u32,
+        len: u32,
+    },
     Loc {
         file: u32,
         line: u32,
@@ -309,6 +323,13 @@ pub(super) enum Op {
         sense: bool,
         a: u32,
         imm: i32,
+        target: u32,
+    },
+    /// Branch when `a & mask` is nonzero (`sense` true) or zero (false). `mask` is sign-extended.
+    BranchTest {
+        sense: bool,
+        a: u32,
+        mask: i32,
         target: u32,
     },
     Ret0,
@@ -498,6 +519,8 @@ pub(super) fn build(
     func: &ir::Func,
     frame_offsets: &[u64],
     late_value: &dyn Fn(ir::FuncId) -> bool,
+    read_only: &dyn Fn(GlobalId) -> bool,
+    straighten: bool,
 ) -> Code {
     let n = func.vals.len();
     let mut defs = vec![0u32; n];
@@ -554,6 +577,17 @@ pub(super) fn build(
             }
         }
     }
+    let plan = if std::env::var_os("JAIC_NO_SINK").is_some() {
+        None
+    } else {
+        sink::plan(func, &defs, read_only)
+    };
+    if let Some(plan) = &plan {
+        for &(block, inst) in &plan.deleted {
+            let inst = &func.blocks[block as usize].insts[inst as usize];
+            inst_vals(inst, &mut |_| {}, &mut |v| uses[v.0 as usize] -= 1);
+        }
+    }
     let mut b = Builder {
         func,
         late_value,
@@ -571,7 +605,19 @@ pub(super) fn build(
     for (bi, block) in func.blocks.iter().enumerate() {
         let start = b.ops.len() as u32;
         b.block_start_mark = b.ops.len();
+        if let Some(plan) = &plan {
+            for &(from, ii) in &plan.front[bi] {
+                b.inst(
+                    from as usize,
+                    ii as usize,
+                    &func.blocks[from as usize].insts[ii as usize],
+                );
+            }
+        }
         for (ii, inst) in block.insts.iter().enumerate() {
+            if plan.as_ref().is_some_and(|plan| plan.skip[bi][ii]) {
+                continue;
+            }
             b.inst(bi, ii, inst);
         }
         b.end(bi, block);
@@ -620,6 +666,9 @@ pub(super) fn build(
     for op in &mut ops {
         *op = specialize(*op);
     }
+    if straighten && std::env::var_os("JAIC_NO_FLOW").is_none() {
+        flow::straighten(&mut ops, &mut blocks);
+    }
     let (locs, loc_marks) = lower_locs(&mut ops, &mut b.pool, &mut blocks);
     // Endings named blocks; now they name ops.
     let mut regs = nregs;
@@ -636,6 +685,9 @@ pub(super) fn build(
             }
             | Op::BranchCmpImm {
                 target, ..
+            }
+            | Op::BranchTest {
+                target, ..
             } => *target = blocks[*target as usize].start,
             Op::RetN {
                 n, ..
@@ -649,6 +701,15 @@ pub(super) fn build(
     let mut block_at = vec![0u32; ops.len() + 1];
     for (i, block) in blocks.iter().enumerate() {
         block_at[block.start as usize] = i as u32 + 1;
+    }
+    if std::env::var_os("JAIC_DUMP_OPS").is_some_and(|v| func.name.contains(v.to_str().unwrap())) {
+        eprintln!("== {}\n{}", func.name, func.listing());
+        for (bi, bl) in blocks.iter().enumerate() {
+            eprintln!(" block {bi}");
+            for i in bl.start..bl.end {
+                eprintln!("  {i}: {:?}", ops[i as usize]);
+            }
+        }
     }
     Code {
         ops,
@@ -914,7 +975,7 @@ impl Builder<'_> {
                     dst: self.v(dst),
                     a: self.v(a),
                 };
-                self.push(op, None);
+                self.push(op, self.single(dst).then_some(dst));
             }
             Inst::Cmp {
                 dst,
@@ -953,6 +1014,29 @@ impl Builder<'_> {
                 to,
                 src,
             } => {
+                // Registers hold values masked to their type, so these three only mask.
+                let width = match op {
+                    ConvOp::Trunc | ConvOp::Bitcast => Some(to),
+                    ConvOp::ZExt => Some(from),
+                    _ => None,
+                };
+                if let Some(width) = width {
+                    let keep = mask(width, u64::MAX);
+                    let (dst_reg, src_reg) = (self.v(dst), self.v(src));
+                    let op = if keep == u64::MAX {
+                        Op::Mov {
+                            dst: dst_reg,
+                            src: src_reg,
+                        }
+                    } else {
+                        Op::Ext {
+                            dst: dst_reg,
+                            src: src_reg,
+                            mask: keep as u32,
+                        }
+                    };
+                    return self.push(op, self.single(dst).then_some(dst));
+                }
                 let op = Op::Conv {
                     op,
                     from,
@@ -960,7 +1044,7 @@ impl Builder<'_> {
                     dst: self.v(dst),
                     src: self.v(src),
                 };
-                self.push(op, None);
+                self.push(op, self.single(dst).then_some(dst));
             }
             Inst::GlobalAddr {
                 dst,
@@ -1135,6 +1219,28 @@ impl Builder<'_> {
                             count: call.args[1].0,
                         }
                     }
+                    Inst::Intrinsic(call)
+                        if call.op == ir::Intrinsic::Memcpy
+                            && call.args.len() == 3
+                            && call.results.is_empty() =>
+                    {
+                        Op::MemCopy {
+                            dst: call.args[0].0,
+                            src: call.args[1].0,
+                            len: call.args[2].0,
+                        }
+                    }
+                    Inst::Intrinsic(call)
+                        if call.op == ir::Intrinsic::Memset
+                            && call.args.len() == 3
+                            && call.results.is_empty() =>
+                    {
+                        Op::MemSet {
+                            dst: call.args[0].0,
+                            value: call.args[1].0,
+                            len: call.args[2].0,
+                        }
+                    }
                     _ => slow,
                 };
                 self.push(op, None);
@@ -1152,6 +1258,11 @@ impl Builder<'_> {
             };
             return self.push(op, Some(dst));
         }
+        let pure = if divides(op) {
+            None
+        } else {
+            self.single(dst).then_some(dst)
+        };
         let wide = matches!(ty, Ty::I64 | Ty::Ptr);
         let commutes = matches!(
             op,
@@ -1199,7 +1310,7 @@ impl Builder<'_> {
                     imm,
                 },
             };
-            return self.push(op, None);
+            return self.push(op, pure);
         }
         let (a, b) = (self.v(a), self.v(b));
         let op = match op {
@@ -1233,7 +1344,7 @@ impl Builder<'_> {
                 b,
             },
         };
-        self.push(op, None);
+        self.push(op, pure);
     }
 
     fn ptr_add(&mut self, dst: Val, base: Val, offset: Val) {
@@ -1371,7 +1482,22 @@ impl Builder<'_> {
                 };
                 let cond = self.v(cond);
                 let fused = self.fuse_compare(cond);
+                let test = match fused {
+                    Some((op @ (CmpOp::Ne | CmpOp::Eq), 0, a, Rhs::Imm(0))) => {
+                        self.fuse_test(a).map(|(x, mask)| (op, x, mask))
+                    }
+                    _ => None,
+                };
                 let op = match fused {
+                    Some(_) if test.is_some() => {
+                        let (op, a, mask) = test.unwrap();
+                        Op::BranchTest {
+                            sense: sense == (op == CmpOp::Ne),
+                            a,
+                            mask,
+                            target,
+                        }
+                    }
                     Some((op, shift, a, Rhs::Val(b))) => Op::BranchCmp {
                         op,
                         shift,
@@ -1476,12 +1602,51 @@ impl Builder<'_> {
                 self.uses[a as usize] += 1;
                 (op, shift, a, Rhs::Imm(imm))
             }
+            // `!flag` of a byte: unequal to the 1 `flag` is compared with.
+            Op::BinImm {
+                op: BinOp::Xor,
+                ty: Ty::I8,
+                a,
+                imm: 1,
+                ..
+            } if self.defs[a as usize] == 1 => {
+                self.uses[a as usize] += 1;
+                (CmpOp::Ne, 56, a, Rhs::Imm(1))
+            }
             _ => return None,
         };
         // The comparison's own operand uses stay counted (it is dropped below only if nothing
         // else reads its result).
         self.uses[cond as usize] = 0;
         Some(fused)
+    }
+}
+
+impl Builder<'_> {
+    /// The `x & mask` that `reg` is, when this block made it for a fused compare against zero
+    /// alone (`fuse_compare` counted that compare's and the branch's use of it).
+    fn fuse_test(&mut self, reg: u32) -> Option<(u32, i32)> {
+        if self.uses[reg as usize] != 2 || self.defs[reg as usize] != 1 {
+            return None;
+        }
+        let i = self.ops[self.block_start_mark..]
+            .iter()
+            .rposition(|op| op_dst(op) == Some(reg))?;
+        let Op::BinImm {
+            op: BinOp::And,
+            a,
+            imm,
+            ..
+        } = self.ops[self.block_start_mark + i]
+        else {
+            return None;
+        };
+        if self.defs[a as usize] != 1 {
+            return None;
+        }
+        self.uses[reg as usize] -= 1;
+        self.uses[a as usize] += 1;
+        Some((a, imm))
     }
 }
 
@@ -2001,6 +2166,46 @@ impl Interp {
                     }
                     unsafe { copy_bytes(d, s, size) };
                 }
+                Op::MemCopy {
+                    dst,
+                    src,
+                    len,
+                } => {
+                    let (d, s, n) = (get(dst), get(src), get(len));
+                    if n > 0 {
+                        if d < 4096 || s < 4096 {
+                            self.sync_loc(code, here);
+                            return self.null_trap("memcpy through a null pointer");
+                        }
+                        let Ok(n) = usize::try_from(n) else {
+                            self.sync_loc(code, here);
+                            return self.trap("memcpy length exceeds the host address space");
+                        };
+                        // Like a load or store, a copy goes through the program's pointers
+                        // directly, so a bad one faults as it would natively.
+                        // SAFETY: the program's own memmove.
+                        unsafe { std::ptr::copy(s as *const u8, d as *mut u8, n) };
+                    }
+                }
+                Op::MemSet {
+                    dst,
+                    value,
+                    len,
+                } => {
+                    let (d, v, n) = (get(dst), get(value), get(len));
+                    if n > 0 {
+                        if d < 4096 {
+                            self.sync_loc(code, here);
+                            return self.null_trap("memset through a null pointer");
+                        }
+                        let Ok(n) = usize::try_from(n) else {
+                            self.sync_loc(code, here);
+                            return self.trap("memset length exceeds the host address space");
+                        };
+                        // SAFETY: the program's own memset, as for `MemCopy`.
+                        unsafe { std::ptr::write_bytes(d as *mut u8, v as u8, n) };
+                    }
+                }
                 Op::Zero {
                     dst,
                     size,
@@ -2108,6 +2313,16 @@ impl Interp {
                     target,
                 } => {
                     if cmp_shifted(op, shift, get(a), imm as i64 as u64) == sense {
+                        pc = target as usize;
+                    }
+                }
+                Op::BranchTest {
+                    sense,
+                    a,
+                    mask,
+                    target,
+                } => {
+                    if (get(a) & mask as i64 as u64 != 0) == sense {
                         pc = target as usize;
                     }
                 }

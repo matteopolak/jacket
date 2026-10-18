@@ -14,6 +14,8 @@ The IR is shaped for LLVM (every local in a stack slot, every constant its own i
 
 Registers live on the interpreter stack after the slots, so a call allocates nothing. `promote.rs` turns scalar slots whose address is never taken into registers and forwards stores, then dead pure ops are removed. Registers are accessed unchecked: `build` computes `Code::regs` and `enter` reserves exactly that many words. The `Frame` is rebuilt when a procedure body is replaced.
 
+Three passes cut dispatches before ops are made or after they are laid out. `code/sink.rs` works on the IR: it drops stores into locals nothing reads and moves constant setup that only one side of a branch uses into that side (the `#expand` prelude of `assert` builds a default message and location that only a failure reads). `code/flow.rs` threads jumps and copies up to four cheap, non-failing ops into the blocks that jump to them, so a loop iteration ends in one branch (disabled under exact profiling, where every block entry is counted). `Memcpy`/`Memset` intrinsics and `Conv` become `MemCopy`/`MemSet` and `Ext`/`Mov` ops instead of `Ir` fallbacks, and `BranchTest` fuses `x & mask` with a branch. `JAIC_PROFILE=ops` counts the ops actually executed and the most common adjacent pairs, which is where to look for the next fusion.
+
 ### Traps and limits
 
 - `debug_break()` stops the program with a runtime error (exit 1), so a failed `assert` ends it. Sema turns Runtime_Support's `#asm { int3; }` / `brk #0` into the `DebugBreak` intrinsic, since raw machine code cannot run here.
