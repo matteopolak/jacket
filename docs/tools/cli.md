@@ -90,7 +90,7 @@ jaic build.jai +Check - release -- arg1 arg2
 | `-verbose` | say what is being done |
 | `-no_color` | plain diagnostics. `NO_COLOR` does the same; `FORCE_COLOR` and `CLICOLOR_FORCE` force colour on |
 | `-msvc_format` | one `path(line,col): error: message` line per diagnostic, for IDEs that parse that format |
-| `-timings` | print each phase's time on stderr as `jaic-timing: <phase> <seconds> <calls>`: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`, the time compile-time code (`#run`, metaprograms, macros) spent executing, which overlaps `front end` |
+| `-timings` | print each phase's time on stderr as `jaic-timing: <phase> <seconds> <calls>`: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`, the time compile-time code (`#run`, metaprograms, macros) spent executing, which overlaps `front end`. Each phase also gets `jaic-alloc: <phase> <blocks> <bytes>`: the allocations Rust code requested during it, worker threads included (phases nest, so `total` holds the others); C and LLVM allocations are not counted |
 
 ### Exit status
 

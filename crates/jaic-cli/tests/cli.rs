@@ -258,7 +258,7 @@ fn plug_hooks_a_plugin_into_check() {
 }
 
 /// `-timings` prints one `jaic-timing: <phase> <seconds> <calls>` line per phase (read by
-/// `tools/bench`); without it nothing is printed.
+/// `tools/bench`) and one `jaic-alloc: <phase> <blocks> <bytes>` line; without it nothing is printed.
 #[test]
 fn timings_report_phases() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-timings");
@@ -297,7 +297,21 @@ fn timings_report_phases() {
         fields[1].parse::<f64>().is_ok() && fields[0].parse::<u64>().is_ok_and(|n| n >= 1),
         "{line}"
     );
+    // The same phases report what Rust code allocated: blocks, then bytes.
+    for phase in ["front end", "total"] {
+        let line = report
+            .lines()
+            .find(|l| l.starts_with(&format!("jaic-alloc: {phase} ")))
+            .unwrap_or_else(|| panic!("no {phase} allocation line in {report}"));
+        let fields: Vec<&str> = line.rsplitn(3, ' ').collect();
+        assert!(
+            fields[0].parse::<u64>().is_ok_and(|bytes| bytes > 0)
+                && fields[1].parse::<u64>().is_ok_and(|blocks| blocks > 0),
+            "{line}"
+        );
+    }
     assert!(!stderr(&[]).contains("jaic-timing"));
+    assert!(!stderr(&[]).contains("jaic-alloc"));
 }
 
 /// `JAIC_MEMORY_LIMIT` stops a run whose allocations cross it, whether the memory is the

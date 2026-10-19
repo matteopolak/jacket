@@ -27,14 +27,25 @@ mod timings {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::{Duration, Instant};
 
+    use jaic::memory_limit::{Tally, tally};
+
     static ENABLED: AtomicBool = AtomicBool::new(false);
 
     /// Phases in first-seen order; a phase that runs more than once (one backend call per
     /// workspace) accumulates.
-    static PHASES: Mutex<Vec<(&'static str, Duration, u32)>> = Mutex::new(Vec::new());
+    static PHASES: Mutex<Vec<Phase>> = Mutex::new(Vec::new());
+
+    struct Phase {
+        name: &'static str,
+        time: Duration,
+        calls: u32,
+        /// What Rust code allocated during the phase, workers' included.
+        allocated: Tally,
+    }
 
     pub fn enable() {
         ENABLED.store(true, Ordering::Relaxed);
+        jaic::memory_limit::count_allocations(true);
     }
 
     /// Run `f`, adding its wall time to `phase`.
@@ -42,31 +53,52 @@ mod timings {
         if !ENABLED.load(Ordering::Relaxed) {
             return f();
         }
-        let start = Instant::now();
+        let (start, before) = (Instant::now(), tally());
         let result = f();
-        let elapsed = start.elapsed();
+        let (elapsed, allocated) = (start.elapsed(), tally().since(before));
         let mut phases = PHASES.lock().unwrap();
-        match phases.iter_mut().find(|(name, ..)| *name == phase) {
-            Some((_, total, count)) => {
-                *total += elapsed;
-                *count += 1;
+        match phases.iter_mut().find(|p| p.name == phase) {
+            Some(p) => {
+                p.time += elapsed;
+                p.calls += 1;
+                p.allocated.allocations += allocated.allocations;
+                p.allocated.bytes += allocated.bytes;
             }
-            None => phases.push((phase, elapsed, 1)),
+            None => phases.push(Phase {
+                name: phase,
+                time: elapsed,
+                calls: 1,
+                allocated,
+            }),
         }
         result
     }
 
     /// One `jaic-timing: <phase> <seconds> <calls>` line per phase (tools/bench parses them),
-    /// then `interp`: the time compile-time code ran, which overlaps `front end`.
+    /// then `interp`: the time compile-time code ran, which overlaps `front end`. Then one
+    /// `jaic-alloc: <phase> <allocations> <bytes>` line per phase: the blocks Rust code
+    /// requested during it (phases nest, so `total` holds the others).
     pub fn report() {
         if !ENABLED.load(Ordering::Relaxed) {
             return;
         }
-        for (name, total, count) in PHASES.lock().unwrap().iter() {
-            eprintln!("jaic-timing: {name} {:.6} {count}", total.as_secs_f64());
+        let phases = PHASES.lock().unwrap();
+        for p in phases.iter() {
+            eprintln!(
+                "jaic-timing: {} {:.6} {}",
+                p.name,
+                p.time.as_secs_f64(),
+                p.calls
+            );
         }
         let (interp, calls) = jaic::interp::compile_time_spent();
         eprintln!("jaic-timing: interp {:.6} {calls}", interp.as_secs_f64());
+        for p in phases.iter() {
+            eprintln!(
+                "jaic-alloc: {} {} {}",
+                p.name, p.allocated.allocations, p.allocated.bytes
+            );
+        }
     }
 }
 

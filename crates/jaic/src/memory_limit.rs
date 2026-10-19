@@ -8,13 +8,17 @@
 //! line and ends the process with [`EXIT_CODE`], so callers (the corpus sweep) can tell it from
 //! an ordinary failure.
 //!
+//! The same wrapper can also tally allocations ([`count_allocations`], [`tally`]): how many
+//! blocks Rust code asked for and how many bytes, over the whole process, which `-timings`
+//! reports per phase to find where `String` and `Vec` churn is.
+//!
 //! Memory nobody here sees: allocations made by C or C++ libraries on their own (LLVM, libclang,
 //! a `#foreign` library that calls `malloc` internally or maps pages itself), and child processes
 //! (the linker, programs a metaprogram launches).
 #![allow(unsafe_code)]
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering::Relaxed};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicUsize, Ordering::Relaxed};
 
 /// Exit status of a process stopped by the limit.
 pub const EXIT_CODE: u8 = 120;
@@ -31,6 +35,54 @@ static LIVE: AtomicIsize = AtomicIsize::new(0);
 
 /// Set by the first allocation over the limit, so the report itself is not limited.
 static TRIPPED: AtomicBool = AtomicBool::new(false);
+
+/// Whether allocations are being tallied.
+static TALLYING: AtomicBool = AtomicBool::new(false);
+
+/// Blocks requested (allocations and growing reallocations) while tallying.
+static ALLOCATIONS: AtomicU64 = AtomicU64::new(0);
+
+/// Bytes requested by those.
+static ALLOCATED: AtomicU64 = AtomicU64::new(0);
+
+/// What the allocator has been asked for since tallying started; subtract two to measure a span.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Tally {
+    pub allocations: u64,
+    pub bytes: u64,
+}
+
+impl Tally {
+    /// What happened between `earlier` and this reading.
+    #[must_use]
+    pub fn since(self, earlier: Tally) -> Tally {
+        Tally {
+            allocations: self.allocations.saturating_sub(earlier.allocations),
+            bytes: self.bytes.saturating_sub(earlier.bytes),
+        }
+    }
+}
+
+/// Starts (or stops) counting allocations.
+pub fn count_allocations(on: bool) {
+    TALLYING.store(on, Relaxed);
+}
+
+/// The allocations counted so far (zero unless [`count_allocations`] was turned on).
+pub fn tally() -> Tally {
+    Tally {
+        allocations: ALLOCATIONS.load(Relaxed),
+        bytes: ALLOCATED.load(Relaxed),
+    }
+}
+
+#[inline]
+fn tally_request(size: usize) {
+    if TALLYING.load(Relaxed) {
+        ALLOCATIONS.fetch_add(1, Relaxed);
+        ALLOCATED.fetch_add(size as u64, Relaxed);
+    }
+}
 
 /// Starts enforcing `bytes` (0 turns enforcement off).
 pub fn arm(bytes: usize) {
@@ -138,6 +190,7 @@ pub struct CountingAllocator<A: GlobalAlloc = System>(pub A);
 unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
     #[inline]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        tally_request(layout.size());
         charge(layout.size());
         // SAFETY: the caller upholds `GlobalAlloc::alloc`'s contract for `layout`.
         unsafe { self.0.alloc(layout) }
@@ -145,6 +198,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
 
     #[inline]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        tally_request(layout.size());
         charge(layout.size());
         // SAFETY: the caller upholds `GlobalAlloc::alloc_zeroed`'s contract for `layout`.
         unsafe { self.0.alloc_zeroed(layout) }
@@ -161,6 +215,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
     #[inline]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         if new_size >= layout.size() {
+            tally_request(new_size - layout.size());
             charge(new_size - layout.size());
         } else {
             refund(layout.size() - new_size);
