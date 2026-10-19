@@ -291,9 +291,7 @@ impl Compiler {
                 }
                 (None, None) => return err(param.span, "parameter needs a type"),
             };
-            let ty = if param.variadic
-                && !(header.flags.c_call() || header.flags.cpp_method() || header.foreign.is_some())
-            {
+            let ty = if param.variadic && !header.uses_c_abi() {
                 self.types.array(ty, ArrayKind::View)
             } else {
                 ty
@@ -378,7 +376,7 @@ impl Compiler {
         for &ty in &returns {
             self.ensure_storage_type(ty, self.proc(id).span)?;
         }
-        let c_call = header.flags.c_call() || header.flags.cpp_method() || header.foreign.is_some();
+        let c_call = header.uses_c_abi();
         let c_varargs = c_call && params.last().is_some_and(|p| p.variadic);
         let has_context = !c_call && !header.flags.no_context() && !header.flags.intrinsic();
         let proc_type = ProcType {

@@ -54,8 +54,7 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Rc<ast::ProcLit
                 notes: crate::ast::Notes::default(),
             }],
             span: body.span,
-            no_abc: false,
-            no_aoc: false,
+            checks_off: crate::ast::CheckBits::NONE,
         }
     };
     Rc::new(ast::ProcLit {

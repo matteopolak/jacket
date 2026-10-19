@@ -235,10 +235,8 @@ pub struct FnCtx {
     /// Block constants already declared ahead of their statement (`check_block_stmts`), per block scope (a
     /// macro body expanded twice declares its constants in each expansion).
     pub hoisted_consts: crate::fxhash::HashSet<(ScopeId, ast::AstId)>,
-    /// Array bounds checks are off (`#no_abc` on the procedure or an enclosing `for`).
-    pub no_abc: bool,
-    /// Arithmetic overflow checks are off (`#no_aoc` on the procedure, a block or a loop).
-    pub no_aoc: bool,
+    /// The checks turned off by `#no_abc` / `#no_aoc` on the procedure, an enclosing block or a loop.
+    pub checks_off: ast::CheckBits,
     /// Debug scope index of each sema scope seen so far (`debug_info.rs`).
     pub debug_scopes: crate::fxhash::HashMap<ScopeId, u32>,
     /// The branch each `#if` statement of the body took, by statement span (`flow.rs`).
@@ -388,8 +386,7 @@ impl FnCtx {
             type_only: false,
             backtick_scope: None,
             hoisted_consts: HashSet::default(),
-            no_abc: false,
-            no_aoc: false,
+            checks_off: ast::CheckBits::NONE,
             debug_scopes: HashMap::default(),
             macro_returned: false,
             static_taken: HashMap::default(),

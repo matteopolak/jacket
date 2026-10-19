@@ -361,7 +361,7 @@ fn struct_body_forms() {
         panic!()
     };
     assert_eq!(lit.params.len(), 2);
-    assert!(lit.flags.type_info_none && lit.flags.no_padding);
+    assert!(lit.flags.has(StructBits::TYPE_INFO_NONE) && lit.flags.has(StructBits::NO_PADDING));
     assert_eq!(lit.body.len(), 9);
     assert!(matches!(&lit.body[0].kind, StmtKind::Decl(d) if d.using));
     assert!(matches!(&lit.body[1].kind, StmtKind::Decl(d) if d.using && d.as_));

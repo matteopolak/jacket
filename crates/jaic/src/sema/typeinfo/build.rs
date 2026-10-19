@@ -133,10 +133,14 @@ impl Compiler {
                 // `Type_Info_Flags` from `compiler_set_type_info_flags` plus the directives.
                 let mut tflags = self.type_info_flags.get(&ty).copied().unwrap_or(0);
                 if let Some(src) = self.struct_asts.get(&s) {
-                    if src.lit.flags.type_info_none {
+                    if src.lit.flags.has(ast::StructBits::TYPE_INFO_NONE) {
                         tflags |= 0x1;
                     }
-                    if src.lit.flags.type_info_procedures_are_void_pointers {
+                    if src
+                        .lit
+                        .flags
+                        .has(ast::StructBits::TYPE_INFO_PROCEDURES_ARE_VOID_POINTERS)
+                    {
                         tflags |= 0x2;
                     }
                 }
@@ -273,7 +277,7 @@ impl Compiler {
                 let no_padding = self
                     .struct_asts
                     .get(&s)
-                    .is_some_and(|src| src.lit.flags.no_padding);
+                    .is_some_and(|src| src.lit.flags.has(ast::StructBits::NO_PADDING));
                 if no_padding {
                     let cur = if info.is_union || tagged {
                         if tagged {

@@ -217,7 +217,7 @@ impl Compiler {
         )?;
         let (_, idx) = self.rvalue(f, index_op, span)?;
         // Views, dynamic arrays and strings start with their count.
-        let check = !f.no_abc && !f.type_only;
+        let check = !f.checks_off.no_abc() && !f.type_only;
         if check {
             self.note_check_handler(span)?;
         }

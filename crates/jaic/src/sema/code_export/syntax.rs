@@ -106,10 +106,10 @@ impl Exporter<'_> {
 
     pub(super) fn syntax_block(&mut self, block: &ast::Block) -> i64 {
         let id = self.block(&block.stmts, 1, block.span);
-        self.r.get_mut(id).unwrap().int(
-            "block_flags",
-            i64::from(block.no_abc) | (i64::from(block.no_aoc) << 1),
-        );
+        self.r
+            .get_mut(id)
+            .unwrap()
+            .int("block_flags", i64::from(block.checks_off.bits()));
         id
     }
 

@@ -294,12 +294,11 @@ impl Compiler {
         self.ide_scope_span(inner, stmt.span);
         let depth = f.mark_defers();
         match &stmt.kind {
-            S::Block(b) if (b.no_abc && !f.no_abc) || (b.no_aoc && !f.no_aoc) => {
-                let saved = (f.no_abc, f.no_aoc);
-                f.no_abc |= b.no_abc;
-                f.no_aoc |= b.no_aoc;
+            S::Block(b) if b.checks_off.adds_to(f.checks_off) => {
+                let saved = f.checks_off;
+                f.checks_off = saved.with(b.checks_off);
                 let result = self.check_block_stmts(f, inner, &b.stmts);
-                (f.no_abc, f.no_aoc) = saved;
+                f.checks_off = saved;
                 result?;
             }
             S::Block(b) => self.check_block_stmts(f, inner, &b.stmts)?,

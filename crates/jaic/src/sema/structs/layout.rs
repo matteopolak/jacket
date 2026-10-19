@@ -198,7 +198,7 @@ impl Compiler {
             .expect("struct without source");
         let items = self.struct_field_items(&src)?;
         let is_union = src.lit.kind == ast::StructKind::Union && src.lit.tag.is_none();
-        let no_padding = src.lit.flags.no_padding;
+        let no_padding = src.lit.flags.has(ast::StructBits::NO_PADDING);
         let mut fields = Vec::new();
         let mut inits = Vec::new();
         let mut end = 0u64;

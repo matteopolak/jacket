@@ -2,7 +2,8 @@
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
-    AstId, EnumItem, EnumLit, EnumMember, Expr, ExprKind, StructFlags, StructKind, StructLit,
+    AstId, EnumItem, EnumLit, EnumMember, Expr, ExprKind, StructBits, StructFlags, StructKind,
+    StructLit,
 };
 use crate::lexer::{P, Tok};
 use std::rc::Rc;
@@ -84,26 +85,22 @@ impl Parser<'_> {
     ) -> PResult<Option<crate::ast::Block>> {
         let mut modify = None;
         while let Some(name) = self.directive() {
+            if let Some(bit) = StructBits::from_directive(name) {
+                flags.set(bit);
+                self.bump();
+                continue;
+            }
             match name {
-                "type_info_none" => flags.type_info_none = true,
-                "type_info_procedures_are_void_pointers" => {
-                    flags.type_info_procedures_are_void_pointers = true;
-                }
-                "type_info_no_size_complaint" => flags.type_info_no_size_complaint = true,
-                "no_padding" => flags.no_padding = true,
                 "align" => {
                     self.bump();
                     flags.align = Some(self.parse_unary()?);
-                    continue;
                 }
                 "modify" => {
                     self.bump();
                     modify = Some(self.parse_modify_body()?);
-                    continue;
                 }
                 _ => break,
             }
-            self.bump();
         }
         Ok(modify)
     }

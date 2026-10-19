@@ -2,7 +2,7 @@
 use super::stmt::stmt;
 use super::{PResult, Parser};
 use crate::ast::{
-    AssertStmt, BinOp, Decl, DirectiveStmt, Expr, ExprKind, Ident, Import, ImportSource,
+    AssertStmt, BinOp, CheckBits, Decl, DirectiveStmt, Expr, ExprKind, Ident, Import, ImportSource,
     InsertStmt, ModuleParametersStmt, ScopeKind, StaticIfStmt, Stmt, StmtKind, SwitchStmt, UnOp,
 };
 use crate::intern::Sym;
@@ -87,11 +87,12 @@ impl Parser<'_> {
                 // `#no_abc { ... }` / `#no_aoc { ... }` turn bounds / overflow checks off in the block.
                 self.bump();
                 let body = self.parse_stmt()?;
-                Ok(super::stmt::no_checks_if(
-                    body,
-                    name == "no_abc",
-                    name == "no_aoc",
-                ))
+                let checks_off = if name == "no_abc" {
+                    CheckBits::NO_ABC
+                } else {
+                    CheckBits::NO_AOC
+                };
+                Ok(super::stmt::no_checks_if(body, checks_off))
             }
             "no_reset" | "program_export"
                 if self.decl_ahead(1)

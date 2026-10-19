@@ -38,7 +38,7 @@ pub struct Signature {
 /// C ellipses consume the trailing ABI arguments. Baked parameters do not
 /// participate in that ABI, unlike ordinary runtime parameters.
 pub(in crate::sema) fn validate_c_variadic_header(header: &ast::ProcHeader) -> Result<()> {
-    if !(header.flags.c_call() || header.flags.cpp_method() || header.foreign.is_some()) {
+    if !header.uses_c_abi() {
         return Ok(());
     }
     let mut runtime = header.params.iter().filter(|p| !p.baked).peekable();

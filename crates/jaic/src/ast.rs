@@ -8,8 +8,10 @@
 //! side tables (polymorphic procedures are checked once per instantiation).
 use crate::intern::Sym;
 use crate::source::Span;
+mod flags;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod relocate;
+pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -559,73 +561,6 @@ pub enum LambdaKind {
     Block,
 }
 
-/// The on/off directives of a procedure header, as one set of bits.
-///
-/// Read them through the `ProcFlags` accessors (`flags.c_call()`); the parser sets them with
-/// `ProcFlags::set(ProcBits::C_CALL)`. Adding a flag is one line in the `proc_bits!` list.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ProcBits(u16);
-
-macro_rules! proc_bits {
-    ($($(#[$doc:meta])* $bit:ident $getter:ident = $shift:literal,)*) => {
-        impl ProcBits {
-            $($(#[$doc])* pub const $bit: Self = Self(1 << $shift);)*
-        }
-
-        impl ProcFlags {
-            $($(#[$doc])* #[must_use] pub fn $getter(&self) -> bool { self.bits.0 & ProcBits::$bit.0 != 0 })*
-        }
-    };
-}
-
-proc_bits! {
-    /// `#c_call`: the C calling convention, with no implicit context.
-    C_CALL c_call = 0,
-    NO_CONTEXT no_context = 1,
-    EXPAND expand = 2,
-    COMPILER compiler = 3,
-    INTRINSIC intrinsic = 4,
-    SYMMETRIC symmetric = 5,
-    CPP_METHOD cpp_method = 6,
-    CPP_RETURN_TYPE_IS_NON_POD cpp_return_type_is_non_pod = 7,
-    RUNTIME_SUPPORT runtime_support = 8,
-    NO_DEBUG no_debug = 9,
-    NO_ABC no_abc = 10,
-    NO_AOC no_aoc = 11,
-    NO_CALL no_call = 12,
-    TYPE_INFO_NONE type_info_none = 13,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct ProcFlags {
-    /// Set on the header of a lambda's desugared procedure literal.
-    pub lambda: LambdaKind,
-    pub(crate) bits: ProcBits,
-    pub elsewhere: Option<Option<Ident>>,
-    pub inline: CallHintFlag,
-    pub deprecated: Option<Option<Rc<[u8]>>>,
-    pub program_export: Option<Option<Rc<[u8]>>>,
-    /// The string after `#compiler "name"` / `#intrinsic "name"` selecting the builtin.
-    pub builtin_name: Option<Rc<str>>,
-    /// Any other `#directive` flag (`#dump`, `#entry_point`, `#no_alias`, ...), kept by name.
-    pub other: Vec<Ident>,
-}
-
-impl ProcFlags {
-    /// Turn on the directive `bit`.
-    pub fn set(&mut self, bit: ProcBits) {
-        self.bits.0 |= bit.0;
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum CallHintFlag {
-    #[default]
-    None,
-    Inline,
-    NoInline,
-}
-
 #[derive(Clone, Debug)]
 pub struct ProcHeader {
     pub id: AstId,
@@ -644,6 +579,14 @@ pub struct ProcHeader {
     pub baked: bool,
 }
 
+impl ProcHeader {
+    /// Whether calls use the C calling convention: `#c_call`, a C++ method, or a foreign import.
+    #[must_use]
+    pub fn uses_c_abi(&self) -> bool {
+        self.flags.c_call() || self.flags.cpp_method() || self.foreign.is_some()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ProcLit {
     pub header: Rc<ProcHeader>,
@@ -657,15 +600,6 @@ pub struct ProcLit {
 pub enum StructKind {
     Struct,
     Union,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct StructFlags {
-    pub type_info_none: bool,
-    pub type_info_procedures_are_void_pointers: bool,
-    pub type_info_no_size_complaint: bool,
-    pub no_padding: bool,
-    pub align: Option<Expr>,
 }
 
 #[derive(Clone, Debug)]
@@ -732,10 +666,9 @@ pub struct EnumLit {
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub span: Span,
-    /// `#no_abc { ... }`, or the body of a loop / `if` flagged `#no_abc`: no array bounds checks.
-    pub no_abc: bool,
-    /// `#no_aoc { ... }`, or the body of a loop / `if` flagged `#no_aoc`: no arithmetic overflow checks.
-    pub no_aoc: bool,
+    /// The checks `#no_abc { ... }` / `#no_aoc { ... }`, or a loop or `if` flagged with them,
+    /// turn off for this block.
+    pub checks_off: CheckBits,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

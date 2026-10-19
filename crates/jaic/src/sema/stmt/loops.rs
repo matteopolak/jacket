@@ -231,13 +231,12 @@ impl Compiler {
             }
             return self.check_for(f, scope, &resolved, span);
         }
-        let flagged = |name: &str| for_.flags.iter().any(|fl| fl.name.as_str() == name);
-        if (!f.no_abc && flagged("no_abc")) || (!f.no_aoc && flagged("no_aoc")) {
-            let saved = (f.no_abc, f.no_aoc);
-            f.no_abc |= flagged("no_abc");
-            f.no_aoc |= flagged("no_aoc");
+        let flagged = crate::parser::check_bits(&for_.flags);
+        if flagged.adds_to(f.checks_off) {
+            let saved = f.checks_off;
+            f.checks_off = saved.with(flagged);
             let result = self.check_for(f, scope, for_, span);
-            (f.no_abc, f.no_aoc) = saved;
+            f.checks_off = saved;
             return result;
         }
         let it_name = for_.it.map_or_else(|| Sym::intern("it"), |i| i.name);
@@ -763,8 +762,7 @@ impl Compiler {
             Rc::new(ast::CodeBody::Block(ast::Block {
                 stmts: vec![(*for_.body).clone()],
                 span: for_.body.span,
-                no_abc: false,
-                no_aoc: false,
+                checks_off: crate::ast::CheckBits::NONE,
             })),
             loop_scope,
         );

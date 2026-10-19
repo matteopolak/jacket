@@ -5,6 +5,15 @@ use crate::builtin_keys::SyntaxKey;
 use crate::records::{FieldRef, Item, RecordTag, Records};
 use crate::sema::*;
 
+/// The directives reported to metaprograms as text in `Code_Procedure_Header.flags`.
+const REPORTED_DIRECTIVES: [ast::ProcBits; 5] = [
+    ast::ProcBits::NO_ABC,
+    ast::ProcBits::NO_AOC,
+    ast::ProcBits::RUNTIME_SUPPORT,
+    ast::ProcBits::TYPE_INFO_NONE,
+    ast::ProcBits::CPP_RETURN_TYPE_IS_NON_POD,
+];
+
 impl Exporter<'_> {
     /// A `Code_Procedure_Body` record for `body`, belonging to header record `header_id`.
     fn body(&mut self, body: &ast::Block, header_id: i64, proc: Option<ProcId>) -> i64 {
@@ -220,18 +229,9 @@ impl Exporter<'_> {
             .map_or(0, |name| self.name_ident(name.name, name.span));
         let modify = self.modify_syntax(h.modify.as_ref());
         let mut extra_flags = String::new();
-        for (enabled, name) in [
-            (h.flags.no_abc(), "no_abc"),
-            (h.flags.no_aoc(), "no_aoc"),
-            (h.flags.runtime_support(), "runtime_support"),
-            (h.flags.type_info_none(), "type_info_none"),
-            (
-                h.flags.cpp_return_type_is_non_pod(),
-                "cpp_return_type_is_non_pod",
-            ),
-        ] {
-            if enabled {
-                extra_flags.push_str(&format!(" #{name}"));
+        for bit in REPORTED_DIRECTIVES {
+            if h.flags.has(bit) {
+                extra_flags.push_str(&format!(" #{}", bit.name()));
             }
         }
         for flag in &h.flags.other {

@@ -395,10 +395,7 @@ impl Exporter<'_> {
             self.add(rec)
         };
         let flags = (i64::from(lit.kind == ast::StructKind::Union) * 2)
-            | (i64::from(lit.flags.no_padding) * 4)
-            | (i64::from(lit.flags.type_info_none) * 8)
-            | (i64::from(lit.flags.type_info_no_size_complaint) * 0x10)
-            | (i64::from(lit.flags.type_info_procedures_are_void_pointers) * 0x20)
+            | i64::from(lit.flags.bits().bits())
             | (i64::from(lit.tag.is_some()) * 0x40);
         let alignment = self.opt_expr(lit.flags.align.as_ref());
         let tag = lit.tag.as_ref().map_or(0, |tag| {

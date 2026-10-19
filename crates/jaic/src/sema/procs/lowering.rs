@@ -97,8 +97,10 @@ impl Compiler {
         };
         let mut f = FnCtx::new(name, ir_sig, file);
         f.proc = Some(id);
-        f.no_abc = header.flags.no_abc() || !self.options.array_bounds_check;
-        f.no_aoc = header.flags.no_aoc();
+        f.checks_off = header.flags.checks_off();
+        if !self.options.array_bounds_check {
+            f.checks_off = f.checks_off.with(ast::CheckBits::NO_ABC);
+        }
         f.b.func.inline = match header.flags.inline {
             ast::CallHintFlag::Inline => ir::InlineHint::Always,
             ast::CallHintFlag::NoInline => ir::InlineHint::Never,

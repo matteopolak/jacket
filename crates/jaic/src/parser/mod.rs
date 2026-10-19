@@ -35,6 +35,7 @@ use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 pub(crate) use ide::parse_callee_ide;
 pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
+pub(crate) use stmt::check_bits;
 
 pub(crate) type PResult<T> = Result<T, Diagnostic>;
 

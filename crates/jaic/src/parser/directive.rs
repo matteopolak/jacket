@@ -177,8 +177,7 @@ impl Parser<'_> {
                     RunBody::Block(Block {
                         stmts: vec![other],
                         span,
-                        no_abc: false,
-                        no_aoc: false,
+                        checks_off: crate::ast::CheckBits::NONE,
                     })
                 }
             }
@@ -303,8 +302,7 @@ impl Parser<'_> {
             ExprKind::Block(Box::new(Block {
                 stmts: vec![super::stmt::stmt(make(label), span)],
                 span,
-                no_abc: false,
-                no_aoc: false,
+                checks_off: crate::ast::CheckBits::NONE,
             })),
             span,
         ))
@@ -318,8 +316,7 @@ impl Parser<'_> {
             ExprKind::Block(Box::new(Block {
                 stmts: vec![assert],
                 span,
-                no_abc: false,
-                no_aoc: false,
+                checks_off: crate::ast::CheckBits::NONE,
             })),
             span,
         ))

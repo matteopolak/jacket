@@ -515,8 +515,7 @@ impl Parser<'_> {
         Ok(crate::ast::Block {
             stmts: vec![statement],
             span,
-            no_abc: false,
-            no_aoc: false,
+            checks_off: crate::ast::CheckBits::NONE,
         })
     }
 

@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use super::{PResult, Parser};
 use crate::ast::{
-    AssignOp, BinOp, Block, Case, Expr, For, ForOver, Ident, Notes, PushContextDeferStmt,
-    PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter, UsingFilterKind, UsingStmt,
-    WhileStmt,
+    AssignOp, BinOp, Block, Case, CheckBits, Expr, For, ForOver, Ident, Notes,
+    PushContextDeferStmt, PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter,
+    UsingFilterKind, UsingStmt, WhileStmt,
 };
 use crate::lexer::{P, Tok};
 
@@ -88,8 +88,7 @@ impl Parser<'_> {
         Ok(Block {
             stmts,
             span: start.to(end),
-            no_abc: false,
-            no_aoc: false,
+            checks_off: crate::ast::CheckBits::NONE,
         })
     }
 
@@ -330,11 +329,7 @@ impl Parser<'_> {
         let mut flags = Vec::new();
         self.skip_check_flags(&mut flags);
         self.eat_kw("then");
-        let then_branch = Box::new(no_checks_if(
-            self.parse_stmt()?,
-            has_flag(&flags, "no_abc"),
-            has_flag(&flags, "no_aoc"),
-        ));
+        let then_branch = Box::new(no_checks_if(self.parse_stmt()?, check_bits(&flags)));
         let else_branch = if self.eat_kw("else") {
             Some(Box::new(self.parse_stmt()?))
         } else {
@@ -529,11 +524,7 @@ impl Parser<'_> {
         let mut flags = Vec::new();
         self.skip_check_flags(&mut flags);
         self.eat_kw("then");
-        let body = Box::new(no_checks_if(
-            self.parse_stmt()?,
-            has_flag(&flags, "no_abc"),
-            has_flag(&flags, "no_aoc"),
-        ));
+        let body = Box::new(no_checks_if(self.parse_stmt()?, check_bits(&flags)));
         let span = start.to(self.prev_span());
         Ok(stmt(
             StmtKind::While(Box::new(WhileStmt {
@@ -834,19 +825,27 @@ impl Parser<'_> {
     }
 }
 
-fn has_flag(flags: &[Ident], name: &str) -> bool {
-    flags.iter().any(|f| f.name.as_str() == name)
+/// The checks the `#no_abc` / `#no_aoc` among `flags` turn off.
+pub(crate) fn check_bits(flags: &[Ident]) -> CheckBits {
+    let named = |name: &str| flags.iter().any(|f| f.name.as_str() == name);
+    let mut checks = CheckBits::NONE;
+    if named("no_abc") {
+        checks = checks.with(CheckBits::NO_ABC);
+    }
+    if named("no_aoc") {
+        checks = checks.with(CheckBits::NO_AOC);
+    }
+    checks
 }
 
 /// `body` as a block with bounds checks (`no_abc`) and / or arithmetic overflow checks (`no_aoc`) off
 /// (`#no_abc { }`, a flagged loop or `if`).
-pub(super) fn no_checks_if(body: Stmt, no_abc: bool, no_aoc: bool) -> Stmt {
-    if !no_abc && !no_aoc {
+pub(super) fn no_checks_if(body: Stmt, checks_off: CheckBits) -> Stmt {
+    if checks_off.is_empty() {
         return body;
     }
     if let StmtKind::Block(mut block) = body.kind {
-        block.no_abc |= no_abc;
-        block.no_aoc |= no_aoc;
+        block.checks_off = block.checks_off.with(checks_off);
         Stmt {
             kind: StmtKind::Block(block),
             ..body
@@ -857,8 +856,7 @@ pub(super) fn no_checks_if(body: Stmt, no_abc: bool, no_aoc: bool) -> Stmt {
             StmtKind::Block(Block {
                 stmts: vec![body],
                 span,
-                no_abc,
-                no_aoc,
+                checks_off,
             }),
             span,
         )

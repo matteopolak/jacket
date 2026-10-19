@@ -220,7 +220,7 @@ impl Compiler {
         };
         let val = f.b.bin(ir_op, t, x, y);
         if self.options.arithmetic_overflow_check != 0
-            && !f.no_aoc
+            && !f.checks_off.no_aoc()
             && !f.type_only
             && matches!(ir_op, ir::BinOp::Add | ir::BinOp::Sub | ir::BinOp::Mul)
             && self.types.is_integer(ty)

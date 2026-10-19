@@ -31,8 +31,7 @@ impl Compiler {
             let block = ast::Block {
                 stmts,
                 span: value.span,
-                no_abc: false,
-                no_aoc: false,
+                checks_off: crate::ast::CheckBits::NONE,
             };
             let code = self.add_code(Rc::new(ast::CodeBody::Block(block)), scope);
             op = Operand::Const {
