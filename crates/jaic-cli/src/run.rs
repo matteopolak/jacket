@@ -13,11 +13,6 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::rc::Rc;
 
-/// Whether `exe` names a place (`build/app`, `/tmp/app`), not just a file name.
-fn has_directory(exe: &str) -> bool {
-    Path::new(exe).components().count() > 1 || Path::new(exe).is_absolute()
-}
-
 pub(super) fn run(cli: Cli) -> ExitCode {
     jaic::knobs::set(tuning::knobs(&cli));
     if cli.timings {
@@ -128,11 +123,10 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
     cli.imports = cli.imports.iter().map(absolute).collect();
     cli.output_path = cli.output_path.as_ref().map(absolute);
     // `-exe` with a directory is taken from where jaic was started, like the paths above, and
-    // splits into the output path and the executable's name; a bare name goes beside the main
-    // file (or into `-output_path`).
+    // splits into the output path and the executable's name; a bare name goes into the
+    // directory jaic was started in (or into `-output_path`).
     if let Some(exe) = cli.exe.clone()
         && cli.output_path.is_none()
-        && has_directory(&exe)
     {
         let full = absolute(&PathBuf::from(&exe));
         if let (Some(dir), Some(name)) = (full.parent(), full.file_name()) {

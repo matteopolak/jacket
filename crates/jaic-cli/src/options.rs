@@ -260,7 +260,7 @@ pub(super) const OPTIONS: &[CliOption] = {
             Output,
             "-exe <name>",
             "the executable's name; it may include a directory and extension\n\
-             (`-exe build/app.exe`). A bare name goes next to the source file",
+             (`-exe build/app.exe`). A bare name goes in the current directory",
         ),
         CliOption::new(
             &["-output_path"],

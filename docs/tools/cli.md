@@ -26,7 +26,7 @@ The file you name is the only source file on the command line. Other files come 
 | run it without building | `jaic main.jai -interp` |
 | build optimized | `jaic main.jai -o` |
 | build for another platform | `jaic main.jai -os windows -cpu arm64` |
-| name the output | `jaic main.jai -exe build/app` |
+| name the output | `jaic main.jai -exe build/app` (a bare name such as `-exe app` is written to the current directory) |
 
 `-check` and `-interp` can't be combined. Options that only make sense for a build (`-exe`, `-o`, `-sanitize`, ...) are an error with either of them.
 

@@ -347,8 +347,8 @@ fn ordered_atomics_keep_their_memory_orders() {
     assert_eq!(run.stdout, interpreted.stdout);
 }
 
-/// `-exe` and `-output_path` place the executable: a bare name goes beside the source file, a
-/// name with a directory is taken from where jaic was started, and `-output_path` holds either.
+/// `-exe` and `-output_path` place the executable: a bare name goes in the directory jaic was
+/// started in, like a name with a directory, and `-output_path` holds either.
 #[test]
 fn exe_and_output_path_place_the_executable() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-exe-output");
@@ -380,7 +380,7 @@ fn exe_and_output_path_place_the_executable() {
     build(&["-output_path", "out3", "-exe", "sub/deep.bin"]);
     let expected = [
         exe_path(&dir.join("src"), "prog"),
-        exe_path(&dir.join("src"), "renamed"),
+        exe_path(&dir, "renamed"),
         dir.join("bin/app.out"),
         exe_path(&dir.join("out"), "named"),
         exe_path(&dir.join("out2"), "prog"),
