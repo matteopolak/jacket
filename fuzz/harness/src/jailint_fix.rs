@@ -61,6 +61,12 @@ pub fn jailint_fix(data: &[u8]) {
     {
         return;
     }
+    // A metaprogram that waits for compiler messages from a workspace that never completes runs
+    // for as long as the analysis does; the language server runs compile-time code without a
+    // step budget, so such a program is a hang by design rather than a finding.
+    if original.contains("compiler_wait_for_message") {
+        return;
+    }
     let fixed = crate::on_compiler_stack(|| fix_all(original));
     let Some(fixed) = fixed else {
         return;
