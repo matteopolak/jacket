@@ -161,10 +161,9 @@ mod imp {
             if knobs.serial_parse {
                 return None;
             }
-            let cores = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
             let workers = knobs
                 .parse_threads
-                .unwrap_or_else(|| cores.saturating_sub(1).min(4));
+                .unwrap_or_else(|| crate::pool::threads().saturating_sub(1).min(4));
             if workers == 0 {
                 return None;
             }

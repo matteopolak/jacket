@@ -15,6 +15,8 @@ use std::path::PathBuf;
 pub(super) struct Tuning {
     /// `-codegen_units N`: exactly this many code modules.
     pub codegen_units: Option<usize>,
+    /// `-threads N`: the size of the shared thread pool.
+    pub threads: Option<usize>,
     /// `-parse_threads N`, `-serial_parse`: how files are parsed ahead of the checker.
     pub parse_threads: Option<usize>,
     pub serial_parse: bool,
@@ -73,6 +75,7 @@ impl Tuning {
 pub(super) fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
     let t = &cli.tuning;
     jaic::knobs::Knobs {
+        threads: t.threads,
         parse_threads: t.parse_threads,
         serial_parse: t.serial_parse,
         profile: match (t.profile_ops, t.profile_counts) {
@@ -113,6 +116,16 @@ const OPTIONS: &[CliOption] = &[
         Output,
         "-codegen_units <n>",
         "generate code as exactly <n> modules (1 is -no_split; only a build uses it)",
+    ),
+    CliOption::new(
+        &["-threads"],
+        store!("a number of threads", |cli, n| cli.tuning.threads =
+            Some(parse_count(&n, "-threads")?)),
+    )
+    .help(
+        Output,
+        "-threads <n>",
+        "threads in the pool that code generation and other parallel work share (default: one per core)",
     ),
     CliOption::new(
         &["-parse_threads"],

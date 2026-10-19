@@ -22,6 +22,7 @@ pub mod msvc;
 pub mod parse_ahead;
 pub mod parser;
 pub mod paths;
+pub mod pool;
 pub mod project;
 pub mod record_build;
 pub mod records;

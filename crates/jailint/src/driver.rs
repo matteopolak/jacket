@@ -552,41 +552,40 @@ pub fn run(options: &Options) -> Outcome {
     let canon = CanonCache::new();
     let claims = Claims::new(roots.len());
     let wanted = if options.jobs == 0 {
-        std::thread::available_parallelism().map_or(1, |n| n.get().min(MAX_AUTO_JOBS))
+        jaic::pool::cores().min(MAX_AUTO_JOBS)
     } else {
         options.jobs
     };
     let jobs = wanted.min(roots.len().max(1));
-    std::thread::scope(|s| {
+    // The compiler's pool runs the checkers (its threads have the compiler's large stack, which
+    // checking recurses on); the job count is its size unless something started it already.
+    jaic::pool::configure(wanted);
+    jaic::pool::get().scope(|s| {
         for _ in 0..jobs {
             let (roots, report, next, collected) = (&roots, &report, &next, &collected);
             let (canon, claims) = (&canon, &claims);
-            // Checking recurses on the syntax tree: give it the compiler's stack.
-            std::thread::Builder::new()
-                .stack_size(1 << 30)
-                .spawn_scoped(s, move || {
-                    loop {
-                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        let Some(root) = roots.get(i) else {
-                            break;
-                        };
-                        if options.verbose {
-                            eprintln!("jailint: checking {}", root.path().display());
-                        }
-                        let r = lint_root(root, i, options, report, canon, claims);
-                        // Texts cross threads as `String` (`Rc` cannot).
-                        let texts = r
-                            .texts
-                            .into_iter()
-                            .map(|(p, t)| (p, t.to_string()))
-                            .collect();
-                        collected
-                            .lock()
-                            .expect("no thread panicked holding the lock")
-                            .push((i, r.lints, texts, r.error, r.contexts));
+            s.spawn(move |_| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(root) = roots.get(i) else {
+                        break;
+                    };
+                    if options.verbose {
+                        eprintln!("jailint: checking {}", root.path().display());
                     }
-                })
-                .expect("spawn a checking thread");
+                    let r = lint_root(root, i, options, report, canon, claims);
+                    // Texts cross threads as `String` (`Rc` cannot).
+                    let texts = r
+                        .texts
+                        .into_iter()
+                        .map(|(p, t)| (p, t.to_string()))
+                        .collect();
+                    collected
+                        .lock()
+                        .expect("no thread panicked holding the lock")
+                        .push((i, r.lints, texts, r.error, r.contexts));
+                }
+            });
         }
     });
     for (i, lints, texts, error, contexts) in collected.into_inner().unwrap_or_default() {

@@ -39,8 +39,7 @@ pub(crate) fn units_for(module: &Module, forced: Option<usize>) -> usize {
         return n.max(1);
     }
     let insts: usize = functions(module.as_mut_ptr()).into_iter().map(weight).sum();
-    let cores = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
-    (insts / INSTS_PER_UNIT).clamp(1, cores.min(MAX_UNITS))
+    (insts / INSTS_PER_UNIT).clamp(1, jaic::pool::threads().min(MAX_UNITS))
 }
 
 /// Write the optimized `module` as `units` object files, `path`, then `path.1.o`..., in
@@ -83,41 +82,36 @@ pub(crate) fn emit(
         })
         .collect();
     let reading = std::sync::Mutex::new(());
-    std::thread::scope(|scope| {
-        let handles: Vec<_> = (1..units)
-            .map(|u| {
-                let (bitcode, owner, reading, path) = (&bitcode, &owner, &reading, &paths[u]);
-                scope.spawn(move || {
-                    let context = Context::create();
-                    // One unit at a time holds a whole copy of the module; each drops what
-                    // it does not own before the next reads, so memory grows by about one
-                    // module rather than one per unit.
-                    let module = {
-                        let _turn = reading
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner);
-                        let buffer = MemoryBuffer::create_from_memory_range_copy(bitcode, "jai");
-                        let module = Module::parse_bitcode_from_buffer(&buffer, &context)
-                            .map_err(|e| e.to_string())?;
-                        keep_unit(&module, owner, u);
-                        module
-                    };
-                    write(&module, machine, path)
-                })
-            })
-            .collect();
-        // Unit 0 is the original module, cut down in place.
-        keep_unit(module, &owner, 0);
-        let first = write(module, machine, path);
-        handles
-            .into_iter()
-            .map(|h| {
-                h.join()
-                    .unwrap_or_else(|_| Err("codegen thread panicked".into()))
-            })
-            .chain([first])
-            .collect::<Result<Vec<()>, String>>()
-    })?;
+    let mut first = Ok(());
+    let rest = jaic::pool::units(
+        units - 1,
+        |index| {
+            let u = index + 1;
+            let context = Context::create();
+            // One unit at a time holds a whole copy of the module; each drops what
+            // it does not own before the next reads, so memory grows by about one
+            // module rather than one per unit.
+            let module = {
+                let _turn = reading
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                let buffer = MemoryBuffer::create_from_memory_range_copy(&bitcode, "jai");
+                let module = Module::parse_bitcode_from_buffer(&buffer, &context)
+                    .map_err(|e| e.to_string())?;
+                keep_unit(&module, &owner, u);
+                module
+            };
+            write(&module, machine, &paths[u])
+        },
+        || {
+            // Unit 0 is the original module, cut down in place; it stays on this thread.
+            keep_unit(module, &owner, 0);
+            first = write(module, machine, path);
+        },
+    );
+    rest.into_iter()
+        .chain([first])
+        .collect::<Result<Vec<()>, String>>()?;
     Ok(paths)
 }
 

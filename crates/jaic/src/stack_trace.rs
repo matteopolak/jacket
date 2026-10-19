@@ -36,24 +36,27 @@ pub fn instrument(program: &mut Program, layout: &TraceLayout) {
 /// pointer only to pass it on, and call only other quiet procedures (directly). A procedure that
 /// calls nothing is quiet; so, in turn, is one that calls only those. Runtime check failures
 /// report their own location, so they don't need a node either.
-/// [`quiet_but_for_callees`] of every function, scanned on as many threads as the machine has.
+/// [`quiet_but_for_callees`] of every function, scanned on the shared thread pool.
 fn scan_bodies(funcs: &[Option<Func>]) -> Vec<Option<Vec<u32>>> {
-    let threads = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
-    let chunk = funcs.len().div_ceil(threads).max(256);
-    std::thread::scope(|scope| {
-        let parts: Vec<_> = funcs
-            .chunks(chunk)
-            .map(|part| {
-                scope.spawn(move || {
-                    part.iter()
-                        .map(|f| f.as_ref().and_then(quiet_but_for_callees))
-                        .collect::<Vec<_>>()
-                })
-            })
+    use rayon::prelude::*;
+    if crate::pool::threads() <= 1 {
+        return funcs
+            .iter()
+            .map(|f| f.as_ref().and_then(quiet_but_for_callees))
             .collect();
-        parts
+    }
+    let chunk = funcs.len().div_ceil(crate::pool::threads()).max(256);
+    crate::pool::get().install(|| {
+        funcs
+            .par_chunks(chunk)
+            .map(|part| {
+                part.iter()
+                    .map(|f| f.as_ref().and_then(quiet_but_for_callees))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
             .into_iter()
-            .flat_map(|h| h.join().expect("stack trace scan thread panicked"))
+            .flatten()
             .collect()
     })
 }

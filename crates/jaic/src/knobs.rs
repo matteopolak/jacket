@@ -1,6 +1,6 @@
 //! Process-wide performance and diagnostic switches, set once at startup.
 //!
-//! They come from `jaic` flags (`-parse_threads`, `-serial_parse`, `-profile`, `-coverage_file`,
+//! They come from `jaic` flags (`-threads`, `-parse_threads`, `-serial_parse`, `-profile`, `-coverage_file`,
 //! and the `-dev_*` flags that study the compiler itself) and, through `jacket`, from the
 //! `[experimental]` table of `jacket.toml`. Nothing here changes what a program means; the
 //! settings are read in places far from the options a compile carries (the interpreter, the
@@ -24,6 +24,8 @@ pub enum Profile {
 
 #[derive(Clone, Debug, Default)]
 pub struct Knobs {
+    /// Size of the shared thread pool (`-threads`, `jaic::pool`); `None`: one per core.
+    pub threads: Option<usize>,
     /// Threads parsing files ahead of the checker (`-parse_threads`); `None`: by core count.
     pub parse_threads: Option<usize>,
     /// Parse on the checking thread (`-serial_parse`).

@@ -346,7 +346,7 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
         return 1;
     }
     let insts: usize = program.funcs.iter().flatten().map(func_weight).sum();
-    let cores = std::thread::available_parallelism().map_or(1, std::num::NonZero::get);
+    let cores = jaic::pool::threads();
     if options.opt_level == OptLevel::O0 {
         if options.codegen.split_modules == Some(false) {
             return 1;
@@ -415,30 +415,19 @@ pub fn emit_objects(
             PathBuf::from(name)
         })
         .collect();
-    std::thread::scope(|scope| {
-        let handles: Vec<_> = paths
-            .iter()
-            .enumerate()
-            .map(|(u, p)| {
-                let plan = &plan;
-                let cuts = &cuts[..];
-                scope.spawn(move || {
-                    let shard = Shard {
-                        plan,
-                        index: u as u32,
-                    };
-                    emit_module(program, options, p, Some(shard), false, true, cuts).map(drop)
-                })
-            })
-            .collect();
-        handles
-            .into_iter()
-            .map(|h| {
-                h.join()
-                    .unwrap_or_else(|_| Err("codegen thread panicked".into()))
-            })
-            .collect::<Result<Vec<()>, String>>()
-    })?;
+    jaic::pool::units(
+        units,
+        |u| {
+            let shard = Shard {
+                plan: &plan,
+                index: u as u32,
+            };
+            emit_module(program, options, &paths[u], Some(shard), false, true, &cuts).map(drop)
+        },
+        || {},
+    )
+    .into_iter()
+    .collect::<Result<Vec<()>, String>>()?;
     Ok(paths)
 }
 

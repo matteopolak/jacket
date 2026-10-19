@@ -7,6 +7,7 @@ license.workspace = true
 description = "Jai compiler core: lexer, parser, demand-driven semantic analysis, IR and interpreter."
 
 [dependencies]
+rayon.workspace = true
 
 [lints]
 workspace = true

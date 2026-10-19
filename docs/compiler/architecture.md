@@ -51,4 +51,4 @@ cargo run -p jaic-cli -- file.jai -interp [- metaprogram args]
 
 ## Dependencies
 
-`jaic` uses only the Rust standard library (`Bindings_Generator` calls the host's libclang as an ordinary `#foreign` library through the interpreter). `jaic-llvm` uses Inkwell and LLVM 23. The language server uses `serde` and `serde_json`.
+`jaic` uses the Rust standard library and `rayon` (the one thread pool, `jaic::pool`: body scans, code generation units and `jailint`'s file checks share it, sized by `-threads`; the parse-ahead workers and the interpreter's Jai threads stay dedicated OS threads) (`Bindings_Generator` calls the host's libclang as an ordinary `#foreign` library through the interpreter). `jaic-llvm` uses Inkwell and LLVM 23. The language server uses `serde` and `serde_json`.
