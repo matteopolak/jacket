@@ -1,7 +1,7 @@
 //! Member access expressions and the types of promoted and pending members.
 use super::model::FieldUsing;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::scope::{EntityKind, Found, ScopeKind};
+use crate::sema::scope::{EntityId, EntityKind, Found, ScopeKind};
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};
 use crate::types::{ArrayKind, LayoutState, TypeKind};
 
@@ -131,6 +131,7 @@ impl Compiler {
             }
             _ => {
                 if let Some(ids) = self.struct_constant(ty, name)? {
+                    self.ide_note_constant_use(span, &ids);
                     return self.entities_operand(f, scope, &ids, span);
                 }
                 let (_, addr) = self.address_of(f, base, span)?;
@@ -169,6 +170,7 @@ impl Compiler {
             .with_callable(parameters));
         }
         if let Some(ids) = self.struct_constant(target, name)? {
+            self.ide_note_constant_use(span, &ids);
             return self.entities_operand(f, scope, &ids, span);
         }
         if self.is_stand_in(target) {
@@ -291,6 +293,15 @@ impl Compiler {
         Ok(Some(ty))
     }
 
+    /// `name` at `span` named the constant `ids` declare in a struct: a use of it, like any name.
+    fn ide_note_constant_use(&mut self, span: Span, ids: &[EntityId]) {
+        if let Some(ide) = self.ide.as_mut()
+            && let Some(&first) = ids.first()
+        {
+            ide.last_entity = Some((span, first));
+        }
+    }
+
     pub(super) fn type_member(
         &mut self,
         f: &mut FnCtx,
@@ -304,6 +315,7 @@ impl Compiler {
             && self.types.as_struct(p).is_some()
             && let Some(ids) = self.struct_constant(p, name)?
         {
+            self.ide_note_constant_use(span, &ids);
             return self.entities_operand(f, scope, &ids, span);
         }
         match self.types.kind(t).clone() {
@@ -336,6 +348,7 @@ impl Compiler {
             }
             TypeKind::Struct(_) => {
                 if let Some(ids) = self.struct_constant(t, name)? {
+                    self.ide_note_constant_use(span, &ids);
                     return self.entities_operand(f, scope, &ids, span);
                 }
                 if let Some(ty) = self.pending_struct_field_type(t, name, span)? {
