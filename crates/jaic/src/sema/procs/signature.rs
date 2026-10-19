@@ -417,7 +417,7 @@ impl Compiler {
     /// (polymorphic ones are told apart when a call picks between them). Checked when the
     /// overload set is first used.
     pub fn check_identical_overloads(&mut self, ids: &[EntityId]) -> Result<()> {
-        if !self.overload_sets_checked.insert(ids.to_vec()) {
+        if self.overload_sets_checked.contains(ids) {
             return Ok(());
         }
         let mut seen: Vec<(EntityId, Rc<[TypeId]>, bool)> = Vec::new();
@@ -462,6 +462,9 @@ impl Compiler {
             }
             seen.push((id, params, ty.variadic));
         }
+        // Only a clean set is remembered: a caller that swallows the error (a speculative
+        // lookup) must not hide it from the next check.
+        self.overload_sets_checked.insert(ids.to_vec());
         Ok(())
     }
 }
