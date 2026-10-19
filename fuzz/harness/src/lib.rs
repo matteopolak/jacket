@@ -58,7 +58,80 @@ pub fn parser(data: &[u8]) {
     let _ = jaic::parser::parse_file(FileId(0), &text);
 }
 
-fn play(source: &[u8], compile_only: bool) {
+/// What a program means to the playground: its compile errors (digits blanked, since a message
+/// may name a line), and, for a program that compiled, how `main` ended.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Meaning {
+    errors: Vec<String>,
+    exit_code: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+impl Meaning {
+    /// Compile `source` and run `main` in the sandbox. A program is only compiled when running
+    /// it proves nothing: it asks for memory by name (the sandbox has no memory cap, and
+    /// `talloc(1 << 30)` in a loop is the program's doing), or it reads its own line numbers.
+    pub(crate) fn of(source: &[u8]) -> Meaning {
+        const UNSTABLE: [&str; 8] = [
+            "alloc",
+            "reserve",
+            "New",
+            "line_number",
+            "stack_trace",
+            "#line",
+            "location",
+            "Location",
+        ];
+        let hungry = UNSTABLE
+            .iter()
+            .any(|w| source.windows(w.len()).any(|window| window == w.as_bytes()));
+        let compile_only = hungry;
+        let result = compile(source, compile_only);
+        let mut errors: Vec<String> = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.severity == "error")
+            .map(|d| blank_digits(&d.message))
+            .collect();
+        errors.sort();
+        let ran = errors.is_empty() && !compile_only;
+        Meaning {
+            errors,
+            exit_code: result.exit_code.filter(|_| ran),
+            stdout: if ran {
+                blank_digits(&result.stdout)
+            } else {
+                String::new()
+            },
+            stderr: if ran {
+                blank_digits(&result.stderr)
+            } else {
+                String::new()
+            },
+        }
+    }
+}
+
+/// `text` as a comparison key between a program and its reformatted self: without whitespace
+/// (messages quote source), and with every number replaced by one `#`, hexadecimal ones too (line numbers
+/// move, addresses differ between runs).
+fn blank_digits(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut in_number = false;
+    for c in text.chars().filter(|c| !c.is_whitespace()) {
+        let number = c.is_ascii_digit() || (in_number && (c.is_ascii_hexdigit() || c == '_'));
+        in_number = number;
+        if !number {
+            out.push(c);
+        } else if !out.ends_with('#') {
+            out.push('#');
+        }
+    }
+    out
+}
+
+fn compile(source: &[u8], compile_only: bool) -> jai_wasm::play::PlayResult {
     let mut files = BTreeMap::new();
     files.insert("main.jai".to_string(), source.to_vec());
     let options = PlayOptions {
@@ -66,7 +139,11 @@ fn play(source: &[u8], compile_only: bool) {
         compile_only,
         styled: false,
     };
-    let result = on_compiler_stack(|| run_with(&files, "main.jai", options));
+    on_compiler_stack(|| run_with(&files, "main.jai", options))
+}
+
+fn play(source: &[u8], compile_only: bool) {
+    let result = compile(source, compile_only);
     if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
         eprintln!(
             "{}{:?}\n{}",

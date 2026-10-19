@@ -8,6 +8,8 @@
 //! - formatting is not idempotent (`format(format(x)) != format(x)`);
 //! - the Rust lexer sees a different token stream in the output than in the input;
 //! - the input parses but the output does not, or their syntax trees differ (spans aside);
+//! - the program compiles or runs differently (compile errors, or `main`'s output and exit code,
+//!   digits blanked since line numbers move);
 //! - the formatter ran out of its (generous) interpreter budget: it is linear in the input.
 //!
 //! Input the formatter refuses (text that does not lex, unbalanced brackets) is fine.
@@ -133,5 +135,17 @@ pub fn jaifmt(data: &[u8]) {
             eprintln!("--- input tree ---\n{before:?}\n--- formatted tree ---\n{after:?}");
         }
         panic!("the formatted text parses differently (config {config:?})");
+    }
+    if before.is_some() {
+        let (old, new) = (
+            crate::Meaning::of(data),
+            crate::Meaning::of(formatted.as_bytes()),
+        );
+        if old != new {
+            if verbose {
+                eprintln!("--- input meaning ---\n{old:?}\n--- formatted meaning ---\n{new:?}");
+            }
+            panic!("the formatted program means something else (config {config:?})");
+        }
     }
 }
