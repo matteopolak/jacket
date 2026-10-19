@@ -25,6 +25,8 @@ jai-language-server = { path = "crates/jai-language-server" }
 # The one thread pool for CPU-bound fork-join work (`jaic::pool`).
 rayon = "1.10"
 find-msvc-tools = "0.1.12"
+# Markdown parsing for doc comments (`jaic::docs`): intra-doc link discovery and rewriting.
+pulldown-cmark = { version = "0.13", default-features = false }
 # LLVM 23 support is on inkwell's main branch but in no crates.io release yet (0.10.0 stops at
 # LLVM 22). Pinned to a commit at least 14 days old, which `tools/ci/check_dependency_age.py`
 # verifies; switch back to a registry version once one with `llvm23-1` is 14 days old.

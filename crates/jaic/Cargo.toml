@@ -9,6 +9,7 @@ description = "Jai compiler core: lexer, parser, demand-driven semantic analysis
 [dependencies]
 rayon.workspace = true
 find-msvc-tools.workspace = true
+pulldown-cmark.workspace = true
 
 [lints]
 workspace = true

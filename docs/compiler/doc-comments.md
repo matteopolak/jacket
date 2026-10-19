@@ -23,7 +23,7 @@ Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]` (module), `[P
 
 ## How it works
 
-`crates/jaic/src/docs.rs` (shared with jailint) does the text work with no parser: given the offset of a declaration's name it finds the comment lines above, splits parameter lists, reads list items and scans for links. It reads a file on demand, only for the declaration asked about.
+`crates/jaic/src/docs.rs` (shared with jailint) works from the lexer's tokens, with no parse: `lex_with_trivia` keeps comments as trivia, and a comment belongs to the declaration whose first token follows it. Given the offset of a declaration's name it finds the comments directly above, splits parameter lists by their tokens, and reads list items. Links come from `pulldown-cmark` (with a broken-link callback, since intra-doc links have no definition): `docs::links` returns them with byte ranges, `sites` maps those back into the file, and `markdown` rewrites resolved ones. It lexes a file on demand, and the last text lexed is cached per thread, so a burst of questions about one file lexes it once.
 
 `doc_view.rs` is the glue:
 
@@ -44,7 +44,7 @@ Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]` (module), `[P
 - What a link can name: `Compiler::ide_resolve_path` in `crates/jaic/src/sema/ide.rs`. Link colour: `target_kind` in `doc_view.rs`.
 - Markdown styling: edit the regexes in `jai-doc-comments.tmLanguage.json`, add a case to `editors/vscode/test/grammar/doc-comments.jai` (`pnpm run test:grammar`).
 - The playground (another repository) needs the `meta.comment-run.jai` wrapper, the injection grammar or equivalent, a mapping from `markup.*` scopes to styles, and the semantic token types the server sends on link labels, applied over the comment colour.
-- Gotchas: extraction starts at the name's offset, so a declaration whose literal is on the next line takes docs above the name's line. Block comments are read only when they end directly above the declaration.
+- Gotchas: extraction starts at the name's offset, so a declaration whose literal is on the next line takes docs above the name's line. Block comments are read only when they end directly above the declaration, and a comment counts only when it starts its line. A `[ref]: url` line is a definition even directly under a paragraph line (CommonMark would not), because that is how it is written.
 
 ## Configuration
 
@@ -52,4 +52,4 @@ None. Hover and signature help use Markdown when the client lists it in `content
 
 ## Dependencies
 
-`jaic` editor facts (`ide_hover_decls`, `ide_resolve_path`, `IdeName::decl`); `vscode-textmate` semantics for the grammar. See [language server](language-server.md).
+`jaic` editor facts (`ide_hover_decls`, `ide_resolve_path`, `IdeName::decl`); `pulldown-cmark` (link discovery, fences) and the lexer's trivia in `jaic`; `vscode-textmate` semantics for the grammar. See [language server](language-server.md).

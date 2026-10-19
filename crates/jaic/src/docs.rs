@@ -1,28 +1,31 @@
-//! Doc comments, found by text so they work on any file (open or not) without parsing it.
+//! Doc comments, found from the file's tokens so they work on any file (open or not) without
+//! parsing it.
 //!
-//! A declaration's docs are the run of `//` lines (or one `/* */` block) directly above its
-//! line, with no blank line between, plus (for fields, enum members and parameters) a trailing
-//! `// ...` on its own line. The text is Markdown: one space is stripped after each `//` and
-//! nothing else. Extraction is lazy: callers ask about one declaration at a time.
+//! The lexer keeps comments as trivia; a comment belongs to the declaration whose first token
+//! follows it. A declaration's docs are the run of `//` lines (or one `/* */` block) directly
+//! above its line, with no blank line between, plus (for fields, enum members and parameters)
+//! a trailing `// ...` on its own line. The text is Markdown: one space is stripped after each
+//! `//` and nothing else. Extraction is lazy: callers ask about one declaration at a time, and
+//! the last file lexed is remembered per thread so a burst of questions about one file lexes it
+//! once.
 //!
 //! Also here: parameter docs (`- name: text` items in a procedure's docs, or comments on the
-//! parameter itself), and `[name]` / `[text](name)` intra-doc links with the Markdown
-//! rewriting that turns resolved links into real ones.
+//! parameter itself), and `[name]` / `[text](name)` intra-doc links, found with a Markdown
+//! parser, with the Markdown rewriting that turns resolved links into real ones.
 
-use crate::source::line_start;
+use crate::lexer::{Comment, CommentKind, Lexed, P, Tok, Token};
+use crate::source::{FileId, line_start};
+use pulldown_cmark::{
+    BrokenLink, CodeBlockKind, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd,
+};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// The most lines a doc comment shows.
 pub const MAX_LINES: usize = 200;
 
-/// The text of a `//` comment line, one leading space (and a `///` or `//!` marker) removed.
-fn line_body(line: &str) -> Option<&str> {
-    let rest = line.trim().strip_prefix("//")?;
-    let rest = rest
-        .strip_prefix('/')
-        .or_else(|| rest.strip_prefix('!'))
-        .unwrap_or(rest);
-    Some(rest.strip_prefix(' ').unwrap_or(rest).trim_end())
-}
+/// Parameter lists are read this many lines past their `(`, and looked back for this many.
+const HEADER_LINES: usize = 80;
 
 /// A rule drawn in comments (`// ------`, `//====`): not documentation.
 fn decoration(body: &str) -> bool {
@@ -37,140 +40,259 @@ fn valid(text: &str, at: usize) -> bool {
     text.is_char_boundary(at)
 }
 
-/// The line before the one starting at `start`, as (its start, its text without the newline).
-fn previous_line(text: &str, start: usize) -> Option<(usize, &str)> {
-    if start == 0 {
-        return None;
-    }
-    let end = start - 1;
-    let begin = line_start(text, end);
-    Some((begin, text[begin..end].trim_end_matches('\r')))
+/// One line of a comment's text, without delimiters, as a slice of the source.
+struct Body<'t> {
+    /// Where `text` starts in the file.
+    src: usize,
+    /// Just after the `//` (and any extra `/` or `!`) of a line comment; `src` for a block.
+    marker_end: usize,
+    text: &'t str,
 }
 
-/// The comment run directly above the line starting at `start`, as lines of Markdown.
-fn comment_above(text: &str, start: usize) -> Vec<String> {
-    let Some((mut begin, previous)) = previous_line(text, start) else {
-        return Vec::new();
-    };
-    if previous.trim_end().ends_with("*/") {
-        return block_above(text, begin, previous);
-    }
-    let mut lines: Vec<String> = Vec::new();
-    let mut line = previous;
-    while let Some(body) = line_body(line) {
-        if decoration(body) {
-            break;
-        }
-        lines.push(body.to_owned());
-        if lines.len() >= MAX_LINES {
-            break;
-        }
-        match previous_line(text, begin) {
-            Some((b, l)) => {
-                begin = b;
-                line = l;
-            }
-            None => break,
-        }
-    }
-    lines.reverse();
-    lines
+/// A file's tokens and comments, lexed once.
+struct Trivia {
+    text: String,
+    tokens: Vec<Token>,
+    comments: Vec<Comment>,
 }
 
-/// The `/* ... */` block whose last line is `last` (starting at `last_start`), as lines of
-/// Markdown: the delimiters are dropped, and a ` * ` margin or the common indent is removed.
-fn block_above(text: &str, last_start: usize, last: &str) -> Vec<String> {
-    let mut begin = last_start;
-    let mut line = last;
-    let mut collected: Vec<&str> = vec![line];
-    let mut depth = 0i32;
-    loop {
-        depth += line.matches("*/").count() as i32 - line.matches("/*").count() as i32;
-        if depth <= 0 || collected.len() >= MAX_LINES {
-            break;
+thread_local! {
+    static LAST: RefCell<Option<Rc<Trivia>>> = const { RefCell::new(None) };
+}
+
+/// `text` lexed, reusing the last lexing on this thread when the text is the same.
+fn trivia(text: &str) -> Rc<Trivia> {
+    LAST.with(|last| {
+        let mut last = last.borrow_mut();
+        if let Some(found) = last.as_ref()
+            && found.text == text
+        {
+            return Rc::clone(found);
         }
-        match previous_line(text, begin) {
-            Some((b, l)) => {
-                begin = b;
-                line = l;
-                collected.push(line);
+        let lexed = Lexed::new(FileId(0), text);
+        let found = Rc::new(Trivia {
+            text: text.to_owned(),
+            tokens: lexed.tokens,
+            comments: lexed.comments,
+        });
+        *last = Some(Rc::clone(&found));
+        found
+    })
+}
+
+impl Trivia {
+    fn start(c: &Comment) -> usize {
+        c.span.start as usize
+    }
+
+    fn end(c: &Comment) -> usize {
+        c.span.end as usize
+    }
+
+    /// Whether only whitespace comes before `c` on its line.
+    fn owns_line(&self, c: &Comment) -> bool {
+        let start = Self::start(c);
+        self.text[line_start(&self.text, start)..start]
+            .trim()
+            .is_empty()
+    }
+
+    /// Whether `c` is on the line directly above `next` (an offset at or after its end).
+    fn directly_above(&self, c: &Comment, next: usize) -> bool {
+        let gap = &self.text[Self::end(c)..next];
+        gap.trim().is_empty() && gap.matches('\n').count() == 1 && self.owns_line(c)
+    }
+
+    /// The comments that end at or before `offset`.
+    fn comments_before(&self, offset: usize) -> &[Comment] {
+        let n = self.comments.partition_point(|c| Self::end(c) <= offset);
+        &self.comments[..n]
+    }
+
+    /// The doc comment attached to the line starting at `line`: one block comment, else the run
+    /// of `//` lines, nearest last, ending at a rule.
+    fn docs_run(&self, line: usize) -> Vec<&Comment> {
+        let mut out: Vec<&Comment> = Vec::new();
+        let mut next = line;
+        for c in self.comments_before(line).iter().rev() {
+            if !self.directly_above(c, next) {
+                break;
             }
-            None => return Vec::new(),
+            if c.kind == CommentKind::Block {
+                if out.is_empty() && c.terminated {
+                    out.push(c);
+                }
+                break;
+            }
+            if decoration(c.body(&self.text)) {
+                break;
+            }
+            out.push(c);
+            if out.len() >= MAX_LINES {
+                break;
+            }
+            next = Self::start(c);
         }
+        out.reverse();
+        out
     }
-    if depth > 0 {
-        return Vec::new();
+
+    /// The comments directly above the line starting at `line`, for link sites: lines and
+    /// blocks, back to the nearest block.
+    fn sites_run(&self, line: usize) -> Vec<&Comment> {
+        let mut out: Vec<&Comment> = Vec::new();
+        let mut next = line;
+        for c in self.comments_before(line).iter().rev() {
+            if !self.directly_above(c, next) {
+                break;
+            }
+            out.push(c);
+            if c.kind == CommentKind::Block {
+                break;
+            }
+            next = Self::start(c);
+        }
+        out.reverse();
+        out
     }
-    collected.reverse();
-    let count = collected.len();
-    let margin = collected.iter().skip(1).all(|l| {
-        let t = l.trim_start();
-        t.is_empty() || t.starts_with('*')
-    });
-    // Without a margin, the indent the continuation lines share is removed.
-    let indent = if margin {
-        0
-    } else {
-        collected
-            .iter()
-            .skip(1)
-            .filter(|l| !l.trim().is_empty())
-            .map(|l| l.len() - l.trim_start().len())
-            .min()
-            .unwrap_or(0)
-    };
-    let mut lines: Vec<String> = Vec::with_capacity(count);
-    for (i, raw) in collected.iter().enumerate() {
-        let mut l: &str = raw;
-        if i == 0 {
-            l = l.trim_start();
-            l = l.strip_prefix("/*").unwrap_or(l);
+
+    /// The `//` lines directly above the line starting at `line`.
+    fn line_run(&self, line: usize) -> Vec<&Comment> {
+        let mut out: Vec<&Comment> = Vec::new();
+        let mut next = line;
+        for c in self.comments_before(line).iter().rev() {
+            if c.kind != CommentKind::Line || !self.directly_above(c, next) {
+                break;
+            }
+            out.push(c);
+            next = Self::start(c);
         }
-        if i == count - 1 {
-            l = l.trim_end();
-            l = l.strip_suffix("*/").unwrap_or(l);
+        out.reverse();
+        out
+    }
+
+    /// The first comment that starts at or after `from` on its line.
+    fn comment_after(&self, from: usize) -> Option<&Comment> {
+        let end = self.text[from..]
+            .find('\n')
+            .map_or(self.text.len(), |n| from + n);
+        let at = self.comments.partition_point(|c| Self::start(c) < from);
+        self.comments.get(at).filter(|c| Self::start(c) < end)
+    }
+
+    /// The lines of `c`'s text.
+    fn bodies(&self, c: &Comment) -> Vec<Body<'_>> {
+        let (start, end) = (Self::start(c), Self::end(c));
+        if c.kind == CommentKind::Line {
+            let bytes = self.text.as_bytes();
+            let mut at = start + 2;
+            let marker_end = at
+                + bytes[at..end]
+                    .iter()
+                    .take_while(|&&b| b == b'/' || b == b'!')
+                    .count();
+            if at < end && matches!(bytes[at], b'/' | b'!') {
+                at += 1;
+            }
+            if at < end && bytes[at] == b' ' {
+                at += 1;
+            }
+            let text = self.text[at..end].trim_end();
+            return vec![Body {
+                src: at,
+                marker_end,
+                text,
+            }];
         }
-        let text = if i == 0 {
-            l.trim()
-        } else if margin {
-            let t = l.trim_start();
-            let t = t.strip_prefix('*').unwrap_or(t);
-            t.strip_prefix(' ').unwrap_or(t).trim_end()
+        self.block_bodies(start, end, c.terminated)
+    }
+
+    /// The lines of a block comment: the delimiters are dropped, and a ` * ` margin or the
+    /// common indent is removed.
+    fn block_bodies(&self, start: usize, end: usize, terminated: bool) -> Vec<Body<'_>> {
+        let inner_start = start + 2;
+        let inner_end = if terminated {
+            end - 2
         } else {
-            l.get(indent..).unwrap_or(l.trim_start()).trim_end()
+            end
         };
-        lines.push(text.to_owned());
-    }
-    while lines.first().is_some_and(std::string::String::is_empty) {
-        lines.remove(0);
-    }
-    while lines.last().is_some_and(std::string::String::is_empty) {
-        lines.pop();
-    }
-    lines
-}
-
-/// A `//` comment after the code at `from` on its line: (offset of the `//`, its body).
-fn trailing_comment(text: &str, from: usize) -> Option<(usize, String)> {
-    let end = text[from..].find('\n').map_or(text.len(), |n| from + n);
-    let line = &text[from..end];
-    let bytes = line.as_bytes();
-    let mut in_string = false;
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'\\' if in_string => i += 1,
-            b'"' => in_string = !in_string,
-            b'/' if !in_string && bytes.get(i + 1) == Some(&b'/') => {
-                let body = line_body(&line[i..])?;
-                return Some((from + i, body.to_owned()));
-            }
-            b'/' if !in_string && bytes.get(i + 1) == Some(&b'*') => return None,
-            _ => {}
+        let text = self.text.as_str();
+        let mut lines: Vec<(usize, usize)> = Vec::new();
+        let mut from = inner_start;
+        for (i, _) in text[inner_start..inner_end].match_indices('\n') {
+            lines.push((from, inner_start + i));
+            from = inner_start + i + 1;
         }
-        i += 1;
+        lines.push((from, inner_end));
+        let margin = lines.iter().skip(1).all(|&(a, b)| {
+            let t = text[a..b].trim_start();
+            t.is_empty() || t.starts_with('*')
+        });
+        // Without a margin, the indent the continuation lines share is removed.
+        let indent = if margin {
+            0
+        } else {
+            lines
+                .iter()
+                .skip(1)
+                .filter(|&&(a, b)| !text[a..b].trim().is_empty())
+                .map(|&(a, b)| text[a..b].len() - text[a..b].trim_start().len())
+                .min()
+                .unwrap_or(0)
+        };
+        let mut out = Vec::with_capacity(lines.len());
+        for (i, &(a, b)) in lines.iter().enumerate() {
+            let b = a + text[a..b].trim_end().len();
+            let skip_space = |a: usize| a + (text[a..b].len() - text[a..b].trim_start().len());
+            let a = if i == 0 {
+                skip_space(a)
+            } else if margin {
+                let mut a = skip_space(a);
+                if text[a..b].starts_with('*') {
+                    a += 1;
+                }
+                if text[a..b].starts_with(' ') {
+                    a += 1;
+                }
+                a
+            } else if a + indent <= b && text.is_char_boundary(a + indent) {
+                a + indent
+            } else {
+                skip_space(a)
+            };
+            out.push(Body {
+                src: a,
+                marker_end: a,
+                text: &text[a..b],
+            });
+        }
+        out
     }
-    None
+
+    /// The index of the first token starting at or after `at`.
+    fn token_from(&self, at: usize) -> usize {
+        self.tokens
+            .partition_point(|t| (t.span.start as usize) < at)
+    }
+
+    /// Whether the token before `paren` makes it a procedure header's `(`.
+    fn header_before(&self, paren: usize) -> bool {
+        let Some(before) = paren.checked_sub(1) else {
+            return false;
+        };
+        match &self.tokens[before].tok {
+            Tok::Punct(P::ColonColon) => true,
+            Tok::Directive(s) => s.as_str() == "type",
+            Tok::Ident(s) if s.as_str() == "inline" => true,
+            // `#type,distinct (`
+            Tok::Ident(s) if s.as_str() == "distinct" => {
+                before >= 2
+                    && self.tokens[before - 1].tok == Tok::Punct(P::Comma)
+                    && matches!(&self.tokens[before - 2].tok, Tok::Directive(s) if s.as_str() == "type")
+            }
+            _ => false,
+        }
+    }
 }
 
 /// The docs above the declaration whose line holds `at`.
@@ -178,7 +300,22 @@ pub fn above(text: &str, at: usize) -> Option<String> {
     if !valid(text, at) {
         return None;
     }
-    let lines = comment_above(text, line_start(text, at));
+    above_in(&trivia(text), at)
+}
+
+fn above_in(t: &Trivia, at: usize) -> Option<String> {
+    let run = t.docs_run(line_start(&t.text, at));
+    let mut lines: Vec<&str> = run
+        .into_iter()
+        .flat_map(|c| t.bodies(c))
+        .map(|b| b.text)
+        .collect();
+    while lines.first().is_some_and(|l| l.is_empty()) {
+        lines.remove(0);
+    }
+    while lines.last().is_some_and(|l| l.is_empty()) {
+        lines.pop();
+    }
     let doc = lines.join("\n");
     (!doc.trim().is_empty()).then_some(doc)
 }
@@ -189,8 +326,15 @@ pub fn trailing(text: &str, at: usize) -> Option<String> {
     if !valid(text, at) {
         return None;
     }
-    let (comment_at, body) = trailing_comment(text, at)?;
-    let code = text[at..comment_at].trim_end();
+    trailing_in(&trivia(text), at)
+}
+
+fn trailing_in(t: &Trivia, at: usize) -> Option<String> {
+    let comment = t
+        .comment_after(at)
+        .filter(|c| c.kind == CommentKind::Line)?;
+    let body = t.bodies(comment).pop()?.text;
+    let code = t.text[at..Trivia::start(comment)].trim_end();
     if code.contains('{') {
         return None;
     }
@@ -198,7 +342,7 @@ pub fn trailing(text: &str, at: usize) -> Option<String> {
     if (!ends && code.contains("::")) || body.trim().is_empty() {
         return None;
     }
-    Some(body)
+    Some(body.to_owned())
 }
 
 /// The docs of the declaration named at `at`: the comment lines above it, else its trailing
@@ -207,11 +351,12 @@ pub fn declaration(text: &str, at: usize) -> Option<String> {
     if !valid(text, at) {
         return None;
     }
-    if let Some(open) = enclosing_header(text, at) {
+    let t = trivia(text);
+    if let Some(open) = enclosing_header_in(&t, at) {
         let name = word_at(text, at)?;
-        return parameter(text, open, name);
+        return parameter(&t, open, name);
     }
-    above(text, at).or_else(|| trailing(text, at))
+    above_in(&t, at).or_else(|| trailing_in(&t, at))
 }
 
 /// The identifier starting at `at`.
@@ -230,51 +375,49 @@ pub fn enclosing_header(text: &str, at: usize) -> Option<usize> {
     if !valid(text, at) {
         return None;
     }
-    const LOOKBACK_LINES: usize = 80;
-    let mut depth = 0i32;
-    let mut end = at;
-    let mut start = line_start(text, at);
-    for _ in 0..LOOKBACK_LINES {
-        let line = &text[start..end];
-        // Drop a trailing comment (outside strings).
-        let code = match trailing_comment(text, start) {
-            Some((comment_at, _)) if comment_at < end => &text[start..comment_at],
-            _ => line,
-        };
-        for (i, c) in code.char_indices().rev() {
-            match c {
-                ')' | ']' => depth += 1,
-                '[' => depth -= 1,
-                '(' if depth > 0 => depth -= 1,
-                '(' => {
-                    let before = text[..start + i].trim_end();
-                    let header = before.ends_with("::")
-                        || before.ends_with("#type")
-                        || before.ends_with("inline")
-                        || before.ends_with("#type,distinct");
-                    return header.then_some(start + i);
-                }
-                '{' | '}' | ';' => return None,
-                _ => {}
-            }
+    enclosing_header_in(&trivia(text), at)
+}
+
+fn enclosing_header_in(t: &Trivia, at: usize) -> Option<usize> {
+    // Only the lines just before `at` are read.
+    let mut bound = line_start(&t.text, at);
+    for _ in 0..HEADER_LINES {
+        if bound == 0 {
+            break;
         }
-        let (begin, _) = previous_line(text, start)?;
-        end = start - 1;
-        start = begin;
+        bound = line_start(&t.text, bound - 1);
+    }
+    let mut depth = 0i32;
+    for i in (0..t.token_from(at)).rev() {
+        let token = &t.tokens[i];
+        if (token.span.start as usize) < bound {
+            return None;
+        }
+        let Tok::Punct(p) = &token.tok else {
+            continue;
+        };
+        match p {
+            P::RParen | P::RBracket => depth += 1,
+            P::LBracket | P::DotBracket => depth -= 1,
+            P::LParen if depth > 0 => depth -= 1,
+            P::LParen => return t.header_before(i).then_some(token.span.start as usize),
+            P::LBrace | P::DotBrace | P::RBrace | P::Semi => return None,
+            _ => {}
+        }
     }
     None
 }
 
 /// The docs of parameter `name` of the header opened at `open`: comments on the parameter
 /// itself, else its item in the docs above the header.
-fn parameter(text: &str, open: usize, name: &str) -> Option<String> {
+fn parameter(t: &Trivia, open: usize, name: &str) -> Option<String> {
     let name = name.trim_start_matches('$');
-    header_parameters(text, open)
+    header_parameters(t, open)
         .into_iter()
         .find(|(n, _)| n == name)
         .map(|(_, doc)| doc)
         .or_else(|| {
-            let doc = above(text, open)?;
+            let doc = above_in(t, open)?;
             list_parameters(&doc)
                 .into_iter()
                 .find(|(n, _)| n == name)
@@ -289,8 +432,9 @@ pub fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
     if !valid(text, open) {
         return Vec::new();
     }
-    let mut found = header_parameters(text, open);
-    if let Some(doc) = above(text, open) {
+    let t = trivia(text);
+    let mut found = header_parameters(&t, open);
+    if let Some(doc) = above_in(&t, open) {
         for (name, doc) in list_parameters(&doc) {
             if !found.iter().any(|(n, _)| *n == name) {
                 found.push((name, doc));
@@ -311,126 +455,112 @@ pub fn header_open(text: &str, at: usize) -> Option<usize> {
 }
 
 /// Parameters with a comment directly above them or after them on their line.
-fn header_parameters(text: &str, open: usize) -> Vec<(String, String)> {
-    const MAX_HEADER_LINES: usize = 80;
-    let mut out: Vec<(String, String)> = Vec::new();
-    let mut pending: Vec<String> = Vec::new();
-    let mut depth = 0i32;
-    let mut start = line_start(text, open);
-    let mut first = true;
-    for _ in 0..MAX_HEADER_LINES {
-        let end = text[start..].find('\n').map_or(text.len(), |n| start + n);
-        let line = text[start..end].trim_end_matches('\r');
-        let from = if first {
-            open - start
-        } else {
-            0
+fn header_parameters(t: &Trivia, open: usize) -> Vec<(String, String)> {
+    let first = t.token_from(open);
+    let starts_here = t
+        .tokens
+        .get(first)
+        .is_some_and(|k| k.span.start as usize == open && k.tok == Tok::Punct(P::LParen));
+    if !starts_here {
+        return Vec::new();
+    }
+    let open_line = line_start(&t.text, open);
+    let mut limit = open_line;
+    for _ in 0..HEADER_LINES {
+        let Some(n) = t.text[limit..].find('\n') else {
+            limit = t.text.len();
+            break;
         };
-        first = false;
-        if depth == 0 && start != line_start(text, open) {
+        limit += n + 1;
+    }
+    // The tokens of each top-level parameter, up to the closing parenthesis.
+    let mut segments: Vec<(usize, usize)> = Vec::new();
+    let (mut depth, mut seg_start) = (0i32, first + 1);
+    for (i, token) in t.tokens.iter().enumerate().skip(first) {
+        if token.span.start as usize >= limit {
+            segments.push((seg_start, i));
             break;
         }
-        let comment = trailing_comment(text, start + from);
-        let code_end = comment.as_ref().map_or(end, |(at, _)| *at);
-        let code = &text[start + from..code_end];
-        if code.trim().is_empty() && depth > 0 {
-            match line_body(line) {
-                Some(body) if comment.is_some() || line.trim_start().starts_with("//") => {
-                    pending.push(body.to_owned());
+        let Tok::Punct(p) = &token.tok else {
+            continue;
+        };
+        match p {
+            P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket => depth += 1,
+            P::RParen | P::RBracket | P::RBrace => {
+                depth -= 1;
+                if depth == 0 {
+                    segments.push((seg_start, i));
+                    break;
                 }
-                _ => pending.clear(),
             }
+            P::Comma if depth == 1 => {
+                segments.push((seg_start, i));
+                seg_start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    // (name, the start of its line)
+    let mut named: Vec<(String, usize)> = Vec::new();
+    for (a, b) in segments {
+        let mut j = a;
+        while j < b && matches!(t.tokens[j].tok, Tok::Punct(P::Dollar | P::DollarDollar)) {
+            j += 1;
+        }
+        if j >= b {
+            continue;
+        }
+        let Tok::Ident(name) = &t.tokens[j].tok else {
+            continue;
+        };
+        let declares = j + 1 >= b
+            || matches!(
+                t.tokens[j + 1].tok,
+                Tok::Punct(P::Colon | P::ColonEq | P::ColonColon)
+            );
+        if declares {
+            let line = line_start(&t.text, t.tokens[j].span.start as usize);
+            named.push((name.as_str().to_owned(), line));
+        }
+    }
+    let mut out: Vec<(String, String)> = Vec::new();
+    let mut at = 0;
+    while at < named.len() {
+        let line = named[at].1;
+        let count = named[at..].iter().take_while(|n| n.1 == line).count();
+        let leading: Vec<&str> = if line == open_line {
+            Vec::new()
         } else {
-            // Split the code at top-level commas into parameters.
-            let mut segments: Vec<(usize, String)> = Vec::new();
-            let mut current = String::new();
-            let mut began_at_depth_one = depth == 1 && from == 0;
-            let mut seg_start = 0usize;
-            let mut in_string = false;
-            let mut closed = false;
-            for (i, c) in code.char_indices() {
-                if in_string {
-                    current.push(c);
-                    if c == '"' {
-                        in_string = false;
-                    }
-                    continue;
-                }
-                match c {
-                    '"' => {
-                        in_string = true;
-                        current.push(c);
-                    }
-                    '(' | '[' | '{' => {
-                        depth += 1;
-                        if depth > 1 {
-                            current.push(c);
-                        } else {
-                            began_at_depth_one = true;
-                            seg_start = i + 1;
-                        }
-                    }
-                    ')' | ']' | '}' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            closed = true;
-                            if began_at_depth_one {
-                                segments.push((seg_start, std::mem::take(&mut current)));
-                            }
-                            break;
-                        }
-                        current.push(c);
-                    }
-                    ',' if depth == 1 => {
-                        if began_at_depth_one {
-                            segments.push((seg_start, std::mem::take(&mut current)));
-                        }
-                        began_at_depth_one = true;
-                        seg_start = i + 1;
-                    }
-                    _ => current.push(c),
-                }
+            t.line_run(line)
+                .into_iter()
+                .flat_map(|c| t.bodies(c))
+                .map(|b| b.text)
+                .collect()
+        };
+        let from = if line == open_line {
+            open
+        } else {
+            line
+        };
+        let after = t
+            .comment_after(from)
+            .filter(|c| c.kind == CommentKind::Line)
+            .and_then(|c| t.bodies(c).pop())
+            .map(|b| b.text)
+            .filter(|b| !b.trim().is_empty());
+        for (k, (name, _)) in named[at..at + count].iter().enumerate() {
+            let mut parts: Vec<&str> = Vec::new();
+            if k == 0 {
+                parts.extend(&leading);
             }
-            if !closed && began_at_depth_one && !current.trim().is_empty() {
-                segments.push((seg_start, std::mem::take(&mut current)));
+            if k == count - 1 {
+                parts.extend(after);
             }
-            let named: Vec<(String, bool)> = segments
-                .iter()
-                .filter_map(|(_, s)| {
-                    let s = s.trim().trim_start_matches('$').trim_start_matches('$');
-                    let end = s
-                        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
-                        .unwrap_or(s.len());
-                    let rest = s[end..].trim_start();
-                    (end > 0 && (rest.is_empty() || rest.starts_with(':')))
-                        .then(|| (s[..end].to_owned(), false))
-                })
-                .collect();
-            let last = named.len().saturating_sub(1);
-            for (i, (name, _)) in named.iter().enumerate() {
-                let mut parts: Vec<String> = Vec::new();
-                if i == 0 {
-                    parts.append(&mut pending);
-                }
-                if i == last
-                    && let Some((_, body)) = &comment
-                    && !body.trim().is_empty()
-                {
-                    parts.push(body.clone());
-                }
-                if !parts.is_empty() {
-                    out.push((name.clone(), parts.join("\n")));
-                }
-            }
-            pending.clear();
-            if closed {
-                break;
+            if !parts.is_empty() {
+                out.push((name.clone(), parts.join("\n")));
             }
         }
-        if end >= text.len() {
-            break;
-        }
-        start = end + 1;
+        at += count;
     }
     out
 }
@@ -495,12 +625,13 @@ fn list_item(line: &str) -> Option<(String, String)> {
     Some((name.to_owned(), rest.trim().to_owned()))
 }
 
+
 // Intra-doc links
 
-/// A `[name]`, `` [`name`] `` or `[text](name)` in a line of documentation.
+/// A `[name]`, `` [`name`] `` or `[text](name)` in documentation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Link {
-    /// The whole link, brackets (and target) included, as byte offsets into the line.
+    /// The whole link, brackets (and target) included, as byte offsets into the text.
     pub whole: (usize, usize),
     /// The text between the brackets.
     pub label: (usize, usize),
@@ -513,6 +644,9 @@ pub struct Link {
     pub targeted: bool,
     /// The label was written in backticks or with `()`: code, not prose.
     pub code: bool,
+    /// A `[label]: url` definition in the same text gives the label a target, so it is a link
+    /// to that URL and not an intra-doc one.
+    pub defined: bool,
 }
 
 /// A path such as `print` or `Basic.print` from link text (backticks and a trailing `()`
@@ -547,194 +681,270 @@ fn link_path(text: &str) -> Option<(Vec<String>, usize, usize, bool)> {
     Some((names, start, start + t.len(), code))
 }
 
-/// The links in one line of documentation, skipping inline code and things that are not
-/// links (`a[i]`, images, `[x][y]`).
-pub fn links(line: &str) -> Vec<Link> {
-    let bytes = line.as_bytes();
+
+/// The links in `doc`, in order, skipping code, URLs and things that are not links (`a[i]`,
+/// images, `[x][y]`, a label that is not a name). A Markdown parser finds them, so escapes,
+/// code spans and fences are handled as Markdown handles them; a bracketed label with no
+/// definition counts as a link, since intra-doc links have none.
+pub fn links(doc: &str) -> Vec<Link> {
+    let mut unresolved = |_: BrokenLink<'_>| Some((CowStr::Borrowed(""), CowStr::Borrowed("")));
+    let parser =
+        Parser::new_with_broken_link_callback(doc, Options::empty(), Some(&mut unresolved));
     let mut out = Vec::new();
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'`' => {
-                let run = bytes[i..].iter().take_while(|&&b| b == b'`').count();
-                let ticks = &line[i..i + run];
-                match line[i + run..].find(ticks) {
-                    Some(close) => i += run + close + run,
-                    None => i += run,
+    // The open link: its range, kind and where its last inner event ends.
+    let mut open: Option<(std::ops::Range<usize>, LinkType, usize)> = None;
+    for (event, range) in parser.into_offset_iter() {
+        match event {
+            Event::Start(Tag::Link {
+                link_type, ..
+            }) => {
+                let inner = range.start + 1;
+                open = Some((range, link_type, inner));
+            }
+            Event::End(TagEnd::Link) => {
+                if let Some((range, kind, inner)) = open.take() {
+                    out.extend(link_from(doc, range, kind, inner));
                 }
             }
-            b'[' => {
-                let prev = line[..i].chars().next_back();
-                let indexing =
-                    prev.is_some_and(|c| c.is_alphanumeric() || matches!(c, '_' | ')' | ']' | '!'));
-                let Some(close) = closing_bracket(line, i) else {
-                    i += 1;
-                    continue;
-                };
-                let label = (i + 1, close);
-                let after = &line[close + 1..];
-                if indexing || after.starts_with('[') {
-                    i = close + 1;
-                    continue;
+            _ => {
+                if let Some((_, _, inner)) = open.as_mut() {
+                    *inner = (*inner).max(range.end);
                 }
-                if let Some(target) = after.strip_prefix('(') {
-                    // `[text](name)`: only a name is a link; a URL is left alone.
-                    if let Some(end) = target.find(')') {
-                        if let Some((names, from, to, code)) = link_path(&target[..end]) {
-                            out.push(Link {
-                                whole: (i, close + 3 + end),
-                                label,
-                                path: (close + 2 + from, close + 2 + to),
-                                names,
-                                targeted: true,
-                                code,
-                            });
-                        }
-                        i = close + 3 + end;
-                        continue;
-                    }
-                } else if let Some((names, from, to, code)) = link_path(&line[label.0..label.1]) {
-                    out.push(Link {
-                        whole: (i, close + 1),
-                        label,
-                        path: (label.0 + from, label.0 + to),
-                        names,
-                        targeted: false,
-                        code,
-                    });
-                }
-                i = close + 1;
             }
-            _ => i += 1,
         }
+    }
+    // A definition line directly under a paragraph line is not one to CommonMark, but it is
+    // written (and meant) as one.
+    let defined: Vec<&str> = doc.lines().filter_map(reference_definition).collect();
+    for link in &mut out {
+        link.defined |= defined.contains(&doc[link.label.0..link.label.1].trim());
     }
     out
 }
 
-/// The `]` matching the `[` at `open`, not counting brackets inside inline code.
-fn closing_bracket(line: &str, open: usize) -> Option<usize> {
-    let bytes = line.as_bytes();
-    let mut i = open + 1;
-    while i < bytes.len() {
-        match bytes[i] {
-            b']' => return Some(i),
-            b'[' => return None,
-            b'`' => {
-                let run = bytes[i..].iter().take_while(|&&b| b == b'`').count();
-                let ticks = &line[i..i + run];
-                match line[i + run..].find(ticks) {
-                    Some(close) => i += run + close + run,
-                    None => i += run,
-                }
-            }
-            _ => i += 1,
-        }
+/// The label of a Markdown reference definition (`[label]: url`) that `line` is.
+fn reference_definition(line: &str) -> Option<&str> {
+    let rest = line.trim_start().strip_prefix('[')?;
+    let end = rest.find("]:")?;
+    let after = rest[end + 2..].trim_start();
+    (!after.is_empty() && !rest[..end].contains('[')).then(|| rest[..end].trim())
+}
+
+/// The intra-doc link a Markdown link is, if it is one.
+fn link_from(
+    doc: &str,
+    whole: std::ops::Range<usize>,
+    kind: LinkType,
+    inner_end: usize,
+) -> Option<Link> {
+    let (targeted, defined) = match kind {
+        LinkType::Inline => (true, false),
+        LinkType::Shortcut | LinkType::Collapsed => (false, true),
+        LinkType::ShortcutUnknown | LinkType::CollapsedUnknown => (false, false),
+        _ => return None,
+    };
+    let prev = doc[..whole.start].chars().next_back();
+    if prev.is_some_and(|c| c.is_alphanumeric() || matches!(c, '_' | ')' | ']' | '!')) {
+        return None;
     }
-    None
+    let label_start = whole.start + 1;
+    let label_end =
+        inner_end.max(label_start) + doc[inner_end.max(label_start)..whole.end].find(']')?;
+    let label = (label_start, label_end);
+    if targeted {
+        // `[text](name)`: only a name is a link; a URL is left alone.
+        let target = label_end + 2;
+        if doc.as_bytes().get(label_end + 1) != Some(&b'(') || target > whole.end - 1 {
+            return None;
+        }
+        let (names, from, to, code) = link_path(&doc[target..whole.end - 1])?;
+        return Some(Link {
+            whole: (whole.start, whole.end),
+            label,
+            path: (target + from, target + to),
+            names,
+            targeted,
+            code,
+            defined,
+        });
+    }
+    let (names, from, to, code) = link_path(&doc[label.0..label.1])?;
+    Some(Link {
+        whole: (whole.start, whole.end),
+        label,
+        path: (label.0 + from, label.0 + to),
+        names,
+        targeted,
+        code,
+        defined,
+    })
+}
+
+/// A comment's text, one line per source line, with where each line came from.
+struct DocText {
+    text: String,
+    lines: Vec<DocLine>,
+}
+
+struct DocLine {
+    /// Where the line starts in `text`.
+    doc: usize,
+    /// Where it starts and ends in the file, and where its comment marker ends.
+    src: usize,
+    marker_end: usize,
+    len: usize,
+}
+
+impl DocText {
+    fn new(t: &Trivia, run: &[&Comment]) -> Self {
+        let mut doc = Self {
+            text: String::new(),
+            lines: Vec::new(),
+        };
+        for body in run.iter().flat_map(|c| t.bodies(c)) {
+            doc.lines.push(DocLine {
+                doc: doc.text.len(),
+                src: body.src,
+                marker_end: body.marker_end,
+                len: body.text.len(),
+            });
+            doc.text.push_str(body.text);
+            doc.text.push('\n');
+        }
+        doc
+    }
+
+    fn line_of(&self, offset: usize) -> usize {
+        self.lines
+            .partition_point(|l| l.doc <= offset)
+            .saturating_sub(1)
+    }
+
+    /// The file offset of the byte at `offset` in the text.
+    fn source(&self, offset: usize) -> usize {
+        let line = &self.lines[self.line_of(offset)];
+        line.src + (offset - line.doc).min(line.len)
+    }
+
+    /// The file offset just after the byte before `end`, for the end of a range.
+    fn source_end(&self, end: usize) -> usize {
+        self.source(end.saturating_sub(1)) + usize::from(end > 0)
+    }
 }
 
 /// The code in the Jai code blocks (fences untagged or tagged `jai`) of `//` comments in
 /// `text`: a byte range per line, after the comment marker.
 pub fn fenced_code(text: &str) -> Vec<(usize, usize)> {
+    let t = trivia(text);
     let mut out = Vec::new();
-    // Inside a fence: whether it holds Jai.
-    let mut open: Option<bool> = None;
-    let mut at = 0;
-    for line in text.split_inclusive('\n') {
-        let start = at;
-        at += line.len();
-        let line = line.trim_end_matches(['\n', '\r']);
-        let code = line.trim_start();
-        let Some(body) = code.strip_prefix("//") else {
-            open = None;
-            continue;
-        };
-        let body = body.trim_start_matches(['/', '!']);
-        let body_at = start + line.len() - body.len();
-        if fence(body) {
-            let t = body.trim_start();
-            let run = t.chars().take_while(|&c| c == '`' || c == '~').count();
-            let info = t[run..].trim();
-            open = match open {
-                None => Some(info.is_empty() || info == "jai"),
-                Some(_) if info.is_empty() => None,
-                Some(jai) => Some(jai),
-            };
-            continue;
+    // Consecutive `//` lines, each directly under the one before.
+    let mut run: Vec<&Comment> = Vec::new();
+    let mut flush = |run: &mut Vec<&Comment>| {
+        if !run.is_empty() {
+            fenced_in(&t, run, &mut out);
+            run.clear();
         }
-        if open == Some(true) && !body.trim().is_empty() {
-            out.push((body_at, start + line.len()));
+    };
+    for c in &t.comments {
+        let continues = run
+            .last()
+            .is_some_and(|last| t.directly_above(last, Trivia::start(c)));
+        if !continues {
+            flush(&mut run);
+        }
+        if c.kind == CommentKind::Line && t.owns_line(c) {
+            run.push(c);
+        } else {
+            flush(&mut run);
         }
     }
+    flush(&mut run);
     out
 }
 
-/// Whether `body` opens or closes a fenced code block.
-fn fence(body: &str) -> bool {
-    let t = body.trim_start();
-    t.starts_with("```") || t.starts_with("~~~")
+fn fenced_in(t: &Trivia, run: &[&Comment], out: &mut Vec<(usize, usize)>) {
+    let doc = DocText::new(t, run);
+    for (event, range) in Parser::new(&doc.text).into_offset_iter() {
+        let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = event else {
+            continue;
+        };
+        let info = info.trim();
+        if !(info.is_empty() || info == "jai") {
+            continue;
+        }
+        let (first, last) = (
+            doc.line_of(range.start),
+            doc.line_of(range.end.saturating_sub(1)),
+        );
+        // Everything between the fence lines.
+        let closed = doc.text[doc.lines[last].doc..]
+            .trim_start()
+            .starts_with(['`', '~'])
+            && last > first;
+        let end = if closed {
+            last
+        } else {
+            last + 1
+        };
+        for line in &doc.lines[(first + 1).min(end)..end] {
+            let body = &doc.text[line.doc..line.doc + line.len];
+            if !body.trim().is_empty() {
+                out.push((line.marker_end, line.src + line.len));
+            }
+        }
+    }
 }
 
 /// `doc` as Markdown for display: untagged code fences become `jai`, and links `resolve`
 /// gives a URL for become Markdown links to it (the rest stay as written).
 pub fn markdown(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
-    let mut out: Vec<String> = Vec::new();
-    let mut fenced = false;
-    for line in doc.lines() {
-        if fence(line) {
-            let t = line.trim_start();
-            let indent = &line[..line.len() - t.len()];
-            let mark = t.chars().next().unwrap_or('`');
-            let run = t.chars().take_while(|&c| c == mark).count();
-            let info = t[run..].trim();
-            if !fenced {
-                fenced = true;
-                if info.is_empty() && mark == '`' {
-                    out.push(format!("{indent}{}jai", &t[..run]));
-                    continue;
-                }
-            } else if info.is_empty() {
-                fenced = false;
-            }
-            out.push(line.to_owned());
+    // (start, end, replacement) in source order.
+    let mut edits: Vec<(usize, usize, String)> = Vec::new();
+    for (event, range) in Parser::new(doc).into_offset_iter() {
+        let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = event else {
+            continue;
+        };
+        if !info.trim().is_empty() {
             continue;
         }
-        if fenced {
-            out.push(line.to_owned());
-            continue;
+        let line_end = doc[range.start..]
+            .find('\n')
+            .map_or(doc.len(), |n| range.start + n);
+        let line = &doc[range.start..line_end];
+        if let Some(at) = line.find('`') {
+            let run = line[at..].chars().take_while(|&c| c == '`').count();
+            let end = range.start + at + run;
+            edits.push((end, end, "jai".to_owned()));
         }
-        let mut rewritten = String::new();
-        let mut at = 0;
-        for link in links(line) {
-            let Some(url) = resolve(&link.names) else {
-                continue;
-            };
-            rewritten.push_str(&line[at..link.whole.0]);
-            rewritten.push_str(&format!("[{}]({url})", &line[link.label.0..link.label.1]));
-            at = link.whole.1;
-        }
-        rewritten.push_str(&line[at..]);
-        out.push(rewritten);
     }
-    out.join("\n")
+    for link in links(doc) {
+        if let Some(url) = resolve(&link.names) {
+            let label = &doc[link.label.0..link.label.1];
+            edits.push((link.whole.0, link.whole.1, format!("[{label}]({url})")));
+        }
+    }
+    edits.sort_by_key(|e| e.0);
+    let mut out = String::with_capacity(doc.len());
+    let mut at = 0;
+    for (start, end, text) in edits {
+        out.push_str(&doc[at..start]);
+        out.push_str(&text);
+        at = end;
+    }
+    out.push_str(&doc[at..]);
+    out.truncate(out.trim_end_matches(['\n', '\r']).len());
+    out
 }
 
-/// Every link name path in `doc` (outside code fences), without repeats.
+/// Every link name path in `doc` (outside code), without repeats.
 pub fn link_names(doc: &str) -> Vec<Vec<String>> {
     let mut out: Vec<Vec<String>> = Vec::new();
-    let mut fenced = false;
-    for line in doc.lines() {
-        if fence(line) {
-            fenced = !fenced;
-            continue;
-        }
-        if fenced || !line.contains('[') {
-            continue;
-        }
-        for link in links(line) {
-            if !out.contains(&link.names) {
-                out.push(link.names);
-            }
+    if !doc.contains('[') {
+        return out;
+    }
+    for link in links(doc) {
+        if !out.contains(&link.names) {
+            out.push(link.names);
         }
     }
     out
@@ -765,50 +975,25 @@ pub struct Site {
 /// The links in the doc comments of `text`: comment runs and blocks directly above a
 /// declaration line, and trailing comments.
 pub fn sites(text: &str) -> Vec<Site> {
+    let t = trivia(text);
     let mut out = Vec::new();
-    // (offset of the line, its text)
-    let mut run: Vec<(usize, &str)> = Vec::new();
-    let mut block_depth = 0i32;
-    let mut offset = 0;
-    for raw in text.split_inclusive('\n') {
-        let line = raw.trim_end_matches(['\n', '\r']);
-        let at = offset;
-        offset += raw.len();
-        let trimmed = line.trim_start();
-        if block_depth > 0 {
-            run.push((at, line));
-            block_depth += line.matches("/*").count() as i32 - line.matches("*/").count() as i32;
+    for (i, token) in t.tokens.iter().enumerate() {
+        let start = token.span.start as usize;
+        let line = line_start(text, start);
+        // Comments belong to the first token of the line below them.
+        if i > 0 && t.tokens[i - 1].span.end as usize > line {
             continue;
         }
-        if trimmed.starts_with("/*") {
-            let depth = trimmed.matches("/*").count() as i32 - trimmed.matches("*/").count() as i32;
-            run.clear();
-            run.push((at, line));
-            block_depth = depth.max(0);
-            continue;
-        }
-        if trimmed.starts_with("//") {
-            run.push((at, line));
-            continue;
-        }
-        if trimmed.is_empty() {
-            run.clear();
-            continue;
-        }
-        let scope_at = at + (line.len() - trimmed.len());
-        let declares = declaration_line(trimmed);
+        let line_end = text[start..].find('\n').map_or(text.len(), |n| start + n);
+        let declares = declaration_line(text[start..line_end].trim());
+        let run = t.sites_run(line);
         if !run.is_empty() {
-            collect_sites(&run, scope_at, declares, &mut out);
-            run.clear();
+            collect_sites(&t, &run, start, declares, &mut out);
         }
-        if let Some((comment_at, _)) = trailing_comment(text, at + (line.len() - trimmed.len())) {
-            let end = at + line.len();
-            collect_sites(
-                &[(comment_at, &text[comment_at..end])],
-                scope_at,
-                declares,
-                &mut out,
-            );
+        if let Some(c) = t.comment_after(start)
+            && c.kind == CommentKind::Line
+        {
+            collect_sites(&t, &[c], start, declares, &mut out);
         }
     }
     out
@@ -835,65 +1020,43 @@ pub fn site_at(text: &str, byte: usize) -> Option<Site> {
         .find(|s| s.label.0 <= byte && byte <= s.label.1)
 }
 
-fn collect_sites(run: &[(usize, &str)], scope_at: usize, declares: bool, out: &mut Vec<Site>) {
-    let mut fenced = false;
-    let mut bodies: Vec<(usize, usize, &str)> = Vec::new();
-    for &(at, line) in run {
-        // The part of the line that is comment text.
-        let (body_at, body) = match line.find("//") {
-            Some(n) if line[..n].trim().is_empty() || !line.trim_start().starts_with("/*") => {
-                (n + 2, &line[n + 2..])
-            }
-            _ => (0, line),
-        };
-        if fence(body.trim_start_matches(['/', '!', '*'])) || fence(body.trim_start()) {
-            fenced = !fenced;
-            continue;
-        }
-        if fenced {
-            continue;
-        }
-        bodies.push((at, body_at, body));
+fn collect_sites(
+    t: &Trivia,
+    run: &[&Comment],
+    scope_at: usize,
+    declares: bool,
+    out: &mut Vec<Site>,
+) {
+    let doc = DocText::new(t, run);
+    if !doc.text.contains('[') {
+        return;
     }
-    // `[ref]: url` lines define reference links in the same comment.
-    let defined: Vec<&str> = bodies
-        .iter()
-        .filter_map(|&(_, _, body)| reference_definition(body))
-        .collect();
-    for (at, body_at, body) in bodies {
-        if !body.contains('[') {
-            continue;
-        }
-        for link in links(body) {
-            let label = body[link.label.0..link.label.1].trim();
-            let meant = meant_as_link(&link, &body[..link.whole.0], &body[link.whole.1..])
-                && !defined.contains(&label);
-            let word = link.names[0].as_str();
-            let plain = !link.targeted
-                && !link.code
-                && link.names.len() == 1
-                && word.chars().all(|c| c.is_lowercase() || c.is_ascii_digit());
-            let shift = at + body_at;
-            out.push(Site {
-                label: (shift + link.label.0, shift + link.label.1),
-                names: link.names,
-                scope_at,
-                whole: (shift + link.whole.0, shift + link.whole.1),
-                path: (shift + link.path.0, shift + link.path.1),
-                on_declaration: declares,
-                plain,
-                meant,
-            });
-        }
+    for link in links(&doc.text) {
+        let text = &doc.text;
+        let before = &text[text[..link.whole.0].rfind('\n').map_or(0, |n| n + 1)..link.whole.0];
+        let after = &text[link.whole.1
+            ..text[link.whole.1..]
+                .find('\n')
+                .map_or(text.len(), |n| link.whole.1 + n)];
+        // A label with a definition elsewhere in the comment is an ordinary Markdown link.
+        let meant = !link.defined && meant_as_link(&link, before, after);
+        let word = link.names[0].as_str();
+        let plain = !link.targeted
+            && !link.code
+            && link.names.len() == 1
+            && word.chars().all(|c| c.is_lowercase() || c.is_ascii_digit());
+        let at = |(a, b): (usize, usize)| (doc.source(a), doc.source_end(b));
+        out.push(Site {
+            label: at(link.label),
+            names: link.names.clone(),
+            scope_at,
+            whole: at(link.whole),
+            path: at(link.path),
+            on_declaration: declares,
+            plain,
+            meant,
+        });
     }
-}
-
-/// The label of a Markdown reference definition (`[label]: url`) that `body` is.
-fn reference_definition(body: &str) -> Option<&str> {
-    let rest = body.trim_start().strip_prefix('[')?;
-    let end = rest.find("]:")?;
-    let after = rest[end + 2..].trim_start();
-    (!after.is_empty() && !rest[..end].contains('[')).then(|| rest[..end].trim())
 }
 
 /// A link that does not resolve is worth reporting only when it was written like an
@@ -980,215 +1143,6 @@ pub fn signature_line(text: &str, at: usize) -> String {
     }
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn doc(text: &str, name: &str) -> Option<String> {
-        declaration(text, text.find(name).unwrap())
-    }
-
-    #[test]
-    fn line_comments_directly_above_are_the_docs() {
-        let text = "x :: 1;\n\n// First.\n//  Indented *md*.\n//\n// Last.\nf :: () {}\n";
-        assert_eq!(
-            doc(text, "f ::").unwrap(),
-            "First.\n Indented *md*.\n\nLast."
-        );
-        let gap = "// Not docs.\n\nf :: () {}\n";
-        assert_eq!(doc(gap, "f ::"), None);
-        let rule = "// ------\nf :: () {}\n";
-        assert_eq!(doc(rule, "f ::"), None);
-    }
-
-    #[test]
-    fn block_comments_are_docs() {
-        let text = "/* Adds.\n * Twice.\n */\nf :: () {}\n";
-        assert_eq!(doc(text, "f ::").unwrap(), "Adds.\nTwice.");
-        let one = "/* One line. */\nf :: () {}\n";
-        assert_eq!(doc(one, "f ::").unwrap(), "One line.");
-    }
-
-    #[test]
-    fn fields_and_members_take_trailing_comments() {
-        let text = "P :: struct {\n    x: int; // the x\n    // the y\n    y: int;\n}\n";
-        assert_eq!(doc(text, "x:").unwrap(), "the x");
-        assert_eq!(doc(text, "y:").unwrap(), "the y");
-        assert_eq!(doc("f :: () { // not docs\n}\n", "f ::"), None);
-    }
-
-    #[test]
-    fn parameters_use_their_own_comments_or_the_list() {
-        let text = "\
-// Does it.
-// - a: the first
-// - `b` — the second
-//   continued
-f :: (a: int, b: int, /* c */ c: int) {}
-g :: (
-    // the left
-    left: int,
-    right: int, // the right
-) {}
-";
-        let at = |n: &str| text.find(n).unwrap();
-        assert_eq!(declaration(text, at("a: int")).unwrap(), "the first");
-        assert_eq!(
-            declaration(text, at("b: int")).unwrap(),
-            "the second\ncontinued"
-        );
-        assert_eq!(declaration(text, at("left")).unwrap(), "the left");
-        assert_eq!(declaration(text, at("right")).unwrap(), "the right");
-        let open = header_open(text, at("g ::")).unwrap();
-        assert_eq!(
-            parameters(text, open),
-            [
-                ("left".to_owned(), "the left".to_owned()),
-                ("right".to_owned(), "the right".to_owned())
-            ]
-        );
-    }
-
-    #[test]
-    fn locals_are_not_parameters() {
-        let text = "// Doc.\nf :: (a: int) {\n    local := 1;\n}\n";
-        assert_eq!(enclosing_header(text, text.find("local").unwrap()), None);
-        assert!(enclosing_header(text, text.find("a:").unwrap()).is_some());
-    }
-
-    #[test]
-    fn links_in_prose() {
-        let names =
-            |s: &str| -> Vec<Vec<String>> { links(s).into_iter().map(|l| l.names).collect() };
-        assert_eq!(
-            names("see [print] and [`Basic.print`]"),
-            [vec!["print"], vec!["Basic", "print"]]
-        );
-        assert_eq!(
-            names("[the text](Thing.x) `[code]` a[i] [0] [url](http://x)"),
-            [vec!["Thing", "x"]]
-        );
-        assert_eq!(names("![img](x) [a b]"), Vec::<Vec<String>>::new());
-    }
-
-    #[test]
-    fn fenced_code_is_the_jai_blocks_of_comments() {
-        let text = "// Use it:\n//\n// ```\n// x := f(1);\n// ```\n// ```c\n// int x;\n// ```\n/// ```jai\n/// y := 2;\n/// ```\nf :: (a: int) {}\n";
-        let code: Vec<&str> = fenced_code(text)
-            .into_iter()
-            .map(|(s, e)| &text[s..e])
-            .collect();
-        assert_eq!(code, [" x := f(1);", " y := 2;"]);
-    }
-
-    #[test]
-    fn markdown_tags_fences_and_links() {
-        let resolve =
-            |names: &[String]| (names == ["print"]).then(|| "file:///a.jai#L3".to_owned());
-        let doc = "See [`print`] and [x].\n\n```\nlet [print]\n```\n\n```c\nint x;\n```";
-        assert_eq!(
-            markdown(doc, &resolve),
-            "See [`print`](file:///a.jai#L3) and [x].\n\n```jai\nlet [print]\n```\n\n```c\nint x;\n```"
-        );
-    }
-
-    #[test]
-    fn targeted_links_include_their_closing_parenthesis() {
-        let resolve =
-            |names: &[String]| (names == ["print"]).then(|| "file:///a.jai#L3".to_owned());
-        assert_eq!(
-            markdown("a [the text](print) b", &resolve),
-            "a [the text](file:///a.jai#L3) b"
-        );
-        let found = links("a [`x`](Basic.print) b");
-        assert_eq!(
-            &"a [`x`](Basic.print) b"[found[0].whole.0..found[0].whole.1],
-            "[`x`](Basic.print)"
-        );
-        assert_eq!(
-            &"a [`x`](Basic.print) b"[found[0].path.0..found[0].path.1],
-            "Basic.print"
-        );
-    }
-
-    #[test]
-    fn link_paths_exclude_code_marks() {
-        let line = "[ `Basic.print()` ] [print()]";
-        let found = links(line);
-        let path = |i: usize| &line[found[i].path.0..found[i].path.1];
-        assert_eq!((path(0), path(1)), ("Basic.print", "print"));
-    }
-
-    #[test]
-    fn meant_links_are_told_from_prose() {
-        let text = "// [print] [`print`] [TODO] [x] [Type.field] [a](b) [ref] and [guide][ref]\n// [ref]: https://example.com\nf :: () {}\n// [print]\nx = 1;\n// [print]\nenum_member,\n";
-        let found: Vec<(String, bool, bool)> = sites(text)
-            .into_iter()
-            .map(|s| {
-                (
-                    text[s.whole.0..s.whole.1].to_owned(),
-                    s.meant,
-                    s.on_declaration,
-                )
-            })
-            .collect();
-        let meant = |what: &str| found.iter().find(|f| f.0 == what).map(|f| f.1);
-        assert_eq!(meant("[print]"), Some(true));
-        assert_eq!(meant("[`print`]"), Some(true));
-        assert_eq!(meant("[TODO]"), Some(false));
-        assert_eq!(meant("[x]"), Some(false));
-        assert_eq!(meant("[Type.field]"), Some(true));
-        assert_eq!(meant("[a](b)"), Some(true));
-        assert_eq!(meant("[ref]"), Some(false));
-        // Above a statement, then above an enum member.
-        assert!(!found[found.len() - 2].2);
-        assert!(found[found.len() - 1].2);
-    }
-
-    #[test]
-    fn stale_offsets_answer_nothing() {
-        // Completion data and indexes carry offsets from before an edit: past the end of the text
-        // now, or inside a multibyte character.
-        let text = "// docs\nf :: (a: int) {}\n\u{e9}";
-        let inside = text.len() - 1;
-        for at in [text.len() + 100, inside] {
-            assert_eq!(declaration(text, at), None);
-            assert_eq!(above(text, at), None);
-            assert_eq!(trailing(text, at), None);
-            assert_eq!(enclosing_header(text, at), None);
-            assert_eq!(header_open(text, at), None);
-            assert!(parameters(text, at).is_empty());
-            assert!(site_at(text, at).is_none());
-            assert!(signature_line(text, at).is_empty());
-        }
-    }
-
-    #[test]
-    fn declaration_lines() {
-        for yes in [
-            "f :: () {",
-            "x := 1;",
-            "x: int;",
-            "a, b: int;",
-            "RED,",
-            "using s: S;",
-            "$T: Type",
-        ] {
-            assert!(declaration_line(yes), "{yes}");
-        }
-        for no in ["x = 1;", "f(x);", "return a;", "case X:", "}", "if a {"] {
-            assert!(!declaration_line(no), "{no}");
-        }
-    }
-
-    #[test]
-    fn sites_cover_runs_blocks_and_trailing_comments() {
-        let text = "// Uses [helper].\nf :: () {}\nx: int; // see [Mode.IDLE]\n\n// stray [nothing]\n\ng :: 1;\n";
-        let found = sites(text);
-        let labels: Vec<&str> = found.iter().map(|s| &text[s.label.0..s.label.1]).collect();
-        assert_eq!(labels, ["helper", "Mode.IDLE"]);
-        assert_eq!(found[0].scope_at, text.find("f ::").unwrap());
-        assert!(site_at(text, text.find("helper").unwrap() + 2).is_some());
-        assert!(site_at(text, text.find("stray").unwrap()).is_none());
-    }
-}
+mod tests;
