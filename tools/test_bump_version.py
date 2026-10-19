@@ -45,6 +45,14 @@ class Bump(unittest.TestCase):
         self.assertEqual(changelog.count("## [0.2.0]"), 1)
         self.assertIn("2026-01-05", changelog)
 
+    def test_unreleased_heading_becomes_the_new_version(self):
+        (self.root / "CHANGELOG.md").write_text(
+            "# Changelog\n\n## [Unreleased]\n\n### New\n\n- A thing.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n")
+        bv.bump(self.root, "0.2.0", "2026-02-02")
+        self.assertEqual(
+            bv.read(self.root, "CHANGELOG.md"),
+            "# Changelog\n\n## [0.2.0] - 2026-02-02\n\n### New\n\n- A thing.\n\n## [0.1.0] - 2026-01-01\n\nOld.\n")
+
     def test_bad_versions_are_refused(self):
         for bad in ("1.2", "v1.2.3", "1.2.3-rc1", "0.1.0"):
             with self.assertRaises(SystemExit):

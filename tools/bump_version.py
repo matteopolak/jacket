@@ -6,8 +6,9 @@
     python3 tools/bump_version.py --check         # only fail when the copies disagree
 
 Updates the root Cargo.toml `[workspace.package] version`, the path packages of Cargo.lock and
-fuzz/Cargo.lock that carry that version, editors/nvim/lua/jai/version.lua, jaifmt/version.jai, and adds a
-`## [X.Y.Z] - <today>` header to CHANGELOG.md when it has none. editors/vscode/package.json is left
+fuzz/Cargo.lock that carry that version, editors/nvim/lua/jai/version.lua, jaifmt/version.jai, and renames
+CHANGELOG.md's `## [Unreleased]` heading to `## [X.Y.Z] - <today>` (or adds that header when there is
+no such section and none for X.Y.Z yet). editors/vscode/package.json is left
 alone: the release workflow stamps its version (docs/tools/releases.md).
 """
 import argparse
@@ -73,6 +74,9 @@ def bump_lock(text, old, new):
 def bump_changelog(text, new, today):
     if re.search(rf"^## \[{re.escape(new)}\]", text, re.M):
         return text
+    unreleased = re.search(r"^## \[Unreleased\][^\n]*$", text, re.M)
+    if unreleased:
+        return text[:unreleased.start()] + f"## [{new}] - {today}" + text[unreleased.end():]
     first = re.search(r"^## \[", text, re.M)
     header = f"## [{new}] - {today}\n\n"
     if first is None:
