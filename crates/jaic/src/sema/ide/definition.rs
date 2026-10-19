@@ -1,8 +1,16 @@
 //! Go to definition, path resolution and struct layout notes.
 use super::facts::{IdeFieldSite, IdeReceiver, IdeWhat};
-use crate::sema::scope::{EntityId, EntityKind, Found, Resolved, ScopeId, ScopeKind};
-use crate::sema::{Compiler, FileId, Span, Sym, TypeId, ast};
+use crate::sema::scope::{self, EntityId, EntityKind, Found, Resolved, ScopeId, ScopeKind};
+use crate::sema::{Compiler, FileId, ModuleId, Span, Sym, TypeId, ast};
 use crate::types::{StructId, TypeKind};
+
+/// What [`Compiler::ide_module_name_at`] found.
+pub(in crate::sema) enum IdeModuleName {
+    /// A module alias, with the module it names.
+    Alias(Span, ModuleId),
+    /// A member of a module reached through an alias: the entities it names.
+    Member(Span, Vec<EntityId>),
+}
 
 impl Compiler {
     /// Struct `s` was laid out: record where its named fields are, and move the fields of its
@@ -119,7 +127,43 @@ impl Compiler {
                 .min_by_key(|r| r.span.end - r.span.start)
                 .cloned()
         }) else {
-            return Vec::new();
+            // No fact was recorded here (a body that failed before reaching this name): a
+            // module alias still names its module wherever it is used.
+            return match self.ide_module_name_at(file, offset) {
+                Some(IdeModuleName::Alias(_, module)) => self.modules[module.0 as usize]
+                    .files
+                    .first()
+                    .map(|&entry| Span {
+                        file: entry,
+                        start: 0,
+                        end: 0,
+                    })
+                    .into_iter()
+                    .collect(),
+                Some(IdeModuleName::Member(_, ids)) => {
+                    // As a recorded use does: a procedure (or an alias of procedures) goes to
+                    // the procedures themselves.
+                    let mut spans = Vec::new();
+                    for id in ids {
+                        let procs = match self.resolve_entity(id) {
+                            Ok(Resolved::Proc(p)) => vec![p],
+                            Ok(Resolved::ProcSet(ps)) => ps,
+                            _ => {
+                                spans
+                                    .push((self.entity(id).span, self.entity(id).name.to_string()));
+                                continue;
+                            }
+                        };
+                        spans.extend(
+                            procs
+                                .into_iter()
+                                .map(|p| (self.proc(p).span, self.proc(p).name.to_string())),
+                        );
+                    }
+                    self.ide_narrow_decls(spans)
+                }
+                None => Vec::new(),
+            };
         };
         // A module's name (`B` of `B.print`): the start of its entry file.
         if let IdeWhat::Module(m) = r.what {
@@ -157,6 +201,64 @@ impl Compiler {
             IdeWhat::Member(_) | IdeWhat::Module(_) => Vec::new(),
         };
         self.ide_narrow_decls(spans)
+    }
+
+    /// The module the identifier at `offset` names through an alias in scope (`W :: #import
+    /// "Windows"`) or, after one (`W.name`), the member of that module it names: for a use no
+    /// checked expression recorded (a body that failed before reaching it).
+    pub(in crate::sema) fn ide_module_name_at(
+        &mut self,
+        file: FileId,
+        offset: u32,
+    ) -> Option<IdeModuleName> {
+        let text = self.sources.try_get(file)?.text.clone();
+        let bytes = text.as_bytes();
+        let word = |b: u8| b == b'_' || b.is_ascii_alphanumeric();
+        let word_at = |at: usize| -> Option<(usize, usize)> {
+            if !bytes.get(at).is_some_and(|&b| word(b)) {
+                return None;
+            }
+            let start = (0..=at).rev().take_while(|&i| word(bytes[i])).last()?;
+            let end = (at..bytes.len()).take_while(|&i| word(bytes[i])).last()? + 1;
+            Some((start, end))
+        };
+        let (start, end) = word_at(offset as usize)?;
+        let span = Span {
+            file,
+            start: start as u32,
+            end: end as u32,
+        };
+        let scope = self.ide_scope_at(file, offset)?;
+        let alias = |this: &mut Self, name: &str| -> Option<ModuleId> {
+            let ids = this.lookup(scope, Sym::intern(name)).ok()?;
+            let [id] = ids.as_slice() else {
+                return None;
+            };
+            match this.resolve_entity(*id).ok()? {
+                scope::Resolved::Module(module) => Some(module),
+                _ => None,
+            }
+        };
+        let before = bytes[..start]
+            .iter()
+            .rposition(|b| !b.is_ascii_whitespace());
+        let Some(dot) = before.filter(|&i| bytes[i] == b'.') else {
+            let module = alias(self, &text[start..end])?;
+            return Some(IdeModuleName::Alias(span, module));
+        };
+        let (qualifier_start, qualifier_end) = word_at(dot.checked_sub(1)?)?;
+        // `a.W` and `x.y.name` are fields, not module members.
+        let previous = bytes[..qualifier_start]
+            .iter()
+            .rposition(|b| !b.is_ascii_whitespace());
+        if previous.is_some_and(|i| bytes[i] == b'.') {
+            return None;
+        }
+        let module = alias(self, &text[qualifier_start..qualifier_end])?;
+        match self.module_member_lookup(module, Sym::intern(&text[start..end])) {
+            Ok(Found::Entities(ids)) if !ids.is_empty() => Some(IdeModuleName::Member(span, ids)),
+            _ => None,
+        }
     }
 
     /// The name inside each declaration span (see `ide_definition`); spans in no file drop out.

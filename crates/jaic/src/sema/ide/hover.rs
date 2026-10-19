@@ -1,5 +1,6 @@
 //! Hover text and struct layouts at a position.
 use super::completion::clip;
+use super::definition::IdeModuleName;
 use super::facts::{IdeFieldSite, IdeHover, IdeLayout, IdeRef, IdeWhat, same_what};
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeId, ScopeKind};
 use crate::sema::value::ProcId;
@@ -54,7 +55,32 @@ impl Compiler {
             });
         }
         let Some((r, same)) = self.ide_hover_ref(file, offset) else {
-            return self.ide_field_hover(file, offset);
+            if let Some(hover) = self.ide_field_hover(file, offset) {
+                return Some(hover);
+            }
+            return match self.ide_module_name_at(file, offset)? {
+                IdeModuleName::Alias(span, module) => Some(IdeHover {
+                    span,
+                    text: format!(
+                        "{} :: #import \"{}\"",
+                        self.sources.snippet(span),
+                        self.modules[module.0 as usize].name
+                    ),
+                    layout: None,
+                }),
+                IdeModuleName::Member(span, ids) => {
+                    let text = ids
+                        .iter()
+                        .map(|&id| self.ide_entity_hover(id, None))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    Some(IdeHover {
+                        span,
+                        text,
+                        layout: None,
+                    })
+                }
+            };
         };
         let name = self.sources.snippet(r.span).to_string();
         // `Poly(args)`: the instance, not the polymorphic struct.
