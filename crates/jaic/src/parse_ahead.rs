@@ -456,18 +456,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
-        let Ok(entries) = std::fs::read_dir(dir) else {
-            return;
-        };
-        let mut entries: Vec<_> = entries.flatten().map(|e| e.path()).collect();
-        entries.sort();
-        for path in entries {
-            if path.is_dir() {
-                jai_files(&path, out);
-            } else if path.extension().is_some_and(|e| e == "jai") {
-                out.push(path);
-            }
-        }
+        out.extend(crate::paths::jai_files_under(dir, &mut |_| false));
     }
 
     /// A tree parsed by a worker and relocated is the tree a serial parse builds: same spans,

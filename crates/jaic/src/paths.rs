@@ -156,6 +156,54 @@ pub fn stdlib_dir(fallback: PathBuf) -> PathBuf {
         .unwrap_or(fallback)
 }
 
+/// Whether the last component of `path` starts with a dot.
+pub fn is_hidden(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_none_or(|n| n.starts_with('.'))
+}
+
+/// The visible `.jai` files directly inside `dir`, sorted. An unreadable directory has none.
+pub fn jai_files_in(dir: &Path) -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|p| p.extension().is_some_and(|e| e == "jai") && !is_hidden(p) && p.is_file())
+        .collect();
+    files.sort();
+    files
+}
+
+/// The visible `.jai` files under `dir` at any depth, in path order. A directory or file
+/// for which `prune` answers true is skipped, together with everything beneath it.
+pub fn jai_files_under(dir: &Path, prune: &mut dyn FnMut(&Path) -> bool) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    collect_jai_files(dir, prune, &mut out);
+    out
+}
+
+fn collect_jai_files(dir: &Path, prune: &mut dyn FnMut(&Path) -> bool, out: &mut Vec<PathBuf>) {
+    let mut children: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .collect();
+    children.sort();
+    for child in children {
+        if is_hidden(&child) || prune(&child) {
+            continue;
+        }
+        if child.is_dir() {
+            collect_jai_files(&child, prune, out);
+        } else if child.extension().is_some_and(|e| e == "jai") {
+            out.push(child);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

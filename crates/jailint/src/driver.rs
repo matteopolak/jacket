@@ -164,19 +164,8 @@ fn expand(path: &Path, config: &Config, out: &mut BTreeSet<PathBuf>) {
         return;
     }
     if path.is_dir() {
-        let Ok(entries) = std::fs::read_dir(path) else {
-            return;
-        };
-        let mut children: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
-        children.sort();
-        for child in children {
-            let hidden = child
-                .file_name()
-                .is_some_and(|n| n.to_string_lossy().starts_with('.'));
-            if !hidden && (child.is_dir() || child.extension().is_some_and(|e| e == "jai")) {
-                expand(&child, config, out);
-            }
-        }
+        let files = jaic::paths::jai_files_under(path, &mut |p| config.excluded(&canonical(p)));
+        out.extend(files.iter().map(|f| canonical(f)));
     } else if path.is_file() {
         out.insert(canonical(path));
     }
