@@ -8971,7 +8971,7 @@
     },
     "Curl": {
       "spec": "docs/specs/stdlib/modules/curl.md",
-      "spec_sha256": "2560d5b40db44cb27a616bfe3610368376b702bec48f438b2e40afb5bebd71ec",
+      "spec_sha256": "68059f72095347eccb608d7782a557fabe66fe9c0257757c9f150cd8f5af76d6",
       "counts": {
         "declared": 843
       },
@@ -24315,7 +24315,7 @@
     },
     "d3d12": {
       "spec": "docs/specs/stdlib/modules/d3d12.md",
-      "spec_sha256": "bc256a0eb35926724e84f0eb88391b0edc21b3d8678242efbc39317b3300d270",
+      "spec_sha256": "faee459ff114849369b6ecc2def5c12a7ba8a276e5fc062cd9f8095274c3acf9",
       "counts": {
         "declared": 1284,
         "forwarded": 431,
@@ -37287,7 +37287,7 @@
     },
     "dxc_compiler": {
       "spec": "docs/specs/stdlib/modules/dxc-compiler.md",
-      "spec_sha256": "0466fcdfa556dbe830da9c0fdc86cc8d97e9337001b0d51994df584efc3cc87b",
+      "spec_sha256": "97cb6e7fe8f5f4225424c8929ee185695c7730d0d4629ff94468d5f4df2fdd12",
       "counts": {
         "declared": 92,
         "implemented": 2,
@@ -58904,7 +58904,7 @@
     },
     "ImGui": {
       "spec": "docs/specs/stdlib/modules/imgui.md",
-      "spec_sha256": "79da49e2b90c9258ceaa01b9453133cff7b4bcf3d42568a08f595c252ddd654c",
+      "spec_sha256": "7bd027fd513152028e0f8aad7b692d2f8323d2fcd9addc578be9e0240084f6a2",
       "counts": {
         "declared": 939,
         "implemented": 96
@@ -88123,7 +88123,7 @@
     },
     "meshoptimizer": {
       "spec": "docs/specs/stdlib/modules/meshoptimizer.md",
-      "spec_sha256": "9b39982bd79f285703deb3fa8aa8157a330299a364f7c639e4c5108b8e7020bd",
+      "spec_sha256": "363a29e3a9fffcdd0b4757b8800399a659973fa5e0ae1f83942579c3aceb5621",
       "counts": {
         "declared": 39
       },
@@ -172593,7 +172593,7 @@
     },
     "rpmalloc": {
       "spec": "docs/specs/stdlib/modules/rpmalloc.md",
-      "spec_sha256": "50c80eb34037f7040e7a0056e20db165b08aa57c48e5066631e43f07e853d63f",
+      "spec_sha256": "1a82ba108baf538de9d589f9447ab13f658b57ba2953e2438cdfeb20043f7722",
       "counts": {
         "implemented_manual": 80,
         "declared": 31
@@ -179355,7 +179355,7 @@
     },
     "stb_image": {
       "spec": "docs/specs/stdlib/modules/stb-image.md",
-      "spec_sha256": "f7f4d1e1315ad3dd343eb48b65b17f21ffb25abb79d28a5977755a3797432d5c",
+      "spec_sha256": "f06ae3e5a085f27aa3cf966803e8fed81209bd991c5a9096ad127e6f2affc112",
       "counts": {
         "declared": 46
       },
@@ -179688,7 +179688,7 @@
     },
     "stb_image_resize": {
       "spec": "docs/specs/stdlib/modules/stb-image-resize.md",
-      "spec_sha256": "7c6a636bd5b6cebdb1d1e1378e59092a32c0cf75fbe8529d087b88d35f4ff8fe",
+      "spec_sha256": "97ee40b31593c503acc7f703c6b7faa8c182c8a4984010f909ec8f3d78debbd5",
       "counts": {
         "declared": 16
       },
@@ -179941,7 +179941,7 @@
     },
     "stb_vorbis": {
       "spec": "docs/specs/stdlib/modules/stb-vorbis.md",
-      "spec_sha256": "14857a2fdafb1341bdbd03574e026166dd0c13686629237b33a58eb8cf9d08fb",
+      "spec_sha256": "9c70e7e52d980c5e23f0e09320d5a29b1a632b0a4027ae4e82c52b38d7a435cc",
       "counts": {
         "declared": 32
       },
