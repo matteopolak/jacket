@@ -156,6 +156,13 @@ impl Compiler {
                 names.extend(inherited);
             }
         }
+        for used in self.modules[m.0 as usize].using_modules.clone() {
+            let mut inherited = self.ide_module_exports(used.module, visiting);
+            if let Some(filter) = &used.filter {
+                Self::ide_filter_names(&mut inherited, filter);
+            }
+            names.extend(inherited);
+        }
         for entry in self.modules[m.0 as usize].exported_usings.clone() {
             names.extend(self.ide_using_members_inner(&entry, visiting));
         }

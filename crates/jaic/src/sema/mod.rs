@@ -277,6 +277,14 @@ pub struct FileInfo {
     pub scope: ScopeId,
 }
 
+/// See `Module::using_modules`.
+#[derive(Clone)]
+pub struct ModuleUsing {
+    pub module: ModuleId,
+    pub filter: Option<Rc<ast::UsingFilter>>,
+    pub exported: bool,
+}
+
 pub struct Module {
     /// Entry declarations are still being registered (recursive imports may see this instance).
     pub loading: bool,
@@ -301,6 +309,10 @@ pub struct Module {
     /// Import entries (indexes into the module scope's `imports`) of exported
     /// `using Name :: #import "M";` declarations: M's names are members of this module too.
     pub exported_using_imports: Vec<usize>,
+    /// Top-level `using M;` naming a module (`I :: #import "I"; using I;`): M's names are
+    /// members of this module (`This.name`), filtered as written. Exported ones (at export
+    /// scope) also reach importers of this module; `#scope_module` ones only `This.name`.
+    pub using_modules: Vec<ModuleUsing>,
     pub files: Vec<FileId>,
 }
 

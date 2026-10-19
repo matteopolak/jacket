@@ -94,8 +94,29 @@ impl Compiler {
                 break;
             }
         }
+        if matches!(&result, Ok(ids) if ids.is_empty()) {
+            for used in self.using_modules(module, name, true) {
+                let ids = self.module_declarations_unbound(used, name);
+                if !matches!(&ids, Ok(ids) if ids.is_empty()) {
+                    result = ids;
+                    break;
+                }
+            }
+        }
         self.reexport_visiting.pop();
         result
+    }
+
+    /// Modules `module` says `using M;` to whose filters let `name` through: only those at
+    /// export scope when `exported_only`.
+    fn using_modules(&self, module: ModuleId, name: Sym, exported_only: bool) -> Vec<ModuleId> {
+        self.modules[module.0 as usize]
+            .using_modules
+            .iter()
+            .filter(|used| used.exported || !exported_only)
+            .filter(|used| !used.filter.as_ref().is_some_and(|f| filter_hides(f, name)))
+            .map(|used| used.module)
+            .collect()
     }
 
     /// What `name` means as a member of `module`: `M.name` through a named import, `name`
@@ -141,8 +162,29 @@ impl Compiler {
     }
 
     /// Qualified lookup observes the same export boundary as an anonymous import.
+    /// Also sees the names of modules M says `#scope_module using X;` to, which importers
+    /// of M do not get (`String.tprint` works, `tprint` after `#import "String"` does not).
     pub fn module_member_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
-        self.module_lookup(module, name)
+        let found = self.module_lookup(module, name)?;
+        if !matches!(&found, Found::Entities(ids) if ids.is_empty())
+            || self.reexport_visiting.contains(&module)
+        {
+            return Ok(found);
+        }
+        let used = self.using_modules(module, name, false);
+        self.reexport_visiting.push(module);
+        let mut result = Ok(found);
+        for used in used {
+            match self.module_member_lookup(used, name) {
+                Ok(Found::Entities(ids)) if ids.is_empty() => {}
+                other => {
+                    result = other;
+                    break;
+                }
+            }
+        }
+        self.reexport_visiting.pop();
+        result
     }
 
     /// Can `module` or a module it re-exports hold an exported `using` of a value? A
@@ -185,6 +227,11 @@ impl Compiler {
                     }
                 }
                 None => return true,
+            }
+        }
+        for used in &data.using_modules {
+            if used.exported && self.module_may_have_using_members_inner(used.module, visiting) {
+                return true;
             }
         }
         false
@@ -251,6 +298,17 @@ impl Compiler {
                 Err(e) => {
                     result = Err(e);
                     break;
+                }
+            }
+        }
+        if matches!(result, Ok(None)) {
+            for used in self.using_modules(module, name, true) {
+                match self.module_using_member(used, name) {
+                    Ok(None) => {}
+                    other => {
+                        result = other;
+                        break;
+                    }
                 }
             }
         }

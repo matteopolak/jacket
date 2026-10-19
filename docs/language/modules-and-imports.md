@@ -21,10 +21,11 @@ Str :: #import,string "str_val :: 11;";       // fresh module each time, no cach
 - Instances are keyed by entry path plus parameter values ([module parameters](module-parameters.md)). Imports resolve eagerly during `expand_all`, so top-level `#run` and `#add_context` are known early.
 - Only exported names are reachable (`P.secret` on a `#scope_file` name is an error); see [scoping](scoping.md).
 - `using,only(a, b) #import "M";` filters (`except` and `map` also exist, `ast::UsingFilter`); excluded names are not found by fallback lookup and do not join overload sets, but a named alias still gives qualified access.
+- A module's top-level `using Alias;` of a module alias (`I :: #import "I"; using I;`) makes I's names members of the module. At export scope they reach `M.name` and plain importers, like `using I :: #import "I";`. At `#scope_module` they reach only `M.name`: that is how `String.tprint` resolves to Basic's `tprint` while `#import "String"` alone leaves `tprint` undeclared. `#scope_file` usings are private to their file.
 
 ## How to change it
 
-`resolve_import`, `load_module`, `load_file` and `declare_stmt` in `sema/modules.rs`. File access goes through the `FileSystem` trait (`NativeFs`, `VirtualFs` for browser and tests); use `self.fs`, never `std::fs`. `module_lookup` in `scope.rs` follows re-exports and is the one lookup path; keep its cycle guard.
+`resolve_import`, `load_module`, `load_file` and `declare_stmt` in `sema/modules.rs`. File access goes through the `FileSystem` trait (`NativeFs`, `VirtualFs` for browser and tests); use `self.fs`, never `std::fs`. `module_lookup` in `sema/scope/module_lookup.rs` follows re-exports and is the one lookup path; keep its cycle guard. `module_member_lookup` (the `M.name` path) adds the `#scope_module` usings in `Module::using_modules`.
 
 Configuration: `-I dir` / `-import_dir dir`, `JAIC_STDLIB`, and `import_path` in build options (`crates/jaic/src/build.rs`). Expansion order: [sema: module loading](../compiler/sema.md).
 

@@ -64,5 +64,12 @@ PATH_SEPARATOR :: Impl.PATH_SEPARATOR;
 decomp_filename :: path_decomp;
 path_basename :: basename;
 
+// Basic's names are members of this module (`String.tprint`), but importing String does not
+// bring them into scope.
+Basic :: #import "Basic";
+
+#scope_module
+using Basic;
+
 #scope_file
 Impl :: #import "internal/string";

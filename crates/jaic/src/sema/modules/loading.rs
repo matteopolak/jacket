@@ -232,6 +232,7 @@ impl Compiler {
             parameter_contracts: Vec::new(),
             exported_usings: Vec::new(),
             exported_using_imports: Vec::new(),
+            using_modules: Vec::new(),
             files: Vec::new(),
         });
         self.module_cache.insert(key, id);
@@ -351,6 +352,7 @@ impl Compiler {
             parameter_contracts: Vec::new(),
             exported_usings: Vec::new(),
             exported_using_imports: Vec::new(),
+            using_modules: Vec::new(),
             files: Vec::new(),
         });
         id

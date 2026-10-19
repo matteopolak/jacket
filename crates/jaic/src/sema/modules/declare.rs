@@ -1,6 +1,6 @@
 //! Declaring a file's statements into its scopes and expanding pending items.
 use super::parameters::{ParameterContract, ParameterContractState};
-use crate::sema::scope::{EntityKind, ImportEntry, Pending, PendingState, ScopeKind};
+use crate::sema::scope::{EntityKind, ImportEntry, Pending, PendingState, ScopeKind, UsingEntry};
 use crate::sema::{Compiler, EntityId, Rc, Result, ScopeId, Sym, ast, err, lower, procs};
 
 impl Compiler {
@@ -645,6 +645,18 @@ impl Compiler {
                     self.modules[module.0 as usize]
                         .exported_usings
                         .push(entry.clone());
+                }
+                if let UsingEntry::Module(used, filter) = &entry
+                    && self.scope(scope).kind == ScopeKind::Module
+                {
+                    let module = self.scope(scope).module;
+                    self.modules[module.0 as usize]
+                        .using_modules
+                        .push(crate::sema::ModuleUsing {
+                            module: *used,
+                            filter: filter.clone(),
+                            exported,
+                        });
                 }
                 self.push_using(scope, entry);
             }
