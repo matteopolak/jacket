@@ -6,7 +6,9 @@ mod call_site;
 mod cursor;
 
 pub use self::call_site::{CallArgument, CallSite, call_at};
-pub use self::cursor::{CursorContext, MemberAt, PathDirective, StringAt, cursor_context};
+pub use self::cursor::{
+    CursorContext, MemberAt, PathDirective, StringAt, cursor_context, cursor_context_in,
+};
 use crate::ast::{
     AssertStmt, BinOp, Decl, DeclKind, Expr, ExprKind, File, Ident, Import, Note, ProcHeader,
     ScopeKind, Stmt, StmtKind, UnOp,

@@ -6,8 +6,10 @@ use crate::{
     CompletionData, CompletionItem, CompletionKind, CompletionList, DocumentUri, Error, Position,
     SymbolKind,
 };
+use jaic::lexer::Lexed;
 use jaic::parser::ide_facts::{self, CursorContext};
 use jaic::sema::ide::{IdeCall, IdeKind, IdeName};
+use jaic::source::FileId;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
@@ -103,8 +105,9 @@ impl Session {
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
             return Ok(list);
         }
-        let context = ide_facts::cursor_context(&doc.text, byte as u32);
-        let mut list = self.completion_items(uri, byte, &context)?;
+        let lexed = Lexed::new(FileId(0), &doc.text);
+        let context = ide_facts::cursor_context_in(&doc.text, byte as u32, &lexed);
+        let mut list = self.completion_items(uri, byte, &context, &lexed)?;
         let mut parameters = self.named_argument_completions(uri, byte);
         // In a call's arguments the callee's parameter names come first (see `rank`).
         for item in &mut parameters {
@@ -157,7 +160,14 @@ impl Session {
         }
         if self.snippet_support && matches!(context, CursorContext::Code | CursorContext::Member(_))
         {
-            crate::call_snippets::apply(&mut list.items, text, start, end, self.call_snippets);
+            crate::call_snippets::apply(
+                &mut list.items,
+                text,
+                &lexed,
+                start,
+                end,
+                self.call_snippets,
+            );
         }
         Ok(list)
     }
@@ -167,6 +177,7 @@ impl Session {
         uri: &DocumentUri,
         byte: usize,
         context: &CursorContext,
+        lexed: &Lexed,
     ) -> Result<CompletionList, Error> {
         let (uri, doc) = self.document_entry(uri)?;
         let position = doc.index.position(&doc.text, byte)?;
@@ -273,7 +284,7 @@ impl Session {
             } else if self.snippet_support
                 && let CursorContext::Member(m) = context
             {
-                items.extend(self.postfix_items(uri, &doc.text, byte, m, &prefix));
+                items.extend(self.postfix_items(uri, &doc.text, lexed, byte, m, &prefix));
             }
             return Ok(CompletionList {
                 is_incomplete: incomplete,

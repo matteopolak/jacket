@@ -6,10 +6,9 @@ use crate::analysis::Span;
 use crate::model::{CompletionItem, CompletionKind};
 use crate::semantic::Analysis;
 use crate::session::Session;
-use jaic::lexer::{P, Tok, Token, lex_with_trivia};
+use jaic::lexer::{Lexed, P, Tok, Token};
 use jaic::parser::ide_facts::MemberAt;
 use jaic::sema::ide::IdeCall;
-use jaic::source::FileId;
 
 /// What accepting a procedure completion inserts (`completion.callSnippets`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -56,11 +55,8 @@ pub(crate) struct Site {
     pub in_case_block: bool,
 }
 
-pub(crate) fn site(text: &str, start: usize, end: usize) -> Site {
-    let mut tokens = lex_with_trivia(FileId(0), text).0;
-    if tokens.last().is_some_and(|t| t.tok == Tok::Eof) {
-        tokens.pop();
-    }
+pub(crate) fn site(text: &str, lexed: &Lexed, start: usize, end: usize) -> Site {
+    let tokens = &lexed.tokens;
     let before = tokens.partition_point(|t| (t.span.end as usize) <= start);
     let after = tokens.partition_point(|t| (t.span.start as usize) < end);
     let prev = before.checked_sub(1).map(|i| &tokens[i]);
@@ -174,6 +170,7 @@ fn keyword_text(name: &str) -> Option<&'static str> {
 pub(crate) fn apply(
     items: &mut [CompletionItem],
     text: &str,
+    lexed: &Lexed,
     start: usize,
     end: usize,
     mode: CallSnippets,
@@ -187,7 +184,7 @@ pub(crate) fn apply(
     if !items.iter().any(wants) {
         return;
     }
-    let site = site(text, start, end);
+    let site = site(text, lexed, start, end);
     for item in items.iter_mut().filter(|i| wants(i)) {
         if let Some(call) = &item.call {
             if site.parens {
@@ -277,7 +274,13 @@ fn escape(text: &str) -> String {
 pub(crate) type PostfixItem = (&'static str, &'static str, String, String);
 
 /// The postfix completions whose label starts with `typed` for the receiver at `start..end`.
-pub(crate) fn postfix(text: &str, start: usize, end: usize, typed: &str) -> Vec<PostfixItem> {
+pub(crate) fn postfix(
+    text: &str,
+    lexed: &Lexed,
+    start: usize,
+    end: usize,
+    typed: &str,
+) -> Vec<PostfixItem> {
     let Some(receiver) = text
         .get(start..end)
         .filter(|r| !r.is_empty() && !r.contains('\n'))
@@ -292,7 +295,7 @@ pub(crate) fn postfix(text: &str, start: usize, end: usize, typed: &str) -> Vec<
     if wanted.is_empty() {
         return Vec::new();
     }
-    let statement = starts_statement(text, start);
+    let statement = starts_statement(text, lexed, start);
     wanted
         .into_iter()
         .filter(|p| statement || !p.statement)
@@ -308,11 +311,8 @@ pub(crate) fn postfix(text: &str, start: usize, end: usize, typed: &str) -> Vec<
 }
 
 /// Whether the expression at `start` is the first thing of a statement.
-fn starts_statement(text: &str, start: usize) -> bool {
-    let mut tokens = lex_with_trivia(FileId(0), text).0;
-    if tokens.last().is_some_and(|t| t.tok == Tok::Eof) {
-        tokens.pop();
-    }
+fn starts_statement(text: &str, lexed: &Lexed, start: usize) -> bool {
+    let tokens = &lexed.tokens;
     let before = tokens.partition_point(|t| (t.span.end as usize) <= start);
     let line_start = text[..start].rfind('\n').map_or(0, |i| i + 1);
     text[line_start..start].trim().is_empty()
@@ -352,6 +352,7 @@ impl Session {
         &self,
         uri: &DocumentUri,
         text: &str,
+        lexed: &Lexed,
         byte: usize,
         m: &MemberAt,
         prefix: &str,
@@ -387,18 +388,24 @@ impl Session {
         else {
             return Vec::new();
         };
-        crate::call_snippets::postfix(text, receiver.start as usize, receiver.end as usize, prefix)
-            .into_iter()
-            .map(|(label, detail, snippet, filter)| CompletionItem {
-                label: label.into(),
-                kind: CompletionKind::Snippet,
-                detail: detail.into(),
-                insert_text: Some(snippet),
-                replace: Some(range),
-                filter_text: Some(filter),
-                sort_text: Some(format!("~~{label}")),
-                ..CompletionItem::default()
-            })
-            .collect()
+        crate::call_snippets::postfix(
+            text,
+            lexed,
+            receiver.start as usize,
+            receiver.end as usize,
+            prefix,
+        )
+        .into_iter()
+        .map(|(label, detail, snippet, filter)| CompletionItem {
+            label: label.into(),
+            kind: CompletionKind::Snippet,
+            detail: detail.into(),
+            insert_text: Some(snippet),
+            replace: Some(range),
+            filter_text: Some(filter),
+            sort_text: Some(format!("~~{label}")),
+            ..CompletionItem::default()
+        })
+        .collect()
     }
 }

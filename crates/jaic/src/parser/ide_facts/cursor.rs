@@ -1,6 +1,6 @@
 //! What surrounds a cursor position: strings, member accesses and declarations.
 use super::call_site::closer;
-use crate::lexer::{P, Tok, Token};
+use crate::lexer::{Lexed, P, Tok, Token};
 use crate::source::Span;
 
 /// The directive a string literal is the argument of.
@@ -62,11 +62,17 @@ pub enum CursorContext {
 /// delimiters inside strings and quotes inside comments are told apart by the lexer, not by
 /// looking at bytes.
 pub fn cursor_context(text: &str, offset: u32) -> CursorContext {
+    cursor_context_in(text, offset, &Lexed::new(crate::source::FileId(0), text))
+}
+
+/// [`cursor_context`] over `text` lexed already (as `Lexed::new` with file 0).
+pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContext {
     let file = crate::source::FileId(0);
-    let (mut tokens, comments, errors) = crate::lexer::lex_with_trivia(file, text);
-    if tokens.last().is_some_and(|t| t.tok == Tok::Eof) {
-        tokens.pop();
-    }
+    let Lexed {
+        tokens,
+        comments,
+        errors,
+    } = lexed;
     if let Some(c) = comments.iter().find(|c| {
         c.span.start < offset
             && (offset < c.span.end
@@ -117,7 +123,7 @@ pub fn cursor_context(text: &str, offset: u32) -> CursorContext {
         .checked_sub(1)
         .filter(|&d| tokens[d].tok == Tok::Punct(P::Dot))
     {
-        let (receiver, chain) = receiver_before(&tokens, dot);
+        let (receiver, chain) = receiver_before(tokens, dot);
         return CursorContext::Member(MemberAt {
             dot: tokens[dot].span.start,
             word,
@@ -126,7 +132,7 @@ pub fn cursor_context(text: &str, offset: u32) -> CursorContext {
         });
     }
     if let Some(i) = hit
-        && let Some(names) = declared_names(&tokens, i)
+        && let Some(names) = declared_names(tokens, i)
     {
         let at = names
             .iter()

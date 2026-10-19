@@ -132,6 +132,29 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> (Vec<Token>, Vec<Comment>, V
     (lx.out, lx.comments.unwrap_or_default(), errors)
 }
 
+/// A text lexed once for the features that read around a cursor (completion and its
+/// snippets): the tokens without the end marker, the comments and the lexical errors, as
+/// `lex_with_trivia` returns them.
+pub struct Lexed {
+    pub tokens: Vec<Token>,
+    pub comments: Vec<Comment>,
+    pub errors: Vec<Diagnostic>,
+}
+
+impl Lexed {
+    pub fn new(file: FileId, text: &str) -> Self {
+        let (mut tokens, comments, errors) = lex_with_trivia(file, text);
+        if tokens.last().is_some_and(|t| t.tok == Tok::Eof) {
+            tokens.pop();
+        }
+        Self {
+            tokens,
+            comments,
+            errors,
+        }
+    }
+}
+
 /// Verified literal/comment boundaries for incremental IDE lexical recovery.
 /// No tokens or semantic facts from an older version are reused.
 pub fn lexical_regions(file: FileId, text: &str) -> Result<Vec<Span>, Diagnostic> {
