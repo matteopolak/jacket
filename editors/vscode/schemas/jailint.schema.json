@@ -328,6 +328,16 @@
           "default": "warn",
           "markdownDescription": "a nested `for` hides an `it` the enclosing loop uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#shadowed_it)"
         },
+        "string_literal_write": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#string_literal_write)"
+        },
         "unused_import": {
           "type": "string",
           "enum": [

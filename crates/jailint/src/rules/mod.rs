@@ -37,6 +37,7 @@ mod remove_in_for;
 mod reversed_range;
 mod self_assignment;
 mod shadowed_it;
+mod string_literal_write;
 pub(crate) mod unused_import;
 mod unused_parameter;
 pub(crate) use unused_parameter::RunState;
@@ -238,6 +239,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "a nested `for` hides an `it` the enclosing loop uses",
         check: shadowed_it::check,
+    },
+    RuleInfo {
+        name: "string_literal_write",
+        default: Level::Warn,
+        summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
+        check: string_literal_write::check,
     },
     RuleInfo {
         name: "unused_import",

@@ -97,6 +97,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `reversed_range` | warn | editor | `for i: 10..0`: a range that never runs |
 | `self_assignment` | warn | editor | `x = x;` |
 | `shadowed_it` | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
+| `string_literal_write` | warn | no | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
 | `unused_import` | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | warn | no | a parameter the procedure never uses |
 | `unused_result` | warn | no | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
@@ -165,6 +166,8 @@ Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-on
 Not auto-fixed: the slip may be on the other side. After `using info;`, `width = width;` assigns a field to itself; names found only through `using` that also exist as earlier locals are not reported.
 ### shadowed_it
 `row := it;` before the inner loop is the usual idiom and is not reported.
+### string_literal_write
+Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native). Fires on `s[i] = x`, `s[i] += x`, `s.data[i] = x` and `s.data.* = x` when `s` was declared from a literal (`s := "abc";`, `s: string = "abc";`) in the same statement list and nothing since could have changed it: any assignment to `s`, taking `*s`, or redeclaring the name (in any nested scope) ends the check, so `s = copy_string(s);` silences later writes. Writes in nested blocks and in macros are not reported.
 ### unused_import
 Unnamed imports count as used when any lookup went through them, or (guard for unchecked code) when the module's files mention a name it exports. Not reported: imports with module parameters, modules with `#program_export`, programs that did not compile fully, generated files. Files whose first 10 lines say a tool generated them (`Automatically generated`, `DO NOT EDIT`, ...) are skipped by every `unused_*` rule.
 ### unused_parameter

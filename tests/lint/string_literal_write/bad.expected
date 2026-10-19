@@ -1,0 +1,36 @@
+warning[string_literal_write]: `a[0]` writes into a string literal: `a` still holds one, and literals are read-only
+  --> tests/lint/string_literal_write/bad.jai:5:5
+   |
+ 5 |     a[0] = #char "j";
+   |     ^^^^
+   |
+   = help: copy it first, for example `a = copy_string(a);`
+   = note: `string_literal_write` is `warn` by default
+
+warning[string_literal_write]: `b[1]` writes into a string literal: `b` still holds one, and literals are read-only
+  --> tests/lint/string_literal_write/bad.jai:8:5
+   |
+ 8 |     b[1] += 1;
+   |     ^^^^
+   |
+   = help: copy it first, for example `b = copy_string(b);`
+   = note: `string_literal_write` is `warn` by default
+
+warning[string_literal_write]: `b.data[2]` writes into a string literal: `b` still holds one, and literals are read-only
+  --> tests/lint/string_literal_write/bad.jai:9:5
+   |
+ 9 |     b.data[2] = #char "x";
+   |     ^^^^^^^^^
+   |
+   = help: copy it first, for example `b = copy_string(b);`
+   = note: `string_literal_write` is `warn` by default
+
+warning[string_literal_write]: `b.data.*` writes into a string literal: `b` still holds one, and literals are read-only
+  --> tests/lint/string_literal_write/bad.jai:10:5
+   |
+10 |     b.data.* = #char "W";
+   |     ^^^^^^^^
+   |
+   = help: copy it first, for example `b = copy_string(b);`
+   = note: `string_literal_write` is `warn` by default
+
