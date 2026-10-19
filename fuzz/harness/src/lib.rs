@@ -10,11 +10,13 @@
 //! files, network or clock) and an interpreter block budget, so an input cannot do I/O or loop
 //! forever.
 pub mod generate;
+mod jacket_config;
 mod jaifmt;
 mod jailint_fix;
 mod lsp_edits;
 mod lsp_typing;
 
+pub use jacket_config::jacket_config;
 pub use jaifmt::jaifmt;
 pub use jailint_fix::jailint_fix;
 pub use lsp_edits::lsp_edits;

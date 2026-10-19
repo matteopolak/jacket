@@ -1,0 +1,3 @@
+# the project
+build_files = ["first.jai"] # entry
+import_path = ["vendor"]

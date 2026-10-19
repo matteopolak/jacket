@@ -86,6 +86,11 @@ fn jailint_fix() {
 }
 
 #[test]
+fn jacket_config() {
+    replay("jacket_config", jai_fuzz_harness::jacket_config);
+}
+
+#[test]
 fn jaifmt() {
     replay("jaifmt", jai_fuzz_harness::jaifmt);
 }

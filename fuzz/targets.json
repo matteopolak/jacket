@@ -9,5 +9,6 @@
   "lsp_edits": {"max_len": 4096, "timeout": 20, "seeds": "programs", "seed_limit": 4096},
   "lsp_typing": {"max_len": 2048, "timeout": 30, "seeds": "programs", "seed_limit": 2048},
   "jailint_fix": {"max_len": 4096, "timeout": 30, "seeds": "programs", "seed_limit": 4096},
+  "jacket_config": {"max_len": 4096, "timeout": 10, "seeds": "configs", "seed_limit": 4096},
   "jaifmt": {"max_len": 8192, "timeout": 20, "seeds": "sources+upstream", "seed_limit": 8192}
 }

@@ -12,3 +12,5 @@ arbitrary = "1"
 jaic = { path = "../../crates/jaic" }
 jai-wasm = { path = "../../crates/jai-wasm" }
 jai-language-server = { path = "../../crates/jai-language-server" }
+jacket-config = { path = "../../crates/jacket-config" }
+toml = "=1.1.2"

@@ -124,9 +124,11 @@ name = "jai-fuzz-harness"
 version = "0.0.0"
 dependencies = [
  "arbitrary",
+ "jacket-config",
  "jai-language-server",
  "jai-wasm",
  "jaic",
+ "toml",
 ]
 
 [[package]]

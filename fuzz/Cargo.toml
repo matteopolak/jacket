@@ -97,6 +97,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "jacket_config"
+path = "fuzz_targets/jacket_config.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "jaifmt"
 path = "fuzz_targets/jaifmt.rs"
 test = false

@@ -69,6 +69,22 @@ def lsp_session(text):
     return "\n".join(json.dumps(line) for line in lines).encode()
 
 
+def config_seeds(out):
+    """NUL-separated `jai.toml`, `jailint.toml`, `jaifmt.toml` and `jacket.toml` texts (the
+    `jacket_config` target's input): the hand-written bundles in fuzz/seeds_config plus each
+    config file in the repository in its own slot."""
+    slots = {"jai.toml": 0, "jailint.toml": 1, "jaifmt.toml": 2, "jacket.toml": 3}
+    inputs = [p.read_bytes() for p in sorted((FUZZ / "seeds_config").glob("*.bundle"))]
+    for name, slot in slots.items():
+        for path in sorted(ROOT.rglob(name)):
+            if "target" in path.parts or "node_modules" in path.parts:
+                continue
+            inputs.append(b"\0" * slot + path.read_bytes())
+    for data in inputs:
+        (out / hashlib.sha1(data).hexdigest()).write_bytes(data)
+    return len(inputs)
+
+
 def main():
     manifest = load_targets()
     args = sys.argv[1:]
@@ -88,9 +104,13 @@ def main():
             raise SystemExit(f"unknown target {target}")
         if manifest[target]["seeds"] is None:
             continue
-        trees, limit = TREES[manifest[target]["seeds"]], manifest[target]["seed_limit"]
         out = FUZZ / "corpus" / target
         out.mkdir(parents=True, exist_ok=True)
+        if manifest[target]["seeds"] == "configs":
+            count = config_seeds(out)
+            print(f"{target}: {count} seeds in {out.relative_to(ROOT)}")
+            continue
+        trees, limit = TREES[manifest[target]["seeds"]], manifest[target]["seed_limit"]
         count = 0
         # Saved crash inputs are good starting points for finding their neighbours.
         regressions = sorted(p for p in (FUZZ / "regressions" / target).glob("*") if p.is_file())
