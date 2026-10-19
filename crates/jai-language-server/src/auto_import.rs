@@ -40,8 +40,6 @@ const MAX_OVERLOADS: usize = 4;
 /// Characters to type before auto-import items are offered.
 pub const MIN_PREFIX: usize = 2;
 
-use jaic::project::{MAX_TREE_DEPTH as MAX_DEPTH, MAX_TREE_FILES as MAX_PROJECT_FILES};
-
 /// The most files one load graph (a program's or a module's) follows.
 const MAX_LOADED: usize = 4000;
 

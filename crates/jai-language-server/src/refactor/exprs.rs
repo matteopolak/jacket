@@ -1,7 +1,7 @@
 //! Expression predicates and name suggestions.
 use jaic::ast::{Expr, ExprKind as E, ProcHeader, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
-use jailint::syntax::{Node, walk};
+use jailint::syntax::{Node, walk, walk_node};
 
 pub(super) fn header_poly(h: &ProcHeader) -> bool {
     h.params
@@ -110,19 +110,14 @@ pub(super) fn suggest_name(e: &Expr) -> String {
 /// Does the expression call a procedure, so that running it twice (or later) matters?
 pub(super) fn has_call(e: &Expr) -> bool {
     let mut found = false;
-    walk_expr(e, &mut |x| {
-        found |= matches!(x.kind, E::Call { .. } | E::Run { .. } | E::Insert(_));
+    walk_node(Node::Expr(e), &mut Vec::new(), &mut |node, _| {
+        found |= matches!(
+            node,
+            Node::Expr(x) if matches!(x.kind, E::Call { .. } | E::Run { .. } | E::Insert(_))
+        );
+        !found
     });
     found
-}
-
-fn walk_expr<'a>(e: &'a Expr, visit: &mut impl FnMut(&'a Expr)) {
-    visit(e);
-    for child in jailint::syntax::children(Node::Expr(e)) {
-        if let Node::Expr(x) = child {
-            walk_expr(x, visit);
-        }
-    }
 }
 
 /// Expressions that need no parentheses wherever they go.

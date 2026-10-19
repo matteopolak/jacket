@@ -1,11 +1,37 @@
 //! Which program a file belongs to: the project's files, its `jai.toml`, the file a fragment is
 //! analysed from, and the folders and entries that make up one program.
 use super::index_fs::IndexFs;
-use super::{Index, MAX_DEPTH, MAX_PROJECT_FILES, Program, SKIPPED_FOLDERS, Sources};
-use crate::project::{self, ProjectConfig};
+use super::{Index, Program, SKIPPED_FOLDERS, Sources};
+use crate::project::{self, ProjectConfig, ProjectFs};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+/// The sources as a bare file system: the shared tree walk of [`ProjectFs::project_files`]
+/// over their directory listings, without the index that [`IndexFs`] caches the walk in.
+struct Listing<'a, 's>(&'a Sources<'s>);
+
+impl ProjectFs for Listing<'_, '_> {
+    fn key(&self, path: &Path) -> PathBuf {
+        self.0.key(path)
+    }
+
+    fn read(&self, path: &Path) -> Option<String> {
+        self.0.read(path)
+    }
+
+    fn is_file(&self, path: &Path) -> bool {
+        self.0.is_file(path)
+    }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        self.0.is_dir(path)
+    }
+
+    fn list_dir(&self, dir: &Path) -> Vec<(String, bool)> {
+        self.0.list_dir(dir)
+    }
+}
 
 impl Sources<'_> {
     /// The `.jai` files under `dir` (cached walk of the disk, plus open documents).
@@ -15,26 +41,7 @@ impl Sources<'_> {
         let walked = if let Some(files) = index.walked.get(dir) {
             files.clone()
         } else {
-            let mut files = Vec::new();
-            let mut pending = vec![(dir.to_path_buf(), 0)];
-            while let Some((folder, depth)) = pending.pop() {
-                for (entry, is_dir) in self.env.fs.list_dir(&folder) {
-                    if files.len() >= MAX_PROJECT_FILES {
-                        break;
-                    }
-                    let path = folder.join(&entry);
-                    if is_dir {
-                        if depth < MAX_DEPTH
-                            && !entry.starts_with('.')
-                            && !SKIPPED_FOLDERS.contains(&entry.as_str())
-                        {
-                            pending.push((path, depth + 1));
-                        }
-                    } else if entry.ends_with(".jai") {
-                        files.push(self.key(&path));
-                    }
-                }
-            }
+            let files = Listing(self).project_files(dir);
             let files = Rc::new(files);
             index.walked.insert(dir.to_path_buf(), files.clone());
             files
