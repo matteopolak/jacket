@@ -30,6 +30,7 @@ from pathlib import Path
 
 from native.build_native_libs import output_dir  # noqa: E402
 from repo_output import host_platform  # noqa: E402
+from toolkit.download import fetch as download
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
@@ -51,7 +52,7 @@ def fetch_licenses(native: dict, out: Path) -> None:
         path = target / name
         if path.exists() and sha256_file(path) == digest:
             continue
-        data = fetch(f'https://raw.githubusercontent.com/{native["repository"]}/{native["tag"]}/{name}')
+        data = download(f'https://raw.githubusercontent.com/{native["repository"]}/{native["tag"]}/{name}')
         if sha256_bytes(data) != digest:
             sys.exit(f'{name}: sha256 {sha256_bytes(data)}, expected {digest}')
         target.mkdir(parents=True, exist_ok=True)
@@ -75,7 +76,7 @@ def fetch(plat: str, out: Path, force: bool = False) -> list[Path]:
         return paths
     url = f'https://github.com/{native["repository"]}/releases/download/{native["tag"]}/{asset["name"]}'
     print(f'downloading {url}')
-    data = fetch(url, timeout=300)
+    data = download(url, timeout=300)
     digest = sha256_bytes(data)
     if digest != asset['sha256']:
         sys.exit(f'{asset["name"]}: sha256 {digest}, expected {asset["sha256"]}')
