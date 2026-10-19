@@ -40,7 +40,7 @@ The language server keeps the syntax tree of every compile alive, so node size i
 - `Decl` keeps common fields and moves the rest into `rare: Option<Box<DeclRare>>`. Read through accessors (`decl.extra_values()`, `decl.align()`); fill with `rare_mut()` and finish with `trim_rare()`.
 - `Notes` is one nullable pointer that reads as a `[Note]` slice. `ExprKind::Int` holds an `Int128` (two `u64` words) so `ExprKind` needs only 8-byte alignment.
 
-Gotchas: `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line right after `}`, so `Foo :: struct {}` then `*p = 1;` stays two statements. `AstId::fresh()` counters are per thread.
+Gotchas: `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line right after `}`, so `Foo :: struct {}` then `*p = 1;` stays two statements. `AstId::fresh()` numbers are unique across threads but follow thread timing.
 
 ## Configuration
 

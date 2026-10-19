@@ -14,45 +14,38 @@ pub mod relocate;
 pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
 use std::cell::Cell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct AstId(pub u32);
 
+/// Ids a thread takes from `NEXT_AST_BLOCK` at a time, so `fresh` rarely touches the atomic.
+const AST_BLOCK: u32 = 256;
+
+/// The first id of the next unclaimed block, for every thread.
+static NEXT_AST_BLOCK: AtomicU32 = AtomicU32::new(0);
+
 thread_local! {
-    static NEXT_AST_ID: Cell<u32> = const { Cell::new(0) };
+    /// The next id this thread hands out, and the end of its block.
+    static AST_IDS: Cell<(u32, u32)> = const { Cell::new((0, 0)) };
 }
 
 impl AstId {
+    /// An id no other node of the process has. Numbers follow thread timing, so nothing may
+    /// depend on their order.
     pub fn fresh() -> AstId {
-        NEXT_AST_ID.with(|n| {
-            let mut id = n.get();
-            // Under `JAIC_ID_SCRAMBLE`, a seeded gap starts each block of 256 ids.
-            if id.is_multiple_of(256)
-                && let Some(seed) = crate::knobs::id_scramble()
-            {
-                id += crate::knobs::scramble_gap(seed, u64::from(id), 64);
+        AST_IDS.with(|ids| {
+            let (mut next, mut end) = ids.get();
+            if next == end {
+                next = NEXT_AST_BLOCK.fetch_add(AST_BLOCK, Ordering::Relaxed);
+                end = next + AST_BLOCK;
+                // Under `JAIC_ID_SCRAMBLE`, each block starts after a seeded gap.
+                if let Some(seed) = crate::knobs::id_scramble() {
+                    next += crate::knobs::scramble_gap(seed, u64::from(next), 64);
+                }
             }
-            n.set(id + 1);
-            AstId(id)
-        })
-    }
-
-    /// The next id `fresh` hands out on this thread.
-    pub fn next() -> u32 {
-        NEXT_AST_ID.with(Cell::get)
-    }
-
-    /// Restarts this thread's numbering (a parse worker numbers each file from zero).
-    pub fn restart() {
-        NEXT_AST_ID.with(|n| n.set(0));
-    }
-
-    /// Sets aside `count` ids and returns the first, for a tree parsed elsewhere.
-    pub fn reserve(count: u32) -> u32 {
-        NEXT_AST_ID.with(|n| {
-            let base = n.get();
-            n.set(base + count);
-            base
+            ids.set((next + 1, end));
+            AstId(next)
         })
     }
 }

@@ -1,16 +1,15 @@
 //! Moves a tree parsed on a worker thread into the compile that asked for it.
 //!
-//! A worker cannot know the file id sema will give its file or the `AstId`s the file's
-//! declarations come after: both depend on the order the compile loads files in. It parses with
-//! placeholders, and `relocate` rewrites them on the main thread, so the tree is the one a serial
-//! parse at that point would have built. (Symbols need no rewrite: the interner is process-wide.)
+//! A worker cannot know the file id sema will give its file: that depends on the order the
+//! compile loads files in. It parses with a placeholder, and `relocate` rewrites it on the main
+//! thread. (Symbols and `AstId`s need no rewrite: both are numbered for the whole process.)
 //!
-//! Every field holding a `Span`, an `Ident` or an `AstId` must be visited here. A field left out
+//! Every field holding a `Span` or an `Ident` must be visited here. A field left out
 //! keeps its worker value, which `parse_ahead`'s tests catch by comparing against a serial parse.
 use super::{
-    Arg, ArraySize, AsmBlock, AsmDecl, AsmItem, AsmOperand, AsmPin, AsmSize, AstId, Block, Case,
-    CodeBody, Decl, EnumItem, Expr, ExprKind, File, ForOver, Ident, Note, Notes, Param, ProcHeader,
-    Rc, RunBody, Span, Stmt, StmtKind, StructLit, SwitchStmt, UsingFilter,
+    Arg, ArraySize, AsmBlock, AsmDecl, AsmItem, AsmOperand, AsmPin, AsmSize, Block, Case, CodeBody,
+    Decl, EnumItem, Expr, ExprKind, File, ForOver, Ident, Note, Notes, Param, ProcHeader, Rc,
+    RunBody, Span, Stmt, StmtKind, StructLit, SwitchStmt, UsingFilter,
 };
 use crate::fxhash::HashSet;
 use crate::source::FileId;
@@ -20,16 +19,13 @@ pub const PLACEHOLDER_FILE: FileId = FileId(u32::MAX - 1);
 
 pub struct Relocator {
     file: FileId,
-    ast_base: u32,
     shared: HashSet<*const ()>,
 }
 
-/// Rewrites `file`, parsed under `PLACEHOLDER_FILE` with ids from zero, for the compile: spans
-/// name `real` and ids continue from `ast_base`.
-pub fn relocate(file: &mut File, real: FileId, ast_base: u32) {
+/// Rewrites `file`, parsed under `PLACEHOLDER_FILE`, so its spans name `real`.
+pub fn relocate(file: &mut File, real: FileId) {
     let mut r = Relocator {
         file: real,
-        ast_base,
         shared: HashSet::default(),
     };
     file.file = real;
@@ -57,10 +53,6 @@ impl Relocator {
         if span.file == PLACEHOLDER_FILE {
             span.file = self.file;
         }
-    }
-
-    fn id(&self, id: &mut AstId) {
-        id.0 += self.ast_base;
     }
 
     fn ident(&self, ident: &mut Ident) {
@@ -236,7 +228,6 @@ impl Relocator {
             ExprKind::Enum(lit) => {
                 if self.once(lit) {
                     let lit = rc_mut(lit);
-                    self.id(&mut lit.id);
                     self.opt_expr(&mut lit.base);
                     self.enum_items(&mut lit.items);
                     self.notes(&mut lit.notes);
@@ -351,7 +342,6 @@ impl Relocator {
             return;
         }
         let header = rc_mut(header);
-        self.id(&mut header.id);
         self.params(&mut header.params);
         for ret in &mut header.returns {
             self.opt_ident(&mut ret.name);
@@ -378,7 +368,6 @@ impl Relocator {
             return;
         }
         let lit = rc_mut(lit);
-        self.id(&mut lit.id);
         if let Some(tag) = &mut lit.tag {
             self.ident(&mut tag.name);
             self.opt_boxed(&mut tag.ty);
@@ -432,7 +421,6 @@ impl Relocator {
             return;
         }
         let decl = rc_mut(decl);
-        self.id(&mut decl.id);
         self.idents(&mut decl.names);
         self.opt_expr(&mut decl.ty);
         self.opt_expr(&mut decl.value);

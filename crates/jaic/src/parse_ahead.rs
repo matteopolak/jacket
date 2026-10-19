@@ -7,11 +7,10 @@
 //! `None` when nothing was predicted or the file has not been started: sema then parses it
 //! itself, which is also the path for every failure, so diagnostics come from one place.
 //!
-//! A worker cannot know the file id or the `AstId` numbers the compile will have when sema reaches
-//! its file. It parses with placeholders, and `Prepared::finish` (on the main thread, at claim
-//! time) rewrites them (see `ast::relocate`), giving the tree a serial parse at that point would
-//! have built. Symbols are interned directly: the interner is process-wide. The crawl is only a guess at
-//! sema's order: a wrong guess costs a wasted parse, never a different result.
+//! A worker cannot know the file id the compile will give its file. It parses with a placeholder,
+//! and `Prepared::finish` (on the main thread, at claim time) rewrites it (see `ast::relocate`).
+//! Symbols and `AstId`s need nothing: both are numbered for the whole process. The crawl is only a
+//! guess at sema's order: a wrong guess costs a wasted parse, never a different result.
 //!
 //! `-serial_parse` (`[experimental] serial_parse`) turns the crawl off and `-parse_threads N` sets the
 //! worker count (`crate::knobs`).
@@ -57,7 +56,7 @@ mod imp {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod imp {
-    use crate::ast::{self, AstId, StmtKind, relocate};
+    use crate::ast::{self, StmtKind, relocate};
     use crate::fxhash::HashMap;
     use crate::sema::{
         BootstrapModule, FileSystem, NativeFs, Options, TargetCpu, TargetOs, find_module_in,
@@ -68,7 +67,7 @@ mod imp {
     use std::rc::Rc;
     use std::sync::{Arc, Condvar, Mutex};
 
-    /// A file's finished parse, still numbered for the worker that made it.
+    /// A file's finished parse, its spans still naming the placeholder file.
     pub struct Prepared {
         text: Handoff<Rc<str>>,
         lines: LineIndex,
@@ -78,7 +77,6 @@ mod imp {
     /// The tree of a `Prepared`, before it is placed in a compile.
     pub struct PreparedTree {
         file: Handoff<ast::File>,
-        ast_count: u32,
     }
 
     /// A value moved between threads. Its `Rc`s are only ever shared inside the value, and the
@@ -101,9 +99,8 @@ mod imp {
     impl PreparedTree {
         /// The tree for a compile that gave the file `file`.
         pub fn finish(self, file: FileId) -> ast::File {
-            let base = AstId::reserve(self.ast_count);
             let mut tree = self.file.0;
-            relocate::relocate(&mut tree, file, base);
+            relocate::relocate(&mut tree, file);
             tree
         }
     }
@@ -296,7 +293,6 @@ mod imp {
             let bytes = std::fs::read(path).ok()?;
             let text = String::from_utf8(bytes)
                 .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned());
-            AstId::restart();
             let parsed = match self.library_platform(path) {
                 Some(target) => {
                     crate::parser::parse_file_for_target(relocate::PLACEHOLDER_FILE, &text, target)
@@ -306,7 +302,6 @@ mod imp {
             if let Ok(file) = &parsed {
                 self.discover(file, path);
             }
-            let ast_count = AstId::next();
             let file = parsed.ok()?;
             let lines = LineIndex::new(&text);
             Some(Prepared {
@@ -314,7 +309,6 @@ mod imp {
                 lines,
                 tree: PreparedTree {
                     file: Handoff(file),
-                    ast_count,
                 },
             })
         }
@@ -444,12 +438,12 @@ mod imp {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::imp::*;
-    use crate::ast::AstId;
     use crate::source::FileId;
     use std::path::Path;
 
     /// A tree parsed by a worker and relocated is the tree a serial parse builds: same spans,
-    /// file ids, `AstId`s and symbols, for the library, the examples and the test sources.
+    /// file ids and symbols, for the library, the examples and the test sources. `AstId`s differ
+    /// (every parse takes fresh ones), so they are left out of the comparison.
     #[test]
     fn relocated_parse_equals_serial_parse() {
         std::thread::Builder::new()
@@ -458,6 +452,19 @@ mod tests {
             .unwrap()
             .join()
             .unwrap();
+    }
+
+    /// `tree`, a tree's debug text, with every `AstId(n)` written `AstId(_)`.
+    fn without_ids(tree: &str) -> String {
+        let mut out = String::with_capacity(tree.len());
+        let mut rest = tree;
+        while let Some(at) = rest.find("AstId(") {
+            out.push_str(&rest[..at + "AstId(".len()]);
+            rest = rest[at + "AstId(".len()..].trim_start_matches(|c: char| c.is_ascii_digit());
+            out.push('_');
+        }
+        out.push_str(rest);
+        out
     }
 
     fn relocated_parse_equals_serial_parse_body() {
@@ -472,12 +479,10 @@ mod tests {
         let mut compared = 0;
         for path in files {
             let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).into_owned();
-            AstId::restart();
             let Ok(serial) = crate::parser::parse_file(FileId(7), &text) else {
                 continue;
             };
-            let expected = format!("{serial:?}");
-            AstId::restart();
+            let expected = without_ids(&format!("{serial:?}"));
             let prepared = {
                 let path = path.clone();
                 std::thread::Builder::new()
@@ -489,7 +494,12 @@ mod tests {
             };
             let (_, _, tree) = prepared.expect("worker parse").into_parts();
             let relocated = tree.finish(FileId(7));
-            assert_eq!(expected, format!("{relocated:?}"), "{}", path.display());
+            assert_eq!(
+                expected,
+                without_ids(&format!("{relocated:?}")),
+                "{}",
+                path.display()
+            );
             compared += 1;
         }
         assert!(compared > 50);
