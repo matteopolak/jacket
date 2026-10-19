@@ -198,63 +198,7 @@ impl Compiler {
             value, ..
         } = &op
         {
-            let tr = self.types.repr(to);
-            let fr = self.types.repr(op.ty());
-            let folded = match value {
-                Value::Int(i)
-                    if self.types.is_pointer(tr)
-                        && (self.types.is_integer(fr) || self.types.is_pointer(fr)) =>
-                {
-                    // A raw address is a scalar bit pattern, not a request to capture
-                    // pointed-to memory. Use the target width, never the host's usize.
-                    let bits = (self.types.pointer_size * 8) as u8;
-                    let address = expr::wrap_int(*i, bits, false);
-                    Some(if address == 0 {
-                        Value::Null
-                    } else {
-                        Value::Int(address)
-                    })
-                }
-                // `cast,force` between same-size ints and floats reinterprets the bits.
-                Value::Int(i) if flags.force && self.types.is_float(tr) => {
-                    Some(Value::float(if tr == TypeId::F32 {
-                        f32::from_bits(*i as u32) as f64
-                    } else {
-                        f64::from_bits(*i as u64)
-                    }))
-                }
-                Value::Float(x, _) if flags.force && self.types.is_integer(tr) => {
-                    let bits = if fr == TypeId::F32 {
-                        (*x as f32).to_bits() as i128
-                    } else {
-                        x.to_bits() as i128
-                    };
-                    let (width, signed) = self.types.int_info(tr).unwrap();
-                    Some(Value::Int(expr::wrap_int(bits, width, signed)))
-                }
-                Value::Int(i) if self.types.is_integer(tr) => {
-                    let (bits, signed) = self.types.int_info(tr).unwrap();
-                    Some(Value::Int(expr::wrap_int(*i, bits, signed)))
-                }
-                Value::Int(i) if self.types.is_float(tr) => {
-                    Some(Value::float(int_to_float(*i, tr)))
-                }
-                Value::Float(x, _) if self.types.is_float(tr) => {
-                    Some(Value::float(if tr == TypeId::F32 {
-                        *x as f32 as f64
-                    } else {
-                        *x
-                    }))
-                }
-                Value::Float(x, _) if self.types.is_integer(tr) => {
-                    let (bits, signed) = self.types.int_info(tr).unwrap();
-                    Some(Value::Int(expr::wrap_int(*x as i128, bits, signed)))
-                }
-                Value::Bool(b) if self.types.is_integer(tr) => Some(Value::Int(*b as i128)),
-                Value::Int(i) if tr == TypeId::BOOL => Some(Value::Bool(*i != 0)),
-                Value::Null if self.ir_ty(tr) == Some(Ty::Ptr) => Some(Value::Null),
-                _ => None,
-            };
+            let folded = self.fold_cast(value, op.ty(), to, flags);
             if let Some(value) = folded {
                 return Ok(Operand::Const {
                     ty: to,
@@ -328,6 +272,87 @@ impl Compiler {
         {
             return self.convert(f, op, to, span);
         }
+        self.cast_between_representations(f, op, to, flags, untyped, span)
+    }
+
+    /// The value of the constant `value` (of type `from`) cast to `to`, when the cast can be
+    /// done at compile time.
+    fn fold_cast(
+        &self,
+        value: &Value,
+        from: TypeId,
+        to: TypeId,
+        flags: ast::CastFlags,
+    ) -> Option<Value> {
+        let tr = self.types.repr(to);
+        let fr = self.types.repr(from);
+        match value {
+            Value::Int(i)
+                if self.types.is_pointer(tr)
+                    && (self.types.is_integer(fr) || self.types.is_pointer(fr)) =>
+            {
+                // A raw address is a scalar bit pattern, not a request to capture
+                // pointed-to memory. Use the target width, never the host's usize.
+                let bits = (self.types.pointer_size * 8) as u8;
+                let address = expr::wrap_int(*i, bits, false);
+                Some(if address == 0 {
+                    Value::Null
+                } else {
+                    Value::Int(address)
+                })
+            }
+            // `cast,force` between same-size ints and floats reinterprets the bits.
+            Value::Int(i) if flags.force && self.types.is_float(tr) => {
+                Some(Value::float(if tr == TypeId::F32 {
+                    f32::from_bits(*i as u32) as f64
+                } else {
+                    f64::from_bits(*i as u64)
+                }))
+            }
+            Value::Float(x, _) if flags.force && self.types.is_integer(tr) => {
+                let bits = if fr == TypeId::F32 {
+                    (*x as f32).to_bits() as i128
+                } else {
+                    x.to_bits() as i128
+                };
+                let (width, signed) = self.types.int_info(tr).unwrap();
+                Some(Value::Int(expr::wrap_int(bits, width, signed)))
+            }
+            Value::Int(i) if self.types.is_integer(tr) => {
+                let (bits, signed) = self.types.int_info(tr).unwrap();
+                Some(Value::Int(expr::wrap_int(*i, bits, signed)))
+            }
+            Value::Int(i) if self.types.is_float(tr) => Some(Value::float(int_to_float(*i, tr))),
+            Value::Float(x, _) if self.types.is_float(tr) => {
+                Some(Value::float(if tr == TypeId::F32 {
+                    *x as f32 as f64
+                } else {
+                    *x
+                }))
+            }
+            Value::Float(x, _) if self.types.is_integer(tr) => {
+                let (bits, signed) = self.types.int_info(tr).unwrap();
+                Some(Value::Int(expr::wrap_int(*x as i128, bits, signed)))
+            }
+            Value::Bool(b) if self.types.is_integer(tr) => Some(Value::Int(*b as i128)),
+            Value::Int(i) if tr == TypeId::BOOL => Some(Value::Bool(*i != 0)),
+            Value::Null if self.ir_ty(tr) == Some(Ty::Ptr) => Some(Value::Null),
+            _ => None,
+        }
+    }
+
+    /// The casts left once constants, procedures, types and `bool` are dealt with: reinterpreting
+    /// bits, strings and arrays, and aggregates of the same size.
+    fn cast_between_representations(
+        &mut self,
+        f: &mut FnCtx,
+        op: Operand,
+        to: TypeId,
+        flags: ast::CastFlags,
+        untyped: bool,
+        span: Span,
+    ) -> Result<Operand> {
+        let from = op.ty();
         // Same-representation reinterpretations (distinct/enum/struct-of-same-size are not allowed except via pointer).
         let fr = self.types.repr(from);
         let tr = self.types.repr(to);

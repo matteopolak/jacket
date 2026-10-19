@@ -365,25 +365,7 @@ impl Compiler {
                 }
             }
             S::Overlay(_) => err(span, "`#overlay` is only allowed in a struct body"),
-            S::PushContextDefer(defer) => {
-                let addr = self.push_context_addr(f, scope, &defer.context, defer.bare, span)?;
-                let previous = f.current_context();
-                let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
-                let saved = previous.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
-                f.b.store(Ty::Ptr, saved_slot, saved);
-                f.set_context(Some(addr));
-                let entry = DeferEntry {
-                    action: DeferAction::RestoreContext {
-                        previous,
-                        saved_slot,
-                    },
-                    scope,
-                    active: None,
-                    caller_scope: None,
-                };
-                self.register_defer(f, entry, defer.backtick);
-                Ok(())
-            }
+            S::PushContextDefer(defer) => self.check_push_context_defer(f, scope, defer, span),
             S::While(while_) => self.check_while(f, scope, while_),
             S::For(for_) => self.check_for(f, scope, for_, span),
             S::Break(label) => {
@@ -432,20 +414,7 @@ impl Compiler {
             S::Defer {
                 body,
                 backtick,
-            } => {
-                let entry = DeferEntry {
-                    action: DeferAction::Statement((**body).clone()),
-                    active: None,
-                    scope,
-                    caller_scope: f
-                        .macros
-                        .last()
-                        .filter(|_| *backtick)
-                        .map(|m| m.caller_scope),
-                };
-                self.register_defer(f, entry, *backtick);
-                Ok(())
-            }
+            } => self.check_defer_stmt(f, scope, body, *backtick),
             S::Using(boxed) => {
                 let crate::ast::UsingStmt {
                     value,
@@ -453,71 +422,8 @@ impl Compiler {
                 } = &**boxed;
                 self.check_using(f, scope, value, filter)
             }
-            S::PushContext(boxed) => {
-                let crate::ast::PushContextStmt {
-                    context,
-                    body,
-                    bare,
-                    ..
-                } = &**boxed;
-                let depth = f.mark_defers();
-                let addr = self.push_context_addr(f, scope, context, *bare, span)?;
-                let saved = f.current_context();
-                let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
-                let previous = saved.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
-                f.b.store(Ty::Ptr, saved_slot, previous);
-                f.set_context(Some(addr));
-                f.defers.push(DeferEntry {
-                    action: DeferAction::RestoreContext {
-                        previous: saved,
-                        saved_slot,
-                    },
-                    active: None,
-                    scope,
-                    caller_scope: None,
-                });
-                let result = self.check_scoped(f, scope, body);
-                if result.is_ok() && !f.b.is_terminated() {
-                    self.emit_defers(f, depth.position(), span)?;
-                }
-                f.truncate_defers(depth.position());
-                result
-            }
-            S::StaticIf(boxed) => {
-                let crate::ast::StaticIfStmt {
-                    cond,
-                    then_branch,
-                    else_branch,
-                } = &**boxed;
-                if self.sketching() {
-                    // Which branch a stand-in takes says nothing: a sketch checks both.
-                    let taken = self.body_static_condition(f, scope, cond).unwrap_or(true);
-                    let (first, second) = if taken {
-                        (then_branch, else_branch)
-                    } else {
-                        (else_branch, then_branch)
-                    };
-                    let _ = self.check_block_stmts(f, scope, first);
-                    self.sketch_reopen(f);
-                    return self.check_block_stmts(f, scope, second);
-                }
-                let taken = self.body_static_condition(f, scope, cond)?;
-                f.static_taken.insert(span, taken);
-                if taken {
-                    self.ide_note_branches(cond, then_branch, else_branch);
-                } else {
-                    self.ide_note_branches(cond, else_branch, then_branch);
-                }
-                self.check_block_stmts(
-                    f,
-                    scope,
-                    if taken {
-                        then_branch
-                    } else {
-                        else_branch
-                    },
-                )
-            }
+            S::PushContext(boxed) => self.check_push_context(f, scope, boxed, span),
+            S::StaticIf(boxed) => self.check_static_if_stmt(f, scope, boxed, span),
             S::Insert(boxed) => {
                 let crate::ast::InsertStmt {
                     value,
@@ -527,23 +433,7 @@ impl Compiler {
                 } = &**boxed;
                 self.check_insert(f, scope, value, flags, target.as_ref(), replacements, span)
             }
-            S::Assert(boxed) => {
-                let crate::ast::AssertStmt {
-                    cond,
-                    message,
-                    args,
-                } = &**boxed;
-                // A sketch's stand-ins meet no condition.
-                let holds = self.eval_static_condition_as(scope, cond, None);
-                if self.sketching() {
-                    return Ok(());
-                }
-                if !holds? {
-                    let msg = self.assert_message(scope, message.as_ref(), args)?;
-                    return Err(Box::new(self.static_assert_failed(cond, span, msg)));
-                }
-                Ok(())
-            }
+            S::Assert(boxed) => self.check_static_assert_stmt(scope, boxed, span),
             S::Run(e) => {
                 self.check_expr(f, scope, e, None)?;
                 Ok(())
@@ -573,6 +463,156 @@ impl Compiler {
             | S::Directive(_)
             | S::Empty => Ok(()),
         }
+    }
+
+    /// `push_context ... defer`: switch the context now and restore it when the scope ends.
+    fn check_push_context_defer(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        defer: &crate::ast::PushContextDeferStmt,
+        span: Span,
+    ) -> Result<()> {
+        let addr = self.push_context_addr(f, scope, &defer.context, defer.bare, span)?;
+        let previous = f.current_context();
+        let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
+        let saved = previous.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
+        f.b.store(Ty::Ptr, saved_slot, saved);
+        f.set_context(Some(addr));
+        let entry = DeferEntry {
+            action: DeferAction::RestoreContext {
+                previous,
+                saved_slot,
+            },
+            scope,
+            active: None,
+            caller_scope: None,
+        };
+        self.register_defer(f, entry, defer.backtick);
+        Ok(())
+    }
+
+    /// `push_context ctx { ... }`: run the body with `ctx` as the context.
+    fn check_push_context(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        boxed: &crate::ast::PushContextStmt,
+        span: Span,
+    ) -> Result<()> {
+        let crate::ast::PushContextStmt {
+            context,
+            body,
+            bare,
+            ..
+        } = boxed;
+        let depth = f.mark_defers();
+        let addr = self.push_context_addr(f, scope, context, *bare, span)?;
+        let saved = f.current_context();
+        let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
+        let previous = saved.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
+        f.b.store(Ty::Ptr, saved_slot, previous);
+        f.set_context(Some(addr));
+        f.defers.push(DeferEntry {
+            action: DeferAction::RestoreContext {
+                previous: saved,
+                saved_slot,
+            },
+            active: None,
+            scope,
+            caller_scope: None,
+        });
+        let result = self.check_scoped(f, scope, body);
+        if result.is_ok() && !f.b.is_terminated() {
+            self.emit_defers(f, depth.position(), span)?;
+        }
+        f.truncate_defers(depth.position());
+        result
+    }
+
+    /// `#if` inside a body: check the branch the condition selects.
+    fn check_static_if_stmt(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        boxed: &crate::ast::StaticIfStmt,
+        span: Span,
+    ) -> Result<()> {
+        let crate::ast::StaticIfStmt {
+            cond,
+            then_branch,
+            else_branch,
+        } = boxed;
+        if self.sketching() {
+            // Which branch a stand-in takes says nothing: a sketch checks both.
+            let taken = self.body_static_condition(f, scope, cond).unwrap_or(true);
+            let (first, second) = if taken {
+                (then_branch, else_branch)
+            } else {
+                (else_branch, then_branch)
+            };
+            let _ = self.check_block_stmts(f, scope, first);
+            self.sketch_reopen(f);
+            return self.check_block_stmts(f, scope, second);
+        }
+        let taken = self.body_static_condition(f, scope, cond)?;
+        f.static_taken.insert(span, taken);
+        if taken {
+            self.ide_note_branches(cond, then_branch, else_branch);
+        } else {
+            self.ide_note_branches(cond, else_branch, then_branch);
+        }
+        self.check_block_stmts(
+            f,
+            scope,
+            if taken {
+                then_branch
+            } else {
+                else_branch
+            },
+        )
+    }
+
+    /// `#assert`: fail the compile when the condition does not hold.
+    fn check_static_assert_stmt(
+        &mut self,
+        scope: ScopeId,
+        boxed: &crate::ast::AssertStmt,
+        span: Span,
+    ) -> Result<()> {
+        let crate::ast::AssertStmt {
+            cond,
+            message,
+            args,
+        } = boxed;
+        // A sketch's stand-ins meet no condition.
+        let holds = self.eval_static_condition_as(scope, cond, None);
+        if self.sketching() {
+            return Ok(());
+        }
+        if !holds? {
+            let msg = self.assert_message(scope, message.as_ref(), args)?;
+            return Err(Box::new(self.static_assert_failed(cond, span, msg)));
+        }
+        Ok(())
+    }
+
+    /// `defer`: register the statement to run when the scope ends.
+    fn check_defer_stmt(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        body: &ast::Stmt,
+        backtick: bool,
+    ) -> Result<()> {
+        let entry = DeferEntry {
+            action: DeferAction::Statement(body.clone()),
+            active: None,
+            scope,
+            caller_scope: f.macros.last().filter(|_| backtick).map(|m| m.caller_scope),
+        };
+        self.register_defer(f, entry, backtick);
+        Ok(())
     }
 
     /// The case of `#if value == { case ...; }` that is compiled, if any.

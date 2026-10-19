@@ -156,6 +156,13 @@ impl SandboxHost {
 
     /// The Windows calls; `None` for any other symbol.
     pub(super) fn windows_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+        self.windows_text_and_time(symbol, args)
+            .or_else(|| self.windows_paths(symbol, args))
+            .or_else(|| self.windows_handles(symbol, args))
+    }
+
+    /// Error codes, code page conversion and the clocks.
+    fn windows_text_and_time(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
         Some(match symbol {
             "GetLastError" => self.last_error,
@@ -196,6 +203,14 @@ impl SandboxHost {
                 write_u64(arg(0), PERFORMANCE_FREQUENCY);
                 1
             }
+            _ => return None,
+        })
+    }
+
+    /// Directories and file names.
+    fn windows_paths(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+        let arg = |i: usize| word_or_zero(args, i);
+        Some(match symbol {
             "GetCurrentDirectoryW" => {
                 let cwd = if self.cwd.is_empty() {
                     "/"
@@ -266,6 +281,14 @@ impl SandboxHost {
                 let result = self.rename_file(&from, &to);
                 self.win_result(result)
             }
+            _ => return None,
+        })
+    }
+
+    /// File handles, the standard handles, directory searches, and what the sandbox refuses.
+    fn windows_handles(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+        let arg = |i: usize| word_or_zero(args, i);
+        Some(match symbol {
             "CreateFileW" => {
                 let path = self.wide_path(arg(0));
                 let access = arg(1) & (GENERIC_READ | GENERIC_WRITE);
@@ -431,6 +454,7 @@ impl SandboxHost {
             | "CreateFileMappingA" | "OpenFileMappingW" | "OpenFileMappingA" => {
                 self.fail(ERROR_ACCESS_DENIED)
             }
+
             _ => return None,
         })
     }

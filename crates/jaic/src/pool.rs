@@ -32,10 +32,7 @@ pub fn threads() -> usize {
     if configured != 0 {
         return configured;
     }
-    crate::knobs::get()
-        .threads
-        .map(|n| n.max(1))
-        .unwrap_or_else(cores)
+    crate::knobs::get().threads.map_or_else(cores, |n| n.max(1))
 }
 
 /// The number of cores, 1 where the platform cannot say (and on WebAssembly).

@@ -278,15 +278,15 @@ impl Compiler {
             | XOp::DoubleShift(..)
             | XOp::RotateCarry(..)
             | XOp::Mulx
-            | XOp::AddCarry(..)
-            | XOp::Andn
+            | XOp::AddCarry(..) => self.scalar_arith(f, cx, inst, &c, op)?,
+            XOp::Andn
             | XOp::Bextr
             | XOp::Bzhi
             | XOp::Pdep
             | XOp::Pext
             | XOp::ShiftX(..)
             | XOp::Rorx
-            | XOp::Crc32 => self.scalar_arith(f, cx, inst, &c, op)?,
+            | XOp::Crc32 => self.scalar_bits(f, cx, inst, &c, op)?,
             XOp::Lahf
             | XOp::Sahf
             | XOp::Xlat

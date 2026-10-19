@@ -174,6 +174,24 @@ impl Compiler {
                 }
                 self.asm_write(f, opds[0], sz, res, span)?;
             }
+            _ => unreachable!("dispatched only for this group's operations"),
+        }
+        Ok(())
+    }
+
+    /// Bit-manipulation instructions: `andn`, `bextr`, `bzhi`, `pdep`, `pext`, `shlx`/`shrx`/`sarx`, `rorx`, `crc32`.
+    pub(super) fn scalar_bits(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        inst: &AsmInst,
+        c: &AsmArgs,
+        op: XOp,
+    ) -> Result<()> {
+        let span = c.span;
+        let opds = &c.opds;
+        let want = |lo: usize, hi: usize| c.want(lo, hi);
+        match op {
             XOp::Andn => {
                 want(3, 3)?;
                 let sz = self.asm_size(f, cx, inst, opds)?;

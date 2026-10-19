@@ -215,7 +215,7 @@ fn create_workspaces(
         writes_workspaces.then(|| Box::new(native_backend(cli)) as Box<dyn OutputBackend>);
     let workspace_sandbox = shared_sandbox.clone();
     let quiet = cli.quiet;
-    let workspaces = Workspaces::new(BuildEnv {
+    Workspaces::new(BuildEnv {
         fs: fs.clone(),
         options: options.clone(),
         backend,
@@ -238,8 +238,7 @@ fn create_workspaces(
             }
         }),
         observer: None,
-    });
-    workspaces
+    })
 }
 
 /// `-no_check_bindings`: sets `CHECK_BINDINGS=false` on the plugins that resolve, on the import

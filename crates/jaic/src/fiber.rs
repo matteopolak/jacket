@@ -179,10 +179,12 @@ mod tests {
         let low = stack.as_mut_ptr() as u64;
         let high = low + stack.len() as u64;
         let mut main = Context::default();
-        let mut child = Context::default();
-        child.stack_low = low;
-        child.stack_high = high;
-        child.stack_dealloc = low;
+        let mut child = Context {
+            stack_low: low,
+            stack_high: high,
+            stack_dealloc: low,
+            ..Context::default()
+        };
         MAIN.store(&raw mut main, Ordering::SeqCst);
         CHILD.store(&raw mut child, Ordering::SeqCst);
         // SAFETY: `stack` is a live allocation whose end is `high`; `counting_entry` never

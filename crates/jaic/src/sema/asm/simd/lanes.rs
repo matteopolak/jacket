@@ -14,13 +14,10 @@ impl Compiler {
     ) -> Result<()> {
         let SimdLocals {
             span,
-            name,
             dst,
             tmp,
-            block,
             width,
             ops,
-            inst,
             op,
             ..
         } = *c;
@@ -55,212 +52,12 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Unary(u, ty) => {
-                let (s, _) = self.simd_args(f, ops, 1, false, span)?;
-                let (lane, fty) = match ty {
-                    Ty::F32 => (Ty::F32, true),
-                    Ty::F64 => (Ty::F64, true),
-                    t => (t, false),
-                };
-                let n = width / lane.size();
-                for i in 0..n {
-                    let a = load_lane(f, s[0], i, lane);
-                    let r = match u {
-                        U1::Popcnt => bit_intrinsic(f, Intrinsic::Popcount, lane, a),
-                        U1::Lzcnt => bit_intrinsic(f, Intrinsic::Ctlz, lane, a),
-                        U1::Rcp | U1::Rsqrt if fty => {
-                            let x = to_f64(f, lane, a);
-                            let x = if u == U1::Rsqrt {
-                                f.b.intrinsic(Intrinsic::Sqrt, vec![x], &[Ty::F64])[0]
-                            } else {
-                                x
-                            };
-                            let one = f.b.fconst(Ty::F64, 1.0);
-                            let r = bin(f, BinOp::FDiv, Ty::F64, one, x);
-                            from_f64(f, lane, r)
-                        }
-                        U1::Conflict => {
-                            let mut m = konst(f, lane, 0);
-                            for j in 0..i {
-                                let b = load_lane(f, s[0], j, lane);
-                                let eq = cmp(f, CmpOp::Eq, lane, a, b);
-                                let eq = resize(f, eq, Ty::I8, lane, false);
-                                let at = konst(f, lane, j);
-                                let eq = bin(f, BinOp::Shl, lane, eq, at);
-                                m = bin(f, BinOp::Or, lane, m, eq);
-                            }
-                            m
-                        }
-                        _ => return err(span, format!("`{name}` needs float lanes")),
-                    };
-                    store_lane(f, tmp, i, lane, r);
-                }
-                self.simd_out(f, cx, dst, tmp, width, span)?;
-            }
-            SOp::Round(ty, scalar) => {
-                let (s, k) = self.simd_args(
-                    f,
-                    ops,
-                    if scalar {
-                        2
-                    } else {
-                        1
-                    },
-                    true,
-                    span,
-                )?;
-                let mode = match (inst.evex.round, k & 4 != 0) {
-                    (Some(Some(m)), _) => m,
-                    (_, true) => 'n',
-                    _ => ['n', 'd', 'u', 'z'][(k & 3) as usize],
-                };
-                // rndscale: round to a multiple of 2^-M (M = imm[7:4]).
-                let scale = (1u64 << (k >> 4)) as f64;
-                let lanes = if scalar {
-                    1
-                } else {
-                    width / ty.size()
-                };
-                let src = *s.last().unwrap();
-                if scalar {
-                    f.b.copy(tmp, s[0], 16);
-                }
-                for i in 0..lanes {
-                    let x = load_lane(f, src, i, ty);
-                    let x = to_f64(f, ty, x);
-                    let sc = f.b.fconst(Ty::F64, scale);
-                    let y = bin(f, BinOp::FMul, Ty::F64, x, sc);
-                    let y = round_f64(f, y, mode);
-                    let y = bin(f, BinOp::FDiv, Ty::F64, y, sc);
-                    let y = from_f64(f, ty, y);
-                    store_lane(f, tmp, i, ty, y);
-                }
-                self.simd_out(
-                    f,
-                    cx,
-                    dst,
-                    tmp,
-                    if scalar {
-                        16
-                    } else {
-                        width
-                    },
-                    span,
-                )?;
-            }
+            SOp::Unary(u, ty) => self.simd_unary(f, cx, c, u, ty)?,
+            SOp::Round(ty, scalar) => self.simd_round(f, cx, c, ty, scalar)?,
             SOp::Fma(kind, order, ty, scalar) => {
-                let (s, _) = self.simd_args(f, ops, 3, false, span)?;
-                let (d, s2, s3) = (s[0], s[1], s[2]);
-                let (pa, pb, pc) = match order {
-                    132 => (d, s3, s2),
-                    213 => (s2, d, s3),
-                    _ => (s2, s3, d),
-                };
-                let lanes = if scalar {
-                    1
-                } else {
-                    width / ty.size()
-                };
-                if scalar {
-                    f.b.copy(tmp, d, 16);
-                }
-                for i in 0..lanes {
-                    let a = load_lane(f, pa, i, ty);
-                    let b = load_lane(f, pb, i, ty);
-                    let c = load_lane(f, pc, i, ty);
-                    let (a, b, c) = (to_f64(f, ty, a), to_f64(f, ty, b), to_f64(f, ty, c));
-                    let even = i % 2 == 0;
-                    let (neg_ab, neg_c) = match kind {
-                        FmaKind::Madd => (false, false),
-                        FmaKind::Msub => (false, true),
-                        FmaKind::Nmadd => (true, false),
-                        FmaKind::Nmsub => (true, true),
-                        FmaKind::MaddSub => (false, even),
-                        FmaKind::MsubAdd => (false, !even),
-                    };
-                    let a = if neg_ab {
-                        f.b.un(UnOp::FNeg, Ty::F64, a)
-                    } else {
-                        a
-                    };
-                    let c = if neg_c {
-                        f.b.un(UnOp::FNeg, Ty::F64, c)
-                    } else {
-                        c
-                    };
-                    let r = f.b.intrinsic(Intrinsic::Fma, vec![a, b, c], &[Ty::F64])[0];
-                    let r = from_f64(f, ty, r);
-                    store_lane(f, tmp, i, ty, r);
-                }
-                self.simd_out(
-                    f,
-                    cx,
-                    dst,
-                    tmp,
-                    if scalar {
-                        16
-                    } else {
-                        width
-                    },
-                    span,
-                )?;
+                self.simd_fma(f, cx, c, (kind, order), ty, scalar)?;
             }
-            SOp::Horizontal(sub, sat, ty) => {
-                let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                let per = block / ty.size();
-                for blk in 0..width / block {
-                    let base = blk * per;
-                    for j in 0..per {
-                        let src = if j < per / 2 {
-                            s[0]
-                        } else {
-                            s[1]
-                        };
-                        let k = j % (per / 2);
-                        let x = load_lane(f, src, base + 2 * k, ty);
-                        let y = load_lane(f, src, base + 2 * k + 1, ty);
-                        let r = if ty.is_float() {
-                            bin(
-                                f,
-                                if sub {
-                                    BinOp::FSub
-                                } else {
-                                    BinOp::FAdd
-                                },
-                                ty,
-                                x,
-                                y,
-                            )
-                        } else if sat {
-                            Self::simd_bin(
-                                f,
-                                if sub {
-                                    B2::SubSatS
-                                } else {
-                                    B2::AddSatS
-                                },
-                                ty,
-                                x,
-                                y,
-                            )
-                        } else {
-                            bin(
-                                f,
-                                if sub {
-                                    BinOp::Sub
-                                } else {
-                                    BinOp::Add
-                                },
-                                ty,
-                                x,
-                                y,
-                            )
-                        };
-                        store_lane(f, tmp, base + j, ty, r);
-                    }
-                }
-                self.simd_out(f, cx, dst, tmp, width, span)?;
-            }
+            SOp::Horizontal(sub, sat, ty) => self.simd_horizontal(f, cx, c, sub, sat, ty)?,
             SOp::AddSub(ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 for i in 0..width / ty.size() {
@@ -283,6 +80,289 @@ impl Compiler {
             }
             _ => unreachable!("routed by asm_simd"),
         }
+        Ok(())
+    }
+
+    fn simd_unary(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        c: &SimdLocals<'_>,
+        u: U1,
+        ty: Ty,
+    ) -> Result<()> {
+        let SimdLocals {
+            span,
+            name,
+            dst,
+            tmp,
+            width,
+            ops,
+            ..
+        } = *c;
+        let (s, _) = self.simd_args(f, ops, 1, false, span)?;
+        let (lane, fty) = match ty {
+            Ty::F32 => (Ty::F32, true),
+            Ty::F64 => (Ty::F64, true),
+            t => (t, false),
+        };
+        let n = width / lane.size();
+        for i in 0..n {
+            let a = load_lane(f, s[0], i, lane);
+            let r = match u {
+                U1::Popcnt => bit_intrinsic(f, Intrinsic::Popcount, lane, a),
+                U1::Lzcnt => bit_intrinsic(f, Intrinsic::Ctlz, lane, a),
+                U1::Rcp | U1::Rsqrt if fty => {
+                    let x = to_f64(f, lane, a);
+                    let x = if u == U1::Rsqrt {
+                        f.b.intrinsic(Intrinsic::Sqrt, vec![x], &[Ty::F64])[0]
+                    } else {
+                        x
+                    };
+                    let one = f.b.fconst(Ty::F64, 1.0);
+                    let r = bin(f, BinOp::FDiv, Ty::F64, one, x);
+                    from_f64(f, lane, r)
+                }
+                U1::Conflict => {
+                    let mut m = konst(f, lane, 0);
+                    for j in 0..i {
+                        let b = load_lane(f, s[0], j, lane);
+                        let eq = cmp(f, CmpOp::Eq, lane, a, b);
+                        let eq = resize(f, eq, Ty::I8, lane, false);
+                        let at = konst(f, lane, j);
+                        let eq = bin(f, BinOp::Shl, lane, eq, at);
+                        m = bin(f, BinOp::Or, lane, m, eq);
+                    }
+                    m
+                }
+                _ => return err(span, format!("`{name}` needs float lanes")),
+            };
+            store_lane(f, tmp, i, lane, r);
+        }
+        self.simd_out(f, cx, dst, tmp, width, span)?;
+
+        Ok(())
+    }
+
+    fn simd_round(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        c: &SimdLocals<'_>,
+        ty: Ty,
+        scalar: bool,
+    ) -> Result<()> {
+        let SimdLocals {
+            span,
+            dst,
+            tmp,
+            width,
+            ops,
+            inst,
+            ..
+        } = *c;
+        let (s, k) = self.simd_args(
+            f,
+            ops,
+            if scalar {
+                2
+            } else {
+                1
+            },
+            true,
+            span,
+        )?;
+        let mode = match (inst.evex.round, k & 4 != 0) {
+            (Some(Some(m)), _) => m,
+            (_, true) => 'n',
+            _ => ['n', 'd', 'u', 'z'][(k & 3) as usize],
+        };
+        // rndscale: round to a multiple of 2^-M (M = imm[7:4]).
+        let scale = (1u64 << (k >> 4)) as f64;
+        let lanes = if scalar {
+            1
+        } else {
+            width / ty.size()
+        };
+        let src = *s.last().unwrap();
+        if scalar {
+            f.b.copy(tmp, s[0], 16);
+        }
+        for i in 0..lanes {
+            let x = load_lane(f, src, i, ty);
+            let x = to_f64(f, ty, x);
+            let sc = f.b.fconst(Ty::F64, scale);
+            let y = bin(f, BinOp::FMul, Ty::F64, x, sc);
+            let y = round_f64(f, y, mode);
+            let y = bin(f, BinOp::FDiv, Ty::F64, y, sc);
+            let y = from_f64(f, ty, y);
+            store_lane(f, tmp, i, ty, y);
+        }
+        self.simd_out(
+            f,
+            cx,
+            dst,
+            tmp,
+            if scalar {
+                16
+            } else {
+                width
+            },
+            span,
+        )?;
+
+        Ok(())
+    }
+
+    fn simd_fma(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        c: &SimdLocals<'_>,
+        (kind, order): (FmaKind, u16),
+        ty: Ty,
+        scalar: bool,
+    ) -> Result<()> {
+        let SimdLocals {
+            span,
+            dst,
+            tmp,
+            width,
+            ops,
+            ..
+        } = *c;
+        let (s, _) = self.simd_args(f, ops, 3, false, span)?;
+        let (d, s2, s3) = (s[0], s[1], s[2]);
+        let (pa, pb, pc) = match order {
+            132 => (d, s3, s2),
+            213 => (s2, d, s3),
+            _ => (s2, s3, d),
+        };
+        let lanes = if scalar {
+            1
+        } else {
+            width / ty.size()
+        };
+        if scalar {
+            f.b.copy(tmp, d, 16);
+        }
+        for i in 0..lanes {
+            let a = load_lane(f, pa, i, ty);
+            let b = load_lane(f, pb, i, ty);
+            let c = load_lane(f, pc, i, ty);
+            let (a, b, c) = (to_f64(f, ty, a), to_f64(f, ty, b), to_f64(f, ty, c));
+            let even = i % 2 == 0;
+            let (neg_ab, neg_c) = match kind {
+                FmaKind::Madd => (false, false),
+                FmaKind::Msub => (false, true),
+                FmaKind::Nmadd => (true, false),
+                FmaKind::Nmsub => (true, true),
+                FmaKind::MaddSub => (false, even),
+                FmaKind::MsubAdd => (false, !even),
+            };
+            let a = if neg_ab {
+                f.b.un(UnOp::FNeg, Ty::F64, a)
+            } else {
+                a
+            };
+            let c = if neg_c {
+                f.b.un(UnOp::FNeg, Ty::F64, c)
+            } else {
+                c
+            };
+            let r = f.b.intrinsic(Intrinsic::Fma, vec![a, b, c], &[Ty::F64])[0];
+            let r = from_f64(f, ty, r);
+            store_lane(f, tmp, i, ty, r);
+        }
+        self.simd_out(
+            f,
+            cx,
+            dst,
+            tmp,
+            if scalar {
+                16
+            } else {
+                width
+            },
+            span,
+        )?;
+
+        Ok(())
+    }
+
+    fn simd_horizontal(
+        &mut self,
+        f: &mut FnCtx,
+        cx: &mut AsmCtx,
+        c: &SimdLocals<'_>,
+        sub: bool,
+        sat: bool,
+        ty: Ty,
+    ) -> Result<()> {
+        let SimdLocals {
+            span,
+            dst,
+            tmp,
+            block,
+            width,
+            ops,
+            ..
+        } = *c;
+        let (s, _) = self.simd_args(f, ops, 2, false, span)?;
+        let per = block / ty.size();
+        for blk in 0..width / block {
+            let base = blk * per;
+            for j in 0..per {
+                let src = if j < per / 2 {
+                    s[0]
+                } else {
+                    s[1]
+                };
+                let k = j % (per / 2);
+                let x = load_lane(f, src, base + 2 * k, ty);
+                let y = load_lane(f, src, base + 2 * k + 1, ty);
+                let r = if ty.is_float() {
+                    bin(
+                        f,
+                        if sub {
+                            BinOp::FSub
+                        } else {
+                            BinOp::FAdd
+                        },
+                        ty,
+                        x,
+                        y,
+                    )
+                } else if sat {
+                    Self::simd_bin(
+                        f,
+                        if sub {
+                            B2::SubSatS
+                        } else {
+                            B2::AddSatS
+                        },
+                        ty,
+                        x,
+                        y,
+                    )
+                } else {
+                    bin(
+                        f,
+                        if sub {
+                            BinOp::Sub
+                        } else {
+                            BinOp::Add
+                        },
+                        ty,
+                        x,
+                        y,
+                    )
+                };
+                store_lane(f, tmp, base + j, ty, r);
+            }
+        }
+        self.simd_out(f, cx, dst, tmp, width, span)?;
+
         Ok(())
     }
 

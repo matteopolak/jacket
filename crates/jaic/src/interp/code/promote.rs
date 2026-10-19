@@ -24,6 +24,10 @@ pub(super) enum Use {
 }
 
 /// Calls `f` for each register `op` reads and writes, reads first.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one arm per op, each naming the registers it reads and writes"
+)]
 pub(super) fn visit(op: &mut Op, pool: &mut [u32], f: &mut impl FnMut(Use, &mut u32)) {
     use Use::{Read, Write};
     match op {
