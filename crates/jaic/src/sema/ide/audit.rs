@@ -47,7 +47,10 @@ impl Compiler {
                 }
             }
         }
-        // A struct with a member of an unknown type fails when it is laid out.
+        // A struct with a member of an unknown type fails when it is laid out. Each struct is
+        // tried once: a layout that fails re-evaluates its member types, and what that
+        // creates (instances, bound constants) would otherwise be laid out in turn without end.
+        let mut laid_out = crate::sema::HashSet::default();
         let mut i = 0;
         while i < self.entities.len() {
             let id = EntityId(i as u32);
@@ -61,6 +64,7 @@ impl Compiler {
                 && let TypeKind::Struct(s) = *self.types.kind(*t)
                 && self.types.struct_info(s).poly_args.is_empty()
                 && self.ide_wants(span.file)
+                && laid_out.insert(s)
                 && let Err(e) = self.layout_struct(s, span)
             {
                 errors.push(*e);
