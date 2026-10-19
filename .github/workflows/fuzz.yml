@@ -64,10 +64,12 @@ jobs:
         timeout-minutes: 10
         continue-on-error: true
         working-directory: fuzz
-        run: >-
-          cargo fuzz cmin --sanitizer none --debug-assertions
-          --target "$(rustc -vV | sed -n 's/^host: //p')" ${{ matrix.target }}
-          corpus/${{ matrix.target }} -- -timeout=20 -rss_limit_mb=4096
+        # The unit timeout is the target's own, as in `fuzz/run.sh`.
+        run: |
+          read -r _ unit_timeout <<< "$(python3 seed_corpus.py --settings ${{ matrix.target }})"
+          cargo fuzz cmin --sanitizer none --debug-assertions \
+            --target "$(rustc -vV | sed -n 's/^host: //p')" ${{ matrix.target }} \
+            corpus/${{ matrix.target }} -- -timeout="$unit_timeout" -rss_limit_mb=4096
       - name: Save the corpus
         if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
