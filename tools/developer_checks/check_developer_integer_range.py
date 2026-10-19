@@ -3,11 +3,10 @@
 import os
 from pathlib import Path
 import platform
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner
 
 
-def run(command, expected=""):
-    return run_checked(command, label="Signed range", expected=expected)
+run = labeled_runner('Signed range')
 
 
 def main():

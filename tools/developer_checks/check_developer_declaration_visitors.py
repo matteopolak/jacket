@@ -2,11 +2,10 @@
 """Public callable omission visitor over real canonical model/closure storage."""
 import os
 from pathlib import Path
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner
 
 
-def run(command, expected=""):
-    return run_checked(command, label="Declaration visitor", expected=expected)
+run = labeled_runner('Declaration visitor')
 
 
 def main():

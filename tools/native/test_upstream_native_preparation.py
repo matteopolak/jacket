@@ -7,14 +7,13 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import importlib.util
-import hashlib
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 
 class NativePreparation(unittest.TestCase):
@@ -244,12 +243,8 @@ class NativePreparation(unittest.TestCase):
                 json.dumps(
                     {
                         "inputs": inputs,
-                        "archive_sha256": hashlib.sha256(
-                            (native / "libportable_clipboard.a").read_bytes()
-                        ).hexdigest(),
-                        "shared_sha256": hashlib.sha256(
-                            (native / "libportable_clipboard.so").read_bytes()
-                        ).hexdigest(),
+                        "archive_sha256": sha256_bytes((native / "libportable_clipboard.a").read_bytes()),
+                        "shared_sha256": sha256_bytes((native / "libportable_clipboard.so").read_bytes()),
                     }
                 )
             )

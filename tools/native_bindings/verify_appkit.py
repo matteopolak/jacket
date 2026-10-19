@@ -8,7 +8,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import ctypes
-import hashlib
 import json
 import os
 import re
@@ -18,7 +17,7 @@ import sys
 import tempfile
 
 from shared_snapshot import ROOT, capture, unchanged
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 
 def main():
@@ -167,11 +166,9 @@ def main():
     sdk = Path(subprocess.check_output(["xcrun", "--show-sdk-path"], text=True).strip())
     headers = ["NSApplication.h", "NSView.h", "NSEvent.h", "NSOpenGL.h", "NSScreen.h"]
     sdk_headers = {
-        name: hashlib.sha256(
-            (
+        name: sha256_bytes((
                 sdk / "System/Library/Frameworks/AppKit.framework/Headers" / name
-            ).read_bytes()
-        ).hexdigest()
+            ).read_bytes())
         for name in headers
     }
     for cpu in ("arm64", "x64"):

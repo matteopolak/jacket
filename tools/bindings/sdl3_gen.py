@@ -18,6 +18,7 @@ from bindings import sdl3_coverage as coverage
 from repo_output import output_dir
 from pathlib import Path
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 
 OUT = ROOT / 'stdlib/Extensions/SDL3'
@@ -107,7 +108,7 @@ def enum_values(n):
 
 
 def run(cmd):
-    p = subprocess.run(cmd, text=True, capture_output=True)
+    p = toolkit_run(cmd, capture=True, check=False, echo=False)
     if p.returncode: raise RuntimeError(p.stderr)
     return p.stdout
 
@@ -383,7 +384,7 @@ def main():
     p.add_argument('--jaifmt',type=Path,help='source-built repository jaifmt; normalize every generated Jai output using jacket.toml')
     a=p.parse_args()
     # Accept only headers from the pinned archive, not an arbitrary system installation.
-    import hashlib, tarfile
+    import tarfile
     archive=a.source.parent/'SDL3-3.4.18.tar.gz'
     expected=json.loads((ROOT/'tools/native/native-libs.json').read_text())['sources']['sdl3']['archive']['sha256']
     if sha256_file(archive)!=expected: raise ValueError('source archive hash mismatch')

@@ -8,19 +8,17 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 
 from native_bindings.build_dependencies import prepare_source  # noqa: E402
 from native_bindings.prepare_rpmalloc import prepare  # noqa: E402
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS  # noqa: E402
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 TARGETS = {
@@ -254,9 +252,7 @@ def build(target, output, readobj):
         )
         run([archiver, "rcs", archive, *objects])
         verify_machine(run([readobj, "--file-headers", archive]), target)
-        receipt["assets"][archive.name] = hashlib.sha256(
-            archive.read_bytes()
-        ).hexdigest()
+        receipt["assets"][archive.name] = sha256_bytes(archive.read_bytes())
     # Compiling profiles separately cannot expose duplicate SDK inline symbols
     # or unresolved calls between archives. Pull every object into one real PE.
     control = output / "all-providers-link.c"

@@ -28,6 +28,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 
 EXE = ".exe" if os.name == "nt" else ""
@@ -53,8 +54,7 @@ TARGET = target_directory()
 
 
 def run(cmd: list[str], cwd: Path = ROOT) -> int:
-    print("+ " + " ".join(cmd), file=sys.stderr, flush=True)
-    return subprocess.run(cmd, cwd=cwd).returncode
+    return toolkit_run(cmd, cwd=cwd, check=False).returncode
 
 
 def cargo_build(args: list[str], jobs: str) -> int:

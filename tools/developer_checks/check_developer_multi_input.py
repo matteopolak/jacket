@@ -3,11 +3,10 @@
 import os
 from pathlib import Path
 import platform
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner
 
 
-def run(command, expected=""):
-    return run_checked(command, label="Multiple-input workflow", expected=expected)
+run = labeled_runner('Multiple-input workflow')
 
 
 def main():

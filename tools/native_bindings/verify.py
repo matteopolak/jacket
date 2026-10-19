@@ -13,7 +13,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -34,7 +33,7 @@ from verification_policy import (
     module_target_condition,
     module_result,
 )
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 TARGET_CONFIGS = [
@@ -158,9 +157,7 @@ def place_private_unit(name, source, stdlib, hashes, cleanup):
     placed = stdlib / PRIVATE_UNITS[name]
     copy_private_fixture(source, placed, stdlib.parent, cleanup)
     placed.write_bytes(relocate_private_loads(placed.read_bytes()))
-    hashes[str(placed.relative_to(stdlib))] = hashlib.sha256(
-        placed.read_bytes()
-    ).hexdigest()
+    hashes[str(placed.relative_to(stdlib))] = sha256_bytes(placed.read_bytes())
     for relative, destination in PRIVATE_UNIT_DEPENDENCIES.get(name, {}).items():
         target = stdlib / destination
         copy_private_fixture(ROOT / relative, target, stdlib.parent, cleanup)
@@ -544,9 +541,7 @@ def run_verification(cleanup):
         spec = parse_spec(
             (ROOT / "docs/specs/stdlib/modules" / f"{slug}.md").read_text()
         )
-        report["specs"][module] = hashlib.sha256(
-            (ROOT / "docs/specs/stdlib/modules" / f"{slug}.md").read_bytes()
-        ).hexdigest()
+        report["specs"][module] = sha256_bytes((ROOT / "docs/specs/stdlib/modules" / f"{slug}.md").read_bytes())
         if args.runtime and module in (
             "lz4",
             "meshoptimizer",
@@ -663,9 +658,7 @@ def run_verification(cleanup):
         if args.module and module not in args.module:
             continue
         source = fixture_source(ROOT, filename)
-        report["test_sources"][str(source.relative_to(ROOT))] = hashlib.sha256(
-            source.read_bytes()
-        ).hexdigest()
+        report["test_sources"][str(source.relative_to(ROOT))] = sha256_bytes(source.read_bytes())
         original_source = source
         source_env = env
         if source.stem in PRIVATE_UNITS:
@@ -983,9 +976,7 @@ def run_verification(cleanup):
                 report["native"].append({"name": name, "status": "not_implemented"})
                 continue
             exe = work / (name + "-test")
-            report["test_sources"][str(source.relative_to(ROOT))] = hashlib.sha256(
-                source.read_bytes()
-            ).hexdigest()
+            report["test_sources"][str(source.relative_to(ROOT))] = sha256_bytes(source.read_bytes())
             compiled_source = source
             if name in PRIVATE_UNITS:
                 # A private unit belongs inside the staged library boundary.

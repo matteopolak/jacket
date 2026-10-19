@@ -4,11 +4,10 @@ import os
 from pathlib import Path
 import platform
 import build_developer_bindings
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner
 
 
-def run(command, expected=""):
-    return run_checked(command, label="String macros", expected=expected)
+run = labeled_runner('String macros')
 
 
 def main():

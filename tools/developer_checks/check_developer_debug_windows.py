@@ -7,7 +7,7 @@ from pathlib import Path
 import platform
 import re
 from driven_sources import driven
-from dev_common import run_checked, ROOT, sha256_file
+from dev_common import ROOT, labeled_runner, sha256_file
 
 EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakpoint", "debugger_present",
                                                  "free_symbols", "output", "readable", "symbols", "break_once",
@@ -15,8 +15,7 @@ EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakp
                                                  "attach", "dialog", "dump", "set_dump_state", "latest_dump"]}
 
 
-def run(command):
-    return run_checked(command, label="Windows Debug build/check", expected=None, timeout=60).stdout
+run = labeled_runner('Windows Debug build/check', expected=None, timeout=60, stdout=True)
 
 
 def main():

@@ -12,7 +12,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -43,9 +42,7 @@ def profile_identity(profile, platform):
         "platform": platform,
         "profile": profile,
         "local": {
-            str(path.relative_to(native.ROOT)): hashlib.sha256(
-                path.read_bytes()
-            ).hexdigest()
+            str(path.relative_to(native.ROOT)): sha256_bytes(path.read_bytes())
             for path in files
         },
         "builder": sha256_file(Path(native.__file__)),

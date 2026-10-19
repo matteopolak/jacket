@@ -21,7 +21,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import functools
-import hashlib
 import json
 import os
 import platform
@@ -35,7 +34,7 @@ import zipfile
 from pathlib import Path
 
 from repo_output import host_platform
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 ARCHIVE_OUT = ROOT / "target/portable-tests/archive-fixtures"
@@ -217,13 +216,13 @@ def meow_fixtures(verify_native):
     independent comparison and requires byte-identical results."""
     header = ROOT / "third_party/meow_hash/meow_hash_x64_aesni.h"
     assert (
-        hashlib.sha256(header.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+        sha256_bytes(header.read_bytes().replace(b"\r\n", b"\n"))
         == "2328557212adc48ee3e8e8c9d25820a43b2fc0c48cf4296ab9b0b1ba52d376e2"
     )
     fixture = ROOT / "stdlib/meow_hash/tests/fixtures/vectors.bin"
     data = fixture.read_bytes()
     assert (
-        hashlib.sha256(data).hexdigest()
+        sha256_bytes(data)
         == "b4b8af0a8629e1cdc1a9853486158126e7e5756e72a062682e4eb354765ff639"
     )
     (count,) = struct.unpack_from("<I", data, 4)

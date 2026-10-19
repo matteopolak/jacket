@@ -1,5 +1,4 @@
 """Pinned native release transport tests; these do not claim native ABI execution."""
-import hashlib
 import importlib.util
 import io
 from pathlib import Path
@@ -11,6 +10,8 @@ from unittest.mock import patch
 
 NATIVE_TOOLS = Path(__file__).resolve().parent.parent / "native_bindings"
 sys.path.insert(0, str(NATIVE_TOOLS))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from toolkit.hashing import sha256_bytes  # noqa: E402
 SPEC = importlib.util.spec_from_file_location("native_source_builder", NATIVE_TOOLS / "build_dependencies.py")
 builder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(builder)
@@ -38,9 +39,9 @@ class NativeReleaseInputs(unittest.TestCase):
             stream.addfile(info, io.BytesIO(transitive))
         data = archive.getvalue()
         source = {"repository": "unavailable-mirror/native", "revision": "native-1",
-                  "files": {"include/native.h": hashlib.sha256(header).hexdigest()},
+                  "files": {"include/native.h": sha256_bytes(header)},
                   "archive": {"url": "https://native.invalid/releases/native-1.tar.xz",
-                              "sha256": hashlib.sha256(data).hexdigest(), "root": "native-1"}}
+                              "sha256": sha256_bytes(data), "root": "native-1"}}
         return header, data, source
 
     def test_release_files_use_verified_archive_without_mirror_fallback(self):

@@ -3,11 +3,10 @@
 import json
 import build_developer_bindings
 import re
-from dev_common import run_checked, ROOT, sha256_file
+from dev_common import ROOT, labeled_runner, sha256_file
 
 
-def run(command):
-    return run_checked(command, label="DWARF fixture command", expected=None, env=None, timeout=60).stdout
+run = labeled_runner('DWARF fixture command', expected=None, env=None, timeout=60, stdout=True)
 
 
 def main():

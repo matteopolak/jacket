@@ -11,7 +11,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from collections import Counter, deque
-import hashlib
 import json
 from itertools import islice
 import os
@@ -22,7 +21,7 @@ from threading import Event, Lock, Thread
 import time
 
 from check_io_burst_diagnostics import cgroup_observations
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 INTERVAL = 5
 HISTORY = 36
@@ -102,9 +101,7 @@ def source_identity(root, compiler):
         for p in sources
     }
     return {
-        "source_sha256": hashlib.sha256(
-            json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest(),
+        "source_sha256": sha256_bytes(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()),
         "source_files": len(manifest),
         "compiler_sha256": sha256_file(compiler),
     }

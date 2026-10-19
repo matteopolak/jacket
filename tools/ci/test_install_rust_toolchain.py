@@ -6,7 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from toolkit.repo import ROOT
+
 SCRIPT = ROOT / "tools/ci/install_rust_toolchain.sh"
 
 

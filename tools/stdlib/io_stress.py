@@ -31,7 +31,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 import shutil
@@ -45,7 +44,7 @@ from pathlib import Path
 from native.http_native import ensure_native_libraries
 from check_io_burst_diagnostics import observe_process
 from io_failure_observer import FailureGroup, source_identity
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
@@ -348,12 +347,8 @@ def main():
                                 "variant": variant,
                                 "round": number,
                                 "copies": args.copies,
-                                "test_source_sha256": hashlib.sha256(
-                                    test.read_bytes()
-                                ).hexdigest(),
-                                "program_sha256": hashlib.sha256(
-                                    program.read_bytes()
-                                ).hexdigest(),
+                                "test_source_sha256": sha256_bytes(test.read_bytes()),
+                                "program_sha256": sha256_bytes(program.read_bytes()),
                             },
                         )
                     try:

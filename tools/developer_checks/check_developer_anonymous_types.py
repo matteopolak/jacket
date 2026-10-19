@@ -4,11 +4,10 @@ import os
 from pathlib import Path
 import platform
 from driven_sources import driven
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner
 
 
-def run(command, expected=""):
-    return run_checked(command, label="Anonymous typedef workflow", expected=expected).stdout
+run = labeled_runner('Anonymous typedef workflow', stdout=True)
 
 
 def main():

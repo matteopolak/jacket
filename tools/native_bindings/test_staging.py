@@ -5,9 +5,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'tools/native_bindings'))
 import verify
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from toolkit.repo import ROOT
 
 
 class IsolatedStagingTests(unittest.TestCase):

@@ -23,6 +23,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from toolkit.hashing import sha256_bytes
+from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 
 BENCH = ROOT / "benchmarks" / "regex"
@@ -97,7 +98,7 @@ def load_cases() -> list[Case]:
 
 
 def run(cmd, **kw) -> subprocess.CompletedProcess:
-    return subprocess.run([str(c) for c in cmd], text=True, capture_output=True, **kw)
+    return toolkit_run(cmd, capture=True, check=False, echo=False, **kw)
 
 
 def must(cmd, what: str, **kw) -> str:

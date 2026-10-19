@@ -7,7 +7,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 
-import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -98,9 +97,7 @@ def prepare(source, destination, stop_before=None):
         revision=pin["revision"],
         original_sha256=hashes,
         patches=applied,
-        patched_source_sha256=hashlib.sha256(
-            (destination / "rpmalloc.c").read_bytes()
-        ).hexdigest(),
+        patched_source_sha256=sha256_bytes((destination / "rpmalloc.c").read_bytes()),
         reason="Reviewed private SDK fixes; see patches and native configuration design",
     )
     (destination / "provenance.json").write_text(json.dumps(manifest, indent=2) + "\n")

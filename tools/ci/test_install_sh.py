@@ -3,7 +3,6 @@
 Runs on macOS and Linux, with or without a published release. The release-dependent checks (a real
 download, a pipe install, the installed tools) stay in the `install-sh` job of ci.yml.
 """
-import hashlib
 import json
 import os
 import platform
@@ -17,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
+from toolkit.hashing import sha256_bytes
 
 VECTORS = json.loads((ROOT / "tests" / "installers" / "vectors.json").read_text())
 
@@ -55,7 +55,7 @@ class InstallSh(unittest.TestCase):
         archive = directory / f"jacket-{PLATFORM}.tar.gz"
         with tarfile.open(archive, "w:gz") as tar:
             tar.add(stage, arcname=f"jacket-{PLATFORM}")
-        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        digest = sha256_bytes(archive.read_bytes())
         (directory / "SHA256SUMS").write_text(f"{digest}  {archive.name}\n")
 
     def install(self, version=None, bin_dir=None, expect_ok=True):
@@ -160,7 +160,7 @@ class SharedVectors(unittest.TestCase):
         directory.mkdir(parents=True)
         with tarfile.open(directory / asset, "w:gz") as tar:
             tar.add(stage, arcname=f"jacket-{PLATFORM}")
-        digest = hashlib.sha256((directory / asset).read_bytes()).hexdigest()
+        digest = sha256_bytes((directory / asset).read_bytes())
         for case in VECTORS["sha256sums_lines"]:
             with self.subTest(case["name"]):
                 line = case["line"].format(hash=digest, HASH=digest.upper(), asset=asset)

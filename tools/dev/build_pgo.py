@@ -31,6 +31,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 
 TOOLS = ("jaic", "jailsp", "jailint")
@@ -101,7 +102,7 @@ def bolt_tool(name, llvm_bin):
 
 def run(cmd, env=None, cwd=ROOT, check=True, **kw):
     log("$ " + " ".join(str(c) for c in cmd))
-    result = subprocess.run([str(c) for c in cmd], env=env, cwd=cwd, **kw)
+    result = toolkit_run(cmd, env=env, cwd=cwd, check=False, echo=False, **kw)
     if check and result.returncode != 0:
         sys.exit(f"build_pgo: command failed with exit code {result.returncode}")
     return result

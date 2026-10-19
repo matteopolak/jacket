@@ -7,7 +7,7 @@ from pathlib import Path
 import platform
 import subprocess
 import build_generator_platform
-from dev_common import ROOT, run_checked, stdlib_env, sha256_file
+from dev_common import ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env
 
 ENV = stdlib_env(TMPDIR=str(ROOT / "target"))
 PREFIX = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
@@ -95,7 +95,7 @@ def main():
                 raise RuntimeError(f"SDK oracle lacks original symbol {symbol}")
         (ROOT / f"target/generator-platform-{suffix}.symbols.txt").write_text(oracle)
         evidence["objects"][suffix] = {"sha256": sha256_file(output),
-                                       "oracle_sha256": hashlib.sha256(oracle.encode()).hexdigest()}
+                                       "oracle_sha256": sha256_bytes(oracle.encode())}
     archive = ROOT / "target/generator-platform-a.a"
     archive.unlink(missing_ok=True)
     run([PREFIX / "bin/llvm-ar", "rcs", archive, ROOT / "target/generator-platform-macho.o",

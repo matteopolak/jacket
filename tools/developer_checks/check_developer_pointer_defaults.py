@@ -3,11 +3,10 @@
 import os
 from pathlib import Path
 import platform
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner
 
 
-def run(command, expected=""):
-    return run_checked(command, label="Pointer defaults", expected=expected)
+run = labeled_runner('Pointer defaults')
 
 
 def main():

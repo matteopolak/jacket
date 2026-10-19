@@ -6,11 +6,10 @@ import os
 from pathlib import Path
 import re
 import struct
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner, sha256_bytes
 
 
-def run(command):
-    return run_checked(command, label="Original CodeView fixture", expected=None, env=None, timeout=60).stdout
+run = labeled_runner('Original CodeView fixture', expected=None, env=None, timeout=60, stdout=True)
 
 
 def main():
@@ -87,7 +86,7 @@ def main():
                               f"        assert(name_{record['id']}.data == table.data + {record['filename_id']});"]
             generated += ["        empty, empty_ok := D.get_string_from_table(info, 0);", "        assert(empty_ok && empty.count == 0);", "    }"]
             evidence["fixtures"].append({"architecture": architecture, "optimization": optimization, "files": records,
-                                         "debug_s_sha256": hashlib.sha256(data).hexdigest()})
+                                         "debug_s_sha256": sha256_bytes(data)})
     generated.append("}")
     destination = ROOT / "target/developer-tools-codeview-string-oracle.jai"
     destination.write_text("\n".join(generated) + "\n")

@@ -7,11 +7,10 @@ import json
 import re
 import shutil
 import struct
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner, sha256_bytes
 
 
-def run(command):
-    return run_checked(command, label="MSF fixture command", expected=None, env=None, timeout=60).stdout
+run = labeled_runner('MSF fixture command', expected=None, env=None, timeout=60, stdout=True)
 
 
 def main():
@@ -45,7 +44,7 @@ def main():
             raise RuntimeError("Original FPM bytes differ from official SDK output")
         base.with_suffix(".fpm.bin").write_bytes(fpm)
         page_evidence["fixtures"].append({"architecture": architecture, "active_page": active_page,
-            "pdb_sha256": hashlib.sha256(pdb).hexdigest(), "fpm_sha256": hashlib.sha256(fpm).hexdigest(),
+            "pdb_sha256": sha256_bytes(pdb), "fpm_sha256": sha256_bytes(fpm),
             "free_bits": sum(byte.bit_count() for byte in fpm), "bits": len(fpm) * 8})
         streams = re.findall(r"Stream\s+(\d+)\s+\(\s*(\d+) bytes\)", metadata)
         if len(streams) < 5 or [int(index) for index, _ in streams] != list(range(len(streams))):

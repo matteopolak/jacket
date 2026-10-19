@@ -1,9 +1,5 @@
-import sys
-from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'tools/native_bindings'))
 from vendor_context import c_enums
 
 

@@ -8,7 +8,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 
 from datetime import date
-import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -129,9 +128,7 @@ class BrowserReleaseTests(unittest.TestCase):
             self.assertNotIn("entrypoint", one)
             self.assertEqual(
                 one["archive"]["sha256"],
-                hashlib.sha256(
-                    (base / "one" / release.ARCHIVE).read_bytes()
-                ).hexdigest(),
+                sha256_bytes((base / "one" / release.ARCHIVE).read_bytes()),
             )
 
     def test_actual_probe_failure_never_publishes_assets(self):

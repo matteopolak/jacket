@@ -12,7 +12,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import ctypes
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -214,9 +213,7 @@ def main():
 
     for name in ("windows-import-library-required", "windows-d3dcompiler-provider"):
         source = root / "stdlib/Bindings_Generator/tests/driven/sdk" / (name + ".jai")
-        report.setdefault("sources", {})[str(source)] = hashlib.sha256(
-            source.read_bytes()
-        ).hexdigest()
+        report.setdefault("sources", {})[str(source)] = sha256_bytes(source.read_bytes())
         exe = work / (name + ".exe")
         commands = [
             ("interp", [args.jaic, source, "-interp"]),

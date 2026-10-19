@@ -6,12 +6,11 @@ import subprocess
 import build_developer_bindings
 import build_generator_platform
 from driven_sources import driven
-from dev_common import run_checked, ROOT, ENV, JAIC
+from dev_common import ENV, JAIC, ROOT, labeled_runner
 
 
 
-def run(command, expected=""):
-    return run_checked(command, label="Targeted C++ workflow", expected=expected)
+run = labeled_runner('Targeted C++ workflow')
 
 
 def prepare_callback_input(prefix, flags, suffix):

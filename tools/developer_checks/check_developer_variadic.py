@@ -5,11 +5,10 @@ from pathlib import Path
 import platform
 import build_developer_bindings
 from driven_sources import driven
-from dev_common import run_checked, ROOT
+from dev_common import ROOT, labeled_runner
 
 
-def run(command, expected=""):
-    return run_checked(command, label="C variadic workflow", expected=expected)
+run = labeled_runner('C variadic workflow')
 
 
 def main():

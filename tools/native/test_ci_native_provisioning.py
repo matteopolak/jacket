@@ -7,8 +7,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 
-from pathlib import Path
-import re
 import subprocess
 import unittest
 from toolkit.repo import ROOT
@@ -79,7 +77,9 @@ class NativeProvisioning(unittest.TestCase):
         subprocess.run(["bash", "-n", str(path)], check=True, timeout=5)
         source = path.read_text()
         self.assertIn("set -euo pipefail", source)
-        self.assertIn("sudo apt-get update", source)
+        self.assertIn("apt_install.sh", source)
+        apt = (ROOT / "tools/ci/apt_install.sh").read_text()
+        self.assertIn("apt_get update", apt)
         self.assertNotIn("SDL_", source)
         self.assertNotIn("|| true", source)
 

@@ -40,6 +40,16 @@ class DeveloperChecksManifest(unittest.TestCase):
         self.assertEqual(runner.UNAVAILABLE_EVIDENCE[0]["status"], "unavailable")
         runner.UNAVAILABLE_EVIDENCE.clear()
 
+    def test_labeled_runner_returns_stdout_or_the_process(self):
+        import dev_common
+
+        out = dev_common.labeled_runner("echo", expected=None, stdout=True)(["echo", "hi"])
+        self.assertEqual(out.strip(), "hi")
+        proc = dev_common.labeled_runner("echo", expected=None)(["echo", "hi"])
+        self.assertEqual(proc.stdout.strip(), "hi")
+        with self.assertRaises(Exception):
+            dev_common.labeled_runner("echo", expected="other\n")(["echo", "hi"])
+
 
 if __name__ == "__main__":
     unittest.main()
