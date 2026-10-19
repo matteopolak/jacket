@@ -356,3 +356,22 @@ fn a_struct_argument_that_is_not_a_type_is_reported_at_the_use() {
         "{reported:?}"
     );
 }
+
+#[test]
+fn a_field_default_has_the_same_color_whether_or_not_the_struct_is_used() {
+    let declaration = "Explicit :: struct {\n    descriptor: Type = void;\n}\n";
+    for main in [
+        "main :: () {\n    e: Explicit;\n}\n",
+        "main :: () {\n    x :\n    e: Explicit;\n}\n",
+    ] {
+        let source = format!("{declaration}{main}");
+        assert_eq!(
+            kind_at(&open(&source), 1, 23),
+            Some(SemanticTokenKind::Type),
+            "{source}"
+        );
+    }
+    // As in compilation, a default nothing makes a value with is not reported.
+    let unused = "Bad :: struct {\n    descriptor: Type = 3;\n}\nmain :: () {\n}\n";
+    assert_eq!(messages(&open(unused)), Vec::<String>::new());
+}

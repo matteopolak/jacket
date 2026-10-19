@@ -51,25 +51,49 @@ impl Compiler {
         // tried once: a layout that fails re-evaluates its member types, and what that
         // creates (instances, bound constants) would otherwise be laid out in turn without end.
         let mut laid_out = crate::sema::HashSet::default();
+        let mut unused_defaults = Vec::new();
         let mut i = 0;
         while i < self.entities.len() {
             let id = EntityId(i as u32);
             i += 1;
             let e = self.entity(id);
             let span = e.span;
-            if let EntityState::Done(Resolved::Const {
-                value: Value::Type(t),
-                ..
-            }) = &e.state
-                && let TypeKind::Struct(s) = *self.types.kind(*t)
+            let ty = match &e.state {
+                EntityState::Done(Resolved::Const {
+                    value: Value::Type(t),
+                    ..
+                }) => Some(*t),
+                _ => None,
+            };
+            if let Some(t) = ty
+                && let TypeKind::Struct(s) = *self.types.kind(t)
                 && self.types.struct_info(s).poly_args.is_empty()
                 && self.ide_wants(span.file)
                 && laid_out.insert(s)
-                && let Err(e) = self.layout_struct(s, span)
             {
-                errors.push(*e);
+                match self.layout_struct(s, span) {
+                    Ok(()) => unused_defaults.push((t, span)),
+                    Err(e) => errors.push(*e),
+                }
             }
         }
+        // Field defaults are evaluated when a value of the struct is first made, so a struct
+        // nothing uses has none: evaluate them for their facts (`void` in `t: Type = void` is a
+        // type either way), keeping quiet about their errors as compilation does.
+        unused_defaults.retain(|(t, _)| !self.default_images.contains_key(t));
+        let quiet = (
+            self.ide.as_ref().map_or(0, |ide| ide.errors.len()),
+            self.warnings.len(),
+            self.deferred_errors.len(),
+        );
+        for (t, span) in unused_defaults {
+            let _ = self.default_initializer(t, span);
+        }
+        if let Some(ide) = self.ide.as_mut() {
+            ide.errors.truncate(quiet.0);
+        }
+        self.warnings.truncate(quiet.1);
+        self.deferred_errors.truncate(quiet.2);
         let mut i = 0;
         while i < self.procs.len() {
             let id = ProcId(i as u32);
