@@ -187,7 +187,9 @@ fn module_identifiers(
     let mut own: Option<PathBuf> = None;
     for f in compiler.files.iter().filter(|f| f.module == module) {
         let src = compiler.sources.get(f.id);
-        let path = src.path.to_path().into_owned();
+        let Some(path) = src.path.as_file().map(std::path::Path::to_path_buf) else {
+            continue;
+        };
         // Every file of the module counts once, however it is reached.
         seen.insert(jaic::canonicalize(&path).unwrap_or(path.clone()));
         if f.id == file {

@@ -16,14 +16,16 @@ use std::rc::Rc;
 pub(super) fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
     let files = || (0..compiler.sources.len() as u32).map(FileId);
     files()
-        .find(|&f| compiler.sources.get(f).path.to_path() == path)
+        .find(|&f| compiler.sources.get(f).path.as_file() == Some(path))
         .or_else(|| {
             let want = compiler.fs.canonical(path);
             files().find(|&f| {
                 compiler
-                    .fs
-                    .canonical(&compiler.sources.get(f).path.to_path())
-                    == want
+                    .sources
+                    .get(f)
+                    .path
+                    .as_file()
+                    .is_some_and(|file| compiler.fs.canonical(file) == want)
             })
         })
 }
