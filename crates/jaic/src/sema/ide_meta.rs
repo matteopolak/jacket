@@ -13,7 +13,7 @@ pub use self::text::dedent;
 use super::lower::Operand;
 use super::scope::EntityId;
 use super::value::ProcId;
-use super::{Compiler, FileId, ModuleId, ProcTypeParams, Rc, Span, TypeId, Value};
+use super::{Compiler, FileId, ModuleId, ProcTypeParams, Rc, Span, Sym, TypeId, Value};
 
 /// Expansions kept per analysis: an edit that makes a metaprogram generate a lot stays bounded.
 const MAX_EXPANSIONS: usize = 4096;
@@ -130,6 +130,9 @@ pub enum IdeClass {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Target {
     Entity(EntityId),
+    /// A local or parameter by where it is declared: a polymorphic procedure's parameter is one
+    /// entity in each instance and one more where its result type is checked.
+    Local(Span, Sym),
     Proc(ProcId),
     Type(TypeId),
     Module(ModuleId),

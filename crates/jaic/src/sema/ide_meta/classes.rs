@@ -193,6 +193,9 @@ impl Compiler {
                         value: Value::Type(t),
                         ..
                     } => vec![Target::Type(*t)],
+                    EntityKind::Local {
+                        ..
+                    } => vec![Target::Local(self.entity(*e).span, self.entity(*e).name)],
                     _ => vec![Target::Entity(*e)],
                 },
             },
