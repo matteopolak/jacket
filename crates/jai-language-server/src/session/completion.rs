@@ -1,6 +1,6 @@
 //! Completion items and auto imports.
 use super::{Completions, Session, contains, enclosing_declaration_start};
-use crate::analysis::{DIRECTIVES, KEYWORDS, Span, TokenKind};
+use crate::analysis::{Span, TokenKind};
 use crate::semantic::{self};
 use crate::{
     CompletionData, CompletionItem, CompletionKind, CompletionList, DocumentUri, Error, Position,
@@ -180,13 +180,12 @@ impl Session {
             let typed = doc.text[word_start..byte].to_lowercase();
             return Ok(CompletionList {
                 is_incomplete: false,
-                items: DIRECTIVES
-                    .iter()
+                items: jaic::lexicon::described_directives()
                     .filter(|(name, _)| name.starts_with(&typed))
                     .map(|(name, detail)| CompletionItem {
                         label: format!("#{name}"),
                         kind: CompletionKind::Keyword,
-                        detail: (*detail).into(),
+                        detail: detail.into(),
                         ..CompletionItem::default()
                     })
                     .collect(),
@@ -201,13 +200,13 @@ impl Session {
             let lower = prefix.to_lowercase();
             let mut items = BTreeMap::new();
             let mut incomplete = false;
-            let keywords = KEYWORDS.iter().map(|k| IdeName {
-                name: (*k).into(),
+            let keywords = jaic::lexicon::reserved().map(|k| IdeName {
+                name: k.into(),
                 kind: IdeKind::Constant,
                 detail: "keyword".into(),
                 decl: jaic::source::Span::NONE,
                 call: crate::call_snippets::CALL_KEYWORDS
-                    .contains(k)
+                    .contains(&k)
                     .then(IdeCall::unknown),
             });
             let member = {
@@ -343,10 +342,10 @@ impl Session {
                 }
             }
         }
-        for name in KEYWORDS {
+        for name in jaic::lexicon::reserved() {
             if name.starts_with(prefix) && items.len() < self.limits.symbols {
-                items.entry((*name).into()).or_insert(CompletionItem {
-                    label: (*name).into(),
+                items.entry(name.into()).or_insert(CompletionItem {
+                    label: name.into(),
                     kind: CompletionKind::Keyword,
                     detail: "keyword".into(),
                     ..CompletionItem::default()

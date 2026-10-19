@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language: Jai
-" The fallback highlighting; jailsp's semantic tokens are drawn on top of it. Keep the word
-" lists in step with editors/vscode/scripts/build-grammar.ts.
+" The fallback highlighting; jailsp's semantic tokens are drawn on top of it. The
+" word lists between the GENERATED markers are written by editors/vscode/scripts/build-grammar.ts.
 
 if exists('b:current_syntax')
   finish
@@ -13,6 +13,7 @@ syn keyword jaiTodo contained TODO FIXME XXX NOTE HACK
 syn region jaiBlockComment start=+/\*+ end=+\*/+ contains=jaiBlockComment,jaiTodo,@Spell
 syn match jaiLineComment +//.*$+ contains=jaiTodo,@Spell
 
+" BEGIN GENERATED (editors/vscode/scripts/build-grammar.ts, from editors/lexicon.json)
 syn keyword jaiConditional if ifx then else case
 syn keyword jaiRepeat for while
 syn keyword jaiStatement break continue return remove defer push_context using
@@ -23,14 +24,15 @@ syn keyword jaiBoolean true false
 syn keyword jaiConstant null
 syn keyword jaiBuiltin it it_index context
 syn keyword jaiType bool int float float32 float64 string void s8 s16 s32 s64 s128 u8 u16 u32 u64 u128 Type Any Code
-syn match jaiBuiltinFunc +\<\%(size_of\|type_of\|type_info\|initializer_of\|is_constant\|align_of\|offset_of\)\>\ze\s*(+
+syn match jaiBuiltinFunc +\<\%(size_of\|type_of\|code_of\|type_info\|initializer_of\|is_constant\|align_of\|offset_of\)\>\ze\s*(+
 
 " #import and friends, conditional directives, modifiers, and any other #name.
 syn match jaiDirective +#\h\w*+
-syn match jaiInclude +#\%(import\|load\|foreign_library\|foreign_system_library\|system_library\|library\)\>+
-syn match jaiPreCondit +#\%(if\|ifx\|else\|complete\|through\|ifdef\|endif\)\>+
-syn match jaiRun +#\%(run\|insert\|code\|type\|bake_arguments\|bake_constants\|char\|string\)\>+
-syn match jaiSpecialDirective +#\%(file\|line\|filepath\|this\|caller_location\|caller_code\|procedure_name\|location\|compile_time\|exists\|bytes\|procedure_of_call\|placeholder\)\>+
+syn match jaiInclude +#\%(foreign_library\|foreign_system_library\|import\|library\|load\|system_library\)\>+
+syn match jaiPreCondit +#\%(complete\|else\|endif\|if\|ifdef\|ifx\|through\)\>+
+syn match jaiRun +#\%(bake_arguments\|bake_constants\|char\|code\|insert\|run\|string\|type\)\>+
+syn match jaiSpecialDirective +#\%(bytes\|caller_code\|caller_location\|compile_time\|exists\|file\|filepath\|line\|location\|placeholder\|procedure_name\|procedure_of_call\|this\)\>+
+" END GENERATED
 
 " Notes: @foo and @"foo bar".
 syn match jaiNote +@\%(\h\w*\|"\%([^"\\]\|\\.\)*"\)+

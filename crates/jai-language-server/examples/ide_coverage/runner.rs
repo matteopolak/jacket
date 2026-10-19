@@ -1,5 +1,5 @@
 use super::report::{self, Counts, Failure, File, Gap, Manifest, Missing, Report, Target};
-use super::{KEYWORDS, Role, environment, position, role, using_modifier};
+use super::{Role, environment, position, role, using_modifier};
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, Session};
 use jaic::fxhash::HashSet;
 use jaic::{
@@ -491,7 +491,7 @@ impl Audit {
         let progress = self.args.progress.clone();
         let lines = jaic::source::LineIndex::new(text);
         for (index, token) in tokens.iter().enumerate() {
-            if matches!(&token.tok,Tok::Ident(name) if KEYWORDS.contains(&name.as_str()))
+            if matches!(&token.tok,Tok::Ident(name) if jaic::lexicon::is_reserved(name.as_str()))
                 || using_modifier(tokens, index)
             {
                 file.syntax_tokens += 1;
@@ -506,7 +506,7 @@ impl Audit {
                     file.syntax_tokens += 1;
                     continue;
                 }
-                Tok::Ident(name) if !KEYWORDS.contains(&name.as_str()) => {
+                Tok::Ident(name) if !jaic::lexicon::is_reserved(name.as_str()) => {
                     (name.to_string(), role(tokens, index))
                 }
                 Tok::Directive(name) => (format!("#{name}"), Role::Directive),

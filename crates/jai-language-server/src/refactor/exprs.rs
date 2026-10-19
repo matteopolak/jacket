@@ -99,7 +99,7 @@ pub(super) fn suggest_name(e: &Expr) -> String {
     let name = name.strip_prefix("get_").unwrap_or(name);
     let valid = name.starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-        && !crate::analysis::KEYWORDS.contains(&name);
+        && !jaic::lexicon::is_reserved(name);
     if valid && name.len() <= 24 {
         name.to_string()
     } else {

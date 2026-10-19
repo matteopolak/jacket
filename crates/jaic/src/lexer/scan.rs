@@ -623,35 +623,14 @@ impl<'a> Lexer<'a> {
 
     /// `#string TERMINATOR` (optionally `#string,cr TERM` or `#string,\% TERM`).
     fn here_string(&mut self, start: usize) -> Result<Vec<u8>, Diagnostic> {
-        let mut escape_percent = false;
-        let mut cr = false;
-        loop {
-            while matches!(self.peek(0), b' ' | b'\t') {
-                self.at += 1;
-            }
-            if self.peek(0) != b',' {
-                break;
-            }
-            self.at += 1;
-            while matches!(self.peek(0), b' ' | b'\t') {
-                self.at += 1;
-            }
-            if self.peek(0) == b'\\' {
-                self.at += 1;
-                if self.peek(0) == b'%' {
-                    escape_percent = true;
-                }
-                // The escaped character, unless the file ends at the backslash.
-                self.at = (self.at + 1).min(self.src.len());
-            } else {
-                cr |= self.ident() == "cr";
-            }
-        }
-        let tag = self.ident();
-        if tag.is_empty() {
+        let header = super::here::header(self.src, self.at);
+        self.at = header.end;
+        if header.tag.is_empty() {
             return Err(self.unclosed_err(start, "expected here-string terminator"));
         }
-        let tag = tag.as_bytes();
+        let (escape_percent, cr) = (header.escape_percent, header.cr);
+        let src = self.src;
+        let tag = &src[header.tag];
         // Body starts on the next line.
         while self.at < self.src.len() && self.src[self.at] != b'\n' {
             self.at += 1;

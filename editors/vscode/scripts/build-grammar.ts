@@ -1,4 +1,4 @@
-// Writes syntaxes/jai.tmLanguage.json. The grammar is written here, in JavaScript, so the
+// Writes syntaxes/jai.tmLanguage.json (and the word lists of ../nvim/syntax/jai.vim). The grammar is written here, in JavaScript, so the
 // identifier and keyword patterns are spelled once and shared by the rules that need them.
 //
 //   node scripts/build-grammar.ts           # regenerate
@@ -21,30 +21,27 @@ const words = (list: string[]) => `${B}(?:${list.join("|")})${E}`;
 // A list of names before a declaration operator: `a, b :=`.
 const namesThen = (op: string) => `(?=(?:\\s*,\\s*${ID})*\\s*${op})`;
 
-const CONTROL = ["if", "ifx", "then", "else", "case", "for", "while", "break", "continue", "return", "remove", "defer", "push_context"];
-const BUILTIN_TYPES = [
-  "bool", "int", "float", "float32", "float64", "string", "void",
-  "s8", "s16", "s32", "s64", "s128", "u8", "u16", "u32", "u64", "u128",
-  "Type", "Any", "Code",
-];
-const BUILTIN_FUNCTIONS = ["size_of", "type_of", "type_info", "initializer_of", "is_constant", "align_of", "offset_of"];
-const CAST_FLAGS = ["no_check", "trunc", "truncate", "force"];
+// The word lists come from jaic (`crates/jaic/src/lexicon.rs`, written to editors/lexicon.json
+// by `cargo test -p jaic --lib lexicon` with JAI_BLESS=1); only how they are grouped is chosen here.
+const lexicon: {
+  words: Record<string, string[]>;
+  reserved: string[];
+  types: string[];
+  cast_flags: string[];
+  directives: Record<string, string[]>;
+  here_string_languages: string[];
+} = JSON.parse(readFileSync(join(root, "..", "lexicon.json"), "utf8"));
+
+const CONTROL = [...lexicon.words.conditional, ...lexicon.words.repeat, ...lexicon.words.statement.filter((w) => w !== "using")];
+const BUILTIN_TYPES = lexicon.types;
+const BUILTIN_FUNCTIONS = lexicon.words.intrinsic;
+const CAST_FLAGS = lexicon.cast_flags;
 
 // Directives by role; anything else spelled `#name` is still a directive.
-const IMPORT_DIRECTIVES = ["import", "load", "foreign_library", "foreign_system_library", "system_library", "library"];
-const CONDITIONAL_DIRECTIVES = ["if", "ifx", "else", "complete", "through", "ifdef", "endif"];
-const MODIFIER_DIRECTIVES = [
-  "c_call", "foreign", "expand", "compiler", "intrinsic", "no_context", "must", "deprecated",
-  "symmetric", "no_debug", "cpp_method", "cpp_return_type_is_non_pod", "elsewhere", "runtime_support",
-  "no_call", "no_padding", "no_reset", "align", "place", "overlay", "specified", "type_info_none",
-  "type_info_procedures_are_void_pointers", "type_info_no_size_complaint", "program_export",
-  "scope_file", "scope_module", "scope_export", "add_context", "module_parameters", "no_abc",
-  "no_aoc", "poke_name", "discard", "distinct", "isa", "modify", "as",
-];
-const VALUE_DIRECTIVES = [
-  "file", "line", "filepath", "this", "caller_location", "caller_code", "procedure_name",
-  "location", "compile_time", "exists", "bytes", "procedure_of_call", "placeholder",
-];
+const IMPORT_DIRECTIVES = lexicon.directives.import;
+const CONDITIONAL_DIRECTIVES = lexicon.directives.conditional;
+const MODIFIER_DIRECTIVES = lexicon.directives.modifier;
+const VALUE_DIRECTIVES = lexicon.directives.value;
 
 // Here-strings whose terminator names a language: `#string WGSL` ... `WGSL` highlights the body
 // as WGSL. The terminator is compared with `tags` ignoring case; any other terminator (END,
@@ -54,10 +51,10 @@ const VALUE_DIRECTIVES = [
 // `language` is the VS Code language ID the body gets (comments, brackets, snippets), written to
 // package.json's `embeddedLanguages`; an ID no installed extension registers is ignored.
 //
-// Keep the tags in step with LANGUAGE_TAGS in crates/jai-language-server/src/here_string.rs
-// (jailsp leaves these here-strings to the grammar; this script fails when the lists differ)
-// and, where the languages overlap, with the playground's table (EMBEDDED_LANGUAGES in the
-// portfolio's src/lib/jai/embedded-languages.ts).
+// The tags are the lexicon's `here_string_languages` (jailsp leaves these here-strings to the
+// grammar; this script fails when the lists differ). Where the languages overlap, keep them in
+// step with the playground's table (EMBEDDED_LANGUAGES in the portfolio's
+// src/lib/jai/embedded-languages.ts).
 const EMBEDDED_LANGUAGES = [
   { tags: ["WGSL"], name: "wgsl", scopes: ["source.wgsl", "source.wgsl.jai-embedded"], language: "wgsl" },
   { tags: ["GLSL", "VERT", "FRAG", "COMP", "GEOM", "TESC", "TESE"], name: "glsl", scopes: ["source.glsl"], language: "glsl" },
@@ -83,14 +80,13 @@ const EMBEDDED_LANGUAGES = [
   { tags: ["JAI"], name: "jai", scopes: ["source.jai"], language: "jai" },
 ];
 
-// jailsp's copy of the tags must match, or it would paint a tagged body as one string again.
+// The lexicon's tags must all have a rule here, or jailsp would leave a body to a grammar that
+// does not highlight it (or the reverse).
 {
-  const rust = readFileSync(join(root, "..", "..", "crates", "jai-language-server", "src", "here_string.rs"), "utf8");
-  const list = /LANGUAGE_TAGS: &\[&str\] = &\[([^\]]*)\]/.exec(rust);
-  const theirs = [...(list?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  const ours = EMBEDDED_LANGUAGES.flatMap((l) => l.tags);
+  const theirs = lexicon.here_string_languages.toSorted();
+  const ours = EMBEDDED_LANGUAGES.flatMap((l) => l.tags).toSorted();
   if (theirs.join() !== ours.join()) {
-    console.error(`LANGUAGE_TAGS in here_string.rs differs from EMBEDDED_LANGUAGES:\n  rust: ${theirs.join(" ")}\n  here: ${ours.join(" ")}`);
+    console.error(`here_string_languages in lexicon.json differs from EMBEDDED_LANGUAGES:\n  lexicon: ${theirs.join(" ")}\n  here: ${ours.join(" ")}`);
     process.exit(1);
   }
 }
@@ -444,6 +440,42 @@ manifest.contributes.grammars.find((g: { scopeName: string }) => g.scopeName ===
 const manifestOut = JSON.stringify(manifest, null, 2) + "\n";
 
 const text = JSON.stringify(grammar, null, 2) + "\n";
+
+// Neovim's fallback syntax file takes the same word lists between its GENERATED markers.
+const vimPath = join(root, "..", "nvim", "syntax", "jai.vim");
+const vimText = readFileSync(vimPath, "utf8");
+const vimWords = (group: string, list: string[]) => `syn keyword ${group} ${list.join(" ")}`;
+const vimAlternatives = (list: string[]) => list.join("\\|");
+const generated = [
+  vimWords("jaiConditional", lexicon.words.conditional),
+  vimWords("jaiRepeat", lexicon.words.repeat),
+  vimWords("jaiStatement", lexicon.words.statement),
+  vimWords("jaiKeyword", lexicon.words.declaration),
+  vimWords("jaiOperator", lexicon.words.operator),
+  `syn match jaiCastFlag +\\%(\\<\\%(${vimAlternatives(lexicon.words.operator)}\\)\\>\\s*\\)\\@<=,\\s*\\%(${vimAlternatives(CAST_FLAGS)}\\)\\>+`,
+  vimWords("jaiBoolean", lexicon.words.boolean),
+  vimWords("jaiConstant", lexicon.words.constant),
+  vimWords("jaiBuiltin", lexicon.words.variable),
+  vimWords("jaiType", BUILTIN_TYPES),
+  `syn match jaiBuiltinFunc +\\<\\%(${vimAlternatives(BUILTIN_FUNCTIONS)}\\)\\>\\ze\\s*(+`,
+  "",
+  "\" #import and friends, conditional directives, modifiers, and any other #name.",
+  "syn match jaiDirective +#\\h\\w*+",
+  `syn match jaiInclude +#\\%(${vimAlternatives(IMPORT_DIRECTIVES)}\\)\\>+`,
+  `syn match jaiPreCondit +#\\%(${vimAlternatives(CONDITIONAL_DIRECTIVES)}\\)\\>+`,
+  `syn match jaiRun +#\\%(${vimAlternatives(lexicon.directives.run)}\\)\\>+`,
+  `syn match jaiSpecialDirective +#\\%(${vimAlternatives(VALUE_DIRECTIVES)}\\)\\>+`,
+].join("\n");
+const vimBegin = '" BEGIN GENERATED (editors/vscode/scripts/build-grammar.ts, from editors/lexicon.json)\n';
+const vimEnd = '\n" END GENERATED';
+const vimStart = vimText.indexOf(vimBegin);
+const vimStop = vimText.indexOf(vimEnd);
+if (vimStart < 0 || vimStop < vimStart) {
+  console.error("nvim/syntax/jai.vim lost its GENERATED markers");
+  process.exit(1);
+}
+const vimOut = vimText.slice(0, vimStart + vimBegin.length) + generated + vimText.slice(vimStop);
+
 if (process.argv.includes("--check")) {
   let current = "";
   try {
@@ -457,7 +489,12 @@ if (process.argv.includes("--check")) {
     console.error("package.json's embeddedLanguages are stale: run `node scripts/build-grammar.ts`");
     process.exit(1);
   }
+  if (vimText !== vimOut) {
+    console.error("nvim/syntax/jai.vim's generated word lists are stale: run `node scripts/build-grammar.ts`");
+    process.exit(1);
+  }
 } else {
   writeFileSync(output, text);
   writeFileSync(manifestPath, manifestOut);
+  writeFileSync(vimPath, vimOut);
 }

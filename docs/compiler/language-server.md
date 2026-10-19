@@ -68,7 +68,7 @@ A large program compile is hundreds of MiB, so `semantic::Cache` keeps `CACHED` 
 - **Unreachable code**: `Session::unreachable_diagnostics` publishes a `Hint` diagnostic (code `unreachable`, `DiagnosticTag.Unnecessary`, so editors fade it and draw no squiggle) for each range `Analysis::unreachable` returns. The facts come from the checker, see [unreachable code](sema.md#unreachable-code-reachabilityrs-intervalrs). Not in files the analysis does not record.
 - **Expansions**: `jai.showExpansion`, `jai/expansion` and `jai-expansion:` URIs show what an `#insert`, `#run` or macro produced; `jai/source` returns text for any URI the client has not opened.
 - **Signature help**: `open_call` scans back to the unmatched `(`; recorded call facts are used when present, else the callee is looked up in scope.
-- **Semantic tokens**: the legend is append-only; a token's wire type is `SemanticTokenKind as u32`, so `SemanticTokenKind::ALL` lists the kinds in declaration order and `name` gives each legend name. Here-strings tagged with a language (`#string WGSL`) get no token so the editor can highlight them; `LANGUAGE_TAGS` in `here_string.rs` must match `EMBEDDED_LANGUAGES` in `editors/vscode/scripts/build-grammar.ts`.
+- **Semantic tokens**: the legend is append-only; a token's wire type is `SemanticTokenKind as u32`, so `SemanticTokenKind::ALL` lists the kinds in declaration order and `name` gives each legend name. Here-strings tagged with a language (`#string WGSL`) get no token so the editor can highlight them; `jaic::lexer::LANGUAGE_TAGS` must match `EMBEDDED_LANGUAGES` in `editors/vscode/scripts/build-grammar.ts`, which checks it through `editors/lexicon.json`.
 
 ### Project settings
 

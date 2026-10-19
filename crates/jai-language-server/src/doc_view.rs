@@ -2,7 +2,7 @@
 //! declaration's docs, and the intra-doc links inside the comments (go to definition, hover,
 //! `textDocument/documentLink`, semantic tokens). The text-level work is in `docs`; this
 //! resolves link names through the type checker and renders for the client's format.
-use crate::analysis::{KEYWORDS, Span};
+use crate::analysis::Span;
 use crate::docs::{self, Site};
 use crate::hover::{Block, HoverText};
 use crate::model::{CompletionData, Location};
@@ -281,7 +281,7 @@ impl Session {
             };
             for (i, token) in tokens.iter().enumerate() {
                 let kind = match &token.tok {
-                    Tok::Ident(name) if KEYWORDS.contains(&name.as_str()) => {
+                    Tok::Ident(name) if jaic::lexicon::is_reserved(name.as_str()) => {
                         SemanticTokenKind::Keyword
                     }
                     Tok::Ident(_)

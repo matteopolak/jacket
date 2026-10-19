@@ -2,7 +2,7 @@
 //! parentheses of a procedure and the skeleton of `if`, `for`, `while` and `case`. Both are
 //! snippets, so they need a client that advertises `snippetSupport`.
 use crate::DocumentUri;
-use crate::analysis::{KEYWORDS, Span};
+use crate::analysis::Span;
 use crate::model::{CompletionItem, CompletionKind};
 use crate::semantic::Analysis;
 use crate::session::Session;
@@ -87,7 +87,8 @@ pub(crate) fn site(text: &str, start: usize, end: usize) -> Site {
         && !before_prev.is_some_and(|t| match &t.tok {
             Tok::Int(_) | Tok::Float(_) | Tok::Str(_) | Tok::Punct(P::RParen | P::RBracket) => true,
             Tok::Ident(n) => {
-                !KEYWORDS.contains(&n.as_str()) || matches!(n.as_str(), "true" | "false" | "null")
+                !jaic::lexicon::is_reserved(n.as_str())
+                    || matches!(n.as_str(), "true" | "false" | "null")
             }
             _ => false,
         });

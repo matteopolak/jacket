@@ -10,34 +10,6 @@ use jai_language_server::{Environment, Position};
 use jaic::lexer::{P, Tok};
 use std::path::PathBuf;
 
-const KEYWORDS: &[&str] = &[
-    "if",
-    "else",
-    "then",
-    "ifx",
-    "for",
-    "while",
-    "break",
-    "continue",
-    "return",
-    "defer",
-    "using",
-    "struct",
-    "union",
-    "enum",
-    "enum_flags",
-    "case",
-    "cast",
-    "xx",
-    "inline",
-    "no_inline",
-    "push_context",
-    "remove",
-    "null",
-    "true",
-    "false",
-];
-
 /// What an identifier is doing, from its neighbours.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum Role {

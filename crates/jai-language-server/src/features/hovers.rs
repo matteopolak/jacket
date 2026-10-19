@@ -1,7 +1,7 @@
 //! Hovers over expansions, links, directives and casts.
 use super::directive_at;
 use crate::DocumentUri;
-use crate::analysis::{DIRECTIVES, TokenKind};
+use crate::analysis::TokenKind;
 use crate::hover::{Block, HoverText, Inline};
 use crate::session::Session;
 use jaic::sema::ide_meta::{IdeExpansion, IdeExpansionKind};
@@ -148,7 +148,7 @@ impl Session {
         let text = if let Some(e) = expansion {
             self.describe(uri, &e)
         } else {
-            let (_, about) = DIRECTIVES.iter().find(|(name, _)| *name == word)?;
+            let about = jaic::lexicon::directive_about(word)?;
             HoverText::new(vec![
                 Block::Code(format!("#{word}")),
                 Block::Para(vec![Inline::Text(format!("{about}."))]),

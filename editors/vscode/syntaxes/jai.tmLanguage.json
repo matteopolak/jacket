@@ -1005,19 +1005,19 @@
       "patterns": [
         {
           "name": "keyword.control.import.directive.jai",
-          "match": "#(?:import|load|foreign_library|foreign_system_library|system_library|library)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
+          "match": "#(?:foreign_library|foreign_system_library|import|library|load|system_library)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
         },
         {
           "name": "keyword.control.conditional.directive.jai",
-          "match": "#(?:if|ifx|else|complete|through|ifdef|endif)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
+          "match": "#(?:complete|else|endif|if|ifdef|ifx|through)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
         },
         {
           "name": "storage.modifier.directive.jai",
-          "match": "#(?:c_call|foreign|expand|compiler|intrinsic|no_context|must|deprecated|symmetric|no_debug|cpp_method|cpp_return_type_is_non_pod|elsewhere|runtime_support|no_call|no_padding|no_reset|align|place|overlay|specified|type_info_none|type_info_procedures_are_void_pointers|type_info_no_size_complaint|program_export|scope_file|scope_module|scope_export|add_context|module_parameters|no_abc|no_aoc|poke_name|discard|distinct|isa|modify|as)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
+          "match": "#(?:add_context|align|as|c_call|compiler|cpp_method|cpp_return_type_is_non_pod|deprecated|discard|distinct|elsewhere|expand|foreign|intrinsic|isa|modify|module_parameters|must|no_abc|no_aoc|no_call|no_context|no_debug|no_padding|no_reset|overlay|place|poke_name|program_export|runtime_support|scope_export|scope_file|scope_module|specified|symmetric|type_info_no_size_complaint|type_info_none|type_info_procedures_are_void_pointers)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
         },
         {
           "name": "support.constant.directive.jai",
-          "match": "#(?:file|line|filepath|this|caller_location|caller_code|procedure_name|location|compile_time|exists|bytes|procedure_of_call|placeholder)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
+          "match": "#(?:bytes|caller_code|caller_location|compile_time|exists|file|filepath|line|location|placeholder|procedure_name|procedure_of_call|this)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])"
         },
         {
           "name": "keyword.other.directive.jai",
@@ -1247,7 +1247,7 @@
         },
         {
           "name": "support.function.builtin.jai",
-          "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}$])(?:size_of|type_of|type_info|initializer_of|is_constant|align_of|offset_of)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])(?=\\s*\\()"
+          "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}$])(?:size_of|type_of|code_of|type_info|initializer_of|is_constant|align_of|offset_of)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])(?=\\s*\\()"
         }
       ]
     },

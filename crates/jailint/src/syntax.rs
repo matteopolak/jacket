@@ -7,6 +7,7 @@ use jaic::ast::{
 };
 use jaic::intern::Sym;
 use jaic::lexer::{Comment, P, Tok, Token};
+use jaic::lexicon::WordClass;
 use jaic::sema::{Compiler, EntityId};
 use jaic::source::{FileId, LineIndex, Span};
 
@@ -127,10 +128,10 @@ impl<'a> Cx<'a> {
         i > 0
             && matches!(
                 self.tokens[i - 1].tok,
-                Tok::Ident(n) if !matches!(
-                    n.as_str(),
-                    "if" | "ifx" | "then" | "else" | "return" | "while" | "case" | "xx" | "for"
-                )
+                Tok::Ident(n) if !(matches!(
+                    jaic::lexicon::class_of(n.as_str()),
+                    Some(WordClass::Conditional | WordClass::Repeat)
+                ) || matches!(n.as_str(), "return" | "xx"))
             )
             || matches!(
                 self.tokens[i - 1].tok,

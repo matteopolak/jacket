@@ -75,7 +75,7 @@ impl Session {
             .next()
             .is_some_and(|c| c.is_alphabetic() || c == '_')
             && new_name.chars().all(|c| c.is_alphanumeric() || c == '_');
-        if !valid || crate::analysis::KEYWORDS.contains(&new_name) {
+        if !valid || jaic::lexicon::is_reserved(new_name) {
             return Err(Error::InvalidEdit("the new name is not an identifier"));
         }
         let Some(range) = self.prepare_rename(uri, position)? else {

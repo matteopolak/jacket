@@ -1,0 +1,25 @@
+{
+  "words": {
+    "conditional": ["if", "ifx", "then", "else", "case"],
+    "repeat": ["for", "while"],
+    "statement": ["break", "continue", "return", "remove", "defer", "push_context", "using"],
+    "declaration": ["struct", "union", "enum", "enum_flags", "operator", "inline", "no_inline", "interface"],
+    "operator": ["cast", "xx"],
+    "boolean": ["true", "false"],
+    "constant": ["null"],
+    "variable": ["it", "it_index", "context"],
+    "intrinsic": ["size_of", "type_of", "code_of", "type_info", "initializer_of", "is_constant", "align_of", "offset_of"]
+  },
+  "reserved": ["if", "ifx", "then", "else", "case", "for", "while", "break", "continue", "return", "remove", "defer", "push_context", "using", "struct", "union", "enum", "enum_flags", "operator", "inline", "no_inline", "interface", "cast", "xx", "true", "false", "null", "context", "size_of", "type_of", "code_of", "type_info", "initializer_of", "is_constant"],
+  "types": ["bool", "int", "float", "float32", "float64", "string", "void", "s8", "s16", "s32", "s64", "s128", "u8", "u16", "u32", "u64", "u128", "Type", "Any", "Code"],
+  "cast_flags": ["no_check", "trunc", "truncate", "force"],
+  "directives": {
+    "import": ["foreign_library", "foreign_system_library", "import", "library", "load", "system_library"],
+    "conditional": ["complete", "else", "endif", "if", "ifdef", "ifx", "through"],
+    "modifier": ["add_context", "align", "as", "c_call", "compiler", "cpp_method", "cpp_return_type_is_non_pod", "deprecated", "discard", "distinct", "elsewhere", "expand", "foreign", "intrinsic", "isa", "modify", "module_parameters", "must", "no_abc", "no_aoc", "no_call", "no_context", "no_debug", "no_padding", "no_reset", "overlay", "place", "poke_name", "program_export", "runtime_support", "scope_export", "scope_file", "scope_module", "specified", "symmetric", "type_info_no_size_complaint", "type_info_none", "type_info_procedures_are_void_pointers"],
+    "value": ["bytes", "caller_code", "caller_location", "compile_time", "exists", "file", "filepath", "line", "location", "placeholder", "procedure_name", "procedure_of_call", "this"],
+    "run": ["bake_arguments", "bake_constants", "char", "code", "insert", "run", "string", "type"],
+    "other": ["asm", "assert", "dump", "entry_point", "no_alias"]
+  },
+  "here_string_languages": ["WGSL", "GLSL", "VERT", "FRAG", "COMP", "GEOM", "TESC", "TESE", "HLSL", "MSL", "METAL", "SQL", "JSON", "HTML", "CSS", "JS", "JAVASCRIPT", "TS", "TYPESCRIPT", "PY", "PYTHON", "SH", "BASH", "SHELL", "C", "CPP", "OBJC", "RS", "RUST", "XML", "YAML", "YML", "TOML", "MD", "MARKDOWN", "LUA", "JAI"]
+}

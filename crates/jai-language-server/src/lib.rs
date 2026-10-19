@@ -14,7 +14,6 @@ mod fast_hash;
 pub(crate) mod features;
 pub(crate) mod format;
 pub mod framing;
-mod here_string;
 mod hierarchy;
 pub(crate) mod hover;
 mod imports;

@@ -15,6 +15,7 @@ pub mod interp;
 pub mod ir;
 pub mod knobs;
 pub mod lexer;
+pub mod lexicon;
 mod macros;
 pub mod memory_limit;
 #[doc(hidden)]

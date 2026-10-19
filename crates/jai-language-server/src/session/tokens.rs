@@ -54,7 +54,9 @@ impl Session {
             let piece = |kind| (token.span, kind, declaration, readonly, false);
             match token.kind {
                 // `#string WGSL`: the editor highlights the body as that language.
-                TokenKind::String if crate::here_string::names_language(token.spelling(text)) => {}
+                TokenKind::String
+                    if jaic::lexer::here_string_tag(token.spelling(text))
+                        .is_some_and(jaic::lexer::names_language) => {}
                 TokenKind::String => {
                     let mut at = token.span.start;
                     let first = specs.partition_point(|s| s.start < token.span.start);

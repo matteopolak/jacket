@@ -2,6 +2,7 @@
 mod api;
 mod conditions;
 mod floats;
+mod here;
 mod punct;
 mod scan;
 
@@ -10,6 +11,7 @@ pub use self::api::{
     lexical_regions,
 };
 pub use self::floats::{FloatLiteralPrecision, float_literal_precision, has_big_float32_exponent};
+pub use self::here::{LANGUAGE_TAGS, here_string_tag, names_language};
 pub use self::punct::P;
 pub(crate) use self::scan::is_ident_char;
 use crate::intern::Sym;
