@@ -10,6 +10,7 @@ mod commands;
 mod compile;
 mod project;
 mod tools;
+mod upgrade;
 
 use clap::Parser;
 use cli::{Cli, Command, TOOL_COMMANDS};
@@ -45,6 +46,15 @@ fn main() -> ExitCode {
             commands::clean(&cwd)
         }
         Command::Version => commands::version(),
+        Command::Upgrade {
+            version,
+            check,
+            yes,
+        } => upgrade::run(&upgrade::Options {
+            version,
+            check,
+            yes,
+        }),
         Command::External(external) => tools::external(&external[0], &external[1..]),
         // Handled above, before clap saw them.
         _ => ExitCode::from(2),

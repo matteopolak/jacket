@@ -77,6 +77,18 @@ pub enum Command {
     Clean,
     /// Print the version of jacket and of every tool it fronts
     Version,
+    /// Install the latest release over this installation
+    Upgrade {
+        /// Install this release (`0.22.0` or `v0.22.0`) instead of the latest
+        #[arg(long = "version", value_name = "TAG")]
+        version: Option<String>,
+        /// Only report whether an update exists
+        #[arg(long)]
+        check: bool,
+        /// Do not ask for confirmation
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
     /// Run `jaic` with exactly these arguments
     #[command(disable_help_flag = true, trailing_var_arg = true)]
     Jaic(Passthrough),

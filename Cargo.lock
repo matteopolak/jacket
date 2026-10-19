@@ -225,6 +225,7 @@ version = "0.21.0"
 dependencies = [
  "clap",
  "jacket-config",
+ "serde_json",
  "toml",
  "toml_edit",
 ]
