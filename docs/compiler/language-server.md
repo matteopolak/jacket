@@ -29,7 +29,7 @@ Compiles on demand and caches by source text:
 2. The root is the open document that `#load`s the requested one, else the project entry (`jacket.toml` `[project] entry`, or an inferred `build.jai`/`first.jai`/`main.jai`/`src/main.jai`).
 3. `Compiler::ide` is set to `IdeFacts`. Sema records what each identifier names, scopes, expansions and calls. Every hook is a no-op when `ide` is `None`.
 4. `ide_check_all` lowers every non-polymorphic body, not only what `main` reaches, and keeps each declaration's error separately (so several errors per file show).
-5. `ide_sketch_polymorphs` checks each uninstantiated polymorphic procedure and unexpanded macro once with stand-in types so hover and completion work inside them. The sketch is then discarded; jailint ignores its facts.
+5. `ide_sketch_polymorphs` checks each uninstantiated polymorphic procedure and unexpanded macro, and each polymorphic struct with no instance, once with stand-in types so hover and completion work inside them. The sketch is then discarded; jailint ignores its facts.
 6. Compile-time code runs in `SandboxHost` with a block budget, so a looping `#run` traps instead of hanging and never writes to protocol stdout.
 
 Code in an `#if OS == ...` branch the target skipped is checked by compiling for the other targets (`OTHER_TARGETS`) until one takes it.

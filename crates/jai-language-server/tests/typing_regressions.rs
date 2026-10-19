@@ -224,3 +224,56 @@ fn a_called_name_in_a_body_that_cannot_be_checked_is_answered_without_a_token_re
     assert_eq!(definition.len(), 1);
     assert_eq!(definition[0].range.start.line, 0);
 }
+
+#[test]
+fn a_struct_parameter_is_a_type_whether_or_not_the_struct_is_instantiated() {
+    // Removing the only `Node(int)` must not turn the `T`s of the struct into variables, drop
+    // their definition or degrade the field hovers.
+    let declaration = "Node :: struct(T: Type) {\n    next: *Node(T);\n    value: T = 19;\n}\n\n";
+    let used = format!(
+        "{declaration}main :: () -> int {{\n    node: Node(int);\n    return node.value;\n}}\n"
+    );
+    let unused = format!("{declaration}main :: () -> int {{\n    return 1;\n}}\n");
+    for source in [used, unused] {
+        let session = open(&source);
+        for (line, character) in [(0, 15), (1, 16), (2, 11)] {
+            assert_eq!(
+                kind_at(&session, line, character),
+                Some(SemanticTokenKind::Type),
+                "{line}:{character} in {source}"
+            );
+        }
+        for (line, character) in [(1, 16), (2, 11)] {
+            let at = Position {
+                line,
+                character,
+            };
+            let definition = session.definition(&uri(), at).unwrap();
+            assert_eq!(definition.len(), 1, "{line}:{character} in {source}");
+            assert_eq!(
+                (
+                    definition[0].range.start.line,
+                    definition[0].range.start.character
+                ),
+                (0, 15),
+                "{line}:{character} in {source}"
+            );
+            assert!(session.hover(&uri(), at).unwrap().is_some());
+        }
+        let field = session
+            .hover(
+                &uri(),
+                Position {
+                    line: 2,
+                    character: 4,
+                },
+            )
+            .unwrap()
+            .expect("a hover");
+        assert!(
+            !field.contents.value.contains("Source syntax declaration"),
+            "{}",
+            field.contents.value
+        );
+    }
+}

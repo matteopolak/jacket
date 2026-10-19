@@ -60,6 +60,7 @@ impl Compiler {
                 break;
             }
         }
+        self.ide_sketch_structs();
         if let Some(ide) = self.ide.as_mut() {
             ide.lint = lint;
             ide.sketching = false;
@@ -301,6 +302,17 @@ impl Compiler {
         let Ok(Operand::PolyStruct(ps)) = self.check_expr_no_emit(scope, restriction) else {
             return None;
         };
+        self.ide_sketch_struct_instance(ps, scope, span)
+    }
+
+    /// An instance of the polymorphic struct `ps`, its type parameters stand-ins and its
+    /// integer ones 4; `None` when a parameter is of another kind or the instance fails.
+    fn ide_sketch_struct_instance(
+        &mut self,
+        ps: super::value::PolyStructId,
+        scope: ScopeId,
+        span: Span,
+    ) -> Option<TypeId> {
         let lit = self.poly_structs[ps.0 as usize].lit.clone();
         let mut args: Vec<(Option<Sym>, Operand)> = Vec::new();
         for (i, param) in lit.params.iter().enumerate() {
@@ -322,7 +334,46 @@ impl Compiler {
             };
             args.push((Some(name.name), op));
         }
-        self.instantiate_struct(ps, args, span).ok()
+        let t = self.instantiate_struct(ps, args, span).ok()?;
+        // Fields are resolved when the layout is first needed.
+        let _ = self.size_of(t, span);
+        Some(t)
+    }
+
+    /// Check a sketch of every polymorphic struct of the recorded files that has no instance,
+    /// so its parameters and the uses of them in its body have the facts an instance gives.
+    fn ide_sketch_structs(&mut self) {
+        for i in 0..self.poly_structs.len() {
+            let ps = super::value::PolyStructId(i as u32);
+            let p = &self.poly_structs[i];
+            let (file, scope) = (p.lit.span.file, p.scope);
+            if p.origin.is_some()
+                || !p.instances.is_empty()
+                || p.lit.params.is_empty()
+                || self.inside_instance(scope)
+                || !self.ide_wants_pub(file)
+            {
+                continue;
+            }
+            let span = self.poly_structs[i].lit.span;
+            let errors = self.ide.as_ref().map_or(0, |ide| ide.errors.len());
+            let (warnings, deferred) = (self.warnings.len(), self.deferred_errors.len());
+            let refs = self.ide.as_ref().map_or(0, |ide| ide.refs.len());
+            let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.ide_sketch_struct_instance(ps, scope, span)
+            }));
+            if let Some(ide) = self.ide.as_mut() {
+                ide.errors.truncate(errors);
+                if ide.refs.len() - refs > MAX_SKETCH_REFS {
+                    ide.truncate_refs(refs);
+                }
+            }
+            self.warnings.truncate(warnings);
+            self.deferred_errors.truncate(deferred);
+            if checked.is_err() {
+                break;
+            }
+        }
     }
 
     /// An empty struct named `name`, standing in for whatever type a call would bind.

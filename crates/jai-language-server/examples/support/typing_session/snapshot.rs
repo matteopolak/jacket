@@ -82,6 +82,45 @@ pub(super) fn sample_identifiers(text: &str, cap: usize) -> Vec<usize> {
     all.into_iter().step_by(stride).collect()
 }
 
+/// `byte` is inside a polymorphic struct (`struct(T: Type) { ... }`): the types its hovers show
+/// are those of whichever instance the editor has, so only their presence is compared.
+pub(super) fn in_poly_struct(text: &str, byte: usize) -> bool {
+    let bytes = text.as_bytes();
+    let mut from = 0;
+    while let Some(found) = text[from..].find("struct(") {
+        let start = from + found;
+        from = start + 1;
+        if start > byte {
+            return false;
+        }
+        let mut depth = 0i32;
+        let mut seen_body = false;
+        let mut end = bytes.len();
+        for (i, &b) in bytes.iter().enumerate().skip(start + "struct".len()) {
+            match b {
+                b'(' | b'[' => depth += 1,
+                b')' | b']' => depth -= 1,
+                b'{' => {
+                    depth += 1;
+                    seen_body = true;
+                }
+                b'}' => {
+                    depth -= 1;
+                    if seen_body && depth <= 0 {
+                        end = i + 1;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if byte < end {
+            return true;
+        }
+    }
+    false
+}
+
 pub(super) fn probe_at(
     clock: &mut Clock,
     session: &Session,

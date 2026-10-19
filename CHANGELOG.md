@@ -14,6 +14,7 @@
 
 ### Fixes
 
+- In a polymorphic struct nothing instantiates, the editor showed the `T` of `struct(T: Type)` and its uses as variables with no definition, and field hovers fell back to the source syntax. The editor now checks one instance of it with stand-in types, so they are types that go to the parameter, as they do once the struct is used. In an instance, a use of a parameter goes to where the parameter is written.
 - `jacket run` starts the executable the build actually wrote, such as the one a `build.jai` metaprogram names. It used to guess `build` and say "jaic built nothing to run".
 - Windows release archives include the crash runtime, so `jacket build` and `jaic` no longer fail with "library '../crash-native/platform_io_windows_crash' not found". Built programs link it statically and need no DLL.
 - Each release archive is smoke-tested (`jacket new`, `build`, `run`, a hover) before it is published.

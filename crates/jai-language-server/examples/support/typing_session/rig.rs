@@ -537,8 +537,24 @@ impl<'a, C: Choices> Rig<'a, C> {
                 Some(Some(h)) => Some(Some(h)),
                 Some(None) => None,
             };
+            let poly = super::snapshot::in_poly_struct(&text, byte);
+            let differs = |expected: &Option<Hover>, now: &Result<Option<Hover>, String>| {
+                if poly {
+                    // The fallback to the syntax is what an unchecked struct shows.
+                    return match (expected, now) {
+                        (Some(a), Ok(Some(b))) => {
+                            a.range != b.range
+                                || (b.contents.value.contains("Source syntax declaration")
+                                    && !a.contents.value.contains("Source syntax declaration"))
+                        }
+                        (None, Ok(None)) => false,
+                        _ => true,
+                    };
+                }
+                now.as_ref() != Ok(expected)
+            };
             if let Some(expected_hover) = comparable
-                && now.hover.as_ref() != Ok(&expected_hover)
+                && differs(&expected_hover, &now.hover)
             {
                 found = Some(format!(
                     "hover at {:?} (was {:?}) changed:\n  baseline {:?}\n  now      {:?}",

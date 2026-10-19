@@ -35,7 +35,14 @@ impl Compiler {
         let module = self.scope(parent).module;
         let scope = self.new_scope(ScopeKind::Struct(ty), Some(parent), module, None);
         for (n, v, t) in bindings {
-            self.add_const(scope, n, lit.span, v, t);
+            // A parameter is declared where it is written, so a use goes there.
+            let at = lit
+                .params
+                .iter()
+                .filter_map(|p| p.name)
+                .find(|p| p.name == n)
+                .map_or(lit.span, |p| p.span);
+            self.add_const(scope, n, at, v, t);
         }
         let file_scope = scope;
         for stmt in &lit.body {
