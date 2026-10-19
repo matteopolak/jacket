@@ -58,10 +58,7 @@ raw_enum! {
     }
 }
 
-const EPERM: u64 = 1;
-const EBUSY: u64 = 16;
-const EINVAL: u64 = 22;
-const ETIMEDOUT: u64 = 110;
+use super::errno::{EBUSY, EINVAL, EPERM, ETIMEDOUT_LINUX as ETIMEDOUT};
 
 /// Polls (see `inline_poll`) after which a running thread lets the others run.
 const POLLS_BEFORE_SWITCH: u64 = 1_000;

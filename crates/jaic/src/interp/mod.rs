@@ -15,6 +15,7 @@ mod compile_calls;
 pub(crate) use compile_calls::CompileCall;
 #[cfg(not(target_arch = "wasm32"))]
 mod crash;
+mod errno;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crash::CRASH_STATUS;
 mod arith;

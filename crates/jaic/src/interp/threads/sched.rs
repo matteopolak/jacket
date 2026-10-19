@@ -22,15 +22,7 @@ pub(super) const NATIVE_SLICE: Duration = Duration::from_millis(1);
 /// blocked threads: every thread must stay blocked this long before that counts as a deadlock.
 pub const DEADLOCK_GRACE: Duration = Duration::from_secs(1);
 
-pub(super) const EPERM: u64 = 1;
-pub(super) const EBUSY: u64 = 16;
-pub(super) const EINVAL: u64 = 22;
-
-pub(super) const ETIMEDOUT: u64 = if cfg!(target_os = "macos") {
-    60
-} else {
-    110
-};
+pub(super) use crate::interp::errno::{EBUSY, EINVAL, EPERM, ETIMEDOUT_HOST as ETIMEDOUT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Block {

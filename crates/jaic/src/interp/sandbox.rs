@@ -35,14 +35,8 @@ use guest::{
 };
 use libc_fn::LibcFn;
 
-const EPERM: u64 = 1;
-const ENOENT: u64 = 2;
-const EBADF: u64 = 9;
-const EEXIST: u64 = 17;
-const ENOTDIR: u64 = 20;
-const EISDIR: u64 = 21;
-const EINVAL: u64 = 22;
-const ENOTEMPTY: u64 = 39;
+use super::errno::{EBADF, EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
+
 const O_ACCMODE: u64 = 3;
 const O_WRONLY: u64 = 1;
 const O_RDWR: u64 = 2;
