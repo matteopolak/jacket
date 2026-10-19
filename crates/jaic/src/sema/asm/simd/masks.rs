@@ -1,7 +1,7 @@
 //! Mask registers, compress and expand, ternary logic, AES and scatter.
 use super::dispatch::SimdLocals;
 use super::helpers::{load_dyn, mask_bit, mix_columns, store_dyn, when, xor8};
-use super::{AesOp, SOp};
+use super::{AesOp, VOp};
 use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Result, Ty, UnOp, Val, bin, cmp, err, is_neg, konst,
@@ -26,10 +26,10 @@ impl Compiler {
             ..
         } = *c;
         match op {
-            SOp::Aes(..) | SOp::Scatter(..) | SOp::MaskMov(..) => {
+            VOp::Aes(..) | VOp::Scatter(..) | VOp::MaskMov(..) => {
                 self.simd_aes_scatter(f, cx, c, op)?;
             }
-            SOp::Compress(ty) => {
+            VOp::Compress(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let n = width / ty.size();
                 let all = konst(f, Ty::I64, u64::MAX);
@@ -70,7 +70,7 @@ impl Compiler {
                     self.simd_out(f, cx, dst, tmp, width, span)?;
                 }
             }
-            SOp::Expand(ty) => {
+            VOp::Expand(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let n = width / ty.size();
                 let all = konst(f, Ty::I64, u64::MAX);
@@ -95,7 +95,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Ternlog(ty) => {
+            VOp::Ternlog(ty) => {
                 let (s, k) = self.simd_args(f, ops, 3, true, span)?;
                 for i in 0..width / 8 {
                     let a = load_lane(f, s[0], i, Ty::I64);
@@ -134,7 +134,7 @@ impl Compiler {
                 let _ = ty;
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Dp(ty) => {
+            VOp::Dp(ty) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 let per = 16 / ty.size();
                 for blk in 0..width / 16 {
@@ -170,7 +170,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Pclmul(fixed) => {
+            VOp::Pclmul(fixed) => {
                 let (s, k) = match fixed {
                     Some(k) => (self.simd_args(f, ops, 2, false, span)?.0, k as u64),
                     None => self.simd_args(f, ops, 2, true, span)?,
@@ -194,7 +194,7 @@ impl Compiler {
         f: &mut FnCtx,
         cx: &mut AsmCtx,
         c: &SimdLocals<'_>,
-        op: SOp,
+        op: VOp,
     ) -> Result<()> {
         let span = c.span;
         let name = c.name;
@@ -204,7 +204,7 @@ impl Compiler {
         let wm = c.wm;
         let ops = c.ops;
         match op {
-            SOp::Aes(aes) => {
+            VOp::Aes(aes) => {
                 let (s, k) = match aes {
                     AesOp::Imc => self.simd_args(f, ops, 1, false, span)?,
                     AesOp::KeygenAssist => self.simd_args(f, ops, 1, true, span)?,
@@ -279,7 +279,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, blocks * 16, span)?;
             }
-            SOp::Scatter(index_size, elem_size) => {
+            VOp::Scatter(index_size, elem_size) => {
                 let (
                     VOpd::Vsib {
                         base,
@@ -319,7 +319,7 @@ impl Compiler {
                     f.b.store(Ty::I64, reg, z);
                 }
             }
-            SOp::MaskMov(ty) => {
+            VOp::MaskMov(ty) => {
                 if ops.len() != 3 {
                     return err(span, format!("`{name}` takes 3 operands"));
                 }

@@ -1,10 +1,10 @@
 //! Lane sizes, mnemonic tables and the lookups from names to operations.
 use super::ext::{GfOp, ShaOp};
-use super::{AesOp, B2, Conv, DupKind, FmaKind, SOp, Sat, U1};
+use super::{AesOp, B2, Conv, DupKind, FmaKind, Sat, U1, VOp};
 use crate::sema::asm::Ty;
 
-pub(in crate::sema::asm) fn elem_size(op: SOp) -> u64 {
-    use SOp::{
+pub(in crate::sema::asm) fn elem_size(op: VOp) -> u64 {
+    use VOp::{
         AddSub, Aes, Bin, BlendImm, BlendMask, BlendVar, BroadcastMask, ByteShift, Compress, Cvt,
         DotAcc, Dp, Expand, Extend, Extract, FCmp, Fma, Gf, Half, Horizontal, Insert, IntCmp,
         Madd52, MaskMov, MaskToVec, MovHalf, Mpsadbw, MulEven, Narrow, Pack, Palignr, Pclmul, Perm,
@@ -67,57 +67,48 @@ pub(in crate::sema::asm) fn elem_size(op: SOp) -> u64 {
 }
 
 /// The class of a fresh `name:` destination.
-pub(in crate::sema::asm) fn dst_class(op: SOp, width: u64) -> &'static str {
+pub(in crate::sema::asm) fn dst_class(op: VOp, width: u64) -> &'static str {
     match op {
-        SOp::IntCmp(..) | SOp::Testm(..) | SOp::VecToMask(_) => "omr",
-        SOp::FCmp(..) if width == 64 => "omr",
-        SOp::Pextr(_)
-        | SOp::Extractps
-        | SOp::Cvt(Conv::ScalarToGpr(..))
-        | SOp::Pcmpstr(_, false) => "gpr",
+        VOp::IntCmp(..) | VOp::Testm(..) | VOp::VecToMask(_) => "omr",
+        VOp::FCmp(..) if width == 64 => "omr",
+        VOp::Pextr(_)
+        | VOp::Extractps
+        | VOp::Cvt(Conv::ScalarToGpr(..))
+        | VOp::Pcmpstr(_, false) => "gpr",
         _ => "vec",
     }
 }
 
 /// Instructions that have a 64-bit MMX (`.q`) form.
-pub(in crate::sema::asm) fn mmx_capable(op: SOp) -> bool {
+pub(in crate::sema::asm) fn mmx_capable(op: VOp) -> bool {
     matches!(
         op,
-        SOp::Bin(..)
-            | SOp::Horizontal(_, _, Ty::I16 | Ty::I32)
-            | SOp::Pmaddwd
-            | SOp::Pmaddubsw
-            | SOp::Psadbw
-            | SOp::MulEven(false)
-            | SOp::Unpack(..)
-            | SOp::Pack(..)
-            | SOp::Pshufb
-            | SOp::Palignr
+        VOp::Bin(..)
+            | VOp::Horizontal(_, _, Ty::I16 | Ty::I32)
+            | VOp::Pmaddwd
+            | VOp::Pmaddubsw
+            | VOp::Psadbw
+            | VOp::MulEven(false)
+            | VOp::Unpack(..)
+            | VOp::Pack(..)
+            | VOp::Pshufb
+            | VOp::Palignr
     )
 }
 
 /// Instructions that apply a `{k}` write mask themselves (no lane merge afterwards).
-pub(in crate::sema::asm) fn consumes_mask(op: SOp) -> bool {
+pub(in crate::sema::asm) fn consumes_mask(op: VOp) -> bool {
     matches!(
         op,
-        SOp::BlendMask(_)
-            | SOp::Compress(_)
-            | SOp::Scatter(..)
-            | SOp::IntCmp(..)
-            | SOp::Testm(..)
-            | SOp::VecToMask(_)
-            | SOp::FCmp(..)
-            | SOp::Half(true)
+        VOp::BlendMask(_)
+            | VOp::Compress(_)
+            | VOp::Scatter(..)
+            | VOp::IntCmp(..)
+            | VOp::Testm(..)
+            | VOp::VecToMask(_)
+            | VOp::FCmp(..)
+            | VOp::Half(true)
     )
-}
-
-/// The element an embedded broadcast (`[mem]!`) repeats; the masking element otherwise.
-pub(in crate::sema::asm) fn broadcast_size(op: SOp) -> u64 {
-    match op {
-        // The affine matrix operand is one 64-bit matrix per qword.
-        SOp::Gf(GfOp::Affine(_)) => 8,
-        _ => elem_size(op),
-    }
 }
 
 fn int_letter(c: &str) -> Option<Ty> {
@@ -145,8 +136,8 @@ fn size_letter(c: char) -> Option<Ty> {
 }
 
 /// Instructions whose name alone says what they do.
-const NAMED: &[(&str, SOp)] = {
-    use SOp::{
+const NAMED: &[(&str, VOp)] = {
+    use VOp::{
         AddSub, Aes, Bin, BlendImm, BlendMask, BlendVar, BroadcastMask, ByteShift, Comis, Compress,
         Cvt, DotAcc, Dp, Dup, Expand, Extract, Extractps, Gf, Half, Horizontal, Insert, Insertps,
         Madd52, MaskMov, MovHalf, Movhlps, Movlhps, Mpsadbw, MulEven, Pack, Palignr, Pclmul,
@@ -408,15 +399,15 @@ const NAMED: &[(&str, SOp)] = {
 };
 
 /// Builds a family's operation from its lane type.
-type IntFamily = fn(Ty) -> SOp;
+type IntFamily = fn(Ty) -> VOp;
 
 /// Builds a family's operation from its lane type and whether the form is scalar.
-type FloatFamily = fn(Ty, bool) -> SOp;
+type FloatFamily = fn(Ty, bool) -> VOp;
 
 /// Families named by a prefix and an integer lane letter (`b`, `w`, `d`, `q`): `psllvd`,
 /// `pcmpuw`, `pextrb`.
 const INT_LANE_FAMILIES: &[(&str, IntFamily)] = {
-    use SOp::{
+    use VOp::{
         Bin, BlendMask, Compress, Expand, IntCmp, MaskToVec, Perm, PermTwo, Pextr, Pinsr, RotImm,
         Testm, Unary,
     };
@@ -452,7 +443,7 @@ const INT_LANE_FAMILIES: &[(&str, IntFamily)] = {
 /// Families named by a prefix and a float form (`ps`, `pd`, `ss`, `sd`), with whether the
 /// family has scalar forms.
 const FLOAT_FORM_FAMILIES: &[(&str, bool, FloatFamily)] = {
-    use SOp::{FCmp, Round, Unary};
+    use VOp::{FCmp, Round, Unary};
     &[
         ("cmp", true, FCmp),
         ("round", true, Round),
@@ -466,7 +457,7 @@ const FLOAT_FORM_FAMILIES: &[(&str, bool, FloatFamily)] = {
     ]
 };
 
-pub(in crate::sema::asm) fn lookup_simd(name: &str) -> Option<SOp> {
+pub(in crate::sema::asm) fn lookup_simd(name: &str) -> Option<VOp> {
     if let Some(&(_, op)) = NAMED.iter().find(|(named, _)| *named == name) {
         return Some(op);
     }
@@ -487,11 +478,11 @@ pub(in crate::sema::asm) fn lookup_simd(name: &str) -> Option<SOp> {
 
 /// The `pmov` conversions spelled with lane letters: `pmov<t>2m`, `pmovsx`/`pmovzx<from><to>`
 /// and `pmov[s|us]<from><to>`.
-fn lane_conversion(name: &str) -> Option<SOp> {
+fn lane_conversion(name: &str) -> Option<VOp> {
     if let Some(rest) = name.strip_prefix("pmov")
         && let Some(t) = rest.strip_suffix("2m").and_then(int_letter)
     {
-        return Some(SOp::VecToMask(t));
+        return Some(VOp::VecToMask(t));
     }
     // pmovsx / pmovzx <from><to>
     for (prefix, signed) in [("pmovsx", true), ("pmovzx", false)] {
@@ -501,7 +492,7 @@ fn lane_conversion(name: &str) -> Option<SOp> {
             if c.next().is_some() || from.size() >= to.size() {
                 return None;
             }
-            return Some(SOp::Extend(from, to, signed));
+            return Some(VOp::Extend(from, to, signed));
         }
     }
     // pmov[s|us]<from><to> down-conversions (pmovwb, pmovsdb, pmovusqd...).
@@ -521,14 +512,14 @@ fn lane_conversion(name: &str) -> Option<SOp> {
             if from.size() <= to.size() {
                 continue;
             }
-            return Some(SOp::Narrow(from, to, sat));
+            return Some(VOp::Narrow(from, to, sat));
         }
     }
     None
 }
 
 /// FMA: `f[n]m{add,sub,addsub,subadd}{132,213,231}{ps,pd,ss,sd}`.
-fn fma(name: &str) -> Option<SOp> {
+fn fma(name: &str) -> Option<VOp> {
     let rest = name.strip_prefix('f')?;
     let (neg, rest) = match rest.strip_prefix('n') {
         Some(r) => (true, r),
@@ -570,5 +561,5 @@ fn fma(name: &str) -> Option<SOp> {
     if scalar && matches!(kind, FmaKind::MaddSub | FmaKind::MsubAdd) {
         return None;
     }
-    Some(SOp::Fma(kind, order, t, scalar))
+    Some(VOp::Fma(kind, order, t, scalar))
 }

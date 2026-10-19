@@ -1,7 +1,7 @@
 //! Per-lane arithmetic and multiplies.
 use super::dispatch::SimdLocals;
 use super::helpers::{from_f64, round_f64, saturate, to_f64};
-use super::{B2, FmaKind, SOp, U1};
+use super::{B2, FmaKind, U1, VOp};
 use crate::sema::asm::vec::{load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Ty, UnOp, bin, bit_intrinsic, bits,
@@ -25,7 +25,7 @@ impl Compiler {
             ..
         } = *c;
         match op {
-            SOp::Bin(b2, ty) => {
+            VOp::Bin(b2, ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 for i in 0..width / ty.size() {
                     let a = load_lane(f, s[0], i, ty);
@@ -35,7 +35,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::RotImm(left, ty) => {
+            VOp::RotImm(left, ty) => {
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 let c = konst(f, ty, k % bits(ty));
                 for i in 0..width / ty.size() {
@@ -55,13 +55,13 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Unary(u, ty) => self.simd_unary(f, cx, c, u, ty)?,
-            SOp::Round(ty, scalar) => self.simd_round(f, cx, c, ty, scalar)?,
-            SOp::Fma(kind, order, ty, scalar) => {
+            VOp::Unary(u, ty) => self.simd_unary(f, cx, c, u, ty)?,
+            VOp::Round(ty, scalar) => self.simd_round(f, cx, c, ty, scalar)?,
+            VOp::Fma(kind, order, ty, scalar) => {
                 self.simd_fma(f, cx, c, (kind, order), ty, scalar)?;
             }
-            SOp::Horizontal(sub, sat, ty) => self.simd_horizontal(f, cx, c, sub, sat, ty)?,
-            SOp::AddSub(ty) => {
+            VOp::Horizontal(sub, sat, ty) => self.simd_horizontal(f, cx, c, sub, sat, ty)?,
+            VOp::AddSub(ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 for i in 0..width / ty.size() {
                     let x = load_lane(f, s[0], i, ty);
@@ -385,9 +385,9 @@ impl Compiler {
             ..
         } = *c;
         match op {
-            SOp::Pmaddwd | SOp::Pmaddubsw => {
+            VOp::Pmaddwd | VOp::Pmaddubsw => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                let (src, out) = if op == SOp::Pmaddwd {
+                let (src, out) = if op == VOp::Pmaddwd {
                     (Ty::I16, Ty::I32)
                 } else {
                     (Ty::I8, Ty::I16)
@@ -398,7 +398,7 @@ impl Compiler {
                         let a = load_lane(f, s[0], 2 * i + k, src);
                         let b = load_lane(f, s[1], 2 * i + k, src);
                         // pmaddubsw: unsigned bytes of the first source times signed bytes.
-                        let a = resize(f, a, src, Ty::I32, op == SOp::Pmaddwd);
+                        let a = resize(f, a, src, Ty::I32, op == VOp::Pmaddwd);
                         let b = resize(f, b, src, Ty::I32, true);
                         let p = bin(f, BinOp::Mul, Ty::I32, a, b);
                         sum = bin(f, BinOp::Add, Ty::I32, sum, p);
@@ -412,7 +412,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Psadbw => {
+            VOp::Psadbw => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 for i in 0..width / 8 {
                     let mut sum = konst(f, Ty::I64, 0);
@@ -431,7 +431,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Mpsadbw => {
+            VOp::Mpsadbw => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 // Each 128-bit block takes 3 bits of the immediate: the first source starts
                 // at byte 4 * bit 2, the second at byte 4 * bits 1:0.
@@ -456,7 +456,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Madd52(high) => {
+            VOp::Madd52(high) => {
                 let (s, _) = self.simd_args(f, ops, 3, false, span)?;
                 let mask = konst(f, Ty::I64, (1 << 52) - 1);
                 for i in 0..width / 8 {
@@ -481,7 +481,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::MulEven(signed) => {
+            VOp::MulEven(signed) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 for i in 0..width / 8 {
                     let a = load_lane(f, s[0], 2 * i, Ty::I32);
@@ -493,7 +493,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::DotAcc(src) => {
+            VOp::DotAcc(src) => {
                 let (s, _) = self.simd_args(f, ops, 3, false, span)?;
                 let per = 4 / src.size();
                 for i in 0..width / 4 {
@@ -511,7 +511,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Phminposuw => {
+            VOp::Phminposuw => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let mut best = load_lane(f, s[0], 0, Ty::I16);
                 let mut at = konst(f, Ty::I16, 0);

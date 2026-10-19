@@ -3,7 +3,7 @@ use super::decode::Kind;
 use crate::ir::{BinOp, Ty};
 use crate::sema::asm::mask::KOp;
 use crate::sema::asm::scalar::{Rep, StrOp, XOp};
-use crate::sema::asm::simd::{AesOp, B2, Conv, DupKind, FmaKind, GfOp, SOp, Sat, ShaOp, U1};
+use crate::sema::asm::simd::{AesOp, B2, Conv, DupKind, FmaKind, GfOp, Sat, ShaOp, U1};
 use crate::sema::asm::vec::{Cvt, Lane, Shift, VOp};
 use crate::sema::asm::{Alu, BitTest, Cond, Op, ShiftKind};
 
@@ -342,7 +342,7 @@ fn describe_vector(name: &str, op: VOp) -> String {
         VOp::Broadcast(bytes) => format!(
             "Repeat the first {bytes} bytes of the source across the whole destination."
         ),
-        VOp::Bin(lane, ty, scalar) => {
+        VOp::Lanes(lane, ty, scalar) => {
             let f = float_lanes(ty, scalar);
             let i = lanes(ty);
             match lane {
@@ -382,7 +382,7 @@ fn describe_vector(name: &str, op: VOp) -> String {
         }
         VOp::Pshufd => "Rearrange the dwords within each 128-bit block as chosen by the immediate's 2-bit fields.".into(),
         VOp::Shufps => "Take two floats per 128-bit block from each source, as chosen by the immediate.".into(),
-        VOp::Cvt(c) => match c {
+        VOp::CvtDq(c) => match c {
             Cvt::IntToFloat => "Convert packed signed dwords to single-precision floats.".into(),
             Cvt::FloatToInt => "Convert packed single-precision floats to signed dwords, rounding to nearest even (or the `!n/!d/!u/!z` mode).".into(),
             Cvt::FloatToIntTrunc => "Convert packed single-precision floats to signed dwords, truncating toward zero.".into(),
@@ -395,13 +395,13 @@ fn describe_vector(name: &str, op: VOp) -> String {
         ),
         VOp::Nop if name == "emms" => "Leave MMX state (no effect here).".into(),
         VOp::Nop => "Clear the upper parts of the vector registers (no effect here: declared registers are locals).".into(),
-        VOp::Ext(s) => describe_simd(name, s),
+        _ => describe_simd(name, op),
     }
 }
 
-fn describe_simd(name: &str, op: SOp) -> String {
+fn describe_simd(name: &str, op: VOp) -> String {
     match op {
-        SOp::Bin(b, ty) => {
+        VOp::Bin(b, ty) => {
             let i = lanes(ty);
             match b {
                 B2::AddSatS => format!("Add packed signed {i}, clamping to the signed range."),
@@ -420,23 +420,23 @@ fn describe_simd(name: &str, op: SOp) -> String {
                 B2::Rorv => format!("Rotate each of the packed {i} right by its own count."),
             }
         }
-        SOp::RotImm(left, ty) => format!(
+        VOp::RotImm(left, ty) => format!(
             "Rotate packed {} {} by an immediate.",
             lanes(ty),
             if left { "left" } else { "right" }
         ),
-        SOp::Unary(u, ty) => match u {
+        VOp::Unary(u, ty) => match u {
             U1::Popcnt => format!("Count the set bits in each of the packed {}.", lanes(ty)),
             U1::Lzcnt => format!("Count the leading zero bits in each of the packed {}.", lanes(ty)),
             U1::Conflict => format!("For each of the packed {}, a bit mask of the earlier lanes holding the same value.", lanes(ty)),
             U1::Rcp => format!("Reciprocal of {} (exact here; hardware approximates).", float_lanes(ty, false)),
             U1::Rsqrt => format!("Reciprocal square root of {} (exact here; hardware approximates).", float_lanes(ty, false)),
         },
-        SOp::Round(ty, scalar) => format!(
+        VOp::Round(ty, scalar) => format!(
             "Round {} to an integral value with the mode in the immediate.",
             float_lanes(ty, scalar)
         ),
-        SOp::Fma(kind, order, ty, scalar) => {
+        VOp::Fma(kind, order, ty, scalar) => {
             let (x, y, z) = match order {
                 132 => ("dst", "b", "a"),
                 213 => ("a", "dst", "b"),
@@ -452,94 +452,94 @@ fn describe_simd(name: &str, op: SOp) -> String {
             };
             format!("Fused multiply-add with one rounding on {}: {what}.", float_lanes(ty, scalar))
         }
-        SOp::Horizontal(sub, sat, ty) => format!(
+        VOp::Horizontal(sub, sat, ty) => format!(
             "{} adjacent pairs of {} from both sources{}.",
             if sub { "Subtract" } else { "Add" },
             lanes(ty),
             if sat { " with signed saturation" } else { "" }
         ),
-        SOp::AddSub(ty) => format!(
+        VOp::AddSub(ty) => format!(
             "Subtract in even lanes and add in odd lanes of {}.",
             float_lanes(ty, false)
         ),
-        SOp::Pmaddwd => "Multiply signed words and add adjacent products into dwords.".into(),
-        SOp::Pmaddubsw => "Multiply unsigned bytes by signed bytes and add adjacent products into saturated words.".into(),
-        SOp::Mpsadbw => "Sums of absolute differences of 4-byte groups of the first source against 4 bytes of the second, chosen by the immediate, into 8 words per 128 bits.".into(),
-        SOp::Madd52(high) => format!(
+        VOp::Pmaddwd => "Multiply signed words and add adjacent products into dwords.".into(),
+        VOp::Pmaddubsw => "Multiply unsigned bytes by signed bytes and add adjacent products into saturated words.".into(),
+        VOp::Mpsadbw => "Sums of absolute differences of 4-byte groups of the first source against 4 bytes of the second, chosen by the immediate, into 8 words per 128 bits.".into(),
+        VOp::Madd52(high) => format!(
             "Multiply the low 52 bits of each qword and add the {} 52 bits of the product to the accumulator.",
             if high { "high" } else { "low" }
         ),
-        SOp::Psadbw => "Sum of absolute byte differences over each group of 8 bytes, into a qword.".into(),
-        SOp::MulEven(signed) => format!(
+        VOp::Psadbw => "Sum of absolute byte differences over each group of 8 bytes, into a qword.".into(),
+        VOp::MulEven(signed) => format!(
             "Multiply the even {} dwords into full 64-bit products.",
             if signed { "signed" } else { "unsigned" }
         ),
-        SOp::DotAcc(Ty::I8) => "Dot product of groups of 4 unsigned by signed bytes, added into the dword accumulator.".into(),
-        SOp::DotAcc(_) => "Dot product of pairs of signed words, added into the dword accumulator.".into(),
-        SOp::Phminposuw => "Find the smallest unsigned word and its index, into the low dword.".into(),
-        SOp::Unpack(high, ty) => format!(
+        VOp::DotAcc(Ty::I8) => "Dot product of groups of 4 unsigned by signed bytes, added into the dword accumulator.".into(),
+        VOp::DotAcc(_) => "Dot product of pairs of signed words, added into the dword accumulator.".into(),
+        VOp::Phminposuw => "Find the smallest unsigned word and its index, into the low dword.".into(),
+        VOp::Unpack(high, ty) => format!(
             "Interleave the {} {} of each 128-bit block of the two sources.",
             if high { "upper" } else { "lower" },
             if name.starts_with('u') { lanes(if ty == Ty::I32 { Ty::F32 } else { Ty::F64 }) } else { lanes(ty) }
         ),
-        SOp::ShufHalf(high) => format!(
+        VOp::ShufHalf(high) => format!(
             "Rearrange the four {} words of each 128-bit block by the immediate; the rest is copied.",
             if high { "upper" } else { "lower" }
         ),
-        SOp::Shufpd => "Pick one double per 128-bit block from each source, as chosen by the immediate.".into(),
-        SOp::Palignr => "Concatenate each pair of 128-bit blocks and extract 16 bytes at the immediate byte offset.".into(),
-        SOp::Valign(ty) => format!(
+        VOp::Shufpd => "Pick one double per 128-bit block from each source, as chosen by the immediate.".into(),
+        VOp::Palignr => "Concatenate each pair of 128-bit blocks and extract 16 bytes at the immediate byte offset.".into(),
+        VOp::Valign(ty) => format!(
             "Concatenate the sources and extract a vector shifted right by the immediate in {}.",
             lanes(ty)
         ),
-        SOp::ByteShift(left) => format!(
+        VOp::ByteShift(left) => format!(
             "Shift each 128-bit block {} by the immediate number of bytes.",
             if left { "left" } else { "right" }
         ),
-        SOp::BlendImm(ty) => format!("Choose each of the {} from either source by the immediate's bits.", lanes(ty)),
-        SOp::BlendVar(ty) => format!("Choose each of the {} from either source by the sign bit of the mask vector.", lanes(ty)),
-        SOp::BlendMask(ty) => format!("Choose each of the {} from either source by the `&k` mask.", lanes(ty)),
-        SOp::Pshufb => "Shuffle bytes within each 128-bit block by the indexes in the second source; a set top bit zeroes.".into(),
-        SOp::Perm(Ty::I64) => "Permute qwords across the whole vector by an index vector, or within each 256-bit half by the immediate.".into(),
-        SOp::Perm(ty) => format!("Permute {} across the whole vector by an index vector.", lanes(ty)),
-        SOp::PermTwo(ty, overwrite_index) => format!(
+        VOp::BlendImm(ty) => format!("Choose each of the {} from either source by the immediate's bits.", lanes(ty)),
+        VOp::BlendVar(ty) => format!("Choose each of the {} from either source by the sign bit of the mask vector.", lanes(ty)),
+        VOp::BlendMask(ty) => format!("Choose each of the {} from either source by the `&k` mask.", lanes(ty)),
+        VOp::Pshufb => "Shuffle bytes within each 128-bit block by the indexes in the second source; a set top bit zeroes.".into(),
+        VOp::Perm(Ty::I64) => "Permute qwords across the whole vector by an index vector, or within each 256-bit half by the immediate.".into(),
+        VOp::Perm(ty) => format!("Permute {} across the whole vector by an index vector.", lanes(ty)),
+        VOp::PermTwo(ty, overwrite_index) => format!(
             "Permute {} from a table of two vectors, overwriting the {}.",
             lanes(ty),
             if overwrite_index { "index operand" } else { "first table operand" }
         ),
-        SOp::PermilImm(ty) => format!(
+        VOp::PermilImm(ty) => format!(
             "Permute {} within each 128-bit block by an immediate or a control vector.",
             lanes(if ty == Ty::I32 { Ty::F32 } else { Ty::F64 })
         ),
-        SOp::Perm2x128 => "Build each 128-bit half from any half of either source, or zero, by the immediate.".into(),
-        SOp::Shuf128(_) => "Pick 128-bit blocks from both sources by the immediate.".into(),
-        SOp::Insert(bytes, _) => format!(
+        VOp::Perm2x128 => "Build each 128-bit half from any half of either source, or zero, by the immediate.".into(),
+        VOp::Shuf128(_) => "Pick 128-bit blocks from both sources by the immediate.".into(),
+        VOp::Insert(bytes, _) => format!(
             "Copy the first source and replace the {}-bit block selected by the immediate with the second.",
             bytes * 8
         ),
-        SOp::Extract(bytes, _) => format!("Extract the {}-bit block selected by the immediate.", bytes * 8),
-        SOp::Pinsr(ty) => format!("Insert one of the {} from a register or memory at the lane in the immediate.", lanes(ty)),
-        SOp::Pextr(ty) => format!("Extract one of the {} at the lane in the immediate.", lanes(ty)),
-        SOp::Insertps => "Insert a float from the source at a lane, and zero lanes, as the immediate says.".into(),
-        SOp::Extractps => "Extract the float at the lane in the immediate as 32 bits.".into(),
-        SOp::MovHalf(high) => format!(
+        VOp::Extract(bytes, _) => format!("Extract the {}-bit block selected by the immediate.", bytes * 8),
+        VOp::Pinsr(ty) => format!("Insert one of the {} from a register or memory at the lane in the immediate.", lanes(ty)),
+        VOp::Pextr(ty) => format!("Extract one of the {} at the lane in the immediate.", lanes(ty)),
+        VOp::Insertps => "Insert a float from the source at a lane, and zero lanes, as the immediate says.".into(),
+        VOp::Extractps => "Extract the float at the lane in the immediate as 32 bits.".into(),
+        VOp::MovHalf(high) => format!(
             "Load or store the {} 64 bits of a vector, keeping the rest.",
             if high { "upper" } else { "lower" }
         ),
-        SOp::Movhlps => "Move the upper 64 bits of the source to the lower 64 bits of the destination.".into(),
-        SOp::Movlhps => "Move the lower 64 bits of the source to the upper 64 bits of the destination.".into(),
-        SOp::Dup(kind) => match kind {
+        VOp::Movhlps => "Move the upper 64 bits of the source to the lower 64 bits of the destination.".into(),
+        VOp::Movlhps => "Move the lower 64 bits of the source to the upper 64 bits of the destination.".into(),
+        VOp::Dup(kind) => match kind {
             DupKind::Low64 => "Duplicate the even doubles.".into(),
             DupKind::OddF32 => "Duplicate the odd single-precision floats.".into(),
             DupKind::EvenF32 => "Duplicate the even single-precision floats.".into(),
         },
-        SOp::Extend(from, to, signed) => format!(
+        VOp::Extend(from, to, signed) => format!(
             "{} packed {} to {}.",
             if signed { "Sign-extend" } else { "Zero-extend" },
             lanes(from),
             lanes(to)
         ),
-        SOp::Narrow(from, to, sat) => format!(
+        VOp::Narrow(from, to, sat) => format!(
             "Narrow packed {} to {}{}.",
             lanes(from),
             lanes(to),
@@ -549,12 +549,12 @@ fn describe_simd(name: &str, op: SOp) -> String {
                 Sat::Unsigned => " with unsigned saturation",
             }
         ),
-        SOp::Pack(from, unsigned) => format!(
+        VOp::Pack(from, unsigned) => format!(
             "Narrow the {} of both sources to half width with {} saturation.",
             lanes(from),
             if unsigned { "unsigned" } else { "signed" }
         ),
-        SOp::Cvt(conv) => match conv {
+        VOp::Cvt(conv) => match conv {
             Conv::IntToFloat(from, to, unsigned) => format!(
                 "Convert packed {} {} to {}.",
                 if unsigned { "unsigned" } else { "signed" },
@@ -585,40 +585,40 @@ fn describe_simd(name: &str, op: SOp) -> String {
                 if trunc { "truncating" } else { "rounding to nearest even" }
             ),
         },
-        SOp::FCmp(ty, scalar) => format!(
+        VOp::FCmp(ty, scalar) => format!(
             "Compare {} with the predicate in the immediate: all ones where true (a mask bit per lane into an omr).",
             float_lanes(ty, scalar)
         ),
-        SOp::IntCmp(ty, unsigned, _) => format!(
+        VOp::IntCmp(ty, unsigned, _) => format!(
             "Compare packed {} {} into a mask register, with the predicate in the immediate or the name.",
             if unsigned { "unsigned" } else { "signed" },
             lanes(ty)
         ),
-        SOp::Comis(ty) => format!(
+        VOp::Comis(ty) => format!(
             "Compare the low {} lanes and set ZF, PF and CF.",
             lanes(ty).trim_end_matches('s')
         ),
-        SOp::Ptest => "Set ZF if a AND b is zero and CF if b AND NOT a is zero.".into(),
-        SOp::Pcmpstr(explicit, mask) => format!(
+        VOp::Ptest => "Set ZF if a AND b is zero and CF if b AND NOT a is zero.".into(),
+        VOp::Pcmpstr(explicit, mask) => format!(
             "Compare two strings of bytes or words ({} lengths) as the control byte says and \
              write {}; CF, ZF, SF and OF describe the result.",
             if explicit { "explicit" } else { "zero-terminated" },
             if mask { "a mask into xmm0" } else { "an index into ecx" }
         ),
-        SOp::Testm(ty, not) => format!(
+        VOp::Testm(ty, not) => format!(
             "Set a mask bit for each of the {} where a AND b is {}.",
             lanes(ty),
             if not { "zero" } else { "non-zero" }
         ),
-        SOp::MaskToVec(ty) => format!("Expand each mask bit to all ones or zeros in the {}.", lanes(ty)),
-        SOp::VecToMask(ty) => format!("Collect the sign bit of each of the {} into a mask register.", lanes(ty)),
-        SOp::BroadcastMask(ty) => format!("Repeat the low bits of a mask register into every one of the {}.", lanes(ty)),
-        SOp::Compress(ty) => format!("Pack the {} selected by the `&k` mask contiguously into the destination.", lanes(ty)),
-        SOp::Expand(ty) => format!("Spread contiguous {} from the source to the lanes selected by the `&k` mask.", lanes(ty)),
-        SOp::Ternlog(_) => "Any three-input bitwise function, given as an 8-bit truth table in the immediate.".into(),
-        SOp::Dp(ty) => format!("Dot product of {} with lanes selected by the immediate.", float_lanes(ty, false)),
-        SOp::Pclmul(_) => "Carry-less multiply of two qwords (selected by the immediate or the name) into 128 bits.".into(),
-        SOp::Aes(aes) => match aes {
+        VOp::MaskToVec(ty) => format!("Expand each mask bit to all ones or zeros in the {}.", lanes(ty)),
+        VOp::VecToMask(ty) => format!("Collect the sign bit of each of the {} into a mask register.", lanes(ty)),
+        VOp::BroadcastMask(ty) => format!("Repeat the low bits of a mask register into every one of the {}.", lanes(ty)),
+        VOp::Compress(ty) => format!("Pack the {} selected by the `&k` mask contiguously into the destination.", lanes(ty)),
+        VOp::Expand(ty) => format!("Spread contiguous {} from the source to the lanes selected by the `&k` mask.", lanes(ty)),
+        VOp::Ternlog(_) => "Any three-input bitwise function, given as an 8-bit truth table in the immediate.".into(),
+        VOp::Dp(ty) => format!("Dot product of {} with lanes selected by the immediate.", float_lanes(ty, false)),
+        VOp::Pclmul(_) => "Carry-less multiply of two qwords (selected by the immediate or the name) into 128 bits.".into(),
+        VOp::Aes(aes) => match aes {
             AesOp::Enc => "One AES encryption round on each 128-bit block.".into(),
             AesOp::EncLast => "The last AES encryption round (no MixColumns).".into(),
             AesOp::Dec => "One AES decryption round on each 128-bit block.".into(),
@@ -626,9 +626,9 @@ fn describe_simd(name: &str, op: SOp) -> String {
             AesOp::Imc => "Apply inverse MixColumns to a round key (for decryption).".into(),
             AesOp::KeygenAssist => "Help expand an AES key: S-box and rotate words, XOR the round constant in the immediate.".into(),
         },
-        SOp::Half(false) => "Convert packed half-precision floats to single precision.".into(),
-        SOp::Half(true) => "Convert packed single-precision floats to half precision with the immediate's rounding mode.".into(),
-        SOp::Sha(sha) => match sha {
+        VOp::Half(false) => "Convert packed half-precision floats to single precision.".into(),
+        VOp::Half(true) => "Convert packed single-precision floats to half precision with the immediate's rounding mode.".into(),
+        VOp::Sha(sha) => match sha {
             ShaOp::Sha1Rnds4 => "Four SHA-1 rounds, with the round function chosen by the immediate.",
             ShaOp::Sha1Nexte => "Compute the SHA-1 state variable E after four rounds.",
             ShaOp::Sha1Msg1 => "First step of the SHA-1 message schedule.",
@@ -638,15 +638,16 @@ fn describe_simd(name: &str, op: SOp) -> String {
             ShaOp::Sha256Msg2 => "Final step of the SHA-256 message schedule.",
         }
         .into(),
-        SOp::Gf(GfOp::Mul) => "Multiply bytes in GF(2^8) modulo the AES polynomial.".into(),
-        SOp::Gf(GfOp::Affine(false)) => "Affine transform of each byte by an 8x8 bit matrix, XOR the immediate.".into(),
-        SOp::Gf(GfOp::Affine(true)) => "Affine transform of each byte's GF(2^8) inverse, XOR the immediate.".into(),
-        SOp::Scatter(index, elem) => format!(
+        VOp::Gf(GfOp::Mul) => "Multiply bytes in GF(2^8) modulo the AES polynomial.".into(),
+        VOp::Gf(GfOp::Affine(false)) => "Affine transform of each byte by an 8x8 bit matrix, XOR the immediate.".into(),
+        VOp::Gf(GfOp::Affine(true)) => "Affine transform of each byte's GF(2^8) inverse, XOR the immediate.".into(),
+        VOp::Scatter(index, elem) => format!(
             "Store {elem}-byte elements to base + index*scale for each {index}-byte index selected by the `&k` mask."
         ),
-        SOp::MaskMov(ty) => format!(
+        VOp::MaskMov(ty) => format!(
             "Load or store the {} whose mask lane has its sign bit set; other lanes load as zero.",
             lanes(ty)
         ),
+        _ => unreachable!("core vector ops are described by their own table"),
     }
 }

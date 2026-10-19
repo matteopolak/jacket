@@ -1,7 +1,7 @@
 //! Routing a SIMD operation to the group that lowers it.
-use super::SOp;
+use super::VOp;
 use super::helpers::WriteMask;
-use crate::sema::asm::vec::VOpd;
+use crate::sema::asm::vec::{VOpd, VecCall};
 use crate::sema::asm::{AsmCtx, AsmInst, Compiler, FnCtx, Result, Span, Val, err};
 
 #[derive(Clone, Copy)]
@@ -16,21 +16,18 @@ pub(super) struct SimdLocals<'a> {
     pub(super) wm: Option<WriteMask>,
     pub(super) ops: &'a [VOpd],
     pub(super) inst: &'a AsmInst,
-    pub(super) op: SOp,
+    pub(super) op: VOp,
 }
 
 impl Compiler {
-    #[allow(clippy::too_many_arguments)]
     pub(in crate::sema::asm) fn asm_simd(
         &mut self,
         f: &mut FnCtx,
         cx: &mut AsmCtx,
         inst: &AsmInst,
-        op: SOp,
-        ops: &[VOpd],
-        width: u64,
-        wm: Option<WriteMask>,
+        call: &VecCall,
     ) -> Result<()> {
+        let (op, ops, width, wm) = (call.op, &call.ops[..], call.width, call.writemask);
         let span = inst.span;
         let name = inst.mnemonic.name.as_str();
         let Some(&dst) = ops.first() else {
@@ -55,70 +52,71 @@ impl Compiler {
             op,
         };
         match op {
-            SOp::Bin(..)
-            | SOp::RotImm(..)
-            | SOp::Unary(..)
-            | SOp::Round(..)
-            | SOp::Fma(..)
-            | SOp::Horizontal(..)
-            | SOp::AddSub(..) => self.simd_lanes(f, cx, &c)?,
-            SOp::Pmaddwd
-            | SOp::Pmaddubsw
-            | SOp::Psadbw
-            | SOp::Mpsadbw
-            | SOp::Madd52(..)
-            | SOp::MulEven(..)
-            | SOp::DotAcc(..)
-            | SOp::Phminposuw => self.simd_multiply(f, cx, &c)?,
-            SOp::Unpack(..)
-            | SOp::ShufHalf(..)
-            | SOp::Shufpd
-            | SOp::Palignr
-            | SOp::Valign(..)
-            | SOp::ByteShift(..)
-            | SOp::BlendImm(..)
-            | SOp::BlendVar(..)
-            | SOp::BlendMask(..)
-            | SOp::Pshufb
-            | SOp::Perm(..)
-            | SOp::PermTwo(..)
-            | SOp::PermilImm(..)
-            | SOp::Perm2x128
-            | SOp::Shuf128(..) => self.simd_shuffle(f, cx, &c)?,
-            SOp::Insert(..)
-            | SOp::Extract(..)
-            | SOp::Pinsr(..)
-            | SOp::Pextr(..)
-            | SOp::Extractps
-            | SOp::Insertps
-            | SOp::MovHalf(..)
-            | SOp::Movhlps
-            | SOp::Movlhps
-            | SOp::Dup(..)
-            | SOp::Extend(..)
-            | SOp::Narrow(..)
-            | SOp::Pack(..)
-            | SOp::Cvt(..)
-            | SOp::Half(..)
-            | SOp::Sha(..)
-            | SOp::Gf(..) => self.simd_insert(f, cx, &c)?,
-            SOp::FCmp(..)
-            | SOp::IntCmp(..)
-            | SOp::Comis(..)
-            | SOp::Pcmpstr(..)
-            | SOp::Ptest
-            | SOp::Testm(..)
-            | SOp::VecToMask(..)
-            | SOp::MaskToVec(..)
-            | SOp::BroadcastMask(..) => self.simd_compare(f, cx, &c)?,
-            SOp::Compress(..)
-            | SOp::Expand(..)
-            | SOp::Ternlog(..)
-            | SOp::Dp(..)
-            | SOp::Pclmul(..)
-            | SOp::Aes(..)
-            | SOp::Scatter(..)
-            | SOp::MaskMov(..) => self.simd_masks(f, cx, &c)?,
+            VOp::Bin(..)
+            | VOp::RotImm(..)
+            | VOp::Unary(..)
+            | VOp::Round(..)
+            | VOp::Fma(..)
+            | VOp::Horizontal(..)
+            | VOp::AddSub(..) => self.simd_lanes(f, cx, &c)?,
+            VOp::Pmaddwd
+            | VOp::Pmaddubsw
+            | VOp::Psadbw
+            | VOp::Mpsadbw
+            | VOp::Madd52(..)
+            | VOp::MulEven(..)
+            | VOp::DotAcc(..)
+            | VOp::Phminposuw => self.simd_multiply(f, cx, &c)?,
+            VOp::Unpack(..)
+            | VOp::ShufHalf(..)
+            | VOp::Shufpd
+            | VOp::Palignr
+            | VOp::Valign(..)
+            | VOp::ByteShift(..)
+            | VOp::BlendImm(..)
+            | VOp::BlendVar(..)
+            | VOp::BlendMask(..)
+            | VOp::Pshufb
+            | VOp::Perm(..)
+            | VOp::PermTwo(..)
+            | VOp::PermilImm(..)
+            | VOp::Perm2x128
+            | VOp::Shuf128(..) => self.simd_shuffle(f, cx, &c)?,
+            VOp::Insert(..)
+            | VOp::Extract(..)
+            | VOp::Pinsr(..)
+            | VOp::Pextr(..)
+            | VOp::Extractps
+            | VOp::Insertps
+            | VOp::MovHalf(..)
+            | VOp::Movhlps
+            | VOp::Movlhps
+            | VOp::Dup(..)
+            | VOp::Extend(..)
+            | VOp::Narrow(..)
+            | VOp::Pack(..)
+            | VOp::Cvt(..)
+            | VOp::Half(..)
+            | VOp::Sha(..)
+            | VOp::Gf(..) => self.simd_insert(f, cx, &c)?,
+            VOp::FCmp(..)
+            | VOp::IntCmp(..)
+            | VOp::Comis(..)
+            | VOp::Pcmpstr(..)
+            | VOp::Ptest
+            | VOp::Testm(..)
+            | VOp::VecToMask(..)
+            | VOp::MaskToVec(..)
+            | VOp::BroadcastMask(..) => self.simd_compare(f, cx, &c)?,
+            VOp::Compress(..)
+            | VOp::Expand(..)
+            | VOp::Ternlog(..)
+            | VOp::Dp(..)
+            | VOp::Pclmul(..)
+            | VOp::Aes(..)
+            | VOp::Scatter(..)
+            | VOp::MaskMov(..) => self.simd_masks(f, cx, &c)?,
+            _ => unreachable!("core vector ops are lowered by the vector table"),
         }
         Ok(())
     }

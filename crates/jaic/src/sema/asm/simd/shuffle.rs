@@ -1,7 +1,7 @@
 //! Shuffles, blends, permutes and element insertion and extraction.
 use super::dispatch::SimdLocals;
 use super::helpers::{load_dyn, mask_bit, saturate};
-use super::{DupKind, SOp, Sat};
+use super::{DupKind, Sat, VOp};
 use crate::sema::asm::vec::{VOpd, lane_addr, load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Ty, bin, bits, cmp, err, is_neg,
@@ -27,13 +27,13 @@ impl Compiler {
             ..
         } = *c;
         match op {
-            SOp::Pshufb
-            | SOp::Perm(..)
-            | SOp::PermTwo(..)
-            | SOp::PermilImm(..)
-            | SOp::Perm2x128
-            | SOp::Shuf128(..) => self.simd_permutes(f, cx, c, op)?,
-            SOp::Unpack(high, ty) => {
+            VOp::Pshufb
+            | VOp::Perm(..)
+            | VOp::PermTwo(..)
+            | VOp::PermilImm(..)
+            | VOp::Perm2x128
+            | VOp::Shuf128(..) => self.simd_permutes(f, cx, c, op)?,
+            VOp::Unpack(high, ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let per = block / ty.size();
                 for blk in 0..width / block {
@@ -53,7 +53,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::ShufHalf(high) => {
+            VOp::ShufHalf(high) => {
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 f.b.copy(tmp, s[0], width);
                 for blk in 0..width / 16 {
@@ -71,7 +71,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Shufpd => {
+            VOp::Shufpd => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 for i in 0..width / 8 {
                     let blk = i / 2 * 2;
@@ -86,7 +86,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Palignr => {
+            VOp::Palignr => {
                 // Per block: bytes [imm, imm + block) of hi:lo (lo = second source).
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 for blk in 0..width / block {
@@ -104,7 +104,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Valign(ty) => {
+            VOp::Valign(ty) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 let n = width / ty.size();
                 let k = k % n;
@@ -119,7 +119,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::ByteShift(left) => {
+            VOp::ByteShift(left) => {
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 for blk in 0..width / 16 {
                     let base = blk * 16;
@@ -137,7 +137,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::BlendImm(ty) => {
+            VOp::BlendImm(ty) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 for i in 0..width / ty.size() {
                     let src = if (k >> (i % 8)) & 1 != 0 {
@@ -150,7 +150,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::BlendVar(ty) => {
+            VOp::BlendVar(ty) => {
                 let (s, _) = self.simd_args(f, ops, 3, false, span)?;
                 for i in 0..width / ty.size() {
                     let a = load_lane(f, s[0], i, ty);
@@ -162,7 +162,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::BlendMask(ty) => {
+            VOp::BlendMask(ty) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 for i in 0..width / ty.size() {
                     let a = load_lane(f, s[0], i, ty);
@@ -193,7 +193,7 @@ impl Compiler {
         f: &mut FnCtx,
         cx: &mut AsmCtx,
         c: &SimdLocals<'_>,
-        op: SOp,
+        op: VOp,
     ) -> Result<()> {
         let span = c.span;
         let name = c.name;
@@ -204,7 +204,7 @@ impl Compiler {
         let width = c.width;
         let ops = c.ops;
         match op {
-            SOp::Pshufb => {
+            VOp::Pshufb => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 // `ByteLookup` zeroes every index of 16 or more, pshufb only those with the top
                 // bit set: `& 0x8F` maps one onto the other (bits 4-6 are ignored by pshufb).
@@ -224,7 +224,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Perm(ty) if last_imm => {
+            VOp::Perm(ty) if last_imm => {
                 // permq/permpd imm: 64-bit lanes within each 256-bit half.
                 if ty != Ty::I64 {
                     return err(span, format!("`{name}` does not take an immediate"));
@@ -238,7 +238,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Perm(ty) => {
+            VOp::Perm(ty) => {
                 // `perm* dst, index, table`
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let n = width / ty.size();
@@ -252,7 +252,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::PermTwo(ty, index_in_dst) => {
+            VOp::PermTwo(ty, index_in_dst) => {
                 // permt2: dst = table1, (index, table2); permi2: dst = index, (table1, table2).
                 let (s, _) = self.simd_args(f, ops, 3, false, span)?;
                 let (idx, t1, t2) = if index_in_dst {
@@ -277,7 +277,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::PermilImm(ty) if !last_imm => {
+            VOp::PermilImm(ty) if !last_imm => {
                 // permilps/pd with a vector control: `permilps dst, src, control`.
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let per = 16 / ty.size();
@@ -298,7 +298,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::PermilImm(ty) => {
+            VOp::PermilImm(ty) => {
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 let per = 16 / ty.size();
                 for i in 0..width / ty.size() {
@@ -312,7 +312,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Perm2x128 => {
+            VOp::Perm2x128 => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 for half in 0..2 {
                     let sel = (k >> (4 * half)) & 0xf;
@@ -329,7 +329,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, 32, span)?;
             }
-            SOp::Shuf128(_) => {
+            VOp::Shuf128(_) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 let chunks = width / 16;
                 let bits_per = if chunks == 2 {
@@ -376,7 +376,7 @@ impl Compiler {
             ..
         } = *c;
         match op {
-            SOp::Insert(chunk, _) => {
+            VOp::Insert(chunk, _) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 f.b.copy(tmp, s[0], width);
                 let slots = (width / chunk).max(1);
@@ -384,14 +384,14 @@ impl Compiler {
                 f.b.copy(at, s[1], chunk);
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Extract(chunk, _) => {
+            VOp::Extract(chunk, _) => {
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 let slots = (width / chunk).max(1);
                 let from = lane_addr(f, s[0], (k % slots) * chunk);
                 f.b.copy(tmp, from, chunk);
                 self.simd_out(f, cx, dst, tmp, chunk, span)?;
             }
-            SOp::Pinsr(ty) => {
+            VOp::Pinsr(ty) => {
                 // `pinsrb dst, [a,] src, imm`: src is a general-purpose register or memory.
                 let (a, src, k) = match ops {
                     [_, src, VOpd::Imm(k)] => (self.vec_ptr(f, dst, span)?, *src, *k as u64),
@@ -403,9 +403,9 @@ impl Compiler {
                 store_lane(f, tmp, k % (16 / ty.size()), ty, v);
                 self.simd_out(f, cx, dst, tmp, 16, span)?;
             }
-            SOp::Pextr(_) | SOp::Extractps => {
+            VOp::Pextr(_) | VOp::Extractps => {
                 let ty = match op {
-                    SOp::Pextr(ty) => ty,
+                    VOp::Pextr(ty) => ty,
                     _ => Ty::I32,
                 };
                 let (src, k) = match ops {
@@ -427,7 +427,7 @@ impl Compiler {
                     _ => self.vec_scalar_write(f, dst, ty, v, span)?,
                 }
             }
-            SOp::Insertps => {
+            VOp::Insertps => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 let from_mem = matches!(ops[ops.len() - 2], VOpd::Mem(_));
                 let pick = if from_mem {
@@ -446,7 +446,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, 16, span)?;
             }
-            SOp::MovHalf(high) => {
+            VOp::MovHalf(high) => {
                 let at = if high {
                     8
                 } else {
@@ -465,10 +465,10 @@ impl Compiler {
                     self.simd_out(f, cx, dst, tmp, 16, span)?;
                 }
             }
-            SOp::Movhlps | SOp::Movlhps => {
+            VOp::Movhlps | VOp::Movlhps => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let hi = lane_addr(f, tmp, 8);
-                if op == SOp::Movhlps {
+                if op == VOp::Movhlps {
                     let b_hi = lane_addr(f, s[1], 8);
                     let a_hi = lane_addr(f, s[0], 8);
                     f.b.copy(tmp, b_hi, 8);
@@ -479,7 +479,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, 16, span)?;
             }
-            SOp::Dup(kind) => {
+            VOp::Dup(kind) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let (ty, pick) = match kind {
                     DupKind::Low64 => (Ty::I64, 0),
@@ -492,7 +492,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Extend(from, to, signed) => {
+            VOp::Extend(from, to, signed) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 for i in 0..width / to.size() {
                     let v = load_lane(f, s[0], i, from);
@@ -501,7 +501,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Narrow(from, to, sat) => {
+            VOp::Narrow(from, to, sat) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let n = width / from.size();
                 for i in 0..n {
@@ -520,7 +520,7 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, n * to.size(), span)?;
             }
-            SOp::Pack(from, unsigned) => {
+            VOp::Pack(from, unsigned) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let to = Ty::int(from.size() / 2);
                 let per = block / from.size();
@@ -542,10 +542,10 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            SOp::Cvt(conv) => self.simd_convert(f, cx, inst, conv, ops, width, tmp)?,
-            SOp::Half(to_half) => self.simd_half(f, cx, inst, to_half, ops, width, wm, tmp)?,
-            SOp::Sha(sha) => self.simd_sha(f, cx, inst, sha, ops, tmp)?,
-            SOp::Gf(gf) => self.simd_gf(f, cx, inst, gf, ops, width, tmp)?,
+            VOp::Cvt(conv) => self.simd_convert(f, cx, inst, conv, ops, width, tmp)?,
+            VOp::Half(to_half) => self.simd_half(f, cx, inst, to_half, ops, width, wm, tmp)?,
+            VOp::Sha(sha) => self.simd_sha(f, cx, inst, sha, ops, tmp)?,
+            VOp::Gf(gf) => self.simd_gf(f, cx, inst, gf, ops, width, tmp)?,
             _ => unreachable!("routed by asm_simd"),
         }
         Ok(())

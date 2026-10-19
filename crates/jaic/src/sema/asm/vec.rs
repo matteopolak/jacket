@@ -23,6 +23,7 @@ use super::{
 };
 
 mod groups;
+use super::simd::{AesOp, B2, Conv, DupKind, FmaKind, GfOp, Sat, ShaOp, U1};
 use crate::ast::AsmMemTerm;
 
 #[derive(Clone, Copy)]
@@ -45,7 +46,7 @@ pub(super) enum VOpd {
 }
 
 /// Lane-wise binary operations.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum Lane {
     Add,
     Sub,
@@ -68,14 +69,14 @@ pub(super) enum Lane {
     FMax,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum Shift {
     Left,
     Logical,
     Arith,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum Cvt {
     /// `cvtdq2ps`
     IntToFloat,
@@ -85,8 +86,10 @@ pub(super) enum Cvt {
     FloatToIntTrunc,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum VOp {
+/// Instruction semantics: what a mnemonic does (see `lookup_vector`). The first group is the
+/// core vector set, the rest the wider SSE..AVX-512 set (`asm/simd.rs`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(in crate::sema) enum VOp {
     Move,
     /// `movd` / `movq` between a vector register and a scalar (bytes moved).
     MovScalarInt(u64),
@@ -95,29 +98,123 @@ pub(super) enum VOp {
     /// Fill every lane of this many bytes from the source's first element.
     Broadcast(u64),
     /// (operation, lane type, scalar: only lane 0, the rest from the first source).
-    Bin(Lane, Ty, bool),
+    Lanes(Lane, Ty, bool),
     Sqrt(Ty, bool),
     Abs(Ty),
     Shift(Shift, Ty),
     Pshufd,
     Shufps,
-    Cvt(Cvt),
+    CvtDq(Cvt),
     /// Sign bits of each lane of this size into a general-purpose register.
     Movmsk(u64),
     /// (index size, element size).
     Gather(u64, u64),
     Nop,
-    /// Everything in `asm/simd.rs`.
-    Ext(simd::SOp),
+
+    Bin(B2, Ty),
+    /// `prold`/`prorq` by an immediate: (left, lane).
+    RotImm(bool, Ty),
+    Unary(U1, Ty),
+    /// `roundps`/`rndscaleps` (lane, scalar).
+    Round(Ty, bool),
+    /// (kind, operand order 132/213/231, lane, scalar).
+    Fma(FmaKind, u16, Ty, bool),
+    /// Pairwise horizontal add/sub (`phaddw`, `haddps`): (subtract, saturate, lane).
+    Horizontal(bool, bool, Ty),
+    AddSub(Ty),
+    Pmaddwd,
+    Pmaddubsw,
+    Psadbw,
+    /// `mpsadbw`: sums of absolute differences of 4-byte groups, picked by the immediate.
+    Mpsadbw,
+    /// `pmadd52luq` (false) / `pmadd52huq`: 52-bit multiply, low or high half added to qwords.
+    Madd52(bool),
+    /// `pmuludq` / `pmuldq` (signed).
+    MulEven(bool),
+    /// `pdpbusd` (bytes) / `pdpwssd` (words): dot products accumulated into dword lanes.
+    DotAcc(Ty),
+    Phminposuw,
+    /// `punpckl*`/`punpckh*`/`unpck*`: (high, lane).
+    Unpack(bool, Ty),
+    /// `pshufhw` (true) / `pshuflw`.
+    ShufHalf(bool),
+    Shufpd,
+    Palignr,
+    /// `alignd`/`alignq`: element-granular `palignr` across the whole vector.
+    Valign(Ty),
+    /// `pslldq` (true) / `psrldq`.
+    ByteShift(bool),
+    BlendImm(Ty),
+    BlendVar(Ty),
+    BlendMask(Ty),
+    Pshufb,
+    /// `permd`/`permps`/`permb`/`permw`/`permq`/`permpd`: (lane). `permq`/`permpd` with an
+    /// immediate permute 64-bit lanes within each 256-bit half.
+    Perm(Ty),
+    /// `permt2*` (false) / `permi2*` (true).
+    PermTwo(Ty, bool),
+    /// `permilps`/`permilpd` with an immediate or a vector control.
+    PermilImm(Ty),
+    Perm2x128,
+    /// `shufi32x4`...: 128-bit chunks from both sources (lane size for masking).
+    Shuf128(Ty),
+    /// Insert / extract a chunk of this many bytes (lane size for masking).
+    Insert(u64, Ty),
+    Extract(u64, Ty),
+    Pinsr(Ty),
+    Pextr(Ty),
+    Insertps,
+    Extractps,
+    /// `movhps`/`movhpd` (true) or `movlps`/`movlpd`: 64-bit half loads and stores.
+    MovHalf(bool),
+    Movhlps,
+    Movlhps,
+    Dup(DupKind),
+    /// `pmovsx*` / `pmovzx*`: (from, to, signed).
+    Extend(Ty, Ty, bool),
+    /// `pmov*` down-conversions: (from, to, saturation).
+    Narrow(Ty, Ty, Sat),
+    /// `pack*`: (from lane, unsigned saturation).
+    Pack(Ty, bool),
+    Cvt(Conv),
+    /// `cmpps` & co. with a predicate immediate: (lane, scalar).
+    FCmp(Ty, bool),
+    /// AVX-512 integer compares into a mask: (lane, unsigned, fixed predicate).
+    IntCmp(Ty, bool, Option<u8>),
+    /// `comiss`/`ucomiss`/`comisd`/`ucomisd`.
+    Comis(Ty),
+    Ptest,
+    /// `pcmpistri/pcmpestri/pcmpistrm/pcmpestrm`: (explicit lengths, mask result).
+    Pcmpstr(bool, bool),
+    /// `ptestm*` (false) / `ptestnm*` (true).
+    Testm(Ty, bool),
+    MaskToVec(Ty),
+    VecToMask(Ty),
+    BroadcastMask(Ty),
+    Compress(Ty),
+    Expand(Ty),
+    Ternlog(Ty),
+    /// `dpps` / `dppd`.
+    Dp(Ty),
+    /// `pclmulqdq imm` (None) or `pclmul{l,h}q{l,h}qdq` (the immediate).
+    Pclmul(Option<u8>),
+    Aes(AesOp),
+    /// F16C `cvtph2ps` (false) / `cvtps2ph` (true).
+    Half(bool),
+    Sha(ShaOp),
+    Gf(GfOp),
+    /// `pscatter*`/`scatter*`: (index size, element size).
+    Scatter(u64, u64),
+    /// `pmaskmovd/q`, `maskmovps/pd`: masked load or store with a vector mask.
+    MaskMov(Ty),
 }
 
 /// Lane size in bytes, for EVEX broadcast and masking.
 fn elem_size(op: VOp) -> u64 {
     match op {
-        VOp::Bin(_, ty, _) | VOp::Sqrt(ty, _) | VOp::Abs(ty) | VOp::Shift(_, ty) => ty.size(),
+        VOp::Lanes(_, ty, _) | VOp::Sqrt(ty, _) | VOp::Abs(ty) | VOp::Shift(_, ty) => ty.size(),
         VOp::Broadcast(size) | VOp::Movmsk(size) => size,
-        VOp::Ext(s) => simd::elem_size(s),
-        _ => 4,
+        _ => simd::elem_size(op),
     }
 }
 
@@ -151,20 +248,20 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
         "broadcasti32x8" | "broadcastf32x8" | "broadcasti64x4" | "broadcastf64x4" => {
             VOp::Broadcast(32)
         }
-        "andps" | "andpd" | "pand" | "pandd" | "pandq" => VOp::Bin(Lane::And, Ty::I64, false),
-        "orps" | "orpd" | "por" | "pord" | "porq" => VOp::Bin(Lane::Or, Ty::I64, false),
-        "xorps" | "xorpd" | "pxor" | "pxord" | "pxorq" => VOp::Bin(Lane::Xor, Ty::I64, false),
+        "andps" | "andpd" | "pand" | "pandd" | "pandq" => VOp::Lanes(Lane::And, Ty::I64, false),
+        "orps" | "orpd" | "por" | "pord" | "porq" => VOp::Lanes(Lane::Or, Ty::I64, false),
+        "xorps" | "xorpd" | "pxor" | "pxord" | "pxorq" => VOp::Lanes(Lane::Xor, Ty::I64, false),
         "andnps" | "andnpd" | "pandn" | "pandnd" | "pandnq" => {
-            VOp::Bin(Lane::AndNot, Ty::I64, false)
+            VOp::Lanes(Lane::AndNot, Ty::I64, false)
         }
-        "pmullw" => VOp::Bin(Lane::Mul, Ty::I16, false),
-        "pmulld" => VOp::Bin(Lane::Mul, Ty::I32, false),
-        "pmullq" => VOp::Bin(Lane::Mul, Ty::I64, false),
+        "pmullw" => VOp::Lanes(Lane::Mul, Ty::I16, false),
+        "pmulld" => VOp::Lanes(Lane::Mul, Ty::I32, false),
+        "pmullq" => VOp::Lanes(Lane::Mul, Ty::I64, false),
         "pshufd" => VOp::Pshufd,
         "shufps" => VOp::Shufps,
-        "cvtdq2ps" => VOp::Cvt(Cvt::IntToFloat),
-        "cvtps2dq" => VOp::Cvt(Cvt::FloatToInt),
-        "cvttps2dq" => VOp::Cvt(Cvt::FloatToIntTrunc),
+        "cvtdq2ps" => VOp::CvtDq(Cvt::IntToFloat),
+        "cvtps2dq" => VOp::CvtDq(Cvt::FloatToInt),
+        "cvttps2dq" => VOp::CvtDq(Cvt::FloatToIntTrunc),
         "movmskps" => VOp::Movmsk(4),
         "movmskpd" => VOp::Movmsk(8),
         "pmovmskb" => VOp::Movmsk(1),
@@ -197,7 +294,7 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
                 return Some(if op == "sqrt" {
                     VOp::Sqrt(ty, scalar)
                 } else {
-                    VOp::Bin(lane, ty, scalar)
+                    VOp::Lanes(lane, ty, scalar)
                 });
             }
             // Integer lanes: p<op><b|w|d|q>.
@@ -216,7 +313,7 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
                     continue;
                 };
                 return Some(match lane {
-                    Some(lane) => VOp::Bin(lane, ty, false),
+                    Some(lane) => VOp::Lanes(lane, ty, false),
                     None => VOp::Abs(ty),
                 });
             }
@@ -231,7 +328,7 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
                     return Some(VOp::Shift(kind, ty));
                 }
             }
-            return simd::lookup_simd(name).map(VOp::Ext);
+            return simd::lookup_simd(name);
         }
     })
 }
@@ -239,11 +336,10 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
 /// The class of a fresh `name:` destination of `op` at this vector width.
 pub(super) fn dst_class(op: VOp, width: u64) -> &'static str {
     match op {
-        VOp::Bin(Lane::CmpEq | Lane::CmpGt, ..) if width == 64 => "omr",
-        VOp::Ext(s) => simd::dst_class(s, width),
+        VOp::Lanes(Lane::CmpEq | Lane::CmpGt, ..) if width == 64 => "omr",
         // The sign-bit mask lands in a general-purpose register.
         VOp::Movmsk(_) => "gpr",
-        _ => "vec",
+        _ => simd::dst_class(op, width),
     }
 }
 
@@ -393,16 +489,16 @@ pub(super) fn float_to_s32(f: &mut FnCtx, x: Val, mode: char) -> Val {
 
 /// What the groups of `asm_vec_inst` share: the evaluated operands, the vector size and the
 /// write mask.
-struct VecCall<'a> {
-    op: VOp,
-    span: Span,
-    name: &'a str,
-    width: u64,
-    ops: Vec<VOpd>,
-    es: u64,
-    writemask: Option<simd::WriteMask>,
-    masked: Option<(Val, bool, Val, Val)>,
-    tmp: Val,
+pub(super) struct VecCall<'a> {
+    pub(super) op: VOp,
+    pub(super) span: Span,
+    pub(super) name: &'a str,
+    pub(super) width: u64,
+    pub(super) ops: Vec<VOpd>,
+    pub(super) es: u64,
+    pub(super) writemask: Option<simd::WriteMask>,
+    pub(super) masked: Option<(Val, bool, Val, Val)>,
+    pub(super) tmp: Val,
 }
 
 impl VecCall<'_> {
@@ -456,8 +552,8 @@ impl Compiler {
                 "y" => 32,
                 "z" => 64,
                 // `.q` on a lane operation is the 64-bit MMX (`str` register) form.
-                "q" if matches!(op, VOp::Bin(..) | VOp::Abs(_) | VOp::Shift(..))
-                    || matches!(op, VOp::Ext(s) if simd::mmx_capable(s)) =>
+                "q" if matches!(op, VOp::Lanes(..) | VOp::Abs(_) | VOp::Shift(..))
+                    || simd::mmx_capable(op) =>
                 {
                     8
                 }
@@ -489,8 +585,8 @@ impl Compiler {
             }
         }
         let op = match (op, ops.first()) {
-            (VOp::Bin(lane @ (Lane::CmpEq | Lane::CmpGt), ty, false), Some(VOpd::Mask(_))) => {
-                VOp::Ext(simd::SOp::IntCmp(
+            (VOp::Lanes(lane @ (Lane::CmpEq | Lane::CmpGt), ty, false), Some(VOpd::Mask(_))) => {
+                VOp::IntCmp(
                     ty,
                     false,
                     if lane == Lane::CmpEq {
@@ -498,7 +594,7 @@ impl Compiler {
                     } else {
                         Some(6)
                     },
-                ))
+                )
             }
             _ => op,
         };
@@ -511,7 +607,8 @@ impl Compiler {
                 let src = ptr_of(f, addr);
                 let buf = f.b.alloca(64, 16);
                 let bs = match op {
-                    VOp::Ext(s) => simd::broadcast_size(s),
+                    // The affine matrix operand is one 64-bit matrix per qword.
+                    VOp::Gf(GfOp::Affine(_)) => 8,
                     _ => es,
                 };
                 for k in 0..64 / bs {
@@ -539,9 +636,8 @@ impl Compiler {
             None => None,
         };
         let self_masked = match op {
-            VOp::Ext(s) => simd::consumes_mask(s),
             VOp::Gather(..) => true,
-            _ => false,
+            _ => simd::consumes_mask(op),
         };
         let masked = match (writemask, ops.first()) {
             (Some(_), _) if self_masked => None,
@@ -598,13 +694,13 @@ impl Compiler {
             | VOp::MovScalarFloat(..)
             | VOp::Broadcast(..)
             | VOp::Movmsk(..) => self.vec_moves(f, cx, &c, op)?,
-            VOp::Bin(..) | VOp::Sqrt(..) | VOp::Abs(..) | VOp::Shift(..) | VOp::Cvt(..) => {
+            VOp::Lanes(..) | VOp::Sqrt(..) | VOp::Abs(..) | VOp::Shift(..) | VOp::CvtDq(..) => {
                 self.vec_lane_ops(f, cx, inst, &c, op)?;
             }
             VOp::Pshufd | VOp::Shufps => self.vec_shuffles(f, cx, &c, op)?,
             VOp::Gather(..) => self.vec_gather(f, cx, &c, op)?,
             VOp::Nop => c.want(0, 0)?,
-            VOp::Ext(s) => self.asm_simd(f, cx, inst, s, &c.ops, c.width, c.writemask)?,
+            _ => self.asm_simd(f, cx, inst, &c)?,
         }
         if let Some((mask, zeroing, dst, old)) = c.masked {
             let (es, width) = (c.es, c.width);

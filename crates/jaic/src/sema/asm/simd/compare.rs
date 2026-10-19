@@ -1,5 +1,5 @@
 //! Comparisons and bit tests.
-use super::SOp;
+use super::VOp;
 use super::dispatch::SimdLocals;
 use super::helpers::mask_bit;
 use crate::sema::asm::vec::{VOpd, all_ones_if, load_lane, store_lane};
@@ -27,7 +27,7 @@ impl Compiler {
             ..
         } = *c;
         match op {
-            SOp::FCmp(ty, scalar) => {
+            VOp::FCmp(ty, scalar) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 let lanes = if scalar {
                     1
@@ -67,7 +67,7 @@ impl Compiler {
                     )?;
                 }
             }
-            SOp::IntCmp(ty, unsigned, fixed) => {
+            VOp::IntCmp(ty, unsigned, fixed) => {
                 let (s, k) = match fixed {
                     Some(p) => (self.simd_args(f, ops, 2, false, span)?.0, p as u64),
                     None => self.simd_args(f, ops, 2, true, span)?,
@@ -101,7 +101,7 @@ impl Compiler {
                 }
                 self.simd_mask_out(f, dst, flags, wm, span)?;
             }
-            SOp::Comis(ty) => {
+            VOp::Comis(ty) => {
                 // `comiss a, b`: unordered 111, a < b 001, a == b 100, a > b 000 (ZF, PF, CF).
                 if ops.len() != 2 {
                     return err(span, format!("`{name}` takes 2 operands"));
@@ -125,10 +125,10 @@ impl Compiler {
                     of: Some(zero),
                 };
             }
-            SOp::Pcmpstr(explicit, mask) => {
+            VOp::Pcmpstr(explicit, mask) => {
                 self.asm_pcmpstr(f, cx, ops, explicit, mask, span, name)?;
             }
-            SOp::Ptest => {
+            VOp::Ptest => {
                 if ops.len() != 2 {
                     return err(span, format!("`{name}` takes 2 operands"));
                 }
@@ -155,7 +155,7 @@ impl Compiler {
                     pf: Some(odd),
                 };
             }
-            SOp::Testm(ty, not) => {
+            VOp::Testm(ty, not) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let mut flags = Vec::new();
                 for i in 0..width / ty.size() {
@@ -171,7 +171,7 @@ impl Compiler {
                 }
                 self.simd_mask_out(f, dst, flags, wm, span)?;
             }
-            SOp::VecToMask(ty) => {
+            VOp::VecToMask(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let mut flags = Vec::new();
                 for i in 0..width / ty.size() {
@@ -180,7 +180,7 @@ impl Compiler {
                 }
                 self.simd_mask_out(f, dst, flags, wm, span)?;
             }
-            SOp::MaskToVec(ty) | SOp::BroadcastMask(ty) => {
+            VOp::MaskToVec(ty) | VOp::BroadcastMask(ty) => {
                 let VOpd::Mask(p) = ops.get(1).copied().unwrap_or(dst) else {
                     return err(span, format!("`{name}` reads a mask register"));
                 };
@@ -189,7 +189,7 @@ impl Compiler {
                 }
                 let m = f.b.load(Ty::I64, p);
                 for i in 0..width / ty.size() {
-                    let v = if op == SOp::MaskToVec(ty) {
+                    let v = if op == VOp::MaskToVec(ty) {
                         let b = mask_bit(f, m, i);
                         all_ones_if(f, ty, b)
                     } else {

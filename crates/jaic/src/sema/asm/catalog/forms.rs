@@ -3,7 +3,7 @@ use super::decode::Kind;
 use crate::ir::Ty;
 use crate::sema::asm::mask::KOp;
 use crate::sema::asm::scalar::{Rep, StrOp, XOp};
-use crate::sema::asm::simd::{AesOp, Conv, GfOp, SOp, ShaOp};
+use crate::sema::asm::simd::{AesOp, Conv, GfOp, ShaOp};
 use crate::sema::asm::vec::VOp;
 use crate::sema::asm::{Alu, Op};
 
@@ -131,9 +131,9 @@ fn vector_forms(op: VOp, vex: bool) -> Vec<&'static str> {
         VOp::MovScalarInt(_) => vec!["dst: vec/gpr/mem, src: vec/gpr/mem"],
         VOp::MovScalarFloat(_) => vec!["dst: vec/mem, src: vec/mem", "dst: vec, a: vec, b: vec"],
         VOp::Broadcast(_) => vec!["dst: vec, src: vec/gpr/mem"],
-        VOp::Bin(..) => binary(vex, false),
+        VOp::Lanes(..) => binary(vex, false),
         VOp::Sqrt(_, true) => binary(vex, false),
-        VOp::Sqrt(_, false) | VOp::Abs(_) | VOp::Cvt(_) => vec![UNARY],
+        VOp::Sqrt(_, false) | VOp::Abs(_) | VOp::CvtDq(_) => vec![UNARY],
         VOp::Shift(..) => {
             if vex {
                 vec![
@@ -155,119 +155,120 @@ fn vector_forms(op: VOp, vex: bool) -> Vec<&'static str> {
             "dst: vec &k, [base + vindex*scale]",
         ],
         VOp::Nop => vec![""],
-        VOp::Ext(s) => simd_forms(s, vex),
+        _ => simd_forms(op, vex),
     }
 }
 
-fn simd_forms(op: SOp, vex: bool) -> Vec<&'static str> {
+fn simd_forms(op: VOp, vex: bool) -> Vec<&'static str> {
     match op {
-        SOp::Bin(..)
-        | SOp::Horizontal(..)
-        | SOp::AddSub(_)
-        | SOp::Pmaddwd
-        | SOp::Pmaddubsw
-        | SOp::Psadbw
-        | SOp::MulEven(_)
-        | SOp::Unpack(..)
-        | SOp::Pshufb
-        | SOp::Pack(..)
-        | SOp::BlendMask(_)
-        | SOp::Movhlps
-        | SOp::Movlhps
-        | SOp::Pclmul(Some(_))
-        | SOp::Cvt(Conv::ScalarFloat(..)) => binary(vex, false),
-        SOp::IntCmp(_, _, Some(_)) | SOp::Testm(..) => vec!["dst: omr, a: vec, b: vec/mem"],
-        SOp::IntCmp(_, _, None) => vec!["dst: omr, a: vec, b: vec/mem, imm"],
-        SOp::Aes(AesOp::Imc) => vec![UNARY],
-        SOp::Aes(AesOp::KeygenAssist) => vec![BIN_IMM],
-        SOp::Aes(_) | SOp::Gf(GfOp::Mul) => binary(vex, false),
-        SOp::Sha(ShaOp::Sha1Rnds4) => vec![BIN_IMM],
-        SOp::Sha(ShaOp::Sha256Rnds2) => vec!["cdgh: vec, abef: vec, wk: vec"],
-        SOp::Sha(_) => vec![BIN],
-        SOp::RotImm(..) | SOp::ShufHalf(_) => vec![BIN_IMM],
-        SOp::Round(_, false) => vec![BIN_IMM],
-        SOp::Unary(..) | SOp::Dup(_) | SOp::Extend(..) | SOp::Phminposuw => vec![UNARY],
-        SOp::Cvt(Conv::GprToScalar(..)) => {
+        VOp::Bin(..)
+        | VOp::Horizontal(..)
+        | VOp::AddSub(_)
+        | VOp::Pmaddwd
+        | VOp::Pmaddubsw
+        | VOp::Psadbw
+        | VOp::MulEven(_)
+        | VOp::Unpack(..)
+        | VOp::Pshufb
+        | VOp::Pack(..)
+        | VOp::BlendMask(_)
+        | VOp::Movhlps
+        | VOp::Movlhps
+        | VOp::Pclmul(Some(_))
+        | VOp::Cvt(Conv::ScalarFloat(..)) => binary(vex, false),
+        VOp::IntCmp(_, _, Some(_)) | VOp::Testm(..) => vec!["dst: omr, a: vec, b: vec/mem"],
+        VOp::IntCmp(_, _, None) => vec!["dst: omr, a: vec, b: vec/mem, imm"],
+        VOp::Aes(AesOp::Imc) => vec![UNARY],
+        VOp::Aes(AesOp::KeygenAssist) => vec![BIN_IMM],
+        VOp::Aes(_) | VOp::Gf(GfOp::Mul) => binary(vex, false),
+        VOp::Sha(ShaOp::Sha1Rnds4) => vec![BIN_IMM],
+        VOp::Sha(ShaOp::Sha256Rnds2) => vec!["cdgh: vec, abef: vec, wk: vec"],
+        VOp::Sha(_) => vec![BIN],
+        VOp::RotImm(..) | VOp::ShufHalf(_) => vec![BIN_IMM],
+        VOp::Round(_, false) => vec![BIN_IMM],
+        VOp::Unary(..) | VOp::Dup(_) | VOp::Extend(..) | VOp::Phminposuw => vec![UNARY],
+        VOp::Cvt(Conv::GprToScalar(..)) => {
             if vex {
                 vec!["dst: vec, a: vec, b: gpr/mem", "dst: vec, src: gpr/mem"]
             } else {
                 vec!["dst: vec, src: gpr/mem", "dst: vec, a: vec, b: gpr/mem"]
             }
         }
-        SOp::Cvt(Conv::ScalarToGpr(..)) => vec!["dst: gpr, src: vec/mem"],
-        SOp::Cvt(_) => vec![UNARY],
-        SOp::Fma(..) => vec![BIN3],
-        SOp::DotAcc(_) | SOp::Madd52(_) => vec!["acc: vec, a: vec, b: vec/mem"],
-        SOp::Mpsadbw => vec![
+        VOp::Cvt(Conv::ScalarToGpr(..)) => vec!["dst: gpr, src: vec/mem"],
+        VOp::Cvt(_) => vec![UNARY],
+        VOp::Fma(..) => vec![BIN3],
+        VOp::DotAcc(_) | VOp::Madd52(_) => vec!["acc: vec, a: vec, b: vec/mem"],
+        VOp::Mpsadbw => vec![
             "dst: vec, src: vec/mem, imm8",
             "dst: vec, a: vec, b: vec/mem, imm8",
         ],
-        SOp::Round(_, true)
-        | SOp::Shufpd
-        | SOp::Palignr
-        | SOp::Valign(_)
-        | SOp::BlendImm(_)
-        | SOp::Shuf128(_)
-        | SOp::Perm2x128
-        | SOp::Insertps
-        | SOp::Dp(_)
-        | SOp::Pclmul(None)
-        | SOp::FCmp(..)
-        | SOp::Ternlog(_)
-        | SOp::Gf(GfOp::Affine(_)) => binary(vex, true),
-        SOp::ByteShift(_) => {
+        VOp::Round(_, true)
+        | VOp::Shufpd
+        | VOp::Palignr
+        | VOp::Valign(_)
+        | VOp::BlendImm(_)
+        | VOp::Shuf128(_)
+        | VOp::Perm2x128
+        | VOp::Insertps
+        | VOp::Dp(_)
+        | VOp::Pclmul(None)
+        | VOp::FCmp(..)
+        | VOp::Ternlog(_)
+        | VOp::Gf(GfOp::Affine(_)) => binary(vex, true),
+        VOp::ByteShift(_) => {
             if vex {
                 vec!["dst: vec, src: vec, imm", "dst: vec, imm"]
             } else {
                 vec!["dst: vec, imm", "dst: vec, src: vec, imm"]
             }
         }
-        SOp::BlendVar(_) => {
+        VOp::BlendVar(_) => {
             if vex {
                 vec!["dst: vec, a: vec, b: vec/mem, mask: vec"]
             } else {
                 vec!["dst: vec, src: vec/mem, mask: vec"]
             }
         }
-        SOp::Perm(Ty::I64) => vec!["dst: vec, idx: vec, src: vec/mem", BIN_IMM],
-        SOp::Perm(_) => vec!["dst: vec, idx: vec, src: vec/mem"],
-        SOp::PermTwo(_, false) => vec!["dst: vec, idx: vec, table: vec/mem"],
-        SOp::PermTwo(_, true) => vec!["idx: vec, a: vec, table: vec/mem"],
-        SOp::PermilImm(_) => vec![BIN_IMM, "dst: vec, src: vec, control: vec/mem"],
-        SOp::Insert(..) => vec![BIN3_IMM],
-        SOp::Extract(..) => vec!["dst: vec/mem, src: vec, imm"],
-        SOp::Pinsr(_) => {
+        VOp::Perm(Ty::I64) => vec!["dst: vec, idx: vec, src: vec/mem", BIN_IMM],
+        VOp::Perm(_) => vec!["dst: vec, idx: vec, src: vec/mem"],
+        VOp::PermTwo(_, false) => vec!["dst: vec, idx: vec, table: vec/mem"],
+        VOp::PermTwo(_, true) => vec!["idx: vec, a: vec, table: vec/mem"],
+        VOp::PermilImm(_) => vec![BIN_IMM, "dst: vec, src: vec, control: vec/mem"],
+        VOp::Insert(..) => vec![BIN3_IMM],
+        VOp::Extract(..) => vec!["dst: vec/mem, src: vec, imm"],
+        VOp::Pinsr(_) => {
             if vex {
                 vec!["dst: vec, a: vec, b: gpr/mem, imm"]
             } else {
                 vec!["dst: vec, src: gpr/mem, imm"]
             }
         }
-        SOp::Pextr(_) | SOp::Extractps => vec!["dst: gpr/mem, src: vec, imm"],
-        SOp::MovHalf(_) => {
+        VOp::Pextr(_) | VOp::Extractps => vec!["dst: gpr/mem, src: vec, imm"],
+        VOp::MovHalf(_) => {
             if vex {
                 vec!["dst: vec, a: vec, b: mem", "dst: mem, src: vec"]
             } else {
                 vec!["dst: vec, src: mem", "dst: mem, src: vec"]
             }
         }
-        SOp::Narrow(..) => vec!["dst: vec/mem, src: vec"],
-        SOp::Half(false) => vec![UNARY],
-        SOp::Half(true) => vec!["dst: vec/mem, src: vec, imm"],
-        SOp::Comis(_) | SOp::Ptest => vec!["a: vec, b: vec/mem"],
-        SOp::Pcmpstr(false, false) => vec!["ecx: gpr, a: vec, b: vec/mem, imm8"],
-        SOp::Pcmpstr(true, false) => vec!["ecx: gpr, eax: gpr, edx: gpr, a: vec, b: vec/mem, imm8"],
-        SOp::Pcmpstr(false, true) => vec!["xmm0: vec, a: vec, b: vec/mem, imm8"],
-        SOp::Pcmpstr(true, true) => vec!["xmm0: vec, eax: gpr, edx: gpr, a: vec, b: vec/mem, imm8"],
-        SOp::MaskToVec(_) | SOp::BroadcastMask(_) => vec!["dst: vec, src: omr"],
-        SOp::VecToMask(_) => vec!["dst: omr, src: vec"],
-        SOp::Compress(_) => vec!["dst: vec/mem &k, src: vec"],
-        SOp::Expand(_) => vec!["dst: vec &k, src: vec/mem"],
-        SOp::Scatter(..) => vec!["[base + vindex*scale] &k, src: vec"],
-        SOp::MaskMov(_) => vec![
+        VOp::Narrow(..) => vec!["dst: vec/mem, src: vec"],
+        VOp::Half(false) => vec![UNARY],
+        VOp::Half(true) => vec!["dst: vec/mem, src: vec, imm"],
+        VOp::Comis(_) | VOp::Ptest => vec!["a: vec, b: vec/mem"],
+        VOp::Pcmpstr(false, false) => vec!["ecx: gpr, a: vec, b: vec/mem, imm8"],
+        VOp::Pcmpstr(true, false) => vec!["ecx: gpr, eax: gpr, edx: gpr, a: vec, b: vec/mem, imm8"],
+        VOp::Pcmpstr(false, true) => vec!["xmm0: vec, a: vec, b: vec/mem, imm8"],
+        VOp::Pcmpstr(true, true) => vec!["xmm0: vec, eax: gpr, edx: gpr, a: vec, b: vec/mem, imm8"],
+        VOp::MaskToVec(_) | VOp::BroadcastMask(_) => vec!["dst: vec, src: omr"],
+        VOp::VecToMask(_) => vec!["dst: omr, src: vec"],
+        VOp::Compress(_) => vec!["dst: vec/mem &k, src: vec"],
+        VOp::Expand(_) => vec!["dst: vec &k, src: vec/mem"],
+        VOp::Scatter(..) => vec!["[base + vindex*scale] &k, src: vec"],
+        VOp::MaskMov(_) => vec![
             "dst: vec, mask: vec, src: mem",
             "dst: mem, mask: vec, src: vec",
         ],
+        _ => unreachable!("core vector ops are described by their own table"),
     }
 }
 

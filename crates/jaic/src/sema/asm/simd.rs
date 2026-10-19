@@ -30,9 +30,7 @@ mod shuffle;
 mod tables;
 pub(super) use self::helpers::WriteMask;
 use self::helpers::{load_dyn, mask_bit, when, xtime};
-pub(super) use self::tables::{
-    broadcast_size, consumes_mask, dst_class, elem_size, lookup_simd, mmx_capable,
-};
+pub(super) use self::tables::{consumes_mask, dst_class, elem_size, lookup_simd, mmx_capable};
 pub(in crate::sema) use ext::{GfOp, ShaOp};
 
 /// Lane-wise binary operations beyond `vec::Lane`.
@@ -125,103 +123,4 @@ pub(in crate::sema) enum Conv {
     ScalarToGpr(Ty, bool, bool),
 }
 
-/// Instruction semantics (see `lookup_simd`).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(in crate::sema) enum SOp {
-    Bin(B2, Ty),
-    /// `prold`/`prorq` by an immediate: (left, lane).
-    RotImm(bool, Ty),
-    Unary(U1, Ty),
-    /// `roundps`/`rndscaleps` (lane, scalar).
-    Round(Ty, bool),
-    /// (kind, operand order 132/213/231, lane, scalar).
-    Fma(FmaKind, u16, Ty, bool),
-    /// Pairwise horizontal add/sub (`phaddw`, `haddps`): (subtract, saturate, lane).
-    Horizontal(bool, bool, Ty),
-    AddSub(Ty),
-    Pmaddwd,
-    Pmaddubsw,
-    Psadbw,
-    /// `mpsadbw`: sums of absolute differences of 4-byte groups, picked by the immediate.
-    Mpsadbw,
-    /// `pmadd52luq` (false) / `pmadd52huq`: 52-bit multiply, low or high half added to qwords.
-    Madd52(bool),
-    /// `pmuludq` / `pmuldq` (signed).
-    MulEven(bool),
-    /// `pdpbusd` (bytes) / `pdpwssd` (words): dot products accumulated into dword lanes.
-    DotAcc(Ty),
-    Phminposuw,
-    /// `punpckl*`/`punpckh*`/`unpck*`: (high, lane).
-    Unpack(bool, Ty),
-    /// `pshufhw` (true) / `pshuflw`.
-    ShufHalf(bool),
-    Shufpd,
-    Palignr,
-    /// `alignd`/`alignq`: element-granular `palignr` across the whole vector.
-    Valign(Ty),
-    /// `pslldq` (true) / `psrldq`.
-    ByteShift(bool),
-    BlendImm(Ty),
-    BlendVar(Ty),
-    BlendMask(Ty),
-    Pshufb,
-    /// `permd`/`permps`/`permb`/`permw`/`permq`/`permpd`: (lane). `permq`/`permpd` with an
-    /// immediate permute 64-bit lanes within each 256-bit half.
-    Perm(Ty),
-    /// `permt2*` (false) / `permi2*` (true).
-    PermTwo(Ty, bool),
-    /// `permilps`/`permilpd` with an immediate or a vector control.
-    PermilImm(Ty),
-    Perm2x128,
-    /// `shufi32x4`...: 128-bit chunks from both sources (lane size for masking).
-    Shuf128(Ty),
-    /// Insert / extract a chunk of this many bytes (lane size for masking).
-    Insert(u64, Ty),
-    Extract(u64, Ty),
-    Pinsr(Ty),
-    Pextr(Ty),
-    Insertps,
-    Extractps,
-    /// `movhps`/`movhpd` (true) or `movlps`/`movlpd`: 64-bit half loads and stores.
-    MovHalf(bool),
-    Movhlps,
-    Movlhps,
-    Dup(DupKind),
-    /// `pmovsx*` / `pmovzx*`: (from, to, signed).
-    Extend(Ty, Ty, bool),
-    /// `pmov*` down-conversions: (from, to, saturation).
-    Narrow(Ty, Ty, Sat),
-    /// `pack*`: (from lane, unsigned saturation).
-    Pack(Ty, bool),
-    Cvt(Conv),
-    /// `cmpps` & co. with a predicate immediate: (lane, scalar).
-    FCmp(Ty, bool),
-    /// AVX-512 integer compares into a mask: (lane, unsigned, fixed predicate).
-    IntCmp(Ty, bool, Option<u8>),
-    /// `comiss`/`ucomiss`/`comisd`/`ucomisd`.
-    Comis(Ty),
-    Ptest,
-    /// `pcmpistri/pcmpestri/pcmpistrm/pcmpestrm`: (explicit lengths, mask result).
-    Pcmpstr(bool, bool),
-    /// `ptestm*` (false) / `ptestnm*` (true).
-    Testm(Ty, bool),
-    MaskToVec(Ty),
-    VecToMask(Ty),
-    BroadcastMask(Ty),
-    Compress(Ty),
-    Expand(Ty),
-    Ternlog(Ty),
-    /// `dpps` / `dppd`.
-    Dp(Ty),
-    /// `pclmulqdq imm` (None) or `pclmul{l,h}q{l,h}qdq` (the immediate).
-    Pclmul(Option<u8>),
-    Aes(AesOp),
-    /// F16C `cvtph2ps` (false) / `cvtps2ph` (true).
-    Half(bool),
-    Sha(ShaOp),
-    Gf(GfOp),
-    /// `pscatter*`/`scatter*`: (index size, element size).
-    Scatter(u64, u64),
-    /// `pmaskmovd/q`, `maskmovps/pd`: masked load or store with a vector mask.
-    MaskMov(Ty),
-}
+pub(in crate::sema::asm) use super::vec::VOp;

@@ -4,7 +4,7 @@ use crate::ir::Ty;
 use crate::sema::asm::Op;
 use crate::sema::asm::mask::KOp;
 use crate::sema::asm::scalar::XOp;
-use crate::sema::asm::simd::{B2, Conv, SOp, U1};
+use crate::sema::asm::simd::{B2, Conv, U1};
 use crate::sema::asm::vec::{Lane, Shift, VOp};
 
 // Features
@@ -157,7 +157,7 @@ pub(super) fn vector_features(name: &str, op: VOp) -> (Option<&'static str>, Opt
             }
             _ => avx("AVX512F"),
         },
-        VOp::Bin(lane, ty, _) => match lane {
+        VOp::Lanes(lane, ty, _) => match lane {
             Lane::FAdd | Lane::FSub | Lane::FMul | Lane::FDiv | Lane::FMin | Lane::FMax => fp(name),
             Lane::And | Lane::Or | Lane::Xor | Lane::AndNot => {
                 if !name.starts_with('p') {
@@ -189,20 +189,20 @@ pub(super) fn vector_features(name: &str, op: VOp) -> (Option<&'static str>, Opt
         VOp::Abs(Ty::I64) | VOp::Shift(Shift::Arith, Ty::I64) => avx("AVX512F"),
         VOp::Abs(_) => sse("SSSE3", true),
         VOp::Shift(..) | VOp::Pshufd => sse("SSE2", true),
-        VOp::Cvt(_) => sse("SSE2", false),
+        VOp::CvtDq(_) => sse("SSE2", false),
         VOp::Movmsk(4) => sse("SSE", false),
         VOp::Movmsk(8) => sse("SSE2", false),
         VOp::Movmsk(_) => sse("SSE2", true),
         VOp::Gather(..) => avx("AVX2"),
         VOp::Nop if name == "emms" => (Some("MMX"), None),
         VOp::Nop => avx("AVX"),
-        VOp::Ext(s) => simd_features(name, s),
+        _ => simd_features(name, op),
     }
 }
 
-fn simd_features(name: &str, op: SOp) -> (Option<&'static str>, Option<&'static str>) {
+fn simd_features(name: &str, op: VOp) -> (Option<&'static str>, Option<&'static str>) {
     match op {
-        SOp::Bin(b, ty) => match b {
+        VOp::Bin(b, ty) => match b {
             B2::AddSatS | B2::AddSatU | B2::SubSatS | B2::SubSatU | B2::Avg => sse("SSE2", true),
             B2::MulHiS | B2::MulHiU => sse("SSE2", true),
             B2::MulHrs | B2::Sign => sse("SSSE3", true),
@@ -211,58 +211,58 @@ fn simd_features(name: &str, op: SOp) -> (Option<&'static str>, Option<&'static 
             B2::Shlv | B2::Shrv | B2::Sarv => avx("AVX2"),
             B2::Rolv | B2::Rorv => avx("AVX512F"),
         },
-        SOp::RotImm(..) | SOp::Valign(_) | SOp::Shuf128(_) | SOp::Ternlog(_) => avx("AVX512F"),
-        SOp::Scatter(..) => avx("AVX512F"),
-        SOp::Unary(u, ty) => match u {
+        VOp::RotImm(..) | VOp::Valign(_) | VOp::Shuf128(_) | VOp::Ternlog(_) => avx("AVX512F"),
+        VOp::Scatter(..) => avx("AVX512F"),
+        VOp::Unary(u, ty) => match u {
             U1::Popcnt => avx(byte_word(ty, "AVX512_BITALG", "AVX512_VPOPCNTDQ")),
             U1::Lzcnt | U1::Conflict => avx("AVX512CD"),
             U1::Rcp | U1::Rsqrt if name.contains("14") => avx("AVX512F"),
             U1::Rcp | U1::Rsqrt if name.contains("28") => avx("AVX512ER"),
             U1::Rcp | U1::Rsqrt => fp(name),
         },
-        SOp::Round(..) if name.starts_with("rndscale") => avx("AVX512F"),
-        SOp::Round(..) | SOp::Dp(_) | SOp::Insertps | SOp::Extractps => sse("SSE4_1", false),
-        SOp::BlendVar(_) => sse("SSE4_1", !name.starts_with('b')),
-        SOp::Fma(..) => avx("FMA"),
-        SOp::Horizontal(_, _, Ty::F32 | Ty::F64) | SOp::AddSub(_) | SOp::Dup(_) => {
+        VOp::Round(..) if name.starts_with("rndscale") => avx("AVX512F"),
+        VOp::Round(..) | VOp::Dp(_) | VOp::Insertps | VOp::Extractps => sse("SSE4_1", false),
+        VOp::BlendVar(_) => sse("SSE4_1", !name.starts_with('b')),
+        VOp::Fma(..) => avx("FMA"),
+        VOp::Horizontal(_, _, Ty::F32 | Ty::F64) | VOp::AddSub(_) | VOp::Dup(_) => {
             sse("SSE3", false)
         }
-        SOp::Horizontal(..) | SOp::Pmaddubsw | SOp::Palignr | SOp::Pshufb => sse("SSSE3", true),
-        SOp::Pmaddwd | SOp::Psadbw | SOp::MulEven(false) | SOp::ShufHalf(_) => sse("SSE2", true),
-        SOp::Mpsadbw => sse("SSE4_1", true),
-        SOp::Madd52(_) => avx("AVX512_IFMA"),
-        SOp::ByteShift(_) => sse("SSE2", true),
-        SOp::MulEven(true) | SOp::Phminposuw | SOp::Ptest | SOp::Extend(..) => sse("SSE4_1", true),
-        SOp::Pcmpstr(..) => sse("SSE4_2", false),
-        SOp::DotAcc(_) => avx("AVX512_VNNI"),
-        SOp::Unpack(..) if name.starts_with('u') => fp(name),
-        SOp::Unpack(..) => sse("SSE2", true),
-        SOp::Shufpd | SOp::MovHalf(_) if name.ends_with("pd") => sse("SSE2", false),
-        SOp::Shufpd | SOp::MovHalf(_) | SOp::Movhlps | SOp::Movlhps => sse("SSE", false),
-        SOp::BlendImm(_) => match name {
+        VOp::Horizontal(..) | VOp::Pmaddubsw | VOp::Palignr | VOp::Pshufb => sse("SSSE3", true),
+        VOp::Pmaddwd | VOp::Psadbw | VOp::MulEven(false) | VOp::ShufHalf(_) => sse("SSE2", true),
+        VOp::Mpsadbw => sse("SSE4_1", true),
+        VOp::Madd52(_) => avx("AVX512_IFMA"),
+        VOp::ByteShift(_) => sse("SSE2", true),
+        VOp::MulEven(true) | VOp::Phminposuw | VOp::Ptest | VOp::Extend(..) => sse("SSE4_1", true),
+        VOp::Pcmpstr(..) => sse("SSE4_2", false),
+        VOp::DotAcc(_) => avx("AVX512_VNNI"),
+        VOp::Unpack(..) if name.starts_with('u') => fp(name),
+        VOp::Unpack(..) => sse("SSE2", true),
+        VOp::Shufpd | VOp::MovHalf(_) if name.ends_with("pd") => sse("SSE2", false),
+        VOp::Shufpd | VOp::MovHalf(_) | VOp::Movhlps | VOp::Movlhps => sse("SSE", false),
+        VOp::BlendImm(_) => match name {
             "pblendd" => avx("AVX2"),
             "pblendw" => sse("SSE4_1", true),
             _ => sse("SSE4_1", false),
         },
-        SOp::PermTwo(Ty::I8, _) => avx("AVX512VBMI"),
-        SOp::BlendMask(ty) | SOp::IntCmp(ty, ..) | SOp::Testm(ty, _) | SOp::PermTwo(ty, _) => {
+        VOp::PermTwo(Ty::I8, _) => avx("AVX512VBMI"),
+        VOp::BlendMask(ty) | VOp::IntCmp(ty, ..) | VOp::Testm(ty, _) | VOp::PermTwo(ty, _) => {
             avx(byte_word(ty, "AVX512BW", "AVX512F"))
         }
-        SOp::Narrow(from, ..) => avx(if from == Ty::I16 {
+        VOp::Narrow(from, ..) => avx(if from == Ty::I16 {
             "AVX512BW"
         } else {
             "AVX512F"
         }),
-        SOp::MaskToVec(ty) | SOp::VecToMask(ty) => avx(byte_word(ty, "AVX512BW", "AVX512DQ")),
-        SOp::BroadcastMask(_) => avx("AVX512CD"),
-        SOp::Compress(ty) | SOp::Expand(ty) => avx(byte_word(ty, "AVX512_VBMI2", "AVX512F")),
-        SOp::Perm(ty) => match ty {
+        VOp::MaskToVec(ty) | VOp::VecToMask(ty) => avx(byte_word(ty, "AVX512BW", "AVX512DQ")),
+        VOp::BroadcastMask(_) => avx("AVX512CD"),
+        VOp::Compress(ty) | VOp::Expand(ty) => avx(byte_word(ty, "AVX512_VBMI2", "AVX512F")),
+        VOp::Perm(ty) => match ty {
             Ty::I8 => avx("AVX512VBMI"),
             Ty::I16 => avx("AVX512BW"),
             _ => avx("AVX2"),
         },
-        SOp::PermilImm(_) => avx("AVX"),
-        SOp::Perm2x128 | SOp::Insert(..) | SOp::Extract(..) => {
+        VOp::PermilImm(_) => avx("AVX"),
+        VOp::Perm2x128 | VOp::Insert(..) | VOp::Extract(..) => {
             if name.contains("128") {
                 // `perm2f128` / `insertf128`: AVX; the integer `i128` forms: AVX2.
                 avx(if name.contains("f128") {
@@ -276,11 +276,11 @@ fn simd_features(name: &str, op: SOp) -> (Option<&'static str>, Option<&'static 
                 avx("AVX512F")
             }
         }
-        SOp::Pinsr(Ty::I16) | SOp::Pextr(Ty::I16) => sse("SSE2", true),
-        SOp::Pinsr(_) | SOp::Pextr(_) => sse("SSE4_1", true),
-        SOp::Pack(Ty::I32, true) => sse("SSE4_1", true),
-        SOp::Pack(..) => sse("SSE2", true),
-        SOp::Cvt(conv) => match conv {
+        VOp::Pinsr(Ty::I16) | VOp::Pextr(Ty::I16) => sse("SSE2", true),
+        VOp::Pinsr(_) | VOp::Pextr(_) => sse("SSE4_1", true),
+        VOp::Pack(Ty::I32, true) => sse("SSE4_1", true),
+        VOp::Pack(..) => sse("SSE2", true),
+        VOp::Cvt(conv) => match conv {
             _ if name.contains("qq") => avx("AVX512DQ"),
             _ if name.contains("2u") || name.starts_with("cvtu") => avx("AVX512F"),
             Conv::GprToScalar(Ty::F32, _) | Conv::ScalarToGpr(Ty::F32, ..) => sse("SSE", false),
@@ -291,15 +291,16 @@ fn simd_features(name: &str, op: SOp) -> (Option<&'static str>, Option<&'static 
             | Conv::GprToScalar(..)
             | Conv::ScalarToGpr(..) => sse("SSE2", false),
         },
-        SOp::Comis(Ty::F32) => sse("SSE", false),
-        SOp::Comis(_) => sse("SSE2", false),
-        SOp::FCmp(..) => fp(name),
-        SOp::Pclmul(_) => (Some("PCLMULQDQ"), Some("PCLMULQDQ")),
-        SOp::Aes(_) => (Some("AES"), Some("AES")),
-        SOp::Half(_) => avx("F16C"),
-        SOp::Sha(_) => (Some("SHA"), None),
-        SOp::Gf(_) => (Some("GFNI"), Some("GFNI")),
-        SOp::MaskMov(_) if name.starts_with('p') => avx("AVX2"),
-        SOp::MaskMov(_) => avx("AVX"),
+        VOp::Comis(Ty::F32) => sse("SSE", false),
+        VOp::Comis(_) => sse("SSE2", false),
+        VOp::FCmp(..) => fp(name),
+        VOp::Pclmul(_) => (Some("PCLMULQDQ"), Some("PCLMULQDQ")),
+        VOp::Aes(_) => (Some("AES"), Some("AES")),
+        VOp::Half(_) => avx("F16C"),
+        VOp::Sha(_) => (Some("SHA"), None),
+        VOp::Gf(_) => (Some("GFNI"), Some("GFNI")),
+        VOp::MaskMov(_) if name.starts_with('p') => avx("AVX2"),
+        VOp::MaskMov(_) => avx("AVX"),
+        _ => unreachable!("core vector ops are described by their own table"),
     }
 }

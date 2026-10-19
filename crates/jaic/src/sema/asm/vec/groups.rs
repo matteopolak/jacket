@@ -130,7 +130,7 @@ impl Compiler {
         let n = c.ops.len();
         let want = |lo: usize, hi: usize| c.want(lo, hi);
         match op {
-            VOp::Bin(lane, ty, scalar) => {
+            VOp::Lanes(lane, ty, scalar) => {
                 want(2, 3)?;
                 let (a, b) = self.vec_sources(f, ops, span)?;
                 if scalar {
@@ -224,7 +224,7 @@ impl Compiler {
                 }
                 self.vec_store(f, cx, ops[0], tmp, width, span)?;
             }
-            VOp::Cvt(kind) => {
+            VOp::CvtDq(kind) => {
                 want(2, 2)?;
                 let src = self.vec_ptr(f, ops[1], span)?;
                 for i in 0..width / 4 {
