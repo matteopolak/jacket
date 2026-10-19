@@ -29,6 +29,16 @@ impl Interp {
         })
     }
 
+    /// Whether the running thread may use the interpreter (and the compiler behind it): no
+    /// scheduler exists, or a thread holds the baton outside a native call, which is the
+    /// running one since interpreted code got here.
+    pub(crate) fn holds_baton(&self) -> bool {
+        self.shared.as_ref().is_none_or(|shared| {
+            let s = shared.lock();
+            s.current.is_some() && !s.in_native
+        })
+    }
+
     /// The scheduler, made on first use (a thread, a lock, or a thunk C may call).
     pub(in crate::interp) fn shared(&mut self) -> Arc<Shared> {
         if let Some(shared) = &self.shared {

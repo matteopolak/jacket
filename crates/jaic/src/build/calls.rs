@@ -177,6 +177,9 @@ pub fn call(
     program: &ir::Program,
     interp: &mut Interp,
 ) -> Result<Rets, Trap> {
+    // Hooks reach the compiler, which only the thread holding the baton may touch.
+    #[cfg(not(target_arch = "wasm32"))]
+    debug_assert!(interp.holds_baton(), "{op:?} called without the baton");
     let args = if has_context {
         &args[1..]
     } else {

@@ -104,7 +104,8 @@ The statics and thread-locals in `jaic`, with why each stays. Anything not liste
 | Crash report buffer, signal handlers | `interp/crash.rs` | A signal handler can only reach a static, and must not allocate. |
 | Memory limit counters | `memory_limit.rs` | They are the global allocator's counters. |
 | Symbol interner | `intern.rs` (`TABLE`, `SHARD`, `NEXT`, plus a thread-local cache) | A `Sym` must mean the same spelling on every thread: parse workers, the checker and threads a `#run` starts. Append-only segments make `as_str` lock-free; new spellings take one of 64 shard locks. |
-| AST ids, record names | `ast.rs`, `records.rs` (`thread_local!`) | Not justified: they only work because one thread does the checking. Parallel parsing works around the ids with `ast::relocate`. Replacing them with globals is the last stage of the plan above. |
+| Record field names | `records.rs` (`NAMES`, one `RwLock`, plus a thread-local cache) | A metaprogram's records can be made on any thread a `#run` starts, so a `Name` must mean the same field everywhere. The set is small; after warm-up every lookup hits the thread-local cache. |
+| AST ids | `ast.rs` (`thread_local!`) | Not justified: they only work because one thread does the checking. Parallel parsing works around them with `ast::relocate`. Replacing them with a global counter is the last stage of the plan above. |
 
 ## Other things that could run in parallel
 

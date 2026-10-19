@@ -50,7 +50,6 @@ main :: () {}
 "#;
 
 #[test]
-#[ignore = "record names are per thread until their table is global"]
 fn code_parsed_on_a_started_thread_keeps_its_names() {
     let library = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../stdlib")

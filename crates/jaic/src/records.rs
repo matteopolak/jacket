@@ -17,6 +17,8 @@ use std::rc::Rc;
 
 use crate::builtin_keys::SyntaxKey;
 use crate::fxhash::HashMap;
+use std::hash::BuildHasherDefault;
+use std::sync::{OnceLock, PoisonError, RwLock};
 
 #[derive(Clone, Debug)]
 pub enum Item {
@@ -87,76 +89,110 @@ impl FieldRef<'_> {
     }
 }
 
-/// A field name, interned. Records hold `Rc`s, so they never leave the thread that made
-/// them, and a table per thread is enough.
+/// A field name, interned in one table for the whole process. Records hold `Rc`s and stay on
+/// the thread that made them, but a record can be made on any thread a compile-time run
+/// started, so the names must mean the same everywhere.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Name(u16);
 
-#[derive(Default)]
 struct Names {
     list: Vec<&'static str>,
     by_text: HashMap<&'static str, Name>,
-    /// Literals by address: interning one is a pointer hash, not a string hash.
+}
+
+static NAMES: RwLock<Names> = RwLock::new(Names {
+    list: Vec::new(),
+    by_text: HashMap::with_hasher(BuildHasherDefault::new()),
+});
+
+/// What this thread has seen of `NAMES`, so that after warm-up no lookup takes the lock:
+/// literals by address (a pointer hash, not a string hash), names by text, and a copy of the
+/// spellings for `as_str`.
+#[derive(Default)]
+struct Seen {
     by_address: HashMap<(usize, usize), Name>,
+    by_text: HashMap<&'static str, Name>,
+    list: Vec<&'static str>,
 }
 
 thread_local! {
-    static NAMES: RefCell<Names> = RefCell::default();
-    static SYNTAX_NAMES: std::cell::OnceCell<Vec<Name>> = const { std::cell::OnceCell::new() };
+    static SEEN: RefCell<Seen> = RefCell::default();
+}
+
+fn names() -> std::sync::RwLockReadGuard<'static, Names> {
+    NAMES.read().unwrap_or_else(PoisonError::into_inner)
 }
 
 impl Name {
     /// The name `name`, interned on first use.
     pub fn of(name: &'static str) -> Name {
-        NAMES.with_borrow_mut(|names| {
-            let key = (name.as_ptr() as usize, name.len());
-            if let Some(&id) = names.by_address.get(&key) {
-                return id;
-            }
-            let id = names.add(name);
-            names.by_address.insert(key, id);
-            id
-        })
+        let key = (name.as_ptr() as usize, name.len());
+        if let Some(id) = SEEN.with_borrow(|seen| seen.by_address.get(&key).copied()) {
+            return id;
+        }
+        let id = Name::find(name).unwrap_or_else(|| Name::add(name));
+        SEEN.with_borrow_mut(|seen| seen.by_address.insert(key, id));
+        id
     }
 
     /// The name `name` if any field was ever given it.
     pub fn find(name: &str) -> Option<Name> {
-        NAMES.with_borrow(|names| names.by_text.get(name).copied())
+        if let Some(id) = SEEN.with_borrow(|seen| seen.by_text.get(name).copied()) {
+            return Some(id);
+        }
+        let (&text, &id) = names().by_text.get_key_value(name)?;
+        SEEN.with_borrow_mut(|seen| seen.by_text.insert(text, id));
+        Some(id)
     }
 
     /// The name `name`, interned on first use: for names that are not literals, from a
     /// small set (a leaked copy is kept).
     pub fn intern(name: &str) -> Name {
-        Name::find(name).unwrap_or_else(|| {
-            let name: &'static str = Box::leak(name.into());
-            NAMES.with_borrow_mut(|names| names.add(name))
-        })
+        Name::find(name).unwrap_or_else(|| Name::add(Box::leak(name.into())))
+    }
+
+    fn add(name: &'static str) -> Name {
+        let mut names = NAMES.write().unwrap_or_else(PoisonError::into_inner);
+        if let Some(&id) = names.by_text.get(name) {
+            return id;
+        }
+        let id = Name(u16::try_from(names.list.len()).expect("too many record field names"));
+        names.list.push(name);
+        names.by_text.insert(name, id);
+        id
     }
 
     pub fn as_str(self) -> &'static str {
-        NAMES.with_borrow(|names| names.list[self.0 as usize])
+        SEEN.with_borrow_mut(|seen| {
+            let at = self.0 as usize;
+            if at >= seen.list.len() {
+                let names = names();
+                let known = seen.list.len();
+                seen.list.extend_from_slice(&names.list[known..]);
+            }
+            seen.list[at]
+        })
     }
 
     /// The field a syntax attribute is stored in (`__syntax_` and the key's name).
     pub fn syntax(key: SyntaxKey) -> Name {
-        SYNTAX_NAMES.with(|cache| {
-            cache.get_or_init(|| {
-                SyntaxKey::ALL
-                    .iter()
-                    .map(|key| {
-                        let member = format!("{key:?}");
-                        let mut field = String::from("__syntax_");
-                        for (at, c) in member.chars().enumerate() {
-                            if c.is_ascii_uppercase() && at > 0 {
-                                field.push('_');
-                            }
-                            field.push(c.to_ascii_lowercase());
+        static SYNTAX_NAMES: OnceLock<Vec<Name>> = OnceLock::new();
+        SYNTAX_NAMES.get_or_init(|| {
+            SyntaxKey::ALL
+                .iter()
+                .map(|key| {
+                    let member = format!("{key:?}");
+                    let mut field = String::from("__syntax_");
+                    for (at, c) in member.chars().enumerate() {
+                        if c.is_ascii_uppercase() && at > 0 {
+                            field.push('_');
                         }
-                        Name::intern(&field)
-                    })
-                    .collect()
-            })[key as usize]
-        })
+                        field.push(c.to_ascii_lowercase());
+                    }
+                    Name::intern(&field)
+                })
+                .collect()
+        })[key as usize]
     }
 }
 
@@ -174,18 +210,6 @@ impl FieldKey for &'static str {
 impl FieldKey for SyntaxKey {
     fn name(self) -> Name {
         Name::syntax(self)
-    }
-}
-
-impl Names {
-    fn add(&mut self, name: &'static str) -> Name {
-        if let Some(&id) = self.by_text.get(name) {
-            return id;
-        }
-        let id = Name(u16::try_from(self.list.len()).expect("too many record field names"));
-        self.list.push(name);
-        self.by_text.insert(name, id);
-        id
     }
 }
 
