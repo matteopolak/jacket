@@ -6,6 +6,7 @@
     python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py editor
     python3 tools/dev/dev.py nvim [--unit] [-j N]
+    python3 tools/dev/dev.py vscode-try [--debug] [-j N] [folder]
     python3 tools/dev/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
 
 The recipes in the Justfile are thin wrappers; this file holds the logic so that CI and a local
@@ -27,6 +28,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
@@ -207,6 +209,63 @@ def cmd_nvim(args) -> int:
                           cwd=ROOT / "editors" / "nvim", env=env).returncode
 
 
+def cmd_vscode_try(args) -> int:
+    """Build the tools and the VS Code extension, then open it alone in a throwaway VS Code profile.
+
+    `folder` is opened in place; without one, a copy of examples/ is, so edits never touch the repository.
+    The profile lives in a new temporary folder (VS Code's IPC socket path must stay under 104 bytes).
+    """
+    code = shutil.which("code")
+    if code is None and sys.platform == "darwin":
+        bundled = Path("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code")
+        code = str(bundled) if bundled.exists() else None
+    if code is None:
+        print("VS Code's `code` command not found (Command Palette: Shell Command: Install 'code' command in PATH)", file=sys.stderr)
+        return 1
+    profile = "debug" if args.debug else "release"
+    if cargo_build([*([] if args.debug else ["--release"]), "-p", "jaic-cli", "-p", "jai-language-server", "-p", "jailint"],
+                   args.jobs):
+        return 1
+    bin_dir = TARGET / profile
+    jaifmt = TARGET / ("jaifmt" + EXE)
+    jaic = bin_dir / ("jaic" + EXE)
+    if not jaifmt.exists() or jaifmt.stat().st_mtime < max(newest(JAIFMT_SOURCES), jaic.stat().st_mtime):
+        if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt)]):
+            return 1
+    extension = ROOT / "editors" / "vscode"
+    pnpm = shutil.which("pnpm")
+    if pnpm is None:
+        print("pnpm not found (corepack enable)", file=sys.stderr)
+        return 1
+    if run([pnpm, "install", "--frozen-lockfile", "--ignore-scripts"], cwd=extension) or run([pnpm, "run", "build"], cwd=extension):
+        return 1
+
+    scratch = Path(tempfile.mkdtemp(prefix="jacket-vscode-"))
+    if args.folder:
+        workspace = Path(args.folder).resolve()
+    else:
+        workspace = scratch / "examples"
+        shutil.copytree(ROOT / "examples", workspace)
+    settings = {
+        "jai.server.path": str(bin_dir / ("jailsp" + EXE)),
+        "jai.compiler.path": str(jaic),
+        "jai.formatter.path": str(jaifmt),
+        "jai.stdlib.path": str(ROOT / "stdlib"),
+        # The extension ignores the folder's own tool paths in Restricted Mode.
+        "security.workspace.trust.enabled": False,
+        "update.mode": "none",
+        "extensions.autoCheckUpdates": False,
+        "telemetry.telemetryLevel": "off",
+    }
+    user = scratch / "user" / "User"
+    user.mkdir(parents=True)
+    (user / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
+    print(f"+ code {workspace} (profile in {scratch})", file=sys.stderr, flush=True)
+    return subprocess.run([code, "--new-window", "--user-data-dir", str(scratch / "user"),
+                           "--extensions-dir", str(scratch / "extensions"),
+                           f"--extensionDevelopmentPath={extension}", str(workspace)]).returncode
+
+
 def cmd_test(args) -> int:
     failed = False
     narrowed = bool(args.crate or args.filter)
@@ -231,7 +290,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     for name, fn in (("build", cmd_build), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
-                     ("nvim", cmd_nvim), ("test", cmd_test)):
+                     ("nvim", cmd_nvim), ("vscode-try", cmd_vscode_try), ("test", cmd_test)):
         p = sub.add_parser(name)
         p.set_defaults(fn=fn)
         p.add_argument("-j", "--jobs", default="3")
@@ -244,6 +303,9 @@ def main() -> int:
             p.add_argument("--check" if name == "fmt" else "--fix", action="store_true")
         if name == "nvim":
             p.add_argument("--unit", action="store_true")
+        if name == "vscode-try":
+            p.add_argument("--debug", action="store_true")
+            p.add_argument("folder", nargs="?", default="")
         if name == "test":
             p.add_argument("--suite", choices=["cargo", "tools", "all"], default="all")
             p.add_argument("-p", "--crate", default="")

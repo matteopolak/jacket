@@ -39,6 +39,8 @@ JAILSP=../../target/debug/jailsp [JAIFMT=...] pnpm run test:e2e
 pnpm run package         # jacket-vscode-<version>.vsix
 ```
 
+To try a change by hand, `just vscode-try [FOLDER]` (from the repository root) builds the tools and the extension and opens VS Code with only this extension, in a throwaway profile that points at the built binaries. Without `FOLDER` it opens a temporary copy of `examples/`.
+
 - **Grammar:** edit `build-grammar.ts`, rebuild, add assertions to `test/grammar/*.jai` (vscode-tmgrammar-test: `^` under tested columns). `scripts/tokenize-corpus.ts` tokenizes `examples/` and `stdlib/` and fails on a token left open; run it on the upstream corpus after big changes.
 - **New here-string language:** add the tags to `LANGUAGE_TAGS` in `crates/jaic/src/lexer/here.rs`, regenerate `editors/lexicon.json` (below) and add the language to `EMBEDDED_LANGUAGES` in `build-grammar.ts` (the build fails while they differ), and to the playground's table if supported. Avoid common generic terminators.
 - **New jailint rule:** nothing; the schema regenerates and lint fails while stale. **New jaifmt.toml key:** `scripts/build.ts` (`schemas`). **New release platform:** one row in `RELEASE_ASSETS` (a unit test compares it with the `release.yml` matrix).

@@ -89,6 +89,13 @@ fetch-upstreams *args:
 wasm *args:
     {{ py }} tools/browser/build_scripting_wasm.py --release --output target/wasm {{ args }}
 
+# Open VS Code with only the freshly built extension, on FOLDER or a temporary copy of examples/.
+[group('web')]
+[arg("debug", long, value="true")]
+[arg("jobs", long, short="j")]
+vscode-try debug="false" jobs=default_jobs folder="":
+    {{ py }} tools/dev/dev.py vscode-try -j {{ jobs }} {{ if debug == "true" { "--debug" } else { "" } }} {{ folder }}
+
 # Run an editors/vscode package script (lint, test, build, package, ...) through pnpm.
 [group('web')]
 [working-directory('editors/vscode')]
