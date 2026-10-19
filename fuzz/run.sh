@@ -23,12 +23,16 @@ if [ -z "$(ls -A "corpus/$target")" ]; then
   python3 seed_corpus.py "$target"
 fi
 
+# cargo-fuzz builds for the triple it was itself built for unless told otherwise, and a prebuilt
+# (musl) cargo-fuzz then asks for a standard library the toolchain does not have: build for the host.
+host=$(rustc -vV | sed -n 's/^host: //p')
+
 # A unit is slow only when it reaches the target's timeout (libFuzzer's default, 10 s, is below
 # the LSP targets' 20 s, and run.sh fails on any file in artifacts/).
 # No sanitizer: the compiler is safe Rust except the interpreter's program memory, and ASan
 # would also flag the interpreted program's own (intended) raw memory use. Debug assertions
 # turn arithmetic overflow into panics.
-cargo fuzz run --sanitizer none --debug-assertions "$target" "corpus/$target" -- \
+cargo fuzz run --sanitizer none --debug-assertions --target "$host" "$target" "corpus/$target" -- \
   -dict=jai.dict \
   -artifact_prefix="artifacts/$target/" \
   -max_total_time="$seconds" \

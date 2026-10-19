@@ -60,7 +60,8 @@ jobs:
         if: always()
         working-directory: fuzz
         run: >-
-          cargo fuzz cmin --sanitizer none --debug-assertions ${{ matrix.target }}
+          cargo fuzz cmin --sanitizer none --debug-assertions
+          --target "$(rustc -vV | sed -n 's/^host: //p')" ${{ matrix.target }}
           corpus/${{ matrix.target }} -- -timeout=20 -rss_limit_mb=4096
       - name: Save the corpus
         if: always()
