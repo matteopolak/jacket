@@ -1,15 +1,12 @@
 //! Original callable-provenance fixtures. Structural type equality is never a name oracle.
-use jai_language_server::DocumentUri;
 mod common;
-use common::{lean_session, position};
+use common::{cursor, file_uri, lean_session};
 
 fn names(source: &str) -> Vec<String> {
-    let byte = source.find('|').unwrap();
-    let text = source.replacen('|', "", 1);
+    let (text, at) = cursor(source);
     let mut s = lean_session();
-    let uri = DocumentUri::parse("file:///callback-arguments/main.jai").unwrap();
+    let uri = file_uri("/callback-arguments/main.jai");
     s.open(uri.clone(), 1, text.clone()).unwrap();
-    let at = position(&text, byte);
     s.completion(&uri, at)
         .unwrap()
         .items

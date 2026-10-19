@@ -1,10 +1,9 @@
 //! A panic in one request leaves the server running; settings files that do not parse are
 //! reported to the client once.
-use jai_language_server::{Environment, JsonSession, Limits};
+use jai_language_server::{JsonSession, Limits};
 use serde_json::{Value, json};
-use std::path::PathBuf;
 mod common;
-use common::utf16_len;
+use common::{environment, utf16_len};
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
     session
@@ -76,19 +75,7 @@ fn a_panic_is_an_error_response_and_the_server_keeps_working() {
 }
 
 fn with_environment() -> JsonSession {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    JsonSession::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = jaic::sema::Options::host();
-                options.import_paths = vec![stdlib.clone()];
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options
-            }),
-        },
-    )
+    JsonSession::with_environment(Limits::default(), environment())
 }
 
 fn messages(out: &[Value]) -> Vec<String> {

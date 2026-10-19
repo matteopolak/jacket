@@ -1,9 +1,9 @@
 //! Call hierarchy and selection ranges.
-use jai_language_server::{DocumentUri, JsonSession, Limits, Position, Range};
+use jai_language_server::{DocumentUri, JsonSession, Limits, Position};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 mod common;
-use common::{at_offset, environment, open, uri};
+use common::{at_offset, environment, open, text_in_range, uri};
 
 const PROGRAM: &str = "leaf :: (n: int) -> int {
     return n + 1;
@@ -131,17 +131,7 @@ main :: () { helper(); }
     let source = s.source(&destination).expect("readable declaration");
     let range = helper[0].item.selection_range;
     assert_eq!(range.start.line, range.end.line);
-    let line: Vec<_> = source
-        .lines()
-        .nth(range.start.line as usize)
-        .unwrap()
-        .encode_utf16()
-        .collect();
-    assert_eq!(
-        String::from_utf16(&line[range.start.character as usize..range.end.character as usize])
-            .unwrap(),
-        "print"
-    );
+    assert_eq!(text_in_range(&source, range), "print");
 }
 
 #[test]
@@ -257,21 +247,10 @@ fn chain(text: &str, position: Position) -> Vec<String> {
     let mut selection = Some(s.selection_ranges(&uri(), &[position]).unwrap().remove(0));
     let mut out = Vec::new();
     while let Some(sel) = selection {
-        out.push(slice(text, sel.range));
+        out.push(text_in_range(text, sel.range));
         selection = sel.parent.map(|p| *p);
     }
     out
-}
-
-fn slice(text: &str, range: Range) -> String {
-    let byte = |p: Position| -> usize {
-        text.split_inclusive('\n')
-            .take(p.line as usize)
-            .map(str::len)
-            .sum::<usize>()
-            + p.character as usize
-    };
-    text[byte(range.start)..byte(range.end)].to_string()
 }
 
 #[test]

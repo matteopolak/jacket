@@ -3,7 +3,7 @@ use jai_language_server::{
     CompletionItem, CompletionKind, DocumentUri, Position, Session, TextChange,
 };
 mod common;
-use common::{session, uri};
+use common::{file_uri, session, uri};
 
 /// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` characters.
 fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
@@ -275,7 +275,7 @@ fn completion_after_a_hash_lists_directives() {
 #[test]
 fn definition_reaches_loaded_files_and_the_stdlib() {
     let mut s = session();
-    let other = DocumentUri::parse("file:///lsp-test/other.jai").unwrap();
+    let other = file_uri("/lsp-test/other.jai");
     let main = concat!(
         "#import \"Basic\";\n",
         "#load \"other.jai\";\n",
@@ -322,8 +322,8 @@ fn definition_reaches_loaded_files_and_the_stdlib() {
 #[test]
 fn completion_inside_load_and_import_strings_lists_paths_and_modules() {
     let mut s = session();
-    let helper = DocumentUri::parse("file:///lsp-test/util/helpers.jai").unwrap();
-    let local = DocumentUri::parse("file:///lsp-test/other.jai").unwrap();
+    let helper = file_uri("/lsp-test/util/helpers.jai");
+    let local = file_uri("/lsp-test/other.jai");
     s.open(helper, 1, "x :: 1;\n".into()).unwrap();
     s.open(local, 1, "y :: 2;\n".into()).unwrap();
     let text = "#import \"Bas\";\n#load \"\";\n#load \"util/h\";\n";

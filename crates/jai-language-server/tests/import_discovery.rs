@@ -1,4 +1,6 @@
 //! Original failed-discovery reducers; no corpus or stdlib implementation inputs.
+mod common;
+use common::file_uri;
 use jaic::sema::{Compiler, FileSystem, Options, VirtualFs, ide::IdeFacts};
 use std::{
     cell::{Cell, RefCell},
@@ -190,9 +192,7 @@ fn strict_resolution_does_not_reuse_editor_discovery_memo() {
 
 #[test]
 fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery() {
-    use jai_language_server::{
-        DocumentUri, Environment, Limits, Position, Range, Session, TextChange,
-    };
+    use jai_language_server::{Environment, Limits, Position, Range, Session, TextChange};
     let fs = Rc::new(CountingFs::default());
     let text = "// 🧭\n#import \"Unavailable\";\n#import \"Available\";\nmain :: () { value := published; }\n";
     fs.insert("/discovery/main.jai", text);
@@ -215,7 +215,7 @@ fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery()
             },
         )
     };
-    let uri = DocumentUri::parse("file:///discovery/main.jai").unwrap();
+    let uri = file_uri("/discovery/main.jai");
     let pos = Position {
         line: 3,
         character: text.lines().nth(3).unwrap().find("published").unwrap() as u32,

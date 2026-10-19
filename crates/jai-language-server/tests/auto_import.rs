@@ -7,35 +7,13 @@ use jai_language_server::{
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 mod common;
-use common::{modules_environment, uri_of};
+use common::{end_of, modules_environment, project, uri_of};
 
 fn session() -> Session {
     Session::with_environment(
         Limits::default(),
         modules_environment(Some(jaic::sema::TargetOs::Linux)),
     )
-}
-
-/// A fresh folder with `files` (path, text) written into it.
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir =
-        std::env::temp_dir().join(format!("jailsp-auto-import-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir
-}
-
-fn end_of(text: &str, marker: &str) -> Position {
-    let byte = text.find(marker).unwrap() + marker.len();
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
 }
 
 /// Completion at the end of `marker` in `text`, opened as `path`.

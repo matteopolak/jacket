@@ -1,6 +1,6 @@
 //! Completion, signature help and hovers over polymorphs, baked procedures and other targets.
-use super::{at_nth, hover, session, uri};
-use jai_language_server::{DocumentUri, Position, Session};
+use super::{at_nth, file_uri, hover, session, uri};
+use jai_language_server::{Position, Session};
 
 /// Complete at the end of `typed` (the text before the cursor) inside `main`, with a
 /// `table` array and a `lo`/`hi` pair in scope.
@@ -341,7 +341,7 @@ fn code_another_target_compiles_hovers_and_goes_to_definition() {
 main :: () {}
 "#;
     let web_text = "web_factor :: () -> int { return 2; }\n";
-    let web = DocumentUri::parse("file:///lsp-test/web.jai").unwrap();
+    let web = file_uri("/lsp-test/web.jai");
     let mut s = session();
     s.open(uri(), 1, main.into()).unwrap();
     s.open(web.clone(), 1, web_text.into()).unwrap();

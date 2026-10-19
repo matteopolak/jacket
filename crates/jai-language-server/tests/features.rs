@@ -9,7 +9,7 @@ use jai_language_server::{
     MarkupKind, Position, Range, SemanticTokenKind, Session,
 };
 mod common;
-use common::{at_nth, environment, session, uri};
+use common::{at_nth, environment, file_uri, session, uri};
 
 fn everything(text: &str) -> Range {
     Range {

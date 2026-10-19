@@ -2,7 +2,7 @@
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Session};
 use std::path::{Path, PathBuf};
 mod common;
-use common::{at_last, lean_session};
+use common::{at_last, file_uri, lean_session};
 
 #[test]
 fn definition_and_hierarchy_encode_reserved_native_filename_characters() {
@@ -24,7 +24,7 @@ fn definition_and_hierarchy_encode_reserved_native_filename_characters() {
 #[test]
 fn load_links_and_cross_file_definitions_use_encoded_destinations() {
     let mut s = lean_session();
-    let main = DocumentUri::parse("file:///file-uris/main.jai").unwrap();
+    let main = file_uri("/file-uris/main.jai");
     let helper = DocumentUri::parse("file:///file-uris/helper%20%23%25%C3%A9.jai").unwrap();
     s.open(helper.clone(), 1, "answer :: 42;".into()).unwrap();
     let text = "#load \"helper #%é.jai\";\nmain :: () { value := answer; }";
@@ -54,7 +54,7 @@ fn auto_import_keeps_authored_docs_for_encoded_module_directory() {
         "/// A visible record.\nVisible_Record :: struct { value: int; }".into(),
     )
     .unwrap();
-    let main = DocumentUri::parse("file:///file-uris/main.jai").unwrap();
+    let main = file_uri("/file-uris/main.jai");
     let text = "main :: () { value: Visible_; }";
     s.open(main.clone(), 1, text.into()).unwrap();
     let start = at_last(text, "Visible_");
@@ -125,8 +125,8 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
             }),
         },
     );
-    let original = DocumentUri::parse("file:///file-uris/Helper.jai").unwrap();
-    let alias = DocumentUri::parse("file:///file-uris/helper.jai").unwrap();
+    let original = file_uri("/file-uris/Helper.jai");
+    let alias = file_uri("/file-uris/helper.jai");
     let text = "/* 😀 */ answer :: 42;";
     s.open(original.clone(), 1, text.into()).unwrap();
     assert_eq!(s.source(&alias).as_deref(), Some(text));
@@ -154,7 +154,7 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
     assert_eq!(s.version(&original).unwrap(), 2);
     assert_eq!(s.document_text(&alias).unwrap(), "/* 😀 */ answer :: 99;");
     assert!(s.hover(&alias, at_last(text, "answer")).unwrap().is_some());
-    let main = DocumentUri::parse("file:///file-uris/main.jai").unwrap();
+    let main = file_uri("/file-uris/main.jai");
     let main_text = "#load \"helper.jai\";\nmain :: () { value := answer; }";
     s.open(main.clone(), 1, main_text.into()).unwrap();
     let hover = s

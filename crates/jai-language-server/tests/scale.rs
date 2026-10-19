@@ -1,10 +1,10 @@
 //! Large inputs and compile-time code that cannot finish: the server answers instead of stalling,
 //! dropping the document or dying.
-use jai_language_server::{DocumentUri, JsonSession, Limits, Position, Session};
+use jai_language_server::{DocumentUri, JsonSession, Limits, Position};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 mod common;
-use common::environment;
+use common::{environment, file_uri, session};
 
 /// Focus's `src/main.jai` imports `Basic` with a parameter its build metaprogram defines, so opened
 /// alone the import never resolves and dozens of language files `#insert` code that waits for it.
@@ -17,7 +17,7 @@ fn project_with_an_unresolvable_import_still_answers() {
     let Ok(text) = std::fs::read_to_string(&root) else {
         return;
     };
-    let mut s = Session::with_environment(Limits::default(), environment());
+    let mut s = session();
     let uri = DocumentUri::from_path(&root.canonicalize().unwrap()).unwrap();
     let started = Instant::now();
     s.open(uri.clone(), 1, text).unwrap();
@@ -49,7 +49,7 @@ fn generated(count: usize) -> String {
 }
 
 fn big_uri() -> DocumentUri {
-    DocumentUri::parse("file:///lsp-scale-test/big.jai").unwrap()
+    file_uri("/lsp-scale-test/big.jai")
 }
 
 /// A document of 700 KiB, 18,000 tokens past the old caps (256 KiB, 8192 tokens, 1024
@@ -58,7 +58,7 @@ fn big_uri() -> DocumentUri {
 fn large_document_opens_and_answers() {
     let text = generated(13_000);
     assert!(text.len() > 600 * 1024);
-    let mut s = Session::with_environment(Limits::default(), environment());
+    let mut s = session();
     s.open(big_uri(), 1, text.clone()).unwrap();
     let diagnostics = s.diagnostics(&big_uri()).unwrap();
     assert!(

@@ -1,8 +1,6 @@
 //! Code actions, fix-all, import fixes and lint configuration.
-use super::{TWO_LINTS, at_nth, everything, notify, opened, request, session, uri};
-use jai_language_server::{
-    DiagnosticCode, DiagnosticSeverity, DocumentUri, JsonSession, Position, Range,
-};
+use super::{TWO_LINTS, at_nth, everything, file_uri, notify, opened, request, session, uri};
+use jai_language_server::{DiagnosticCode, DiagnosticSeverity, JsonSession, Position, Range};
 
 pub(super) fn code_actions(
     json: &mut JsonSession,
@@ -192,7 +190,7 @@ fn an_unknown_extension_name_offers_its_extensions_import() {
 fn an_import_goes_after_the_existing_imports() {
     let text = "#import \"Math\";\n#load \"other.jai\";\n\nmain :: () {\n    print(\"%\\n\", sqrt(2.0));\n}\n";
     let mut s = session();
-    let other = DocumentUri::parse("file:///lsp-test/other.jai").unwrap();
+    let other = file_uri("/lsp-test/other.jai");
     s.open(other, 1, "helper :: () {}\n".into()).unwrap();
     s.open(uri(), 1, text.into()).unwrap();
     let cursor = at_nth(text, "print", 0, 0);
@@ -262,7 +260,7 @@ fn a_module_used_as_a_namespace_is_imported_under_its_name() {
 fn a_loaded_file_gets_the_import_itself() {
     let main = "#load \"helper.jai\";\nmain :: () { helper(); }\n";
     let helper_text = "// Helpers.\nhelper :: () {\n    print(\"x\\n\");\n}\n";
-    let helper = DocumentUri::parse("file:///lsp-test/helper.jai").unwrap();
+    let helper = file_uri("/lsp-test/helper.jai");
     let mut s = session();
     s.open(uri(), 1, main.into()).unwrap();
     s.open(helper.clone(), 1, helper_text.into()).unwrap();

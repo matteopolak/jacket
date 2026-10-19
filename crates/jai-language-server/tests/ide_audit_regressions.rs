@@ -2,41 +2,32 @@
 use jai_language_server::{
     DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Range, Session, TextChange,
 };
-use jaic::sema::{Options, VirtualFs};
+use jaic::sema::Options;
 use std::{path::PathBuf, rc::Rc};
 mod common;
-use common::{at, position};
+use common::{at, file_uri, position, virtual_session};
 
 const VALUES: &str = "amount :: 23;\nstate: int;\nNumber :: int;\n#scope_file\nsecret :: 99;\n";
 const FACADE: &str = "using,only(amount,state,Number) Values :: #import \"Values\";\n";
 const MAIN: &str = "Facade :: #import \"Facade\";\nAlias :: Facade;\n#add_context marker: int;\nmain :: () {\n    note := \"🦊\"; first := Alias.amount;\n    Alias.state = first;\n    number: Alias.Number;\n    context.marker = number;\n    number = context.marker;\n}\n";
 
 fn session() -> Session {
-    let mut fs = VirtualFs::default();
-    fs.insert("/ide-audit/modules/Values/module.jai", VALUES.as_bytes());
-    fs.insert("/ide-audit/modules/Facade/module.jai", FACADE.as_bytes());
-    fs.insert(
-        "/ide-audit/modules/Overloads/module.jai",
-        "choose :: (x:int)->int {return x;}\nchoose :: (x:float)->float {return x;}\n".as_bytes(),
-    );
-    fs.insert("/ide-audit/prelude/module.jai", "".as_bytes());
-    fs.insert(
-        "/ide-audit/modules/Configured/module.jai",
-        "#module_parameters (LIMIT: s64 = 5);\nvalue :: LIMIT;\n".as_bytes(),
-    );
-    Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: Rc::new(fs),
-            options: Box::new(|_| {
-                let mut options = Options::host();
-                options.runtime_support = false;
-                options.stack_trace = false;
-                options.preload = Some(PathBuf::from("/ide-audit/prelude/module.jai"));
-                options.import_paths = vec![PathBuf::from("/ide-audit/modules")];
-                options
-            }),
-        },
+    virtual_session(
+        &[
+            ("/ide-audit/modules/Values/module.jai", VALUES),
+            ("/ide-audit/modules/Facade/module.jai", FACADE),
+            (
+                "/ide-audit/modules/Overloads/module.jai",
+                "choose :: (x:int)->int {return x;}\nchoose :: (x:float)->float {return x;}\n",
+            ),
+            ("/ide-audit/prelude/module.jai", ""),
+            (
+                "/ide-audit/modules/Configured/module.jai",
+                "#module_parameters (LIMIT: s64 = 5);\nvalue :: LIMIT;\n",
+            ),
+        ],
+        &["/ide-audit/modules"],
+        Some("/ide-audit/prelude/module.jai"),
     )
 }
 
@@ -73,7 +64,7 @@ fn check(s: &Session, uri: &DocumentUri, text: &str) {
 
 #[test]
 fn qualified_reexports_and_context_keep_exact_locations_after_utf16_edits() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let mut session = session();
     session.open(uri.clone(), 1, MAIN.into()).unwrap();
     let errors = session.diagnostics(&uri).unwrap();
@@ -118,7 +109,7 @@ fn qualified_reexports_and_context_keep_exact_locations_after_utf16_edits() {
 #[test]
 fn nested_initializer_targets_and_contextual_enums_keep_exact_field_definitions() {
     const SOURCE: &str = "Record :: struct { kind: enum { FIRST; SECOND; } detail: struct { count:int; } }\nmain :: () { value:=Record.{kind=.SECOND, detail.count=13}; observed:=value.detail.count; }\n";
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let mut s = session();
     s.open(uri.clone(), 1, SOURCE.into()).unwrap();
     let diagnostics = s.diagnostics(&uri).unwrap();
@@ -152,7 +143,7 @@ fn nested_initializer_targets_and_contextual_enums_keep_exact_field_definitions(
 
 #[test]
 fn builtin_type_uses_hover_without_fabricated_source_definitions() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "value: int;\nmain :: () { other: s32; }\n";
     let mut session = session();
     session.open(uri.clone(), 1, text.into()).unwrap();
@@ -168,8 +159,8 @@ fn builtin_type_uses_hover_without_fabricated_source_definitions() {
 
 #[test]
 fn static_reexport_filter_names_navigate_to_visible_original_declarations() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
-    let facade = DocumentUri::parse("file:///ide-audit/modules/Facade/module.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
+    let facade = file_uri("/ide-audit/modules/Facade/module.jai");
     let mut s = session();
     s.open(uri, 1, MAIN.into()).unwrap();
     s.open(facade.clone(), 1, FACADE.into()).unwrap();
@@ -193,7 +184,7 @@ fn static_reexport_filter_names_navigate_to_visible_original_declarations() {
 
 #[test]
 fn selector_metadata_retains_overloads_and_does_not_expose_private_or_absent_names() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "using,only(choose) M :: #import \"Overloads\";\nmain :: () {value:=choose(1);}\n";
     let mut s = session();
     s.open(uri.clone(), 1, text.into()).unwrap();
@@ -239,7 +230,7 @@ fn selector_metadata_retains_overloads_and_does_not_expose_private_or_absent_nam
 
 #[test]
 fn static_aggregate_filters_use_actual_field_identity() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "R :: struct {field:int;}\nmain :: () {r:R; using,only(field) r; field=3;}\n";
     let mut s = session();
     s.open(uri.clone(), 1, text.into()).unwrap();
@@ -252,7 +243,7 @@ fn static_aggregate_filters_use_actual_field_identity() {
 
 #[test]
 fn aggregate_using_targets_keep_the_original_local_and_global_type_and_identity() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "R :: struct {field:int;}\nglobal:R;\nmain :: () {local:R; using,only(field) local; using,except(absent) global;}\n";
     let mut s = session();
     s.open(uri.clone(), 1, text.into()).unwrap();
@@ -277,7 +268,7 @@ fn aggregate_using_targets_keep_the_original_local_and_global_type_and_identity(
 
 #[test]
 fn named_module_arguments_navigate_to_real_parameter_declarations_on_cached_instances() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "First :: #import \"Configured\"(LIMIT=12);\nAgain :: #import \"Configured\"(LIMIT=12);\nOther :: #import \"Configured\"(LIMIT=9);\nmain :: () {}\n";
     let mut s = session();
     s.open(uri.clone(), 1, text.into()).unwrap();
@@ -314,7 +305,7 @@ fn named_module_arguments_navigate_to_real_parameter_declarations_on_cached_inst
 
 #[test]
 fn invalid_module_argument_labels_keep_failed_context_without_fabricated_targets() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "Bad :: #import \"Configured\"(ABSENT=12);\nmain :: () {value:=Bad.value;}\n";
     let mut s = session();
     s.open(uri.clone(), 1, text.into()).unwrap();
@@ -336,7 +327,7 @@ fn invalid_module_argument_labels_keep_failed_context_without_fabricated_targets
 
 #[test]
 fn malformed_c_variadic_call_diagnoses_and_valid_edit_restores_navigation() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let bad = "broken :: (items: ..int, tail:int) #c_call {}\nmain :: () {broken(1,tail=2);}\n";
     let mut s = session();
     s.open(uri.clone(), 1, bad.into()).unwrap();
@@ -377,7 +368,7 @@ fn malformed_c_variadic_call_diagnoses_and_valid_edit_restores_navigation() {
 
 #[test]
 fn configured_bootstrap_type_uses_keep_semantic_hovers() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "value: int;\nmain :: () { other: s32; }\n";
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../stdlib")
@@ -412,7 +403,7 @@ fn configured_bootstrap_type_uses_keep_semantic_hovers() {
 
 #[test]
 fn production_basic_temp_and_exit_remain_typed_and_navigate() {
-    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let uri = file_uri("/ide-audit/main.jai");
     let text = "using #import \"Basic\";\nBasic :: #import \"Basic\";\nmain :: () { allocator := Basic.temp; exit(1); }\n";
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../stdlib")

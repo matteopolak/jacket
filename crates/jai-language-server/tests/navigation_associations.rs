@@ -1,24 +1,11 @@
 //! Independent compiler-owner reductions, checkpoint 36ea131e; strict authored source oracles.
-use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session, TextChange};
-use jaic::sema::{Options, VirtualFs};
-use std::rc::Rc;
+use jai_language_server::{Position, Range, TextChange};
 mod common;
-use common::position;
+use common::{file_uri, position, virtual_session};
 
 fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
-    let uri = DocumentUri::parse("file:///navigation-associations/main.jai").unwrap();
-    let mut session = Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: Rc::new(VirtualFs::default()),
-            options: Box::new(|_| {
-                let mut o = Options::host();
-                o.runtime_support = false;
-                o.stack_trace = false;
-                o
-            }),
-        },
-    );
+    let uri = file_uri("/navigation-associations/main.jai");
+    let mut session = virtual_session(&[], &[], None);
     session.open(uri.clone(), 1, source.into()).unwrap();
     for version in 1..=3 {
         if version > 1 {

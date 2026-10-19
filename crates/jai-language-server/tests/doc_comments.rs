@@ -1,8 +1,8 @@
 //! Doc comments: hover, completion, signature help and intra-doc links, against the
 //! repository's stdlib.
-use jai_language_server::{CompletionKind, DocumentUri, MarkupKind, Position, Session, TextChange};
+use jai_language_server::{CompletionKind, MarkupKind, Position, Session, TextChange};
 mod common;
-use common::{session, uri};
+use common::{file_uri, session, uri};
 
 /// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` characters.
 fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
@@ -275,7 +275,7 @@ fn stdlib_declarations_show_their_docs() {
 fn imported_declarations_show_their_authored_docs() {
     // Public signatures do not prescribe library prose or private source layout.
     let mut s = session();
-    let imported = DocumentUri::parse("file:///lsp-test/documented.jai").unwrap();
+    let imported = file_uri("/lsp-test/documented.jai");
     s.open(imported, 1, "/// Visible docs across imports.\n/// ```jai\n/// M.exposed(7);\n/// ```\n/// - value: the fixture input\nexposed :: (value: int) {}".into()).unwrap();
     let text = "M :: #import,file \"documented.jai\";\nmain :: () { M.exposed(7); }";
     s.open(uri(), 1, text.into()).unwrap();

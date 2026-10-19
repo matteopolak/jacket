@@ -1,7 +1,7 @@
 //! Original standalone IDE fixtures, independent of any library implementation.
-use jai_language_server::{DocumentUri, Position};
+use jai_language_server::Position;
 mod common;
-use common::{at, lean_session, position, uri, utf16_len};
+use common::{at, file_uri, lean_session, position, uri, utf16_len};
 
 #[test]
 fn custom_for_keyword_uses_selected_overload_without_changing_operand_reference() {
@@ -150,7 +150,7 @@ fn named_generic_aliased_and_explicit_custom_iterations_resolve_actual_procedure
 
 #[test]
 fn imported_custom_iteration_navigates_to_its_source() {
-    let imported = DocumentUri::parse("file:///lsp-test/iterator.jai").unwrap();
+    let imported = file_uri("/lsp-test/iterator.jai");
     let library = "Bag :: struct { count: int; }\nFor_Flags :: u8;\nfor_expansion :: (b: Bag, body: Code, flags: For_Flags) #expand {\n    for 0..b.count { `it := 7; #insert body; }\n}\n";
     let text = "#import,file \"iterator.jai\";\nmain :: () {\n    collection: Bag;\n    for item: collection { result := item; }\n}\n";
     let mut s = lean_session();

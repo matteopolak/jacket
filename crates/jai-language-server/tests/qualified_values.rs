@@ -1,17 +1,15 @@
 //! Independent language/IDE regression: module-qualified declarations retain identity.
 //! No replaced-stdlib implementation or convenience API is the test oracle.
-use jai_language_server::{DocumentUri, Environment, Limits, Position, Session, TextChange};
-use jaic::sema::{Options, VirtualFs};
-use std::{path::PathBuf, rc::Rc};
+use jai_language_server::{DocumentUri, Position, Session, TextChange};
 mod common;
-use common::at;
+use common::{at, file_uri, virtual_session};
 
 const MODULE: &str = "Item :: struct { field: int; }\nseed :: 41;\nscalar :: seed + 1;\naggregate :: Item.{scalar};\nstate: Item;\nNumber :: s32;\ncallback :: (status: s32) {}\n#scope_file\nsecret :: 99;\n";
 const SOURCE: &str = "Data :: #import \"Values\";\nAlias :: Data;\nmain :: () {\n    first := Data.scalar;\n    second := Alias.aggregate;\n    third := Data.state;\n    number: Data.Number;\n    result := second.field;\n    Data.callback(1);\n}\n";
 
 #[test]
 fn failed_identifier_does_not_become_a_literal_members_definition() {
-    let uri = DocumentUri::parse("file:///qualified-values/main.jai").unwrap();
+    let uri = file_uri("/qualified-values/main.jai");
     let source = "bad :: missing;\nmain :: () { failed := bad; length := \"abc\".count; }\n";
     let mut s = session();
     s.open(uri.clone(), 1, source.into()).unwrap();
@@ -27,7 +25,7 @@ fn failed_identifier_does_not_become_a_literal_members_definition() {
 
 #[test]
 fn qualified_private_name_remains_an_error_without_a_fabricated_target() {
-    let uri = DocumentUri::parse("file:///qualified-values/main.jai").unwrap();
+    let uri = file_uri("/qualified-values/main.jai");
     let source = SOURCE.replace("Data.scalar", "Data.secret");
     let mut s = session();
     s.open(uri.clone(), 1, source.clone()).unwrap();
@@ -44,35 +42,22 @@ fn qualified_private_name_remains_an_error_without_a_fabricated_target() {
 }
 
 fn session() -> Session {
-    let mut fs = VirtualFs::default();
-    fs.insert(
-        "/qualified-values/modules/Values/module.jai",
-        MODULE.as_bytes(),
-    );
-    fs.insert(
-        "/qualified-values/modules/Other/module.jai",
-        "scalar :: 7;\n".as_bytes(),
-    );
-    Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: Rc::new(fs),
-            options: Box::new(|_| {
-                let mut options = Options::host();
-                // An independent compiler/IDE regression. The native investigation
-                // separately uses production runtime/bootstrap and genuine Basic.
-                options.runtime_support = false;
-                options.stack_trace = false;
-                options.import_paths = vec![PathBuf::from("/qualified-values/modules")];
-                options
-            }),
-        },
+    virtual_session(
+        &[
+            ("/qualified-values/modules/Values/module.jai", MODULE),
+            (
+                "/qualified-values/modules/Other/module.jai",
+                "scalar :: 7;\n",
+            ),
+        ],
+        &["/qualified-values/modules"],
+        None,
     )
 }
 
 #[test]
 fn same_named_values_in_different_modules_follow_the_actual_lookup() {
-    let uri = DocumentUri::parse("file:///qualified-values/main.jai").unwrap();
+    let uri = file_uri("/qualified-values/main.jai");
     let source = "Left :: #import \"Values\";\nRight :: #import \"Other\";\nmain :: () { first := Left.scalar; second := Right.scalar; }\n";
     let mut s = session();
     s.open(uri.clone(), 1, source.into()).unwrap();
@@ -124,7 +109,7 @@ fn assert_definitions(s: &Session, uri: &DocumentUri, source: &str) {
 
 #[test]
 fn qualified_scalar_aggregate_variable_and_type_alias_keep_their_declarations() {
-    let uri = DocumentUri::parse("file:///qualified-values/main.jai").unwrap();
+    let uri = file_uri("/qualified-values/main.jai");
     let mut s = session();
     s.open(uri.clone(), 1, SOURCE.into()).unwrap();
     assert!(

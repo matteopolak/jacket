@@ -2,7 +2,7 @@
 //! answer or fail with an error, never panic.
 use jai_language_server::{DocumentUri, Limits, Position, Session};
 mod common;
-use common::session;
+use common::{file_uri, session};
 
 fn open(text: &str) -> (Session, DocumentUri) {
     open_in(Session::new(Limits::default()), text)
@@ -14,7 +14,7 @@ fn open_checked(text: &str) -> (Session, DocumentUri) {
 }
 
 fn open_in(mut session: Session, text: &str) -> (Session, DocumentUri) {
-    let uri = DocumentUri::parse("file:///workspace/main.jai").unwrap();
+    let uri = file_uri("/workspace/main.jai");
     session.open(uri.clone(), 1, text.into()).unwrap();
     (session, uri)
 }

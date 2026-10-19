@@ -1,18 +1,14 @@
 //! Original callable fixtures: parameter names come from compiler metadata, not library text.
-use jai_language_server::{CompletionItem, DocumentUri, Range, Session, TextChange};
+use jai_language_server::{CompletionItem, Range, Session, TextChange};
 mod common;
-use common::{lean_session, position};
+use common::{cursor, file_uri, lean_session, position};
 
 fn complete(source: &str) -> Vec<CompletionItem> {
-    let byte = source.find('|').unwrap();
-    let text = source.replacen('|', "", 1);
+    let (text, at) = cursor(source);
     let mut session = lean_session();
-    let uri = DocumentUri::parse("file:///named-arguments/main.jai").unwrap();
+    let uri = file_uri("/named-arguments/main.jai");
     session.open(uri.clone(), 1, text.clone()).unwrap();
-    session
-        .completion(&uri, position(&text, byte))
-        .unwrap()
-        .items
+    session.completion(&uri, at).unwrap().items
 }
 
 #[test]
@@ -98,7 +94,7 @@ fn independent_callback_signatures_do_not_leak_other_parameter_names() {
 #[test]
 fn utf16_incremental_edits_recompute_the_callee_without_stale_names() {
     let mut s = lean_session();
-    let uri = DocumentUri::parse("file:///named-arguments/main.jai").unwrap();
+    let uri = file_uri("/named-arguments/main.jai");
     let mut text = "f :: (first := false) {}\ng :: (other := false) {}\nmain :: () { unicode := \"😀\"; f( ); }".to_owned();
     s.open(uri.clone(), 1, text.clone()).unwrap();
     let callee = text.rfind("f(").unwrap();

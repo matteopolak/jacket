@@ -2,12 +2,18 @@
 //! subset it uses, so unused items are expected.
 #![allow(dead_code, reason = "each test binary uses a subset of these helpers")]
 
-use jai_language_server::{DocumentUri, Environment, Limits, Position, Session};
-use jaic::sema::TargetOs;
+use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session};
+use jaic::sema::{Options, TargetOs, VirtualFs};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 fn stdlib_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
+}
+
+/// The repository's stdlib directory, canonical.
+pub fn stdlib() -> PathBuf {
+    stdlib_dir().canonicalize().unwrap()
 }
 
 /// An environment that type-checks against the repository's stdlib.
@@ -56,6 +62,36 @@ pub fn lean_environment() -> Environment {
     }
 }
 
+/// A session over an in-memory file system holding `files` (absolute path, text), without the
+/// runtime support or stack traces. `import_paths` are the module search directories and
+/// `preload` the file every program starts from, if any.
+pub fn virtual_session(
+    files: &[(&str, &str)],
+    import_paths: &[&str],
+    preload: Option<&str>,
+) -> Session {
+    let mut fs = VirtualFs::default();
+    for (path, text) in files {
+        fs.insert(path, text.as_bytes());
+    }
+    let import_paths: Vec<PathBuf> = import_paths.iter().map(PathBuf::from).collect();
+    let preload = preload.map(PathBuf::from);
+    Session::with_environment(
+        Limits::default(),
+        Environment {
+            fs: Rc::new(fs),
+            options: Box::new(move |_| {
+                let mut options = Options::host();
+                options.runtime_support = false;
+                options.stack_trace = false;
+                options.import_paths.clone_from(&import_paths);
+                options.preload.clone_from(&preload);
+                options
+            }),
+        },
+    )
+}
+
 /// A session over [`environment`].
 pub fn session() -> Session {
     Session::with_environment(Limits::default(), environment())
@@ -69,6 +105,42 @@ pub fn lean_session() -> Session {
 /// The document URI single-file tests open their text under.
 pub fn uri() -> DocumentUri {
     DocumentUri::parse("file:///lsp-test/main.jai").unwrap()
+}
+
+/// The `file://` URI of absolute `path` (`/project/main.jai`) that need not exist on disk.
+pub fn file_uri(path: &str) -> DocumentUri {
+    DocumentUri::parse(&format!("file://{path}")).unwrap()
+}
+
+/// `source` without its first `|`, and the position where the `|` was: the cursor of a
+/// completion or hover test.
+pub fn cursor(source: &str) -> (String, Position) {
+    let byte = source.find('|').expect("no `|` cursor marker");
+    (
+        source.replacen('|', "", 1),
+        position(&source.replacen('|', "", 1), byte),
+    )
+}
+
+/// The text of `range`, whose columns are UTF-16 units.
+pub fn text_in_range(text: &str, range: Range) -> String {
+    let byte = |at: Position| -> usize {
+        let start: usize = text
+            .split_inclusive('\n')
+            .take(at.line as usize)
+            .map(str::len)
+            .sum();
+        let line = &text[start..];
+        let mut units = 0;
+        for (index, ch) in line.char_indices() {
+            if units >= at.character {
+                return start + index;
+            }
+            units += ch.len_utf16() as u32;
+        }
+        start + line.len()
+    };
+    text[byte(range.start)..byte(range.end)].to_string()
 }
 
 /// A `file://` URI for a path on disk.
@@ -96,14 +168,26 @@ pub fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
     dir.canonicalize().unwrap()
 }
 
-/// Opens `file` of `folder` in a session over [`environment`] rooted at `folder`.
-pub fn open_file(folder: &Path, file: &str) -> (Session, DocumentUri, String) {
+/// A session over [`environment`] rooted at `folder`.
+pub fn workspace_session(folder: &Path) -> Session {
     let mut s = session();
     s.set_workspace_folders(vec![folder.to_path_buf()]);
+    s
+}
+
+/// Opens `file` of `folder` in `s`, from disk.
+pub fn open_from_disk(s: &mut Session, folder: &Path, file: &str) -> (DocumentUri, String) {
     let path = folder.join(file);
     let uri = uri_of(&path);
     let text = std::fs::read_to_string(&path).unwrap();
     s.open(uri.clone(), 1, text.clone()).unwrap();
+    (uri, text)
+}
+
+/// Opens `file` of `folder` in a session over [`environment`] rooted at `folder`.
+pub fn open_file(folder: &Path, file: &str) -> (Session, DocumentUri, String) {
+    let mut s = workspace_session(folder);
+    let (uri, text) = open_from_disk(&mut s, folder, file);
     (s, uri, text)
 }
 
@@ -129,6 +213,12 @@ pub fn utf16_len(text: &str) -> u32 {
 /// Position of the first `marker` in `text`.
 pub fn at(text: &str, marker: &str) -> Position {
     at_offset(text, marker, 0)
+}
+
+/// Position just after the first `marker` in `text`.
+pub fn end_of(text: &str, marker: &str) -> Position {
+    let byte = text.find(marker).unwrap_or_else(|| panic!("no {marker:?}")) + marker.len();
+    position(text, byte)
 }
 
 /// Position `offset` bytes into the first `marker` in `text`.

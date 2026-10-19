@@ -1,19 +1,7 @@
 //! Go to definition and document links on `#load` / `#import`, resolved as the compiler does.
 use jai_language_server::{DocumentUri, Position, Session};
-use std::path::PathBuf;
 mod common;
-use common::{at_offset, session};
-
-fn stdlib() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap()
-}
-
-fn doc(path: &str) -> DocumentUri {
-    DocumentUri::parse(&format!("file:///lsp-links-test/{path}")).unwrap()
-}
+use common::{at_offset, file_uri, session, stdlib};
 
 const MAIN: &str = r#"#import "Basic";
 B :: #import "Basic";
@@ -46,18 +34,21 @@ fn open_all() -> Session {
         ("part.jai", "part_value :: 6;\n"),
     ];
     for (path, text) in files {
-        s.open(doc(path), 1, text.into()).unwrap();
+        s.open(file_uri(&format!("/lsp-links-test/{path}")), 1, text.into())
+            .unwrap();
     }
     s
 }
 
 fn target(s: &Session, position: Position) -> (String, Position) {
-    let found = s.definition(&doc("main.jai"), position).unwrap();
+    let found = s
+        .definition(&file_uri("/lsp-links-test/main.jai"), position)
+        .unwrap();
     assert_eq!(
         found.len(),
         1,
         "at {position:?}: {found:?}; diagnostics: {:?}",
-        s.diagnostics(&doc("main.jai"))
+        s.diagnostics(&file_uri("/lsp-links-test/main.jai"))
     );
     (found[0].uri.clone(), found[0].range.start)
 }
@@ -72,12 +63,27 @@ fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
     let start = Position::default();
     for (marker, expected) in [
         ("\"Basic\";\nB", basic.clone()),
-        ("\"Mine\"", doc("modules/Mine.jai").as_str().into()),
+        (
+            "\"Mine\"",
+            file_uri("/lsp-links-test/modules/Mine.jai").as_str().into(),
+        ),
         // `Name.jai` comes before `Name/module.jai`.
-        ("\"Both\"", doc("modules/Both.jai").as_str().into()),
-        ("\"lib/helper.jai\"", doc("lib/helper.jai").as_str().into()),
-        ("\"pkg\"", doc("pkg/module.jai").as_str().into()),
-        ("\"part.jai\"", doc("part.jai").as_str().into()),
+        (
+            "\"Both\"",
+            file_uri("/lsp-links-test/modules/Both.jai").as_str().into(),
+        ),
+        (
+            "\"lib/helper.jai\"",
+            file_uri("/lsp-links-test/lib/helper.jai").as_str().into(),
+        ),
+        (
+            "\"pkg\"",
+            file_uri("/lsp-links-test/pkg/module.jai").as_str().into(),
+        ),
+        (
+            "\"part.jai\"",
+            file_uri("/lsp-links-test/part.jai").as_str().into(),
+        ),
     ] {
         assert_eq!(
             target(&s, at_offset(MAIN, marker, 2)),
@@ -88,12 +94,15 @@ fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
     // The directive itself links too.
     assert_eq!(
         target(&s, at_offset(MAIN, "#load", 1)),
-        (doc("part.jai").as_str().into(), start)
+        (file_uri("/lsp-links-test/part.jai").as_str().into(), start)
     );
     // A module the compiler cannot find has no target.
     assert_eq!(
-        s.definition(&doc("main.jai"), at_offset(MAIN, "\"Missing\"", 2))
-            .unwrap(),
+        s.definition(
+            &file_uri("/lsp-links-test/main.jai"),
+            at_offset(MAIN, "\"Missing\"", 2)
+        )
+        .unwrap(),
         [] as [jai_language_server::Location; 0]
     );
 }
@@ -101,18 +110,22 @@ fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
 #[test]
 fn document_links_span_the_strings() {
     let s = open_all();
-    let links = s.document_links(&doc("main.jai")).unwrap();
+    let links = s
+        .document_links(&file_uri("/lsp-links-test/main.jai"))
+        .unwrap();
     assert_eq!(links.len(), 7, "{links:?}");
     let (range, target) = &links[6];
     assert_eq!(range.start, at_offset(MAIN, "\"part.jai\"", 0));
     assert_eq!(range.end, at_offset(MAIN, "\"part.jai\"", 10));
-    assert_eq!(target, doc("part.jai").as_str());
+    assert_eq!(target, file_uri("/lsp-links-test/part.jai").as_str());
 }
 
 #[test]
 fn module_names_and_reexported_symbols_go_to_their_declarations() {
     let s = open_all();
-    let diagnostics = s.diagnostics(&doc("main.jai")).unwrap();
+    let diagnostics = s
+        .diagnostics(&file_uri("/lsp-links-test/main.jai"))
+        .unwrap();
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
     assert!(
         diagnostics[0]
@@ -130,7 +143,10 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
     );
     // A resolved call navigates to its selected canonical overload.
     let print = s
-        .definition(&doc("main.jai"), at_offset(MAIN, "B.print(", 3))
+        .definition(
+            &file_uri("/lsp-links-test/main.jai"),
+            at_offset(MAIN, "B.print(", 3),
+        )
         .unwrap();
     assert!(
         print
@@ -140,7 +156,10 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
     );
     assert_eq!(print.len(), 1, "selected print overload: {print:?}");
     let overloads = s
-        .definition(&doc("main.jai"), at_offset(MAIN, "B.print;", 3))
+        .definition(
+            &file_uri("/lsp-links-test/main.jai"),
+            at_offset(MAIN, "B.print;", 3),
+        )
         .unwrap();
     assert_eq!(
         overloads.len(),
@@ -156,7 +175,9 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
     assert_eq!(
         target(&s, at_offset(MAIN, "deep()", 1)),
         (
-            doc("modules/inner.jai").as_str().into(),
+            file_uri("/lsp-links-test/modules/inner.jai")
+                .as_str()
+                .into(),
             Position::default()
         )
     );
@@ -170,7 +191,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
     ] {
         assert_eq!(
             target(&s, at_offset(MAIN, marker, 1)).0,
-            doc(file).as_str(),
+            file_uri(&format!("/lsp-links-test/{file}")).as_str(),
             "{marker}"
         );
     }

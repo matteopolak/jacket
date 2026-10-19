@@ -1,24 +1,10 @@
 //! Project discovery follows what a build metaprogram did when it ran, not a scan of its
 //! text: computed paths, files added in a loop, and import paths built with `tprint` or kept
 //! in a variable are all found, and a metaprogram that fails later leaves the last good facts.
-use jai_language_server::{DiagnosticCode, DocumentUri, Limits, Session};
-use std::path::{Path, PathBuf};
+use jai_language_server::{DiagnosticCode, DocumentUri, Session};
+use std::path::PathBuf;
 mod common;
-use common::{at_offset, environment, project};
-
-fn open(s: &mut Session, dir: &Path, file: &str) -> (DocumentUri, String) {
-    let path = dir.join(file);
-    let text = std::fs::read_to_string(&path).unwrap();
-    let uri = DocumentUri::from_path(&path).unwrap();
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    (uri, text)
-}
-
-fn session(dir: &Path) -> Session {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.set_workspace_folders(vec![dir.to_path_buf()]);
-    s
-}
+use common::{at_offset, open_from_disk as open, project, workspace_session as session};
 
 fn check_errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
     s.diagnostics(uri)

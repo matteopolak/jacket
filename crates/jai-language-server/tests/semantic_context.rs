@@ -2,6 +2,8 @@
 use jai_language_server::{DocumentUri, Environment, Limits, Session};
 use jaic::sema::{Options, VirtualFs};
 use serde_json::Value;
+mod common;
+use common::file_uri;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
 fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
@@ -33,7 +35,7 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
             }),
         },
     );
-    let leaf = DocumentUri::parse("file:///observed/leaf.jai").unwrap();
+    let leaf = file_uri("/observed/leaf.jai");
     session
         .open(leaf.clone(), 1, "answer :: 42;".into())
         .unwrap();
@@ -119,7 +121,7 @@ fn unknown_observations_remain_null_and_syntax_only_has_no_semantic_context() {
         assert!(json[field].is_null());
     }
     let mut syntax = Session::new(Limits::default());
-    let uri = DocumentUri::parse("file:///observed/leaf.jai").unwrap();
+    let uri = file_uri("/observed/leaf.jai");
     syntax.open(uri.clone(), 1, "answer :: 42;".into()).unwrap();
     assert!(syntax.semantic_coverage(&uri).unwrap().is_none());
     assert_eq!(syntax.compile_counts(), (0, 0));

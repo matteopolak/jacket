@@ -5,7 +5,7 @@ use jai_language_server::{
 };
 use serde_json::{Value, json};
 mod common;
-use common::{lean_environment, position};
+use common::{cursor, lean_environment};
 
 fn session(snippets: bool, mode: CallSnippets) -> Session {
     let mut s = Session::with_environment(Limits::default(), lean_environment());
@@ -18,12 +18,10 @@ const URI: &str = "file:///call-snippets/main.jai";
 
 /// The completion item `label` where `|` marks the cursor.
 fn item(s: &mut Session, source: &str, label: &str) -> Option<CompletionItem> {
-    let byte = source.find('|').unwrap();
-    let text = source.replacen('|', "", 1);
+    let (text, at) = cursor(source);
     let uri = DocumentUri::parse(URI).unwrap();
     let _ = s.close(&uri);
     s.open(uri.clone(), 1, text.clone()).unwrap();
-    let at = position(&text, byte);
     s.completion(&uri, at)
         .unwrap()
         .items
@@ -329,12 +327,10 @@ fn an_auto_import_is_inserted_as_a_call_too() {
 }
 
 fn labels(s: &mut Session, source: &str, prefix: &str) -> Vec<String> {
-    let byte = source.find('|').unwrap();
-    let text = source.replacen('|', "", 1);
+    let (text, at) = cursor(source);
     let uri = DocumentUri::parse(URI).unwrap();
     let _ = s.close(&uri);
     s.open(uri.clone(), 1, text.clone()).unwrap();
-    let at = position(&text, byte);
     s.completion(&uri, at)
         .unwrap()
         .items
