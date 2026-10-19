@@ -1,0 +1,261 @@
+## errors (0)
+## refs (84)
+13:197..203 Entity(EntityId(175)) (compile-time entity) decl=true
+13:225..228 Type(TypeId(5)) Type decl=false
+13:233..237 Entity(EntityId(176)) (compile-time entity) decl=true
+13:249..250 Entity(EntityId(4796)) *Parser decl=true
+13:249..250 Entity(EntityId(4797)) *Parser decl=true
+13:249..250 Entity(EntityId(5369)) *T decl=true
+13:254..255 Entity(EntityId(4746)) Type decl=false
+13:254..255 Entity(EntityId(4746)) Type decl=true
+13:254..255 Entity(EntityId(4752)) Type decl=false
+13:254..255 Entity(EntityId(4752)) Type decl=true
+13:254..255 Entity(EntityId(5368)) Type decl=false
+13:254..255 Entity(EntityId(5368)) Type decl=true
+13:256..262 Entity(EntityId(175)) Type decl=false
+13:256..262 Type(TypeId(250)) Type decl=false
+13:266..270 Entity(EntityId(4747)) bool decl=true
+13:266..270 Entity(EntityId(4753)) bool decl=true
+13:266..270 Entity(EntityId(5370)) bool decl=true
+13:272..276 Entity(EntityId(1)) Type decl=false
+13:272..276 Type(TypeId(1)) Type decl=false
+13:289..292 Entity(EntityId(6)) Type decl=false
+13:289..292 Type(TypeId(5)) Type decl=false
+13:303..307 Entity(EntityId(4747)) bool decl=false
+13:303..307 Entity(EntityId(4753)) bool decl=false
+13:340..344 Entity(EntityId(177)) (compile-time entity) decl=true
+13:349..350 Entity(EntityId(4792)) *Parser decl=true
+13:349..350 Entity(EntityId(4794)) *Parser decl=true
+13:349..350 Entity(EntityId(5372)) *T decl=true
+13:354..355 Entity(EntityId(4762)) Type decl=false
+13:354..355 Entity(EntityId(4762)) Type decl=true
+13:354..355 Entity(EntityId(4772)) Type decl=false
+13:354..355 Entity(EntityId(4772)) Type decl=true
+13:354..355 Entity(EntityId(5371)) Type decl=false
+13:354..355 Entity(EntityId(5371)) Type decl=true
+13:359..361 Entity(EntityId(4763)) s64 decl=true
+13:359..361 Entity(EntityId(4773)) s64 decl=true
+13:359..361 Entity(EntityId(5373)) s64 decl=true
+13:371..374 Entity(EntityId(6)) Type decl=false
+13:371..374 Type(TypeId(5)) Type decl=false
+13:385..387 Entity(EntityId(4763)) s64 decl=false
+13:385..387 Entity(EntityId(4773)) s64 decl=false
+13:403..403 Entity(EntityId(4795)) *s64 decl=false
+13:403..403 Entity(EntityId(5374)) *T.pos decl=false
+13:403..404 Entity(EntityId(4794)) *Parser decl=false
+13:403..404 Entity(EntityId(5372)) *T decl=false
+13:405..408 Member(`pos`) T.pos decl=false
+13:405..408 Member(`pos`) s64 decl=false
+13:437..437 Entity(EntityId(4793)) *s64 decl=false
+13:437..437 Entity(EntityId(5375)) *T.pos decl=false
+13:437..438 Entity(EntityId(4792)) *Parser decl=false
+13:437..438 Entity(EntityId(5372)) *T decl=false
+13:439..442 Member(`pos`) T.pos decl=false
+13:439..442 Member(`pos`) s64 decl=false
+13:446..448 Entity(EntityId(4773)) s64 decl=false
+13:446..448 Entity(EntityId(5373)) s64 decl=false
+13:472..483 Entity(EntityId(24)) (compile-time entity) decl=false
+13:484..486 Entity(EntityId(4763)) s64 decl=false
+13:484..486 Entity(EntityId(4773)) s64 decl=false
+13:484..486 Entity(EntityId(5373)) s64 decl=false
+13:506..510 Entity(EntityId(178)) (compile-time entity) decl=true
+13:523..524 Entity(EntityId(4744)) Parser decl=true
+13:526..532 Type(TypeId(250)) Type decl=false
+13:539..545 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:546..550 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:552..553 Entity(EntityId(4744)) Parser decl=false
+13:566..572 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:573..577 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:579..580 Entity(EntityId(4744)) Parser decl=false
+13:599..605 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:606..610 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:612..613 Entity(EntityId(4744)) Parser decl=false
+13:615..619 Member(`must`) (compile-time entity) decl=false
+13:641..647 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:648..652 Procs([ProcId(161)]) (compile-time entity) decl=false
+13:654..655 Entity(EntityId(4744)) Parser decl=false
+13:668..674 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:675..676 Entity(EntityId(4744)) Parser decl=false
+13:677..680 Member(`pos`) s64 decl=false
+13:693..699 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:700..704 Procs([ProcId(161)]) (compile-time entity) decl=false
+13:706..707 Entity(EntityId(4744)) Parser decl=false
+13:723..729 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:730..731 Entity(EntityId(4744)) Parser decl=false
+13:732..735 Member(`pos`) s64 decl=false
+13:748..753 Procs([ProcId(165), ProcId(27)]) (compile-time entity) decl=false
+## scopes (7)
+13:293..338 ScopeId(1352)
+13:293..338 ScopeId(1355)
+13:293..338 ScopeId(2126)
+13:375..504 ScopeId(1344)
+13:375..504 ScopeId(1348)
+13:375..504 ScopeId(2132)
+13:517..764 ScopeId(1304)
+## calls (13)
+IdeCall { span: Span { file: FileId(13), start: 539, end: 560 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 546, end: 559 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 546, end: 554 }, candidates: [ProcId(157)], chosen: ProcId(159), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 551, end: 553 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(251)) }] }
+IdeCall { span: Span { file: FileId(13), start: 566, end: 593 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 573, end: 592 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 573, end: 587 }, candidates: [ProcId(157)], chosen: ProcId(160), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 578, end: 580 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(251)) }, IdeArg { span: Span { file: FileId(13), start: 582, end: 586 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 599, end: 634 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 606, end: 633 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 606, end: 628 }, candidates: [ProcId(157)], chosen: ProcId(159), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 611, end: 613 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(251)) }, IdeArg { span: Span { file: FileId(13), start: 622, end: 627 }, param: 1, named: true, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 641, end: 662 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 648, end: 661 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 648, end: 656 }, candidates: [ProcId(161)], chosen: ProcId(163), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 653, end: 655 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(251)) }] }
+IdeCall { span: Span { file: FileId(13), start: 668, end: 687 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 675, end: 686 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 693, end: 717 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 700, end: 716 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 700, end: 711 }, candidates: [ProcId(161)], chosen: ProcId(164), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 705, end: 707 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(251)) }, IdeArg { span: Span { file: FileId(13), start: 709, end: 710 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(5)) }] }
+IdeCall { span: Span { file: FileId(13), start: 723, end: 742 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 730, end: 741 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 748, end: 761 }, candidates: [ProcId(165), ProcId(27)], chosen: ProcId(165), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 754, end: 760 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(12)) }] }
+## expansions (9)
+IdeExpansion { span: Span { file: FileId(13), start: 299, end: 307 }, kind: If, texts: ["true", "false"], detail: "", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 381, end: 392 }, kind: If, texts: ["false", "true"], detail: "", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 539, end: 560 }, kind: Macro, texts: ["if !(skip(*p) == 2) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 566, end: 593 }, kind: Macro, texts: ["if !(skip(*p, true) == 1) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 599, end: 634 }, kind: Macro, texts: ["if !(skip(*p, must = false) == 2) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 641, end: 662 }, kind: Macro, texts: ["if !(step(*p) == 1) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 668, end: 687 }, kind: Macro, texts: ["if !(p.pos == 40) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 693, end: 717 }, kind: Macro, texts: ["if !(step(*p, 2) == 1) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 723, end: 742 }, kind: Macro, texts: ["if !(p.pos == 42) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+## skipped (0)
+## static_branches (6)
+13:308..317 true
+13:327..336 true
+13:403..414 true
+13:437..448 true
+13:493..494 true
+13:500..501 false
+## body_evals (3)
+13:293..338 2
+13:375..504 2
+13:517..764 1
+## dead_runs (0)
+## exprs (92)
+13:225..228 Type false false
+13:252..262 Type false false
+13:253..262 Type false false
+13:256..262 Type false false
+13:272..276 Type false false
+13:279..284 bool true false
+13:289..292 Type false false
+13:303..307 bool true false
+13:315..316 s64 true false
+13:334..335 s64 true false
+13:352..355 Type false false
+13:353..355 Type false false
+13:365..366 s64 true false
+13:371..374 Type false false
+13:385..387 s64 true false
+13:385..392 bool true false
+13:391..392 s64 true false
+13:403..403 *s64 false false
+13:403..404 *Parser false false
+13:403..408 s64 false false
+13:403..414 s64 false false
+13:412..414 s64 true false
+13:437..437 *s64 false false
+13:437..438 *Parser false false
+13:437..442 s64 false false
+13:437..448 s64 false false
+13:446..448 s64 true false
+13:468..501 s64 true false
+13:472..483 (compile-time entity) false false
+13:472..487 bool true false
+13:484..486 s64 true false
+13:493..494 s64 true false
+13:500..501 s64 true false
+13:526..532 Type false false
+13:539..545 (compile-time entity) false false
+13:539..560 void false false
+13:546..550 (compile-time entity) false false
+13:546..554 s64 false false
+13:546..559 bool false false
+13:551..553 *Parser false false
+13:552..553 Parser false false
+13:558..559 s64 true false
+13:566..572 (compile-time entity) false false
+13:566..593 void false false
+13:573..577 (compile-time entity) false false
+13:573..587 s64 false false
+13:573..592 bool false false
+13:578..580 *Parser false false
+13:579..580 Parser false false
+13:582..586 bool true false
+13:591..592 s64 true false
+13:599..605 (compile-time entity) false false
+13:599..634 void false false
+13:606..610 (compile-time entity) false false
+13:606..628 s64 false false
+13:606..633 bool false false
+13:611..613 *Parser false false
+13:612..613 Parser false false
+13:622..627 bool true false
+13:632..633 s64 true false
+13:641..647 (compile-time entity) false false
+13:641..662 void false false
+13:648..652 (compile-time entity) false false
+13:648..656 s64 false false
+13:648..661 bool false false
+13:653..655 *Parser false false
+13:654..655 Parser false false
+13:660..661 s64 true false
+13:668..674 (compile-time entity) false false
+13:668..687 void false false
+13:675..676 Parser false false
+13:675..680 s64 false false
+13:675..686 bool false false
+13:684..686 s64 true false
+13:693..699 (compile-time entity) false false
+13:693..717 void false false
+13:700..704 (compile-time entity) false false
+13:700..711 s64 false false
+13:700..716 bool false false
+13:705..707 *Parser false false
+13:706..707 Parser false false
+13:709..710 s64 true false
+13:715..716 s64 true false
+13:723..729 (compile-time entity) false false
+13:723..742 void false false
+13:730..731 Parser false false
+13:730..735 s64 false false
+13:730..741 bool false false
+13:739..741 s64 true false
+13:748..753 (compile-time entity) false false
+13:748..761 s64 false false
+13:754..760 string true false
+## casts (0)
+## used (14)
+EntityId(175)
+EntityId(176)
+EntityId(177)
+EntityId(4744)
+EntityId(4746)
+EntityId(4747)
+EntityId(4752)
+EntityId(4753)
+EntityId(4762)
+EntityId(4763)
+EntityId(4772)
+EntityId(4773)
+EntityId(4792)
+EntityId(4794)
+## used_imports (4)
+(ScopeId(13), 0)
+(ScopeId(24), 0)
+(ScopeId(93), 0)
+(ScopeId(93), 1)
+## receivers (4)
+13:405..408 -
+13:439..442 -
+13:677..680 Parser
+13:732..735 Parser
+## instances (0)
+## fields (1)
+13:220..223 Some(IdeFieldSite { owner: StructId(37), declaring: StructId(37), field: 0, offset: 0 })
+## member_uses (6)
+13:220..223 13:220..223
+13:405..408 13:220..223
+13:439..442 13:220..223
+13:615..619 13:266..270
+13:677..680 13:220..223
+13:732..735 13:220..223
+## refused (0)

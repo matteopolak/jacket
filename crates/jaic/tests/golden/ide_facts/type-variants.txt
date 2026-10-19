@@ -1,0 +1,87 @@
+## errors (0)
+## refs (25)
+13:0..6 Entity(EntityId(175)) (compile-time entity) decl=true
+13:105..108 Type(TypeId(5)) Type decl=false
+13:127..130 Type(TypeId(5)) Type decl=false
+13:132..137 Entity(EntityId(4748)) Handle decl=false
+13:142..146 Entity(EntityId(179)) (compile-time entity) decl=true
+13:156..159 Type(TypeId(5)) Type decl=false
+13:166..167 Entity(EntityId(4745)) Handle decl=true
+13:169..175 Type(TypeId(251)) Type decl=false
+13:185..186 Entity(EntityId(4746)) Handle decl=true
+13:188..193 Type(TypeId(251)) Type decl=false
+13:200..201 Entity(EntityId(4745)) Handle decl=false
+13:211..216 Entity(EntityId(4747)) Child decl=true
+13:218..223 Type(TypeId(253)) Type decl=false
+13:246..249 Type(TypeId(5)) Type decl=false
+13:25..28 Type(TypeId(8)) Type decl=false
+13:251..252 Entity(EntityId(4746)) Handle decl=false
+13:255..262 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:263..268 Entity(EntityId(4747)) Child decl=false
+13:30..35 Entity(EntityId(176)) (compile-time entity) decl=true
+13:39..45 Type(TypeId(251)) Type decl=false
+13:47..52 Entity(EntityId(177)) (compile-time entity) decl=true
+13:66..72 Type(TypeId(251)) Type decl=false
+13:75..82 Entity(EntityId(178)) (compile-time entity) decl=true
+13:87..92 Entity(EntityId(4748)) Handle decl=true
+13:94..100 Type(TypeId(251)) Type decl=false
+## scopes (2)
+13:109..140 ScopeId(1307)
+13:160..272 ScopeId(1305)
+## calls (1)
+IdeCall { span: Span { file: FileId(13), start: 255, end: 269 }, candidates: [ProcId(157)], chosen: ProcId(157), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 263, end: 268 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(253)) }] }
+## expansions (0)
+## skipped (0)
+## static_branches (0)
+## body_evals (2)
+13:109..140 1
+13:160..272 1
+## dead_runs (0)
+## exprs (26)
+13:105..108 Type false false
+13:122..137 s64 false false
+13:127..130 Type false false
+13:132..137 Handle false false
+13:156..159 Type false false
+13:169..175 Type false false
+13:178..179 s64 true false
+13:188..193 Type false false
+13:196..197 s64 true false
+13:196..201 Handle false false
+13:196..205 Handle false false
+13:200..201 Handle false false
+13:204..205 s64 true false
+13:218..223 Type false false
+13:226..228 s64 true false
+13:241..252 s64 false false
+13:241..269 s64 false false
+13:246..249 Type false false
+13:25..28 Type false false
+13:251..252 Handle false false
+13:255..262 (compile-time entity) false false
+13:255..269 s64 false false
+13:263..268 Child false false
+13:39..45 Type false false
+13:66..72 Type false false
+13:94..100 Type false false
+## casts (2)
+13:122..137 s64 Handle false false
+13:241..252 s64 Handle false false
+## used (8)
+EntityId(175)
+EntityId(176)
+EntityId(177)
+EntityId(178)
+EntityId(4745)
+EntityId(4746)
+EntityId(4747)
+EntityId(4748)
+## used_imports (3)
+(ScopeId(13), 0)
+(ScopeId(26), 0)
+(ScopeId(26), 1)
+## receivers (0)
+## instances (0)
+## fields (0)
+## member_uses (0)
+## refused (0)

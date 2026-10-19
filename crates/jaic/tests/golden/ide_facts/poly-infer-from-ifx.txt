@@ -1,0 +1,310 @@
+## errors (0)
+## refs (106)
+13:1000..1007 Entity(EntityId(20)) (compile-time entity) decl=false
+13:1008..1009 Entity(EntityId(4771)) u64 decl=false
+13:1014..1017 Type(TypeId(9)) Type decl=false
+13:1021..1022 Entity(EntityId(4771)) u64 decl=false
+13:1036..1041 Procs([ProcId(162), ProcId(27)]) (compile-time entity) decl=false
+13:131..138 Entity(EntityId(175)) (compile-time entity) decl=true
+13:143..144 Entity(EntityId(4786)) u64 decl=true
+13:143..144 Entity(EntityId(4788)) float32 decl=true
+13:143..144 Entity(EntityId(4790)) s64 decl=true
+13:143..144 Entity(EntityId(4792)) s16 decl=true
+13:147..148 Entity(EntityId(4745)) Type decl=false
+13:147..148 Entity(EntityId(4745)) Type decl=true
+13:147..148 Entity(EntityId(4756)) Type decl=false
+13:147..148 Entity(EntityId(4756)) Type decl=true
+13:147..148 Entity(EntityId(4763)) Type decl=false
+13:147..148 Entity(EntityId(4763)) Type decl=true
+13:147..148 Entity(EntityId(4770)) Type decl=false
+13:147..148 Entity(EntityId(4770)) Type decl=true
+13:150..151 Entity(EntityId(4787)) u64 decl=true
+13:150..151 Entity(EntityId(4789)) float32 decl=true
+13:150..151 Entity(EntityId(4791)) s64 decl=true
+13:150..151 Entity(EntityId(4793)) s16 decl=true
+13:153..154 Entity(EntityId(4745)) Type decl=false
+13:153..154 Entity(EntityId(4756)) Type decl=false
+13:153..154 Entity(EntityId(4763)) Type decl=false
+13:153..154 Entity(EntityId(4770)) Type decl=false
+13:153..154 Type(TypeId(10)) Type decl=false
+13:153..154 Type(TypeId(3)) Type decl=false
+13:153..154 Type(TypeId(5)) Type decl=false
+13:153..154 Type(TypeId(9)) Type decl=false
+13:159..160 Entity(EntityId(4745)) Type decl=false
+13:159..160 Entity(EntityId(4756)) Type decl=false
+13:159..160 Entity(EntityId(4763)) Type decl=false
+13:159..160 Entity(EntityId(4770)) Type decl=false
+13:159..160 Type(TypeId(10)) Type decl=false
+13:159..160 Type(TypeId(3)) Type decl=false
+13:159..160 Type(TypeId(5)) Type decl=false
+13:159..160 Type(TypeId(9)) Type decl=false
+13:174..175 Entity(EntityId(4786)) u64 decl=false
+13:174..175 Entity(EntityId(4788)) float32 decl=false
+13:174..175 Entity(EntityId(4790)) s64 decl=false
+13:174..175 Entity(EntityId(4792)) s16 decl=false
+13:178..179 Entity(EntityId(4787)) u64 decl=false
+13:178..179 Entity(EntityId(4789)) float32 decl=false
+13:178..179 Entity(EntityId(4791)) s64 decl=false
+13:178..179 Entity(EntityId(4793)) s16 decl=false
+13:188..192 Entity(EntityId(176)) (compile-time entity) decl=true
+13:205..206 Entity(EntityId(4742)) s16 decl=true
+13:208..211 Type(TypeId(3)) Type decl=false
+13:223..224 Entity(EntityId(4743)) s16 decl=true
+13:226..229 Type(TypeId(3)) Type decl=false
+13:239..243 Entity(EntityId(4744)) bool decl=true
+13:247..248 Entity(EntityId(4742)) s16 decl=false
+13:251..252 Entity(EntityId(4743)) s16 decl=false
+13:258..259 Entity(EntityId(4746)) s16 decl=true
+13:263..270 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:275..279 Entity(EntityId(4744)) bool decl=false
+13:285..286 Entity(EntityId(4742)) s16 decl=false
+13:292..293 Entity(EntityId(4743)) s16 decl=false
+13:295..296 Entity(EntityId(4743)) s16 decl=false
+13:304..310 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:311..318 Entity(EntityId(20)) (compile-time entity) decl=false
+13:319..320 Entity(EntityId(4746)) s16 decl=false
+13:325..328 Type(TypeId(3)) Type decl=false
+13:332..333 Entity(EntityId(4746)) s16 decl=false
+13:415..416 Entity(EntityId(4751)) s16 decl=true
+13:420..427 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:433..437 Entity(EntityId(4744)) bool decl=false
+13:443..444 Entity(EntityId(4743)) s16 decl=false
+13:454..455 Entity(EntityId(4743)) s16 decl=false
+13:463..469 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:470..477 Entity(EntityId(20)) (compile-time entity) decl=false
+13:478..479 Entity(EntityId(4751)) s16 decl=false
+13:484..487 Type(TypeId(3)) Type decl=false
+13:491..492 Entity(EntityId(4751)) s16 decl=false
+13:589..590 Entity(EntityId(4757)) s64 decl=true
+13:594..601 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:606..610 Entity(EntityId(4744)) bool decl=false
+13:635..641 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:642..649 Entity(EntityId(20)) (compile-time entity) decl=false
+13:650..651 Entity(EntityId(4757)) s64 decl=false
+13:656..659 Type(TypeId(5)) Type decl=false
+13:663..664 Entity(EntityId(4757)) s64 decl=false
+13:677..678 Entity(EntityId(4762)) float32 decl=true
+13:680..687 Type(TypeId(10)) Type decl=false
+13:699..700 Entity(EntityId(4764)) float32 decl=true
+13:704..711 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:716..720 Entity(EntityId(4744)) bool decl=false
+13:733..734 Entity(EntityId(4762)) float32 decl=false
+13:736..737 Entity(EntityId(4762)) float32 decl=false
+13:745..751 Procs([ProcId(21)]) (compile-time entity) decl=false
+13:752..759 Entity(EntityId(20)) (compile-time entity) decl=false
+13:760..761 Entity(EntityId(4764)) float32 decl=false
+13:766..773 Type(TypeId(10)) Type decl=false
+13:777..778 Entity(EntityId(4764)) float32 decl=false
+13:873..874 Entity(EntityId(4769)) u64 decl=true
+13:876..879 Type(TypeId(9)) Type decl=false
+13:889..890 Entity(EntityId(4771)) u64 decl=true
+13:894..901 Procs([ProcId(157)]) (compile-time entity) decl=false
+13:906..910 Entity(EntityId(4744)) bool decl=false
+13:922..926 Entity(EntityId(4744)) bool decl=false
+13:932..933 Entity(EntityId(4769)) u64 decl=false
+13:953..957 Entity(EntityId(4744)) bool decl=false
+13:968..971 Type(TypeId(9)) Type decl=false
+13:984..985 Entity(EntityId(4769)) u64 decl=false
+13:993..999 Procs([ProcId(21)]) (compile-time entity) decl=false
+## scopes (5)
+13:161..186 ScopeId(1336)
+13:161..186 ScopeId(1338)
+13:161..186 ScopeId(1340)
+13:161..186 ScopeId(1342)
+13:199..1052 ScopeId(1304)
+## calls (11)
+IdeCall { span: Span { file: FileId(13), start: 1036, end: 1049 }, candidates: [ProcId(162), ProcId(27)], chosen: ProcId(162), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 1042, end: 1048 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(12)) }] }
+IdeCall { span: Span { file: FileId(13), start: 263, end: 297 }, candidates: [ProcId(157)], chosen: ProcId(158), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 271, end: 293 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: FileId(13), start: 295, end: 296 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(3)) }] }
+IdeCall { span: Span { file: FileId(13), start: 304, end: 342 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 311, end: 341 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 420, end: 456 }, candidates: [ProcId(157)], chosen: ProcId(158), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 429, end: 451 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: FileId(13), start: 454, end: 455 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(3)) }] }
+IdeCall { span: Span { file: FileId(13), start: 463, end: 499 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 470, end: 498 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 594, end: 628 }, candidates: [ProcId(157)], chosen: ProcId(159), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 602, end: 624 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: FileId(13), start: 626, end: 627 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(5)) }] }
+IdeCall { span: Span { file: FileId(13), start: 635, end: 671 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 642, end: 670 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 704, end: 738 }, candidates: [ProcId(157)], chosen: ProcId(160), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 712, end: 734 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: FileId(13), start: 736, end: 737 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(10)) }] }
+IdeCall { span: Span { file: FileId(13), start: 745, end: 784 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 752, end: 783 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+IdeCall { span: Span { file: FileId(13), start: 894, end: 986 }, candidates: [ProcId(157)], chosen: ProcId(161), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 902, end: 982 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: FileId(13), start: 984, end: 985 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(9)) }] }
+IdeCall { span: Span { file: FileId(13), start: 993, end: 1030 }, candidates: [ProcId(21)], chosen: ProcId(21), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 1000, end: 1029 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(1)) }] }
+## expansions (5)
+IdeExpansion { span: Span { file: FileId(13), start: 304, end: 342 }, kind: Macro, texts: ["if !(type_of(r) == s16 && r == 2101) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 463, end: 499 }, kind: Macro, texts: ["if !(type_of(q) == s16 && q == 50) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 635, end: 671 }, kind: Macro, texts: ["if !(type_of(n) == s64 && n == 16) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 745, end: 784 }, kind: Macro, texts: ["if !(type_of(g) == float32 && g == 2) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: FileId(13), start: 993, end: 1030 }, kind: Macro, texts: ["if !(type_of(h) == u64 && h == 120) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+## skipped (0)
+## static_branches (14)
+13:285..286 true
+13:292..293 true
+13:443..444 true
+13:450..451 true
+13:616..617 true
+13:623..624 true
+13:726..727 true
+13:733..734 true
+13:917..941 true
+13:932..933 true
+13:939..941 true
+13:949..981 true
+13:963..974 true
+13:980..981 true
+## body_evals (2)
+13:161..186 4
+13:199..1052 1
+## dead_runs (0)
+## exprs (121)
+13:1000..1007 (compile-time entity) false false
+13:1000..1010 Type false false
+13:1000..1017 bool true false
+13:1000..1029 bool false false
+13:1008..1009 u64 false false
+13:1014..1017 Type false false
+13:1021..1022 u64 false false
+13:1021..1029 bool false false
+13:1026..1029 s64 true false
+13:1036..1041 (compile-time entity) false false
+13:1036..1049 s64 false false
+13:1042..1048 string true false
+13:146..148 Type false false
+13:153..154 Type false false
+13:159..160 Type false false
+13:174..175 u64 false true
+13:174..179 u64 false true
+13:174..183 u64 false true
+13:178..179 u64 false true
+13:182..183 s64 true true
+13:208..211 Type false false
+13:214..217 s64 true false
+13:226..229 Type false false
+13:232..233 s64 true false
+13:247..248 s16 false false
+13:247..252 bool false false
+13:251..252 s16 false false
+13:263..270 (compile-time entity) false false
+13:263..297 s16 false false
+13:271..293 s16 false false
+13:275..279 bool false false
+13:285..286 s16 false false
+13:292..293 s16 false false
+13:295..296 s16 false false
+13:304..310 (compile-time entity) false false
+13:304..342 void false false
+13:311..318 (compile-time entity) false false
+13:311..321 Type false false
+13:311..328 bool true false
+13:311..341 bool false false
+13:319..320 s16 false false
+13:325..328 Type false false
+13:332..333 s16 false false
+13:332..341 bool false false
+13:337..341 s64 true false
+13:420..427 (compile-time entity) false false
+13:420..456 s16 false false
+13:429..451 s16 false false
+13:433..437 bool false false
+13:443..444 s16 false false
+13:450..451 s64 true false
+13:454..455 s16 false false
+13:463..469 (compile-time entity) false false
+13:463..499 void false false
+13:470..477 (compile-time entity) false false
+13:470..480 Type false false
+13:470..487 bool true false
+13:470..498 bool false false
+13:478..479 s16 false false
+13:484..487 Type false false
+13:491..492 s16 false false
+13:491..498 bool false false
+13:496..498 s64 true false
+13:594..601 (compile-time entity) false false
+13:594..628 s64 false false
+13:602..624 s64 false false
+13:606..610 bool false false
+13:616..617 s64 true false
+13:623..624 s64 true false
+13:626..627 s64 true false
+13:635..641 (compile-time entity) false false
+13:635..671 void false false
+13:642..649 (compile-time entity) false false
+13:642..652 Type false false
+13:642..659 bool true false
+13:642..670 bool false false
+13:650..651 s64 false false
+13:656..659 Type false false
+13:663..664 s64 false false
+13:663..670 bool false false
+13:668..670 s64 true false
+13:680..687 Type false false
+13:690..693 float32 true false
+13:704..711 (compile-time entity) false false
+13:704..738 float32 false false
+13:712..734 float32 false false
+13:716..720 bool false false
+13:726..727 s64 true true
+13:733..734 float32 false false
+13:736..737 float32 false false
+13:745..751 (compile-time entity) false false
+13:745..784 void false false
+13:752..759 (compile-time entity) false false
+13:752..762 Type false false
+13:752..773 bool true false
+13:752..783 bool false false
+13:760..761 float32 false false
+13:766..773 Type false false
+13:777..778 float32 false false
+13:777..783 bool false false
+13:782..783 float32 true false
+13:876..879 Type false false
+13:882..883 s64 true false
+13:894..901 (compile-time entity) false false
+13:894..986 u64 false false
+13:902..982 u64 false false
+13:906..910 bool false false
+13:917..941 u64 false false
+13:921..926 bool false false
+13:922..926 bool false false
+13:932..933 u64 false false
+13:939..941 s64 true false
+13:949..981 u64 false false
+13:953..957 bool false false
+13:963..974 u64 true false
+13:968..971 Type false false
+13:973..974 s64 true false
+13:980..981 s64 true false
+13:984..985 u64 false false
+13:993..1030 void false false
+13:993..999 (compile-time entity) false false
+## casts (1)
+13:963..974 u64 s64 true false
+## used (23)
+EntityId(175)
+EntityId(4742)
+EntityId(4743)
+EntityId(4744)
+EntityId(4745)
+EntityId(4746)
+EntityId(4751)
+EntityId(4756)
+EntityId(4757)
+EntityId(4762)
+EntityId(4763)
+EntityId(4764)
+EntityId(4769)
+EntityId(4770)
+EntityId(4771)
+EntityId(4786)
+EntityId(4787)
+EntityId(4788)
+EntityId(4789)
+EntityId(4790)
+EntityId(4791)
+EntityId(4792)
+EntityId(4793)
+## used_imports (4)
+(ScopeId(13), 0)
+(ScopeId(24), 0)
+(ScopeId(93), 0)
+(ScopeId(93), 1)
+## receivers (0)
+## instances (0)
+## fields (0)
+## member_uses (0)
+## refused (0)
