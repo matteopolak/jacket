@@ -10,6 +10,13 @@ either is deleted. A run file lists every block's link-time address and whether 
 DWARF line table turns block address ranges into source lines, and `llvm-symbolizer` names the
 function entries.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import bisect
 import json
@@ -20,8 +27,8 @@ import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def llvm_tool(name):

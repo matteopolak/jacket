@@ -143,7 +143,7 @@ jobs:
         # docs/tools/testing.md; the host jaic needs no LLVM to interpret.
         run: |
           cargo build --locked -j 2 -p jaic-cli --no-default-features
-          python3 tools/differential/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm --wasm target/ci-wasm corpus gen:1:40
+          python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends interp,wasm --wasm target/ci-wasm corpus gen:1:40
   test:
     needs: changes
     if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',test,')) && needs.changes.outputs.code == 'true'
@@ -282,7 +282,7 @@ jobs:
         # fixed set of generated programs (docs/tools/testing.md has the full run).
         run: |
           cargo build --locked -p jaic-cli
-          python3 tools/differential/jaic-diff.py --jaic target/debug/jaic --backends interp,native,native-O2 corpus gen:1:40
+          python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends interp,native,native-O2 corpus gen:1:40
       - name: WebAssembly target
         id: wasm-target
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -295,7 +295,7 @@ jobs:
           target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
           node --no-warnings tools/browser/check_jaifmt_wasm.mjs wasi target/jaifmt.wasm target/jaifmt
-          python3 tools/differential/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
+          python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
       - name: Native Linux File_Watcher ownership and notifications
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' }}
         id: file-watcher-native
@@ -584,7 +584,7 @@ jobs:
         run: |
           read -ra repos <<< "$(python3 tools/corpus/select_upstream_cases.py --platform linux-x64 --repos)"
           python3 tools/fetch_upstreams.py --only "${repos[@]}"
-          xvfb-run -a python3 -u tools/differential/jaic-sweep.py --jaic target/release/jaic --timeout 600 -v upstream --only-platform linux-x64
+          xvfb-run -a python3 -u tools/differential/jaic_sweep.py --jaic target/release/jaic --timeout 600 -v upstream --only-platform linux-x64
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
         with:
@@ -601,7 +601,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Linux takes longest, so its cases are split in two (tools/differential/jaic-sweep.py --shard).
+        # Linux takes longest, so its cases are split in two (tools/differential/jaic_sweep.py --shard).
         include:
           - {runner: ubuntu-24.04, shard: 1/2}
           - {runner: ubuntu-24.04, shard: 2/2}
@@ -632,10 +632,10 @@ jobs:
       # (--headless). Unoptimized code keeps every value in memory, so ASan sees each access;
       # -O2 is where LLVM acts on undefined behaviour and the bounds checks see the most objects.
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
-        run: python3 tools/differential/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
+        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
         if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
-        run: python3 tools/differential/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
+        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
   sdl3:
     # SDL3 built from the pinned source on every platform, its installed SDK audited and the
     # generated bindings checked (docs/extensions/sdl3.md).
@@ -1523,7 +1523,7 @@ jobs:
         run: |
           read -ra repos <<< "$(python tools/corpus/select_upstream_cases.py --platform windows-x64 --repos)"
           python tools/fetch_upstreams.py --only "${repos[@]}"
-          python -u tools/differential/jaic-sweep.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --timeout 600 -v upstream --only-platform windows-x64
+          python -u tools/differential/jaic_sweep.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --timeout 600 -v upstream --only-platform windows-x64
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
         with:

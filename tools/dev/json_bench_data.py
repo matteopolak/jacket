@@ -14,7 +14,12 @@ comes from the nativejson-benchmark, MIT). simdjson itself is Apache-2.0 / MIT.
 
 import os
 import sys
-import urllib.request
+from pathlib import Path
+
+# tools/, for folder-qualified imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from toolkit.download import fetch
 
 SIMDJSON = "https://raw.githubusercontent.com/simdjson/simdjson/master/jsonexamples/"
 NATIVEJSON = "https://raw.githubusercontent.com/miloyip/nativejson-benchmark/master/data/"
@@ -29,8 +34,7 @@ def main():
         path = os.path.join(target, name)
 
         if not os.path.exists(path):
-            with urllib.request.urlopen(base + name) as response, open(path, "wb") as out:
-                out.write(response.read())
+            Path(path).write_bytes(fetch(base + name))
 
         print("%s: %d bytes" % (path, os.path.getsize(path)))
 

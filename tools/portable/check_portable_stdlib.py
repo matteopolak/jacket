@@ -8,6 +8,13 @@ case cannot: the generated-data cross-checks, parent-exit cancellation, the fata
 crash handlers and the float power audit. `--check-target OS/CPU` type-checks the whole
 catalogue for that target through `stdlib_runtime.py --modes check`.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import os
 from pathlib import Path
@@ -17,8 +24,8 @@ import subprocess
 import sys
 import time
 from portable_toolchain import default_compiler, checked_compiler
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 # Fatal-signal programs: the process must die by the signal after printing both texts.

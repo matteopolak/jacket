@@ -1,16 +1,36 @@
 """Subprocess runs that assert on the outcome."""
 
 import subprocess
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-import sys as _sys
-from pathlib import Path as _Path
-
 # tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
+
+__all__ = ["run", "run_expect"]
+
+
+def run(
+    command: Sequence[object],
+    *,
+    check: bool = True,
+    capture: bool = False,
+    echo: bool = True,
+    **kwargs,
+) -> subprocess.CompletedProcess:
+    """Run `command` (items are `str()`-ed). `capture` collects stdout and stderr as text, `echo` (default) prints
+    `+ command` to stderr first, and `check` raises `CalledProcessError` on a non-zero status. Other
+    keyword arguments (`cwd`, `env`, `timeout`, ...) go to `subprocess.run`."""
+    argv = [str(item) for item in command]
+    if echo:
+        print("+ " + " ".join(argv), file=sys.stderr, flush=True)
+    if capture:
+        kwargs.setdefault("text", True)
+        kwargs.setdefault("capture_output", True)
+    return subprocess.run(argv, check=check, **kwargs)
 
 
 def run_expect(

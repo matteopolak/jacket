@@ -8,7 +8,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,7 +16,7 @@ import struct
 import subprocess
 import sys
 import tempfile
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 MACHINES = {"x64": 0x8664, "arm64": 0xAA64}
 SIZES = (256, 128, 64, 32, 16)
@@ -213,7 +212,7 @@ def inspect_pe(data, cpu, icon):
                 "id": key[1],
                 "language": key[2],
                 "bytes": len(payload),
-                "sha256": hashlib.sha256(payload).hexdigest(),
+                "sha256": sha256_bytes(payload),
             }
             for key, payload in sorted(resources.items())
         ],
@@ -342,7 +341,7 @@ def build_fixture(output, cpu, rc=None, linker=None, readobj=None):
             published = (output / name).read_bytes()
             require(
                 len(published) == identity["bytes"]
-                and hashlib.sha256(published).hexdigest() == identity["sha256"],
+                and sha256_bytes(published) == identity["sha256"],
                 f"published artifact hash mismatch: {name}",
             )
         require(

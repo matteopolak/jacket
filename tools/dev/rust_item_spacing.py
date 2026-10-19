@@ -14,12 +14,19 @@ are left alone.
 Without paths, every `.rs` file under `crates/` is processed. `--check` lists the files that would
 change and exits 1.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 CONTAINER = re.compile(
     r"^(pub(\([^)]*\))?\s+)?(default\s+)?(unsafe\s+)?(impl|trait|mod|extern)\b"
 )

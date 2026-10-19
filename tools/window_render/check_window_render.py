@@ -19,11 +19,12 @@ import subprocess
 from stdlib.stdlib_runtime import runtime_prefix
 from window_render_tests import WINDOW_RENDER_TESTS
 from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", type=Path, required=True, help="explicit authorized source-built compiler")
+    add_jaic_argument(parser, required=True)
     parser.add_argument("--stdlib", type=Path, default=ROOT / "target/window-integration-stdlib")
     parser.add_argument("--native-libs", type=Path, default=ROOT / "target/window-native")
     parser.add_argument("--font", type=Path, help="caller-provided scalable font asset; never copied into the repository")

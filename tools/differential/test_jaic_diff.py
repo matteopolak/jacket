@@ -1,16 +1,12 @@
-import importlib.util
+import sys
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import jaigen
-
-_spec = importlib.util.spec_from_file_location("jaic_diff", Path(__file__).with_name("jaic-diff.py"))
-diff = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(diff)
-
-_spec = importlib.util.spec_from_file_location("jaic_reduce", Path(__file__).with_name("jaic-reduce.py"))
-reduce = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(reduce)
+from differential import jaic_diff as diff
+from differential import jaic_reduce as reduce
 
 
 def case(cid="c"):

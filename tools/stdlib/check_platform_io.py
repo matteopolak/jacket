@@ -12,7 +12,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 import platform
@@ -25,6 +24,8 @@ import time
 
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
+from toolkit.hashing import sha256_bytes
 
 
 # The platform programs this driver builds for Windows and runs through the Wasm checks, as ids
@@ -104,7 +105,7 @@ def run(command, env, expected=None, expected_stderr=b"", failure_directory=None
     result = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
                             capture_output=True, timeout=60)
     if result.returncode or result.stderr.replace(b"\\", b"/") != expected_stderr or (expected is not None and result.stdout != expected.encode()):
-        key = hashlib.sha256(repr(list(map(str, command))).encode()).hexdigest()[:16]
+        key = sha256_bytes(repr(list(map(str, command))).encode())[:16]
         save_result((failure_directory or ROOT / "target/platform-io-tests/failures") / key, result,
                     [f"expected_stdout={expected!r}", f"expected_stderr={expected_stderr!r}"])
         raise RuntimeError(f"{' '.join(map(str, command))}\nexit={result.returncode}\n"
@@ -138,7 +139,7 @@ def run_wasm_contract(compiler, source, output, env, attempt):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", type=Path, required=True)
+    add_jaic_argument(parser, required=True)
     parser.add_argument("--stdlib", type=Path, required=True)
     parser.add_argument("--compiler-build-root", type=Path, default=ROOT / "target",
                         help="directory containing the explicitly source-built compiler")

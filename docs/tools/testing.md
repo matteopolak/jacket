@@ -1,10 +1,10 @@
 # Testing tools
 
-Regression sweeps, differential testing, fuzzing and the stdlib checks. Which one to run: `jaic-sweep` for any compiler or stdlib change; `jaic-diff` after touching the interpreter, constant folding, lowering or the LLVM backend; `stdlib_runtime.py` for stdlib behaviour; the two `jaic-cli` checks run in `cargo test`; fuzzing is mostly nightly CI.
+Regression sweeps, differential testing, fuzzing and the stdlib checks. Which one to run: `jaic_sweep` for any compiler or stdlib change; `jaic_diff` after touching the interpreter, constant folding, lowering or the LLVM backend; `stdlib_runtime.py` for stdlib behaviour; the two `jaic-cli` checks run in `cargo test`; fuzzing is mostly nightly CI.
 
 ## jaic sweep
 
-`tools/differential/jaic-sweep.py`.
+`tools/differential/jaic_sweep.py`.
 
 Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <mode> <path>` from the file's directory and compares exit code (and stdout where recorded).
 
@@ -19,7 +19,7 @@ Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <m
 | a path | that file | run |
 
 ```sh
-python3 tools/differential/jaic-sweep.py --jaic target/debug/jaic corpus negative regressions modules upstream examples --timeout 900
+python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic corpus negative regressions modules upstream examples --timeout 900
 ```
 
 Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full sweep), `--jobs` (default CPU count capped so jobs times memory limit fits in RAM), `--memory-limit GIB` (default 3), `--native` (build each run case and run the executable), `--opt O0..O3`, `--sanitize address,undefined` ([sanitizers](../native/sanitizers.md)), `--headless` (programs importing `Window_Creation` are only checked or built), `--allow-stale`.
@@ -38,7 +38,7 @@ Stdlib procedures are fuzzed from their types by `tools/fuzz/stdlib_fuzz.py`, se
 
 ## Differential testing
 
-`tools/differential/jaic-diff.py`.
+`tools/differential/jaic_diff.py`.
 
 jaic has no independent implementation to compare with, so it is compared with itself: every program runs through backends that share the front end and little else, and results must match.
 
@@ -52,8 +52,8 @@ jaic has no independent implementation to compare with, so it is compared with i
 ```sh
 cargo build --release -p jaic-cli
 python3 tools/browser/build_scripting_wasm.py --release --output /tmp/wasm
-python3 tools/differential/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions modules
-python3 tools/differential/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
+python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions modules
+python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
 ```
 
 Sets are `corpus`, `regressions`, `modules`, a file path, or `gen:SEED:COUNT` (programs from `tools/differential/jaigen.py`). A result is `(status, stdout, stderr)`: status is `exit N` or `runtime error` (only the fact is compared, since backends word failures differently); stdout must match exactly; stderr must match when all exited normally; paths are normalized (`/workspace`, `/stdlib`). Verdicts: `agree`, `DISAGREE` (also when one backend fails to compile what another compiled), `invalid` (no backend compiled it), `skip` (fewer than two ran). Exit 1 on any `DISAGREE` or `invalid`. Run it with one heavy job at a time (two native executables per program) and pick seeds no earlier campaign used.
@@ -62,7 +62,7 @@ A backend is declined for a case only for a stated reason taken from existing me
 
 **Generator.** `jaigen.py SEED [--size S]` prints one deterministic program that keeps an FNV checksum and prints it at the end. It covers integers and floats of every width, casts, structs, `using`, operator overloads, unions, arrays, loops, switches, enums, `defer`, strings, overloads, variadics, `Any`/reflection, polymorphism, `#run` constants and `print` of every type. Programs use only defined behaviour: wrapping integer arithmetic, masked shifts, no divisor of 0 or -1, in-range float to int, canonical NaN, pure procedures inside expressions (evaluation order is unspecified), constant trip counts, no pointer arithmetic or uninitialized reads. `Gen` has `expr_int/float/bool` per type, `stmt` and `program`; check a new form with `--backends interp` first.
 
-**Reducer.** `python3 tools/differential/jaic-reduce.py prog.jai --jaic ... --wasm ...` deletes lines and blocks while the backends still split the same way (default timeout 10 s) and writes `prog.reduced.jai`.
+**Reducer.** `python3 tools/differential/jaic_reduce.py prog.jai --jaic ... --wasm ...` deletes lines and blocks while the backends still split the same way (default timeout 10 s) and writes `prog.reduced.jai`.
 
 **A found case:** reduce it, fix the wrong backend, and keep the reduced program as a `tests/corpus/positive` case (manifest entry with `sha256` and the interpreter's `runtime` output), plus a targeted test if only one backend or optimization level was wrong (e.g. in `crates/jaic-cli/tests/native.rs`). Differential testing cannot find a bug all backends share, because they share a front end: a cast's target type does not reach an untyped literal beside a typed operand (`cast(float32) (0 - w)` with `w: u16` subtracts in `u16`).
 

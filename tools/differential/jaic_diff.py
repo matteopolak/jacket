@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Differential testing: run each program through every jaic backend and require the same result.
 
-Usage: tools/differential/jaic-diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
+Usage: tools/differential/jaic_diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
 Sets: corpus (tests/corpus/positive cases with a runtime expectation), stdlib (reviewed positive contracts), regressions (independent compiler/Extensions/ABI/graphics),
 modules (every stdlib/**/tests directory), gen:SEED:COUNT (COUNT programs from tools/differential/jaigen.py starting at
 SEED; reproduce one with `tools/differential/jaigen.py SEED`), or file paths.
@@ -28,14 +28,13 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import argparse, importlib.util, json, os, re, select, shutil, subprocess, sys, tempfile, threading, time
+import argparse, json, os, re, select, shutil, subprocess, sys, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
-_spec = importlib.util.spec_from_file_location("jaic_sweep", ROOT / "tools/differential/jaic-sweep.py")
-sweep = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(sweep)
+from differential import jaic_sweep as sweep
 
 ALL_BACKENDS = ["interp", "native", "native-O2", "wasm", "wasm-native"]
 
@@ -196,7 +195,7 @@ class WasmPool:
 
 
 class Runner:
-    """Runs a case through the chosen backends; shared by main() and tools/differential/jaic-reduce.py."""
+    """Runs a case through the chosen backends; shared by main() and tools/differential/jaic_reduce.py."""
 
     def __init__(self, jaic, backends, work, wasm_bundle=None, timeout=120, memory_gib=3):
         self.jaic, self.backends, self.work = Path(jaic).resolve(), backends, Path(work)
@@ -307,8 +306,7 @@ def verdict(case, results):
 
 
 def add_backend_arguments(ap):
-    target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
-    ap.add_argument("--jaic", default=os.path.join(target, "debug", "jaic"))
+    add_jaic_argument(ap, type=str)
     ap.add_argument("--wasm", help="browser bundle directory (tools/browser/build_scripting_wasm.py --output)")
     ap.add_argument("--backends", default=None,
                     help=f"comma-separated subset of {','.join(ALL_BACKENDS)} (default: all available)")
@@ -356,7 +354,7 @@ def main():
     # generated programs need none, so CI does not build them for those.
     if any(not (s == "corpus" or s.startswith("gen:")) for s in a.sets):
         sweep.use_native_libs()
-    work = Path(a.keep) if a.keep else Path(tempfile.mkdtemp(prefix="jaic-diff-"))
+    work = Path(a.keep) if a.keep else Path(tempfile.mkdtemp(prefix="jaic_diff-"))
     work.mkdir(parents=True, exist_ok=True)
     runner = Runner(a.jaic, backends, work, a.wasm, a.timeout, a.memory_limit)
     started = time.monotonic()

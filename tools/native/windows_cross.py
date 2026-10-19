@@ -33,6 +33,7 @@ import tempfile
 
 from stdlib import stdlib_runtime  # noqa: E402
 from toolkit.hashing import sha256_file
+from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
@@ -890,7 +891,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
     b = sub.add_parser("build")
-    b.add_argument("--jaic", required=True)
+    add_jaic_argument(b, required=True, type=str)
     b.add_argument("--out", required=True)
     b.add_argument(
         "--keep-going",

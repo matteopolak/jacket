@@ -1,6 +1,13 @@
 """Shared strict LP64 C record translation and active ABI assertion generation."""
-import hashlib
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import subprocess
+from toolkit.hashing import sha256_bytes
 
 SCALARS = {'int':('s32',4,4), 'short':('s16',2,2),
            'unsigned int':('u32',4,4), 'long':('s64',8,8),
@@ -8,7 +15,7 @@ SCALARS = {'int':('s32',4,4), 'short':('s16',2,2),
 
 
 def digest(data):
-    return hashlib.sha256(data).hexdigest()
+    return sha256_bytes(data)
 
 
 def record_shape(record):

@@ -6,7 +6,7 @@ Usage: tools/differential/jaigen.py SEED [--out FILE]
 Generates a valid, well-typed, deterministic, terminating Jai program from SEED and prints it. The program
 folds its state into a 64-bit FNV-style checksum `H` as it goes, prints intermediate values (integers,
 floats, enums, structs, strings through Basic's formatting) and ends with the checksum. Every backend must
-print the same text; tools/differential/jaic-diff.py runs them (`gen:SEED:COUNT`).
+print the same text; tools/differential/jaic_diff.py runs them (`gen:SEED:COUNT`).
 
 Only behaviour that docs/language/*.md defines is generated:
 - integer + - * wrap at the type's width (numbers.md); shift and rotate amounts are masked below the width;

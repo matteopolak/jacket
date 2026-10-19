@@ -13,9 +13,16 @@ the same two search paths. A missing module that is not part of tools/ is an opt
 and is skipped. Other exceptions raised while the imports run are not import errors and are ignored.
 
     python3 tools/ci/check_tool_imports.py                          # every file, both loads
-    python3 tools/ci/check_tool_imports.py tools/native/fetch_url.py
+    python3 tools/ci/check_tool_imports.py tools/toolkit/download.py
 """
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 
 import argparse
 import ast
@@ -24,8 +31,8 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / "tools"
 MISSING = 3  # the child's exit status for an import error; its stdout is "MISSING <module>" or "FAILED <detail>"
 

@@ -27,21 +27,16 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse
 import os
 import shutil
-import subprocess
 import sys
 
 from repo_output import main_checkout, shared_output_dir
+from toolkit.process import run
 
 JOLT_TAG = "v5.6.0"
 JOLT_URL = "https://github.com/jrouwe/JoltPhysics"
 VK = os.path.join("corpus", "upstream", "ostef--Vk-Engine")
 JOLT_JAI = os.path.join("corpus", "upstream", "ostef--Jolt-Jai")
 JOLTC = os.path.join("corpus", "upstream", "ostef--JoltC")
-
-
-def run(cmd, **kw):
-    print("+", " ".join(cmd), flush=True)
-    subprocess.run(cmd, check=True, **kw)
 
 
 def build_imgui(root, libdir, ext, cxx, release):

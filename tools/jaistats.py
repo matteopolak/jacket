@@ -16,8 +16,8 @@ import re
 import statistics
 from collections import Counter
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent
 
 
 def blank(text: str) -> str:

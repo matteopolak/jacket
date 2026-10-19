@@ -5,14 +5,13 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import unittest
-import hashlib
 import json
 import os
 import subprocess
 from sdl_test_support import temporary_directory, remove_fixture_metadata
 from pathlib import Path
 from bindings import sdl3_gen as gen
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 class Types(unittest.TestCase):
     def test_anonymous_record_paths_normalize_native_and_clang_separators(self):
@@ -55,7 +54,7 @@ class Types(unittest.TestCase):
             for name in paths+['stdlib/Extensions/SDL/module.jai']:(root/name).unlink()
             git('checkout-index','--force','--all')
             for name in paths:
-                self.assertEqual(sha256_file((root/name)),hashlib.sha256(payload).hexdigest(),name)
+                self.assertEqual(sha256_file((root/name)),sha256_bytes(payload),name)
             # The new policy must not change SDL2 or other libraries' defaults.
             self.assertEqual((root/'stdlib/Extensions/SDL/module.jai').read_bytes(),payload.replace(b'\n',b'\r\n'))
 

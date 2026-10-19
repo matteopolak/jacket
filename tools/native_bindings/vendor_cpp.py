@@ -4,13 +4,20 @@
 Clang supplies C++ mangling; this generator never invents linker spellings.
 Existing reviewed Jai overloads, names and defaults take precedence.
 """
-import hashlib
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import json
 from pathlib import Path
 import re
 import subprocess
+from toolkit.hashing import sha256_bytes
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT/'stdlib/internal/bindings/vendor/nvtt-members.json'
 
 
@@ -42,7 +49,7 @@ def main():
     pin = json.loads((ROOT/'tools/native_bindings/dependencies.json').read_text())['nvtt']
     path = ROOT/'.work/vendor/nvtt/src/nvtt/nvtt.h'
     data = path.read_bytes()
-    digest = hashlib.sha256(data).hexdigest()
+    digest = sha256_bytes(data)
     if digest != pin['files']['src/nvtt/nvtt.h']:
         raise SystemExit('NVTT header hash mismatch')
     header = data.decode()

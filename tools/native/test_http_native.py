@@ -7,7 +7,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import json
-import hashlib
 import io
 import os
 from pathlib import Path
@@ -19,6 +18,7 @@ from unittest.mock import patch
 
 from native import http_native
 from stdlib import test_http_conformance_coverage as coverage_tests
+from toolkit.hashing import sha256_bytes
 
 
 class HttpNativeSetupTests(unittest.TestCase):
@@ -254,7 +254,7 @@ class NativeArchiveTransportTests(unittest.TestCase):
             "archive": {
                 "url": "https://sdk.invalid/source.tar.gz",
                 "root": "sdk",
-                "sha256": hashlib.sha256(data).hexdigest(),
+                "sha256": sha256_bytes(data),
             },
         }
         with tempfile.TemporaryDirectory() as scratch:
@@ -303,7 +303,7 @@ class NativeArchiveTransportTests(unittest.TestCase):
             "archive": {
                 "url": "https://sdk.invalid/source.tar.gz",
                 "root": "sdk",
-                "sha256": hashlib.sha256(data).hexdigest(),
+                "sha256": sha256_bytes(data),
             },
         }
         with tempfile.TemporaryDirectory() as scratch:

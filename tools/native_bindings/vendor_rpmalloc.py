@@ -15,12 +15,12 @@ import argparse
 import json
 from pathlib import Path
 import re
-import subprocess
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from rpmalloc_heap_facade import public_c_header, layout_probes
 from native_bindings.rpmalloc_profiles import PROFILES, parameters, select_blocks, heap_module, callbacks_module
 from native_bindings.prepare_rpmalloc import patch_provenance
 from toolkit.hashing import sha256_file
+from vendor_records import run
 from toolkit.repo import ROOT
 
 OUT = ROOT / 'stdlib/internal/bindings/rpmalloc-sdk'
@@ -34,10 +34,6 @@ STORAGE_RECORDS = {
     'size_class_use_t':'Size_Counters_Storage',
     'span_t':'Span_Storage', 'heap_t':'Heap_Storage',
 }
-
-
-def run(command):
-    return subprocess.run([str(x) for x in command], check=True, capture_output=True, text=True)
 
 
 def native_type(text):

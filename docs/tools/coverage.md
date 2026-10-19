@@ -5,7 +5,7 @@
 `jaic -coverage` builds a native program that records which basic blocks ran. `tools/coverage/report.py` maps them back to source lines and functions and prints per-module and per-file coverage for `stdlib/`, optionally as an lcov file for editor gutters.
 
 ```
-$ tools/differential/jaic-sweep.py --coverage target/cov modules
+$ tools/differential/jaic_sweep.py --coverage target/cov modules
 $ tools/coverage/report.py report target/cov --lcov target/cov.info --least 10
 ```
 
@@ -15,13 +15,13 @@ Compile (`Sanitize::coverage` in `crates/jaic-llvm/src/lib.rs`): after the optim
 
 Link: the Clang driver also compiles `crates/jaic-llvm/runtime/coverage.c`, which assigns guard ids, sets a byte per block when its guard callback fires, and at exit writes `<dir>/<exe>.<pid>.cov`: a header with the executable path, then one `address entry hit` line per block, with addresses un-slid (link-time) so ASLR does not matter. The directory is `JAIC_COVERAGE_DIR` (default: the working directory at start-up); `JAIC_COVERAGE_FILE` names the file outright.
 
-Ingest (`report.py ingest`): blocks are sorted by address; each block's range is the lines of every DWARF line-table row (`llvm-dwarfdump --debug-line`) inside it. A line is hit if any block containing it ran. Function entries (the pc-table's entry flag) are named by `llvm-symbolizer`; compiler-generated functions without a source line are dropped. Output is a JSON of line and function hits per source file. `jaic-sweep.py --coverage DIR` does this after each native run, before the executable and its debug info are deleted.
+Ingest (`report.py ingest`): blocks are sorted by address; each block's range is the lines of every DWARF line-table row (`llvm-dwarfdump --debug-line`) inside it. A line is hit if any block containing it ran. Function entries (the pc-table's entry flag) are named by `llvm-symbolizer`; compiler-generated functions without a source line are dropped. Output is a JSON of line and function hits per source file. `jaic_sweep.py --coverage DIR` does this after each native run, before the executable and its debug info are deleted.
 
 Report (`report.py report DIR`): merges every JSON in `DIR` (a line or function is hit if any run hit it) and prints a table sorted from least to most covered. A module is a top-level `stdlib/` entry (`internal/<x>` and `Extensions/<x>` count as their own).
 
 ## First measurement
 
-`tools/differential/jaic-sweep.py --coverage DIR --headless modules` on macOS arm64: 439 module test programs ran; 32 fail to build for environment reasons (missing libclang, fonts or audio libraries, as without `-coverage`) and 53 are Windows/Android-only. The sixteen least covered modules, then the total:
+`tools/differential/jaic_sweep.py --coverage DIR --headless modules` on macOS arm64: 439 module test programs ran; 32 fail to build for environment reasons (missing libclang, fonts or audio libraries, as without `-coverage`) and 53 are Windows/Android-only. The sixteen least covered modules, then the total:
 
 ```
 module                               lines         functions
@@ -57,7 +57,7 @@ The lowest entries are platform code a macOS run cannot reach (`Objective_C`, `i
 ## Configuration
 
 - `jaic -coverage` (also valid next to `-sanitize`), `JAIC_COVERAGE_DIR`, `JAIC_COVERAGE_FILE`.
-- `jaic-sweep.py --coverage DIR`; `report.py report --root`, `--files`, `--least N`, `--lcov FILE`, `--json`. `LLVM_SYS_231_PREFIX` selects the LLVM whose `llvm-dwarfdump` and `llvm-symbolizer` are used (default: Homebrew LLVM, then `PATH`).
+- `jaic_sweep.py --coverage DIR`; `report.py report --root`, `--files`, `--least N`, `--lcov FILE`, `--json`. `LLVM_SYS_231_PREFIX` selects the LLVM whose `llvm-dwarfdump` and `llvm-symbolizer` are used (default: Homebrew LLVM, then `PATH`).
 
 ## Dependencies
 

@@ -17,7 +17,7 @@ import subprocess
 from bindings import sdl3_coverage as coverage
 from repo_output import output_dir
 from pathlib import Path
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 OUT = ROOT / 'stdlib/Extensions/SDL3'
@@ -434,7 +434,7 @@ def main():
         contracts += [json.dumps({'layout':entry['c'],'jai':entry['jai'],'expected':entry['expected']},sort_keys=True) for entry in report.pop('layout_checks')]
         report['contracts']=f'contracts-{plat}.jsonl'
         files[OUT/report['contracts']]='\n'.join(contracts)+'\n'
-        report['contracts_sha256']=hashlib.sha256(files[OUT/report['contracts']].encode('utf-8')).hexdigest()
+        report['contracts_sha256']=sha256_bytes(files[OUT/report['contracts']].encode('utf-8'))
         inventory[plat]=report
         exports={m[1]:f'{plat}.jai::{m[1]}' for m in re.finditer(r'^(?:using )?(\w+) ::',data,re.M)}
         exports.update({k:f'{plat}.jai::{enum}.{k}' for k,enum in report['enum_members'].items()})

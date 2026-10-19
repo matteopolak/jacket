@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 """Build and execute the real FSEvents watcher tests against the production stdlib (macOS)."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import os
 from pathlib import Path
@@ -7,13 +14,14 @@ import platform
 import shutil
 import subprocess
 import sys
+from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", required=True, type=Path)
+    add_jaic_argument(parser, required=True)
     parser.add_argument("--stdlib", required=True, type=Path)
     args = parser.parse_args()
     if platform.system() != "Darwin":

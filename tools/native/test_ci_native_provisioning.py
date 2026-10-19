@@ -1,11 +1,18 @@
 """Configuration checks only: no apt, SDK, compiler or native program execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+
 from pathlib import Path
 import re
 import subprocess
 import unittest
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 class NativeProvisioning(unittest.TestCase):

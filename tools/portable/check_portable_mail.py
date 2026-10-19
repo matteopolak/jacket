@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 """Exercise real native SMTP/MIME against this checkout's loopback receiver only."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import base64
 import email.parser
@@ -12,8 +19,8 @@ import subprocess
 import threading
 
 from portable_toolchain import default_compiler, checked_compiler
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def receive(listener, mode, outcome):

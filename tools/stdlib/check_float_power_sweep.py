@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Verify every normal IEEE power-of-two interval using independent exact rationals."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 from fractions import Fraction
 import os
 from pathlib import Path
 import subprocess
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def verify(output):

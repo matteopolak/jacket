@@ -5,19 +5,27 @@ No staging or overlays. Every requested suite is required; independent suites
 continue after failures and the aggregate exit stays nonzero. Native dependencies
 and fonts must be real source-built or host assets.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import os
 from pathlib import Path
 import subprocess
 import sys
+from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
-ROOT = Path(__file__).resolve().parents[2]
 SUITES = ("foundations", "portable", "platform", "audio", "window", "numerics", "numerics-native", "bindings", "tooling")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", required=True, type=Path)
+    add_jaic_argument(parser, required=True)
     parser.add_argument("--stdlib", required=True, type=Path)
     parser.add_argument("--jailint", required=True, type=Path)
     parser.add_argument("--jaifmt", required=True, type=Path)

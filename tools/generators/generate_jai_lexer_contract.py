@@ -19,7 +19,7 @@ def main():
     source = (ROOT / "docs/specs/stdlib/modules/jai-lexer.md").read_text()
     inventory = source.split("## Public type members")[0]
     constants = re.findall(r"^- `([A-Z_]+) :: (\d+|false)`$", inventory, re.M)
-    chunks = ["// Generated from the Jai_Lexer public contract by tools/generators/generate-jai-lexer-contract.py.\n"]
+    chunks = ["// Generated from the Jai_Lexer public contract by tools/generators/generate_jai_lexer_contract.py.\n"]
     chunks += [name + " :: " + value + ";" for name, value in sorted(constants)]
     chunks.append("Table_String :: #type,isa string;")
     backing = {"Token_Type": "enum s16", "Note_Flags": "enum_flags u8", "Value_Flags": "enum_flags u32", "Hex_Digit_Type": "enum u8", "Lexer": "struct"}

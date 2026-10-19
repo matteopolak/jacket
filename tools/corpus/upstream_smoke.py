@@ -33,6 +33,7 @@ from stdlib.case_capabilities import user_deferred_reason
 import corpus.upstream_sandbox as usb
 from repo_output import host_platform
 from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
 UPSTREAM = ROOT / "corpus/upstream"
 CHECKS = ROOT / "tools/corpus/upstream-smoke.json"
@@ -610,7 +611,7 @@ def run_check(check, args, plat, shots):
 def main():
     global STDLIB
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--jaic", required=True)
+    add_jaic_argument(ap, required=True, type=str)
     ap.add_argument("--platform", default=host_platform())
     ap.add_argument(
         "--filter",

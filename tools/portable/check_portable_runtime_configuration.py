@@ -3,14 +3,22 @@
 
 Uses the explicitly selected production library without source substitution.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 from pathlib import Path
 import argparse
 import os
 import subprocess
+from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
-ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--jaic", type=Path, default=ROOT / "target/debug/jaic")
+add_jaic_argument(parser)
 parser.add_argument("--stdlib", type=Path, default=ROOT / "stdlib")
 args = parser.parse_args()
 LIBRARY = args.stdlib.resolve(strict=True)

@@ -10,12 +10,19 @@ Banners: a comment made only of rule characters (`// ----`, `# ====`) is rejecte
 name on a single plain comment line, or split the file. Jai files are covered by the jailint
 `banner_comment` rule.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import re
 import subprocess
 import sys
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 MAX_LINES = 1200
 
 # path -> line count it may not grow past. Remove an entry once the file is split.

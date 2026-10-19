@@ -46,6 +46,7 @@ from native.http_native import ensure_native_libraries
 from check_io_burst_diagnostics import observe_process
 from io_failure_observer import FailureGroup, source_identity
 from toolkit.hashing import sha256_file
+from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
 DEFAULT_TESTS = [
@@ -203,9 +204,7 @@ def main():
     parser.add_argument(
         "tests", nargs="*", help="test programs (default: the Io and Http tests)"
     )
-    parser.add_argument(
-        "--jaic", default=str(ROOT / "target/debug/jaic"), help="the compiler"
-    )
+    add_jaic_argument(parser, type=str)
     parser.add_argument(
         "--variants",
         default="default,o2,asan",

@@ -1,9 +1,16 @@
 """Reviewed three-module guard boundaries, not a failure-derived golden refresh."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+
 from pathlib import Path
 import unittest
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 TARGETS = (
     "linux-x64",
     "linux-arm64",

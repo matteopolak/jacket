@@ -22,18 +22,16 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import io
 import json
 import sys
-import time
-import urllib.request
 import zipfile
 from pathlib import Path
 
 from native.build_native_libs import output_dir  # noqa: E402
 from repo_output import host_platform  # noqa: E402
-from toolkit.hashing import sha256_file
+from toolkit.download import fetch
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 MANIFEST = ROOT / 'tools' / 'bindings' / 'webgpu.json'
@@ -46,18 +44,6 @@ LIBRARIES = {
 }
 
 
-def download(url: str) -> bytes:
-    for attempt in range(3):
-        try:
-            return urllib.request.urlopen(url, timeout=300).read()
-        except OSError as error:
-            if attempt == 2:
-                raise
-            print(f'  {error}; retrying')
-            time.sleep(5 * (attempt + 1))
-    raise AssertionError
-
-
 def fetch_licenses(native: dict, out: Path) -> None:
     """The release zip carries no licence files, so the two wgpu-native is under (MIT and Apache-2.0)
     come from the repository at the pinned tag, checksum-verified, into `licenses/wgpu-native/`."""
@@ -66,9 +52,9 @@ def fetch_licenses(native: dict, out: Path) -> None:
         path = target / name
         if path.exists() and sha256_file(path) == digest:
             continue
-        data = download(f'https://raw.githubusercontent.com/{native["repository"]}/{native["tag"]}/{name}')
-        if hashlib.sha256(data).hexdigest() != digest:
-            sys.exit(f'{name}: sha256 {hashlib.sha256(data).hexdigest()}, expected {digest}')
+        data = fetch(f'https://raw.githubusercontent.com/{native["repository"]}/{native["tag"]}/{name}')
+        if sha256_bytes(data) != digest:
+            sys.exit(f'{name}: sha256 {sha256_bytes(data)}, expected {digest}')
         target.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
@@ -90,14 +76,14 @@ def fetch(plat: str, out: Path, force: bool = False) -> list[Path]:
         return paths
     url = f'https://github.com/{native["repository"]}/releases/download/{native["tag"]}/{asset["name"]}'
     print(f'downloading {url}')
-    data = download(url)
-    digest = hashlib.sha256(data).hexdigest()
+    data = fetch(url, timeout=300)
+    digest = sha256_bytes(data)
     if digest != asset['sha256']:
         sys.exit(f'{asset["name"]}: sha256 {digest}, expected {asset["sha256"]}')
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         # The Windows zips have it with CRLF line endings.
         spec = zf.read('wgpu-native-meta/webgpu.yml').replace(b'\r\n', b'\n')
-        if hashlib.sha256(spec).hexdigest() != headers['files']['webgpu.yml']:
+        if sha256_bytes(spec) != headers['files']['webgpu.yml']:
             sys.exit('the release was built from another webgpu.yml than tools/bindings/webgpu.json pins; '
                      'update the pin and rerun tools/bindings/webgpu_gen.py')
         out.mkdir(parents=True, exist_ok=True)

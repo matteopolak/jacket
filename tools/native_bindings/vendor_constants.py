@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """Recover omitted native macro operands from hash-pinned public C headers."""
-import hashlib
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import json
 from pathlib import Path
 import re
+from toolkit.hashing import sha256_bytes
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT/'stdlib/internal/bindings/vendor/constants.json'
 
 
@@ -15,7 +22,7 @@ def main():
     def header(package, filename):
         path = ROOT/'.work/vendor'/package/filename
         data = path.read_bytes()
-        digest = hashlib.sha256(data).hexdigest()
+        digest = sha256_bytes(data)
         if digest != manifest[package]['files'][filename]:
             raise SystemExit('Header hash mismatch: '+str(path))
         return data.decode(), {'package':package, 'header':filename, 'header_sha256':digest}

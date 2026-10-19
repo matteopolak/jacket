@@ -62,7 +62,7 @@ class RunnerContracts(unittest.TestCase):
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "ci_sweep_guard_policy", ROOT / "tools/differential/jaic-sweep.py"
+            "ci_sweep_guard_policy", ROOT / "tools/differential/jaic_sweep.py"
         )
         sweep = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(sweep)
@@ -125,7 +125,7 @@ class RunnerContracts(unittest.TestCase):
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "ci_sweep_policy", ROOT / "tools/differential/jaic-sweep.py"
+            "ci_sweep_policy", ROOT / "tools/differential/jaic_sweep.py"
         )
         sweep = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(sweep)

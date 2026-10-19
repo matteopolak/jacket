@@ -1,5 +1,12 @@
 """Independent metadata vectors; no target executable or native network run."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+
 import contextlib
 import importlib.util
 import io
@@ -7,9 +14,9 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import Mock, patch
+from toolkit.repo import ROOT
 
 sys.dont_write_bytecode = True
-ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
     "burst_diagnostics", ROOT / "tools/stdlib/check_io_burst_diagnostics.py"
 )

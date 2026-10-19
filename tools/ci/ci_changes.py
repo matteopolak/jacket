@@ -41,7 +41,7 @@ AREAS = {
         "tools/native/build_windows_resource_fixture.py", "tools/native/test_windows_resource_fixture.py",
         "tools/ci/install_ci_native_linux.sh", "tools/native/upstream_native.py", "tools/corpus/upstream_smoke.py",
         "tools/upstream-cases.json", "corpus/upstreams.json", "tools/corpus/select_upstream_cases.py",
-        "tools/corpus/upstream_sandbox.py", "tools/differential/jaic-sweep.py",
+        "tools/corpus/upstream_sandbox.py", "tools/differential/jaic_sweep.py",
         "tools/portable/build_portable_runtime.py", "tools/native/audio_build_native.py", "tools/native/build_native_libs.py",
         "tools/stdlib/stdlib_runtime.py", "tools/native/test_windows_dynamic_package.py", "tools/native/windows_cross.py",
         "crates/jaic-llvm/**", "crates/jaic/src/interp/**", "crates/jaic-cli/src/**",

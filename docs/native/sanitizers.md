@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jaic -sanitize address,undefined` instruments a native build with LLVM's AddressSanitizer (ASan) and the UBSan checks that exist at the LLVM IR level, and links the matching runtime. It catches native-codegen bugs that happen to run fine (wrong struct layout, ABI marshalling that writes past a temporary, stack slots that are too small) and ordinary memory errors in the stdlib and tests. `tools/differential/jaic-sweep.py --sanitize` runs the test sets this way.
+`jaic -sanitize address,undefined` instruments a native build with LLVM's AddressSanitizer (ASan) and the UBSan checks that exist at the LLVM IR level, and links the matching runtime. It catches native-codegen bugs that happen to run fine (wrong struct layout, ABI marshalling that writes past a temporary, stack slots that are too small) and ordinary memory errors in the stdlib and tests. `tools/differential/jaic_sweep.py --sanitize` runs the test sets this way.
 
 ```
 $ jacket run uaf.jai -sanitize address
@@ -27,7 +27,7 @@ Link side (`link`): a Clang driver from the LLVM install jaic was built against 
 
 ### The sweep
 
-`tools/differential/jaic-sweep.py --sanitize address,undefined corpus modules regressions` builds every `run` case with `-sanitize`, runs it from the source's directory and applies the interpreter run's expectation. A case also fails when stderr holds a sanitizer report. `--native` does the same without sanitizers; `--opt O2` picks the level. `examples` and `upstream` are not expected to pass in full (some entry points do not fit a native build; two The_Way_to_Jai examples read freed memory on purpose). The sweep sets `ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:detect_stack_use_after_return=1:strict_string_checks=1:check_initialization_order=1` (leaks off because Jai programs leave memory to the OS), `UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1`, `ASAN_SYMBOLIZER_PATH` (same LLVM's `llvm-symbolizer`), and on macOS `DYLD_FALLBACK_LIBRARY_PATH` with Homebrew's `lib` (ASan intercepts `dlopen`, so libraries loading others through `@loader_path` break otherwise).
+`tools/differential/jaic_sweep.py --sanitize address,undefined corpus modules regressions` builds every `run` case with `-sanitize`, runs it from the source's directory and applies the interpreter run's expectation. A case also fails when stderr holds a sanitizer report. `--native` does the same without sanitizers; `--opt O2` picks the level. `examples` and `upstream` are not expected to pass in full (some entry points do not fit a native build; two The_Way_to_Jai examples read freed memory on purpose). The sweep sets `ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:detect_stack_use_after_return=1:strict_string_checks=1:check_initialization_order=1` (leaks off because Jai programs leave memory to the OS), `UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1`, `ASAN_SYMBOLIZER_PATH` (same LLVM's `llvm-symbolizer`), and on macOS `DYLD_FALLBACK_LIBRARY_PATH` with Homebrew's `lib` (ASan intercepts `dlopen`, so libraries loading others through `@loader_path` break otherwise).
 
 `jaic -coverage` reuses this plumbing (`Sanitize::coverage`, the Clang-driver link and the dSYM) for line and function coverage: see [coverage](../tools/coverage.md).
 

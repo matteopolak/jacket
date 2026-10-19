@@ -13,7 +13,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -22,9 +21,9 @@ import shlex
 import shutil
 import subprocess
 import urllib.request
-from native.fetch_url import fetch
+from toolkit.download import fetch
 from repo_output import host_platform
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 PLAN = json.loads((ROOT / "tools/native/audio_native_plan.json").read_text())
@@ -138,7 +137,7 @@ def opaque_decoder(out):
         if not destination.exists():
             data = fetch(
                 f"https://raw.githubusercontent.com/{source['repository']}/{source['revision']}/{filename}")
-            if hashlib.sha256(data).hexdigest() != source["files"][filename]:
+            if sha256_bytes(data) != source["files"][filename]:
                 raise RuntimeError("official decoder checksum mismatch")
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
@@ -161,7 +160,7 @@ def verify_archive_member(ar, archive, obj):
                             env=native_environment(), capture_output=True)
     if result.returncode or result.stderr or result.stdout != obj.read_bytes():
         raise RuntimeError(f"Static archive does not retain its source-built object: {archive.name}/{obj.name}")
-    return hashlib.sha256(result.stdout).hexdigest()
+    return sha256_bytes(result.stdout)
 
 
 def verify_vorbis_provider(ar, archive, obj, shared, entry, definitions):

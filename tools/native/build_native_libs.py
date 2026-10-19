@@ -16,7 +16,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import re
 import shutil
@@ -25,12 +24,12 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
-from native.fetch_url import fetch as fetch_pinned
+from toolkit.download import fetch as fetch_pinned
 import zipfile
 from pathlib import Path
 
 from repo_output import host_platform, output_dir as repo_output_dir, shared_output_dir
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 MANIFEST = ROOT / 'tools' / 'native' / 'native-libs.json'
@@ -73,7 +72,7 @@ def missing(plat: str | None = None) -> list[str]:
 
 def download(url: str, digest: str) -> bytes:
     data = fetch_pinned(url)
-    actual = hashlib.sha256(data).hexdigest()
+    actual = sha256_bytes(data)
     if actual != digest:
         sys.exit(f'{url}: sha256 {actual}, expected {digest}')
     return data
@@ -149,7 +148,7 @@ def prepare_xxhash_arm64_source(src: Path, tmp: Path) -> Path:
     contents = {}
     for name, expected in spec['files'].items():
         data = (src / name).read_bytes()
-        actual = hashlib.sha256(data).hexdigest()
+        actual = sha256_bytes(data)
         if actual != expected:
             raise RuntimeError(f'xxhash070/{name}: sha256 {actual}, expected {expected}')
         contents[name] = data

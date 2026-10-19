@@ -20,7 +20,7 @@ import re
 import struct
 import subprocess
 import sys
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 
 def dll_name(data):
@@ -158,7 +158,7 @@ def main():
         report["archives"].append(
             {
                 "path": str(path.resolve()),
-                "sha256": hashlib.sha256(data).hexdigest(),
+                "sha256": sha256_bytes(data),
                 "dlls": import_library_dlls(data),
             }
         )

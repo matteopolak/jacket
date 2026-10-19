@@ -10,13 +10,21 @@ a sound device ("opened" or "unavailable"). This script is for a host that must 
 
 Without either flag it still runs the 6- and 8-channel variants and prints how many opened.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import os
 from pathlib import Path
 import subprocess
 import tempfile
+from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
-ROOT = Path(__file__).resolve().parents[2]
 TESTS = ROOT / "stdlib/Sound_Player/tests"
 DEVICE_CASES = [
     "device-lifecycle", "streams", "compressed-stream", "entity-phase", "entity-lifecycle",
@@ -36,7 +44,7 @@ def run(command, env, cwd=ROOT):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--jaic", type=Path, default=ROOT / "target/debug/jaic")
+    add_jaic_argument(parser)
     parser.add_argument("--native-libs", type=Path, default=ROOT / "target/audio-native")
     parser.add_argument("--require-device", action="store_true")
     parser.add_argument("--require-multichannel", action="store_true")

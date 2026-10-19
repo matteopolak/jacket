@@ -46,7 +46,7 @@ WINDOW_LEASE = threading.Lock()
 
 
 def shard(text):
-    """`--shard K/N`: the K-th (from 1) of N parts; argparse type, shared with jaic-sweep.py."""
+    """`--shard K/N`: the K-th (from 1) of N parts; argparse type, shared with jaic_sweep.py."""
     try:
         index, count = (int(part) for part in text.split("/"))
     except ValueError:
@@ -99,7 +99,7 @@ def contract_result(case, code, output, error="", native=False):
 
 def use_native_libs(plat):
     """Point jaic at the third-party C libraries some tests link (stb_vorbis, rpmalloc, FreeType
-    on Windows...), building any that are missing for `plat`, as tools/differential/jaic-sweep.py does."""
+    on Windows...), building any that are missing for `plat`, as tools/differential/jaic_sweep.py does."""
     if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in (
         "darwin",
         "linux",

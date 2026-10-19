@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shrink a program on which jaic's backends disagree, keeping the disagreement.
 
-Usage: tools/differential/jaic-reduce.py PROGRAM.jai [--out SMALL.jai] [backend options as for tools/differential/jaic-diff.py]
+Usage: tools/differential/jaic_reduce.py PROGRAM.jai [--out SMALL.jai] [backend options as for tools/differential/jaic_diff.py]
 
 A candidate is kept when it still compiles and the backends still split into the same groups
 (say interp+wasm against native+native-O2). The reduction is line based, which suits tools/differential/jaigen.py
@@ -11,13 +11,13 @@ output (one statement per line, blocks opened with `{` at the end of a line):
   3. unwrap blocks: keep a block's body but drop its `if ... {` / `}` lines;
 repeated until nothing changes. The result is written next to the input as NAME.reduced.jai.
 """
-import argparse, importlib.util, shutil, sys, tempfile
+import argparse, shutil, sys, tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-_spec = importlib.util.spec_from_file_location("jaic_diff", ROOT / "tools/differential/jaic-diff.py")
-diff = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(diff)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from differential import jaic_diff as diff
+from toolkit.repo import ROOT
 
 
 def signature(results):
@@ -56,7 +56,7 @@ def main():
     a = ap.parse_args()
     backends = diff.chosen_backends(a)
     source = Path(a.program).resolve()
-    work = Path(tempfile.mkdtemp(prefix="jaic-reduce-"))
+    work = Path(tempfile.mkdtemp(prefix="jaic_reduce-"))
     runner = diff.Runner(a.jaic, backends, work, a.wasm, a.timeout, a.memory_limit)
     candidate = work / "case" / source.name
     candidate.parent.mkdir()
@@ -72,7 +72,7 @@ def main():
     lines = source.read_text().splitlines()
     want = check(lines)
     if want is None:
-        sys.exit("jaic-reduce: the backends agree on this program (or it does not compile); nothing to reduce")
+        sys.exit("jaic_reduce: the backends agree on this program (or it does not compile); nothing to reduce")
     print(f"disagreement: {' vs '.join('+'.join(sorted(g)) for g in want)}; {len(lines)} lines", flush=True)
 
     def attempt(new):

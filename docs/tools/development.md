@@ -100,7 +100,7 @@ Jobs that run for every code change (`code=true`):
 - `vscode-extension`, `neovim-plugin`: see [VS Code extension](vscode-extension.md), [Neovim plugin](neovim-plugin.md).
 - `stdlib-runtime` (macOS arm64, Linux x86-64/arm64; macOS Intel as in `test`; two shards each): every [stdlib runtime test](testing.md#stdlib-runtime-tests) in all modes (`--strict`, Xvfb and Mesa on Linux); the first shard also runs the producer suites and the headless and window WebGPU tests. `stdlib-coverage` then reports the interpreter reachability of all shards together (informational).
 - `upstream-smoke`: builds and runs pinned third-party projects ([upstream corpus](upstream-corpus.md#smoke-tests)).
-- `sanitizers` (Linux x86-64 in two shards, macOS arm64): `tools/differential/jaic-sweep.py --sanitize address,undefined corpus modules regressions` at `-O0` and `-O2` ([sanitizers](../native/sanitizers.md)).
+- `sanitizers` (Linux x86-64 in two shards, macOS arm64): `tools/differential/jaic_sweep.py --sanitize address,undefined corpus modules regressions` at `-O0` and `-O2` ([sanitizers](../native/sanitizers.md)).
 
 `docs` (rule coverage, `tools/dev/check_rule_coverage.py`) runs for every change, docs-only ones included.
 
@@ -116,7 +116,7 @@ The full corpus sweep with the `upstream` set is not in CI (the corpus is fetche
 
 ### Caches and shards
 
-The time goes into running tests, not into building the tools: a job's own `cargo build` of `jaic` takes under a minute, so each job builds what it uses rather than downloading it from a build job it would have to wait for (`tools/differential/jaic-sweep.py` also refuses a `jaic` older than the checkout's sources). What is cached:
+The time goes into running tests, not into building the tools: a job's own `cargo build` of `jaic` takes under a minute, so each job builds what it uses rather than downloading it from a build job it would have to wait for (`tools/differential/jaic_sweep.py` also refuses a `jaic` older than the checkout's sources). What is cached:
 
 | Cache | Where | Key | Saved |
 | --- | --- | --- | --- |
@@ -128,7 +128,7 @@ rust-cache treats every directory under `target/` as cargo's: it saves them trim
 
 The native libraries are the cache that matters (SDL3 alone takes about three minutes to build). The jobs build them with `tools/native/build_native_libs.py --missing`, which builds only the libraries absent from `target/native-libs/<platform>`, so a restored directory costs nothing and a new key (any change to the manifest or the scripts) rebuilds from scratch. There are no `restore-keys` for that reason: an older set would be kept as it is. A build input outside the key (a new script the build imports) must be added to the `hashFiles` list in the action. Linux and macOS arm64 install LLVM from apt and Homebrew, which are fast and not cached; the `sdl3` job builds SDL3 itself on purpose and has no cache.
 
-Long sweeps are split with `--shard K/N` (`tools/stdlib/stdlib_runtime.py` and `tools/differential/jaic-sweep.py`): shard K runs every N-th selected case from the K-th, so a module's neighbouring tests land in different shards and the split is the same on every run. To change the count, edit the `shard` list of the job's matrix. The matrix `shard` values are passed to `--shard` as written (`'1/2'`).
+Long sweeps are split with `--shard K/N` (`tools/stdlib/stdlib_runtime.py` and `tools/differential/jaic_sweep.py`): shard K runs every N-th selected case from the K-th, so a module's neighbouring tests land in different shards and the split is the same on every run. To change the count, edit the `shard` list of the job's matrix. The matrix `shard` values are passed to `--shard` as written (`'1/2'`).
 
 A push or pull request that only changes prose (`docs/**`, top-level `*.md`, `.github/*.md`) sets `code=false` and skips every build and test job; `docs` still runs. Docs that a test or generator reads (`docs/specs/**`, `docs/tools/jailint.md`) count as code: add others to `READ_BY_TESTS` in `tools/ci/ci_changes.py`. Markdown elsewhere (test fixtures) is code.
 

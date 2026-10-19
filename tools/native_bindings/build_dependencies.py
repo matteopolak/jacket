@@ -12,24 +12,23 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import platform
-import subprocess
 import shutil
 import tarfile
 import tempfile
 import time
 import urllib.request
 import sys
-from native.fetch_url import fetch  # noqa: E402
+from toolkit.download import fetch  # noqa: E402
 from native_bindings.sdl_sdk_headers import prepare_runtime_headers
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from native_bindings.prepare_rpmalloc import prepare as prepare_rpmalloc
 from native_bindings.rpmalloc_profiles import PROFILES
 from native_bindings.build_rpmalloc import build as build_rpmalloc
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.process import run
 from toolkit.repo import ROOT
 
 
@@ -72,10 +71,6 @@ def library_closure(selected):
     return selected
 
 
-def run(command):
-    subprocess.run([str(x) for x in command], check=True)
-
-
 def download(url, attempts=4):
     """Fetch a pinned archive; hosted runners drop connections now and then, so retry with backoff."""
     return fetch(url, timeout=60, attempts=max(attempts, 6))
@@ -114,7 +109,7 @@ def prepare_source(name, source, vendor):
             else:
                 url = 'https://raw.githubusercontent.com/' + source['repository'] + '/' + source['revision'] + '/' + filename
                 data = download(url)
-            if hashlib.sha256(data).hexdigest() != expected:
+            if sha256_bytes(data) != expected:
                 raise RuntimeError('Native source hash mismatch: ' + name + '/' + filename)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import hashlib
 import os
 import platform
 import re
@@ -23,8 +22,9 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from toolkit.hashing import sha256_bytes
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent
 BENCH = ROOT / "benchmarks" / "regex"
 TARGET = BENCH / "target"
 RESULTS = ROOT / "benchmarks" / "results" / "regex.md"
@@ -402,7 +402,7 @@ def build_report(report: Report, cases: list[Case], engines: list[str], args, co
 
 def header(report: Report, args, corpus: Path) -> str:
     data = corpus.read_bytes()
-    sha = hashlib.sha256(data).hexdigest()[:16]
+    sha = sha256_bytes(data)[:16]
     commit = run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT).stdout.strip()
     ver = ", ".join(f"{k} {v}" for k, v in report.versions.items())
     lines = [

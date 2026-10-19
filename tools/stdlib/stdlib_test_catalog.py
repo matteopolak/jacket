@@ -9,7 +9,7 @@ a case with the keys in ROW_KEYS (expected output, required platform, native-onl
 ...). A row for a name that is not a top-level file adds a case from a sub-directory:
 `"name": "negative/private-name"` runs `negative/private-name.jai`, and `"source"` names a
 different entry file (`"name": "scoped", "source": "scoped/main.jai"`). The same rows drive
-`stdlib_runtime.py`, `jaic-sweep.py`, `windows_cross.py` and the browser runner.
+`stdlib_runtime.py`, `jaic_sweep.py`, `windows_cross.py` and the browser runner.
 
 This holds no expected-failure baseline. Every selected supported case runs; compiler/API
 errors remain failures.

@@ -7,7 +7,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import contextlib
-import importlib.util
 import io
 import os
 from pathlib import Path
@@ -15,6 +14,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
+from differential import jaic_sweep
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 from toolkit.repo import ROOT
 
@@ -24,15 +24,6 @@ EXPECTED = {
     "GetRect/tests/clipboard-unavailable": {"linux", "windows", "wasm"},
     "GetRect/tests/cursors-unavailable": {"linux", "wasm"},
 }
-
-
-def load_sweep():
-    spec = importlib.util.spec_from_file_location(
-        "numerics_asan_dispatch_test", ROOT / "tools/differential/jaic-sweep.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 class NumericsCaseCapabilities(unittest.TestCase):
@@ -100,14 +91,14 @@ class NumericsCaseCapabilities(unittest.TestCase):
             self.assertNotIn("unsupported_modes", self.cases[name])
 
     def sweep(self, platform, opt, dispatch_result, name):
-        sweep = load_sweep()
+        sweep = jaic_sweep
         output = io.StringIO()
         with (
             patch.object(
                 sys,
                 "argv",
                 [
-                    "jaic-sweep",
+                    "jaic_sweep",
                     "--jaic",
                     "/never-executed-policy-test",
                     "--jobs",

@@ -13,10 +13,17 @@ written `{#ops.3}` right after the claim. Tests name the rules they pin in a com
 Usage: check_rule_coverage.py [--list-uncovered] [--json]
 Exit status 1 on unknown or duplicate IDs, else 0.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse, json, re, sys
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 DOC_DIRS = ("docs/language", "docs/metaprogramming")
 # Where tests live: the sweep's sets (corpus, stdlib, the stdlib's own tests, examples) and the
 # Rust unit and integration tests.

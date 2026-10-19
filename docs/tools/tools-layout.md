@@ -15,7 +15,7 @@
 | `corpus/` | Upstream project smoke runs (`upstream_smoke.py`), conformance corpus generators (`gen_*_corpus.py`), `regex_oracle/`, `upstream-drivers/`. |
 | `dev/` | Developer workflow behind the Justfile (`dev.py`), Rust format checks, staged-file lists, PGO and packaging helpers, rule-coverage check. |
 | `developer_checks/` | The `check_developer_*` / `build_developer_*` checks of the Bindings_Generator developer tooling; `check_developer_tools.py` runs them all. |
-| `differential/` | `jaic-diff.py` (backend differential testing), `jaic-reduce.py`, `jaic-sweep.py`, the random program generator `jaigen.py`. |
+| `differential/` | `jaic_diff.py` (backend differential testing), `jaic_reduce.py`, `jaic_sweep.py`, the random program generator `jaigen.py`. |
 | `fuzz/` | The stdlib fuzzer: driver, discovery metaprogram, per-module config and property hooks ([stdlib fuzzing](stdlib-fuzzing.md)). |
 | `generators/` | Generators of checked-in files (below). The generated file's header names its generator. |
 | `native/` | Native dependency stages (below), the Windows cross/provider builders, `mbedtls/` and `sdl3/` sources. |
@@ -39,14 +39,15 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 
 | Module | What it gives |
 |---|---|
-| `toolkit.repo` | `ROOT` (the checkout), `cargo_target_dir()` (`$CARGO_TARGET_DIR` or `target/`), `stdlib_env()` (the environment with `JAIC_STDLIB` set). |
+| `toolkit.repo` | `ROOT` (the checkout; never recompute it from `__file__`), `cargo_target_dir()` (`$CARGO_TARGET_DIR` or `target/`), `stdlib_env()` (the environment with `JAIC_STDLIB` set). |
 | `toolkit.hashing` | `sha256_file(path)` (chunked), `sha256_bytes(data)`. |
-| `toolkit.download` | `pinned(url, sha256, name)`: the file cached as `$XDG_CACHE_HOME/jaic/<name>` (default `~/.cache/jaic/`), downloaded first if missing and retried with backoff on 408, 429 and 5xx; exits when the digest differs. The generators that read upstream data (`gen_io_uring.py`, `gen_regex_unicode.py`) use it. |
-| `toolkit.process` | `run_expect(command, label=..., expected=..., code=..., stderr=..., env=..., timeout=...)`: run, then raise `RuntimeError` unless stdout, status and stderr match. |
+| `toolkit.download` | `fetch(url, timeout=, attempts=, headers=, max_bytes=)`: the body of a URL, retrying rate limits, 5xx answers and dropped connections (the one download path; do not call `urllib` directly). `pinned(url, sha256, name)`: the file cached as `$XDG_CACHE_HOME/jaic/<name>` (default `~/.cache/jaic/`), downloaded first if missing and retried with backoff on 408, 429 and 5xx; exits when the digest differs. The generators that read upstream data (`gen_io_uring.py`, `gen_regex_unicode.py`) use it. |
+| `toolkit.process` | `run(command, check=True, capture=False, echo=True, **subprocess_kwargs)`: a checked `subprocess.run` that `str()`s the items and echoes `+ command`. `run_expect(command, label=..., expected=..., code=..., stderr=..., env=..., timeout=...)`: run, then raise `RuntimeError` unless stdout, status and stderr match. |
+| `toolkit.cli` | `add_jaic_argument(parser, required=False, profile="debug", type=Path)`: the shared `--jaic` option, defaulting to the target directory's build; `default_jaic()`. |
 
 `developer_checks/dev_common.py` is that folder's single entry point: importing it puts `tools/` on `sys.path`, so the checks there carry no path lines of their own. It re-exports `ROOT`, `ENV` (the compiler environment), `JAIC`, `sha256_file` and `run_checked` (`run_expect` with the checks' defaults). The `run` function each check still defines only fixes its failure label and defaults.
 
-Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. A helper that is specific to one folder (`bench/common.py`, `native_bindings/verify.py`) stays in that folder.
+Script file names are `snake_case` (they are imported as modules). Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. A helper that is specific to one folder (`bench/common.py`, `native_bindings/verify.py`) stays in that folder.
 
 ## Generated files
 
@@ -63,7 +64,7 @@ Every generator of a checked-in file takes `--check` (exit 1 if the file differs
 ## How to add a tool
 
 1. Put it in the folder of its subsystem; name tests `test_<thing>.py` next to what they test.
-2. Imports across folders are qualified by folder: `from native.fetch_url import fetch`, `from stdlib import stdlib_runtime`. The helpers at the top of `tools/` stay bare (`import repo_output`). A script that imports either way starts with the same three lines, before any other project import, so `tools/` is on `sys.path` when it runs directly (`python3 tools/<folder>/x.py` only puts `tools/<folder>/` there; the test runner and CI add nothing):
+2. Imports across folders are qualified by folder: `from toolkit.download import fetch`, `from stdlib import stdlib_runtime`. The helpers at the top of `tools/` stay bare (`import repo_output`). A script that imports either way starts with the same three lines, before any other project import, so `tools/` is on `sys.path` when it runs directly (`python3 tools/<folder>/x.py` only puts `tools/<folder>/` there; the test runner and CI add nothing):
 
    ```python
    import sys as _sys
@@ -73,7 +74,7 @@ Every generator of a checked-in file takes `--check` (exit 1 if the file differs
    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
    ```
 
-   Use `parents[2]` in a sub-sub-folder (`tools/portable/portable_data/`). Imports between modules of the same folder may stay bare, except for a module that other folders import (`native/fetch_url.py`, `stdlib/stdlib_runtime.py`, ...): it and everything that touches it import its siblings qualified too, so there is only one copy of it in `sys.modules`. That includes `unittest.mock.patch("stdlib.stdlib_runtime.run_command")` target strings. `native_bindings/` keeps generic module names (`config`, `spec`), so it is never put on `sys.path` as a folder; import it as `native_bindings.config`.
+   Use `parents[2]` in a sub-sub-folder (`tools/portable/portable_data/`). Imports between modules of the same folder may stay bare, except for a module that other folders import (`stdlib/stdlib_runtime.py`, `native/build_native_libs.py`, ...): it and everything that touches it import its siblings qualified too, so there is only one copy of it in `sys.modules`. That includes `unittest.mock.patch("stdlib.stdlib_runtime.run_command")` target strings. `native_bindings/` keeps generic module names (`config`, `spec`), so it is never put on `sys.path` as a folder; import it as `native_bindings.config`.
 3. A script at `tools/<folder>/x.py` finds the repo root with `Path(__file__).resolve().parents[2]`.
 4. Reference it by its full path (`tools/<folder>/x.py`) in workflows, the Justfile, docs and `tools/ci/ci_changes.py` path filters.
 

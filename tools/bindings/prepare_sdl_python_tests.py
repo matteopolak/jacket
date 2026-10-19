@@ -14,14 +14,13 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import tarfile
 import urllib.request
-from native.fetch_url import fetch
+from toolkit.download import fetch
 from sdl_test_support import repository_root
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 
 MEMBERS = ("CMakeLists.txt", "include/SDL2/SDL_config_unix.h.cmake", "LICENSE.txt")
@@ -43,7 +42,7 @@ def prepare(scratch, cache, offline=False):
                 "offline: missing pinned SDL2 header archive: " + str(archive)
             )
         data = fetch(pin["url"])
-        if hashlib.sha256(data).hexdigest() != pin["sha256"]:
+        if sha256_bytes(data) != pin["sha256"]:
             raise ValueError("SDL2 header download checksum mismatch")
         archive.write_bytes(data)
     if sha256_file(archive) != pin["sha256"]:

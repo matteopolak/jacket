@@ -7,12 +7,19 @@ token that starts with a top-level repo folder (`tools/x.py`, `docs/tools/y.md`)
 placeholder or variable are skipped, as are paths under GENERATED (build products, fetched corpora)
 and the ALLOW set (mentions of files that only exist in a user's checkout).
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import re
 import subprocess
 import sys
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 TOP = ("docs", "tools", "crates", "stdlib", "editors", "fuzz", "tests", "benchmarks", "examples",
        "packaging", "nix", "corpus", "third_party", "jaifmt", ".github", ".githooks")
 DOC_TOP = {"docs", "tools", "crates", "editors", "fuzz", ".github", ".githooks", "benchmarks", "packaging", "nix"}

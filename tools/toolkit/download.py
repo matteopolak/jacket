@@ -5,19 +5,18 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
+from http.client import HTTPException
 from pathlib import Path
 
-import sys as _sys
-from pathlib import Path as _Path
-
 # tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.hashing import sha256_file
 
-__all__ = ["cache_dir", "pinned"]
+__all__ = ["cache_dir", "fetch", "pinned"]
 
-ATTEMPTS = 5
+ATTEMPTS = 6
 TRANSIENT = {408, 429, 500, 502, 503, 504}
 
 
@@ -36,7 +35,8 @@ def pinned(url: str, sha256: str, name: str, *, timeout: float = 120) -> Path:
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         partial = path.with_name(path.name + ".part")
-        partial.write_bytes(_fetch(url, timeout))
+        print(f"downloading {url}", file=sys.stderr)
+        partial.write_bytes(fetch(url, timeout=timeout))
         partial.replace(path)
     digest = sha256_file(path)
     if digest != sha256:
@@ -45,20 +45,32 @@ def pinned(url: str, sha256: str, name: str, *, timeout: float = 120) -> Path:
     return path
 
 
-def _fetch(url: str, timeout: float) -> bytes:
-    print(f"downloading {url}", file=sys.stderr)
-    for attempt in range(1, ATTEMPTS + 1):
+def fetch(
+    url: str,
+    *,
+    timeout: float = 120,
+    attempts: int = ATTEMPTS,
+    headers: Mapping[str, str] | None = None,
+    max_bytes: int | None = None,
+) -> bytes:
+    """The body of `url` (`ValueError` when it is longer than `max_bytes`, which is never read past). Rate limits, 5xx answers, dropped connections and truncated bodies are retried
+    with a growing pause (honouring `Retry-After`); other 4xx answers (a wrong pin) fail at once."""
+    request = urllib.request.Request(url, headers=dict(headers)) if headers else url
+    for attempt in range(1, attempts + 1):
         try:
-            with urllib.request.urlopen(url, timeout=timeout) as response:
-                return response.read()
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                body = response.read() if max_bytes is None else response.read(max_bytes + 1)
+            if max_bytes is not None and len(body) > max_bytes:
+                raise ValueError(f"{url}: more than {max_bytes} bytes")
+            return body
         except urllib.error.HTTPError as error:
-            if error.code not in TRANSIENT or attempt == ATTEMPTS:
+            if error.code not in TRANSIENT or attempt == attempts:
                 raise
-            wait = _retry_after(error) or 2**attempt
-        except (urllib.error.URLError, TimeoutError, ConnectionError):
-            if attempt == ATTEMPTS:
+            wait = _retry_after(error) or 5 * attempt
+        except (OSError, HTTPException):
+            if attempt == attempts:
                 raise
-            wait = 2**attempt
+            wait = 5 * attempt
         print(f"  attempt {attempt} failed; retrying in {wait}s", file=sys.stderr)
         time.sleep(wait)
     raise AssertionError("unreachable")

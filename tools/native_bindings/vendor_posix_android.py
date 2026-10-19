@@ -5,14 +5,21 @@ Clang parses the real Bionic header graph for both target CPUs. Static C ABI
 assertions validate every emitted field size/offset and complete record layout.
 These are C source checks, not execution of Android SDK/Jai programs.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 from pathlib import Path
 import re
 import shlex
 import tarfile
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 NAMES = ('iovec', 'pollfd', 'sched_param', 'timeval')
 OUTPUT = ROOT/'stdlib/internal/bindings/vendor/android-posix-shapes.json'
 INCLUDES = '#include <sys/uio.h>\n#include <poll.h>\n#include <sched.h>\n#include <sys/time.h>\n#include <stddef.h>\n'

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 """Check the foundations cases against explicitly selected clean-room source builds."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 import os
@@ -8,8 +15,9 @@ import re
 import sys
 from pathlib import Path
 import subprocess
+from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 
-ROOT = Path(__file__).resolve().parents[2]
 CASES = ("Basic/tests/builder-format", "Basic/tests/integer-format", "String/tests/patterns", "Hash/tests/floats", "Basic/tests/filesystem",
          "File_Utilities/tests/shape", "File_Utilities/tests/tree-operations", "Hash/tests/scalars", "File/tests/visitation", "Basic/tests/output", "Basic/tests/formatter-records", "Basic/tests/sleep",
          "Basic/tests/format-grammar", "Basic/tests/format-floats", "Basic/tests/format-aggregates", "Basic/tests/format-types", "Basic/tests/assert-message",
@@ -294,7 +302,7 @@ def lint_owned(linter, env, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", required=True, type=Path)
+    add_jaic_argument(parser, required=True)
     parser.add_argument("--stdlib", required=True, type=Path)
     parser.add_argument("--jaifmt", type=Path, help="unchanged repository CLI built with the selected library")
     parser.add_argument("--jailint", type=Path, help="linter built from the selected independent compiler sources")

@@ -1,6 +1,6 @@
 // A 64-bit integer converts to float32 with one rounding. Going through float64 first rounds
 // twice: 2^63 + 2^39 + 1 becomes the f32 tie 2^63 + 2^39 in float64 and then rounds to even
-// (down), although the integer is above the tie (found by tools/differential/jaic-diff.py: the interpreter
+// (down), although the integer is above the tie (found by tools/differential/jaic_diff.py: the interpreter
 // and the native build disagreed).
 #import "Basic";
 

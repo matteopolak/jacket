@@ -4,7 +4,7 @@
 tools/ has no __init__.py, so a plain `discover -s tools` never descends into the subfolders.
 Every folder, at any depth, holding a matching file is discovered on its own (unittest puts that folder on sys.path, so a test imports its
 siblings by bare name), with tools/ on PYTHONPATH so cross-folder imports are folder-qualified
-(`from native.fetch_url import fetch`), exactly as they are when a script runs directly.
+(`from toolkit.download import fetch`), exactly as they are when a script runs directly.
 
     python3 tools/run_tests.py                       # every test_*.py
     python3 tools/run_tests.py -p 'test_sdl*.py' -v  # only the matching files, verbosely

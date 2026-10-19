@@ -8,8 +8,8 @@ import os
 import platform
 import subprocess
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent
 
 
 def main_checkout() -> Path:

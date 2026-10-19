@@ -15,6 +15,13 @@ Usage: tools/dev/build_pgo.py [--llvm dynamic|static|none] [--bolt] [--jobs N] [
 """
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+
 import argparse
 import json
 import os
@@ -24,8 +31,8 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 TOOLS = ("jaic", "jailsp", "jailint")
 EXE = ".exe" if os.name == "nt" else ""
 # `jaic-cli` features per --llvm choice; the other two packages always use their defaults.
@@ -221,7 +228,7 @@ def train(bins, args, env, native):
     """Run the training workload with `bins`. Failures are reported but do not stop the build:
     the profile only needs representative work, and the sweep is the correctness gate."""
     py = sys.executable
-    sweep = [py, ROOT / "tools/differential/jaic-sweep.py", "--jaic", bins["jaic"], "--allow-stale", "--headless",
+    sweep = [py, ROOT / "tools/differential/jaic_sweep.py", "--jaic", bins["jaic"], "--allow-stale", "--headless",
              "--jobs", str(args.jobs), "--timeout", "300"]
     steps = [("sweep (check and run)", sweep + ["corpus", "negative", "regressions", "modules", "examples"])]
     if native:

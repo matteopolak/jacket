@@ -6,7 +6,6 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -14,6 +13,7 @@ import unittest
 from unittest.mock import patch
 
 from native import build_native_libs as builder
+from toolkit.hashing import sha256_bytes
 
 
 class XxhashBuildTests(unittest.TestCase):
@@ -44,7 +44,7 @@ class XxhashBuildTests(unittest.TestCase):
         self.spec = {
             "revision": "v0.7.0",
             "files": {
-                name: hashlib.sha256(content).hexdigest()
+                name: sha256_bytes(content)
                 for name, content in files.items()
             },
         }
@@ -115,7 +115,7 @@ class XxhashBuildTests(unittest.TestCase):
     def test_verified_but_unrecognized_header_requires_review(self):
         changed = self.header.replace(b"#ifdef _MSC_VER", b"#if defined(_MSC_VER)")
         (self.source / "xxh3.h").write_bytes(changed)
-        self.spec["files"]["xxh3.h"] = hashlib.sha256(changed).hexdigest()
+        self.spec["files"]["xxh3.h"] = sha256_bytes(changed)
         builder.MANIFEST.write_text(json.dumps({"sources": {"xxhash070": self.spec}}))
         with patch.object(builder.subprocess, "run") as command:
             with self.assertRaisesRegex(RuntimeError, "intrinsic guard"):

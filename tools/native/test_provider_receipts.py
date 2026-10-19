@@ -1,4 +1,11 @@
 """NEW receipt/protocol unit tests. These are not native SDK/device evidence."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import importlib.util
 import json
 import os
@@ -6,8 +13,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("audio_builder", ROOT / "tools/native/audio_build_native.py")
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)

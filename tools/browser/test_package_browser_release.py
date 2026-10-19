@@ -1,5 +1,12 @@
 """Consumer archive proofs with authored inert fixtures; build/VM calls are mocked."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+
 from datetime import date
 import hashlib
 import json
@@ -10,6 +17,7 @@ import unittest
 from unittest.mock import patch
 import zipfile
 import package_browser_release as release
+from toolkit.hashing import sha256_bytes
 
 COMMIT = "a" * 40
 JAIC = Path("/own/native/jaic")
@@ -33,9 +41,9 @@ def staged(stage):
     (stage / "build-metadata.json").write_text(
         json.dumps(
             {
-                "wasm_sha256": hashlib.sha256(wasm).hexdigest(),
+                "wasm_sha256": sha256_bytes(wasm),
                 "wasm_build_path": "/private/host/cache/module.wasm",
-                "jaifmt_wasm_sha256": hashlib.sha256(formatter).hexdigest(),
+                "jaifmt_wasm_sha256": sha256_bytes(formatter),
             }
         )
     )
@@ -96,11 +104,11 @@ class BrowserReleaseTests(unittest.TestCase):
                 self.assertEqual(metadata["toolchain"], "nightly-2026-08-29")
                 self.assertEqual(
                     metadata["wasm_sha256"],
-                    hashlib.sha256(archive.read("jai_wasm.wasm")).hexdigest(),
+                    sha256_bytes(archive.read("jai_wasm.wasm")),
                 )
                 self.assertEqual(
                     metadata["jaifmt_wasm_sha256"],
-                    hashlib.sha256(archive.read("jaifmt.wasm")).hexdigest(),
+                    sha256_bytes(archive.read("jaifmt.wasm")),
                 )
                 self.assertNotIn(
                     "/private/host", archive.read("build-metadata.json").decode()
@@ -109,7 +117,7 @@ class BrowserReleaseTests(unittest.TestCase):
                     content = archive.read(item["path"])
                     self.assertEqual(len(content), item["size"])
                     self.assertEqual(
-                        hashlib.sha256(content).hexdigest(), item["sha256"]
+                        sha256_bytes(content), item["sha256"]
                     )
                 nested = base / "site/jai" / COMMIT
                 archive.extractall(nested)

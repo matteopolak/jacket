@@ -20,8 +20,8 @@ import argparse
 import json
 import random
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent
 INT_TYPES = ['int', 's32', 'u32', 'u8', 'u16', 's64']
 VERBS = ['update', 'compute', 'process', 'build', 'scan', 'merge', 'reduce', 'fold', 'check', 'find', 'apply',
          'collect', 'resolve', 'emit', 'visit', 'parse', 'step', 'mix', 'pack', 'walk']

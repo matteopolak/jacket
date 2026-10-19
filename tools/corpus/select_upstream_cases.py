@@ -8,12 +8,19 @@ and is not `disabled` is selected, so a new Windows-only case needs no workflow 
     select_upstream_cases.py --platform windows-x64 --ids     # one id per line
     select_upstream_cases.py --platform windows-x64 --repos   # owner/repo, for fetch_upstreams.py --only
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 import sys
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 CASES = ROOT / "tools/upstream-cases.json"
 
 

@@ -4,16 +4,23 @@
 The Bionic archive carries the official exported Linux UAPI header graph.
 Only kernel structures/numbers are used, not Bionic userspace implementation.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import shlex
 import tarfile
 
 from vendor_records import record_shape, assertions, run, digest
+from toolkit.hashing import sha256_bytes
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 OUTPUT = ROOT/'stdlib/internal/bindings/linux-arm64-kernel/abi.jai'
 INCLUDES = '''#include <asm/stat.h>
@@ -108,7 +115,7 @@ def main():
               'exit':checked.returncode,'status':'passed','layout':shape,'constants':constants,
               'archive_sha256':pin['archive']['sha256'],'headers':headers,
               'compiler_resource_headers':compiler_headers,'probe_sha256':digest(probe.read_bytes()),
-              'generated_source_sha256':hashlib.sha256(code.encode()).hexdigest()}
+              'generated_source_sha256':sha256_bytes(code.encode())}
     args.report.write_text(json.dumps(report,indent=2)+'\n')
     print('Linux ARM64 C kernel layout and syscall definitions verified; runtime unverified')
 

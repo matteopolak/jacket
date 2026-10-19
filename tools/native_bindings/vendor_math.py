@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Select complete public SDK enum/macro definitions for a native math oracle."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import re
+from toolkit.hashing import sha256_bytes
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
@@ -17,7 +24,7 @@ def main():
     name = 'generation/WinSDK/RecompiledIdlHeaders/um/d3d12.h'
     header = ROOT/'.work/vendor/windows-sdk'/name
     data = header.read_bytes()
-    digest = hashlib.sha256(data).hexdigest()
+    digest = sha256_bytes(data)
     if digest != pin['files'][name]:
         raise SystemExit('D3D12 SDK header hash mismatch')
     text = data.decode().replace('\r\n','\n')

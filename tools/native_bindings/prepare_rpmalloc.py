@@ -1,11 +1,19 @@
 """Build-only, hash-checked fixes to official pinned C sources. Never edit vendor."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+
 import hashlib
 import json
 from pathlib import Path
 import subprocess
+from toolkit.hashing import sha256_bytes
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 PATCHES = (
     (
         "sdk-page-granularity.patch",
@@ -45,7 +53,7 @@ def patch_provenance():
     for name, expected, reason in PATCHES:
         path = ROOT / "stdlib/internal/bindings/rpmalloc-heaps" / name
         data = path.read_bytes()
-        if hashlib.sha256(data).hexdigest() != expected:
+        if sha256_bytes(data) != expected:
             raise ValueError("Reviewed rpmalloc patch mismatch: " + str(path))
         result.append(
             dict(path=str(path.relative_to(ROOT)), sha256=expected, purpose=reason)
@@ -62,7 +70,7 @@ def prepare(source, destination, stop_before=None):
     for name, expected in pin["files"].items():
         original = source / name
         data = original.read_bytes()
-        actual = hashlib.sha256(data).hexdigest()
+        actual = sha256_bytes(data)
         if actual != expected:
             raise ValueError("Pinned rpmalloc source mismatch: " + str(original))
         hashes[name] = actual
@@ -75,7 +83,7 @@ def prepare(source, destination, stop_before=None):
         if stop_before and Path(patch["path"]).name == stop_before:
             break
         data = (ROOT / patch["path"]).read_bytes()
-        if hashlib.sha256(data).hexdigest() != patch["sha256"]:
+        if sha256_bytes(data) != patch["sha256"]:
             raise ValueError("rpmalloc patch changed during preparation")
         subprocess.run(
             ["patch", "--batch", "--forward", "--fuzz=0", "-p1"],

@@ -72,7 +72,8 @@ fn unnamed_link_always_library_is_linked() {
 
 /// A C++ function marked `#cpp_return_type_is_non_pod` returns even a small class (one `int`)
 /// through the hidden result pointer, as C++ does for types with constructors. Found by
-/// tools/differential/jaic-diff.py: the native build expected it in registers while the callee wrote through x8.
+/// `tools/differential/jaic_diff.py`: the native build expected it in registers while the callee
+/// wrote through x8.
 #[test]
 fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-cpp-non-pod");

@@ -13,10 +13,9 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import hashlib
 import re
 from pathlib import Path
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 GROUPS = (
     ('foundation', 'stdinc endian bits cpuinfo atomic guid'),
@@ -238,7 +237,7 @@ def reconcile(src,reports,equivalents):
     def intern_reasons(value):
         if isinstance(value,dict):
             if 'reason' in value:
-                reason=value.pop('reason');key=hashlib.sha256(reason.encode()).hexdigest()[:16]
+                reason=value.pop('reason');key=sha256_bytes(reason.encode())[:16]
                 reasons[key]=reason;value['reason_ref']=key
             for child in value.values():intern_reasons(child)
         elif isinstance(value,list):

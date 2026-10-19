@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run jaic over test programs and summarize results.
 
-Usage: tools/differential/jaic-sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
+Usage: tools/differential/jaic_sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
 `jaic -check` must fail and report the recorded text), regressions (tests/compiler/regressions), modules (the stdlib's own
 tests: every stdlib/**/tests directory, described by its manifest.json rows; run must succeed), examples (tests/corpus/examples.json:
@@ -31,6 +31,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from toolkit.repo import ROOT
+from toolkit.cli import add_jaic_argument
 from corpus import select_upstream_cases
 from corpus import upstream_sandbox as usb
 import threading
@@ -61,7 +62,7 @@ def upstream_root(c):
 
 
 def make_workdir(c):
-    root = Path(tempfile.mkdtemp(prefix=f"jaic-sweep-{c['id']}-"))
+    root = Path(tempfile.mkdtemp(prefix=f"jaic_sweep-{c['id']}-"))
     copy, link = c.get("copy", []), c.get("link", [])
     if "copy" not in c and (c["mode"] == "build" or c.get("run_after") or c.get("setup")):
         # A confined build writes only inside a scratch copy of its project; its siblings are links.
@@ -458,8 +459,7 @@ def main():
 
     ap = argparse.ArgumentParser()
     ap.add_argument("sets", nargs="+")
-    target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
-    ap.add_argument("--jaic", default=os.path.join(target, "debug", "jaic"))
+    add_jaic_argument(ap, type=str)
     ap.add_argument("--filter", default="")
     ap.add_argument(
         "--only-platform",
@@ -557,7 +557,7 @@ def main():
             os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = (
                 f"{Path.home()}/lib:/usr/local/lib:/usr/lib:{brew}/lib"
             )
-    scratch = tempfile.mkdtemp(prefix="jaic-sweep-native-") if a.native else None
+    scratch = tempfile.mkdtemp(prefix="jaic_sweep-native-") if a.native else None
     limit_bytes = int(a.memory_limit * 2**30)
     if a.jobs <= 0:
         a.jobs = max(
@@ -567,7 +567,7 @@ def main():
         stale = stale_sources(Path(a.jaic))
         if stale:
             sys.exit(
-                f"jaic-sweep: {a.jaic} is older than {stale}; rebuild it (or pass --allow-stale)"
+                f"jaic_sweep: {a.jaic} is older than {stale}; rebuild it (or pass --allow-stale)"
             )
     use_native_libs()
     chosen = None
@@ -582,9 +582,9 @@ def main():
         try:
             confined = usb.policy(a.no_sandbox)
         except usb.Unsandboxed as error:
-            sys.exit(f"jaic-sweep: {error}")
+            sys.exit(f"jaic_sweep: {error}")
         if not confined:
-            print("jaic-sweep: upstream cases run WITHOUT a sandbox", file=sys.stderr)
+            print("jaic_sweep: upstream cases run WITHOUT a sandbox", file=sys.stderr)
         else:
             # Absolute: the default lookup goes through `crates/jaic/..`, which a sandbox does not mount.
             os.environ.setdefault("JAIC_STDLIB", str(ROOT / "stdlib"))

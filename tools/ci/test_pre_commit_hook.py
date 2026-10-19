@@ -1,12 +1,20 @@
 """Exercise .githooks/pre-commit on a throwaway repository, with stand-in jaifmt and jailint."""
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import os
 import shutil
 import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from toolkit.repo import ROOT
+REPO = ROOT
 
-REPO = Path(__file__).resolve().parents[2]
 
 # Stand-ins: fail when a file mentions BAD. jaifmt reads the staged copy it is handed (the cwd is
 # an export of the index), jailint reads the working tree.

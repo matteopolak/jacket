@@ -2,9 +2,15 @@
 """Build, execute and package a clean exact-commit browser compiler bundle (Wasm, glue, formatter driver and
 jaifmt.wasm, tour)."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+
 import argparse
 from datetime import date, datetime, timezone
-import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -18,8 +24,9 @@ import tomllib
 import zipfile
 from cargo_build_paths import checked_directory
 from build_scripting_wasm import storage_directory
+from toolkit.hashing import sha256_bytes
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "jai-playground.zip"
 MANIFEST = "jai-playground.manifest.json"
 MAX_FILES = 64
@@ -51,7 +58,7 @@ METADATA = "build-metadata.json"
 
 
 def sha256(contents):
-    return hashlib.sha256(contents).hexdigest()
+    return sha256_bytes(contents)
 
 
 def pinned_channel(root, today=None):

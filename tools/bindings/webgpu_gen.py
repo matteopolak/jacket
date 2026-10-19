@@ -23,16 +23,15 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import re
 import subprocess
 import sys
-import urllib.request
 from pathlib import Path
 
 from repo_output import shared_output_dir
-from toolkit.hashing import sha256_file
+from toolkit.download import fetch
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 MANIFEST = ROOT / 'tools' / 'bindings' / 'webgpu.json'
@@ -745,10 +744,10 @@ def load_yml(path: str | None) -> tuple[str, str, str]:
             data = cache.read_bytes()
         else:
             url = f'https://raw.githubusercontent.com/{pin["repository"]}/{rev}/webgpu.yml'
-            data = urllib.request.urlopen(url, timeout=60).read()
+            data = fetch(url, timeout=60)
             cache.parent.mkdir(parents=True, exist_ok=True)
             cache.write_bytes(data)
-    actual = hashlib.sha256(data).hexdigest()
+    actual = sha256_bytes(data)
     if actual != digest:
         sys.exit(f'webgpu.yml: sha256 {actual}, expected {digest} (tools/bindings/webgpu.json)')
     return data.decode(), rev, digest

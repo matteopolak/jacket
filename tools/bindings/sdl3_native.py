@@ -9,7 +9,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import ntpath
 import os
@@ -19,11 +18,11 @@ import shutil
 import subprocess
 import tarfile
 import urllib.request
-from native.fetch_url import fetch
+from toolkit.download import fetch
 from pathlib import Path
 
 from repo_output import output_dir
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 PLATFORMS=('macos-x64','macos-arm64','linux-x64','linux-arm64','windows-x64','windows-arm64')
@@ -38,7 +37,7 @@ def checked_archive(cache, offline=False):
     if not packed.exists():
         if offline: raise RuntimeError(f'offline: missing {packed}')
         data=fetch(spec['url'])
-        if hashlib.sha256(data).hexdigest()!=spec['sha256']: raise RuntimeError('download hash mismatch')
+        if sha256_bytes(data)!=spec['sha256']: raise RuntimeError('download hash mismatch')
         packed.write_bytes(data)
     if sha256_file(packed)!=spec['sha256']: raise RuntimeError(f'cache hash mismatch: {packed}')
     # Validate every extracted file against the verified archive; preserve mtimes when exact.

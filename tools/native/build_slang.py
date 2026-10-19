@@ -25,15 +25,11 @@ import subprocess
 import sys
 
 from repo_output import main_checkout, shared_output_dir
+from toolkit.process import run
 
 TAG = "v2025.24.2"
 URL = "https://github.com/shader-slang/slang"
 SGPU = os.path.join("corpus", "upstream", "roeyb1--sgpu")
-
-
-def run(cmd, **kw):
-    print("+", " ".join(cmd), flush=True)
-    subprocess.run(cmd, check=True, **kw)
 
 
 def build_vulkan_extras(root, mac, ext, sub):

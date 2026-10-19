@@ -4,17 +4,17 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-import hashlib
 import json
 import os
 import re
 from pathlib import Path, PurePosixPath
 import subprocess
 import urllib.parse
-import urllib.request
 
 from repo_output import main_checkout, shared_output_dir
-from toolkit.hashing import sha256_file
+from toolkit.download import fetch
+from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.repo import ROOT
 
 REPOSITORIES = (
     'focus-editor/focus', 'Ivo-Balbaert/The_Way_to_Jai', 'SogoCZE/Jails',
@@ -122,7 +122,6 @@ MODULE_LINKS = (
     ('_modules/BlockAllocatorJai', 'kujukuju--BlockAllocatorJai'),
     ('_modules/lz4_static', 'kujukuju--lz4_static'),
 )
-ROOT = Path(__file__).resolve().parents[1]
 
 DATA = main_checkout()
 
@@ -138,13 +137,11 @@ def safe_path(path: str) -> PurePosixPath:
 def download(repo: str, revision: str, path: str) -> bytes:
     safe_path(path)
     url = f'https://raw.githubusercontent.com/{repo}/{revision}/{urllib.parse.quote(path)}'
-    request = urllib.request.Request(url, headers={'User-Agent': 'jai-rust-compatibility-research'})
     limit = MAX_FILE_BYTES.get(repo, 8 * 1024 * 1024)
-    with urllib.request.urlopen(request, timeout=60) as response:
-        data = response.read(limit + 1)
-    if len(data) > limit:
-        raise ValueError(f'oversize source: {repo}/{path}')
-    return data
+    try:
+        return fetch(url, timeout=60, headers={'User-Agent': 'jai-rust-compatibility-research'}, max_bytes=limit)
+    except ValueError:
+        raise ValueError(f'oversize source: {repo}/{path}') from None
 
 # C-family sources a project builds its own helper libraries from (never prebuilt binaries).
 NATIVE_SOURCE_SUFFIXES = ('.c', '.h', '.m', '.mm', '.cpp', '.cc', '.hpp', '.inl')
@@ -183,11 +180,11 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
         if expected and target.exists() and sha256_file(target) == expected['sha256']:
             return expected
         data = download(repo, revision, path)
-        if expected and hashlib.sha256(data).hexdigest() != expected['sha256']:
+        if expected and sha256_bytes(data) != expected['sha256']:
             raise ValueError(f'source hash changed at immutable revision: {repo}/{path}')
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-        return {'path': path, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+        return {'path': path, 'bytes': len(data), 'sha256': sha256_bytes(data)}
     with ThreadPoolExecutor(max_workers=8) as pool:
         files = list(pool.map(one, sorted(selected)))
     return record | {'selection': 'recent-source', 'files': files}

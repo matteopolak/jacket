@@ -1,4 +1,4 @@
-// Generated from the Jai_Lexer public contract by tools/generators/generate-jai-lexer-contract.py.
+// Generated from the Jai_Lexer public contract by tools/generators/generate_jai_lexer_contract.py.
 
 LEXER_SIMD_WIDTH :: 16;
 

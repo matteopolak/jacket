@@ -16,7 +16,7 @@ from pathlib import Path
 import platform
 import subprocess
 import urllib.request
-from native.fetch_url import fetch
+from toolkit.download import fetch
 from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 

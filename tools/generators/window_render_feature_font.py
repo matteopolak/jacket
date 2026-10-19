@@ -6,11 +6,18 @@ or Jai implementation is copied. The binary format follows Microsoft's public
 OpenType head/hhea/maxp/glyf/loca/cmap/name/post/OS2/GSUB documentation. FreeType,
 not this generator, supplies production glyph metrics and rasterization in tests.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 from pathlib import Path
 import struct
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "stdlib/Simp/tests/fixtures/feature-font.ttf"
 
 

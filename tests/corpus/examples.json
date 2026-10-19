@@ -1,5 +1,5 @@
 {
-  "comment": "Example programs run by `tools/differential/jaic-sweep.py examples` (natively, with the case's args) and by tools/browser/check_scripting_wasm.mjs and tools/browser/check_browser_release.mjs (in the wasm engine, under `budget` basic blocks, the hosted playground's limit). Each line of stdout_contains must appear in stdout; stdout_excludes must not. A case with `bundle` is shipped in the browser bundle: tools/browser/build_scripting_wasm.py copies its directory to <bundle>/ and writes the <bundle>.json index (docs/browser/playground.md).",
+  "comment": "Example programs run by `tools/differential/jaic_sweep.py examples` (natively, with the case's args) and by tools/browser/check_scripting_wasm.mjs and tools/browser/check_browser_release.mjs (in the wasm engine, under `budget` basic blocks, the hosted playground's limit). Each line of stdout_contains must appear in stdout; stdout_excludes must not. A case with `bundle` is shipped in the browser bundle: tools/browser/build_scripting_wasm.py copies its directory to <bundle>/ and writes the <bundle>.json index (docs/browser/playground.md).",
   "cases": [
     {
       "id": "tour",

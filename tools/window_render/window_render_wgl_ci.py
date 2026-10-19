@@ -22,6 +22,7 @@ import subprocess
 from cleanroom_lint_contexts import canonical, checked_coverage
 from window_render_tests import WINDOW_RENDER_TESTS
 from toolkit.hashing import sha256_file
+from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
 CASES = (
@@ -180,7 +181,7 @@ def wgl_lint_paths(library, cases):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", required=True, type=Path)
+    add_jaic_argument(parser, required=True)
     parser.add_argument("--jailint", required=True, type=Path)
     parser.add_argument("--stdlib", type=Path, default=ROOT / "target/window-integration-stdlib")
     parser.add_argument("--native-libs", type=Path, required=True)

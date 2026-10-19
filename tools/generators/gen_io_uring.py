@@ -30,13 +30,13 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import re
 import sys
 from pathlib import Path
 
 from toolkit.download import pinned
 from toolkit.repo import ROOT
+from toolkit.hashing import sha256_bytes
 
 OUTPUT = ROOT / 'stdlib' / 'Extensions' / 'Io_Uring' / 'bindings.jai'
 
@@ -461,7 +461,7 @@ def main() -> int:
     try:
         if args.header:
             text = args.header.read_text()
-            digest = hashlib.sha256(text.encode()).hexdigest()
+            digest = sha256_bytes(text.encode())
             origin = (f'linux/io_uring.h at Linux {TAG}' if digest == SHA256
                       else f'{args.header.name} (sha256 {digest[:12]})')
         else:

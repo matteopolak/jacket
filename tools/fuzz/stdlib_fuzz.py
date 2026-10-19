@@ -27,8 +27,8 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 from bench.sandbox import Sandbox, environment  # noqa: E402
 
 LLVM_READS = [Path('/opt/homebrew/opt/llvm'), Path('/usr/lib/llvm-23')]  # clang and the libFuzzer archive
