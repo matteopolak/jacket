@@ -187,3 +187,80 @@ fn module_insertion_generator_waits_in_its_canonical_module_scope() {
         panic!("{}", error.render(&compiler.sources));
     }
 }
+
+#[test]
+fn a_parameter_naming_an_undefined_placeholder_is_decided_again_once_it_is_defined() {
+    let mut options = Options::host();
+    options.runtime_support = false;
+    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    compiler
+        .begin_sources(&[ProgramSource::String(
+            "#placeholder Vec; takes :: (v: *Vec) {} main :: () {}".into(),
+        )])
+        .unwrap();
+    let procedure = |compiler: &mut Compiler| {
+        let entity = compiler
+            .entities
+            .iter()
+            .position(|entity| entity.name.as_str() == "takes")
+            .unwrap();
+        let jaic::sema::scope::Resolved::Proc(procedure) = compiler
+            .resolve_entity(jaic::sema::EntityId(entity as u32))
+            .unwrap()
+        else {
+            panic!("declared procedure");
+        };
+        procedure
+    };
+    let takes = procedure(&mut compiler);
+    compiler.refresh_implicit_poly(takes).unwrap();
+    assert!(
+        !compiler.proc(takes).is_poly,
+        "nothing says it is polymorphic yet"
+    );
+    compiler
+        .add_source(&ProgramSource::String(
+            "Vec :: struct(T: Type) { item: T; }".into(),
+        ))
+        .unwrap();
+    compiler.refresh_implicit_poly(takes).unwrap();
+    assert!(
+        compiler.proc(takes).is_poly,
+        "the first answer, given before `Vec` existed, must not be final"
+    );
+}
+
+#[test]
+fn an_overload_set_with_an_unresolved_member_is_compared_again_once_it_resolves() {
+    let mut options = Options::host();
+    options.runtime_support = false;
+    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    compiler
+        .begin_sources(&[ProgramSource::String(
+            "#placeholder Alias; f :: (a: Alias) {} f :: (a: s64) {} main :: () {}".into(),
+        )])
+        .unwrap();
+    let set: Vec<_> = compiler
+        .entities
+        .iter()
+        .enumerate()
+        .filter(|(_, entity)| entity.name.as_str() == "f")
+        .map(|(index, _)| jaic::sema::EntityId(index as u32))
+        .collect();
+    assert_eq!(set.len(), 2);
+    assert!(
+        compiler.check_identical_overloads(&set).is_ok(),
+        "`Alias` is not defined yet, so the two cannot be told to be identical"
+    );
+    compiler
+        .add_source(&ProgramSource::String("Alias :: s64;".into()))
+        .unwrap();
+    let error = compiler
+        .check_identical_overloads(&set)
+        .expect_err("the set was not fully compared the first time");
+    assert!(
+        error.message.contains("identical parameter types"),
+        "{}",
+        error.message
+    );
+}

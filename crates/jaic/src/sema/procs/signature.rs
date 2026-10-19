@@ -60,19 +60,32 @@ impl Compiler {
 
     /// A parameter typed with a bare polymorphic struct (`t: *Table`) makes the
     /// procedure polymorphic; that needs name resolution, so it is decided lazily.
+    ///
+    /// The answer is final only once every name it needed resolved: a name that cannot be
+    /// resolved yet (a `#placeholder` a metaprogram has not defined) leaves the procedure
+    /// unchecked, to be decided again, instead of fixing it as monomorphic.
     pub fn refresh_implicit_poly(&mut self, id: ProcId) -> Result<()> {
         if self.proc(id).poly_checked {
             return Ok(());
         }
+        // Set while resolving, so the names it resolves cannot start the same decision again.
         self.procs[id.0 as usize].poly_checked = true;
         let header = self.proc(id).lit.header.clone();
         let scope = self.proc(id).scope;
         for p in &header.params {
-            if let Some(t) = &p.ty
-                && self.mentions_poly_struct(scope, t)?
-            {
-                self.procs[id.0 as usize].is_poly = true;
-                break;
+            let Some(t) = &p.ty else {
+                continue;
+            };
+            match self.mentions_poly_struct_resolved(scope, t) {
+                Ok(true) => {
+                    self.procs[id.0 as usize].is_poly = true;
+                    break;
+                }
+                Ok(false) => {}
+                Err(_) => {
+                    self.procs[id.0 as usize].poly_checked = false;
+                    return Ok(());
+                }
             }
         }
         Ok(())
@@ -94,7 +107,34 @@ impl Compiler {
         })
     }
 
+    /// `mentions_poly_struct`, but a name that exists and fails to resolve is an error rather
+    /// than "no".
+    fn mentions_poly_struct_resolved(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<bool> {
+        use ast::ExprKind as E;
+        Ok(match &expr.kind {
+            E::Ident(name) => self.ident_poly_struct_resolved(scope, *name)?.is_some(),
+            E::Unary(_, e) => self.mentions_poly_struct_resolved(scope, e)?,
+            E::ArrayType {
+                elem, ..
+            } => self.mentions_poly_struct_resolved(scope, elem)?,
+            E::TypeDirective {
+                ty, ..
+            } => self.mentions_poly_struct_resolved(scope, ty)?,
+            _ => false,
+        })
+    }
+
     pub fn ident_poly_struct(
+        &mut self,
+        scope: ScopeId,
+        name: Sym,
+    ) -> Result<Option<value::PolyStructId>> {
+        Ok(self.ident_poly_struct_resolved(scope, name).unwrap_or(None))
+    }
+
+    /// The polymorphic struct `name` denotes, `None` when it denotes something else or nothing,
+    /// and an error when it names an entity that fails to resolve.
+    fn ident_poly_struct_resolved(
         &mut self,
         scope: ScopeId,
         name: Sym,
@@ -108,8 +148,8 @@ impl Compiler {
         if matches!(self.entity(id).kind, EntityKind::Local { .. }) {
             return Ok(None);
         }
-        Ok(match self.resolve_entity(id) {
-            Ok(Resolved::PolyStruct(ps)) => Some(ps),
+        Ok(match self.resolve_entity(id)? {
+            Resolved::PolyStruct(ps) => Some(ps),
             _ => None,
         })
     }
@@ -421,6 +461,9 @@ impl Compiler {
             return Ok(());
         }
         let mut seen: Vec<(EntityId, Rc<[TypeId]>, bool)> = Vec::new();
+        // A member that cannot be resolved yet (a `#placeholder` in its parameters) reports
+        // its own error; the set is checked again once it can be compared.
+        let mut complete = true;
         for &id in ids {
             let Ok(
                 Resolved::Proc(proc)
@@ -430,6 +473,7 @@ impl Compiler {
                 },
             ) = self.resolve_entity(id)
             else {
+                complete = false;
                 continue;
             };
             if self.proc(proc).is_poly || self.proc(proc).lit.body.is_none() {
@@ -437,6 +481,7 @@ impl Compiler {
             }
             let span = self.entity(id).span;
             let Ok(sig) = self.signature(proc, span) else {
+                complete = false;
                 continue;
             };
             let TypeKind::Proc(ty) = self.types.kind(sig.ty).clone() else {
@@ -462,9 +507,11 @@ impl Compiler {
             }
             seen.push((id, params, ty.variadic));
         }
-        // Only a clean set is remembered: a caller that swallows the error (a speculative
-        // lookup) must not hide it from the next check.
-        self.overload_sets_checked.insert(ids.to_vec());
+        // Only a clean, fully compared set is remembered: a caller that swallows the error (a
+        // speculative lookup) must not hide it from the next check.
+        if complete {
+            self.overload_sets_checked.insert(ids.to_vec());
+        }
         Ok(())
     }
 }
