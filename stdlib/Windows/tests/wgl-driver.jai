@@ -124,5 +124,20 @@ main :: () {
     assert(rejected == null && rejected_dc == null && rejected_samples == 0);
     assert(W.wglGetCurrentContext() == modern && W.wglGetCurrentDC() == modern_dc);
     assert(W.GetPixelFormat(modern_dc) == chosen);
+
+    // A fresh window asking for 4x multisampling must open whether or not the driver offers it:
+    // the sample count reported back is 0 or a count no larger than requested.
+    fresh := WC.create_window(64, 64, "Native WGL multisample request");
+
+    required(fresh != null, "multisample window");
+    defer required(W.DestroyWindow(fresh) != 0, "multisample DestroyWindow");
+    multisampled, multisampled_dc, multisampled_samples := GL.wgl_create_context(fresh, null, 3, 3, false, false, 4);
+
+    print("multisample request: context=%, dc=%, samples=%\n", multisampled, multisampled_dc, multisampled_samples);
+    assert(multisampled != null && multisampled_dc != null, "a multisample request must fall back instead of failing");
+    assert(multisampled_samples >= 0 && multisampled_samples <= 4);
+    assert(W.GetPixelFormat(multisampled_dc) != 0);
+    required(W.wglDeleteContext(multisampled) != 0, "multisample wglDeleteContext");
+    assert(W.wglGetCurrentContext() == modern && W.wglGetCurrentDC() == modern_dc);
     print("ok\n");
 }

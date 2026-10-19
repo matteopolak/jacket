@@ -75,29 +75,22 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
     format := W.GetPixelFormat(dc);
 
     if format == 0 {
-        if choose {
-            samples := ifx multisample then wanted_samples else 0;
+        samples := ifx multisample then wanted_samples else 0;
 
-            while true {
-                // RGB24 + alpha8 + depth24, double buffered RGBA window surface.
-                attributes: [19] s32 = .[0x2001, 1, 0x2010, 1, 0x2011, 1,
-                                         0x2013, 0x202B, 0x2014, 24, 0x201B, 8, 0x2022, 24, 0, 0, 0, 0, 0];
+        // Walk down from the requested sample count, then relax the colour
+        // requirements, before settling on the legacy chooser. Some drivers
+        // report an unsupported sample count as a failed call, not an empty
+        // result, so a failure only ends the current attempt.
+        while choose {
+            format = choose_extended(dc, choose, multisample, samples, false);
+            if format == 0 format = choose_extended(dc, choose, multisample, samples, true);
+            if format != 0 || samples == 0 break;
 
-                if multisample {
-                    attributes[14] = 0x2041;
-                    attributes[15] = ifx samples > 0 then 1 else 0;
-                    attributes[16] = 0x2042;
-                    attributes[17] = samples;
-                }
+            samples /= 2;
+        }
 
-                count: u32;
-                if choose(dc, attributes.data, null, 1, *format, *count) == 0 return null, null, 0;
-                if count != 0 && format != 0 break;
-                if samples == 0 return null, null, 0;
-
-                samples /= 2;
-            }
-        } else {
+        if format == 0 {
+            descriptor = pixel_descriptor();
             format = W.ChoosePixelFormat(dc, *descriptor);
             if format == 0 return null, null, 0;
         }
@@ -164,6 +157,36 @@ resolve :: (name: *u8) -> *void {
     value := cast(u64) address;
     if value <= 3 || value == 0xffff_ffff_ffff_ffff return null;
     return address;
+}
+
+// Asks the pixel-format extension for a double buffered RGBA window format.
+// The strict form wants 8-bit alpha and 24-bit depth; the relaxed form takes any
+// colour depth with at least 16 depth bits. Returns 0 when nothing matches.
+choose_extended :: (dc: W.HDC, choose: Choose, multisample: bool, samples: s32, relaxed: bool) -> s32 {
+    attributes: [19] s32 = .[0x2001, 1, 0x2010, 1, 0x2011, 1, 0x2013, 0x202B, 0x2014, 24, 0x201B, 8, 0x2022, 24, 0, 0, 0, 0, 0];
+
+    if relaxed {
+        attributes[8] = 0;
+        attributes[9] = 0;
+        attributes[10] = 0;
+        attributes[11] = 0;
+        attributes[13] = 16;
+    }
+
+    if multisample {
+        attributes[14] = 0x2041;
+        attributes[15] = ifx samples > 0 then 1 else 0;
+        attributes[16] = 0x2042;
+        attributes[17] = samples;
+    }
+
+    format: s32;
+    count: u32;
+
+    if choose(dc, attributes.data, null, 1, *format, *count) == 0 return 0;
+    if count == 0 return 0;
+
+    return format;
 }
 
 pixel_descriptor :: () -> W.PIXELFORMATDESCRIPTOR {
