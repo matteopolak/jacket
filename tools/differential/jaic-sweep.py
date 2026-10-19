@@ -31,6 +31,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from toolkit.repo import ROOT
+from corpus import select_upstream_cases
 from corpus import upstream_sandbox as usb
 import threading
 
@@ -571,9 +572,6 @@ def main():
     use_native_libs()
     chosen = None
     if a.only_platform:
-        sys.path.insert(0, str(ROOT / "tools/corpus"))
-        import select_upstream_cases
-
         chosen = {c["id"] for c in select_upstream_cases.select(select_upstream_cases.load(), a.only_platform)}
 
     def wanted(cid):
