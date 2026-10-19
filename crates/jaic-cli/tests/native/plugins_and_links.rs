@@ -181,12 +181,36 @@ fn optimized_sub_recurrence_matches_the_interpreter() {
     );
 }
 
+/// Builds the stdlib's native Debug helper (`libdeveloper_tools_debug`, gitignored) with
+/// `tools/developer_checks/build_developer_debug.py` when it is missing; the error says why it
+/// could not be built (no Python or C compiler).
+fn ensure_debug_helper() -> Result<(), String> {
+    let folder = repo_root().join("stdlib/internal/developer-tools/debug-native");
+    if ["dylib", "so", "a"].iter().any(|ext| {
+        folder
+            .join(format!("libdeveloper_tools_debug.{ext}"))
+            .is_file()
+    }) {
+        return Ok(());
+    }
+    let script = repo_root().join("tools/developer_checks/build_developer_debug.py");
+    match Command::new("python3").arg(script).output() {
+        Ok(out) if out.status.success() => Ok(()),
+        Ok(out) => Err(String::from_utf8_lossy(&out.stderr).trim().to_string()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 /// Compiled procedures keep frame records, so a frame-pointer stack walk (macOS libc
 /// `backtrace`, behind Debug's `backtrace`) sees the callers. Without them it found no frames and
 /// Native assertion failures retain stack information (independent compiler regression).
 #[test]
 fn backtrace_sees_compiled_callers() {
     if !cfg!(unix) {
+        return;
+    }
+    if let Err(reason) = ensure_debug_helper() {
+        eprintln!("skipping: the native Debug helper is not built and {reason}");
         return;
     }
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-backtrace");
