@@ -49,8 +49,8 @@ use clock::Clock;
 use rig::{Rig, here_strings};
 pub use snapshot::Query;
 use snapshot::{
-    Snapshot, answer, omits_literal, probe_at, sanity, snapshot_difference, sorted_debug,
-    stale_damage, usage_lint,
+    Snapshot, answer, any_omits_literal, omits_literal, probe_at, sanity, snapshot_difference,
+    sorted_debug, stale_damage, usage_lint,
 };
 use text::{balanced, byte_of, identifier_starts, pos_of};
 
@@ -244,7 +244,7 @@ pub fn replay_difference(
     if stale_damage(&now, &current) {
         return Some("reports an incomplete lexical edit for text that lexes".into());
     }
-    if omits_literal(&now) {
+    if omits_literal(&now) || any_omits_literal(&session, input.docs.iter().map(|(u, _)| u)) {
         return None;
     }
     snapshot_difference(&reference, &now)

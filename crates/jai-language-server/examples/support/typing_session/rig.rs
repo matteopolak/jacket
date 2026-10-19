@@ -3,8 +3,8 @@
 use super::{
     Choices, Clock, Config, Diagnostic, DocumentUri, History, Hover, Input, Limits, Location,
     Position, Query, Range, Report, SemanticToken, Session, Snapshot, Step, TextChange, answer,
-    balanced, byte_of, identifier_starts, omits_literal, pos_of, probe_at, sanity,
-    snapshot_difference, sorted_debug, stale_damage, usage_lint,
+    any_omits_literal, balanced, byte_of, identifier_starts, omits_literal, pos_of, probe_at,
+    sanity, snapshot_difference, sorted_debug, stale_damage, usage_lint,
 };
 
 /// A byte range of the document that edits stay inside: `start` and `orig_end` in the original
@@ -695,6 +695,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         for query in &self.clock.log {
             query.execute(&fresh);
         }
+        let omits = any_omits_literal(&self.session, self.docs.iter().map(|d| &d.uri));
         for i in 0..self.docs.len() {
             let d = &self.docs[i];
             let (uri, text) = (d.uri.clone(), d.text.clone());
@@ -711,7 +712,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 );
                 return;
             }
-            if omits_literal(&now) {
+            if omits || omits_literal(&now) {
                 continue;
             }
             if let Some(message) = snapshot_difference(&reference, &now) {

@@ -11,7 +11,7 @@ A seeded checker that types into documents the way an editor does and asks the l
 | a | no request panics or runs past the time budget; a watchdog ends a hung process (exit 112) |
 | b | with the edited region balanced, definition, hover, tokens and diagnostics outside it equal the baseline mapped through the edits |
 | c | back at the original text, everything equals the baseline |
-| d | every Nth version equals a fresh `Session` on the same text |
+| d | every Nth version equals a fresh `Session` on the same text, unless some open document reports an incomplete lexical edit (the session leaves an edited comment or literal out of its analysis, and so does what loads it; a fresh session lexes the text as it is) |
 | e | diagnostic ranges are ordered, inside the document, on character boundaries, without duplicates |
 | f | the server's text equals the checker's copy after each change |
 | g | text that lexes has no literal left out of the analysis |
@@ -53,7 +53,6 @@ The input is a document, then optionally a NUL and the bytes that choose the edi
 - A fixed failure becomes a test in `crates/jai-language-server/tests/fuzz_regressions.rs` or a fixture under `tests/lsp/typing/`.
 - Oracle b has exemptions where a difference is expected, each checked by a fuzz run without it: samples at a `#run` and in `#string` bodies (the value a `#run` shows follows from what another body does; the target answers differ), usage lints and compile-time execution errors (they follow from what a body does: a `#run` of a procedure fails where it is written when that procedure stops returning a value), and diagnostics on the procedure header line (a missing return or an unused parameter is reported there). Hover text inside a polymorphic struct is compared only for its presence and range (`in_poly_struct`): it shows the types of whichever instance there is, or the stand-ins of the editor's own sketch. Definitions and tokens there are still compared. A new exemption belongs in `sample_identifiers`, `usage_lint`, `near_region` or `in_poly_struct`. The `#if` blocks and the line after a body's closing brace are no longer exempt.
 - A use of a name an analysis never checked (a call inside a body that cannot be checked on this host) is answered by checking its callee on demand, like semantic tokens do (`ide_note_callee_at`), so hover and definition do not depend on which request came first. Test `typing_regressions.rs`.
-- Known open finding: `stdlib/Input/tests/windows-device-decoding.jai` seed 3 (`--scenarios 6 --diff-every 7`) fails oracle d after a block comment in the loaded module is removed: a fresh session reports `unknown identifier W` where the incremental one reports `module Windows has no exported member ...`.
 
 ## Configuration
 

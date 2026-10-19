@@ -238,6 +238,22 @@ pub(super) fn omits_literal(incremental: &Snapshot) -> bool {
         .any(|d| d.message.starts_with("Incomplete lexical edit"))
 }
 
+/// Whether any of `uris` reports an incomplete lexical edit. Such a document is analysed without
+/// the literal, so a document that loads or imports it differs from a fresh session too, with no
+/// diagnostic of its own to say why.
+pub(super) fn any_omits_literal<'a>(
+    session: &Session,
+    uris: impl IntoIterator<Item = &'a DocumentUri>,
+) -> bool {
+    uris.into_iter().any(|uri| {
+        session.diagnostics(uri).is_ok_and(|diagnostics| {
+            diagnostics
+                .iter()
+                .any(|d| d.message.starts_with("Incomplete lexical edit"))
+        })
+    })
+}
+
 /// Oracle g: text that lexes without error has nothing left out.
 pub(super) fn stale_damage(incremental: &Snapshot, text: &str) -> bool {
     omits_literal(incremental) && jaic::lexer::lexical_regions(FileId(0), text).is_ok()

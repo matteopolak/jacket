@@ -277,3 +277,62 @@ fn a_struct_parameter_is_a_type_whether_or_not_the_struct_is_instantiated() {
         );
     }
 }
+
+#[test]
+fn a_loader_follows_the_recovered_view_of_a_loaded_file_that_says_so() {
+    // Deleting the end of a block comment would make it swallow the rest of the loaded file,
+    // and a fresh session opened on that text sees `Q` gone. While the comment is being edited
+    // the session leaves it out instead, so what the loader uses of the file stays known, and
+    // the loaded file reports the omission, since the loader has no diagnostic that could.
+    let lib = "/* note */\nQ :: struct { value: int; }\n";
+    let main = "#load \"lib.jai\";\nmain :: () { q: Q; q.value = 1; }\n";
+    let mut session =
+        common::virtual_session(&[("/p/main.jai", main), ("/p/lib.jai", lib)], &[], None);
+    let (main_uri, lib_uri) = (
+        common::file_uri("/p/main.jai"),
+        common::file_uri("/p/lib.jai"),
+    );
+    session.open(main_uri.clone(), 1, main.into()).unwrap();
+    session.open(lib_uri.clone(), 1, lib.into()).unwrap();
+    let start = Position {
+        line: 0,
+        character: 7,
+    };
+    let end = Position {
+        line: 0,
+        character: 10,
+    };
+    session
+        .change(
+            &lib_uri,
+            2,
+            &[TextChange {
+                range: Some(Range {
+                    start,
+                    end,
+                }),
+                range_length: None,
+                text: String::new(),
+            }],
+        )
+        .unwrap();
+    let omitted: Vec<_> = session
+        .diagnostics(&lib_uri)
+        .unwrap()
+        .into_iter()
+        .map(|d| d.message)
+        .collect();
+    assert!(
+        omitted
+            .iter()
+            .any(|m| m.starts_with("Incomplete lexical edit")),
+        "{omitted:?}"
+    );
+    let loader: Vec<_> = session
+        .diagnostics(&main_uri)
+        .unwrap()
+        .into_iter()
+        .map(|d| d.message)
+        .collect();
+    assert!(loader.is_empty(), "{loader:?}");
+}
