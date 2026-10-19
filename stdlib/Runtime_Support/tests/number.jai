@@ -1,4 +1,4 @@
-// Exact independent output for reviewed radix clamping and stdout/stderr choice.
+// Exact independent output for reviewed radix clamping, stdout/stderr choice and the logger's line endings.
 R :: #import "Runtime_Support";
 
 main :: () {
@@ -18,6 +18,9 @@ main :: () {
     R.write_strings("|", "done", "\n");
     R.write_string_unsynchronized("unsynchronized\n");
     R.runtime_support_default_logger("ordinary\n", null, .{});
+    R.runtime_support_default_logger("unterminated", null, .{});
+    R.runtime_support_default_logger("", null, .{});
+    R.runtime_support_default_logger("blank\n\n", null, .{});
     R.write_number(-37, 16, true);
     R.write_string("|", true);
     R.write_nonnegative_number(7, 2, true);

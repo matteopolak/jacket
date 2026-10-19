@@ -50,7 +50,7 @@
   },
   {
     "name": "number",
-    "stdout": "0|18446744073709551615|ff|1010|ff|-37|9223372036854775807|done\nunsynchronized\nordinary\n",
+    "stdout": "0|18446744073709551615|ff|1010|ff|-37|9223372036854775807|done\nunsynchronized\nordinary\nunterminated\nblank\n\n",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"

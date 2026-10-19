@@ -167,7 +167,13 @@ runtime_support_assertion_failed :: (loc: Source_Code_Location, message: string)
 }
 
 runtime_support_default_logger :: (message: string, data: *void, info: Log_Info) {
-    write_string(message, (info.common_flags & .ERROR) != 0);
+    to_error := (info.common_flags & .ERROR) != 0;
+
+    if message.count && message[message.count - 1] != #char "\n" {
+        write_strings(message, "\n", to_standard_error = to_error);
+    } else {
+        write_string(message, to_error);
+    }
 }
 
 debug_break :: () #no_context {
