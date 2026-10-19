@@ -41,6 +41,13 @@ impl Compiler {
             ide.sketch_tried.insert(expr.span);
         }
         let mut result = self.check_expr_kind(f, scope, expr, expected);
+        if let Some(ide) = self.ide.as_mut() {
+            if result.is_err() {
+                ide.failed_exprs.insert(expr.span);
+            } else {
+                ide.failed_exprs.remove(&expr.span);
+            }
+        }
         if result.is_err()
             && (self.sketching() || self.ide_has_stand_ins())
             && let Some(op) = self.ide_sketch_recover(f, scope, expr)

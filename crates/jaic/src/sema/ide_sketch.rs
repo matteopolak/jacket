@@ -482,7 +482,12 @@ impl Compiler {
                     .ide
                     .as_ref()
                     .is_some_and(|ide| ide.sketch_tried.contains(&child.span));
+            let failed = self
+                .ide
+                .as_ref()
+                .is_some_and(|ide| ide.failed_exprs.contains(&child.span));
             if !tried
+                && !failed
                 && let Ok(op) = self.check_expr(f, scope, child, None)
                 && !sketching
                 && !matches!(

@@ -111,6 +111,9 @@ pub struct IdeFacts {
     pub(in crate::sema) sketch_types: HashMap<Span, TypeId>,
     /// Each expression the current sketch began to check, failed or not.
     pub(in crate::sema) sketch_tried: HashSet<Span>,
+    /// Expressions whose check failed and has not succeeded since: the recovery of an enclosing
+    /// expression does not check them again (a chain of `n` failing operators would take `2^n`).
+    pub(in crate::sema) failed_exprs: HashSet<Span>,
     /// Instances a sketch made with stand-ins for a call's types: only their signatures are
     /// needed, so their bodies are never checked (a body would call on, without end).
     pub(in crate::sema) sketch_signatures: HashSet<ProcId>,

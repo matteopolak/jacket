@@ -94,3 +94,17 @@ fn every_location_query_on_a_builtin_constant() {
         let _ = session.rename(&uri, position, "y");
     }
 }
+
+/// Each failing operand was checked again by the recovery of the expression around it, so a chain
+/// of operators over an unknown name took time doubling with its length.
+#[test]
+fn a_long_chain_of_operators_over_unknown_names_checks_in_linear_time() {
+    let text = format!(
+        "main :: () {{\n    owned := copy_string(\"a\");\n    P.Name{}tor.add_file(owned, true);\n}}\n",
+        "+".repeat(120)
+    );
+    let (session, uri) = open_checked(&text);
+    let start = std::time::Instant::now();
+    let _ = session.diagnostics(&uri);
+    assert!(start.elapsed().as_secs() < 10, "{:?}", start.elapsed());
+}
