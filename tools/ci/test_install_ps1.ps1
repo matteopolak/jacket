@@ -37,4 +37,21 @@ Add-Content (Join-Path $root 'v9.0.2\jacket-windows-x64.zip') 'damaged'
 $rejected = $false
 try { Get-Content -Raw $script | Invoke-Expression } catch { $rejected = "$_" -match 'checksum mismatch' }
 if (-not $rejected) { throw 'a damaged archive was not rejected with a checksum error' }
-Write-Host 'install.ps1: stub install, upgrade and damaged-archive checks passed'
+
+# Every SHA256SUMS line format in tests/installers/vectors.json is accepted or refused the same way as by
+# install.sh, the VS Code extension and the Neovim plugin.
+$vectors = Get-Content -Raw (Join-Path $PSScriptRoot '..\..\tests\installers\vectors.json') | ConvertFrom-Json
+Build '9.0.3'
+$sumsDir = Join-Path $root 'v9.0.3'
+$zipPath = Join-Path $sumsDir 'jacket-windows-x64.zip'
+$hash = (Get-FileHash -Algorithm SHA256 $zipPath).Hash.ToLowerInvariant()
+foreach ($case in $vectors.sha256sums_lines) {
+  $line = $case.line.Replace('{hash}', $hash).Replace('{HASH}', $hash.ToUpperInvariant()).Replace('{asset}', 'jacket-windows-x64.zip')
+  Set-Content (Join-Path $sumsDir 'SHA256SUMS') $line
+  $env:JAI_VERSION = '9.0.3'
+  Remove-Item -Recurse -Force $env:JAI_INSTALL_DIR -ErrorAction SilentlyContinue
+  $accepted = $true
+  try { Get-Content -Raw $script | Invoke-Expression } catch { $accepted = $false }
+  if ($accepted -ne $case.accepted) { throw "SHA256SUMS case '$($case.name)': accepted=$accepted, expected $($case.accepted)" }
+}
+Write-Host 'install.ps1: stub install, upgrade, damaged-archive and shared SHA256SUMS checks passed'

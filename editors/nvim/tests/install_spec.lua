@@ -36,6 +36,18 @@ T['verification accepts a match and rejects everything else'] = function()
   assert(not ok and err:find('no SHA%-256 checksum'), err)
 end
 
+T['the archive follows the shared installer vectors (tests/installers/vectors.json)'] = function()
+  local file = vim.fs.joinpath(vim.g.jai_test_dir, '..', '..', '..', 'tests', 'installers', 'vectors.json')
+  local vectors = vim.json.decode(table.concat(vim.fn.readfile(file), '\n'))
+  for _, vector in ipairs(vectors.platforms) do
+    local expected = vector.asset
+    if expected == vim.NIL then
+      expected = nil
+    end
+    assert(install.asset_for(vector.uname[1], vector.uname[2]) == expected, vim.inspect(vector))
+  end
+end
+
 T['the archive is chosen by platform'] = function()
   assert(install.asset_for('Darwin', 'arm64') == 'jacket-macos-arm64.tar.gz')
   assert(install.asset_for('Darwin', 'x86_64') == 'jacket-macos-x64.tar.gz')

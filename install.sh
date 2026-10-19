@@ -114,7 +114,7 @@ main() {
 
     say "Downloading jai $version ($archive)"
     download "$base/SHA256SUMS" "$tmp/SHA256SUMS" || fail "could not download $base/SHA256SUMS (is $version a release?)"
-    expected="$(awk -v f="$archive" '$2 == f || $2 == "*" f { print $1 }' "$tmp/SHA256SUMS")"
+    expected="$(awk -v f="$archive" '$2 == f || $2 == "*" f { print $1 }' "$tmp/SHA256SUMS" | tr 'A-F' 'a-f')"
     [ -n "$expected" ] || fail "jai $version has no $archive (SHA256SUMS lists no build for $plat).
 Install a later version, or build from source: https://github.com/$REPO#install"
     download "$base/$archive" "$tmp/$archive" || fail "could not download $base/$archive"

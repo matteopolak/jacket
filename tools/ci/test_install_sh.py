@@ -4,6 +4,7 @@ Runs on macOS and Linux, with or without a published release. The release-depend
 download, a pipe install, the installed tools) stay in the `install-sh` job of ci.yml.
 """
 import hashlib
+import json
 import os
 import platform
 import subprocess
@@ -16,6 +17,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
+
+VECTORS = json.loads((ROOT / "tests" / "installers" / "vectors.json").read_text())
 
 PLATFORMS = {
     ("Darwin", "arm64"): "macos-arm64",
@@ -102,6 +105,73 @@ class InstallSh(unittest.TestCase):
     def test_a_missing_version_says_it_could_not_download(self):
         result = self.install("0.0.0-missing", expect_ok=False)
         self.assertIn("could not download", result.stderr)
+
+
+class SharedVectors(unittest.TestCase):
+    """tests/installers/vectors.json, which install.ps1, the VS Code extension and the Neovim plugin also read."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(self.tmp)]))
+
+    def install(self, env_extra=None, path_prefix=None):
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("JAI_", "JAIC_"))}
+        env.update(JAI_BASE_URL=f"file://{self.tmp / 'release'}", JAI_VERSION="1.0.0",
+                   JAI_INSTALL_DIR=str(self.tmp / "share"), JAI_BIN_DIR=str(self.tmp / "bin"))
+        if path_prefix:
+            env["PATH"] = f"{path_prefix}{os.pathsep}{env['PATH']}"
+        env.update(env_extra or {})
+        return subprocess.run(["sh", str(ROOT / "install.sh")], env=env, capture_output=True, text=True)
+
+    def release(self, sums_text):
+        directory = self.tmp / "release" / "v1.0.0"
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "SHA256SUMS").write_text(sums_text)
+
+    def test_the_platform_picks_the_archive(self):
+        self.release("")  # no entries: the error names the archive install.sh chose
+        for vector in VECTORS["platforms"]:
+            sysname, machine = vector["uname"]
+            if sysname == "Windows_NT":
+                continue
+            with self.subTest(sysname=sysname, machine=machine):
+                stub = self.tmp / f"uname-{sysname}-{machine}"
+                stub.mkdir()
+                script = stub / "uname"
+                script.write_text(f'#!/bin/sh\ncase "$1" in -s) echo {sysname};; -m) echo {machine};; *) echo {sysname};; esac\n')
+                script.chmod(0o755)
+                result = self.install(path_prefix=str(stub))
+                self.assertNotEqual(result.returncode, 0)
+                if vector["asset"]:
+                    self.assertIn(f"has no {vector['asset']}", result.stderr)
+                else:
+                    self.assertIn("no prebuilt Jai toolchain", result.stderr)
+
+    def test_sha256sums_line_formats(self):
+        if PLATFORM is None:
+            self.skipTest("install.sh has no build for this platform")
+        asset = f"jacket-{PLATFORM}.tar.gz"
+        directory = self.tmp / "release" / "v1.0.0"
+        stage = self.tmp / "stage" / f"jacket-{PLATFORM}"
+        stage.mkdir(parents=True)
+        for tool in TOOLS:
+            (stage / tool).write_text("#!/bin/sh\n")
+            (stage / tool).chmod(0o755)
+        directory.mkdir(parents=True)
+        with tarfile.open(directory / asset, "w:gz") as tar:
+            tar.add(stage, arcname=f"jacket-{PLATFORM}")
+        digest = hashlib.sha256((directory / asset).read_bytes()).hexdigest()
+        for case in VECTORS["sha256sums_lines"]:
+            with self.subTest(case["name"]):
+                line = case["line"].format(hash=digest, HASH=digest.upper(), asset=asset)
+                self.release(line + "\n")
+                result = self.install()
+                if case["accepted"]:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(f"has no {asset}", result.stderr)
+                subprocess.run(["rm", "-rf", str(self.tmp / "share"), str(self.tmp / "bin")])
 
 
 if __name__ == "__main__":

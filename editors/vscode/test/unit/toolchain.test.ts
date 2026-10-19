@@ -38,6 +38,15 @@ describe("platform to release archive", () => {
     assert.equal(assetFor("win32", "arm64"), "jacket-windows-arm64.zip");
   });
 
+  it("agrees with the shared installer vectors (tests/installers/vectors.json)", () => {
+    const vectors = JSON.parse(readFileSync(path.join(repository, "tests", "installers", "vectors.json"), "utf8"));
+    for (const vector of vectors.platforms) {
+      if (!vector.node) continue;
+      const [platform, arch] = vector.node;
+      assert.equal(assetFor(platform, arch) ?? null, vector.asset, `${platform}-${arch}`);
+    }
+  });
+
   it("has no archive for other systems", () => {
     assert.equal(assetFor("freebsd", "x64"), undefined);
     assert.equal(assetFor("linux", "ia32"), undefined);

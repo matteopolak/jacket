@@ -1,0 +1,21 @@
+{
+  "_comment": "Cases every installer must agree on; each reads this file: install.sh (tools/ci/test_install_sh.py), install.ps1 (tools/ci/test_install_ps1.ps1), the VS Code extension (editors/vscode/test/unit/toolchain.test.ts) and the Neovim plugin (editors/nvim/tests/install_spec.lua). uname is `uname -s` and `uname -m` (Windows_NT is what Neovim's uv.os_uname reports); node is process.platform and process.arch; asset null means there is no prebuilt toolchain.",
+  "platforms": [
+    { "uname": ["Darwin", "arm64"], "node": ["darwin", "arm64"], "asset": "jacket-macos-arm64.tar.gz" },
+    { "uname": ["Darwin", "x86_64"], "node": ["darwin", "x64"], "asset": "jacket-macos-x64.tar.gz" },
+    { "uname": ["Linux", "x86_64"], "node": ["linux", "x64"], "asset": "jacket-linux-x64.tar.gz" },
+    { "uname": ["Linux", "aarch64"], "node": ["linux", "arm64"], "asset": "jacket-linux-arm64.tar.gz" },
+    { "uname": ["Linux", "arm64"], "asset": "jacket-linux-arm64.tar.gz" },
+    { "uname": ["Windows_NT", "AMD64"], "node": ["win32", "x64"], "asset": "jacket-windows-x64.zip" },
+    { "uname": ["Windows_NT", "arm64"], "node": ["win32", "arm64"], "asset": "jacket-windows-arm64.zip" },
+    { "uname": ["Linux", "riscv64"], "node": ["linux", "riscv64"], "asset": null },
+    { "uname": ["FreeBSD", "x86_64"], "node": ["freebsd", "x64"], "asset": null }
+  ],
+  "sha256sums_lines": [
+    { "name": "two spaces", "line": "{hash}  {asset}", "accepted": true },
+    { "name": "binary-mode marker", "line": "{hash} *{asset}", "accepted": true },
+    { "name": "upper-case hash", "line": "{HASH}  {asset}", "accepted": true },
+    { "name": "another archive only", "line": "{hash}  jacket-other.tar.gz", "accepted": false },
+    { "name": "no entries", "line": "", "accepted": false }
+  ]
+}
