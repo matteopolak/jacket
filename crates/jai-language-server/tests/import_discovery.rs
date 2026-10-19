@@ -1,6 +1,6 @@
 //! Original failed-discovery reducers; no corpus or stdlib implementation inputs.
 mod common;
-use common::file_uri;
+use common::{file_uri, session_over};
 use jaic::sema::{Compiler, FileSystem, Options, VirtualFs, ide::IdeFacts};
 use std::{
     cell::{Cell, RefCell},
@@ -192,7 +192,7 @@ fn strict_resolution_does_not_reuse_editor_discovery_memo() {
 
 #[test]
 fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery() {
-    use jai_language_server::{Environment, Limits, Position, Range, Session, TextChange};
+    use jai_language_server::{Position, Range, TextChange};
     let fs = Rc::new(CountingFs::default());
     let text = "// 🧭\n#import \"Unavailable\";\n#import \"Available\";\nmain :: () { value := published; }\n";
     fs.insert("/discovery/main.jai", text);
@@ -200,21 +200,7 @@ fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery()
         "/discovery/modules/Available/module.jai",
         "published :: 42;",
     );
-    let make_session = || {
-        Session::with_environment(
-            Limits::default(),
-            Environment {
-                fs: fs.clone(),
-                options: Box::new(|_| {
-                    let mut options = Options::host();
-                    options.runtime_support = false;
-                    options.stack_trace = false;
-                    options.import_paths = vec!["/discovery/modules".into()];
-                    options
-                }),
-            },
-        )
-    };
+    let make_session = || session_over(fs.clone(), &["/discovery/modules"], None);
     let uri = file_uri("/discovery/main.jai");
     let pos = Position {
         line: 3,

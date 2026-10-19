@@ -1,11 +1,9 @@
 //! Independent qualified/reexport/context cases with exact UTF16 definition oracles.
-use jai_language_server::{
-    DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Range, Session, TextChange,
-};
-use jaic::sema::Options;
-use std::{path::PathBuf, rc::Rc};
+use jai_language_server::{DiagnosticSeverity, DocumentUri, Position, Range, Session, TextChange};
 mod common;
-use common::{at, file_uri, position, virtual_session};
+use common::{
+    at, file_uri, position, repo_path, session as stdlib_session, uri_of, virtual_session,
+};
 
 const VALUES: &str = "amount :: 23;\nstate: int;\nNumber :: int;\n#scope_file\nsecret :: 99;\n";
 const FACADE: &str = "using,only(amount,state,Number) Values :: #import \"Values\";\n";
@@ -370,23 +368,7 @@ fn malformed_c_variadic_call_diagnoses_and_valid_edit_restores_navigation() {
 fn configured_bootstrap_type_uses_keep_semantic_hovers() {
     let uri = file_uri("/ide-audit/main.jai");
     let text = "value: int;\nmain :: () { other: s32; }\n";
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
-    let mut session = Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = Options::host();
-                options.stack_trace = true;
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options.import_paths = vec![stdlib.clone()];
-                options
-            }),
-        },
-    );
+    let mut session = stdlib_session();
     session.open(uri.clone(), 1, text.into()).unwrap();
     assert!(
         session
@@ -405,22 +387,7 @@ fn configured_bootstrap_type_uses_keep_semantic_hovers() {
 fn production_basic_temp_and_exit_remain_typed_and_navigate() {
     let uri = file_uri("/ide-audit/main.jai");
     let text = "using #import \"Basic\";\nBasic :: #import \"Basic\";\nmain :: () { allocator := Basic.temp; exit(1); }\n";
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
-    let mut s = Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = Options::host();
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options.import_paths = vec![stdlib.clone()];
-                options
-            }),
-        },
-    );
+    let mut s = stdlib_session();
     s.open(uri.clone(), 1, text.into()).unwrap();
     assert!(
         s.diagnostics(&uri)
@@ -447,35 +414,16 @@ fn production_basic_temp_and_exit_remain_typed_and_navigate() {
 
 #[test]
 fn open_project_modules_do_not_erase_root_type_facts() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/lsp/audit/values")
-        .canonicalize()
-        .unwrap();
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
-    let mut session = Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = Options::host();
-                options.stack_trace = true;
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options.import_paths = vec![stdlib.clone()];
-                options
-            }),
-        },
-    );
+    let root = repo_path("tests/lsp/audit/values");
+    let mut session = stdlib_session();
     session.set_workspace_folders(vec![root.clone()]);
-    let uri = DocumentUri::from_path(&root.join("main.jai")).unwrap();
+    let uri = uri_of(&root.join("main.jai"));
     let text = std::fs::read_to_string(root.join("main.jai")).unwrap();
     session.open(uri.clone(), 1, text.clone()).unwrap();
     let module = root.join("modules/Probe/module.jai");
     session
         .open(
-            DocumentUri::from_path(&module).unwrap(),
+            uri_of(&module),
             1,
             std::fs::read_to_string(&module).unwrap(),
         )
@@ -511,36 +459,18 @@ fn open_project_modules_do_not_erase_root_type_facts() {
 
 #[test]
 fn an_open_unloaded_source_file_has_semantic_facts_in_its_own_file_context() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/lsp/audit/orphans")
-        .canonicalize()
-        .unwrap();
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../stdlib")
-        .canonicalize()
-        .unwrap();
-    let mut s = Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = Options::host();
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options.import_paths = vec![stdlib.clone()];
-                options
-            }),
-        },
-    );
+    let root = repo_path("tests/lsp/audit/orphans");
+    let mut s = stdlib_session();
     s.set_workspace_folders(vec![root.clone()]);
     for file in ["main.jai", "extras.jai"] {
         s.open(
-            DocumentUri::from_path(&root.join(file)).unwrap(),
+            uri_of(&root.join(file)),
             1,
             std::fs::read_to_string(root.join(file)).unwrap(),
         )
         .unwrap();
     }
-    let uri = DocumentUri::from_path(&root.join("extras.jai")).unwrap();
+    let uri = uri_of(&root.join("extras.jai"));
     let text = std::fs::read_to_string(root.join("extras.jai")).unwrap();
     assert!(
         s.diagnostics(&uri)

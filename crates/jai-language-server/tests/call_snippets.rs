@@ -1,11 +1,10 @@
 //! Completion that inserts call parentheses and statement skeletons as snippets.
 use jai_language_server::{
-    CallSnippets, CompletionItem, DocumentUri, Environment, JsonSession, Limits, Position, Range,
-    Session,
+    CallSnippets, CompletionItem, DocumentUri, JsonSession, Limits, Position, Range, Session,
 };
 use serde_json::{Value, json};
 mod common;
-use common::{cursor, lean_environment};
+use common::{cursor, file_uri, lean_environment, session as stdlib_session};
 
 fn session(snippets: bool, mode: CallSnippets) -> Session {
     let mut s = Session::with_environment(Limits::default(), lean_environment());
@@ -14,12 +13,10 @@ fn session(snippets: bool, mode: CallSnippets) -> Session {
     s
 }
 
-const URI: &str = "file:///call-snippets/main.jai";
-
 /// The completion item `label` where `|` marks the cursor.
 fn item(s: &mut Session, source: &str, label: &str) -> Option<CompletionItem> {
     let (text, at) = cursor(source);
-    let uri = DocumentUri::parse(URI).unwrap();
+    let uri = file_uri("/call-snippets/main.jai");
     let _ = s.close(&uri);
     s.open(uri.clone(), 1, text.clone()).unwrap();
     s.completion(&uri, at)
@@ -307,19 +304,7 @@ fn a_client_without_snippet_support_gets_plain_text() {
 
 #[test]
 fn an_auto_import_is_inserted_as_a_call_too() {
-    let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    let mut s = Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut o = jaic::sema::Options::host();
-                o.import_paths = vec![stdlib.clone()];
-                o.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                o
-            }),
-        },
-    );
+    let mut s = stdlib_session();
     s.set_snippet_support(true);
     let print = item(&mut s, "main :: () {\n    prin|\n}\n", "print").unwrap();
     assert!(!print.additional_edits.is_empty(), "{print:?}");
@@ -328,7 +313,7 @@ fn an_auto_import_is_inserted_as_a_call_too() {
 
 fn labels(s: &mut Session, source: &str, prefix: &str) -> Vec<String> {
     let (text, at) = cursor(source);
-    let uri = DocumentUri::parse(URI).unwrap();
+    let uri = file_uri("/call-snippets/main.jai");
     let _ = s.close(&uri);
     s.open(uri.clone(), 1, text.clone()).unwrap();
     s.completion(&uri, at)
@@ -407,7 +392,7 @@ fn closing_labels(s: &Session, uri: &DocumentUri, text: &str) -> Vec<(u32, Strin
 #[test]
 fn a_long_procedure_names_its_closing_brace() {
     let mut s = session(false, CallSnippets::AddParentheses);
-    let uri = DocumentUri::parse(URI).unwrap();
+    let uri = file_uri("/call-snippets/main.jai");
     let text = long_procedure();
     s.open(uri.clone(), 1, text.clone()).unwrap();
     assert_eq!(closing_labels(&s, &uri, &text), [(31, "// big".to_owned())]);

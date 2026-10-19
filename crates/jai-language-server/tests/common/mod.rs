@@ -3,7 +3,7 @@
 #![allow(dead_code, reason = "each test binary uses a subset of these helpers")]
 
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session};
-use jaic::sema::{Options, TargetOs, VirtualFs};
+use jaic::sema::{FileSystem, Options, TargetOs, VirtualFs};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -16,13 +16,29 @@ pub fn stdlib() -> PathBuf {
     stdlib_dir().canonicalize().unwrap()
 }
 
+/// The canonical path of `relative` inside the repository.
+pub fn repo_path(relative: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(relative)
+        .canonicalize()
+        .unwrap()
+}
+
 /// An environment that type-checks against the repository's stdlib.
 pub fn environment() -> Environment {
-    let stdlib = stdlib_dir();
+    environment_at(stdlib_dir(), None)
+}
+
+/// An environment whose stdlib is `stdlib`, optionally for another OS.
+pub fn environment_at(stdlib: PathBuf, os: Option<TargetOs>) -> Environment {
     Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
+        fs: Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
+            let mut options = Options::host();
+            if let Some(os) = os {
+                options.os = os;
+            }
             options.import_paths = vec![stdlib.clone()];
             options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
             options
@@ -74,12 +90,21 @@ pub fn virtual_session(
     for (path, text) in files {
         fs.insert(path, text.as_bytes());
     }
+    session_over(Rc::new(fs), import_paths, preload)
+}
+
+/// [`virtual_session`] over any file system.
+pub fn session_over(
+    fs: Rc<dyn FileSystem>,
+    import_paths: &[&str],
+    preload: Option<&str>,
+) -> Session {
     let import_paths: Vec<PathBuf> = import_paths.iter().map(PathBuf::from).collect();
     let preload = preload.map(PathBuf::from);
     Session::with_environment(
         Limits::default(),
         Environment {
-            fs: Rc::new(fs),
+            fs,
             options: Box::new(move |_| {
                 let mut options = Options::host();
                 options.runtime_support = false;

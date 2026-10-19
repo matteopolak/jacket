@@ -1,13 +1,12 @@
 //! Auto-import completion: stdlib modules, the project's modules and files, where the edit goes,
 //! what is left out, ranking and the setting.
 use jai_language_server::{
-    CompletionItem, CompletionList, DocumentUri, Environment, JsonSession, Limits, Position,
-    Session,
+    CompletionItem, CompletionList, DocumentUri, JsonSession, Limits, Position, Session,
 };
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 mod common;
-use common::{end_of, modules_environment, project, uri_of};
+use common::{end_of, environment_at, modules_environment, project, uri_of};
 
 fn session() -> Session {
     Session::with_environment(
@@ -436,16 +435,7 @@ fn user_module_and_project_files() {
 fn session_with_stdlib(stdlib: PathBuf) -> Session {
     Session::with_environment(
         Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(move |_| {
-                let mut options = jaic::sema::Options::host();
-                options.os = jaic::sema::TargetOs::Linux;
-                options.import_paths = vec![stdlib.clone()];
-                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-                options
-            }),
-        },
+        environment_at(stdlib, Some(jaic::sema::TargetOs::Linux)),
     )
 }
 
