@@ -12,10 +12,6 @@
 //! LLVM-C `DIBuilder` API directly; the unsafe calls are confined to the `raw` helpers.
 //! See `docs/native/debug-info.md`.
 #![allow(unsafe_code)]
-#![expect(
-    clippy::too_many_arguments,
-    reason = "the wrappers below mirror the LLVM-C DIBuilder API one to one"
-)]
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -113,16 +109,28 @@ mod raw {
         }
     }
 
-    pub fn function(
-        b: LLVMDIBuilderRef,
-        file: Md,
-        name: &str,
-        linkage: &str,
-        line: u32,
-        ty: Md,
-        local: bool,
-        optimized: bool,
-    ) -> Md {
+    /// What `function` describes.
+    #[derive(Clone, Copy)]
+    pub struct FunctionDesc<'a> {
+        pub file: Md,
+        pub name: &'a str,
+        pub linkage: &'a str,
+        pub line: u32,
+        pub ty: Md,
+        pub local: bool,
+        pub optimized: bool,
+    }
+
+    pub fn function(b: LLVMDIBuilderRef, desc: &FunctionDesc) -> Md {
+        let FunctionDesc {
+            file,
+            name,
+            linkage,
+            line,
+            ty,
+            local,
+            optimized,
+        } = *desc;
         let (n, nl) = s(name);
         let (l, ll) = s(linkage);
         // SAFETY: `b`, `file` and `ty` are live metadata of one builder; the name and linkage name
@@ -204,6 +212,32 @@ mod raw {
         unsafe { di::LLVMDIBuilderCreateTypedef(b, ty, n, nl, file, 0, scope, 0) }
     }
 
+    /// The scope a piece of metadata belongs to and the file it is declared in.
+    #[derive(Clone, Copy)]
+    pub struct Place {
+        pub scope: Md,
+        pub file: Md,
+    }
+
+    /// A type's size and alignment, in bits.
+    #[derive(Clone, Copy)]
+    pub struct Layout {
+        pub bits: u64,
+        pub align_bits: u32,
+    }
+
+    /// What `global_variable` describes.
+    #[derive(Clone, Copy)]
+    pub struct GlobalVar<'a> {
+        pub place: Place,
+        pub name: &'a str,
+        pub linkage: &'a str,
+        pub line: u32,
+        pub ty: Md,
+        pub local: bool,
+        pub expr: Md,
+    }
+
     pub fn forward_struct(
         b: LLVMDIBuilderRef,
         tag: u32,
@@ -226,14 +260,20 @@ mod raw {
 
     pub fn member(
         b: LLVMDIBuilderRef,
-        scope: Md,
+        place: Place,
         name: &str,
-        file: Md,
-        bits: u64,
-        align_bits: u32,
+        layout: Layout,
         offset_bits: u64,
         ty: Md,
     ) -> Md {
+        let Place {
+            scope,
+            file,
+        } = place;
+        let Layout {
+            bits,
+            align_bits,
+        } = layout;
         let (n, nl) = s(name);
         // SAFETY: `b`, `scope`, `file` and `ty` are live metadata of one builder; the name is a
         // (pointer, length) pair that LLVM copies.
@@ -257,13 +297,19 @@ mod raw {
     pub fn composite(
         b: LLVMDIBuilderRef,
         union: bool,
-        scope: Md,
+        place: Place,
         name: &str,
-        file: Md,
-        bits: u64,
-        align_bits: u32,
+        layout: Layout,
         members: &mut [Md],
     ) -> Md {
+        let Place {
+            scope,
+            file,
+        } = place;
+        let Layout {
+            bits,
+            align_bits,
+        } = layout;
         let (n, nl) = s(name);
         let empty = s("");
         let count = members.len() as u32;
@@ -328,15 +374,21 @@ mod raw {
 
     pub fn enumeration(
         b: LLVMDIBuilderRef,
-        scope: Md,
+        place: Place,
         name: &str,
-        file: Md,
-        bits: u64,
-        align_bits: u32,
+        layout: Layout,
         members: &[(String, i64)],
         base: Md,
         unsigned: bool,
     ) -> Md {
+        let Place {
+            scope,
+            file,
+        } = place;
+        let Layout {
+            bits,
+            align_bits,
+        } = layout;
         let mut elements: Vec<Md> = members
             .iter()
             .map(|(m, v)| {
@@ -416,17 +468,19 @@ mod raw {
         }
     }
 
-    pub fn global_variable(
-        b: LLVMDIBuilderRef,
-        scope: Md,
-        name: &str,
-        linkage: &str,
-        file: Md,
-        line: u32,
-        ty: Md,
-        local: bool,
-        expr: Md,
-    ) -> Md {
+    pub fn global_variable(b: LLVMDIBuilderRef, var: &GlobalVar) -> Md {
+        let GlobalVar {
+            place: Place {
+                scope,
+                file,
+            },
+            name,
+            linkage,
+            line,
+            ty,
+            local,
+            expr,
+        } = *var;
         let (n, nl) = s(name);
         let (l, ll) = s(linkage);
         // SAFETY: `b`, `scope`, `file`, `ty` and `expr` are live metadata of one builder; the name
@@ -579,6 +633,10 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         };
         let bits = t.size * 8;
         let align_bits = (t.align * 8) as u32;
+        let layout = raw::Layout {
+            bits,
+            align_bits,
+        };
         let scope = self.cu_file;
         let md = match &t.kind {
             DebugTypeKind::Void => None,
@@ -623,11 +681,12 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                 let base = self.ty(*base).unwrap_or(std::ptr::null_mut());
                 Some(raw::enumeration(
                     b,
-                    scope,
+                    raw::Place {
+                        scope,
+                        file: self.cu_file,
+                    },
                     &t.name,
-                    self.cu_file,
-                    bits,
-                    align_bits,
+                    layout,
                     members,
                     base,
                     unsigned,
@@ -656,13 +715,18 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                         .debug_types
                         .get(&f.ty)
                         .map_or((0, 1), |t| (t.size, t.align));
+                    let field_layout = raw::Layout {
+                        bits: size * 8,
+                        align_bits: (align * 8) as u32,
+                    };
                     members.push(raw::member(
                         b,
-                        temp,
+                        raw::Place {
+                            scope: temp,
+                            file: self.cu_file,
+                        },
                         &f.name,
-                        self.cu_file,
-                        size * 8,
-                        (align * 8) as u32,
+                        field_layout,
                         f.offset * 8,
                         fty,
                     ));
@@ -670,11 +734,12 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                 let real = raw::composite(
                     b,
                     *union,
-                    scope,
+                    raw::Place {
+                        scope,
+                        file: self.cu_file,
+                    },
                     &t.name,
-                    self.cu_file,
-                    bits,
-                    align_bits,
+                    layout,
                     &mut members,
                 );
                 raw::replace(temp, real);
@@ -701,14 +766,18 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         let expr = raw::expression(self.builder, &mut []);
         let gve = raw::global_variable(
             self.builder,
-            file,
-            &g.name,
-            linkage_name,
-            file,
-            g.line,
-            ty,
-            local,
-            expr,
+            &raw::GlobalVar {
+                place: raw::Place {
+                    scope: file,
+                    file,
+                },
+                name: &g.name,
+                linkage: linkage_name,
+                line: g.line,
+                ty,
+                local,
+                expr,
+            },
         );
         raw::attach_global(gv, self.ctx.get_kind_id("dbg"), gve);
     }
@@ -735,13 +804,15 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         // No linkage name: debuggers would show the internal symbol (`name.index`) instead.
         let sp = raw::function(
             self.builder,
-            file,
-            name,
-            "",
-            line,
-            self.subroutine_type,
-            local,
-            self.optimized,
+            &raw::FunctionDesc {
+                file,
+                name,
+                linkage: "",
+                line,
+                ty: self.subroutine_type,
+                local,
+                optimized: self.optimized,
+            },
         );
         raw::set_subprogram(function, sp);
         // The entry block (allocas, parameter binding; `declare_vars` also stores scalar
