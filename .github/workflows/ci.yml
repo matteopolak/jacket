@@ -254,9 +254,20 @@ jobs:
         working-directory: tools/native_bindings
         run: python3 generate.py --check --formatter ../../target/jaifmt
       # Every other generator must reproduce its checked-in files (docs/tools/tools-layout.md).
+      # The generators' pinned downloads (toolkit.download), kept between runs because
+      # raw.githubusercontent.com and unicode.org rate-limit runners.
+      - name: Cache generator downloads
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/generator-downloads
+          key: generator-downloads-${{ hashFiles('tools/generators/gen_*.py') }}
+          restore-keys: generator-downloads-
       - name: Generated sources check
         id: generated-check
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/generator-downloads
         run: python3 tools/generators/check_generated.py --formatter target/jaifmt
       # The repository's Jai code must be lint-free (settings: jailint.toml). An optimized
       # jailint: the debug build needs longer than the job's whole timeout to lint the tree.
