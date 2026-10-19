@@ -9,6 +9,7 @@ instead of storing megabytes in git. Minimize afterwards with `cargo fuzz cmin <
     python3 fuzz/seed_corpus.py --matrix   # the target list (fuzz/targets.json) as workflow matrix JSON
 """
 import hashlib
+import itertools
 import json
 import sys
 from pathlib import Path
@@ -85,6 +86,20 @@ def config_seeds(out):
     return len(inputs)
 
 
+def workspace_seeds(out):
+    """NUL-separated `main.jai`, `a.jai` and `b.jai` (the `lsp_workspace` target's input): the
+    hand-written bundles in fuzz/seeds_workspace plus the loading pairs under tests/lsp and small single-file programs."""
+    inputs = [p.read_bytes() for p in sorted((FUZZ / "seeds_workspace").glob("*.bundle"))]
+    for main in sorted((ROOT / "tests" / "lsp").rglob("main.jai")):
+        others = sorted(p for p in main.parent.glob("*.jai") if p != main)[:2]
+        inputs.append(b"\0".join(p.read_bytes() for p in [main, *others]))
+    # Single-file programs: most compile cleanly, which is what a rename needs.
+    inputs += [p.read_bytes() for p in itertools.islice(jai_files(PROGRAMS, 3000), 400)]
+    for data in inputs:
+        (out / hashlib.sha1(data).hexdigest()).write_bytes(data)
+    return len(inputs)
+
+
 def main():
     manifest = load_targets()
     args = sys.argv[1:]
@@ -106,8 +121,8 @@ def main():
             continue
         out = FUZZ / "corpus" / target
         out.mkdir(parents=True, exist_ok=True)
-        if manifest[target]["seeds"] == "configs":
-            count = config_seeds(out)
+        if manifest[target]["seeds"] in ("configs", "workspaces"):
+            count = (config_seeds if manifest[target]["seeds"] == "configs" else workspace_seeds)(out)
             print(f"{target}: {count} seeds in {out.relative_to(ROOT)}")
             continue
         trees, limit = TREES[manifest[target]["seeds"]], manifest[target]["seed_limit"]

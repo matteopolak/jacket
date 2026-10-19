@@ -81,6 +81,11 @@ fn lsp_edits() {
 }
 
 #[test]
+fn lsp_workspace() {
+    replay("lsp_workspace", jai_fuzz_harness::lsp_workspace);
+}
+
+#[test]
 fn lsp_typing() {
     replay("lsp_typing", jai_fuzz_harness::lsp_typing);
 }

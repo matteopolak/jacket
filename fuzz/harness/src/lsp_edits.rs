@@ -14,7 +14,7 @@ const MAX_STEPS: usize = 24;
 
 /// Text an edit inserts: tokens that open or close constructs, declarations, and characters whose
 /// UTF-8 and UTF-16 lengths differ.
-const SNIPPETS: &[&str] = &[
+pub(crate) const SNIPPETS: &[&str] = &[
     "x",
     "x.",
     ".",
@@ -69,7 +69,7 @@ const SNIPPETS: &[&str] = &[
 /// New names for rename requests, valid and not.
 const NAMES: &[&str] = &["y", "renamed", "_", "1x", "", "a b", "if", "é", "x\n"];
 
-fn snippet(u: &mut Unstructured) -> Result<String> {
+pub(crate) fn snippet(u: &mut Unstructured) -> Result<String> {
     if u.ratio(1, 8)? {
         // Raw text from the script, lossily decoded.
         let len = u.int_in_range(0..=16)?;

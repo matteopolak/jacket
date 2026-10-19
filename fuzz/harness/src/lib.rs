@@ -15,6 +15,7 @@ mod jaifmt;
 mod jailint_fix;
 mod lsp_edits;
 mod lsp_typing;
+mod lsp_workspace;
 mod metaprogram;
 
 pub use jacket_config::jacket_config;
@@ -22,6 +23,7 @@ pub use jaifmt::jaifmt;
 pub use jailint_fix::jailint_fix;
 pub use lsp_edits::lsp_edits;
 pub use lsp_typing::lsp_typing;
+pub use lsp_workspace::lsp_workspace;
 
 use jai_language_server::{DocumentUri, Limits, Position, Session, TextChange};
 use jai_wasm::play::{PlayOptions, run_with};

@@ -14,7 +14,7 @@ use jai_language_server::{DocumentUri, Limits, Position, Range, Session, TextCha
 const MAX_PASSES: usize = 8;
 
 /// Byte offset of an LSP position (UTF-16 columns) in `text`.
-fn offset(text: &str, at: Position) -> usize {
+pub(crate) fn offset(text: &str, at: Position) -> usize {
     let mut start = 0;
     for _ in 0..at.line {
         match text[start..].find('\n') {
@@ -33,7 +33,7 @@ fn offset(text: &str, at: Position) -> usize {
     line_end
 }
 
-fn apply(text: &str, edits: &[TextEdit]) -> String {
+pub(crate) fn apply(text: &str, edits: &[TextEdit]) -> String {
     let mut spans: Vec<(usize, usize, &str)> = edits
         .iter()
         .map(|e| {

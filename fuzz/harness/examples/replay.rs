@@ -17,6 +17,7 @@ fn main() {
         "lsp" => jai_fuzz_harness::lsp,
         "lsp_json" => jai_fuzz_harness::lsp_json,
         "lsp_edits" => jai_fuzz_harness::lsp_edits,
+        "lsp_workspace" => jai_fuzz_harness::lsp_workspace,
         "lsp_typing" => jai_fuzz_harness::lsp_typing,
         "jailint_fix" => jai_fuzz_harness::jailint_fix,
         "jacket_config" => jai_fuzz_harness::jacket_config,
