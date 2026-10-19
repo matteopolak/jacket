@@ -263,6 +263,26 @@ mod tests {
     }
 
     #[test]
+    fn an_integer_type_spans_exactly_its_values() {
+        assert_eq!(Interval::of_type(8, true), Some(iv(-128, 127)));
+        assert_eq!(Interval::of_type(8, false), Some(iv(0, 255)));
+        assert_eq!(Interval::of_type(1, true), Some(iv(-1, 0)));
+        assert_eq!(Interval::of_type(1, false), Some(iv(0, 1)));
+        assert_eq!(
+            Interval::of_type(32, true),
+            Some(iv(-(1 << 31), (1 << 31) - 1))
+        );
+        assert_eq!(
+            Interval::of_type(64, true),
+            Some(iv(i64::MIN.into(), i64::MAX.into()))
+        );
+        assert_eq!(Interval::of_type(64, false), Some(iv(0, u64::MAX.into())));
+        // Past 64 bits the arithmetic here would overflow, and 0 bits is no type.
+        assert_eq!(Interval::of_type(65, true), None);
+        assert_eq!(Interval::of_type(0, false), None);
+    }
+
+    #[test]
     fn comparisons_are_decided_only_when_every_pair_agrees() {
         let byte = Interval::of_type(8, false).unwrap();
         assert_eq!(compare(BinOp::Gt, byte, Interval::point(255)), Some(false));
