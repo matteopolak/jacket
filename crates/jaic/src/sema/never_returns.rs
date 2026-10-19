@@ -18,11 +18,11 @@
 //! never returns are recorded as dead runs of every body that was analysed, which is what the
 //! editor fades and what `jailint` consults.
 use super::ast::{self, ExprKind as E, StmtKind as S};
-use super::ide::IdeFacts;
 use super::procs::ProcTarget;
 use super::reachability::runs_in_order;
 use super::value::ProcId;
 use super::{Compiler, HashMap, HashSet, Span, Sym};
+use crate::ide::IdeFacts;
 
 /// The C symbols of the process and thread exits a body-less `#foreign` procedure can name.
 const NEVER_RETURNING_SYMBOLS: &[&str] = &[
@@ -192,7 +192,7 @@ impl Compiler {
 
     /// Compute the procedures that never return from what the analysis checked, and record the
     /// code after a call to one as dead in the bodies analysed. See the module documentation.
-    pub(super) fn ide_note_never_returns(&mut self) {
+    pub(crate) fn ide_note_never_returns(&mut self) {
         let Some(ide) = self.ide.take() else {
             return;
         };

@@ -3,7 +3,7 @@ use super::{Session, contains};
 use crate::analysis::{Span, TokenKind};
 use crate::{DocumentUri, Error, SemanticToken, SemanticTokenKind, SymbolKind};
 use jaic::fxhash::{HashMap, HashSet};
-use jaic::sema::ide_meta::IdeClass;
+use jaic::ide::meta::IdeClass;
 use std::collections::BTreeMap;
 
 impl Session {

@@ -1,8 +1,12 @@
 //! Call, signature and callee queries.
 use super::{IdeArgInfo, IdeCall, IdeCallInfo, IdeExpansion, IdeSignature};
+use crate::intern::Sym;
 use crate::sema::scope::{Found, Resolved, ScopeId};
 use crate::sema::value::ProcId;
-use crate::sema::{Compiler, FileId, Span, Sym, TypeId, Value};
+use crate::sema::{Compiler, Value};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -62,11 +66,7 @@ impl Compiler {
     /// The overload the call whose callee name is at `name` resolved to, out of the set `ps`
     /// that name stands for. `None` when no call was recorded there, or when several
     /// candidates fitted equally well.
-    pub(in crate::sema) fn ide_resolved_overload(
-        &self,
-        name: Span,
-        ps: &[ProcId],
-    ) -> Option<ProcId> {
+    pub(crate) fn ide_resolved_overload(&self, name: Span, ps: &[ProcId]) -> Option<ProcId> {
         if ps.len() < 2 {
             return None;
         }
@@ -171,8 +171,7 @@ impl Compiler {
     /// `s.callback`) names from `scope`. A procedure type carries no parameter names, so the
     /// parameters are shown by type.
     pub fn ide_callee_value(&mut self, scope: ScopeId, chain: &[Sym]) -> Option<IdeSignature> {
-        let Some(crate::sema::ide::IdeReceiver::Value(mut ty)) = self.ide_receiver(scope, chain)
-        else {
+        let Some(crate::ide::IdeReceiver::Value(mut ty)) = self.ide_receiver(scope, chain) else {
             return None;
         };
         while let Some(inner) = self.types.pointee(ty) {
@@ -219,7 +218,7 @@ impl Compiler {
             }
         } else {
             match self.ide_receiver(scope, first) {
-                Some(crate::sema::ide::IdeReceiver::Module(m)) => {
+                Some(crate::ide::IdeReceiver::Module(m)) => {
                     match self.module_member_lookup(m, *last) {
                         Ok(Found::Entities(ids)) => ids,
                         _ => return Vec::new(),

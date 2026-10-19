@@ -1,7 +1,9 @@
 //! Text helpers for expansions: bounding, quoting, dedenting and substitution.
 use super::MAX_TEXT;
+use crate::fxhash::HashMap;
+use crate::intern::Sym;
 use crate::lexer::{P, Tok};
-use crate::sema::{FileId, HashMap, Sym};
+use crate::source::FileId;
 
 pub(super) fn bounded(mut text: String) -> String {
     if text.len() > MAX_TEXT {

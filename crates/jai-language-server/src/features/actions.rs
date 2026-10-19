@@ -4,7 +4,7 @@ use super::{
 };
 use crate::session::{Session, contains};
 use crate::{CodeAction, Command, DocumentUri, Error, InlayHint, InlayHintKind, Range, TextEdit};
-use jaic::sema::ide_meta::IdeExpansionKind;
+use jaic::ide::meta::IdeExpansionKind;
 
 impl Session {
     /// Show an expansion; inline an `#insert` or a `#run` value; add an `#import` an unknown name

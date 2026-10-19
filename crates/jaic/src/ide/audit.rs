@@ -1,9 +1,13 @@
 //! Checking every body for an editor analysis, and noting branches that did or did not run.
 use super::facts::{IdeRef, IdeWhat};
 use super::member_notes::names_target;
+use crate::ast;
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeKind};
 use crate::sema::value::ProcId;
-use crate::sema::{Compiler, Diagnostic, Span, TypeId, Value, ast};
+use crate::sema::{Compiler, Value};
+use crate::source::Diagnostic;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -50,7 +54,7 @@ impl Compiler {
         // A struct with a member of an unknown type fails when it is laid out. Each struct is
         // tried once: a layout that fails re-evaluates its member types, and what that
         // creates (instances, bound constants) would otherwise be laid out in turn without end.
-        let mut laid_out = crate::sema::HashSet::default();
+        let mut laid_out = crate::fxhash::HashSet::default();
         let mut unused_defaults = Vec::new();
         let mut i = 0;
         while i < self.entities.len() {
@@ -184,7 +188,7 @@ impl Compiler {
 
     /// An `#if` took `taken` and skipped `skipped`: note whether each branch body ran, for the
     /// editor to fade the ones no evaluation took, then `ide_note_skipped`.
-    pub(in crate::sema) fn ide_note_branches(
+    pub(crate) fn ide_note_branches(
         &mut self,
         cond: &ast::Expr,
         taken: &[ast::Stmt],
@@ -201,7 +205,7 @@ impl Compiler {
     /// The code at `span`, a branch of an `#if`, `if`, `ifx` or the body of a `while`, was
     /// checked as running (`ran`) or as skipped by a constant condition. Evaluations merge: a
     /// branch is faded only when none of them ran it.
-    pub(in crate::sema) fn ide_note_ran(&mut self, span: Span, ran: bool) {
+    pub(crate) fn ide_note_ran(&mut self, span: Span, ran: bool) {
         if self.ide.is_some()
             && !self.sketching()
             && self.ide_wants(span.file)
@@ -213,7 +217,7 @@ impl Compiler {
 
     /// `#if cond` skipped `branch`: when `cond` asks about the target, record where, so the
     /// language server can ask a compile for another target about that code.
-    pub(in crate::sema) fn ide_note_skipped(&mut self, cond: &ast::Expr, branch: &[ast::Stmt]) {
+    pub(crate) fn ide_note_skipped(&mut self, cond: &ast::Expr, branch: &[ast::Stmt]) {
         let (Some(first), Some(last)) = (branch.first(), branch.last()) else {
             return;
         };

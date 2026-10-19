@@ -2,13 +2,13 @@
 //!
 //! Turn recording on with [`enable`] before compiling. The compiler then keeps, for files under
 //! the given roots, each expression's type, each cast, what each identifier names, and which
-//! variables any name reached (`jaic::sema::ide`). After `ide_check_all`, [`Facts::collect`]
+//! variables any name reached (`jaic::ide`). After `ide_check_all`, [`Facts::collect`]
 //! indexes them by source span; rules look facts up by the spans of the syntax tree they walk.
 use jaic::fxhash::{HashMap, HashSet};
+use jaic::ide::{IdeCast, IdeExprFact, IdeFacts, IdeWhat};
 use jaic::sema::Compiler;
 use jaic::sema::EntityId;
 use jaic::sema::ProcId;
-use jaic::sema::ide::{IdeCast, IdeExprFact, IdeFacts, IdeWhat};
 use jaic::sema::procs::BodyState;
 use jaic::sema::scope::{EntityKind, EntityState, Resolved};
 use jaic::source::{FileId, Span};
@@ -16,7 +16,7 @@ use jaic::types::TypeId;
 
 /// Record lint facts for the files under `roots` (an existing editor
 /// record is extended).
-pub fn enable(compiler: &mut Compiler, roots: Vec<jaic::sema::ide::IdeRoot>) {
+pub fn enable(compiler: &mut Compiler, roots: Vec<jaic::ide::IdeRoot>) {
     let ide = compiler
         .ide
         .get_or_insert_with(|| Box::new(IdeFacts::new(roots)));
@@ -48,7 +48,7 @@ impl Facts {
         }
         let wanted: HashSet<FileId> = files.iter().copied().collect();
         // Sketches of polymorphic procedures nothing calls check them with stand-in types.
-        let mark = ide.sketch_from.unwrap_or(jaic::sema::ide::SketchMark {
+        let mark = ide.sketch_from.unwrap_or(jaic::ide::SketchMark {
             refs: ide.refs.len(),
             entities: compiler.entities.len(),
             procs: compiler.procs.len(),

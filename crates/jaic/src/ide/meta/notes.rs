@@ -1,16 +1,22 @@
 //! Noting calls, macros and keyword calls for editors.
 use super::text::{dedent, substitute};
 use super::{IdeArg, IdeCall, IdeExpansionKind, MAX_CALLS};
+use crate::ast;
+use crate::fxhash::HashMap;
+use crate::ide::{IdeRef, IdeWhat};
+use crate::intern::Sym;
 use crate::sema::calls::{CallArg, Slot};
-use crate::sema::ide::{IdeRef, IdeWhat};
 use crate::sema::lower::Operand;
 use crate::sema::value::ProcId;
-use crate::sema::{Compiler, FileId, HashMap, Span, Sym, TypeId, Value, ast};
+use crate::sema::{Compiler, Value};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
 
 impl Compiler {
     /// A call at `span` expanded the macro `proc`: record its body with the arguments
     /// substituted for the parameters.
-    pub(in crate::sema) fn ide_note_macro(
+    pub(crate) fn ide_note_macro(
         &mut self,
         proc: ProcId,
         slots: &[Slot],
@@ -86,7 +92,7 @@ impl Compiler {
     }
 
     /// A call at `span` resolved to `chosen` among `candidates`.
-    pub(in crate::sema) fn ide_note_call(
+    pub(crate) fn ide_note_call(
         &mut self,
         span: Span,
         candidates: &[ProcId],
@@ -116,7 +122,7 @@ impl Compiler {
                     named: arg.name.is_some(),
                     variadic,
                     spread: arg.spread,
-                    ty: arg.op.as_ref().map(super::super::lower::Operand::ty),
+                    ty: arg.op.as_ref().map(crate::sema::lower::Operand::ty),
                 });
             }
         }
@@ -158,12 +164,7 @@ impl Compiler {
     /// Associate only the custom-loop keyword with the actual overload selection,
     /// before expansion can fail. Call-summary deduplication and its display budget
     /// must not discard selections from other real instantiations of this loop.
-    pub(in crate::sema) fn ide_note_for_keyword(
-        &mut self,
-        span: Span,
-        chosen: ProcId,
-        ambiguous: bool,
-    ) {
+    pub(crate) fn ide_note_for_keyword(&mut self, span: Span, chosen: ProcId, ambiguous: bool) {
         if self.sketching() || !self.ide_wants_file(span.file) {
             return;
         }
@@ -192,7 +193,7 @@ impl Compiler {
 
     /// A `for` that does not name its value or index declares `it` and `it_index` anyway:
     /// remember their types for an inlay hint at the start of the iterated expression `at`.
-    pub(in crate::sema) fn ide_note_implicit_loop_names(
+    pub(crate) fn ide_note_implicit_loop_names(
         &mut self,
         for_: &ast::For,
         at: Span,

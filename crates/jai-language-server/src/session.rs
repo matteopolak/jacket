@@ -1,7 +1,7 @@
 use crate::analysis::{Span, Token};
 use crate::semantic::{self, Environment};
 use crate::{DocumentUri, Limits, analysis::Analysis, position::LineIndex};
-use jaic::sema::ide::{IdeLayout, IdeName};
+use jaic::ide::{IdeLayout, IdeName};
 use std::borrow::Cow;
 use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;

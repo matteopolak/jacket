@@ -1,5 +1,5 @@
 //! Type-checked answers for hover and completion: the open documents are compiled with jaic
-//! (bundled or on-disk stdlib) and the compiler's editor facts (`jaic::sema::ide`) are queried.
+//! (bundled or on-disk stdlib) and the compiler's editor facts (`jaic::ide`) are queried.
 //! Compilation happens on demand and is cached per source text.
 mod cache;
 mod compile;
@@ -10,7 +10,7 @@ mod queries;
 pub use self::cache::Cache;
 pub(crate) use self::parses::text_key;
 pub use self::parses::{note_parse, parse_error};
-use jaic::sema::ide::IdeLayout;
+use jaic::ide::IdeLayout;
 use jaic::sema::{Compiler, FileSystem, Options, TargetOs};
 use jaic::source::{FileId, ImportSuggestion};
 use std::cell::RefCell;

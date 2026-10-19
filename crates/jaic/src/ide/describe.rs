@@ -1,9 +1,12 @@
 //! Text that describes procedures, types and entities.
 use super::completion::clip;
 use super::facts::{IdeCall, IdeKind, IdeName};
+use crate::ast;
+use crate::intern::Sym;
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved};
 use crate::sema::value::ProcId;
-use crate::sema::{Compiler, Sym, TypeId, ast, scope, value};
+use crate::sema::{Compiler, scope, value};
+use crate::types::TypeId;
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -258,7 +261,7 @@ impl Compiler {
                 }) => (IdeKind::Constant, self.types.name(*ty)),
                 EntityState::Done(Resolved::Module(_)) => (IdeKind::Module, "module".into()),
                 _ => {
-                    use ast::ExprKind as E;
+                    use crate::ast::ExprKind as E;
                     let kind = match (decl.kind, decl.value.as_ref().map(|v| &v.kind)) {
                         (_, Some(E::Proc(_))) => IdeKind::Function,
                         (_, Some(E::Struct(_) | E::Enum(_) | E::ProcType(_))) => IdeKind::Type,

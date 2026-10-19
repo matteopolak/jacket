@@ -3,18 +3,17 @@
 //! below answer hover (`ide_hover`), completion (`ide_visible`, `ide_members`) and member
 //! receivers (`ide_receiver`) from those facts and the compiler's scopes.
 mod audit;
-#[cfg(test)]
-mod body_failure_tests;
 mod completion;
 mod definition;
 mod describe;
 mod facts;
 mod hover;
 mod member_notes;
+pub mod meta;
 mod recording;
 
 pub use self::facts::{
     IdeCall, IdeCast, IdeExprFact, IdeFacts, IdeFieldSite, IdeHover, IdeKind, IdeLayout, IdeName,
     IdeReceiver, IdeRef, IdeRoot, IdeWhat, SketchMark,
 };
-pub(super) use self::member_notes::for_header_types;
+pub(crate) use self::member_notes::for_header_types;

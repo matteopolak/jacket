@@ -2,8 +2,8 @@
 use super::compile::find_file;
 use super::{Analysis, Decl, HoverFacts, SemanticAnalysisContext, SemanticCoverage, SemanticPath};
 use jaic::fxhash::HashSet;
+use jaic::ide::IdeName;
 use jaic::intern::Sym;
-use jaic::sema::ide::IdeName;
 use jaic::source::{FileId, ImportSuggestion};
 use std::collections::BTreeMap;
 use std::path::Path;

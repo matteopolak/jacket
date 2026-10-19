@@ -24,7 +24,7 @@ impl Compiler {
         let Some(ide) = self.ide.as_mut() else {
             return;
         };
-        ide.sketch_from.get_or_insert(super::ide::SketchMark {
+        ide.sketch_from.get_or_insert(crate::ide::SketchMark {
             refs: ide.refs.len(),
             entities,
             procs,
@@ -142,7 +142,7 @@ impl Compiler {
         let header = self.proc(id).lit.header.clone();
         let scope = self.proc(id).scope;
         let mut sizes: Vec<Sym> = Vec::new();
-        super::ide::for_header_types(&header, &mut |e| {
+        crate::ide::for_header_types(&header, &mut |e| {
             if let ast::ExprKind::ArrayType {
                 size: ast::ArraySize::Fixed(n),
                 ..
@@ -156,7 +156,7 @@ impl Compiler {
         });
         // `Matrix($T, $M, $N)`: each binds a parameter of the struct, of its type.
         let mut struct_args: Vec<ast::Expr> = Vec::new();
-        super::ide::for_header_types(&header, &mut |e| {
+        crate::ide::for_header_types(&header, &mut |e| {
             if let ast::ExprKind::Call {
                 args, ..
             } = &e.kind
@@ -169,7 +169,7 @@ impl Compiler {
         });
         // `$M/Matrix`: an instance of the struct, with stand-in parameters.
         let mut restricted: Vec<(Sym, ast::Expr)> = Vec::new();
-        super::ide::for_header_types(&header, &mut |e| {
+        crate::ide::for_header_types(&header, &mut |e| {
             if let ast::ExprKind::PolyRestricted {
                 name,
                 restriction,
@@ -407,7 +407,7 @@ impl Compiler {
     }
 
     /// A sketch is being checked.
-    pub(super) fn sketching(&self) -> bool {
+    pub(crate) fn sketching(&self) -> bool {
         self.ide.as_ref().is_some_and(|ide| ide.sketching)
     }
 

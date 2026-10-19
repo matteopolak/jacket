@@ -4,7 +4,7 @@ use crate::analysis::Span;
 use crate::hover::{Block, FormatRow, HoverText, Inline};
 use crate::session::{Session, contains};
 use crate::{DocumentUri, Error, Expansion, Location, Position};
-use jaic::sema::ide_meta::IdeExpansionKind;
+use jaic::ide::meta::IdeExpansionKind;
 use std::path::Path;
 
 impl Session {

@@ -334,7 +334,7 @@ fn module_arguments_retain_literal_precision_and_use_real_conversion() {
 
 #[test]
 fn editor_completions_apply_import_and_transitive_reexport_filters() {
-    use jaic::sema::ide::IdeReceiver;
+    use jaic::ide::IdeReceiver;
     use jaic::sema::scope::ScopeId;
     use jaic::sema::value::ModuleId;
     let mut c = compiler(

@@ -2,14 +2,19 @@
 use super::facts::{
     IdeCast, IdeExprFact, IdeMissingModule, IdeMissingModuleEpoch, IdeRef, IdeRoot, IdeWhat,
 };
+use crate::ast;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityId, EntityKind, ScopeId};
 use crate::sema::value::ProcId;
-use crate::sema::{
-    Compiler, Diagnostic, FileId, ModuleId, Rc, Result, SourcePath, Span, TypeId, ast,
-};
+use crate::sema::{Compiler, ModuleId, Result};
+use crate::source::Diagnostic;
+use crate::source::FileId;
+use crate::source::SourcePath;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::TypeKind;
 use std::path::Path;
+use std::rc::Rc;
 
 impl Compiler {
     fn ide_missing_module_epoch(&self) -> IdeMissingModuleEpoch {
@@ -24,7 +29,7 @@ impl Compiler {
 
     /// Only filesystem discovery misses are reused. Import operands, remaps and
     /// supplied-import rules still use their ordinary resolver paths.
-    pub(in crate::sema) fn ide_missing_module(
+    pub(crate) fn ide_missing_module(
         &self,
         scope: ScopeId,
         span: Span,
@@ -44,7 +49,7 @@ impl Compiler {
             .then(|| cached.error.clone())
     }
 
-    pub(in crate::sema) fn ide_record_missing_module(
+    pub(crate) fn ide_record_missing_module(
         &mut self,
         scope: ScopeId,
         span: Span,
@@ -70,7 +75,7 @@ impl Compiler {
             .insert((scope, span), cached);
     }
 
-    pub(in crate::sema) fn ide_cached_body_failure(
+    pub(crate) fn ide_cached_body_failure(
         &self,
         id: ProcId,
         epoch: u64,
@@ -84,7 +89,7 @@ impl Compiler {
             .then(|| error.clone())
     }
 
-    pub(in crate::sema) fn ide_record_body_result(
+    pub(crate) fn ide_record_body_result(
         &mut self,
         id: ProcId,
         epoch: u64,
@@ -108,7 +113,7 @@ impl Compiler {
         }
     }
 
-    pub(in crate::sema) fn ide_wants_pub(&mut self, file: FileId) -> bool {
+    pub(crate) fn ide_wants_pub(&mut self, file: FileId) -> bool {
         self.ide_wants(file)
     }
 
@@ -135,7 +140,7 @@ impl Compiler {
         w
     }
 
-    pub(in crate::sema) fn ide_note_expr(&mut self, expr: &ast::Expr, op: &Operand) {
+    pub(crate) fn ide_note_expr(&mut self, expr: &ast::Expr, op: &Operand) {
         if self.ide.as_ref().is_some_and(|i| i.lint) && self.ide_wants(expr.span.file) {
             let ty = op.ty();
             let constant = matches!(op, Operand::Const { .. });
@@ -224,7 +229,7 @@ impl Compiler {
 
     /// The name after `for :` names the `for_expansion` procedures the loop expands through,
     /// like any other use of a procedure name.
-    pub(in crate::sema) fn ide_note_for_iterator(&mut self, name: &ast::Ident, procs: &[ProcId]) {
+    pub(crate) fn ide_note_for_iterator(&mut self, name: &ast::Ident, procs: &[ProcId]) {
         if self.sketching() || !self.ide_wants(name.span.file) {
             return;
         }
@@ -239,7 +244,7 @@ impl Compiler {
     }
 
     /// Lint mode: `cast` at `span` converted a `from` operand to `target`.
-    pub(in crate::sema) fn ide_note_cast(&mut self, span: Span, target: TypeId, op: &Operand) {
+    pub(crate) fn ide_note_cast(&mut self, span: Span, target: TypeId, op: &Operand) {
         if !self.ide.as_ref().is_some_and(|i| i.lint) || !self.ide_wants(span.file) {
             return;
         }
@@ -262,7 +267,7 @@ impl Compiler {
     }
 
     /// Lint mode: a lookup found a name through import `index` of `scope`.
-    pub(in crate::sema) fn ide_note_import_use(&mut self, scope: ScopeId, index: usize) {
+    pub(crate) fn ide_note_import_use(&mut self, scope: ScopeId, index: usize) {
         if let Some(ide) = self.ide.as_mut()
             && ide.lint
         {
@@ -271,7 +276,7 @@ impl Compiler {
     }
 
     /// Lint mode: a name resolved to `id`.
-    pub(in crate::sema) fn ide_note_use(&mut self, id: EntityId) {
+    pub(crate) fn ide_note_use(&mut self, id: EntityId) {
         if let Some(ide) = self.ide.as_mut()
             && ide.lint
         {
@@ -281,7 +286,7 @@ impl Compiler {
 
     /// Where entity `id` names itself: its span narrowed to the name (an entity's span may cover
     /// the whole declaration). `None` for an entity written nowhere.
-    pub(in crate::sema) fn ide_entity_name_span(&self, id: EntityId) -> Option<Span> {
+    pub(crate) fn ide_entity_name_span(&self, id: EntityId) -> Option<Span> {
         let e = self.entity(id);
         let (span, name) = (e.span, e.name);
         if span.end <= span.start || (span.file.0 as usize) >= self.sources.len() {
@@ -298,7 +303,7 @@ impl Compiler {
     }
 
     /// A declaration: hovering its name shows it.
-    pub(in crate::sema) fn ide_note_entity(&mut self, id: EntityId) {
+    pub(crate) fn ide_note_entity(&mut self, id: EntityId) {
         let Some(span) = self.ide_entity_name_span(id) else {
             return;
         };
@@ -326,7 +331,7 @@ impl Compiler {
 
     /// A declaration whose name is written at `name`: hovering it shows the entity. A name the
     /// source does not write (a loop's `it`) has no declaration to show.
-    pub(in crate::sema) fn ide_note_entity_at(&mut self, id: EntityId, name: Option<Span>) {
+    pub(crate) fn ide_note_entity_at(&mut self, id: EntityId, name: Option<Span>) {
         let Some(span) = name else {
             return;
         };
@@ -354,7 +359,7 @@ impl Compiler {
 
     /// A semantic identifier resolved through a binding path that does not lower
     /// an ordinary expression (for example a using target or module argument label).
-    pub(in crate::sema) fn ide_note_entity_use(&mut self, span: Span, id: EntityId, ty: TypeId) {
+    pub(crate) fn ide_note_entity_use(&mut self, span: Span, id: EntityId, ty: TypeId) {
         if !self.ide_wants(span.file) {
             return;
         }
@@ -368,11 +373,7 @@ impl Compiler {
         }
     }
 
-    pub(in crate::sema) fn ide_note_module_arguments(
-        &mut self,
-        module: ModuleId,
-        import: &ast::Import,
-    ) {
+    pub(crate) fn ide_note_module_arguments(&mut self, module: ModuleId, import: &ast::Import) {
         if self.ide.is_none() {
             return;
         }
@@ -401,7 +402,7 @@ impl Compiler {
     }
 
     /// `scope` covers `span` of the source (a block, a procedure body).
-    pub(in crate::sema) fn ide_scope_span(&mut self, scope: ScopeId, span: Span) {
+    pub(crate) fn ide_scope_span(&mut self, scope: ScopeId, span: Span) {
         if span.end > span.start
             && self.ide_wants(span.file)
             && let Some(ide) = self.ide.as_mut()
@@ -411,7 +412,7 @@ impl Compiler {
     }
 
     /// Recovered bodies supply facts but cannot be executed as valid procedures or code.
-    pub(in crate::sema) fn ide_require_parsed_body(&self, span: Span) -> Result<()> {
+    pub(crate) fn ide_require_parsed_body(&self, span: Span) -> Result<()> {
         if let Some(error) = self.ide.as_ref().and_then(|ide| {
             ide.parse_errors.iter().find(|e| {
                 e.span.file == span.file && span.start <= e.span.start && e.span.start < span.end

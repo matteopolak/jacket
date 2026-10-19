@@ -1,6 +1,6 @@
 //! Dependency-order regression, independent of standard-library modules.
+use jaic::ide::IdeFacts;
 use jaic::intern::Sym;
-use jaic::sema::ide::IdeFacts;
 use jaic::sema::{Compiler, EntityId, NativeFs, Options, ProgramSource};
 use std::rc::Rc;
 
@@ -10,9 +10,7 @@ fn member_constants_see_field_types_before_unused_checking() {
     options.preload = None;
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![
-        jaic::sema::ide::IdeRoot::Virtual,
-    ])));
+    compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::Virtual])));
     compiler
         .begin_sources(&[ProgramSource::String(
             "Payload :: struct { value: s64; }\n\
@@ -42,7 +40,7 @@ fn nested_record_constants_can_depend_on_earlier_using_fields() {
     options.preload = None;
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-    let mut facts = IdeFacts::new(vec![jaic::sema::ide::IdeRoot::Virtual]);
+    let mut facts = IdeFacts::new(vec![jaic::ide::IdeRoot::Virtual]);
     facts.lint = true;
     compiler.ide = Some(Box::new(facts));
     compiler.compile_sources(&[ProgramSource::String(
@@ -68,7 +66,7 @@ fn production_layout_fixture_finishes_strict_ide_checking() {
     options.preload = Some(library.join(jaic::PRELOAD_ENTRY));
     options.import_paths = vec![library];
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-    let mut facts = IdeFacts::new(vec![jaic::sema::ide::IdeRoot::under(source.clone())]);
+    let mut facts = IdeFacts::new(vec![jaic::ide::IdeRoot::under(source.clone())]);
     facts.lint = true;
     compiler.ide = Some(Box::new(facts));
     compiler
@@ -89,9 +87,7 @@ fn field_type_queries_infer_values_select_branches_and_reject_real_cycles() {
         options.preload = None;
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-        compiler.ide = Some(Box::new(IdeFacts::new(vec![
-            jaic::sema::ide::IdeRoot::Virtual,
-        ])));
+        compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::Virtual])));
         let source = format!(
             "Record :: struct {{ COUNT :: size_of({query}); #if true {{ value := cast(s64) 1; }} else {{ value: Missing_Type; }} tail: [COUNT]u8; }} main :: () -> s64 {{ return Record.COUNT; }}"
         );

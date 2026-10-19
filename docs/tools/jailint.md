@@ -230,7 +230,7 @@ The formatter is written in Jai and reads the `[format]` table itself; both tabl
 4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit; a rule that is sometimes wrong costs more trust than it earns.
 5. Add the table row and a `### <name>` section here.
 
-Inside a rule: `cx.procs` lists bodies (trust facts only for `p.clean` / `p.typed()`); `cx.ty`, `cx.constant`, `cx.entities(span)` and `cx.compiler.is_used` read facts; `cx.mentions` is the textual guard for unchecked code; `syntax::walk` does not enter nested procedures or struct bodies. A fix is byte edits; mark it `machine_applicable` only if it cannot change behaviour and the result still compiles (`fixed_cases_are_clean` re-lints `bad.fixed.jai`). New facts go in `IdeFacts` (`crates/jaic/src/sema/ide.rs`) behind `lint`.
+Inside a rule: `cx.procs` lists bodies (trust facts only for `p.clean` / `p.typed()`); `cx.ty`, `cx.constant`, `cx.entities(span)` and `cx.compiler.is_used` read facts; `cx.mentions` is the textual guard for unchecked code; `syntax::walk` does not enter nested procedures or struct bodies. A fix is byte edits; mark it `machine_applicable` only if it cannot change behaviour and the result still compiles (`fixed_cases_are_clean` re-lints `bad.fixed.jai`). New facts go in `IdeFacts` (`crates/jaic/src/ide/facts.rs`) behind `lint`.
 
 Gotchas:
 

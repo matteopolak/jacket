@@ -1,8 +1,11 @@
 //! Declared types, token classes and reference targets.
 use super::{IdeClass, Target};
-use crate::sema::ide::{IdeRef, IdeWhat};
+use crate::ast;
+use crate::ide::{IdeRef, IdeWhat};
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved};
-use crate::sema::{Compiler, FileId, Span, Value, ast, scope};
+use crate::sema::{Compiler, Value, scope};
+use crate::source::FileId;
+use crate::source::Span;
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -89,7 +92,7 @@ impl Compiler {
                 }) => IdeClass::Constant,
                 EntityState::Done(Resolved::Module(_) | Resolved::Library(_)) => IdeClass::Module,
                 _ => {
-                    use ast::ExprKind as E;
+                    use crate::ast::ExprKind as E;
                     match (decl.kind, decl.value.as_ref().map(|v| &v.kind)) {
                         (_, Some(E::Proc(lit))) if lit.header.flags.expand() => IdeClass::Macro,
                         (_, Some(E::Proc(_))) => IdeClass::Function,
@@ -192,7 +195,7 @@ impl Compiler {
 
     /// Whether constant `e` holding type `t` is the declaration of a struct or enum
     /// (`Item :: struct`), rather than another name for a type (`T` bound to it, an alias).
-    fn ide_declares_type(&self, e: EntityId, t: crate::sema::TypeId) -> bool {
+    fn ide_declares_type(&self, e: EntityId, t: crate::types::TypeId) -> bool {
         // A built-in name (`int`) is declared nowhere: its uses are the type's.
         if self.ide_entity_name_span(e).is_none() {
             return true;

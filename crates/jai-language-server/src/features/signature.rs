@@ -77,7 +77,7 @@ impl Session {
                 }
             }
         }
-        let parameter = |sig: &jaic::sema::ide_meta::IdeSignature| -> usize {
+        let parameter = |sig: &jaic::ide::meta::IdeSignature| -> usize {
             if let Some(name) = &named
                 && let Some(i) = sig.param_names.iter().position(|n| n == name)
             {

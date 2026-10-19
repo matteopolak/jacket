@@ -10,7 +10,7 @@ use crate::semantic::{self, Decl};
 use crate::session::Session;
 use crate::{DocumentUri, MarkupKind, Range, SemanticTokenKind};
 use jaic::fxhash::HashMap;
-use jaic::sema::ide_meta::IdeSignature;
+use jaic::ide::meta::IdeSignature;
 use std::path::Path;
 
 /// Completion lists this short carry their documentation; longer ones leave it to

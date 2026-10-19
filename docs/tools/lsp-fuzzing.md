@@ -1,6 +1,6 @@
 # Language server typing sessions
 
-A seeded checker that types into documents the way an editor does and asks the language server the same questions before, during and after, to find answers that get lost, change or contradict a fresh start. Use it after touching `jai-language-server`, the IDE parts of `jaic` (`parser/ide.rs`, `sema/ide*.rs`) or incremental analysis.
+A seeded checker that types into documents the way an editor does and asks the language server the same questions before, during and after, to find answers that get lost, change or contradict a fresh start. Use it after touching `jai-language-server`, the IDE parts of `jaic` (`parser/ide.rs`, `ide/`, `sema/ide_sketch.rs`) or incremental analysis.
 
 ## What it is
 

@@ -67,7 +67,7 @@ pub struct CallArg {
 
 /// How a parameter receives its value.
 #[derive(Clone, Debug)]
-pub(super) enum Slot {
+pub(crate) enum Slot {
     Arg(usize),
     Variadic(Vec<usize>),
     Spread(usize),

@@ -19,9 +19,9 @@
 use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
 use jaic::docs;
+use jaic::ide::IdeReceiver;
 use jaic::intern::Sym;
 use jaic::sema::Compiler;
-use jaic::sema::ide::IdeReceiver;
 use jaic::source::FileId;
 
 /// A link that does not resolve.

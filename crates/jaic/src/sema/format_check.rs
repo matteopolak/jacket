@@ -57,7 +57,7 @@ impl Compiler {
 
     /// Where `proc` takes a format string: the `string` parameter right before a variadic
     /// `..Any`, by the parameters' resolved types rather than how they are spelled.
-    pub(super) fn format_string_param(&mut self, proc: ProcId, span: Span) -> Option<usize> {
+    pub(crate) fn format_string_param(&mut self, proc: ProcId, span: Span) -> Option<usize> {
         let sig = self.signature(proc, span).ok()?;
         sig.params.windows(2).position(|w| {
             w[0].ty == TypeId::STRING

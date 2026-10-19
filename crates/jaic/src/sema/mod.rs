@@ -15,9 +15,11 @@ pub mod value;
 mod asm;
 mod bake;
 mod binary;
+#[cfg(test)]
+mod body_failure_tests;
 pub mod body_probe;
 mod callable;
-mod calls;
+pub(crate) mod calls;
 pub mod code_export;
 mod consteval;
 mod convert;
@@ -30,13 +32,11 @@ mod expr;
 mod flow;
 mod format_check;
 mod host_run;
-pub mod ide;
-pub mod ide_meta;
 mod ide_sketch;
 mod interfaces;
 pub mod interval;
 mod lambda;
-mod lower;
+pub(crate) mod lower;
 mod modify;
 mod module_rank;
 mod modules;
@@ -44,7 +44,7 @@ mod never_returns;
 pub mod perf;
 mod private_names;
 pub mod procs;
-mod reachability;
+pub(crate) mod reachability;
 mod runtime_config;
 mod runtime_info;
 pub mod scope;
@@ -53,7 +53,7 @@ mod structs;
 mod suggestions;
 mod trap_report;
 mod typeinfo;
-mod using;
+pub(crate) mod using;
 mod wide;
 
 use crate::ast;
@@ -453,7 +453,7 @@ pub struct Compiler {
     pub top_level_runs: Vec<(ast::Expr, ScopeId)>,
     pub asserts: Vec<(ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId)>,
     /// How many of `top_level_runs`/`asserts` already executed.
-    runs_done: usize,
+    pub(crate) runs_done: usize,
     asserts_done: usize,
     /// `__runtime_info`, when the program references it.
     runtime_info: Option<ir::GlobalId>,
@@ -462,9 +462,9 @@ pub struct Compiler {
     /// Id of the workspace this compiler builds (1: the top-level program).
     pub workspace: i64,
     /// Sources added so far (labels of added strings).
-    added_sources: usize,
+    pub(crate) added_sources: usize,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
-    lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
+    pub(crate) lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
     /// Scopes holding the bindings that a polymorphic parameter's default is evaluated in.
     default_scopes: HashMap<(ScopeId, Vec<Value>), ScopeId>,
     /// `$$x` variants: (procedure, which auto-bake params are baked) -> procedure.
@@ -632,7 +632,7 @@ pub struct Compiler {
     /// Lookups that reached an undefined `#placeholder`: a pending top-level item whose
     /// expansion did so waits (a metaprogram may define it later) until `finish_program`.
     pub placeholder_misses: u64,
-    ct_executions: u64,
+    pub(crate) ct_executions: u64,
     dependencies: dependencies::Dependencies,
     /// Lookups that reached something still being computed (a signature, entity or layout in
     /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
@@ -647,7 +647,7 @@ pub struct Compiler {
     /// by `(address, bytes)`: pointer cycles (`n.next = n`) refer back instead of recursing.
     frozen: HashMap<(u64, u64), ir::GlobalId>,
     /// Editor facts recorded while checking (`ide.rs`); `None` outside the language server.
-    pub ide: Option<Box<ide::IdeFacts>>,
+    pub ide: Option<Box<crate::ide::IdeFacts>>,
     /// Editor parses shared with other compiles, and this compile's number in it (see
     /// `ParseReuse::begin`). Only read while `ide` is set.
     pub parse_reuse: Option<(Rc<std::cell::RefCell<crate::parser::ParseReuse>>, u64)>,

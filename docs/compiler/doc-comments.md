@@ -41,7 +41,7 @@ Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]` (module), `[P
 ## How to change it
 
 - Convention (what counts as a doc, parameter items, link syntax): `crates/jaic/src/docs.rs`; unit tests per rule, `tests/doc_comments.rs` for editor features.
-- What a link can name: `Compiler::ide_resolve_path` in `crates/jaic/src/sema/ide.rs`. Link colour: `target_kind` in `doc_view.rs`.
+- What a link can name: `Compiler::ide_resolve_path` in `crates/jaic/src/ide/definition.rs`. Link colour: `target_kind` in `doc_view.rs`.
 - Markdown styling: edit the regexes in `jai-doc-comments.tmLanguage.json`, add a case to `editors/vscode/test/grammar/doc-comments.jai` (`pnpm run test:grammar`).
 - The playground (another repository) needs the `meta.comment-run.jai` wrapper, the injection grammar or equivalent, a mapping from `markup.*` scopes to styles, and the semantic token types the server sends on link labels, applied over the comment colour.
 - Gotchas: extraction starts at the name's offset, so a declaration whose literal is on the next line takes docs above the name's line. Block comments are read only when they end directly above the declaration, and a comment counts only when it starts its line. A `[ref]: url` line is a definition even directly under a paragraph line (CommonMark would not), because that is how it is written.

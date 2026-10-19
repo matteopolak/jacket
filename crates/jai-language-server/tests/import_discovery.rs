@@ -1,7 +1,8 @@
 //! Original failed-discovery reducers; no corpus or stdlib implementation inputs.
 mod common;
 use common::{file_uri, session_over};
-use jaic::sema::{Compiler, FileSystem, Options, VirtualFs, ide::IdeFacts};
+use jaic::ide::IdeFacts;
+use jaic::sema::{Compiler, FileSystem, Options, VirtualFs};
 use std::{
     cell::{Cell, RefCell},
     path::{Path, PathBuf},
@@ -68,9 +69,9 @@ fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usi
             })
         })
         .unwrap();
-    c.ide = Some(Box::new(IdeFacts::new(vec![
-        jaic::sema::ide::IdeRoot::under("/discovery/"),
-    ])));
+    c.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+        "/discovery/",
+    )])));
     fs.listings.set(0);
     (c, fs, scope, index)
 }

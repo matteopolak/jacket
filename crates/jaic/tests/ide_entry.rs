@@ -1,5 +1,6 @@
 //! Passive IDE entry metadata must report captured paths without guessing.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource, ide::IdeFacts};
+use jaic::ide::IdeFacts;
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
 
 fn compiler(editor: bool) -> Compiler {

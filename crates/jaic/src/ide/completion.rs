@@ -1,7 +1,13 @@
 //! Names visible at a position, and the members of a receiver.
 use super::facts::{IdeKind, IdeName, IdeReceiver, IdeRef, IdeWhat};
+use crate::ast;
+use crate::fxhash::HashSet;
+use crate::intern::Sym;
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Found, Resolved, ScopeId, ScopeKind};
-use crate::sema::{Compiler, FileId, HashSet, ModuleId, Span, Sym, TypeId, ast, scope, value};
+use crate::sema::{Compiler, ModuleId, scope, value};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
@@ -209,7 +215,7 @@ impl Compiler {
     /// Static filters contain selector names, not ordinary expressions. Record an
     /// existing visible target without turning nonexistent selectors into errors
     /// (the language permits them) or inventing source declarations for builtins.
-    pub(in crate::sema) fn ide_note_filter_names(
+    pub(crate) fn ide_note_filter_names(
         &mut self,
         entry: &scope::UsingEntry,
         filter: &ast::UsingFilter,

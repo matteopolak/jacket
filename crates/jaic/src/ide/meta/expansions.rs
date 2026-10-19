@@ -1,9 +1,11 @@
 //! Recording macro and `#insert` expansions and the output a metaprogram produced.
 use super::text::{bounded, dedent, quote};
 use super::{IdeExpansion, IdeExpansionKind, MAX_EXPANSIONS, MAX_VARIANTS};
+use crate::ast;
 use crate::sema::lower::Operand;
 use crate::sema::value::CodeId;
-use crate::sema::{Compiler, Span, Value, ast};
+use crate::sema::{Compiler, Value};
+use crate::source::Span;
 
 impl Compiler {
     // Recording
@@ -47,7 +49,7 @@ impl Compiler {
     }
 
     /// Bytes compile-time code has printed so far (to tell what one `#run` printed).
-    pub(in crate::sema) fn ide_output_mark(&self) -> usize {
+    pub(crate) fn ide_output_mark(&self) -> usize {
         self.ide
             .as_ref()
             .and_then(|i| i.output.as_ref())
@@ -111,7 +113,7 @@ impl Compiler {
     }
 
     /// Source text of a `Code` value: an expression, or a block's statements without braces.
-    pub(in crate::sema) fn ide_code_text(&self, code: CodeId) -> String {
+    pub(crate) fn ide_code_text(&self, code: CodeId) -> String {
         match &*self.codes[code.0 as usize] {
             ast::CodeBody::Expr(e) => self.ide_snippet(e.span).trim().to_string(),
             ast::CodeBody::Stmt(s) => self.ide_snippet(s.span).trim().to_string(),
@@ -136,7 +138,7 @@ impl Compiler {
     }
 
     /// `#insert` evaluated `value` (a string or `Code`) to `op`.
-    pub(in crate::sema) fn ide_note_insert(&mut self, value: &ast::Expr, op: &Operand) {
+    pub(crate) fn ide_note_insert(&mut self, value: &ast::Expr, op: &Operand) {
         if !self.ide_wants_file(value.span.file) {
             return;
         }
@@ -166,7 +168,7 @@ impl Compiler {
     }
 
     /// `#run` at `span` produced `op`; compile-time output past `mark` is what it printed.
-    pub(in crate::sema) fn ide_note_run(&mut self, span: Span, op: &Operand, mark: usize) {
+    pub(crate) fn ide_note_run(&mut self, span: Span, op: &Operand, mark: usize) {
         if !self.ide_wants_file(span.file) {
             return;
         }
@@ -224,7 +226,7 @@ impl Compiler {
     }
 
     /// A static condition (`#if`, `#ifx`, `#assert`) at `cond` evaluated to `holds`.
-    pub(in crate::sema) fn ide_note_condition(&mut self, cond: &ast::Expr, holds: bool) {
+    pub(crate) fn ide_note_condition(&mut self, cond: &ast::Expr, holds: bool) {
         if !self.ide_wants_file(cond.span.file) {
             return;
         }

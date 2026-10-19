@@ -7,7 +7,7 @@ use crate::{
     SymbolInformation,
 };
 use jaic::fxhash::HashSet;
-use jaic::sema::ide_meta::IdeClass;
+use jaic::ide::meta::IdeClass;
 
 impl Session {
     // Syntax-only features

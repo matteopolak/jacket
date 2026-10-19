@@ -162,7 +162,7 @@ impl Compiler {
     /// Whether `param` of `proc` is declared with the type `Code`: the type itself or a name
     /// for it, resolved where the procedure is defined. Only a bare name can denote it, so any
     /// other spelling (`*T`, `[] T`, `$T`) is answered without resolving.
-    pub(in crate::sema) fn param_is_code(&mut self, proc: ProcId, param: &ast::Param) -> bool {
+    pub(crate) fn param_is_code(&mut self, proc: ProcId, param: &ast::Param) -> bool {
         let Some(ty) = &param.ty else {
             return false;
         };

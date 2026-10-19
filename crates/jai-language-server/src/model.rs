@@ -126,7 +126,7 @@ pub struct CompletionItem {
     /// (`completionItem/resolve`) instead of for every item of a long list.
     pub data: Option<CompletionData>,
     /// How a procedure is called: completion inserts the call (`Session::call_snippets`).
-    pub call: Option<jaic::sema::ide::IdeCall>,
+    pub call: Option<jaic::ide::IdeCall>,
     /// What the client matches the typed text against instead of the label (`filterText`): a
     /// postfix item replaces the receiver too, so the receiver is part of what was typed.
     pub filter_text: Option<String>,

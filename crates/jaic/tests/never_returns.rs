@@ -1,6 +1,6 @@
 //! Procedures that never return end their callers' blocks: the code after a call to one is
 //! recorded as dead for the editor and the linter.
-use jaic::sema::ide::{IdeFacts, IdeRoot};
+use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
 

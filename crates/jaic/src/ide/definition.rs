@@ -1,11 +1,16 @@
 //! Go to definition, path resolution and struct layout notes.
 use super::facts::{IdeFieldSite, IdeReceiver, IdeWhat};
+use crate::ast;
+use crate::intern::Sym;
 use crate::sema::scope::{self, EntityId, EntityKind, Found, Resolved, ScopeId, ScopeKind};
-use crate::sema::{Compiler, FileId, ModuleId, Span, Sym, TypeId, ast};
+use crate::sema::{Compiler, ModuleId};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::{StructId, TypeKind};
 
 /// What [`Compiler::ide_module_name_at`] found.
-pub(in crate::sema) enum IdeModuleName {
+pub(crate) enum IdeModuleName {
     /// A module alias, with the module it names.
     Alias(Span, ModuleId),
     /// A member of a module reached through an alias: the entities it names.
@@ -17,7 +22,7 @@ impl Compiler {
     /// anonymous `struct { ... }` / `union { ... }` members into it. The fields of a
     /// polymorphic struct's instance are recorded as having no one layout: their source is the
     /// polymorphic definition.
-    pub(in crate::sema) fn ide_note_layout(&mut self, s: StructId) {
+    pub(crate) fn ide_note_layout(&mut self, s: StructId) {
         let info = self.types.struct_info(s);
         let instance = !info.poly_args.is_empty();
         let mut sites = Vec::new();
@@ -207,7 +212,7 @@ impl Compiler {
     /// The module the identifier at `offset` names through an alias in scope (`W :: #import
     /// "Windows"`) or, after one (`W.name`), the member of that module it names: for a use no
     /// checked expression recorded (a body that failed before reaching it).
-    pub(in crate::sema) fn ide_module_name_at(
+    pub(crate) fn ide_module_name_at(
         &mut self,
         file: FileId,
         offset: u32,

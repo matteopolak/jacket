@@ -244,7 +244,8 @@ fn missing_close_brace_keeps_procedure_locals_and_next_global_separate() {
 
 #[test]
 fn recovered_or_semantically_invalid_bodies_cannot_run_at_compile_time() {
-    use jaic::sema::{Compiler, Options, VirtualFs, ide::IdeFacts};
+    use jaic::ide::IdeFacts;
+    use jaic::sema::{Compiler, Options, VirtualFs};
     use std::{path::Path, rc::Rc};
     for broken in [
         "bad := (",
@@ -263,9 +264,9 @@ fn recovered_or_semantically_invalid_bodies_cannot_run_at_compile_time() {
             options.stack_trace = false;
             let mut compiler = Compiler::new(options, Rc::new(fs));
             if editor {
-                compiler.ide = Some(Box::new(IdeFacts::new(vec![
-                    jaic::sema::ide::IdeRoot::under("/partial-edits/"),
-                ])));
+                compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+                    "/partial-edits/",
+                )])));
             }
             assert!(
                 compiler
@@ -282,9 +283,9 @@ fn recovered_or_semantically_invalid_bodies_cannot_run_at_compile_time() {
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![
-        jaic::sema::ide::IdeRoot::under("/partial-edits/"),
-    ])));
+    compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+        "/partial-edits/",
+    )])));
     assert!(
         compiler
             .compile_program(Path::new("/partial-edits/main.jai"))

@@ -60,8 +60,8 @@ fn editor_diagnostics_from_deferred_attempts_do_not_survive_successful_binding()
     let mut options = Options::host();
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
-    compiler.ide = Some(Box::new(jaic::sema::ide::IdeFacts::new(vec![
-        jaic::sema::ide::IdeRoot::Virtual,
+    compiler.ide = Some(Box::new(jaic::ide::IdeFacts::new(vec![
+        jaic::ide::IdeRoot::Virtual,
     ])));
     compiler.begin_sources(&[ProgramSource::String(
         "#placeholder Body; delayed :: () -> int { #insert Body; } main :: () -> int { return delayed(); }".into()

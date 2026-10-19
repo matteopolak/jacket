@@ -8,8 +8,8 @@ use jaic::lexer::{P, Tok, Token};
 use jaic::parser::ide_facts::{self, DeclClass, TopLevel, TopLevelKind};
 use jaic::source::FileId;
 
+use jaic::ide::IdeCall;
 pub use jaic::parser::ide_facts::Visibility;
-use jaic::sema::ide::IdeCall;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decl {

@@ -11,6 +11,7 @@ pub mod docs;
 pub mod fiber;
 pub mod format_string;
 pub mod fxhash;
+pub mod ide;
 pub mod intern;
 pub mod interp;
 pub mod ir;

@@ -1,5 +1,5 @@
 //! Editor features built on the compiler's metaprogramming and call facts
-//! (`jaic::sema::ide_meta`) and on the syntax layer: expansion hovers and documents, inlay
+//! (`jaic::ide::meta`) and on the syntax layer: expansion hovers and documents, inlay
 //! hints, code actions, format strings, references, signature help, folding, code lenses and
 //! workspace symbols.
 mod actions;
@@ -15,8 +15,8 @@ use crate::semantic;
 use crate::session::{Session, contains};
 use crate::{DocumentUri, Location, Range, TextEdit};
 use jaic::fxhash::HashSet;
+use jaic::ide::meta::{IdeCallInfo, IdeExpansion, IdeExpansionKind};
 use jaic::parser::ide_facts;
-use jaic::sema::ide_meta::{IdeCallInfo, IdeExpansion, IdeExpansionKind};
 use jaic::source::FileId;
 use std::path::Path;
 use std::rc::Rc;
@@ -197,7 +197,7 @@ fn inline_insert(text: &str, span: Span, code: &str) -> Option<(Span, String)> {
             .chars()
             .take_while(|c| c.is_whitespace())
             .collect();
-        let body = jaic::sema::ide_meta::dedent(code.trim_matches('\n'));
+        let body = jaic::ide::meta::dedent(code.trim_matches('\n'));
         let body = body
             .lines()
             .collect::<Vec<_>>()

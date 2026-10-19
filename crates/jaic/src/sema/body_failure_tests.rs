@@ -1,19 +1,22 @@
 //! Re-checking bodies that failed in an editor analysis.
-use super::facts::IdeFacts;
-use crate::sema::scope::EntityKind;
-use crate::sema::value::ProcId;
-use crate::sema::*;
+use super::scope::EntityKind;
+use super::value::ProcId;
+use super::{Compiler, Options, Value, VirtualFs};
+use crate::ast;
+use crate::ide::{IdeFacts, IdeRoot};
+use crate::intern::Sym;
+use crate::source::Span;
+use crate::types::TypeId;
+use std::rc::Rc;
 
 fn failed() -> (Compiler, ProcId) {
-    let mut fs = super::super::VirtualFs::default();
+    let mut fs = VirtualFs::default();
     fs.insert("/audit/main.jai", b"broken :: missing; failed :: () -> s64 { nested :: () {}; nested(); return absent; } replacement :: () -> s64 { return 7; } main :: () {}".as_slice());
     let mut options = Options::host();
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![
-        crate::sema::ide::IdeRoot::under("/audit/"),
-    ])));
+    compiler.ide = Some(Box::new(IdeFacts::new(vec![IdeRoot::under("/audit/")])));
     assert!(
         compiler
             .compile_program(std::path::Path::new("/audit/main.jai"))
@@ -50,7 +53,7 @@ fn replacing_body_retries_without_source_epoch_change() {
         body: replacement.body.clone(),
     });
     compiler.lower_body(id).unwrap();
-    let Some(super::super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
+    let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
     assert!(compiler.program.funcs[func.0 as usize].is_some());
@@ -78,7 +81,7 @@ fn replacing_a_parked_body_retries_during_the_next_audit() {
         !errors.iter().any(|e| e.message.contains("absent")),
         "{errors:?}"
     );
-    let Some(super::super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
+    let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
     assert!(compiler.program.funcs[func.0 as usize].is_some());
@@ -100,7 +103,7 @@ fn adding_visible_binding_retries_without_loading_a_file() {
         false,
     );
     compiler.lower_body(id).unwrap();
-    let Some(super::super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
+    let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
     assert!(compiler.program.funcs[func.0 as usize].is_some());

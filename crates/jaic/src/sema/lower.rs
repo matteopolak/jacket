@@ -58,7 +58,7 @@ impl Operand {
         }
     }
 
-    pub(super) fn without_callable(self) -> Self {
+    pub(crate) fn without_callable(self) -> Self {
         match self {
             Self::Callable {
                 operand, ..

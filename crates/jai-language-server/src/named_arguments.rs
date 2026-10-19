@@ -1,7 +1,7 @@
 //! Named arguments are another completion source, never a replacement for expression items.
 use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
+use jaic::ide::IdeWhat;
 use jaic::parser::ide_facts::{self, CallArgument, CallSite};
-use jaic::sema::ide::IdeWhat;
 use jaic::source::FileId;
 use std::collections::BTreeMap;
 
@@ -389,7 +389,8 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jaic::sema::{Compiler, Options, VirtualFs, ide::IdeFacts};
+    use jaic::ide::IdeFacts;
+    use jaic::sema::{Compiler, Options, VirtualFs};
     use std::{path::Path, rc::Rc};
 
     #[test]
@@ -404,9 +405,9 @@ mod tests {
         options.runtime_support = false;
         options.stack_trace = false;
         let mut compiler = Compiler::new(options, Rc::new(fs));
-        compiler.ide = Some(Box::new(IdeFacts::new(vec![
-            jaic::sema::ide::IdeRoot::under("/named-safety/"),
-        ])));
+        compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+            "/named-safety/",
+        )])));
         assert!(
             compiler
                 .compile_program(Path::new("/named-safety/main.jai"))

@@ -42,7 +42,7 @@ impl Compiler {
     }
 
     /// The errors of the bodies that failed their last lenient attempt.
-    pub(in crate::sema) fn lenient_failures_list(&self) -> Vec<Diagnostic> {
+    pub(crate) fn lenient_failures_list(&self) -> Vec<Diagnostic> {
         self.lenient_failures
             .values()
             .map(|(_, e)| (**e).clone())

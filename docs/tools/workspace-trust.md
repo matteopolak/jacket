@@ -57,4 +57,4 @@ Also, in an untrusted workspace: *Run/Build/Check File* refuse (they execute com
 
 ## Dependencies
 
-`jaic` (`sema/consteval.rs`, `sema/ide.rs`, `sema/stmt.rs`, `source.rs`), `crates/jai-language-server` (`semantic.rs`, `session.rs`, `protocol.rs`, `main.rs`), VS Code's workspace trust API (1.57+).
+`jaic` (`sema/consteval.rs`, `ide.rs`, `sema/stmt.rs`, `source.rs`), `crates/jai-language-server` (`semantic.rs`, `session.rs`, `protocol.rs`, `main.rs`), VS Code's workspace trust API (1.57+).

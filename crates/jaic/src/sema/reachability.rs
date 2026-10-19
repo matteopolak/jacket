@@ -24,7 +24,7 @@ use crate::types::TypeKind;
 
 /// What an integer or bool expression can evaluate to.
 #[derive(Clone, Copy, Debug)]
-pub(super) struct AInfo {
+pub(crate) struct AInfo {
     /// The values its operands allow, before narrowing.
     pub iv: Interval,
     /// The values its type has.
@@ -162,7 +162,7 @@ impl Compiler {
     // ----- facts recorded while checking -----
 
     /// Note what the integer or bool expression `expr`, which checked to `op`, can be.
-    pub(super) fn ide_note_ainfo(&mut self, expr: &ast::Expr, op: &Operand) {
+    pub(crate) fn ide_note_ainfo(&mut self, expr: &ast::Expr, op: &Operand) {
         if self.sketching() || !self.ide_wants_pub(expr.span.file) {
             return;
         }

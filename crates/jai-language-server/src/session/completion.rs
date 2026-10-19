@@ -6,9 +6,9 @@ use crate::{
     CompletionData, CompletionItem, CompletionKind, CompletionList, DocumentUri, Error, Position,
     SymbolKind,
 };
+use jaic::ide::{IdeCall, IdeKind, IdeName};
 use jaic::lexer::Lexed;
 use jaic::parser::ide_facts::{self, CursorContext};
-use jaic::sema::ide::{IdeCall, IdeKind, IdeName};
 use jaic::source::FileId;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;

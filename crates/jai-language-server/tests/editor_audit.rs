@@ -1,5 +1,6 @@
 //! Original causal IDE audit fixtures, independent of corpus and library implementations.
-use jaic::sema::{Compiler, Options, VirtualFs, ide::IdeFacts};
+use jaic::ide::IdeFacts;
+use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
 
 fn compiler(source: &str, dependency: &str) -> Compiler {
@@ -15,9 +16,9 @@ fn compiler(source: &str, dependency: &str) -> Compiler {
     options.stack_trace = false;
     options.import_paths = vec!["/modules".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![
-        jaic::sema::ide::IdeRoot::under("/audit/"),
-    ])));
+    compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+        "/audit/",
+    )])));
     assert!(
         compiler
             .compile_program(Path::new("/audit/main.jai"))

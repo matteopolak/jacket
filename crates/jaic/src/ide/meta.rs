@@ -10,10 +10,15 @@ mod references;
 mod text;
 
 pub use self::text::dedent;
-use super::lower::Operand;
-use super::scope::EntityId;
-use super::value::ProcId;
-use super::{Compiler, FileId, ModuleId, ProcTypeParams, Rc, Span, Sym, TypeId, Value};
+use crate::intern::Sym;
+use crate::sema::lower::Operand;
+use crate::sema::scope::EntityId;
+use crate::sema::value::ProcId;
+use crate::sema::{Compiler, ModuleId, ProcTypeParams, Value};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
+use std::rc::Rc;
 
 /// Expansions kept per analysis: an edit that makes a metaprogram generate a lot stays bounded.
 const MAX_EXPANSIONS: usize = 4096;
@@ -193,7 +198,7 @@ impl Compiler {
     /// token colouring does for every call), and checking it records the facts a use of its name
     /// has. Ask for them when none were recorded at `offset` and the name there is followed by
     /// `(`: an answer must not depend on whether the colouring ran against this analysis first.
-    pub(in crate::sema) fn ide_note_callee_at(&mut self, file: FileId, offset: u32) {
+    pub(crate) fn ide_note_callee_at(&mut self, file: FileId, offset: u32) {
         if self
             .ide
             .as_ref()

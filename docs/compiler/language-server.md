@@ -89,7 +89,7 @@ Configs are read through the open buffers over the disk and cached per directory
 
 ## How to change it
 
-- **Record more facts**: add a sema hook calling an `ide_*` method guarded by `self.ide.is_some()`; keep it cheap. Name facts go in `sema/ide.rs`, call and metaprogramming facts in `ide_meta.rs`. Extend `ide_hover`/`ide_entity_hover` to show them.
+- **Record more facts**: add a sema hook calling an `ide_*` method guarded by `self.ide.is_some()`; keep it cheap. Name facts go in `ide/facts.rs`, call and metaprogramming facts in `ide/meta.rs` (module `jaic::ide`). Extend `ide_hover`/`ide_entity_hover` to show them.
 - **New hover content**: add a `hover::Block` kind with cases in `HoverText::plain` and `HoverText::markdown`.
 - **New block scope**: call `ide_scope_span`, or completion inside it sees only the enclosing scope.
 - **New expansion kind**: add an `IdeExpansionKind`, record it where the compiler evaluates it, handle it in `kind_name`, `describe`, `expansion` and `code_actions` (`features.rs`).
@@ -114,7 +114,7 @@ node tools/browser/check_scripting_wasm.mjs target/wasm32-unknown-unknown/releas
 - `JAIC_STDLIB` overrides the native stdlib directory.
 - `jacket.toml` (else the legacy `jailint.toml`, `jai.toml`): nearest above the document.
 - `initializationOptions` / `workspace/didChangeConfiguration` (`jai` section): `completion.autoImport` (default `true`), `completion.callSnippets` (`addParentheses` default, `fillArguments`, `none`), `inlayHints.closingBraceMinLines` (default 25, 0 is off), `trusted` (default `true`; `false` runs no compile-time code, see [workspace trust](../tools/workspace-trust.md)). `jailsp --untrusted` starts untrusted; the `jai/setTrusted` notification switches at runtime.
-- Constants: `semantic.rs` (`BLOCK_BUDGET`, `CACHED`, `ALTERNATES`, `PARSES_KEPT`), `auto_import.rs` (`MAX_ITEMS`, `MIN_PREFIX`; the project tree walk limits are `jaic::project::MAX_TREE_FILES` and `MAX_TREE_DEPTH`), `ide_meta.rs` (`MAX_EXPANSIONS`, `MAX_CALLS`, `MAX_VARIANTS`, `MAX_TEXT`), `features.rs` (`HINT_CHARS`).
+- Constants: `semantic.rs` (`BLOCK_BUDGET`, `CACHED`, `ALTERNATES`, `PARSES_KEPT`), `auto_import.rs` (`MAX_ITEMS`, `MIN_PREFIX`; the project tree walk limits are `jaic::project::MAX_TREE_FILES` and `MAX_TREE_DEPTH`), `ide/meta.rs` (`MAX_EXPANSIONS`, `MAX_CALLS`, `MAX_VARIANTS`, `MAX_TEXT`), `features.rs` (`HINT_CHARS`).
 - `Limits` are safety caps (512 documents, 32 MiB per document, 64 MiB per message); `Limits::browser()` is smaller. A document over a cap is not opened and the client gets a `window/showMessage`.
 - Benchmark: `python3 tools/bench/main.py lsp` ([benchmarks](../tools/benchmarks.md)).
 

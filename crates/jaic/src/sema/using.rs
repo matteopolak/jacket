@@ -8,7 +8,7 @@ use super::{
 };
 use crate::types::{ArrayKind, TypeKind};
 
-pub(super) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym> {
+pub(crate) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym> {
     let public_name = public_filter_name(name);
     match filter {
         ast::UsingFilter::Only(names) => {

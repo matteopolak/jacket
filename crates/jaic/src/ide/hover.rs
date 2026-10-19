@@ -2,9 +2,13 @@
 use super::completion::clip;
 use super::definition::IdeModuleName;
 use super::facts::{IdeFieldSite, IdeHover, IdeLayout, IdeRef, IdeWhat, same_what};
+use crate::intern::Sym;
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeId, ScopeKind};
 use crate::sema::value::ProcId;
-use crate::sema::{Compiler, FileId, Span, Sym, TypeId, value};
+use crate::sema::{Compiler, value};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::{StructId, TypeKind};
 
 impl Compiler {

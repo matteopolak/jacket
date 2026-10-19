@@ -6,9 +6,9 @@ use crate::analysis::Span;
 use crate::model::{CompletionItem, CompletionKind};
 use crate::semantic::Analysis;
 use crate::session::Session;
+use jaic::ide::IdeCall;
 use jaic::lexer::{Lexed, P, Tok, Token};
 use jaic::parser::ide_facts::MemberAt;
-use jaic::sema::ide::IdeCall;
 
 /// What accepting a procedure completion inserts (`completion.callSnippets`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -340,7 +340,7 @@ impl Analysis {
             chain.iter().map(|n| jaic::intern::Sym::intern(n)).collect();
         matches!(
             self.compiler.ide_receiver(scope, &names),
-            Some(jaic::sema::ide::IdeReceiver::Value(_))
+            Some(jaic::ide::IdeReceiver::Value(_))
         )
     }
 }

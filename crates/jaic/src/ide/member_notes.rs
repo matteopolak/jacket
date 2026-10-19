@@ -1,14 +1,19 @@
 //! Recording member uses, labels, named fields, polymorphic headers and inferred members.
 use super::facts::{IdeName, IdeReceiver, IdeRef, IdeWhat};
+use crate::ast;
+use crate::intern::Sym;
+use crate::sema::Compiler;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityId, EntityKind, ScopeId};
 use crate::sema::value::ProcId;
-use crate::sema::{Compiler, FileId, Span, Sym, TypeId, ast};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::{StructId, TypeKind};
 
 impl Compiler {
     /// `b` of `a.b` was checked with `a` being `base`.
-    pub(in crate::sema) fn ide_note_receiver(&mut self, span: Span, base: &Operand) {
+    pub(crate) fn ide_note_receiver(&mut self, span: Span, base: &Operand) {
         if matches!(
             base,
             Operand::Type(_) | Operand::Module(_) | Operand::Procs(_)
@@ -108,7 +113,7 @@ impl Compiler {
 
     /// `name` at `span` named a member of `ty` (a field through `a.name`, `T.{ name = v }`, an
     /// enum member through `Enum.NAME` or `.NAME`).
-    pub(in crate::sema) fn ide_note_member_use(&mut self, span: Span, ty: TypeId, name: Sym) {
+    pub(crate) fn ide_note_member_use(&mut self, span: Span, ty: TypeId, name: Sym) {
         if self.ide.is_none() || !self.ide_wants(span.file) {
             return;
         }
@@ -121,7 +126,7 @@ impl Compiler {
     }
 
     /// The label of `break label` / `continue label`: the loop's name, an entity in `scope`.
-    pub(in crate::sema) fn ide_note_label(&mut self, scope: ScopeId, label: ast::Ident) {
+    pub(crate) fn ide_note_label(&mut self, scope: ScopeId, label: ast::Ident) {
         if !self.ide_wants(label.span.file) {
             return;
         }
@@ -151,13 +156,7 @@ impl Compiler {
     }
 
     /// `name` at `span` names an authored member/parameter declaration at `decl`.
-    pub(in crate::sema) fn ide_note_named_field(
-        &mut self,
-        span: Span,
-        name: Sym,
-        decl: Span,
-        ty: TypeId,
-    ) {
+    pub(crate) fn ide_note_named_field(&mut self, span: Span, name: Sym, decl: Span, ty: TypeId) {
         if !self.ide_wants(span.file) {
             return;
         }
@@ -170,7 +169,7 @@ impl Compiler {
 
     /// The name of a procedure type's parameter (`#type (a: int)`), once however often the
     /// type is evaluated.
-    pub(in crate::sema) fn ide_note_param_name(&mut self, span: Span, name: Sym, ty: TypeId) {
+    pub(crate) fn ide_note_param_name(&mut self, span: Span, name: Sym, ty: TypeId) {
         if self
             .ide
             .as_mut()
@@ -182,7 +181,7 @@ impl Compiler {
 
     /// Named arguments of a successfully selected struct instance. Its bound constants
     /// supply the actual parameter types, including dependent and baked parameters.
-    pub(in crate::sema) fn ide_note_struct_arguments(&mut self, ty: TypeId, args: &[ast::Arg]) {
+    pub(crate) fn ide_note_struct_arguments(&mut self, ty: TypeId, args: &[ast::Arg]) {
         if self.ide.is_none() {
             return;
         }
@@ -220,7 +219,7 @@ impl Compiler {
 
     /// `name` at `span` names a member of type `ty` where nothing else records it for hover
     /// (a field of a struct literal).
-    pub(in crate::sema) fn ide_note_member_ref(&mut self, span: Span, name: Sym, ty: TypeId) {
+    pub(crate) fn ide_note_member_ref(&mut self, span: Span, name: Sym, ty: TypeId) {
         if self.ide.is_none() || !self.ide_wants(span.file) {
             return;
         }
@@ -236,7 +235,7 @@ impl Compiler {
 
     /// The `$T` binders of a procedure header: each name with the span of the name after the
     /// `$` (its first binder when there are several).
-    pub(in crate::sema) fn poly_binders(&self, header: &ast::ProcHeader) -> Vec<(Sym, Span)> {
+    pub(crate) fn poly_binders(&self, header: &ast::ProcHeader) -> Vec<(Sym, Span)> {
         let mut out: Vec<(Sym, Span)> = Vec::new();
         for_header_types(header, &mut |e| {
             if let ast::ExprKind::PolyVar {
@@ -268,7 +267,7 @@ impl Compiler {
     /// The header of a polymorphic procedure was instantiated with `bound` (each `$T` and the
     /// constant it became): its `$T`s and `T`s name those constants, and the name of a
     /// restriction (`$T/Ring`) is looked up in `scope`.
-    pub(in crate::sema) fn ide_note_poly_header(
+    pub(crate) fn ide_note_poly_header(
         &mut self,
         header: &ast::ProcHeader,
         bound: &[(Sym, EntityId)],
@@ -321,7 +320,7 @@ impl Compiler {
 
     /// A polymorphic procedure or macro nothing used is not checked: still name the types
     /// its header mentions.
-    pub(in crate::sema) fn ide_note_unchecked_header(&mut self, id: ProcId) {
+    pub(crate) fn ide_note_unchecked_header(&mut self, id: ProcId) {
         let p = self.proc(id);
         if p.instances.is_empty() {
             let (header, scope) = (p.lit.header.clone(), p.scope);
@@ -357,7 +356,7 @@ impl Compiler {
     /// A call nothing accepts (typically one being typed, with arguments missing): record the
     /// types its candidates take where an argument is an inferred `.NAME`, so completion can
     /// still list the enum's members.
-    pub(in crate::sema) fn ide_note_unmatched_inferred(
+    pub(crate) fn ide_note_unmatched_inferred(
         &mut self,
         procs: &[ProcId],
         args: &[crate::sema::calls::CallArg],
@@ -410,12 +409,7 @@ impl Compiler {
     }
 
     /// An enum member's declaration.
-    pub(in crate::sema) fn ide_note_enum_member(
-        &mut self,
-        e: crate::types::EnumId,
-        name: Sym,
-        span: Span,
-    ) {
+    pub(crate) fn ide_note_enum_member(&mut self, e: crate::types::EnumId, name: Sym, span: Span) {
         if self.ide.is_none() {
             return;
         }
@@ -445,9 +439,9 @@ impl Compiler {
 }
 
 /// Every expression of the parameter and return types of `header`, outermost first.
-pub(in crate::sema) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast::Expr)) {
+pub(crate) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast::Expr)) {
     fn walk(e: &ast::Expr, f: &mut dyn FnMut(&ast::Expr)) {
-        use ast::ExprKind as E;
+        use crate::ast::ExprKind as E;
         f(e);
         match &e.kind {
             E::Unary(_, x) => walk(x, f),
@@ -489,7 +483,7 @@ pub(in crate::sema) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn Fn
 
 /// Does a condition mention `OS` or `CPU`?
 pub(super) fn names_target(expr: &ast::Expr) -> bool {
-    use ast::ExprKind as E;
+    use crate::ast::ExprKind as E;
     match &expr.kind {
         E::Ident(name) => matches!(name.as_str(), "OS" | "CPU"),
         E::Binary(_, a, b) => names_target(a) || names_target(b),

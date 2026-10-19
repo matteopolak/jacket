@@ -1,9 +1,13 @@
 //! References, member queries and polymorphic bindings.
 use super::{IdeMembers, Target};
-use crate::sema::ide::IdeWhat;
+use crate::ide::IdeWhat;
+use crate::intern::Sym;
 use crate::sema::scope::{EntityId, EntityKind};
 use crate::sema::value::ProcId;
-use crate::sema::{Compiler, FileId, Span, Sym, TypeId, Value};
+use crate::sema::{Compiler, Value};
+use crate::source::FileId;
+use crate::source::Span;
+use crate::types::TypeId;
 use crate::types::TypeKind;
 
 impl Compiler {

@@ -1,9 +1,18 @@
 //! What an editor analysis records: references, hovers, layouts and the indexes over them.
+use crate::ast;
+use crate::fxhash::HashMap;
+use crate::fxhash::HashSet;
+use crate::intern::Sym;
+use crate::sema::ModuleId;
 use crate::sema::scope::{EntityId, ScopeId};
 use crate::sema::value::ProcId;
-use crate::sema::{Diagnostic, FileId, HashMap, HashSet, ModuleId, Rc, Span, Sym, TypeId, ast};
+use crate::source::Diagnostic;
+use crate::source::FileId;
+use crate::source::Span;
 use crate::types::StructId;
+use crate::types::TypeId;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 /// Lengths of `IdeFacts::refs`, `Compiler::entities` and `Compiler::procs` at a point.
 #[derive(Clone, Copy, Debug)]
@@ -62,66 +71,65 @@ pub struct IdeFacts {
     pub(super) wanted: HashMap<FileId, bool>,
     /// The exact body associated with an IDE-final lenient failure. Replacing a
     /// procedure's AST invalidates that failure even without another source load.
-    pub(in crate::sema) failed_body_lits: HashMap<ProcId, Rc<ast::ProcLit>>,
+    pub(crate) failed_body_lits: HashMap<ProcId, Rc<ast::ProcLit>>,
     pub refs: Vec<IdeRef>,
     /// Static filter selectors may denote an entire exported overload set.
     pub(super) filter_targets: HashMap<Span, Vec<EntityId>>,
     pub scopes: Vec<(Span, ScopeId)>,
-    /// What `#insert`, `#run`, `#if` and macro calls produced (see `ide_meta`).
-    pub expansions: Vec<crate::sema::ide_meta::IdeExpansion>,
+    /// What `#insert`, `#run`, `#if` and macro calls produced (see `ide::meta`).
+    pub expansions: Vec<crate::ide::meta::IdeExpansion>,
     /// Position in `expansions` of each (span, kind), so recording one is not a scan.
-    pub(in crate::sema) expansion_index:
-        HashMap<(Span, crate::sema::ide_meta::IdeExpansionKind), usize>,
+    pub(crate) expansion_index: HashMap<(Span, crate::ide::meta::IdeExpansionKind), usize>,
     /// Calls and the procedure and parameters they resolved to.
-    pub calls: Vec<crate::sema::ide_meta::IdeCall>,
-    pub(in crate::sema) call_spans: HashSet<Span>,
+    pub calls: Vec<crate::ide::meta::IdeCall>,
+    pub(crate) call_spans: HashSet<Span>,
     /// The procedure each direct call expression resolved to, in any file (`None`: checks of it
     /// disagreed, as instances of a polymorphic procedure can). See `never_returns.rs`.
-    pub(in crate::sema) callees: HashMap<Span, Option<ProcId>>,
+    pub(crate) callees: HashMap<Span, Option<ProcId>>,
     /// Procedures whose body expanded a macro that returns from its caller.
-    pub(in crate::sema) macro_returners: HashSet<ProcId>,
+    pub(crate) macro_returners: HashSet<ProcId>,
     /// Actual custom-iteration selections per keyword, across real instantiations.
     /// `None` means an ambiguous selection; sketches never populate this map.
-    pub(in crate::sema) for_expansions: HashMap<Span, Option<Vec<ProcId>>>,
+    pub(crate) for_expansions: HashMap<Span, Option<Vec<ProcId>>>,
     /// The implicit `it` and `it_index` of loops that name neither, by the start of the iterated
     /// expression, with their types. `None`: instances of the loop disagree.
-    pub(in crate::sema) implicit_loop_names: HashMap<Span, Option<Vec<(&'static str, TypeId)>>>,
+    pub(crate) implicit_loop_names: HashMap<Span, Option<Vec<(&'static str, TypeId)>>>,
     /// The compile-time output channel, to tell what each `#run` printed.
     pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
     /// Entity the named expression being checked resolved to (set by identifier
     /// lookup or explicit module-member lookup, after resolving its operand).
-    pub(in crate::sema) last_entity: Option<(Span, EntityId)>,
+    pub(crate) last_entity: Option<(Span, EntityId)>,
     /// Field the identifier being checked reached through a `using` (set by `check_ident`).
-    pub(in crate::sema) last_using_member: Option<Sym>,
+    pub(crate) last_using_member: Option<Sym>,
     /// Names of a type that is neither a struct nor an enum (a polymorph's `T`, an alias of a
     /// builtin): the constant each resolved to, for go to definition.
-    pub(in crate::sema) type_names: HashMap<Span, EntityId>,
+    pub(crate) type_names: HashMap<Span, EntityId>,
     /// Procedure type parameter names already recorded.
-    pub(in crate::sema) param_names: HashSet<Span>,
+    pub(crate) param_names: HashSet<Span>,
     /// Where `ide_sketch_polymorphs` began: the refs, entities and procedures from there on
     /// come from sketches with stand-in types, which lints skip.
     pub sketch_from: Option<SketchMark>,
     /// The stand-in types of sketches: anything may be done with a value of one (see
     /// `ide_sketch`).
-    pub(in crate::sema) stand_ins: HashSet<TypeId>,
+    pub(crate) stand_ins: HashSet<TypeId>,
     /// The stand-in for member `name` of stand-in type `t`.
-    pub(in crate::sema) stand_in_members: HashMap<(TypeId, Sym), TypeId>,
+    pub(crate) stand_in_members: HashMap<(TypeId, Sym), TypeId>,
     /// Macros (and instances of polymorphic ones) that were expanded somewhere.
-    pub(in crate::sema) expanded_macros: HashSet<ProcId>,
+    pub(crate) expanded_macros: HashSet<ProcId>,
     /// The sketch's own instance is being made, which binds stand-ins.
-    pub(in crate::sema) sketch_root: bool,
+    pub(crate) sketch_root: bool,
     /// A sketch is being checked: an expression that fails on a stand-in becomes one.
-    pub(in crate::sema) sketching: bool,
+    pub(crate) sketching: bool,
     /// The type of each expression the current sketch checked.
-    pub(in crate::sema) sketch_types: HashMap<Span, TypeId>,
+    pub(crate) sketch_types: HashMap<Span, TypeId>,
     /// Each expression the current sketch began to check, failed or not.
-    pub(in crate::sema) sketch_tried: HashSet<Span>,
+    pub(crate) sketch_tried: HashSet<Span>,
     /// Expressions whose check failed and has not succeeded since: the recovery of an enclosing
     /// expression does not check them again (a chain of `n` failing operators would take `2^n`).
-    pub(in crate::sema) failed_exprs: HashSet<Span>,
+    pub(crate) failed_exprs: HashSet<Span>,
     /// Instances a sketch made with stand-ins for a call's types: only their signatures are
     /// needed, so their bodies are never checked (a body would call on, without end).
-    pub(in crate::sema) sketch_signatures: HashSet<ProcId>,
+    pub(crate) sketch_signatures: HashSet<ProcId>,
     /// The code an `#if` on `OS` or `CPU` did not take: another target's compile has its facts.
     pub skipped: Vec<Span>,
     /// The branch of each `#if` and `ifx` of the recorded files, and whether any evaluation
@@ -129,11 +137,11 @@ pub struct IdeFacts {
     pub static_branches: HashMap<Span, bool>,
     /// What each checked integer or bool expression of the recorded files can evaluate to
     /// (see `reachability.rs`), for the last evaluation of it.
-    pub(in crate::sema) ainfo: HashMap<Span, crate::sema::reachability::AInfo>,
+    pub(crate) ainfo: HashMap<Span, crate::sema::reachability::AInfo>,
     /// Where each local was assigned.
-    pub(in crate::sema) assigned: HashMap<EntityId, Vec<Span>>,
+    pub(crate) assigned: HashMap<EntityId, Vec<Span>>,
     /// Locals whose address was taken, or that a macro may write.
-    pub(in crate::sema) addr_taken: HashSet<EntityId>,
+    pub(crate) addr_taken: HashSet<EntityId>,
     /// How many times each procedure body (by span) was analysed for reachability, and for
     /// each run of dead code (body, run) how many of those found it dead.
     pub body_evals: HashMap<Span, u32>,
@@ -178,10 +186,10 @@ pub struct IdeFacts {
     /// but must not be executed by compile-time code after malformed statements vanish.
     pub parse_errors: Vec<Diagnostic>,
     /// Where each enum member's name is declared.
-    pub(in crate::sema) enum_decls: HashMap<(crate::types::EnumId, Sym), Span>,
+    pub(crate) enum_decls: HashMap<(crate::types::EnumId, Sym), Span>,
     /// The types an inferred member (`.NAME`) of the recorded files was expected to have, by
     /// the name's span. Recorded whether or not the name exists, for completion.
-    pub(in crate::sema) inferred_expected: HashMap<Span, Vec<TypeId>>,
+    pub(crate) inferred_expected: HashMap<Span, Vec<TypeId>>,
 }
 
 /// Where a declared field lives: `field` of `declaring`, at `offset` in `owner` (a struct

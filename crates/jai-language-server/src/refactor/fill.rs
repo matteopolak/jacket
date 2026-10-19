@@ -104,7 +104,7 @@ impl Cx<'_> {
     }
 
     /// The members of the enum or struct at `at`.
-    fn members(&self, at: usize, as_type: bool) -> Option<jaic::sema::ide_meta::IdeMembers> {
+    fn members(&self, at: usize, as_type: bool) -> Option<jaic::ide::meta::IdeMembers> {
         self.session
             .checked(self.uri, |a, f| {
                 a.compiler.ide_members_at(f, at as u32, as_type)

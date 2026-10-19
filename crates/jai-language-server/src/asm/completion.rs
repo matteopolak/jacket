@@ -3,12 +3,12 @@
 use super::{SUFFIXES, Slot, instruction_item, locate, registers, simple, slot};
 use crate::session::{Session, contains};
 use crate::{CompletionItem, CompletionKind, CompletionList, DocumentUri, SymbolKind};
+use jaic::ide::{IdeKind, IdeName};
 use jaic::lexer::{P, Tok};
 use jaic::parser::asm_ide::{
     AsmBlockSyntax, AsmPlace, asm_blocks, parse_asm_statement, word_range,
 };
 use jaic::sema::asm_catalog as catalog;
-use jaic::sema::ide::{IdeKind, IdeName};
 use jaic::source::FileId;
 use std::collections::BTreeMap;
 
