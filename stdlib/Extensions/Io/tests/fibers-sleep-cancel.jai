@@ -30,7 +30,7 @@ test_sleep_order :: () {
     started := current_time_monotonic();
 
     // Spawned out of order; they must wake in order of their deadlines.
-    delays := int.[60, 20, 100, 40, 80, 10, 30, 70, 50, 90];
+    delays := int.[180, 60, 300, 120, 240, 30, 90, 210, 150, 270];
 
     Io.add(*group, delays.count);
     for delays Io.spawn(sleeper, it);
@@ -48,13 +48,15 @@ test_sleep_order :: () {
 
     elapsed := (end_ns - start_ns) / 1_000_000;
 
-    assert(elapsed >= 100, "everything ended after % ms", elapsed);
+    assert(elapsed >= 300, "everything ended after % ms", elapsed);
     assert(elapsed < 1500, "sleeping fibers overlap: % ms", elapsed);
 
     // The sleeper reads the clock just before `Io.sleep` reads it again, so its recorded deadline
-    // can trail the scheduler's by the time between the two reads. Two sleeps whose deadlines fall
-    // that close may wake either way round, so a smaller gap is not a misorder.
-    CLOCK_SKEW_NS :: 2_000_000;
+    // can trail the scheduler's by the time between the two reads, which includes any preemption
+    // of the thread (a whole scheduler quantum on a busy Windows machine). Two sleeps whose
+    // deadlines fall that close may wake either way round, so a smaller gap is not a misorder; the
+    // delays are spaced well beyond it.
+    CLOCK_SKEW_NS :: 20_000_000;
 
     for 1..wake_deadlines.count - 1 {
         if wake_deadlines[it] < wake_deadlines[it - 1] - CLOCK_SKEW_NS {
