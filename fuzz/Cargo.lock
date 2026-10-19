@@ -152,6 +152,7 @@ dependencies = [
 name = "jaic"
 version = "0.20.0"
 dependencies = [
+ "find-msvc-tools",
  "rayon",
 ]
 

@@ -299,13 +299,17 @@ fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String>
         cmd.arg(format!("--target={triple}"));
         (program, cmd)
     };
-    let with_lib = |program: &Path, lib: Option<std::ffi::OsString>| {
+    let with_env = |program: &Path, env: Vec<(std::ffi::OsString, std::ffi::OsString)>| {
         let program = program.to_string_lossy().into_owned();
         let mut cmd = Command::new(&program);
-        if let Some(lib) = lib {
-            cmd.env("LIB", lib);
-        }
+        cmd.envs(env);
         (program, cmd)
+    };
+    let with_lib = |program: &Path, lib: Option<std::ffi::OsString>| {
+        with_env(
+            program,
+            lib.map(|lib| ("LIB".into(), lib)).into_iter().collect(),
+        )
     };
     if let Some(program) = find_program(&["clang"]) {
         return Ok(clang(program));
@@ -324,7 +328,7 @@ fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String>
         return Ok(clang(program.to_string_lossy().into_owned()));
     }
     if let Some(tool) = msvc::find_tool("link.exe", arch) {
-        return Ok(with_lib(&tool.program, tool.lib));
+        return Ok(with_env(&tool.program, tool.env));
     }
     let mut message = String::from("no MSVC linker found to link for Windows");
     for program in skipped {
