@@ -20,7 +20,7 @@
 | `vscode` | ubuntu | `vsix`: the release's `jacket-vscode-<editor version>.vsix` is verified against `SHA256SUMS`, its `package.json` version matches the file name, it holds the bundle and grammar, and any archive checksums pinned in the bundle are exactly the release's. `vsix-store`: Open VSX serves the same version (retried for five minutes, since it can lag) |
 | `neovim` | ubuntu | the newest tag of the published `matteopolak/jacket.nvim` mirror, run in a pinned headless Neovim: `tools/ci/release_smoke.lua` calls the plugin's own `jai.install` with its stamped version and pinned checksums, then the `project` check runs on the result. A plugin stamped for another toolchain version is skipped with a notice |
 
-`release.yml` runs the same `project` check on each archive it builds, before upload, so the first install of a release is not its first test.
+`release.yml` runs the same `project` check on each archive it builds, before upload, so the first install of a release is not its first test. It also fails a package whose `native-libs/<platform>` lacks a library the stdlib binds (`tools/ci/check_native_libs.py`) and builds and runs small programs against the shipped libraries (Simp, `Sound_Player`, FreeType, ImGui, MojoShader, `rpmalloc`, the Linux clipboard), `-interp` and as executables; a new native module should get one there ([releases](releases.md)).
 
 The PowerShell installer's own tests (`tools/ci/test_install_ps1.ps1`: stub archives, upgrade, a damaged download, and the shared `tests/installers/vectors.json` checksum cases) run in the `install-ps1` job of `ci.yml` under Windows PowerShell 5.1 and PowerShell 7, whenever `install.ps1`, `packaging/` or the installer tests change and on the nightly run.
 

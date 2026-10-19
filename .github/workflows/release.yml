@@ -296,6 +296,11 @@ jobs:
           python3 tools/native/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
           unset MACOSX_DEPLOYMENT_TARGET
           ls -l "$dir/native-libs/${{ matrix.name }}"
+          # Every library the packaged stdlib binds is either in the archive, built into jaic, or
+          # the system's on purpose (the audio output, clipboard and allocator libraries once
+          # went missing from all six archives).
+          python3 tools/ci/check_native_libs.py --stdlib "$dir/stdlib" --platform "${{ matrix.name }}" \
+            --native "$dir/native-libs/${{ matrix.name }}"
           # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
           # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
           "$dir/jaic$exe" jaifmt/main.jai -O2 -no_debug_info -exe "$dir/jaifmt"
@@ -386,7 +391,8 @@ jobs:
           # The other shipped libraries, with the stdlib's own runtime tests: FreeType (a BDF font
           # in memory), Dear ImGui (frames with no window), MojoShader (bytecode to GLSL), and on
           # Windows x64 SDL2 (its import library and DLL from the official release).
-          libs=(stdlib/freetype/tests/bdf-glyph.jai stdlib/ImGui/tests/headless-frames.jai stdlib/MojoShader/tests/translate.jai)
+          # Sound_Player's own device test also runs without a device (jai_audio_output).
+          libs=(stdlib/freetype/tests/bdf-glyph.jai stdlib/ImGui/tests/headless-frames.jai stdlib/MojoShader/tests/translate.jai stdlib/Sound_Player/tests/device-lifecycle.jai)
           if [ "${{ matrix.name }}" = "windows-x64" ]; then libs+=(stdlib/SDL/tests/geometry-timer.jai); fi
           for lib_path in "${libs[@]}"; do
             lib_test=$(basename "$lib_path" .jai)
@@ -401,6 +407,20 @@ jobs:
               "./$lib_test$exe"
             fi
           done
+          # The allocator (rpmalloc and the callback context it binds; macOS and Linux) and, on
+          # Linux, the X11 clipboard library, which needs a display to run, so it is only linked.
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            cp "$GITHUB_WORKSPACE/tools/ci/native-smoke/rpmalloc.jai" rpmalloc-smoke.jai
+            "$jaic" rpmalloc-smoke.jai -interp
+            if [ -n "${{ matrix.llvm }}" ]; then
+              "$jaic" rpmalloc-smoke.jai -exe rpmalloc-smoke
+              ./rpmalloc-smoke
+            fi
+          fi
+          if [ "$RUNNER_OS" = "Linux" ] && [ -n "${{ matrix.llvm }}" ]; then
+            cp "$GITHUB_WORKSPACE/tools/ci/native-smoke/clipboard.jai" clipboard-link.jai
+            "$jaic" clipboard-link.jai -exe clipboard-link
+          fi
           # Windows without Clang on PATH, where Git's coreutils `link` is in /usr/bin: jaic
           # skips it and links with Visual Studio's link.exe (0.4.2: `link: extra operand`).
           if [ "$RUNNER_OS" = "Windows" ]; then
