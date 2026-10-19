@@ -1,0 +1,254 @@
+#asm lea source must be a bracketed address expression
+#asm operand of type `{}` is not a scalar
+#asm register argument is nested too deeply
+#caller_code did not produce Code
+#caller_code is only valid as a parameter default
+#insert in an enum body needs a string
+#load is only allowed at file scope
+#modify rejected the arguments to {}{}
+#overlay needs a field name
+#overlay needs a following stored member
+#place needs a field name
+#poke_name needs a module
+#poke_name takes a module and a name
+#run,host cannot transfer a procedure or foreign storage address
+#run,host cannot transfer this result across workspaces
+#run,host must return a built-in primitive, string or primitive array
+#this used outside of a struct or procedure
+Context has no member `{}`
+PROGRAM parameters may only be supplied by the main program of this workspace
+Preload does not define `{}`
+Preload does not define {}
+Preload's `Source_Code_Location` has no `{}`
+Preload's `{}` is not a type
+`#overlay` is only allowed in a struct body
+`${}` must be given a type
+`,,` context arguments need a context (not in #c_call code)
+`---` is only allowed as a declaration initializer
+`__arithmetic_overflow` is not a procedure
+`__arithmetic_overflow` must be defined in Jai
+`main` is declared, but no entry point calls it (is Runtime_Support loaded?)
+`offset_of` takes `(Type, "member")` or `Type.member`
+`{}` cannot be masked
+`{}` cannot take the lock_ prefix
+`{}` compares a memory operand ([ptr])
+`{}` does not take an immediate
+`{}` has no parameter `{}`
+`{}` is a #placeholder that was never defined
+`{}` is a builtin procedure without a declaration
+`{}` is behind a using pointer and has no inline storage offset
+`{}` is not a library
+`{}` is not a member of {}
+`{}` is not a type
+`{}` moves between a register and memory
+`{}` must have a body
+`{}` must not take parameters
+`{}` needs a constant type, but this is a `Type` variable
+`{}` needs a mask (&k)
+`{}` needs a mask: a vector or &k
+`{}` needs a vector register operand
+`{}` needs a vector-indexed memory operand ([base + vindex*scale])
+`{}` needs an 8-bit control constant
+`{}` needs an element size (.b/.w/.d/.q)
+`{}` needs float lanes
+`{}` needs mask register operands
+`{}` needs operands
+`{}` needs source and destination sizes (for example movzxbw)
+`{}` reads a mask register
+`{}` requires Preload
+`{}` takes 2 operands
+`{}` takes 3 operands
+`{}` takes 3 operands (hi, lo, divisor)
+`{}` takes [base + vindex*scale] &mask, src
+`{}` takes a memory operand
+`{}` takes an 8-bit immediate count
+`{}` takes dst, [src,] integer
+`{}` takes dst, [src,] value, imm8
+`{}` takes dst, src
+`{}` takes dst, src, imm8
+`{}` takes dst, src, wk (the implicit xmm0 as an operand)
+`{}` takes the operands {}{}
+`{}` takes {} operand(s), found {}
+`{}` takes {} operands
+`{}` takes {} to {} operands, found {}
+`{}` was given an unknown memory order
+a C variadic parameter must be the last runtime parameter
+a Jai variadic pack requires an array-view parameter
+a SIMD register operand cannot be loaded as a scalar; extract a lane in #asm
+a SIMD register operand has no standalone storage or runtime ABI; use #asm and expanded parameters
+a block used as a value must end in an expression
+a computed using filter must be an array of strings
+a computed using filter must contain strings
+a hex float bit pattern requires 4, 8 or 16 hex digits
+a lambda cannot be passed as {}
+a library is not a value
+a literal field target must be a member or index path
+a mask register is only valid in mask (k*) and AVX-512 instructions
+a masked instruction needs a vector destination
+a module is not a value
+a module parameter must bind a constant
+a register pin is only valid as a separate statement
+a runtime spread cannot determine a C variadic ABI
+a vector index scale must be 1, 2, 4 or 8
+ambiguous overloaded procedure used as a value
+an #asm operand must be a variable
+an #asm operand must be a variable or a constant
+an atomic load cannot use release or acq_rel ordering
+an atomic operation requires a pointer to an atomic scalar
+an atomic scalar must be an integer, enum, bool, float, pointer or procedure of 1, 2, 4 or 8 bytes
+an atomic store cannot use acquire or acq_rel ordering
+an immediate cannot be the destination of an #asm instruction
+an interface restriction must name a struct contract
+an isolated #run,host procedure must take no arguments
+argument `{}` conflicts with the configured runtime instance
+argument `{}` is not a parameter of this module
+argument cannot be inferred as parameter type {}
+argument for `${}` must be a compile-time constant
+argument {} supplied more than once
+array kind mismatch with {}
+array size must be a non-negative constant, found {}
+array type {} is too large (the limit is {} bytes)
+assignment needs a value
+baked spread pointer overflow
+bootstrap __reg must be a type
+builtin needs an argument
+builtin procedure is not a value
+cannot bake an unnamed parameter
+cannot call `{}` without a context (use push_context in #c_call code)
+cannot call type {}
+cannot cast {} to {}
+cannot convert {} to {}
+cannot dereference a value of type {}
+cannot infer `.{}` for type {}
+cannot use `using` on {}
+cannot use a struct literal for type {}
+circular dependency while resolving `{}`
+compare-exchange failure ordering cannot be stronger than success ordering
+conflicting types for `${}`: {} and {}
+could not parse inserted enum members
+could not parse inserted expression
+cpuid operands must be 32- or 64-bit integer registers
+cpuid requires an x86-64 target
+crc32q takes an 8- or 64-bit source
+directive `#{}` is not supported in this position
+expected a call after the bake directive
+expected a constant integer, found {}
+expected a constant, found {}
+expected a general-purpose register or memory destination
+expected a general-purpose register or memory operand
+expected a mask register
+expected a name, or a variable's member, index or dereference
+expected a statement body before the next sibling declaration
+expected a vector register or memory operand
+expected an 8-bit immediate as the last operand
+expected an 8-bit immediate operand
+expected an array, found {}
+expected digits after numeric prefix
+expected hex digits in escape
+expected three decimal digits after \\d
+expected {} values, found {}
+field needs a type
+fixed array has no member `{}`
+generic declaration metadata is unavailable
+generic parameter `{}` has no concrete binding
+global needs a type or initializer
+immediate {} does not fit in {} bits (no matching instruction form)
+interface constraint requires a concrete type binding
+internal: local `{}` resolved as a declaration
+internal: signature/parameter mismatch
+invalid operand sizes in `{}`
+invalid unicode escape
+invalid using target
+lambda has the wrong number of parameters
+lambda takes {} parameters, but {} expects {}
+library directive needs a name
+library name must be a string literal
+macro `{}` cannot be used as a procedure value
+macro has no body
+missing destination operand
+missing polymorphic struct parameter binding
+missing value
+module `{}` has no exported member `{}`
+multiple placeholder definitions must form a procedure overload set
+named return values need a procedure
+no #asm instruction form with a {}-bit operand
+no `{}` is visible for iterating over {}
+no field named `{}` in this struct
+no main module
+no main module to add sources to
+no operator overload matches
+no overload of `{}` matches these arguments
+no procedure matches this call
+no return value named `{}`
+nondefault temporary_storage_size requires the target runtime to consume TEMPORARY_STORAGE_SIZE or the private runtime configuration getter
+only 'int 3' is supported (software interrupts have no meaning outside the OS)
+only a Code expression has a type
+operator *[] must return a pointer
+overlay target offset is too large
+parameter needs a type
+private interpreter assertion handler must be defined in Jai
+private interpreter assertion handler must have an ordinary Jai body for native execution
+private interpreter assertion handler requires (Source_Code_Location, string) -> bool with Jai context
+private native check reporter must be defined in Jai
+private native check reporter must take (s64, s64, s64, bool, s64, *u8), return nothing, and have no context
+rdtsc requires an x86-64 target
+result needs a type
+retained runtime configuration dependency has no target image
+return value has no name to assign
+runtime defines multiple private extensions `{}`
+signature of `{}` depends on itself
+signedness mismatch: the constant {} does not fit in `{}`
+strings can only be compared with == and !=
+struct `{}` contains itself (use a pointer)
+target TEMPORARY_STORAGE_SIZE was bound to {}, but the final workspace temporary_storage_size is {}
+the argument has no value
+the failure ordering of a compare-exchange cannot be release or acq_rel
+the member name of `offset_of` must be a constant string
+the operands of `{}` must be registers
+the scale of a memory operand must be a constant
+the size after `?` must be a type or a number of bits
+this expression has no value, so it cannot be a constant's value
+this field target cannot be assigned
+too many return values
+too many return values (procedure returns {})
+too many values for {}
+two procedures with this name have identical parameter types
+type {} has no constant member `{}`
+types can only be compared with == and !=
+unbalanced runtime configuration dependency capture
+unexpected character `{}`
+unexpected expression in struct body
+union tag needs a type
+unknown #asm register class `{}`
+unknown polymorphic struct parameter
+unknown vector size suffix `.{}`
+unreadable using filter count
+unreadable using filter data
+unsupported constant in an #asm operand
+unterminated `#asm` block
+using filter address overflow
+using filter array is too large
+using filter element is not a string
+using filter excludes `{}`
+using mapper changed the number of member names
+using mapper must be a single compile-time procedure
+using mapper requires an aggregate
+using member name is not UTF-8
+using,map requires an aggregate member target; module mapping is not supported
+void value used
+xgetbv operands must be 32- or 64-bit integer registers
+xgetbv requires an x86-64 target
+{} cache operation is not implemented
+{} does not satisfy interface {}: expected a struct
+{} does not satisfy interface {}: incompatible member `{}`
+{} does not satisfy interface {}: missing member `{}`
+{} does not satisfy interface {}: missing or incompatible field `{}`
+{} does not satisfy the restriction `{}`
+{} is not a procedure type
+{} is not a type
+{} is not an instance of `{}`
+{} is not an instance of this struct
+{} outputs must be 32- or 64-bit integer registers
+{} requires a 16-, 32- or 64-bit integer register destination
+{} requires no arguments and one 64-bit integer result
+{}: {}

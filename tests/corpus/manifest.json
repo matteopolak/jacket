@@ -3398,6 +3398,84 @@
       "negative": {
         "check": "could not infer polymorphic type `$T`"
       }
+    },
+    {
+      "id": "call-non-callable",
+      "source": "negative/call-non-callable.jai",
+      "sha256": "c20b0983e73f7f00768ed6b98d75294cc24c0c07f248414be5b35008a6f1b26c",
+      "suite": "negative",
+      "feature": "call-non-callable",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot call a value of type s64"
+      }
+    },
+    {
+      "id": "index-non-indexable",
+      "source": "negative/index-non-indexable.jai",
+      "sha256": "a4b7545776e7c5689d16baf50b24a624a77531c91c343327da0f84e82426f6aa",
+      "suite": "negative",
+      "feature": "index-non-indexable",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot index a value of type s64"
+      }
+    },
+    {
+      "id": "case-outside-switch",
+      "source": "negative/case-outside-switch.jai",
+      "sha256": "77ceaffdee1e4b1a5c100113b4e356af270f932485e8f81852b8626657189cb1",
+      "suite": "negative",
+      "feature": "case-outside-switch",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`case` outside of a switch"
+      }
+    },
+    {
+      "id": "untyped-struct-literal",
+      "source": "negative/untyped-struct-literal.jai",
+      "sha256": "5cd5833d787e243569b21f34da117a9aa8bb5470dcfaf8a1229ee3e9446bb370",
+      "suite": "negative",
+      "feature": "untyped-struct-literal",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot infer the type of `.{...}` here"
+      }
+    },
+    {
+      "id": "array-index-float",
+      "source": "negative/array-index-float.jai",
+      "sha256": "9cd611490481d2105b1e1c70e4f6bd5167759df9226400fe36bce31f42404742",
+      "suite": "negative",
+      "feature": "array-index-float",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "array index must be an integer, found float32"
+      }
+    },
+    {
+      "id": "iterate-integer-value",
+      "source": "negative/iterate-integer-value.jai",
+      "sha256": "79d05854e1fb97d4ff7da410ab38261093be284535dd66a87f775035a3e9557b",
+      "suite": "negative",
+      "feature": "iterate-integer-value",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot iterate over a value of type s64"
+      }
     }
   ]
 }

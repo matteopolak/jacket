@@ -36,6 +36,8 @@ Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full swee
 
 Output must not depend on threads or hash order: [determinism checks](determinism.md).
 
+Every compiler diagnostic needs a test that expects its text: [diagnostic coverage gate](diagnostic-coverage.md).
+
 Stdlib procedures are fuzzed from their types by `tools/fuzz/stdlib_fuzz.py`, see [stdlib fuzzing](stdlib-fuzzing.md).
 
 ## Differential testing
