@@ -862,12 +862,10 @@ impl Compiler {
                 let count = self.program_u64(addr, span)?;
                 let data = self.program_u64(addr + 8, span)?;
                 let esize = self.size_of(elem, span)?;
-                let len = if kind == ArrayKind::Resizable {
-                    self.program_u64(addr + 16, span)?.max(count)
-                } else {
-                    count
-                };
-                self.freeze_pointer(agg, offset + 8, data, elem, esize * len, len, span)?;
+                // Only the elements in use: the unused capacity of a resizable array is memory the
+                // program never wrote, so copying it would put whatever the interpreter's heap held
+                // before into the output, differently from one run to the next.
+                self.freeze_pointer(agg, offset + 8, data, elem, esize * count, count, span)?;
                 if kind == ArrayKind::Resizable {
                     // The frozen copy is not owned by any allocator.
                     agg.bytes[(offset + 16) as usize..(offset + 40) as usize].fill(0);
