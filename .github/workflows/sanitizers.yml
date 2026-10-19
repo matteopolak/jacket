@@ -1,0 +1,62 @@
+name: sanitizers
+# Weekly and by hand: the compiler's own Rust tests under AddressSanitizer and ThreadSanitizer, and
+# Miri on the modules that do not need the operating system (docs/tools/sanitizers.md). A report is
+# a bug in jaic.
+on:
+  schedule:
+    - cron: '41 4 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_TERM_COLOR: always
+jobs:
+  sanitizer:
+    name: ${{ matrix.sanitizer }} (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, thread]
+    env:
+      # The sanitizer instruments the standard library too (-Zbuild-std), or its allocations and
+      # locks would be invisible to it.
+      RUSTFLAGS: -Zsanitizer=${{ matrix.sanitizer }} -Cdebuginfo=1
+      RUSTDOCFLAGS: -Zsanitizer=${{ matrix.sanitizer }}
+      ASAN_OPTIONS: detect_leaks=0:detect_stack_use_after_return=1:abort_on_error=0
+      TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - name: Add the standard library sources
+        run: rustup component add rust-src --toolchain "$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+      # Threads and the interpreter are what a sanitizer is for; the native-code tests (they run
+      # LLVM-built executables) are not Rust code under test.
+      - name: Test the compiler, interpreter and language server
+        run: |
+          cargo test -Zbuild-std --target x86_64-unknown-linux-gnu --locked -j 2 \
+            -p jaic -p jai-language-server -p jailint -p jacket-config -- --test-threads 2
+  miri:
+    name: miri
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain with Miri
+        run: bash tools/ci/install_rust_toolchain.sh --component miri --component rust-src
+      - name: Miri
+        env:
+          MIRIFLAGS: -Zmiri-disable-isolation
+        run: python3 tools/ci/run_miri.py
