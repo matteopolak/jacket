@@ -272,16 +272,6 @@ pub fn lsp_workspace(data: &[u8]) {
         .iter()
         .map(|p| String::from_utf8_lossy(p).replace('\r', ""))
         .collect();
-    // Known gap (TODO.md): a constant of an anonymous `using _ :: struct { ... }` is not recorded
-    // as a declaration its uses refer to, so renaming it renames only the declaration.
-    if files.iter().any(|f| f.contains("using _ ::")) {
-        return;
-    }
-    // Known hang (TODO.md): laying out a struct that `using`s a trait struct instantiated with
-    // `#this` re-resolves a broken field type without end in the editor's full check.
-    if files.iter().any(|f| f.contains("#this")) {
-        return;
-    }
     // Compile-time code runs again on every edit, up to the interpreter's budget.
     if files
         .iter()
