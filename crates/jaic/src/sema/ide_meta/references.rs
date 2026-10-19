@@ -38,13 +38,33 @@ impl Compiler {
         let Some(at) = self.ide_ref_at(file, offset) else {
             return Vec::new();
         };
-        let wanted = self.ide_targets(&at);
+        let mut wanted = self.ide_targets(&at);
         if wanted.is_empty() {
             return Vec::new();
         }
         let Some(ide) = self.ide.as_ref() else {
             return Vec::new();
         };
+        // A use naming an overload set reaches every overload in it, so renaming one renames the
+        // name of them all: grow the targets by the sets the matching uses name.
+        loop {
+            let mut grew = false;
+            for r in &ide.refs {
+                if matches!(r.what, IdeWhat::Procs(_))
+                    && self.ide_targets(r).iter().any(|t| wanted.contains(t))
+                {
+                    for t in self.ide_targets(r) {
+                        if !wanted.contains(&t) {
+                            wanted.push(t);
+                            grew = true;
+                        }
+                    }
+                }
+            }
+            if !grew {
+                break;
+            }
+        }
         let mut out: Vec<(Span, bool)> = Vec::new();
         for r in &ide.refs {
             if self.ide_targets(r).iter().any(|t| wanted.contains(t))
