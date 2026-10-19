@@ -81,6 +81,11 @@ fn lsp_typing() {
 }
 
 #[test]
+fn jailint_fix() {
+    replay("jailint_fix", jai_fuzz_harness::jailint_fix);
+}
+
+#[test]
 fn jaifmt() {
     replay("jaifmt", jai_fuzz_harness::jaifmt);
 }

@@ -11,10 +11,12 @@
 //! forever.
 pub mod generate;
 mod jaifmt;
+mod jailint_fix;
 mod lsp_edits;
 mod lsp_typing;
 
 pub use jaifmt::jaifmt;
+pub use jailint_fix::jailint_fix;
 pub use lsp_edits::lsp_edits;
 pub use lsp_typing::lsp_typing;
 
@@ -110,6 +112,14 @@ impl Meaning {
                 String::new()
             },
         }
+    }
+
+    pub(crate) fn error_count(&self) -> usize {
+        self.errors.len()
+    }
+
+    pub(crate) fn errors_empty(&self) -> bool {
+        self.errors.is_empty()
     }
 }
 

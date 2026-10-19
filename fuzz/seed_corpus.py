@@ -20,7 +20,7 @@ ROOT = FUZZ.parent
 # `stdlib/**/tests` names every module's tests), and fuzz/seeds: small
 # hand-written edge cases (overflowing constants, recursive types, metaprogram misuse, ...) that
 # found bugs or sit next to ones that did.
-PROGRAMS = ["tests/compiler/regressions", "stdlib/**/tests", "tests/corpus/positive", "tests/corpus/negative", "examples", "fuzz/seeds"]
+PROGRAMS = ["tests/compiler/regressions", "stdlib/**/tests", "tests/corpus/positive", "tests/corpus/negative", "tests/lint", "examples", "fuzz/seeds"]
 # Source text only: modules are parsed, never compiled as a main file.
 SOURCES = PROGRAMS + ["stdlib"]
 

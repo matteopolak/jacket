@@ -90,6 +90,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "jailint_fix"
+path = "fuzz_targets/jailint_fix.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "jaifmt"
 path = "fuzz_targets/jaifmt.rs"
 test = false
