@@ -28,16 +28,21 @@ main :: () {
 
             assert(post_message(win, message, packed, 0x8000ffff) != 0);
             I.update_window_events();
-            assert(I.events_this_frame.count == 1);
-            e := I.events_this_frame[0];
 
-            assert(e.type == .MOUSE_WHEEL && e.window == win);
-            assert(e.wheel_delta == delta && e.typical_wheel_delta == 120);
-            assert(e.shift_pressed && e.ctrl_pressed);
-            expected_z := 0;
-            if message == W.WM_MOUSEWHEEL expected_z = delta;
+            // The window shares the desktop with the machine's real input, so a frame may also hold
+            // focus changes or a genuine wheel notch. Pick out the posted message by its content
+            // and check the frame's accumulated wheel total against the vertical wheel events.
+            ours := 0;
+            vertical_total := 0;
+            for event: I.events_this_frame {
+                if event.type != .MOUSE_WHEEL || event.window != win continue;
+                if event.key_code == .MOUSE_WHEEL_UP || event.key_code == .MOUSE_WHEEL_DOWN vertical_total += event.wheel_delta;
+                if event.wheel_delta == delta && event.typical_wheel_delta == 120 && event.shift_pressed && event.ctrl_pressed ours += 1;
+            }
 
-            assert(I.mouse_delta_z == expected_z);
+            assert(ours == 1);
+
+            assert(I.mouse_delta_z == vertical_total);
             assert((I.input_button_states[cast(int) I.Key_Code.SHIFT] & .DOWN) != .NONE);
             assert((I.input_button_states[cast(int) I.Key_Code.CTRL] & .DOWN) != .NONE);
         }
