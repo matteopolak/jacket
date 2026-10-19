@@ -2,28 +2,31 @@
 
 ## [0.21.0] - 2026-10-19
 
-### Added
+Adds a `constant_condition` lint, `it`/`it_index` inlay hints and smarter dead-code fading, makes rename and hover more reliable in the editor, and fixes the Windows release archives.
 
-- `jailint` has a `constant_condition` rule: a condition the compiler's reachability facts show is always `true` or always `false` is a warning, with the arm that never runs named.
+### Highlights
+
+- `jailint` has a `constant_condition` rule: a condition the compiler's reachability facts show is always `true` or always `false` is a warning naming the arm that never runs.
 - `jailsp` shows inlay hints for the implicit `it` and `it_index` of `for` loops.
-- `jaifmt --version` prints the release version, and `jaifmt --is-ignored PATH` reports whether the config ignores a file; the VS Code and Neovim formatters use it.
-- `-timings` reports allocations and bytes allocated per phase.
-- One thread pool is shared by body scans, code generation and `jailint`, sized by `-threads`.
-- Import suggestions are ranked by the project's own imports and by which stdlib modules import a module.
 - Calls to procedures that never return end a block for dead-code analysis, so code after them is faded in the editor.
+- Renaming in the editor covers every overload of a procedure, polymorphic struct and procedure parameters, `#modify` parameters, loop variables and struct constants, and refuses names no checked file declares.
+- `jaifmt --version` prints the release version, and `jaifmt --is-ignored PATH` reports whether the config ignores a file; the VS Code and Neovim formatters use it.
+- `-timings` reports allocations and bytes allocated per phase, and one thread pool sized by `-threads` is shared by body scans, code generation and `jailint`.
 
 ### Fixes
 
-- An argument of a polymorphic struct that does not fit its parameter (`Node(1)` for `T: Type`) is reported at the use, where it used to be reported on the struct's parameter.
-- In a polymorphic struct nothing instantiates, the editor showed the `T` of `struct(T: Type)` and its uses as variables with no definition, and field hovers fell back to the source syntax. The editor now checks one instance of it with stand-in types, so they are types that go to the parameter, as they do once the struct is used. In an instance, a use of a parameter goes to where the parameter is written.
-- `jacket run` starts the executable the build actually wrote, such as the one a `build.jai` metaprogram names. It used to guess `build` and say "jaic built nothing to run".
-- Windows release archives include the crash runtime, so `jacket build` and `jaic` no longer fail with "library '../crash-native/platform_io_windows_crash' not found". Built programs link it statically and need no DLL.
-- Each release archive is smoke-tested (`jacket new`, `build`, `run`, a hover) before it is published.
+- Windows release archives include the crash runtime, so `jacket build` and `jaic` no longer fail with "library '../crash-native/platform_io_windows_crash' not found". Built programs link it statically and need no DLL. Each archive is now smoke-tested before it is published.
+- `jacket run` starts the executable the build actually wrote, such as the one a `build.jai` metaprogram names, instead of guessing `build`.
+- An argument of a polymorphic struct that does not fit its parameter (`Node(1)` for `T: Type`) is reported at the use, not on the struct's parameter.
+- In a polymorphic struct nothing instantiates, the editor resolves `T` and its uses as types and field hovers show checked types.
+- `jailsp` answers hover and go-to-definition in a callee it has not checked yet, and in a module alias and its members.
+- A struct whose fields refer to `#this` no longer hangs the editor's full check.
 - A procedure type in a return type no longer takes the procedure's body as its own.
 - Identical overloads are reported even when a call names them first, or when a name was not yet resolvable.
+- An enum literal in the arm of an `ifx` a constant condition rules out (`ifx CPU == .X64 then .ARM64 else .X64`) infers its type from the target again.
 - A metaprogram that marks a workspace failed now gets a diagnostic saying so.
-- `jailsp` answers hover and go-to-definition in a callee it has not checked yet, and in a module alias and its members.
 - Freezing a resizable array at compile time keeps only its used elements, so output no longer depends on spare capacity.
+- Import suggestions are ranked by the project's own imports and by which stdlib modules import a module.
 - The interpreter's sandbox stores wide strings at unaligned addresses correctly.
 
 ## [0.20.0] - 2026-10-19
