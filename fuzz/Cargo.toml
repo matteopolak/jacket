@@ -62,6 +62,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "metaprogram"
+path = "fuzz_targets/metaprogram.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "lsp"
 path = "fuzz_targets/lsp.rs"
 test = false

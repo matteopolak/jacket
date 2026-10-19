@@ -20,7 +20,9 @@ fn main() {
         "lsp_typing" => jai_fuzz_harness::lsp_typing,
         "jailint_fix" => jai_fuzz_harness::jailint_fix,
         "jacket_config" => jai_fuzz_harness::jacket_config,
+        "metaprogram" => jai_fuzz_harness::metaprogram,
         "jaifmt" => jai_fuzz_harness::jaifmt,
+        "show_meta" => |data: &[u8]| print!("{}", jai_fuzz_harness::metaprogram_source(data)),
         "show" => |data: &[u8]| print!("{}", jai_fuzz_harness::generate::program(data)),
         other => panic!("unknown target {other}"),
     };

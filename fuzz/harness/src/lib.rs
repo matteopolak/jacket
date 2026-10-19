@@ -15,6 +15,7 @@ mod jaifmt;
 mod jailint_fix;
 mod lsp_edits;
 mod lsp_typing;
+mod metaprogram;
 
 pub use jacket_config::jacket_config;
 pub use jaifmt::jaifmt;
@@ -154,7 +155,7 @@ fn compile(source: &[u8], compile_only: bool) -> jai_wasm::play::PlayResult {
     on_compiler_stack(|| run_with(&files, "main.jai", options))
 }
 
-fn play(source: &[u8], compile_only: bool) {
+pub(crate) fn play(source: &[u8], compile_only: bool) {
     let result = compile(source, compile_only);
     if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
         eprintln!(
@@ -174,6 +175,21 @@ pub fn check(data: &[u8]) {
 /// [`check`], then `main` under the remaining interpreter budget.
 pub fn interp(data: &[u8]) {
     play(data, false);
+}
+
+/// A metaprogram from [`metaprogram::program`] (workspaces, intercepts, `#insert`), compiled and
+/// run like [`interp`]. Set `JAI_FUZZ_VERBOSE` to print it.
+/// The source [`metaprogram`] runs for `data`.
+pub fn metaprogram_source(data: &[u8]) -> String {
+    metaprogram::program(data)
+}
+
+pub fn metaprogram(data: &[u8]) {
+    let source = metaprogram::program(data);
+    if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+        eprintln!("{source}");
+    }
+    play(source.as_bytes(), false);
 }
 
 /// A program from the grammar-based generator, compiled and run like [`interp`]. Set

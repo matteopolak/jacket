@@ -61,6 +61,11 @@ fn generated() {
 }
 
 #[test]
+fn metaprogram() {
+    replay("metaprogram", jai_fuzz_harness::metaprogram);
+}
+
+#[test]
 fn lsp() {
     replay("lsp", jai_fuzz_harness::lsp);
 }
