@@ -156,7 +156,15 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                     return Err(trap("a failed workspace cannot be reset to OK".into()));
                 }
                 0 => {}
-                1 => ws.failed = true,
+                1 if ws.failed => {}
+                1 => {
+                    ws.failed = true;
+                    // Nothing else says why the build fails, so say it here.
+                    (reg.env.report)(
+                        super::settings::ReportSeverity::Error,
+                        "error: the metaprogram marked the workspace as failed",
+                    );
+                }
                 status => return Err(trap(format!("invalid workspace status {status}"))),
             }
             Ok(Rets::default())

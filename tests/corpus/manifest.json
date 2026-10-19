@@ -2068,22 +2068,20 @@
       "dependencies": [],
       "negative": {
         "check": "error: the metaprogram marked the workspace as failed"
-      },
-      "disabled": "jaic exits 1 but prints no diagnostic; docs/metaprogramming/compiler-module.md {#compiler.12} promises a fatal diagnostic. Decide whether to restore the message or relax the rule."
+      }
     },
     {
       "id": "rule-compiler-17",
       "source": "negative/rule-compiler-17.jai",
-      "sha256": "557609c32ed9f0d6b39cd438e6b02d27987fddad75a4016a32cc97b532a3dba0",
+      "sha256": "981d5fd04c7c784c3c3e407ad386f336c90156462e1ffb30255f685989ab4b21",
       "suite": "negative",
       "feature": "an API call jaic cannot carry out is a fatal error",
       "kind": "negative",
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "add_build_string: jaic cannot add a string in the scope of a Code value"
-      },
-      "disabled": "jaic now accepts add_build_string with a Code value (exit 0, no error); docs/metaprogramming/compiler-module.md {#compiler.17} says it is a fatal error. Decide whether the rule or the compiler is right."
+        "check": "add_build_string: Code scope must belong to the running workspace"
+      }
     },
     {
       "id": "rule-ws-13",
