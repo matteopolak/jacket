@@ -11,6 +11,7 @@
 //! and return dangling handles for LLVM 19+ debug records, so this module talks to the
 //! LLVM-C `DIBuilder` API directly; the unsafe calls are confined to the `raw` helpers.
 //! See `docs/native/debug-info.md`.
+// The `too_many_arguments` allow is for the wrappers below, which mirror the C API one to one.
 #![allow(unsafe_code, clippy::too_many_arguments)]
 
 use inkwell::basic_block::BasicBlock;

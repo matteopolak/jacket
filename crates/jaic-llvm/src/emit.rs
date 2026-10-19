@@ -69,17 +69,19 @@ fn emit_module(
         &context,
         &module,
         program,
-        arch,
-        build_target,
-        shard,
-        debug,
-        options.opt_level == OptLevel::O0,
-        no_inline,
-        simd::Target::resolve(
+        &lower::LowerOptions {
             arch,
-            &machine.get_cpu().to_string_lossy(),
-            &machine.get_feature_string().to_string_lossy(),
-        ),
+            target: build_target,
+            shard,
+            debug,
+            unoptimized: options.opt_level == OptLevel::O0,
+            no_inline,
+            simd: simd::Target::resolve(
+                arch,
+                &machine.get_cpu().to_string_lossy(),
+                &machine.get_feature_string().to_string_lossy(),
+            ),
+        },
     )?;
     apply_abi_unwind_attributes(&context, &module, arch)?;
     let unit = shard.map_or(0, |s| s.index);

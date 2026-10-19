@@ -23,7 +23,7 @@ pub use wasm::{WasmLink, find_wasm_ld, link_wasm};
 
 
 pub use self::emit::{emit_object, emit_objects, fix_malloc_zone_for_fork, used_libraries};
-pub use self::link::{LinkFlavor, LinkInputs, link, link_inputs};
+pub use self::link::{LinkFlavor, LinkInputs, LinkRequest, link, link_inputs};
 pub(crate) use self::linker::is_windows_c_runtime;
 pub use self::linker::{
     OutputKind, archive, check_sanitizer_target, link_failure, linker_not_run, output_extension,

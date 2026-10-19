@@ -4,7 +4,6 @@
 //! blocks are visited in reverse post-order, so definitions dominate uses),
 //! every `Slot` an entry-block alloca, and every aggregate stays in memory.
 //! `Conv::C` signatures are translated to the real C ABI by [`Backend::lower_sig`].
-#![allow(clippy::too_many_arguments)]
 mod checks;
 mod control;
 mod error;
@@ -17,7 +16,7 @@ mod symbols;
 mod types;
 
 pub use self::error::Error;
-pub use self::plan::{Plan, Shard, lower_program};
+pub use self::plan::{LowerOptions, Plan, Shard, lower_program};
 use crate::debuginfo::DebugInfo;
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::builder::Builder;

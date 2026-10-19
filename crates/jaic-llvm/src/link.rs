@@ -81,21 +81,36 @@ fn library_group(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<L
     Ok(args)
 }
 
+/// What [`link`] joins into one output.
+#[derive(Clone, Copy)]
+pub struct LinkRequest<'a> {
+    pub objects: &'a [PathBuf],
+    pub libraries: &'a [Library],
+    pub output: &'a Path,
+    /// Produce a shared library rather than an executable.
+    pub dynamic_library: bool,
+    pub extra_args: &'a [String],
+    /// `None`: the host.
+    pub target: Option<BuildTarget>,
+    pub sanitize: Sanitize,
+    pub debug_info: bool,
+}
+
 /// Link object files into an executable (or shared library) for `target` (`None`: the
 /// host). macOS and Linux use the system `cc`; Windows uses a MinGW or MSVC toolchain,
 /// see [`LinkFlavor`] and `docs/native/windows.md`. With `debug_info`, MSVC targets also get
 /// a PDB next to the output (`foo.exe` -> `foo.pdb`).
-#[allow(clippy::too_many_arguments)]
-pub fn link(
-    objects: &[PathBuf],
-    libraries: &[Library],
-    output: &Path,
-    dynamic_library: bool,
-    extra_args: &[String],
-    target: Option<BuildTarget>,
-    sanitize: Sanitize,
-    debug_info: bool,
-) -> Result<(), String> {
+pub fn link(request: &LinkRequest) -> Result<(), String> {
+    let LinkRequest {
+        objects,
+        libraries,
+        output,
+        dynamic_library,
+        extra_args,
+        target,
+        sanitize,
+        debug_info,
+    } = *request;
     let flavor = LinkFlavor::for_target(target);
     let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
     if sanitize.any() {

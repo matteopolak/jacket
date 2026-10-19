@@ -33,6 +33,21 @@ pub struct Shard<'p> {
     pub index: u32,
 }
 
+/// What `lower_program` needs to know about the target and the unit being lowered.
+pub struct LowerOptions<'a> {
+    pub arch: Arch,
+    pub target: jaic::target::Target,
+    /// The part of the program this module holds, `None` for the whole of it.
+    pub shard: Option<Shard<'a>>,
+    /// The debug-info format and whether the build is optimized, `None` without `-g`.
+    pub debug: Option<(DebugFormat, bool)>,
+    /// An `-O0` build, which copies small aggregates inline.
+    pub unoptimized: bool,
+    /// Per function: never inline it.
+    pub no_inline: &'a [bool],
+    pub simd: crate::simd::Target,
+}
+
 /// Lower `program` into `module`. With a shard, the module defines only that shard's
 /// functions (and, in shard 0, the globals); everything else is declared, and internal
 /// symbols become hidden externals so the modules link together.
@@ -40,14 +55,17 @@ pub fn lower_program<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
     program: &Program,
-    arch: Arch,
-    target: jaic::target::Target,
-    shard: Option<Shard>,
-    debug: Option<(DebugFormat, bool)>,
-    unoptimized: bool,
-    no_inline: &[bool],
-    simd: crate::simd::Target,
+    options: &LowerOptions,
 ) -> Result<(), String> {
+    let LowerOptions {
+        arch,
+        target,
+        shard,
+        debug,
+        unoptimized,
+        no_inline,
+        simd,
+    } = *options;
     let debug = debug
         .map(|(format, optimized)| DebugInfo::new(context, module, program, format, optimized));
     let mut backend = Backend {

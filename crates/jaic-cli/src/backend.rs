@@ -432,16 +432,18 @@ impl OutputBackend for LlvmBackend {
                     extra_args: &settings.additional_linker_arguments,
                 })
             }
-            OutputType::Executable | OutputType::DynamicLibrary => jaic_llvm::link(
-                &objects,
-                &libraries,
-                output,
-                settings.output_type == OutputType::DynamicLibrary,
-                &link_args,
-                target,
-                options.sanitize,
-                debug_info,
-            ),
+            OutputType::Executable | OutputType::DynamicLibrary => {
+                jaic_llvm::link(&jaic_llvm::LinkRequest {
+                    objects: &objects,
+                    libraries: &libraries,
+                    output,
+                    dynamic_library: settings.output_type == OutputType::DynamicLibrary,
+                    extra_args: &link_args,
+                    target,
+                    sanitize: options.sanitize,
+                    debug_info,
+                })
+            }
             OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
         });
         // macOS linkers leave DWARF in the objects and record where they are. An unoptimized
