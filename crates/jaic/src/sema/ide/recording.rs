@@ -283,24 +283,32 @@ impl Compiler {
         }
     }
 
-    /// A declaration: hovering its name shows it.
-    pub(in crate::sema) fn ide_note_entity(&mut self, id: EntityId) {
+    /// Where entity `id` names itself: its span narrowed to the name (an entity's span may cover
+    /// the whole declaration). `None` for an entity written nowhere.
+    pub(in crate::sema) fn ide_entity_name_span(&self, id: EntityId) -> Option<Span> {
         let e = self.entity(id);
         let (span, name) = (e.span, e.name);
-        if span.end <= span.start || !self.ide_wants(span.file) {
-            return;
+        if span.end <= span.start || (span.file.0 as usize) >= self.sources.len() {
+            return None;
         }
-        // Entity spans may cover the whole declaration: narrow to the name.
         let text = self.sources.snippet(span);
-        let Some(at) = text.find(name.as_str()) else {
-            return;
-        };
+        let at = text.find(name.as_str())?;
         let start = span.start + at as u32;
-        let span = Span {
+        Some(Span {
             file: span.file,
             start,
             end: start + name.as_str().len() as u32,
+        })
+    }
+
+    /// A declaration: hovering its name shows it.
+    pub(in crate::sema) fn ide_note_entity(&mut self, id: EntityId) {
+        let Some(span) = self.ide_entity_name_span(id) else {
+            return;
         };
+        if !self.ide_wants(span.file) {
+            return;
+        }
         let ty = match &self.entity(id).kind {
             EntityKind::Local {
                 ty, ..

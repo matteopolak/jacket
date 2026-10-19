@@ -195,7 +195,15 @@ impl Compiler {
                     } => vec![Target::Type(*t)],
                     EntityKind::Local {
                         ..
-                    } => vec![Target::Local(self.entity(*e).span, self.entity(*e).name)],
+                    }
+                    | EntityKind::Const {
+                        ..
+                    }
+                    | EntityKind::UnboundGenericParameter => vec![Target::Declared(
+                        self.ide_entity_name_span(*e)
+                            .unwrap_or(self.entity(*e).span),
+                        self.entity(*e).name,
+                    )],
                     _ => vec![Target::Entity(*e)],
                 },
             },

@@ -130,9 +130,10 @@ pub enum IdeClass {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Target {
     Entity(EntityId),
-    /// A local or parameter by where it is declared: a polymorphic procedure's parameter is one
-    /// entity in each instance and one more where its result type is checked.
-    Local(Span, Sym),
+    /// A local, parameter or constant by where it is declared: a polymorphic procedure's or
+    /// struct's parameter is one entity in each instance, and one more where a result type is
+    /// checked.
+    Declared(Span, Sym),
     Proc(ProcId),
     Type(TypeId),
     Module(ModuleId),
