@@ -69,11 +69,11 @@ export function parseManifest(text: string): ToolchainManifest | undefined {
   try {
     const value = JSON.parse(text) as Partial<ToolchainManifest>;
     if (typeof value?.version !== "string" || typeof value.sha256 !== "object" || value.sha256 === null) return undefined;
-    const sha256: Record<string, string> = {};
+    const hashes: Record<string, string> = {};
     for (const [name, hash] of Object.entries(value.sha256)) {
-      if (typeof hash === "string" && /^[0-9a-fA-F]{64}$/.test(hash)) sha256[name] = hash.toLowerCase();
+      if (typeof hash === "string" && /^[0-9a-fA-F]{64}$/.test(hash)) hashes[name] = hash.toLowerCase();
     }
-    return { version: value.version, sha256 };
+    return { version: value.version, sha256: hashes };
   } catch {
     return undefined;
   }

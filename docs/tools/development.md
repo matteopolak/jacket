@@ -35,7 +35,7 @@ To add a recipe: give it a doc comment (it becomes the `--list` text) and a `[gr
 | `*.sh`, files with a `sh`/`bash` shebang | `shellcheck` on the export (`tools/dev/staged-files.sh shell` picks the files; CI lints every one: `shell-all`). Skipped with a warning when `shellcheck` is not installed |
 | anything | `tools/ci/check_source_style.py` (file length allowlist, banners), `check_repo_paths.py`, `check_ci_sources.py` on the working tree |
 | `Cargo.toml`, `Cargo.lock` | `cargo metadata --locked --offline` for the workspace and `fuzz/`, so a stale lock file fails here, not in CI's `--locked` builds |
-| `crates/**`, `editors/vscode/**` | `node scripts/build-grammar.ts --check` and `build-schemas.ts --check` in `editors/vscode` (needs node 24) |
+| `crates/**`, `editors/vscode/**` | `node scripts/build-grammar.ts --check` and `node scripts/build.ts schemas --check` in `editors/vscode` (needs node 24) |
 
 Tools are found as follows: `target/jaifmt` (rebuilt with `jaic jaifmt/main.jai -O2 -exe target/jaifmt` when sources are newer and a `jaic` exists), `target/{release,debug}/jailint` (else `cargo build -p jailint`), then `PATH`. A missing tool prints a warning and skips its check. Clippy is not run (minutes per crate); CI runs it. `rustfmt --check` in stdin mode exits 0 on a diff, so any output counts as failure. To add a check, add a file filter and a block appending to `fixes`; keep it fast. A CI check that takes about a second and needs no build belongs here too.
 

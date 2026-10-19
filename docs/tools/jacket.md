@@ -109,7 +109,7 @@ The notices go to stderr, since stdout may be an LSP stream. The VS Code extensi
 
 ## How to change it
 
-- A new `jaic`-flag-backed setting: add the field to `Experimental` in `crates/jacket-config/src/schema.rs`, forward it in `defaults` in `crates/jacket/src/compile.rs`, and add a case to the `compile.rs` tests; extend `editors/vscode/scripts/build-schemas.ts` and run it.
+- A new `jaic`-flag-backed setting: add the field to `Experimental` in `crates/jacket-config/src/schema.rs`, forward it in `defaults` in `crates/jacket/src/compile.rs`, and add a case to the `compile.rs` tests; extend `editors/vscode/scripts/build.ts` and run it.
 - A new section read by a tool: add the struct in `schema.rs` (with `extra` flattened so unknown keys survive), then read it from `Loaded`; give a legacy file a mapping in `migrate.rs` only if one existed.
 - Entry inference is `jacket_config::first_entry` and `INFERRED_ENTRIES`; `jaic-cli` and `jailsp` both use it, so keep one order.
 - The compiler library (`crates/jaic`) never reads `jacket.toml` and stays dependency-free; `jaic` takes its settings as flags from `jacket`. Only the `jaic-cli` binary uses `jacket-config`, to suggest the project's entry when it is given a directory.

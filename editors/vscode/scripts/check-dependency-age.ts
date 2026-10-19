@@ -76,12 +76,7 @@ async function check(name: string) {
     if (!meta.versions?.[version]) errors.push(`${name}@${version}: not on the registry (unpublished?)`);
   }
 }
-const queue = [...names];
-await Promise.all(
-  Array.from({ length: 8 }, async () => {
-    while (queue.length) await check(queue.shift());
-  }),
-);
+for (const name of names) await check(name);
 if (errors.length) {
   console.error(errors.join("\n"));
   process.exit(1);

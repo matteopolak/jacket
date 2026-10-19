@@ -371,18 +371,18 @@
     ]
   },
   "scripts": {
-    "build": "node scripts/build-grammar.ts && node scripts/build-schemas.ts && rolldown -c",
+    "build": "node scripts/build-grammar.ts && node scripts/build.ts schemas && rolldown -c",
     "watch": "rolldown -c --watch",
     "typecheck": "tsc --noEmit -p .",
-    "lint": "oxlint --deny-warnings && tsc --noEmit -p . && node scripts/build-grammar.ts --check && node scripts/build-schemas.ts --check && node scripts/build-icon.ts --check",
+    "lint": "oxlint --deny-warnings && tsc --noEmit -p . && node scripts/build-grammar.ts --check && node scripts/build.ts schemas --check && node scripts/build.ts icon --check",
     "build:tests": "rolldown -c --environment TESTS",
     "test": "pnpm run test:unit && pnpm run test:grammar",
     "test:unit": "pnpm run build:tests && node --test \"out/test/unit/*.test.cjs\"",
     "test:grammar": "vscode-tmgrammar-test -g test/grammar/stubs/sql.tmLanguage.json -g test/grammar/stubs/json.tmLanguage.json 'test/grammar/**/*.jai' && node scripts/tokenize-corpus.ts",
     "test:e2e": "rolldown -c && pnpm run build:tests && node out/test/e2e/run.cjs",
-    "package": "pnpm run build --environment PRODUCTION && node scripts/copy-license.ts && vsce package --no-dependencies",
+    "package": "pnpm run build --environment PRODUCTION && node scripts/build.ts license && vsce package --no-dependencies",
     "check-ages": "node scripts/check-dependency-age.ts",
-    "icons": "node scripts/build-icon.ts",
+    "icons": "node scripts/build.ts icon",
     "screenshots": "rolldown -c && pnpm run build:tests && node out/test/screenshots/run.cjs"
   },
   "dependencies": {

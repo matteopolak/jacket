@@ -175,8 +175,8 @@ def cmd_editor(args) -> int:
         print(f"node {version} cannot run the .ts scripts (needs 24): skipping the VS Code checks")
         return 0
     failed = False
-    for script in ("build-grammar.ts", "build-schemas.ts"):
-        failed |= bool(run([node, f"scripts/{script}", "--check"], cwd=ROOT / "editors" / "vscode"))
+    for script in (["build-grammar.ts"], ["build.ts", "schemas"]):
+        failed |= bool(run([node, f"scripts/{script[0]}", *script[1:], "--check"], cwd=ROOT / "editors" / "vscode"))
     return int(failed)
 
 

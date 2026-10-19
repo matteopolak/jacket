@@ -268,13 +268,14 @@ if ! skipped editor && [ -d "$vscode/scripts" ] && staged_matches '^crates/' -e 
     if [ "${major:-0}" -lt 24 ]; then
         warn "node 24 not found; skipping the VS Code generated-file check"
     else
-        for gen in build-grammar build-schemas; do
-            [ -f "$vscode/scripts/$gen.ts" ] || continue
+        # "script args": build-grammar.ts has no subcommand, build.ts takes `schemas`.
+        for gen in "build-grammar.ts" "build.ts schemas"; do
             say "running $gen --check"
-            if ! (cd "$vscode" && node "scripts/$gen.ts" --check) >"$tmp/.out" 2>&1; then
+            # shellcheck disable=SC2086 # $gen is a script name, then its subcommand
+            if ! (cd "$vscode" && node scripts/$gen --check) >"$tmp/.out" 2>&1; then
                 cat "$tmp/.out" >&2
                 failed=1
-                add_fix "(cd editors/vscode && node scripts/$gen.ts)"
+                add_fix "(cd editors/vscode && node scripts/$gen)"
             fi
         done
     fi
