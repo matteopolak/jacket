@@ -270,6 +270,14 @@ jobs:
           cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$out/jacket$exe" "$dir/"
           # Bootstrap definitions are packaged with the standard library.
           cp -R stdlib "$dir/stdlib"
+          # Windows: the crash runtime the standard library binds (crash-native/platform_io_windows_crash)
+          # is C built here, not stored in the repository. The DLL is what `jaic -interp` and a
+          # metaprogram load; the static archive is what built programs link, so they need no DLL.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cpu="${{ matrix.name == 'windows-arm64' && 'arm64' || 'x64' }}"
+            python3 tools/stdlib/build_platform_io_runtime.py --stdlib "$dir/stdlib" --cpu "$cpu" --static-library
+            ls -l "$dir/stdlib/internal/runtime/crash-native"
+          fi
           cp README.md CHANGELOG.md "$dir/"
           # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/bindings/webgpu.json),
           # where jaic looks for native libraries: <stdlib>/../native-libs/<platform>.
@@ -439,6 +447,12 @@ jobs:
             test "$fmt_status" = 0
             test "$linked_fmt" = "$formatted"
           fi
+      # What a user does first, on the archive that is about to be published: `jacket new`,
+      # `build`, `run` and a language-server hover (the post-release smoke test's project check).
+      # Catches a tool or library the archive lacks before the release exists.
+      - name: Smoke test a new project with the packaged tools
+        shell: bash
+        run: python3 tools/ci/release_smoke.py project --bin "$PWD/$PACKAGE_DIR"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.name }}

@@ -2,6 +2,10 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <dbghelp.h>
+// A program that links the static archive gets DbgHelp from here; the DLL links it itself.
+#if defined(JAI_STATIC_CRASH_RUNTIME)
+#pragma comment(lib, "dbghelp")
+#endif
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
