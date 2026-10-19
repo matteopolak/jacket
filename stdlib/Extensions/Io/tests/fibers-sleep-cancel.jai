@@ -51,8 +51,13 @@ test_sleep_order :: () {
     assert(elapsed >= 100, "everything ended after % ms", elapsed);
     assert(elapsed < 1500, "sleeping fibers overlap: % ms", elapsed);
 
+    // The sleeper reads the clock just before `Io.sleep` reads it again, so its recorded deadline
+    // can trail the scheduler's by the time between the two reads. Two sleeps whose deadlines fall
+    // that close may wake either way round, so a smaller gap is not a misorder.
+    CLOCK_SKEW_NS :: 2_000_000;
+
     for 1..wake_deadlines.count - 1 {
-        if wake_deadlines[it] < wake_deadlines[it - 1] {
+        if wake_deadlines[it] < wake_deadlines[it - 1] - CLOCK_SKEW_NS {
             assert(false, "woke out of order: % ms after % ms", wake_order[it], wake_order[it - 1]);
         }
     }

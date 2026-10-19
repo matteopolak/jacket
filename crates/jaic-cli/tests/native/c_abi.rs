@@ -312,7 +312,9 @@ fn c_thread_callbacks_block_on_jai_threads() {
         .unwrap();
     assert!(
         output.status.success(),
-        "{}",
+        "jaic -interp blocking.jai exited with {}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(
