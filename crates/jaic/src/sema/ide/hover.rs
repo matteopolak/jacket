@@ -42,6 +42,7 @@ impl Compiler {
     }
 
     pub fn ide_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
+        self.ide_note_callee_at(file, offset);
         if let Some((span, ids)) = self.ide_filter_targets(file, offset) {
             let text = ids
                 .iter()

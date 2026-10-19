@@ -196,3 +196,31 @@ fn an_unfinished_call_of_a_type_has_the_same_color_whether_or_not_signature_help
         assert_eq!(before, Some(SemanticTokenKind::Type));
     });
 }
+
+#[test]
+fn a_called_name_in_a_body_that_cannot_be_checked_is_answered_without_a_token_request_first() {
+    // `broken` has a parameter of an unknown type, so its body is never checked; the callee
+    // `helper` is resolved on demand, by whichever request first needs it. Hover and definition
+    // must not depend on the semantic-token request having been the one.
+    let source = "helper :: (x: s64) -> s64 { return x; }\nbroken :: (a: Missing) { helper(1); }\nmain :: () { broken(0); }\n";
+    let at = Position {
+        line: 1,
+        character: 28,
+    };
+    let session = open(source);
+    let hover = session.hover(&uri(), at).unwrap().expect("a hover");
+    assert!(
+        !hover.contents.value.contains("Source syntax declaration"),
+        "{}",
+        hover.contents.value
+    );
+    assert!(
+        hover.contents.value.contains("helper"),
+        "{}",
+        hover.contents.value
+    );
+    let session = open(source);
+    let definition = session.definition(&uri(), at).unwrap();
+    assert_eq!(definition.len(), 1);
+    assert_eq!(definition[0].range.start.line, 0);
+}

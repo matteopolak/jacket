@@ -85,6 +85,7 @@ impl Compiler {
     /// of an overload set, a struct or enum. Spans are narrowed to the declared name when it
     /// starts the declaration (`name :: ...`).
     pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        self.ide_note_callee_at(file, offset);
         if let Some((_, ids)) = self.ide_filter_targets(file, offset) {
             return self.ide_narrow_decls(
                 ids.iter()

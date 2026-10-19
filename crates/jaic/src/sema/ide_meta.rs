@@ -185,6 +185,44 @@ impl Compiler {
         })
     }
 
+    /// A callee is checked when something asks for it (`ide_call_target_at`, which the editor's
+    /// token colouring does for every call), and checking it records the facts a use of its name
+    /// has. Ask for them when none were recorded at `offset` and the name there is followed by
+    /// `(`: an answer must not depend on whether the colouring ran against this analysis first.
+    pub(in crate::sema) fn ide_note_callee_at(&mut self, file: FileId, offset: u32) {
+        if self
+            .ide
+            .as_ref()
+            .is_none_or(|ide| !ide.refs_at(file, offset).is_empty())
+        {
+            return;
+        }
+        let Some(source) = self.sources.try_get(file) else {
+            return;
+        };
+        let bytes = source.text.as_bytes();
+        let word = |at: usize| {
+            bytes
+                .get(at)
+                .is_some_and(|&b| b == b'_' || b.is_ascii_alphanumeric())
+        };
+        let at = offset as usize;
+        if !word(at) && (at == 0 || !word(at - 1)) {
+            return;
+        }
+        let mut end = at;
+        while word(end) {
+            end += 1;
+        }
+        let mut open = end;
+        while bytes.get(open).is_some_and(u8::is_ascii_whitespace) {
+            open += 1;
+        }
+        if bytes.get(open) == Some(&b'(') {
+            let _ = self.ide_call_target_at(file, open as u32);
+        }
+    }
+
     /// Direct-procedure view retained for existing IDE consumers.
     pub fn ide_callee_at(&mut self, file: FileId, open: u32) -> Vec<ProcId> {
         self.ide_call_target_at(file, open)
