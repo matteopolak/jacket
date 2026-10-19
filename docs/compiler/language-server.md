@@ -114,7 +114,7 @@ node tools/browser/check_scripting_wasm.mjs target/wasm32-unknown-unknown/releas
 - `JAIC_STDLIB` overrides the native stdlib directory.
 - `jacket.toml` (else the legacy `jailint.toml`, `jai.toml`): nearest above the document.
 - `initializationOptions` / `workspace/didChangeConfiguration` (`jai` section): `completion.autoImport` (default `true`), `completion.callSnippets` (`addParentheses` default, `fillArguments`, `none`), `inlayHints.closingBraceMinLines` (default 25, 0 is off), `trusted` (default `true`; `false` runs no compile-time code, see [workspace trust](../tools/workspace-trust.md)). `jailsp --untrusted` starts untrusted; the `jai/setTrusted` notification switches at runtime.
-- Constants: `semantic.rs` (`BLOCK_BUDGET`, `CACHED`, `ALTERNATES`, `PARSES_KEPT`), `auto_import.rs` (`MAX_ITEMS`, `MIN_PREFIX`, `MAX_PROJECT_FILES`), `ide_meta.rs` (`MAX_EXPANSIONS`, `MAX_CALLS`, `MAX_VARIANTS`, `MAX_TEXT`), `features.rs` (`HINT_CHARS`).
+- Constants: `semantic.rs` (`BLOCK_BUDGET`, `CACHED`, `ALTERNATES`, `PARSES_KEPT`), `auto_import.rs` (`MAX_ITEMS`, `MIN_PREFIX`; the project tree walk limits are `jaic::project::MAX_TREE_FILES` and `MAX_TREE_DEPTH`), `ide_meta.rs` (`MAX_EXPANSIONS`, `MAX_CALLS`, `MAX_VARIANTS`, `MAX_TEXT`), `features.rs` (`HINT_CHARS`).
 - `Limits` are safety caps (512 documents, 32 MiB per document, 64 MiB per message); `Limits::browser()` is smaller. A document over a cap is not opened and the client gets a `window/showMessage`.
 - Benchmark: `python3 tools/bench/main.py lsp` ([benchmarks](../tools/benchmarks.md)).
 
