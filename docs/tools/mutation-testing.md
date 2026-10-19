@@ -2,13 +2,15 @@
 
 ## What it is
 
-[cargo-mutants](https://mutants.rs) changes one expression at a time (`+` to `-`, a comparison to its neighbour, a function body to `Default::default()`) and runs the tests. A mutant that no test fails is a place where the tests do not constrain behaviour. The weekly `mutants` workflow does this to the code where a wrong answer is silent: the type checker's calls, conversions, interval and reachability analyses, the interpreter's arithmetic and the parser.
+[cargo-mutants](https://mutants.rs) changes one expression at a time (`+` to `-`, a comparison to its neighbour, a function body to `Default::default()`) and runs the tests. A mutant that no test fails is a place where the tests do not constrain behaviour. The weekly `mutants` workflow does this to the code where a wrong answer is silent: the type checker's calls, conversions and interval analysis, the interpreter's arithmetic and the parser.
 
 ## How it works
 
 `.github/workflows/mutants.yml` (Saturdays, or by dispatch) installs the pinned cargo-mutants (`tools/ci/install_cargo_mutants.sh`, checksum from `.github/pins.json`) and runs eight shards of `cargo mutants -p jaic --shard k/8` over the files in its `SCOPE`. Each shard uploads `mutants.out` and prints the surviving mutants (`missed.txt`) in its job summary. The job does not fail on survivors or timeouts, only on a broken build or baseline: it is a report, not a gate.
 
 Settings are in `.cargo/mutants.toml`: only `--lib` tests run (the unit tests; they build faster than the integration binaries and sit next to the code), and `Debug`/`Display` impls are not mutated.
+
+`sema/reachability.rs` is left out: only the language server's `unreachable` test exercises what it fades, and cargo-mutants 27.1 does not run another package's tests against a mutant (`--test-package` is ignored once `-p` names the mutated package), so every mutant would survive. Moving a unit test of `warn_unreachable` into `jaic` would bring it in.
 
 ## How to change it
 

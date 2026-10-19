@@ -1,6 +1,6 @@
 name: mutants
-# Weekly and by hand: cargo-mutants on the type checker's calls, conversions, interval and
-# reachability analyses, the interpreter's arithmetic and the parser. A surviving mutant is code a test
+# Weekly and by hand: cargo-mutants on the type checker's calls, conversions and interval
+# analysis, the interpreter's arithmetic and the parser. A surviving mutant is code a test
 # does not constrain; the shard artifacts list them (docs/tools/mutation-testing.md). Informational.
 on:
   schedule:
@@ -43,7 +43,7 @@ jobs:
           SCOPE: ${{ inputs.scope }}
         run: |
           if [ -z "$SCOPE" ]; then
-            SCOPE='crates/jaic/src/sema/calls/**/*.rs crates/jaic/src/sema/convert/**/*.rs crates/jaic/src/sema/convert.rs crates/jaic/src/sema/interval.rs crates/jaic/src/sema/reachability.rs crates/jaic/src/types.rs crates/jaic/src/interp/arith.rs crates/jaic/src/parser/**/*.rs'
+            SCOPE='crates/jaic/src/sema/calls/**/*.rs crates/jaic/src/sema/convert/**/*.rs crates/jaic/src/sema/convert.rs crates/jaic/src/sema/interval.rs crates/jaic/src/types.rs crates/jaic/src/interp/arith.rs crates/jaic/src/parser/**/*.rs'
           fi
           files=()
           # shellcheck disable=SC2086
