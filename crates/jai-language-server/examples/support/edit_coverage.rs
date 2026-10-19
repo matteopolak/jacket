@@ -91,7 +91,7 @@ pub fn cuts(line: &str) -> BTreeSet<usize> {
         cuts.insert(line.floor_char_boundary(byte));
     }
     cuts.insert(line.len() - line.trim_start().len());
-    let middle = line.encode_utf16().count() / 2;
+    let middle = jaic::source::utf16_len(line) as usize / 2;
     let mut units = 0;
     for (byte, ch) in line.char_indices() {
         if units >= middle {
@@ -298,7 +298,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                         start: position(&text, a),
                         end: position(&text, b),
                     }),
-                    range_length: Some(text[a..b].encode_utf16().count() as u32),
+                    range_length: Some(jaic::source::utf16_len(&text[a..b])),
                     text: String::new(),
                 }],
             )
@@ -307,7 +307,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
             let context = format!(
                 "line {} byte {cut} utf16 {}",
                 position(&text, start).line + 1,
-                line[..cut].encode_utf16().count()
+                jaic::source::utf16_len(&line[..cut])
             );
             anchors(&s, &uri, &edited, &mut report, &context);
             // Unaffected top-level declarations must remain in the recovered tree.

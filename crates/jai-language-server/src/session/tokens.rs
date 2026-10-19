@@ -193,7 +193,7 @@ impl Session {
                     return Err(Error::Limit("semantic token line budget exceeded"));
                 }
                 let position = doc.index.position(text, start)?;
-                let length = text[start..end].encode_utf16().count() as u32;
+                let length = jaic::source::utf16_len(&text[start..end]);
                 output.push(SemanticToken {
                     position,
                     length,

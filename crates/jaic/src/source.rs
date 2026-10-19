@@ -144,10 +144,7 @@ impl LineIndex {
         }
         let line = self.line_of(offset);
         let end = offset.min(self.ends[line] as usize);
-        let column = text[self.starts[line] as usize..end]
-            .chars()
-            .map(|c| c.len_utf16() as u32)
-            .sum();
+        let column = utf16_len(&text[self.starts[line] as usize..end]);
         Some((line as u32, column))
     }
 
@@ -169,6 +166,11 @@ impl LineIndex {
         }
         Ok(end)
     }
+}
+
+/// The length of `text` in UTF-16 units, the language server protocol's column unit.
+pub fn utf16_len(text: &str) -> u32 {
+    text.chars().map(|c| c.len_utf16() as u32).sum()
 }
 
 /// The start of the line holding `offset` in `text`, for callers that ask once. For many

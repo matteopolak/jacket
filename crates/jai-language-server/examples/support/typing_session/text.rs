@@ -9,7 +9,7 @@ pub(super) fn pos_of(text: &str, byte: usize) -> Position {
         character: before
             .rsplit('\n')
             .next()
-            .map_or(0, |line| line.encode_utf16().count() as u32),
+            .map_or(0, jaic::source::utf16_len),
     }
 }
 

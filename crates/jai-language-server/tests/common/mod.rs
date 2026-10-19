@@ -202,12 +202,12 @@ pub fn position(text: &str, byte: usize) -> Position {
 
 /// The UTF-16 length of the last line of `prefix`, i.e. the LSP column at its end.
 pub fn utf16_column(prefix: &str) -> u32 {
-    prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32
+    jaic::source::utf16_len(prefix.rsplit('\n').next().unwrap())
 }
 
 /// The UTF-16 length of `text`.
 pub fn utf16_len(text: &str) -> u32 {
-    text.encode_utf16().count() as u32
+    jaic::source::utf16_len(text)
 }
 
 /// Position of the first `marker` in `text`.
