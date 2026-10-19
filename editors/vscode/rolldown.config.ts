@@ -1,10 +1,11 @@
 // Bundles the extension into dist/extension.cjs (vscode-languageclient included, so the .vsix
 // ships no node_modules). With `--environment TESTS` it instead transpiles src/ and test/ to
-// out/ file by file (nothing bundled) for the unit, integration and screenshot runs.
+// out/ file by file (nothing bundled) for the unit, integration and screenshot runs; out/ is
+// emptied first.
 // `--environment PRODUCTION` minifies; `--watch` rebuilds on change.
 //
 //   rolldown -c [--environment PRODUCTION|TESTS] [--watch]
-import { readdirSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { defineConfig, type RolldownOptions } from "rolldown";
 
@@ -19,6 +20,11 @@ const common: RolldownOptions = {
   transform: { target: "node20" },
   logLevel: "warn",
 };
+
+if (process.env.TESTS) {
+  // Start from an empty out/, so files from an older layout (stale .js beside the .cjs) cannot run.
+  rmSync("out", { recursive: true, force: true });
+}
 
 const options: RolldownOptions = process.env.TESTS
   ? {
