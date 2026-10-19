@@ -55,9 +55,14 @@ jobs:
       - name: Add seeds from the repository
         run: python3 fuzz/seed_corpus.py ${{ matrix.target }}
       - name: Fuzz
+        # Leaves time for the steps after it, which run even when this one is cut short.
+        timeout-minutes: 25
         run: fuzz/run.sh ${{ matrix.target }} "$SECONDS_PER_TARGET" "$(nproc)"
       - name: Minimize the corpus
         if: always()
+        # cargo fuzz cmin replaces the corpus only once it has finished, so a cut-off keeps it.
+        timeout-minutes: 8
+        continue-on-error: true
         working-directory: fuzz
         run: >-
           cargo fuzz cmin --sanitizer none --debug-assertions

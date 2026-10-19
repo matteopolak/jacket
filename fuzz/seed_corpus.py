@@ -11,6 +11,7 @@ instead of storing megabytes in git. Minimize afterwards with `cargo fuzz cmin <
 import hashlib
 import itertools
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -100,6 +101,25 @@ def workspace_seeds(out):
     return len(inputs)
 
 
+def trim_corpus(directory, limit):
+    """Delete random files from `directory` until `limit` are left (no limit: keep all).
+
+    libFuzzer's fork mode first runs the whole corpus in one process, outside `-max_total_time`,
+    and `cargo fuzz cmin` runs it again. On the slow targets (a language-server session or a
+    format-and-recompile per input, a few executions per second) the seed corpus alone took 13
+    minutes each, so a nightly job passed its timeout. The seeds are added again every night and
+    the sample differs each time, so the whole set is still covered over several nights.
+    """
+    if not limit or not directory.is_dir():
+        return
+    files = sorted(p for p in directory.iterdir() if p.is_file())
+    if len(files) <= limit:
+        return
+    for path in random.sample(files, len(files) - limit):
+        path.unlink()
+    print(f"{directory.name}: kept {limit} of {len(files)} corpus files")
+
+
 def main():
     manifest = load_targets()
     args = sys.argv[1:]
@@ -113,6 +133,13 @@ def main():
         if entry is None:
             raise SystemExit(f"unknown target {args[1]}")
         print(entry["max_len"], entry["timeout"])
+        return
+    if args[:1] == ["--trim"]:
+        # Keep a random `corpus_max` files of a slow target's corpus (see trim_corpus).
+        entry = manifest.get(args[1])
+        if entry is None:
+            raise SystemExit(f"unknown target {args[1]}")
+        trim_corpus(FUZZ / "corpus" / args[1], entry.get("corpus_max"))
         return
     for target in args or list(manifest):
         if target not in manifest:

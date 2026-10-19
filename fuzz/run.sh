@@ -27,6 +27,10 @@ fi
 # (musl) cargo-fuzz then asks for a standard library the toolchain does not have: build for the host.
 host=$(rustc -vV | sed -n 's/^host: //p')
 
+# Slow targets run a bounded sample of the corpus: fork mode replays all of it before it starts
+# the clock (fuzz/seed_corpus.py trim_corpus).
+python3 seed_corpus.py --trim "$target"
+
 # A unit is slow only when it reaches the target's timeout (libFuzzer's default, 10 s, is below
 # the LSP targets' 20 s, and run.sh fails on any file in artifacts/).
 # No sanitizer: the compiler is safe Rust except the interpreter's program memory, and ASan
