@@ -2,7 +2,10 @@
 use super::lower::Operand;
 use super::scope::{Builtin, EntityKind, EntityState, Resolved};
 use super::value::LibraryId;
-use super::*;
+use super::{
+    Compiler, Diagnostic, EntityId, FileId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    compiler_host, err, ir, lambda,
+};
 use crate::types::{DistinctInfo, TypeKind};
 
 pub struct LibraryInfo {

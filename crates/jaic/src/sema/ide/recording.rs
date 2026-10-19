@@ -5,7 +5,9 @@ use super::facts::{
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityId, EntityKind, ScopeId};
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, FileId, ModuleId, Rc, Result, SourcePath, Span, TypeId, ast,
+};
 use crate::types::TypeKind;
 use std::path::Path;
 

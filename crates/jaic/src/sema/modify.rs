@@ -7,7 +7,10 @@
 //! (types and values) is assignable, and the final values select the instance.
 use super::lower::FnCtx;
 use super::scope::{EntityKind, ScopeKind};
-use super::*;
+use super::{
+    Compiler, Diagnostic, DiagnosticKind, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    err, ir,
+};
 use crate::ir::Ty;
 
 impl Compiler {

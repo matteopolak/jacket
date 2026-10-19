@@ -1,6 +1,9 @@
 //! Isolated host-workspace evaluation and explicit primitive result transfer.
 use super::lower::Operand;
-use super::*;
+use super::{
+    Compiler, Diagnostic, FileId, HashMap, Options, Rc, Result, Span, TypeId, Value, ast,
+    compiler_host, err, ir, scope,
+};
 use crate::types::TypeKind;
 
 impl Compiler {

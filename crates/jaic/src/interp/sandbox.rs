@@ -8,7 +8,7 @@
 //! library calls. Thread primitives are not here: they need the interpreter (`threads_inline.rs`).
 #![allow(unsafe_code)]
 
-use super::*;
+use super::{HashMap, Host, Rc, ZeroedBlock, ir};
 use crate::fxhash::HashSet;
 use crate::interp::word_or_zero;
 use crate::sema::FileSystem;

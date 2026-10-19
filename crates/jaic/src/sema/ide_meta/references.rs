@@ -3,7 +3,7 @@ use super::IdeMembers;
 use crate::sema::ide::IdeWhat;
 use crate::sema::scope::{EntityId, EntityKind};
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, Span, Sym, TypeId, Value};
 use crate::types::TypeKind;
 
 impl Compiler {

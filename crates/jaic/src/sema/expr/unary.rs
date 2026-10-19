@@ -3,7 +3,7 @@ use super::{names_variable_path, wrap_int};
 use crate::ast::{ExprKind as E, UnOp};
 use crate::ir::{CmpOp, Ty};
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

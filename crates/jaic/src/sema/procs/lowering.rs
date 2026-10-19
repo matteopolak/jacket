@@ -3,7 +3,10 @@ use super::model::{BodyState, ProcInfo, ProcTarget, Signature};
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind, UsingEntry};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, HashMap, InstanceKeyValue, ProcId, Rc, Result, Span, Sym, TypeId, Value,
+    ast, err, ir,
+};
 
 impl Compiler {
     /// Lower one procedure body to IR.

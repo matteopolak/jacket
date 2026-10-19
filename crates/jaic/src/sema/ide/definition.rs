@@ -1,7 +1,7 @@
 //! Go to definition, path resolution and struct layout notes.
 use super::facts::{IdeFieldSite, IdeReceiver, IdeWhat};
 use crate::sema::scope::{EntityId, EntityKind, Found, Resolved, ScopeId, ScopeKind};
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, Span, Sym, TypeId, ast};
 use crate::types::{StructId, TypeKind};
 
 impl Compiler {

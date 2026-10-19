@@ -1,6 +1,6 @@
 //! Adding sources to a workspace and the `Code` values handed to metaprograms.
 
-use super::*;
+use super::{Call, Interp, Item, MetaOp, PathBuf, ProgramSource, Rc, Rets, Stage, Trap};
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
     let trap = Trap::new;

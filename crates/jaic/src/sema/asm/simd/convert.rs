@@ -2,7 +2,10 @@
 use super::helpers::{aes_tables, float_to_int, saturate};
 use super::{B2, Conv};
 use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    AsmCtx, AsmInst, AsmSize, BinOp, CmpOp, Compiler, ConvOp, FnCtx, Result, Ty, Val, bin, bits,
+    cmp, err, flag_not, flag_or, is_neg, is_zero, konst, resize, select,
+};
 
 impl Compiler {
     pub(super) fn simd_bin(f: &mut FnCtx, op: B2, ty: Ty, a: Val, b: Val) -> Val {

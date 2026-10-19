@@ -1,7 +1,7 @@
 //! Making procedures live and applying modifications to them.
 use super::state::ModifiedStmt;
 use crate::records::{Item, Records};
-use crate::sema::*;
+use crate::sema::{Compiler, Rc, Result, SourcePath, Span, ast, err, procs};
 
 impl Compiler {
     /// `compiler_modify_procedure`: give the procedure of body record `body`

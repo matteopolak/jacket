@@ -3,7 +3,7 @@ use super::const_marker;
 use crate::ast::ExprKind as E;
 use crate::sema::lower::Operand;
 use crate::sema::scope::EntityKind;
-use crate::sema::*;
+use crate::sema::{Compiler, ScopeId, TypeId, ast};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

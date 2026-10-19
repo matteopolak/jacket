@@ -1,7 +1,7 @@
 //! Name lookup through scopes, imports and using entries.
 use super::model::{EntityId, EntityKind, Found, ScopeId, ScopeKind, UsingEntry};
 use super::module_lookup::filter_hides;
-use crate::sema::*;
+use crate::sema::{Compiler, Result, Sym};
 
 impl Compiler {
     /// Look up `name` starting at `scope`, ignoring `using` struct members.

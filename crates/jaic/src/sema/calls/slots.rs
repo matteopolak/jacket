@@ -2,7 +2,7 @@
 use super::{CallArg, Slot};
 use crate::ast::ExprKind as E;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, ast, err};
 
 /// C default argument promotions for variadic arguments.
 pub(super) fn c_vararg_promote(

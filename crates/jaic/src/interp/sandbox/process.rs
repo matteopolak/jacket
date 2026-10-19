@@ -1,6 +1,6 @@
 //! Output, exiting, and process-level procedures.
 
-use super::*;
+use super::{EINVAL, EPERM, Host, LibcFn, SandboxHost, read_bytes};
 
 impl SandboxHost {
     /// Program output, exiting, and the process-level procedures a sandboxed run answers with

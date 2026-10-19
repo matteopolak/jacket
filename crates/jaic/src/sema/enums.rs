@@ -1,7 +1,7 @@
 //! Enum declarations retain source order while values resolve through the ordinary entity graph.
 use super::lower::Operand;
 use super::scope::{EntityKind, Resolved, ScopeKind};
-use super::*;
+use super::{Compiler, EntityId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 use crate::ast::ExprKind as E;
 use crate::types::{EnumInfo, TypeKind};
 

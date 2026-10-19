@@ -1,6 +1,8 @@
 //! Lane helpers: saturation, rounding, AES tables and write masks.
 use crate::sema::asm::vec::{float_to_s32, fselect};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    BinOp, CmpOp, ConvOp, FnCtx, Intrinsic, Ty, UnOp, Val, bin, bits, cmp, konst, resize, select,
+};
 
 /// Saturate a value of the wide type `wt` to `ty` lanes (signed or unsigned range).
 pub(super) fn saturate(f: &mut FnCtx, wt: Ty, v: Val, ty: Ty, signed: bool) -> Val {

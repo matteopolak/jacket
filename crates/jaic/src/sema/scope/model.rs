@@ -1,5 +1,7 @@
 //! Scopes, entities and the kinds of things a name can resolve to.
-use crate::sema::*;
+use crate::sema::{
+    Diagnostic, FileId, HashMap, ModuleId, ProcId, Rc, Span, Sym, Value, ast, ir, value,
+};
 use crate::types::TypeId;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]

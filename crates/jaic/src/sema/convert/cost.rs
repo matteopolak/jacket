@@ -1,6 +1,6 @@
 //! The cost of an implicit conversion and the offset of a subtype.
 use super::{EXACT, INT_TO_FLOAT, LITERAL, POINTER, SUBTYPE, TO_ANY, WIDEN};
-use crate::sema::*;
+use crate::sema::{Compiler, Span, TypeId};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

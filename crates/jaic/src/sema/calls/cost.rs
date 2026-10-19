@@ -3,7 +3,7 @@ use super::{CallArg, inferred_flags, is_deferred};
 use crate::ast::ExprKind as E;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err};
 use crate::types::TypeKind;
 
 impl Compiler {

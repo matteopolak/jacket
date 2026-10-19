@@ -3,7 +3,10 @@ use super::dispatch::SimdLocals;
 use super::helpers::{load_dyn, mask_bit, mix_columns, store_dyn, when, xor8};
 use super::{AesOp, SOp};
 use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Result, Ty, UnOp, Val, bin, cmp, err, is_neg, konst,
+    ptr_of, resize, select,
+};
 
 impl Compiler {
     pub(super) fn simd_masks(

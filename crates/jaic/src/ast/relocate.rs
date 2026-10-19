@@ -8,7 +8,11 @@
 //! Every field holding a `Span`, an `Ident`, a `Sym` or an `AstId` must be visited here. A field
 //! left out keeps its worker value, which `parse_ahead`'s tests catch by comparing against a
 //! serial parse.
-use super::*;
+use super::{
+    Arg, ArraySize, AsmBlock, AsmDecl, AsmItem, AsmOperand, AsmPin, AsmSize, AstId, Block, Case,
+    CodeBody, Decl, EnumItem, Expr, ExprKind, File, ForOver, Ident, Note, Notes, Param, ProcHeader,
+    Rc, RunBody, Span, Stmt, StmtKind, StructLit, SwitchStmt, Sym, UsingFilter,
+};
 use crate::fxhash::HashSet;
 use crate::intern::Remap;
 use crate::source::FileId;

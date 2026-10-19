@@ -1,7 +1,7 @@
 //! Builtin declarations and overloadability.
 use super::expand::decl_is_proc;
 use super::model::{Builtin, BuiltinProc, EntityId, EntityKind, Resolved};
-use crate::sema::*;
+use crate::sema::{Compiler, Span, Sym, Value, ast};
 use crate::types::TypeId;
 
 impl Compiler {

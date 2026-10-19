@@ -1,6 +1,9 @@
 //! Calls to compiler intrinsics (`#intrinsic` procedures and atomics).
 
-use super::*;
+use super::{
+    CallArg, Compiler, Diagnostic, FnCtx, Operand, OrderedAtomic, ProcId, Result, Signature, Slot,
+    Span, TargetCpu, Ty, TypeId, TypeKind, Value, ast, err, ir,
+};
 
 impl Compiler {
     /// Intrinsic procedures declared in Preload (`memcpy`, `compare_and_swap`...).

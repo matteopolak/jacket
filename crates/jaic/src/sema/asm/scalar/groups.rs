@@ -1,5 +1,9 @@
 //! The less common scalar instructions that `asm_scalar_inst` hands to a group by opcode.
-use super::*;
+use super::{
+    AsmArgs, AsmCtx, AsmInst, BinOp, CmpOp, Compiler, FnCtx, Imm, Intrinsic, Opd, Result,
+    ShiftKind, TargetCpu, Ty, UnOp, Val, XOp, bin, bits, cmp, crc32c, err, flag_not, flag_or,
+    flag_xor, ir, is_neg, is_zero, konst, ptr_of, resize, select, wide_mul,
+};
 
 impl Compiler {
     pub(super) fn scalar_arith(

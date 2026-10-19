@@ -3,7 +3,7 @@ use super::{is_comparison, is_complement_literal, is_number_literal, is_shift};
 use crate::ast::{BinOp, ExprKind as E};
 use crate::sema::calls::binop_text;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
 use crate::types::TypeKind;
 
 impl Compiler {

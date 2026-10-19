@@ -62,7 +62,10 @@ const DW_OP_DEREF: u64 = 0x06;
 
 /// Thin wrappers over the LLVM-C `DIBuilder` functions this module uses.
 mod raw {
-    use super::*;
+    use super::{
+        AsContextRef, AsValueRef, BasicBlock, Builder, Context, FunctionValue, GlobalValue,
+        LLVMDIBuilderRef, Md, Module, PointerValue, di,
+    };
     use std::ffi::c_char;
 
     fn s(text: &str) -> (*const c_char, usize) {

@@ -2,7 +2,7 @@
 use super::model::FieldUsing;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found, ScopeKind};
-use crate::sema::*;
+use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};
 use crate::types::{ArrayKind, LayoutState, TypeKind};
 
 impl Compiler {

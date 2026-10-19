@@ -3,7 +3,9 @@ use crate::ast::ExprKind as E;
 use crate::sema::calls::CallArg;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::EntityKind;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err, ir, procs,
+};
 
 impl Compiler {
     /// `x[i] = v` / `x[i] op= v` through `operator []=` (and `operator []` to

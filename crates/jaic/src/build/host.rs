@@ -1,6 +1,6 @@
 //! Facts about the compiler and its command line.
 
-use super::*;
+use super::{Call, Interp, MetaOp, Rets, Trap, compiler_version};
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
     let shared = cx.shared;

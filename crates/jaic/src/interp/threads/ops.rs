@@ -13,7 +13,7 @@ use super::worker::absolute_deadline;
 use super::worker::run_worker;
 use crate::interp::threads_inline::ThreadFn;
 use crate::interp::word_or_zero;
-use crate::interp::*;
+use crate::interp::{ExecState, Interp, Program, Res, Trap, Ty, ValueStack, ir};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 

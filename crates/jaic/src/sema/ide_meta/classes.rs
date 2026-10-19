@@ -2,7 +2,7 @@
 use super::{IdeClass, Target};
 use crate::sema::ide::{IdeRef, IdeWhat};
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved};
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, Span, Value, ast, scope};
 use crate::types::TypeKind;
 
 impl Compiler {

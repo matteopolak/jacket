@@ -5,7 +5,10 @@
 //! zero-extended into the whole register, as on hardware. `name:` in a mask
 //! position declares an `omr`. Vector instructions read masks through `{k}`
 //! decorations (`v: &* k`) and write them from AVX-512 compares (`asm/simd.rs`).
-use super::*;
+use super::{
+    AsmCtx, AsmInst, AsmOperand, AsmReg, BinOp, CmpOp, Compiler, Flags, FnCtx, Imm, Opd, Result,
+    Ty, UnOp, Val, bin, bits, cmp, err, is_zero, konst, resize,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum KOp {

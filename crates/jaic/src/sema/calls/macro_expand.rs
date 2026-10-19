@@ -1,6 +1,9 @@
 //! Expanding `#expand` macro calls.
 
-use super::*;
+use super::{
+    CallArg, Compiler, E, EntityKind, FnCtx, MacroFrame, Operand, PreludeType, ProcId, Rc, Result,
+    ScopeId, ScopeKind, Signature, Slot, Span, Sym, TypeId, Value, asm, ast, err, procs, scope,
+};
 
 /// What the parameters of one macro expansion share.
 #[derive(Clone, Copy)]

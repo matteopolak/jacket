@@ -3,7 +3,10 @@ use super::dispatch::SimdLocals;
 use super::helpers::{load_dyn, mask_bit, saturate};
 use super::{DupKind, SOp, Sat};
 use crate::sema::asm::vec::{VOpd, lane_addr, load_lane, store_lane};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Ty, bin, bits, cmp, err, is_neg,
+    konst, resize, select,
+};
 
 impl Compiler {
     pub(super) fn simd_shuffle(

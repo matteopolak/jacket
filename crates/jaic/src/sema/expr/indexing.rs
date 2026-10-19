@@ -1,7 +1,7 @@
 //! Index expressions and pointer-index operators.
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

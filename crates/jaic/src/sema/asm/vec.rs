@@ -16,7 +16,11 @@
 //!   their address), general-purpose registers for `movd`/`movq`/`movmsk*`,
 //!   integer immediates, and vector-indexed memory (`[base + vindex*4]`) for
 //!   gathers.
-use super::*;
+use super::{
+    AsmCtx, AsmInst, AsmMem, AsmOperand, AsmReg, AsmSize, BinOp, CmpOp, Compiler, ConvOp, E,
+    EntityKind, Expr, FnCtx, Found, Imm, Intrinsic, Opd, Operand, Result, ScopeId, Span, Ty, UnOp,
+    Val, Value, bin, bits, cmp, err, is_neg, konst, ptr_of, resize, select, simd,
+};
 
 mod groups;
 use crate::ast::AsmMemTerm;

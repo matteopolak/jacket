@@ -1,7 +1,11 @@
 //! Inferring `$T` bindings of a polymorphic procedure from its arguments, and matching type
 //! patterns.
 
-use super::*;
+use super::{
+    ArrayKind, CallArg, Compiler, Diagnostic, DiagnosticKind, E, Operand, ProcId, Result, ScopeId,
+    Slot, Span, Sym, TypeId, TypeKind, Value, ast, err, header_poly_names, is_deferred,
+    is_poly_var_arg, poly_names, procs, value,
+};
 
 /// What `infer_bindings` accumulates while it walks the parameters of a polymorphic header.
 struct Inference<'a> {

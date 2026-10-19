@@ -2,7 +2,10 @@
 //! `#insert`, and reading interpreter memory back into constant values.
 use super::lower::{FnCtx, Operand};
 use super::value::Aggregate;
-use super::*;
+use super::{
+    Compiler, Diagnostic, DiagnosticKind, FileId, ModuleId, Rc, Result, ScopeId, SourcePath, Span,
+    Sym, TypeId, Value, ast, compiler_host, err, expr, ir, scope, structs, value,
+};
 
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};

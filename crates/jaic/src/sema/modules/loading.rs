@@ -1,7 +1,10 @@
 //! Reading source files, loading modules and strings, and creating modules.
 use super::filesystem::find_module_in;
 use crate::sema::scope::{PendingState, ScopeKind};
-use crate::sema::*;
+use crate::sema::{
+    BootstrapModule, Compiler, Diagnostic, FileId, FileInfo, HashSet, Module, ModuleId, PathBuf,
+    Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast, err,
+};
 use std::path::Path;
 
 /// A cached source request may be in a recursive load, complete, or failed.

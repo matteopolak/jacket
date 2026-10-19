@@ -2,7 +2,7 @@
 use crate::ast::ExprKind as E;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found, Resolved, UsingEntry};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, ScopeId, Span, Sym, TypeId, ast, err};
 use crate::types::StructId;
 
 impl Compiler {

@@ -1,7 +1,7 @@
 //! Compile-time check of print-style calls: a literal format string whose `%` directives use
 //! a different number of arguments than the call passes is a warning.
 use super::calls::{CallArg, Slot};
-use super::*;
+use super::{Compiler, Diagnostic, FileId, ProcId, Result, Span, Sym, TypeId, ast};
 use crate::ast::ExprKind as E;
 use crate::format_string;
 use crate::lexer::{self, P, Tok};

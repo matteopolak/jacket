@@ -4,7 +4,7 @@ use super::constants::node;
 use crate::builtin_keys::SyntaxKey;
 use crate::records::{FieldRef, Item, Record, RecordTag};
 use crate::sema::scope::Resolved;
-use crate::sema::*;
+use crate::sema::{Span, Sym, TypeId, Value, ast};
 use crate::types::TypeKind;
 
 impl Exporter<'_> {

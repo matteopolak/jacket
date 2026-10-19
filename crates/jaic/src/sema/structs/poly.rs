@@ -4,7 +4,10 @@ use super::model::{PolyStruct, StructSource};
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, ScopeKind};
 use crate::sema::value::PolyStructId;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope,
+    value,
+};
 use crate::types::{ArrayKind, LayoutState, StructInfo, TypeKind};
 
 impl Compiler {

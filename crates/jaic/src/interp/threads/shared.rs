@@ -3,7 +3,7 @@ use super::pthread;
 use super::sched::{Block, DEADLOCK_GRACE, GThread, NATIVE_SLICE, Sched, Shared, WorkerCancelled};
 #[cfg(windows)]
 use super::win32;
-use crate::interp::*;
+use crate::interp::{HashMap, Interp, Program, Trap, native};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
 

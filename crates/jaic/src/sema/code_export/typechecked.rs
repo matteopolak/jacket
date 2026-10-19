@@ -4,7 +4,7 @@ use super::procs::export_code_in;
 use super::{Exporter, Typechecked};
 use crate::records::{Item, Record, RecordTag, Records};
 use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
-use crate::sema::*;
+use crate::sema::{Compiler, EntityId, ProcId, procs};
 
 impl Compiler {
     /// A TYPECHECKED message for eligible declarations and ready bodies, or `None`.

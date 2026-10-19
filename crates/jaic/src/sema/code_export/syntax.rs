@@ -3,7 +3,7 @@ use super::Exporter;
 use super::constants::{inst_flags, node};
 use crate::builtin_keys::SyntaxKey;
 use crate::records::{Field, Item, Record, RecordTag};
-use crate::sema::*;
+use crate::sema::{Span, ast, procs};
 
 impl Exporter<'_> {
     /// A `Code_Type_Instantiation` for a type expression, with its resolved type when it has one.

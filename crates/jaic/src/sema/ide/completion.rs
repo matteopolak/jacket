@@ -1,7 +1,7 @@
 //! Names visible at a position, and the members of a receiver.
 use super::facts::{IdeKind, IdeName, IdeReceiver, IdeRef, IdeWhat};
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Found, Resolved, ScopeId, ScopeKind};
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, HashSet, ModuleId, Span, Sym, TypeId, ast, scope, value};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

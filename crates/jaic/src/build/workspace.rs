@@ -1,6 +1,9 @@
 //! Workspace lifecycle, build options and import control.
 
-use super::*;
+use super::{
+    Call, Interp, MetaOp, Path, PathBuf, ProvidedImport, ProvidedKind, Rets, Trap, Workspace,
+    WorkspaceFlag, WorkspaceList, WorkspaceNumber, WorkspaceText, option_snapshot,
+};
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
     let trap = Trap::new;

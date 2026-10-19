@@ -4,7 +4,7 @@ use crate::ast::ExprKind as E;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::value::Aggregate;
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, Rc, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

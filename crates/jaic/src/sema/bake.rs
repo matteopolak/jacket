@@ -5,7 +5,10 @@
 //! as constants in a scope between the original defining scope and the new
 //! procedure, so the body and the remaining parameter types see them by name.
 use super::lower::Operand;
-use super::*;
+use super::{
+    Compiler, ConstArg, Diagnostic, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err,
+    procs, scope, value,
+};
 
 impl Compiler {
     pub fn check_bake(

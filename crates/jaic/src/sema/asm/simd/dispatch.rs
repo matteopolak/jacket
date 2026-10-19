@@ -2,7 +2,7 @@
 use super::SOp;
 use super::helpers::WriteMask;
 use crate::sema::asm::vec::VOpd;
-use crate::sema::asm::*;
+use crate::sema::asm::{AsmCtx, AsmInst, Compiler, FnCtx, Result, Span, Val, err};
 
 #[derive(Clone, Copy)]
 pub(super) struct SimdLocals<'a> {

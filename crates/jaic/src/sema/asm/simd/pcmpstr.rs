@@ -1,6 +1,9 @@
 //! The string-compare instructions.
 use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    AsmCtx, BinOp, CmpOp, Compiler, Flags, FnCtx, Result, Span, Ty, Val, bin, cmp, err, flag_not,
+    is_neg, is_zero, konst, resize, select,
+};
 
 impl Compiler {
     /// `pcmpistri`, `pcmpestri`, `pcmpistrm`, `pcmpestrm`: string comparison of two 16-byte

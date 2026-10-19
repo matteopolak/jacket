@@ -1,7 +1,7 @@
 //! C-locale subject scanning and direct binary32/binary64 conversion, and the `strtod` and
 //! `strtol` families built on it.
 
-use super::*;
+use super::{LibcFn, SandboxHost, cstr, write_u64};
 
 pub(super) struct Parsed {
     pub bits: u64,

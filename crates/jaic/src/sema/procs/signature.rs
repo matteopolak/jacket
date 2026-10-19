@@ -4,7 +4,10 @@ use super::model::{
 };
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, EntityId, HashMap, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value,
+    ast, err, ir, value,
+};
 use crate::types::{ArrayKind, ProcType, TypeKind};
 
 impl Compiler {

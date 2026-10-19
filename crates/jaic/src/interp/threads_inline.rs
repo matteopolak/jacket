@@ -22,7 +22,10 @@
 //! The native interpreter uses real OS threads instead (`threads.rs`).
 #![allow(unsafe_code)]
 
-use super::*;
+use super::{
+    ExecState, Frame, FrameExit, FuncId, HashMap, Interp, Program, Res, Rets, Trap, TrapKind,
+    ValueStack, suspended,
+};
 use crate::fxhash::HashSet;
 use crate::interp::word_or_zero;
 use crate::macros::raw_enum;

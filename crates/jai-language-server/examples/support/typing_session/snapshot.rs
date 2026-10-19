@@ -1,6 +1,9 @@
 //! Queries and snapshots: what a session answers, and how two sets of answers differ.
 
-use super::*;
+use super::{
+    Clock, Diagnostic, DiagnosticCode, DocumentUri, Error, FileId, Hover, Location, Position,
+    SemanticToken, Session, here_strings, identifier_starts, pos_of,
+};
 
 /// A request made to a session, kept so that a failing run can be replayed with the same
 /// requests between the same edits (what the session cached depends on them).

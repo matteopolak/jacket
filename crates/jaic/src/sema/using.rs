@@ -2,7 +2,10 @@
 //! original member; mapping never creates copied runtime fields.
 use super::scope::UsingEntry;
 use super::value::Aggregate;
-use super::*;
+use super::{
+    Compiler, Diagnostic, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast, err, ir,
+    scope,
+};
 use crate::types::{ArrayKind, TypeKind};
 
 pub(super) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym> {

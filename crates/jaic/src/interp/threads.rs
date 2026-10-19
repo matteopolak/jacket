@@ -37,7 +37,7 @@ mod worker;
 pub use self::sched::DEADLOCK_GRACE;
 pub(super) use self::sched::Shared;
 use self::sched::{Block, ETIMEDOUT, GThread, Worker};
-use super::*;
+use super::{Interp, Program, Res, Trap, TrapKind, Ty};
 
 #[cfg(test)]
 mod pthread_name_tests {
@@ -135,6 +135,7 @@ mod worker_lifetime_tests {
     #[cfg(windows)]
     use super::sched::CANCELLED_EXIT_CODE;
     use super::*;
+    use crate::interp::{Host, ir, native};
     use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use std::rc::Rc;
     use std::sync::Arc;

@@ -41,7 +41,7 @@ use self::model::{
 };
 use super::lower::{FnCtx, Operand};
 use super::scope::{EntityKind, Found};
-use super::*;
+use super::{Compiler, Result, ScopeId, Span, TargetCpu, Value, err, ir};
 use crate::ast::{AsmBlock, AsmInst, AsmItem, AsmMem, AsmOperand, AsmSize, Expr, ExprKind as E};
 use crate::ir::{BinOp, CmpOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 

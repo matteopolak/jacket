@@ -5,7 +5,11 @@
 //! give the same bits in the interpreter and in native code on any host. MXCSR is
 //! not modeled: `cvtps2ph` with imm8 bit 2 ("use MXCSR.RC") rounds to nearest even,
 //! which is the MXCSR default.
-use super::*;
+use super::{
+    AsmCtx, AsmInst, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Span, Ty, UnOp, VOpd, Val,
+    WriteMask, bin, bit_intrinsic, cmp, err, flag_not, flag_or, is_zero, konst, lane_addr,
+    load_dyn, load_lane, mask_bit, ptr_of, resize, select, store_lane, when, xtime,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(in crate::sema) enum ShaOp {

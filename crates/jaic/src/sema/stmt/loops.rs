@@ -4,7 +4,10 @@ use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::CallArg;
 use crate::sema::lower::{FnCtx, ForBody, LoopFrame, LoopRemove, Operand};
 use crate::sema::scope::{EntityKind, Resolved};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, PreludeType, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
+    procs,
+};
 use crate::types::{ArrayKind, TypeKind};
 
 /// What the two forms of a `for` loop share once its names and scope are set up.

@@ -1,6 +1,9 @@
 //! Module parameters and program parameters: declaring them, binding arguments and checking their contracts.
 use crate::sema::scope::EntityKind;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, EntityId, ModuleId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    err, ir, lower, procs, scope,
+};
 use std::path::Path;
 
 /// A module-owned header contract, evaluated in its declaring file namespace.

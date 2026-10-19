@@ -1,6 +1,9 @@
 //! Values for baked (`$x`) parameters: defaults, `Code` arguments and constant packs.
 
-use super::*;
+use super::{
+    ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, PackKey, Rc, Result, ScopeId, ScopeKind,
+    Span, Sym, TypeId, Value, ast, err, ir, procs, value,
+};
 
 impl Compiler {
     /// The value of a defaulted baked parameter. A declared type naming earlier bindings

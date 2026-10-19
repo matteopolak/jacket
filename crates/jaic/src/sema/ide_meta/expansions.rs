@@ -3,7 +3,7 @@ use super::text::{bounded, dedent, quote};
 use super::{IdeExpansion, IdeExpansionKind, MAX_EXPANSIONS, MAX_VARIANTS};
 use crate::sema::lower::Operand;
 use crate::sema::value::CodeId;
-use crate::sema::*;
+use crate::sema::{Compiler, Span, Value, ast};
 
 impl Compiler {
     // Recording

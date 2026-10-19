@@ -8,7 +8,7 @@ mod pointers;
 mod typing;
 
 use super::lower::{FnCtx, Operand};
-use super::*;
+use super::{Compiler, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
 use crate::ir::CmpOp;
 

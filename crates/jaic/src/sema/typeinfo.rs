@@ -7,7 +7,7 @@ mod generic;
 mod tagged;
 mod views;
 
-use super::*;
+use super::{Compiler, Diagnostic, PreludeType, Rc, Result, Span, Sym, TypeId, Value, ir};
 use crate::types::TypeKind;
 
 /// A struct-scoped constant for type info: where it is declared, its name, type, value and notes.

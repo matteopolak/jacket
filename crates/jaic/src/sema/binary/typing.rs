@@ -1,7 +1,7 @@
 //! Literal fitting and the type a binary expression takes.
 use crate::sema::expr::wrap_int;
 use crate::sema::lower::Operand;
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value};
 use crate::types::TypeKind;
 
 impl Compiler {

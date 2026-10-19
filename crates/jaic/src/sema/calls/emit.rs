@@ -1,6 +1,10 @@
 //! Emitting a resolved call: argument operands, variadics, defaults and indirect calls.
 
-use super::*;
+use super::{
+    ArrayKind, CallArg, Candidate, Compiler, Diagnostic, E, FnCtx, Operand, ProcTarget,
+    ProcTypeParams, Rc, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
+    c_vararg_promote, err, ir, procs,
+};
 
 impl Compiler {
     /// Emit a resolved call, recording which of its results are `#must`.

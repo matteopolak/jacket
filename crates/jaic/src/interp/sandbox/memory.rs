@@ -1,6 +1,9 @@
 //! Heap memory, byte and C string procedures.
 
-use super::*;
+use super::{
+    EBADF, EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, LibcFn, SandboxHost, copy, cstr,
+    fill, read_bytes, read_u8, write_bytes,
+};
 
 impl SandboxHost {
     /// Heap memory, byte and C string procedures, and `errno`.

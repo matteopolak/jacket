@@ -1,7 +1,7 @@
 //! Lane sizes, mnemonic tables and the lookups from names to operations.
 use super::ext::{GfOp, ShaOp};
 use super::{AesOp, B2, Conv, DupKind, FmaKind, SOp, Sat, U1};
-use crate::sema::asm::*;
+use crate::sema::asm::Ty;
 
 pub(in crate::sema::asm) fn elem_size(op: SOp) -> u64 {
     use SOp::{

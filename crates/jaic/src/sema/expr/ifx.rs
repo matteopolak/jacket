@@ -2,7 +2,7 @@
 use super::implicit_then_expr;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
 
 impl Compiler {
     #[allow(clippy::too_many_arguments)]

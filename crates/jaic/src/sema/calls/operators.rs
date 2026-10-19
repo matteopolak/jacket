@@ -1,6 +1,9 @@
 //! Operator overloading: finding and calling `operator` procedures.
 
-use super::*;
+use super::{
+    CallArg, Candidate, Compiler, FnCtx, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId,
+    TypeKind, Value, ast, err, ir, scope,
+};
 
 impl Compiler {
     /// Scope a struct (or pointer to one) was declared in, for its

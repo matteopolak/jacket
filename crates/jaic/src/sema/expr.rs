@@ -5,7 +5,7 @@ mod indexing;
 mod unary;
 
 use super::lower::{FnCtx, Operand};
-use super::*;
+use super::{Compiler, Rc, Result, ScopeId, Sym, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};

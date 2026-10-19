@@ -2,7 +2,9 @@
 use crate::ast::StmtKind as S;
 use crate::sema::lower::{FnCtx, InsertReplacements, LoopFrame, LoopRemove, MacroFrame, Operand};
 use crate::sema::scope::{EntityId, EntityKind, ScopeKind};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope,
+};
 
 impl Compiler {
     #[allow(clippy::too_many_arguments)]

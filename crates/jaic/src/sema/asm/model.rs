@@ -1,6 +1,6 @@
 //! Registers, operations, conditions and the operand and flag state of an `#asm` block.
 use crate::ir::{BlockId, Ty, Val};
-use crate::sema::*;
+use crate::sema::{Result, ScopeId, Span, err, ir};
 
 /// What a name declared by an `#asm` register declaration is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

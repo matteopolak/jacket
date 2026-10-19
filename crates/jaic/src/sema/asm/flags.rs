@@ -4,8 +4,8 @@ use super::helpers::{
 };
 use super::model::{AsmCtx, Cond, Flags};
 use crate::ir::{BinOp, Intrinsic, Ty, Val};
+use crate::sema::Compiler;
 use crate::sema::lower::FnCtx;
-use crate::sema::*;
 
 impl Compiler {
     pub(super) fn flag(f: &mut FnCtx, v: Option<Val>) -> Val {

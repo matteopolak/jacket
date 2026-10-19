@@ -1,7 +1,9 @@
 //! `if` and `switch` statements and the comparisons they make.
 use crate::ir::{CmpOp, Ty};
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, DiagnosticKind, Result, ScopeId, Span, TypeId, Value, ast, ir,
+};
 use crate::types::TypeKind;
 
 impl Compiler {

@@ -2,7 +2,7 @@
 use crate::ast::BinOp;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 
 impl Compiler {
     pub(in crate::sema) fn check_logical(

@@ -2,7 +2,7 @@
 use crate::ast::BinOp;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, Span, TypeId, ast, ir};
 
 impl Compiler {
     /// `p + n`, `p - n` and `p - q` on a pointer `p`.

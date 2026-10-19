@@ -12,7 +12,10 @@
 //! `pmov*2m`) AND their result with a `{k}` write mask; `blendm*`, compress and
 //! scatter consume the write mask themselves.
 use super::vec::{VOpd, lane_addr, load_lane, store_lane};
-use super::*;
+use super::{
+    AsmCtx, AsmInst, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Span, Ty, UnOp, Val, bin,
+    bit_intrinsic, cmp, err, flag_not, flag_or, is_zero, konst, ptr_of, resize, select,
+};
 
 mod args;
 mod compare;

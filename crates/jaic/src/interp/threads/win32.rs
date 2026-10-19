@@ -17,7 +17,11 @@
 use super::sched::NATIVE_STACK;
 #[cfg(windows)]
 use super::worker::run_worker;
-use super::*;
+use super::{Block, ETIMEDOUT, GThread, Interp, Program, Res, Trap, TrapKind, Ty};
+#[cfg(windows)]
+use super::{Shared, Worker};
+#[cfg(windows)]
+use crate::interp::ir::FuncId;
 use crate::interp::word_or_zero;
 #[cfg(windows)]
 use std::sync::Arc;
@@ -966,6 +970,7 @@ fn deadline_after(milliseconds: u32) -> Option<Instant> {
 #[cfg(test)]
 mod handle_registry_tests {
     use super::*;
+    use crate::interp::NativeHost;
 
     #[test]
     fn managed_thread_lookup_accepts_native_handle_range_without_events() {

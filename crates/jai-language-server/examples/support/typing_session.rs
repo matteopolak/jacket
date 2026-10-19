@@ -45,11 +45,14 @@ mod snapshot;
 #[path = "typing_session/text.rs"]
 mod text;
 
-use clock::*;
-use rig::*;
+use clock::Clock;
+use rig::{Rig, here_strings};
 pub use snapshot::Query;
-use snapshot::*;
-use text::*;
+use snapshot::{
+    Snapshot, answer, omits_literal, probe_at, sanity, snapshot_difference, sorted_debug,
+    stale_damage, usage_lint,
+};
+use text::{balanced, byte_of, identifier_starts, pos_of};
 
 /// Where a session's decisions come from: a seeded generator, or a fuzzer's bytes.
 pub trait Choices {

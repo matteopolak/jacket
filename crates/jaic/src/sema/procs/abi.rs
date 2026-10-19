@@ -1,6 +1,6 @@
 //! IR signatures and aggregate layouts for procedures.
 use crate::ir::{Conv, Sig, Ty};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, Span, TypeId, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

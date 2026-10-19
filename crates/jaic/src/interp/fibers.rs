@@ -16,7 +16,12 @@
 //! started the chain it belongs to, whose `fiber_switch` returns it as an error.
 #![allow(unsafe_code)]
 
-use super::*;
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+use super::{ExecState, FuncId, MAX_DEPTH, Trap, ValueStack};
+use super::{Interp, Program, Res, ir};
 #[cfg(all(
     any(unix, windows),
     any(target_arch = "x86_64", target_arch = "aarch64")

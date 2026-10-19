@@ -2,7 +2,10 @@
 use super::model::{BodyState, ProcTarget};
 use crate::ir::Ty;
 use crate::sema::lower::FnCtx;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, DiagnosticKind, FileId, ProcId, Result, ScopeId, Span, ast, err, ir,
+    scope,
+};
 
 impl Compiler {
     /// The callable target of a procedure, reserving it (and queueing its body) on first use.

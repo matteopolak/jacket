@@ -5,7 +5,11 @@
 //! A file handle is its descriptor plus [`HANDLE_BASE`] (so no handle is null or
 //! `INVALID_HANDLE_VALUE`), text is UTF-16 converted from and to UTF-8 whatever the code page,
 //! and failures set the error `GetLastError` returns.
-use super::*;
+use super::{
+    BASE_MTIME, EBADF, EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, Host, O_CREAT, O_EXCL,
+    O_RDWR, O_TRUNC, O_WRONLY, SandboxHost, absolute, fill, join, read_bytes, read_u8, write_u32,
+    write_u64, write_units,
+};
 use crate::interp::word_or_zero;
 
 const HANDLE_BASE: u64 = 0x1_0000;

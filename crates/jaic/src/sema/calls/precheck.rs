@@ -1,7 +1,7 @@
 //! Checking arguments before a candidate is chosen, and ranking candidates.
 use super::{CallArg, Candidate, is_deferred};
 use crate::sema::lower::FnCtx;
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, ProcId, Result, ScopeId, Span, Sym, ast, err, ir};
 
 impl Compiler {
     /// A copy of the current context with fields replaced; an unnamed

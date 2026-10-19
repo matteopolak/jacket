@@ -1,6 +1,6 @@
 //! Structural interface validation at generic binding time.
 use super::scope::Resolved;
-use super::*;
+use super::{Compiler, HashSet, ProcId, Result, Span, TypeId, Value, err};
 
 impl Compiler {
     pub(super) fn validate_interface(

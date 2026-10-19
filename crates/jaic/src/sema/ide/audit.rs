@@ -3,7 +3,7 @@ use super::facts::{IdeRef, IdeWhat};
 use super::member_notes::names_target;
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeKind};
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Span, TypeId, Value, ast};
 use crate::types::TypeKind;
 
 impl Compiler {

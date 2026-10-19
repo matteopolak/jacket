@@ -5,7 +5,10 @@ use crate::ast::{AsmDecl, AsmMem, AsmOperand, AsmPin, CodeBody, Expr, ExprKind a
 use crate::ir::{BinOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, DiagnosticKind, PreludeType, Result, ScopeId, Span, Sym, TypeId, Value,
+    err, scope,
+};
 
 impl Compiler {
     /// Canonical bootstrap operand marker, retaining its distinct source type.

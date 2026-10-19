@@ -4,7 +4,9 @@ use super::model::{
     Entity, EntityId, EntityKind, EntityState, ImportEntry, Pending, PendingState, Resolved, Scope,
     ScopeId, ScopeKind, UsingEntry,
 };
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, FileId, HashMap, ModuleId, Rc, Result, Span, Sym, Value, ast,
+};
 use crate::types::TypeId;
 
 impl Compiler {

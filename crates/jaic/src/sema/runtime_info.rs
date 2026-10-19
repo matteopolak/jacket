@@ -8,7 +8,9 @@
 //! global_data_info: *Global_Data_Info; }`, `Global_Data_Info { version_stamp:
 //! u64; segment_info: [] Global_Data_Segment_Info; }`,
 //! `Global_Data_Segment_Info { segment_tag: u16; data: [] u8; }`.
-use super::*;
+use super::{
+    Compiler, Diagnostic, EntityId, HashSet, Rc, Result, Span, TypeId, Value, ast, ir, scope,
+};
 use crate::types::{LayoutState, TypeKind};
 use scope::{EntityKind, Resolved, ScopeKind};
 

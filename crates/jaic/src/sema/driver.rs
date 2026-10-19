@@ -2,7 +2,10 @@
 //! file, run top-level directives, and lower everything reachable from the
 //! exported entry points.
 use super::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeKind};
-use super::*;
+use super::{
+    BootstrapModule, Compiler, DeadCode, Diagnostic, DiagnosticKind, FileId, ModuleId, PathBuf,
+    PreludeType, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs, value,
+};
 use crate::types::TypeKind;
 use std::path::Path;
 

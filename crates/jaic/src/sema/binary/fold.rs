@@ -3,7 +3,7 @@ use super::num;
 use crate::ast::BinOp;
 use crate::sema::expr::wrap_int;
 use crate::sema::lower::Operand;
-use crate::sema::*;
+use crate::sema::{Compiler, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
 impl Compiler {

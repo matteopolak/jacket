@@ -2,7 +2,7 @@
 use super::model::{BodyState, ProcTarget};
 #[cfg(debug_assertions)]
 use crate::sema::scope::ScopeKind;
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, ProcId, Result, ir};
 
 impl Compiler {
     /// Lower all queued procedure bodies.

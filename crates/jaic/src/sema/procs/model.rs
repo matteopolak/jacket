@@ -1,5 +1,8 @@
 //! Procedure records: targets, parameters, signatures and the polymorphism helpers over headers.
-use crate::sema::*;
+use crate::sema::{
+    HashMap, InstanceKeyValue, ProcId, ProcTypeParams, Rc, Result, ScopeId, Span, Sym, TypeId, ast,
+    err, ir,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub enum ProcTarget {

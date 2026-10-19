@@ -3,7 +3,7 @@ use super::model::{FieldDecl, FieldItem, MemberAlias, member_path};
 use crate::ast::ExprKind as E;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved};
-use crate::sema::*;
+use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 
 impl Compiler {
     pub(super) fn collect_fields(

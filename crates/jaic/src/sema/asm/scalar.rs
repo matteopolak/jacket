@@ -7,7 +7,11 @@
 //! `rep_stos.b di, a, c`, `rep_lods.d a, si, c`, `repe_cmps.b di, si, c`,
 //! `repne_scas.b di, a, c`, `cqo d, a`, `cdqe a`, `mulx hi, lo, src, d`,
 //! `cmpxchg16b d, a, [mem], c, b`.
-use super::*;
+use super::{
+    Alu, AsmArgs, AsmCtx, AsmInst, BinOp, CmpOp, Compiler, Flags, FnCtx, Imm, Intrinsic, Opd,
+    Result, ShiftKind, Span, TargetCpu, Ty, UnOp, Val, bin, bits, cmp, err, flag_not, flag_or,
+    flag_xor, ir, is_neg, is_zero, konst, ptr_of, resize, select, wide_mul,
+};
 
 mod groups;
 

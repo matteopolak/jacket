@@ -1,5 +1,9 @@
 //! The vector instruction groups `asm_vec_inst` hands an opcode to.
-use super::*;
+use super::{
+    AsmCtx, AsmInst, BinOp, CmpOp, Compiler, ConvOp, Cvt, FnCtx, Intrinsic, Result, Shift, Ty, VOp,
+    VOpd, VecCall, bin, bitcast, bits, cmp, err, float_to_s32, float_unary, is_neg, konst,
+    lane_addr, lane_op, load_lane, ptr_of, resize, select, store_lane,
+};
 
 impl Compiler {
     pub(super) fn vec_moves(

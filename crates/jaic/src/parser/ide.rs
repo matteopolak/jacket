@@ -1,5 +1,5 @@
 //! Editor-only recovery. Never used by the strict compiler entry points.
-use super::*;
+use super::{Diagnostic, File, FileId, P, PResult, Parser, Span, Stmt, Tok, Token, parse_tokens};
 
 pub struct IdeParse {
     pub file: File,
@@ -308,6 +308,7 @@ fn single_declaration_body(stmt: &Stmt) -> Option<&Stmt> {
 #[cfg(test)]
 mod callee_tests {
     use super::*;
+    use crate::parser::parse_file;
 
     #[test]
     fn captures_the_actual_callee_before_nested_incomplete_arguments() {

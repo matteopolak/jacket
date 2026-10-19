@@ -9,7 +9,7 @@
 use super::lower::{FnCtx, Operand};
 use super::procs::BodyState;
 use super::value::ProcId;
-use super::*;
+use super::{Compiler, HashMap, Rc, ScopeId, Span, Sym, TypeId, Value, ast, scope};
 use crate::types::TypeKind;
 
 /// The most facts one sketch may add.

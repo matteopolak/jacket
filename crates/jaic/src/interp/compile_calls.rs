@@ -1,5 +1,5 @@
 //! Retained compile-time calls. Only the owning compiler may service a dependency.
-use super::*;
+use super::{FuncId, Interp, Program, Res, Rets, TrapKind, threads_inline};
 
 pub(crate) struct CompileContinuation {
     frames: Vec<threads_inline::SuspFrame>,

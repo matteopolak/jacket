@@ -7,7 +7,7 @@
 use super::lower::{FnCtx, Operand};
 use super::procs::ParamInfo;
 use super::scope::{EntityKind, Resolved, ScopeKind};
-use super::*;
+use super::{Compiler, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir};
 use crate::ast::ExprKind as E;
 use crate::types::TypeKind;
 

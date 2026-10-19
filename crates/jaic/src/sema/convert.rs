@@ -5,7 +5,7 @@ mod cost;
 mod implicit;
 
 use super::lower::{FnCtx, Operand};
-use super::*;
+use super::{Compiler, Result, Span, TypeId, Value, ir};
 use crate::ir::{ConvOp, Ty};
 
 /// Conversion costs used to rank overloads. Lower is better.

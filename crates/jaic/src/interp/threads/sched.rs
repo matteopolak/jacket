@@ -1,6 +1,6 @@
 //! Scheduler state: thread slots, blocking reasons and the shared baton.
 use super::{pthread, win32};
-use crate::interp::*;
+use crate::interp::{ExecState, HashMap};
 use std::collections::VecDeque;
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};

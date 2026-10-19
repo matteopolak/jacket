@@ -3,7 +3,7 @@ use super::model::PathStep;
 use crate::ast::ExprKind as E;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::value::Aggregate;
-use crate::sema::*;
+use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

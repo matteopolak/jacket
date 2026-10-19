@@ -1,6 +1,6 @@
 //! Writing fields, pointers and views of the type information tables.
 use crate::sema::value::Aggregate;
-use crate::sema::*;
+use crate::sema::{Compiler, Rc, Result, Span, Sym, TypeId, Value, err, ir, structs};
 
 impl Compiler {
     pub(super) fn set_field(

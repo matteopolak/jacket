@@ -2,7 +2,7 @@
 use super::constants::message_kind;
 use super::state::FileEvent;
 use crate::records::{Record, RecordTag, Records};
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, ModuleId};
 
 impl Compiler {
     /// FILE (and, before a module's first file, IMPORT) messages for files

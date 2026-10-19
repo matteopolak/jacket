@@ -5,7 +5,7 @@
 //! instance of a polymorphic procedure. `Compiler::export_performance_report` (in
 //! `code_export.rs`) turns the counts into the message's records when the workspace finishes.
 use super::procs::{BodyState, ProcTarget};
-use super::*;
+use super::{Compiler, HashMap, HashSet, ProcId, Span, ir};
 use std::time::Duration;
 
 /// A point in time that reads as zero where the platform has no clock (the browser build).

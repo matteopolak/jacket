@@ -1,7 +1,7 @@
 //! `return` statements and emitting deferred code.
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, ast, err};
 
 impl Compiler {
     pub(super) fn check_return(

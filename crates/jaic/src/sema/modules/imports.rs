@@ -1,7 +1,10 @@
 //! Resolving `#import` statements: instances, program origins, groups and provided modules.
 use super::filesystem::import_entry;
 use super::parameters::INFERRED_PARAM;
-use crate::sema::*;
+use crate::sema::{
+    BootstrapModule, Compiler, ModuleId, ProvidedImport, ProvidedKind, Rc, Result, ScopeId, Sym,
+    TypeId, Value, ast, err, scope,
+};
 use std::path::Path;
 
 impl Compiler {

@@ -13,7 +13,10 @@
 use super::lower::{FnCtx, MacroFrame, Operand};
 use super::procs::{ProcTarget, Signature};
 use super::scope::{BuiltinProc, EntityKind, ScopeKind};
-use super::*;
+use super::{
+    Compiler, Diagnostic, DiagnosticKind, PackKey, PreludeType, ProcId, ProcTypeParams, Rc, Result,
+    ScopeId, Span, Sym, TargetCpu, TypeId, Value, asm, ast, err, ir, procs, scope, value,
+};
 use crate::ast::ExprKind as E;
 use crate::ir::Ty;
 use crate::macros::raw_enum;

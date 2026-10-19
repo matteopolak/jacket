@@ -6,7 +6,7 @@
 //! so the same name always gives the same pointer, and a message send does nothing and answers
 //! null. `class` and `superclass` are the two sends whose answers compile-time code checks, so
 //! they answer a class (the receiver, and `NSObject`).
-use super::*;
+use super::{HashMap, SandboxHost, cstr, write_bytes};
 use crate::interp::word_or_zero;
 
 /// Every class takes this many bytes; subclasses add none, so stubs sized by the difference

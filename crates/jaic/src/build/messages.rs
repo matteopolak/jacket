@@ -2,7 +2,7 @@
 
 #[cfg(target_arch = "wasm32")]
 use super::state::{INTERCEPT_REPORT_POLYMORPHS, INTERCEPT_REPORT_RUNS};
-use super::*;
+use super::{Call, Interp, MetaOp, ReportSeverity, Rets, Stage, TOP_LEVEL_WORKSPACE, Trap, step};
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
     let trap = Trap::new;

@@ -1,5 +1,8 @@
 //! State kept across exports: modified statements, expression types and the pending procedures.
-use crate::sema::*;
+use crate::sema::{
+    EntityId, FileId, HashMap, HashSet, ModuleId, PathBuf, ProcId, Rc, ScopeId, Span, Sym, TypeId,
+    ast,
+};
 
 /// A statement of a body given to `compiler_modify_procedure`.
 #[derive(Debug, Clone)]

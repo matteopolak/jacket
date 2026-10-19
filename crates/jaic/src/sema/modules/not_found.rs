@@ -1,6 +1,6 @@
 //! Diagnostics for modules and files that cannot be found or read.
 use super::filesystem::modules_in;
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, DiagnosticKind, PathBuf, Span};
 use std::path::Path;
 
 impl Compiler {

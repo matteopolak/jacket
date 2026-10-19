@@ -1,7 +1,10 @@
 //! Operands and the per-procedure lowering context.
 use super::scope::BuiltinProc;
 use super::value::{LibraryId, PolyStructId};
-use super::*;
+use super::{
+    Compiler, FileId, HashMap, HashSet, ModuleId, ProcId, ProcTypeParams, Rc, Result, ScopeId,
+    Span, Sym, TypeId, Value, ast, err, ir, procs,
+};
 use crate::ir::{Builder, Ty, Val};
 use crate::types::{ArrayKind, TypeKind};
 

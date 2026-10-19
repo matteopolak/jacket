@@ -7,7 +7,7 @@
 //! (`crate::wide_float`). Constants are encoded at compile time into `Value::Bytes`.
 use super::lower::{FnCtx, Operand};
 use super::value::Aggregate;
-use super::*;
+use super::{Compiler, Rc, Result, Span, TypeId, Value, convert, err};
 use crate::ast::BinOp;
 use crate::ir::{CmpOp, ConvOp, Intrinsic, Ty, Val, WideArith, WideFloat, WideOp};
 use crate::types::TypeKind;

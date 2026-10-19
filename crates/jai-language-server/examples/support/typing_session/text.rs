@@ -1,6 +1,6 @@
 //! Text helpers: positions, identifiers and bracket balance.
 
-use super::*;
+use super::Position;
 
 pub(super) fn pos_of(text: &str, byte: usize) -> Position {
     let before = &text[..byte];

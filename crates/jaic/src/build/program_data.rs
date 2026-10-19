@@ -1,6 +1,6 @@
 //! Queries and registrations on the program being compiled: type tables, struct locations, data segments.
 
-use super::*;
+use super::{Call, DataSegment, Interp, MetaOp, Rets, Trap, store, store_pair};
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
     let trap = Trap::new;

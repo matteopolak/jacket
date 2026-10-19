@@ -1,6 +1,6 @@
 //! The virtual clock.
 
-use super::*;
+use super::{LibcFn, SandboxHost, read_i64, read_u64, write_i32, write_u64};
 
 impl SandboxHost {
     /// The virtual clock: sleeping, reading the time, and splitting it into a `struct tm`.

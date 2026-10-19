@@ -1,5 +1,8 @@
 //! Explicit deferred-body dependencies, local to one owning compiler/workspace.
-use super::*;
+use super::{
+    Compiler, Diagnostic, EntityId, FileId, HashMap, HashSet, ProcId, Result, ScopeId, Span, err,
+    ir, procs, scope,
+};
 
 #[derive(Default)]
 pub(super) struct Dependencies {

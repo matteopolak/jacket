@@ -1,6 +1,9 @@
 //! Built-in procedures (`size_of`, `type_of`, `is_constant`, ...) and procedure-type helpers.
 
-use super::*;
+use super::{
+    ArrayKind, BuiltinProc, CallArg, Compiler, Diagnostic, E, FnCtx, Operand, PreludeType, ProcId,
+    Rc, Result, ScopeId, ScopeKind, Span, Ty, TypeId, TypeKind, Value, ast, err, ir, procs,
+};
 
 impl Compiler {
     pub(super) fn check_builtin(

@@ -3,7 +3,7 @@ use super::constants::node;
 use super::{Exporter, assign_op};
 use crate::builtin_keys::SyntaxKey;
 use crate::records::RecordTag;
-use crate::sema::*;
+use crate::sema::{Rc, Span, Sym, ast};
 
 impl Exporter<'_> {
     pub(super) fn block(&mut self, stmts: &[ast::Stmt], block_type: i64, span: Span) -> i64 {

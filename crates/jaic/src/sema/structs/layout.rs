@@ -2,7 +2,9 @@
 use super::model::{
     FieldDecl, FieldItem, FieldUsing, LayoutItem, OffsetNode, PathStep, StructSource, UsingFilters,
 };
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, ast, err, scope,
+};
 use crate::types::{Field, LayoutState, MAX_SIZE, StructId, TypeKind};
 
 fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {

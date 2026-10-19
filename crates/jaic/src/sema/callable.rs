@@ -1,7 +1,9 @@
 //! Lexical call headers are not part of structural procedure type identity.
 use super::lower::Operand;
 use super::scope::{Builtin, BuiltinProc, EntityKind, EntityState, Found, Resolved};
-use super::*;
+use super::{
+    Compiler, EntityId, HashSet, ProcId, ProcTypeParams, Rc, Result, ScopeId, TypeId, Value, ast,
+};
 use crate::ast::ExprKind as E;
 
 impl Compiler {

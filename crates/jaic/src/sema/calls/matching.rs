@@ -4,7 +4,9 @@ use super::{AutoBake, CallArg, Candidate, Slot, const_marker};
 use crate::ast::ExprKind as E;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, DiagnosticKind, ProcId, Rc, Result, Span, TypeId, Value, ast, err, ir,
+};
 
 impl Compiler {
     /// Why the only candidate of a call does not accept its arguments: the problem at the

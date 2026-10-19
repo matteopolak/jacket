@@ -1,6 +1,9 @@
 //! The working directory and directory streams.
 
-use super::*;
+use super::{
+    DirStream, EBADF, EEXIST, ENOENT, ENOTDIR, ENOTEMPTY, LibcFn, SandboxHost, fill, write_bytes,
+    write_u8, write_u16, write_u64,
+};
 
 impl SandboxHost {
     /// The working directory and directories: `getcwd`, `mkdir`, `opendir`, ...

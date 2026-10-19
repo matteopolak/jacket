@@ -3,7 +3,10 @@ use crate::ast::ExprKind as E;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found, Resolved, ScopeKind};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, DiagnosticKind, EntityId, PreludeType, Rc, Result, ScopeId, Span, Sym,
+    TypeId, Value, ast, err, procs, scope,
+};
 use crate::types::{ArrayKind, ProcType, TypeKind};
 
 impl Compiler {

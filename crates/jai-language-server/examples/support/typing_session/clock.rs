@@ -1,6 +1,6 @@
 //! The per-request time budget and the watchdog that ends a hung process.
 
-use super::*;
+use super::{Arc, AtomicBool, AtomicU64, Duration, Instant, Mutex, Ordering, Query};
 
 pub(super) struct Clock {
     pub(super) budget: Duration,

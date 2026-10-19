@@ -1,7 +1,7 @@
 //! What an editor analysis records: references, hovers, layouts and the indexes over them.
 use crate::sema::scope::{EntityId, ScopeId};
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{Diagnostic, FileId, HashMap, HashSet, ModuleId, Rc, Span, Sym, TypeId, ast};
 use crate::types::StructId;
 use std::path::PathBuf;
 

@@ -2,7 +2,7 @@
 use super::numeric_conv;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, Span, TypeId, Value, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

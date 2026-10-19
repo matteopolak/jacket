@@ -2,7 +2,7 @@
 use super::{IdeArgInfo, IdeCall, IdeCallInfo, IdeExpansion, IdeSignature};
 use crate::sema::scope::{Found, Resolved, ScopeId};
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, Span, Sym, TypeId, Value};
 use crate::types::TypeKind;
 
 impl Compiler {

@@ -3,7 +3,9 @@ use super::model::{MemberResolution, PathStep, UsingFilters, using_candidates};
 use crate::ir::Ty;
 use crate::sema::lower::FnCtx;
 use crate::sema::scope::EntityKind;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, EntityId, PreludeType, ProcTypeParams, Rc, Result, Span, Sym, TypeId, err, ir,
+};
 use crate::types::{ArrayKind, LayoutState, StructId, TypeKind};
 
 impl Compiler {

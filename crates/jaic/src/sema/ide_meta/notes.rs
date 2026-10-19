@@ -5,7 +5,7 @@ use crate::sema::calls::{CallArg, Slot};
 use crate::sema::ide::{IdeRef, IdeWhat};
 use crate::sema::lower::Operand;
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, HashMap, Span, Sym, TypeId, Value, ast};
 
 impl Compiler {
     /// A call at `span` expanded the macro `proc`: record its body with the arguments

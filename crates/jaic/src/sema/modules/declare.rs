@@ -1,7 +1,7 @@
 //! Declaring a file's statements into its scopes and expanding pending items.
 use super::parameters::{ParameterContract, ParameterContractState};
 use crate::sema::scope::{EntityKind, ImportEntry, Pending, PendingState, ScopeKind};
-use crate::sema::*;
+use crate::sema::{Compiler, EntityId, Rc, Result, ScopeId, Sym, ast, err, lower, procs};
 
 impl Compiler {
     /// Declare top-level statements. Returns the visibility state at the end.

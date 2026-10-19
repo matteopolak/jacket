@@ -3,7 +3,9 @@ use crate::ast::{ExprKind as E, StmtKind as S};
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, DeferEntry, FnCtx, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind};
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, DiagnosticKind, Rc, Result, ScopeId, Span, ast, err, scope,
+};
 
 impl Compiler {
     /// Check statements in `scope` (no new scope is opened).

@@ -1,7 +1,7 @@
 //! Worker thread entry points and deadlines.
 use super::sched::{CANCELLED_EXIT_CODE, Shared, WorkerCancelled};
 use super::win32;
-use crate::interp::*;
+use crate::interp::{FuncId, Interp, Program, TrapKind};
 use std::time::{Duration, Instant, SystemTime};
 
 /// The instant a POSIX absolute `timespec` (seconds and nanoseconds since the epoch) names.

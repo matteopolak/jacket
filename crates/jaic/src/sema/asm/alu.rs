@@ -6,7 +6,7 @@ use super::helpers::{
 use super::model::{Alu, AsmCtx, BitTest, Flags, Opd, ShiftKind};
 use crate::ir::{BinOp, CmpOp, Ty, UnOp, Val};
 use crate::sema::lower::FnCtx;
-use crate::sema::*;
+use crate::sema::{Compiler, Result, Span};
 
 impl Compiler {
     /// `a op b` with flags; returns the result (the caller writes it back).

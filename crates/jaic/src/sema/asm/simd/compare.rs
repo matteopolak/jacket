@@ -3,7 +3,10 @@ use super::SOp;
 use super::dispatch::SimdLocals;
 use super::helpers::mask_bit;
 use crate::sema::asm::vec::{VOpd, all_ones_if, load_lane, store_lane};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    AsmCtx, BinOp, CmpOp, Compiler, Flags, FnCtx, Result, Ty, UnOp, bin, cmp, err, flag_not,
+    flag_or, is_neg, is_zero, konst, resize,
+};
 
 impl Compiler {
     pub(super) fn simd_compare(

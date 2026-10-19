@@ -14,7 +14,7 @@ pub use self::filesystem::{
 pub(super) use self::loading::FileLoadState;
 pub use self::parameters::ParameterContract;
 use super::scope::{EntityKind, ScopeKind};
-use super::*;
+use super::{Compiler, EntityId, ModuleId, PathBuf, Result, ScopeId, Span, ast};
 use crate::paths::normalize;
 use std::path::Path;
 

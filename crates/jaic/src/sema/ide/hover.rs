@@ -3,7 +3,7 @@ use super::completion::clip;
 use super::facts::{IdeFieldSite, IdeHover, IdeLayout, IdeRef, IdeWhat, same_what};
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeId, ScopeKind};
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{Compiler, FileId, Span, Sym, TypeId, value};
 use crate::types::{StructId, TypeKind};
 
 impl Compiler {

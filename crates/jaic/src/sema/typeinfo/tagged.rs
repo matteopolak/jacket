@@ -1,7 +1,9 @@
 //! Tagged union members and polymorphic struct bindings.
 use crate::sema::scope::EntityKind;
 use crate::sema::value::Aggregate;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, EntityId, PreludeType, Result, Span, Sym, TypeId, Value, ast, structs,
+};
 use crate::types::TypeKind;
 
 impl Compiler {

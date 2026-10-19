@@ -1,7 +1,7 @@
 //! The data a struct declaration is read into: sources, member aliases, field items and `using` filters.
 use crate::ast::ExprKind as E;
 use crate::sema::value::PolyStructId;
-use crate::sema::*;
+use crate::sema::{HashMap, InstanceKeyValue, Rc, ScopeId, Span, Sym, TypeId, Value, ast};
 use crate::types::{Field, StructId};
 
 /// Where a struct's fields come from.

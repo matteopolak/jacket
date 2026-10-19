@@ -3,7 +3,7 @@ use super::Exporter;
 use super::constants::node;
 use crate::builtin_keys::SyntaxKey;
 use crate::records::RecordTag;
-use crate::sema::*;
+use crate::sema::{Span, ast};
 
 impl Exporter<'_> {
     fn asm_decl_syntax(&mut self, decl: &ast::AsmDecl, span: Span) -> i64 {

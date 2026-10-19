@@ -1,6 +1,6 @@
 //! File descriptors and path operations over the virtual file system.
 
-use super::*;
+use super::{EBADF, EEXIST, EINVAL, ENOENT, Host, LibcFn, SandboxHost, read_bytes};
 
 impl SandboxHost {
     /// File descriptors and paths: `open`, `read`, `write`, `stat`, `rename`, ...

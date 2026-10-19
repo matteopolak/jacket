@@ -1,6 +1,6 @@
 //! Looking names up in a module's declarations and `using` members.
 use super::model::{EntityId, Found, UsingEntry};
-use crate::sema::*;
+use crate::sema::{Compiler, ModuleId, Result, Span, Sym, ast};
 
 impl Compiler {
     /// Exported declarations named `name` in a module or the modules it re-exports (after

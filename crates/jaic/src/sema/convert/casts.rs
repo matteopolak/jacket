@@ -2,7 +2,7 @@
 use super::{int_constant_fits, int_to_float};
 use crate::ir::{ConvOp, Ty};
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, Span, TypeId, Value, ast, err, expr, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

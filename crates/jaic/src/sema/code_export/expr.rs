@@ -3,7 +3,7 @@ use super::constants::node;
 use super::{Exporter, bin_op};
 use crate::builtin_keys::SyntaxKey;
 use crate::records::{Field, FieldRef, Item, Record, RecordTag};
-use crate::sema::*;
+use crate::sema::{Sym, TypeId, ast};
 
 impl Exporter<'_> {
     pub(super) fn expr_inner(&mut self, e: &ast::Expr) -> i64 {

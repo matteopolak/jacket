@@ -1,7 +1,7 @@
 //! Records for types, including polymorphic struct parameters.
 use crate::records::{Item, Record, RecordTag, Records};
 use crate::sema::typeinfo::descriptor_of;
-use crate::sema::*;
+use crate::sema::{Compiler, PreludeType, Span, TypeId, Value, value};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

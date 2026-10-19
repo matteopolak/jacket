@@ -6,7 +6,11 @@
 //! a `Stack_Trace_Procedure_Info` global holding the procedure's name, declaration site and
 //! address.
 
-use crate::ir::*;
+use crate::ir::{
+    BinOp, Block, BlockId, Callee, CmpOp, ConvOp, Func, FuncId, Global, GlobalId, Inst, Program,
+    Reloc, RelocTarget, Slot, SlotId, Term, TraceInfo, TraceInfoLayout, TraceLayout, Ty, Val,
+    inst_vals, term_uses,
+};
 
 const HASH_SEED: u64 = 0xcbf2_9ce4_8422_2325;
 const HASH_PRIME: u64 = 0x0100_0000_01b3;

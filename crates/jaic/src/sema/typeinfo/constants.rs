@@ -2,7 +2,7 @@
 use super::StructConstant;
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::value::Aggregate;
-use crate::sema::*;
+use crate::sema::{Compiler, EntityId, Rc, Result, Span, Sym, TypeId, Value, ast, ir, structs};
 
 impl Compiler {
     /// The constants a struct body declares (`Entry :: struct {..}`, `K :: 3;`, procedures),

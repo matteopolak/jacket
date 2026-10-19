@@ -612,7 +612,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
 /// Thread-safe system-library calls retain their existing direct fast path.
 #[cfg(target_os = "macos")]
 pub mod main_thread {
-    use super::*;
+    use super::{Rets, Sig, call_with, callbacks};
     use std::sync::mpsc::{Receiver, Sender, channel};
     use std::sync::{Mutex, OnceLock};
 

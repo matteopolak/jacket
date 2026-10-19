@@ -1,6 +1,6 @@
 //! The file system the compiler reads sources through, and finding a module on it.
 use crate::paths::normalize;
-use crate::sema::*;
+use crate::sema::{HashMap, PathBuf, Rc, ast};
 use std::path::Path;
 
 /// Source access. Native builds read the filesystem; the browser supplies a

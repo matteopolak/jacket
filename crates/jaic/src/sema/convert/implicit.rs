@@ -1,7 +1,7 @@
 //! Implicit conversions of operands and constants.
 use super::{int_constant_fits, int_to_float};
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, DiagnosticKind, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
 impl Compiler {

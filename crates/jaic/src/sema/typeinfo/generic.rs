@@ -2,7 +2,9 @@
 use super::tag;
 use crate::sema::scope::{EntityKind, ScopeKind};
 use crate::sema::value::Aggregate;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, Diagnostic, PreludeType, Result, ScopeId, Span, Sym, TypeId, Value, ast, ir, structs,
+};
 
 impl Compiler {
     /// The source descriptor of a generic struct: one per generic struct

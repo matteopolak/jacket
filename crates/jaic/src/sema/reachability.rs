@@ -18,7 +18,7 @@
 use super::interval::{self, Interval};
 use super::lower::{FnCtx, Operand};
 use super::scope::EntityKind;
-use super::*;
+use super::{Compiler, Diagnostic, EntityId, ScopeId, Span, Sym, TypeId, Value, ast};
 use crate::ast::{BinOp, ExprKind as E, StmtKind as S, UnOp};
 use crate::types::TypeKind;
 

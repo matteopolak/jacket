@@ -2,7 +2,9 @@
 use super::descriptor_of;
 use crate::sema::scope::ScopeKind;
 use crate::sema::value::Aggregate;
-use crate::sema::*;
+use crate::sema::{
+    Compiler, PreludeType, Rc, Result, Span, Sym, TypeId, Value, ast, err, ir, structs,
+};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {

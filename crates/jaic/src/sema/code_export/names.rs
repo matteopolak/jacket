@@ -4,7 +4,7 @@ use super::constants::{inst_flags, node};
 use super::procs::procedure_flags;
 use crate::records::{Field, FieldRef, Item, RecordTag};
 use crate::sema::scope::{EntityKind, Resolved};
-use crate::sema::*;
+use crate::sema::{ProcId, Span, Sym, TypeId, Value, ast, procs};
 
 impl Exporter<'_> {
     /// The declaration record `name` refers to here: a parameter or local of the tree being

@@ -1,6 +1,9 @@
 //! `FILE*` streams.
 
-use super::*;
+use super::{
+    EBADF, EINVAL, LibcFn, O_APPEND, O_CREAT, O_RDWR, O_TRUNC, O_WRONLY, SandboxHost, cstr,
+    read_bytes,
+};
 
 impl SandboxHost {
     /// `FILE*` streams over the descriptors.

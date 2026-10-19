@@ -1,5 +1,5 @@
 //! Callable documentation for simple aliases in the tolerant export index.
-use super::*;
+use super::{BTreeSet, CompletionKind, Decl, Index, Path, PathBuf, Sources, Visibility, project};
 
 type AliasKey = (PathBuf, PathBuf, Vec<String>, bool);
 

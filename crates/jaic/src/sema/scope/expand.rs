@@ -1,6 +1,6 @@
 //! Expanding pending declarations and plain static ifs.
 use super::model::{EntityState, PendingState, ScopeId};
-use crate::sema::*;
+use crate::sema::{Compiler, Result, ast};
 
 /// A procedure-valued declaration can join an overload set.
 /// A constant that can join an overload set: a procedure, or an alias of one (`print :: f;`).

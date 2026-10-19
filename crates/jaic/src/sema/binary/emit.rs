@@ -5,7 +5,7 @@ use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::binop_text;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::Resolved;
-use crate::sema::*;
+use crate::sema::{Compiler, Diagnostic, Rc, Result, Span, Sym, TypeId, Value, ast, err, ir};
 use crate::types::TypeKind;
 
 impl Compiler {

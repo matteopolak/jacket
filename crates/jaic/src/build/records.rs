@@ -1,6 +1,6 @@
 //! Reading the records handed to Jai and building them into program memory.
 
-use super::*;
+use super::{Call, FieldRef, Interp, Item, MetaOp, Rets, SyntaxKey, Trap, Workspaces, store_pair};
 
 pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, Trap> {
     let shared = cx.shared;

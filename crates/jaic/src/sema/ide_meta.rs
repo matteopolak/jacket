@@ -13,7 +13,7 @@ pub use self::text::dedent;
 use super::lower::Operand;
 use super::scope::EntityId;
 use super::value::ProcId;
-use super::*;
+use super::{Compiler, FileId, ModuleId, ProcTypeParams, Rc, Span, TypeId, Value};
 
 /// Expansions kept per analysis: an edit that makes a metaprogram generate a lot stays bounded.
 const MAX_EXPANSIONS: usize = 4096;

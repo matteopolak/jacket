@@ -1,7 +1,10 @@
 //! Target runtime options are private data, finalized after workspace settlement.
 use super::lower::{FnCtx, Operand};
 use super::scope::Resolved;
-use super::*;
+use super::{
+    Compiler, DEFAULT_TEMPORARY_STORAGE_SIZE, Diagnostic, HashMap, HashSet, PreludeType, ProcId,
+    Result, Span, Sym, TypeId, Value, err, ir, procs, scope,
+};
 use crate::types::StructId;
 
 

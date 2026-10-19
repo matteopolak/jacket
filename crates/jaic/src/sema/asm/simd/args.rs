@@ -1,7 +1,9 @@
 //! Reading operands and writing results of SIMD instructions.
 use super::helpers::WriteMask;
 use crate::sema::asm::vec::{VOpd, lane_addr};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    AsmCtx, BinOp, Compiler, FnCtx, Result, Span, Ty, Val, bin, err, konst, resize,
+};
 
 impl Compiler {
     /// Sources and immediate of `dst, src..., [imm8]`. With one source fewer than

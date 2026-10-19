@@ -3,7 +3,7 @@ use super::completion::clip;
 use super::facts::{IdeCall, IdeKind, IdeName};
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved};
 use crate::sema::value::ProcId;
-use crate::sema::*;
+use crate::sema::{Compiler, Sym, TypeId, ast, scope, value};
 use crate::types::TypeKind;
 
 impl Compiler {

@@ -3,7 +3,10 @@ use super::dispatch::SimdLocals;
 use super::helpers::{from_f64, round_f64, saturate, to_f64};
 use super::{B2, FmaKind, SOp, U1};
 use crate::sema::asm::vec::{load_lane, store_lane};
-use crate::sema::asm::*;
+use crate::sema::asm::{
+    AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Ty, UnOp, bin, bit_intrinsic, bits,
+    cmp, err, konst, resize, select, wide_mul,
+};
 
 impl Compiler {
     pub(super) fn simd_lanes(
