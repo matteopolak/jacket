@@ -1,0 +1,19 @@
+# cargo-nextest settings (docs/tools/development.md#tests). `just test` and CI's `test` job run
+# `cargo nextest run --profile ci`; nextest does not run doctests, so they run with `cargo test --doc`.
+
+[profile.default]
+fail-fast = false
+
+# CI: every failure is reported, and the tests that need the separately supplied reference
+# sources, or run in their own CI step (stdlib targets and Objective-C selectors), are left out.
+# Run them with `cargo nextest run --ignore-default-filter -E 'test(name)'`.
+[profile.ci]
+fail-fast = false
+default-filter = """
+not (
+    test(lex_entire_reference_without_executing_it)
+  | test(every_stdlib_module_checks_for_every_target)
+  | test(selectors_take_the_arguments_they_are_sent_with)
+  | test(selectors_exist_in_the_objective_c_runtime)
+)
+"""

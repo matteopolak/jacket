@@ -212,14 +212,16 @@ def cmd_test(args) -> int:
     narrowed = bool(args.crate or args.filter)
     if args.suite in ("cargo", "all"):
         scope = ["-p", args.crate] if args.crate else ["--workspace"]
-        # CI's skips: they need the separately supplied reference sources, or run in their own step.
-        skips = [] if narrowed else [
-            "--skip", "lex_entire_reference_without_executing_it",
-            "--skip", "every_stdlib_module_checks_for_every_target",
-            "--skip", "selectors_take_the_arguments_they_are_sent_with",
-            "--skip", "selectors_exist_in_the_objective_c_runtime"]
-        failed |= bool(run(["cargo", "test", "-j", args.jobs, "--locked", "--no-fail-fast",
-                            *scope, "--", *args.filter, *skips]))
+        if shutil.which("cargo-nextest") is None:
+            print("cargo-nextest not found: `brew install cargo-nextest` or `cargo install --locked cargo-nextest`", file=sys.stderr)
+            return 1
+        # The `ci` profile (.config/nextest.toml) leaves out the tests that need the separately supplied
+        # reference sources or run in their own CI step; naming a crate or filter runs those too.
+        profile = ["--ignore-default-filter"] if narrowed else []
+        failed |= bool(run(["cargo", "nextest", "run", "--profile", "ci", "-j", args.jobs, "--locked", "--no-fail-fast",
+                            *profile, *scope, *args.filter]))
+        # nextest does not run doctests.
+        failed |= bool(run(["cargo", "test", "--doc", "-j", args.jobs, "--locked", *scope]))
     if args.suite in ("tools", "all") and not narrowed:
         failed |= bool(run([sys.executable, "tools/run_tests.py"]))
     return int(failed)
