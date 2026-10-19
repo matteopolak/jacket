@@ -261,6 +261,11 @@ impl Compiler {
         // Named results are returned at the end (a feature newer than the warning), so a body
         // that names them all is never short of a `return`.
         let reaches_end = self.warn_unreachable(&f, body);
+        if f.macro_returned
+            && let Some(ide) = self.ide.as_mut()
+        {
+            ide.macro_returners.insert(id);
+        }
         // An editor analysis also drops the warning where the walk shows the end is never
         // reached (`if x >= 0 { return 1; } else if x < 0 { return 2; }` on an unsigned `x`
         // cannot, but the reference compiler would warn, so the batch compiler keeps its rule).

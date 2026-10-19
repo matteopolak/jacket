@@ -95,6 +95,7 @@ impl Compiler {
         args: &[CallArg],
         ambiguous: bool,
     ) {
+        self.ide_note_callee(span, chosen);
         if !self.ide_wants_file(span.file) {
             return;
         }
@@ -134,6 +135,24 @@ impl Compiler {
             ambiguous,
             args: out,
         });
+    }
+
+    /// Remember which procedure the call at `span` named, whatever file it is in.
+    fn ide_note_callee(&mut self, span: Span, chosen: ProcId) {
+        if self.sketching() {
+            return;
+        }
+        let Some(ide) = self.ide.as_mut() else {
+            return;
+        };
+        ide.callees
+            .entry(span)
+            .and_modify(|seen| {
+                if *seen != Some(chosen) {
+                    *seen = None;
+                }
+            })
+            .or_insert(Some(chosen));
     }
 
     /// Associate only the custom-loop keyword with the actual overload selection,

@@ -40,6 +40,7 @@ mod lower;
 mod modify;
 mod module_rank;
 mod modules;
+mod never_returns;
 pub mod perf;
 mod private_names;
 pub mod procs;

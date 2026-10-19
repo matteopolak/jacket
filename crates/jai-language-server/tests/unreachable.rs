@@ -99,7 +99,7 @@ inner_break_only :: () {
     while true { for 0..3 { break; } }
     after_inner := 1;
 }
-main :: () { spin(); spin_int(); leaves(); leaves_deep(true); inner_break_only(); }
+main :: () { leaves(); leaves_deep(true); }
 ";
     assert_eq!(
         faded(source),
@@ -420,4 +420,92 @@ fn an_inactive_static_if_branch_still_has_syntax_tokens() {
     s.open(uri(), 1, source.into()).unwrap();
     let tokens = s.semantic_tokens(&uri()).unwrap();
     assert!(tokens.iter().any(|t| t.position.line == 2), "{tokens:?}");
+}
+
+const EXIT: &str = "exit :: (status: s32) #foreign;\n";
+
+#[test]
+fn code_after_a_call_to_exit_fades() {
+    let source = format!(
+        "{EXIT}main :: () {{
+    exit(1);
+    dead := 1;
+}}
+"
+    );
+    assert_eq!(faded(&source), ["dead := 1"]);
+}
+
+#[test]
+fn a_procedure_that_always_exits_ends_its_callers_block() {
+    let source = format!(
+        "{EXIT}fatal :: () {{ exit(2); }}
+wrapper :: (flag: bool) {{
+    if flag {{ fatal(); }} else {{ exit(3); }}
+    after_both := 1;
+}}
+main :: () {{
+    fatal();
+    after_fatal := 2;
+}}
+other :: () {{
+    wrapper(true);
+    after_wrapper := 3;
+}}
+"
+    );
+    assert_eq!(
+        faded(&source),
+        ["after_both := 1", "after_fatal := 2", "after_wrapper := 3"]
+    );
+}
+
+#[test]
+fn a_procedure_with_a_path_that_returns_is_not_a_dead_end() {
+    let source = format!(
+        "{EXIT}sometimes :: (flag: bool) {{
+    if flag exit(1);
+}}
+recursive :: () {{ recursive(); }}
+main :: () {{
+    sometimes(false);
+    live := 1;
+    recursive();
+    also_live := 2;
+}}
+"
+    );
+    assert_eq!(faded(&source), Vec::<String>::new());
+}
+
+#[test]
+fn a_procedure_that_returns_on_some_path_does_not_diverge_even_after_exit_calls() {
+    let source = format!(
+        "{EXIT}maybe :: (flag: bool) {{
+    if flag {{ return; }}
+    exit(1);
+}}
+main :: () {{
+    maybe(true);
+    live := 1;
+}}
+"
+    );
+    assert_eq!(faded(&source), Vec::<String>::new());
+}
+
+#[test]
+fn a_loop_without_a_break_never_ends_but_one_that_breaks_does() {
+    let source = format!(
+        "{EXIT}spin :: () {{ while true {{ }} }}
+leaves :: () {{ while true {{ break; }} }}
+main :: () {{
+    leaves();
+    live := 1;
+    spin();
+    dead := 2;
+}}
+"
+    );
+    assert_eq!(faded(&source), ["dead := 2"]);
 }

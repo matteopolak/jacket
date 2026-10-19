@@ -119,7 +119,7 @@ fn stmts_span(stmts: &[ast::Stmt]) -> Option<Span> {
 
 /// Whether `stmt` is something that would run: constants, and statements that only configure
 /// the program, do not count.
-fn runs_in_order(stmt: &ast::Stmt) -> bool {
+pub(super) fn runs_in_order(stmt: &ast::Stmt) -> bool {
     match &stmt.kind {
         S::Decl(decl) => decl.kind != ast::DeclKind::Const,
         S::Empty

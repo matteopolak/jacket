@@ -110,6 +110,7 @@ impl Compiler {
         if let Some(ide) = self.ide.as_mut() {
             errors.append(&mut ide.errors);
         }
+        self.ide_note_never_returns();
         errors
     }
 

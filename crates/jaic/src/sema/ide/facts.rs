@@ -75,6 +75,11 @@ pub struct IdeFacts {
     /// Calls and the procedure and parameters they resolved to.
     pub calls: Vec<crate::sema::ide_meta::IdeCall>,
     pub(in crate::sema) call_spans: HashSet<Span>,
+    /// The procedure each direct call expression resolved to, in any file (`None`: checks of it
+    /// disagreed, as instances of a polymorphic procedure can). See `never_returns.rs`.
+    pub(in crate::sema) callees: HashMap<Span, Option<ProcId>>,
+    /// Procedures whose body expanded a macro that returns from its caller.
+    pub(in crate::sema) macro_returners: HashSet<ProcId>,
     /// Actual custom-iteration selections per keyword, across real instantiations.
     /// `None` means an ambiguous selection; sketches never populate this map.
     pub(in crate::sema) for_expansions: HashMap<Span, Option<Vec<ProcId>>>,
