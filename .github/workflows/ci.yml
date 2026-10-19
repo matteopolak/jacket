@@ -886,6 +886,10 @@ jobs:
       - name: Install from a locally built archive
         shell: powershell
         run: .\tools\ci\test_install_ps1.ps1
+      # The same checks under PowerShell 7, which install.ps1 also supports.
+      - name: Install from a locally built archive (PowerShell 7)
+        shell: pwsh
+        run: .\tools\ci\test_install_ps1.ps1
       # Windows PowerShell 5.1, the way `irm ... | iex` runs it on a stock machine.
       - name: Install the latest release twice (the second run is an upgrade in place)
         if: steps.released.outputs.published == 'true'

@@ -1,0 +1,241 @@
+name: release smoke
+# After a release is published (release.yml finishing for a tag push) and by hand for any version: install
+# the toolchain from every channel on every operating system it supports, then `jacket new`, `build`,
+# `run` and a language-server initialize + hover (tools/ci/release_smoke.py, docs/tools/release-smoke.md).
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag to test, e.g. v0.20.0 (empty: the latest release)'
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || inputs.version || 'latest' }}
+  cancel-in-progress: false
+env:
+  NVIM_VERSION: v0.12.4
+  NVIM_SHA256: 012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628
+jobs:
+  meta:
+    # A finished release run counts only for a tag push that succeeded (head_branch is the tag then).
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
+    name: which release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.version || github.event.workflow_run.head_branch }}
+        run: |
+          tag="$REQUESTED"
+          if [ -z "$tag" ]; then tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"; fi
+          case "$tag" in v[0-9]*) ;; *) echo "not a release tag: $tag" >&2; exit 1 ;; esac
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,assets -q '.assets[].name'
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+  archive:
+    needs: meta
+    name: archive (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      TAG: ${{ needs.meta.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Download, verify and unpack the release archive
+        id: fetch
+        shell: bash
+        run: |
+          dir="$(python tools/ci/release_smoke.py fetch --tag "$TAG" --dest "$RUNNER_TEMP/archive")"
+          echo "bin=$dir" >> "$GITHUB_OUTPUT"
+      - name: Versions
+        shell: bash
+        run: python tools/ci/release_smoke.py version --tag "$TAG" --bin "${{ steps.fetch.outputs.bin }}"
+      - name: New project, build, run and hover
+        shell: bash
+        run: python tools/ci/release_smoke.py project --bin "${{ steps.fetch.outputs.bin }}"
+  install-sh:
+    needs: meta
+    name: install.sh (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      TAG: ${{ needs.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      # The script as users fetch it, not the checkout's copy.
+      - name: Install through the published install.sh
+        run: curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | JAI_VERSION="$TAG" sh
+      - name: Versions
+        run: python3 tools/ci/release_smoke.py version --tag "$TAG" --bin "$HOME/.local/bin"
+      - name: New project, build, run and hover
+        run: python3 tools/ci/release_smoke.py project --bin "$HOME/.local/bin"
+  install-ps1:
+    needs: meta
+    name: install.ps1 (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      TAG: ${{ needs.meta.outputs.tag }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      # Windows PowerShell 5.1, the way `irm ... | iex` runs it on a stock machine.
+      - name: Install through the published install.ps1
+        shell: powershell
+        run: |
+          $env:JAI_VERSION = $env:TAG
+          Invoke-RestMethod https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 | Invoke-Expression
+          $current = Join-Path $env:LOCALAPPDATA 'Programs\jai\current'
+          if (-not (Test-Path (Join-Path $current 'jaic.exe'))) { throw 'no jaic.exe in the install' }
+          "BIN=$current" | Out-File -Encoding ascii -Append $env:GITHUB_ENV
+      - name: Versions
+        shell: bash
+        run: python tools/ci/release_smoke.py version --tag "$TAG" --bin "$BIN"
+      - name: New project, build, run and hover
+        shell: bash
+        run: python tools/ci/release_smoke.py project --bin "$BIN"
+  homebrew:
+    needs: meta
+    name: homebrew (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      TAG: ${{ needs.meta.outputs.tag }}
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      HOMEBREW_NO_ENV_HINTS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install from the tap
+        id: brew
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
+          brew tap matteopolak/tap
+          formula_version="$(brew info --json=v2 matteopolak/tap/jacket | python3 -c 'import json,sys; print(json.load(sys.stdin)["formulae"][0]["versions"]["stable"])')"
+          echo "formula version $formula_version, release ${TAG#v}"
+          # The tap holds only the latest release: an older tag has nothing to install from it.
+          if [ "$formula_version" != "${TAG#v}" ]; then
+            echo "::notice::the tap is at $formula_version, not ${TAG#v}; Homebrew was not tested"
+            echo "tested=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          brew install matteopolak/tap/jacket
+          brew test matteopolak/tap/jacket
+          echo "tested=true" >> "$GITHUB_OUTPUT"
+          echo "prefix=$(brew --prefix)" >> "$GITHUB_OUTPUT"
+      - name: Versions
+        if: steps.brew.outputs.tested == 'true'
+        run: python3 tools/ci/release_smoke.py version --tag "$TAG" --bin "${{ steps.brew.outputs.prefix }}/bin"
+      - name: New project, build, run and hover
+        if: steps.brew.outputs.tested == 'true'
+        run: python3 tools/ci/release_smoke.py project --bin "${{ steps.brew.outputs.prefix }}/bin"
+  vscode:
+    needs: meta
+    name: VS Code and Open VSX
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TAG: ${{ needs.meta.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: The release's VSIX
+        run: python3 tools/ci/release_smoke.py vsix --tag "$TAG" --dest "$RUNNER_TEMP/vsix"
+      # Open VSX can lag the release by a few minutes.
+      - name: The same version at Open VSX
+        run: |
+          for _ in 1 2 3 4 5; do
+            if python3 tools/ci/release_smoke.py vsix-store --tag "$TAG" --dest "$RUNNER_TEMP/vsix-store"; then exit 0; fi
+            sleep 60
+          done
+          exit 1
+  neovim:
+    needs: meta
+    name: Neovim plugin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TAG: ${{ needs.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install Neovim (pinned release, checksum verified)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-x86_64.tar.gz"
+          echo "${NVIM_SHA256}  $RUNNER_TEMP/nvim.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/nvim"
+          tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
+          echo "$RUNNER_TEMP/nvim/bin" >> "$GITHUB_PATH"
+      # The mirror is what plugin managers install; its tag is the editor version, which may differ
+      # from the compiler's, so take its newest tag.
+      - name: Fetch the published plugin
+        run: |
+          latest="$(git ls-remote --tags --refs --sort=-v:refname https://github.com/matteopolak/jacket.nvim 'v*' | head -1 | sed 's|.*refs/tags/||')"
+          echo "plugin tag $latest"
+          git clone --depth 1 --branch "$latest" https://github.com/matteopolak/jacket.nvim "$RUNNER_TEMP/jacket.nvim"
+          stamped="$(sed -n "s/^return '\(.*\)'$/\1/p" "$RUNNER_TEMP/jacket.nvim/lua/jai/version.lua")"
+          echo "plugin is stamped for toolchain $stamped, release is ${TAG#v}"
+          if [ "$stamped" = "${TAG#v}" ]; then echo "current=true" >> "$GITHUB_ENV"; else echo "::notice::the published plugin installs $stamped, not ${TAG#v}; it was not tested"; fi
+      - name: Download the toolchain with the plugin's installer
+        id: install
+        if: env.current == 'true'
+        run: |
+          dir="$(nvim --headless -u NONE -i NONE --cmd "set rtp^=$RUNNER_TEMP/jacket.nvim" -l tools/ci/release_smoke.lua "$TAG" "$RUNNER_TEMP/jai")"
+          echo "bin=$dir" >> "$GITHUB_OUTPUT"
+      - name: New project, build, run and hover
+        if: env.current == 'true'
+        run: python3 tools/ci/release_smoke.py project --bin "${{ steps.install.outputs.bin }}"
