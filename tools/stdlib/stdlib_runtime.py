@@ -534,20 +534,14 @@ def modes_given_cross(args):
     return any(m.strip() not in ("check", "") for m in args.modes.split(","))
 
 
-DATA_FIXTURE_BUILDERS = (
-    "tools/portable/build_portable_zip_fixtures.py",
-    "tools/portable/build_portable_archive_fixtures.py",
-    "tools/portable/build_portable_mpeg_fixtures.py",
-    "tools/portable/build_portable_meow_fixtures.py",
-    "tools/portable/build_portable_machine_fixtures.py",
-)
+DATA_FIXTURE_BUILDERS = ("zip", "archive", "mpeg", "meow", "machine")  # tools/portable/build_portable.py subcommands
 
 
 def build_data_fixtures():
     """Write the generated inputs (ZIP, archive, MPEG, Meow and CPUID data) the tests read from
     target/portable-tests; each builder is deterministic and takes no compiler."""
     for builder in DATA_FIXTURE_BUILDERS:
-        subprocess.run([sys.executable, "-B", str(ROOT / builder)], cwd=ROOT, check=True)
+        subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable.py"), builder], cwd=ROOT, check=True)
 
 
 def main():

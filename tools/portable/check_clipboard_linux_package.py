@@ -59,7 +59,8 @@ def main():
     subprocess.run(
         [
             sys.executable,
-            str(ROOT / "tools/portable/build_portable_clipboard.py"),
+            str(ROOT / "tools/portable/build_portable.py"),
+            "clipboard",
             "--output",
             str(package / native_relative),
         ],

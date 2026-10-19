@@ -10,7 +10,7 @@ class PortableCrashBuild(unittest.TestCase):
     def setUpClass(cls):
         spec = importlib.util.spec_from_file_location(
             "portable_crash_build_contract",
-            Path(__file__).with_name("build_portable_runtime.py"),
+            Path(__file__).with_name("build_portable.py"),
         )
         cls.tool = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.tool)

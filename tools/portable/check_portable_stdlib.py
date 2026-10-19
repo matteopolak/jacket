@@ -65,8 +65,8 @@ def main():
                         help="OS/CPU pair, e.g. linux/x64; type-checks the catalogue for that target")
     args = parser.parse_args()
     compiler = checked_compiler(args.jaic, parser)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_zip_fixtures.py")], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_archive_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable.py"), "zip"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable.py"), "archive"], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/check_portable_mpeg_matrix.py")], cwd=ROOT, check=True)
     if args.stdlib:
         root = args.stdlib.resolve(strict=True)
@@ -84,8 +84,8 @@ def main():
             parser.error("supply the new Curl dependency with --curl-root")
         shutil.copytree(curl_root, root / "Curl", dirs_exist_ok=True)
         shutil.copytree(curl_root.parent / "internal/bindings", root / "internal/bindings", dirs_exist_ok=True)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_mpeg_fixtures.py")], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_meow_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable.py"), "mpeg"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable.py"), "meow"], cwd=ROOT, check=True)
     env = dict(os.environ, JAIC_STDLIB=str(root))
     output = ROOT / "target/portable-tests"
     output.mkdir(parents=True, exist_ok=True)

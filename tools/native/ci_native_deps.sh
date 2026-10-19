@@ -27,7 +27,7 @@ clipboard() {
     python3 tools/native/build_native_libs.py --missing
     libs=$(native_dir)
   fi
-  python3 tools/portable/build_portable_clipboard.py --output target/clipboard-native
+  python3 tools/portable/build_portable.py clipboard --output target/clipboard-native
   echo "JAIC_NATIVE_LIBS=$libs:$PWD/target/clipboard-native" >> "$env_file"
 }
 

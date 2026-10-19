@@ -68,7 +68,8 @@ def native_plan(target, native, stdlib, root=ROOT):
     else:
         crash = [
             sys.executable,
-            str(root / "tools/portable/build_portable_runtime.py"),
+            str(root / "tools/portable/build_portable.py"),
+            "runtime",
             "--platform",
             target,
             "--output-dir",
@@ -87,7 +88,8 @@ def native_plan(target, native, stdlib, root=ROOT):
         commands.append(
             [
                 sys.executable,
-                str(root / "tools/portable/build_portable_clipboard.py"),
+                str(root / "tools/portable/build_portable.py"),
+                "clipboard",
                 "--output",
                 str(native),
             ]
@@ -100,7 +102,8 @@ def native_plan(target, native, stdlib, root=ROOT):
         commands.append(
             [
                 sys.executable,
-                str(root / "tools/portable/build_portable_watcher.py"),
+                str(root / "tools/portable/build_portable.py"),
+                "watcher",
                 "--output-dir",
                 str(native),
             ]

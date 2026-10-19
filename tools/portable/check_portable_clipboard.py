@@ -59,7 +59,7 @@ def inputs():
         + TEST_C
         + [
             "tools/portable/check_portable_clipboard.py",
-            "tools/portable/build_portable_clipboard.py",
+            "tools/portable/build_portable.py",
             "tools/portable/check_portable_clipboard_clock.py",
             "tools/portable/clipboard_linux_diagnostics.py",
             "tools/portable/test_clipboard_linux_diagnostics.py",
@@ -279,7 +279,7 @@ def main():
             "ruff",
             "check",
             ROOT / "tools/portable/check_portable_clipboard.py",
-            ROOT / "tools/portable/build_portable_clipboard.py",
+            ROOT / "tools/portable/build_portable.py",
             ROOT / "tools/portable/clipboard_linux_diagnostics.py",
             ROOT / "tools/portable/test_clipboard_linux_diagnostics.py",
         ],
@@ -291,7 +291,7 @@ def main():
             "format",
             "--check",
             ROOT / "tools/portable/check_portable_clipboard.py",
-            ROOT / "tools/portable/build_portable_clipboard.py",
+            ROOT / "tools/portable/build_portable.py",
             ROOT / "tools/portable/clipboard_linux_diagnostics.py",
             ROOT / "tools/portable/test_clipboard_linux_diagnostics.py",
         ],
@@ -310,7 +310,8 @@ def main():
             "linux-helper-build",
             [
                 sys.executable,
-                ROOT / "tools/portable/build_portable_clipboard.py",
+                ROOT / "tools/portable/build_portable.py",
+                "clipboard",
                 "--output",
                 native,
             ],

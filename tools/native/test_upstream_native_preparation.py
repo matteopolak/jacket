@@ -77,14 +77,14 @@ class NativePreparation(unittest.TestCase):
                     crash, audio = plan["commands"][:2]
                     if system == "macos":
                         self.assertIn(
-                            str(root / "tools/portable/build_portable_watcher.py"),
+                            str(root / "tools/portable/build_portable.py"),
                             plan["commands"][2],
                         )
                         self.assertIn(native / "libportable_watch.dylib", plan["required"])
                     if system == "linux":
                         clipboard = plan["commands"][2]
                         self.assertIn(
-                            str(root / "tools/portable/build_portable_clipboard.py"), clipboard
+                            str(root / "tools/portable/build_portable.py"), clipboard
                         )
                         self.assertEqual(
                             Path(clipboard[clipboard.index("--output") + 1]), native
@@ -115,7 +115,7 @@ class NativePreparation(unittest.TestCase):
                         )
                     else:
                         self.assertIn(
-                            str(root / "tools/portable/build_portable_runtime.py"), crash
+                            str(root / "tools/portable/build_portable.py"), crash
                         )
                         self.assertEqual(crash[crash.index("--platform") + 1], platform)
                         self.assertEqual(Path(crash[crash.index("--output-dir") + 1]), native)
