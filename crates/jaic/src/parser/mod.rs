@@ -97,6 +97,10 @@ pub(crate) struct Parser<'a> {
     /// True inside argument and parameter lists, where a comma separates items
     /// instead of continuing a multi-value return list.
     in_list: bool,
+    /// True while parsing a return type: a procedure type there (`-> (int, int) -> bool`) is not
+    /// a literal, whatever follows it, because the `{` that follows belongs to the procedure
+    /// being declared.
+    in_return_type: bool,
     /// Operator text (`+`, `[]`, ...) for the procedure header parsed next.
     pending_operator: Option<std::rc::Rc<str>>,
     /// Token index just past a brace-terminated construct that ended with trailing flags
@@ -128,6 +132,7 @@ impl<'a> Parser<'a> {
             toks,
             pos: 0,
             in_list: false,
+            in_return_type: false,
             pending_operator: None,
             block_end: usize::MAX,
             pending_notes: Vec::new(),

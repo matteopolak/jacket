@@ -177,6 +177,14 @@ impl Parser<'_> {
 
     /// A procedure literal or type starting at `(` or `->`.
     pub(super) fn parse_proc_expr(&mut self, inline: CallHintFlag) -> PResult<Expr> {
+        // Parameters and the body start afresh; a literal's own return type does not (below).
+        let in_return_type = std::mem::take(&mut self.in_return_type);
+        let result = self.parse_proc_expr_in(inline, in_return_type);
+        self.in_return_type = in_return_type;
+        result
+    }
+
+    fn parse_proc_expr_in(&mut self, inline: CallHintFlag, in_return_type: bool) -> PResult<Expr> {
         let start = self.span();
         let mut header = new_header(start, inline);
         header.operator = self.pending_operator.take();
@@ -187,7 +195,10 @@ impl Parser<'_> {
             return self.finish_lambda(header, start);
         }
         if self.eat(P::Arrow) {
-            header.returns = self.parse_returns()?;
+            self.in_return_type = true;
+            let returns = self.parse_returns();
+            self.in_return_type = false;
+            header.returns = returns?;
         }
         self.parse_proc_flags(&mut header)?;
         header.span = start.to(self.prev_span());
@@ -196,7 +207,7 @@ impl Parser<'_> {
             || header.flags.intrinsic()
             || header.flags.elsewhere.is_some();
         let header = Rc::new(header);
-        if self.at(P::LBrace) {
+        if self.at(P::LBrace) && !in_return_type {
             let body = self.parse_block()?;
             let span = start.to(body.span);
             return Ok(mk(
