@@ -244,7 +244,28 @@
       ]
     },
     "pl_mpeg": {"source": "pl_mpeg", "code": "#include <stdio.h>\n#include <stdlib.h>\n#define PL_MPEG_IMPLEMENTATION\n#include \"pl_mpeg.h\"\n"},
-    "rpmalloc": {"source": "rpmalloc", "platforms": ["macos", "linux"], "code": "// The stdlib binding uses the heap API.\n#define RPMALLOC_FIRST_CLASS_HEAPS 1\n#include \"rpmalloc/rpmalloc.c\"\n"},
+    "rpmalloc": {"source": "rpmalloc", "platforms": ["macos", "linux"], "builder": "rpmalloc"},
+    "binding_callback_context": {"source": "repo", "local": "stdlib/internal/bindings/callback-context", "units": [], "local_units": ["bridge.c"]},
+    "jai_audio_output": {
+      "source": "repo",
+      "local": "stdlib/internal/audio/native",
+      "units": [],
+      "local_units": ["output.c"],
+      "platform_units": {"macos": ["focus.m"]},
+      "link": {
+        "macos": ["-framework", "AudioToolbox", "-framework", "CoreAudio", "-framework", "CoreFoundation", "-framework", "AppKit", "-framework", "CoreGraphics"],
+        "linux": ["-lasound"],
+        "windows": ["-lwinmm", "-luser32"]
+      }
+    },
+    "portable_clipboard": {
+      "source": "repo",
+      "platforms": ["linux"],
+      "local": "stdlib/internal/clipboard/native",
+      "units": [],
+      "local_units": ["data.c", "x11.c"],
+      "link": {"linux": ["-lX11", "-pthread"]}
+    },
     "freetype": {
       "source": "freetype",
       "include": ["include"],

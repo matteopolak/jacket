@@ -176,9 +176,11 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
         unit.write_text(lib['code'])
         units = [unit]
     else:
-        units = [src / rel for rel in lib['units']]
-        # Files of this repository that belong to the library (a configuration header, glue code).
+        units = [src / rel for rel in lib.get('units', [])]
+        # Files of this repository that belong to the library (a configuration header, glue code,
+        # or all of it for a `source: repo` library), plus those only one OS compiles.
         units += [ROOT / lib['local'] / rel for rel in lib.get('local_units', [])]
+        units += [ROOT / lib['local'] / rel for rel in lib.get('platform_units', {}).get(plat.split('-')[0], [])]
     if 'support' in lib:
         # Glue the library's own sources lack (see tools/native/native-libs.json), as one more unit.
         support = tmp / f'jai_{name}_support.{lib.get("support_suffix", "cpp")}'
@@ -276,9 +278,37 @@ def check_no_cxx_runtime(name: str, objects: list[Path]) -> None:
                  'compile without exceptions, RTTI and thread-safe statics, or supply the symbols')
 
 
+def rpmalloc_libraries() -> list[str]:
+    """The allocator profile libraries the stdlib's `rpmalloc` binds (one SDK and one callbacks
+    library per profile in tools/native_bindings/ci-rpmalloc-profiles.json)."""
+    from native_bindings.rpmalloc_profiles import PROFILES
+    return [profile[kind] for profile in PROFILES for kind in ('sdk', 'callbacks')]
+
+
+def build_rpmalloc(src: Path, out: Path) -> None:
+    """Build every profile of the patched rpmalloc SDK and its callback adapters, and copy the
+    static and shared libraries (not the build's intermediate files) into `out`."""
+    from native_bindings.build_rpmalloc import build as build_profiles
+    from native_bindings.prepare_rpmalloc import prepare
+    suffix = 'dylib' if sys.platform == 'darwin' else 'so'
+    with tempfile.TemporaryDirectory() as tmp_name:
+        tmp = Path(tmp_name)
+        build_profiles(tmp / 'build', source=prepare(src, tmp / 'source'))
+        for name in rpmalloc_libraries():
+            for ext in ('a', suffix):
+                shutil.copy2(tmp / 'build' / f'lib{name}.{ext}', out / f'lib{name}.{ext}')
+        if suffix == 'dylib':
+            # The callback adapters find their SDK beside themselves; Homebrew rewrites install names.
+            for name in rpmalloc_libraries():
+                subprocess.run(['install_name_tool', '-id', f'@rpath/lib{name}.dylib', str(out / f'lib{name}.dylib')], check=True)
+
+
 def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
     if 'prebuilt' in lib:
         install_prebuilt(lib, src, out, plat)
+        return
+    if lib.get('builder') == 'rpmalloc':
+        build_rpmalloc(src, out)
         return
     if lib.get('builder') == 'sdl3':
         from bindings import sdl3_native
@@ -304,13 +334,15 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
             # The DLL carries its own copy of the static runtime (what `jaic -interp` loads).
             subprocess.run(['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=static', '-shared',
                             '-o', str(out / f'{name}.dll'), *map(str, objects), f'-Wl,/DEF:{definitions}',
-                            '-Wl,/DEFAULTLIB:libcmt', f'-Wl,/IMPLIB:{import_library}'], check=True)
+                            '-Wl,/DEFAULTLIB:libcmt', f'-Wl,/IMPLIB:{import_library}',
+                            *lib.get('link', {}).get('windows', [])], check=True)
             return
         check_no_cxx_runtime(name, objects)
         subprocess.run(['ar', 'rcs', str(static), *map(str, objects)], check=True)
         shared_ext = 'dylib' if plat.startswith('macos') else 'so'
         shared = out / f'lib{name}.{shared_ext}'
-        args = ['cc', '-shared', '-o', str(shared), *map(str, objects), '-lm']
+        args = ['cc', '-shared', '-o', str(shared), *map(str, objects), '-lm',
+                *lib.get('link', {}).get(plat.split('-')[0], [])]
         if shared_ext == 'dylib':
             # Executables find it through their rpath, not the working directory. The header
             # padding lets Homebrew rewrite the install name when it installs a release archive.
@@ -330,6 +362,12 @@ def shipped_files(manifest: dict, plat: str) -> list[str]:
             files += lib['prebuilt'][plat]['files'].values()
             sources.add(lib['prebuilt'][plat]['source'])
             continue
+        if lib.get('builder') == 'rpmalloc':
+            ext = 'dylib' if plat.startswith('macos') else 'so'
+            for profile in rpmalloc_libraries():
+                files += [f'lib{profile}.a', f'lib{profile}.{ext}']
+            sources.add(lib['source'])
+            continue
         files.append(static_name(name, plat))
         if plat.startswith('windows') and plat not in MINGW_PREFIXES:
             files.append(f'{name}.dll')
@@ -341,7 +379,8 @@ def shipped_files(manifest: dict, plat: str) -> list[str]:
             files += ['sdl3/build.json', 'sdl3/static-link-libraries.txt', 'sdl3/SDL_build_config.h', 'sdl3/installed-headers.json', 'sdl3/sdk/include/SDL3/SDL.h', 'licenses/sdl3/THIRD-PARTY-NOTICES.txt']
             if plat.startswith('windows'):
                 files.append('SDL3-import.lib')
-        sources.add(lib['source'])
+        if lib['source'] != 'repo':
+            sources.add(lib['source'])
     for source in sorted(sources):
         for entry in manifest['sources'][source].get('license', []):
             named = entry if isinstance(entry, str) else entry.get('as') or entry['file']
@@ -406,6 +445,11 @@ def main() -> None:
             continue
         # A library with official binaries (`prebuilt`) names its source per platform.
         source_name = lib['prebuilt'][plat]['source'] if 'prebuilt' in lib else lib['source']
+        if source_name == 'repo':
+            # Written in this repository (the audio output, the callback context): no download.
+            build(name, lib, ROOT, out, plat)
+            print(f'built {name} -> {out}')
+            continue
         src = fetch(manifest['sources'][source_name], cache / source_name)
         build(name, lib, src, out, plat)
         if source_name not in licensed:
