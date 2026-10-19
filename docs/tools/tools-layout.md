@@ -14,7 +14,7 @@
 | `ci/` | CI plumbing: change detection (`ci_changes.py`), source and dependency-age checks, runner install scripts, `windows-llvm/`, pre-commit hook test. |
 | `corpus/` | Upstream project smoke runs (`upstream_smoke.py`), conformance corpus generators (`gen_*_corpus.py`), `regex_oracle/`, `upstream-drivers/`. |
 | `dev/` | Developer workflow behind the Justfile (`dev.py`), Rust format checks, staged-file lists, PGO and packaging helpers, rule-coverage check. |
-| `developer_checks/` | The `check_developer_*` / `build_developer_*` checks of the Bindings_Generator developer tooling; `check_developer_tools.py` runs them all. |
+| `developer_checks/` | The `check_developer_*` / `build_developer_*` checks of the Bindings_Generator developer tooling; `check_developer_tools.py` runs them all, in the order of `developer_checks.json` (one entry per check module, `hosts` for those that need a particular OS; `--list`, `--only MODULE`). A new `check_developer_*.py` needs an entry there (a test fails otherwise). |
 | `differential/` | `jaic_diff.py` (backend differential testing), `jaic_reduce.py`, `jaic_sweep.py`, the random program generator `jaigen.py`. |
 | `fuzz/` | The stdlib fuzzer: driver, discovery metaprogram, per-module config and property hooks ([stdlib fuzzing](stdlib-fuzzing.md)). |
 | `generators/` | Generators of checked-in files (below). The generated file's header names its generator. |

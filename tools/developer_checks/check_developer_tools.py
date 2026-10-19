@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Focused developer tooling evidence from this checkout's source-built tools."""
+import argparse
+import importlib
 import os
 import json
+from pathlib import Path
 import re
 import subprocess
 import shutil
@@ -9,39 +12,10 @@ import build_developer_bindings
 from driven_sources import driven, driven_matching
 import platform
 import csv
-import check_developer_bindings
-import check_developer_cpp_custom
-import check_developer_type_emission
-import check_developer_value_emission
-import check_developer_check
-import check_developer_check_plugin
-import check_developer_refined_emission
-import check_developer_multi_input
-import check_developer_pointer_defaults
-import check_developer_string_macros
-import check_developer_declaration_visitors
-import check_developer_integer_range
-import check_developer_cpp_scopes
-import check_developer_anonymous_types
-import check_developer_variadic
-import check_developer_native_package
-import build_developer_debug
-import check_developer_debug_lifecycle
-import check_developer_debug_windows
-import check_developer_msf
-import check_developer_native_abi
-import check_developer_dwarf_lines
-import check_developer_dwarf_frames
-import check_developer_eh_frames
-import check_developer_sdk_configuration
-import check_developer_dwarf_types
-import check_developer_codeview_strings
-import check_developer_dwarf_line_wire
-import check_developer_profiler_windows
-import check_generator_platform
 from dev_common import run_checked, ROOT, ENV, JAIC, sha256_file
 
 UNAVAILABLE_EVIDENCE = []
+MANIFEST = Path(__file__).with_name("developer_checks.json")
 
 
 def host_evidence(name, callback, required_hosts, host=None):
@@ -53,6 +27,25 @@ def host_evidence(name, callback, required_hosts, host=None):
         print("UNAVAILABLE host evidence:", json.dumps(row), flush=True)
         return
     callback()  # Required host failures propagate; no fallback or success substitute.
+
+
+def manifest_checks():
+    return json.loads(MANIFEST.read_text())["checks"]
+
+
+def run_manifest(only=None):
+    """Run the checks listed in developer_checks.json in order (or just `only`); {module: its main()'s result}."""
+    results = {}
+    for entry in manifest_checks():
+        module = entry["module"]
+        if only and module != only:
+            continue
+        callback = importlib.import_module(module).main
+        if "hosts" in entry:
+            host_evidence(entry["label"], lambda callback=callback, module=module: results.__setitem__(module, callback()), entry["hosts"])
+        else:
+            results[module] = callback()
+    return results
 
 
 def run(command, *, output=None, error=""):
@@ -164,37 +157,23 @@ def check_profiler_client_children():
         run([ROOT / "target/debug/jailint", "-D", "warnings", source])
 
 
-def main():
-    check_developer_bindings.main()
-    host_evidence("generator-platform Mac SDK execution", check_generator_platform.main, ["Darwin"])
-    check_developer_cpp_custom.main()
-    check_developer_type_emission.main()
-    check_developer_value_emission.main()
-    check_developer_check.main()
-    check_developer_check_plugin.main()
-    check_developer_refined_emission.main()
-    check_developer_multi_input.main()
-    check_developer_pointer_defaults.main()
-    check_developer_string_macros.main()
-    check_developer_declaration_visitors.main()
-    check_developer_integer_range.main()
-    check_developer_cpp_scopes.main()
-    check_developer_anonymous_types.main()
-    check_developer_variadic.main()
-    configured_cases = check_developer_sdk_configuration.main()
-    host_evidence("Mac SDK relocated package", check_developer_native_package.main, ["Darwin"])
-    build_developer_debug.main()
-    check_developer_debug_lifecycle.main()
-    host_evidence("Mac-hosted MinGW Windows Debug cross-build", check_developer_debug_windows.main, ["Darwin"])
-    check_developer_msf.main()
-    check_developer_native_abi.main()
-    check_developer_dwarf_lines.main()
-    check_developer_dwarf_line_wire.main()
-    check_developer_dwarf_frames.main()
-    check_developer_eh_frames.main()
-    check_developer_dwarf_types.main()
-    check_developer_codeview_strings.main()
-    host_evidence("Mac-hosted MinGW Windows profiler clock cross-build", check_developer_profiler_windows.main, ["Darwin"])
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--list", action="store_true", help="print the checks in developer_checks.json and exit")
+    parser.add_argument("--only", metavar="MODULE", help="run just this check from the manifest (not the shared fixtures after it)")
+    args = parser.parse_args(argv)
+    if args.list:
+        for entry in manifest_checks():
+            hosts = f"  [{', '.join(entry['hosts'])} only]" if "hosts" in entry else ""
+            print(entry["module"] + hosts)
+        return
+    if args.only:
+        if args.only not in {entry["module"] for entry in manifest_checks()}:
+            parser.error(f"{args.only} is not in developer_checks.json")
+        run_manifest(args.only)
+        return
+    results = run_manifest()
+    configured_cases = results["check_developer_sdk_configuration"]
     prefix = build_developer_bindings.llvm_prefix()
     framework = ROOT / "target/developer-tools-frameworks/OriginalNative.framework"
     (framework / "Modules").mkdir(parents=True, exist_ok=True)
