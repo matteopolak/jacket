@@ -40,13 +40,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      sdl3: ${{ steps.select.outputs.sdl3 }}
-      clipboard: ${{ steps.select.outputs.clipboard }}
-      nix: ${{ steps.select.outputs.nix }}
-      packaging: ${{ steps.select.outputs.packaging }}
-      shell: ${{ steps.select.outputs.shell }}
-      windows: ${{ steps.select.outputs.windows }}
-      code: ${{ steps.select.outputs.code }}
+      jobs: ${{ steps.select.outputs.jobs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,12 +51,14 @@ jobs:
           EVENT_BEFORE: ${{ github.event.before }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SHA: ${{ github.sha }}
+          JOBS: ${{ inputs.jobs }}
         run: python3 tools/ci/ci_changes.py
   docs:
     # Runs for every change, docs-only ones too: the rule IDs that tests cite must exist in the
     # language docs. Also lists the doc rules no test cites (tools/dev/check_rule_coverage.py).
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',docs,'))
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'docs')
     name: rule coverage
+    needs: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -75,7 +71,7 @@ jobs:
         run: python3 tools/ci/check_tool_imports.py
   fuzz-regressions:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',fuzz-regressions,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'fuzz-regressions')
     # Replays the saved crash inputs so fixed crashes stay fixed (nightly fuzzing: fuzz.yml).
     name: replay fuzz regressions
     runs-on: ubuntu-24.04
@@ -85,14 +81,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+        run: bash tools/ci/install_rust_toolchain.sh
       - name: Validate fuzz dependency ages
         run: python3 tools/ci/check_dependency_age.py --lockfile fuzz/Cargo.lock
       - name: Replay fuzz/regressions through the harnesses
         run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
   scripting-wasm:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',scripting-wasm,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'scripting-wasm')
     name: scripting interpreter (LLVM-free WebAssembly)
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -107,9 +103,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install the pinned Rust toolchain and wasm target
-        run: |
-          rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt --component clippy
-          rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
+        run: bash tools/ci/install_rust_toolchain.sh --component rustfmt --component clippy --target wasm32-unknown-unknown
       - uses: ./.github/actions/rust-cache
       - name: Validate dependency ages and public source inputs
         # Read-only GitHub API access for the commit dates of pinned git dependencies.
@@ -146,7 +140,7 @@ jobs:
           python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends interp,wasm --wasm target/ci-wasm corpus gen:1:40
   test:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',test,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'test')
     name: compiler (${{ matrix.runner }})
     strategy:
       fail-fast: false
@@ -217,7 +211,7 @@ jobs:
         # Protected-tool rejection remains active without original native files.
         run: |
           ulimit -c 0
-          cargo test --workspace --no-fail-fast --locked -- --skip lex_entire_reference_without_executing_it --skip every_stdlib_module_checks_for_every_target --skip selectors_take_the_arguments_they_are_sent_with --skip selectors_exist_in_the_objective_c_runtime
+          just test --suite cargo --jobs "$(getconf _NPROCESSORS_ONLN)"
       - name: Native tests with every program divided into parts
         id: split-native
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -307,7 +301,7 @@ jobs:
           python3 tools/stdlib/check_file_watcher_platforms.py --compiler target/debug/jaic --linter target/debug/jailint --formatter target/jaifmt --native-runtime
   vscode-extension:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',vscode-extension,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'vscode-extension')
     # editors/vscode: lint, unit and grammar tests, VS Code integration tests against a debug
     # jailsp, and the .vsix (docs/tools/vscode-extension.md).
     name: VS Code extension
@@ -326,7 +320,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+        run: bash tools/ci/install_rust_toolchain.sh
       - name: Validate dependency ages before installing or building
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -361,7 +355,7 @@ jobs:
           if-no-files-found: error
   neovim-plugin:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',neovim-plugin,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'neovim-plugin')
     # editors/nvim: the headless tests, including an end-to-end run against a debug jailsp
     # (docs/tools/neovim-plugin.md).
     name: Neovim plugin
@@ -386,12 +380,12 @@ jobs:
         with:
           just-version: '1.58.0'
       - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+        run: bash tools/ci/install_rust_toolchain.sh
       - name: Run the plugin tests (builds only jailsp)
         run: just nvim-test -j 2
   stdlib-runtime:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',stdlib-runtime,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'stdlib-runtime')
     name: stdlib runtime tests (${{ matrix.platform }}, ${{ matrix.shard }})
     strategy:
       fail-fast: false
@@ -519,7 +513,7 @@ jobs:
           done
   upstream-smoke:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',upstream-smoke,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'upstream-smoke')
     # Open-source Jai projects built with their own entry points (first.jai, build.jai and the
     # arguments their READMEs document) and run: CLIs and libraries answer a real request or pass
     # their tests, games and editors open a window on a virtual display for a few seconds and must
@@ -556,7 +550,7 @@ jobs:
         # the unprivileged user namespaces bubblewrap needs.
         if: ${{ runner.os == 'Linux' }}
         run: |
-          sudo apt-get install -y --no-install-recommends bubblewrap
+          bash tools/ci/apt_install.sh bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
@@ -593,7 +587,7 @@ jobs:
           if-no-files-found: ignore
   sanitizers:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',sanitizers,')) && needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'sanitizers')
     # Native builds of the test programs under AddressSanitizer and the IR-level UBSan checks,
     # with the interpreter's expectations; any sanitizer report fails the case
     # (docs/native/sanitizers.md).
@@ -641,7 +635,7 @@ jobs:
     # generated bindings checked (docs/extensions/sdl3.md).
     name: SDL3 native artifacts (${{ matrix.platform }})
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',sdl3,')) && (needs.changes.outputs.sdl3 == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'sdl3')
     strategy:
       fail-fast: false
       matrix:
@@ -692,7 +686,7 @@ jobs:
     # The Linux clipboard against real X11 clients on Xvfb, and the relocated package.
     name: Linux clipboard (X11)
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',clipboard-linux,')) && (needs.changes.outputs.clipboard == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'clipboard-linux')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -707,8 +701,7 @@ jobs:
           native-libs: 'false'
       - name: Install the X11 build and display dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libx11-dev xvfb xauth clang-format
+          bash tools/ci/apt_install.sh libx11-dev xvfb xauth clang-format
           python3 -m pip install ruff==0.14.14
           cargo fetch --locked
       - name: X11 clients, the Jai runtime and the relocated package
@@ -721,7 +714,7 @@ jobs:
     # programs natively) and runs the packaged compiler; see docs/tools/releases.md.
     name: flake (${{ matrix.runner }})
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',nix,')) && (needs.changes.outputs.nix == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'nix')
     strategy:
       fail-fast: false
       matrix:
@@ -759,7 +752,7 @@ jobs:
   # is published from here (release.yml publishes); see docs/tools/releases.md.
   shellcheck:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',shellcheck,')) && (needs.changes.outputs.shell == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'shellcheck')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -773,7 +766,7 @@ jobs:
           sh tools/dev/staged-files.sh shell-all | xargs shellcheck
   install-sh:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',install-sh,')) && (needs.changes.outputs.packaging == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'install-sh')
     name: install.sh (${{ matrix.runner }})
     strategy:
       fail-fast: false
@@ -793,44 +786,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
-            echo "Latest release: $tag"
-            # Releases cut before the archives were named jacket-<platform> cannot be installed by
-            # the current installers either.
-            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q '^jacket-'; then
-              echo "published=true" >> "$GITHUB_OUTPUT"
-              # The formula is rendered from this checkout's template, so it can install a binary
-              # (such as `jacket`) that the latest release's archive does not ship yet.
-              case "$RUNNER_OS-$RUNNER_ARCH" in
-                Linux-X64) platform=linux-x64 ;; Linux-ARM64) platform=linux-arm64 ;;
-                macOS-X64) platform=macos-x64 ;; macOS-ARM64) platform=macos-arm64 ;;
-              esac
-              gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "jacket-$platform.tar.gz" --dir "$RUNNER_TEMP/latest-release"
-              tar tzf "$RUNNER_TEMP/latest-release/jacket-$platform.tar.gz" > "$RUNNER_TEMP/latest-release/files.txt"
-              if grep -qx "jacket-$platform/jacket" "$RUNNER_TEMP/latest-release/files.txt"; then
-                echo "installable=true" >> "$GITHUB_OUTPUT"
-              else
-                msg="$GITHUB_REPOSITORY release $tag has no jacket binary, which the formula template installs, so the formula install and test are skipped until the next release."
-                echo "::notice title=Release older than the formula::$msg"
-                echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-                echo "installable=false" >> "$GITHUB_OUTPUT"
-              fi
-            else
-              msg="$GITHUB_REPOSITORY release $tag predates the jacket-<platform> archives, so the steps that install a published release are skipped; the locally built archive steps still run."
-              echo "::notice title=No installable release::$msg"
-              echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-              echo "published=false" >> "$GITHUB_OUTPUT"
-            fi
-          elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
-            msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
-            echo "::notice title=No published release::$msg"
-            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          else
-            cat "$RUNNER_TEMP/gh-err.txt"
-            exit 1
-          fi
+        run: python3 tools/ci/published_release.py
       # A release may lack this platform's archive: then install.sh must pick the platform and
       # say the release has no build for it.
       - name: Does the latest release have this platform's archive?
@@ -948,7 +904,7 @@ jobs:
           cat err.txt && grep -q "is not a symlink" err.txt
   install-ps1:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',install-ps1,')) && (needs.changes.outputs.packaging == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'install-ps1')
     runs-on: windows-2025
     timeout-minutes: 15
     steps:
@@ -962,28 +918,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
-            echo "Latest release: $tag"
-            # Releases cut before the archives were named jacket-<platform> cannot be installed by
-            # the current installers either.
-            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q '^jacket-'; then
-              echo "published=true" >> "$GITHUB_OUTPUT"
-            else
-              msg="$GITHUB_REPOSITORY release $tag predates the jacket-<platform> archives, so the steps that install a published release are skipped; the locally built archive steps still run."
-              echo "::notice title=No installable release::$msg"
-              echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-              echo "published=false" >> "$GITHUB_OUTPUT"
-            fi
-          elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
-            msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
-            echo "::notice title=No published release::$msg"
-            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          else
-            cat "$RUNNER_TEMP/gh-err.txt"
-            exit 1
-          fi
+        run: python tools/ci/published_release.py
       # A stub toolchain in a release-shaped zip, served through JAI_BASE_URL=file:///...: runs
       # whether or not a release exists.
       - name: Install from a locally built archive
@@ -1043,7 +978,7 @@ jobs:
           (Get-Command jaifmt, jailsp).Source
   homebrew:
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',homebrew,')) && (needs.changes.outputs.packaging == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'homebrew')
     name: homebrew (${{ matrix.runner }})
     strategy:
       fail-fast: false
@@ -1070,28 +1005,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
-            echo "Latest release: $tag"
-            # Releases cut before the archives were named jacket-<platform> cannot be installed by
-            # the current installers either.
-            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q '^jacket-'; then
-              echo "published=true" >> "$GITHUB_OUTPUT"
-            else
-              msg="$GITHUB_REPOSITORY release $tag predates the jacket-<platform> archives, so the steps that install a published release are skipped; the locally built archive steps still run."
-              echo "::notice title=No installable release::$msg"
-              echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-              echo "published=false" >> "$GITHUB_OUTPUT"
-            fi
-          elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
-            msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
-            echo "::notice title=No published release::$msg"
-            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          else
-            cat "$RUNNER_TEMP/gh-err.txt"
-            exit 1
-          fi
+        run: python3 tools/ci/published_release.py --formula
       - name: Render the formula for the latest release
         if: steps.released.outputs.published == 'true'
         env:
@@ -1113,28 +1027,10 @@ jobs:
           cat "$formula"
           grep -q 'jacket-macos-x64.tar.gz' "$formula" && grep -q 'jacket-linux-arm64.tar.gz' "$formula"
           if grep -q 'depends_on arch: :' "$formula"; then echo "the formula still restricts the architecture"; exit 1; fi
-          if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
-          brew tap-new --no-git jaiall/local
-          cp "$formula" "$(brew --repository jaiall/local)/Formula/jacket.rb"
-          brew trust jaiall/local 2> /dev/null || true
-          brew style jaiall/local/jacket
-          brew audit --formula --strict jaiall/local/jacket
-          brew untap jaiall/local
+          bash tools/ci/check_formula.sh "$formula" jaiall/local audit
       - name: Install the formula from a local tap and run its test
         if: steps.released.outputs.installable == 'true'
-        run: |
-          if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
-          brew --version
-          brew tap-new --no-git jaitest/local
-          cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" "$(brew --repository jaitest/local)/Formula/jacket.rb"
-          brew trust jaitest/local 2> /dev/null || true
-          brew style jaitest/local/jacket
-          brew audit --formula --strict --online jaitest/local/jacket
-          brew install --build-from-source jaitest/local/jacket
-          brew test jaitest/local/jacket
-          brew linkage jaitest/local/jacket || true
-          brew uninstall jaitest/local/jacket
-          brew untap jaitest/local
+        run: bash tools/ci/check_formula.sh "$RUNNER_TEMP/packages/homebrew/jacket.rb" jaitest/local install
   # Native Windows executables from `jaic` for x64 and arm64: built on Windows with the MSVC
   # toolchain, and cross-built from Linux with MinGW-w64 (llvm-mingw for arm64) then run on
   # Windows (docs/native/windows.md). Runs on manual runs, on the Windows work branches, and on
@@ -1142,7 +1038,7 @@ jobs:
   windows-cross:
     name: cross-build ${{ matrix.cpu }} (Linux, ${{ matrix.mingw }})
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-cross,')) && (needs.changes.outputs.windows == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-cross')
     strategy:
       fail-fast: false
       matrix:
@@ -1195,9 +1091,9 @@ jobs:
           path: cross-${{ matrix.cpu }}
           if-no-files-found: error
   windows-run-cross:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-run-cross,'))
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-run-cross')
     name: run cross-built programs (Windows ${{ matrix.cpu }})
-    needs: windows-cross
+    needs: [changes, windows-cross]
     strategy:
       fail-fast: false
       matrix:
@@ -1229,7 +1125,7 @@ jobs:
   windows-native:
     name: jaic on Windows ${{ matrix.cpu }} (MSVC)
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-native,')) && (needs.changes.outputs.windows == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-native')
     strategy:
       fail-fast: false
       matrix:
@@ -1309,9 +1205,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
-          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch $env:VS_ARCH -HostArch amd64 -SkipAutomaticLocation
+          . tools/ci/enter_vs_dev_shell.ps1
           $env:JAIC_STDLIB = (Resolve-Path stdlib).Path
           & $env:JAIC jaifmt/main.jai -O2 -exe target/jaifmt.exe
           if ($LASTEXITCODE -ne 0) { throw 'jaifmt build failed' }
@@ -1367,9 +1261,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python3 tools/run_tests.py -p 'test_windows_d3dcompiler*.py' -v
           if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler diagnostic tests failed' }
-          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
-          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch $env:VS_ARCH -HostArch amd64 -SkipAutomaticLocation
+          . tools/ci/enter_vs_dev_shell.ps1
           $importLibrary = $env:LIB.Split(';') | ForEach-Object { Join-Path $_ 'd3dcompiler.lib' } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
           if (-not $importLibrary) { throw 'Selected SDK LIB search has no d3dcompiler.lib' }
           python -u tools/native/check_windows_d3dcompiler_provider.py --jaic $env:JAIC --stdlib stdlib --import-library "$importLibrary" --report "target/d3dcompiler-$env:CPU/provider.json"
@@ -1409,9 +1301,7 @@ jobs:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
           $ErrorActionPreference = 'Stop'
-          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
-          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch $env:VS_ARCH -HostArch amd64 -SkipAutomaticLocation
+          . tools/ci/enter_vs_dev_shell.ps1
           python -u tools/stdlib/check_file_watcher_platforms.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe --native-runtime
           $watcherExit = $LASTEXITCODE
           python -u tools/native/check_windows_time_zone.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe --sdk-runtime
@@ -1422,7 +1312,7 @@ jobs:
     # in two shards like there.
     name: stdlib runtime tests (windows-${{ matrix.cpu }}, ${{ matrix.shard }})
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-stdlib,')) && (needs.changes.outputs.windows == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-stdlib')
     strategy:
       fail-fast: false
       matrix:
@@ -1484,7 +1374,7 @@ jobs:
     # desktop and Mesa's software OpenGL (docs/tools/upstream-corpus.md).
     name: third-party projects (Windows x64)
     needs: changes
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-smoke,')) && (needs.changes.outputs.windows == 'true')
+    if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-smoke')
     concurrency:
       group: ${{ github.workflow }}-windows-smoke-${{ github.ref }}
       cancel-in-progress: true

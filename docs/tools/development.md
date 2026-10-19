@@ -91,7 +91,7 @@ Every action is pinned by full commit SHA with a version comment. `.github/depen
 
 Shared setup lives in composite actions: `.github/actions/setup-unix` (pinned nightly Rust, Python, LLVM 23, Linux native libraries), `setup-windows`, `windows-provider`, `rust-cache` and `native-libs-cache` (see [Caches and shards](#caches-and-shards)). `tools/native/ci_native_deps.sh {developer|clipboard|full}` builds the native helper libraries the jobs link.
 
-`ci.yml` starts with a `changes` job that runs `tools/ci/ci_changes.py`, which diffs the pushed range (or PR base; anything undiffable runs everything) and sets `<area>=true|false` outputs for the path-gated jobs: `sdl3`, `clipboard-linux`, `nix`, `shell` (`shellcheck`: every `*.sh` and `.githooks/`), packaging (`install-sh`, `install-ps1`, `homebrew`) and the `windows-*` jobs, plus `code`, which is false when only prose changed (see [Caches and shards](#caches-and-shards)). To gate a job on more paths, add a pattern to `AREAS` in that script (tests: `tools/ci/test_ci_changes.py`). Editing `ci.yml` or `.github/actions/` runs every area except `sdl3`, which runs only for `stdlib/Extensions/SDL3/` and its own tooling (`tools/bindings/*sdl*.py`, `tools/native/sdl3/`); the release workflow still builds and tests SDL3.
+`ci.yml` starts with a `changes` job that runs `tools/ci/ci_changes.py`, which diffs the pushed range (or PR base; anything undiffable runs everything) and emits one `jobs` output, a JSON list of the job ids that should run (`JOBS` in the script maps each id to its path area; `ci.yml` gates every job on `contains(fromJSON(needs.changes.outputs.jobs), '<id>')`, and a test keeps the two in step). The areas are: `sdl3`, `clipboard-linux`, `nix`, `shell` (`shellcheck`: every `*.sh` and `.githooks/`), packaging (`install-sh`, `install-ps1`, `homebrew`) and the `windows-*` jobs, plus `code`, which is false when only prose changed (see [Caches and shards](#caches-and-shards)). To gate a job on more paths, add a pattern to `AREAS` in that script (tests: `tools/ci/test_ci_changes.py`). Editing `ci.yml` or `.github/actions/` runs every area except `sdl3`, which runs only for `stdlib/Extensions/SDL3/` and its own tooling (`tools/bindings/*sdl*.py`, `tools/native/sdl3/`); the release workflow still builds and tests SDL3.
 
 Jobs that run for every code change (`code=true`):
 
@@ -137,3 +137,14 @@ A push or pull request that only changes prose (`docs/**`, top-level `*.md`, `.g
 ## Dependencies
 
 [just](https://github.com/casey/just) 1.58+, `python3`, the pinned Rust toolchain, `pnpm` (for `just vscode`), `git`, and the repo-built `jaifmt` and `jailint`.
+
+## CI plumbing scripts
+
+Workflow YAML calls scripts under `tools/ci/` instead of carrying shell logic, so each piece is testable and shared:
+
+- `.github/pins.json` is the one place for tool versions the workflows download (node, python, just, ruff, LLVM, llvm-mingw, mesa, nvim, with SHA-256s). `python3 tools/ci/pins.py check` fails when a workflow disagrees; `pins.py sync` rewrites them.
+- `published_release.py` is the "is this version published yet" check used by `install-sh`, `install-ps1` and `homebrew` (`--formula` for the formula).
+- `enter_vs_dev_shell.ps1` (dot-source it) loads the Visual Studio developer environment on Windows jobs.
+- `install_rust_toolchain.sh` installs the channel from `rust-toolchain.toml` (`--component`, `--target`).
+- `install_llvm_release.sh` downloads, caches and unpacks the pinned LLVM and exports `LLVM_SYS_231_PREFIX`.
+- `apt_lib.sh` / `apt_install.sh` are the retrying apt helpers; `check_formula.sh <formula> <tap> audit|install` runs the brew checks.

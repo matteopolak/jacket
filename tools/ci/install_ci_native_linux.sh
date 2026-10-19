@@ -55,5 +55,4 @@ if [[ "$(uname -s)" != Linux ]]; then
   echo "Native Linux dependency installation requires Linux" >&2
   exit 2
 fi
-sudo apt-get update
-sudo apt-get install -y --no-install-recommends "${packages[@]}"
+exec "$(dirname "${BASH_SOURCE[0]}")/apt_install.sh" "${packages[@]}"

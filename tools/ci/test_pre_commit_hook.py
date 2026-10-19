@@ -46,6 +46,8 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / "tools/dev").mkdir(parents=True)
         for script in ("rust_item_spacing.py", "staged-files.sh"):
             shutil.copy(REPO / "tools/dev" / script, self.repo / "tools/dev" / script)
+        shutil.copytree(REPO / "tools/toolkit", self.repo / "tools/toolkit",
+                        ignore=shutil.ignore_patterns("__pycache__", "test_*"))
         (self.repo / "target").mkdir()
         self.env = dict(os.environ, JAI_HOOK_NO_BUILD="1", JAI_HOOK_SKIP="rustfmt")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.

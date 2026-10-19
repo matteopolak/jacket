@@ -21,7 +21,7 @@ runs:
           printf '%s\n' "$USERPROFILE\\.cargo\\bin" >> "$GITHUB_PATH"
           export PATH="$PATH:$(cygpath -u "$USERPROFILE")/.cargo/bin"
         fi
-        rustup toolchain install nightly-2026-08-29 --profile minimal
+        bash tools/ci/install_rust_toolchain.sh
         # The official LLVM release is built against the static C runtime (/MT); mixing it with
         # Rust's default dynamic CRT crashes at run time. A target-specific flag keeps it off
         # build scripts and proc macros.
@@ -48,16 +48,8 @@ runs:
       env:
         ARCHIVE: ${{ steps.llvm.outputs.archive }}
       run: |
-        download="$(cygpath -u "$RUNNER_TEMP")/llvm-download"
-        if [ ! -f "$download/$ARCHIVE" ]; then
-          mkdir -p "$download"
-          curl -fsSL -o "$download/$ARCHIVE" "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/$ARCHIVE"
-        fi
-        # GNU tar reads `D:\...` as a remote host: extract to the POSIX spelling of the path.
+        bash tools/ci/install_llvm_release.sh "$ARCHIVE"
         llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
-        mkdir -p "$llvm"
-        tar -xJf "$download/$ARCHIVE" -C "$llvm" --strip-components=1
-        echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
         cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
         test -x "$llvm/bin/wasm-ld.exe"
         echo "JAIC_WASM_LD=$(cygpath -m "$llvm/bin/wasm-ld.exe")" >> "$GITHUB_ENV"

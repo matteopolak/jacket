@@ -165,7 +165,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
       # llvm-tools: the llvm-profdata that matches rustc's LLVM, to merge the PGO profiles.
       - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal --component llvm-tools
+        run: bash tools/ci/install_rust_toolchain.sh --component llvm-tools
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
@@ -184,25 +184,7 @@ jobs:
         if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
         env:
           ARCHIVE: ${{ matrix.llvm }}
-        run: |
-          download="$RUNNER_TEMP/llvm-download"
-          llvm="$RUNNER_TEMP/llvm"
-          prefix="$llvm"
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            # GNU tar reads `D:\...` as a remote host; Cargo and llvm-config want `D:/...`.
-            download="$(cygpath -u "$RUNNER_TEMP")/llvm-download"
-            llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
-            prefix="$(cygpath -m "$llvm")"
-          fi
-          if [ ! -f "$download/$ARCHIVE" ]; then
-            mkdir -p "$download"
-            curl -fsSL -o "$download/$ARCHIVE" "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/$ARCHIVE"
-          fi
-          mkdir -p "$llvm"
-          tar -xJf "$download/$ARCHIVE" -C "$llvm" --strip-components=1
-          echo "LLVM_SYS_231_PREFIX=$prefix" >> "$GITHUB_ENV"
-          "$llvm/bin/llvm-config" --version
-          echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
+        run: bash tools/ci/install_llvm_release.sh "$ARCHIVE"
       # The official macOS LLVM names Homebrew's static zstd (/opt/homebrew/lib/libzstd.a) in its
       # system libraries; linking the archive leaves no runtime dependency on Homebrew.
       # Its static libraries are LTO bitcode that Xcode's ld cannot read, so link with the
@@ -254,8 +236,7 @@ jobs:
         # X11 and GL: Window_Creation, which the smoke test's WebGPU triangle links.
         timeout-minutes: 15
         run: |
-          apt=(sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          "${apt[@]}" update && "${apt[@]}" install -y zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libdrm-dev libgbm-dev libegl-dev libudev-dev libusb-1.0-0-dev libdecor-0-dev
+          bash tools/ci/apt_install.sh zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libdrm-dev libgbm-dev libegl-dev libudev-dev libusb-1.0-0-dev libdecor-0-dev
       # Instrumented build, training run over this repository's tests and examples, then the
       # profile-guided build into target/pgo/dist. On Linux x86-64 the result is also rewritten by
       # the llvm-bolt that ships in the official LLVM release (elsewhere: PGO only).
@@ -674,19 +655,9 @@ jobs:
           cat "$RUNNER_TEMP/packages/homebrew/jacket.rb"
       - name: Validate the formula (and, for a release, install and test it)
         run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          brew tap-new --no-git jairelease/local
-          cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" "$(brew --repository jairelease/local)/Formula/jacket.rb"
-          brew trust jairelease/local 2> /dev/null || true
-          brew style jairelease/local/jacket
-          if [ -z "$TAG" ]; then
-            # The URLs exist only once the release does.
-            brew audit --formula --strict jairelease/local/jacket
-          else
-            brew audit --formula --strict --online jairelease/local/jacket
-            brew install --build-from-source jairelease/local/jacket
-            brew test jairelease/local/jacket
-          fi
+          # The URLs exist only once the release does, so a dry run only audits.
+          mode=audit; [ -n "$TAG" ] && mode=install
+          bash tools/ci/check_formula.sh "$RUNNER_TEMP/packages/homebrew/jacket.rb" jairelease/local "$mode"
       # The tap may hold only a README: the first push creates Formula/.
       - name: Push the formula to matteopolak/homebrew-tap
         env:

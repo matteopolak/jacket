@@ -1,0 +1,13 @@
+{
+  "node": "24",
+  "python": "3.14",
+  "just": "1.58.0",
+  "ruff": "0.14.14",
+  "llvm": "23.1.2",
+  "llvm_mingw": "20260922",
+  "mesa": "26.2.5",
+  "mesa_sha256_x64": "d1b713ca2a7fba47a50c058099f13c435ddb76a16a422c334e4d787f9755a31d",
+  "mesa_sha256_arm64": "e7df75398d50e07a68bbffa5cff2ece4c85e5f8ef8bda497f560dd04fe60cbbd",
+  "nvim": "v0.12.4",
+  "nvim_sha256": "012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628"
+}

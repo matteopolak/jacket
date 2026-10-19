@@ -32,5 +32,36 @@ class Matching(unittest.TestCase):
         self.assertTrue(ci_changes.code_changed(["stdlib/Basic/tests/fixtures/notes.md"]))
 
 
+class JobSelection(unittest.TestCase):
+    ALL = {area: True for area in ci_changes.AREAS} | {"code": True}
+
+    def test_every_area_has_a_job_and_every_job_a_known_area(self):
+        areas = set(ci_changes.AREAS) | {"code"}
+        self.assertEqual({a for a in ci_changes.JOBS.values() if a}, areas)
+
+    def test_everything_runs_when_all_areas_do(self):
+        self.assertEqual(ci_changes.selected_jobs(self.ALL, ""), list(ci_changes.JOBS))
+
+    def test_false_areas_drop_their_jobs(self):
+        results = self.ALL | {"windows": False, "code": False}
+        jobs = ci_changes.selected_jobs(results, "")
+        self.assertIn("docs", jobs)
+        self.assertIn("nix", jobs)
+        self.assertNotIn("windows-native", jobs)
+        self.assertNotIn("test", jobs)
+
+    def test_a_manual_list_narrows_the_jobs(self):
+        self.assertEqual(ci_changes.selected_jobs(self.ALL, "nix, test"), ["test", "nix"])
+        self.assertEqual(ci_changes.selected_jobs(self.ALL | {"nix": False}, "nix"), [])
+
+    def test_ci_yml_gates_exactly_the_listed_jobs(self):
+        from pathlib import Path
+        import re
+
+        text = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text()
+        gated = re.findall(r"contains\(fromJSON\(needs\.changes\.outputs\.jobs\), '([a-z0-9-]+)'\)", text)
+        self.assertEqual(sorted(gated), sorted(ci_changes.JOBS))
+
+
 if __name__ == "__main__":
     unittest.main()
