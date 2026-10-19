@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `jailint` has a `constant_condition` rule: a condition the compiler's reachability facts show is always `true` or always `false` is a warning, with the arm that never runs named.
+- `jailsp` shows inlay hints for the implicit `it` and `it_index` of `for` loops.
+- `jaifmt --version` prints the release version, and `jaifmt --is-ignored PATH` reports whether the config ignores a file; the VS Code and Neovim formatters use it.
+- `-timings` reports allocations and bytes allocated per phase.
+- One thread pool is shared by body scans, code generation and `jailint`, sized by `-threads`.
+- Import suggestions are ranked by the project's own imports and by which stdlib modules import a module.
+- Calls to procedures that never return end a block for dead-code analysis, so code after them is faded in the editor.
+
+### Fixes
+
+- `jacket run` starts the executable the build actually wrote, such as the one a `build.jai` metaprogram names. It used to guess `build` and say "jaic built nothing to run".
+- Windows release archives include the crash runtime, so `jacket build` and `jaic` no longer fail with "library '../crash-native/platform_io_windows_crash' not found". Built programs link it statically and need no DLL.
+- Each release archive is smoke-tested (`jacket new`, `build`, `run`, a hover) before it is published.
+- A procedure type in a return type no longer takes the procedure's body as its own.
+- Identical overloads are reported even when a call names them first, or when a name was not yet resolvable.
+- A metaprogram that marks a workspace failed now gets a diagnostic saying so.
+- `jailsp` answers hover and go-to-definition in a callee it has not checked yet, and in a module alias and its members.
+- Freezing a resizable array at compile time keeps only its used elements, so output no longer depends on spare capacity.
+- The interpreter's sandbox stores wide strings at unaligned addresses correctly.
+
 ## [0.20.0] - 2026-10-19
 
 Adds `jacket`, one front door and one config file for the toolchain, along with editor completion and dead-code features and a faster `jaic`. Checking a 60k-line program is about 1.5x faster than in 0.19.1, and building it about 1.4x faster.
