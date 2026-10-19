@@ -52,6 +52,7 @@ The input is a document, then optionally a NUL and the bytes that choose the edi
 - Where the choices come from is the `Choices` trait: `Seeded` for the example and test, the fuzzer's bytes for libFuzzer.
 - A fixed failure becomes a test in `crates/jai-language-server/tests/fuzz_regressions.rs` or a fixture under `tests/lsp/typing/`.
 - Oracle b has exemptions where a difference is expected: positions inside `#string` bodies and `#if` blocks (which target answers differs), usage lints and compile-time execution errors (they follow from what a body does), and diagnostics on the procedure header and closing line. A new exemption belongs in `sample_identifiers`, `usage_lint` or `near_region`.
+- Known open finding: `stdlib/Input/tests/windows-device-decoding.jai` fails oracle b on nearly every seed. A module alias used only in a type position (`W.HWND`, `W.DEV_BROADCAST_DEVICEINTERFACE_W`) is not recorded as a semantic reference, so after an edit the fresh analysis and the incremental one disagree on those names (the syntax fallback finds them, the semantic path does not). The fix belongs in the checker's IDE recording (`sema/ide`), not in the language server. The other four files of the last re-run (20 seeds each) found nothing.
 
 ## Configuration
 
