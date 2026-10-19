@@ -335,8 +335,8 @@
   },
   {
     "name": "logging-output",
-    "stdout": "out 7",
-    "stderr": "err true",
+    "stdout": "out 7\n",
+    "stderr": "err true\n",
     "exit_code": 0
   },
   {
