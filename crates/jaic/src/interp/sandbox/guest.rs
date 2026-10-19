@@ -78,10 +78,18 @@ pub(super) fn write_bytes(addr: u64, bytes: &[u8]) {
     unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), addr as *mut u8, bytes.len()) };
 }
 
-/// Stores `units` at `addr`.
+/// Stores `units` at `addr`, which need not be aligned for `T`: a name inside a structure the
+/// program laid out is as aligned as the program made it.
 pub(super) fn write_units<T: Copy>(addr: u64, units: &[T]) {
-    // SAFETY: see the module documentation; `units` is host memory, so it cannot overlap.
-    unsafe { std::ptr::copy_nonoverlapping(units.as_ptr(), addr as *mut T, units.len()) };
+    // SAFETY: see the module documentation; `units` is host memory, so it cannot overlap. The copy
+    // is of bytes, so `addr` has no alignment to keep.
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            units.as_ptr().cast::<u8>(),
+            addr as *mut u8,
+            std::mem::size_of_val(units),
+        );
+    }
 }
 
 /// Copies `len` bytes from `src` to `dst`; the ranges may overlap.
@@ -94,4 +102,17 @@ pub(super) fn copy(dst: u64, src: u64, len: usize) {
 pub(super) fn fill(dst: u64, byte: u8, len: usize) {
     // SAFETY: see the module documentation.
     unsafe { std::ptr::write_bytes(dst as *mut u8, byte, len) };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn units_are_stored_at_an_odd_address() {
+        let mut buffer = [0u8; 8];
+        let at = buffer.as_mut_ptr() as u64 + 1;
+        write_units(at, &[0x0201u16, 0x0403]);
+        assert_eq!(buffer[1..5], [1, 2, 3, 4]);
+    }
 }
