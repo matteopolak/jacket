@@ -1,6 +1,5 @@
 //! `ifx` expressions: branch agreement and constant folding.
 use super::implicit_then_expr;
-use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
 
@@ -103,16 +102,8 @@ impl Compiler {
             (else_e, then_e)
         };
         let taken = self.check_expr(f, scope, taken_e, expected)?;
-        // The other arm is lowered into a block nothing reaches.
-        let dead = f.b.new_block();
-        let after = f.b.new_block();
-        let never = f.b.iconst(Ty::I8, 0);
-        f.b.branch(never, dead, after);
-        f.b.switch_to(dead);
-        let other = self.check_expr(f, scope, other_e, expected);
-        f.b.jump(after);
-        f.b.switch_to(after);
-        let other = other?;
+        // The other arm is checked for its type and diagnostics but emits no code.
+        let other = self.check_expr_no_emit(scope, other_e)?;
         let (then_op, else_op) = if cond_holds {
             (&taken, &other)
         } else {
