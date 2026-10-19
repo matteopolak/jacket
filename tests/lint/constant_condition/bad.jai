@@ -22,6 +22,7 @@ after_exit :: (count: s64) {
     if count < 5 {
         return;
     }
+
     if count < 3 print("never\n");
 }
 

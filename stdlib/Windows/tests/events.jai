@@ -34,6 +34,7 @@ main :: () {
             // and check the frame's accumulated wheel total against the vertical wheel events.
             ours := 0;
             vertical_total := 0;
+
             for event: I.events_this_frame {
                 if event.type != .MOUSE_WHEEL || event.window != win continue;
                 if event.key_code == .MOUSE_WHEEL_UP || event.key_code == .MOUSE_WHEEL_DOWN vertical_total += event.wheel_delta;

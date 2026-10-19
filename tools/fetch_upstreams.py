@@ -12,6 +12,7 @@ import subprocess
 import urllib.parse
 
 from repo_output import main_checkout, shared_output_dir
+from toolkit.download import fetch as fetch_url
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
@@ -138,7 +139,7 @@ def download(repo: str, revision: str, path: str) -> bytes:
     url = f'https://raw.githubusercontent.com/{repo}/{revision}/{urllib.parse.quote(path)}'
     limit = MAX_FILE_BYTES.get(repo, 8 * 1024 * 1024)
     try:
-        return fetch(url, timeout=60, headers={'User-Agent': 'jai-rust-compatibility-research'}, max_bytes=limit)
+        return fetch_url(url, timeout=60, headers={'User-Agent': 'jai-rust-compatibility-research'}, max_bytes=limit)
     except ValueError:
         raise ValueError(f'oversize source: {repo}/{path}') from None
 

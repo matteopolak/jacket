@@ -320,6 +320,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install the pinned toolchain
+        working-directory: .
         run: bash tools/ci/install_rust_toolchain.sh
       - name: Validate dependency ages before installing or building
         env:
