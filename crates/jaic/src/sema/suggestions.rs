@@ -1,39 +1,15 @@
 //! "Did you mean" help for unknown names. Working out the closest visible name costs a walk
 //! over every scope in reach, so it happens when an error is rendered for the user, not each
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
+use super::module_rank::{ModuleRanking, count_importers};
 use super::scope::{ScopeId, UsingEntry};
 use super::{Compiler, Sym};
 use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
+use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
 use crate::source::{Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-
-/// Modules searched first for an unknown name, most used first.
-pub const COMMON_MODULES: &[&str] = &[
-    "Basic",
-    "String",
-    "Math",
-    "File",
-    "File_Utilities",
-    "Hash_Table",
-    "Sort",
-    "Random",
-    "Process",
-    "Thread",
-    "System",
-    "Compiler",
-    "Bucket_Array",
-    "Hash",
-    "Unicode",
-    "Reflection",
-    "Program_Print",
-    "Window_Creation",
-    "Input",
-    "Simp",
-    "GetRect",
-    "Sound_Player",
-    "Calendar",
-];
 
 /// The most modules an unknown name's help offers to import.
 const MAX_IMPORTS: usize = 4;
@@ -127,6 +103,25 @@ fn adds_declaration(text: &str, name: &str) -> bool {
     })
 }
 
+/// The modules `#import "Name"` names in `text`, found from its tokens.
+fn imported_modules(text: &str) -> Vec<String> {
+    if !text.contains("#import") {
+        return Vec::new();
+    }
+    let Ok(tokens) = crate::lexer::lex(FileId(u32::MAX), text) else {
+        return Vec::new();
+    };
+    crate::project::scan_directives(&tokens)
+        .into_iter()
+        .filter_map(|link| match link.source {
+            crate::project::LinkSource::Import(crate::ast::ImportSource::Module(name)) => {
+                Some(name.to_string())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 /// Whether `cond` compares the compile target: it names `OS` or `CPU`.
 fn mentions_target(cond: &Expr) -> bool {
     match &cond.kind {
@@ -217,7 +212,7 @@ impl Compiler {
 
     /// The `#import`s that would declare `name`, best first: the standard-library module of
     /// that name (bound to it, for `Name.member`), then the modules that declare it at their top
-    /// level (outside `#scope_file`), common modules first and jaic's `Extensions/` modules
+    /// level (outside `#scope_file`), best ranked first (`ModuleRanking`) and jaic's `Extensions/` modules
     /// (named by that path) last. At most [`MAX_IMPORTS`].
     fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
         let mut found = Vec::new();
@@ -233,14 +228,9 @@ impl Compiler {
             .chain(self.stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR))
             .filter(|(m, _)| !COMPILER_INTERNAL_MODULES.contains(&m.as_str()))
             .collect();
-        let rank = |m: &str| {
-            let common = COMMON_MODULES
-                .iter()
-                .position(|c| *c == m)
-                .unwrap_or(usize::MAX);
-            (common, m.contains('/'))
-        };
-        modules.sort_by(|a, b| (rank(&a.0), &a.0).cmp(&(rank(&b.0), &b.0)));
+        let ranking = ModuleRanking::clone(&self.stdlib_importers(stdlib, &modules))
+            .with_project(self.project_import_counts());
+        modules.sort_by_cached_key(|(m, _)| (ranking.rank(m), m.clone()));
         modules.dedup_by(|a, b| a.0 == b.0);
         if modules.iter().any(|(m, _)| m == name) {
             found.push(ImportSuggestion {
@@ -271,6 +261,67 @@ impl Compiler {
             }
         }
         found
+    }
+
+    /// How many other stdlib modules import each stdlib module, worked out once per thread and
+    /// stdlib folder: help for several unknown names should not read the stdlib again.
+    fn stdlib_importers(&self, stdlib: &Path, modules: &[(String, bool)]) -> ModuleRanking {
+        thread_local! {
+            static CACHE: RefCell<Option<(PathBuf, usize, ModuleRanking)>> = const { RefCell::new(None) };
+        }
+        if let Some(found) = CACHE.with(|c| {
+            c.borrow()
+                .as_ref()
+                .filter(|(dir, count, _)| dir == stdlib && *count == modules.len())
+                .map(|(_, _, ranking)| ranking.clone())
+        }) {
+            return found;
+        }
+        let imports: Vec<(&str, Vec<String>)> = modules
+            .iter()
+            .map(|(module, is_dir)| {
+                let mut files = Vec::new();
+                if *is_dir {
+                    self.module_files(&stdlib.join(module), &mut files, 0);
+                } else {
+                    files.push(stdlib.join(format!("{module}.jai")));
+                }
+                let paths = files
+                    .iter()
+                    .filter_map(|path| self.fs.read(path))
+                    .flat_map(|bytes| imported_modules(&String::from_utf8_lossy(&bytes)))
+                    .collect();
+                (module.as_str(), paths)
+            })
+            .collect();
+        let importers = count_importers(
+            imports
+                .iter()
+                .map(|(m, paths)| (*m, paths.iter().map(String::as_str))),
+        );
+        let ranking = ModuleRanking::new(HashMap::default(), importers);
+        CACHE.with(|c| {
+            *c.borrow_mut() = Some((stdlib.to_path_buf(), modules.len(), ranking.clone()));
+        });
+        ranking
+    }
+
+    /// How often the program's own files import each module.
+    fn project_import_counts(&self) -> HashMap<String, u32> {
+        let mut counts: HashMap<String, u32> = HashMap::default();
+        let Some(main) = self.main_module else {
+            return counts;
+        };
+        for file in self.files.iter().filter(|f| f.module == main) {
+            for import in &self.scope(file.scope).imports {
+                if let Some(module) = import.module {
+                    *counts
+                        .entry(self.modules[module.0 as usize].name.clone())
+                        .or_insert(0) += 1;
+                }
+            }
+        }
+        counts
     }
 
     /// The modules in `stdlib/folder` as (import name, is a folder): `Name` for the stdlib

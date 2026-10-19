@@ -1,5 +1,5 @@
 //! Project symbols and the completion items an auto import offers.
-use super::names::{builds_for, module_of, stdlib_rank};
+use super::names::{builds_for, module_of};
 use super::{MAX_ITEMS, MAX_OVERLOADS, MIN_PREFIX, Modules, Source, hash};
 use crate::analysis::Span;
 use crate::document::DocumentUri;
@@ -7,6 +7,8 @@ use crate::exports::{self, Decl};
 use crate::model::{CompletionItem, CompletionKind, TextEdit};
 use crate::project::{self};
 use crate::session::Session;
+use jaic::fxhash::HashMap;
+use jaic::sema::{ModuleRanking, Rank};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -192,18 +194,15 @@ impl Session {
         let mut index = self.index.borrow_mut();
         let program = sources.program(&mut index, &file, &self.workspace_folders);
         let current = sources.scan(&mut index, &file);
-        let mut imported: BTreeSet<String> = BTreeSet::new();
+        let mut import_counts: HashMap<String, u32> = HashMap::default();
         for f in &program.closure {
-            imported.extend(
-                sources
-                    .scan(&mut index, f)
-                    .imports
-                    .iter()
-                    .map(|i| i.path.clone()),
-            );
+            for import in &sources.scan(&mut index, f).imports {
+                *import_counts.entry(import.path.clone()).or_insert(0) += 1;
+            }
         }
+        let imported: BTreeSet<&String> = import_counts.keys().collect();
         // (rank, source, declaration)
-        let mut found: Vec<(u32, Source, Decl)> = Vec::new();
+        let mut found: Vec<(Rank, Source, Decl)> = Vec::new();
         let matches = |d: &Decl| d.lower.starts_with(&lower) && !visible.contains(&d.name);
         // The project's other files. A stdlib the workspace holds is offered through its modules
         // below, not file by file; only a program inside one of its folders (a module's own
@@ -229,7 +228,7 @@ impl Session {
             } else {
                 Source::Load(f.clone())
             };
-            let rank = u32::from(!matches!(source, Source::Loaded(_)));
+            let rank = Rank::from(!matches!(source, Source::Loaded(_)));
             let declaration_root = if program.closure.contains(&f) {
                 &program.root
             } else {
@@ -259,8 +258,13 @@ impl Session {
             .iter()
             .map(|d| (sources.user_modules(&mut index, d), true))
             .collect();
+        let mut ranking = ModuleRanking::default();
         if let Some(stdlib) = &program.stdlib {
-            sets.push((sources.stdlib(&mut index, stdlib), false));
+            let modules = sources.stdlib(&mut index, stdlib);
+            ranking = sources
+                .stdlib_ranking(&mut index, &modules)
+                .with_project(import_counts.clone());
+            sets.push((modules, false));
         }
         for (modules, user) in &sets {
             for module in modules.iter() {
@@ -273,7 +277,7 @@ impl Session {
                 let rank = if *user {
                     5
                 } else {
-                    stdlib_rank(&module.name)
+                    ranking.rank(&module.name)
                 };
                 for d in module.decls.iter().filter(|d| matches(d)) {
                     found.push((rank, Source::Import(module.name.clone()), d.clone()));
@@ -286,7 +290,7 @@ impl Session {
         });
         // Overloads (and `#if` variants) of one name in one place are one item showing every
         // signature; a procedure's kind wins over `print :: print_to_builder;`.
-        let mut merged: Vec<(u32, Source, Decl)> = Vec::with_capacity(found.len());
+        let mut merged: Vec<(Rank, Source, Decl)> = Vec::with_capacity(found.len());
         for (rank, source, decl) in found {
             match merged.last_mut() {
                 Some((_, s, d)) if *s == source && d.name == decl.name => {
@@ -367,7 +371,7 @@ impl Session {
                     documentation: Some(format!("Adds `{statement}`\n\n{fence}{doc}")),
                     label_description: Some(description),
                     // After every in-scope name; then by name, closest source first.
-                    sort_text: Some(format!("~{}\u{1}{rank:04}", decl.name)),
+                    sort_text: Some(format!("~{}\u{1}{rank:014}", decl.name)),
                     additional_edits: vec![TextEdit {
                         range,
                         new_text,

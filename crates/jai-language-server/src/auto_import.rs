@@ -19,7 +19,8 @@ use crate::model::CompletionKind;
 use crate::project::{self, ProjectConfig};
 use crate::semantic::Environment;
 use crate::session::Session;
-use jaic::sema::TargetOs;
+use jaic::fxhash::HashMap;
+use jaic::sema::{ModuleRanking, TargetOs};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -52,6 +53,8 @@ pub(crate) struct Module {
     name: String,
     only_os: Option<Vec<String>>,
     decls: Vec<Decl>,
+    /// What its files `#import`, as the paths written.
+    imports: BTreeSet<String>,
     /// The module file (`dir/Name.jai` or `dir/Name/module.jai`) and the files its `#load`s
     /// reach, which this was read from: an edit to any of them makes it stale.
     file: PathBuf,
@@ -85,6 +88,8 @@ pub(crate) struct Index {
     /// Module lists. A file that changes makes stale only the modules read from it, which are
     /// made again when the list is next asked for.
     stdlib: Option<(PathBuf, ModuleCache)>,
+    /// How the stdlib modules rank for suggestion, for the module list it was worked out from.
+    ranking: Option<(Modules, ModuleRanking)>,
     module_dirs: BTreeMap<PathBuf, ModuleCache>,
     /// Direct loaders of each file under a folder, as of `graph_epoch` and the files given.
     graphs: BTreeMap<PathBuf, (u64, Vec<PathBuf>, project::LoaderGraph)>,
@@ -443,9 +448,11 @@ impl Sources<'_> {
     ) -> Module {
         let only_os = self.scan(index, &file).only_os.clone();
         let mut decls = Vec::new();
+        let mut imports = BTreeSet::new();
         let files = self.closure(index, &file);
         for part in &files {
             let scan = self.scan(index, part);
+            imports.extend(scan.imports.iter().map(|i| i.path.clone()));
             for decl in scan
                 .decls
                 .iter()
@@ -458,6 +465,7 @@ impl Sources<'_> {
             name,
             only_os,
             decls,
+            imports,
             file,
             files,
             dir: dir.to_path_buf(),
@@ -534,6 +542,24 @@ impl Sources<'_> {
             },
         ));
         modules
+    }
+
+    /// Which stdlib modules to suggest first: those most other stdlib modules import. Worked out
+    /// again only when the module list changes.
+    fn stdlib_ranking(&self, index: &mut Index, modules: &Modules) -> ModuleRanking {
+        if let Some((from, ranking)) = &index.ranking
+            && Rc::ptr_eq(from, modules)
+        {
+            return ranking.clone();
+        }
+        let importers = jaic::sema::count_importers(
+            modules
+                .iter()
+                .map(|m| (m.name.as_str(), m.imports.iter().map(String::as_str))),
+        );
+        let ranking = ModuleRanking::new(HashMap::default(), importers);
+        index.ranking = Some((modules.clone(), ranking.clone()));
+        ranking
     }
 
     fn user_modules(&self, index: &mut Index, dir: &Path) -> Modules {

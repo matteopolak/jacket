@@ -26,12 +26,3 @@ pub(super) fn module_of(file: &Path, dir: &Path) -> Option<String> {
         [] => None,
     }
 }
-
-/// Ranks of stdlib modules: common ones (`Basic`, `String`, ...) first, `Extensions/` last.
-pub(super) fn stdlib_rank(module: &str) -> u32 {
-    match jaic::sema::COMMON_MODULES.iter().position(|m| *m == module) {
-        Some(at) => 10 + at as u32,
-        None if module.contains('/') => 2000,
-        None => 1000,
-    }
-}
