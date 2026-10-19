@@ -203,6 +203,15 @@ impl<'a> Cx<'a> {
             .any(|t| matches!(&t.tok, Tok::Directive(d) if d.as_str() == "insert"))
     }
 
+    /// A `$` or `$$` token is written within `span` (a polymorphic declaration).
+    pub fn has_dollar(&self, span: Span) -> bool {
+        let first = self.tokens.partition_point(|t| t.span.start < span.start);
+        self.tokens[first..]
+            .iter()
+            .take_while(|t| t.span.end <= span.end)
+            .any(|t| matches!(t.tok, Tok::Punct(P::Dollar | P::DollarDollar)))
+    }
+
     /// Token indices of identifiers spelled `name` within `start..end`, not counting member
     /// names (`x.name`).
     pub fn name_tokens(&self, name: Sym, start: u32, end: u32) -> impl Iterator<Item = usize> {

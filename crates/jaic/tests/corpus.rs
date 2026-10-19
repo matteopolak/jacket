@@ -2,20 +2,6 @@
 //! Walks public upstream projects and standard-library sources and reports failures.
 use std::path::{Path, PathBuf};
 
-fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect(&path, out);
-        } else if path.extension().is_some_and(|e| e == "jai") {
-            out.push(path);
-        }
-    }
-}
-
 #[test]
 #[ignore = "sweeps whole corpora; run explicitly (see docs/tools/testing.md)"]
 fn corpus_sweep() {
@@ -26,7 +12,9 @@ fn corpus_sweep() {
     );
     let mut files = Vec::new();
     for dir in ["corpus/upstream", "stdlib"] {
-        collect(&root.join(dir), &mut files);
+        files.extend(jaic::paths::jai_files_under(&root.join(dir), &mut |_| {
+            false
+        }));
     }
     files.sort();
     let stage = std::env::var("JAIC_CORPUS_STAGE").unwrap_or_else(|_| "parse".into());

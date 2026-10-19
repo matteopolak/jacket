@@ -3,22 +3,10 @@ use jaic::build::MetaOp;
 use std::collections::BTreeSet;
 use std::path::Path;
 
-fn jai_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
-    for entry in std::fs::read_dir(dir).unwrap().flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            jai_files(&path, out);
-        } else if path.extension().is_some_and(|e| e == "jai") {
-            out.push(path);
-        }
-    }
-}
-
 /// Names of the `name :: (...) ... #compiler;` declarations whose name starts with `__jaic_`.
 fn declared_primitives() -> BTreeSet<String> {
     let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    let mut files = Vec::new();
-    jai_files(&stdlib, &mut files);
+    let files = jaic::paths::jai_files_under(&stdlib, &mut |_| false);
     let mut names = BTreeSet::new();
     for file in files {
         let text = std::fs::read_to_string(&file).unwrap_or_default();

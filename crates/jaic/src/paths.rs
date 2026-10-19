@@ -163,6 +163,19 @@ pub fn is_hidden(path: &Path) -> bool {
         .is_none_or(|n| n.starts_with('.'))
 }
 
+/// The visible directories directly inside `dir`, sorted. An unreadable directory has none.
+pub fn subdirs_of(dir: &Path) -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|p| !is_hidden(p) && p.is_dir())
+        .collect();
+    dirs.sort();
+    dirs
+}
+
 /// The visible `.jai` files directly inside `dir`, sorted. An unreadable directory has none.
 pub fn jai_files_in(dir: &Path) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)

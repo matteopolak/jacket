@@ -65,7 +65,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 continue;
             }
             // `x: [$N] $T`: the argument is how the call settles `N` and `T`.
-            if cx.src(param.span).contains('$') {
+            if cx.has_dollar(param.span) {
                 continue;
             }
             let Some(ents) = cx.facts.locals.get(&param.span) else {
@@ -317,21 +317,15 @@ fn load_variants(dir: &Path) -> Variants {
     let mut dirs = vec![dir.to_path_buf()];
     if let Some(up) = dir.parent() {
         dirs.push(up.to_path_buf());
-        let mut subs: Vec<PathBuf> = std::fs::read_dir(up)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .map(|e| e.path())
-            .filter(|p| p.is_dir() && p != dir && !jaic::paths::is_hidden(p))
-            .collect();
-        subs.sort();
-        dirs.extend(subs);
+        dirs.extend(jaic::paths::subdirs_of(up).into_iter().filter(|p| p != dir));
     }
     let mut out = Variants::new();
     let mut budget = MAX_FILES;
     for d in dirs {
         let files = jaic::paths::jai_files_in(&d).into_iter().filter(|p| {
-            !p.to_string_lossy().ends_with(".fixed.jai")
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| !n.ends_with(".fixed.jai"))
                 && p.metadata().is_ok_and(|m| m.len() <= MAX_FILE_SIZE)
         });
         for f in files {

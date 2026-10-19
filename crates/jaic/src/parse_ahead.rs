@@ -446,11 +446,7 @@ mod tests {
     use super::imp::*;
     use crate::ast::AstId;
     use crate::source::FileId;
-    use std::path::{Path, PathBuf};
-
-    fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
-        out.extend(crate::paths::jai_files_under(dir, &mut |_| false));
-    }
+    use std::path::Path;
 
     /// A tree parsed by a worker and relocated is the tree a serial parse builds: same spans,
     /// file ids, `AstId`s and symbols, for the library, the examples and the test sources.
@@ -468,7 +464,9 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut files = Vec::new();
         for dir in ["stdlib", "examples", "tests"] {
-            jai_files(&root.join(dir), &mut files);
+            files.extend(crate::paths::jai_files_under(&root.join(dir), &mut |_| {
+                false
+            }));
         }
         assert!(files.len() > 50);
         let mut compared = 0;
