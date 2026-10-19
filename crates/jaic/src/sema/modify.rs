@@ -13,6 +13,14 @@ use super::{
 };
 use crate::ir::Ty;
 
+/// The names a `#modify` block sees: those it may assign, those it only reads, and where the
+/// header declares each (a name without an entry is declared at the call).
+struct ModifyNames {
+    variables: Vec<(Sym, Value, TypeId)>,
+    constants: Vec<(Sym, Value, TypeId)>,
+    declared: Vec<(Sym, Span)>,
+}
+
 impl Compiler {
     /// A `#modify` block on a procedure without polymorph variables would never run: the
     /// block runs per instantiation, and such a procedure is never instantiated. Report it
@@ -156,7 +164,18 @@ impl Compiler {
         }
         let scope = self.proc(proc).scope;
         let what = format!("`{}`", self.proc(proc).name);
-        let results = self.run_modify_block(scope, block, variables, constants, &what, span)?;
+        // A parameter is declared where the header writes it (`$n: int`, `x: $T`, `-> $R`).
+        let declared: Vec<(Sym, Span)> = header
+            .params
+            .iter()
+            .filter_map(|p| p.name.map(|n| (n.name, n.span)))
+            .collect();
+        let names = ModifyNames {
+            variables,
+            constants,
+            declared,
+        };
+        let results = self.run_modify_block(scope, block, names, &what, span)?;
         for (name, value, ty) in results {
             // A type variable left `void` stays unbound.
             if matches!(value, Value::Type(TypeId::VOID)) {
@@ -179,20 +198,37 @@ impl Compiler {
         span: Span,
     ) -> Result<Vec<(Sym, Value, TypeId)>> {
         let what = format!("`{name}`");
-        self.run_modify_block(def_scope, block, bindings, Vec::new(), &what, span)
+        let names = ModifyNames {
+            variables: bindings,
+            constants: Vec::new(),
+            declared: Vec::new(),
+        };
+        self.run_modify_block(def_scope, block, names, &what, span)
     }
 
-    /// Run a `#modify` block with `variables` assignable and `constants` in scope, returning
-    /// the variables' final values. `what` names the procedure or struct in the rejection error.
+    /// Run a `#modify` block with `names.variables` assignable and `names.constants` in scope,
+    /// returning the variables' final values. `what` names the procedure or struct in the
+    /// rejection error.
     fn run_modify_block(
         &mut self,
         def_scope: ScopeId,
         block: &ast::Block,
-        variables: Vec<(Sym, Value, TypeId)>,
-        constants: Vec<(Sym, Value, TypeId)>,
+        names: ModifyNames,
         what: &str,
         span: Span,
     ) -> Result<Vec<(Sym, Value, TypeId)>> {
+        let ModifyNames {
+            variables,
+            constants,
+            declared,
+        } = names;
+        // Where the editor finds a name's declaration: in the header, not at the call.
+        let declared_at = |name: Sym| {
+            declared
+                .iter()
+                .find_map(|&(n, at)| (n == name).then_some(at))
+                .unwrap_or(span)
+        };
         let module = self.scope(def_scope).module;
         let sig = ir::Sig {
             params: vec![Ty::Ptr],
@@ -222,7 +258,7 @@ impl Compiler {
         let scope = self.new_scope(ScopeKind::Proc, Some(def_scope), module, None);
         let depth = self.scope(scope).proc_depth;
         for (name, value, ty) in constants {
-            self.add_const(scope, name, span, value, ty);
+            self.add_const(scope, name, declared_at(name), value, ty);
         }
         let mut globals = Vec::new();
         for (name, value, ty) in variables {
@@ -242,7 +278,7 @@ impl Compiler {
             self.add_entity(
                 scope,
                 name,
-                span,
+                declared_at(name),
                 EntityKind::Local {
                     ty,
                     addr,
