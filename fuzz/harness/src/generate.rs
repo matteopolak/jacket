@@ -82,6 +82,8 @@ struct Gen<'a> {
     fuel: usize,
     /// Return type of the procedure being generated.
     returns: Option<Ty>,
+    /// `#add_context` was declared (once per program).
+    context_field: bool,
 }
 
 /// Render the program chosen by `data`. Exhausted input just ends the program early.
@@ -103,6 +105,7 @@ pub fn program(data: &[u8]) -> String {
         loop_depth: 0,
         fuel: 400,
         returns: None,
+        context_field: false,
     };
     let _ = g.program();
     g.out
@@ -262,7 +265,7 @@ impl Gen<'_> {
     }
 
     fn top_decl(&mut self) -> Result<()> {
-        match self.u.int_in_range(0..=10)? {
+        match self.u.int_in_range(0..=13)? {
             0..=3 => self.proc_decl(),
             10 => self.edge_decl(),
             4 => {
@@ -358,6 +361,63 @@ impl Gen<'_> {
                 self.block_body(3)?;
                 self.indent -= 1;
                 self.line("}");
+                Ok(())
+            }
+            11 => {
+                // `#modify` binding the result type, or rejecting the call.
+                let n = self.procs.len();
+                let result = *self.pick(&["s64", "s32", "u8", "float64"])?;
+                let ret = if result == "float64" {
+                    Ty::Float
+                } else {
+                    Ty::Int
+                };
+                let conv = if result == "float64" {
+                    "cast"
+                } else {
+                    "cast,trunc"
+                };
+                self.line(&format!(
+                    "W{n} :: (p0: $T) -> $R #modify {{ R = {result}; }} {{ return {conv}(R) p0; }}"
+                ));
+                self.procs.push(Proc {
+                    name: format!("W{n}"),
+                    params: vec![Ty::Int],
+                    ret: Some(ret),
+                });
+                Ok(())
+            }
+            12 => {
+                // `#bake_arguments`: a procedure with its second parameter fixed.
+                let n = self.procs.len();
+                let fixed = self.int_literal()?;
+                self.line(&format!(
+                    "B{n} :: (p0: int, p1: int) -> int {{ return p0 * 3 + p1; }}"
+                ));
+                self.line(&format!("Baked{n} :: #bake_arguments B{n}(p1 = {fixed});"));
+                self.procs.push(Proc {
+                    name: format!("Baked{n}"),
+                    params: vec![Ty::Int],
+                    ret: Some(Ty::Int),
+                });
+                Ok(())
+            }
+            13 => {
+                // A context field, changed in a pushed copy and read in a callee.
+                let n = self.procs.len();
+                if !self.context_field {
+                    self.context_field = true;
+                    self.line("#add_context depth: s64 = 3;");
+                    self.line("depth_of :: () -> s64 { return context.depth; }");
+                }
+                self.line(&format!(
+                    "C{n} :: (p0: int) -> int {{ c := context; c.depth += p0; push_context c {{ return depth_of() * 2; }} return 0; }}"
+                ));
+                self.procs.push(Proc {
+                    name: format!("C{n}"),
+                    params: vec![Ty::Int],
+                    ret: Some(Ty::Int),
+                });
                 Ok(())
             }
             _ => {

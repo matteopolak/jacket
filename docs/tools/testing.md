@@ -85,7 +85,7 @@ Coverage-guided fuzzing with cargo-fuzz (libFuzzer). Every panic, abort, stack o
 | `lexer`, `parser` | `jaic::lexer::lex`, `jaic::parser::parse_file` |
 | `check` | the playground compile (bundled stdlib, every `#run`, type checking, lowering); `main` not run |
 | `interp` | `check`, then `main` in the interpreter |
-| `generated` | a program rendered from a typed grammar (`harness/src/generate.rs`) by `arbitrary`, then as `interp` |
+| `generated` | a program rendered from a typed grammar (`harness/src/generate.rs`: polymorphic procedures, `#modify`, `#bake_arguments`, `#add_context` with `push_context`, macros, edge shapes) by `arbitrary`, then as `interp` |
 | `lsp`, `lsp_json`, `lsp_edits` | language server sessions: queries at many offsets; raw JSON-RPC; a script of up to 24 edit/request/close steps over two documents |
 | `lsp_typing` | the [typing-session checker](lsp-fuzzing.md) with the fuzzer's bytes choosing the keystrokes: answers must match a fresh session and the original text after undo |
 | `jaifmt` | `Jai_Format` run twice under the interpreter; panics if its token check fails, the second pass changes text, the lexer's tokens or the parser's syntax tree differ, the program compiles or prints differently (numbers blanked, since lines move), or the budget runs out |
