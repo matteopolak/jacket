@@ -1,39 +1,35 @@
 //! Moves a tree parsed on a worker thread into the compile that asked for it.
 //!
-//! A worker cannot know the file id sema will give its file, the `AstId`s the file's
-//! declarations come after, or the main interner's symbol numbers: all three depend on the order
-//! the compile loads files in. It parses with placeholders, and `relocate` rewrites them on the
-//! main thread, so the tree is the one a serial parse at that point would have built.
+//! A worker cannot know the file id sema will give its file or the `AstId`s the file's
+//! declarations come after: both depend on the order the compile loads files in. It parses with
+//! placeholders, and `relocate` rewrites them on the main thread, so the tree is the one a serial
+//! parse at that point would have built. (Symbols need no rewrite: the interner is process-wide.)
 //!
-//! Every field holding a `Span`, an `Ident`, a `Sym` or an `AstId` must be visited here. A field
-//! left out keeps its worker value, which `parse_ahead`'s tests catch by comparing against a
-//! serial parse.
+//! Every field holding a `Span`, an `Ident` or an `AstId` must be visited here. A field left out
+//! keeps its worker value, which `parse_ahead`'s tests catch by comparing against a serial parse.
 use super::{
     Arg, ArraySize, AsmBlock, AsmDecl, AsmItem, AsmOperand, AsmPin, AsmSize, AstId, Block, Case,
     CodeBody, Decl, EnumItem, Expr, ExprKind, File, ForOver, Ident, Note, Notes, Param, ProcHeader,
-    Rc, RunBody, Span, Stmt, StmtKind, StructLit, SwitchStmt, Sym, UsingFilter,
+    Rc, RunBody, Span, Stmt, StmtKind, StructLit, SwitchStmt, UsingFilter,
 };
 use crate::fxhash::HashSet;
-use crate::intern::Remap;
 use crate::source::FileId;
 
 /// The file id a worker parses with. No real file has it, and `Span::NONE`'s differs.
 pub const PLACEHOLDER_FILE: FileId = FileId(u32::MAX - 1);
 
-pub struct Relocator<'a> {
+pub struct Relocator {
     file: FileId,
     ast_base: u32,
-    syms: &'a Remap,
     shared: HashSet<*const ()>,
 }
 
-/// Rewrites `file`, parsed under `PLACEHOLDER_FILE` with ids from zero and a job interner, for
-/// the compile: spans name `real`, ids continue from `ast_base`, symbols go through `syms`.
-pub fn relocate(file: &mut File, real: FileId, ast_base: u32, syms: &Remap) {
+/// Rewrites `file`, parsed under `PLACEHOLDER_FILE` with ids from zero, for the compile: spans
+/// name `real` and ids continue from `ast_base`.
+pub fn relocate(file: &mut File, real: FileId, ast_base: u32) {
     let mut r = Relocator {
         file: real,
         ast_base,
-        syms,
         shared: HashSet::default(),
     };
     file.file = real;
@@ -51,7 +47,7 @@ fn rc_mut<T>(rc: &Rc<T>) -> &mut T {
     unsafe { &mut *Rc::as_ptr(rc).cast_mut() }
 }
 
-impl Relocator<'_> {
+impl Relocator {
     /// True the first time a shared node is met.
     fn once<T>(&mut self, rc: &Rc<T>) -> bool {
         Rc::strong_count(rc) == 1 || self.shared.insert(Rc::as_ptr(rc).cast::<()>())
@@ -63,16 +59,11 @@ impl Relocator<'_> {
         }
     }
 
-    fn sym(&self, sym: &mut Sym) {
-        *sym = self.syms.apply(*sym);
-    }
-
     fn id(&self, id: &mut AstId) {
         id.0 += self.ast_base;
     }
 
     fn ident(&self, ident: &mut Ident) {
-        self.sym(&mut ident.name);
         self.span(&mut ident.span);
     }
 
@@ -133,18 +124,13 @@ impl Relocator<'_> {
     fn expr(&mut self, expr: &mut Expr) {
         self.span(&mut expr.span);
         match &mut expr.kind {
-            ExprKind::Ident(name)
+            ExprKind::Ident(_)
             | ExprKind::PolyVar {
-                name, ..
-            } => self.sym(name),
-            ExprKind::PolyRestricted {
-                name,
-                restriction,
                 ..
-            } => {
-                self.sym(name);
-                self.expr(restriction);
-            }
+            } => {}
+            ExprKind::PolyRestricted {
+                restriction, ..
+            } => self.expr(restriction),
             ExprKind::Int(_)
             | ExprKind::Float(_)
             | ExprKind::Str(_)

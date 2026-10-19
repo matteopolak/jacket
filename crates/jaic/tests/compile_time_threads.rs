@@ -1,6 +1,7 @@
 //! Compiler hooks called from a thread a compile-time run started see the same symbols and record
 //! names as the compiling thread.
 #![cfg(unix)]
+use jaic::build::{BuildEnv, Workspaces};
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::Path, rc::Rc};
 
@@ -49,7 +50,7 @@ main :: () {}
 "#;
 
 #[test]
-#[ignore = "symbols and record names are per thread until the interner is global"]
+#[ignore = "record names are per thread until their table is global"]
 fn code_parsed_on_a_started_thread_keeps_its_names() {
     let library = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../stdlib")
@@ -58,7 +59,19 @@ fn code_parsed_on_a_started_thread_keeps_its_names() {
     let mut options = Options::host();
     options.preload = Some(library.join(jaic::PRELOAD_ENTRY));
     options.import_paths = vec![library];
-    let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+    let fs = Rc::new(NativeFs);
+    let workspaces = Workspaces::new(BuildEnv {
+        fs: fs.clone(),
+        options: options.clone(),
+        backend: None,
+        unwritten_output_hint: None,
+        command_line: Vec::new(),
+        make_host: Box::new(|_| Box::new(jaic::interp::NativeHost)),
+        report: Box::new(|_, message| panic!("unexpected diagnostic: {message}")),
+        observer: None,
+    });
+    let mut compiler = Compiler::new(options, fs);
+    compiler.attach_workspaces(workspaces);
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(PROGRAM.into())]) {
         panic!("{}", error.render(&compiler.sources));
     }

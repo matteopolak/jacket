@@ -19,7 +19,7 @@ An independent Jai compiler in Rust, aiming at source compatibility with real Ja
 lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> interp | jaic-llvm
 ```
 
-- `source.rs`, `intern.rs`: files, spans, diagnostics, the symbol interner (one per thread; see [threading](#threading)).
+- `source.rs`, `intern.rs`: files, spans, diagnostics, the symbol interner (process-wide; see [threading](#threading)).
 - `lexer.rs`: keywords are ordinary identifiers the parser interprets by position; directives (`#run`) and notes (`@x`) are their own token kinds.
 - `parser/`: recursive descent to `ast.rs`, stopping at the first error ([parser](parser.md)).
 - `sema/` ([sema](sema.md)) resolves names on demand, so a declaration is checked when something needs it (top-level structs are also laid out at the end, used or not). `scope.rs`/`modules.rs`: imports and scopes; `decls.rs`, `procs.rs`, `structs.rs`: declarations; `expr.rs`, `stmt.rs`, `calls/`, `convert.rs`: checking; `consteval.rs`: constants and `#run`; `typeinfo.rs`, `runtime_info.rs`: reflection; `bake.rs`, `modify.rs`: polymorphism; `code_export.rs`: syntax trees for metaprograms; `lower.rs`: to IR; `driver.rs`: entry points and `Options`.
@@ -32,7 +32,7 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 
 The compiler proper is single-threaded. The exceptions: `parse_ahead.rs` runs the lexer and parser for the files a compile will load on a few worker threads, ahead of sema ([compile speed](compile-speed.md#parallel-lex-and-parse)); codegen runs one thread per unit; the interpreter has its own threads for `#run` code. Type checking is not parallel.
 
-Two process-wide numberings depend on the order sema loads files, so a worker cannot assign them: the symbol numbers in `intern.rs` (a thread-local interner) and the `AstId`s in `ast.rs` (a thread-local counter). A worker parses with a job interner and its own ids, and `ast::relocate` rewrites the tree when sema claims it, so results never depend on thread timing. Any new field in the syntax tree that holds a `Span`, `Ident`, `Sym` or `AstId` must also be visited in `ast/relocate.rs`; `parse_ahead`'s test fails otherwise.
+The symbol interner (`intern.rs`) is shared by every thread: a worker interns as it parses, and a `Sym` means the same spelling on any thread, including threads a `#run` starts. Symbol numbers therefore follow thread timing; nothing visible may depend on them (sort by spelling, `tools/differential/determinism.py --scramble` checks it). The `AstId`s in `ast.rs` come from a thread-local counter and file ids from sema's load order, so a worker parses with its own ids and a placeholder file, and `ast::relocate` rewrites the tree when sema claims it. Any new field in the syntax tree that holds a `Span`, `Ident` or `AstId` must also be visited in `ast/relocate.rs`; `parse_ahead`'s test fails otherwise.
 
 ## How to change it
 

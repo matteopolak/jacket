@@ -7,10 +7,10 @@
 //! `None` when nothing was predicted or the file has not been started: sema then parses it
 //! itself, which is also the path for every failure, so diagnostics come from one place.
 //!
-//! A worker cannot know the file id, the `AstId` numbers or the interner state the compile will
-//! have when sema reaches its file. It parses with placeholders and a per-job interner, and
-//! `Prepared::finish` (on the main thread, at claim time) rewrites them (see `ast::relocate`),
-//! giving the tree a serial parse at that point would have built. The crawl is only a guess at
+//! A worker cannot know the file id or the `AstId` numbers the compile will have when sema reaches
+//! its file. It parses with placeholders, and `Prepared::finish` (on the main thread, at claim
+//! time) rewrites them (see `ast::relocate`), giving the tree a serial parse at that point would
+//! have built. Symbols are interned directly: the interner is process-wide. The crawl is only a guess at
 //! sema's order: a wrong guess costs a wasted parse, never a different result.
 //!
 //! `-serial_parse` (`[experimental] serial_parse`) turns the crawl off and `-parse_threads N` sets the
@@ -59,7 +59,6 @@ mod imp {
 mod imp {
     use crate::ast::{self, AstId, StmtKind, relocate};
     use crate::fxhash::HashMap;
-    use crate::intern;
     use crate::sema::{
         BootstrapModule, FileSystem, NativeFs, Options, TargetCpu, TargetOs, find_module_in,
     };
@@ -79,7 +78,6 @@ mod imp {
     /// The tree of a `Prepared`, before it is placed in a compile.
     pub struct PreparedTree {
         file: Handoff<ast::File>,
-        spellings: Vec<&'static str>,
         ast_count: u32,
     }
 
@@ -103,10 +101,9 @@ mod imp {
     impl PreparedTree {
         /// The tree for a compile that gave the file `file`.
         pub fn finish(self, file: FileId) -> ast::File {
-            let syms = intern::Remap::new(&self.spellings);
             let base = AstId::reserve(self.ast_count);
             let mut tree = self.file.0;
-            relocate::relocate(&mut tree, file, base, &syms);
+            relocate::relocate(&mut tree, file, base);
             tree
         }
     }
@@ -299,7 +296,6 @@ mod imp {
             let bytes = std::fs::read(path).ok()?;
             let text = String::from_utf8(bytes)
                 .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned());
-            intern::begin_job();
             AstId::restart();
             let parsed = match self.library_platform(path) {
                 Some(target) => {
@@ -307,11 +303,9 @@ mod imp {
                 }
                 None => crate::parser::parse_file(relocate::PLACEHOLDER_FILE, &text),
             };
-            // Discovery reads symbols, so it runs before the job interner is taken away.
             if let Ok(file) = &parsed {
                 self.discover(file, path);
             }
-            let spellings = intern::end_job();
             let ast_count = AstId::next();
             let file = parsed.ok()?;
             let lines = LineIndex::new(&text);
@@ -320,7 +314,6 @@ mod imp {
                 lines,
                 tree: PreparedTree {
                     file: Handoff(file),
-                    spellings,
                     ast_count,
                 },
             })
@@ -481,10 +474,6 @@ mod tests {
         let mut compared = 0;
         for path in files {
             let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).into_owned();
-            // Make this thread's symbols differ from the worker's, as in a real compile.
-            for i in 0..37 {
-                crate::intern::Sym::intern(&format!("__relocate_test_{i}"));
-            }
             AstId::restart();
             let Ok(serial) = crate::parser::parse_file(FileId(7), &text) else {
                 continue;
