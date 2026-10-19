@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run every generator of checked-in files with --check: each must reproduce its output exactly.
 
-    python3 tools/generators/check_generated.py [--formatter target/jaifmt] [--offline]
+    python3 tools/generators/check_generated.py [--formatter <jaifmt>] [--offline]
 
 The SDL3 and native bindings generators are checked by their own CI steps, since they need
 fetched sources or their own working directory.
@@ -17,7 +17,7 @@ import argparse
 from pathlib import Path
 import subprocess
 import sys
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, jaifmt_path
 
 
 # Generators that format their output with the repository jaifmt.
@@ -47,8 +47,8 @@ DOWNLOADING = [
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--formatter", type=Path, default=ROOT / "target/jaifmt",
-                        help="repository jaifmt built from source (default: target/jaifmt)")
+    parser.add_argument("--formatter", type=Path, default=jaifmt_path(),
+                        help="repository jaifmt built from source (default: <cargo target>/jaifmt)")
     parser.add_argument("--offline", action="store_true", help="skip the generators that download their input")
     args = parser.parse_args()
     formatter = str(args.formatter.resolve(strict=True))

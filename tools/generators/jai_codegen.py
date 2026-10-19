@@ -1,6 +1,6 @@
 """Shared plumbing of the generators that emit checked-in Jai: arguments and formatting.
 
-Every generated file goes through the repository formatter (target/jaifmt, built from
+Every generated file goes through the repository formatter (<cargo target>/jaifmt, built from
 jaifmt/main.jai), so the checked-in text is exactly what `--check` recomputes.
 """
 
@@ -13,16 +13,16 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse
 from pathlib import Path
 import subprocess
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, jaifmt_path
 
-DEFAULT_FORMATTER = ROOT / "target/jaifmt"
+DEFAULT_FORMATTER = jaifmt_path()
 
 
 def generator_parser(description):
     """An argument parser with the --formatter and --check options every generator takes."""
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--formatter", type=Path, default=DEFAULT_FORMATTER,
-                        help="repository jaifmt built from source (default: target/jaifmt)")
+                        help="repository jaifmt built from source (default: <cargo target>/jaifmt)")
     parser.add_argument("--check", action="store_true",
                         help="fail if a checked-in file differs from the output instead of writing it")
     return parser

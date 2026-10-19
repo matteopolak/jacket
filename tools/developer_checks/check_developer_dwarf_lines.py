@@ -3,7 +3,7 @@
 import json
 import build_developer_bindings
 import re
-from dev_common import ROOT, labeled_runner, sha256_file
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
 
 
 run = labeled_runner('DWARF fixture command', expected=None, env=None, timeout=60, stdout=True)
@@ -64,7 +64,7 @@ def main():
     generated.append("}")
     path = ROOT / "target/developer-tools-dwarf-line-oracle.jai"
     path.write_text("\n".join(generated) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", path])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", path])
     evidence["clang_version"] = run([prefix / "bin/clang", "--version"])
     (ROOT / "target/developer-tools-dwarf-lines-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import platform
 import subprocess
 import build_generator_platform
-from dev_common import ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env
+from dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env
 
 ENV = stdlib_env(TMPDIR=str(ROOT / "target"))
 PREFIX = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
@@ -115,8 +115,8 @@ def main():
              ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-session-probe.jai",
              ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-canonical.jai"]
     for path in owned:
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", path])
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", path])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", path])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", path])
     checked = ROOT / "target/generator-platform-linted.txt"
     programs = [path for path in owned if path.parent.name == "driven"]
     run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", "jacket.toml", "--checked-files", checked,

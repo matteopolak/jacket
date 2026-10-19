@@ -12,7 +12,7 @@ import build_developer_bindings
 from driven_sources import driven, driven_matching
 import platform
 import csv
-from dev_common import run_checked, ROOT, ENV, JAIC, sha256_file
+from dev_common import ENV, JAIC, JAIFMT, ROOT, run_checked, sha256_file
 
 UNAVAILABLE_EVIDENCE = []
 MANIFEST = Path(__file__).with_name("developer_checks.json")
@@ -96,7 +96,7 @@ def prepare_cpp_visitors(prefix):
         raise RuntimeError("Independent C++ native visitor oracle is incomplete")
     visitor_oracle = ROOT / "target/developer-tools-cpp-visitor-oracle.jai"
     visitor_oracle.write_text("SDK_Visitor_Results :: u32.[" + ", ".join(visitor_results) + "];\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", visitor_oracle])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", visitor_oracle])
     visitor_names = ["fields_return", "fields_count", "bases_return", "bases_count", "methods_return", "methods_count", "stopped_return", "stopped_count"]
     visitor_evidence = {"scope": "host official SDK C++17 AST queries and independent C visitor return/count oracle; C++ method bodies not executed",
                         "native_c_results": dict(zip(visitor_names, map(int, visitor_results))),
@@ -119,8 +119,8 @@ def check_bridge_consumers(prefix, emitter, workflow=False):
              ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-nonpod.h"])
         for suffix in ["generated", "linux", "windows"]:
             generated = ROOT / f"target/developer-tools-cpp-workflow-{suffix}.jai"
-            run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
-            run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", generated])
+            run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
+            run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated])
             run([ROOT / "target/debug/jailint", "-D", "warnings", generated])
         for os_name in ["linux", "windows"]:
             run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-cpp-workflow-target.jai", "-check", "-os", os_name, "-cpu", "x64", "-I", ROOT / "target"])
@@ -152,8 +152,8 @@ def check_profiler_client_children():
         for optimization in [0, 2]:
             run([ROOT / f"target/developer-tools-iprof-client-c{configuration}-o{optimization}"], output="ok\n")
         source = ROOT / f"target/developer-tools-iprof-client-input-c{configuration}.jai"
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", source])
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", source])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", source])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", source])
         run([ROOT / "target/debug/jailint", "-D", "warnings", source])
 
 
@@ -225,8 +225,8 @@ def main(argv=None):
              f"stdlib/Bindings_Generator/tests/driven/bindings-{stem}-native.cpp", "-o", build_developer_bindings.shared_library(f"developer_tools_{library}")])
     run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-public.jai", "-interp"], output="ok\n")
     generated_public = ROOT / "target/developer-tools-public-generated.jai"
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated_public])
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", generated_public])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", generated_public])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated_public])
     run([ROOT / "target/debug/jailint", "-D", "warnings", generated_public])
     run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-sdk-public.jai", "-interp"], output="ok\n")
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(),
@@ -279,8 +279,8 @@ def main(argv=None):
     run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
         generated = ROOT / f"target/developer-tools-{name}-generated.jai"
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", generated])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated])
         run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", generated])
     for os_name in ["linux", "windows"]:
         run([JAIC, "target/developer-tools-model-generated.jai", "-check", "-os", os_name, "-cpu", "x64"])
@@ -391,7 +391,7 @@ def main(argv=None):
     format_paths = [*paths, *sorted((ROOT / "tests/compiler/rejections").glob("*.jai")),
                     *sorted((ROOT / "tests/compiler/metaprograms").glob("*.jai")),
                     ROOT / "stdlib/Iprof/tests/driven/iprof-client-input.jai.inc"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *format_paths])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *format_paths])
     shutil.copyfile(ROOT / "stdlib/Rewrite/tests/driven/rewrite-input.jai", rewritten)
     # This private source requires the Windows facade's DEBUG_BINDINGS constant;
     # lint it below with the actual public platform active, not in a host main module.

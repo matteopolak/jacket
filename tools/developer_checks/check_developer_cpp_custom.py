@@ -6,7 +6,7 @@ import subprocess
 import build_developer_bindings
 import build_generator_platform
 from driven_sources import driven
-from dev_common import ENV, JAIC, ROOT, labeled_runner
+from dev_common import ENV, JAIC, JAIFMT, ROOT, labeled_runner
 
 
 
@@ -129,10 +129,10 @@ def check_cpp_custom():
             run([JAIC, emitter, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
         for generated in generated_schemas:
-            run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
+            run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
             run(
                 [
-                    ROOT / "target/jaifmt",
+                    JAIFMT,
                     "--config",
                     ROOT / "jacket.toml",
                     "--check",

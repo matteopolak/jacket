@@ -7,7 +7,7 @@ import platform
 import re
 import shutil
 import build_developer_bindings
-from dev_common import run_checked, ROOT, sha256_file
+from dev_common import JAIFMT, ROOT, run_checked, sha256_file
 
 
 def run(command, output=None):
@@ -113,8 +113,8 @@ def main():
                 run([jaic, roundtrip, f"-O{mode[1:]}", "-I", ROOT / "target", "-exe", consumer])
                 run([consumer], output="ok\n")
         generated = ROOT / "target/developer-tools-configured-generated.jai"
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", generated])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated])
         run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", generated])
         (ROOT / "target/developer-tools-configured-sdk-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     finally:

@@ -31,7 +31,7 @@ import sys
 import tempfile
 from pathlib import Path
 from toolkit.process import run as toolkit_run
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir, jaifmt_path
 
 EXE = ".exe" if os.name == "nt" else ""
 
@@ -41,18 +41,7 @@ JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks"]
 JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Args"]
 
 
-def target_directory() -> Path:
-    """Cargo's real target directory (CARGO_TARGET_DIR and .cargo/config.toml are honoured)."""
-    if os.environ.get("CARGO_TARGET_DIR"):
-        return Path(os.environ["CARGO_TARGET_DIR"]).resolve()
-    out = subprocess.run(["cargo", "metadata", "--no-deps", "--format-version", "1", "--offline"],
-                         cwd=ROOT, capture_output=True, text=True)
-    if out.returncode:
-        return ROOT / "target"
-    return Path(json.loads(out.stdout)["target_directory"])
-
-
-TARGET = target_directory()
+TARGET = cargo_target_dir(resolve=True)
 
 
 def run(cmd: list[str], cwd: Path = ROOT) -> int:
@@ -107,7 +96,7 @@ def ensure_jaifmt(jobs: str) -> Path:
     if cargo_build(["-p", "jaic-cli"], jobs):
         sys.exit("could not build jaic")
     jaic = TARGET / "debug" / ("jaic" + EXE)
-    out = TARGET / ("jaifmt" + EXE)
+    out = jaifmt_path()
     if not out.exists() or out.stat().st_mtime < max(newest(JAIFMT_SOURCES), jaic.stat().st_mtime):
         if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]):
             sys.exit("could not build jaifmt")
@@ -120,7 +109,7 @@ def cmd_build(args) -> int:
                    args.jobs):
         return 1
     jaic = TARGET / ("release" if args.release else "debug") / ("jaic" + EXE)
-    return run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(TARGET / ("jaifmt" + EXE))])
+    return run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt_path())])
 
 
 def cmd_fmt(args) -> int:
@@ -227,7 +216,7 @@ def cmd_vscode_try(args) -> int:
                    args.jobs):
         return 1
     bin_dir = TARGET / profile
-    jaifmt = TARGET / ("jaifmt" + EXE)
+    jaifmt = jaifmt_path()
     jaic = bin_dir / ("jaic" + EXE)
     if not jaifmt.exists() or jaifmt.stat().st_mtime < max(newest(JAIFMT_SOURCES), jaic.stat().st_mtime):
         if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt)]):

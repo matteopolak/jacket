@@ -3,11 +3,17 @@
 Native stb dependencies must be built separately using the repository's reviewed
 native build tool. Nothing is fetched here; no shared manifests/staging are used.
 """
+import sys as _sys
 from pathlib import Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import argparse
 import os
 import subprocess
 import sys
+from toolkit.repo import jaifmt_path
 
 root = Path(__file__).resolve().parents[3]
 sources = [
@@ -51,7 +57,7 @@ if args.lint_only:
     raise SystemExit(0)
 
 compiler = (args.compiler or root / ("target/debug/jaic.exe" if os.name == "nt" else "target/debug/jaic")).resolve(strict=True)
-formatter = (args.formatter or root / ("target/jaifmt.exe" if os.name == "nt" else "target/jaifmt")).resolve(strict=True)
+formatter = (args.formatter or jaifmt_path()).resolve(strict=True)
 
 failures = []
 

@@ -79,6 +79,21 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, "")
 
+    def test_tools_are_found_in_cargo_target_dir(self):
+        custom = Path(self.tmp.name) / "elsewhere"
+        for rel in ("jaifmt", "debug/jailint"):
+            path = custom / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(FAKE_TOOL)
+            path.chmod(0o755)
+        self.env["CARGO_TARGET_DIR"] = str(custom)
+        self.write("a.jai", "BAD\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertNotIn("not found", result.stderr)
+        self.assertIn("a.jai: BAD", result.stderr)
+
     def test_failures_name_the_fix_commands(self):
         self.tool("target/jaifmt")
         self.tool("target/debug/jailint")

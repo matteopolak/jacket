@@ -63,6 +63,20 @@ with_list() {
     "$@"
 }
 
+# Where cargo builds: $CARGO_TARGET_DIR, else cargo's own answer (.cargo/config.toml), else target/.
+target_dir() {
+    if [ -n "${CARGO_TARGET_DIR:-}" ]; then
+        printf '%s\n' "$CARGO_TARGET_DIR"
+        return
+    fi
+    if command -v cargo >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+        dir=$(cargo metadata --no-deps --format-version 1 --offline 2>/dev/null |
+            python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])' 2>/dev/null) &&
+            [ -n "$dir" ] && { printf '%s\n' "$dir"; return; }
+    fi
+    printf '%s\n' "$root/target"
+}
+
 exe() { # the first existing path among $1 and $1.exe
     for p in "$1" "$1.exe"; do [ -f "$p" ] && { echo "$p"; return 0; }; done
     return 1
@@ -81,16 +95,16 @@ add_fix() { fixes="$fixes
 
 # --- jaifmt ---------------------------------------------------------------------------------
 find_jaifmt() {
-    bin=$(exe "$root/target/jaifmt") || bin=""
+    bin=$(exe "$target/jaifmt") || bin=""
     if [ -z "$JAI_HOOK_NO_BUILD" ]; then
         # The newer of the release and debug builds: a stale one may not compile the current jaifmt.
-        jaic=$(exe "$root/target/release/jaic") || jaic=""
-        debug=$(exe "$root/target/debug/jaic") || debug=""
+        jaic=$(exe "$target/release/jaic") || jaic=""
+        debug=$(exe "$target/debug/jaic") || debug=""
         if [ -n "$debug" ] && { [ -z "$jaic" ] || [ -n "$(find "$debug" -newer "$jaic")" ]; }; then jaic=$debug; fi
         if [ -n "$jaic" ] && { [ -z "$bin" ] || stale "$bin" jaifmt stdlib/Extensions/Jai_Format stdlib/Extensions/Args; }; then
             say "rebuilding jaifmt"
-            if "$jaic" jaifmt/main.jai -O2 -exe "$root/target/jaifmt" >/dev/null 2>&1 &&
-                built=$(exe "$root/target/jaifmt"); then
+            if "$jaic" jaifmt/main.jai -O2 -exe "$target/jaifmt" >/dev/null 2>&1 &&
+                built=$(exe "$target/jaifmt"); then
                 bin=$built
             else
                 warn "could not rebuild jaifmt; using the existing one"
@@ -104,7 +118,7 @@ find_jaifmt() {
 # --- jailint --------------------------------------------------------------------------------
 find_jailint() {
     bin=""
-    for p in "$root/target/release/jailint" "$root/target/debug/jailint"; do
+    for p in "$target/release/jailint" "$target/debug/jailint"; do
         b=$(exe "$p") || continue
         if ! stale "$b" crates/jailint crates/jaic crates/jaic-cli stdlib/prelude/module.jai Cargo.lock; then
             bin=$b
@@ -114,22 +128,23 @@ find_jailint() {
     if [ -z "$bin" ] && [ -z "$JAI_HOOK_NO_BUILD" ] && command -v cargo >/dev/null 2>&1; then
         say "rebuilding jailint"
         if cargo build --quiet -p jailint >/dev/null 2>&1; then
-            bin=$(exe "$root/target/debug/jailint") || bin=""
+            bin=$(exe "$target/debug/jailint") || bin=""
         else
             warn "could not rebuild jailint"
         fi
     fi
-    [ -n "$bin" ] || bin=$(exe "$root/target/release/jailint") || bin=$(exe "$root/target/debug/jailint") || bin=$(command -v jailint) || bin=""
+    [ -n "$bin" ] || bin=$(exe "$target/release/jailint") || bin=$(exe "$target/debug/jailint") || bin=$(command -v jailint) || bin=""
     echo "$bin"
 }
 
 if [ -n "$jai_list" ]; then
+    target=$(target_dir)
     if skipped jaifmt; then
         :
     else
         jaifmt=$(find_jaifmt)
         if [ -z "$jaifmt" ]; then
-            warn "jaifmt not found (build target/jaifmt, see docs/tools/development.md#pre-commit-hook); skipping the Jai format check"
+            warn "jaifmt not found (build jaifmt into the cargo target directory, see docs/tools/development.md#pre-commit-hook); skipping the Jai format check"
         else
             say "jaifmt --check"
             if ! (cd "$tmp" && with_list "$jaifmt" --check) <<EOF

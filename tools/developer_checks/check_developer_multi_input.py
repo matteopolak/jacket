@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 import platform
-from dev_common import ROOT, labeled_runner
+from dev_common import JAIFMT, ROOT, labeled_runner
 
 
 run = labeled_runner('Multiple-input workflow')
@@ -32,7 +32,7 @@ def main():
             executable = ROOT / f"target/developer-tools-multi-emitter-o{mode}"
             run([jaic, source, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", *generated])
+        run([JAIFMT, "--config", ROOT / "jacket.toml", *generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", *flags,
                  native, "-o", ROOT / f"target/libdeveloper_tools_multi.{suffix}"])
@@ -46,7 +46,7 @@ def main():
     paths = [source, consumer, *generated, ROOT / "stdlib/Bindings_Generator/module.jai",
              ROOT / "stdlib/internal/developer-tools/bindings-driver.jai",
              ROOT / "stdlib/internal/developer-tools/binding-native-model.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64",
          ROOT / "stdlib/Bindings_Generator/module.jai"])

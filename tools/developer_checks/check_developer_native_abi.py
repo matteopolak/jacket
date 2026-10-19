@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import sys
 import generate_developer_binding_model as model
-from dev_common import ROOT, labeled_runner, sha256_file
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
 
 
 run = labeled_runner('Native ABI probe', expected=None, env=None, timeout=60, stdout=True)
@@ -73,7 +73,7 @@ def main():
     jai += ['    print("ok\\n");', '}']
     jai_path = ROOT / "target/developer-tools-native-abi.jai"
     jai_path.write_text("\n".join(jai) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", jai_path])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", jai_path])
     library_path = prefix / ("bin/libclang.dll" if sys.platform == "win32" else
                              "lib/libclang.dylib" if sys.platform == "darwin" else "lib/libclang.so")
     library = ctypes.CDLL(str(library_path))

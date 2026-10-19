@@ -10,15 +10,15 @@ import tempfile
 
 from build_developer_bindings import llvm_prefix
 from driven_sources import driven, driven_matching
-from dev_common import ROOT, sha256_file
+from dev_common import ROOT, cargo_target_dir, jaifmt_path, sha256_file
 
 
 def main():
-    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+    target = cargo_target_dir(resolve=True)
     scratch = Path(tempfile.mkdtemp(prefix="refined-emission-", dir=target))
     compiler, formatter, linter = (
         target / "debug/jaic",
-        target / "jaifmt",
+        jaifmt_path(),
         target / "debug/jailint",
     )
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"), TMPDIR=str(scratch))

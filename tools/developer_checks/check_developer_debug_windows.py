@@ -7,7 +7,7 @@ from pathlib import Path
 import platform
 import re
 from driven_sources import driven
-from dev_common import ROOT, labeled_runner, sha256_file
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
 
 EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakpoint", "debugger_present",
                                                  "free_symbols", "output", "readable", "symbols", "break_once",
@@ -56,7 +56,7 @@ def main():
         run([build / "debug/jailint", "--os", "windows", "--cpu", cpu, "-D", "warnings",
              ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai",
              ROOT / "stdlib/Debug/tests/driven/debug-windows-lifecycle.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-dumps.jai"])
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check",
+    run([JAIFMT, "--config", ROOT / "jacket.toml", "--check",
          ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/internal/developer-tools/debug-lifecycle.jai",
          ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai",
          ROOT / "stdlib/Debug/tests/driven/debug-windows-lifecycle.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-dumps.jai"])

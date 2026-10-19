@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 import struct
-from dev_common import ROOT, labeled_runner, sha256_bytes
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes
 
 
 run = labeled_runner('Original CodeView fixture', expected=None, env=None, timeout=60, stdout=True)
@@ -90,7 +90,7 @@ def main():
     generated.append("}")
     destination = ROOT / "target/developer-tools-codeview-string-oracle.jai"
     destination.write_text("\n".join(generated) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", destination])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", destination])
     (ROOT / "target/developer-tools-codeview-string-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 

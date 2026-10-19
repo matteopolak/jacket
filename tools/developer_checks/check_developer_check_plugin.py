@@ -2,7 +2,7 @@
 """Real persistent Check factory and compiler-message callback effects."""
 import build_developer_check
 from driven_sources import driven
-from dev_common import run_checked, ROOT, JAIC
+from dev_common import JAIC, JAIFMT, ROOT, run_checked
 
 
 
@@ -26,7 +26,7 @@ def main():
             raise RuntimeError(f"Expected one genuine compiler diagnostic from {name}")
     paths = [ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-engine/module.jai",
              ROOT / "stdlib/Check/tests/driven/check-plugin.jai", ROOT / "stdlib/Check/tests/driven/check-plugin-workspace.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths,
+    run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths,
          ROOT / "stdlib/internal/developer-tools/porting-check.jai", ROOT / "stdlib/internal/developer-tools/check-bindings.jai",
          ROOT / "tests/compiler/rejections/check-plugin-porting.jai", ROOT / "tests/compiler/rejections/check-plugin-bindings.jai"])
     run([ROOT / "target/debug/jailint", "-D", "warnings", *paths])

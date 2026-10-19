@@ -4,7 +4,7 @@ import json
 import subprocess
 import build_developer_bindings
 from driven_sources import driven
-from dev_common import ROOT, ENV, sha256_file
+from dev_common import ENV, JAIFMT, ROOT, sha256_file
 
 
 def run(command, expected="", returncode=0, diagnostic=None):
@@ -68,8 +68,8 @@ def main():
             raise RuntimeError(f"Target-dependent C long ABI was not preserved: {triple}")
         run([jaic, fixture, "-check", "-os", os_name, "-cpu", "x64", "-I", ROOT / "target"])
     run([tool, header, output, "developer_tools_bindings"])
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", output, fixture])
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", output, fixture])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", output, fixture])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", output, fixture])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", output, fixture])
     macro_header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macro-values.h"
     macro_output = ROOT / "target/developer-tools-macros-generated.jai"
@@ -82,8 +82,8 @@ def main():
         run([jaic, macro_fixture, "-check", "-os", os_name, "-cpu", "x64", "-I", ROOT / "target"])
     run([tool, macro_header, macro_output, "developer_tools_macros"])
     run([tool, macro_header, macro_output, "developer_tools_macros", "-pedantic-errors", "-Wall", "-Wextra", "-Werror"])
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", macro_output])
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", macro_output])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", macro_output])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", macro_output])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", macro_output])
     inputs = {str(path): sha256_file(path)
               for path in [prefix / "include/clang-c/Index.h", prefix / "include/clang-c/CXString.h",

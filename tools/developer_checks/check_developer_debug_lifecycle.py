@@ -5,7 +5,7 @@ from pathlib import Path
 import platform
 import subprocess
 from driven_sources import driven
-from dev_common import ROOT
+from dev_common import JAIFMT, ROOT
 
 # No display: with one, a Linux assertion dialog would wait for a click instead of aborting.
 ENV = {name: value for name, value in os.environ.items() if name not in ("DISPLAY", "WAYLAND_DISPLAY")}
@@ -69,7 +69,7 @@ def main():
              *[driven(f"{name}.jai") for name in
                ["debug-lifecycle", "debug-crash-callback", "debug-default-assert",
                 "debug-owned-context", "debug-lifecycle-concurrent", "debug-ignored-locations", "debug-abort"]]]
-    invoke([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths], output="")
+    invoke([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths], output="")
     invoke([BUILD / "debug/jailint", "-D", "warnings", *paths], output="")
     print("Debug assertion ownership/diagnostics and POSIX lifecycle passed interpreter/native Mac O0/O2; fatal callbacks passed native O0/O2")
 

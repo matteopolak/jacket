@@ -13,13 +13,16 @@ import argparse
 import fnmatch
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLS))  # folder-qualified imports
+
+from toolkit.repo import jaifmt_path  # noqa: E402
+
 NO_TESTS_RAN = 5  # unittest's exit status when a folder has no file matching the pattern
 
 
@@ -52,21 +55,17 @@ def sdl_environment(env):
 
 
 def ensure_formatter():
-    """The generator tests format with target/jaifmt (tools/generators/jai_codegen.py). Build it when it is
-    missing, as `tools/dev/dev.py fmt` does, and place it where they look; False when that was not possible."""
-    wanted = TOOLS.parent / "target" / "jaifmt"
+    """The generator tests format with the repository jaifmt (tools/generators/jai_codegen.py). Build it when it is
+    missing, as `tools/dev/dev.py fmt` does; False when that was not possible."""
+    wanted = jaifmt_path()
     if wanted.is_file():
         return True
     try:
-        sys.path.insert(0, str(TOOLS))
         from dev.dev import ensure_jaifmt
 
-        built = Path(ensure_jaifmt(str(os.cpu_count() or 1)))
-        if built.resolve() != wanted.resolve():
-            wanted.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(built, wanted)
+        ensure_jaifmt(str(os.cpu_count() or 1))
     except (Exception, SystemExit) as error:
-        sys.stderr.write(f"run_tests.py: skipping tools/generators, target/jaifmt is missing and could not be built ({error})\n")
+        sys.stderr.write(f"run_tests.py: skipping tools/generators, {wanted} is missing and could not be built ({error})\n")
         return False
     return wanted.is_file()
 

@@ -12,10 +12,11 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from toolkit.hashing import sha256_bytes, sha256_file  # noqa: E402,F401
 from toolkit.process import run_expect  # noqa: E402
-from toolkit.repo import ROOT, stdlib_env  # noqa: E402,F401
+from toolkit.repo import ROOT, cargo_target_dir, jaifmt_path, stdlib_env  # noqa: E402,F401
 
 ENV = stdlib_env()
-JAIC = ROOT / "target/debug/jaic"
+JAIC = cargo_target_dir() / "debug/jaic"
+JAIFMT = jaifmt_path()
 
 
 def run_checked(command, *, label, env=ENV, timeout=90, **expectations):

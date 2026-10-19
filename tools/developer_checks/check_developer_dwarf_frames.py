@@ -4,7 +4,7 @@ import json
 import build_developer_bindings
 import re
 from check_developer_dwarf_lines import run
-from dev_common import ROOT, sha256_file
+from dev_common import JAIFMT, ROOT, sha256_file
 
 
 def main():
@@ -40,7 +40,7 @@ def main():
     source.append("];")
     path = ROOT / "target/developer-tools-dwarf-frame-oracle.jai"
     path.write_text("\n".join(source) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", path])
+    run([JAIFMT, "--config", ROOT / "jacket.toml", path])
     (ROOT / "target/developer-tools-dwarf-frames-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 

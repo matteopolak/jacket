@@ -14,7 +14,7 @@ from toolkit import download
 from toolkit.cli import add_jaic_argument, default_jaic
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.process import run, run_expect
-from toolkit.repo import ROOT, cargo_target_dir, stdlib_env
+from toolkit.repo import ROOT, cargo_target_dir, jaifmt_path, stdlib_env
 
 PY = sys.executable
 
@@ -41,7 +41,13 @@ class Repo(unittest.TestCase):
             self.assertEqual(cargo_target_dir(), Path("/x/y"))
         with mock.patch.dict(os.environ):
             os.environ.pop("CARGO_TARGET_DIR", None)
-            self.assertEqual(cargo_target_dir(), ROOT / "target")
+            with mock.patch("toolkit.repo._metadata_target_dir", return_value=Path("/cfg/target")):
+                self.assertEqual(cargo_target_dir(), Path("/cfg/target"))
+
+    def test_jaifmt_path_follows_the_target_dir(self):
+        with mock.patch.dict(os.environ, {"CARGO_TARGET_DIR": "/x/y"}):
+            self.assertEqual(jaifmt_path().parent, Path("/x/y"))
+            self.assertTrue(jaifmt_path().name.startswith("jaifmt"))
 
     def test_stdlib_env(self):
         env = stdlib_env(EXTRA="1")
