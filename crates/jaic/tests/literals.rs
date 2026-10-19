@@ -11,6 +11,36 @@ fn check(source: &str) {
     }
 }
 
+/// The rendered error `source` fails with.
+fn failure(source: &str) -> String {
+    let mut options = Options::host();
+    options.runtime_support = false;
+    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    match c.compile_sources(&[ProgramSource::String(source.into())]) {
+        Ok(_) => panic!("compiled: {source}"),
+        Err(error) => error.render(&c.sources),
+    }
+}
+
+#[test]
+fn compile_time_code_cannot_write_into_a_string_literal() {
+    let error = failure(
+        "change :: () -> u8 { s := \"abc\"; s[1] = #char \"x\"; return s[1]; } #assert(#run change() == #char \"x\");",
+    );
+    assert!(
+        error.contains("cannot write to a string literal or other constant"),
+        "{error}"
+    );
+    assert!(error.contains("copy_string"), "{error}");
+}
+
+#[test]
+fn equal_string_literals_stay_unchanged_when_a_copy_is_written() {
+    check(
+        "change :: () -> u8 { s := \"abc\"; buf: [3]u8; for i: 0..2 buf[i] = s[i]; buf[1] = #char \"x\"; return buf[1] + \"abc\"[1]; } #assert(#run change() == #char \"x\" + #char \"b\");",
+    );
+}
+
 #[test]
 fn decimal_precision_counts_fractional_digits_and_ignores_trailing_zeros() {
     check(

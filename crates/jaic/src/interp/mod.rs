@@ -35,6 +35,7 @@ mod memory;
 mod native;
 mod probe;
 pub mod profile;
+mod read_only;
 mod rets;
 mod sandbox;
 mod step;
@@ -115,6 +116,8 @@ pub struct Interp {
     globals: Vec<Option<GlobalMem>>,
     /// start address -> (end, global) for address lookups.
     ranges: BTreeMap<u64, (u64, GlobalId)>,
+    /// Where the `read_only` globals live: memory interpreted code may not write.
+    read_only: read_only::ReadOnlyData,
     /// Each procedure's frame layout and code, built on its first call. Frames are boxed and
     /// never freed while the interpreter lives (one replaced moves to `retired`), so a
     /// running procedure's frame stays where it is.
@@ -271,6 +274,7 @@ impl Interp {
             sp: 0,
             globals: Vec::new(),
             ranges: BTreeMap::new(),
+            read_only: read_only::ReadOnlyData::default(),
             frames: Vec::new(),
             retired: Vec::new(),
             foreign_addrs: Vec::new(),
@@ -354,6 +358,7 @@ impl Interp {
         self.retired = Vec::new();
         self.globals = Vec::new();
         self.ranges = BTreeMap::new();
+        self.read_only = read_only::ReadOnlyData::default();
         self.ct_type_tables = Vec::new();
         self.ct_type_table = (0, 0);
         self.stack = ValueStack::default();

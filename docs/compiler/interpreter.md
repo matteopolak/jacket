@@ -26,6 +26,7 @@ The program's last-error value (`GetLastError`, `errno`) is shared with the inte
 - Bounds checks are the `BoundsCheck` intrinsic ([pointers and arrays](../language/pointers-and-arrays.md#bounds-checks)); pointer indexing is never checked.
 - `block_budget`, when set, counts basic blocks and traps with `execution budget exhausted`. The language server, jailint and the playground use it. A workspace a metaprogram compiles runs on the budget of the interpreter that drives it (`build::step`, `build::finish_all` take `&mut Option<u64>`).
 - A `fork()` child that comes back to the compiler instead of `exec`ing is ended with `_exit` (`call_foreign` sets the flag).
+- String literals and other `read_only` globals live in one reserved region per interpreter (`interp/read_only.rs`), kept read-only by the host's page protection, as in a native build. Equal literals share one global, so a write would change all of them: stores, copies and fills check the region first and trap with `cannot write to a string literal or other constant ...; copy it first`. Foreign code that writes there faults and is reported as a native crash. The interpreter itself writes a global only inside `ReadOnlyData::fill`, which unprotects the pages for the duration. More than 256 MiB of read-only data, or a host without page protection (wasm), falls back to ordinary writable memory.
 
 ### Program arguments and paths
 
@@ -92,6 +93,8 @@ fiber_switch :: (from: *Fiber_Context, to: *Fiber_Context) #intrinsic;
 - **Threads**: anything reading or writing `Interp` from a thread must hold the baton; a new way of calling native code must go through `call_unlocked`; never hold the `Shared` lock across a native call or `exec`. A new blocking primitive needs a `Block` variant, a case in `Sched::expire_waits`, and must set `Sched::woke`. For the inline scheduler add a `Wait` variant, its `satisfied` rule and a case in `inline_thread_foreign`.
 - **New compiler primitive**: a `MetaOp` in `build.rs` and a bodiless `#compiler` declaration in `stdlib/Compiler`.
 - **x86-64 paths on an arm64 Mac**: `cargo build -p jaic-cli --no-default-features --target x86_64-apple-darwin` and run with `arch -x86_64`. Windows stubs: `cargo build -p jaic --target x86_64-pc-windows-msvc` and inspect with `llvm-objdump -d`.
+- **Writing a global from the compiler**: go through `initialize_global` or wrap the write in `self.read_only.fill`; a plain write into a `read_only` global faults.
+- **New way for interpreted code to write memory**: call `check_writable` (or go through `store`/`put`) so a literal write traps instead of faulting.
 - **Foreign effects**: add a C function that never releases memory to `KEEPS_MEMORY_SYMBOLS` so it stops flushing the memory probe cache.
 
 ## Configuration

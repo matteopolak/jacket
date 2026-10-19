@@ -435,6 +435,10 @@ impl Interp {
                         self.sync_loc(code, here);
                         return self.null_trap("memory copy through a null pointer");
                     }
+                    if let Err(trap) = self.check_writable(d, size as usize) {
+                        self.sync_loc(code, here);
+                        return Err(trap.at(self.loc));
+                    }
                     // SAFETY: both addresses are non-null (checked above) host addresses of program
                     // memory that the IR sized `size` bytes.
                     unsafe { copy_bytes(d, s, size) };
@@ -454,6 +458,10 @@ impl Interp {
                             self.sync_loc(code, here);
                             return self.trap("memcpy length exceeds the host address space");
                         };
+                        if let Err(trap) = self.check_writable(d, n) {
+                            self.sync_loc(code, here);
+                            return Err(trap.at(self.loc));
+                        }
                         // Like a load or store, a copy goes through the program's pointers
                         // directly, so a bad one faults as it would natively.
                         // SAFETY: the program's own memmove.
@@ -475,6 +483,10 @@ impl Interp {
                             self.sync_loc(code, here);
                             return self.trap("memset length exceeds the host address space");
                         };
+                        if let Err(trap) = self.check_writable(d, n) {
+                            self.sync_loc(code, here);
+                            return Err(trap.at(self.loc));
+                        }
                         // SAFETY: the program's own memset, as for `MemCopy`.
                         unsafe { std::ptr::write_bytes(d as *mut u8, v as u8, n) };
                     }
@@ -487,6 +499,10 @@ impl Interp {
                     if d < 4096 {
                         self.sync_loc(code, here);
                         return self.null_trap("memory fill through a null pointer");
+                    }
+                    if let Err(trap) = self.check_writable(d, size as usize) {
+                        self.sync_loc(code, here);
+                        return Err(trap.at(self.loc));
                     }
                     // SAFETY: `d` is non-null (checked above) and addresses `size` writable bytes of
                     // program memory.

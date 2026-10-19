@@ -5,7 +5,8 @@ use super::{Interp, Res, probe};
 use crate::ir::{self, GlobalId, Program};
 
 pub(super) struct GlobalMem {
-    _storage: ZeroedBlock,
+    /// The block a writable global lives in; `None` in read-only data (`Interp::read_only`).
+    _storage: Option<ZeroedBlock>,
     addr: u64,
 }
 
@@ -20,7 +21,6 @@ pub(crate) struct ZeroedBlock {
 impl ZeroedBlock {
     pub(crate) fn new(size: usize, align: usize) -> Option<ZeroedBlock> {
         let layout = std::alloc::Layout::from_size_align(size.max(1), align).ok()?;
-        // Zeroed pages are mapped lazily, so a large block nobody touches costs no memory.
         // Zeroed pages are mapped lazily, so a large block nobody touches costs no memory.
         // SAFETY: `layout` has a non-zero size (`size.max(1)`).
         let ptr = std::ptr::NonNull::new(unsafe { std::alloc::alloc_zeroed(layout) })?;
@@ -47,6 +47,7 @@ impl Drop for ZeroedBlock {
 
 impl Interp {
     /// Host address of a global, materializing it (and what it points to) on first use.
+    /// `read_only` globals go where interpreted code cannot write them, as in a native build.
     pub fn global_addr(&mut self, program: &Program, g: GlobalId) -> Res<u64> {
         let i = g.0 as usize;
         if let Some(Some(m)) = self.globals.get(i) {
@@ -57,104 +58,89 @@ impl Interp {
         }
         let global = &program.globals[i];
         let align = global.align.max(8).next_power_of_two();
-        let block = usize::try_from(global.size)
+        let size_align = usize::try_from(global.size)
             .ok()
-            .zip(usize::try_from(align).ok())
-            .and_then(|(size, align)| ZeroedBlock::new(size, align));
-        let Some(storage) = block else {
-            return self.trap(format!(
-                "cannot allocate {} bytes for a global variable",
-                global.size
-            ));
+            .zip(usize::try_from(align).ok());
+        let placed = size_align
+            .filter(|_| global.read_only)
+            .and_then(|(size, align)| self.read_only.place(size, align));
+        let mem = match placed {
+            Some(addr) => GlobalMem {
+                _storage: None,
+                addr,
+            },
+            None => {
+                let Some(storage) =
+                    size_align.and_then(|(size, align)| ZeroedBlock::new(size, align))
+                else {
+                    return self.trap(format!(
+                        "cannot allocate {} bytes for a global variable",
+                        global.size
+                    ));
+                };
+                GlobalMem {
+                    addr: storage.addr(),
+                    _storage: Some(storage),
+                }
+            }
         };
-        let addr = storage.addr();
-        // SAFETY: `addr` is the start of the block `storage` just allocated for `global.size` bytes
-        // (at least 1), and the copy is no longer than that.
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                global.init.as_ptr(),
-                addr as *mut u8,
-                global.init.len().min(global.size as usize),
-            );
-        };
-        self.globals[i] = Some(GlobalMem {
-            _storage: storage,
-            addr,
-        });
+        let addr = mem.addr;
+        // Registered before its relocations are resolved, so globals pointing at each other
+        // are made once.
+        self.globals[i] = Some(mem);
         self.ranges.insert(addr, (addr + global.size.max(1), g));
+        self.initialize_global(program, g, addr)?;
+        Ok(addr)
+    }
+
+    /// Write global `g`'s initial contents at `addr`, its live block: zeroes, then `init`, then
+    /// the relocated pointers.
+    fn initialize_global(&mut self, program: &Program, g: GlobalId, addr: u64) -> Res<()> {
+        let global = &program.globals[g.0 as usize];
+        let mut pointers = Vec::with_capacity(global.relocs.len());
         for r in &global.relocs {
             let target = match r.target {
                 ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
                 ir::RelocTarget::Func(f) => self.proc_value(program, f),
                 ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
             };
-            let value = target.wrapping_add(r.addend as u64);
-            // SAFETY: `r.offset` addresses a pointer-sized slot inside the global's block (the IR
-            // only records relocations that fit); an unaligned write needs no alignment.
-            unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
+            pointers.push((r.offset, target.wrapping_add(r.addend as u64)));
         }
-        Ok(addr)
+        let size = global.size as usize;
+        self.read_only.fill(addr, size, || {
+            // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
+            // `global_addr`), writable for now; the copy is no longer than that, and each
+            // relocation addresses a pointer-sized slot inside it (the IR only records
+            // relocations that fit). Unaligned writes need no alignment.
+            unsafe {
+                std::ptr::write_bytes(addr as *mut u8, 0, size);
+                std::ptr::copy_nonoverlapping(
+                    global.init.as_ptr(),
+                    addr as *mut u8,
+                    global.init.len().min(size),
+                );
+                for (offset, value) in pointers {
+                    std::ptr::write_unaligned((addr + offset) as *mut u64, value);
+                }
+            }
+        });
+        Ok(())
     }
 
     /// Reload an already materialized global from its (rebuilt) initial contents, in place.
     pub fn refresh_global(&mut self, program: &Program, g: GlobalId) -> Res<()> {
-        let i = g.0 as usize;
-        let Some(Some(m)) = self.globals.get(i) else {
-            return Ok(());
-        };
-        let addr = m.addr;
-        let global = &program.globals[i];
-        // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
-        // `global_addr`), and the copy is no longer than that.
-        unsafe {
-            std::ptr::write_bytes(addr as *mut u8, 0, global.size as usize);
-            std::ptr::copy_nonoverlapping(
-                global.init.as_ptr(),
-                addr as *mut u8,
-                global.init.len().min(global.size as usize),
-            );
-        };
-        for r in &global.relocs {
-            let target = match r.target {
-                ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
-                ir::RelocTarget::Func(f) => self.proc_value(program, f),
-                ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
-            };
-            let value = target.wrapping_add(r.addend as u64);
-            // SAFETY: `r.offset` addresses a pointer-sized slot inside the global's block (the IR
-            // only records relocations that fit).
-            unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
+        match self.globals.get(g.0 as usize) {
+            Some(Some(m)) => self.initialize_global(program, g, m.addr),
+            _ => Ok(()),
         }
-        Ok(())
     }
 
     /// Put every resettable global back to its initial contents (compile-time execution
     /// leaves no state behind in the program that then runs; `#no_reset` opts out).
     pub fn reset_globals(&mut self, program: &Program) -> Res<()> {
         for &g in &program.reset_globals {
-            let i = g.0 as usize;
-            let Some(Some(m)) = self.globals.get(i) else {
-                continue;
-            };
-            let addr = m.addr;
-            let global = &program.globals[i];
-            let init = global.init.len().min(global.size as usize);
-            // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
-            // `global_addr`), and the copy is no longer than that.
-            unsafe {
-                std::ptr::write_bytes(addr as *mut u8, 0, global.size as usize);
-                std::ptr::copy_nonoverlapping(global.init.as_ptr(), addr as *mut u8, init);
-            }
-            for r in &global.relocs {
-                let target = match r.target {
-                    ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
-                    ir::RelocTarget::Func(f) => self.proc_value(program, f),
-                    ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
-                };
-                let value = target.wrapping_add(r.addend as u64);
-                // SAFETY: `r.offset` addresses a pointer-sized slot inside the global's block (the
-                // IR only records relocations that fit).
-                unsafe { std::ptr::write_unaligned((addr + r.offset) as *mut u64, value) };
+            if let Some(Some(m)) = self.globals.get(g.0 as usize) {
+                self.initialize_global(program, g, m.addr)?;
             }
         }
         Ok(())
@@ -199,7 +185,7 @@ impl Interp {
         self.globals
             .resize_with(self.globals.len().max(global.0 as usize + 1), || None);
         self.globals[global.0 as usize] = Some(GlobalMem {
-            _storage: data.storage,
+            _storage: Some(data.storage),
             addr: address,
         });
         self.ranges

@@ -28,6 +28,7 @@ impl Interp {
                     let Ok(len) = usize::try_from(a[2]) else {
                         return self.trap("memcpy length exceeds the host address space");
                     };
+                    self.check_writable(a[0], len)?;
                     // Like a load or store, a copy goes through the program's pointers directly,
                     // so a bad one faults as it would natively.
                     // SAFETY: the program's own memmove.
@@ -43,6 +44,7 @@ impl Interp {
                     let Ok(len) = usize::try_from(a[2]) else {
                         return self.trap("memset length exceeds the host address space");
                     };
+                    self.check_writable(a[0], len)?;
                     // SAFETY: the program's own memset, as for memcpy.
                     unsafe { std::ptr::write_bytes(a[0] as *mut u8, a[1] as u8, len) };
                 }

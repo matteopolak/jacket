@@ -68,6 +68,7 @@ impl Interp {
     /// `write` for a pointer an intrinsic or emulated library call was given: a trap when the
     /// memory cannot be written.
     pub(super) fn put(&mut self, addr: u64, bytes: &[u8]) -> Res<()> {
+        self.check_writable(addr, bytes.len())?;
         if self.write(addr, bytes) {
             return Ok(());
         }
@@ -109,11 +110,30 @@ impl Interp {
 
     #[inline(always)]
     pub(super) fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
-        if addr < 4096 {
-            return self.null_trap(null_access("write", addr));
+        if addr < 4096 || self.read_only.contains(addr) {
+            return self.refused_store(addr);
         }
         // SAFETY: the address is the program's own, as for native code.
         unsafe { code::store_raw(ty, addr, v) };
         Ok(())
+    }
+
+    /// A trap when interpreted code would write `len` bytes at `addr` in read-only data.
+    #[inline(always)]
+    pub(super) fn check_writable(&self, addr: u64, len: usize) -> Res<()> {
+        if self.read_only.overlaps(addr, len) {
+            return self.refused_store(addr);
+        }
+        Ok(())
+    }
+
+    #[cold]
+    pub(super) fn refused_store<T>(&self, addr: u64) -> Res<T> {
+        if addr < 4096 {
+            return self.null_trap(null_access("write", addr));
+        }
+        self.trap(format!(
+            "cannot write to a string literal or other constant (read-only memory at {addr:#x}); copy it first, for example with `copy_string`"
+        ))
     }
 }
