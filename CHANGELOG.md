@@ -2,40 +2,28 @@
 
 ## [0.21.0] - 2026-10-19
 
-Adds `constant_condition` and `string_literal_write` lints, `it`/`it_index` inlay hints and smarter dead-code fading, makes rename and hover more reliable in the editor, keeps string literals read-only at compile time, and fixes the release archives' native libraries.
+### New
 
-### Highlights
+- Two new lints: `constant_condition` (a condition that is always true or false) and `string_literal_write` (writing into a string literal).
+- Inlay hints for `it` and `it_index` in `for` loops.
+- Code after a call that never returns is faded as unreachable.
+- `jaifmt --version` and `jaifmt --is-ignored`.
+- `-timings` shows memory allocated per phase.
 
-- `jailint` has a `string_literal_write` rule: writing through a string literal (`s := "abc"; s[0] = #char "x";`) is a warning that suggests copying it first.
-- `jailint` has a `constant_condition` rule: a condition the compiler's reachability facts show is always `true` or always `false` is a warning naming the arm that never runs.
-- `jailsp` shows inlay hints for the implicit `it` and `it_index` of `for` loops.
-- Calls to procedures that never return end a block for dead-code analysis, so code after them is faded in the editor.
-- Renaming in the editor covers every overload of a procedure, polymorphic struct and procedure parameters, `#modify` parameters, loop variables and struct constants, and refuses names no checked file declares.
-- `jaifmt --version` prints the release version, and `jaifmt --is-ignored PATH` reports whether the config ignores a file; the VS Code and Neovim formatters use it.
-- `-timings` reports allocations and bytes allocated per phase, and one thread pool sized by `-threads` is shared by body scans, code generation and `jailint`.
+### Improved
 
-### Fixes
+- Rename in the editor is more complete (overloads, polymorphic parameters, loop variables and more) and refuses names it can't find.
+- Hover and go-to-definition work in more places, including code not checked yet and module aliases.
 
-- Windows release archives include the crash runtime, so `jacket build` and `jaic` no longer fail with "library '../crash-native/platform_io_windows_crash' not found". Built programs link it statically and need no DLL. Each archive is now smoke-tested before it is published.
-- `jacket run` starts the executable the build actually wrote, such as the one a `build.jai` metaprogram names, instead of guessing `build`.
-- An argument of a polymorphic struct that does not fit its parameter (`Node(1)` for `T: Type`) is reported at the use, not on the struct's parameter.
-- In a polymorphic struct nothing instantiates, the editor resolves `T` and its uses as types and field hovers show checked types.
-- `jailsp` answers hover and go-to-definition in a callee it has not checked yet, and in a module alias and its members.
-- A struct whose fields refer to `#this` no longer hangs the editor's full check.
-- A procedure type in a return type followed by a body (`f :: () -> () -> int { ... }`) is an error asking for parentheses, instead of the type taking the body as its own.
-- Compile-time code that writes into a string literal or other constant data stops with an error at the store, instead of silently changing every use of that literal. Native builds already kept literals in read-only memory.
-- `String.tprint` and Basic's other procedures resolve through the `String` module again. A module's top-level `using Alias;` of an imported module now makes that module's names its members (and, at export scope, visible to importers), as `using Alias :: #import` does.
-- Two constant aliases of the same procedure (`f :: g; f :: g;` across files) are one overload, not a redeclaration.
-- `#module_parameters` outside the top level of an imported module is an error.
-- Release archives include every native library the stdlib binds (audio, clipboard, callback context, rpmalloc and the rest) on all platforms, and the release checks each one is present.
-- Windows OpenGL contexts that ask for multisampling pick a multisampled pixel format through `WGL_ARB_pixel_format`, and fall back to one without MSAA when the driver has none.
-- Hovering a pointer constant no longer shows a compile-time address.
-- Identical overloads are reported even when a call names them first, or when a name was not yet resolvable.
-- An enum literal in the arm of an `ifx` a constant condition rules out (`ifx CPU == .X64 then .ARM64 else .X64`) infers its type from the target again.
-- A metaprogram that marks a workspace failed now gets a diagnostic saying so.
-- Freezing a resizable array at compile time keeps only its used elements, so output no longer depends on spare capacity.
-- Import suggestions are ranked by the project's own imports and by which stdlib modules import a module.
-- The interpreter's sandbox stores wide strings at unaligned addresses correctly.
+### Fixed
+
+- Release archives were missing native libraries, most visibly on Windows (#13).
+- Writing into a string literal at compile time is now an error instead of silently changing the literal everywhere (#14).
+- Multisampled OpenGL windows on Windows (#15).
+- `String.tprint` and other Basic procedures through `String` (#16).
+- `jacket run` runs the executable the build actually produced.
+- Several error messages point at the right place, and a few invalid programs the reference compiler rejects are now rejected too.
+- An editor hang on structs that refer to `#this`.
 
 ## [0.20.0] - 2026-10-19
 
