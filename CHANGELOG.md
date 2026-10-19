@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [0.20.0] - 2026-10-18
+
+Adds `jacket`, one front door and one config file for the toolchain, along with editor completion and dead-code features and a faster `jaic`. Checking a 60k-line program is about 1.5x faster than in 0.19.1, and building it about 1.4x faster.
 
 ### Highlights
 
@@ -15,6 +17,14 @@
 - `jailsp` shows `// name` as an inlay hint after the closing brace of procedures, structs and enums of 25 lines or more. Setting `jai.inlayHints.closingBraceMinLines` (`0` turns it off), also `inlay_hints.closing_brace_min_lines` in the Neovim plugin.
 - `jailsp` completes `if`, `for` and `while` at the start of a statement as a skeleton with the cursor in the body, and `case` inside the braces of `if x == {`.
 - `jailsp` fades code that can never run: statements after an exit, branches and loops a condition rules out (also by integer ranges and narrowing), `case`s a value cannot select, and `#if`/`ifx` arms that were not taken. They arrive as `unreachable` hints tagged `Unnecessary`, with no squiggle.
+- The browser formatter reads `jacket.toml`: the playground driver finds the nearest `jacket.toml` or `jaifmt.toml`, and `jaifmt.wasm --config-name jacket.toml` takes `jacket.toml` text.
+
+### Performance
+
+- Source files are lexed and parsed on worker threads ahead of type checking. Workers crawl the `#load` and `#import` graph from the main file, and type checking takes each finished file from a shared cache. Output is identical to a serial parse. `-serial_parse` turns the workers off, and `-parse_threads N` sets their number (default: cores - 1, at most 4).
+- Name lookup no longer copies `using` and import lists on every lookup, skips exported-`using` probing for modules that have none, and remembers scopes whose imports hold nothing under a name.
+- On macOS, LLVM's own C++ allocations also go through mimalloc.
+- Finding procedures that need no stack-trace instrumentation uses one parallel scan and a worklist instead of repeated passes.
 
 ### Fixes
 

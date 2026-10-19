@@ -6,10 +6,12 @@
 The linter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../../README.md) toolchain. It finds likely mistakes and unidiomatic code, and fixes what it safely can.
 
 ```sh
-jailint src/                  # lint every .jai file under src/
-jailint src/ --fix            # apply the safe fixes
-jailint -D warnings src/      # treat every warning as an error, for CI
+jacket lint src/                  # lint every .jai file under src/
+jacket lint src/ --fix            # apply the safe fixes
+jacket lint -D warnings src/      # treat every warning as an error, for CI
 ```
+
+`jacket lint` runs jailint with exactly these arguments; the standalone `jailint` binary takes the same ones.
 
 jailint runs after the compiler has type-checked your program, so its rules know the type of every expression and what every name refers to. That keeps false positives rare: a rule about unsigned values only fires on values that really are unsigned.
 
@@ -28,7 +30,7 @@ help: loop over the elements: `for names` and `it`
 
 ## What it catches
 
-There are 33 rules; `jailint --list` prints them. They fall into a few groups:
+There are 33 rules; `jacket lint --list` prints them. They fall into a few groups:
 
 - **Likely bugs:** a comparison that is always true (`u >= 0` on an unsigned value), shift precedence that differs from C (`1 << n - 1`), identical `if` branches, a `while` whose condition never changes, a `defer` inside a loop that frees something from outside it, removing from an array while a `for` walks it, a range that runs one past the end.
 - **Things left unused:** variables, parameters, imports, and the result of a call that only computes a value (`trim(line);`).
@@ -86,9 +88,9 @@ The standard library's procedures already carry these notes. Add one to your own
 
 ## Other platforms
 
-Platform-specific code can be checked from any machine: `jailint -os windows -cpu arm64 src/` type-checks `src/` as it would compile on Windows on arm64. If some modules only build on their own OS, `--allow-incomplete` reports them without failing the run.
+Platform-specific code can be checked from any machine: `jacket lint -os windows -cpu arm64 src/` type-checks `src/` as it would compile on Windows on arm64. If some modules only build on their own OS, `--allow-incomplete` reports them without failing the run.
 
-The exit status is 0 when nothing at level `deny` was found, 1 when something was, and 2 on a usage or configuration error. `jailint --help` lists every option.
+The exit status is 0 when nothing at level `deny` was found, 1 when something was, and 2 on a usage or configuration error. `jacket lint --help` lists every option.
 
 ## More
 

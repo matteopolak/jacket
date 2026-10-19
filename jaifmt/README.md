@@ -6,10 +6,12 @@
 The code formatter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../README.md) toolchain. It is written in Jai.
 
 ```sh
-jaifmt src/                    # format every .jai file under src/, in place
-jaifmt --check src/            # only list the files that would change (exit 1 if any)
-jaifmt --stdin < in.jai        # format standard input, for editors
+jacket fmt src/                    # format every .jai file under src/, in place
+jacket fmt --check src/            # only list the files that would change (exit 1 if any)
+jacket fmt --stdin < in.jai        # format standard input, for editors
 ```
+
+`jacket fmt` runs jaifmt with exactly these arguments, and formats the whole project when you give no path; the standalone `jaifmt` binary takes the same ones.
 
 ## What it does
 

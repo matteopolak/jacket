@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jaic` writes Windows executables, DLLs and static libraries for x86-64 and arm64: natively on a Windows host with the Microsoft toolchain, or cross-compiled from macOS and Linux with MinGW-w64 (`jaic main.jai -os windows`, plus `-cpu arm64` for Windows on Arm). C calls use the Microsoft x64 convention, or AAPCS64 with Windows' variadic rule on arm64.
+`jaic` writes Windows executables, DLLs and static libraries for x86-64 and arm64: natively on a Windows host with the Microsoft toolchain, or cross-compiled from macOS and Linux with MinGW-w64 (`jacket build main.jai -os windows`, plus `-cpu arm64` for Windows on Arm). C calls use the Microsoft x64 convention, or AAPCS64 with Windows' variadic rule on arm64.
 
 ## How it works
 

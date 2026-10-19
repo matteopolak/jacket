@@ -5,7 +5,7 @@
 `jaic` emits DWARF (CodeView for `-windows-msvc` triples), so lldb and gdb can debug compiled Jai programs: breakpoints by `file.jai:line` or procedure name, stepping, backtraces with Jai names, and locals, parameters and globals with their Jai types. It is on by default at every optimisation level.
 
 ```
-$ jaic main.jai -exe prog
+$ jacket build main.jai -exe prog
 $ lldb --batch -o 'b helper.jai:23' -o run -o bt -o 'frame variable' ./prog
 ```
 

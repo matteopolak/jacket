@@ -12,6 +12,8 @@ target/jaifmt --stdin < in.jai > out.jai   # editors
 jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"   # interpreter: use absolute paths
 ```
 
+In a project, use `jacket fmt` (`jacket fmt --check` in CI): it runs `jaifmt` with the same arguments and formats the whole project when given no path ([jacket](jacket.md)).
+
 Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md) (`--help` is generated from them). Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that does not lex, unbalanced brackets, failed token check).
 
 `jaifmt/build.jai` is a [metaprogram](../metaprogramming/compiler-module.md) building with `set_optimization(.OPTIMIZED)` (no bounds/null/cast checks). It needs real `jaic`, not `-check`. The default output is `target/` at the repository root; a relative `-o` is relative to `jaifmt/`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
@@ -67,7 +69,7 @@ Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.
 ## Browser
 
 - `jaifmt/playground.jai` runs in the wasm engine against `/workspace` (`TARGET` constant names the file); exit 0 means stdout is the formatted file, 1 means stderr has one `jaifmt: ...` line. `tools/browser/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` in every browser bundle.
-- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai`. Source on stdin, config from `--config` or `JAIFMT_CONFIG`, same exit contract. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
+- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai`. Source on stdin, config text from `--config` or `JAIFMT_CONFIG`, same exit contract. The text is read as `jaifmt.toml` syntax unless `--config-name jacket.toml` says it is a `jacket.toml`, whose `[format]` table is used. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
 
 ## How to change it
 

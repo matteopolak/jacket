@@ -5,7 +5,7 @@
 `jaic -sanitize address,undefined` instruments a native build with LLVM's AddressSanitizer (ASan) and the UBSan checks that exist at the LLVM IR level, and links the matching runtime. It catches native-codegen bugs that happen to run fine (wrong struct layout, ABI marshalling that writes past a temporary, stack slots that are too small) and ordinary memory errors in the stdlib and tests. `tools/differential/jaic-sweep.py --sanitize` runs the test sets this way.
 
 ```
-$ jaic uaf.jai -sanitize address && ./uaf
+$ jacket run uaf.jai -sanitize address
 ==58208==ERROR: AddressSanitizer: heap-use-after-free on address 0x603000001010 ...
     #5 0x000102bff350 in main.7 uaf.jai:7
 ```

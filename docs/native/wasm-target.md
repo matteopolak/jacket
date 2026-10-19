@@ -7,9 +7,9 @@
 This is separate from the [browser compiler](../browser/playground.md), which is the compiler itself built to wasm32 and *interprets* programs whose target is `OS == .WASM`. `jaifmt.wasm` ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) is the main user of this target.
 
 ```sh
-jaic hello.jai -os wasm -exe hello.wasm            # WASI command; Wasi_Runtime is added
+jacket build hello.jai -os wasm -exe hello.wasm            # WASI command; Wasi_Runtime is added
 node --no-warnings tools/wasi_run.mjs hello.wasm a b  # stdio/env/args, exits with main's status
-jaic lib.jai -target wasm64-unknown-unknown -O2 -exe lib.wasm   # no runtime: your host's imports
+jacket build lib.jai -target wasm64-unknown-unknown -O2 -exe lib.wasm   # no runtime: your host's imports
 ```
 
 From a metaprogram:

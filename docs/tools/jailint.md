@@ -6,11 +6,13 @@
 
 ```sh
 cargo build -p jailint --release
-jailint src/                  # lint every .jai file under src/
-jailint main.jai --fix        # apply the safe fixes
-jailint -D warnings stdlib    # fail on any finding (CI)
-jailint --list                # rules and default levels
+jacket lint src/                  # lint every .jai file under src/
+jacket lint main.jai --fix        # apply the safe fixes
+jacket lint -D warnings stdlib    # fail on any finding (CI)
+jacket lint --list                # rules and default levels
 ```
+
+`jacket lint` runs `jailint` with exactly these arguments (see [jacket](jacket.md)); the standalone `jailint` binary takes the same ones.
 
 Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `-D warnings`), `--config`, `--max-nesting <n>` (blocks `excessive_nesting` allows), `-I <dir>`, `-j <n>` (programs compiled at once; default one per CPU, at most 8), `--add <source>` (extra program-scope source, like jaic), `--color`, `-v`. Exit status: 0 clean, 1 a denied finding or incomplete compilation (not with `--allow-incomplete`, for a tree whose platform-specific modules only compile on their own OS; it prints how many programs did not compile completely, and `-v` lists them), 2 usage or configuration error. Output goes through the shared `jaic::render`, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` apply as in the compiler.
 
@@ -26,10 +28,10 @@ Editors: `jailsp` lints each open document using the cached compile that hover u
 ## Target checking
 
 ```sh
-jailint -os windows -cpu arm64 -D warnings path/to/module
-jailint -target wasm64-unknown-wasi -D warnings path/to/module
-jailint -os windows --manifest target/windows-lint.json path/to/module
-jailint --context app/main.jai path/to/parameterized-module
+jacket lint -os windows -cpu arm64 -D warnings path/to/module
+jacket lint -target wasm64-unknown-wasi -D warnings path/to/module
+jacket lint -os windows --manifest target/windows-lint.json path/to/module
+jacket lint --context app/main.jai path/to/parameterized-module
 ```
 
 `-os linux|windows|macos|wasm`, `-cpu x64|arm64` and `-target <triple>` select real compiler options; they do not rewrite OS/CPU constants. Windows from another OS defaults to the GNU ABI unless a `*-pc-windows-msvc` triple is given. Linker and SDK availability are not checked.
