@@ -99,8 +99,10 @@ impl Compiler {
             (else_e, then_e)
         };
         let taken = self.check_expr(f, scope, taken_e, expected)?;
-        // The other arm is checked for its type and diagnostics but emits no code.
-        let other = self.check_expr_no_emit(scope, other_e)?;
+        // The other arm is checked for its type and diagnostics but emits no code. It
+        // still sees the expected type, so `.ARM64` there names the target's enum.
+        let mut scratch = self.scratch_ctx(scope);
+        let other = self.check_expr(&mut scratch, scope, other_e, expected)?;
         let (then_op, else_op) = if cond_holds {
             (&taken, &other)
         } else {

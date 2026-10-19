@@ -37,3 +37,8 @@ fn void_ifx_does_not_supply_values_or_accept_incompatible_arms() {
         );
     }
 }
+
+#[test]
+fn the_untaken_arm_of_a_constant_ifx_infers_from_the_target() {
+    compile("Cpu :: enum {A; B;} K :: 1; S :: struct {cpu: Cpu;} main :: () {s: S; s.cpu = ifx K == 1 then .B else .A; s.cpu = ifx K == 2 then .B else .A; c: Cpu = ifx K == 1 then .A else .B;}").unwrap();
+}
