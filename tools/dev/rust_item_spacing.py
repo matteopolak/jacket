@@ -190,6 +190,7 @@ def space_items(text: str) -> str:
     # (first line, last line, depth). An item ends with `;` or `}` back at its own depth.
     open_items = {}
     spans = []
+    inner_attribute = 0  # open `[` of a multi-line `#![...]` still to close
     for k, ln in enumerate(lines):
         if ln.blank and not raw[k].strip():
             # A blank line detaches comments above it (a section banner) from the next item.
@@ -197,7 +198,13 @@ def space_items(text: str) -> str:
             if start is not None and not any(lines[j].code.strip() for j in range(start, k)):
                 del open_items[ln.depth_start]
             continue
+        if inner_attribute:
+            # The continuation of a multi-line `#![...]`: still part of the attribute.
+            inner_attribute += ln.code.count("[") - ln.code.count("]")
+            continue
         if ln.blank or raw[k].lstrip().startswith(("//!", "#![")):
+            if raw[k].lstrip().startswith("#!["):
+                inner_attribute = max(ln.code.count("[") - ln.code.count("]"), 0)
             continue  # inner docs and attributes belong to the enclosing module
         depth = ln.depth_start
         closes_block = ln.code.lstrip()[:1] == "}"
