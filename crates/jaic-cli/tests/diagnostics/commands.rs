@@ -323,6 +323,12 @@ fn command_line_mistakes_explain_themselves() {
         // The full help text is not dumped on a mistake.
         assert!(!text.contains("exit status:"), "{args:?}: {text}");
     }
+}
+
+#[test]
+fn plugin_arguments_help_version_and_colour() {
+    let dir = scratch("cli-help");
+    std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     // Old spellings after a `+Plugin` are the plugin's own arguments, not mistakes.
     let output = jaic(
         &dir,

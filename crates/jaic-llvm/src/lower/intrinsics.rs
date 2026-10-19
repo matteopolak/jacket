@@ -541,26 +541,15 @@ impl<'ctx> Backend<'ctx, '_> {
         }
     }
 
-    pub(super) fn intrinsic_machine(
+    /// The x86-64 instructions with no portable equivalent: `cpuid`, `xgetbv`, the timestamp and
+    /// random-number instructions, fences, `pause` and prefetches.
+    fn intrinsic_x86(
         &self,
-        _st: &FnState<'ctx>,
         op: Intrinsic,
         args: &[BasicValueEnum<'ctx>],
-        _want: &[Ty],
     ) -> R<Vec<BasicValueEnum<'ctx>>> {
         let i64t = self.ctx.i64_type();
         match op {
-            // WebAssembly code cannot see its own call stack.
-            Intrinsic::ReturnAddress if self.arch.is_wasm() => {
-                Ok(vec![self.ptr_ty().const_null().into()])
-            }
-            Intrinsic::ReturnAddress => {
-                let zero = self.ctx.i32_type().const_zero();
-                let v = self
-                    .call_intrinsic("llvm.returnaddress", &[], &[zero.into()])?
-                    .ok_or("returnaddress produced no value")?;
-                Ok(vec![v])
-            }
             Intrinsic::CpuId => {
                 if !self.arch.is_x86_64() {
                     return Err("CPUID requires an x86-64 target".into());
@@ -758,6 +747,41 @@ impl<'ctx> Backend<'ctx, '_> {
                     .build_indirect_call(ty, asm, &[pointer.into()], "")?;
                 Ok(vec![])
             }
+            _ => unreachable!("dispatched only for the x86 operations"),
+        }
+    }
+
+    pub(super) fn intrinsic_machine(
+        &self,
+        _st: &FnState<'ctx>,
+        op: Intrinsic,
+        args: &[BasicValueEnum<'ctx>],
+        _want: &[Ty],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let i64t = self.ctx.i64_type();
+        match op {
+            // WebAssembly code cannot see its own call stack.
+            Intrinsic::ReturnAddress if self.arch.is_wasm() => {
+                Ok(vec![self.ptr_ty().const_null().into()])
+            }
+            Intrinsic::ReturnAddress => {
+                let zero = self.ctx.i32_type().const_zero();
+                let v = self
+                    .call_intrinsic("llvm.returnaddress", &[], &[zero.into()])?
+                    .ok_or("returnaddress produced no value")?;
+                Ok(vec![v])
+            }
+            Intrinsic::CpuId
+            | Intrinsic::X86Xgetbv
+            | Intrinsic::X86Timestamp {
+                ..
+            }
+            | Intrinsic::X86Random {
+                ..
+            }
+            | Intrinsic::X86Fence(_)
+            | Intrinsic::X86Pause
+            | Intrinsic::X86Prefetch(_) => self.intrinsic_x86(op, args),
             Intrinsic::CycleCounter => {
                 let v =
                     match self.arch {
