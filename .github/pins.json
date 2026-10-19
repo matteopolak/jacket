@@ -19,5 +19,7 @@
   "llvm_cov": "0.9.1",
   "llvm_cov_sha256_linux_x64": "b3f68e625481fed9b16444174f3fa5ebcdbde4a1878803a35eabe2dcefcdc41a",
   "llvm_cov_sha256_linux_arm64": "abf5f13c1520f8756d2192bfaaeadb0208f5b7eaa8cadc15bf847befa42b7360",
-  "llvm_cov_sha256_macos": "cc00420e3a5500e4d603399fde223d76d84c1446102d1b60a9fbbbce1c1c2b52"
+  "llvm_cov_sha256_macos": "cc00420e3a5500e4d603399fde223d76d84c1446102d1b60a9fbbbce1c1c2b52",
+  "cargo_mutants": "27.1.0",
+  "cargo_mutants_sha256_linux_x64": "dfe6dc37d0342c891d2829b5a695aa57c2d0edecef7e7d0399a30cc6e206411e"
 }

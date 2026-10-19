@@ -59,6 +59,8 @@ READ_BY = {
     "llvm_cov_sha256_linux_x64": "tools/ci/install_llvm_cov.sh",
     "llvm_cov_sha256_linux_arm64": "tools/ci/install_llvm_cov.sh",
     "llvm_cov_sha256_macos": "tools/ci/install_llvm_cov.sh",
+    "cargo_mutants": "tools/ci/install_cargo_mutants.sh",
+    "cargo_mutants_sha256_linux_x64": "tools/ci/install_cargo_mutants.sh",
     "mini_test_commit": "tools/dev/fetch_mini_test.py",
 }
 

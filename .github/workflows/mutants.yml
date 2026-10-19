@@ -1,0 +1,63 @@
+name: mutants
+# Weekly and by hand: cargo-mutants on the type checker's calls, conversions, interval and
+# reachability analyses, the interpreter's arithmetic and the parser. A surviving mutant is code a test
+# does not constrain; the shard artifacts list them (docs/tools/mutation-testing.md). Informational.
+on:
+  schedule:
+    - cron: '17 3 * * 6'
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Space-separated --file globs to mutate instead of the default scope
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_TERM_COLOR: always
+jobs:
+  mutants:
+    name: shard ${{ matrix.shard }}/8
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - name: Install cargo-mutants
+        run: bash tools/ci/install_cargo_mutants.sh
+      - name: Mutate
+        env:
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          if [ -z "$SCOPE" ]; then
+            SCOPE='crates/jaic/src/sema/calls/**/*.rs crates/jaic/src/sema/convert/**/*.rs crates/jaic/src/sema/convert.rs crates/jaic/src/sema/interval.rs crates/jaic/src/sema/reachability.rs crates/jaic/src/types.rs crates/jaic/src/interp/arith.rs crates/jaic/src/parser/**/*.rs'
+          fi
+          files=()
+          # shellcheck disable=SC2086
+          for glob in $SCOPE; do files+=(--file "$glob"); done
+          # Surviving mutants are the output, not a failure: exit codes 2 (missed) and 3 (timeouts) pass.
+          cargo mutants -p jaic --shard "${{ matrix.shard }}/8" "${files[@]}" --output mutants-out --jobs 1 && status=0 || status=$?
+          [ "$status" -eq 0 ] || [ "$status" -eq 2 ] || [ "$status" -eq 3 ]
+      - name: Surviving mutants
+        if: ${{ always() }}
+        run: |
+          { echo "## Shard ${{ matrix.shard }}: surviving mutants"; echo '```'; cat mutants-out/mutants.out/missed.txt 2>/dev/null || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: mutants-${{ matrix.shard }}
+          path: mutants-out/mutants.out
+          retention-days: 30
