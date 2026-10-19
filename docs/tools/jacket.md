@@ -41,11 +41,37 @@ jacket init    Create a project in the current directory  (--lib for a library)
 jacket config  migrate [--dry-run] | show
 jacket clean   Remove the executable `jacket build` writes
 jacket version Print the version of jacket and of every tool it fronts
+jacket upgrade Install the latest release over this installation [--version TAG] [--check] [--yes]
 jacket jaic|jailint|jailsp|jaifmt <args>   The tool with exactly these arguments
 jacket <other> ...                         Runs `jacket-<other>` from PATH, as cargo does
 ```
 
-`new`, `init`, `config`, `clean` and `version` are `jacket`'s own commands and use `--long` flags. Tools are found next to the `jacket` executable (symlinks are followed, so a `~/.local/bin/jacket` link finds the installed release), else on `PATH`.
+`new`, `init`, `config`, `clean`, `version` and `upgrade` are `jacket`'s own commands and use `--long` flags. Tools are found next to the `jacket` executable (symlinks are followed, so a `~/.local/bin/jacket` link finds the installed release), else on `PATH`.
+
+## Upgrading
+
+`jacket upgrade` installs the latest GitHub release over the installation that holds the running `jacket`: the whole folder (`jaic`, `jailsp`, `jailint`, `jaifmt`, `jacket`, `stdlib/`, `native-libs/`), not only the binary. Source: `crates/jacket/src/upgrade/`.
+
+```
+jacket upgrade                  # latest release; asks first when stdin is a terminal
+jacket upgrade --check          # only report whether an update exists (exit 0 either way)
+jacket upgrade --version 0.20.0 # a specific release, newer or older
+jacket upgrade --yes            # no confirmation prompt
+```
+
+How it works:
+
+1. The install is the folder beside the canonical `jacket` (symlinks followed). It must hold `jaic` and `stdlib/`, so a `cargo build` binary is refused.
+2. A Homebrew Cellar path, a `/nix/store` path or the VS Code extension's download folder is refused with the command that does own the update (`brew upgrade jacket`, `nix profile upgrade jacket`, the extension). `--check` still reports, and prints the same advice.
+3. The releases API (`/releases/latest` or `/releases/tags/v<version>`) names the release. The same or an older latest release prints `already up to date`; an explicit `--version` may go back.
+4. This platform's archive (`jacket-<platform>.tar.gz`, `.zip` on Windows; the names in [releases](releases.md#install-channels) and `tests/installers/vectors.json`) and `SHA256SUMS` are downloaded into `<install>.jacket-new/` next to the install. The archive's SHA-256 must match its `SHA256SUMS` line, and the unpacked tree must hold `jaic`, `jacket` and `stdlib/`. Any failure removes the staging folder and leaves the install as it was, with the error on stderr and exit code 2.
+5. The swap. Unix renames the install folder to `<install>.jacket-old` and the new tree into its place, undoing the first rename if the second fails; the running process keeps its open file. Windows cannot rename a folder holding a running `.exe`, so it moves each top-level entry into `<install>\.jacket-old` and the new entries in, rolling every move back on a failure. Whatever could not be deleted (the old, still-running `jacket.exe`) is removed by the next `jacket upgrade`.
+
+The install folder is named for the version `install.sh` put there (`~/.local/share/jai/0.21.0`) and keeps that name after an upgrade, so the `~/.local/bin` symlinks and the Windows `current` junction stay valid. The parent folder must be writable by you.
+
+Downloads are made by `curl` and unpacked by `tar` (both ship with macOS, nearly every Linux and Windows 10 and later, where `tar.exe` also reads zip), the way `install.sh` does it, so no HTTP or TLS stack is linked into `jacket` and `HTTPS_PROXY`, `NO_PROXY` and the system certificates work as for any `curl`. `GITHUB_TOKEN`, if set, is sent to the API only (through `curl`'s stdin config, never the command line), to lift the anonymous rate limit; a 403 or 429 suggests it.
+
+To change it: the platform-to-archive mapping is `asset_name` in `upgrade/mod.rs` (a test reads the installer vectors, so add a platform to the vectors first); package-manager detection is `managed.rs`; the swap is `swap.rs`; the network and `tar` are behind the `Source` trait in `net.rs`. Tests (`upgrade/tests.rs`, plus per-file unit tests) run against a fake release folder and never touch the network. Windows (`Mode::Entries`) is tested on every platform at the swap level, but the real `curl.exe`/`tar.exe` path has only run on macOS.
 
 ## jacket.toml
 
@@ -117,8 +143,8 @@ The notices go to stderr, since stdout may be an LSP stream. The VS Code extensi
 
 ## Configuration
 
-Environment variables `jacket` reads: `CI` (suppresses migration writes). Everything else is jaic's, such as `JAIC_STDLIB` ([native linking](../native/native-linking.md)).
+Environment variables `jacket` reads: `CI` (suppresses migration writes); for `upgrade`, `GITHUB_TOKEN` and the proxy variables `curl` reads. Everything else is jaic's, such as `JAIC_STDLIB` ([native linking](../native/native-linking.md)).
 
 ## Dependencies
 
-`serde` and `toml` (reading), `toml_edit` (migration), `clap` (jacket's own commands). The tools it fronts are separate programs; nothing links against them.
+`serde` and `toml` (reading), `toml_edit` (migration), `clap` (jacket's own commands), `serde_json` (`upgrade` reads the releases API). `upgrade` also needs `curl` and `tar` on `PATH`. The tools it fronts are separate programs; nothing links against them.

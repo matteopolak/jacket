@@ -39,6 +39,8 @@ Every install gives you five commands plus the standard library:
 | `jaifmt` | formats Jai source |
 | `jailint` | finds likely mistakes, and fixes the safe ones |
 
+To update a script or PowerShell install, run `jacket upgrade` (`--check` only looks; Homebrew and Nix installs update through `brew upgrade jacket` and Nix).
+
 Prebuilt archives are on the [releases page](https://github.com/matteopolak/jacket/releases). For other ways to install (CI, building from source), see [installation](docs/tools/releases.md#install-channels).
 
 ## Quick start
