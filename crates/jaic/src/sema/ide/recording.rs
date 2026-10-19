@@ -320,6 +320,34 @@ impl Compiler {
         }
     }
 
+    /// A declaration whose name is written at `name`: hovering it shows the entity. A name the
+    /// source does not write (a loop's `it`) has no declaration to show.
+    pub(in crate::sema) fn ide_note_entity_at(&mut self, id: EntityId, name: Option<Span>) {
+        let Some(span) = name else {
+            return;
+        };
+        if !self.ide_wants(span.file) {
+            return;
+        }
+        let ty = match &self.entity(id).kind {
+            EntityKind::Local {
+                ty, ..
+            }
+            | EntityKind::Const {
+                ty, ..
+            } => *ty,
+            _ => TypeId::COMPILE_TIME,
+        };
+        if let Some(ide) = self.ide.as_mut() {
+            ide.refs.push(IdeRef {
+                span,
+                what: IdeWhat::Entity(id),
+                ty,
+                decl: true,
+            });
+        }
+    }
+
     /// A semantic identifier resolved through a binding path that does not lower
     /// an ordinary expression (for example a using target or module argument label).
     pub(in crate::sema) fn ide_note_entity_use(&mut self, span: Span, id: EntityId, ty: TypeId) {

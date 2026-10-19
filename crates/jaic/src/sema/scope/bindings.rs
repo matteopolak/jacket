@@ -131,6 +131,23 @@ impl Compiler {
         kind: EntityKind,
         exported: bool,
     ) -> EntityId {
+        let id = self.new_entity(scope, name, span, kind, exported);
+        if self.ide.is_some() {
+            self.ide_note_entity(id);
+        }
+        id
+    }
+
+    /// [`Self::add_entity`] without the editor's record of the declaration, for a caller that knows
+    /// where the name is written (or that it is not).
+    pub(in crate::sema) fn new_entity(
+        &mut self,
+        scope: ScopeId,
+        name: Sym,
+        span: Span,
+        kind: EntityKind,
+        exported: bool,
+    ) -> EntityId {
         let placeholder = matches!(
             &kind,
             EntityKind::Decl { .. } | EntityKind::Import(_) | EntityKind::Const { .. }
@@ -156,9 +173,6 @@ impl Compiler {
                 .entry(placeholder)
                 .or_default()
                 .push(id);
-        }
-        if self.ide.is_some() {
-            self.ide_note_entity(id);
         }
         id
     }

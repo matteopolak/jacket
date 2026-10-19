@@ -57,13 +57,15 @@ impl Compiler {
                     f,
                     inner,
                     *backtick_label,
-                    name.name,
-                    EntityKind::Local {
-                        ty,
-                        addr,
-                        depth,
-                    },
-                    name.span,
+                    (
+                        name.name,
+                        EntityKind::Local {
+                            ty,
+                            addr,
+                            depth,
+                        },
+                    ),
+                    (name.span, Some(name.span)),
                 );
                 (inner, self.truthy(f, ty, v, cond.span)?)
             }
@@ -183,16 +185,18 @@ impl Compiler {
         f: &mut FnCtx,
         loop_scope: ScopeId,
         backtick: bool,
-        names: [Sym; 2],
-        kinds: [EntityKind; 2],
+        vars: [(Sym, EntityKind); 2],
+        for_: &ast::For,
         span: Span,
     ) {
-        for (i, (name, kind)) in names.into_iter().zip(kinds).enumerate() {
+        let written = [for_.it.map(|i| i.span), for_.index.map(|i| i.span)];
+        let first = vars[0].0;
+        for (i, var) in vars.into_iter().enumerate() {
             // `for it_index: 0..n`: the named value hides the default index.
-            if i == 1 && name == names[0] {
+            if i == 1 && var.0 == first {
                 continue;
             }
-            self.declare_loop_var(f, loop_scope, backtick, name, kind, span);
+            self.declare_loop_var(f, loop_scope, backtick, var, (span, written[i]));
         }
     }
 
@@ -202,18 +206,21 @@ impl Compiler {
         f: &mut FnCtx,
         loop_scope: ScopeId,
         backtick: bool,
-        name: Sym,
-        kind: EntityKind,
-        span: Span,
+        (name, kind): (Sym, EntityKind),
+        (span, written): (Span, Option<Span>),
     ) {
+        // The entity's span is the whole loop; the editor's declaration is the name, where the
+        // loop writes it, and none for the `it` and `it_index` it declares unwritten.
         if backtick
             && let Some(caller) = f.macros.last().map(|m| m.caller_scope)
             && caller != loop_scope
         {
-            self.add_entity(caller, name, span, kind.clone(), false);
+            let id = self.new_entity(caller, name, span, kind.clone(), false);
+            self.ide_note_entity_at(id, written);
         }
         self.debug_local_kind(f, loop_scope, name, span, &kind);
-        self.add_entity(loop_scope, name, span, kind, false);
+        let id = self.new_entity(loop_scope, name, span, kind, false);
+        self.ide_note_entity_at(id, written);
     }
 
     pub(super) fn check_for(
@@ -367,19 +374,25 @@ impl Compiler {
             f,
             loop_scope,
             for_.backtick_names,
-            names,
             [
-                EntityKind::Local {
-                    ty,
-                    addr: it,
-                    depth,
-                },
-                EntityKind::Local {
-                    ty: TypeId::S64,
-                    addr: idx,
-                    depth,
-                },
+                (
+                    names[0],
+                    EntityKind::Local {
+                        ty,
+                        addr: it,
+                        depth,
+                    },
+                ),
+                (
+                    names[1],
+                    EntityKind::Local {
+                        ty: TypeId::S64,
+                        addr: idx,
+                        depth,
+                    },
+                ),
             ],
+            for_,
             span,
         );
         self.ide_note_implicit_loop_names(for_, a.span, [ty, TypeId::S64]);
@@ -647,19 +660,25 @@ impl Compiler {
             f,
             loop_scope,
             for_.backtick_names,
-            [it_name, index_name],
             [
-                EntityKind::Local {
-                    ty: it_ty,
-                    addr: it_addr,
-                    depth,
-                },
-                EntityKind::Local {
-                    ty: TypeId::S64,
-                    addr: idx,
-                    depth,
-                },
+                (
+                    it_name,
+                    EntityKind::Local {
+                        ty: it_ty,
+                        addr: it_addr,
+                        depth,
+                    },
+                ),
+                (
+                    index_name,
+                    EntityKind::Local {
+                        ty: TypeId::S64,
+                        addr: idx,
+                        depth,
+                    },
+                ),
             ],
+            for_,
             span,
         );
         self.ide_note_implicit_loop_names(for_, iterated, [it_ty, TypeId::S64]);
