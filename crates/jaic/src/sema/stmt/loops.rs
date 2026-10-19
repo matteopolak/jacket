@@ -2,7 +2,7 @@
 use crate::ast::ExprKind as E;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::CallArg;
-use crate::sema::lower::{FnCtx, ForBody, LoopFrame, Operand};
+use crate::sema::lower::{FnCtx, ForBody, LoopFrame, LoopRemove, Operand};
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::*;
 use crate::types::{ArrayKind, TypeKind};
@@ -79,7 +79,9 @@ impl Compiler {
             break_block: exit,
             continue_block: head,
             defer_depth,
-            remove: None,
+            remove: LoopRemove::Unsupported(
+                "remove needs a for loop over an array, not a while loop".into(),
+            ),
         });
         let result = self.check_scoped(f, scope, body);
         f.loops.pop();
@@ -130,8 +132,17 @@ impl Compiler {
             Some(l) => f.loops.iter().rev().find(|lp| lp.label == Some(l)).cloned(),
             None => f.loops.last().cloned(),
         };
-        let Some((container, index_slot, elem, reverse)) = frame.and_then(|fr| fr.remove) else {
-            return err(span, "remove is only valid inside a for loop over an array");
+        let Some(frame) = frame else {
+            return match label {
+                Some(l) => err(span, format!("remove: no enclosing loop named `{l}`")),
+                None => err(span, "remove outside of a for loop"),
+            };
+        };
+        let (container, index_slot, elem, reverse) = match frame.remove {
+            LoopRemove::Array(container, index_slot, elem, reverse) => {
+                (container, index_slot, elem, reverse)
+            }
+            LoopRemove::Unsupported(message) => return err(span, message),
         };
         // array[it_index] = array[count-1]; count -= 1; it_index -= 1 (going forward: the
         // moved element is visited next; a reverse loop has already seen it).
@@ -375,7 +386,9 @@ impl Compiler {
             break_block: exit,
             continue_block: step,
             defer_depth,
-            remove: None,
+            remove: LoopRemove::Unsupported(
+                "remove needs a for loop over an array, not a range of numbers".into(),
+            ),
         });
         let result = self.check_scoped(f, loop_scope, &for_.body);
         f.loops.pop();
@@ -634,9 +647,14 @@ impl Compiler {
             span,
         );
         let remove = if fixed.is_none() {
-            Some((container.clone(), idx, elem, for_.reverse))
+            LoopRemove::Array(container.clone(), idx, elem, for_.reverse)
         } else {
-            None
+            let elem_name = self.types.name(elem);
+            LoopRemove::Unsupported(format!(
+                "remove cannot shrink the fixed-size array `{}`; loop over a resizable array \
+                 (`[..] {elem_name}`) or an array view (`[] {elem_name}`) to remove elements",
+                self.types.name(cty)
+            ))
         };
         let defer_depth = f.mark_defers();
         f.loops.push(LoopFrame {

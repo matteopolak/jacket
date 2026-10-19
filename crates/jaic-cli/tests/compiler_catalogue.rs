@@ -55,7 +55,7 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr)
-            .contains("remove is only valid inside a for loop over an array")
+            .contains("remove needs a for loop over an array, not a range of numbers")
     );
 }
 

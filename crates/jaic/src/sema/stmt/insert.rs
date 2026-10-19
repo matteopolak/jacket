@@ -1,6 +1,6 @@
 //! `#insert` statements and the scopes they publish into.
 use crate::ast::StmtKind as S;
-use crate::sema::lower::{FnCtx, InsertReplacements, LoopFrame, MacroFrame, Operand};
+use crate::sema::lower::{FnCtx, InsertReplacements, LoopFrame, LoopRemove, MacroFrame, Operand};
 use crate::sema::scope::{EntityId, EntityKind, ScopeKind};
 use crate::sema::*;
 
@@ -347,7 +347,9 @@ impl Compiler {
                 frame.exit_block,
                 frame.exit_block,
                 frame.defer_depth.clone(),
-                None,
+                LoopRemove::Unsupported(
+                    "remove needs a for loop over an array around the inserted code".into(),
+                ),
             ),
         };
         f.loops.push(LoopFrame {

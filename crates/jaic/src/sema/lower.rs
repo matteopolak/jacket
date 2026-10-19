@@ -140,8 +140,17 @@ pub struct LoopFrame {
     pub continue_block: ir::BlockId,
     /// Defer depth at loop entry.
     pub defer_depth: CleanupMark,
-    /// For `remove`: (container place, index slot, element type, reverse loop).
-    pub remove: Option<(Operand, Val, TypeId, bool)>,
+    /// What `remove` does in this loop.
+    pub remove: LoopRemove,
+}
+
+#[derive(Clone)]
+pub enum LoopRemove {
+    /// A `for` over a resizable array or an array view: the container place, the index slot,
+    /// the element type and whether the loop runs in reverse.
+    Array(Operand, Val, TypeId, bool),
+    /// `remove` is an error in this loop; the message says why.
+    Unsupported(String),
 }
 
 /// What `break`, `continue` and `remove` aimed at an inserted for-loop body become.

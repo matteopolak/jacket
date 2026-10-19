@@ -18,6 +18,7 @@ Adds `jacket`, one front door and one config file for the toolchain, along with 
 - `jailsp` completes `if`, `for` and `while` at the start of a statement as a skeleton with the cursor in the body, and `case` inside the braces of `if x == {`.
 - `jailsp` fades code that can never run: statements after an exit, branches and loops a condition rules out (also by integer ranges and narrowing), `case`s a value cannot select, and `#if`/`ifx` arms that were not taken. They arrive as `unreachable` hints tagged `Unnecessary`, with no squiggle.
 - The browser formatter reads `jacket.toml`: the playground driver finds the nearest `jacket.toml` or `jaifmt.toml`, and `jaifmt.wasm --config-name jacket.toml` takes `jacket.toml` text.
+- A misplaced `remove` says why it cannot apply: the loop is over a fixed-size array (with the `[..]` and `[]` types that would work), a range of numbers or is a `while` loop, or there is no enclosing loop. It used to say only that `remove` is valid inside a for loop over an array.
 
 ### Performance
 

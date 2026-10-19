@@ -1768,7 +1768,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove is only valid inside a for loop over an array"
+        "check": "remove cannot shrink the fixed-size array `[3] s64`"
       }
     },
     {
@@ -1781,7 +1781,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove is only valid inside a for loop over an array"
+        "check": "remove: no enclosing loop named `count`"
       }
     },
     {
