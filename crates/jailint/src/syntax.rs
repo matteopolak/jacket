@@ -57,7 +57,10 @@ impl ProcSite<'_> {
 }
 
 impl<'a> Cx<'a> {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one argument per analysis product the rules read; `Syntax` is a plain bundle of them"
+    )]
     pub fn new(
         compiler: &'a Compiler,
         facts: &'a Facts,

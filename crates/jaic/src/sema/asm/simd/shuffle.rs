@@ -369,7 +369,6 @@ impl Compiler {
             tmp,
             block,
             width,
-            wm,
             ops,
             inst,
             op,
@@ -542,10 +541,10 @@ impl Compiler {
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
-            VOp::Cvt(conv) => self.simd_convert(f, cx, inst, conv, ops, width, tmp)?,
-            VOp::Half(to_half) => self.simd_half(f, cx, inst, to_half, ops, width, wm, tmp)?,
+            VOp::Cvt(conv) => self.simd_convert(f, cx, c, conv)?,
+            VOp::Half(to_half) => self.simd_half(f, cx, c, to_half)?,
             VOp::Sha(sha) => self.simd_sha(f, cx, inst, sha, ops, tmp)?,
-            VOp::Gf(gf) => self.simd_gf(f, cx, inst, gf, ops, width, tmp)?,
+            VOp::Gf(gf) => self.simd_gf(f, cx, c, gf)?,
             _ => unreachable!("routed by asm_simd"),
         }
         Ok(())

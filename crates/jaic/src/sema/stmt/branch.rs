@@ -6,6 +6,14 @@ use crate::sema::{
 };
 use crate::types::TypeKind;
 
+/// A switch on a constant: its value type, cases and the indices of the cases that run.
+struct Switch<'a> {
+    vty: TypeId,
+    cases: &'a [ast::Case],
+    taken: &'a [usize],
+    complete: bool,
+}
+
 impl Compiler {
     fn const_truth(op: &Operand) -> Option<bool> {
         match op {
@@ -145,28 +153,22 @@ impl Compiler {
                     }
                     i += 1;
                 }
-                return self.check_untaken_cases(
-                    f,
-                    scope,
-                    v.ty(),
+                let switch = Switch {
+                    vty: v.ty(),
                     cases,
-                    &taken,
+                    taken: &taken,
                     complete,
-                    header,
-                    span,
-                );
+                };
+                return self.check_untaken_cases(f, scope, switch, header, span);
             }
             if cases.iter().all(|c| !c.values.is_empty()) {
-                return self.check_untaken_cases(
-                    f,
-                    scope,
-                    v.ty(),
+                let switch = Switch {
+                    vty: v.ty(),
                     cases,
-                    &[],
+                    taken: &[],
                     complete,
-                    header,
-                    span,
-                );
+                };
+                return self.check_untaken_cases(f, scope, switch, header, span);
             }
         }
         let v = self.settle_untyped(v, None);
@@ -236,18 +238,20 @@ impl Compiler {
     /// A switch on a constant runs one case, but every case is still type-checked (only `#if`
     /// skips code), as is `#complete`. The bodies not taken are checked into a block nothing
     /// jumps to.
-    #[allow(clippy::too_many_arguments)]
     fn check_untaken_cases(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        vty: TypeId,
-        cases: &[ast::Case],
-        taken: &[usize],
-        complete: bool,
+        switch: Switch<'_>,
         header: Span,
         span: Span,
     ) -> Result<()> {
+        let Switch {
+            vty,
+            cases,
+            taken,
+            complete,
+        } = switch;
         let mut covered = Vec::new();
         for case in cases {
             for cv in &case.values {

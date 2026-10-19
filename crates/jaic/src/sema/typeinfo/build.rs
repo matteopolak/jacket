@@ -1,5 +1,6 @@
 //! Building the type information record of a type.
 use super::descriptor_of;
+use super::views::View;
 use crate::sema::scope::ScopeKind;
 use crate::sema::value::Aggregate;
 use crate::sema::{
@@ -188,10 +189,8 @@ impl Compiler {
                         Err(c) => {
                             let (_, name, ty, ref value, ref cnotes) = constants[c];
                             let m = self.constant_member(
-                                member_ty,
-                                msize,
-                                name,
-                                ty,
+                                (member_ty, msize),
+                                (name, ty),
                                 value.clone(),
                                 cnotes,
                                 &mut storage,
@@ -251,14 +250,25 @@ impl Compiler {
                     self.set_field(&mut m, member_ty, "flags", Value::Int(flags), span)?;
                     let notes: Vec<Rc<[u8]>> =
                         field.notes.iter().map(|n| Rc::from(n.as_bytes())).collect();
-                    let notes_data = self.string_view(&notes, span)?;
-                    self.set_view(&mut m, member_ty, "notes", notes.len(), notes_data, 8, span)?;
+                    self.set_notes_view(&mut m, member_ty, &notes, span)?;
                     structs::write_agg(&mut members, slot as u64 * msize, &m);
                 }
-                self.set_view(agg, desc, "members", order.len(), members, malign, span)?;
+                self.set_view(
+                    agg,
+                    desc,
+                    "members",
+                    View::new(order.len(), members, malign),
+                    span,
+                )?;
                 if !info.poly_args.is_empty() || !storage.bytes.is_empty() {
                     let storage_len = storage.bytes.len();
-                    self.set_view(agg, desc, "constant_storage", storage_len, storage, 8, span)?;
+                    self.set_view(
+                        agg,
+                        desc,
+                        "constant_storage",
+                        View::of(storage_len, storage),
+                        span,
+                    )?;
                 }
                 if !bindings.is_empty() {
                     self.set_tagged_union_bindings(agg, desc, &bindings, span)?;
@@ -335,8 +345,7 @@ impl Compiler {
                     })
                     .unwrap_or_default();
                 if !struct_notes.is_empty() {
-                    let data = self.string_view(&struct_notes, span)?;
-                    self.set_view(agg, desc, "notes", struct_notes.len(), data, 8, span)?;
+                    self.set_notes_view(agg, desc, &struct_notes, span)?;
                 }
                 let (func, _) = self.initializer_proc(ty, span)?;
                 let Some((path, _)) = self.find_member(desc, Sym::intern("initializer"), span)?
@@ -374,9 +383,21 @@ impl Compiler {
         match kind {
             TypeKind::Proc(p) => {
                 let args = self.info_view(&p.params, span)?;
-                self.set_view(agg, desc, "argument_types", p.params.len(), args, 8, span)?;
+                self.set_view(
+                    agg,
+                    desc,
+                    "argument_types",
+                    View::of(p.params.len(), args),
+                    span,
+                )?;
                 let rets = self.info_view(&p.returns, span)?;
-                self.set_view(agg, desc, "return_types", p.returns.len(), rets, 8, span)?;
+                self.set_view(
+                    agg,
+                    desc,
+                    "return_types",
+                    View::of(p.returns.len(), rets),
+                    span,
+                )?;
                 let mut flags = 0;
                 if p.no_context {
                     flags |= 0x8;
@@ -407,7 +428,7 @@ impl Compiler {
                     .map(|(n, _)| Rc::from(n.as_str().as_bytes()))
                     .collect();
                 let names_data = self.string_view(&names, span)?;
-                self.set_view(agg, desc, "names", names.len(), names_data, 8, span)?;
+                self.set_view(agg, desc, "names", View::of(names.len(), names_data), span)?;
                 let mut values = Aggregate {
                     bytes: Vec::new(),
                     relocs: Vec::new(),
@@ -415,7 +436,13 @@ impl Compiler {
                 for (_, v) in &info.members {
                     values.bytes.extend_from_slice(&(*v as i64).to_le_bytes());
                 }
-                self.set_view(agg, desc, "values", info.members.len(), values, 8, span)?;
+                self.set_view(
+                    agg,
+                    desc,
+                    "values",
+                    View::of(info.members.len(), values),
+                    span,
+                )?;
                 let flags = i128::from(info.type_flags());
                 self.set_field(agg, desc, "enum_type_flags", Value::Int(flags), span)?;
             }

@@ -387,7 +387,7 @@ mod tests {
         };
 
         /// Swaps the halves of `a`, adds `k` to both, and adds the ninth vector (on the stack).
-        #[allow(clippy::too_many_arguments, improper_ctypes_definitions)]
+        #[allow(improper_ctypes_definitions)]
         extern "C" fn mix(
             a: uint64x2_t,
             k: u64,

@@ -470,8 +470,14 @@ impl Compiler {
             && procs.iter().all(|&p| self.proc_takes_for_body(p))
         {
             let leading = self.precheck_args(f, scope, args)?;
-            return self
-                .check_for_expansion(f, scope, for_, procs, leading, it_name, index_name, span);
+            return self.check_for_expansion(
+                f,
+                scope,
+                for_,
+                (procs, leading),
+                (it_name, index_name),
+                span,
+            );
         }
         let iterated = c.span;
         let op = self.check_expr(f, scope, c, None)?;
@@ -536,8 +542,14 @@ impl Compiler {
                 span,
                 scope,
             }];
-            return self
-                .check_for_expansion(f, scope, for_, procs, leading, it_name, index_name, span);
+            return self.check_for_expansion(
+                f,
+                scope,
+                for_,
+                (procs, leading),
+                (it_name, index_name),
+                span,
+            );
         }
         let (elem, fixed) = match self.types.kind(self.types.repr(cty)).clone() {
             _ if let Some(elem) = stand_in_elem => (elem, None),
@@ -694,7 +706,6 @@ impl Compiler {
     }
 
     /// `for x: collection` over a struct: expand its `for_expansion` macro.
-    #[allow(clippy::too_many_arguments)]
     /// `for_expansion` (or the `for :name` iterator) visible at the loop.
     fn for_expansion_procs(
         &mut self,
@@ -749,16 +760,13 @@ impl Compiler {
 
     /// Expand a for loop through `procs`, called with `leading` arguments
     /// followed by the body as Code and the `For_Flags`.
-    #[allow(clippy::too_many_arguments)]
     fn check_for_expansion(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
         for_: &ast::For,
-        procs: Vec<ProcId>,
-        leading: Vec<CallArg>,
-        it_name: Sym,
-        index_name: Sym,
+        (procs, leading): (Vec<ProcId>, Vec<CallArg>),
+        (it_name, index_name): (Sym, Sym),
         span: Span,
     ) -> Result<()> {
         // The body becomes a Code value; names declared with backticks land in the loop scope.

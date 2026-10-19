@@ -88,7 +88,7 @@ impl Compiler {
             && self.proc(proc).lit.body.is_none()
             && super::procs::llvm_intrinsic(&header).is_none()
         {
-            return self.emit_intrinsic(f, proc, &sig, &c.slots, &header, args, span);
+            return self.emit_intrinsic(f, proc, (&sig, &header), &c.slots, args, span);
         }
         let mut values = Vec::new();
         if sig.has_context {

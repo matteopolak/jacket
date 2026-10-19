@@ -2,6 +2,29 @@
 use crate::sema::value::Aggregate;
 use crate::sema::{Compiler, Rc, Result, Span, Sym, TypeId, Value, err, ir, structs};
 
+/// The elements a `[] T` view field points at: how many, their bytes and the alignment of the
+/// global that holds them.
+pub(super) struct View {
+    count: usize,
+    data: Aggregate,
+    align: u64,
+}
+
+impl View {
+    /// A view whose data is aligned to eight bytes.
+    pub(super) fn of(count: usize, data: Aggregate) -> Self {
+        Self::new(count, data, 8)
+    }
+
+    pub(super) fn new(count: usize, data: Aggregate, align: u64) -> Self {
+        Self {
+            count,
+            data,
+            align,
+        }
+    }
+}
+
 impl Compiler {
     pub(super) fn set_field(
         &mut self,
@@ -63,18 +86,32 @@ impl Compiler {
         Ok(())
     }
 
+    /// Write the `notes` view field of `desc` from the note strings.
+    pub(super) fn set_notes_view(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        notes: &[Rc<[u8]>],
+        span: Span,
+    ) -> Result<()> {
+        let data = self.string_view(notes, span)?;
+        self.set_view(agg, desc, "notes", View::of(notes.len(), data), span)
+    }
+
     /// Write a `[] T` view field pointing at a new read-only global.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn set_view(
         &mut self,
         agg: &mut Aggregate,
         desc: TypeId,
         name: &str,
-        count: usize,
-        data: Aggregate,
-        align: u64,
+        view: View,
         span: Span,
     ) -> Result<()> {
+        let View {
+            count,
+            data,
+            align,
+        } = view;
         let Some((path, _)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
                 span,

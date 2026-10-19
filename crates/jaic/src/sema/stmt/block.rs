@@ -426,15 +426,7 @@ impl Compiler {
             }
             S::PushContext(boxed) => self.check_push_context(f, scope, boxed, span),
             S::StaticIf(boxed) => self.check_static_if_stmt(f, scope, boxed, span),
-            S::Insert(boxed) => {
-                let crate::ast::InsertStmt {
-                    value,
-                    flags,
-                    scope: target,
-                    replacements,
-                } = &**boxed;
-                self.check_insert(f, scope, value, flags, target.as_ref(), replacements, span)
-            }
+            S::Insert(boxed) => self.check_insert(f, scope, boxed, span),
             S::Assert(boxed) => self.check_static_assert_stmt(scope, boxed, span),
             S::Run(e) => {
                 self.check_expr(f, scope, e, None)?;

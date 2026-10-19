@@ -9,8 +9,8 @@
 //! `cmpxchg16b d, a, [mem], c, b`.
 use super::{
     Alu, AsmArgs, AsmCtx, AsmInst, BinOp, CmpOp, Compiler, Flags, FnCtx, Imm, Intrinsic, Opd,
-    Result, ShiftKind, Span, TargetCpu, Ty, UnOp, Val, bin, bits, cmp, err, flag_not, flag_or,
-    flag_xor, ir, is_neg, is_zero, konst, ptr_of, resize, select, wide_mul,
+    Result, ShiftKind, Site, Span, TargetCpu, Ty, UnOp, Val, bin, bits, cmp, err, flag_not,
+    flag_or, flag_xor, ir, is_neg, is_zero, konst, ptr_of, resize, select, wide_mul,
 };
 
 mod groups;
@@ -555,17 +555,19 @@ impl Compiler {
     /// otherwise load [mem] into d:a and clear ZF. With `lock_` the exchange holds a
     /// process-wide spin lock, so it is atomic with respect to other locked 8/16-byte
     /// exchanges (not to plain atomics on the same memory).
-    #[allow(clippy::too_many_arguments)]
     fn asm_cmpxchg_pair(
         &mut self,
         f: &mut FnCtx,
         cx: &mut AsmCtx,
-        half: Ty,
+        site: Site,
         addr: Val,
         opds: &[Opd],
-        lock: bool,
-        span: Span,
     ) -> Result<()> {
+        let Site {
+            ty: half,
+            lock,
+            span,
+        } = site;
         let lock_ptr = if lock {
             let global = *self.asm_pair_lock.get_or_insert_with(|| {
                 self.program.add_global(crate::ir::Global {

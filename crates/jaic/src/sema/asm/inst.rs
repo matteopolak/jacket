@@ -2,7 +2,7 @@
 use super::helpers::{
     bin, bit_intrinsic, bits, cmp, flag_not, is_zero, konst, resize, select, wide_mul,
 };
-use super::model::{Alu, AsmArgs, AsmCtx, Flags, Op, Opd, lookup_op};
+use super::model::{Alu, AsmArgs, AsmCtx, Flags, Op, Opd, Site, lookup_op};
 use crate::ast::{AsmInst, AsmSize};
 use crate::ir::{BinOp, CmpOp, Intrinsic, Ty, UnOp};
 use crate::sema::lower::{FnCtx, Operand};
@@ -436,12 +436,34 @@ impl Compiler {
                 } else {
                     None
                 };
-                self.asm_shift(f, cx, kind, sz, opds[0], count, lock, span)?;
+                self.asm_shift(
+                    f,
+                    cx,
+                    kind,
+                    Site {
+                        ty: sz,
+                        lock,
+                        span,
+                    },
+                    opds[0],
+                    count,
+                )?;
             }
             Op::Bt(kind) => {
                 want(2, 2)?;
                 let sz = self.asm_size(f, cx, inst, &opds[..1])?;
-                self.asm_bit_test(f, cx, kind, sz, opds[0], opds[1], lock, span)?;
+                self.asm_bit_test(
+                    f,
+                    cx,
+                    kind,
+                    Site {
+                        ty: sz,
+                        lock,
+                        span,
+                    },
+                    opds[0],
+                    opds[1],
+                )?;
             }
             Op::Imul | Op::Mul => {
                 want(

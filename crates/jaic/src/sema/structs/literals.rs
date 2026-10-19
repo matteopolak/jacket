@@ -7,13 +7,11 @@ use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, 
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
-    #[allow(clippy::too_many_arguments)]
     pub fn check_struct_literal(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        ty_expr: Option<&ast::Expr>,
-        args: &[ast::Arg],
+        (ty_expr, args): (Option<&ast::Expr>, &[ast::Arg]),
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
@@ -192,13 +190,11 @@ impl Compiler {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn check_array_literal(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        ty_expr: Option<&ast::Expr>,
-        elems: &[ast::Expr],
+        (ty_expr, elems): (Option<&ast::Expr>, &[ast::Expr]),
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {

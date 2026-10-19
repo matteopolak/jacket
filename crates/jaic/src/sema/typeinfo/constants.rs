@@ -82,13 +82,10 @@ impl Compiler {
 
     /// One `CONSTANT` entry of `Type_Info_Struct.members`; its value, if it has one, is
     /// appended to `storage` and `offset_into_constant_storage` points at it.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn constant_member(
         &mut self,
-        member_ty: TypeId,
-        msize: u64,
-        name: Sym,
-        mut ty: TypeId,
+        (member_ty, msize): (TypeId, u64),
+        (name, mut ty): (Sym, TypeId),
         value: Option<Value>,
         notes: &[Rc<[u8]>],
         storage: &mut Aggregate,
@@ -140,8 +137,7 @@ impl Compiler {
         self.set_field(&mut m, member_ty, "flags", Value::Int(0x1), span)?;
         // A constant has no storage in the struct's instances.
         self.set_field(&mut m, member_ty, "offset_in_bytes", Value::Int(-1), span)?;
-        let notes_data = self.string_view(notes, span)?;
-        self.set_view(&mut m, member_ty, "notes", notes.len(), notes_data, 8, span)?;
+        self.set_notes_view(&mut m, member_ty, notes, span)?;
         self.set_field(
             &mut m,
             member_ty,

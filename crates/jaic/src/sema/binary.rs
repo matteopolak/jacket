@@ -12,20 +12,41 @@ use super::{Compiler, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
 use crate::ir::CmpOp;
 
+/// The operator and operand expressions of a binary expression.
+#[derive(Clone, Copy)]
+pub(super) struct Binary<'a> {
+    pub(super) op: BinOp,
+    pub(super) a: &'a ast::Expr,
+    pub(super) b: &'a ast::Expr,
+}
+
+/// Both operands converted to the operation's type and loaded.
+#[derive(Clone, Copy)]
+pub(super) struct Unified {
+    /// The operation's type.
+    ty: TypeId,
+    /// The right operand's type (a shift amount keeps its own).
+    rhs_ty: TypeId,
+    x: ir::Val,
+    y: ir::Val,
+}
+
 impl Compiler {
     /// `a op b` for every operator but `&&` and `||`: check the operands, then fold, overload,
     /// do pointer arithmetic, or convert both sides to one type and emit the operation.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn check_binary(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        op: BinOp,
-        a: &ast::Expr,
-        b: &ast::Expr,
+        node: Binary<'_>,
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
+        let Binary {
+            op,
+            a,
+            b,
+        } = node;
         if matches!(op, BinOp::And | BinOp::Or) {
             return self.check_logical(f, scope, op, a, b, span);
         }
@@ -70,16 +91,25 @@ impl Compiler {
             return self.pointer_offset(f, op, lhs, rhs, span);
         }
         if self.types.is_pointer(rty) && op == BinOp::Add && self.types.is_integer(lty) {
-            return self.check_binary(f, scope, op, b, a, expected, span);
+            return self.check_binary(
+                f,
+                scope,
+                Binary {
+                    op,
+                    a: b,
+                    b: a,
+                },
+                expected,
+                span,
+            );
         }
         let pointer_and_int = (self.types.is_pointer(lty) && self.types.is_integer(rty))
             || (self.types.is_pointer(rty) && self.types.is_integer(lty));
         if is_bitwise(op) && pointer_and_int {
             return self.mask_pointer(f, op, lhs, rhs, span);
         }
-        let (ty, rhs_ty, x, y) =
-            self.unify_binary_operands(f, op, (a, b), lhs, rhs, expected, span)?;
-        self.emit_binary(f, op, ty, rhs_ty, x, y, span)
+        let values = self.unify_binary_operands(f, node, (lhs, rhs), expected, span)?;
+        self.emit_binary(f, op, values, span)
     }
 }
 

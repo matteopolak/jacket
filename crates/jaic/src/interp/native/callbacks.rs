@@ -547,7 +547,10 @@ fn piece_size(p: &Piece, size: u64) -> u64 {
     width.min(size - p.offset)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the register and stack slots a native callback was entered with, plus the interpreter state"
+)]
 fn invoke(
     reenter: &mut Reenter<'_>,
     func: FuncId,

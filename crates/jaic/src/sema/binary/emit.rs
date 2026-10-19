@@ -1,5 +1,5 @@
 //! Unifying operand types and emitting the operation, with its overflow check.
-use super::{arith_op, cmp_op, is_comparison, is_shift};
+use super::{Binary, Unified, arith_op, cmp_op, is_comparison, is_shift};
 use crate::ast::BinOp;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::binop_text;
@@ -11,17 +11,19 @@ use crate::types::TypeKind;
 impl Compiler {
     /// Convert both operands to the operation's type and load them. Returns that type, the
     /// right operand's type (a shift amount keeps its own) and the two values.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn unify_binary_operands(
         &mut self,
         f: &mut FnCtx,
-        op: BinOp,
-        (a, b): (&ast::Expr, &ast::Expr),
-        mut lhs: Operand,
-        mut rhs: Operand,
+        node: Binary<'_>,
+        (mut lhs, mut rhs): (Operand, Operand),
         expected: Option<TypeId>,
         span: Span,
-    ) -> Result<(TypeId, TypeId, ir::Val, ir::Val)> {
+    ) -> Result<Unified> {
+        let Binary {
+            op,
+            a,
+            b,
+        } = node;
         let is_shift = is_shift(op);
         // An integer variable meeting an untyped float constant (`n * 0.5`) is converted to float.
         let is_float_lit = |o: &Operand| {
@@ -122,21 +124,28 @@ impl Compiler {
         let rhs = self.convert(f, rhs, rhs_ty, span)?;
         let (_, x) = self.rvalue(f, lhs, span)?;
         let (_, y) = self.rvalue(f, rhs, span)?;
-        Ok((ty, rhs_ty, x, y))
+        Ok(Unified {
+            ty,
+            rhs_ty,
+            x,
+            y,
+        })
     }
 
     /// Emit `x op y` on values of type `ty` (`rhs_ty` for a shift amount).
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn emit_binary(
         &mut self,
         f: &mut FnCtx,
         op: BinOp,
-        ty: TypeId,
-        rhs_ty: TypeId,
-        x: ir::Val,
-        y: ir::Val,
+        values: Unified,
         span: Span,
     ) -> Result<Operand> {
+        let Unified {
+            ty,
+            rhs_ty,
+            x,
+            y,
+        } = values;
         let (is_cmp, is_shift) = (is_comparison(op), is_shift(op));
         if ty == TypeId::STRING && is_cmp {
             return self.string_compare(f, op, x, y, span);
@@ -226,7 +235,7 @@ impl Compiler {
             && self.types.is_integer(ty)
             && !matches!(self.types.kind(ty), TypeKind::Enum(_))
         {
-            self.emit_overflow_check(f, ir_op, signed, t, x, y, span)?;
+            self.emit_overflow_check(f, (ir_op, signed, t), (x, y), span)?;
         }
         Ok(Operand::Value {
             ty,
@@ -236,15 +245,11 @@ impl Compiler {
 
     /// After `x op y` on integers of IR type `t`: call the runtime's `__arithmetic_overflow`
     /// when the result did not fit (`Build_Options.arithmetic_overflow_check`).
-    #[allow(clippy::too_many_arguments)]
     pub(in crate::sema) fn emit_overflow_check(
         &mut self,
         f: &mut FnCtx,
-        op: ir::BinOp,
-        signed: bool,
-        t: Ty,
-        x: ir::Val,
-        y: ir::Val,
+        (op, signed, t): (ir::BinOp, bool, Ty),
+        (x, y): (ir::Val, ir::Val),
         span: Span,
     ) -> Result<()> {
         use ir::Intrinsic as I;

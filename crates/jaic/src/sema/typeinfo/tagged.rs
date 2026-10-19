@@ -1,4 +1,5 @@
 //! Tagged union members and polymorphic struct bindings.
+use super::views::View;
 use crate::sema::scope::EntityKind;
 use crate::sema::value::Aggregate;
 use crate::sema::{
@@ -113,9 +114,7 @@ impl Compiler {
             agg,
             desc,
             "tagged_union_bindings",
-            bindings.len(),
-            items,
-            align,
+            View::new(bindings.len(), items, align),
             span,
         )
     }

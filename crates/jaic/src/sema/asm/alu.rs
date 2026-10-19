@@ -3,10 +3,10 @@ use super::helpers::{
     bin, bits, cmp, flag_not, flag_or, flag_xor, is_neg, is_zero, konst, resize, select,
     sign_flag_of,
 };
-use super::model::{Alu, AsmCtx, BitTest, Flags, Opd, ShiftKind};
+use super::model::{Alu, AsmCtx, BitTest, Flags, Opd, ShiftKind, Site};
 use crate::ir::{BinOp, CmpOp, Ty, UnOp, Val};
 use crate::sema::lower::FnCtx;
-use crate::sema::{Compiler, Result, Span};
+use crate::sema::{Compiler, Result};
 
 impl Compiler {
     /// `a op b` with flags; returns the result (the caller writes it back).
@@ -93,18 +93,20 @@ impl Compiler {
         cx.flags.of = Some(overflow);
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn asm_shift(
         &mut self,
         f: &mut FnCtx,
         cx: &mut AsmCtx,
         kind: ShiftKind,
-        sz: Ty,
+        site: Site,
         dst: Opd,
         count: Option<Opd>,
-        lock: bool,
-        span: Span,
     ) -> Result<()> {
+        let Site {
+            ty: sz,
+            lock,
+            span,
+        } = site;
         let n = bits(sz);
         // The count is taken mod 32 (mod 64 for 64-bit operands), as on hardware.
         let c = match count {
@@ -206,18 +208,20 @@ impl Compiler {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn asm_bit_test(
         &mut self,
         f: &mut FnCtx,
         cx: &mut AsmCtx,
         kind: BitTest,
-        sz: Ty,
+        site: Site,
         dst: Opd,
         index: Opd,
-        lock: bool,
-        span: Span,
     ) -> Result<()> {
+        let Site {
+            ty: sz,
+            lock,
+            span,
+        } = site;
         let n = bits(sz);
         let idx = self.asm_read(f, index, sz, span)?;
         let mask = konst(f, sz, n - 1);

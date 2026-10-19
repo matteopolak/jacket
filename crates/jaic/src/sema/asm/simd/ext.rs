@@ -5,10 +5,11 @@
 //! give the same bits in the interpreter and in native code on any host. MXCSR is
 //! not modeled: `cvtps2ph` with imm8 bit 2 ("use MXCSR.RC") rounds to nearest even,
 //! which is the MXCSR default.
+use super::dispatch::SimdLocals;
 use super::{
     AsmCtx, AsmInst, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Span, Ty, UnOp, VOpd, Val,
-    WriteMask, bin, bit_intrinsic, cmp, err, flag_not, flag_or, is_zero, konst, lane_addr,
-    load_dyn, load_lane, mask_bit, ptr_of, resize, select, store_lane, when, xtime,
+    bin, bit_intrinsic, cmp, err, flag_not, flag_or, is_zero, konst, lane_addr, load_dyn,
+    load_lane, mask_bit, ptr_of, resize, select, store_lane, when, xtime,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -275,15 +276,12 @@ impl Compiler {
     /// Store `bytes` of `tmp` (zero above them) to `dst`. A register destination is
     /// written in full: cleared above the result for VEX/EVEX encodings, kept for
     /// legacy SSE encodings, whatever the block's default.
-    #[allow(clippy::too_many_arguments)]
     fn ext_store(
         &mut self,
         f: &mut FnCtx,
         cx: &AsmCtx,
-        dst: VOpd,
-        tmp: Val,
-        bytes: u64,
-        vex: bool,
+        (dst, tmp): (VOpd, Val),
+        (bytes, vex): (u64, bool),
         span: Span,
     ) -> Result<()> {
         match dst {
@@ -301,18 +299,14 @@ impl Compiler {
 
     /// `vcvtph2ps dst, src` and `vcvtps2ph dst, src, imm8`. `width` is the size of
     /// the single-precision vector; the half vector is half of it.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn simd_half(
         &mut self,
         f: &mut FnCtx,
         cx: &AsmCtx,
-        inst: &AsmInst,
+        c: &SimdLocals<'_>,
         to_half: bool,
-        ops: &[VOpd],
-        width: u64,
-        wm: Option<WriteMask>,
-        tmp: Val,
     ) -> Result<()> {
+        let (inst, ops, width, wm, tmp) = (c.inst, c.ops, c.width, c.wm, c.tmp);
         let span = inst.span;
         let name = inst.mnemonic.name.as_str();
         let lanes = width / 4;
@@ -328,7 +322,7 @@ impl Compiler {
                 store_lane(f, tmp, i, Ty::I32, r);
             }
             // F16C only exists VEX/EVEX encoded.
-            return self.ext_store(f, cx, dst, tmp, width, true, span);
+            return self.ext_store(f, cx, (dst, tmp), (width, true), span);
         }
         if ops.len() != 3 {
             return err(span, format!("`{name}` takes dst, src, imm8"));
@@ -374,7 +368,7 @@ impl Compiler {
                 _ => {}
             }
         }
-        self.ext_store(f, cx, dst, tmp, lanes * 2, true, span)
+        self.ext_store(f, cx, (dst, tmp), (lanes * 2, true), span)
     }
 
     /// The SHA extensions. All are legacy SSE encoded and 128 bits wide.
@@ -516,22 +510,19 @@ impl Compiler {
         for (i, v) in out.into_iter().enumerate() {
             store_lane(f, tmp, 3 - i as u64, Ty::I32, v);
         }
-        self.ext_store(f, cx, ops[0], tmp, 16, false, span)
+        self.ext_store(f, cx, (ops[0], tmp), (16, false), span)
     }
 
     /// `gf2p8mulb`, `gf2p8affineqb` and `gf2p8affineinvqb`, legacy (two sources with
     /// the destination first) or `v`-prefixed.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn simd_gf(
         &mut self,
         f: &mut FnCtx,
         cx: &AsmCtx,
-        inst: &AsmInst,
+        c: &SimdLocals<'_>,
         gf: GfOp,
-        ops: &[VOpd],
-        width: u64,
-        tmp: Val,
     ) -> Result<()> {
+        let (inst, ops, width, tmp) = (c.inst, c.ops, c.width, c.tmp);
         let span = inst.span;
         let vex = inst.mnemonic.name.as_str().starts_with('v');
         match gf {
@@ -569,6 +560,6 @@ impl Compiler {
                 }
             }
         }
-        self.ext_store(f, cx, ops[0], tmp, width, vex, span)
+        self.ext_store(f, cx, (ops[0], tmp), (width, vex), span)
     }
 }

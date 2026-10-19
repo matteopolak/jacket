@@ -413,7 +413,6 @@ mod stdio {
     /// A C entry point taking `SLOTS` integer slots that hands them to `$body` as an array.
     macro_rules! entry {
         ($name:ident => $body:ident) => {
-            #[allow(clippy::too_many_arguments)]
             unsafe extern "C" fn $name(
                 s0: u64,
                 s1: u64,

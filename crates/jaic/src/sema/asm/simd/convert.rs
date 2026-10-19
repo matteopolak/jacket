@@ -1,10 +1,11 @@
 //! Binary lane operations, carry-less multiply and conversions.
+use super::dispatch::SimdLocals;
 use super::helpers::{aes_tables, float_to_int, saturate};
 use super::{B2, Conv};
-use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
+use crate::sema::asm::vec::{load_lane, store_lane};
 use crate::sema::asm::{
-    AsmCtx, AsmInst, AsmSize, BinOp, CmpOp, Compiler, ConvOp, FnCtx, Result, Ty, Val, bin, bits,
-    cmp, err, flag_not, flag_or, is_neg, is_zero, konst, resize, select,
+    AsmCtx, AsmSize, BinOp, CmpOp, Compiler, ConvOp, FnCtx, Result, Ty, Val, bin, bits, cmp, err,
+    flag_not, flag_or, is_neg, is_zero, konst, resize, select,
 };
 
 impl Compiler {
@@ -204,17 +205,14 @@ impl Compiler {
     }
 
     /// Conversions (`Conv`).
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn simd_convert(
         &mut self,
         f: &mut FnCtx,
         cx: &mut AsmCtx,
-        inst: &AsmInst,
+        c: &SimdLocals<'_>,
         conv: Conv,
-        ops: &[VOpd],
-        width: u64,
-        tmp: Val,
     ) -> Result<()> {
+        let (inst, ops, width, tmp) = (c.inst, c.ops, c.width, c.tmp);
         let span = inst.span;
         let name = inst.mnemonic.name.as_str();
         let dst = ops[0];

@@ -126,7 +126,7 @@ impl Compiler {
                 };
             }
             VOp::Pcmpstr(explicit, mask) => {
-                self.asm_pcmpstr(f, cx, ops, explicit, mask, span, name)?;
+                self.asm_pcmpstr(f, cx, c, (explicit, mask))?;
             }
             VOp::Ptest => {
                 if ops.len() != 2 {

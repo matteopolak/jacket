@@ -70,15 +70,13 @@ impl Compiler {
     }
 
     /// Record a named local variable (or parameter, `arg` > 0) living at `addr`.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn debug_var(
         &self,
         f: &mut FnCtx,
         scope: ScopeId,
         name: Sym,
         span: Span,
-        ty: TypeId,
-        addr: ir::Val,
+        (ty, addr): (TypeId, ir::Val),
         arg: u32,
     ) {
         if f.b.func.debug.is_none() || name.as_str().starts_with('\0') || name.as_str() == "_" {
@@ -118,7 +116,7 @@ impl Compiler {
             ..
         } = kind
         {
-            self.debug_var(f, scope, name, span, *ty, *addr, 0);
+            self.debug_var(f, scope, name, span, (*ty, *addr), 0);
         }
     }
 

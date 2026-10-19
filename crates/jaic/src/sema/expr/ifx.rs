@@ -4,7 +4,6 @@ use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
 
 impl Compiler {
-    #[allow(clippy::too_many_arguments)]
     /// The type an `ifx` branch contributes, or `None` when it adapts to the other branch
     /// (an untyped constant) or is not a plain value.
     fn ifx_branch_type(op: &Operand) -> Option<TypeId> {
@@ -85,14 +84,12 @@ impl Compiler {
 
     /// `ifx` with a constant condition: the taken branch is the value, so it stays constant,
     /// but the other branch is still checked, and the arms must still agree on a type.
-    #[allow(clippy::too_many_arguments)]
     fn fold_constant_ifx(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
         cond_holds: bool,
-        then_e: &ast::Expr,
-        else_e: &ast::Expr,
+        (then_e, else_e): (&ast::Expr, &ast::Expr),
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
@@ -165,7 +162,7 @@ impl Compiler {
             };
             if let Some(t) = taken {
                 if let (Some(then_e), Some(else_e)) = (then_value, else_value) {
-                    return self.fold_constant_ifx(f, scope, t, then_e, else_e, expected, span);
+                    return self.fold_constant_ifx(f, scope, t, (then_e, else_e), expected, span);
                 }
                 if t {
                     return self.check_expr(f, scope, then_value.unwrap(), expected);

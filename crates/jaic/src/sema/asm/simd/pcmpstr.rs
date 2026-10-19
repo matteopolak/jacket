@@ -1,8 +1,9 @@
 //! The string-compare instructions.
+use super::dispatch::SimdLocals;
 use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
 use crate::sema::asm::{
-    AsmCtx, BinOp, CmpOp, Compiler, Flags, FnCtx, Result, Span, Ty, Val, bin, cmp, err, flag_not,
-    is_neg, is_zero, konst, resize, select,
+    AsmCtx, BinOp, CmpOp, Compiler, Flags, FnCtx, Result, Ty, Val, bin, cmp, err, flag_not, is_neg,
+    is_zero, konst, resize, select,
 };
 
 impl Compiler {
@@ -11,17 +12,14 @@ impl Compiler {
     /// length forms `eax` and `edx`, the two vectors and the control byte. The control byte is
     /// a constant, so the aggregation is chosen here and only the per-element booleans are
     /// computed at run time.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn asm_pcmpstr(
         &mut self,
         f: &mut FnCtx,
         cx: &mut AsmCtx,
-        ops: &[VOpd],
-        explicit: bool,
-        mask: bool,
-        span: Span,
-        name: &str,
+        c: &SimdLocals<'_>,
+        (explicit, mask): (bool, bool),
     ) -> Result<()> {
+        let (ops, span, name) = (c.ops, c.span, c.name);
         let want = if explicit {
             6
         } else {

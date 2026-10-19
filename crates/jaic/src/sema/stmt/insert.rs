@@ -7,17 +7,20 @@ use crate::sema::{
 };
 
 impl Compiler {
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn check_insert(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        value: &ast::Expr,
-        flags: &[ast::Ident],
-        target: Option<&ast::Expr>,
-        replacements: &[ast::Arg],
+        stmt: &ast::InsertStmt,
         span: Span,
     ) -> Result<()> {
+        let ast::InsertStmt {
+            value,
+            flags,
+            scope: target,
+            replacements,
+        } = stmt;
+        let target = target.as_ref();
         let mut op = self.eval_insert_operand(scope, value)?;
         // `#insert,scope(code) "text"`: the text becomes Code inserted there.
         let string_payload = target.is_some()

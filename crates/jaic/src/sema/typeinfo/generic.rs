@@ -1,5 +1,6 @@
 //! Type information of generic structs and their parameters.
 use super::tag;
+use super::views::View;
 use crate::sema::scope::{EntityKind, ScopeKind};
 use crate::sema::value::Aggregate;
 use crate::sema::{
@@ -57,15 +58,13 @@ impl Compiler {
                 bytes: Vec::new(),
                 relocs: Vec::new(),
             };
-            self.generic_parameters(&mut generic, desc, &lit, scope, &[], &mut storage, span)?;
+            self.generic_parameters(&mut generic, desc, &lit, (scope, &[]), &mut storage, span)?;
             let len = storage.bytes.len();
             self.set_view(
                 &mut generic,
                 desc,
                 "constant_storage",
-                len,
-                storage,
-                8,
+                View::of(len, storage),
                 span,
             )?;
         }
@@ -86,14 +85,12 @@ impl Compiler {
     /// Declared parameter defaults, evaluated with preceding actual bindings for
     /// an instance, or preceding declared defaults for the shared source record.
     /// A missing default has offset -1, distinct from a stored zero/null value.
-    #[allow(clippy::too_many_arguments)]
     fn generic_parameters(
         &mut self,
         agg: &mut Aggregate,
         desc: TypeId,
         lit: &ast::StructLit,
-        parent: ScopeId,
-        actual: &[(Sym, Value, TypeId)],
+        (parent, actual): (ScopeId, &[(Sym, Value, TypeId)]),
         storage: &mut Aggregate,
         span: Span,
     ) -> Result<()> {
@@ -186,8 +183,7 @@ impl Compiler {
                         .map(|(_, _, ty)| *ty)
                 });
             let member = self.parameter_member(
-                member_ty,
-                msize,
+                (member_ty, msize),
                 name,
                 ty,
                 default.as_ref(),
@@ -221,18 +217,14 @@ impl Compiler {
             agg,
             desc,
             "parameters",
-            lit.params.len(),
-            members,
-            malign,
+            View::new(lit.params.len(), members, malign),
             span,
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn parameter_member(
         &mut self,
-        member_ty: TypeId,
-        msize: u64,
+        (member_ty, msize): (TypeId, u64),
         name: Sym,
         ty: Option<TypeId>,
         value: Option<&Value>,
@@ -310,15 +302,14 @@ impl Compiler {
         if let Some(source) = self.struct_asts.get(&s) {
             let (lit, scope) = (source.lit.clone(), source.scope);
             let parent = self.scope(scope).parent.unwrap_or(scope);
-            self.generic_parameters(agg, desc, &lit, parent, &actual, storage, span)?;
+            self.generic_parameters(agg, desc, &lit, (parent, &actual), storage, span)?;
         }
         for (name, value, mut ty) in actual.iter().cloned() {
             if self.size_of(ty, span).is_err() {
                 ty = self.type_of_value(&value); // Untyped literal arguments.
             }
             let m = self.parameter_member(
-                member_ty,
-                msize,
+                (member_ty, msize),
                 name,
                 Some(ty),
                 Some(&value),
@@ -333,9 +324,7 @@ impl Compiler {
             agg,
             desc,
             "specified_parameters",
-            actual.len(),
-            members,
-            malign,
+            View::new(actual.len(), members, malign),
             span,
         )?;
         // The shared generic declaration descriptor preserves source identity.

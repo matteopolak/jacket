@@ -4,6 +4,7 @@ mod ifx;
 mod indexing;
 mod unary;
 
+use super::binary::Binary;
 use super::lower::{FnCtx, Operand};
 use super::{Compiler, Rc, Result, ScopeId, Sym, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
@@ -239,7 +240,14 @@ impl Compiler {
     ) -> Result<Operand> {
         let span = expr.span;
         match &expr.kind {
-            E::Binary(op, a, b) => self.check_binary(f, scope, *op, a, b, expected, span),
+            E::Binary(op, a, b) => {
+                let node = Binary {
+                    op: *op,
+                    a,
+                    b,
+                };
+                self.check_binary(f, scope, node, expected, span)
+            }
             E::Unary(op, a) => self.check_unary(f, scope, *op, a, expected, span),
             E::Call {
                 callee,
@@ -381,11 +389,11 @@ impl Compiler {
             E::StructLit {
                 ty,
                 fields,
-            } => self.check_struct_literal(f, scope, ty.as_deref(), fields, expected, span),
+            } => self.check_struct_literal(f, scope, (ty.as_deref(), fields), expected, span),
             E::ArrayLit {
                 ty,
                 elems,
-            } => self.check_array_literal(f, scope, ty.as_deref(), elems, expected, span),
+            } => self.check_array_literal(f, scope, (ty.as_deref(), elems), expected, span),
             E::Lambda {
                 header,
                 body,

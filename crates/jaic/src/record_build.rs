@@ -151,6 +151,14 @@ fn number(item: &Item) -> Option<i64> {
 }
 
 /// What a build is writing into: strings handed out and the records read.
+/// How one plan entry is stored: its plan kind, its size in bytes and, for a pointer or nested
+/// struct, the record type it refers to.
+struct Slot {
+    kind: u64,
+    size: usize,
+    type_target: u64,
+}
+
 struct Fill<'a> {
     records: &'a Records,
     kept: &'a mut Vec<Rc<[u8]>>,
@@ -487,9 +495,11 @@ impl Builder {
                             fill,
                             interp,
                             &mut array,
-                            entry.element_kind,
-                            size as usize,
-                            entry.target,
+                            Slot {
+                                kind: entry.element_kind,
+                                size: size as usize,
+                                type_target: entry.target,
+                            },
                             item,
                             data + k as u64 * size,
                         )?;
@@ -514,9 +524,11 @@ impl Builder {
                         fill,
                         interp,
                         image,
-                        entry.kind,
-                        entry.size,
-                        entry.target,
+                        Slot {
+                            kind: entry.kind,
+                            size: entry.size,
+                            type_target: entry.target,
+                        },
                         &item,
                         target,
                     )?;
@@ -527,18 +539,20 @@ impl Builder {
     }
 
     /// Write one value of plan kind `kind` and `size` bytes at `target`.
-    #[allow(clippy::too_many_arguments)]
     fn fill_item(
         &mut self,
         fill: &mut Fill,
         interp: &mut Interp,
         image: &mut Image,
-        kind: u64,
-        size: usize,
-        type_target: u64,
+        slot: Slot,
         item: &Item,
         target: u64,
     ) -> Result<(), Trap> {
+        let Slot {
+            kind,
+            size,
+            type_target,
+        } = slot;
         match (kind, item) {
             (PLAN_INT, Item::Int(v) | Item::Ref(v)) => {
                 image.put(target, &v.to_le_bytes()[..size.min(8)])

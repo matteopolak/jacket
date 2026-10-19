@@ -51,6 +51,15 @@ impl Token {
     }
 }
 
+/// Where a declaration's symbols live: the span they are visible in, their parent symbol and
+/// whether they are local or private to the file.
+pub(crate) struct Placement {
+    pub scope: Span,
+    pub parent: Option<usize>,
+    pub local: bool,
+    pub private: bool,
+}
+
 #[derive(Clone)]
 pub(crate) struct SymbolRow {
     pub name: Sym,
@@ -280,38 +289,15 @@ impl Analysis {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn add(
-        &mut self,
-        name: Sym,
-        kind: SymbolKind,
-        location: Span,
-        selection: Span,
-        scope: Span,
-        parent: Option<usize>,
-        local: bool,
-        private: bool,
-        readonly: bool,
-        context: &Context,
-    ) -> Option<usize> {
+    fn add(&mut self, row: SymbolRow, context: &Context) -> Option<usize> {
         if self.rows.len() >= context.limits.rows
-            || selection.end > context.text.len()
-            || location.end > context.text.len()
+            || row.selection.end > context.text.len()
+            || row.location.end > context.text.len()
         {
             return None;
         }
         let id = self.rows.len();
-        self.rows.push(SymbolRow {
-            name,
-            kind,
-            location,
-            selection,
-            scope,
-            parent,
-            local,
-            file_private: private,
-            readonly,
-        });
+        self.rows.push(row);
         Some(id)
     }
 

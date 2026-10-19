@@ -182,7 +182,7 @@ impl Compiler {
             if let Some(info) = callable {
                 self.callable_entities.insert(e, info);
             }
-            self.debug_var(f, target, name.name, name.span, ty, addr, 0);
+            self.debug_var(f, target, name.name, name.span, (ty, addr), 0);
             if target != scope {
                 // A backtick name is visible to the rest of the macro body too.
                 let alias = self.add_entity(scope, name.name, name.span, kind, false);

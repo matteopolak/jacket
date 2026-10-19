@@ -7,14 +7,12 @@ use super::{
 
 impl Compiler {
     /// Intrinsic procedures declared in Preload (`memcpy`, `compare_and_swap`...).
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn emit_intrinsic(
         &mut self,
         f: &mut FnCtx,
         proc: ProcId,
-        sig: &Signature,
+        (sig, header): (&Signature, &ast::ProcHeader),
         slots: &[Slot],
-        header: &ast::ProcHeader,
         args: Vec<CallArg>,
         span: Span,
     ) -> Result<Operand> {

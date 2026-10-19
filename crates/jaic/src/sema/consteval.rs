@@ -10,6 +10,15 @@ use super::{
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};
 
+/// The `count` elements of `elem` (`bytes` in all) that a pointer freezes to, read at `p` in the
+/// interpreter's memory.
+struct Run {
+    p: u64,
+    elem: TypeId,
+    bytes: u64,
+    count: u64,
+}
+
 impl Compiler {
     /// A fresh compile-time function context. Thunks take the context pointer.
     pub fn thunk_ctx(&self, origin: ir::FuncOrigin, file: FileId) -> FnCtx {
@@ -865,7 +874,17 @@ impl Compiler {
                 // Only the elements in use: the unused capacity of a resizable array is memory the
                 // program never wrote, so copying it would put whatever the interpreter's heap held
                 // before into the output, differently from one run to the next.
-                self.freeze_pointer(agg, offset + 8, data, elem, esize * count, count, span)?;
+                self.freeze_pointer(
+                    agg,
+                    offset + 8,
+                    Run {
+                        p: data,
+                        elem,
+                        bytes: esize * count,
+                        count,
+                    },
+                    span,
+                )?;
                 if kind == ArrayKind::Resizable {
                     // The frozen copy is not owned by any allocator.
                     agg.bytes[(offset + 16) as usize..(offset + 40) as usize].fill(0);
@@ -876,7 +895,17 @@ impl Compiler {
             TypeKind::String => {
                 let count = self.program_u64(addr, span)?;
                 let data = self.program_u64(addr + 8, span)?;
-                self.freeze_pointer(agg, offset + 8, data, TypeId::U8, count, count, span)?;
+                self.freeze_pointer(
+                    agg,
+                    offset + 8,
+                    Run {
+                        p: data,
+                        elem: TypeId::U8,
+                        bytes: count,
+                        count,
+                    },
+                    span,
+                )?;
             }
             TypeKind::Pointer(to) => {
                 let p = self.program_u64(addr, span)?;
@@ -885,7 +914,17 @@ impl Compiler {
                 } else {
                     self.size_of(to, span)?
                 };
-                self.freeze_pointer(agg, offset, p, to, size, 1, span)?;
+                self.freeze_pointer(
+                    agg,
+                    offset,
+                    Run {
+                        p,
+                        elem: to,
+                        bytes: size,
+                        count: 1,
+                    },
+                    span,
+                )?;
             }
             TypeKind::Type => {
                 let p = self.program_u64(addr, span)?;
@@ -933,7 +972,17 @@ impl Compiler {
                         addend: 0,
                     });
                     let size = self.size_of(vt, span)?;
-                    self.freeze_pointer(agg, offset + 8, v, vt, size, 1, span)?;
+                    self.freeze_pointer(
+                        agg,
+                        offset + 8,
+                        Run {
+                            p: v,
+                            elem: vt,
+                            bytes: size,
+                            count: 1,
+                        },
+                        span,
+                    )?;
                 }
             }
             _ => {}
@@ -942,17 +991,19 @@ impl Compiler {
     }
 
     /// Replace the pointer at `offset` with a relocation to (a frozen copy of) `count` elements at `p`.
-    #[allow(clippy::too_many_arguments)]
     fn freeze_pointer(
         &mut self,
         agg: &mut Aggregate,
         offset: u64,
-        p: u64,
-        elem: TypeId,
-        bytes: u64,
-        count: u64,
+        run: Run,
         span: Span,
     ) -> Result<()> {
+        let Run {
+            p,
+            elem,
+            bytes,
+            count,
+        } = run;
         agg.bytes[offset as usize..offset as usize + 8].fill(0);
         if p == 0 {
             return Ok(());

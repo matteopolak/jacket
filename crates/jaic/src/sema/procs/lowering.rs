@@ -169,7 +169,14 @@ impl Compiler {
             // parameter must not move the caller's string.
             let addr = self.spill(&mut f, param.ty, incoming, param.span)?;
             if let Some(name) = param.name {
-                self.debug_var(&mut f, scope, name, param.span, param.ty, addr, next as u32);
+                self.debug_var(
+                    &mut f,
+                    scope,
+                    name,
+                    param.span,
+                    (param.ty, addr),
+                    next as u32,
+                );
                 let depth = self.scope(scope).proc_depth;
                 let e = self.add_entity(
                     scope,
@@ -232,7 +239,7 @@ impl Compiler {
                 }
                 // A result named like a parameter is only reachable through `return`.
                 if !self.scope(scope).names.contains_key(&name) {
-                    self.debug_var(&mut f, scope, name, span, rt, addr, 0);
+                    self.debug_var(&mut f, scope, name, span, (rt, addr), 0);
                     let depth = self.scope(scope).proc_depth;
                     self.add_entity(
                         scope,

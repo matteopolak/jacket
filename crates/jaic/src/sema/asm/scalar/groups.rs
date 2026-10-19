@@ -1,7 +1,7 @@
 //! The less common scalar instructions that `asm_scalar_inst` hands to a group by opcode.
 use super::{
     AsmArgs, AsmCtx, AsmInst, BinOp, CmpOp, Compiler, FnCtx, Imm, Intrinsic, Opd, Result,
-    ShiftKind, TargetCpu, Ty, UnOp, Val, XOp, bin, bits, cmp, crc32c, err, flag_not, flag_or,
+    ShiftKind, Site, TargetCpu, Ty, UnOp, Val, XOp, bin, bits, cmp, crc32c, err, flag_not, flag_or,
     flag_xor, ir, is_neg, is_zero, konst, ptr_of, resize, select, wide_mul,
 };
 
@@ -392,7 +392,17 @@ impl Compiler {
                 let Opd::Mem(addr) = opds[2] else {
                     return err(span, format!("`{name}` compares a memory operand ([ptr])"));
                 };
-                self.asm_cmpxchg_pair(f, cx, half, addr, opds, c.lock, span)?;
+                self.asm_cmpxchg_pair(
+                    f,
+                    cx,
+                    Site {
+                        ty: half,
+                        lock: c.lock,
+                        span,
+                    },
+                    addr,
+                    opds,
+                )?;
             }
             XOp::Str(sop, rep) => self.asm_string(f, cx, inst, sop, rep, opds)?,
             XOp::Int => {

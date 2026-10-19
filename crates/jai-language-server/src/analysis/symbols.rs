@@ -1,6 +1,6 @@
 //! The document symbol tree: declarations, their children and the scopes of local bindings,
 //! built from the parsed file.
-use super::{Analysis, Context, Span, span_of};
+use super::{Analysis, Context, Placement, Span, SymbolRow, span_of};
 use crate::{DiagnosticCode, DiagnosticSeverity, DocumentUri, SymbolKind, position::LineIndex};
 use jaic::ast::{Block, Decl, EnumItem, ExprKind, Stmt, StmtKind, StructLit};
 use jaic::parser::ide_facts::{self, DeclClass, TopLevelKind, Visibility};
@@ -19,20 +19,32 @@ impl Analysis {
             let private = item.visibility == Visibility::File;
             match item.kind {
                 TopLevelKind::Decl(decl) => {
-                    self.declaration(decl, span, whole, None, false, private, context);
+                    self.declaration(
+                        decl,
+                        span,
+                        Placement {
+                            scope: whole,
+                            parent: None,
+                            local: false,
+                            private,
+                        },
+                        context,
+                    );
                 }
                 TopLevelKind::Import(import) => {
                     if let Some(name) = import.name {
                         self.add(
-                            name.name,
-                            SymbolKind::Namespace,
-                            span,
-                            span_of(name.span),
-                            whole,
-                            None,
-                            false,
-                            private,
-                            true,
+                            SymbolRow {
+                                name: name.name,
+                                kind: SymbolKind::Namespace,
+                                location: span,
+                                selection: span_of(name.span),
+                                scope: whole,
+                                parent: None,
+                                local: false,
+                                file_private: private,
+                                readonly: true,
+                            },
                             context,
                         );
                     }
@@ -66,29 +78,33 @@ impl Analysis {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn declaration(
         &mut self,
         decl: &Decl,
         span: Span,
-        scope: Span,
-        parent: Option<usize>,
-        local: bool,
-        private: bool,
+        place: Placement,
         context: &Context,
     ) {
+        let Placement {
+            scope,
+            parent,
+            local,
+            private,
+        } = place;
         let (kind, readonly) = Self::kind_of(decl);
         for name in &decl.names {
             let Some(id) = self.add(
-                name.name,
-                kind,
-                span,
-                span_of(name.span),
-                scope,
-                parent,
-                local,
-                private,
-                readonly,
+                SymbolRow {
+                    name: name.name,
+                    kind,
+                    location: span,
+                    selection: span_of(name.span),
+                    scope,
+                    parent,
+                    local,
+                    file_private: private,
+                    readonly,
+                },
                 context,
             ) else {
                 continue;
@@ -102,15 +118,17 @@ impl Analysis {
                     for param in &lit.header.params {
                         if let Some(param_name) = param.name {
                             self.add(
-                                param_name.name,
-                                SymbolKind::Variable,
-                                span_of(param.span),
-                                span_of(param_name.span),
-                                inner,
-                                Some(id),
-                                true,
-                                true,
-                                false,
+                                SymbolRow {
+                                    name: param_name.name,
+                                    kind: SymbolKind::Variable,
+                                    location: span_of(param.span),
+                                    selection: span_of(param_name.span),
+                                    scope: inner,
+                                    parent: Some(id),
+                                    local: true,
+                                    file_private: true,
+                                    readonly: false,
+                                },
                                 context,
                             );
                         }
@@ -126,15 +144,17 @@ impl Analysis {
                         match item {
                             EnumItem::Member(member) => {
                                 self.add(
-                                    member.name.name,
-                                    SymbolKind::EnumMember,
-                                    span_of(member.name.span),
-                                    span_of(member.name.span),
-                                    span_of(lit.span),
-                                    Some(id),
-                                    false,
-                                    true,
-                                    true,
+                                    SymbolRow {
+                                        name: member.name.name,
+                                        kind: SymbolKind::EnumMember,
+                                        location: span_of(member.name.span),
+                                        selection: span_of(member.name.span),
+                                        scope: span_of(lit.span),
+                                        parent: Some(id),
+                                        local: false,
+                                        file_private: true,
+                                        readonly: true,
+                                    },
                                     context,
                                 );
                             }
@@ -169,15 +189,17 @@ impl Analysis {
                     };
                     for name in &decl.names {
                         let Some(id) = self.add(
-                            name.name,
-                            kind,
-                            span_of(stmt.span),
-                            span_of(name.span),
-                            scope,
-                            Some(parent),
-                            false,
-                            true,
-                            readonly,
+                            SymbolRow {
+                                name: name.name,
+                                kind,
+                                location: span_of(stmt.span),
+                                selection: span_of(name.span),
+                                scope,
+                                parent: Some(parent),
+                                local: false,
+                                file_private: true,
+                                readonly,
+                            },
                             context,
                         ) else {
                             continue;
@@ -235,7 +257,17 @@ impl Analysis {
     ) {
         match &stmt.kind {
             StmtKind::Decl(decl) => {
-                self.declaration(decl, span_of(stmt.span), scope, parent, true, true, context);
+                self.declaration(
+                    decl,
+                    span_of(stmt.span),
+                    Placement {
+                        scope,
+                        parent,
+                        local: true,
+                        private: true,
+                    },
+                    context,
+                );
             }
             StmtKind::If {
                 then_branch,
@@ -259,15 +291,17 @@ impl Analysis {
                 let span = span_of(stmt.span);
                 for name in [for_loop.it, for_loop.index].into_iter().flatten() {
                     self.add(
-                        name.name,
-                        SymbolKind::Variable,
-                        span,
-                        span_of(name.span),
-                        span,
-                        parent,
-                        true,
-                        true,
-                        false,
+                        SymbolRow {
+                            name: name.name,
+                            kind: SymbolKind::Variable,
+                            location: span,
+                            selection: span_of(name.span),
+                            scope: span,
+                            parent,
+                            local: true,
+                            file_private: true,
+                            readonly: false,
+                        },
                         context,
                     );
                 }

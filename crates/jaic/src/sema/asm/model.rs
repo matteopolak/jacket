@@ -216,6 +216,14 @@ pub(super) fn lookup_op(name: &str) -> Option<Op> {
     })
 }
 
+/// Where an instruction acts: the operand type (or half type), whether it is `lock`ed and its span.
+#[derive(Clone, Copy)]
+pub(super) struct Site {
+    pub(super) ty: Ty,
+    pub(super) lock: bool,
+    pub(super) span: Span,
+}
+
 /// A scalar variable operand: its storage and how the instruction may use it.
 #[derive(Clone, Copy)]
 pub(super) struct RegPlace {
