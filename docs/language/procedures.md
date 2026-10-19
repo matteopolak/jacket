@@ -21,7 +21,8 @@ sum(1, 2, 3)             // 6
 h :: f;  h :: g;         // aliases join one overload set
 ```
 
-- Two non-polymorphic procedures in one scope with identical parameter types are an error even if never called (`check_identical_overloads`).
+- Two non-polymorphic procedures in one scope with identical parameter types are an error even if never called (`check_identical_overloads`). Aliases of the same procedure, even in different scopes of one file (`read_it :: Impl.read_it;` at file scope and again inside `#if`), count as one overload.
+- A procedure type returned without parentheses cannot be followed by a body: `f :: () -> (A, B) -> C { ... }` is a parse error; write `-> ((A, B) -> C) { ... }`.
 - `#caller_location` as a default is evaluated at the call site (`location_operand` in `sema/expr.rs`). `#file` and `#filepath` use `/` on Windows too.
 - A `Code` parameter on a plain procedure takes any expression as code; a baked `$args: ..Code` quotes each argument (`quote_code_arg`).
 - Parameters are values: aggregates arrive as a pointer and the callee copies them on entry (`lower_body_code`), so it never changes the caller's variable.

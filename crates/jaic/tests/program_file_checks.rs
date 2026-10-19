@@ -36,3 +36,26 @@ fn different_procedures_with_identical_parameters_are_still_rejected() {
     let error = compile(source).unwrap_err();
     assert!(error.contains("identical parameter types"), "{error}");
 }
+
+#[test]
+fn module_parameters_are_rejected_in_a_loaded_program_file() {
+    let mut options = Options::host();
+    options.runtime_support = false;
+    let mut fs = VirtualFs::default();
+    fs.insert("/p/params.jai", b"#module_parameters(N := 3);\n".as_slice());
+    let mut compiler = Compiler::new(options, Rc::new(fs));
+    let error = compiler
+        .compile_sources(&[ProgramSource::String(
+            "#load \"/p/params.jai\";\nmain :: () {}\n".into(),
+        )])
+        .map(|_| ())
+        .map_err(|error| error.render(&compiler.sources))
+        .unwrap_err();
+    assert!(error.contains("top level of an imported module"), "{error}");
+}
+
+#[test]
+fn module_parameters_are_rejected_in_the_main_program_file() {
+    let error = compile("#module_parameters(N := 3);\nmain :: () {}\n").unwrap_err();
+    assert!(error.contains("top level of an imported module"), "{error}");
+}

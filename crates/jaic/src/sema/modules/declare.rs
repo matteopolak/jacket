@@ -341,6 +341,12 @@ impl Compiler {
                     body,
                 } = &**boxed;
                 let module = self.scope(scope).module;
+                if self.main_module == Some(module) {
+                    return err(
+                        stmt.span,
+                        "#module_parameters can only be used at the top level of an imported module, not in a program file",
+                    );
+                }
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
                 for import in self.modules[module.0 as usize].argument_imports.clone() {
                     let ordinary = params
