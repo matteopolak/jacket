@@ -135,11 +135,12 @@ impl Session {
         let text = &doc.text;
         let first = doc.index.byte(text, range.start)?;
         let last = doc.index.byte(text, range.end)?;
-        let Some((types, calls, expansions)) = self.checked(uri, |a, f| {
+        let Some((types, calls, expansions, loop_names)) = self.checked(uri, |a, f| {
             (
                 a.compiler.ide_declared_types(f),
                 a.compiler.ide_calls(f),
                 a.compiler.ide_expansions(f),
+                a.compiler.ide_implicit_loop_names(f),
             )
         }) else {
             return Ok(Vec::new());
@@ -185,6 +186,17 @@ impl Session {
                 Some(InlayHintKind::Type),
                 false,
                 false,
+                None,
+            );
+        }
+        // `for xs {` declares `it` and `it_index`: name them before the iterated expression.
+        for (at, label) in loop_names {
+            hint(
+                at as usize,
+                clip(&label, HINT_CHARS),
+                Some(InlayHintKind::Type),
+                false,
+                true,
                 None,
             );
         }

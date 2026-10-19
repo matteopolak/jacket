@@ -210,6 +210,43 @@ fn inlay_hints_show_types_parameters_and_run_values() {
 }
 
 #[test]
+fn inlay_hints_name_the_implicit_loop_variables() {
+    const LOOPS: &str = "xs: [3] string;\n\
+        main :: () {\n\
+        \x20   for xs { print(\"%\", it); }\n\
+        \x20   for 1..4 { x := it_index; }\n\
+        \x20   for value: xs { x := it_index; }\n\
+        \x20   for value, n: xs { }\n\
+        }\n";
+    let mut s = session();
+    s.open(uri(), 1, LOOPS.into()).unwrap();
+    let hints = s.inlay_hints(&uri(), everything(LOOPS)).unwrap();
+    let find = |label: &str| {
+        hints
+            .iter()
+            .find(|h| h.label == label)
+            .unwrap_or_else(|| panic!("no hint {label}: {hints:?}"))
+    };
+    assert_eq!(
+        find("it: string, it_index: s64").position,
+        at_nth(LOOPS, "xs {", 0, 0)
+    );
+    assert_eq!(
+        find("it: s64, it_index: s64").position,
+        at_nth(LOOPS, "1..4", 0, 0)
+    );
+    // A named value leaves only the index implicit; naming both leaves nothing.
+    assert_eq!(
+        find("it_index: s64").position,
+        at_nth(LOOPS, "value: xs", 0, 7)
+    );
+    assert_eq!(
+        hints.iter().filter(|h| h.label.starts_with("it")).count(),
+        3
+    );
+}
+
+#[test]
 fn code_actions_show_and_inline_expansions() {
     let mut s = session();
     s.open(uri(), 1, PROGRAM.into()).unwrap();

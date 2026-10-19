@@ -382,6 +382,7 @@ impl Compiler {
             ],
             span,
         );
+        self.ide_note_implicit_loop_names(for_, a.span, [ty, TypeId::S64]);
         let defer_depth = f.mark_defers();
         f.loops.push(LoopFrame {
             label: Some(it_name),
@@ -472,6 +473,7 @@ impl Compiler {
             return self
                 .check_for_expansion(f, scope, for_, procs, leading, it_name, index_name, span);
         }
+        let iterated = c.span;
         let op = self.check_expr(f, scope, c, None)?;
         let cty = op.ty();
         let target = self.types.pointee(cty).unwrap_or(cty);
@@ -648,6 +650,7 @@ impl Compiler {
             ],
             span,
         );
+        self.ide_note_implicit_loop_names(for_, iterated, [it_ty, TypeId::S64]);
         let remove = if fixed.is_none() {
             LoopRemove::Array(container.clone(), idx, elem, for_.reverse)
         } else {

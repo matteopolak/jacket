@@ -171,6 +171,46 @@ impl Compiler {
         }
     }
 
+    /// A `for` that does not name its value or index declares `it` and `it_index` anyway:
+    /// remember their types for an inlay hint at the start of the iterated expression `at`.
+    pub(in crate::sema) fn ide_note_implicit_loop_names(
+        &mut self,
+        for_: &ast::For,
+        at: Span,
+        types: [TypeId; 2],
+    ) {
+        if self.sketching() || !self.ide_wants_file(at.file) {
+            return;
+        }
+        let mut names = Vec::new();
+        if for_.it.is_none() {
+            names.push(("it", types[0]));
+        }
+        if for_.index.is_none() {
+            names.push(("it_index", types[1]));
+        }
+        if names.is_empty() {
+            return;
+        }
+        let key = Span {
+            end: at.start,
+            ..at
+        };
+        let Some(ide) = self.ide.as_mut() else {
+            return;
+        };
+        match ide.implicit_loop_names.entry(key) {
+            std::collections::hash_map::Entry::Vacant(slot) => {
+                slot.insert(Some(names));
+            }
+            std::collections::hash_map::Entry::Occupied(mut slot) => {
+                if slot.get().as_ref() != Some(&names) {
+                    slot.insert(None);
+                }
+            }
+        }
+    }
+
     /// Each `name = value` argument of a call to `chosen`: hovering `name` shows the
     /// parameter and its type, and go to definition goes to the parameter.
     fn ide_note_named_args(&mut self, chosen: ProcId, slots: &[Slot], args: &[CallArg]) {

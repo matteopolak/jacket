@@ -78,6 +78,9 @@ pub struct IdeFacts {
     /// Actual custom-iteration selections per keyword, across real instantiations.
     /// `None` means an ambiguous selection; sketches never populate this map.
     pub(in crate::sema) for_expansions: HashMap<Span, Option<Vec<ProcId>>>,
+    /// The implicit `it` and `it_index` of loops that name neither, by the start of the iterated
+    /// expression, with their types. `None`: instances of the loop disagree.
+    pub(in crate::sema) implicit_loop_names: HashMap<Span, Option<Vec<(&'static str, TypeId)>>>,
     /// The compile-time output channel, to tell what each `#run` printed.
     pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
     /// Entity the named expression being checked resolved to (set by identifier

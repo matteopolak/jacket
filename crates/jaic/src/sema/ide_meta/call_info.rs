@@ -22,6 +22,27 @@ impl Compiler {
             .unwrap_or_default()
     }
 
+    /// The `it` and `it_index` that loops of `file` declare without naming them, as (start of
+    /// the iterated expression, `it: T, it_index: s64`).
+    pub fn ide_implicit_loop_names(&self, file: FileId) -> Vec<(u32, String)> {
+        let Some(ide) = self.ide.as_ref() else {
+            return Vec::new();
+        };
+        ide.implicit_loop_names
+            .iter()
+            .filter(|(at, _)| at.file == file)
+            .filter_map(|(at, names)| {
+                let label = names
+                    .as_ref()?
+                    .iter()
+                    .map(|(name, ty)| format!("{name}: {}", self.types.name(*ty)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Some((at.start, label))
+            })
+            .collect()
+    }
+
     /// Calls recorded in `file`, described.
     pub fn ide_calls(&mut self, file: FileId) -> Vec<IdeCallInfo> {
         let calls: Vec<IdeCall> = self
