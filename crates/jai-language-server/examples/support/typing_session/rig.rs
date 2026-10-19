@@ -551,6 +551,16 @@ impl<'a, C: Choices> Rig<'a, C> {
                         _ => true,
                     };
                 }
+                // A syntax hover quotes the declaration, which may enclose the edited region: it
+                // keeps its range and quotes the declaration as the document now reads.
+                if let (Some(a), Ok(Some(b))) = (expected, now)
+                    && a.range == b.range
+                    && let Some((quoted, _)) =
+                        b.contents.value.split_once("\n\nSource syntax declaration")
+                    && text.contains(quoted)
+                {
+                    return false;
+                }
                 now.as_ref() != Ok(expected)
             };
             if let Some(expected_hover) = comparable
