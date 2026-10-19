@@ -55,6 +55,27 @@ impl Session {
         if outside {
             return Ok(None);
         }
+        // A name nothing in the checked files declares (a built-in type) has no declaration to
+        // rewrite, so renaming its uses would break them. A declaration spelled otherwise is
+        // another name for the same thing (`T` bound to `int`), not this one's.
+        let word = {
+            let start = doc.index.byte(&doc.text, range.start)?;
+            let end = doc.index.byte(&doc.text, range.end)?;
+            doc.text[start..end].to_string()
+        };
+        let declared = self
+            .checked(uri, |a, f| {
+                a.compiler
+                    .ide_references(f, byte as u32)
+                    .into_iter()
+                    .filter(|&(_, decl)| decl)
+                    .filter_map(|(span, _)| a.location(span))
+                    .any(|(_, text, start, end)| text.get(start..end) == Some(word.as_str()))
+            })
+            .unwrap_or(false);
+        if !declared {
+            return Ok(None);
+        }
         let found = self.references(uri, position, true)?;
         Ok(found
             .iter()
