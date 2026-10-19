@@ -107,6 +107,19 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertNotIn("not found", result.stderr)
         self.assertIn("a.jai: BAD", result.stderr)
 
+    def test_a_hooks_path_into_another_checkout_runs_this_trees_hook(self):
+        other = Path(self.tmp.name) / "main-checkout" / ".githooks"
+        other.mkdir(parents=True)
+        shutil.copy(REPO / ".githooks/pre-commit", other / "pre-commit")
+        # This tree's copy is the one that must run: make it fail, which the other one would not.
+        (self.repo / ".githooks/pre-commit").write_text("#!/bin/sh\necho own hook ran >&2\nexit 1\n")
+        sh(["git", "config", "core.hooksPath", str(other)], self.repo)
+        self.write("a.jai", "main :: () {}\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("own hook ran", result.stderr)
+
     def test_failures_name_the_fix_commands(self):
         self.tool("target/jaifmt")
         self.tool("target/debug/jailint")

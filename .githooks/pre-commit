@@ -15,15 +15,13 @@
 root=$(git rev-parse --show-toplevel) || exit 0
 cd "$root" || exit 0
 
-# Refuse to run another checkout's copy of this hook: an absolute core.hooksPath into the main
-# checkout (set when agent worktrees are created) would run its stale hook and skip every check.
+# An absolute core.hooksPath into another checkout (the main one, set when agent worktrees are
+# created) runs that checkout's copy of this hook: hand over to this worktree's own copy, so the
+# checks are the ones of the tree being committed.
 hook_dir=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)
 own_dir=$(cd "$root/.githooks" 2>/dev/null && pwd -P)
-if [ -n "$own_dir" ] && [ "$hook_dir" != "$own_dir" ]; then
-    echo "pre-commit: error: running $hook_dir/pre-commit, not this worktree's $own_dir/pre-commit." >&2
-    echo "pre-commit: core.hooksPath ($(git config core.hooksPath)) points into another checkout;" >&2
-    echo "pre-commit: fix it with: git config core.hooksPath .githooks" >&2
-    exit 1
+if [ -n "$own_dir" ] && [ "$hook_dir" != "$own_dir" ] && [ -f "$own_dir/pre-commit" ]; then
+    exec sh "$own_dir/pre-commit" "$@"
 fi
 
 skipped() {
