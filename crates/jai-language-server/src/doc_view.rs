@@ -33,7 +33,7 @@ fn target_kind(names: usize, text: &str, start: usize, end: usize) -> (SemanticT
     if let Some(value) = after.strip_prefix("::") {
         let value = value.trim_start();
         let word = value
-            .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '#'))
+            .split(|c: char| !(jaic::lexicon::is_identifier_char(c) || c == '#'))
             .next()
             .unwrap_or("");
         return match word {

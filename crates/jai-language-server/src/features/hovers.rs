@@ -163,7 +163,7 @@ impl Session {
         text: &str,
         byte: usize,
     ) -> Option<(usize, usize, HoverText)> {
-        let word = |c: char| c.is_alphanumeric() || c == '_';
+        let word = jaic::lexicon::is_identifier_char;
         if !text.is_char_boundary(byte) {
             return None;
         }

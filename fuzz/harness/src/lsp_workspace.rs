@@ -100,18 +100,13 @@ fn identifiers(text: &str) -> Vec<usize> {
     let mut found = Vec::new();
     let mut previous_word = false;
     for (i, c) in text.char_indices() {
-        let word = is_word(c);
+        let word = jaic::lexicon::is_identifier_char(c);
         if word && !previous_word && !c.is_ascii_digit() {
             found.push(i);
         }
         previous_word = word;
     }
     found
-}
-
-/// A character of an identifier as the lexer sees it: every non-ASCII character is one.
-fn is_word(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_' || !c.is_ascii()
 }
 
 fn rename_round_trip(w: &mut Workspace, u: &mut Unstructured) -> Result<()> {
@@ -126,14 +121,9 @@ fn rename_round_trip(w: &mut Workspace, u: &mut Unstructured) -> Result<()> {
     let at = *u.choose(&ids)?;
     let before: Vec<String> = (0..w.docs).map(|d| w.text(d)).collect();
     let name_end = before[doc][at..]
-        .find(|c: char| !is_word(c))
+        .find(|c: char| !jaic::lexicon::is_identifier_char(c))
         .map_or(before[doc].len(), |n| at + n);
     let old = before[doc][at..name_end].to_string();
-    // The lexer takes any non-ASCII character as part of an identifier; renaming accepts only
-    // alphanumerics, so a name with another character could not be renamed back.
-    if !old.chars().all(|c| c.is_alphanumeric() || c == '_') {
-        return Ok(());
-    }
     let Some((doc2, at2)) = w.rename(doc, at, FRESH) else {
         return Ok(());
     };

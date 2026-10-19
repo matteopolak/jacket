@@ -91,12 +91,7 @@ impl Session {
         position: Position,
         new_name: &str,
     ) -> Result<Option<RenameEdits>, Error> {
-        let valid = new_name
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_alphabetic() || c == '_')
-            && new_name.chars().all(|c| c.is_alphanumeric() || c == '_');
-        if !valid || jaic::lexicon::is_reserved(new_name) {
+        if !jaic::lexicon::is_identifier(new_name) || jaic::lexicon::is_reserved(new_name) {
             return Err(Error::InvalidEdit("the new name is not an identifier"));
         }
         let Some(range) = self.prepare_rename(uri, position)? else {
@@ -170,7 +165,7 @@ impl Session {
                 let line_start = jaic::source::line_start(&text, start);
                 let before = &text[line_start..start];
                 let name = before.split("::").next().unwrap_or("").trim();
-                if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                if jaic::lexicon::is_identifier(name) {
                     let at = line_start
                         + before
                             .find(name)

@@ -176,7 +176,7 @@ fn literal(source: &str) -> bool {
         || s.starts_with('"')
         || matches!(s, "true" | "false" | "null")
         || s.starts_with("#char")
-        || (s.starts_with('.') && s[1..].chars().all(|c| c.is_alphanumeric() || c == '_'))
+        || (s.starts_with('.') && s[1..].chars().all(jaic::lexicon::is_identifier_char))
 }
 
 /// `#insert` at `span` replaced by its code `text`: as statements (through the `;`) in
@@ -274,7 +274,7 @@ fn open_call(text: &str, byte: usize) -> Option<(usize, Vec<&str>, usize, Option
         let n = n.trim();
         (!rest.starts_with('=')
             && !n.is_empty()
-            && n.chars().all(|c| c.is_alphanumeric() || c == '_'))
+            && n.chars().all(jaic::lexicon::is_identifier_char))
         .then(|| n.to_string())
     });
     Some((at, chain, commas, named))

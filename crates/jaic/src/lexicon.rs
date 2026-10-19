@@ -280,6 +280,16 @@ pub fn is_reserved(name: &str) -> bool {
     WORDS.iter().any(|w| w.reserved && w.name == name)
 }
 
+/// Whether `c` can continue an identifier: the lexer takes every non-ASCII character as one.
+pub fn is_identifier_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '_' || !c.is_ascii()
+}
+
+/// Whether `name` lexes as one identifier (it may still be a reserved word).
+pub fn is_identifier(name: &str) -> bool {
+    name.starts_with(|c: char| !c.is_ascii_digit()) && name.chars().all(is_identifier_char)
+}
+
 /// The names of the types the language provides.
 pub const TYPES: &[&str] = &[
     "bool", "int", "float", "float32", "float64", "string", "void", "s8", "s16", "s32", "s64",

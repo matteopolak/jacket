@@ -26,7 +26,7 @@ impl Session {
         let (start, member) = if let CursorContext::Member(m) = context {
             (m.word.start as usize, Some(m))
         } else {
-            let ident = |c: char| c.is_alphanumeric() || c == '_';
+            let ident = jaic::lexicon::is_identifier_char;
             let start = text[..byte]
                 .char_indices()
                 .rfind(|&(_, c)| !ident(c))
@@ -79,7 +79,7 @@ impl Session {
         prefix: String,
     ) -> Option<Completions> {
         const PLACEHOLDER: &str = "__jailsp_member";
-        let ident = |c: char| c.is_alphanumeric() || c == '_';
+        let ident = jaic::lexicon::is_identifier_char;
         let tail = byte
             + text[byte..]
                 .find(|c: char| !ident(c))

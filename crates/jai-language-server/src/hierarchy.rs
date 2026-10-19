@@ -126,7 +126,7 @@ fn site_item(uri: &str, text: &str, site: &Site) -> Option<CallHierarchyItem> {
 /// A callee's name, with the `a.b.` before it: what a call is written as.
 fn callee_len(text: &str, at: usize) -> usize {
     text[at..]
-        .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '.'))
+        .find(|c: char| !(jaic::lexicon::is_identifier_char(c) || c == '.'))
         .unwrap_or(text.len() - at)
 }
 
