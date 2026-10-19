@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "platforms": {
+    "linux-x86_64": {
+      "gen-10k/check": {
+        "alloc_blocks": 647333,
+        "alloc_bytes": 119892165,
+        "instructions": 543073442
+      },
+      "gen-2k/build": {
+        "alloc_blocks": 516224,
+        "alloc_bytes": 101315699,
+        "instructions": 1198732204
+      },
+      "gen-2k/check": {
+        "alloc_blocks": 434948,
+        "alloc_bytes": 95101218,
+        "instructions": 375285913
+      },
+      "hello/build": {
+        "alloc_blocks": 413680,
+        "alloc_bytes": 89062432,
+        "instructions": 825150428
+      },
+      "hello/check": {
+        "alloc_blocks": 359660,
+        "alloc_bytes": 85295125,
+        "instructions": 309052191
+      }
+    }
+  }
+}
