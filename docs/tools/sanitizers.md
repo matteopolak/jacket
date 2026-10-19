@@ -13,7 +13,7 @@ The compiler's own Rust code under AddressSanitizer, ThreadSanitizer and Miri. T
 | `address`, `thread` | `cargo test -Zbuild-std --target x86_64-unknown-linux-gnu` for `jaic`, `jai-language-server`, `jailint` and `jacket-config` with `RUSTFLAGS=-Zsanitizer=...` on the pinned nightly. `-Zbuild-std` instruments the standard library too; without it the sanitizer misses allocations and locks made there. |
 | `miri` | `tools/ci/run_miri.py`: `cargo miri test -p jaic --lib` on the modules in its `RUN` list |
 
-ThreadSanitizer matters for the parallel parse (`jaic::pool`), the interpreter's threads (`interp::threads`) and the language server's worker. AddressSanitizer reports on the interpreter's real memory are expected when a test's interpreted program misbehaves on purpose; the tests here do not.
+ThreadSanitizer matters for the parallel parse (`jaic::pool`), the interpreter's threads (`interp::threads`) and the language server's worker. The interpreter dereferences the interpreted program's pointers, and a test of a wild pointer faults on purpose for jaic's own handler to catch; `handle_segv=0` keeps AddressSanitizer from taking that signal.
 
 Miri cannot call foreign functions, run inline assembly or switch stacks, so `fiber`, `interp::native`, `interp::probe`, `memory_limit` and the thread tests are not in its list. What it does cover is the sandboxed libc (`interp/sandbox`), the error cell and the record layouts. `-Zmiri-disable-isolation` is on because the sandbox tests read the clock and the environment; integer-to-pointer casts are warnings, not errors, since the interpreter hands programs real addresses by design.
 
@@ -25,7 +25,7 @@ Miri cannot call foreign functions, run inline assembly or switch stacks, so `fi
 
 ## Configuration
 
-`ASAN_OPTIONS` (`detect_leaks=0`: the compiler leaves memory to the OS), `TSAN_OPTIONS` (`halt_on_error=1`) and `MIRIFLAGS` are set in the workflow.
+`ASAN_OPTIONS` (`detect_leaks=0`: the compiler leaves memory to the OS; `handle_segv=0`), `TSAN_OPTIONS` (`halt_on_error=1`) and `MIRIFLAGS` are set in the workflow.
 
 ## Dependencies
 

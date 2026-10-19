@@ -28,7 +28,9 @@ jobs:
       # locks would be invisible to it.
       RUSTFLAGS: -Zsanitizer=${{ matrix.sanitizer }} -Cdebuginfo=1
       RUSTDOCFLAGS: -Zsanitizer=${{ matrix.sanitizer }}
-      ASAN_OPTIONS: detect_leaks=0:detect_stack_use_after_return=1:abort_on_error=0
+      # handle_segv=0: the interpreter faults on purpose (a program's wild pointer is caught by jaic's
+      # own handler), which ASan would report as a crash.
+      ASAN_OPTIONS: detect_leaks=0:detect_stack_use_after_return=1:abort_on_error=0:handle_segv=0
       TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
