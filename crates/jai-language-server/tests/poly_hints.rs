@@ -18,7 +18,6 @@ same :: (v: $U) -> U { return v; }
 wrap :: (v: $U) -> [] U { return .[]; }
 ptr :: (v: $U) -> *U { return null; }
 cb :: (v: $U) -> ((U, U) -> bool) { return null; }
-bare :: (v: $U) -> (U, U) -> bool { return null; }
 first_match :: (a: [] $T, v: T) -> T { return v; }
 rename :: (xs: [] $R, x: R) {
     renamed := first_match(xs, x);
@@ -28,7 +27,6 @@ forward :: (x: $T) {
     list := wrap(x);
     p := ptr(x);
     f := cb(x);
-    g := bare(x);
 }
 ";
 
@@ -69,10 +67,6 @@ fn uninstantiated_polymorphic_body_hints_use_the_generic_signature() {
     assert_eq!(label_at(at("p :=", 1)).as_deref(), Some(": *T"));
     assert_eq!(
         label_at(at("    f := cb", 5)).as_deref(),
-        Some(": (T, T) -> bool")
-    );
-    assert_eq!(
-        label_at(at("    g := bare", 5)).as_deref(),
         Some(": (T, T) -> bool")
     );
     assert_eq!(label_at(at("renamed :=", 7)).as_deref(), Some(": R"));

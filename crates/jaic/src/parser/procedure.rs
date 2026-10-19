@@ -7,6 +7,7 @@ use crate::ast::{
 };
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
+use crate::source::Diagnostic;
 use std::rc::Rc;
 
 raw_enum! {
@@ -207,7 +208,13 @@ impl Parser<'_> {
             || header.flags.intrinsic()
             || header.flags.elsewhere.is_some();
         let header = Rc::new(header);
-        if self.at(P::LBrace) && !in_return_type {
+        if self.at(P::LBrace) && in_return_type {
+            return Err(Diagnostic::error(
+                header.span,
+                "a procedure type in a return type must be parenthesised before the body: write `-> ((A, B) -> C) {`",
+            ));
+        }
+        if self.at(P::LBrace) {
             let body = self.parse_block()?;
             let span = start.to(body.span);
             return Ok(mk(

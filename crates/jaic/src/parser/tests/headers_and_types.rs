@@ -74,12 +74,15 @@ fn proc_type_return_does_not_swallow_the_next_parameter() {
 }
 
 #[test]
-fn proc_type_return_leaves_the_body_to_the_declared_procedure() {
-    // `{` after `-> (int, int) -> bool` opens `f`'s body, not a literal of the returned type.
-    let value = value("f :: (n: int) -> (int, int) -> bool { return null; }");
+fn unparenthesised_proc_type_return_before_a_body_is_rejected() {
+    // `{` after `-> (int, int) -> bool` is ambiguous; the return type must be parenthesised.
+    assert_eq!(
+        super::error("f :: (n: int) -> (int, int) -> bool { return null; }"),
+        "a procedure type in a return type must be parenthesised before the body: write `-> ((A, B) -> C) {`"
+    );
+    let value = value("f :: (n: int) -> ((int, int) -> bool) { return null; }");
     let lit = proc_of(&value);
     assert!(lit.body.is_some());
-    assert_eq!(lit.header.returns.len(), 1);
     let ret = lit.header.returns[0].ty.as_ref().unwrap();
     assert!(matches!(&ret.kind, ExprKind::ProcType(h) if h.params.len() == 2));
 }
