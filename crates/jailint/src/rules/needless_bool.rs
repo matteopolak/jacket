@@ -17,7 +17,7 @@
 //! offered, so nothing written there is lost.
 use super::{op_text, parenthesized, pure, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, Node, is_atom, squash, walk};
+use crate::syntax::{Cx, Node, is_atom, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::source::Span;
 use jaic::types::TypeId;
@@ -169,8 +169,7 @@ fn assigned(s: &Stmt) -> Option<(&Expr, bool)> {
 
 /// No comment between `start` and `end` would be dropped by replacing the text.
 fn no_comments(cx: &Cx, start: usize, end: usize) -> bool {
-    let text = &cx.text[start..end];
-    !text.contains("//") && !text.contains("/*")
+    !cx.has_comment_between(start, end)
 }
 
 fn branches(cx: &Cx, s: &Stmt, chain: &[Node<'_>], out: &mut Vec<Finding>) {
@@ -210,7 +209,7 @@ fn branches(cx: &Cx, s: &Stmt, chain: &[Node<'_>], out: &mut Vec<Finding>) {
     }
     if let (Some((x, a)), Some((y, b))) = (assigned(then_branch), assigned(other))
         && a != b
-        && squash(cx.whole_src(x.span)) == squash(cx.whole_src(y.span))
+        && cx.same_tokens(x.span, y.span)
         && is_bool(cx, x)
     {
         let replacement = format!(

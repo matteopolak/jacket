@@ -145,6 +145,33 @@ impl<'a> Cx<'a> {
         self.text.get(start..end).unwrap_or("")
     }
 
+    /// The tokens of the expression at `span`, parentheses around it and comments left out.
+    fn expression_tokens(&self, span: Span) -> impl Iterator<Item = &'a Tok> {
+        let (start, end) = self.whole(span);
+        let first = self
+            .tokens
+            .partition_point(|t| (t.span.start as usize) < start);
+        let last = self
+            .tokens
+            .partition_point(|t| (t.span.end as usize) <= end);
+        self.tokens[first..last.max(first)].iter().map(|t| &t.tok)
+    }
+
+    /// Two expressions are spelled with the same tokens (whitespace and comments aside).
+    pub fn same_tokens(&self, a: Span, b: Span) -> bool {
+        self.expression_tokens(a).eq(self.expression_tokens(b))
+    }
+
+    /// A comment overlaps the bytes `start..end`.
+    pub fn has_comment_between(&self, start: usize, end: usize) -> bool {
+        let first = self
+            .comments
+            .partition_point(|c| (c.span.end as usize) <= start);
+        self.comments
+            .get(first)
+            .is_some_and(|c| (c.span.start as usize) < end)
+    }
+
     /// The entities the identifier at `span` resolved to.
     pub fn entities(&self, span: Span) -> &[EntityId] {
         self.facts.idents.get(&span).map_or(&[], |v| v.as_slice())
@@ -730,9 +757,4 @@ pub(crate) fn is_path(e: &Expr) -> bool {
         E::Member(base, _) => is_path(base),
         _ => false,
     }
-}
-
-/// Text with whitespace removed, to compare two spellings of an expression.
-pub(crate) fn squash(text: &str) -> String {
-    text.chars().filter(|c| !c.is_whitespace()).collect()
 }

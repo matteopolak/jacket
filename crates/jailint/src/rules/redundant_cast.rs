@@ -9,7 +9,7 @@
 //! `float` and `float32` count as the same), or another cast to that spelling. Polymorphic
 //! bodies, macros and cast modifiers (`,trunc`, `,no_check`, `,force`) are left alone.
 use crate::facts::Recorded;
-use crate::syntax::{Cx, Node, squash, walk};
+use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{Expr, ExprKind as E, StmtKind as S};
 use jaic::fxhash::HashMap;
@@ -107,7 +107,7 @@ fn value_of(cast: &Expr) -> &Expr {
 /// Two type spellings name the same type on every platform.
 fn same(a: &str, b: &str) -> bool {
     let norm = |t: &str| {
-        let t = squash(t);
+        let t: String = t.split_whitespace().collect();
         match t.as_str() {
             "int" => "s64".to_string(),
             "float" => "float32".to_string(),

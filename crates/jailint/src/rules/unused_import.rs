@@ -162,7 +162,8 @@ fn exports_entry_points(compiler: &Compiler, cache: &mut ModuleFacts, m: ModuleI
             .files
             .iter()
             .filter(|f| f.module == m)
-            .any(|f| compiler.sources.get(f.id).text.contains("#program_export"))
+            // A file that does not lex is assumed to export: importing it may have an effect.
+            .any(|f| file_facts(&compiler.sources.get(f.id).text).is_none_or(|k| k.program_export))
     })
 }
 
@@ -216,10 +217,13 @@ fn module_identifiers(
 }
 
 /// The identifiers a file writes (and how often) and the files it names with `#load`, from its
-/// tokens alone.
+/// tokens alone,
+/// and whether it exports program entry points.
 struct FileFacts {
     identifiers: Vec<(Sym, usize)>,
     links: Vec<project::DirectiveLink>,
+    /// It writes `#program_export`.
+    program_export: bool,
 }
 
 impl FileFacts {
@@ -237,6 +241,9 @@ impl FileFacts {
         FileFacts {
             identifiers: counts.into_iter().collect(),
             links,
+            program_export: tokens
+                .iter()
+                .any(|t| matches!(&t.tok, Tok::Directive(d) if d.as_str() == "program_export")),
         }
     }
 }

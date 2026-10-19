@@ -9,7 +9,7 @@
 //! in their body (they may guard the last index) are left alone. The suggested fix ends the
 //! range at `xs.count - 1`; it changes what the loop does, so it is not applied by `--fix`.
 use super::finding;
-use crate::syntax::{Cx, Node, is_path, squash, walk, walk_node};
+use crate::syntax::{Cx, Node, is_path, walk, walk_node};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{ExprKind as E, ForOver, StmtKind as S};
 use jaic::intern::Sym;
@@ -45,8 +45,6 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             ) {
                 return true;
             }
-            let arr_text = squash(cx.whole_src(arr.span));
-            let count_text = format!("{arr_text}.count");
             let var = f.it.map_or_else(|| Sym::intern("it"), |i| i.name);
             let mut indexed = None;
             let mut guarded = false;
@@ -56,11 +54,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     match &e.kind {
                         E::Index(base, index)
                             if matches!(index.kind, E::Ident(v) if v == var)
-                                && squash(cx.whole_src(base.span)) == arr_text =>
+                                && cx.same_tokens(base.span, arr.span) =>
                         {
                             indexed.get_or_insert(e.span);
                         }
-                        E::Member(..) if squash(cx.whole_src(e.span)) == count_text => {
+                        E::Member(base, member)
+                            if member.name.as_str() == "count"
+                                && cx.same_tokens(base.span, arr.span) =>
+                        {
                             guarded = true;
                         }
                         _ => {}

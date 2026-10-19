@@ -10,7 +10,7 @@
 //! `a = b OP a` is reported too. The fix is machine-applicable.
 use super::{op_text, pure, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, squash, walk};
+use crate::syntax::{Cx, walk};
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -59,8 +59,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !(types.is_integer(ty) || types.is_float(ty)) || cx.ty(value) != Some(ty) {
                 return true;
             }
-            let written = squash(cx.whole_src(target.span));
-            let same = |e: &jaic::ast::Expr| squash(cx.whole_src(e.span)) == written;
+            let same = |e: &jaic::ast::Expr| cx.same_tokens(target.span, e.span);
             let commutes = matches!(
                 op,
                 BinOp::Add | BinOp::Mul | BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor

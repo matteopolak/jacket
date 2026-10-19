@@ -19,7 +19,7 @@
 //! call) make the suggestion `for *xs`. Constant arrays (`xs :: T.[...]`) are reported too, except where the
 //! suggestion would be `for *xs`.
 use super::{PlaceUse, is_call_argument, place_use};
-use crate::syntax::{Cx, Node, is_path, root_ident, squash, walk_node};
+use crate::syntax::{Cx, Node, is_path, root_ident, walk_node};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
@@ -124,7 +124,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     if loop_vars.is_empty() {
         return None;
     }
-    let arr_text = squash(cx.src(arr.span));
+    let arr_span = arr.span;
     let (root_name, root_span) = root_ident(arr)?;
     let root_entities = cx.entities(root_span).to_vec();
     let mut uses = Uses {
@@ -181,7 +181,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                 })) = chain.last()
                     && idx.span == e.span
                     && *name != var
-                    && squash(cx.src(base.span)) == arr_text
+                    && cx.same_tokens(base.span, arr_span)
                 {
                     // `ms[i] - ms[j]`: walking the same array by two indices (pairs) reads
                     // best with both.
@@ -205,7 +205,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                         bail = true;
                         return false;
                     }
-                    if let Some((span, how, written)) = element_access(cx, e, chain, &arr_text) {
+                    if let Some((span, how, written)) = element_access(cx, e, chain, arr_span) {
                         // `for c: 0..grid[r].count - 1`: walking a grid by row and
                         // column reads best with both indices.
                         let in_inner_range = chain.iter().any(|a| {
@@ -250,7 +250,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                     let same = ents.is_empty()
                         || root_entities.is_empty()
                         || ents.iter().any(|x| root_entities.contains(x));
-                    if same && !part_of_element(cx, e, chain, &arr_text, var) {
+                    if same && !part_of_element(cx, e, chain, arr_span, var) {
                         match array_use(e, chain, arr) {
                             ArrayUse::Read => {}
                             ArrayUse::MayWriteElements => uses.by_pointer = true,
@@ -351,13 +351,13 @@ fn element_access(
     cx: &Cx,
     e: &Expr,
     chain: &[Node<'_>],
-    arr_text: &str,
+    arr: jaic::source::Span,
 ) -> Option<(jaic::source::Span, Replace, bool)> {
     let index = chain.last()?.expr()?;
     let E::Index(base, idx) = &index.kind else {
         return None;
     };
-    if idx.span != e.span || squash(cx.src(base.span)) != arr_text {
+    if idx.span != e.span || !cx.same_tokens(base.span, arr) {
         return None;
     }
     let up = &chain[..chain.len() - 1];
@@ -377,12 +377,18 @@ fn element_access(
 }
 
 /// The array root `e` sits inside the base of an `arr[var]` access (rewritten anyway).
-fn part_of_element(cx: &Cx, e: &Expr, chain: &[Node<'_>], arr_text: &str, var: Sym) -> bool {
+fn part_of_element(
+    cx: &Cx,
+    e: &Expr,
+    chain: &[Node<'_>],
+    arr: jaic::source::Span,
+    var: Sym,
+) -> bool {
     chain.iter().rev().any(|n| {
         matches!(n, Node::Expr(Expr { kind: E::Index(base, idx), .. })
             if base.span.start <= e.span.start && e.span.end <= base.span.end
                 && matches!(idx.kind, E::Ident(v) if v == var)
-                && squash(cx.src(base.span)) == arr_text)
+                && cx.same_tokens(base.span, arr))
     })
 }
 

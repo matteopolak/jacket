@@ -26,7 +26,10 @@ use crate::Finding;
 use crate::facts::Recorded;
 use crate::syntax::{Cx, Node, ProcSite};
 use jaic::fxhash::HashMap;
+use jaic::lexer::{P, Tok, Token};
+use jaic::sema::Compiler;
 use jaic::sema::scope::EntityKind;
+use jaic::source::FileId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -170,14 +173,22 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     calls > 0
 }
 
-/// The name at `span` is called: `(` follows it.
+/// The name at `span` is called: a `(` is the next token.
 fn is_callee(cx: &Cx, span: jaic::source::Span) -> bool {
-    let Some(file) = cx.compiler.sources.try_get(span.file) else {
+    let called = |tokens: &[Token]| {
+        let next = tokens.partition_point(|t| t.span.start < span.end);
+        matches!(
+            tokens.get(next).map(|t| &t.tok),
+            Some(Tok::Punct(P::LParen))
+        )
+    };
+    if span.file == cx.file {
+        return called(cx.tokens);
+    }
+    let Some(tokens) = cx.run.tokens(cx.compiler, span.file) else {
         return false;
     };
-    file.text
-        .get(span.end as usize..)
-        .is_some_and(|rest| rest.trim_start().starts_with('('))
+    called(&tokens)
 }
 
 /// A procedure's parameter names in order (`""` for an unnamed one).
@@ -283,6 +294,22 @@ pub(crate) struct RunState {
     variants: RefCell<HashMap<PathBuf, Rc<Variants>>>,
     /// Resolved paths.
     canon: jaic::paths::CanonCache,
+    /// The tokens of the other files of the program, lexed when a rule asks.
+    lexed: RefCell<HashMap<FileId, Option<Rc<[Token]>>>>,
+}
+
+impl RunState {
+    /// The tokens of `file`, which must lex.
+    pub(crate) fn tokens(&self, compiler: &Compiler, file: FileId) -> Option<Rc<[Token]>> {
+        self.lexed
+            .borrow_mut()
+            .entry(file)
+            .or_insert_with(|| {
+                let text = &compiler.sources.try_get(file)?.text;
+                jaic::lexer::lex(file, text).ok().map(Rc::from)
+            })
+            .clone()
+    }
 }
 
 fn load_variants(dir: &Path) -> Variants {

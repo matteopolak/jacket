@@ -13,7 +13,7 @@
 //! steps back by hand).
 use super::{calls_noted, finding, statement_lists};
 use crate::Finding;
-use crate::syntax::{Cx, Node, squash, walk};
+use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{Expr, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::source::Span;
 
@@ -52,7 +52,6 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !calls_noted(cx, callee, "RemovesElements") {
                 return true;
             }
-            let array_text = squash(cx.whole_src(array.span));
             let walking = chain.iter().any(|a| match a {
                 Node::Stmt(Stmt {
                     kind: S::For(f),
@@ -63,7 +62,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         && !assigns_index(&f.body, index)
                         && f.reverse_if.is_none()
                         && f.iterator.is_none()
-                        && matches!(&f.over, ForOver::Collection(c) if squash(cx.whole_src(c.span)) == array_text)
+                        && matches!(&f.over, ForOver::Collection(c) if cx.same_tokens(c.span, array.span))
                 }
                 _ => false,
             });

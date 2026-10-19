@@ -19,7 +19,7 @@
 //! an earlier `case`, spelled the same.
 use super::{finding, same_pure};
 use crate::Finding;
-use crate::syntax::{Cx, Node, squash, walk};
+use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{Expr, StmtKind as S};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -43,18 +43,18 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     let jaic::ast::SwitchStmt {
                         cases, ..
                     } = &**boxed;
-                    let mut seen: Vec<String> = Vec::new();
+                    let mut seen: Vec<jaic::source::Span> = Vec::new();
                     for c in cases {
                         for v in &c.values {
-                            let text = squash(cx.whole_src(v.span));
-                            if seen.contains(&text) {
+                            if seen.iter().any(|&earlier| cx.same_tokens(earlier, v.span)) {
+                                let text = cx.whole_src(v.span).trim();
                                 out.push(finding(
                                     v.span,
                                     format!("`case {text}` repeats an earlier case"),
                                     Some("only the first matching case runs: was another value meant?".into()),
                                 ));
                             } else {
-                                seen.push(text);
+                                seen.push(v.span);
                             }
                         }
                     }

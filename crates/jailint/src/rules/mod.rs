@@ -1,6 +1,6 @@
 //! The rules. Each lives in its own module, documented with why it exists; [`RULES`] lists
 //! them with their default levels.
-use crate::syntax::{Cx, Node, squash};
+use crate::syntax::{Cx, Node};
 use crate::{Edit, Finding, Fix, Level};
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::sema::ProcId;
@@ -339,7 +339,7 @@ pub(crate) fn pure(e: &Expr) -> bool {
 
 /// `a` and `b` are the same pure expression, written the same way.
 pub(crate) fn same_pure(cx: &Cx, a: &Expr, b: &Expr) -> bool {
-    pure(a) && pure(b) && squash(cx.whole_src(a.span)) == squash(cx.whole_src(b.span))
+    pure(a) && pure(b) && cx.same_tokens(a.span, b.span)
 }
 
 /// An integer literal, possibly negated: its value.
