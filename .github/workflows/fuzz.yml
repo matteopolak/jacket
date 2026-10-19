@@ -61,7 +61,7 @@ jobs:
       - name: Minimize the corpus
         if: always()
         # cargo fuzz cmin replaces the corpus only once it has finished, so a cut-off keeps it.
-        timeout-minutes: 8
+        timeout-minutes: 10
         continue-on-error: true
         working-directory: fuzz
         run: >-
