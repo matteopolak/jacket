@@ -460,7 +460,7 @@ impl Compiler {
         if self.overload_sets_checked.contains(ids) {
             return Ok(());
         }
-        let mut seen: Vec<(EntityId, Rc<[TypeId]>, bool)> = Vec::new();
+        let mut seen: Vec<(EntityId, ProcId, Rc<[TypeId]>, bool)> = Vec::new();
         // A member that cannot be resolved yet (a `#placeholder` in its parameters) reports
         // its own error; the set is checked again once it can be compared.
         let mut complete = true;
@@ -487,9 +487,13 @@ impl Compiler {
             let TypeKind::Proc(ty) = self.types.kind(sig.ty).clone() else {
                 continue;
             };
+            // Two aliases of one procedure are the same overload, not a clash.
+            if seen.iter().any(|(_, other, ..)| *other == proc) {
+                continue;
+            }
             let scope = self.binding_scope(self.entity(id).scope);
             let params: Rc<[TypeId]> = ty.params.iter().copied().collect();
-            if let Some((first, ..)) = seen.iter().find(|(other, p, v)| {
+            if let Some((first, ..)) = seen.iter().find(|(other, _, p, v)| {
                 self.binding_scope(self.entity(*other).scope) == scope
                     && **p == *params
                     && *v == ty.variadic
@@ -505,7 +509,7 @@ impl Compiler {
                     .with_help("change a parameter's type, or remove one of them"),
                 ));
             }
-            seen.push((id, params, ty.variadic));
+            seen.push((id, proc, params, ty.variadic));
         }
         // Only a clean, fully compared set is remembered: a caller that swallows the error (a
         // speculative lookup) must not hide it from the next check.
