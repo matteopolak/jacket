@@ -49,7 +49,8 @@ pub(super) fn balanced(region: &str) -> bool {
         return false;
     }
     let bytes = region.as_bytes();
-    let (mut depth, mut comment, mut i) = (0i32, 0usize, 0);
+    // The closers still expected, innermost last: `[ }` is as unbalanced as `[`.
+    let (mut open, mut comment, mut i) = (Vec::new(), 0usize, 0);
     while i < bytes.len() {
         let two = bytes.get(i..i + 2).unwrap_or_default();
         match bytes[i] {
@@ -74,16 +75,15 @@ pub(super) fn balanced(region: &str) -> bool {
                 Some(end) => i = end,
                 None => return false,
             },
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
+            b'(' => open.push(b')'),
+            b'[' => open.push(b']'),
+            b'{' => open.push(b'}'),
+            b')' | b']' | b'}' if open.pop() != Some(bytes[i]) => return false,
             _ => {}
-        }
-        if depth < 0 {
-            return false;
         }
         i += 1;
     }
-    depth == 0 && comment == 0
+    open.is_empty() && comment == 0
 }
 
 /// The offset of the quote closing the string opened at `open`, if it closes on the same line.
