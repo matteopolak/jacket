@@ -25,7 +25,13 @@ thread_local! {
 impl AstId {
     pub fn fresh() -> AstId {
         NEXT_AST_ID.with(|n| {
-            let id = n.get();
+            let mut id = n.get();
+            // Under `JAIC_ID_SCRAMBLE`, a seeded gap starts each block of 256 ids.
+            if id.is_multiple_of(256)
+                && let Some(seed) = crate::knobs::id_scramble()
+            {
+                id += crate::knobs::scramble_gap(seed, u64::from(id), 64);
+            }
             n.set(id + 1);
             AstId(id)
         })

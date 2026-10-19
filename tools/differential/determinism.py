@@ -2,20 +2,24 @@
 """Check that the compiler's observable output does not depend on threads, unit counts or hash order.
 
 Usage: tools/differential/determinism.py [--jaic PATH] [--jailsp PATH] [--repeat N] [--filter TEXT]
-                                          [--jobs N] [--no-build] [--no-lsp] SET...
+                                          [--jobs N] [--no-build] [--no-lsp] [--scramble SEED,...] SET...
 Sets: positive (tests/corpus/positive), negative (tests/corpus/negative), regressions
 (tests/compiler/regressions), semantics (tests/compiler/semantics) or file paths.
 
 What is compared (docs/tools/determinism.md):
 
 - `check`: `jaic -check` diagnostics (text and order), stdout and exit code across `-parse_threads 1`,
-  `-serial_parse`, `-parse_threads 8`, `-threads 1` and the default, each run `--repeat` times. Rust's
-  hash maps are seeded per process, so a repeat catches output that follows a map's iteration order.
-- `build`: for each `-codegen_units N`, the LLVM IR (`-emit_ir`) and the linked executable's bytes across the
-  parse settings and repeats, and the executable's run output across all N (the split changes the objects, never
-  what the program does). Only the sets that compile (positive, regressions, semantics).
-- `lsp`: one `jailsp` session per run opening each file; the pushed diagnostics, document symbols, semantic
-  tokens, inlay hints and hovers must be equal across runs.
+  `-serial_parse`, `-parse_threads 8`, `-threads 1` and the default, each run `--repeat` times, and once per
+  `--scramble` seed. Rust's hash maps are seeded per process, so a repeat catches output that follows a map's
+  iteration order; a scramble seed (`JAIC_SYM_SCRAMBLE`, `JAIC_ID_SCRAMBLE`) catches output that follows
+  symbol or syntax-node numbers.
+- `build`: for each `-codegen_units N`, the build's diagnostics across the parse settings, repeats and seeds,
+  the LLVM IR (`-emit_ir`) and the linked executable's bytes across repeats of the single-threaded build
+  (`-threads 1`; other settings may number things differently), and the executable's run output across
+  everything (the split changes the objects, never what the program does). Only the sets that compile
+  (positive, regressions, semantics).
+- `lsp`: one `jailsp` session per run opening each file, plus one per seed; the pushed diagnostics, document
+  symbols, semantic tokens, inlay hints and hovers must be equal across runs.
 
 Exit status 1 when any comparison differs.
 """
@@ -61,16 +65,28 @@ UNIT_COUNTS = ["1", "3"]
 # The debug map of a linked macOS executable holds its objects' modification times, so the optimized
 # build (which deletes its objects) is linked without debug info; the default build is compared by its kept objects.
 LEVELS = [[], ["-O2", "-no_debug_info"]]
+# The setting whose builds must be byte-identical from run to run; under the others, symbol and node
+# numbers follow thread timing, which may reorder the IR without changing what the program does.
+SINGLE_THREADED = ["-threads", "1"]
+BUILD_CONFIGS = [SINGLE_THREADED, ["-parse_threads", "8"], []]
 TIMEOUT = 120
 # Programs whose output holds a host address by design (a pointer the compile-time interpreter returned is
 # written into the program); their IR legitimately differs between runs, so only their diagnostics are compared.
 HOST_ADDRESS_CASES = {"ctdata-opaque-pointer.jai", "rules-compiler-module.jai"}
 
 
-def run(argv, cwd, timeout=TIMEOUT):
+def scrambled(seed: str | None) -> dict:
+    """The environment for a run under a scramble seed (none: the plain environment)."""
+    env = stdlib_env()
+    if seed is not None:
+        env = {**env, "JAIC_SYM_SCRAMBLE": seed, "JAIC_ID_SCRAMBLE": seed}
+    return env
+
+
+def run(argv, cwd, timeout=TIMEOUT, seed=None):
     """(exit code, stdout, stderr) of a command; a timeout is reported as a result, not raised."""
     try:
-        p = subprocess.run(argv, cwd=cwd, capture_output=True, env=stdlib_env(), timeout=timeout)
+        p = subprocess.run(argv, cwd=cwd, capture_output=True, env=scrambled(seed), timeout=timeout)
     except subprocess.TimeoutExpired:
         return (-1, b"", b"timeout")
     return (p.returncode, p.stdout, p.stderr)
@@ -110,17 +126,21 @@ def describe(a, b) -> str:
     return f"  {str(a)[:600]!r}\n  {str(b)[:600]!r}"
 
 
-def check_case(jaic, path: Path, repeat: int, report: Report):
+def runs(repeat: int, seeds: list[str]):
+    """(label, seed) for each run of one configuration: `repeat` plain runs, then one per seed."""
+    return [(f"run {i + 1}", None) for i in range(repeat)] + [(f"seed {seed}", seed) for seed in seeds]
+
+
+def check_case(jaic, path: Path, repeat: int, seeds: list[str], report: Report):
     results = []
-    for i in range(repeat):
-        results.append((f"{' '.join(PARSE_CONFIGS[0])} run {i + 1}", run([jaic, "-check", "-no_color", path.name, *PARSE_CONFIGS[0]], path.parent)))
-    for config in PARSE_CONFIGS[1:]:
-        for i in range(repeat):
-            results.append((f"{' '.join(config) or 'default'} run {i + 1}", run([jaic, "-check", "-no_color", path.name, *config], path.parent)))
+    for config in PARSE_CONFIGS:
+        for label, seed in runs(repeat, seeds):
+            argv = [jaic, "-check", "-no_color", path.name, *config]
+            results.append((f"{' '.join(config) or 'default'} {label}", run(argv, path.parent, seed=seed)))
     report.compare(f"check {path.name}", results)
 
 
-def build_case(jaic, path: Path, repeat: int, report: Report):
+def build_case(jaic, path: Path, repeat: int, seeds: list[str], report: Report):
     outputs = []  # (build, run output) for the cross-unit comparison
     with tempfile.TemporaryDirectory(prefix="determinism-") as scratch:
         scratch = Path(scratch)
@@ -128,24 +148,26 @@ def build_case(jaic, path: Path, repeat: int, report: Report):
         exe, ll, kept = scratch / "program", scratch / "program.ll", scratch / ".build"
         for level in LEVELS:
             for units in UNIT_COUNTS:
-                builds = []
-                for config in PARSE_CONFIGS[:3]:
-                    for i in range(repeat):
+                builds, single = [], []
+                for config in BUILD_CONFIGS:
+                    for label, seed in runs(repeat, seeds):
                         exe.unlink(missing_ok=True)
                         ll.unlink(missing_ok=True)
                         shutil.rmtree(kept, ignore_errors=True)
                         argv = [jaic, path.name, "-no_color", "-exe", exe, "-emit_ir", ll, "-codegen_units", units, *config, *level]
-                        code, out, err = run(argv, path.parent)
-                        # An unoptimized macOS executable carries its objects' modification times in the
-                        # debug map and keeps the objects (`.build/`): compare those instead of the link.
-                        objects = sorted(kept.glob("*.o")) if kept.is_dir() else []
-                        linked = b"".join(o.read_bytes() for o in objects) if objects else (exe.read_bytes() if exe.exists() else b"")
-                        value = (code, out, err, digest(ll.read_bytes()) if ll.exists() else "", digest(linked))
-                        name = f"{' '.join(level)} -codegen_units {units} {' '.join(config) or 'default'} run {i + 1}"
-                        builds.append((name, value))
-                        if config == PARSE_CONFIGS[0] and i == 0 and exe.exists():
-                            outputs.append((f"{' '.join(level)} -codegen_units {units}", run([exe], scratch, timeout=20)))
+                        built = run(argv, path.parent, seed=seed)
+                        name = f"{' '.join(level)} -codegen_units {units} {' '.join(config) or 'default'} {label}"
+                        builds.append((name, built))
+                        if config == SINGLE_THREADED and seed is None:
+                            # An unoptimized macOS executable carries its objects' modification times in the
+                            # debug map and keeps the objects (`.build/`): compare those instead of the link.
+                            objects = sorted(kept.glob("*.o")) if kept.is_dir() else []
+                            linked = b"".join(o.read_bytes() for o in objects) if objects else (exe.read_bytes() if exe.exists() else b"")
+                            single.append((name, (digest(ll.read_bytes()) if ll.exists() else "", digest(linked))))
+                        if exe.exists() and (label == "run 1" or seed is not None):
+                            outputs.append((name, run([exe], scratch, timeout=20)))
                 report.compare(f"build {path.name}", builds)
+                report.compare(f"single-threaded bytes {path.name}", single)
         if outputs:
             report.compare(f"run {path.name}", outputs)
 
@@ -153,11 +175,11 @@ def build_case(jaic, path: Path, repeat: int, report: Report):
 # The language server
 
 
-def lsp_session(jailsp, path: Path) -> str:
+def lsp_session(jailsp, path: Path, seed=None) -> str:
     """Everything the checks compare for one document, as canonical JSON."""
     text = path.read_text(errors="replace")
     uri = path.resolve().as_uri()
-    client = Lsp(jailsp, path.parent, stdlib_env())
+    client = Lsp(jailsp, path.parent, scrambled(seed))
     try:
         client.request("initialize", {"processId": None, "rootUri": path.parent.resolve().as_uri(), "capabilities": {}})
         client.notify("initialized", {})
@@ -181,13 +203,13 @@ def lsp_session(jailsp, path: Path) -> str:
         client.close()
 
 
-def lsp_case(jailsp, path: Path, repeat: int, report: Report):
+def lsp_case(jailsp, path: Path, repeat: int, seeds: list[str], report: Report):
     sessions = []
-    for i in range(max(repeat, 2)):
+    for label, seed in runs(max(repeat, 2), seeds):
         try:
-            sessions.append((f"session {i + 1}", (lsp_session(jailsp, path),)))
+            sessions.append((label, (lsp_session(jailsp, path, seed),)))
         except Exception as error:  # a crash or timeout in one session is itself a difference
-            sessions.append((f"session {i + 1}", (f"failed: {error!r}",)))
+            sessions.append((label, (f"failed: {error!r}",)))
     report.compare(f"lsp {path.name}", sessions)
 
 
@@ -214,20 +236,23 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--no-lsp", action="store_true")
     parser.add_argument("--no-build", action="store_true")
+    parser.add_argument("--scramble", default="", metavar="SEED,...",
+                        help="also run every configuration once under each of these scramble seeds")
     parser.add_argument("sets", nargs="+")
     args = parser.parse_args()
     jaic = args.jaic.resolve()
     jailsp = (args.jailsp or jaic.with_name("jailsp" + jaic.suffix)).resolve()
     report = Report()
     cases = collect(args.sets, args.filter)
+    seeds = [s for s in args.scramble.split(",") if s]
 
     def work(item):
         which, path = item
-        check_case(jaic, path, args.repeat, report)
+        check_case(jaic, path, args.repeat, seeds, report)
         if not args.no_build and which in BUILDABLE | {"path"} and path.name not in HOST_ADDRESS_CASES:
-            build_case(jaic, path, args.repeat, report)
+            build_case(jaic, path, args.repeat, seeds, report)
         if not args.no_lsp:
-            lsp_case(jailsp, path, args.repeat, report)
+            lsp_case(jailsp, path, args.repeat, seeds, report)
 
     with ThreadPoolExecutor(args.jobs) as pool:
         list(pool.map(work, cases))

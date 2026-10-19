@@ -2,11 +2,14 @@
 
 ## What it is
 
-`tools/differential/determinism.py` compiles the local test programs under different thread, parse and codegen-unit settings, several times each, and fails when anything observable differs. It catches output that follows hash-map iteration order, thread scheduling or the split into code modules.
+`tools/differential/determinism.py` compiles the local test programs under different thread, parse and codegen-unit settings, several times each, and fails when anything observable differs. It catches output that follows hash-map iteration order, thread scheduling, symbol or syntax-node numbering, or the split into code modules.
+
+Only what a user sees has to agree everywhere: diagnostics and their order, `-check` output, what the program does, language-server answers. Symbols and syntax-node ids are numbered in whatever order threads reach them, so the IR and machine code of a parallel compile may differ between runs; byte-identical artifacts are promised only for single-threaded builds (`-threads 1`).
 
 ```sh
 python3 tools/differential/determinism.py --jaic target/release/jaic positive negative regressions semantics
 python3 tools/differential/determinism.py --jaic target/release/jaic --filter case- --jobs 1 positive   # a few files
+python3 tools/differential/determinism.py --jaic target/release/jaic --scramble 1,2 regressions        # number-order bugs
 ```
 
 A full run takes about 20 minutes on an M-series laptop (`--jobs 3`); CI runs it nightly (`.github/workflows/determinism.yml`) and on demand.
@@ -17,12 +20,15 @@ For every file, in its own directory:
 
 | Check | Configurations | Must be equal |
 | --- | --- | --- |
-| `check` | `jaic -check` with `-parse_threads 1`, `-serial_parse`, `-parse_threads 8`, `-threads 1` and the defaults, each `--repeat` (2) times | exit code, stdout, stderr: diagnostic text and order |
-| `build` | the first three parse settings x `-codegen_units 1` and `3` x default (debug) and `-O2 -no_debug_info`, each repeated | exit code, output, the LLVM IR from `-emit_ir`, and the machine code (below) |
-| `run` | the built program under each unit count and level | what the program prints and its exit code (the split changes the objects, never behaviour) |
-| `lsp` | two `jailsp` sessions per file | pushed diagnostics, document symbols, semantic tokens, inlay hints and hovers on the first column of each line |
+| `check` | `jaic -check` with `-parse_threads 1`, `-serial_parse`, `-parse_threads 8`, `-threads 1` and the defaults, each `--repeat` (2) times plus once per `--scramble` seed | exit code, stdout, stderr: diagnostic text and order |
+| `build` | `-threads 1`, `-parse_threads 8` and the defaults x `-codegen_units 1` and `3` x default (debug) and `-O2 -no_debug_info`, each repeated and once per seed | exit code, stdout, stderr |
+| `single-threaded bytes` | the `-threads 1` builds' plain repeats | the LLVM IR from `-emit_ir` and the machine code (below) |
+| `run` | the built program under each unit count, level and seed | what the program prints and its exit code (the split changes the objects, never behaviour) |
+| `lsp` | two `jailsp` sessions per file, plus one per seed | pushed diagnostics, document symbols, semantic tokens, inlay hints and hovers on the first column of each line |
 
 Rust seeds hash maps per process, so two runs of the same binary already differ in iteration order; a repeat that matches is evidence the output does not depend on it.
+
+**Scramble seeds.** Hash maps keyed on symbols (`Sym`) or syntax-node ids (`AstId`) hash the number, not the text, and `Sym`'s `Ord` is number order too. Under `JAIC_SYM_SCRAMBLE=<seed>` the interner skips a few seeded numbers before each new spelling, and under `JAIC_ID_SCRAMBLE=<seed>` `AstId::fresh` skips some at the start of every block of 256 (`crates/jaic/src/knobs.rs`). `--scramble` sets both for one extra run per configuration; output that changes with the seed sorts or iterates by number where it must go by spelling. Fix such a site with an ordered container or an explicit sort on the text.
 
 **Machine code.** The linked executable is compared byte for byte, with one exception: an unoptimized macOS link stores the modification time of each object in its debug map, so the check hashes the kept objects (`.build/*.o`) instead. The optimized variant is built with `-no_debug_info` for the same reason (its objects are deleted, but their times would still be in the debug map). Every build writes to the same output name, because the output path is embedded in the executable.
 
@@ -33,11 +39,11 @@ Rust seeds hash maps per process, so two runs of the same binary already differ 
 - New configuration: add to `PARSE_CONFIGS`, `UNIT_COUNTS` or `LEVELS`. The first entry of each is the reference the others are compared with.
 - New set: add it to `SETS`; sets in `BUILDABLE` are also built.
 - More language-server facts: add requests to `lsp_session`. It is a small client of its own so the script needs no third-party packages.
-- A difference prints the field that differs (`field 4` of a build is the machine code hash). Reproduce with the printed flags; for hash-order bugs repeat the build several times, the order changes per process.
+- A difference prints the field that differs (`field 1` of `single-threaded bytes` is the machine code hash). Reproduce with the printed flags; for hash-order bugs repeat the build several times, the order changes per process.
 
 ## Configuration
 
-`--jaic`, `--jailsp` (default: beside `jaic`), `--repeat`, `--filter`, `--jobs`, `--no-lsp`, `--no-build`. `JAIC_STDLIB` is set to the checkout's `stdlib/`.
+`--jaic`, `--jailsp` (default: beside `jaic`), `--repeat`, `--filter`, `--jobs`, `--no-lsp`, `--no-build`, `--scramble`. `JAIC_STDLIB` is set to the checkout's `stdlib/`.
 
 ## Dependencies
 

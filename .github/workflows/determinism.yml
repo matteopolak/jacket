@@ -45,4 +45,4 @@ jobs:
           REPEAT: ${{ inputs.repeat || '2' }}
         run: |
           # shellcheck disable=SC2086
-          python3 tools/differential/determinism.py --jaic target/release/jaic --jobs 2 --repeat "$REPEAT" $SETS
+          python3 tools/differential/determinism.py --jaic target/release/jaic --jobs 2 --repeat "$REPEAT" --scramble 1,2 $SETS

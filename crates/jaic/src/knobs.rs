@@ -56,3 +56,29 @@ pub fn set(knobs: Knobs) -> bool {
 pub fn get() -> &'static Knobs {
     KNOBS.get_or_init(Knobs::default)
 }
+
+/// `JAIC_SYM_SCRAMBLE=<seed>`: the interner leaves seeded gaps between the symbol numbers it hands
+/// out, so output that follows symbol numbers rather than spellings changes with the seed
+/// (`tools/differential/determinism.py --scramble`). Read once, and only when a new spelling is met.
+pub fn sym_scramble() -> Option<u64> {
+    static SEED: OnceLock<Option<u64>> = OnceLock::new();
+    *SEED.get_or_init(|| scramble_seed("JAIC_SYM_SCRAMBLE"))
+}
+
+/// `JAIC_ID_SCRAMBLE=<seed>`: the same for `AstId`s, consulted once per block of ids.
+pub fn id_scramble() -> Option<u64> {
+    static SEED: OnceLock<Option<u64>> = OnceLock::new();
+    *SEED.get_or_init(|| scramble_seed("JAIC_ID_SCRAMBLE"))
+}
+
+fn scramble_seed(var: &str) -> Option<u64> {
+    std::env::var(var).ok()?.trim().parse().ok()
+}
+
+/// A gap below `limit` for position `at` under `seed` (splitmix64).
+pub fn scramble_gap(seed: u64, at: u64, limit: u32) -> u32 {
+    let mut z = seed ^ at.wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    ((z ^ (z >> 31)) % u64::from(limit)) as u32
+}

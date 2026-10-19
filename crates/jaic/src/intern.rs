@@ -16,6 +16,16 @@ struct Interner {
     job: bool,
 }
 
+impl Interner {
+    /// Under `JAIC_SYM_SCRAMBLE`, skips a few numbers before a new symbol (`knobs::sym_scramble`).
+    fn scramble(&mut self) {
+        if let Some(seed) = crate::knobs::sym_scramble() {
+            let gap = crate::knobs::scramble_gap(seed, self.names.len() as u64, 4);
+            self.names.extend((0..gap).map(|_| ""));
+        }
+    }
+}
+
 thread_local! {
     static INTERNER: RefCell<Interner> = RefCell::new(Interner::default());
 }
@@ -39,6 +49,7 @@ impl Sym {
             } else {
                 Box::leak(text.to_owned().into_boxed_str())
             };
+            i.scramble();
             let sym = Sym(i.names.len() as u32);
             i.names.push(leaked);
             i.map.insert(leaked, sym);
@@ -54,6 +65,7 @@ impl Sym {
             if let Some(&s) = i.map.get(text) {
                 return s;
             }
+            i.scramble();
             let sym = Sym(i.names.len() as u32);
             i.names.push(text);
             i.map.insert(text, sym);
