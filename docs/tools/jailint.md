@@ -72,6 +72,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `bitwise_precedence` | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | warn | yes | `x == true`, `x != false`, `false == x` |
 | `broken_doc_link` | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
+| `constant_condition` | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
 | `defer_in_loop` | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
 | `duplicate_condition` | warn | no | an `else if` or `case` that repeats an earlier one and can never run |
 | `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
@@ -114,6 +115,8 @@ Jai gives all bitwise and shift operators one level above `*`, grouped left to r
 Only when the other side is a non-constant `bool`.
 ### broken_doc_link
 Only comments directly above a declaration (or trailing a field or parameter) are read, and links resolve like the language server's. Whether bracketed text counts as a link is decided by `jaic::docs` (see [doc comments](../compiler/doc-comments.md)): `[x]`, `[TODO]`, `a[i]`, plain lowercase words and URL targets are not. A single close misspelling is offered as a quick fix. `// jailint: allow(broken_doc_link)` inside the comment silences it.
+### constant_condition
+Reads the compiler's reachability facts (`jaic::sema::reachability`, the code the editor fades): reports the condition behind a branch that never runs, such as `if count < 5` inside `if count > 10`, or an `else` after a test that always holds. No analysis of its own, so it is as sure as the fading: unsure means silent. Compile-time constants (`if DEBUG`, `while true`), tests inside code that is dead anyway, and comparisons a type's range decides (left to `absurd_comparison`) are skipped.
 ### defer_in_loop
 The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@Releases` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
 ### duplicate_condition

@@ -12,6 +12,7 @@ mod banner_comment;
 mod bitwise_precedence;
 mod bool_comparison;
 pub(crate) mod broken_doc_link;
+mod constant_condition;
 mod defer_in_loop;
 mod duplicate_condition;
 mod erasing_op;
@@ -87,6 +88,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "a link in a doc comment (`[name]`) that names no declaration",
         check: broken_doc_link::check,
+    },
+    RuleInfo {
+        name: "constant_condition",
+        default: Level::Warn,
+        summary: "an `if` or `while` whose condition the compiler shows is always true or false",
+        check: constant_condition::check,
     },
     RuleInfo {
         name: "defer_in_loop",
