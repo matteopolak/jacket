@@ -2,17 +2,7 @@
 //! repository's stdlib.
 use jai_language_server::{CompletionKind, MarkupKind, Position, Session, TextChange};
 mod common;
-use common::{file_uri, session, uri};
-
-/// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` characters.
-fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
-    let byte = text.match_indices(marker).nth(n).unwrap().0 + marker.len() - back;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
+use common::{after, file_uri, session, uri};
 
 fn markdown_hover(session: &Session, at: Position) -> String {
     session

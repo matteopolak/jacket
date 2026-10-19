@@ -3,7 +3,7 @@
 use jai_language_server::{DiagnosticCode, Limits, SemanticTokenKind, Session};
 use std::path::Path;
 mod common;
-use common::{modules_environment, project, uri_of};
+use common::{modules_environment, position, project, uri_of};
 
 #[test]
 fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() {
@@ -24,16 +24,7 @@ fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() 
     s.open(uri.clone(), 1, text.into()).unwrap();
     for (member, line) in [("answer", 0), ("enabled", 1), ("Word", 2)] {
         let offset = text.find(&format!("Values.{member}")).unwrap() + 7;
-        let prefix = &text[..offset];
-        let found = s
-            .definition(
-                &uri,
-                jai_language_server::Position {
-                    line: prefix.matches('\n').count() as u32,
-                    character: prefix.rsplit('\n').next().unwrap().len() as u32,
-                },
-            )
-            .unwrap();
+        let found = s.definition(&uri, position(text, offset)).unwrap();
         assert_eq!(found.len(), 1, "{member}: {found:?}");
         assert!(
             found[0].uri.ends_with("/modules/Values/module.jai"),
@@ -148,13 +139,7 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
             ("Always,", 1, SemanticTokenKind::EnumMember),
         ] {
             let offset = text.match_indices(name).nth(n).unwrap().0;
-            let at = |offset: usize| {
-                let prefix = &text[..offset];
-                jai_language_server::Position {
-                    line: prefix.matches('\n').count() as u32,
-                    character: prefix.rsplit('\n').next().unwrap().len() as u32,
-                }
-            };
+            let at = |offset: usize| position(&text, offset);
             let position = at(offset);
             // Inside the name, not only on its first character.
             let found = s.definition(&uri, at(offset + 3)).unwrap();

@@ -1,17 +1,12 @@
 //! Files a build metaprogram (`first.jai`) compiles with `compiler_create_workspace` are
 //! checked and answered like any others, with or without a message loop.
-use jai_language_server::{DiagnosticCode, DocumentUri, Position, Session};
+use jai_language_server::{DiagnosticCode, DocumentUri, Session};
 mod common;
-use common::{open_file, project, uri_of};
+use common::{open_file, position, project, uri_of};
 
 fn hover_at(s: &Session, uri: &DocumentUri, text: &str, marker: &str) -> String {
     let byte = text.find(marker).unwrap();
-    let prefix = &text[..byte];
-    let position = Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    };
-    s.hover(uri, position)
+    s.hover(uri, position(text, byte))
         .unwrap()
         .expect("hover")
         .contents

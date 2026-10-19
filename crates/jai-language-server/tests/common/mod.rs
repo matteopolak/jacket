@@ -238,6 +238,18 @@ pub fn at_nth(text: &str, marker: &str, n: usize, offset: usize) -> Position {
     position(text, byte)
 }
 
+/// Position just after the `n`th (0-based) occurrence of `marker`, minus `back` bytes.
+pub fn after(text: &str, marker: &str, n: usize, back: usize) -> Position {
+    let byte = text
+        .match_indices(marker)
+        .nth(n)
+        .unwrap_or_else(|| panic!("no occurrence {n} of {marker:?}"))
+        .0
+        + marker.len()
+        - back;
+    position(text, byte)
+}
+
 /// Position of the last `marker` in `text`.
 pub fn at_last(text: &str, marker: &str) -> Position {
     position(

@@ -5,7 +5,7 @@ use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, Limits, Position, SemanticTokenKind, Session,
 };
 mod common;
-use common::{at_offset, environment, uri};
+use common::{at_offset, environment, position, uri};
 
 /// `shout` is marked, `plain` has the same signature but no note. Neither forwards its
 /// parameters, so only the note tells them apart.
@@ -95,13 +95,8 @@ fn hovering_a_directive_names_its_argument() {
     s.open(uri(), 1, SOURCE.into()).unwrap();
     let base = SOURCE.find("shout(\"x % y %\"").unwrap();
     let second = base + SOURCE[base..].match_indices('%').nth(1).unwrap().0;
-    let prefix = &SOURCE[..second];
-    let position = Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    };
     let hover = s
-        .hover(&uri(), position)
+        .hover(&uri(), position(SOURCE, second))
         .unwrap()
         .expect("hover")
         .contents
@@ -109,12 +104,7 @@ fn hovering_a_directive_names_its_argument() {
     assert!(hover.contains('2'), "{hover}");
     // And a directive of an unmarked callee has no format hover.
     let base = SOURCE.find("plain(\"p % q %\"").unwrap();
-    let prefix = &SOURCE[..base + 9];
-    let position = Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    };
-    let hover = s.hover(&uri(), position).unwrap();
+    let hover = s.hover(&uri(), position(SOURCE, base + 9)).unwrap();
     assert!(
         hover.is_none_or(|h| !h.contents.value.contains("No format arguments")
             && !h.contents.value.contains("missing argument")),

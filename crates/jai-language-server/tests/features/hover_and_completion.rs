@@ -1,6 +1,7 @@
 //! Completion, signature help and hovers over polymorphs, baked procedures and other targets.
+use super::common::position;
 use super::{at_nth, file_uri, hover, session, uri};
-use jai_language_server::{Position, Session};
+use jai_language_server::Session;
 
 /// Complete at the end of `typed` (the text before the cursor) inside `main`, with a
 /// `table` array and a `lo`/`hi` pair in scope.
@@ -13,10 +14,7 @@ fn complete_in_main(typed: &str) -> Vec<String> {
     let text = format!("{text}{rest}");
     let mut s = session();
     s.open(uri(), 1, text.clone()).unwrap();
-    let end = Position {
-        line: text[..cursor].matches('\n').count() as u32,
-        character: text[..cursor].rsplit('\n').next().unwrap().len() as u32,
-    };
+    let end = position(&text, cursor);
     s.completion(&uri(), end)
         .unwrap()
         .items
