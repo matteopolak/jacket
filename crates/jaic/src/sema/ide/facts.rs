@@ -108,6 +108,9 @@ pub struct IdeFacts {
     pub(in crate::sema) sketch_types: HashMap<Span, TypeId>,
     /// Each expression the current sketch began to check, failed or not.
     pub(in crate::sema) sketch_tried: HashSet<Span>,
+    /// Instances a sketch made with stand-ins for a call's types: only their signatures are
+    /// needed, so their bodies are never checked (a body would call on, without end).
+    pub(in crate::sema) sketch_signatures: HashSet<ProcId>,
     /// The code an `#if` on `OS` or `CPU` did not take: another target's compile has its facts.
     pub skipped: Vec<Span>,
     /// The branch of each `#if` and `ifx` of the recorded files, and whether any evaluation

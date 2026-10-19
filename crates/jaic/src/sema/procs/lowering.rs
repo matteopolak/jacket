@@ -389,12 +389,7 @@ impl Compiler {
             return Ok(inst);
         }
         self.perf.poly_request(id, false, span);
-        if self.ide_sketch_refuses(&bindings) {
-            return err(
-                span,
-                "a sketch does not instantiate polymorphs with its stand-ins",
-            );
-        }
+        let signature_only = self.ide_sketch_refuses(&bindings);
         if self.proc(id).instances.len() >= crate::sema::MAX_INSTANCES {
             return err(span, crate::sema::too_many_instances(self.proc(id).name));
         }
@@ -445,6 +440,9 @@ impl Compiler {
             export: None,
         });
         self.procs[id.0 as usize].instances.insert(key, inst);
+        if signature_only && let Some(ide) = self.ide.as_mut() {
+            ide.sketch_signatures.insert(inst);
+        }
         self.perf.poly_instance(id, inst, span);
         if let Some(notes) = self.proc_decl_notes.get(&id).cloned() {
             self.proc_decl_notes.insert(inst, notes);

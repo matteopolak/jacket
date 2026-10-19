@@ -166,7 +166,8 @@ impl Session {
         let inferred = inferred_name_ends(&doc.ide_text());
         for (span, ty) in types {
             let end = span.end as usize;
-            if end > text.len() || !inferred.contains(&(end as u32)) {
+            // `?` stands in for a type nothing could name: say nothing, not that.
+            if ty.as_str() == "?" || end > text.len() || !inferred.contains(&(end as u32)) {
                 continue;
             }
             // `t := Thing.{...}` and `p := cast(*u8) q` already say the type.

@@ -240,6 +240,10 @@ impl Compiler {
                 .get(f.0 as usize)
                 .is_none_or(Option::is_none)
                 && let Some(p) = self.queued_proc_of(f)
+                && !self
+                    .ide
+                    .as_ref()
+                    .is_some_and(|ide| ide.sketch_signatures.contains(&p))
                 && let Err(e) = self.lower_body(p)
             {
                 first.get_or_insert(e);

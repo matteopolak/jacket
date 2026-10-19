@@ -360,9 +360,9 @@ impl Compiler {
         self.ide.as_ref().is_some_and(|ide| ide.sketching)
     }
 
-    /// A call in a sketch would instantiate a polymorph with a stand-in. It is refused: each
-    /// member of a stand-in is a new stand-in, so polymorphs calling each other on members
-    /// would instantiate without end.
+    /// A call in a sketch would instantiate a polymorph with a stand-in. Only its signature is
+    /// made (so the call has the caller's own `T` in its types): each member of a stand-in is a
+    /// new stand-in, so checking bodies of polymorphs calling each other would not end.
     pub(super) fn ide_sketch_refuses(&self, bindings: &[(Sym, Value, TypeId)]) -> bool {
         self.ide
             .as_ref()

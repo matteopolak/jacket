@@ -28,6 +28,7 @@ Adds `jacket`, one front door and one config file for the toolchain, along with 
 
 ### Fixes
 
+- In a polymorphic procedure that nothing calls, a declaration initialised by a call to another polymorphic procedure (`found, index := array_find(array.*, item)`) got the type hint `: ?` and a `?` hover, because the editor refused the call. The call now takes the callee's signature with the caller's own `$T`, so the hints read `: bool`, `: s64`, `: T`, `: [] T`; a hint is never `?`.
 - `jailint --allow-incomplete` prints how many programs did not compile completely on the target instead of one line for each; `-v` lists them.
 - A baked `$xs: [$N] T` parameter takes `$N` from the element count of a constant array view (`xs :: #run make()`), where it used to say "array kind mismatch".
 - Assigning to an indexed expression (`=` and the compound assignments) on a type with `operator *[]` calls it and writes through the returned pointer, where it used to say "cannot assign to a value of type"; reads keep using `operator []`.
