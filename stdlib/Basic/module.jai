@@ -177,7 +177,7 @@ to_nanoseconds :: Impl.to_nanoseconds;
 compare_apollo_times :: Impl.compare_apollo_times;
 to_float64_seconds :: Impl.to_float64_seconds;
 to_apollo :: Impl.to_apollo;
-#if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS seconds_since_init :: Impl.seconds_since_init;
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS || OS == .WASM seconds_since_init :: Impl.seconds_since_init;
 
 #if OS == .WINDOWS {
     to_calendar :: Impl.to_calendar;
@@ -188,7 +188,7 @@ to_apollo :: Impl.to_apollo;
     current_time_monotonic :: Impl.current_time_monotonic;
 }
 
-#if OS == .MACOS || OS == .LINUX || OS == .ANDROID {
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WASM {
     timespec_to_apollo :: Impl.timespec_to_apollo;
     to_timespec :: Impl.to_timespec;
     current_time_consensus :: Impl.current_time_consensus;
@@ -224,6 +224,11 @@ NewArray :: Impl.NewArray;
 #if OS == .WINDOWS || OS == .LINUX || OS == .ANDROID || OS == .MACOS {
     get_working_directory :: Impl.get_working_directory;
     set_working_directory :: Impl.set_working_directory;
+    exit :: Impl.exit;
+    sleep_milliseconds :: Impl.sleep_milliseconds;
+}
+
+#if OS == .WASM {
     exit :: Impl.exit;
     sleep_milliseconds :: Impl.sleep_milliseconds;
 }

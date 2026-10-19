@@ -1,4 +1,4 @@
-#if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS {
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS || OS == .WASM {
     seconds_since_init :: () -> float64 {
         initializing, state := compare_and_swap(*elapsed_state, cast(s32) 0, cast(s32) 1);
         if initializing {

@@ -1,4 +1,4 @@
-#if OS == .MACOS || OS == .LINUX || OS == .ANDROID {
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WASM {
     timespec_to_apollo :: (ts: Clock_Native.timespec) -> Apollo_Time {
         if ts.tv_nsec < 0 || ts.tv_nsec >= 1000000000 return APOLLO_TIME_INVALID;
         duration := add_clock_words(seconds_to_apollo(ts.tv_sec), nanoseconds_to_apollo(ts.tv_nsec));
@@ -118,6 +118,7 @@ calendar_failure :: (message: string, time_zone: Time_Zone) -> Calendar_Time {
 
 #scope_file
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID Clock_Native :: #import "POSIX";
+#if OS == .WASM Clock_Native :: #import "internal/files/wasi-libc";
 
 add_clock_words :: (a: Apollo_Time, b: Apollo_Time) -> Apollo_Time #no_aoc {
     low := a.low + b.low;

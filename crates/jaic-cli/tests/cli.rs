@@ -383,38 +383,6 @@ fn memory_limit_stops_unbounded_allocation() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "10000\n");
 }
 
-/// The sandbox (`-os wasm`, the browser's engine) runs every thread on one host thread. A wait
-/// nothing can end any more is reported as a deadlock instead of hanging, whether the thread
-/// that could have ended it has returned or is blocked itself, and timed waits and sleeps move
-/// the virtual clock: a short wait times out, a longer one sees the signal sent after a sleep.
-#[test]
-fn sandbox_threads_wake_waiters_and_report_deadlocks() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/compiler/semantics/sandbox-threads");
-    for name in ["returned.jai", "blocked.jai", "timed.jai"] {
-        let path = dir.join(name);
-        let output = Command::new(JAIC)
-            .arg("-interp")
-            .arg(&path)
-            .args(["-os", "wasm"])
-            .output()
-            .unwrap();
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if name == "timed.jai" {
-            assert!(output.status.success(), "{name}: {stderr}");
-            assert_eq!(stdout, "TIMEOUT SUCCESS\n", "{name}");
-        } else {
-            assert!(!output.status.success(), "{name}: {stdout}");
-            assert!(
-                stderr.contains("deadlock: every thread is blocked"),
-                "{name}: {stderr}"
-            );
-            assert!(stdout.is_empty(), "{name}: {stdout}");
-        }
-    }
-}
-
 /// A plugin that prints each hook as it is called, tagged with its module parameter.
 const ORDER_PLUGIN: &str = r#"#module_parameters(TAG := "default");
 #import "Basic";

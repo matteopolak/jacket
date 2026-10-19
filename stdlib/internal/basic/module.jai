@@ -44,4 +44,5 @@
 #load "temporary.jai";
 #if OS == .LINUX || OS == .ANDROID || OS == .MACOS #load "filesystem.jai";
 #if OS == .WINDOWS #load "filesystem-windows.jai";
+#if OS == .WASM #load "process-wasm.jai";
 #load "arguments.jai";

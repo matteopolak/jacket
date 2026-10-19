@@ -26,5 +26,69 @@ opendir :: (name: *u8) -> *DIR #foreign libc;
 closedir :: (directory: *DIR) -> s32 #foreign libc;
 realpath :: (name: *u8, result: *u8) -> *u8 #foreign libc;
 
+time_t :: s64;
+
+// CLOCK_REALTIME and CLOCK_MONOTONIC have the same numbers in WASI as in Linux.
+clockid_t :: enum s32 {
+    REALTIME :: 0;
+    MONOTONIC :: 1;
+}
+
+timespec :: struct {
+    tv_sec: time_t;
+    tv_nsec: s64;
+}
+
+tm :: struct {
+    tm_sec: s32;
+    tm_min: s32;
+    tm_hour: s32;
+    tm_mday: s32;
+    tm_mon: s32;
+    tm_year: s32;
+    tm_wday: s32;
+    tm_yday: s32;
+    tm_isdst: s32;
+    tm_gmtoff: s64;
+    tm_zone: *u8;
+}
+
+clock_gettime :: (clock: clockid_t, result: *timespec) -> s32 #foreign libc;
+nanosleep :: (requested: *timespec, remaining: *timespec) -> s32 #foreign libc;
+gmtime_r :: (time: *time_t, result: *tm) -> *tm #foreign libc;
+localtime_r :: (time: *time_t, result: *tm) -> *tm #foreign libc;
+exit :: (status: s32) #foreign libc;
+
+// Neither host has time zones, so local time is UTC and `mktime` is `timegm`. Out-of-range
+// fields carry into the larger ones, as in C.
+timegm :: (broken: *tm) -> time_t {
+    year := cast(s64) broken.tm_year + 1900;
+    month := cast(s64) broken.tm_mon;
+
+    year += month / 12;
+    month %= 12;
+    if month < 0 {
+        month += 12;
+        year -= 1;
+    }
+
+    // Days since 1970-01-01 of the first of the month, counting years from March 1 so the
+    // leap day ends each year.
+    if month < 2 year -= 1;
+
+    era := ifx year >= 0 then year / 400 else (year - 399) / 400;
+    year_of_era := year - era * 400;
+    month_from_march := ifx month >= 2 then month - 2 else month + 10;
+    day_of_year := (153 * month_from_march + 2) / 5;
+    day_of_era := year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    days := era * 146097 + day_of_era - 719468 + cast(s64) broken.tm_mday - 1;
+
+    return days * 86400 + cast(s64) broken.tm_hour * 3600 + cast(s64) broken.tm_min * 60 + broken.tm_sec;
+}
+
+mktime :: (broken: *tm) -> time_t {
+    return timegm(broken);
+}
+
 #scope_file
 libc :: #system_library "libc";

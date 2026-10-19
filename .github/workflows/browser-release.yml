@@ -1,5 +1,9 @@
 name: verify browser compiler bundle
 on:
+  # Every release tag, so a stdlib change that breaks the browser build is caught before the
+  # playground updates.
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       compiler_revision:
@@ -9,14 +13,14 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: browser-compiler-${{ inputs.compiler_revision }}
+  group: browser-compiler-${{ inputs.compiler_revision || github.sha }}
   cancel-in-progress: false
 jobs:
   package:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      COMPILER_REVISION: ${{ inputs.compiler_revision }}
+      COMPILER_REVISION: ${{ inputs.compiler_revision || github.sha }}
       CARGO_INCREMENTAL: '0'
       CARGO_BUILD_JOBS: '1'
       RUSTC_WRAPPER: ''
@@ -31,7 +35,7 @@ jobs:
           PY
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.compiler_revision }}
+          ref: ${{ inputs.compiler_revision || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -86,7 +90,7 @@ jobs:
       - name: Retain the exact-commit producer assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: jai-playground-${{ inputs.compiler_revision }}
+          name: jai-playground-${{ inputs.compiler_revision || github.sha }}
           if-no-files-found: error
           retention-days: 14
           path: |
