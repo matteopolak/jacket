@@ -14,6 +14,7 @@ tests `contains(fromJSON(needs.changes.outputs.jobs), '<id>')`; a new job gets a
 
     python3 tools/ci/ci_changes.py          # reads GITHUB_EVENT_NAME, JOBS, EVENT_BEFORE, BASE_SHA, SHA
 """
+
 import json
 import os
 import re
@@ -25,32 +26,75 @@ SELF = r".github/(workflows/ci\.yml|actions/.*)"
 AREAS = {
     # Only the extension and its own tooling: the release workflow still builds and tests SDL3 with
     # the shared native-library builders, so a change to those is caught before shipping.
-    "sdl3": ["stdlib/Extensions/SDL3/**", "tools/bindings/*sdl*.py", "tools/native/sdl3/**"],
+    "sdl3": [
+        "stdlib/Extensions/SDL3/**",
+        "tools/bindings/*sdl*.py",
+        "tools/native/sdl3/**",
+    ],
     "clipboard": [
-        "stdlib/Clipboard/**", "stdlib/internal/clipboard/**", "stdlib/internal/window/connection.jai",
-        "stdlib/Basic/**", "stdlib/internal/basic/**", "crates/**", "Cargo.*", "rust-toolchain.toml",
-        "tools/portable/*portable_clipboard*.py", "tools/portable/check_clipboard_linux_package.py",
-        "tools/portable/*clipboard_linux_*.py", "tools/ci/ci_test_scratch.py", "tools/ci/test_ci_test_scratch.py",
+        "stdlib/Clipboard/**",
+        "stdlib/internal/clipboard/**",
+        "stdlib/internal/window/connection.jai",
+        "stdlib/Basic/**",
+        "stdlib/internal/basic/**",
+        "crates/**",
+        "Cargo.*",
+        "rust-toolchain.toml",
+        "tools/portable/*portable_clipboard*.py",
+        "tools/portable/check_clipboard_linux_package.py",
+        "tools/portable/*clipboard_linux_*.py",
+        "tools/ci/ci_test_scratch.py",
+        "tools/ci/test_ci_test_scratch.py",
     ],
     "nix": ["flake.nix", "flake.lock", "nix/**", "Cargo.lock", "rust-toolchain.toml"],
     # Every shell script (tools/dev/staged-files.sh lists them, shebang files included) is linted.
     "shell": ["**.sh", ".githooks/**", "tools/dev/staged-files.sh"],
-    "packaging": ["install.sh", "install.ps1", "packaging/**", "tools/dev/render_packages.py", "tools/ci/published_release.py", "tools/ci/test_install_sh.py", "tools/ci/test_install_ps1.ps1", "tests/installers/**"],
+    "packaging": [
+        "install.sh",
+        "install.ps1",
+        "packaging/**",
+        "tools/dev/render_packages.py",
+        "tools/ci/published_release.py",
+        "tools/ci/test_install_sh.py",
+        "tools/ci/test_install_ps1.ps1",
+        "tests/installers/**",
+    ],
     # Windows runs on pushes (main, staging) only for the paths its coverage is about, never on
     # pull requests, and always on manual runs.
     "windows": [
-        "stdlib/Extensions/Io/**", "stdlib/Extensions/Io_Uring/**", "stdlib/Extensions/Http/**",
-        "stdlib/Extensions/Json/**", "stdlib/Extensions/Tls/**", "tools/native/mbedtls/**",
-        "stdlib/Windows/**", "stdlib/File_Watcher/**", "stdlib/internal/watching/**",
-        "tools/stdlib/check_file_watcher_platforms.py", "tools/native/check_windows_time_zone.py",
-        "tools/native/build_windows_resource_fixture.py", "tools/native/test_windows_resource_fixture.py",
-        "tools/ci/install_ci_native_linux.sh", "tools/native/upstream_native.py", "tools/corpus/upstream_smoke.py",
-        "tools/upstream-cases.json", "corpus/upstreams.json", "tools/corpus/select_upstream_cases.py",
-        "tools/corpus/upstream_sandbox.py", "tools/differential/jaic_sweep.py",
-        "tools/ci/enter_vs_dev_shell.ps1", "tools/portable/build_portable.py", "tools/native/audio_build_native.py", "tools/native/build_native_libs.py",
-        "tools/stdlib/stdlib_runtime.py", "tools/native/test_windows_dynamic_package.py", "tools/native/windows_cross.py",
-        "crates/jaic-llvm/**", "crates/jaic/src/interp/**", "crates/jaic-cli/src/**",
-        "crates/jaic-cli/tests/native.rs", "tests/compiler/native/**",
+        "stdlib/Extensions/Io/**",
+        "stdlib/Extensions/Io_Uring/**",
+        "stdlib/Extensions/Http/**",
+        "stdlib/Extensions/Json/**",
+        "stdlib/Extensions/Tls/**",
+        "tools/native/mbedtls/**",
+        "stdlib/Windows/**",
+        "stdlib/File_Watcher/**",
+        "stdlib/internal/watching/**",
+        "tools/stdlib/check_file_watcher_platforms.py",
+        "tools/native/check_windows_time_zone.py",
+        "tools/native/build_windows_resource_fixture.py",
+        "tools/native/test_windows_resource_fixture.py",
+        "tools/ci/install_ci_native_linux.sh",
+        "tools/native/upstream_native.py",
+        "tools/corpus/upstream_smoke.py",
+        "tools/upstream-cases.json",
+        "corpus/upstreams.json",
+        "tools/corpus/select_upstream_cases.py",
+        "tools/corpus/upstream_sandbox.py",
+        "tools/differential/jaic_sweep.py",
+        "tools/ci/enter_vs_dev_shell.ps1",
+        "tools/portable/build_portable.py",
+        "tools/native/audio_build_native.py",
+        "tools/native/build_native_libs.py",
+        "tools/stdlib/stdlib_runtime.py",
+        "tools/native/test_windows_dynamic_package.py",
+        "tools/native/windows_cross.py",
+        "crates/jaic-llvm/**",
+        "crates/jaic/src/interp/**",
+        "crates/jaic-cli/src/**",
+        "crates/jaic-cli/tests/native.rs",
+        "tests/compiler/native/**",
     ],
 }
 
@@ -131,14 +175,20 @@ def changed_files(env):
         spec = f"{env.get('BASE_SHA', '')}...{env.get('SHA', 'HEAD')}"
     else:
         return None
-    result = subprocess.run(["git", "diff", "--name-only", spec], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "diff", "--name-only", spec], capture_output=True, text=True
+    )
     return result.stdout.split() if result.returncode == 0 else None
 
 
 def selected_jobs(results, requested):
     """The ids of JOBS to run: those whose area is true, limited to the comma-separated `requested` when it is not empty."""
     wanted = {name.strip() for name in requested.split(",") if name.strip()}
-    return [job for job, area in JOBS.items() if (not wanted or job in wanted) and (area is None or results[area])]
+    return [
+        job
+        for job, area in JOBS.items()
+        if (not wanted or job in wanted) and (area is None or results[area])
+    ]
 
 
 def main():
@@ -147,7 +197,9 @@ def main():
     event = env.get("GITHUB_EVENT_NAME", "")
     results = {}
     for area, patterns in AREAS.items():
-        results[area] = files is None or matches(patterns, files, area not in OWN_PATHS_ONLY)
+        results[area] = files is None or matches(
+            patterns, files, area not in OWN_PATHS_ONLY
+        )
     results["code"] = files is None or code_changed(files)
     if event == "pull_request":
         results["windows"] = False

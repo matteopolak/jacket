@@ -39,7 +39,9 @@ OPEN_VSX = "https://open-vsx.org/api/matteopolak/jacket"
 
 
 def platform_name() -> str:
-    system = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}[platform.system()]
+    system = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}[
+        platform.system()
+    ]
     machine = platform.machine().lower()
     arch = "arm64" if machine in ("arm64", "aarch64") else "x64"
     return f"{system}-{arch}"
@@ -73,7 +75,17 @@ def parse_sums(text: str) -> dict[str, str]:
 
 def download(tag: str, patterns: list[str], dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
-    command = ["gh", "release", "download", tag, "--repo", "matteopolak/jacket", "--clobber", "-D", str(dest)]
+    command = [
+        "gh",
+        "release",
+        "download",
+        tag,
+        "--repo",
+        "matteopolak/jacket",
+        "--clobber",
+        "-D",
+        str(dest),
+    ]
     for pattern in patterns:
         command += ["-p", pattern]
     subprocess.run(command, check=True)
@@ -83,16 +95,25 @@ def verified(tag: str, pattern: str, dest: Path) -> Path:
     """The release asset matching `pattern`, downloaded into `dest` and checked against SHA256SUMS."""
     download(tag, [pattern, "SHA256SUMS"], dest)
     sums = parse_sums((dest / "SHA256SUMS").read_text())
-    found = [p for p in dest.iterdir() if p.name != "SHA256SUMS" and re.fullmatch(pattern.replace(".", r"\.").replace("*", ".*"), p.name)]
+    found = [
+        p
+        for p in dest.iterdir()
+        if p.name != "SHA256SUMS"
+        and re.fullmatch(pattern.replace(".", r"\.").replace("*", ".*"), p.name)
+    ]
     if len(found) != 1:
-        raise SystemExit(f"expected one asset matching {pattern}, found {[p.name for p in found]}")
+        raise SystemExit(
+            f"expected one asset matching {pattern}, found {[p.name for p in found]}"
+        )
     path = found[0]
     expected = sums.get(path.name)
     if expected is None:
         raise SystemExit(f"SHA256SUMS has no line for {path.name}")
     actual = sha256(path)
     if actual != expected:
-        raise SystemExit(f"{path.name}: sha256 {actual} does not match SHA256SUMS ({expected})")
+        raise SystemExit(
+            f"{path.name}: sha256 {actual} does not match SHA256SUMS ({expected})"
+        )
     print(f"{path.name}: sha256 {actual} matches SHA256SUMS", file=sys.stderr)
     return path
 
@@ -106,19 +127,25 @@ def fetch(tag: str, dest: Path) -> Path:
             z.extractall(unpacked)
     else:
         with tarfile.open(archive) as t:
-            t.extractall(unpacked, filter="tar")  # keeps the executable bits and the stdlib's symlinks; our own release
+            t.extractall(
+                unpacked, filter="tar"
+            )  # keeps the executable bits and the stdlib's symlinks; our own release
     (root,) = [p for p in unpacked.iterdir() if p.is_dir()]
     return root
 
 
 def run(command, **kwargs) -> subprocess.CompletedProcess:
     print("+", " ".join(str(c) for c in command), flush=True)
-    return subprocess.run([str(c) for c in command], text=True, capture_output=True, **kwargs)
+    return subprocess.run(
+        [str(c) for c in command], text=True, capture_output=True, **kwargs
+    )
 
 
 def need(result: subprocess.CompletedProcess, what: str) -> str:
     if result.returncode:
-        raise SystemExit(f"{what} failed ({result.returncode}):\n{result.stdout}\n{result.stderr}")
+        raise SystemExit(
+            f"{what} failed ({result.returncode}):\n{result.stdout}\n{result.stderr}"
+        )
     return result.stdout
 
 
@@ -135,10 +162,12 @@ def check_versions(tag: str, bin_dir: Path) -> None:
         return
     text = need(run([bin_dir / exe("jacket"), "version"]), "jacket version")
     print(text.strip())
-    lines = [l for l in text.splitlines() if l.strip()]
-    stale = [l for l in lines if version not in l]
+    lines = [line for line in text.splitlines() if line.strip()]
+    stale = [line for line in lines if version not in line]
     if len(lines) < 4 or stale:
-        raise SystemExit(f"expected every tool to report {version}; lines without it: {stale}")
+        raise SystemExit(
+            f"expected every tool to report {version}; lines without it: {stale}"
+        )
 
 
 def project(bin_dir: Path) -> None:
@@ -151,14 +180,18 @@ def project(bin_dir: Path) -> None:
             app = work / "smoke"
             need(run([jacket, "build"], cwd=app), "jacket build")
             # The template's build program names the executable after the project.
-            built = need(run([app / exe("smoke")], cwd=app), "the program `jacket build` made")
+            built = need(
+                run([app / exe("smoke")], cwd=app), "the program `jacket build` made"
+            )
             if "Hello from smoke!" not in built:
                 raise SystemExit(f"the built program printed {built!r}")
             out = need(run([jacket, "run"], cwd=app), "jacket run")
         else:
             app = work / "smoke"
             app.mkdir()
-            (app / "main.jai").write_text('#import "Basic";\n\nmain :: () {\n    print("Hello from smoke!\\n");\n}\n')
+            (app / "main.jai").write_text(
+                '#import "Basic";\n\nmain :: () {\n    print("Hello from smoke!\\n");\n}\n'
+            )
             need(run([bin_dir / exe("jaic"), "main.jai"], cwd=app), "jaic main.jai")
             out = need(run([app / exe("main")], cwd=app), "the built program")
         if "Hello from smoke!" not in out:
@@ -169,17 +202,42 @@ def project(bin_dir: Path) -> None:
 
 def hover(jailsp: Path, source: Path, env) -> None:
     text = source.read_text()
-    line = next(i for i, l in enumerate(text.splitlines()) if l.startswith("main"))
+    line = next(i for i, row in enumerate(text.splitlines()) if row.startswith("main"))
     client = Lsp(jailsp, source.parent, env)
     try:
-        client.request("initialize", {"processId": None, "rootUri": source.parent.resolve().as_uri(), "capabilities": {}}, 60)
+        client.request(
+            "initialize",
+            {
+                "processId": None,
+                "rootUri": source.parent.resolve().as_uri(),
+                "capabilities": {},
+            },
+            60,
+        )
         client.notify("initialized", {})
         uri = source.resolve().as_uri()
-        client.notify("textDocument/didOpen", {"textDocument": {"uri": uri, "languageId": "jai", "version": 1, "text": text}})
+        client.notify(
+            "textDocument/didOpen",
+            {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "jai",
+                    "version": 1,
+                    "text": text,
+                }
+            },
+        )
         # The server answers once the document is analysed; ask a few times.
         answer = None
         for _ in range(10):
-            answer = client.request("textDocument/hover", {"textDocument": {"uri": uri}, "position": {"line": line, "character": 1}}, 60)
+            answer = client.request(
+                "textDocument/hover",
+                {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": line, "character": 1},
+                },
+                60,
+            )
             if answer:
                 break
             time.sleep(1)
@@ -200,15 +258,34 @@ def vsix(tag: str, dest: Path) -> Path:
         names = z.namelist()
     if package["version"] != editor_version:
         raise SystemExit(f"{path.name}: package.json says {package['version']}")
-    for needed in ("extension/syntaxes/jai.tmLanguage.json", "extension/language-configuration.json"):
+    for needed in (
+        "extension/syntaxes/jai.tmLanguage.json",
+        "extension/language-configuration.json",
+    ):
         if needed not in names:
             raise SystemExit(f"{path.name} has no {needed}")
     sums = parse_sums((dest / "SHA256SUMS").read_text())
-    pinned = [name for name, digest in sums.items() if name.startswith("jacket-") and not name.endswith(".vsix") and digest in bundle]
-    archives = [name for name in sums if re.fullmatch(r"jacket-(macos|linux|windows)-(x64|arm64)\.(tar\.gz|zip)", name)]
+    pinned = [
+        name
+        for name, digest in sums.items()
+        if name.startswith("jacket-")
+        and not name.endswith(".vsix")
+        and digest in bundle
+    ]
+    archives = [
+        name
+        for name in sums
+        if re.fullmatch(
+            r"jacket-(macos|linux|windows)-(x64|arm64)\.(tar\.gz|zip)", name
+        )
+    ]
     if pinned and sorted(pinned) != sorted(archives):
-        raise SystemExit(f"{path.name} pins {sorted(pinned)} but the release has {sorted(archives)}")
-    print(f"{path.name}: version {editor_version}, bundle ok, {len(pinned)}/{len(archives)} archive checksums pinned")
+        raise SystemExit(
+            f"{path.name} pins {sorted(pinned)} but the release has {sorted(archives)}"
+        )
+    print(
+        f"{path.name}: version {editor_version}, bundle ok, {len(pinned)}/{len(archives)} archive checksums pinned"
+    )
     return path
 
 
@@ -219,21 +296,32 @@ def vsix_store(tag: str, dest: Path) -> None:
     with urllib.request.urlopen(f"{OPEN_VSX}/{editor_version}", timeout=60) as response:
         meta = json.load(response)
     if meta.get("version") != editor_version:
-        raise SystemExit(f"Open VSX reports version {meta.get('version')}, expected {editor_version}")
+        raise SystemExit(
+            f"Open VSX reports version {meta.get('version')}, expected {editor_version}"
+        )
     download_url = meta["files"]["download"]
     fetched = dest / "open-vsx.vsix"
-    with urllib.request.urlopen(download_url, timeout=120) as response, fetched.open("wb") as out:
+    with (
+        urllib.request.urlopen(download_url, timeout=120) as response,
+        fetched.open("wb") as out,
+    ):
         shutil.copyfileobj(response, out)
     with zipfile.ZipFile(fetched) as z:
         version = json.loads(z.read("extension/package.json"))["version"]
     if version != editor_version:
-        raise SystemExit(f"the Open VSX package.json says {version}, expected {editor_version}")
+        raise SystemExit(
+            f"the Open VSX package.json says {version}, expected {editor_version}"
+        )
     same = sha256(fetched) == sha256(path)
-    print(f"Open VSX {editor_version}: package.json ok; identical to the release asset: {same}")
+    print(
+        f"Open VSX {editor_version}: package.json ok; identical to the release asset: {same}"
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("fetch", "vsix", "vsix-store"):
         p = sub.add_parser(name)

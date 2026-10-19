@@ -15,6 +15,7 @@ and is skipped. Other exceptions raised while the imports run are not import err
     python3 tools/ci/check_tool_imports.py                          # every file, both loads
     python3 tools/ci/check_tool_imports.py tools/toolkit/download.py
 """
+
 from __future__ import annotations
 
 import sys as _sys
@@ -77,7 +78,11 @@ def tool_files(selected: list[str]) -> list[Path]:
 
 
 def folders() -> set[str]:
-    return {p.name for p in TOOLS.iterdir() if p.is_dir() and not p.name.startswith(("_", "."))}
+    return {
+        p.name
+        for p in TOOLS.iterdir()
+        if p.is_dir() and not p.name.startswith(("_", "."))
+    }
 
 
 def top_level_names() -> set[str]:
@@ -96,7 +101,15 @@ def load(path: Path, mode: str) -> tuple[str, str]:
     if mode == "runner":
         env["PYTHONPATH"] = str(TOOLS)
     command = [sys.executable, "-c", LOADER, str(path), mode, str(TOOLS)]
-    result = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=120, stdin=subprocess.DEVNULL)
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=120,
+        stdin=subprocess.DEVNULL,
+    )
     out = result.stdout.strip()
     if result.returncode == 0:
         return "ok", ""
@@ -113,7 +126,9 @@ def load(path: Path, mode: str) -> tuple[str, str]:
 def nested_import_problems(path: Path) -> list[str]:
     """Static check of every import (including ones in functions) against the script/runner search path."""
     tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
-    own = {p.stem for p in path.parent.glob("*.py")} | {p.name for p in path.parent.iterdir() if p.is_dir()}
+    own = {p.stem for p in path.parent.glob("*.py")} | {
+        p.name for p in path.parent.iterdir() if p.is_dir()
+    }
     visible = own | top_level_names() | folders()
     project = project_names() - set(sys.stdlib_module_names)
     problems = []
@@ -129,19 +144,31 @@ def nested_import_problems(path: Path) -> list[str]:
             if head not in project:
                 continue
             if head not in visible:
-                problems.append(f"line {node.lineno}: `{name}` is not importable from {path.parent.name}/ (qualify it by folder)")
+                problems.append(
+                    f"line {node.lineno}: `{name}` is not importable from {path.parent.name}/ (qualify it by folder)"
+                )
             elif head in folders() and head not in own:
                 folder = TOOLS / head
                 wanted = [rest.split(".")[0]] if rest else members
                 for module in wanted:
-                    if module != "*" and not (folder / f"{module}.py").exists() and not (folder / module).is_dir():
-                        problems.append(f"line {node.lineno}: tools/{head}/ has no module `{module}`")
+                    if (
+                        module != "*"
+                        and not (folder / f"{module}.py").exists()
+                        and not (folder / module).is_dir()
+                    ):
+                        problems.append(
+                            f"line {node.lineno}: tools/{head}/ has no module `{module}`"
+                        )
     return problems
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("files", nargs="*", help="files to check (default: every tools/**/*.py)")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "files", nargs="*", help="files to check (default: every tools/**/*.py)"
+    )
     parser.add_argument("-j", "--jobs", type=int, default=4)
     args = parser.parse_args()
     files = tool_files(args.files)
@@ -161,7 +188,9 @@ def main() -> int:
         for problem in nested_import_problems(path):
             failed += 1
             print(f"FAIL static {path.relative_to(ROOT).as_posix()}\n    {problem}")
-    print(f"check_tool_imports: {len(files)} files, {len(jobs) - skipped} loads, {skipped} skipped, {failed} failed")
+    print(
+        f"check_tool_imports: {len(files)} files, {len(jobs) - skipped} loads, {skipped} skipped, {failed} failed"
+    )
     return 1 if failed else 0
 
 

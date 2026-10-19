@@ -69,6 +69,11 @@ jobs:
       # Every tools/ script must resolve its imports when run directly and under tools/run_tests.py (docs/tools/tools-layout.md).
       - name: Tool imports
         run: python3 tools/ci/check_tool_imports.py
+      # ruff's default rules over the Python tooling (ruff.toml; the version is pinned in .github/pins.json).
+      - name: Python lint
+        run: |
+          python3 -m pip install ruff==0.14.14
+          ruff check tools .github
   fuzz-regressions:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'fuzz-regressions')

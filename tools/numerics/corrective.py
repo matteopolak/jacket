@@ -16,6 +16,7 @@ from target_contracts import target_contract
 
 root = Path(__file__).resolve().parents[2]
 from repo_output import output_dir
+
 compiler = output_dir("numerics", "current-target", "debug", "jaic")
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -24,7 +25,9 @@ parser.add_argument(
 parser.add_argument("--compiler", type=Path, default=compiler)
 parser.add_argument("--canonical-dependencies", action="store_true", default=True)
 parser.add_argument(
-    "--output", type=Path, default=output_dir("numerics", "canonical-corrective-reviewed")
+    "--output",
+    type=Path,
+    default=output_dir("numerics", "canonical-corrective-reviewed"),
 )
 parser.add_argument(
     "--private-x11-display",

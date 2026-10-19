@@ -109,9 +109,13 @@ def load_rows(directory):
     for row in rows:
         unknown = set(row) - ROW_KEYS
         if unknown:
-            raise ValueError(f"{manifest}: unknown keys {sorted(unknown)} in {row.get('name')!r}")
+            raise ValueError(
+                f"{manifest}: unknown keys {sorted(unknown)} in {row.get('name')!r}"
+            )
         if "name" not in row or row["name"] in names:
-            raise ValueError(f"{manifest}: missing or duplicate name {row.get('name')!r}")
+            raise ValueError(
+                f"{manifest}: missing or duplicate name {row.get('name')!r}"
+            )
         names.add(row["name"])
     return rows
 
@@ -171,7 +175,9 @@ def validated_entries(root=ROOT):
                 or other.get("mode") == "check-fail"
                 or "error_contains" in other
             ):
-                raise ValueError("positive_baseline must name a positive case: " + baseline)
+                raise ValueError(
+                    "positive_baseline must name a positive case: " + baseline
+                )
             case["positive_baseline_id"] = target
     if not result:
         raise ValueError("empty test catalogue")
@@ -206,7 +212,9 @@ def unavailable_reason(case, mode, actual_platform=None):
     if mode in case.get("unsupported_modes", []):
         required = ", ".join(case["required_capabilities"])
         return f"{mode} platform unavailable: requires {required}; actual native execution remains required, not passed"
-    if "-".join((actual_platform or "").split("-")[:2]) in case.get("unsupported_platforms", []):
+    if "-".join((actual_platform or "").split("-")[:2]) in case.get(
+        "unsupported_platforms", []
+    ):
         required = ", ".join(case["required_capabilities"])
         return f"{actual_platform} platform unavailable: requires {required}; actual execution remains required, not passed"
     target_os = (
@@ -238,23 +246,28 @@ def cases(root=ROOT):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Project the canonical catalogue onto an explicit execution mode")
-    parser.add_argument("--mode", choices=("interp", "native", "wasm-interp", "wasm-native"))
+    parser = argparse.ArgumentParser(
+        description="Project the canonical catalogue onto an explicit execution mode"
+    )
+    parser.add_argument(
+        "--mode", choices=("interp", "native", "wasm-interp", "wasm-native")
+    )
     parser.add_argument("--platform")
     arguments = parser.parse_args()
     entries = validated_entries()
     if arguments.mode:
         entries = [
-            {**case_for_mode(case, arguments.mode),
-             "selected_unavailable_reason": unavailable_reason(case, arguments.mode, arguments.platform)}
+            {
+                **case_for_mode(case, arguments.mode),
+                "selected_unavailable_reason": unavailable_reason(
+                    case, arguments.mode, arguments.platform
+                ),
+            }
             for case in entries
         ]
     # The browser runner consumes the same manifests and source discovery.
     print(
         json.dumps(
-            [
-                {**case, "path": str(case["path"].relative_to(ROOT))}
-                for case in entries
-            ]
+            [{**case, "path": str(case["path"].relative_to(ROOT))} for case in entries]
         )
     )

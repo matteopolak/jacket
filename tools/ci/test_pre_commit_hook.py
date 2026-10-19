@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from toolkit.repo import ROOT
+
 REPO = ROOT
 
 
@@ -28,7 +29,9 @@ exit 0
 
 
 def sh(args, cwd, env=None, check=True):
-    return subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, check=check)
+    return subprocess.run(
+        args, cwd=cwd, env=env, text=True, capture_output=True, check=check
+    )
 
 
 class PreCommitHookTests(unittest.TestCase):
@@ -38,21 +41,29 @@ class PreCommitHookTests(unittest.TestCase):
         self.repo = Path(self.tmp.name) / "repo"
         self.repo.mkdir()
         sh(["git", "init", "-q"], self.repo)
-        for key, value in (("user.name", "t"), ("user.email", "t@example.com"),
-                           ("commit.gpgsign", "false"), ("core.hooksPath", ".githooks")):
+        for key, value in (
+            ("user.name", "t"),
+            ("user.email", "t@example.com"),
+            ("commit.gpgsign", "false"),
+            ("core.hooksPath", ".githooks"),
+        ):
             sh(["git", "config", key, value], self.repo)
         (self.repo / ".githooks").mkdir()
         shutil.copy(REPO / ".githooks/pre-commit", self.repo / ".githooks/pre-commit")
         (self.repo / "tools/dev").mkdir(parents=True)
         for script in ("rust_item_spacing.py", "staged-files.sh"):
             shutil.copy(REPO / "tools/dev" / script, self.repo / "tools/dev" / script)
-        shutil.copytree(REPO / "tools/toolkit", self.repo / "tools/toolkit",
-                        ignore=shutil.ignore_patterns("__pycache__", "test_*"))
+        shutil.copytree(
+            REPO / "tools/toolkit",
+            self.repo / "tools/toolkit",
+            ignore=shutil.ignore_patterns("__pycache__", "test_*"),
+        )
         (self.repo / "target").mkdir()
         self.env = dict(os.environ, JAI_HOOK_NO_BUILD="1", JAI_HOOK_SKIP="rustfmt")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.
         self.env["PATH"] = os.pathsep.join(
-            p for p in self.env["PATH"].split(os.pathsep)
+            p
+            for p in self.env["PATH"].split(os.pathsep)
             if not (Path(p) / "jaifmt").exists() and not (Path(p) / "jailint").exists()
         )
 
@@ -68,7 +79,9 @@ class PreCommitHookTests(unittest.TestCase):
         path.write_text(text)
 
     def commit(self, *extra):
-        return sh(["git", "commit", "-q", "-m", "x", *extra], self.repo, self.env, check=False)
+        return sh(
+            ["git", "commit", "-q", "-m", "x", *extra], self.repo, self.env, check=False
+        )
 
     def test_clean_commit_passes_quietly(self):
         self.tool("target/jaifmt")
@@ -154,7 +167,10 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertIn("cargo fmt --all", result.stderr)
 
     def test_repo_checks_run_for_any_staged_file(self):
-        self.write("tools/ci/check_source_style.py", "import sys\nprint('a.rs: too long')\nsys.exit(1)\n")
+        self.write(
+            "tools/ci/check_source_style.py",
+            "import sys\nprint('a.rs: too long')\nsys.exit(1)\n",
+        )
         self.write("notes.txt", "x\n")
         sh(["git", "add", "notes.txt"], self.repo)
         result = self.commit()
@@ -177,7 +193,9 @@ class PreCommitHookTests(unittest.TestCase):
     def test_shellcheck_checks_staged_shell_files(self):
         self.fake_shellcheck()
         self.write("run.sh", "#!/bin/sh\ntrue\n")
-        self.write("tool", "#!/usr/bin/env bash\nBAD\n")  # no extension: found by its shebang
+        self.write(
+            "tool", "#!/usr/bin/env bash\nBAD\n"
+        )  # no extension: found by its shebang
         self.write("notes.txt", "BAD\n")  # not a shell file
         sh(["git", "add", "run.sh", "tool", "notes.txt"], self.repo)
         result = self.commit()
@@ -190,7 +208,9 @@ class PreCommitHookTests(unittest.TestCase):
         self.fake_shellcheck()
         self.write("run.sh", "#!/bin/sh\nBAD\n")
         sh(["git", "add", "run.sh"], self.repo)
-        self.write("run.sh", "#!/bin/sh\ntrue\n")  # fixed in the working tree, not staged
+        self.write(
+            "run.sh", "#!/bin/sh\ntrue\n"
+        )  # fixed in the working tree, not staged
         result = self.commit()
         self.assertEqual(result.returncode, 1, result.stderr)
 
@@ -204,7 +224,11 @@ class PreCommitHookTests(unittest.TestCase):
 
     def test_missing_shellcheck_warns_and_does_not_block(self):
         # A PATH without the directory of any real shellcheck, keeping git and the shell tools.
-        dirs = [p for p in self.env["PATH"].split(os.pathsep) if not (Path(p) / "shellcheck").exists()]
+        dirs = [
+            p
+            for p in self.env["PATH"].split(os.pathsep)
+            if not (Path(p) / "shellcheck").exists()
+        ]
         if shutil.which("git", path=os.pathsep.join(dirs)) is None:
             self.skipTest("git lives next to shellcheck")
         self.env["PATH"] = os.pathsep.join(dirs)
@@ -217,10 +241,14 @@ class PreCommitHookTests(unittest.TestCase):
     def test_stale_lock_file_fails(self):
         if shutil.which("cargo") is None:
             self.skipTest("cargo is not installed")
-        self.write("Cargo.toml", '[package]\nname = "x"\nversion = "0.1.0"\nedition = "2024"\n')
+        self.write(
+            "Cargo.toml", '[package]\nname = "x"\nversion = "0.1.0"\nedition = "2024"\n'
+        )
         self.write("src/lib.rs", "")
         sh(["cargo", "generate-lockfile", "--offline"], self.repo)
-        self.write("Cargo.toml", '[package]\nname = "x"\nversion = "0.2.0"\nedition = "2024"\n')
+        self.write(
+            "Cargo.toml", '[package]\nname = "x"\nversion = "0.2.0"\nedition = "2024"\n'
+        )
         sh(["git", "add", "Cargo.toml", "Cargo.lock", "src"], self.repo)
         result = self.commit()
         self.assertEqual(result.returncode, 1, result.stderr)

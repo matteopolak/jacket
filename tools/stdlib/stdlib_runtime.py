@@ -89,11 +89,15 @@ def contract_result(case, code, output, error="", native=False):
         )
     if "stdout" in case:
         return (
-            code == case.get("exit_code", 0) and output == case["stdout"] and error == case.get("stderr", "")
+            code == case.get("exit_code", 0)
+            and output == case["stdout"]
+            and error == case.get("stderr", "")
         )
     if "stdout_one_of" in case:
         return (
-            code == case.get("exit_code", 0) and output in case["stdout_one_of"] and error == case.get("stderr", "")
+            code == case.get("exit_code", 0)
+            and output in case["stdout_one_of"]
+            and error == case.get("stderr", "")
         )
     return code == 0
 
@@ -160,10 +164,16 @@ def describe_stuck_process(pid):
         for name in ("status", "wchan", "stat"):
             text = Path(f"/proc/{pid}/{name}").read_text(errors="replace")
             if name == "status":
-                text = "".join(l for l in text.splitlines(True) if l.split(":")[0] in ("State", "Threads", "VmRSS"))
+                text = "".join(
+                    line
+                    for line in text.splitlines(True)
+                    if line.split(":")[0] in ("State", "Threads", "VmRSS")
+                )
             lines.append(f"{name}: {text.strip()[:400]}")
         for task in sorted(Path(f"/proc/{pid}/task").iterdir())[:8]:
-            lines.append(f"task {task.name}: wchan {(task / 'wchan').read_text().strip()} stat {(task / 'stat').read_text().split(')')[-1].split()[0]}")
+            lines.append(
+                f"task {task.name}: wchan {(task / 'wchan').read_text().strip()} stat {(task / 'stat').read_text().split(')')[-1].split()[0]}"
+            )
     except OSError:
         return ""
     return "\n[timed out] " + "\n[timed out] ".join(lines) + "\n"
@@ -187,7 +197,9 @@ def write_ico_fixtures(directory, env):
         for value in (row * 10, column * 10, 60 + row)
     )
     (directory / "gradient.bmp").write_bytes(header + dib + gradient)
-    suffix = ".dll" if os.name == "nt" else (".dylib" if sys.platform == "darwin" else ".so")
+    suffix = (
+        ".dll" if os.name == "nt" else (".dylib" if sys.platform == "darwin" else ".so")
+    )
     library = next(
         (
             Path(folder) / ("libstb_image_resize" + suffix)
@@ -197,9 +209,16 @@ def write_ico_fixtures(directory, env):
         None,
     )
     if library is None:
-        raise ValueError("the stb_image_resize library is missing from JAIC_NATIVE_LIBS")
+        raise ValueError(
+            "the stb_image_resize library is missing from JAIC_NATIVE_LIBS"
+        )
     resize = ctypes.CDLL(str(library)).stbir_resize_uint8_srgb
-    resize.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int] * 2 + [ctypes.c_int] * 3
+    resize.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+    ] * 2 + [ctypes.c_int] * 3
     resize.restype = ctypes.c_int
     bgra = bytes(
         value
@@ -306,7 +325,9 @@ def run_program(command, cwd, timeout, env, case):
 def uses_clipboard(case):
     """Clipboard tests share the one system clipboard (on Linux, the Xvfb display's selection),
     so two running at once, such as a test's interp and native runs, overwrite each other."""
-    return bool(case.get("clipboard_guard")) or case.get("id", "").startswith("Clipboard/")
+    return bool(case.get("clipboard_guard")) or case.get("id", "").startswith(
+        "Clipboard/"
+    )
 
 
 def run_unleased(command, cwd, timeout, env, case):
@@ -369,9 +390,14 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
     run (the program did its work at compile time)."""
     env = dict(os.environ)
     if sys.platform == "win32" and env.get("JAIC_NATIVE_LIBS"):
-        env["JAIC_NATIVE_LIBS"] = os.pathsep.join(map(str, windows_library_dirs(
-            filter(None, env["JAIC_NATIVE_LIBS"].split(os.pathsep))
-        )))
+        env["JAIC_NATIVE_LIBS"] = os.pathsep.join(
+            map(
+                str,
+                windows_library_dirs(
+                    filter(None, env["JAIC_NATIVE_LIBS"].split(os.pathsep))
+                ),
+            )
+        )
     env.setdefault("JAIC_MEMORY_LIMIT", "3G")
     # Tests may read the mode (docs/tools/testing.md), for example to avoid what the
     # interpreter cannot do yet.
@@ -394,8 +420,15 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             detail = f"timed out after {args.timeout:.0f}s\n{detail}"
         if metadata and metadata.get("mode") == "check-fail":
             return contract_result(metadata, code, stdout, stderr), detail
-        if metadata and "error_contains" in metadata and metadata.get("mode") != "fault":
-            return None, "expects an error while interpreting; nothing to check statically"
+        if (
+            metadata
+            and "error_contains" in metadata
+            and metadata.get("mode") != "fault"
+        ):
+            return (
+                None,
+                "expects an error while interpreting; nothing to check statically",
+            )
         if metadata and metadata.get("source_check_only") is True:
             return (None if code == 0 else False), detail
         return code == 0, detail
@@ -535,14 +568,29 @@ def modes_given_cross(args):
     return any(m.strip() not in ("check", "") for m in args.modes.split(","))
 
 
-DATA_FIXTURE_BUILDERS = ("zip", "archive", "mpeg", "meow", "machine")  # tools/portable/build_portable.py subcommands
+DATA_FIXTURE_BUILDERS = (
+    "zip",
+    "archive",
+    "mpeg",
+    "meow",
+    "machine",
+)  # tools/portable/build_portable.py subcommands
 
 
 def build_data_fixtures():
     """Write the generated inputs (ZIP, archive, MPEG, Meow and CPUID data) the tests read from
     target/portable-tests; each builder is deterministic and takes no compiler."""
     for builder in DATA_FIXTURE_BUILDERS:
-        subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable.py"), builder], cwd=ROOT, check=True)
+        subprocess.run(
+            [
+                sys.executable,
+                "-B",
+                str(ROOT / "tools/portable/build_portable.py"),
+                builder,
+            ],
+            cwd=ROOT,
+            check=True,
+        )
 
 
 def main():
@@ -609,7 +657,10 @@ def main():
         help="print the output of every failure in full",
     )
     args = ap.parse_args()
-    if modes_given_cross(args) and args.platform.removesuffix("-mingw") != host_platform():
+    if (
+        modes_given_cross(args)
+        and args.platform.removesuffix("-mingw") != host_platform()
+    ):
         ap.error(
             f"runtime platform must match actual host {host_platform()}; use --modes check for cross-target coverage"
         )
@@ -685,9 +736,7 @@ def main():
                 passed = contract_result(case, code, stdout, stderr)
                 if case.get("positive_baseline"):
                     baseline = next(
-                        c
-                        for c in catalogue
-                        if c["id"] == case["positive_baseline_id"]
+                        c for c in catalogue if c["id"] == case["positive_baseline_id"]
                     )
                     baseline_code, baseline_out, baseline_error = run_command(
                         [args.jaic, str(baseline["path"]), *target, "-check"],

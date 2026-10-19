@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Print the CHANGELOG.md section of a release: the text under `## [version]` up to the next `## [`.
 
-    python3 tools/ci/release_notes.py v0.20.0 > notes.md   # exits 1 when there is no such section or it is empty
+python3 tools/ci/release_notes.py v0.20.0 > notes.md   # exits 1 when there is no such section or it is empty
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -28,12 +29,17 @@ def section(changelog: str, version: str) -> str:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("version", help="the version or tag, with or without the leading v")
+    parser.add_argument(
+        "version", help="the version or tag, with or without the leading v"
+    )
     parser.add_argument("--changelog", type=Path, default=ROOT / "CHANGELOG.md")
     args = parser.parse_args(argv)
     notes = section(args.changelog.read_text(encoding="utf-8"), args.version)
     if not notes:
-        print(f"{args.changelog.name} has no section for {args.version.removeprefix('v')}", file=sys.stderr)
+        print(
+            f"{args.changelog.name} has no section for {args.version.removeprefix('v')}",
+            file=sys.stderr,
+        )
         return 1
     sys.stdout.write(notes)
     return 0

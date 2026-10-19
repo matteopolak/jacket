@@ -20,7 +20,9 @@ from toolkit.repo import ROOT
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compiler", type=Path, default=ROOT / "target/debug/jaic")
-    parser.add_argument("--output", type=Path, default=output_dir("extensions-assert-profiles"))
+    parser.add_argument(
+        "--output", type=Path, default=output_dir("extensions-assert-profiles")
+    )
     args = parser.parse_args()
     compiler = args.compiler.resolve(strict=True)
     output = args.output.resolve()
@@ -28,17 +30,29 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
 
     def fingerprints():
-        return {str(p.relative_to(ROOT)): sha256_file(p)
-                for p in (ROOT / "stdlib").rglob("*.jai")}
+        return {
+            str(p.relative_to(ROOT)): sha256_file(p)
+            for p in (ROOT / "stdlib").rglob("*.jai")
+        }
 
     before = fingerprints()
     checks = []
 
     def run(command, expected):
-        result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env,
-                                capture_output=True, text=True, timeout=90)
-        row = dict(command=list(map(str, command)), exit=result.returncode,
-                   stdout=result.stdout, stderr=result.stderr)
+        result = subprocess.run(
+            list(map(str, command)),
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        row = dict(
+            command=list(map(str, command)),
+            exit=result.returncode,
+            stdout=result.stdout,
+            stderr=result.stderr,
+        )
         checks.append(row)
         (output / "results.json").write_text(json.dumps(checks, indent=2) + "\n")
         if result.returncode or result.stdout != expected or result.stderr:
@@ -51,17 +65,25 @@ def main():
     executions = 0
     for setting in ("enabled", "disabled"):
         exe = output / (setting + "-interp")
-        run([compiler, "-interp", parent, "-", setting, source, exe, "interp", host], "ok\n")
+        run(
+            [compiler, "-interp", parent, "-", setting, source, exe, "interp", host],
+            "ok\n",
+        )
         executions += 1
         for cpu in cpus:
             for mode in ("O0", "O2"):
                 exe = output / (setting + "-" + cpu + "-" + mode)
-                run([compiler, "-interp", parent, "-", setting, source, exe, mode, cpu], "")
+                run(
+                    [compiler, "-interp", parent, "-", setting, source, exe, mode, cpu],
+                    "",
+                )
                 run([exe], "ok\n")
                 executions += 1
     if fingerprints() != before:
         raise RuntimeError("production Jai source changed during configured checks")
-    print(f"PASS {executions} actual Io worker executions; both assertion profiles; production sources unchanged")
+    print(
+        f"PASS {executions} actual Io worker executions; both assertion profiles; production sources unchanged"
+    )
 
 
 if __name__ == "__main__":

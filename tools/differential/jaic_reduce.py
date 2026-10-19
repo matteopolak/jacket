@@ -11,7 +11,10 @@ output (one statement per line, blocks opened with `{` at the end of a line):
   3. unwrap blocks: keep a block's body but drop its `if ... {` / `}` lines;
 repeated until nothing changes. The result is written next to the input as NAME.reduced.jai.
 """
-import argparse, shutil, sys, tempfile
+import argparse
+import shutil
+import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

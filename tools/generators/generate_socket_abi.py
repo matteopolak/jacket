@@ -17,7 +17,9 @@ import sys as _sys
 from pathlib import Path as _Path
 
 _TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [str(_TOOLS / "native_bindings")]  # the spec parser shared with the bindings generator
+_sys.path[:0] = [
+    str(_TOOLS / "native_bindings")
+]  # the spec parser shared with the bindings generator
 
 from collections import defaultdict
 import re
@@ -75,8 +77,15 @@ def main():
     for shape in spec.shapes:
         shapes[shape.name].append(shape)
     files, seen = defaultdict(list), set()
-    manual = {"Socket", "INVALID_SOCKET", "SOCKET_ERROR", "SOCKET_WOULDBLOCK", "SOCKET_WOULDBLOCK_CONNECT",
-              "FD_BITS_ELEMENT_TYPE", "BITS_PER_FD_SET_MASK"}
+    manual = {
+        "Socket",
+        "INVALID_SOCKET",
+        "SOCKET_ERROR",
+        "SOCKET_WOULDBLOCK",
+        "SOCKET_WOULDBLOCK_CONNECT",
+        "FD_BITS_ELEMENT_TYPE",
+        "BITS_PER_FD_SET_MASK",
+    }
     for declaration in sorted(spec.declarations, key=declaration_group):
         code, name = declaration.code.rstrip(";"), declaration.name
         guard = condition(declaration.condition)
@@ -88,7 +97,12 @@ def main():
         if "#char ," in code:
             continue  # incomplete character literal; FIONBIO has an authored wrapper
         procedure = re.match(r"^\w+\s*::\s*(?:inline\s+)?\((.*?)\)\s*(?:->|#|$)", code)
-        if name in manual or (procedure and (":" in procedure[1] or not procedure[1]) and "#foreign" not in code and "#elsewhere" not in code):
+        if name in manual or (
+            procedure
+            and (":" in procedure[1] or not procedure[1])
+            and "#foreign" not in code
+            and "#elsewhere" not in code
+        ):
             continue  # authored wrapper or accessor
         if re.search(r"::\s*(?:struct|union|enum(?:_flags)?)(?:\s|$)", code):
             candidates = [s for s in shapes[name] if condition(s.condition) == guard]
@@ -102,13 +116,26 @@ def main():
             for shape in candidates:
                 body = shape.code
                 if shape.member_list:
-                    body = re.sub(r"(\w+):\s*([^;{}]+?)\s+#overlay\s+(\w+);", r"#overlay (\3) \1: \2;", body)
+                    body = re.sub(
+                        r"(\w+):\s*([^;{}]+?)\s+#overlay\s+(\w+);",
+                        r"#overlay (\3) \1: \2;",
+                        body,
+                    )
                     body = re.sub(r"([^;{}\s])\s+}", r"\1; }", body)
                 if body.startswith(name + " :: ") and "{" in body:
-                    header = body[:body.index("{")]
-                    if "(" not in header and not re.search(r"#(?:align|no_padding)", header):
-                        body = code + " " + body[body.index("{"):]
-                bodies.append(guarded(body, condition(shape.condition) if condition(shape.condition) != guard else ""))
+                    header = body[: body.index("{")]
+                    if "(" not in header and not re.search(
+                        r"#(?:align|no_padding)", header
+                    ):
+                        body = code + " " + body[body.index("{") :]
+                bodies.append(
+                    guarded(
+                        body,
+                        condition(shape.condition)
+                        if condition(shape.condition) != guard
+                        else "",
+                    )
+                )
             emitted = "\n".join(bodies)
         else:
             emitted = code + ";"
@@ -116,7 +143,9 @@ def main():
         files[target].append(guarded(emitted, residual))
     # Only the Windows names these declarations use are imported by name: a wildcard import would
     # let same-named types (notably the Windows GUI MSG versus the Socket flag enum) capture them.
-    windows_spec = parse_spec((ROOT / "docs/specs/stdlib/modules/windows.md").read_text())
+    windows_spec = parse_spec(
+        (ROOT / "docs/specs/stdlib/modules/windows.md").read_text()
+    )
     external_names = {declaration.name for declaration in windows_spec.declarations}
     local_names = {declaration.name for declaration in spec.declarations}
     used_names = set(re.findall(r"\b[A-Za-z_]\w*\b", "\n".join(files["windows"])))
@@ -127,16 +156,22 @@ def main():
         header += "// docs/specs/stdlib/modules/socket.md. Edit the generator, not this file.\n"
         if target == "windows":
             header += '#scope_file\nWindows_Native :: #import "Windows";\n\n'
-            header += "".join(f"{name} :: Windows_Native.{name};\n" for name in dependencies)
+            header += "".join(
+                f"{name} :: Windows_Native.{name};\n" for name in dependencies
+            )
             header += 'ws2_32 :: #system_library "ws2_32";\n'
         else:
             header += '#scope_file\n#import "POSIX";\n\n'
-            header += "// Unix select takes the native timeval through a private spelling.\n"
+            header += (
+                "// Unix select takes the native timeval through a private spelling.\n"
+            )
             header += "TIMEVAL :: timeval;\n"
             header += 'libc :: #system_library "libc";\n'
         header += "#scope_export\n\n"
         path = ROOT / f"stdlib/internal/net/socket-abi-{target}.jai"
-        emit_generated(path, header + "\n".join(files[target]), args.formatter, args.check)
+        emit_generated(
+            path, header + "\n".join(files[target]), args.formatter, args.check
+        )
 
 
 if __name__ == "__main__":

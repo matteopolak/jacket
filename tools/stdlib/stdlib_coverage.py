@@ -109,11 +109,19 @@ def declarations(path, seen):
             if decl and exported and PROC_START.match(decl.group(2)):
                 header = header_text(lines, number - 1)
                 if header is not None and not any(d in header for d in BODILESS):
-                    procs.append({"file": path, "line": number, "name": decl.group(1).replace(" ", ""),
-                                  "macro": "#expand" in header})
+                    procs.append(
+                        {
+                            "file": path,
+                            "line": number,
+                            "name": decl.group(1).replace(" ", ""),
+                            "macro": "#expand" in header,
+                        }
+                    )
         # Braces: an `#if`/`else` block keeps its contents at the top level; any other is a body.
         stripped = line.strip()
-        transparent = stripped.startswith(("#if", "} else", "else", "#else")) or stripped == "{"
+        transparent = (
+            stripped.startswith(("#if", "} else", "else", "#else")) or stripped == "{"
+        )
         for c in line:
             if c == "{":
                 stack.append(transparent and all(stack))
@@ -131,7 +139,7 @@ def header_text(lines, start):
     """The text of the declaration starting at line index `start` up to its body's `{`, or None
     when it ends with `;` first (a procedure type or a parenthesized constant, not a procedure)."""
     text, parens = [], 0
-    for line in lines[start:start + 40]:
+    for line in lines[start : start + 40]:
         for i, c in enumerate(line):
             if c == "(":
                 parens += 1
@@ -141,15 +149,25 @@ def header_text(lines, start):
                 return "".join(text) + line[:i]
             elif parens == 0 and c == ";":
                 header = "".join(text) + line[:i]
-                return header if any(d in header for d in BODILESS) or "=>" in header else None
+                return (
+                    header
+                    if any(d in header for d in BODILESS) or "=>" in header
+                    else None
+                )
         text.append(line + "\n")
     return None
 
 
 # Words in a file name that tie it to OSes, and the OSes they name.
 PLATFORM_WORDS = {
-    "windows": {"windows"}, "win32": {"windows"}, "linux": {"linux"}, "android": {"linux"},
-    "macos": {"macos"}, "osx": {"macos"}, "unix": {"linux", "macos"}, "posix": {"linux", "macos"},
+    "windows": {"windows"},
+    "win32": {"windows"},
+    "linux": {"linux"},
+    "android": {"linux"},
+    "macos": {"macos"},
+    "osx": {"macos"},
+    "unix": {"linux", "macos"},
+    "posix": {"linux", "macos"},
 }
 
 
@@ -165,11 +183,11 @@ def normalize(path_text):
     p = path_text.replace("\\", "/")
     root = STDLIB.as_posix()
     if p.lower().startswith(root.lower() + "/"):
-        return p[len(root) + 1:]
+        return p[len(root) + 1 :]
     # A record made in another checkout: the part after its last `/stdlib/` that is not tests'.
     idx = p.rfind("/stdlib/")
     if idx >= 0 and not p[:idx].endswith("/tests"):
-        return p[idx + len("/stdlib/"):]
+        return p[idx + len("/stdlib/") :]
     return None
 
 
@@ -190,7 +208,10 @@ def read_record(path):
 
 
 def test_sources():
-    return "\n".join(p.read_text(encoding="utf-8", errors="replace") for _, p in stdlib_runtime.cases())
+    return "\n".join(
+        p.read_text(encoding="utf-8", errors="replace")
+        for _, p in stdlib_runtime.cases()
+    )
 
 
 def measure(record, os_name=None):
@@ -205,9 +226,14 @@ def measure(record, os_name=None):
                 continue
             rel = proc["file"].relative_to(STDLIB.resolve()).as_posix()
             if proc["macro"]:
-                covered = re.search(rf"\b{re.escape(proc['name'])}\s*\(", sources) is not None
+                covered = (
+                    re.search(rf"\b{re.escape(proc['name'])}\s*\(", sources) is not None
+                )
             else:
-                covered = (rel, proc["line"]) in by_line or (rel, proc["name"]) in by_name
+                covered = (rel, proc["line"]) in by_line or (
+                    rel,
+                    proc["name"],
+                ) in by_name
             procs.append((proc, covered))
         result[name] = procs
     return result
@@ -215,13 +241,29 @@ def measure(record, os_name=None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--record", required=True, help="the file tools/stdlib/stdlib_runtime.py --coverage wrote")
+    ap.add_argument(
+        "--record",
+        required=True,
+        help="the file tools/stdlib/stdlib_runtime.py --coverage wrote",
+    )
     ap.add_argument("--platform", default=stdlib_runtime.host_platform())
-    ap.add_argument("--uncovered", metavar="MODULE", help="list the public procedures of MODULE no test runs")
-    ap.add_argument("--all", action="store_true", help="list modules with nothing to cover too")
-    ap.add_argument("--all-platforms", action="store_true", help="count files named for other OSes too")
+    ap.add_argument(
+        "--uncovered",
+        metavar="MODULE",
+        help="list the public procedures of MODULE no test runs",
+    )
+    ap.add_argument(
+        "--all", action="store_true", help="list modules with nothing to cover too"
+    )
+    ap.add_argument(
+        "--all-platforms",
+        action="store_true",
+        help="count files named for other OSes too",
+    )
     args = ap.parse_args()
-    result = measure(args.record, None if args.all_platforms else args.platform.split("-")[0])
+    result = measure(
+        args.record, None if args.all_platforms else args.platform.split("-")[0]
+    )
     if args.uncovered:
         procs = result.get(args.uncovered)
         if procs is None:
@@ -229,7 +271,9 @@ def main():
         for proc, covered in procs:
             if not covered:
                 rel = proc["file"].relative_to(STDLIB.resolve()).as_posix()
-                print(f"stdlib/{rel}:{proc['line']} {proc['name']}{' (macro)' if proc['macro'] else ''}")
+                print(
+                    f"stdlib/{rel}:{proc['line']} {proc['name']}{' (macro)' if proc['macro'] else ''}"
+                )
         return 0
     counts = {m: sum(c for _, c in procs) for m, procs in result.items()}
     total = sum(len(p) for p in result.values())
@@ -240,7 +284,9 @@ def main():
             continue
         pct = 100 * counts[module] / len(procs) if procs else 100
         print(f"{module:<34} {counts[module]:>8} {len(procs):>7} {pct:>5.1f}%")
-    print(f"{'all modules':<34} {covered:>8} {total:>7} {100 * covered / max(total, 1):>5.1f}%")
+    print(
+        f"{'all modules':<34} {covered:>8} {total:>7} {100 * covered / max(total, 1):>5.1f}%"
+    )
     return 0
 
 

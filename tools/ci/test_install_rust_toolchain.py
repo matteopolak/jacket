@@ -21,7 +21,13 @@ class InstallRustToolchain(unittest.TestCase):
             rustup.write_text('#!/bin/sh\necho "rustup $*"\n')
             rustup.chmod(rustup.stat().st_mode | stat.S_IEXEC)
             env = dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"])
-            result = subprocess.run(["bash", str(SCRIPT), *args], cwd=ROOT, env=env, capture_output=True, text=True)
+            result = subprocess.run(
+                ["bash", str(SCRIPT), *args],
+                cwd=ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.splitlines()
 
@@ -31,12 +37,17 @@ class InstallRustToolchain(unittest.TestCase):
                 return line.split('"')[1]
 
     def test_installs_the_pinned_channel(self):
-        self.assertEqual(self.run_script(), [f"rustup toolchain install {self.channel()} --profile minimal"])
+        self.assertEqual(
+            self.run_script(),
+            [f"rustup toolchain install {self.channel()} --profile minimal"],
+        )
 
     def test_components_and_targets(self):
         channel = self.channel()
         self.assertEqual(
-            self.run_script("--component", "rustfmt", "--target", "wasm32-unknown-unknown"),
+            self.run_script(
+                "--component", "rustfmt", "--target", "wasm32-unknown-unknown"
+            ),
             [
                 f"rustup toolchain install {channel} --profile minimal --component rustfmt",
                 f"rustup target add wasm32-unknown-unknown --toolchain {channel}",

@@ -17,14 +17,10 @@ class FoundationsLintTests(unittest.TestCase):
         self.assertTrue(
             all(path.is_relative_to(foundations.ROOT / "stdlib") for path in library)
         )
-        self.assertFalse(
-            any("tests" not in path.parts for path in fixtures)
-        )
+        self.assertFalse(any("tests" not in path.parts for path in fixtures))
 
     def test_x64_diagnostics_retain_an_actual_supported_lint_profile(self):
-        division = (
-            foundations.ROOT / "stdlib/Basic/tests/division-exercise.jai"
-        )
+        division = foundations.ROOT / "stdlib/Basic/tests/division-exercise.jai"
         self.assertNotIn(
             division, foundations.lint_profile_sources("macos", "arm64")[1]
         )

@@ -21,7 +21,9 @@ from stdlib import stdlib_coverage
 from stdlib.stdlib_test_catalog import validated_entries, unavailable_reason
 from toolkit.repo import ROOT
 
-SCRATCH = os.environ.get("RUNNER_TEMP") or os.environ.get("TMPDIR") or tempfile.gettempdir()
+SCRATCH = (
+    os.environ.get("RUNNER_TEMP") or os.environ.get("TMPDIR") or tempfile.gettempdir()
+)
 
 
 def load_function(path, name, namespace):
@@ -90,7 +92,9 @@ class RunnerContracts(unittest.TestCase):
             self.assertIsNone(unavailable_reason(cases[name], "native", "macos-arm64"))
         self.assertIsNotNone(
             unavailable_reason(
-                cases["Windows_Resources/tests/resource-windows"], "native", "macos-arm64"
+                cases["Windows_Resources/tests/resource-windows"],
+                "native",
+                "macos-arm64",
             )
         )
 
@@ -132,7 +136,9 @@ class RunnerContracts(unittest.TestCase):
         list(sweep.cases("modules"))
         self.assertEqual(sweep.CASE_METADATA["Simp/tests/glyph-atlas"]["input"], "font")
         self.assertEqual(
-            sweep.CASE_METADATA["Windows_Resources/tests/resource-windows"]["required_os"],
+            sweep.CASE_METADATA["Windows_Resources/tests/resource-windows"][
+                "required_os"
+            ],
             "windows",
         )
         self.assertNotEqual(sweep.PLATFORM_UNAVAILABLE, sweep.HEADLESS_BUILD)
@@ -195,7 +201,9 @@ class RunnerContracts(unittest.TestCase):
     def evidence(self):
         namespace = {"UNAVAILABLE_EVIDENCE": [], "json": __import__("json")}
         return load_function(
-            ROOT / "tools/developer_checks/check_developer_tools.py", "host_evidence", namespace
+            ROOT / "tools/developer_checks/check_developer_tools.py",
+            "host_evidence",
+            namespace,
         ), namespace
 
     def test_mac_recipe_on_linux_is_unavailable_and_never_called_or_passed(self):

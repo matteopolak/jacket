@@ -1,0 +1,11 @@
+# ruff's default rule set (E4, E7, E9, F) over tools/ and .github/; CI runs `ruff check tools .github`.
+extend-exclude = ["third_party", "corpus", "target"]
+
+[lint.per-file-ignores]
+# These scripts start with a `sys.path.insert(0, <tools/>)` bootstrap so they can import
+# folder-qualified sibling packages (`toolkit`, `generators`, ...) when run as `python3 tools/x/y.py`;
+# the imports that follow it cannot move above it.
+"tools/generators/generate_socket_abi.py" = ["E402"]
+"tools/native_bindings/vendor_posix_android.py" = ["E402"]
+"tools/numerics/*.py" = ["E402"]
+"tools/portable/portable_data/build_windows_images.py" = ["E402"]

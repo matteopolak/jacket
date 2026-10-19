@@ -20,7 +20,11 @@ from toolkit.repo import jaifmt_path
 def main():
     root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=output_dir("extensions-dependencies", "uring-protocol"))
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=output_dir("extensions-dependencies", "uring-protocol"),
+    )
     parser.add_argument("--compiler", type=Path, default=root / "target/debug/jaic")
     parser.add_argument("--linter", type=Path, default=root / "target/debug/jailint")
     parser.add_argument("--formatter", type=Path, default=jaifmt_path())
@@ -35,11 +39,20 @@ def main():
 
     def run(name, command, expected=None):
         try:
-            result = subprocess.run(command, cwd=root, env=env, text=True,
-                                    capture_output=True, timeout=90)
-            passed = result.returncode == 0 and (expected is None or result.stdout == expected)
-            record = dict(name=name, command=command, passed=passed, code=result.returncode,
-                          stdout=result.stdout, stderr=result.stderr)
+            result = subprocess.run(
+                command, cwd=root, env=env, text=True, capture_output=True, timeout=90
+            )
+            passed = result.returncode == 0 and (
+                expected is None or result.stdout == expected
+            )
+            record = dict(
+                name=name,
+                command=command,
+                passed=passed,
+                code=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
         except (OSError, subprocess.TimeoutExpired) as error:
             record = dict(name=name, command=command, passed=False, error=str(error))
         results.append(record)
@@ -57,15 +70,48 @@ def main():
 
     for cpu in ["x64", "arm64"]:
         for name in ["dependency", "raw"]:
-            run(f"linux-{cpu}-{name}",
-                [compiler, "-check", "-os", "linux", "-cpu", cpu, f"stdlib/Extensions/Io_Uring/tests/{name}.jai"])
-        run(f"linux-{cpu}-strictlint", [linter, "-D", "warnings", "--os", "linux", "--cpu", cpu,
-                                      "--context", "stdlib/Extensions/Io_Uring/tests/raw.jai", "stdlib/Extensions/Io_Uring"])
+            run(
+                f"linux-{cpu}-{name}",
+                [
+                    compiler,
+                    "-check",
+                    "-os",
+                    "linux",
+                    "-cpu",
+                    cpu,
+                    f"stdlib/Extensions/Io_Uring/tests/{name}.jai",
+                ],
+            )
+        run(
+            f"linux-{cpu}-strictlint",
+            [
+                linter,
+                "-D",
+                "warnings",
+                "--os",
+                "linux",
+                "--cpu",
+                cpu,
+                "--context",
+                "stdlib/Extensions/Io_Uring/tests/raw.jai",
+                "stdlib/Extensions/Io_Uring",
+            ],
+        )
     run("host-strictlint", [linter, "-D", "warnings", source])
-    run("format", [formatter, "--check", "stdlib/Extensions/Io_Uring",
-                   "stdlib/Extensions/Io_Uring/tests/dependency.jai", source])
+    run(
+        "format",
+        [
+            formatter,
+            "--check",
+            "stdlib/Extensions/Io_Uring",
+            "stdlib/Extensions/Io_Uring/tests/dependency.jai",
+            source,
+        ],
+    )
     failures = sum(not record["passed"] for record in results)
-    print(f"{len(results) - failures}/{len(results)} checks passed; {failures} failures; no Linux kernel execution")
+    print(
+        f"{len(results) - failures}/{len(results)} checks passed; {failures} failures; no Linux kernel execution"
+    )
     return 1 if failures else 0
 
 

@@ -25,8 +25,7 @@ from toolkit.repo import ROOT
 MAX_LINES = 1200
 
 # path -> line count it may not grow past. Remove an entry once the file is split.
-ALLOWED_LONG = {
-}
+ALLOWED_LONG = {}
 
 BANNER = re.compile(r"^\s*(//|#)\s*[-=*#~]{3,}\s*$")
 
@@ -48,33 +47,50 @@ def check_lengths(counts, allowed=None, limit=MAX_LINES):
         cap = allowed.get(path)
         if cap is None:
             if n > limit:
-                errors.append(f"{path}: {n} lines, over the {limit}-line limit; split it into modules")
+                errors.append(
+                    f"{path}: {n} lines, over the {limit}-line limit; split it into modules"
+                )
         elif n > cap:
-            errors.append(f"{path}: grew to {n} lines, past its allowlisted {cap}; split it (or move part of it into a module) instead of growing it")
+            errors.append(
+                f"{path}: grew to {n} lines, past its allowlisted {cap}; split it (or move part of it into a module) instead of growing it"
+            )
         elif n <= limit:
-            errors.append(f"{path}: now {n} lines; remove it from ALLOWED_LONG in check_source_style.py")
+            errors.append(
+                f"{path}: now {n} lines; remove it from ALLOWED_LONG in check_source_style.py"
+            )
         elif n < cap:
-            errors.append(f"{path}: shrank to {n} lines; lower its ALLOWED_LONG entry from {cap}")
+            errors.append(
+                f"{path}: shrank to {n} lines; lower its ALLOWED_LONG entry from {cap}"
+            )
     for path in sorted(allowed):
         if path not in counts:
-            errors.append(f"{path}: gone; remove it from ALLOWED_LONG in check_source_style.py")
+            errors.append(
+                f"{path}: gone; remove it from ALLOWED_LONG in check_source_style.py"
+            )
     return errors
 
 
 def check_banners(name, text):
-    return [f"{name}:{i}: banner comment; use one plain comment line or split the file"
-            for i, line in enumerate(text.splitlines(), 1) if BANNER.match(line)]
+    return [
+        f"{name}:{i}: banner comment; use one plain comment line or split the file"
+        for i, line in enumerate(text.splitlines(), 1)
+        if BANNER.match(line)
+    ]
 
 
 def main():
     counts, errors = {}, []
     for path in tracked(["*.rs"]):
         if (ROOT / path).is_file():
-            counts[path] = line_count((ROOT / path).read_text(encoding="utf-8", errors="replace"))
+            counts[path] = line_count(
+                (ROOT / path).read_text(encoding="utf-8", errors="replace")
+            )
     errors += check_lengths(counts)
     for path in tracked(["*.rs", "*.py"]):
         if (ROOT / path).is_file():
-            errors += check_banners(path, (ROOT / path).read_text(encoding="utf-8", errors="replace"))
+            errors += check_banners(
+                path, (ROOT / path).read_text(encoding="utf-8", errors="replace")
+            )
     for e in errors:
         print(e, file=sys.stderr)
     return 1 if errors else 0

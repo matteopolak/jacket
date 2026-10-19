@@ -20,7 +20,10 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import argparse, json, re, sys
+import argparse
+import json
+import re
+import sys
 from toolkit.repo import ROOT
 
 DOC_DIRS = ("docs/language", "docs/metaprogramming")

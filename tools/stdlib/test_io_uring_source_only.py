@@ -25,12 +25,18 @@ from toolkit.repo import ROOT
 class IoUringSourceOnly(unittest.TestCase):
     def test_only_authored_source_reducer_gets_source_only_metadata(self):
         cases = {c["id"]: c for c in validated_entries(ROOT)}
-        self.assertIs(cases["Extensions/Io_Uring/tests/dependency"].get("source_check_only"), True)
+        self.assertIs(
+            cases["Extensions/Io_Uring/tests/dependency"].get("source_check_only"), True
+        )
         for name in ("raw", "protocol", "initialized-nop"):
-            self.assertNotIn("source_check_only", cases["Extensions/Io_Uring/tests/" + name])
+            self.assertNotIn(
+                "source_check_only", cases["Extensions/Io_Uring/tests/" + name]
+            )
 
     def test_source_only_never_builds_or_executes_main(self):
-        args = argparse.Namespace(jaic="metadata-only", timeout=12, coverage=None, platform="linux-x64")
+        args = argparse.Namespace(
+            jaic="metadata-only", timeout=12, coverage=None, platform="linux-x64"
+        )
         path = ROOT / "stdlib/Extensions/Io_Uring/tests/dependency.jai"
         for mode in runtime.MODES:
             with (
@@ -58,7 +64,9 @@ class IoUringSourceOnly(unittest.TestCase):
                 self.assertNotIn("-exe", command)
 
     def test_source_error_or_timeout_remains_a_failure(self):
-        args = argparse.Namespace(jaic="metadata-only", timeout=12, coverage=None, platform="linux-x64")
+        args = argparse.Namespace(
+            jaic="metadata-only", timeout=12, coverage=None, platform="linux-x64"
+        )
         for status in (1, None):
             with (
                 self.subTest(status=status),
@@ -117,9 +125,7 @@ class IoUringSourceOnly(unittest.TestCase):
                     patch.object(runtime, "host_platform", return_value="linux-arm64"),
                     patch.object(runtime, "validated_entries", return_value=[case]),
                     patch.object(runtime, "unavailable_reason", return_value=None),
-                    patch.object(
-                        runtime, "disabled_reason", return_value=None
-                    ),
+                    patch.object(runtime, "disabled_reason", return_value=None),
                     patch.object(runtime, "use_native_libs"),
                     patch.object(
                         runtime, "run_command", return_value=(compiler_status, "", "")

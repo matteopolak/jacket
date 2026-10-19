@@ -10,6 +10,7 @@ ship a copy (or, in a development checkout, fetch the release's) and hold every 
 Format: {"version": "0.20.0", "sha256": {"jacket-linux-x64.tar.gz": "<hex>", ...}}, archives sorted by name.
 Fixtures shared with the editors' tests: editors/fixtures/.
 """
+
 import argparse
 import json
 import re
@@ -56,11 +57,17 @@ def main(argv=None) -> int:
     parser.add_argument("--version", required=True)
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--sums", type=Path, help="a SHA256SUMS file")
-    source.add_argument("--archives", type=Path, help="a folder holding the release archives")
+    source.add_argument(
+        "--archives", type=Path, help="a folder holding the release archives"
+    )
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        sums = from_sums(args.sums.read_text()) if args.sums else from_archives(args.archives)
+        sums = (
+            from_sums(args.sums.read_text())
+            if args.sums
+            else from_archives(args.archives)
+        )
         result = manifest(args.version, sums)
     except (ValueError, OSError) as error:
         print(f"toolchain_manifest: {error}", file=sys.stderr)

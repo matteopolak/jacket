@@ -20,7 +20,17 @@ import sys
 from toolkit.repo import ROOT
 from toolkit.cli import add_jaic_argument
 
-SUITES = ("foundations", "portable", "platform", "audio", "window", "numerics", "numerics-native", "bindings", "tooling")
+SUITES = (
+    "foundations",
+    "portable",
+    "platform",
+    "audio",
+    "window",
+    "numerics",
+    "numerics-native",
+    "bindings",
+    "tooling",
+)
 
 
 def main():
@@ -31,38 +41,129 @@ def main():
     parser.add_argument("--jaifmt", required=True, type=Path)
     parser.add_argument("--suite", action="append", choices=SUITES)
     parser.add_argument("--native-libs", required=True, type=Path)
-    parser.add_argument("--bindings-native-libs", type=Path, help="real source-built ABI8 SDK and C probe directory")
-    parser.add_argument("--font", type=Path, help="real scalable font required by the window suite")
-    parser.add_argument("--private-x11-display", action="store_true", help="Caller owns an ephemeral X11 display for Linux clipboard tests")
+    parser.add_argument(
+        "--bindings-native-libs",
+        type=Path,
+        help="real source-built ABI8 SDK and C probe directory",
+    )
+    parser.add_argument(
+        "--font", type=Path, help="real scalable font required by the window suite"
+    )
+    parser.add_argument(
+        "--private-x11-display",
+        action="store_true",
+        help="Caller owns an ephemeral X11 display for Linux clipboard tests",
+    )
     args = parser.parse_args()
     selected = args.suite or list(SUITES)
     compiler, library = args.jaic.resolve(strict=True), args.stdlib.resolve(strict=True)
     lint, fmt = args.jailint.resolve(strict=True), args.jaifmt.resolve(strict=True)
     native = args.native_libs.resolve(strict=True)
     if library != (ROOT / "stdlib").resolve():
-        parser.error("integration requires the combined production stdlib, not an overlay")
+        parser.error(
+            "integration requires the combined production stdlib, not an overlay"
+        )
     if "window" in selected and (not args.font or not args.font.is_file()):
         parser.error("--font must name a real host font for the window suite")
-    binding_native = args.bindings_native_libs.resolve(strict=True) if args.bindings_native_libs else native
-    search = list(dict.fromkeys([str(binding_native), str(native), *filter(None, os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep))]))
-    env = dict(os.environ, JAIC_STDLIB=str(library), JAIC_NATIVE_LIBS=os.pathsep.join(search))
+    binding_native = (
+        args.bindings_native_libs.resolve(strict=True)
+        if args.bindings_native_libs
+        else native
+    )
+    search = list(
+        dict.fromkeys(
+            [
+                str(binding_native),
+                str(native),
+                *filter(None, os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep)),
+            ]
+        )
+    )
+    env = dict(
+        os.environ, JAIC_STDLIB=str(library), JAIC_NATIVE_LIBS=os.pathsep.join(search)
+    )
     env.setdefault("CARGO_TARGET_DIR", str(ROOT / "target"))
     if args.font:
         env["JAIC_TEST_FONT_PATH"] = str(args.font.resolve(strict=True))
     commands = {
-        "foundations": ["tools/stdlib/check_foundations.py", "--jaic", compiler, "--stdlib", library,
-                        "--jaifmt", fmt, "--jailint", lint, "--cross", "--wasm"],
-        "portable": ["tools/portable/check_portable_stdlib.py", "--jaic", compiler, "--stdlib", library,
-                     "--native", "--keep-going"],
-        "platform": ["tools/stdlib/check_platform_io.py", "--jaic", compiler, "--stdlib", library,
-                     "--native", "--cross-check", "--wasm"],
-        "audio": ["tools/stdlib/check_audio_output.py", "--jaic", compiler, "--native-libs", native],
-        "window": ["tools/window_render/check_window_render.py", "--jaic", compiler, "--stdlib", library,
-                   "--native-libs", native, "--font", args.font],
-        "numerics": ["tools/numerics/run.py", "--compiler", compiler, "--stdlib", library],
-        "numerics-native": ["tools/numerics/corrective.py", "--compiler", compiler, "--stdlib", library],
-        "bindings": ["tools/native_bindings/verify.py", "--compiler", compiler, "--stdlib", library,
-                     "--native-libs", binding_native, "--runtime", "--work-dir", ROOT / "target/production-bindings/checks", "--report", ROOT / "target/production-bindings/results.json"],
+        "foundations": [
+            "tools/stdlib/check_foundations.py",
+            "--jaic",
+            compiler,
+            "--stdlib",
+            library,
+            "--jaifmt",
+            fmt,
+            "--jailint",
+            lint,
+            "--cross",
+            "--wasm",
+        ],
+        "portable": [
+            "tools/portable/check_portable_stdlib.py",
+            "--jaic",
+            compiler,
+            "--stdlib",
+            library,
+            "--native",
+            "--keep-going",
+        ],
+        "platform": [
+            "tools/stdlib/check_platform_io.py",
+            "--jaic",
+            compiler,
+            "--stdlib",
+            library,
+            "--native",
+            "--cross-check",
+            "--wasm",
+        ],
+        "audio": [
+            "tools/stdlib/check_audio_output.py",
+            "--jaic",
+            compiler,
+            "--native-libs",
+            native,
+        ],
+        "window": [
+            "tools/window_render/check_window_render.py",
+            "--jaic",
+            compiler,
+            "--stdlib",
+            library,
+            "--native-libs",
+            native,
+            "--font",
+            args.font,
+        ],
+        "numerics": [
+            "tools/numerics/run.py",
+            "--compiler",
+            compiler,
+            "--stdlib",
+            library,
+        ],
+        "numerics-native": [
+            "tools/numerics/corrective.py",
+            "--compiler",
+            compiler,
+            "--stdlib",
+            library,
+        ],
+        "bindings": [
+            "tools/native_bindings/verify.py",
+            "--compiler",
+            compiler,
+            "--stdlib",
+            library,
+            "--native-libs",
+            binding_native,
+            "--runtime",
+            "--work-dir",
+            ROOT / "target/production-bindings/checks",
+            "--report",
+            ROOT / "target/production-bindings/results.json",
+        ],
         "tooling": ["tools/developer_checks/check_developer_tools.py"],
     }
     if args.private_x11_display:
@@ -70,11 +171,19 @@ def main():
     failures = []
     for suite in selected:
         print("RUN suite:", suite, flush=True)
-        result = subprocess.run([sys.executable, *map(str, commands[suite])], cwd=ROOT, env=env)
+        result = subprocess.run(
+            [sys.executable, *map(str, commands[suite])], cwd=ROOT, env=env
+        )
         print("RESULT suite:", suite, "exit", result.returncode, flush=True)
         if result.returncode:
             failures.append(suite)
-    print("Suites:", len(selected) - len(failures), "passed; failed:", ", ".join(failures) or "none", flush=True)
+    print(
+        "Suites:",
+        len(selected) - len(failures),
+        "passed; failed:",
+        ", ".join(failures) or "none",
+        flush=True,
+    )
     return bool(failures)
 
 

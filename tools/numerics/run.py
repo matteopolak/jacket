@@ -17,6 +17,7 @@ from target_contracts import ORACLE, target_contract
 
 root = Path(__file__).resolve().parents[2]
 from repo_output import output_dir
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--compiler", type=Path, required=True)
 parser.add_argument("--stdlib", type=Path, required=True)
@@ -92,14 +93,23 @@ tests = {
         "stdlib/Color_Interpolation/tests/policies.jai",
         "portable color policies ok",
     ),
-    "extended": ("stdlib/Color_Interpolation/tests/extended.jai", "extended numerics ok"),
+    "extended": (
+        "stdlib/Color_Interpolation/tests/extended.jai",
+        "extended numerics ok",
+    ),
     "edges": ("stdlib/Float16/tests/edges.jai", "numeric edges ok"),
     "algebra": ("stdlib/Float16/tests/algebra.jai", "algebra overloads ok"),
-    "color-policies": ("stdlib/GetRect/tests/color-policy-hash.jai", "color policies ok"),
+    "color-policies": (
+        "stdlib/GetRect/tests/color-policy-hash.jai",
+        "color policies ok",
+    ),
     "ui": ("stdlib/GetRect/tests/ui.jai", "ui contracts ok"),
     "ui-smoke": ("stdlib/GetRect/tests/ui-smoke.jai", "ui smoke ok"),
     "ui-interaction": ("stdlib/GetRect/tests/ui-interaction.jai", "ui interaction ok"),
-    "render-callbacks": ("stdlib/GetRect/tests/render-callbacks.jai", "render callbacks ok"),
+    "render-callbacks": (
+        "stdlib/GetRect/tests/render-callbacks.jai",
+        "render callbacks ok",
+    ),
     "default-draw-procs": (
         "stdlib/GetRect/tests/default-draw-procs.jai",
         "default draw procs ok",
@@ -124,7 +134,10 @@ tests = {
         "stdlib/GetRect/tests/text-capacity.jai",
         ("text capacity rejection ok", "rejected input because capacity was exceeded"),
     ),
-    "wheel-events": ("stdlib/GetRect/tests/wheel-events.jai", "canonical wheel events ok"),
+    "wheel-events": (
+        "stdlib/GetRect/tests/wheel-events.jai",
+        "canonical wheel events ok",
+    ),
     "keyboard-shortcuts": (
         "stdlib/GetRect/tests/keyboard-shortcuts.jai",
         "canonical keyboard shortcuts ok",
@@ -138,7 +151,12 @@ tests = {
     "public-contract": ("stdlib/Math/tests/float16-edge-vectors.jai", "ok"),
 }
 for name, (source, sentinel) in tests.items():
-    common = [compiler, str(output_dir("numerics", "numeric_oracle.jai")) if source == ORACLE else source] + imports
+    common = [
+        compiler,
+        str(output_dir("numerics", "numeric_oracle.jai"))
+        if source == ORACLE
+        else source,
+    ] + imports
     run(name + "-interp", common + ["-interp"], sentinel)
     if args.quick:
         continue
@@ -200,7 +218,13 @@ if not args.quick:
         exe = out / ("overflow-" + level)
         if run(
             "overflow-" + level + "-build",
-            [compiler, "stdlib/Float16/tests/half-overflow.jai", "-" + level, "-exe", exe],
+            [
+                compiler,
+                "stdlib/Float16/tests/half-overflow.jai",
+                "-" + level,
+                "-exe",
+                exe,
+            ],
         ):
             run("overflow-" + level, [exe], expect_fail=True)
     wasm = out / "overflow.wasm"

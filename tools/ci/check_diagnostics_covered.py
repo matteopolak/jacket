@@ -33,7 +33,9 @@ from toolkit.repo import ROOT
 SOURCE_DIR = "crates/jaic/src"
 ALLOWLIST = ROOT / "tools/ci/untested_diagnostics.txt"
 # Calls whose string argument is a diagnostic message.
-CALL = re.compile(r"(?<![A-Za-z0-9_])(?:self\.error|self\.err|err)\(|Diagnostic::(?:error|warning)\(")
+CALL = re.compile(
+    r"(?<![A-Za-z0-9_])(?:self\.error|self\.err|err)\(|Diagnostic::(?:error|warning)\("
+)
 # A template needs at least this much literal text to be matched against the corpus.
 MIN_LITERAL = 6
 # Literal characters of a template, from its start, that a test must quote.
@@ -47,7 +49,12 @@ def tracked(patterns):
 
 def is_test_path(path: str) -> bool:
     name = path.rsplit("/", 1)[-1]
-    return "/tests/" in path or name in ("tests.rs",) or name.endswith("_tests.rs") or name.startswith("test_")
+    return (
+        "/tests/" in path
+        or name in ("tests.rs",)
+        or name.endswith("_tests.rs")
+        or name.startswith("test_")
+    )
 
 
 def strip_test_modules(text: str) -> tuple[str, str]:
@@ -63,7 +70,9 @@ def read_string(text: str, i: int):
     raw = re.compile(r'r(#*)"').match(text, i)
     if raw:
         end = text.find('"' + raw.group(1), raw.end())
-        return (text[raw.end() : end], end + 1 + len(raw.group(1))) if end >= 0 else None
+        return (
+            (text[raw.end() : end], end + 1 + len(raw.group(1))) if end >= 0 else None
+        )
     if text[i] != '"':
         return None
     out, j = [], i + 1
@@ -71,12 +80,18 @@ def read_string(text: str, i: int):
         c = text[j]
         if c == "\\":
             n = text[j + 1]
-            if n == "\n":  # a line continuation drops the newline and the next line's indentation
+            if (
+                n == "\n"
+            ):  # a line continuation drops the newline and the next line's indentation
                 j += 2
                 while j < len(text) and text[j] in " \t\n":
                     j += 1
                 continue
-            out.append({"n": "\n", "t": "\t", '"': '"', "\\": "\\", "'": "'", "0": "\0"}.get(n, "\x00"))
+            out.append(
+                {"n": "\n", "t": "\t", '"': '"', "\\": "\\", "'": "'", "0": "\0"}.get(
+                    n, "\x00"
+                )
+            )
             j += 2 if n != "u" else text.index("}", j) + 1 - j
             continue
         if c == '"':
@@ -91,11 +106,19 @@ def split_arguments(text: str, start: int) -> list[str]:
     args, depth, i, begin = [], 1, start, start
     while i < len(text) and depth:
         c = text[i]
-        if c == '"' or (c == "r" and re.compile(r'r#*"').match(text, i) and not text[i - 1].isalnum()):
+        if c == '"' or (
+            c == "r"
+            and re.compile(r'r#*"').match(text, i)
+            and not text[i - 1].isalnum()
+        ):
             literal = read_string(text, i)
             i = literal[1] if literal else i + 1
             continue
-        if c == "'" and i + 2 < len(text) and (text[i + 2] == "'" or text[i + 1] == "\\"):
+        if (
+            c == "'"
+            and i + 2 < len(text)
+            and (text[i + 2] == "'" or text[i + 1] == "\\")
+        ):
             i += text.index("'", i + 2) + 1 - i if text[i + 1] == "\\" else 3
             continue
         if c in "([{":
@@ -124,7 +147,15 @@ def templates(text: str):
                 continue
             literal = read_string(arg, m.start(1))
             if literal:
-                found.append(re.sub(r"\{[^{}]*\}", "{}", literal[0].replace("{{", "\x01").replace("}}", "\x02")).replace("\x01", "{").replace("\x02", "}"))
+                found.append(
+                    re.sub(
+                        r"\{[^{}]*\}",
+                        "{}",
+                        literal[0].replace("{{", "\x01").replace("}}", "\x02"),
+                    )
+                    .replace("\x01", "{")
+                    .replace("\x02", "}")
+                )
             break
     return found
 
@@ -139,15 +170,34 @@ def production_templates():
     return found
 
 
-TEXT_SUFFIXES = (".rs", ".py", ".json", ".txt", ".jai", ".md", ".lua", ".ts", ".mjs", ".expected", ".out")
+TEXT_SUFFIXES = (
+    ".rs",
+    ".py",
+    ".json",
+    ".txt",
+    ".jai",
+    ".md",
+    ".lua",
+    ".ts",
+    ".mjs",
+    ".expected",
+    ".out",
+)
 
 
 def corpus() -> str:
     """All text a test may expect a diagnostic in, with Rust string escapes read back."""
     parts = []
     for path in tracked(["tests", "crates", "tools", "editors"]):
-        in_src = path.startswith("crates/") and "/src/" in path and path.endswith(".rs") and not is_test_path(path)
-        if not (path.startswith(("tests/", "crates/")) or is_test_path(path)) or not path.endswith(TEXT_SUFFIXES):
+        in_src = (
+            path.startswith("crates/")
+            and "/src/" in path
+            and path.endswith(".rs")
+            and not is_test_path(path)
+        )
+        if not (
+            path.startswith(("tests/", "crates/")) or is_test_path(path)
+        ) or not path.endswith(TEXT_SUFFIXES):
             continue
         try:
             text = (ROOT / path).read_text()
@@ -197,15 +247,23 @@ def decode(line: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--update", action="store_true", help="rewrite the list of untested diagnostics")
-    parser.add_argument("--list", action="store_true", help="print the untested diagnostics")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--update", action="store_true", help="rewrite the list of untested diagnostics"
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="print the untested diagnostics"
+    )
     args = parser.parse_args()
     found = production_templates()
     missing = untested(found, corpus())
     if args.update:
         ALLOWLIST.write_text("".join(encode(t) + "\n" for t in sorted(missing)))
-        print(f"{len(found)} diagnostics, {len(missing)} untested; wrote {ALLOWLIST.relative_to(ROOT)}")
+        print(
+            f"{len(found)} diagnostics, {len(missing)} untested; wrote {ALLOWLIST.relative_to(ROOT)}"
+        )
         return 0
     if args.list:
         for t in sorted(missing):
@@ -214,13 +272,20 @@ def main() -> int:
     allowed = {decode(line) for line in ALLOWLIST.read_text().splitlines() if line}
     errors = []
     for t in sorted(missing - allowed):
-        errors.append(f"untested diagnostic: {encode(t)!r}\n  add a test that expects this text (tests/corpus/negative, tests/compiler/rejections or a crate test)")
+        errors.append(
+            f"untested diagnostic: {encode(t)!r}\n  add a test that expects this text (tests/corpus/negative, tests/compiler/rejections or a crate test)"
+        )
     for t in sorted(allowed - missing):
         why = "is now tested" if t in found else "no longer exists"
-        errors.append(f"{encode(t)!r} {why}; remove it from tools/ci/untested_diagnostics.txt (python3 tools/ci/check_diagnostics_covered.py --update)")
+        errors.append(
+            f"{encode(t)!r} {why}; remove it from tools/ci/untested_diagnostics.txt (python3 tools/ci/check_diagnostics_covered.py --update)"
+        )
     for e in errors:
         print(e, file=sys.stderr)
-    print(f"{len(found)} diagnostics, {len(missing)} untested, {len(allowed)} allowlisted", file=sys.stderr)
+    print(
+        f"{len(found)} diagnostics, {len(missing)} untested, {len(allowed)} allowlisted",
+        file=sys.stderr,
+    )
     return 1 if errors else 0
 
 

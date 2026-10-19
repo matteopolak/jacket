@@ -73,9 +73,21 @@ HTTP_CONFORMANCE_CASE_IDS = tuple(
 
 def check_corpus():
     print("== llhttp corpus is current")
-    out = ROOT / "stdlib" / "Extensions" / "Http" / "tests" / "fixtures" / "llhttp_cases.jai"
+    out = (
+        ROOT
+        / "stdlib"
+        / "Extensions"
+        / "Http"
+        / "tests"
+        / "fixtures"
+        / "llhttp_cases.jai"
+    )
     before = out.read_bytes() if out.exists() else b""
-    result = subprocess.run([sys.executable, str(ROOT / "tools" / "corpus" / "gen_http_corpus.py")], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "corpus" / "gen_http_corpus.py")],
+        capture_output=True,
+        text=True,
+    )
 
     if result.returncode != 0:
         print(result.stdout + result.stderr)
@@ -86,7 +98,9 @@ def check_corpus():
 
     if before != after:
         out.write_bytes(before)
-        print("FAIL: llhttp_cases.jai is out of date: run python3 tools/corpus/gen_http_corpus.py and commit it")
+        print(
+            "FAIL: llhttp_cases.jai is out of date: run python3 tools/corpus/gen_http_corpus.py and commit it"
+        )
 
         return False
 
@@ -99,10 +113,23 @@ def run_harness(jaic, modes, case_ids, jobs):
     discovered = {case["id"] for case in validated_entries()}
     missing = set(case_ids) - discovered
     if missing:
-        raise RuntimeError("HTTP conformance cases missing from catalogue: " + ", ".join(sorted(missing)))
+        raise RuntimeError(
+            "HTTP conformance cases missing from catalogue: "
+            + ", ".join(sorted(missing))
+        )
     print(f"== {len(case_ids)} exact HTTP conformance cases ({modes})")
-    cmd = [sys.executable, str(ROOT / "tools" / "stdlib" / "stdlib_runtime.py"), "--jaic", str(jaic),
-           "--modes", modes, "-j", str(jobs), "--timeout", "900"]
+    cmd = [
+        sys.executable,
+        str(ROOT / "tools" / "stdlib" / "stdlib_runtime.py"),
+        "--jaic",
+        str(jaic),
+        "--modes",
+        modes,
+        "-j",
+        str(jobs),
+        "--timeout",
+        "900",
+    ]
     for name in case_ids:
         cmd.extend(["--case", name])
     return subprocess.run(cmd, cwd=ROOT).returncode == 0
@@ -143,8 +170,17 @@ def check_server(jaic):
     print("== echo server probes")
     work = Path(tempfile.mkdtemp(prefix="http-conformance-"))
     binary = work / "echo_server"
-    build = subprocess.run([str(jaic), str(ROOT / "tools" / "stdlib" / "http_garden" / "server.jai"), "-exe", str(binary)],
-                           capture_output=True, text=True, cwd=ROOT)
+    build = subprocess.run(
+        [
+            str(jaic),
+            str(ROOT / "tools" / "stdlib" / "http_garden" / "server.jai"),
+            "-exe",
+            str(binary),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
 
     if build.returncode != 0:
         print(build.stdout + build.stderr)
@@ -155,7 +191,11 @@ def check_server(jaic):
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
 
-    server = subprocess.Popen([str(binary), f"127.0.0.1:{port}"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    server = subprocess.Popen(
+        [str(binary), f"127.0.0.1:{port}"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
     failures = []
 
     def expect(name, condition, raw=b""):
@@ -175,68 +215,147 @@ def check_server(jaic):
         ok_get = b"GET /a/b?x=1 HTTP/1.1\r\nHost: t\r\n\r\n"
 
         raw = exchange(port, ok_get, 0.5)
-        expect("a plain GET is answered 200 with the request echoed", statuses(raw) == [200] and b"GET /a/b?x=1 HTTP/1.1" in raw, raw)
+        expect(
+            "a plain GET is answered 200 with the request echoed",
+            statuses(raw) == [200] and b"GET /a/b?x=1 HTTP/1.1" in raw,
+            raw,
+        )
         expect("the Date header is present", b"Date: " in raw, raw)
 
         raw = exchange(port, ok_get * 3, 0.5)
-        expect("three pipelined requests get three answers in order", statuses(raw) == [200, 200, 200], raw)
+        expect(
+            "three pipelined requests get three answers in order",
+            statuses(raw) == [200, 200, 200],
+            raw,
+        )
 
         raw = exchange(port, b"HEAD /h HTTP/1.1\r\nHost: t\r\n\r\n", 0.5)
-        expect("HEAD gets headers and no body", statuses(raw) == [200] and raw.endswith(b"\r\n\r\n"), raw)
+        expect(
+            "HEAD gets headers and no body",
+            statuses(raw) == [200] and raw.endswith(b"\r\n\r\n"),
+            raw,
+        )
 
-        raw = exchange(port, b"POST /p HTTP/1.1\r\nHost: t\r\nContent-Length: 5\r\n\r\nhello", 0.5)
-        expect("a POST body is echoed", statuses(raw) == [200] and raw.endswith(b"hello"), raw)
+        raw = exchange(
+            port, b"POST /p HTTP/1.1\r\nHost: t\r\nContent-Length: 5\r\n\r\nhello", 0.5
+        )
+        expect(
+            "a POST body is echoed",
+            statuses(raw) == [200] and raw.endswith(b"hello"),
+            raw,
+        )
 
-        raw = exchange(port, b"POST /p HTTP/1.1\r\nHost: t\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n", 0.5)
-        expect("a chunked body is decoded", statuses(raw) == [200] and raw.endswith(b"abcde"), raw)
+        raw = exchange(
+            port,
+            b"POST /p HTTP/1.1\r\nHost: t\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n",
+            0.5,
+        )
+        expect(
+            "a chunked body is decoded",
+            statuses(raw) == [200] and raw.endswith(b"abcde"),
+            raw,
+        )
 
-        raw = exchange(port, b"POST /p HTTP/1.1\r\nHost: t\r\nContent-Length: 5\r\nExpect: 100-continue\r\n\r\nhello", 0.5)
-        expect("Expect: 100-continue is answered, then the final response", statuses(raw)[:2] == [100, 200], raw)
+        raw = exchange(
+            port,
+            b"POST /p HTTP/1.1\r\nHost: t\r\nContent-Length: 5\r\nExpect: 100-continue\r\n\r\nhello",
+            0.5,
+        )
+        expect(
+            "Expect: 100-continue is answered, then the final response",
+            statuses(raw)[:2] == [100, 200],
+            raw,
+        )
 
         raw = exchange(port, b"GET / HTTP/1.0\r\n\r\n", 0.5)
-        expect("HTTP/1.0 without keep-alive is answered and closed", statuses(raw) == [200], raw)
+        expect(
+            "HTTP/1.0 without keep-alive is answered and closed",
+            statuses(raw) == [200],
+            raw,
+        )
 
         # Smuggling shapes: every one must be refused (400) or the connection closed without a second
         # request being parsed out of the smuggled bytes.
         smuggled = b"GET /smuggled HTTP/1.1\r\nHost: t\r\n\r\n"
         cases = {
-            "Content-Length and Transfer-Encoding together": b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 4\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n" + smuggled,
-            "two different Content-Length values": b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 4\r\nContent-Length: 5\r\n\r\nabcd" + smuggled,
-            "a space before the colon": b"GET / HTTP/1.1\r\nHost : t\r\n\r\n" + smuggled,
+            "Content-Length and Transfer-Encoding together": b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 4\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
+            + smuggled,
+            "two different Content-Length values": b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 4\r\nContent-Length: 5\r\n\r\nabcd"
+            + smuggled,
+            "a space before the colon": b"GET / HTTP/1.1\r\nHost : t\r\n\r\n"
+            + smuggled,
             "a bare LF in a header line": b"GET / HTTP/1.1\nHost: t\r\n\r\n" + smuggled,
-            "an obsolete line fold": b"GET / HTTP/1.1\r\nHost: t\r\nX: a\r\n b\r\n\r\n" + smuggled,
-            "a chunk size that is not hex": b"POST / HTTP/1.1\r\nHost: t\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\n\r\n" + smuggled,
-            "a Content-Length with a sign": b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: +4\r\n\r\nabcd" + smuggled,
+            "an obsolete line fold": b"GET / HTTP/1.1\r\nHost: t\r\nX: a\r\n b\r\n\r\n"
+            + smuggled,
+            "a chunk size that is not hex": b"POST / HTTP/1.1\r\nHost: t\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\n\r\n"
+            + smuggled,
+            "a Content-Length with a sign": b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: +4\r\n\r\nabcd"
+            + smuggled,
             "a missing Host in HTTP/1.1": b"GET / HTTP/1.1\r\n\r\n" + smuggled,
-            "a NUL in a header value": b"GET / HTTP/1.1\r\nHost: t\r\nX: a\x00b\r\n\r\n" + smuggled,
+            "a NUL in a header value": b"GET / HTTP/1.1\r\nHost: t\r\nX: a\x00b\r\n\r\n"
+            + smuggled,
         }
 
         for name, data in cases.items():
             raw = exchange(port, data, 0.5)
             codes = statuses(raw)
-            expect(f"smuggling shape refused: {name}", b"smuggled" not in raw and (not codes or codes[0] == 400), raw)
+            expect(
+                f"smuggling shape refused: {name}",
+                b"smuggled" not in raw and (not codes or codes[0] == 400),
+                raw,
+            )
 
         # Limits.
-        raw = exchange(port, b"GET /" + b"a" * 20000 + b" HTTP/1.1\r\nHost: t\r\n\r\n", 0.5)
-        expect("a request line over the limit gets 414", statuses(raw)[:1] == [414], raw)
+        raw = exchange(
+            port, b"GET /" + b"a" * 20000 + b" HTTP/1.1\r\nHost: t\r\n\r\n", 0.5
+        )
+        expect(
+            "a request line over the limit gets 414", statuses(raw)[:1] == [414], raw
+        )
 
-        raw = exchange(port, b"GET / HTTP/1.1\r\nHost: t\r\n" + b"".join(b"X-%d: v\r\n" % i for i in range(200)) + b"\r\n", 0.5)
+        raw = exchange(
+            port,
+            b"GET / HTTP/1.1\r\nHost: t\r\n"
+            + b"".join(b"X-%d: v\r\n" % i for i in range(200))
+            + b"\r\n",
+            0.5,
+        )
         expect("too many headers get 431", statuses(raw)[:1] == [431], raw)
 
-        raw = exchange(port, b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 999999999\r\n\r\n", 0.5)
-        expect("a body over the limit gets 413 before it is read", statuses(raw)[:1] == [413], raw)
+        raw = exchange(
+            port,
+            b"POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 999999999\r\n\r\n",
+            0.5,
+        )
+        expect(
+            "a body over the limit gets 413 before it is read",
+            statuses(raw)[:1] == [413],
+            raw,
+        )
 
         raw = exchange(port, b"BREW / HTTP/1.1\r\nHost: t\r\n\r\n", 0.5)
-        expect("an unknown method is refused with 501 or 405", statuses(raw)[:1] in ([501], [405], [400]), raw)
+        expect(
+            "an unknown method is refused with 501 or 405",
+            statuses(raw)[:1] in ([501], [405], [400]),
+            raw,
+        )
 
         raw = exchange(port, b"GET / HTTP/2.5\r\nHost: t\r\n\r\n", 0.5)
-        expect("an unsupported version gets 505 or 400", statuses(raw)[:1] in ([505], [400]), raw)
+        expect(
+            "an unsupported version gets 505 or 400",
+            statuses(raw)[:1] in ([505], [400]),
+            raw,
+        )
 
         raw = exchange(port, b"OPTIONS * HTTP/1.1\r\nHost: t\r\n\r\n", 0.5)
         expect("OPTIONS * is answered", len(statuses(raw)) == 1, raw)
 
         raw = exchange(port, b"GET / HTTP/1.1\r\nHost: t\r\n", 0.5, shutdown_write=True)
-        expect("a request cut off by the client is not answered as a success", 200 not in statuses(raw), raw)
+        expect(
+            "a request cut off by the client is not answered as a success",
+            200 not in statuses(raw),
+            raw,
+        )
 
         # Graceful shutdown: SIGINT, and the process exits 0.
         server.send_signal(signal.SIGINT)
@@ -247,24 +366,39 @@ def check_server(jaic):
             server.kill()
             code = None
 
-        expect("SIGINT shuts the server down with status 0", code == 0, str(code).encode())
+        expect(
+            "SIGINT shuts the server down with status 0", code == 0, str(code).encode()
+        )
     finally:
         if server.poll() is None:
             server.kill()
 
         shutil.rmtree(work, ignore_errors=True)
 
-    print("echo server: %s" % ("ok" if not failures else f"{len(failures)} probes failed"))
+    print(
+        "echo server: %s" % ("ok" if not failures else f"{len(failures)} probes failed")
+    )
 
     return not failures
 
 
 def llhttp_summary(jaic):
-    result = subprocess.run([str(jaic), str(HTTP_TESTS / "llhttp.jai"), "-interp"], capture_output=True, text=True, cwd=ROOT)
-    match = re.search(r"(\d+) cases: (\d+) match llhttp, (\d+) deviate on purpose, (\d+) need a lenient mode", result.stdout)
+    result = subprocess.run(
+        [str(jaic), str(HTTP_TESTS / "llhttp.jai"), "-interp"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    match = re.search(
+        r"(\d+) cases: (\d+) match llhttp, (\d+) deviate on purpose, (\d+) need a lenient mode",
+        result.stdout,
+    )
 
     if match:
-        print("== llhttp fixtures: %s run, %s match, %s deviate on purpose (tools/corpus/http_deviations.json), %s need a lenient mode llhttp has and the codec does not" % match.groups())
+        print(
+            "== llhttp fixtures: %s run, %s match, %s deviate on purpose (tools/corpus/http_deviations.json), %s need a lenient mode llhttp has and the codec does not"
+            % match.groups()
+        )
     else:
         print(result.stdout + result.stderr)
 
@@ -274,7 +408,9 @@ def external_suites(garden):
     docker = shutil.which("docker")
 
     if garden is None:
-        print("http-garden: not requested (--garden DIR with a checkout of narfindustries/http-garden)")
+        print(
+            "http-garden: not requested (--garden DIR with a checkout of narfindustries/http-garden)"
+        )
 
         return True
 
@@ -293,25 +429,35 @@ def external_suites(garden):
 
         return True
 
-    print("http-garden: Docker and a checkout are present. Build tools/stdlib/http_garden/server.jai into its image "
-          "(docs/extensions/http-server.md) and run its differential tests against it; that run needs the "
-          "garden's own Docker setup and is not driven from here")
+    print(
+        "http-garden: Docker and a checkout are present. Build tools/stdlib/http_garden/server.jai into its image "
+        "(docs/extensions/http-server.md) and run its differential tests against it; that run needs the "
+        "garden's own Docker setup and is not driven from here"
+    )
 
     return True
 
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     add_jaic_argument(ap, profile="release")
-    ap.add_argument("--modes", default="interp,native", help="stdlib_runtime.py modes (default interp,native)")
+    ap.add_argument(
+        "--modes",
+        default="interp,native",
+        help="stdlib_runtime.py modes (default interp,native)",
+    )
     ap.add_argument("--garden", help="a checkout of http-garden (needs Docker)")
     ap.add_argument("-j", "--jobs", type=int, default=2)
     args = ap.parse_args()
 
     jaic = args.jaic
     if not jaic.exists():
-        sys.exit(f"jaic not found at {jaic}: build it (cargo build --release -p jaic-cli) or pass --jaic")
+        sys.exit(
+            f"jaic not found at {jaic}: build it (cargo build --release -p jaic-cli) or pass --jaic"
+        )
     # Configure the parent too: runtime-harness child environment changes cannot
     # supply the following echo-server/llhttp compiler processes.
     ensure_native_libraries()

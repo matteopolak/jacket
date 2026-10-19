@@ -42,7 +42,10 @@ def parse(text: str):
         elif raw.startswith("FNDA:"):
             hits, name = raw[5:].split(",", 1)
             line = starts.get(name, 0)
-            current["functions"][name] = (line, current["functions"].get(name, (line, 0))[1] + int(hits))
+            current["functions"][name] = (
+                line,
+                current["functions"].get(name, (line, 0))[1] + int(hits),
+            )
     return files
 
 
@@ -63,7 +66,10 @@ def area_table(files, roots):
         area = f"{root}/{rest.split('/')[0]}" if "/" in rest else f"{root} (top level)"
         areas[area][0] += sum(1 for h in data["lines"].values() if h)
         areas[area][1] += len(data["lines"])
-    return sorted(((a, hit, total) for a, (hit, total) in areas.items()), key=lambda r: (r[1] / max(r[2], 1), r[0]))
+    return sorted(
+        ((a, hit, total) for a, (hit, total) in areas.items()),
+        key=lambda r: (r[1] / max(r[2], 1), r[0]),
+    )
 
 
 def cold_files(files, roots, top):
@@ -85,7 +91,9 @@ def cold_functions(files, roots, top):
         for name, (line, hits) in data["functions"].items():
             if hits == 0 and line:
                 # Length: lines from the function's start to the next function's start.
-                later = [l for l, _ in data["functions"].values() if l > line]
+                later = [
+                    start for start, _ in data["functions"].values() if start > line
+                ]
                 end = min(later) if later else (lines[-1] + 1 if lines else line)
                 rows.append((end - line, path, line, name))
     return sorted(rows, reverse=True)[:top]
@@ -96,31 +104,68 @@ def demangle(name: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("lcov", type=Path)
-    parser.add_argument("--root", action="append", default=None, help="source directory to report on (default: crates/*/src as given; repeatable)")
+    parser.add_argument(
+        "--root",
+        action="append",
+        default=None,
+        help="source directory to report on (default: crates/*/src as given; repeatable)",
+    )
     parser.add_argument("--top", type=int, default=25)
     parser.add_argument("--markdown", action="store_true")
     parser.add_argument("--functions", action="store_true")
     args = parser.parse_args()
-    roots = args.root or ["crates/jaic/src", "crates/jaic-cli/src", "crates/jaic-llvm/src", "crates/jai-language-server/src", "crates/jailint/src"]
+    roots = args.root or [
+        "crates/jaic/src",
+        "crates/jaic-cli/src",
+        "crates/jaic-llvm/src",
+        "crates/jai-language-server/src",
+        "crates/jailint/src",
+    ]
     files = parse(args.lcov.read_text())
     md = args.markdown
-    print("| area | lines hit | total | % |\n|---|---:|---:|---:|" if md else f"{'area':<44}{'hit':>9}{'total':>9}{'%':>7}")
+    print(
+        "| area | lines hit | total | % |\n|---|---:|---:|---:|"
+        if md
+        else f"{'area':<44}{'hit':>9}{'total':>9}{'%':>7}"
+    )
     for area, hit, total in area_table(files, roots):
         pct = 100 * hit / total if total else 0
-        print(f"| `{area}` | {hit} | {total} | {pct:.1f} |" if md else f"{area:<44}{hit:>9}{total:>9}{pct:>7.1f}")
+        print(
+            f"| `{area}` | {hit} | {total} | {pct:.1f} |"
+            if md
+            else f"{area:<44}{hit:>9}{total:>9}{pct:>7.1f}"
+        )
     print()
-    print(f"Files with the most uncovered lines (top {args.top}):\n" if md else f"files with the most uncovered lines (top {args.top}):")
+    print(
+        f"Files with the most uncovered lines (top {args.top}):\n"
+        if md
+        else f"files with the most uncovered lines (top {args.top}):"
+    )
     if md:
         print("| file | uncovered | lines |\n|---|---:|---:|")
     for missed, total, path in cold_files(files, roots, args.top):
-        print(f"| `{path}` | {missed} | {total} |" if md else f"{missed:>7} of {total:<6} {path}")
+        print(
+            f"| `{path}` | {missed} | {total} |"
+            if md
+            else f"{missed:>7} of {total:<6} {path}"
+        )
     if args.functions:
         print()
-        print("Functions that never ran, longest first:" if not md else "Functions that never ran, longest first:\n\n| lines | function | file |\n|---:|---|---|")
+        print(
+            "Functions that never ran, longest first:"
+            if not md
+            else "Functions that never ran, longest first:\n\n| lines | function | file |\n|---:|---|---|"
+        )
         for length, path, line, name in cold_functions(files, roots, args.top):
-            print(f"| {length} | `{demangle(name)}` | `{path}:{line}` |" if md else f"{length:>6} lines  {demangle(name)}  {path}:{line}")
+            print(
+                f"| {length} | `{demangle(name)}` | `{path}:{line}` |"
+                if md
+                else f"{length:>6} lines  {demangle(name)}  {path}:{line}"
+            )
     return 0
 
 

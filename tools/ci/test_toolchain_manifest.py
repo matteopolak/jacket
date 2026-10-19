@@ -30,7 +30,10 @@ class ToolchainManifest(unittest.TestCase):
             (Path(tmp) / "jacket-vscode-1.vsix").write_bytes(b"zzz")
             got = tm.from_archives(Path(tmp))
         self.assertEqual(list(got), ["jacket-linux-x64.tar.gz"])
-        self.assertEqual(got["jacket-linux-x64.tar.gz"], "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        self.assertEqual(
+            got["jacket-linux-x64.tar.gz"],
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        )
 
     def test_rejects_bad_version_and_empty(self):
         with self.assertRaises(ValueError):
@@ -41,8 +44,22 @@ class ToolchainManifest(unittest.TestCase):
     def test_main_writes_the_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "m.json"
-            self.assertEqual(tm.main(["--version", "0.4.0", "--sums", str(FIXTURES / "SHA256SUMS"), "--out", str(out)]), 0)
-            self.assertEqual(out.read_text(), (FIXTURES / "toolchain-manifest.json").read_text())
+            self.assertEqual(
+                tm.main(
+                    [
+                        "--version",
+                        "0.4.0",
+                        "--sums",
+                        str(FIXTURES / "SHA256SUMS"),
+                        "--out",
+                        str(out),
+                    ]
+                ),
+                0,
+            )
+            self.assertEqual(
+                out.read_text(), (FIXTURES / "toolchain-manifest.json").read_text()
+            )
 
 
 if __name__ == "__main__":

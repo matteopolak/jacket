@@ -103,9 +103,7 @@ class PlatformCapabilityTests(unittest.TestCase):
     def test_supported_wasm_fixtures_retain_all_modes(self):
         for name in SUPPORTED:
             attempt = Mock(return_value=True)
-            rows = run_wasm_contract(
-                "jaic", SOURCES[name], Path("out"), {}, attempt
-            )
+            rows = run_wasm_contract("jaic", SOURCES[name], Path("out"), {}, attempt)
             self.assertEqual(attempt.call_count, 6)
             self.assertTrue(
                 all(r["status"] == "passed" and r["passed"] is True for r in rows)

@@ -95,13 +95,15 @@ def source_identity(root, compiler):
         if p.is_file()
         and p.suffix in {".jai", ".c", ".h"}
         and not any(part.startswith("._") for part in p.relative_to(root).parts)
-    ) + [root / "tools/stdlib/io_stress.py", root / "tools/stdlib/io_failure_observer.py"]
-    manifest = {
-        str(p.relative_to(root)): sha256_file(p)
-        for p in sources
-    }
+    ) + [
+        root / "tools/stdlib/io_stress.py",
+        root / "tools/stdlib/io_failure_observer.py",
+    ]
+    manifest = {str(p.relative_to(root)): sha256_file(p) for p in sources}
     return {
-        "source_sha256": sha256_bytes(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()),
+        "source_sha256": sha256_bytes(
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+        ),
         "source_files": len(manifest),
         "compiler_sha256": sha256_file(compiler),
     }

@@ -34,6 +34,7 @@ class ReleaseNotes(unittest.TestCase):
 
     def test_the_real_changelog_has_the_current_top_section(self):
         import re
+
         text = rn.ROOT.joinpath("CHANGELOG.md").read_text(encoding="utf-8")
         version = re.search(r"^## \[(\d+\.\d+\.\d+)\]", text, re.M)[1]
         self.assertTrue(rn.section(text, version))

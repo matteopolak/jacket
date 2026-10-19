@@ -41,7 +41,9 @@ class HttpAppTargets(unittest.TestCase):
         ]:
             with self.subTest(name=name):
                 for mode in WASM:
-                    self.assertIsNone(unavailable_reason(self.cases[name], mode, "macos-arm64"))
+                    self.assertIsNone(
+                        unavailable_reason(self.cases[name], mode, "macos-arm64")
+                    )
                 self.assertNotIn("unsupported_modes", self.cases[name])
 
 

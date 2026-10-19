@@ -30,10 +30,13 @@ from pathlib import Path
 from toolkit.repo import ROOT
 
 
-
 def llvm_tool(name):
     """`name` from the LLVM jaic links against (LLVM_SYS_231_PREFIX), else Homebrew's, else PATH."""
-    prefixes = [os.environ.get("LLVM_SYS_231_PREFIX"), "/opt/homebrew/opt/llvm", "/usr/local/opt/llvm"]
+    prefixes = [
+        os.environ.get("LLVM_SYS_231_PREFIX"),
+        "/opt/homebrew/opt/llvm",
+        "/usr/local/opt/llvm",
+    ]
     for prefix in prefixes:
         if prefix and (Path(prefix) / "bin" / name).is_file():
             return str(Path(prefix) / "bin" / name)
@@ -70,7 +73,9 @@ def line_table(debug_file):
     """Rows of the DWARF line tables as (address, line, path, ends_sequence), sorted by address."""
     out = subprocess.run(
         [llvm_tool("llvm-dwarfdump"), "--debug-line", str(debug_file)],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     rows = []
     directories, files = {}, {}
@@ -129,8 +134,16 @@ def ingest(exe, cov_files, prefix):
     if entries:
         query = "\n".join(f"0x{pc:x}" for pc in entries) + "\n"
         out = subprocess.run(
-            [llvm_tool("llvm-symbolizer"), f"--obj={debug_file}", "--functions=linkage", "--no-inlines"],
-            input=query, capture_output=True, text=True, check=True,
+            [
+                llvm_tool("llvm-symbolizer"),
+                f"--obj={debug_file}",
+                "--functions=linkage",
+                "--no-inlines",
+            ],
+            input=query,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.split("\n\n")
         for pc, record in zip(entries, out):
             parts = record.strip().split("\n")
@@ -139,13 +152,17 @@ def ingest(exe, cov_files, prefix):
             name, location = parts[0], parts[1]
             if not location.startswith(prefix):
                 continue
-            file_path, line_number = re.match(r"(.*?):(\d+)(?::\d+)?$", location).groups()
+            file_path, line_number = re.match(
+                r"(.*?):(\d+)(?::\d+)?$", location
+            ).groups()
             if line_number == "0":
                 continue  # compiler-generated, no source location
             name = re.sub(r"\.\d+$", "", name)
             functions[f"{file_path}:{line_number}:{name}"] = blocks[pc][1]
-    return {"lines": {p: {str(l): h for l, h in v.items()} for p, v in lines.items()},
-            "functions": functions}
+    return {
+        "lines": {p: {str(line): h for line, h in v.items()} for p, v in lines.items()},
+        "functions": functions,
+    }
 
 
 def merge(runs):
@@ -180,7 +197,9 @@ def report(inputs, root, lcov, per_file, least, as_json=False):
     runs = [json.loads(p.read_text()) for p in paths]
     lines, functions = merge(runs)
     root = Path(root).resolve()
-    stats = defaultdict(lambda: [0, 0, 0, 0])  # lines hit, lines, functions hit, functions
+    stats = defaultdict(
+        lambda: [0, 0, 0, 0]
+    )  # lines hit, lines, functions hit, functions
     by_file = defaultdict(lambda: [0, 0, 0, 0])
     for path, hits in lines.items():
         if not Path(path).is_relative_to(root):
@@ -202,21 +221,37 @@ def report(inputs, root, lcov, per_file, least, as_json=False):
     if as_json:
         print(json.dumps({"modules": stats, "total": total}, indent=1))
     else:
-        rows = sorted(stats.items(), key=lambda kv: (kv[1][0] / kv[1][1]) if kv[1][1] else 2)
+        rows = sorted(
+            stats.items(), key=lambda kv: (kv[1][0] / kv[1][1]) if kv[1][1] else 2
+        )
         if least:
             rows = rows[:least]
         width = max([len(k) for k, _ in rows] + [6])
         print(f"{'module':<{width}}  {'lines':>16}  {'functions':>16}")
         for key, (lh, lt, fh, ft) in rows:
-            print(f"{key:<{width}}  {lh:>6}/{lt:<6} {pct(lh, lt)}  {fh:>5}/{ft:<5} {pct(fh, ft)}")
-        print(f"{'total':<{width}}  {total[0]:>6}/{total[1]:<6} {pct(total[0], total[1])}"
-              f"  {total[2]:>5}/{total[3]:<5} {pct(total[2], total[3])}")
-        print(f"({len(runs)} runs; only code compiled into the instrumented programs is counted)")
+            print(
+                f"{key:<{width}}  {lh:>6}/{lt:<6} {pct(lh, lt)}  {fh:>5}/{ft:<5} {pct(fh, ft)}"
+            )
+        print(
+            f"{'total':<{width}}  {total[0]:>6}/{total[1]:<6} {pct(total[0], total[1])}"
+            f"  {total[2]:>5}/{total[3]:<5} {pct(total[2], total[3])}"
+        )
+        print(
+            f"({len(runs)} runs; only code compiled into the instrumented programs is counted)"
+        )
         if per_file:
             print()
-            for path, (lh, lt, fh, ft) in sorted(by_file.items(), key=lambda kv: kv[1][0] / max(kv[1][1], 1)):
-                rel = Path(path).relative_to(ROOT) if Path(path).is_relative_to(ROOT) else path
-                print(f"{str(rel):<{width + 40}} {lh:>5}/{lt:<5} {pct(lh, lt)}  {fh:>4}/{ft:<4} {pct(fh, ft)}")
+            for path, (lh, lt, fh, ft) in sorted(
+                by_file.items(), key=lambda kv: kv[1][0] / max(kv[1][1], 1)
+            ):
+                rel = (
+                    Path(path).relative_to(ROOT)
+                    if Path(path).is_relative_to(ROOT)
+                    else path
+                )
+                print(
+                    f"{str(rel):<{width + 40}} {lh:>5}/{lt:<5} {pct(lh, lt)}  {fh:>4}/{ft:<4} {pct(fh, ft)}"
+                )
     if lcov:
         write_lcov(lcov, lines, functions)
 
@@ -237,7 +272,9 @@ def write_lcov(path, lines, functions):
             out.write(f"FNF:{len(funcs)}\nFNH:{sum(1 for f in funcs if f[2])}\n")
             for line in sorted(lines[file_path]):
                 out.write(f"DA:{line},{lines[file_path][line]}\n")
-            out.write(f"LF:{len(lines[file_path])}\nLH:{sum(1 for h in lines[file_path].values() if h)}\n")
+            out.write(
+                f"LF:{len(lines[file_path])}\nLH:{sum(1 for h in lines[file_path].values() if h)}\n"
+            )
             out.write("end_of_record\n")
 
 
@@ -248,19 +285,27 @@ def split_function(key):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = ap.add_subparsers(dest="command", required=True)
     i = sub.add_parser("ingest")
     i.add_argument("--exe")
     i.add_argument("--out", required=True)
-    i.add_argument("--prefix", default=str(ROOT / "stdlib"), help="keep only sources under this path")
+    i.add_argument(
+        "--prefix",
+        default=str(ROOT / "stdlib"),
+        help="keep only sources under this path",
+    )
     i.add_argument("runs", nargs="+")
     r = sub.add_parser("report")
     r.add_argument("inputs", nargs="+")
     r.add_argument("--root", default=str(ROOT / "stdlib"))
     r.add_argument("--lcov")
     r.add_argument("--files", action="store_true", help="also list every file")
-    r.add_argument("--least", type=int, default=0, help="only the N least covered modules")
+    r.add_argument(
+        "--least", type=int, default=0, help="only the N least covered modules"
+    )
     r.add_argument("--json", action="store_true")
     a = ap.parse_args()
     if a.command == "ingest":

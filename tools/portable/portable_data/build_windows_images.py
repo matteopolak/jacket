@@ -32,16 +32,33 @@ output.mkdir(parents=True, exist_ok=True)
 triple = "x86_64-pc-windows-msvc" if args.cpu == "x64" else "aarch64-pc-windows-msvc"
 for name, macro, definition, header in (
     ("stb_image", "STB_IMAGE_IMPLEMENTATION", "STBIDEF", "stb_image.h"),
-    ("stb_image_resize", "STB_IMAGE_RESIZE_IMPLEMENTATION", "STBIRDEF",
-     "deprecated/stb_image_resize.h"),
+    (
+        "stb_image_resize",
+        "STB_IMAGE_RESIZE_IMPLEMENTATION",
+        "STBIRDEF",
+        "deprecated/stb_image_resize.h",
+    ),
 ):
     unit = output / f"{name}-windows.c"
-    unit.write_text(f"#define {macro}\n#define {definition} __declspec(dllexport)\n"
-                    f'#include "{header}"\n')
-    subprocess.run(["clang-cl", f"--target={triple}", "/nologo", "/O2", "/LD",
-                    f"/I{sdk / 'stb'}", str(unit),
-                    f"/Fo{output / (name + '.obj')}",
-                    f"/Fe{output / ('lib' + name + '.dll')}", "/link",
-                    f"/implib:{output / (name + '.lib')}"],
-                   cwd=output, check=True)
+    unit.write_text(
+        f"#define {macro}\n#define {definition} __declspec(dllexport)\n"
+        f'#include "{header}"\n'
+    )
+    subprocess.run(
+        [
+            "clang-cl",
+            f"--target={triple}",
+            "/nologo",
+            "/O2",
+            "/LD",
+            f"/I{sdk / 'stb'}",
+            str(unit),
+            f"/Fo{output / (name + '.obj')}",
+            f"/Fe{output / ('lib' + name + '.dll')}",
+            "/link",
+            f"/implib:{output / (name + '.lib')}",
+        ],
+        cwd=output,
+        check=True,
+    )
 print("Real Windows stb SDK DLLs and import libraries built")

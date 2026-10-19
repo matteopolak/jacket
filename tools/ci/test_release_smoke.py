@@ -6,7 +6,10 @@ import release_smoke as smoke
 class Sums(unittest.TestCase):
     def test_sha256sum_lines_are_read_by_asset_name(self):
         text = f"{'a' * 64}  jacket-linux-x64.tar.gz\n{'B' * 64} *jacket-windows-x64.zip\nnot a line\n"
-        self.assertEqual(smoke.parse_sums(text), {"jacket-linux-x64.tar.gz": "a" * 64, "jacket-windows-x64.zip": "b" * 64})
+        self.assertEqual(
+            smoke.parse_sums(text),
+            {"jacket-linux-x64.tar.gz": "a" * 64, "jacket-windows-x64.zip": "b" * 64},
+        )
 
 
 class Names(unittest.TestCase):

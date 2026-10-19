@@ -30,7 +30,11 @@ class NumericsCaseCapabilities(unittest.TestCase):
 
     def test_complete_module_inventory_and_all_execution_modes(self):
         self.assertEqual(
-            {name for name, case in self.cases.items() if "numerics_target_source" in case},
+            {
+                name
+                for name, case in self.cases.items()
+                if "numerics_target_source" in case
+            },
             set(EXPECTED),
         )
         for name, targets in EXPECTED.items():
@@ -129,17 +133,24 @@ class NumericsCaseCapabilities(unittest.TestCase):
             for opt in ("O0", "O2"):
                 for name, targets in EXPECTED.items():
                     with self.subTest(platform=platform, opt=opt, name=name):
-                        status, output, calls = self.sweep(platform, opt, ("", "", 0), name)
+                        status, output, calls = self.sweep(
+                            platform, opt, ("", "", 0), name
+                        )
                         self.assertEqual(status, 0)
                         if target in targets:
                             self.assertEqual(len(calls), 1)
                             self.assertEqual(
-                                calls[0].args[3], ["-sanitize", "address,undefined", "-" + opt]
+                                calls[0].args[3],
+                                ["-sanitize", "address,undefined", "-" + opt],
                             )
-                            self.assertIn("1 passed, 0 failed, 0 platform unavailable", output)
+                            self.assertIn(
+                                "1 passed, 0 failed, 0 platform unavailable", output
+                            )
                         else:
                             self.assertEqual(calls, [])
-                            self.assertIn("0 passed, 0 failed, 1 platform unavailable", output)
+                            self.assertIn(
+                                "0 passed, 0 failed, 1 platform unavailable", output
+                            )
                             self.assertIn("UNAVAILABLE " + name + ":", output)
 
     def test_real_provider_failures_are_not_availability_decisions(self):

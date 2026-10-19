@@ -28,11 +28,15 @@ class Lengths(unittest.TestCase):
 
 class Banners(unittest.TestCase):
     def test_rule_only_comments_are_banners(self):
-        self.assertEqual(len(style.check_banners("x.rs", "// ------\n// Layout\n  // ======\n")), 2)
+        self.assertEqual(
+            len(style.check_banners("x.rs", "// ------\n// Layout\n  // ======\n")), 2
+        )
         self.assertEqual(len(style.check_banners("x.py", "# ----\n")), 1)
 
     def test_plain_comments_and_markdown_pass(self):
-        self.assertEqual(style.check_banners("x.rs", "// Layout\n/// ---\n//! ---\n// a - b\n"), [])
+        self.assertEqual(
+            style.check_banners("x.rs", "// Layout\n/// ---\n//! ---\n// a - b\n"), []
+        )
 
 
 if __name__ == "__main__":

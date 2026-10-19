@@ -26,11 +26,16 @@ ROOTS = ["crates/jaic/src"]
 class Cold(unittest.TestCase):
     def test_areas_are_sorted_coldest_first(self):
         rows = rust_cold.area_table(rust_cold.parse(LCOV), ROOTS)
-        self.assertEqual(rows, [("crates/jaic/src/sema", 1, 4), ("crates/jaic/src/interp", 2, 2)])
+        self.assertEqual(
+            rows, [("crates/jaic/src/sema", 1, 4), ("crates/jaic/src/interp", 2, 2)]
+        )
 
     def test_files_outside_the_roots_are_ignored(self):
         rows = rust_cold.cold_files(rust_cold.parse(LCOV), ROOTS, 10)
-        self.assertEqual([r[2] for r in rows], ["/w/crates/jaic/src/sema/a.rs", "/w/crates/jaic/src/interp/b.rs"])
+        self.assertEqual(
+            [r[2] for r in rows],
+            ["/w/crates/jaic/src/sema/a.rs", "/w/crates/jaic/src/interp/b.rs"],
+        )
 
     def test_unrun_functions_are_listed_with_their_length(self):
         rows = rust_cold.cold_functions(rust_cold.parse(LCOV), ROOTS, 10)

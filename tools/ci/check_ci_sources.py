@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check literal Rust includes against public checkout inputs before compiling."""
+
 import re
 import subprocess
 from pathlib import Path
@@ -28,10 +29,16 @@ def inspect_includes(repository, public_files):
                 errors.append(f"{location}: include escapes the public checkout")
                 continue
             relative = target.relative_to(repository)
-            if relative.parts[0] in {"vendor", "target", ".git"} or relative.is_relative_to("corpus/upstream"):
+            if relative.parts[0] in {
+                "vendor",
+                "target",
+                ".git",
+            } or relative.is_relative_to("corpus/upstream"):
                 errors.append(f"{location}: include uses excluded input {relative}")
             elif target not in public or not target.is_file():
-                errors.append(f"{location}: include is absent from public checkout inputs: {relative}")
+                errors.append(
+                    f"{location}: include is absent from public checkout inputs: {relative}"
+                )
     return count, errors
 
 

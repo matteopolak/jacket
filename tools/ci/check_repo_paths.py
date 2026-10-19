@@ -20,14 +20,53 @@ import sys
 from pathlib import Path
 from toolkit.repo import ROOT
 
-TOP = ("docs", "tools", "crates", "stdlib", "editors", "fuzz", "tests", "benchmarks", "examples",
-       "packaging", "nix", "corpus", "third_party", "jaifmt", ".github", ".githooks")
-DOC_TOP = {"docs", "tools", "crates", "editors", "fuzz", ".github", ".githooks", "benchmarks", "packaging", "nix"}
-GENERATED = ("target/", "corpus/upstream", "corpus/lsp-applications", "stdlib/internal/developer-tools/libgenerator_platform",
-             "fuzz/corpus/", "fuzz/artifacts/", "artifacts/", "benchmarks/regex/target", "node_modules/", "tools/corpus/regex_oracle/target")
+TOP = (
+    "docs",
+    "tools",
+    "crates",
+    "stdlib",
+    "editors",
+    "fuzz",
+    "tests",
+    "benchmarks",
+    "examples",
+    "packaging",
+    "nix",
+    "corpus",
+    "third_party",
+    "jaifmt",
+    ".github",
+    ".githooks",
+)
+DOC_TOP = {
+    "docs",
+    "tools",
+    "crates",
+    "editors",
+    "fuzz",
+    ".github",
+    ".githooks",
+    "benchmarks",
+    "packaging",
+    "nix",
+}
+GENERATED = (
+    "target/",
+    "corpus/upstream",
+    "corpus/lsp-applications",
+    "stdlib/internal/developer-tools/libgenerator_platform",
+    "fuzz/corpus/",
+    "fuzz/artifacts/",
+    "artifacts/",
+    "benchmarks/regex/target",
+    "node_modules/",
+    "tools/corpus/regex_oracle/target",
+)
 # Mentions of files that exist only in a user's project, or relative to some other folder.
 ALLOW = {"tools/build.jai", "tests/driven"}
-MENTION = re.compile(r"(?<![\w./-])((?:%s)/[^\s`'\"()|,;:]*)" % "|".join(re.escape(t) for t in TOP))
+MENTION = re.compile(
+    r"(?<![\w./-])((?:%s)/[^\s`'\"()|,;:]*)" % "|".join(re.escape(t) for t in TOP)
+)
 LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)]*)?\)")
 SKIP_CHARS = set("*<>{}$[]")
 
@@ -57,7 +96,9 @@ def tracked():
 
 
 def skipped(rel):
-    return any(c in SKIP_CHARS for c in rel) or rel.startswith(GENERATED) or rel in ALLOW
+    return (
+        any(c in SKIP_CHARS for c in rel) or rel.startswith(GENERATED) or rel in ALLOW
+    )
 
 
 def check_text(name, text, root=ROOT, doc_dir=None):
@@ -72,11 +113,20 @@ def check_text(name, text, root=ROOT, doc_dir=None):
         token = match.group(1).split("#")[0].rstrip(".-").rstrip("/")
         if doc_dir is not None and token.split("/")[0] not in DOC_TOP:
             continue
-        if not skipped(token) and not (root / token).exists() and not (doc_dir and (doc_dir / token).exists()):
+        if (
+            not skipped(token)
+            and not (root / token).exists()
+            and not (doc_dir and (doc_dir / token).exists())
+        ):
             errors.append(f"{name}: missing path {token}")
     if doc_dir is not None:
         for target in LINK.findall(text):
-            if "://" in target or target.startswith(("mailto:", "/")) or skipped(target) or not re.search(r"[./]", target):
+            if (
+                "://" in target
+                or target.startswith(("mailto:", "/"))
+                or skipped(target)
+                or not re.search(r"[./]", target)
+            ):
                 continue
             resolved = (doc_dir / target).resolve()
             if not resolved.exists():
@@ -102,7 +152,9 @@ def run():
         if not path.is_file():
             continue
         if rel.startswith("docs/") and rel.endswith(".md"):
-            errors += check_text(rel, path.read_text(errors="replace"), doc_dir=path.parent)
+            errors += check_text(
+                rel, path.read_text(errors="replace"), doc_dir=path.parent
+            )
         elif headed(rel):
             errors += check_text(rel, header(path.read_text(errors="replace")))
     return errors

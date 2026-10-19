@@ -18,26 +18,68 @@ import subprocess
 from toolkit.repo import ROOT
 from toolkit.cli import add_jaic_argument
 
-CASES = ("Basic/tests/builder-format", "Basic/tests/integer-format", "String/tests/patterns", "Hash/tests/floats", "Basic/tests/filesystem",
-         "File_Utilities/tests/shape", "File_Utilities/tests/tree-operations", "Hash/tests/scalars", "File/tests/visitation", "Basic/tests/output", "Basic/tests/formatter-records", "Basic/tests/sleep",
-         "Basic/tests/format-grammar", "Basic/tests/format-floats", "Basic/tests/format-aggregates", "Basic/tests/format-types", "Basic/tests/assert-message",
-         "Basic/tests/configuration", "Basic/tests/configuration-disabled", "Basic/tests/configuration-isolated-combined", "Basic/tests/temporary-stamping", "Basic/tests/float-parsing", "Basic/tests/type-parameter-format",
-         "Basic/tests/formatter-parameter-defaults", "Basic/tests/wasm-basic-minimal", "Basic/tests/float-roundtrip",
-         "Memory/tests/debugger-interface", "Memory/tests/debugger-interface-disabled", "Basic/tests/array-context/debugger-default", "File_Utilities/tests/invalid-paths",
-         "Basic/tests/logging", "Basic/tests/logging-output", "Basic/tests/reflection",
-         "Basic/tests/helpers", "Basic/tests/print-bytes", "Basic/tests/stack-traces", "Basic/tests/stack-output",
-         "Basic/tests/scalars-ownership", "Basic/tests/leak-reports", "Basic/tests/leak-graphs",
-         "Basic/tests/visualization-disabled",
-         "Basic/tests/capabilities", "Basic/tests/preamble", "Basic/tests/array-aliasing", "String/tests/basics", "Basic/tests/wide-conversions", "Hash/tests/scalar-fnv")
+CASES = (
+    "Basic/tests/builder-format",
+    "Basic/tests/integer-format",
+    "String/tests/patterns",
+    "Hash/tests/floats",
+    "Basic/tests/filesystem",
+    "File_Utilities/tests/shape",
+    "File_Utilities/tests/tree-operations",
+    "Hash/tests/scalars",
+    "File/tests/visitation",
+    "Basic/tests/output",
+    "Basic/tests/formatter-records",
+    "Basic/tests/sleep",
+    "Basic/tests/format-grammar",
+    "Basic/tests/format-floats",
+    "Basic/tests/format-aggregates",
+    "Basic/tests/format-types",
+    "Basic/tests/assert-message",
+    "Basic/tests/configuration",
+    "Basic/tests/configuration-disabled",
+    "Basic/tests/configuration-isolated-combined",
+    "Basic/tests/temporary-stamping",
+    "Basic/tests/float-parsing",
+    "Basic/tests/type-parameter-format",
+    "Basic/tests/formatter-parameter-defaults",
+    "Basic/tests/wasm-basic-minimal",
+    "Basic/tests/float-roundtrip",
+    "Memory/tests/debugger-interface",
+    "Memory/tests/debugger-interface-disabled",
+    "Basic/tests/array-context/debugger-default",
+    "File_Utilities/tests/invalid-paths",
+    "Basic/tests/logging",
+    "Basic/tests/logging-output",
+    "Basic/tests/reflection",
+    "Basic/tests/helpers",
+    "Basic/tests/print-bytes",
+    "Basic/tests/stack-traces",
+    "Basic/tests/stack-output",
+    "Basic/tests/scalars-ownership",
+    "Basic/tests/leak-reports",
+    "Basic/tests/leak-graphs",
+    "Basic/tests/visualization-disabled",
+    "Basic/tests/capabilities",
+    "Basic/tests/preamble",
+    "Basic/tests/array-aliasing",
+    "String/tests/basics",
+    "Basic/tests/wide-conversions",
+    "Hash/tests/scalar-fnv",
+)
 
 
 def manifest_rejections(modules):
     """(case id, diagnostic) for every check-fail row of the modules' test manifests."""
     found = []
     for module in modules:
-        for row in json.loads((ROOT / "stdlib" / module / "tests/manifest.json").read_text()):
+        for row in json.loads(
+            (ROOT / "stdlib" / module / "tests/manifest.json").read_text()
+        ):
             if row.get("mode") == "check-fail" and row.get("diagnostic_contains"):
-                found.append((f"{module}/tests/{row['name']}", row["diagnostic_contains"]))
+                found.append(
+                    (f"{module}/tests/{row['name']}", row["diagnostic_contains"])
+                )
     return found
 
 
@@ -58,7 +100,9 @@ def check_division_output(output):
     if samples[:5] != samples[5:10] or samples[:5] != samples[13:18]:
         raise RuntimeError("deterministic divisions must run for every exercise call")
     if samples[10:13] != [(0, 23, 3), (0, 7, 1), (0, 0, (1 << 64) - 1)]:
-        raise RuntimeError("random exercise did not consume its three callback operands per iteration")
+        raise RuntimeError(
+            "random exercise did not consume its three callback operands per iteration"
+        )
 
 
 def expected_output(name):
@@ -71,11 +115,30 @@ def expected_output(name):
 
 def owned_sources():
     """Keep inherited runtime/time/File/MD5 outside the modified core scope."""
-    paths = [ROOT / f"stdlib/{module}/module.jai"
-             for module in ("Basic", "String", "Hash", "File_Utilities")]
+    paths = [
+        ROOT / f"stdlib/{module}/module.jai"
+        for module in ("Basic", "String", "Hash", "File_Utilities")
+    ]
     paths.extend((ROOT / "stdlib/internal/basic").glob("format*.jai"))
-    paths.extend(ROOT / f"stdlib/internal/basic/{name}.jai"
-                 for name in ("builder", "scalar", "integer128", "parsing", "numeric-conversion", "temporary", "allocation", "arrays", "memory-debugger", "logging", "reflection", "stream-helpers", "stack-traces", "module"))
+    paths.extend(
+        ROOT / f"stdlib/internal/basic/{name}.jai"
+        for name in (
+            "builder",
+            "scalar",
+            "integer128",
+            "parsing",
+            "numeric-conversion",
+            "temporary",
+            "allocation",
+            "arrays",
+            "memory-debugger",
+            "logging",
+            "reflection",
+            "stream-helpers",
+            "stack-traces",
+            "module",
+        )
+    )
     paths.append(ROOT / "stdlib/internal/basic-interface/module.jai")
     paths.append(ROOT / "stdlib/internal/basic-context/module.jai")
     paths.append(ROOT / "stdlib/internal/basic/preamble.jai")
@@ -85,7 +148,11 @@ def owned_sources():
     paths.append(ROOT / "stdlib/internal/basic/filesystem.jai")
     paths.extend((ROOT / "stdlib/internal/string").glob("*.jai"))
     paths.append(ROOT / "stdlib/internal/hash/module.jai")
-    paths.extend(path for path in (ROOT / "stdlib/internal/files").glob("*.jai") if path.name != "file.jai")
+    paths.extend(
+        path
+        for path in (ROOT / "stdlib/internal/files").glob("*.jai")
+        if path.name != "file.jai"
+    )
     paths.extend(ROOT / "stdlib" / f"{name}.jai" for name in CASES)
     paths.extend((ROOT / "stdlib/Basic/tests/negative").glob("wide-to-*.jai"))
     paths.append(ROOT / "stdlib/Basic/tests/division-exercise.jai")
@@ -120,7 +187,9 @@ def negative_lint_sources():
 
 def host_profile():
     """(os, cpu) of this machine in the names of LINT_PROFILES."""
-    system = {"darwin": "macos", "linux": "linux", "win32": "windows"}.get(sys.platform, sys.platform)
+    system = {"darwin": "macos", "linux": "linux", "win32": "windows"}.get(
+        sys.platform, sys.platform
+    )
     cpu = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x64"
     return system, cpu
 
@@ -161,7 +230,11 @@ def lint_profile_sources(target_os, target_cpu):
             and (target_os, target_cpu) == host_profile()
         ):
             continue  # This fixture requires a target other than the host.
-        (library if path.is_relative_to(ROOT / "stdlib") and "tests" not in path.parts else fixtures).append(path)
+        (
+            library
+            if path.is_relative_to(ROOT / "stdlib") and "tests" not in path.parts
+            else fixtures
+        ).append(path)
     return library, fixtures
 
 
@@ -300,22 +373,55 @@ def lint_owned(linter, env, output):
     )
     return failures
 
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jaic_argument(parser, required=True)
     parser.add_argument("--stdlib", required=True, type=Path)
-    parser.add_argument("--jaifmt", type=Path, help="unchanged repository CLI built with the selected library")
-    parser.add_argument("--jailint", type=Path, help="linter built from the selected independent compiler sources")
-    parser.add_argument("--build-root", type=Path, default=ROOT / "target",
-                        help="explicit source-built compiler/tool target directory")
-    parser.add_argument("--output-root", type=Path, default=ROOT / "target/foundations-tests")
-    parser.add_argument("--lint-only", action="store_true", help="four strict source-check profiles; no program execution")
+    parser.add_argument(
+        "--jaifmt",
+        type=Path,
+        help="unchanged repository CLI built with the selected library",
+    )
+    parser.add_argument(
+        "--jailint",
+        type=Path,
+        help="linter built from the selected independent compiler sources",
+    )
+    parser.add_argument(
+        "--build-root",
+        type=Path,
+        default=ROOT / "target",
+        help="explicit source-built compiler/tool target directory",
+    )
+    parser.add_argument(
+        "--output-root", type=Path, default=ROOT / "target/foundations-tests"
+    )
+    parser.add_argument(
+        "--lint-only",
+        action="store_true",
+        help="four strict source-check profiles; no program execution",
+    )
     parser.add_argument("--cross", action="store_true")
-    parser.add_argument("--wasm", action="store_true", help="execute supported cases under Node WASI at O0/O2")
+    parser.add_argument(
+        "--wasm",
+        action="store_true",
+        help="execute supported cases under Node WASI at O0/O2",
+    )
     # Only macOS runs x64 programs on an arm64 host (Rosetta); an arm64 Linux or Windows host has
     # no way to link or run them, and the interpreter checks cover the x64 division there.
     x64_host = platform.machine().lower() in ("x86_64", "amd64")
-    parser.add_argument("--x64-target", default={"darwin": "x86_64-apple-darwin", "linux": "x86_64-unknown-linux-gnu", "win32": "x86_64-pc-windows-msvc"}.get(sys.platform) if x64_host or sys.platform == "darwin" else None, help="executable native x64 target for the CPU-conditional division diagnostic")
+    parser.add_argument(
+        "--x64-target",
+        default={
+            "darwin": "x86_64-apple-darwin",
+            "linux": "x86_64-unknown-linux-gnu",
+            "win32": "x86_64-pc-windows-msvc",
+        }.get(sys.platform)
+        if x64_host or sys.platform == "darwin"
+        else None,
+        help="executable native x64 target for the CPU-conditional division diagnostic",
+    )
     args = parser.parse_args()
     compiler = args.jaic.resolve(strict=True)
     build_root = args.build_root.resolve(strict=True)
@@ -347,32 +453,77 @@ def main():
         (hidden / "ignored.jai").write_text("deliberately malformed {")
         source = directory / "sample.jai"
         source.write_text("main::(){value:=1;value+=2;}\n")
-        check = subprocess.run([formatter, "--check", source], cwd=ROOT, env=env,
-                               capture_output=True, text=True, timeout=60)
+        check = subprocess.run(
+            [formatter, "--check", source],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         if check.returncode != 1 or not check.stdout or check.stderr:
             raise RuntimeError(f"jaifmt dirty-file check: {check}")
-        rewrite = subprocess.run([formatter, directory], cwd=ROOT, env=env,
-                                 capture_output=True, text=True, timeout=60)
+        rewrite = subprocess.run(
+            [formatter, directory],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         if rewrite.returncode or rewrite.stderr:
             raise RuntimeError(f"jaifmt recursive rewrite: {rewrite}")
         formatted = source.read_text()
-        clean = subprocess.run([formatter, "--check", directory], cwd=ROOT, env=env,
-                               capture_output=True, text=True, timeout=60)
-        if clean.returncode or clean.stdout or clean.stderr or source.read_text() != formatted:
+        clean = subprocess.run(
+            [formatter, "--check", directory],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if (
+            clean.returncode
+            or clean.stdout
+            or clean.stderr
+            or source.read_text() != formatted
+        ):
             raise RuntimeError(f"jaifmt idempotence: {clean}")
-        stdin = subprocess.run([formatter, "--stdin"], input="main::(){value:=1;value+=2;}\n",
-                               cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        stdin = subprocess.run(
+            [formatter, "--stdin"],
+            input="main::(){value:=1;value+=2;}\n",
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         if stdin.returncode or stdin.stderr or stdin.stdout != formatted:
             raise RuntimeError(f"jaifmt stdin: {stdin}")
         if (hidden / "ignored.jai").read_text() != "deliberately malformed {":
             raise RuntimeError("jaifmt modified a pruned hidden directory")
-        print("passed unchanged jaifmt CLI: check/rewrite/recursion/pruning/stdin/idempotence", flush=True)
+        print(
+            "passed unchanged jaifmt CLI: check/rewrite/recursion/pruning/stdin/idempotence",
+            flush=True,
+        )
 
     def run(command, expected=None, expected_stderr="", expected_code=0):
-        result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env,
-                                capture_output=True, text=True, timeout=60)
-        if result.returncode != expected_code or result.stderr != expected_stderr or (expected is not None and result.stdout != expected):
-            raise RuntimeError(f"{command}\nexit={result.returncode}\n{result.stdout}{result.stderr}")
+        result = subprocess.run(
+            list(map(str, command)),
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if (
+            result.returncode != expected_code
+            or result.stderr != expected_stderr
+            or (expected is not None and result.stdout != expected)
+        ):
+            raise RuntimeError(
+                f"{command}\nexit={result.returncode}\n{result.stdout}{result.stderr}"
+            )
 
     if args.jaifmt:
         run([formatter, "--check", *owned_sources()], "")
@@ -387,46 +538,113 @@ def main():
     for name, diagnostic in manifest_rejections(("Hash", "Basic")):
         source = ROOT / "stdlib" / f"{name}.jai"
         if args.jaifmt:
-            run([formatter,"--check",source], "")
-        rejected = subprocess.run([compiler, "-check", source], cwd=ROOT, env=env,
-                                  capture_output=True, text=True, timeout=60)
+            run([formatter, "--check", source], "")
+        rejected = subprocess.run(
+            [compiler, "-check", source],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         if rejected.returncode != 1 or diagnostic not in rejected.stderr:
             raise RuntimeError(f"expected contract rejection {name}: {rejected}")
     print("passed unsupported-hash and facade-visibility rejection checks", flush=True)
     for source in sorted((ROOT / "stdlib/Basic/tests/negative").glob("wide-to-*.jai")):
-        diagnostic = "to_s128 requires" if source.name.startswith("wide-to-s128-") else "to_u128 requires"
-        rejected = subprocess.run([compiler, "-check", source], cwd=ROOT, env=env,
-                                  capture_output=True, text=True, timeout=60)
-        if rejected.returncode != 1 or "#modify rejected" not in rejected.stderr or diagnostic not in rejected.stderr:
-            raise RuntimeError(f"expected wide conversion guard rejection: {source}\n{rejected.stderr}")
+        diagnostic = (
+            "to_s128 requires"
+            if source.name.startswith("wide-to-s128-")
+            else "to_u128 requires"
+        )
+        rejected = subprocess.run(
+            [compiler, "-check", source],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if (
+            rejected.returncode != 1
+            or "#modify rejected" not in rejected.stderr
+            or diagnostic not in rejected.stderr
+        ):
+            raise RuntimeError(
+                f"expected wide conversion guard rejection: {source}\n{rejected.stderr}"
+            )
     print("passed all 13 wide-conversion admissibility rejection checks", flush=True)
     exercise = ROOT / "stdlib/Basic/tests/division-exercise.jai"
-    result = subprocess.run([compiler, "-interp", "-cpu", "x64", exercise], cwd=ROOT, env=env,
-                            capture_output=True, text=True, timeout=60)
+    result = subprocess.run(
+        [compiler, "-interp", "-cpu", "x64", exercise],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     if result.returncode or result.stderr:
         raise RuntimeError(f"x64 division interpreter failed: {result}")
     check_division_output(result.stdout)
     for level in ("O0", "O2") if args.x64_target else ():
         binary = output / f"division-exercise-x64-{level}"
-        run([compiler, "-target", args.x64_target, f"-{level}", exercise, "-exe", binary])
-        result = subprocess.run([binary], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        run(
+            [
+                compiler,
+                "-target",
+                args.x64_target,
+                f"-{level}",
+                exercise,
+                "-exe",
+                binary,
+            ]
+        )
+        result = subprocess.run(
+            [binary], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60
+        )
         if result.returncode or result.stderr:
             raise RuntimeError(f"native x64 division exercise failed: {result}")
         check_division_output(result.stdout)
-    print("passed CPU.X64 public division exercise: " + ("interpreter/native O0/O2" if args.x64_target else "interpreter (no x64 executables on this host)") + " and independent integer oracle", flush=True)
-    run([compiler,"-check",ROOT / "stdlib/Basic/tests/probes/context-overload-probe.jai"])
+    print(
+        "passed CPU.X64 public division exercise: "
+        + (
+            "interpreter/native O0/O2"
+            if args.x64_target
+            else "interpreter (no x64 executables on this host)"
+        )
+        + " and independent integer oracle",
+        flush=True,
+    )
+    run(
+        [
+            compiler,
+            "-check",
+            ROOT / "stdlib/Basic/tests/probes/context-overload-probe.jai",
+        ]
+    )
     print("passed general context/overload compiler regression", flush=True)
-    run([compiler, "-interp", "-I", ROOT / "stdlib/Basic/tests/probes",
-         ROOT / "stdlib/Basic/tests/probes/alias-signature-probe.jai"], "ok\n")
-    print("passed general public alias overload/default execution regression", flush=True)
+    run(
+        [
+            compiler,
+            "-interp",
+            "-I",
+            ROOT / "stdlib/Basic/tests/probes",
+            ROOT / "stdlib/Basic/tests/probes/alias-signature-probe.jai",
+        ],
+        "ok\n",
+    )
+    print(
+        "passed general public alias overload/default execution regression", flush=True
+    )
 
-    for name, diagnostic in (("format-int-kind", "FormatInt requires an integer value"),
-                             ("format-float-kind", "FormatFloat requires a float value"),
-                             ("format-int-base", "assertion failed"),
-                             ("format-int-minimum", "assertion failed"),
-                             ("builder-ensured-range", "assertion failed"),
-                             ("stack-trace-cycle", "a stack trace must not contain a cycle"),
-                             ("leak-unknown-allocation", "unknown allocation marked as non-leak")):
+    for name, diagnostic in (
+        ("format-int-kind", "FormatInt requires an integer value"),
+        ("format-float-kind", "FormatFloat requires a float value"),
+        ("format-int-base", "assertion failed"),
+        ("format-int-minimum", "assertion failed"),
+        ("builder-ensured-range", "assertion failed"),
+        ("stack-trace-cycle", "a stack trace must not contain a cycle"),
+        ("leak-unknown-allocation", "unknown allocation marked as non-leak"),
+    ):
         source = ROOT / f"stdlib/Basic/tests/negative/{name}.jai"
         commands = [[compiler, "-interp", source]]
         for level in ("O0", "O2"):
@@ -434,9 +652,19 @@ def main():
             run([compiler, source, f"-{level}", "-exe", binary])
             commands.append([binary])
         for command in commands:
-            rejected = subprocess.run(list(map(str, command)), cwd=ROOT, env=env,
-                                      capture_output=True, text=True, timeout=60)
-            if rejected.returncode == 0 or diagnostic not in rejected.stderr or (name == "leak-unknown-allocation" and rejected.returncode != 1):
+            rejected = subprocess.run(
+                list(map(str, command)),
+                cwd=ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if (
+                rejected.returncode == 0
+                or diagnostic not in rejected.stderr
+                or (name == "leak-unknown-allocation" and rejected.returncode != 1)
+            ):
                 raise RuntimeError(f"expected formatter assertion {name}: {rejected}")
         print(f"passed interpreter/native O0/O2 assertion: {name}", flush=True)
 
@@ -456,7 +684,14 @@ def main():
         print(f"passed interpreter/native O0/O2: {name}", flush=True)
     if args.wasm:
         for name in CASES:
-            if name in ("Basic/tests/filesystem", "File_Utilities/tests/tree-operations", "File/tests/visitation", "Basic/tests/sleep", "Basic/tests/output", "File_Utilities/tests/invalid-paths"):
+            if name in (
+                "Basic/tests/filesystem",
+                "File_Utilities/tests/tree-operations",
+                "File/tests/visitation",
+                "Basic/tests/sleep",
+                "Basic/tests/output",
+                "File_Utilities/tests/invalid-paths",
+            ):
                 continue
             source = ROOT / "stdlib" / f"{name}.jai"
             label = name.replace("/", "-")
@@ -464,72 +699,210 @@ def main():
                 binary = output / f"{label}-{level}.wasm"
                 run([compiler, source, "-os", "wasm", f"-{level}", "-exe", binary])
                 expected = expected_output(name)
-                run(["node", "--no-warnings", ROOT / "tools/browser/run_foundations_wasm.mjs", binary], *expected)
+                run(
+                    [
+                        "node",
+                        "--no-warnings",
+                        ROOT / "tools/browser/run_foundations_wasm.mjs",
+                        binary,
+                    ],
+                    *expected,
+                )
             print(f"passed production WASI O0/O2: {name}", flush=True)
         for level in ("O0", "O2"):
             binary = output / f"leak-unknown-allocation-{level}.wasm"
-            run([compiler, ROOT / "stdlib/Basic/tests/negative/leak-unknown-allocation.jai",
-                 "-os", "wasm", f"-{level}", "-exe", binary])
-            run(["node", "--no-warnings", ROOT / "tools/browser/run_foundations_wasm.mjs", binary],
-                "", "memory debugger: unknown allocation marked as non-leak", 1)
-        print("passed production WASI O0/O2 unknown-allocation misuse status 1", flush=True)
-    for name, target in (("Hash/tests/probes/scalar-fnv", []), ("Basic/tests/probes/division-exercise", ["-os", "windows", "-cpu", "x64"])):
+            run(
+                [
+                    compiler,
+                    ROOT / "stdlib/Basic/tests/negative/leak-unknown-allocation.jai",
+                    "-os",
+                    "wasm",
+                    f"-{level}",
+                    "-exe",
+                    binary,
+                ]
+            )
+            run(
+                [
+                    "node",
+                    "--no-warnings",
+                    ROOT / "tools/browser/run_foundations_wasm.mjs",
+                    binary,
+                ],
+                "",
+                "memory debugger: unknown allocation marked as non-leak",
+                1,
+            )
+        print(
+            "passed production WASI O0/O2 unknown-allocation misuse status 1",
+            flush=True,
+        )
+    for name, target in (
+        ("Hash/tests/probes/scalar-fnv", []),
+        ("Basic/tests/probes/division-exercise", ["-os", "windows", "-cpu", "x64"]),
+    ):
         try:
             run([compiler, "-check", *target, ROOT / "stdlib" / f"{name}.jai"])
             print(f"checked reviewed public API: {name}", flush=True)
         except RuntimeError as error:
             failures.append(f"reviewed public API gap {name}: {error}")
-            print(f"FAILED reviewed public API {name}; continuing independent targets", flush=True)
+            print(
+                f"FAILED reviewed public API {name}; continuing independent targets",
+                flush=True,
+            )
     try:
-        run([compiler, "-interp", ROOT / "stdlib/Pool/tests/probes/capabilities-name.jai"], "ok\n")
+        run(
+            [
+                compiler,
+                "-interp",
+                ROOT / "stdlib/Pool/tests/probes/capabilities-name.jai",
+            ],
+            "ok\n",
+        )
         print("passed real Pool CAPS provider integration", flush=True)
     except RuntimeError as error:
         failures.append(f"Pool CAPS provider integration: {error}")
-        print("FAILED real Pool CAPS provider integration; continuing independent targets", flush=True)
+        print(
+            "FAILED real Pool CAPS provider integration; continuing independent targets",
+            flush=True,
+        )
     if args.cross:
-        for os_name, cpu in (("linux", "x64"), ("linux", "arm64"), ("macos", "arm64"), ("macos", "x64"), ("windows", "x64"), ("windows", "arm64"), ("wasm", "wasm64")):
+        for os_name, cpu in (
+            ("linux", "x64"),
+            ("linux", "arm64"),
+            ("macos", "arm64"),
+            ("macos", "x64"),
+            ("windows", "x64"),
+            ("windows", "arm64"),
+            ("wasm", "wasm64"),
+        ):
             try:
                 for name in CASES:
                     if name == "File/tests/visitation" and os_name == "windows":
                         continue  # POSIX symlink oracle; Windows public traversal is checked below.
-                    if name in ("Basic/tests/filesystem", "File_Utilities/tests/tree-operations", "File/tests/visitation", "Basic/tests/sleep", "File_Utilities/tests/invalid-paths") and os_name == "wasm":
+                    if (
+                        name
+                        in (
+                            "Basic/tests/filesystem",
+                            "File_Utilities/tests/tree-operations",
+                            "File/tests/visitation",
+                            "Basic/tests/sleep",
+                            "File_Utilities/tests/invalid-paths",
+                        )
+                        and os_name == "wasm"
+                    ):
                         continue
                     if name == "Basic/tests/output" and os_name == "wasm":
                         continue
-                    target = ["-target", "wasm64-unknown-wasi"] if os_name == "wasm" else ["-os", os_name, "-cpu", cpu]
-                    run([compiler, "-check", "-no_dce", *target,
-                         ROOT / "stdlib" / f"{name}.jai"])
+                    target = (
+                        ["-target", "wasm64-unknown-wasi"]
+                        if os_name == "wasm"
+                        else ["-os", os_name, "-cpu", cpu]
+                    )
+                    run(
+                        [
+                            compiler,
+                            "-check",
+                            "-no_dce",
+                            *target,
+                            ROOT / "stdlib" / f"{name}.jai",
+                        ]
+                    )
                 if os_name == "windows":
-                    run([compiler, "-check", "-no_dce", "-os", os_name, "-cpu", cpu,
-                         ROOT / "stdlib/Basic/tests/windows.jai"])
-                    print("checked Windows-specific filesystem specializations (not executed)", flush=True)
+                    run(
+                        [
+                            compiler,
+                            "-check",
+                            "-no_dce",
+                            "-os",
+                            os_name,
+                            "-cpu",
+                            cpu,
+                            ROOT / "stdlib/Basic/tests/windows.jai",
+                        ]
+                    )
+                    print(
+                        "checked Windows-specific filesystem specializations (not executed)",
+                        flush=True,
+                    )
                 if cpu == "x64":
-                    run([compiler, "-check", "-no_dce", "-os", os_name, "-cpu", cpu, exercise])
+                    run(
+                        [
+                            compiler,
+                            "-check",
+                            "-no_dce",
+                            "-os",
+                            os_name,
+                            "-cpu",
+                            cpu,
+                            exercise,
+                        ]
+                    )
                 print(f"checked unused code: {os_name}/{cpu}", flush=True)
             except RuntimeError as error:
                 failures.append(f"{os_name}/{cpu}: {error}")
-                print(f"FAILED target {os_name}/{cpu}; continuing independent targets", flush=True)
+                print(
+                    f"FAILED target {os_name}/{cpu}; continuing independent targets",
+                    flush=True,
+                )
     if args.jaifmt:
-        run([formatter,"--check",ROOT / "stdlib/Basic/tests/probes/module-interface-constraint.jai"], "")
-    constraint = subprocess.run([compiler, "-I", ROOT / "stdlib/Basic/tests/probes", "-check",
-                                 ROOT / "stdlib/Basic/tests/probes/module-interface-constraint.jai"],
-                                cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        run(
+            [
+                formatter,
+                "--check",
+                ROOT / "stdlib/Basic/tests/probes/module-interface-constraint.jai",
+            ],
+            "",
+        )
+    constraint = subprocess.run(
+        [
+            compiler,
+            "-I",
+            ROOT / "stdlib/Basic/tests/probes",
+            "-check",
+            ROOT / "stdlib/Basic/tests/probes/module-interface-constraint.jai",
+        ],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     if constraint.returncode != 1 or "run" not in constraint.stderr:
-        failures.append("compiler must reject the invalid unused module interface constraint:\n"
-                        f"exit={constraint.returncode}\n{constraint.stdout}{constraint.stderr}")
+        failures.append(
+            "compiler must reject the invalid unused module interface constraint:\n"
+            f"exit={constraint.returncode}\n{constraint.stdout}{constraint.stderr}"
+        )
     else:
         print("passed general unused module-interface constraint rejection", flush=True)
-    for source, flag in ((ROOT / "stdlib/Basic/tests/negative/unknown-parameter.jai", "FOUNDATIONS_UNDECLARED_PARAMETER"),
-                         (ROOT / "stdlib/Basic/tests/probes/module-undeclared-parameter.jai", "EXTRA")):
+    for source, flag in (
+        (
+            ROOT / "stdlib/Basic/tests/negative/unknown-parameter.jai",
+            "FOUNDATIONS_UNDECLARED_PARAMETER",
+        ),
+        (ROOT / "stdlib/Basic/tests/probes/module-undeclared-parameter.jai", "EXTRA"),
+    ):
         if args.jaifmt:
-            run([formatter,"--check",source], "")
-        rejected = subprocess.run([compiler,"-I",ROOT / "stdlib/Basic/tests/probes","-check",source],
-                                  cwd=ROOT,env=env,capture_output=True,text=True,timeout=60)
-        if rejected.returncode != 1 or flag not in rejected.stderr or "parameter" not in rejected.stderr:
-            failures.append(f"compiler must reject undeclared module parameter {flag}:\n"
-                            f"exit={rejected.returncode}\n{rejected.stdout}{rejected.stderr}")
+            run([formatter, "--check", source], "")
+        rejected = subprocess.run(
+            [compiler, "-I", ROOT / "stdlib/Basic/tests/probes", "-check", source],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if (
+            rejected.returncode != 1
+            or flag not in rejected.stderr
+            or "parameter" not in rejected.stderr
+        ):
+            failures.append(
+                f"compiler must reject undeclared module parameter {flag}:\n"
+                f"exit={rejected.returncode}\n{rejected.stdout}{rejected.stderr}"
+            )
         else:
-            print(f"passed undeclared module parameter rejection: {flag}",flush=True)
+            print(f"passed undeclared module parameter rejection: {flag}", flush=True)
     if failures:
         raise RuntimeError("\n".join(failures))
 

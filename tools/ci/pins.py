@@ -9,6 +9,7 @@ here: rust-toolchain.toml is its source, and tools/ci/install_rust_toolchain.sh 
     python3 tools/ci/pins.py check
     python3 tools/ci/pins.py sync
 """
+
 import json
 import re
 import sys
@@ -24,8 +25,14 @@ ACTIONS = ".github/actions/*/action.yml"
 
 # pin -> [(glob, regex whose group 1 is the pinned text)]
 RULES = {
-    "node": [(WORKFLOWS, r"node-version: '(\d+)'"), (ACTIONS, r"node-version: '(\d+)'")],
-    "python": [(WORKFLOWS, r"python-version: '([\d.]+)'"), (ACTIONS, r"python-version: '([\d.]+)'")],
+    "node": [
+        (WORKFLOWS, r"node-version: '(\d+)'"),
+        (ACTIONS, r"node-version: '(\d+)'"),
+    ],
+    "python": [
+        (WORKFLOWS, r"python-version: '([\d.]+)'"),
+        (ACTIONS, r"python-version: '([\d.]+)'"),
+    ],
     "just": [(WORKFLOWS, r"just-version: '([\d.]+)'")],
     "cargo_fuzz": [(WORKFLOWS, r"tool: cargo-fuzz@([\d.]+)")],
     "ruff": [(WORKFLOWS, r"ruff==([\d.]+)")],
@@ -68,7 +75,11 @@ def rewrite(text, regex, value):
         nonlocal differing
         if match.group(1) != value:
             differing += 1
-        return match.group(0)[: match.start(1) - match.start(0)] + value + match.group(0)[match.end(1) - match.start(0) :]
+        return (
+            match.group(0)[: match.start(1) - match.start(0)]
+            + value
+            + match.group(0)[match.end(1) - match.start(0) :]
+        )
 
     new, count = re.subn(regex, replace, text)
     return new, count, differing
@@ -90,14 +101,20 @@ def run(root, pins, write):
                 if differing and write:
                     path.write_text(new)
                 elif differing:
-                    problems.append(f"{path.relative_to(root)}: `{pin}` differs from pins.json ({pins[pin]}); run tools/ci/pins.py sync")
+                    problems.append(
+                        f"{path.relative_to(root)}: `{pin}` differs from pins.json ({pins[pin]}); run tools/ci/pins.py sync"
+                    )
         if not found:
-            problems.append(f"no workflow mentions `{pin}`: drop it from pins.json or fix its rule in tools/ci/pins.py")
+            problems.append(
+                f"no workflow mentions `{pin}`: drop it from pins.json or fix its rule in tools/ci/pins.py"
+            )
     for pin, script in READ_BY.items():
         if pin not in pins:
             problems.append(f"pins.json has no `{pin}`")
         elif not (root / script).is_file() or pin not in (root / script).read_text():
-            problems.append(f"{script} does not read `{pin}`: fix READ_BY in tools/ci/pins.py")
+            problems.append(
+                f"{script} does not read `{pin}`: fix READ_BY in tools/ci/pins.py"
+            )
     for pin in pins:
         if pin not in RULES and pin not in READ_BY:
             problems.append(f"pins.json `{pin}` has no rule in tools/ci/pins.py")

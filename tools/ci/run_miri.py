@@ -8,6 +8,7 @@ modules, the memory probe (mincore/mmap) and the thread tests are out. What is l
 sandboxed libc, its error cell and the record layouts; the parser and the type checker are safe Rust and
 too slow under Miri to be worth it. See docs/tools/sanitizers.md.
 """
+
 import subprocess
 import sys
 
@@ -25,7 +26,17 @@ SKIP: list[str] = ["extra_precision_is_kept"]
 
 
 def main() -> int:
-    command = ["cargo", "miri", "test", "-p", "jaic", "--lib", *sys.argv[1:], "--", *RUN]
+    command = [
+        "cargo",
+        "miri",
+        "test",
+        "-p",
+        "jaic",
+        "--lib",
+        *sys.argv[1:],
+        "--",
+        *RUN,
+    ]
     for name in SKIP:
         command += ["--skip", name]
     print("+", " ".join(command), flush=True)

@@ -30,16 +30,24 @@ class TargetContracts(unittest.TestCase):
 
     def test_linux_cursor_callbacks_remain_enabled(self):
         self.assertTrue(
-            target_contract("stdlib/GetRect/tests/cursor-callbacks.jai", "linux").available
+            target_contract(
+                "stdlib/GetRect/tests/cursor-callbacks.jai", "linux"
+            ).available
         )
         self.assertFalse(
-            target_contract("stdlib/GetRect/tests/native-ui-cursors.jai", "linux").available
+            target_contract(
+                "stdlib/GetRect/tests/native-ui-cursors.jai", "linux"
+            ).available
         )
         self.assertTrue(
-            target_contract("stdlib/GetRect/tests/native-ui-cursors.jai", "windows").available
+            target_contract(
+                "stdlib/GetRect/tests/native-ui-cursors.jai", "windows"
+            ).available
         )
         self.assertTrue(
-            target_contract("stdlib/GetRect/tests/native-ui-cursors.jai", "macos").available
+            target_contract(
+                "stdlib/GetRect/tests/native-ui-cursors.jai", "macos"
+            ).available
         )
 
     def test_unavailable_provider_negatives_are_targeted(self):

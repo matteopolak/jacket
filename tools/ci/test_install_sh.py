@@ -3,6 +3,7 @@
 Runs on macOS and Linux, with or without a published release. The release-dependent checks (a real
 download, a pipe install, the installed tools) stay in the `install-sh` job of ci.yml.
 """
+
 import json
 import os
 import platform
@@ -59,12 +60,19 @@ class InstallSh(unittest.TestCase):
         (directory / "SHA256SUMS").write_text(f"{digest}  {archive.name}\n")
 
     def install(self, version=None, bin_dir=None, expect_ok=True):
-        env = {k: v for k, v in os.environ.items() if not k.startswith(("JAI_", "JAIC_"))}
-        env.update(JAI_BASE_URL=f"file://{self.release}", JAI_INSTALL_DIR=str(self.share),
-                   JAI_BIN_DIR=str(bin_dir or self.bin))
+        env = {
+            k: v for k, v in os.environ.items() if not k.startswith(("JAI_", "JAIC_"))
+        }
+        env.update(
+            JAI_BASE_URL=f"file://{self.release}",
+            JAI_INSTALL_DIR=str(self.share),
+            JAI_BIN_DIR=str(bin_dir or self.bin),
+        )
         if version:
             env["JAI_VERSION"] = version
-        result = subprocess.run(["sh", str(ROOT / "install.sh")], env=env, capture_output=True, text=True)
+        result = subprocess.run(
+            ["sh", str(ROOT / "install.sh")], env=env, capture_output=True, text=True
+        )
         if expect_ok:
             self.assertEqual(result.returncode, 0, result.stderr)
         else:
@@ -72,7 +80,9 @@ class InstallSh(unittest.TestCase):
         return result
 
     def run_tool(self, tool):
-        return subprocess.run([str(self.bin / tool)], capture_output=True, text=True).stdout.strip()
+        return subprocess.run(
+            [str(self.bin / tool)], capture_output=True, text=True
+        ).stdout.strip()
 
     def test_install_then_upgrade_replaces_the_old_version(self):
         self.install("9.0.1")
@@ -81,7 +91,9 @@ class InstallSh(unittest.TestCase):
         self.assertEqual(self.run_tool("jaifmt"), "jaifmt 9.0.2")
         self.assertTrue((self.share / "9.0.2").is_dir())
         self.assertFalse((self.share / "9.0.1").exists())
-        self.assertEqual(os.readlink(self.bin / "jaic"), str(self.share / "9.0.2" / "jaic"))
+        self.assertEqual(
+            os.readlink(self.bin / "jaic"), str(self.share / "9.0.2" / "jaic")
+        )
 
     def test_a_damaged_download_is_refused(self):
         archive = self.release / "v9.0.2" / f"jacket-{PLATFORM}.tar.gz"
@@ -115,13 +127,21 @@ class SharedVectors(unittest.TestCase):
         self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(self.tmp)]))
 
     def install(self, env_extra=None, path_prefix=None):
-        env = {k: v for k, v in os.environ.items() if not k.startswith(("JAI_", "JAIC_"))}
-        env.update(JAI_BASE_URL=f"file://{self.tmp / 'release'}", JAI_VERSION="1.0.0",
-                   JAI_INSTALL_DIR=str(self.tmp / "share"), JAI_BIN_DIR=str(self.tmp / "bin"))
+        env = {
+            k: v for k, v in os.environ.items() if not k.startswith(("JAI_", "JAIC_"))
+        }
+        env.update(
+            JAI_BASE_URL=f"file://{self.tmp / 'release'}",
+            JAI_VERSION="1.0.0",
+            JAI_INSTALL_DIR=str(self.tmp / "share"),
+            JAI_BIN_DIR=str(self.tmp / "bin"),
+        )
         if path_prefix:
             env["PATH"] = f"{path_prefix}{os.pathsep}{env['PATH']}"
         env.update(env_extra or {})
-        return subprocess.run(["sh", str(ROOT / "install.sh")], env=env, capture_output=True, text=True)
+        return subprocess.run(
+            ["sh", str(ROOT / "install.sh")], env=env, capture_output=True, text=True
+        )
 
     def release(self, sums_text):
         directory = self.tmp / "release" / "v1.0.0"
@@ -138,7 +158,9 @@ class SharedVectors(unittest.TestCase):
                 stub = self.tmp / f"uname-{sysname}-{machine}"
                 stub.mkdir()
                 script = stub / "uname"
-                script.write_text(f'#!/bin/sh\ncase "$1" in -s) echo {sysname};; -m) echo {machine};; *) echo {sysname};; esac\n')
+                script.write_text(
+                    f'#!/bin/sh\ncase "$1" in -s) echo {sysname};; -m) echo {machine};; *) echo {sysname};; esac\n'
+                )
                 script.chmod(0o755)
                 result = self.install(path_prefix=str(stub))
                 self.assertNotEqual(result.returncode, 0)
@@ -163,7 +185,9 @@ class SharedVectors(unittest.TestCase):
         digest = sha256_bytes((directory / asset).read_bytes())
         for case in VECTORS["sha256sums_lines"]:
             with self.subTest(case["name"]):
-                line = case["line"].format(hash=digest, HASH=digest.upper(), asset=asset)
+                line = case["line"].format(
+                    hash=digest, HASH=digest.upper(), asset=asset
+                )
                 self.release(line + "\n")
                 result = self.install()
                 if case["accepted"]:
@@ -171,7 +195,9 @@ class SharedVectors(unittest.TestCase):
                 else:
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn(f"has no {asset}", result.stderr)
-                subprocess.run(["rm", "-rf", str(self.tmp / "share"), str(self.tmp / "bin")])
+                subprocess.run(
+                    ["rm", "-rf", str(self.tmp / "share"), str(self.tmp / "bin")]
+                )
 
 
 if __name__ == "__main__":

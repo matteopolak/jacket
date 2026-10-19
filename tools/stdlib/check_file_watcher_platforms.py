@@ -205,9 +205,7 @@ def main():
                     run("bounded-records-native:" + optimization, [executable], "ok\n")
         if args.native_runtime:
             for fixture in ["platform-effects", "platform-edges"]:
-                source = (
-                    ROOT / "stdlib/File_Watcher/tests/basics" / (fixture + ".jai")
-                )
+                source = ROOT / "stdlib/File_Watcher/tests/basics" / (fixture + ".jai")
                 directory = work / (fixture + "-interp-data")
                 directory.mkdir()
                 run(
@@ -236,7 +234,9 @@ def main():
         commands=rows,
         source_inputs=before,
         source_drift=drift,
-        tools={str(p): sha256_file(p) for p in [compiler, lint, formatter] if p.is_file()},
+        tools={
+            str(p): sha256_file(p) for p in [compiler, lint, formatter] if p.is_file()
+        },
         tool_origin="explicit source-built tools"
         if all(supplied)
         else "fresh CLI/lint build",

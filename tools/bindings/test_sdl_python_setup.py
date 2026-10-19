@@ -134,9 +134,7 @@ class SdlPythonSetup(unittest.TestCase):
         self.assertEqual(receipt["sha256"], pin["sha256"])
         self.assertEqual(receipt["root"], pin["root"])
         archive = Path(receipt["archive"])
-        self.assertEqual(
-            sha256_file(archive), pin["sha256"]
-        )
+        self.assertEqual(sha256_file(archive), pin["sha256"])
         with tarfile.open(archive) as stream:
             for member in prepare.MEMBERS:
                 self.assertEqual(

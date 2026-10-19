@@ -36,7 +36,9 @@ class HttpCoverageTests(unittest.TestCase):
         self.assertEqual(len(http_conformance.HTTP_CONFORMANCE_CASE_IDS), 12)
         entries = catalog.validated_entries()
         roundtrip = [
-            case for case in entries if case["id"] == "Extensions/Http/tests/codec-roundtrip"
+            case
+            for case in entries
+            if case["id"] == "Extensions/Http/tests/codec-roundtrip"
         ]
         self.assertEqual(len(roundtrip), 1)
         self.assertEqual(
@@ -93,7 +95,9 @@ class HttpCoverageTests(unittest.TestCase):
     def test_missing_http_case_fails_before_any_child_runs(self):
         entries = list(self.http_cases().values())
         entries = [
-            case for case in entries if case["id"] != "Extensions/Http/tests/codec-roundtrip"
+            case
+            for case in entries
+            if case["id"] != "Extensions/Http/tests/codec-roundtrip"
         ]
         with (
             patch.object(http_conformance, "validated_entries", return_value=entries),

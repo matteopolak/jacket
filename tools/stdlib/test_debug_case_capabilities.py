@@ -24,7 +24,9 @@ class DebugCapabilities(unittest.TestCase):
         self.assertNotIn("unsupported_modes", portable)
 
     def ownership(self):
-        return {c["id"]: c for c in validated_entries()}["Debug/tests/ignore-ownership"].copy()
+        return {c["id"]: c for c in validated_entries()}[
+            "Debug/tests/ignore-ownership"
+        ].copy()
 
     def test_ownership_remains_required_on_every_desktop_native_mode(self):
         case = self.ownership()
@@ -48,7 +50,9 @@ class DebugCapabilities(unittest.TestCase):
             if not name.startswith("Debug/tests/") or name.endswith("ignore-ownership"):
                 continue
             for mode in ("interp", "native", "wasm-interp", "wasm-native"):
-                self.assertIsNone(unavailable_reason(cases[name], mode, "macos-arm64"), name)
+                self.assertIsNone(
+                    unavailable_reason(cases[name], mode, "macos-arm64"), name
+                )
 
     def test_missing_real_provider_is_still_a_failed_native_result(self):
         case = self.ownership()

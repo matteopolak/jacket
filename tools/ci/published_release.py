@@ -8,6 +8,7 @@ to $GITHUB_STEP_SUMMARY.
 
     python3 tools/ci/published_release.py [--formula]   # needs GH_TOKEN, GITHUB_REPOSITORY, and for --formula RUNNER_OS and RUNNER_ARCH
 """
+
 import argparse
 import os
 import subprocess
@@ -38,7 +39,9 @@ def notice(title, message):
 
 def check(repo, platform=None, run=gh, scratch=None):
     """(published, installable): `installable` is None unless `platform` names the archive to inspect."""
-    latest = run("release", "view", "--repo", repo, "--json", "tagName", "-q", ".tagName")
+    latest = run(
+        "release", "view", "--repo", repo, "--json", "tagName", "-q", ".tagName"
+    )
     if latest.returncode != 0:
         if "release not found" in latest.stderr.lower():
             notice(
@@ -51,7 +54,17 @@ def check(repo, platform=None, run=gh, scratch=None):
         raise SystemExit(1)
     tag = latest.stdout.strip()
     print(f"Latest release: {tag}")
-    assets = run("release", "view", tag, "--repo", repo, "--json", "assets", "-q", ".assets[].name")
+    assets = run(
+        "release",
+        "view",
+        tag,
+        "--repo",
+        repo,
+        "--json",
+        "assets",
+        "-q",
+        ".assets[].name",
+    )
     if assets.returncode != 0:
         sys.stderr.write(assets.stderr)
         raise SystemExit(1)
@@ -69,7 +82,17 @@ def check(repo, platform=None, run=gh, scratch=None):
     # that the latest release's archive does not ship yet.
     archive = f"jacket-{platform}.tar.gz"
     directory = Path(scratch or tempfile.mkdtemp())
-    download = run("release", "download", tag, "--repo", repo, "--pattern", archive, "--dir", str(directory))
+    download = run(
+        "release",
+        "download",
+        tag,
+        "--repo",
+        repo,
+        "--pattern",
+        archive,
+        "--dir",
+        str(directory),
+    )
     if download.returncode != 0:
         sys.stderr.write(download.stderr)
         raise SystemExit(1)
@@ -98,7 +121,11 @@ def write_outputs(published, installable):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--formula", action="store_true", help="also check that this runner's archive ships `jacket`")
+    parser.add_argument(
+        "--formula",
+        action="store_true",
+        help="also check that this runner's archive ships `jacket`",
+    )
     args = parser.parse_args()
     platform = None
     if args.formula:
@@ -106,7 +133,13 @@ def main():
         if key not in PLATFORMS:
             raise SystemExit(f"no release archive for {key}")
         platform = PLATFORMS[key]
-    write_outputs(*check(os.environ["GITHUB_REPOSITORY"], platform, scratch=os.environ.get("RUNNER_TEMP")))
+    write_outputs(
+        *check(
+            os.environ["GITHUB_REPOSITORY"],
+            platform,
+            scratch=os.environ.get("RUNNER_TEMP"),
+        )
+    )
     return 0
 
 

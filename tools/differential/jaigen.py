@@ -18,10 +18,22 @@ Only behaviour that docs/language/*.md defines is generated:
   documented; side effects on the checksum happen in statements only;
 - loops have constant trip counts and recursion carries a decreasing depth, so every program terminates.
 """
-import argparse, random, re, sys
 
-INTS = {"s8": (8, True), "s16": (16, True), "s32": (32, True), "s64": (64, True),
-        "u8": (8, False), "u16": (16, False), "u32": (32, False), "u64": (64, False)}
+import argparse
+import random
+import re
+import sys
+
+INTS = {
+    "s8": (8, True),
+    "s16": (16, True),
+    "s32": (32, True),
+    "s64": (64, True),
+    "u8": (8, False),
+    "u16": (16, False),
+    "u32": (32, False),
+    "u64": (64, False),
+}
 FLOATS = ["float32", "float64"]
 SCALARS = list(INTS) + FLOATS + ["bool"]
 
@@ -36,7 +48,9 @@ def is_float(t):
 
 def rng_of(t):
     bits, signed = INTS[t]
-    return (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
+    return (
+        (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
+    )
 
 
 def tyname(t):
@@ -62,8 +76,16 @@ class Var:
 
 
 class Proc:
-    def __init__(self, name, params, ret, pure, poly=False, overloaded=False, varargs=None):
-        self.name, self.params, self.ret, self.pure, self.poly = name, params, ret, pure, poly
+    def __init__(
+        self, name, params, ret, pure, poly=False, overloaded=False, varargs=None
+    ):
+        self.name, self.params, self.ret, self.pure, self.poly = (
+            name,
+            params,
+            ret,
+            pure,
+            poly,
+        )
         # One member of an overload set: the name alone is ambiguous, so never take its address.
         self.overloaded = overloaded
         # Element type of a `..T` parameter (the procedure's only parameter).
@@ -76,8 +98,8 @@ class Gen:
         self.seed = seed
         self.size = size
         self.counter = 0
-        self.structs = {}   # name -> [(field, ty, default)]
-        self.enums = {}     # name -> (base, [(member, value)], flags)
+        self.structs = {}  # name -> [(field, ty, default)]
+        self.enums = {}  # name -> (base, [(member, value)], flags)
         self.procs = []
         self.globals = []
         self.out = []
@@ -86,16 +108,16 @@ class Gen:
         self.in_pure = False
         self.loop_depth = 0
         self.using_member = {}  # struct name -> its `using` member (a struct-typed field)
-        self.operators = {}     # struct name -> overloaded operators ("+", "==", "[]")
-        self.unions = []        # (name, bits): plain unions punning an integer, a float and bytes
-        self.tagged = {}        # tagged union name -> (tag enum, [(tag member, field, type)])
+        self.operators = {}  # struct name -> overloaded operators ("+", "==", "[]")
+        self.unions = []  # (name, bits): plain unions punning an integer, a float and bytes
+        self.tagged = {}  # tagged union name -> (tag enum, [(tag member, field, type)])
         self.in_using = False
         # Extension features draw from their own stream, so a seed without them keeps its program.
         self.x = random.Random(seed * 7919 + 1)
-        self.boxes = []         # (struct, make, get, sum, baked alias or None): polymorphic struct and procedures
-        self.modifiers = []     # (procedure, result type or "positive"): `#modify` procedures
-        self.bakes = []         # (baked procedure, parameter types left)
-        self.tally = False      # the counting allocator and `#add_context` field exist
+        self.boxes = []  # (struct, make, get, sum, baked alias or None): polymorphic struct and procedures
+        self.modifiers = []  # (procedure, result type or "positive"): `#modify` procedures
+        self.bakes = []  # (baked procedure, parameter types left)
+        self.tally = False  # the counting allocator and `#add_context` field exist
 
     # ---- helpers -------------------------------------------------------------------------------
     def fresh(self, prefix):
@@ -159,9 +181,30 @@ class Gen:
         elif k < 0.8:
             s = f"{self.r.uniform(-1000, 1000):.6f}"
         else:
-            s = self.pick(["0.1", "1e10", "3.0e-5", "123456.789", "0.333333", "1e-30", "6.02e23", "2.5", "0.5",
-                           "-0.0", "1.5", "-2.5", "16777217.0", "9007199254740993.0", "1.0e-40", "3.4e38",
-                           "2147483647.5", "4294967295.0", "0.49999999999999994", "1e300"])
+            s = self.pick(
+                [
+                    "0.1",
+                    "1e10",
+                    "3.0e-5",
+                    "123456.789",
+                    "0.333333",
+                    "1e-30",
+                    "6.02e23",
+                    "2.5",
+                    "0.5",
+                    "-0.0",
+                    "1.5",
+                    "-2.5",
+                    "16777217.0",
+                    "9007199254740993.0",
+                    "1.0e-40",
+                    "3.4e38",
+                    "2147483647.5",
+                    "4294967295.0",
+                    "0.49999999999999994",
+                    "1e300",
+                ]
+            )
         return f"cast({t}) ({s})" if s.startswith("-") else f"cast({t}) {s}"
 
     # ---- l-values and readable places ----------------------------------------------------------
@@ -269,7 +312,8 @@ class Gen:
     def int_expr(self, t, d):
         bits, signed = INTS[t]
         k = self.r.randint(0, 15)
-        a = lambda: self.expr(t, d)
+        def a():
+            return self.expr(t, d)
         if k <= 3:
             op = self.pick(["+", "-", "*", "&", "|", "^", "+", "-", "*"])
             return f"({a()} {op} {a()})"
@@ -349,7 +393,8 @@ class Gen:
 
     def float_expr(self, t, d):
         k = self.r.randint(0, 9)
-        a = lambda: self.expr(t, d)
+        def a():
+            return self.expr(t, d)
         if k <= 3:
             op = self.pick(["+", "-", "*", "/", "+", "*"])
             return f"({self.opaque_literal(t, a())} {op} {self.opaque_literal(t, a())})"
@@ -424,8 +469,19 @@ class Gen:
         return self.string_literal()
 
     def string_literal(self):
-        words = ["alpha", "beta", "gamma", "", "x", "hello world", "tab\\there", "quote\\\"q", "nl\\nline", "ünï"]
-        return f"\"{self.pick(words)}\""
+        words = [
+            "alpha",
+            "beta",
+            "gamma",
+            "",
+            "x",
+            "hello world",
+            "tab\\there",
+            'quote\\"q',
+            "nl\\nline",
+            "ünï",
+        ]
+        return f'"{self.pick(words)}"'
 
     def call_expr(self, t, d):
         cands = [p for p in self.procs if p.pure and not p.poly and p.ret == t]
@@ -439,7 +495,9 @@ class Gen:
     def call_args(self, p, d):
         """Arguments for a call of `p`; a recursive procedure's depth is a small constant."""
         if p.varargs:
-            return ", ".join(self.expr(p.varargs, d) for _ in range(self.r.randint(0, 4)))
+            return ", ".join(
+                self.expr(p.varargs, d) for _ in range(self.r.randint(0, 4))
+            )
         args = [self.expr(pt, d) for _, pt in p.params]
         if p.params and p.params[0][0] == "depth":
             args[0] = str(self.r.randint(0, 4))
@@ -453,7 +511,9 @@ class Gen:
             if places and self.chance(0.5):
                 return self.realize(self.pick(places))
             if flags:
-                ms = self.r.sample([m for m, _ in members], self.r.randint(1, len(members)))
+                ms = self.r.sample(
+                    [m for m, _ in members], self.r.randint(1, len(members))
+                )
                 return f"({' | '.join(f'{name}.{m}' for m in ms)})"
             return f"{name}.{self.pick(members)[0]}"
         if places and self.chance(0.6):
@@ -497,7 +557,10 @@ class Gen:
             return self.mix_of(f"{path}.a", ty[1]) + self.mix_of(f"{path}.b", ty[1])
         if ty[0] in ("array", "view", "dyn"):
             inner = self.mix_of("it", ty[1])
-            return [f"mix(cast(u64) {path}.count);", f"for {path} {{ {' '.join(inner)} }}"]
+            return [
+                f"mix(cast(u64) {path}.count);",
+                f"for {path} {{ {' '.join(inner)} }}",
+            ]
         raise ValueError(ty)
 
     # ---- statements ----------------------------------------------------------------------------
@@ -515,7 +578,11 @@ class Gen:
     def random_type(self, aggregate=True):
         k = self.r.random()
         if k < 0.55 or not aggregate:
-            return self.pick(SCALARS + list(INTS) + ["string"]) if aggregate else self.pick(SCALARS + list(INTS))
+            return (
+                self.pick(SCALARS + list(INTS) + ["string"])
+                if aggregate
+                else self.pick(SCALARS + list(INTS))
+            )
         if k < 0.7 and self.structs:
             return ("struct", self.pick(self.structs))
         if k < 0.8 and self.enums:
@@ -593,8 +660,14 @@ class Gen:
         if k == 15:
             # Never grow an array while a loop walks it: the loop would see the new elements
             # (and `for *` would hold pointers into the old buffer).
-            dyns = [v for v in self.vars() if isinstance(v.ty, tuple) and v.ty[0] == "dyn" and v.mutable
-                    and v.name not in self.iterating]
+            dyns = [
+                v
+                for v in self.vars()
+                if isinstance(v.ty, tuple)
+                and v.ty[0] == "dyn"
+                and v.mutable
+                and v.name not in self.iterating
+            ]
             if dyns:
                 v = self.pick(dyns)
                 self.emit(f"array_add(*{v.name}, {self.expr(v.ty[1], 1)});", indent)
@@ -619,7 +692,11 @@ class Gen:
 
     def using_stmt(self, indent):
         """`using v;` in a block: v's fields (and those its `using` member promotes) by bare name."""
-        structs = [v for v in self.vars() if isinstance(v.ty, tuple) and v.ty[0] == "struct" and v.name != "it"]
+        structs = [
+            v
+            for v in self.vars()
+            if isinstance(v.ty, tuple) and v.ty[0] == "struct" and v.name != "it"
+        ]
         if not structs:
             return self.assign(indent)
         v = self.pick(structs)
@@ -645,26 +722,38 @@ class Gen:
         self.emit(f"{u}: {name};", indent)
         k = self.r.randint(0, 2)
         if k == 0:
-            self.emit(f"{u}.i = {self.expr('u32' if bits == 32 else 'u64', 2)};", indent)
+            self.emit(
+                f"{u}.i = {self.expr('u32' if bits == 32 else 'u64', 2)};", indent
+            )
         elif k == 1:
-            self.emit(f"{u}.s = {self.expr('s32' if bits == 32 else 's64', 2)};", indent)
+            self.emit(
+                f"{u}.s = {self.expr('s32' if bits == 32 else 's64', 2)};", indent
+            )
         else:
             f = self.fresh("x")
-            self.emit(f"{f} := {self.expr('float32' if bits == 32 else 'float64', 2)};", indent)
+            self.emit(
+                f"{f} := {self.expr('float32' if bits == 32 else 'float64', 2)};",
+                indent,
+            )
             self.emit(f"if {f} == {f} {u}.f = {f};", indent)
         if bits == 64 and self.chance(0.3):
-            self.emit(f"{u}.h[{self.r.randint(0, 1)}] ^= {self.expr('u32', 2)};", indent)
+            self.emit(
+                f"{u}.h[{self.r.randint(0, 1)}] ^= {self.expr('u32', 2)};", indent
+            )
         if self.in_pure:
             # Pure procedures cannot touch H; fold the union into a local the caller can see instead.
             places = self.places("u64", mutable_only=True)
             if places:
-                self.emit(f"{self.realize(self.pick(places))} ^= cast,no_check(u64) {u}.i;", indent)
+                self.emit(
+                    f"{self.realize(self.pick(places))} ^= cast,no_check(u64) {u}.i;",
+                    indent,
+                )
             return
         self.emit(f"mix(cast,no_check(u64) {u}.s);", indent)
         self.emit(f"mix_float(cast(float64) {u}.f);", indent)
         self.emit(f"for {u}.b mix(cast(u64) it);", indent)
         if self.chance(0.3):
-            self.emit(f"print(\"{u} = % %\\n\", {u}.i, {u}.b);", indent)
+            self.emit(f'print("{u} = % %\\n", {u}.i, {u}.b);', indent)
 
     def tagged_stmt(self, indent):
         """Set a tagged union's tag and that variant, then switch on the tag and read the active one."""
@@ -673,7 +762,10 @@ class Gen:
         member, field, ty = self.pick(variants)
         t = self.fresh("t")
         if self.chance(0.5):
-            self.emit(f"{t} := {name}.{{ kind = .{member}, {field} = {self.expr(ty, 2)} }};", indent)
+            self.emit(
+                f"{t} := {name}.{{ kind = .{member}, {field} = {self.expr(ty, 2)} }};",
+                indent,
+            )
         else:
             self.emit(f"{t}: {name};", indent)
             self.emit(f"{t}.kind = .{member};", indent)
@@ -697,12 +789,15 @@ class Gen:
         if not vals:
             return
         label = self.fresh("show")
-        self.emit(f"show_any(\"{label}\", {', '.join(p for p, _ in vals)});", indent)
+        self.emit(f'show_any("{label}", {", ".join(p for p, _ in vals)});', indent)
         if self.chance(0.4):
             a = self.fresh("any")
             path, ty = vals[0]
             self.emit(f"{a}: Any = {path};", indent)
-            self.emit(f"print(\"{a} % % %\\n\", {a}, {a}.type.type, {a}.type == type_info(type_of({path})));", indent)
+            self.emit(
+                f'print("{a} % % %\\n", {a}, {a}.type.type, {a}.type == type_info(type_of({path})));',
+                indent,
+            )
 
     def type_info_stmt(self, indent):
         """Reflection on a generated type: names, member names, and (structs hold no pointers, so the
@@ -710,15 +805,24 @@ class Gen:
         k = self.r.randint(0, 2)
         if k == 0 and self.structs:
             name = self.pick(self.structs)
-            self.emit(f"print(\"% % %\\n\", type_info({name}).name, size_of({name}), type_info({name}).members.count);", indent)
-            self.emit(f"for type_info({name}).members print(\"  % % % %\\n\", it.name, it.offset_in_bytes, it.type.type, it.type.runtime_size);", indent)
+            self.emit(
+                f'print("% % %\\n", type_info({name}).name, size_of({name}), type_info({name}).members.count);',
+                indent,
+            )
+            self.emit(
+                f'for type_info({name}).members print("  % % % %\\n", it.name, it.offset_in_bytes, it.type.type, it.type.runtime_size);',
+                indent,
+            )
         elif k == 1 and self.enums:
             name = self.pick(self.enums)
-            self.emit(f"for type_info({name}).names print(\"% = %\\n\", it, type_info({name}).values[it_index]);", indent)
+            self.emit(
+                f'for type_info({name}).names print("% = %\\n", it, type_info({name}).values[it_index]);',
+                indent,
+            )
         else:
             v = self.pick_place_any()
             if v:
-                self.emit(f"print(\"%\\n\", type_of({v[0]}));", indent)
+                self.emit(f'print("%\\n", type_of({v[0]}));', indent)
 
     def pick_place_any(self):
         cands = []
@@ -740,7 +844,9 @@ class Gen:
             op = self.pick(["+=", "-=", "*=", "&=", "|=", "^="])
             self.emit(f"{t} {op} {self.expr(ty, 1)};", indent)
         elif is_float(ty) and self.chance(0.3):
-            self.emit(f"{t} {self.pick(['+=', '-=', '*='])} {self.expr(ty, 1)};", indent)
+            self.emit(
+                f"{t} {self.pick(['+=', '-=', '*='])} {self.expr(ty, 1)};", indent
+            )
         else:
             self.emit(f"{t} = {self.expr(ty, 1)};", indent)
 
@@ -768,7 +874,10 @@ class Gen:
         self.scopes.append([Var(name, "s64", mutable=False)])
         self.loop_prologue(indent + 1)
         if self.chance(0.3):
-            self.emit(f"if {name} == {self.r.randint(lo, hi + 1)} {self.pick(['break', 'continue'])};", indent + 1)
+            self.emit(
+                f"if {name} == {self.r.randint(lo, hi + 1)} {self.pick(['break', 'continue'])};",
+                indent + 1,
+            )
         for _ in range(self.r.randint(1, 3)):
             self.stmt(indent + 1)
         self.scopes.pop()
@@ -785,7 +894,10 @@ class Gen:
         self.scopes.append([Var(c, "s64", mutable=False)])
         self.loop_prologue(indent + 1)
         if self.chance(0.3):
-            self.emit(f"if {self.bool_expr(1)} {self.pick(['break', 'continue'])};", indent + 1)
+            self.emit(
+                f"if {self.bool_expr(1)} {self.pick(['break', 'continue'])};",
+                indent + 1,
+            )
         for _ in range(self.r.randint(1, 3)):
             self.stmt(indent + 1)
         self.scopes.pop()
@@ -793,7 +905,11 @@ class Gen:
         self.depth_budget += 1
 
     def for_array(self, indent):
-        arrays = [v for v in self.vars() if isinstance(v.ty, tuple) and v.ty[0] in ("array", "view", "dyn")]
+        arrays = [
+            v
+            for v in self.vars()
+            if isinstance(v.ty, tuple) and v.ty[0] in ("array", "view", "dyn")
+        ]
         if not arrays or self.in_pure:
             return self.assign(indent)
         v = self.pick(arrays)
@@ -804,11 +920,16 @@ class Gen:
         rev = "< " if self.chance(0.25) and not by_ptr else ""
         if by_ptr:
             self.emit(f"for * {v.name} {{", indent)
-            self.emit(f"it.* {self.pick(['+=', '^=', '*='])} {self.int_literal(elem)};", indent + 1)
+            self.emit(
+                f"it.* {self.pick(['+=', '^=', '*='])} {self.int_literal(elem)};",
+                indent + 1,
+            )
             self.emit("mix(cast(u64) it_index);", indent + 1)
         else:
             self.emit(f"for {rev}{v.name} {{", indent)
-            self.scopes.append([Var("it", elem, mutable=False), Var("it_index", "s64", mutable=False)])
+            self.scopes.append(
+                [Var("it", elem, mutable=False), Var("it_index", "s64", mutable=False)]
+            )
             for line in self.mix_of("it", elem):
                 self.emit(line, indent + 1)
             for _ in range(self.r.randint(0, 2)):
@@ -820,17 +941,29 @@ class Gen:
 
     def switch(self, indent):
         self.depth_budget -= 1
-        enum_places = [(p, n) for n in self.enums if not self.enums[n][2] for p in self.places(("enum", n))]
+        enum_places = [
+            (p, n)
+            for n in self.enums
+            if not self.enums[n][2]
+            for p in self.places(("enum", n))
+        ]
         if enum_places and self.chance(0.4):
             p, n = self.pick(enum_places)
             self.emit(f"if {self.realize(p)} == {{", indent)
-            members = self.r.sample(self.enums[n][1], self.r.randint(1, len(self.enums[n][1])))
+            members = self.r.sample(
+                self.enums[n][1], self.r.randint(1, len(self.enums[n][1]))
+            )
             labels = [f".{m}" for m, _ in members]
         else:
             t = self.pick(list(INTS))
             self.emit(f"if {self.expr(t, 2)} == {{", indent)
             lo, hi = rng_of(t)
-            vals = sorted({self.r.randint(max(lo, -4), min(hi, 8)) for _ in range(self.r.randint(1, 4))})
+            vals = sorted(
+                {
+                    self.r.randint(max(lo, -4), min(hi, 8))
+                    for _ in range(self.r.randint(1, 4))
+                }
+            )
             labels = [f"({v})" if v < 0 else str(v) for v in vals]
         if self.chance(0.6):
             labels.append("")
@@ -847,17 +980,30 @@ class Gen:
         path, ty = v
         label = re.sub("[^A-Za-z0-9_]", "", path)
         if isinstance(ty, str) and is_float(ty):
-            self.emit(f"print_float(\"{label}\", cast(float64) {path});", indent)
-        elif isinstance(ty, tuple) and self.reaches(ty, "float32") or isinstance(ty, tuple) and self.reaches(ty, "float64"):
+            self.emit(f'print_float("{label}", cast(float64) {path});', indent)
+        elif (
+            isinstance(ty, tuple)
+            and self.reaches(ty, "float32")
+            or isinstance(ty, tuple)
+            and self.reaches(ty, "float64")
+        ):
             # Aggregates holding floats could hold a NaN; print only their checksum contribution.
-            self.emit(f"print(\"{label} has % elements or fields\\n\", {self.count_of(ty, path)});", indent)
+            self.emit(
+                f'print("{label} has % elements or fields\\n", {self.count_of(ty, path)});',
+                indent,
+            )
         elif isinstance(ty, tuple) and ty[0] == "dyn":
-            self.emit(f"print(\"{label} = % (count %)\\n\", {path}, {path}.count);", indent)
+            self.emit(
+                f'print("{label} = % (count %)\\n", {path}, {path}.count);', indent
+            )
         else:
             fmt = self.pick(["%", "[%]", "%;"])
-            self.emit(f"print(\"{label} = {fmt}\\n\", {path});", indent)
+            self.emit(f'print("{label} = {fmt}\\n", {path});', indent)
         if is_int(ty) and self.chance(0.5):
-            self.emit(f"print(\"hex %\\n\", formatInt({path}, base = {self.pick([2, 8, 16, 36])}));", indent)
+            self.emit(
+                f'print("hex %\\n", formatInt({path}, base = {self.pick([2, 8, 16, 36])}));',
+                indent,
+            )
 
     def count_of(self, ty, path):
         if ty[0] in ("array", "view", "dyn"):
@@ -888,17 +1034,25 @@ class Gen:
             if not vals:
                 return
             fmt = "|".join("%" for _ in vals)
-            self.emit(f"{name} := tprint(\"{fmt}\", {', '.join(p for p, _ in vals)});", indent)
+            self.emit(
+                f'{name} := tprint("{fmt}", {", ".join(p for p, _ in vals)});', indent
+            )
         elif k == 1:
             self.emit(f"{name} := {self.string_literal()};", indent)
         else:
             t = self.pick(list(INTS))
-            self.emit(f"{name} := tprint(\"%-%\", {self.expr(t, 2)}, {self.string_expr()});", indent)
+            self.emit(
+                f'{name} := tprint("%-%", {self.expr(t, 2)}, {self.string_expr()});',
+                indent,
+            )
         self.scopes[-1].append(Var(name, "string", mutable=False))
         self.emit(f"mix_string({name});", indent)
 
     def printable(self, ty):
-        return not (isinstance(ty, str) and is_float(ty)) and not (isinstance(ty, tuple) and (self.reaches(ty, "float32") or self.reaches(ty, "float64")))
+        return not (isinstance(ty, str) and is_float(ty)) and not (
+            isinstance(ty, tuple)
+            and (self.reaches(ty, "float32") or self.reaches(ty, "float64"))
+        )
 
     def pointer_stmt(self, indent):
         t = self.pick(list(INTS))
@@ -908,7 +1062,9 @@ class Gen:
             return self.assign(indent)
         p = self.fresh("p")
         self.emit(f"{p} := *{self.pick(targets)};", indent)
-        self.emit(f"{p}.* = {p}.* {self.pick(['+', '^', '*'])} {self.expr(t, 2)};", indent)
+        self.emit(
+            f"{p}.* = {p}.* {self.pick(['+', '^', '*'])} {self.expr(t, 2)};", indent
+        )
         if not self.in_pure:
             self.emit(f"mix(cast,no_check(u64) {p}.*);", indent)
 
@@ -921,7 +1077,9 @@ class Gen:
             default = self.leaf(ty) if self.chance(0.4) else None
             fields.append((f"f{i}", ty, default))
         if self.chance(0.4):
-            fields.append(("arr", ("array", self.pick(list(INTS)), self.r.randint(1, 4)), None))
+            fields.append(
+                ("arr", ("array", self.pick(list(INTS)), self.r.randint(1, 4)), None)
+            )
         if self.structs and self.chance(0.3):
             fields.append(("inner", ("struct", self.pick(self.structs)), None))
         if fields[-1][0] == "inner" and self.chance(0.5):
@@ -929,7 +1087,9 @@ class Gen:
         self.out.append(f"{name} :: struct {{")
         for f, ty, default in fields:
             using = "using " if self.using_member.get(name) == f else ""
-            self.out.append(f"    {using}{f}: {tyname(ty)}" + (f" = {default};" if default else ";"))
+            self.out.append(
+                f"    {using}{f}: {tyname(ty)}" + (f" = {default};" if default else ";")
+            )
         self.out.append("}")
         self.out.append("")
         self.structs[name] = fields
@@ -953,7 +1113,9 @@ class Gen:
         compared = [f for f, fty, _ in fields if is_int(fty) or fty == "bool"]
         if compared:
             self.out.append(f"operator == :: (a: {name}, b: {name}) -> bool {{")
-            self.out.append(f"    return {' && '.join(f'a.{f} == b.{f}' for f in compared)};")
+            self.out.append(
+                f"    return {' && '.join(f'a.{f} == b.{f}' for f in compared)};"
+            )
             self.out.append("}")
             ops.add("==")
         ints = [f for f, fty, _ in fields if is_int(fty)]
@@ -971,7 +1133,9 @@ class Gen:
     def gen_enum(self):
         name = self.fresh("E")
         flags = self.chance(0.3)
-        base = self.pick(["u8", "u16", "s32", "u32", "s64"] if not flags else ["u8", "u16", "u32"])
+        base = self.pick(
+            ["u8", "u16", "s32", "u32", "s64"] if not flags else ["u8", "u16", "u32"]
+        )
         members = []
         value = -1
         lo, hi = rng_of(base)
@@ -999,17 +1163,34 @@ class Gen:
             if recursive:
                 params.append(("depth", "s64"))
             for i in range(self.r.randint(0, 4)):
-                params.append((f"a{i}", self.random_type() if not pure or self.chance(0.7) else self.pick(SCALARS)))
-            params = [(n, t) for n, t in params if not (isinstance(t, tuple) and t[0] == "dyn")]
+                params.append(
+                    (
+                        f"a{i}",
+                        self.random_type()
+                        if not pure or self.chance(0.7)
+                        else self.pick(SCALARS),
+                    )
+                )
+            params = [
+                (n, t)
+                for n, t in params
+                if not (isinstance(t, tuple) and t[0] == "dyn")
+            ]
         ret = self.pick(SCALARS + list(INTS)) if pure or self.chance(0.5) else None
         if pure and self.structs and self.chance(0.2):
             ret = ("struct", self.pick(self.structs))
         p = Proc(name, params, ret, pure, overloaded=overloaded)
         sig = ", ".join(f"{n}: {tyname(t)}" for n, t in params)
         inline = "inline " if self.chance(0.15) and not recursive else ""
-        self.out.append(f"{name} :: {inline}({sig})" + (f" -> {tyname(ret)}" if ret else "") + " {")
-        self.scopes = [[Var(g.name, g.ty, mutable=not pure) for g in self.globals] if not pure else [],
-                       [Var(n, t, mutable=False) for n, t in params]]
+        self.out.append(
+            f"{name} :: {inline}({sig})" + (f" -> {tyname(ret)}" if ret else "") + " {"
+        )
+        self.scopes = [
+            [Var(g.name, g.ty, mutable=not pure) for g in self.globals]
+            if not pure
+            else [],
+            [Var(n, t, mutable=False) for n, t in params],
+        ]
         self.in_pure = pure
         self.depth_budget = 2
         self.scopes.append([])
@@ -1047,7 +1228,9 @@ class Gen:
         t = self.pick(list(INTS))
         self.out.append(f"{name} :: (args: ..{t}) -> {t} {{")
         self.out.append(f"    r := cast({t}) {self.r.randint(0, 99)};")
-        self.out.append(f"    for args r = (r * cast({t}) {self.pick([3, 5, 31])}) ^ it;")
+        self.out.append(
+            f"    for args r = (r * cast({t}) {self.pick([3, 5, 31])}) ^ it;"
+        )
         self.out.append(f"    return r + cast,no_check({t}) args.count;")
         self.out.append("}")
         self.out.append("")
@@ -1056,10 +1239,14 @@ class Gen:
     # ---- extensions: polymorphism, #modify, #bake_arguments, context and allocators -----------------
     def gen_box(self):
         """A polymorphic struct with polymorphic procedures over it; sometimes a baked instance."""
-        name, make, get, add = (self.fresh(p) for p in ("Box", "make_box_", "box_get_", "box_sum_"))
+        name, make, get, add = (
+            self.fresh(p) for p in ("Box", "make_box_", "box_get_", "box_sum_")
+        )
         o = self.out
         o.append(f"{name} :: struct (T: Type) {{ v: T; n: s64; }}")
-        o.append(f"{make} :: (v: $T, n: s64) -> {name}(T) {{ b: {name}(T); b.v = v; b.n = n; return b; }}")
+        o.append(
+            f"{make} :: (v: $T, n: s64) -> {name}(T) {{ b: {name}(T); b.v = v; b.n = n; return b; }}"
+        )
         o.append(f"{get} :: (b: {name}($T)) -> T {{ return b.v; }}")
         o.append(f"{add} :: (b: {name}($T)) -> T {{ return b.v + cast,trunc(T) b.n; }}")
         baked = None
@@ -1074,9 +1261,13 @@ class Gen:
         widen = self.fresh("widen_")
         res = self.pick(list(INTS) + ["float64"])
         conv = "cast" if res == "float64" else "cast,trunc"
-        self.out.append(f"{widen} :: (x: $T) -> $R #modify {{ R = {res}; }} {{ return {conv}(R) x; }}")
+        self.out.append(
+            f"{widen} :: (x: $T) -> $R #modify {{ R = {res}; }} {{ return {conv}(R) x; }}"
+        )
         pos = self.fresh("positive_")
-        self.out.append(f"{pos} :: ($n: s64) -> s64 #modify {{ return n > 0, \"n must be positive\"; }} {{ return n * {self.r.randint(2, 9)} + 1; }}")
+        self.out.append(
+            f'{pos} :: ($n: s64) -> s64 #modify {{ return n > 0, "n must be positive"; }} {{ return n * {self.r.randint(2, 9)} + 1; }}'
+        )
         self.out.append("")
         self.modifiers.append((widen, res))
         self.modifiers.append((pos, "positive"))
@@ -1085,9 +1276,15 @@ class Gen:
         """A procedure with some arguments baked: the result takes the rest in order."""
         base, one, two = (self.fresh(p) for p in ("tri_", "baked_", "baked_"))
         k1, k2 = self.r.randint(2, 40), self.r.randint(2, 40)
-        self.out.append(f"{base} :: (a: s64, b: s64, c: s64) -> s64 {{ return (a * {k1}) ^ (b + c * {k2}); }}")
-        self.out.append(f"{one} :: #bake_arguments {base}(b = {self.r.randint(-50, 50)}, c = {self.r.randint(-50, 50)});")
-        self.out.append(f"{two} :: #bake_arguments {base}(a = {self.r.randint(-50, 50)});")
+        self.out.append(
+            f"{base} :: (a: s64, b: s64, c: s64) -> s64 {{ return (a * {k1}) ^ (b + c * {k2}); }}"
+        )
+        self.out.append(
+            f"{one} :: #bake_arguments {base}(b = {self.r.randint(-50, 50)}, c = {self.r.randint(-50, 50)});"
+        )
+        self.out.append(
+            f"{two} :: #bake_arguments {base}(a = {self.r.randint(-50, 50)});"
+        )
         self.out.append("")
         self.bakes.append((one, 1))
         self.bakes.append((two, 2))
@@ -1097,10 +1294,16 @@ class Gen:
         o = self.out
         o.append(f"#add_context gen_depth: s64 = {self.r.randint(1, 9)};")
         o.append("Tally :: struct { under: Allocator; calls: s64; bytes: s64; }")
-        o.append("tally_alloc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {")
+        o.append(
+            "tally_alloc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {"
+        )
         o.append("    t := cast(*Tally) data;")
-        o.append("    if mode == .ALLOCATE || mode == .RESIZE { t.calls += 1; t.bytes += size; }")
-        o.append("    return t.under.proc(mode, size, old_size, old_memory, t.under.data);")
+        o.append(
+            "    if mode == .ALLOCATE || mode == .RESIZE { t.calls += 1; t.bytes += size; }"
+        )
+        o.append(
+            "    return t.under.proc(mode, size, old_size, old_memory, t.under.data);"
+        )
         o.append("}")
         o.append("depth_probe :: () -> s64 { return context.gen_depth * 3 + 1; }")
         o.append("")
@@ -1130,7 +1333,9 @@ class Gen:
             self.emit(f"{b}.v = {self.expr(t, 1)};", indent + 1)
             self.emit(f"{b}.n = {self.expr('s64', 1)};", indent + 1)
         else:
-            self.emit(f"{b} := {make}({self.expr(t, 1)}, {self.expr('s64', 1)});", indent + 1)
+            self.emit(
+                f"{b} := {make}({self.expr(t, 1)}, {self.expr('s64', 1)});", indent + 1
+            )
         self.emit(f"mix(cast,no_check(u64) {get}({b}));", indent + 1)
         self.emit(f"mix(cast,no_check(u64) {add}({b}));", indent + 1)
         self.emit(f"mix(cast,no_check(u64) {b}.n);", indent + 1)
@@ -1139,7 +1344,9 @@ class Gen:
     def modify_stmt(self, indent):
         proc, res = self.x.choice(self.modifiers)
         if res == "positive":
-            self.emit(f"mix(cast,no_check(u64) {proc}({self.x.randint(1, 30)}));", indent)
+            self.emit(
+                f"mix(cast,no_check(u64) {proc}({self.x.randint(1, 30)}));", indent
+            )
             return
         value = f"{proc}({self.expr(self.pick(INTS), 1)})"
         if res == "float64":
@@ -1183,9 +1390,13 @@ class Gen:
         name = self.fresh("U")
         bits = self.pick([32, 64])
         if bits == 32:
-            self.out.append(f"{name} :: union {{ i: u32; s: s32; f: float32; b: [4] u8; }}")
+            self.out.append(
+                f"{name} :: union {{ i: u32; s: s32; f: float32; b: [4] u8; }}"
+            )
         else:
-            self.out.append(f"{name} :: union {{ i: u64; s: s64; f: float64; b: [8] u8; h: [2] u32; }}")
+            self.out.append(
+                f"{name} :: union {{ i: u64; s: s64; f: float64; b: [8] u8; h: [2] u32; }}"
+            )
         self.out.append("")
         self.unions.append((name, bits))
 
@@ -1213,8 +1424,20 @@ class Gen:
         a, b = "a", "b"
         ops = []
         for _ in range(self.r.randint(1, 3)):
-            ops.append(self.pick([f"({a} + {b})", f"({a} * {b})", f"({a} ^ {b})", f"({a} - {b})", f"(~{a} & {b})",
-                                  f"({a} | cast(T) 3)", f"({a} >> 1)", f"({b} << 2)"]))
+            ops.append(
+                self.pick(
+                    [
+                        f"({a} + {b})",
+                        f"({a} * {b})",
+                        f"({a} ^ {b})",
+                        f"({a} - {b})",
+                        f"(~{a} & {b})",
+                        f"({a} | cast(T) 3)",
+                        f"({a} >> 1)",
+                        f"({b} << 2)",
+                    ]
+                )
+            )
         body = ops[0]
         for o in ops[1:]:
             body = f"({body} {self.pick(['+', '^', '|'])} {o})"
@@ -1237,32 +1460,50 @@ class Gen:
         o.append("    if v != v { mix(0x7ff8); return; }")
         o.append("    mix(cast,force(u64) v);")
         o.append("}")
-        o.append("mix_string :: (s: string) { mix(cast(u64) s.count); for 0..s.count - 1 mix(cast(u64) s[it]); }")
+        o.append(
+            "mix_string :: (s: string) { mix(cast(u64) s.count); for 0..s.count - 1 mix(cast(u64) s[it]); }"
+        )
         o.append("print_float :: (name: string, v: float64) {")
-        o.append("    if v != v { print(\"% = nan\\n\", name); return; }")
-        o.append("    print(\"% = %\\n\", name, v);")
+        o.append('    if v != v { print("% = nan\\n", name); return; }')
+        o.append('    print("% = %\\n", name, v);')
         o.append("}")
-        o.append("wrap_index :: (v: s64, n: s64) -> s64 { r := v % n; if r < 0 r += n; return r; }")
-        o.append("string_byte :: (s: string, i: s64) -> u8 { if s.count == 0 return 7; return s[wrap_index(i, s.count)]; }")
+        o.append(
+            "wrap_index :: (v: s64, n: s64) -> s64 { r := v % n; if r < 0 r += n; return r; }"
+        )
+        o.append(
+            "string_byte :: (s: string, i: s64) -> u8 { if s.count == 0 return 7; return s[wrap_index(i, s.count)]; }"
+        )
         o.append("Pair :: struct (T: Type) { a: T; b: T; }")
         o.append("show_any :: (label: string, args: ..Any) {")
-        o.append("    print(\"%:\", label);")
-        o.append("    for args print(\" % (%)\", it, it.type.type);")
-        o.append("    print(\"\\n\");")
+        o.append('    print("%:", label);')
+        o.append('    for args print(" % (%)", it, it.type.type);')
+        o.append('    print("\\n");')
         o.append("}")
         for t, (bits, signed) in INTS.items():
             if signed:
-                o.append(f"safe_div_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 || b == -1 return a; return a / b; }}")
-                o.append(f"safe_rem_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 || b == -1 return a; return a % b; }}")
+                o.append(
+                    f"safe_div_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 || b == -1 return a; return a / b; }}"
+                )
+                o.append(
+                    f"safe_rem_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 || b == -1 return a; return a % b; }}"
+                )
             else:
-                o.append(f"safe_div_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 return a; return a / b; }}")
-                o.append(f"safe_rem_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 return a; return a % b; }}")
+                o.append(
+                    f"safe_div_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 return a; return a / b; }}"
+                )
+                o.append(
+                    f"safe_rem_{t} :: (a: {t}, b: {t}) -> {t} {{ if b == 0 return a; return a % b; }}"
+                )
             for f in FLOATS:
                 # NaN fails both comparisons and takes the fallback.
-                o.append(f"f_to_{t}_{f} :: (v: {f}, lo: float64, hi: float64) -> {t} {{ if cast(float64) v >= lo && cast(float64) v <= hi return cast({t}) v; return {self.r.randint(0, 100)}; }}")
+                o.append(
+                    f"f_to_{t}_{f} :: (v: {f}, lo: float64, hi: float64) -> {t} {{ if cast(float64) v >= lo && cast(float64) v <= hi return cast({t}) v; return {self.r.randint(0, 100)}; }}"
+                )
         for f in FLOATS:
             o.append(f"opaque_{f} :: (v: {f}) -> {f} {{ return v; }}")
-            o.append(f"clamp_f_{f} :: (v: {f}) -> {f} {{ if v != v return 0.5; if v > 1e6 return 1e6; if v < -1e6 return -1e6; return v; }}")
+            o.append(
+                f"clamp_f_{f} :: (v: {f}) -> {f} {{ if v != v return 0.5; if v > 1e6 return 1e6; if v < -1e6 return -1e6; return v; }}"
+            )
         o.append("")
 
     def generate(self):
@@ -1287,7 +1528,12 @@ class Gen:
         for _ in range(self.r.randint(0, 2)):
             self.gen_overloads()
         # Chosen from a separate stream, after everything above.
-        for gen, p in ((self.gen_box, 0.4), (self.gen_modify, 0.35), (self.gen_bake, 0.35), (self.gen_tally, 0.4)):
+        for gen, p in (
+            (self.gen_box, 0.4),
+            (self.gen_modify, 0.35),
+            (self.gen_bake, 0.35),
+            (self.gen_tally, 0.4),
+        ):
             if self.x.random() < p:
                 gen()
         self.scopes = [[]]
@@ -1301,14 +1547,27 @@ class Gen:
         for _ in range(nprocs):
             self.gen_proc(pure=self.chance(0.6))
         struct_consts = []
-        for p in [p for p in self.procs if p.pure and isinstance(p.ret, tuple) and all(isinstance(t, str) and t != "string" for _, t in p.params)][:1]:
+        for p in [
+            p
+            for p in self.procs
+            if p.pure
+            and isinstance(p.ret, tuple)
+            and all(isinstance(t, str) and t != "string" for _, t in p.params)
+        ][:1]:
             self.scopes = [[]]
             args = [self.leaf(t) if n != "depth" else "1" for n, t in p.params]
             cname = self.fresh("CS")
             self.out.append(f"{cname} :: #run {p.name}({', '.join(args)});")
             struct_consts.append((cname, p, args))
         consts = []
-        for p in [p for p in self.procs if p.pure and not p.poly and is_int(p.ret) and all(isinstance(t, str) and t != "string" for _, t in p.params)][:2]:
+        for p in [
+            p
+            for p in self.procs
+            if p.pure
+            and not p.poly
+            and is_int(p.ret)
+            and all(isinstance(t, str) and t != "string" for _, t in p.params)
+        ][:2]:
             self.scopes = [[]]
             self.depth_budget = 0
             args = [self.leaf(t) if n != "depth" else "2" for n, t in p.params]
@@ -1328,14 +1587,20 @@ class Gen:
             for _ in range(self.r.randint(1, 4)):
                 self.emit(f"array_add(*{d}, {self.expr(et, 1)});", 1)
             self.nonempty_paths.add(d)
-            arrays = [v for v in self.vars() if isinstance(v.ty, tuple) and v.ty[0] == "array"]
+            arrays = [
+                v for v in self.vars() if isinstance(v.ty, tuple) and v.ty[0] == "array"
+            ]
             if arrays and self.chance(0.6):
                 a = self.pick(arrays)
                 vname = self.fresh("view")
                 self.emit(f"{vname}: [] {tyname(a.ty[1])} = {a.name};", 1)
                 self.scopes[-1].append(Var(vname, ("view", a.ty[1]), mutable=False))
                 self.nonempty_paths.add(vname)
-        addressable = [p for p in self.procs if p.pure and not p.poly and p.ret and not p.overloaded and not p.varargs]
+        addressable = [
+            p
+            for p in self.procs
+            if p.pure and not p.poly and p.ret and not p.overloaded and not p.varargs
+        ]
         for p in self.r.sample(addressable, min(2, len(addressable))):
             # Calls through a procedure value: an indirect call in compiled code.
             name = self.fresh("fp")
@@ -1343,7 +1608,10 @@ class Gen:
             self.fptrs.append((name, p))
         for cname, p, args in consts:
             # The same pure call at compile time (interpreter) and at run time (this backend).
-            self.emit(f"if {cname} != {p.name}({', '.join(args)}) print(\"compile-time/run-time mismatch in {p.name}\\n\");", 1)
+            self.emit(
+                f'if {cname} != {p.name}({", ".join(args)}) print("compile-time/run-time mismatch in {p.name}\\n");',
+                1,
+            )
             self.emit(f"mix(cast,no_check(u64) {cname});", 1)
         for cname, p, args in struct_consts:
             # A struct computed by the compile-time interpreter against the same call at run time.
@@ -1352,7 +1620,10 @@ class Gen:
             self.emit(f"{rt} := {p.name}({', '.join(args)});", 1)
             for f, fty, _ in self.structs[p.ret[1]]:
                 if is_int(fty) or fty == "bool":
-                    self.emit(f"if {ct}.{f} != {rt}.{f} print(\"compile-time/run-time mismatch in {p.name}.{f}\\n\");", 1)
+                    self.emit(
+                        f'if {ct}.{f} != {rt}.{f} print("compile-time/run-time mismatch in {p.name}.{f}\\n");',
+                        1,
+                    )
             for line in self.mix_of(ct, p.ret) + self.mix_of(rt, p.ret):
                 self.emit(line, 1)
         for _ in range(int(self.r.randint(8, 25) * self.size)):
@@ -1372,7 +1643,12 @@ def generate(seed, size=1.0):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("seed", type=int)
-    ap.add_argument("--size", type=float, default=1.0, help="scale the number of procedures and statements")
+    ap.add_argument(
+        "--size",
+        type=float,
+        default=1.0,
+        help="scale the number of procedures and statements",
+    )
     ap.add_argument("--out")
     a = ap.parse_args()
     text = generate(a.seed, a.size)

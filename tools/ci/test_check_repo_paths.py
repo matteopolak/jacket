@@ -20,18 +20,29 @@ class Mentions(unittest.TestCase):
 
     def test_existing_path_passes_and_missing_path_fails(self):
         self.assertEqual(self.check("see `tools/real.py`."), [])
-        self.assertEqual(self.check("see tools/gone.py#anchor"), ["x: missing path tools/gone.py"])
+        self.assertEqual(
+            self.check("see tools/gone.py#anchor"), ["x: missing path tools/gone.py"]
+        )
 
     def test_globs_placeholders_and_generated_paths_are_skipped(self):
-        self.assertEqual(self.check("tools/*.py tools/<name>.py target/x docs/{a,b}.md corpus/upstream/y"), [])
+        self.assertEqual(
+            self.check(
+                "tools/*.py tools/<name>.py target/x docs/{a,b}.md corpus/upstream/y"
+            ),
+            [],
+        )
 
     def test_doc_links_resolve_against_the_doc(self):
         docs = self.root / "docs"
-        self.assertEqual(self.check("[a](a.md#top) [w](https://x/y.md) [p](print)", doc_dir=docs), [])
+        self.assertEqual(
+            self.check("[a](a.md#top) [w](https://x/y.md) [p](print)", doc_dir=docs), []
+        )
         self.assertEqual(self.check("[b](b.md)", doc_dir=docs), ["x: dead link b.md"])
 
     def test_docs_ignore_module_relative_test_paths(self):
-        self.assertEqual(self.check("run tests/codec.jai", doc_dir=self.root / "docs"), [])
+        self.assertEqual(
+            self.check("run tests/codec.jai", doc_dir=self.root / "docs"), []
+        )
 
     def test_header_stops_after_the_docstring(self):
         text = '#!/usr/bin/env python3\n"""Uses tools/a.py.\n\nMore."""\nimport x  # tools/b.py\n'

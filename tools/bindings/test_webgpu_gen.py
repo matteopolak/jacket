@@ -2,7 +2,9 @@ import importlib.util
 from pathlib import Path
 import unittest
 
-spec = importlib.util.spec_from_file_location("webgpu_gen", Path(__file__).with_name("webgpu_gen.py"))
+spec = importlib.util.spec_from_file_location(
+    "webgpu_gen", Path(__file__).with_name("webgpu_gen.py")
+)
 gen = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gen)
 
@@ -38,7 +40,9 @@ class WebGPUGenTests(unittest.TestCase):
         self.assertEqual(enum["entries"], [None, {"name": "1D"}, {"name": "2D"}])
 
     def test_names(self):
-        self.assertEqual(gen.pascal("request_adapter_WebXR_options"), "RequestAdapterWebXROptions")
+        self.assertEqual(
+            gen.pascal("request_adapter_WebXR_options"), "RequestAdapterWebXROptions"
+        )
         self.assertEqual(gen.pascal("unorm10_10_10_2"), "Unorm10_10_10_2")
         self.assertEqual(gen.camel("vendor_ID"), "vendorID")
         self.assertEqual(gen.singular("entries"), "entry")
@@ -55,8 +59,12 @@ class WebGPUGenTests(unittest.TestCase):
         }
         for entry, js in cases.items():
             self.assertEqual(gen.js_enum_string("texture_format", entry), js)
-        self.assertEqual(gen.js_enum_string("vertex_format", "unorm10_10_10_2"), "unorm10-10-10-2")
-        self.assertEqual(gen.js_enum_string("texture_view_dimension", "2D_array"), "2d-array")
+        self.assertEqual(
+            gen.js_enum_string("vertex_format", "unorm10_10_10_2"), "unorm10-10-10-2"
+        )
+        self.assertEqual(
+            gen.js_enum_string("texture_view_dimension", "2D_array"), "2d-array"
+        )
 
 
 if __name__ == "__main__":

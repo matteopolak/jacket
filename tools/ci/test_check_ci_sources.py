@@ -22,15 +22,27 @@ class PublicIncludes(unittest.TestCase):
         return inspect_includes(self.root, files)
 
     def test_public_fixture_is_available_in_a_clean_checkout(self):
-        self.assertEqual(self.inspect("../fixtures/source.jai", "crates/example/fixtures/source.jai"), (1, []))
+        self.assertEqual(
+            self.inspect(
+                "../fixtures/source.jai", "crates/example/fixtures/source.jai"
+            ),
+            (1, []),
+        )
 
     def test_existing_unpublished_input_does_not_establish_ci_availability(self):
-        count, errors = self.inspect("../fixtures/source.jai", "crates/example/fixtures/source.jai", public=False)
+        count, errors = self.inspect(
+            "../fixtures/source.jai", "crates/example/fixtures/source.jai", public=False
+        )
         self.assertEqual(count, 1)
         self.assertIn("absent from public checkout", errors[0])
 
     def test_authored_prelude_is_available_without_vendor_exception(self):
-        self.assertEqual(self.inspect("../../../stdlib/prelude/module.jai", "stdlib/prelude/module.jai"), (1, []))
+        self.assertEqual(
+            self.inspect(
+                "../../../stdlib/prelude/module.jai", "stdlib/prelude/module.jai"
+            ),
+            (1, []),
+        )
 
     def test_vendor_inputs_are_excluded_without_exceptions(self):
         for path in ("vendor/dependency/module.jai", "vendor/other/module.jai"):
