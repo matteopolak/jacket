@@ -632,7 +632,7 @@ jobs:
       # (--headless). Unoptimized code keeps every value in memory, so ASan sees each access;
       # -O2 is where LLVM acts on undefined behaviour and the bounds checks see the most objects.
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
-        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
+        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions negative
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
         if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
         run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions

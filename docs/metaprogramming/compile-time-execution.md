@@ -81,7 +81,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - a pointer into a global becomes a relocation to that global {#ctdata.2};
 - heap memory (say, a `[..]` built with `array_add`) is copied into a new read-only blob, recursively {#ctdata.3};
 - integers below `0x10000` cast to pointers stay plain numbers {#ctdata.4}, and so do values with the top bit set, which are never user-space addresses on a 64-bit host (sign-extended handles such as `HKEY_CLASSES_ROOT :: cast(HKEY) cast(s64) cast,trunc(s32) 0x80000000`) {#ctdata.14};
-- a pointer to memory of unknown size (`*void` from `alloc`) fails with `a compile-time value holds a pointer to memory of unknown size` {#ctdata.5};
+- a pointer to memory of unknown size (`*void` from `alloc`) keeps its address and captures no data, since there is no extent to copy {#ctdata.5};
 - union members are copied as raw bytes, without following pointers {#ctdata.6}.
 - Verified {#ctdata.7}:
 - Changes `#run` code makes to globals do not reach the running program, matching Jai {#ctdata.8}.

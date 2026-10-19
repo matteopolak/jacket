@@ -11,7 +11,7 @@ Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <m
 | set | source | check |
 |---|---|---|
 | `corpus` | `tests/corpus/manifest.json` cases with a `runtime` record | exact stdout and exit code; a record with `error` expects any failing status and that text on stderr |
-| `negative` | `kind: negative` manifest cases | check mode, non-zero exit, recorded text in stderr |
+| `negative` | `kind: negative` manifest cases (run by CI in the O0 sanitizer sweep) | check mode, non-zero exit, recorded text in stderr; a `disabled` reason switches a case off and is reported |
 | `regressions` | `tests/compiler/regressions/*.jai`, refined by its `manifest.json` | run, exit 0 or the row's expectation |
 | `modules` | `stdlib/**/tests/*.jai`, refined by each directory's `manifest.json` | run, exit 0 or the row's expectation |
 | `examples` | `tests/corpus/examples.json` (`examples/tour`) | run with `args`, `stdout_contains`/`stdout_excludes` |

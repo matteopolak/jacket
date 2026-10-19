@@ -53,8 +53,8 @@ SANDBOX = None
 CASE_SCRATCH = []
 _case = threading.local()
 
-# Upstream cases switched off in tools/upstream-cases.json (`disabled`, with the reason), by id.
-UPSTREAM_DISABLED = {}
+# Cases switched off with a `disabled` reason, by id: upstream cases (tools/upstream-cases.json) and negative corpus rows.
+DISABLED_REASONS = {}
 
 
 def upstream_root(c):
@@ -135,6 +135,8 @@ def cases(name):
         m = json.loads((ROOT / "tests/corpus/manifest.json").read_text())
         for c in m["cases"]:
             if c.get("kind") == "negative":
+                if "disabled" in c:
+                    DISABLED_REASONS[c["id"]] = c["disabled"]
                 yield (
                     c["id"],
                     ROOT / "tests/corpus" / c["source"],
@@ -186,7 +188,7 @@ def cases(name):
             if "only" in c:
                 UPSTREAM_PLATFORMS[c["id"]] = c
             if "disabled" in c:
-                UPSTREAM_DISABLED[c["id"]] = c["disabled"]
+                DISABLED_REASONS[c["id"]] = c["disabled"]
             yield (
                 c["id"],
                 upstream_root(c) / c["path"],
@@ -630,8 +632,8 @@ def main():
 
     def run_case(case):
         cid, path, mode, expect, extra = case
-        if cid in UPSTREAM_DISABLED:
-            return cid, None, "", UPSTREAM_DISABLED[cid], DISABLED
+        if cid in DISABLED_REASONS:
+            return cid, None, "", DISABLED_REASONS[cid], DISABLED
         if cid in UPSTREAM_PLATFORMS:
             from stdlib.stdlib_runtime import host_platform
 
