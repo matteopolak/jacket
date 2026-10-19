@@ -10,8 +10,18 @@ main :: () -> s32 {
     config: Format_Config;
 
     if set.config {
-        parsed, ok, error := parse_config(options.config);
-        if !ok return fail("%: %", FORMAT_CONFIG_FILE_NAME, error);
+        parsed: Format_Config;
+        ok: bool;
+        error: string;
+
+        if options.config_name == JACKET_CONFIG_FILE_NAME {
+            parsed, ok, error = parse_jacket_config(options.config);
+        } else {
+            parsed, ok, error = parse_config(options.config);
+        }
+
+        if !ok return fail("%: %", options.config_name, error);
+
         config = parsed;
     }
 
@@ -34,12 +44,14 @@ Args :: #import "Extensions/Args";
 
 Options :: struct {
     config: string; @value=TEXT @env=JAIFMT_CONFIG
+    config_name: string = FORMAT_CONFIG_FILE_NAME; @value=FILE
     name: string = "main.jai"; @value=FILE
 }
 
 HELP :: Args.Help(Options).{
     about = "Formats the Jai source on standard input and writes it to standard output.",
-    config = "The jaifmt.toml text, not a path (default: the built-in defaults)",
+    config = "The config text, not a path (default: the built-in defaults)",
+    config_name = "The config's file name: jacket.toml reads its [format] table, anything else is jaifmt.toml syntax",
     name = "The input's name in messages",
 };
 

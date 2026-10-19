@@ -1,11 +1,14 @@
 // jaifmt for the browser playground. The page adds this file to the workspace next to the user's
 // files and runs it with `engine.play(files, "__jaifmt__.jai")`. It formats `/workspace/<TARGET>`
-// with the nearest `jaifmt.toml` between the target's directory and `/workspace`, prints the
-// formatted text to stdout and returns 0. On an error it prints `jaifmt: ...` to stderr, prints
-// nothing to stdout and returns 1. The page replaces the TARGET line to format another file.
-// See docs/tools/jaifmt.md.
+// with the nearest `jacket.toml` (its `[format]` table) or `jaifmt.toml` between the target's
+// directory and `/workspace`, prints the formatted text to stdout and returns 0. On an error it
+// prints `jaifmt: ...` to stderr, prints nothing to stdout and returns 1. The page replaces the
+// TARGET line to format another file. See docs/tools/jaifmt.md.
 
 TARGET :: "main.jai";
+
+// A jacket.toml wins over a jaifmt.toml in the same directory, as in the native jaifmt.
+CONFIG_FILE_NAMES :: string.[JACKET_CONFIG_FILE_NAME, FORMAT_CONFIG_FILE_NAME];
 
 main :: () -> int {
     path := tprint("%/%", WORKSPACE, TARGET);
@@ -16,14 +19,31 @@ main :: () -> int {
     config: Format_Config;
     directory := parent_directory(path);
 
+    found := false;
+
     while true {
-        toml, has_config := read_entire_file(tprint("%/%", directory, FORMAT_CONFIG_FILE_NAME), log_errors = false);
-        if has_config {
-            parsed, ok, error := parse_config(toml);
-            if !ok return fail("%/%: %", directory, FORMAT_CONFIG_FILE_NAME, error);
+        for name: CONFIG_FILE_NAMES {
+            toml, has_config := read_entire_file(tprint("%/%", directory, name), log_errors = false);
+            if !has_config continue;
+
+            parsed: Format_Config;
+            ok: bool;
+            error: string;
+
+            if name == JACKET_CONFIG_FILE_NAME {
+                parsed, ok, error = parse_jacket_config(toml);
+            } else {
+                parsed, ok, error = parse_config(toml);
+            }
+
+            if !ok return fail("%/%: %", directory, name, error);
+
             config = parsed;
+            found = true;
             break;
         }
+
+        if found break;
 
         if directory == WORKSPACE break;
 
