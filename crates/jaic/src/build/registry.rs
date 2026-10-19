@@ -1,16 +1,13 @@
 //! The registry of workspaces: option setters, compiler creation and event construction.
 use super::meta_op::TOP_LEVEL_WORKSPACE;
 use super::settings::{BuildEnv, BuildSettings};
-use super::state::{
-    EVENT_PHASE, Event, MainOverrides, SharedWorkspaces, Stage, Workspace, Workspaces,
-};
+use super::state::{EVENT_PHASE, Event, SharedWorkspaces, Stage, Workspace, Workspaces};
 use crate::builtin_keys::OutputType;
 use crate::builtin_keys::{
     ArrayBoundsCheck, BitcodeOptimization, CheckLevel, CpuTag, DeadCodeSetting, DebugInfoSetting,
     MachineCodeOptimization, OsTag, RuntimeSupport, Toggle, WorkspaceFlag, WorkspaceList,
     WorkspaceNumber, WorkspaceText,
 };
-use crate::fxhash::HashMap;
 use crate::interp::Host;
 use crate::records::Records;
 use crate::sema::{
@@ -45,12 +42,9 @@ impl Workspaces {
             event: Event::default(),
             strings: Vec::new(),
             kept: Vec::new(),
-            tags: HashMap::default(),
             records: Records::default(),
             builders: Vec::new(),
             data_segments: Vec::new(),
-            main_file: String::new(),
-            main_overrides: MainOverrides::default(),
         }))
     }
 
@@ -276,11 +270,6 @@ impl Workspaces {
             }
         }
         Ok(())
-    }
-
-    pub(super) fn keep_rc(&mut self, bytes: &Rc<[u8]>) -> (u64, u64) {
-        self.kept.push(bytes.clone());
-        (bytes.len() as u64, bytes.as_ptr() as u64)
     }
 
     pub(super) fn keep_string(&mut self, bytes: &[u8]) -> (u64, u64) {

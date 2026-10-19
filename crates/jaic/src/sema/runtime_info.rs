@@ -19,9 +19,6 @@ const SEGMENT_INFO_SIZE: u64 = 24;
 /// The library-less `#foreign` global the compiler defines with the program's segments.
 pub(super) const RUNTIME_INFO: &str = "__runtime_info";
 
-/// The library-less `#foreign` global the compiler defines with the build directory.
-pub(super) const BUILD_DIRECTORY: &str = "__jaic_build_directory";
-
 impl Compiler {
     pub(super) fn runtime_info_global(&mut self, _span: Span) -> Result<ir::GlobalId> {
         if let Some(g) = self.runtime_info {
@@ -69,7 +66,7 @@ impl Compiler {
             target: ir::RelocTarget::Global(data),
             addend: 0,
         };
-        self.data_global(BUILD_DIRECTORY, 16, init, vec![reloc])
+        self.data_global(super::private_names::BUILD_DIRECTORY, 16, init, vec![reloc])
     }
 
     /// Fill `__runtime_info` (if the program uses it) from the final program.

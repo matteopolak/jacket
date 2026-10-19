@@ -8,7 +8,7 @@ The Rust side of the `Compiler` module, in `crates/jaic/src/build.rs`. Metaprogr
 
 The embedder creates `Workspaces` (shared as `SharedWorkspaces`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, arguments after `-`, a report sink (told each message's `ReportSeverity`, which is how `-quiet` drops warnings and notes), and an optional `WorkspaceObserver` ([jailint](../tools/jailint.md) uses it to lint what a metaprogram builds). Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`); workspace 1 is reserved as in Jai, so the first created workspace is 3.
 
-Bodiless `#compiler` procedures named `__jaic_*` bind to `Hook::Meta(MetaOp, has_context)` in `proc_func` (`sema/procs.rs`); `interp::run_hook` forwards them to `build::call`. Key primitives:
+Bodiless `#compiler` procedures named `__jaic_*` bind to `Hook::Meta(MetaOp, has_context)` (`Hook::for_compiler_proc`, called from `proc_func`); `interp::run_hook` forwards them to `build::call`. Key primitives:
 
 | Primitive | Meaning |
 |---|---|
@@ -47,7 +47,7 @@ With `do_output` set and `output_type != NO_OUTPUT`, `OutputBackend::write_outpu
 
 ## How to change it
 
-- New primitive: a `MetaOp` variant and name in `MetaOp::from_name`, a case in the matching family module under `crates/jaic/src/build/` (`workspace`, `messages`, `sources`, `host`, `program_data`, `records`) and its family in `Family::of`, and a bodiless `#compiler` declaration in `stdlib/internal/compiler-api/primitives.jai`.
+- New primitive: a `MetaOp` variant and its `__jaic_*` name in the `raw_enum!` list in `build/meta_op.rs` (`crates/jaic/tests/meta_op_names.rs` fails when that list and the stdlib's `#compiler` declarations differ), a case in the matching family module under `crates/jaic/src/build/` (`workspace`, `messages`, `sources`, `host`, `program_data`, `records`) and its family in `Family::of`, and a bodiless `#compiler` declaration in `stdlib/internal/compiler-api/primitives.jai`.
 - New option: handle the key in `Workspaces::set_option` and read it in `new_compiler` or `write_output`. Unknown keys and unbuildable `os_target`/`cpu_target` are errors ([build options](build-options.md)).
 - New event kind: push it in `step`; strings given to Jai go through `keep_string`.
 

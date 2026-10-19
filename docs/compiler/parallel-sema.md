@@ -104,7 +104,6 @@ The statics and thread-locals in `jaic`, with why each stays. Anything not liste
 | Crash report buffer, signal handlers | `interp/crash.rs` | A signal handler can only reach a static, and must not allocate. |
 | Memory limit counters | `memory_limit.rs` | They are the global allocator's counters. |
 | Interner, AST ids, record names | `intern.rs`, `ast.rs`, `records.rs` (`thread_local!`) | Not justified: they only work because one thread does the checking. Parallel parsing works around them with per-job interners and `ast::relocate`. Replacing them with sharded globals is the last stage of the plan above. |
-| libclang state | `clang.rs` (`thread_local!`) | The handle arena Jai code sees; libclang is used from the thread that runs the interpreter. |
 
 ## Other things that could run in parallel
 

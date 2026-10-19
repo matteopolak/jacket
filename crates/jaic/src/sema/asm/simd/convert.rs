@@ -186,7 +186,7 @@ impl Compiler {
             g
         } else {
             let g = self.program.add_global(crate::ir::Global {
-                name: "__jaic_asm_aes_sbox".into(),
+                name: crate::sema::private_names::ASM_AES_SBOX.into(),
                 size: 768,
                 align: 16,
                 init: aes_tables(),

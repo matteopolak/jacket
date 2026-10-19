@@ -340,7 +340,6 @@ fn run_styled(
     compiler.interp.block_budget = limits.budget;
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
-    workspaces.borrow_mut().main_file = entry.display().to_string();
     let mut ran_program = false;
     let outcome = match compiler.compile_program(&entry) {
         Ok(()) => match jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget) {

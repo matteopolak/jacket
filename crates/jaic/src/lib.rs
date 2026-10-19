@@ -7,7 +7,6 @@ pub mod abi;
 pub mod ast;
 pub mod build;
 pub mod builtin_keys;
-pub mod clang;
 pub mod docs;
 pub mod fiber;
 pub mod fxhash;

@@ -324,7 +324,7 @@ impl Compiler {
         _header: &ast::ProcHeader,
     ) -> Result<()> {
         let name = self.proc(id).name;
-        if name.as_str() == crate::sema::calls::RUNTIME_TEMPORARY_STORAGE_SIZE {
+        if name.as_str() == crate::sema::private_names::RUNTIME_TEMPORARY_STORAGE_SIZE {
             let Operand::Value {
                 val, ..
             } = self.runtime_storage_operand(&mut f, sig, self.proc(id).span)?

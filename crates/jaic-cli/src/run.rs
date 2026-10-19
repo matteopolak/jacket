@@ -5,7 +5,7 @@ use super::leak::{LeakOnExit, flush_sandbox};
 use super::options::NO_MAIN_STATUS;
 use super::parse::{check_input, print_cli_error, print_error, shown};
 use super::{timings, tuning};
-use jaic::build::{BuildEnv, BuildSettings, MainOverrides, OutputBackend, OutputType, Workspaces};
+use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
 use jaic::interp::{NativeHost, SandboxHost, SharedHost};
 use jaic::sema::{Compiler, DeadCode, FileSystem, NativeFs, Options, ProgramSource, TargetOs};
 use std::cell::RefCell;
@@ -68,7 +68,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         &cwd.to_string_lossy(),
     )));
     let sandbox = (options.os == TargetOs::Wasm).then(|| shared_sandbox.clone());
-    let workspaces = create_workspaces(&cli, &path, &options, &fs, &shared_sandbox);
+    let workspaces = create_workspaces(&cli, &options, &fs, &shared_sandbox);
     // `-check` and builds exit right after: tearing down the syntax trees and the program takes
     // about a tenth of a large check, and nothing observes it.
     let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.mode != Mode::Interp, |c| {
@@ -196,11 +196,9 @@ fn compiler_options(cli: &Cli, stdlib: &Path, main_dir: &Path) -> Result<Options
     Ok(options)
 }
 
-/// The registry of workspaces a metaprogram creates, with the command line's choices recorded
-/// for the target program's `get_build_options`.
+/// The registry of workspaces a metaprogram creates.
 fn create_workspaces(
     cli: &Cli,
-    path: &Path,
     options: &Options,
     fs: &Rc<dyn FileSystem>,
     shared_sandbox: &Rc<RefCell<SandboxHost>>,
@@ -241,20 +239,6 @@ fn create_workspaces(
         }),
         observer: None,
     });
-    {
-        let mut registry = workspaces.borrow_mut();
-        registry.main_file = path.display().to_string();
-        // What the target program's `get_build_options` reports before a metaprogram changes it.
-        registry.main_overrides = MainOverrides {
-            exe: cli.exe.clone().unwrap_or_default(),
-            output_path: cli
-                .output_path
-                .as_ref()
-                .map(|p| p.display().to_string())
-                .unwrap_or_default(),
-            no_backtrace_on_crash: cli.no_backtrace_on_crash,
-        };
-    }
     workspaces
 }
 

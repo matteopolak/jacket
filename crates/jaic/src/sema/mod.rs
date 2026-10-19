@@ -40,6 +40,7 @@ mod lower;
 mod modify;
 mod modules;
 pub mod perf;
+mod private_names;
 pub mod procs;
 mod reachability;
 mod runtime_config;

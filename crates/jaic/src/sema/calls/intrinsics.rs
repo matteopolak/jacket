@@ -16,7 +16,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let name = self.proc(proc).name;
-        if name.as_str() == RUNTIME_TEMPORARY_STORAGE_SIZE {
+        if name.as_str() == crate::sema::private_names::RUNTIME_TEMPORARY_STORAGE_SIZE {
             return self.runtime_storage_operand(f, sig, span);
         }
         let mut values = Vec::new();

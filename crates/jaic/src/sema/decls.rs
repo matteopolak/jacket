@@ -532,7 +532,7 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<Resolved> {
-        if foreign.library.is_none() && name.as_str() == super::runtime_info::BUILD_DIRECTORY {
+        if foreign.library.is_none() && name.as_str() == super::private_names::BUILD_DIRECTORY {
             let global = self.build_directory_global();
             return Ok(Resolved::Global {
                 storage: ir::Storage::Data(global),

@@ -120,7 +120,8 @@ impl Compiler {
 
     pub(super) fn prepare_interpreter_assertion(&mut self, span: Span) -> Result<()> {
         self.runtime_interpreter_assertion = None;
-        let Some(proc) = self.private_runtime_procedure("__jaic_interpreter_assertion", span)?
+        let Some(proc) =
+            self.private_runtime_procedure(super::private_names::INTERPRETER_ASSERTION, span)?
         else {
             return Ok(());
         };
@@ -186,7 +187,7 @@ impl Compiler {
         } else {
             let (_, size) = self.runtime_storage_settings();
             let global = self.program.add_global(ir::Global {
-                name: "__jaic_runtime_configuration.temporary_storage_size".into(),
+                name: super::private_names::TEMPORARY_STORAGE_SIZE_LABEL.into(),
                 size: 8,
                 align: 8,
                 init: size.to_le_bytes().to_vec(),

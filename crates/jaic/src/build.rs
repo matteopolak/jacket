@@ -55,7 +55,6 @@ pub use self::settings::{
 use self::state::{DataSegment, Stage, Workspace};
 pub use self::state::{
     EVENT_COMPLETE, EVENT_DEBUG_DUMP, EVENT_ERROR, EVENT_FAILED_IMPORT, EVENT_FILE, EVENT_IMPORT,
-    EVENT_PERFORMANCE_REPORT, EVENT_PHASE, EVENT_TYPECHECKED, Event, MainOverrides,
-    SharedWorkspaces, Workspaces,
+    EVENT_PERFORMANCE_REPORT, EVENT_PHASE, EVENT_TYPECHECKED, Event, SharedWorkspaces, Workspaces,
 };
 pub use crate::builtin_keys::OutputType;

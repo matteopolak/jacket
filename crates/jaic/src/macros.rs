@@ -8,14 +8,15 @@
 ///   member whose integer is `raw`) and `declared` (names and values, for drift tests against a
 ///   Jai twin).
 /// - `enum Name by name { A = "a", B = "b" }` keys members by text, as directive and foreign
-///   symbol names arrive. It derives `ALL`, `from_name` and `name`.
+///   symbol names arrive. It derives `ALL`, `from_name` and `name`. A member may be spelled
+///   several ways (`A = "a" | "old_a"`); `name` gives the first.
 ///
 /// Both derive `Clone, Copy, Debug, PartialEq, Eq`.
 macro_rules! raw_enum {
     (
         $(#[$meta:meta])*
         $vis:vis enum $name:ident by name {
-            $($(#[$vmeta:meta])* $variant:ident = $text:literal),+ $(,)?
+            $($(#[$vmeta:meta])* $variant:ident = $text:literal $(| $alias:literal)*),+ $(,)?
         }
     ) => {
         $(#[$meta])*
@@ -31,7 +32,7 @@ macro_rules! raw_enum {
             /// The member spelled `name`.
             pub fn from_name(name: &str) -> Option<Self> {
                 match name {
-                    $($text => Some($name::$variant),)+
+                    $($text $(| $alias)* => Some($name::$variant),)+
                     _ => None,
                 }
             }

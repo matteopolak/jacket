@@ -26,6 +26,21 @@ pub enum Hook {
     Meta(crate::build::MetaOp, bool),
 }
 
+impl Hook {
+    /// The hook behind the `#compiler` procedure `name`, if the interpreter provides one.
+    /// `takes_context` says whether the procedure takes the implicit context pointer.
+    #[must_use]
+    pub fn for_compiler_proc(name: &str, takes_context: bool) -> Option<Self> {
+        match name {
+            "write_string" => Some(Self::WriteString),
+            "write_strings" => Some(Self::WriteStrings),
+            "compile_time_debug_break" => Some(Self::DebugBreak),
+            "compile_time_host_monotonic_nanoseconds" => Some(Self::HostMonotonicNanos),
+            other => crate::build::MetaOp::from_name(other).map(|op| Self::Meta(op, takes_context)),
+        }
+    }
+}
+
 /// Byte offsets of a `Source_Code_Location`'s fields, from the Preload's declaration
 /// (`Compiler::location_layout`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

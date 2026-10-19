@@ -51,12 +51,8 @@ impl Family {
             | MetaOp::ModifyProcedure => Family::Sources,
             MetaOp::CompilerVersion
             | MetaOp::BasePath
-            | MetaOp::MainFile
-            | MetaOp::MainOverride
             | MetaOp::CommandLineCount
-            | MetaOp::CommandLineArg
-            | MetaOp::Clang
-            | MetaOp::ClangText => Family::Host,
+            | MetaOp::CommandLineArg => Family::Host,
             MetaOp::SetTypeInfoFlags
             | MetaOp::TypeTable
             | MetaOp::StructLocation
@@ -66,22 +62,16 @@ impl Family {
             MetaOp::SyntaxInt
             | MetaOp::SyntaxString
             | MetaOp::SyntaxChild
-            | MetaOp::RecTag
-            | MetaOp::RecTagId
             | MetaOp::RecBuilder
             | MetaOp::RecType
             | MetaOp::RecPlan
             | MetaOp::RecBuild
             | MetaOp::RecOf
-            | MetaOp::RecField
             | MetaOp::RecCount
             | MetaOp::RecInt
-            | MetaOp::RecString
             | MetaOp::RecBuiltin
             | MetaOp::RecRef
-            | MetaOp::RecItemInt
-            | MetaOp::RecItemRef
-            | MetaOp::RecItemString => Family::Records,
+            | MetaOp::RecItemRef => Family::Records,
         }
     }
 }
@@ -156,22 +146,14 @@ fn is_effect(op: MetaOp) -> bool {
             | MetaOp::CompilerVersion
             | MetaOp::StructLocation
             | MetaOp::BasePath
-            | MetaOp::MainFile
-            | MetaOp::MainOverride
             | MetaOp::TypeTable
             | MetaOp::CodeIsNull
             | MetaOp::CodeNodes
             | MetaOp::ParseCode
-            | MetaOp::RecTag
-            | MetaOp::RecField
             | MetaOp::RecInt
-            | MetaOp::RecString
             | MetaOp::RecRef
             | MetaOp::RecCount
-            | MetaOp::RecItemInt
-            | MetaOp::RecItemString
             | MetaOp::RecItemRef
-            | MetaOp::RecTagId
             | MetaOp::RecBuilder
             | MetaOp::RecType
             | MetaOp::RecBuiltin

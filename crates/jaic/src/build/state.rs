@@ -1,8 +1,7 @@
 //! Workspace state, the events a metaprogram receives and the registry's shared data.
 use super::option_snapshot;
 use super::settings::{BuildEnv, BuildSettings, PendingLink};
-use crate::fxhash::HashMap;
-use crate::records::{RecordTag, Records};
+use crate::records::Records;
 use crate::sema::{Compiler, ProgramSource, ProvidedImport};
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -142,18 +141,11 @@ pub struct Workspaces {
     pub(super) strings: Vec<Box<[u8]>>,
     /// Record strings handed to Jai code without copying (the record may later drop its own).
     pub(super) kept: Vec<Rc<[u8]>>,
-    /// Record tags by `__jaic_rec_tag_id`.
-    pub(super) tags: HashMap<RecordTag, usize>,
     /// Messages, syntax trees and types exported to metaprograms.
     pub(crate) records: Records,
     /// The structs each program built from the records (`__jaic_rec_builder` numbers them from 1).
     pub(super) builders: Vec<crate::record_build::Builder>,
     pub(super) data_segments: Vec<DataSegment>,
-    /// The absolute path of the program's first source file, when it comes from a file: the
-    /// top-level workspace's default output name and directory derive from it.
-    pub main_file: String,
-    /// What the command line chose for the top-level program's output and crash handler.
-    pub main_overrides: MainOverrides,
 }
 
 pub(super) struct DataSegment {
@@ -162,17 +154,6 @@ pub(super) struct DataSegment {
     pub(super) workspace: i64,
     pub(super) characteristics: u32,
     pub(super) alignment: u64,
-}
-
-/// Command-line choices the target program's `get_build_options` reports before a metaprogram
-/// changes anything (`-exe`, `-output_path`, `-no_backtrace_on_crash`).
-#[derive(Clone, Debug, Default)]
-pub struct MainOverrides {
-    /// `output_executable_name`; empty: derived from the main file.
-    pub exe: String,
-    /// `output_path`; empty: the main file's directory.
-    pub output_path: String,
-    pub no_backtrace_on_crash: bool,
 }
 
 pub type SharedWorkspaces = Rc<RefCell<Workspaces>>;

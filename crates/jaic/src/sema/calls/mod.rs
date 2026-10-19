@@ -168,9 +168,6 @@ fn inferred_flags(expr: &ast::Expr) -> bool {
     }
 }
 
-/// Name of the private intrinsic that reads the workspace's temporary-storage size.
-pub(super) const RUNTIME_TEMPORARY_STORAGE_SIZE: &str = "__jaic_runtime_temporary_storage_size";
-
 raw_enum! {
     /// The `atomic_*_order` intrinsics, whose trailing parameter is a constant memory order.
     enum OrderedAtomic by name {

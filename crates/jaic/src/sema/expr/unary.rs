@@ -372,7 +372,9 @@ impl Compiler {
         }
         self.check_handler_resolved = true;
         let result = (|| {
-            let Some(proc) = self.private_runtime_procedure("__jaic_check_failed", span)? else {
+            let Some(proc) =
+                self.private_runtime_procedure(crate::sema::private_names::CHECK_FAILED, span)?
+            else {
                 return Ok(());
             };
             let signature = self.signature(proc, span)?;

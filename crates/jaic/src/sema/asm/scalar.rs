@@ -565,7 +565,7 @@ impl Compiler {
         let lock_ptr = if lock {
             let global = *self.asm_pair_lock.get_or_insert_with(|| {
                 self.program.add_global(crate::ir::Global {
-                    name: "__jaic_asm_cmpxchg_lock".into(),
+                    name: crate::sema::private_names::ASM_CMPXCHG_LOCK.into(),
                     size: 8,
                     align: 8,
                     init: Vec::new(),

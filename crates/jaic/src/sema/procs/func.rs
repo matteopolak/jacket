@@ -102,16 +102,10 @@ impl Compiler {
         if let ProcTarget::Func(func) = target {
             self.func_procs.insert(func, id);
             if header.flags.compiler() {
-                let hook = match name.as_str() {
-                    "write_string" => Some(crate::interp::Hook::WriteString),
-                    "write_strings" => Some(crate::interp::Hook::WriteStrings),
-                    "compile_time_debug_break" => Some(crate::interp::Hook::DebugBreak),
-                    "compile_time_host_monotonic_nanoseconds" => {
-                        Some(crate::interp::Hook::HostMonotonicNanos)
-                    }
-                    other => crate::build::MetaOp::from_name(other)
-                        .map(|op| crate::interp::Hook::Meta(op, !header.flags.no_context())),
-                };
+                let hook = crate::interp::Hook::for_compiler_proc(
+                    name.as_str(),
+                    !header.flags.no_context(),
+                );
                 if let Some(hook) = hook {
                     if matches!(
                         hook,

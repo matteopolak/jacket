@@ -65,26 +65,6 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                 _ => unreachable!(),
             }
         }
-        MetaOp::RecTag => {
-            // Tags are static: hand out the text itself.
-            let tag = shared
-                .borrow()
-                .records
-                .get(arg(0) as i64)
-                .map_or("", |r| r.tag.name());
-            store_pair(interp, arg(1), tag.len() as u64, tag.as_ptr() as u64)?;
-            Ok(Rets::default())
-        }
-        MetaOp::RecTagId => {
-            // A small number per distinct tag, so Jai can cache tag -> struct type in an array.
-            let mut reg = shared.borrow_mut();
-            let Some(tag) = reg.records.get(arg(0) as i64).map(|r| r.tag) else {
-                return Ok(Rets::one(u64::MAX));
-            };
-            let next = reg.tags.len();
-            let id = *reg.tags.entry(tag).or_insert(next);
-            Ok(Rets::one(id as u64))
-        }
         MetaOp::RecBuilder => {
             let mut reg = shared.borrow_mut();
             reg.builders.push(crate::record_build::Builder::default());
@@ -133,9 +113,6 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                 builder(&mut reg, arg(0))?.record_of(arg(1)) as u64
             ))
         }
-        MetaOp::RecField => Ok(Rets::one(field_name(interp, arg(1), |name| {
-            shared.borrow().records.kind(arg(0) as i64, name) as u64
-        }))),
         MetaOp::RecCount => {
             let reg = shared.borrow();
             Ok(Rets::one(field_name(interp, arg(1), |name| {
@@ -145,9 +122,8 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                 }
             })))
         }
-        MetaOp::RecInt | MetaOp::RecRef | MetaOp::RecItemInt | MetaOp::RecItemRef => {
-            let index =
-                matches!(op, MetaOp::RecItemInt | MetaOp::RecItemRef).then(|| arg(2) as usize);
+        MetaOp::RecInt | MetaOp::RecRef | MetaOp::RecItemRef => {
+            let index = (op == MetaOp::RecItemRef).then(|| arg(2) as usize);
             let reg = shared.borrow();
             Ok(Rets::one(field_name(interp, arg(1), |name| {
                 match reg.records.item(arg(0) as i64, name, index) {
@@ -155,23 +131,6 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                     _ => 0,
                 }
             })))
-        }
-        MetaOp::RecString | MetaOp::RecItemString => {
-            let (index, out) = if op == MetaOp::RecItemString {
-                (Some(arg(2) as usize), 3)
-            } else {
-                (None, 2)
-            };
-            let mut reg = shared.borrow_mut();
-            let found = field_name(interp, arg(1), |name| {
-                match reg.records.item(arg(0) as i64, name, index) {
-                    Some(Item::Str(s)) => Some(s),
-                    _ => None,
-                }
-            });
-            let (count, data) = found.map_or((0, 0), |s| reg.keep_rc(&s));
-            store_pair(interp, arg(out), count, data)?;
-            Ok(Rets::default())
         }
         _ => unreachable!("not a records primitive"),
     }
