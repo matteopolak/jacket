@@ -17,9 +17,9 @@ warning[constant_condition]: this condition is always `true`
    = note: `constant_condition` is `warn` by default
 
 warning[constant_condition]: this condition is always `false`
-  --> tests/lint/constant_condition/bad.jai:25:8
+  --> tests/lint/constant_condition/bad.jai:26:8
    |
-25 |     if count < 3 print("never\n");
+26 |     if count < 3 print("never\n");
    |        ^^^^^^^^^
    |
    = help: the code it guards never runs: the values its operands can take here decide it; remove the test or fix the logic around it
