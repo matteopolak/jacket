@@ -26,26 +26,36 @@ main :: () {
 
             assert((packed >> 32) == 0x12345678);
 
-            assert(post_message(win, message, packed, 0x8000ffff) != 0);
-            I.update_window_events();
+            // A genuine mouse move (Windows sends one when a window appears under the cursor) is
+            // queued as input, so it is handled after the posted wheel in the same pump and sets
+            // the held keys from its own bits. Post again until a frame keeps the wheel's keys.
+            keys_held := false;
 
-            // The window shares the desktop with the machine's real input, so a frame may also hold
-            // focus changes or a genuine wheel notch. Pick out the posted message by its content
-            // and check the frame's accumulated wheel total against the vertical wheel events.
-            ours := 0;
-            vertical_total := 0;
+            for 1..8 {
+                assert(post_message(win, message, packed, 0x8000ffff) != 0);
+                I.update_window_events();
 
-            for event: I.events_this_frame {
-                if event.type != .MOUSE_WHEEL || event.window != win continue;
-                if event.key_code == .MOUSE_WHEEL_UP || event.key_code == .MOUSE_WHEEL_DOWN vertical_total += event.wheel_delta;
-                if event.wheel_delta == delta && event.typical_wheel_delta == 120 && event.shift_pressed && event.ctrl_pressed ours += 1;
+                // The window shares the desktop with the machine's real input, so a frame may also hold
+                // focus changes or a genuine wheel notch. Pick out the posted message by its content
+                // and check the frame's accumulated wheel total against the vertical wheel events.
+                ours := 0;
+                vertical_total := 0;
+
+                for event: I.events_this_frame {
+                    if event.type != .MOUSE_WHEEL || event.window != win continue;
+                    if event.key_code == .MOUSE_WHEEL_UP || event.key_code == .MOUSE_WHEEL_DOWN vertical_total += event.wheel_delta;
+                    if event.wheel_delta == delta && event.typical_wheel_delta == 120 && event.shift_pressed && event.ctrl_pressed ours += 1;
+                }
+
+                assert(ours == 1);
+                assert(I.mouse_delta_z == vertical_total);
+
+                keys_held = (I.input_button_states[cast(int) I.Key_Code.SHIFT] & .DOWN) != .NONE
+                    && (I.input_button_states[cast(int) I.Key_Code.CTRL] & .DOWN) != .NONE;
+                if keys_held break;
             }
 
-            assert(ours == 1);
-
-            assert(I.mouse_delta_z == vertical_total);
-            assert((I.input_button_states[cast(int) I.Key_Code.SHIFT] & .DOWN) != .NONE);
-            assert((I.input_button_states[cast(int) I.Key_Code.CTRL] & .DOWN) != .NONE);
+            assert(keys_held);
         }
     }
 
