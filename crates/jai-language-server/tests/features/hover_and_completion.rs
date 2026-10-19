@@ -455,3 +455,15 @@ main :: () {
         Some(at_nth(text, "outer: 0", 0, 0))
     );
 }
+
+#[test]
+fn hover_of_a_pointer_constant_leaves_out_its_address() {
+    let text = "#import \"Basic\";\nraw :: () -> *void { return alloc(32); }\nnothing :: () -> *void { return null; }\nBLOCK :: #run raw();\nNONE :: #run nothing();\nmain :: () { b := BLOCK; n := NONE; }\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    assert_eq!(hover(&s, at_nth(text, "BLOCK ::", 0, 1)), "BLOCK :: *void");
+    assert_eq!(
+        hover(&s, at_nth(text, "NONE ::", 0, 1)),
+        "NONE :: *void = null"
+    );
+}

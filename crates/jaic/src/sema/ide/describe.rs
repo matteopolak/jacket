@@ -132,6 +132,19 @@ impl Compiler {
                 .map(|&p| self.ide_proc_header(self.proc(p).name, p))
                 .collect::<Vec<_>>()
                 .join("\n"),
+            // A pointer constant holds an address from compile-time execution, different in every
+            // session and meaningless to the reader: only `null` is shown.
+            Some(Resolved::Const {
+                ty,
+                value,
+            }) if self.types.is_pointer(ty) && matches!(value, value::Value::Int(_)) => {
+                let null = if matches!(value, value::Value::Int(0)) {
+                    " = null"
+                } else {
+                    ""
+                };
+                format!("{name} :: {}{null}", self.types.name(ty))
+            }
             Some(Resolved::Const {
                 ty,
                 value,
