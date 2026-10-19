@@ -82,17 +82,22 @@ impl Compiler {
         let E::Ident(name) = &expr.kind else {
             return Ok(None);
         };
-        Ok(match self.lookup(scope, *name)?.as_slice() {
+        let found = match self.lookup(scope, *name)?.as_slice() {
             [id] => match self.entity(*id).kind {
                 EntityKind::Local {
                     ty,
                     depth,
                     ..
-                } if depth != self.scope(scope).proc_depth => Some(ty),
+                } if depth != self.scope(scope).proc_depth => Some((*id, ty)),
                 _ => None,
             },
             _ => None,
-        })
+        };
+        if let Some((id, ty)) = found {
+            // The name is a use of the local, as it is when `type_of` checks it as an expression.
+            self.ide_note_entity_use(expr.span, id, ty);
+        }
+        Ok(found.map(|(_, ty)| ty))
     }
 
     /// Evaluate a type expression inside a body.
