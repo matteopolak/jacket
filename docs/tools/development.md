@@ -26,7 +26,7 @@ To add a recipe: give it a doc comment (it becomes the `--list` text) and a `[gr
 
 ## Pre-commit hook
 
-`.githooks/pre-commit` (POSIX `sh`) checks staged files so failures show before CI. Enable with `just hooks`; skip once with `git commit --no-verify`. It exports the staged contents (`git checkout-index`) into a temp directory, so a partly staged file is checked as staged and nothing in the working tree is touched.
+`.githooks/pre-commit` (POSIX `sh`) checks staged files so failures show before CI. Enable with `just hooks`; skip once with `git commit --no-verify`. It exports the staged contents (`git checkout-index`) into a temp directory, so a partly staged file is checked as staged and nothing in the working tree is touched. The hook refuses to run (exit 1, with the fix) when it is not the current worktree's own `.githooks/pre-commit`, which happens when `core.hooksPath` is an absolute path into another checkout; set it back with `git config core.hooksPath .githooks`.
 
 | Staged files | Check |
 | --- | --- |
