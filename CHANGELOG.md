@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.20.0] - 2026-10-18
+## [0.20.0] - 2026-10-19
 
 Adds `jacket`, one front door and one config file for the toolchain, along with editor completion and dead-code features and a faster `jaic`. Checking a 60k-line program is about 1.5x faster than in 0.19.1, and building it about 1.4x faster.
 

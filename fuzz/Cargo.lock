@@ -73,7 +73,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jacket-config"
-version = "0.19.1"
+version = "0.20.0"
 dependencies = [
  "serde",
  "toml",
@@ -100,7 +100,7 @@ dependencies = [
 
 [[package]]
 name = "jai-language-server"
-version = "0.19.1"
+version = "0.20.0"
 dependencies = [
  "jacket-config",
  "jaic",
@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "jai-wasm"
-version = "0.19.1"
+version = "0.20.0"
 dependencies = [
  "jai-language-server",
  "jaic",
@@ -119,11 +119,11 @@ dependencies = [
 
 [[package]]
 name = "jaic"
-version = "0.19.1"
+version = "0.20.0"
 
 [[package]]
 name = "jailint"
-version = "0.19.1"
+version = "0.20.0"
 dependencies = [
  "jacket-config",
  "jaic",
