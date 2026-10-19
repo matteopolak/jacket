@@ -7,7 +7,7 @@
 //! its `Gate` (the thread scheduler), from whichever thread C calls it on. Thunks come in one family per return
 //! shape, each with `SLOTS` entries assigned to procedures on first use.
 //! Windows x64 passes arguments by position instead, which needs its own thunks (`win64.rs`).
-use super::{FF, FFF, FFFF, FI, IF, II, STACK_SLOTS, X86_64, read_bytes, write_bytes};
+use super::{FF, FFF, FFFF, FI, IF, II, X86_64, read_bytes, write_bytes};
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::interp::Trap;
 use crate::interp::word_or_zero;
@@ -132,9 +132,8 @@ const INT: usize = 0;
 
 const FLOAT: usize = 1;
 
-/// `AArch64` `sret`: the caller's result address arrives in `x8`, which no prototype parameter
-/// sees. These thunks are assembly stubs that park `x8` in a stack word and call a regular
-/// thunk (`a64_sret_inner`), which finds it there.
+/// `AArch64` `sret`: the caller's result address arrives in `x8`, which the entry stubs pass on
+/// to every thunk and only this family uses.
 const A64_SRET: usize = 8;
 
 const SHAPES: usize = 9;
@@ -314,6 +313,18 @@ impl Ret for FFF {
     }
 }
 
+/// The `AArch64` `sret` family's result: the caller's buffer, already written through `x8`.
+#[repr(transparent)]
+struct Sret(u64);
+
+impl Ret for Sret {
+    const SHAPE: usize = A64_SRET;
+
+    fn from_words(_: &[u64]) -> Self {
+        Sret(0)
+    }
+}
+
 impl Ret for FFFF {
     const SHAPE: usize = 7;
 
@@ -322,80 +333,82 @@ impl Ret for FFFF {
     }
 }
 
-/// Thunk `K` of the family returning `R`. Stack parameters a caller did not pass read its
-/// own frame and are ignored.
+/// Thunk `K` of the family returning `R`, entered from its stub (`entry`). `args` is where the
+/// caller's stack arguments start: only the slots the procedure's signature uses are read, since
+/// a caller near the top of its thread's stack has nothing mapped past them. `x8` is the
+/// `AArch64` result address (the `sret` family's), which no prototype parameter sees.
+#[cfg(target_arch = "aarch64")]
 #[rustfmt::skip]
 extern "C" fn thunk<R: Ret, const K: usize>(
     i0: u64, i1: u64, i2: u64, i3: u64, i4: u64, i5: u64, i6: u64, i7: u64,
     f0: f64, f1: f64, f2: f64, f3: f64, f4: f64, f5: f64, f6: f64, f7: f64,
-    s0: u64, s1: u64, s2: u64, s3: u64, s4: u64, s5: u64, s6: u64, s7: u64,
-    s8: u64, s9: u64, s10: u64, s11: u64, s12: u64, s13: u64, s14: u64, s15: u64,
+    args: *const u64, x8: u64,
 ) -> R {
     let ints = [i0, i1, i2, i3, i4, i5, i6, i7];
     let floats = [f0, f1, f2, f3, f4, f5, f6, f7].map(f64::to_bits);
-    let stack = [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15];
-    R::from_words(&dispatch(R::SHAPE, K, ints, floats, stack))
+    R::from_words(&dispatch(R::SHAPE, K, ints, floats, args, x8))
 }
 
+/// As the `AArch64` `thunk`, with System V's six integer argument registers.
+#[cfg(target_arch = "x86_64")]
 #[rustfmt::skip]
-type Thunk<R> = extern "C" fn(
-    u64, u64, u64, u64, u64, u64, u64, u64,
-    f64, f64, f64, f64, f64, f64, f64, f64,
-    u64, u64, u64, u64, u64, u64, u64, u64,
-    u64, u64, u64, u64, u64, u64, u64, u64,
-) -> R;
-
-macro_rules! family {
-    ($r:ty; $($k:literal)*) => {
-        [$(thunk::<$r, $k> as Thunk<$r> as usize),*]
-    };
-}
-
-/// The regular thunk an `AArch64` `sret` stub calls: `dispatch` reads `x8` from the stub's frame.
-#[cfg(target_arch = "aarch64")]
-#[rustfmt::skip]
-extern "C" fn a64_sret_inner<const K: usize>(
-    i0: u64, i1: u64, i2: u64, i3: u64, i4: u64, i5: u64, i6: u64, i7: u64,
+extern "C" fn thunk<R: Ret, const K: usize>(
+    i0: u64, i1: u64, i2: u64, i3: u64, i4: u64, i5: u64,
     f0: f64, f1: f64, f2: f64, f3: f64, f4: f64, f5: f64, f6: f64, f7: f64,
-    s0: u64, s1: u64, s2: u64, s3: u64, s4: u64, s5: u64, s6: u64, s7: u64,
-    s8: u64, s9: u64, s10: u64, s11: u64, s12: u64, s13: u64, s14: u64, s15: u64,
-) -> u64 {
-    let ints = [i0, i1, i2, i3, i4, i5, i6, i7];
+    args: *const u64, x8: u64,
+) -> R {
+    let ints = [i0, i1, i2, i3, i4, i5, 0, 0];
     let floats = [f0, f1, f2, f3, f4, f5, f6, f7].map(f64::to_bits);
-    let stack = [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15];
-    dispatch(A64_SRET, K, ints, floats, stack);
-    0
+    R::from_words(&dispatch(R::SHAPE, K, ints, floats, args, x8))
 }
 
-/// The C-callable entry of `AArch64` `sret` slot `K`: saves `x8` (and the frame record) in a
-/// 32-byte frame, then calls `a64_sret_inner` with the arguments untouched.
+/// The C-callable entry of thunk `K` returning `R`: passes the address of the caller's stack
+/// arguments, and `x8`, as the thunk's two stack parameters and leaves the argument and result
+/// registers untouched.
 #[cfg(target_arch = "aarch64")]
 #[unsafe(naked)]
-extern "C" fn a64_sret_stub<const K: usize>() {
+extern "C" fn entry<R: Ret, const K: usize>() {
     std::arch::naked_asm!(
-        "stp x29, x30, [sp, #-32]!",
-        "str x8, [sp, #16]",
-        "mov x29, sp",
-        "bl {inner}",
-        "ldp x29, x30, [sp], #32",
+        "sub sp, sp, #32",
+        "stp x29, x30, [sp, #16]",
+        "add x29, sp, #16",
+        "add x9, sp, #32",
+        "stp x9, x8, [sp]",
+        "bl {thunk}",
+        "ldp x29, x30, [sp, #16]",
+        "add sp, sp, #32",
         "ret",
-        inner = sym a64_sret_inner::<K>,
+        thunk = sym thunk::<R, K>,
     )
 }
 
-#[cfg(target_arch = "aarch64")]
-macro_rules! stubs {
-    ($($k:literal)*) => {
-        [$(a64_sret_stub::<$k> as *const () as usize),*]
+/// As the `AArch64` `entry`: the stack arguments start above the return address.
+#[cfg(target_arch = "x86_64")]
+#[unsafe(naked)]
+extern "C" fn entry<R: Ret, const K: usize>() {
+    std::arch::naked_asm!(
+        "push rbp",
+        "mov rbp, rsp",
+        "lea r11, [rbp + 16]",
+        "sub rsp, 16",
+        "mov [rsp], r11",
+        "mov qword ptr [rsp + 8], 0",
+        "call {thunk}",
+        "leave",
+        "ret",
+        thunk = sym thunk::<R, K>,
+    )
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+macro_rules! family {
+    ($r:ty; $($k:literal)*) => {
+        [$(entry::<$r, $k> as *const () as usize),*]
     };
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn thunk_addr(shape: usize, k: usize) -> usize {
-    #[cfg(target_arch = "aarch64")]
-    if shape == A64_SRET {
-        let family: [usize; SLOTS] = stubs!(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63);
-        return family[k];
-    }
     let family: [usize; SLOTS] = match shape {
         INT => {
             family!(u64; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63)
@@ -418,11 +431,20 @@ fn thunk_addr(shape: usize, k: usize) -> usize {
         6 => {
             family!(FFF; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63)
         }
-        _ => {
+        7 => {
             family!(FFFF; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63)
+        }
+        _ => {
+            family!(Sret; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63)
         }
     };
     family[k]
+}
+
+/// `callback_addr` makes no thunks on other CPUs.
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn thunk_addr(_: usize, _: usize) -> usize {
+    unreachable!("callback thunks on an unknown CPU")
 }
 
 /// Abandon the process: an error inside a callback cannot unwind through C frames.
@@ -436,19 +458,10 @@ fn dispatch(
     k: usize,
     ints: [u64; 8],
     floats: [u64; 8],
-    stack: [u64; STACK_SLOTS],
+    args: *const u64,
+    x8: u64,
 ) -> Vec<u64> {
-    // The assembly stub of an AArch64 `sret` thunk pushed four words (frame record, `x8`, padding)
-    // ahead of the caller's stack arguments.
-    let (x8, stack) = if shape == A64_SRET {
-        let mut shifted = [0u64; STACK_SLOTS];
-        for (i, w) in shifted.iter_mut().enumerate() {
-            *w = word_or_zero(&stack, i + 4);
-        }
-        (Some(stack[2]), shifted)
-    } else {
-        (None, stack)
-    };
+    let x8 = (shape == A64_SRET).then_some(x8);
     let (gate, program, func, sig, sret) = {
         let table = TABLE
             .lock()
@@ -466,7 +479,7 @@ fn dispatch(
         )
     };
     enter(&*gate, program, |reenter| {
-        invoke(reenter, func, &sig, sret, x8, ints, floats, stack)
+        invoke(reenter, func, &sig, sret, x8, ints, floats, args)
     })
 }
 
@@ -474,7 +487,8 @@ fn dispatch(
 struct Incoming {
     ints: Vec<u64>,
     floats: [u64; 8],
-    stack: Vec<u64>,
+    /// The caller's stack arguments, read only as far as the signature goes.
+    stack: *const u64,
     ni: usize,
     nf: usize,
     ns: usize,
@@ -483,8 +497,14 @@ struct Incoming {
 }
 
 impl Incoming {
+    fn slot(&self, i: usize) -> u64 {
+        // SAFETY: the caller passed every stack argument the signature has, and this reads no
+        // further.
+        unsafe { self.stack.add(i).read() }
+    }
+
     fn stack(&mut self) -> u64 {
-        let v = word_or_zero(&self.stack, self.ns);
+        let v = self.slot(self.ns);
         self.ns += 1;
         self.tail = 0;
         v
@@ -500,7 +520,7 @@ impl Incoming {
             return v & mask;
         }
         self.tail = at + size;
-        let slot = word_or_zero(&self.stack, self.ns - 1);
+        let slot = self.slot(self.ns - 1);
         (slot >> (at * 8)) & mask
     }
 
@@ -559,14 +579,13 @@ fn invoke(
     x8: Option<u64>,
     ints: [u64; 8],
     floats: [u64; 8],
-    stack: [u64; STACK_SLOTS],
+    stack: *const u64,
 ) -> Result<Vec<u64>, Trap> {
     // `callback_addr` makes thunks only on CPUs it knows.
     let arch = Arch::host().expect("a thunk on an unknown CPU");
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
-    // x86-64 has six integer argument registers (the hidden result pointer takes the first);
-    // the prototype's remaining integer parameters are the first stack slots.
+    // x86-64 has six integer argument registers (the hidden result pointer takes the first).
     let int_regs = if X86_64 {
         6
     } else {
@@ -576,7 +595,7 @@ fn invoke(
     let mut incoming = Incoming {
         ints: ints[first..int_regs].to_vec(),
         floats,
-        stack: ints[int_regs..].iter().chain(&stack).copied().collect(),
+        stack,
         ni: 0,
         nf: 0,
         ns: 0,

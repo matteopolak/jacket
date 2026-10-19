@@ -394,6 +394,62 @@ fn c_thread_callbacks_block_on_jai_threads() {
     );
 }
 
+/// A `#c_call` procedure called from the top of a stack under `jaic -interp`: its thunk reads only
+/// the stack arguments the signature has, so it does not fault on the unmapped page just above
+/// (a thread C starts calls its callback from about there). Unix only: the C side switches
+/// stacks with `ucontext`.
+#[cfg(unix)]
+#[test]
+fn c_callbacks_from_the_top_of_a_stack() {
+    let fixture = repo_root().join("tests/compiler/native/c-callback-threads");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-callback-stack-top");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in ["stack_top.c", "stack_top.jai"] {
+        std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
+    }
+    let library = if cfg!(target_os = "macos") {
+        "libstack_top.dylib"
+    } else {
+        "libstack_top.so"
+    };
+    let mut cc = Command::new("cc");
+    cc.args([
+        "-shared",
+        "-fPIC",
+        "-Wno-deprecated-declarations",
+        "-o",
+        library,
+        "stack_top.c",
+    ])
+    .current_dir(&dir);
+    if cfg!(target_os = "macos") {
+        cc.arg("-Wl,-install_name,@rpath/libstack_top.dylib");
+    }
+    let output = cc
+        .output()
+        .expect("native callback regressions require a C compiler");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = jaic()
+        .args(["-interp", "stack_top.jai"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "jaic -interp stack_top.jai exited with {}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "from the stack top: 42\n"
+    );
+}
+
 /// The interpreter's crash report on Windows (its vectored exception handler; see
 /// `crash_in_native_code_names_the_foreign_call` in diagnostics.rs for Unix). It is here because
 /// this suite is the one that runs on native Windows hosts. A crash on a thread C started is
