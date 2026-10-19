@@ -90,6 +90,12 @@ class Gen:
         self.unions = []        # (name, bits): plain unions punning an integer, a float and bytes
         self.tagged = {}        # tagged union name -> (tag enum, [(tag member, field, type)])
         self.in_using = False
+        # Extension features draw from their own stream, so a seed without them keeps its program.
+        self.x = random.Random(seed * 7919 + 1)
+        self.boxes = []         # (struct, make, get, sum, baked alias or None): polymorphic struct and procedures
+        self.modifiers = []     # (procedure, result type or "positive"): `#modify` procedures
+        self.bakes = []         # (baked procedure, parameter types left)
+        self.tally = False      # the counting allocator and `#add_context` field exist
 
     # ---- helpers -------------------------------------------------------------------------------
     def fresh(self, prefix):
@@ -333,12 +339,20 @@ class Gen:
             return f"f_to_{t}_{src}({e}, {lo_g}, {hi_g})"
         return f"(cast,no_check({t}) f_to_s64_{src}({e}, -1000000000, 1000000000))"
 
+    LITERAL = re.compile(r"cast\(float(?:32|64)\) \(?-?[0-9.e+-]+\)?")
+
+    def opaque_literal(self, t, e):
+        """A bare literal as an operand goes through a procedure, so the compiler cannot fold two
+        literals (it refuses a fold that overflows, underflows or divides by zero, which an IEEE
+        operation at run time does not)."""
+        return f"opaque_{t}({e})" if self.LITERAL.fullmatch(e) else e
+
     def float_expr(self, t, d):
         k = self.r.randint(0, 9)
         a = lambda: self.expr(t, d)
         if k <= 3:
             op = self.pick(["+", "-", "*", "/", "+", "*"])
-            return f"({a()} {op} {a()})"
+            return f"({self.opaque_literal(t, a())} {op} {self.opaque_literal(t, a())})"
         if k == 4:
             return f"(-{a()})"
         if k == 5:
@@ -599,6 +613,8 @@ class Gen:
             return self.any_stmt(indent)
         if k == 22 and not self.in_pure:
             return self.type_info_stmt(indent)
+        if not self.in_pure and self.x.random() < 0.25:
+            return self.extension_stmt(indent)
         return self.assign(indent)
 
     def using_stmt(self, indent):
@@ -1037,6 +1053,131 @@ class Gen:
         self.out.append("")
         self.procs.append(Proc(name, [], t, True, varargs=t))
 
+    # ---- extensions: polymorphism, #modify, #bake_arguments, context and allocators -----------------
+    def gen_box(self):
+        """A polymorphic struct with polymorphic procedures over it; sometimes a baked instance."""
+        name, make, get, add = (self.fresh(p) for p in ("Box", "make_box_", "box_get_", "box_sum_"))
+        o = self.out
+        o.append(f"{name} :: struct (T: Type) {{ v: T; n: s64; }}")
+        o.append(f"{make} :: (v: $T, n: s64) -> {name}(T) {{ b: {name}(T); b.v = v; b.n = n; return b; }}")
+        o.append(f"{get} :: (b: {name}($T)) -> T {{ return b.v; }}")
+        o.append(f"{add} :: (b: {name}($T)) -> T {{ return b.v + cast,trunc(T) b.n; }}")
+        baked = None
+        if self.x.random() < 0.6:
+            baked = (self.fresh("Box_"), self.pick(INTS))
+            o.append(f"{baked[0]} :: #bake_arguments {name}(T = {baked[1]});")
+        o.append("")
+        self.boxes.append((name, make, get, add, baked))
+
+    def gen_modify(self):
+        """`#modify` procedures: one binds the result type, one rejects non-positive constants."""
+        widen = self.fresh("widen_")
+        res = self.pick(list(INTS) + ["float64"])
+        conv = "cast" if res == "float64" else "cast,trunc"
+        self.out.append(f"{widen} :: (x: $T) -> $R #modify {{ R = {res}; }} {{ return {conv}(R) x; }}")
+        pos = self.fresh("positive_")
+        self.out.append(f"{pos} :: ($n: s64) -> s64 #modify {{ return n > 0, \"n must be positive\"; }} {{ return n * {self.r.randint(2, 9)} + 1; }}")
+        self.out.append("")
+        self.modifiers.append((widen, res))
+        self.modifiers.append((pos, "positive"))
+
+    def gen_bake(self):
+        """A procedure with some arguments baked: the result takes the rest in order."""
+        base, one, two = (self.fresh(p) for p in ("tri_", "baked_", "baked_"))
+        k1, k2 = self.r.randint(2, 40), self.r.randint(2, 40)
+        self.out.append(f"{base} :: (a: s64, b: s64, c: s64) -> s64 {{ return (a * {k1}) ^ (b + c * {k2}); }}")
+        self.out.append(f"{one} :: #bake_arguments {base}(b = {self.r.randint(-50, 50)}, c = {self.r.randint(-50, 50)});")
+        self.out.append(f"{two} :: #bake_arguments {base}(a = {self.r.randint(-50, 50)});")
+        self.out.append("")
+        self.bakes.append((one, 1))
+        self.bakes.append((two, 2))
+
+    def gen_tally(self):
+        """A context field and an allocator that counts what it hands out and forwards the rest."""
+        o = self.out
+        o.append(f"#add_context gen_depth: s64 = {self.r.randint(1, 9)};")
+        o.append("Tally :: struct { under: Allocator; calls: s64; bytes: s64; }")
+        o.append("tally_alloc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {")
+        o.append("    t := cast(*Tally) data;")
+        o.append("    if mode == .ALLOCATE || mode == .RESIZE { t.calls += 1; t.bytes += size; }")
+        o.append("    return t.under.proc(mode, size, old_size, old_memory, t.under.data);")
+        o.append("}")
+        o.append("depth_probe :: () -> s64 { return context.gen_depth * 3 + 1; }")
+        o.append("")
+        self.tally = True
+
+    def extension_stmt(self, indent):
+        kinds = []
+        if self.boxes:
+            kinds.append(self.box_stmt)
+        if self.modifiers:
+            kinds.append(self.modify_stmt)
+        if self.bakes:
+            kinds.append(self.bake_stmt)
+        if self.tally:
+            kinds.append(self.context_stmt)
+        if kinds:
+            self.x.choice(kinds)(indent)
+
+    def box_stmt(self, indent):
+        name, make, get, add, baked = self.x.choice(self.boxes)
+        t = self.pick(INTS)
+        b = self.fresh("bx")
+        self.emit("{", indent)
+        if baked and self.x.random() < 0.5:
+            t = baked[1]
+            self.emit(f"{b}: {baked[0]};", indent + 1)
+            self.emit(f"{b}.v = {self.expr(t, 1)};", indent + 1)
+            self.emit(f"{b}.n = {self.expr('s64', 1)};", indent + 1)
+        else:
+            self.emit(f"{b} := {make}({self.expr(t, 1)}, {self.expr('s64', 1)});", indent + 1)
+        self.emit(f"mix(cast,no_check(u64) {get}({b}));", indent + 1)
+        self.emit(f"mix(cast,no_check(u64) {add}({b}));", indent + 1)
+        self.emit(f"mix(cast,no_check(u64) {b}.n);", indent + 1)
+        self.emit("}", indent)
+
+    def modify_stmt(self, indent):
+        proc, res = self.x.choice(self.modifiers)
+        if res == "positive":
+            self.emit(f"mix(cast,no_check(u64) {proc}({self.x.randint(1, 30)}));", indent)
+            return
+        value = f"{proc}({self.expr(self.pick(INTS), 1)})"
+        if res == "float64":
+            self.emit(f"mix_float({value});", indent)
+        else:
+            self.emit(f"mix(cast,no_check(u64) {value});", indent)
+
+    def bake_stmt(self, indent):
+        proc, rest = self.x.choice(self.bakes)
+        args = ", ".join(self.expr("s64", 1) for _ in range(rest))
+        self.emit(f"mix(cast,no_check(u64) {proc}({args}));", indent)
+
+    def context_stmt(self, indent):
+        t = self.pick(INTS)
+        arr, c = self.fresh("tally_arr"), self.fresh("ctx")
+        tally = self.fresh("tally")
+        self.emit("{", indent)
+        self.emit(f"{tally}: Tally;", indent + 1)
+        self.emit(f"{tally}.under = context.allocator;", indent + 1)
+        self.emit(f"{c} := context;", indent + 1)
+        self.emit(f"{c}.allocator = .{{tally_alloc, *{tally}}};", indent + 1)
+        self.emit(f"{c}.gen_depth += {self.x.randint(1, 5)};", indent + 1)
+        self.emit(f"push_context {c} {{", indent + 1)
+        self.emit(f"{arr}: [..] {t};", indent + 2)
+        self.emit(f"for 0..{self.x.randint(1, 40)} {{", indent + 2)
+        self.emit(f"if it == {self.x.randint(0, 5)} continue;", indent + 3)
+        self.emit(f"if it > {self.x.randint(20, 60)} break;", indent + 3)
+        self.emit(f"array_add(*{arr}, {self.expr(t, 2)});", indent + 3)
+        self.emit("}", indent + 2)
+        self.emit(f"for {arr} mix(cast,no_check(u64) it);", indent + 2)
+        self.emit("mix(cast(u64) depth_probe());", indent + 2)
+        self.emit(f"array_free({arr});", indent + 2)
+        self.emit("}", indent + 1)
+        self.emit("mix(cast(u64) depth_probe());", indent + 1)
+        self.emit(f"mix(cast(u64) {tally}.calls);", indent + 1)
+        self.emit(f"mix(cast(u64) {tally}.bytes);", indent + 1)
+        self.emit("}", indent)
+
     def gen_union(self):
         """A plain union: an integer, a float and bytes of one width sharing offset 0 (unions.md)."""
         name = self.fresh("U")
@@ -1120,6 +1261,7 @@ class Gen:
                 # NaN fails both comparisons and takes the fallback.
                 o.append(f"f_to_{t}_{f} :: (v: {f}, lo: float64, hi: float64) -> {t} {{ if cast(float64) v >= lo && cast(float64) v <= hi return cast({t}) v; return {self.r.randint(0, 100)}; }}")
         for f in FLOATS:
+            o.append(f"opaque_{f} :: (v: {f}) -> {f} {{ return v; }}")
             o.append(f"clamp_f_{f} :: (v: {f}) -> {f} {{ if v != v return 0.5; if v > 1e6 return 1e6; if v < -1e6 return -1e6; return v; }}")
         o.append("")
 
@@ -1144,6 +1286,10 @@ class Gen:
             self.gen_varargs()
         for _ in range(self.r.randint(0, 2)):
             self.gen_overloads()
+        # Chosen from a separate stream, after everything above.
+        for gen, p in ((self.gen_box, 0.4), (self.gen_modify, 0.35), (self.gen_bake, 0.35), (self.gen_tally, 0.4)):
+            if self.x.random() < p:
+                gen()
         self.scopes = [[]]
         for _ in range(self.r.randint(1, 3)):
             ty = self.pick(SCALARS + list(INTS))
