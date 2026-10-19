@@ -46,8 +46,11 @@ jobs:
       # LLVM-built executables) are not Rust code under test.
       - name: Test the compiler, interpreter and language server
         run: |
-          cargo test -Zbuild-std --target x86_64-unknown-linux-gnu --locked -j 2 \
-            -p jaic -p jai-language-server -p jailint -p jacket-config -- --test-threads 2
+          # The skipped test stores through a wild guest address on purpose: AddressSanitizer's shadow
+          # check of that store faults before the interpreter's own guard can see it.
+          cargo test --no-fail-fast -Zbuild-std --target x86_64-unknown-linux-gnu --locked -j 2 \
+            -p jaic -p jai-language-server -p jailint -p jacket-config -- --test-threads 2 \
+            --skip invalid_pointer_access_still_traps
   miri:
     name: miri
     runs-on: ubuntu-24.04
