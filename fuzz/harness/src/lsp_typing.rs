@@ -65,9 +65,7 @@ pub fn lsp_typing(data: &[u8]) {
             diff_every: 4,
             probes: 4,
             full_probes: 12,
-            // A session runs until its budget is spent, so this is the time of every execution:
-            // the corpus passes (fork mode's first, `cargo fuzz cmin`) cost it per file.
-            budget: Duration::from_secs(2),
+            budget: Duration::from_secs(15),
             hang: None,
             outside: false,
             max_failures: 1,
