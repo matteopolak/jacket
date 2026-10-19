@@ -76,10 +76,22 @@ pub(crate) struct Meaning {
 }
 
 impl Meaning {
-    /// Compile `source` and run `main` in the sandbox. A program is only compiled when running
-    /// it proves nothing: it asks for memory by name (the sandbox has no memory cap, and
-    /// `talloc(1 << 30)` in a loop is the program's doing), or it reads its own line numbers.
-    pub(crate) fn of(source: &[u8]) -> Meaning {
+    /// The meanings of a program and its rewritten self, judged the same way: when either text
+    /// asks for memory by name or reads its own line numbers, neither is run. A rewrite may
+    /// drop such a word (an unused `line_number` variable), and comparing a compiled-only
+    /// meaning with a run one would call that a change.
+    pub(crate) fn pair(before: &[u8], after: &[u8]) -> (Meaning, Meaning) {
+        let compile_only = Self::unstable(before) || Self::unstable(after);
+        (
+            Self::judge(before, compile_only),
+            Self::judge(after, compile_only),
+        )
+    }
+
+    /// Whether running `source` proves nothing: it asks for memory by name (the sandbox has no
+    /// memory cap, and `talloc(1 << 30)` in a loop is the program's doing), or it reads its own
+    /// line numbers.
+    fn unstable(source: &[u8]) -> bool {
         const UNSTABLE: [&str; 8] = [
             "alloc",
             "reserve",
@@ -90,10 +102,13 @@ impl Meaning {
             "location",
             "Location",
         ];
-        let hungry = UNSTABLE
+        UNSTABLE
             .iter()
-            .any(|w| source.windows(w.len()).any(|window| window == w.as_bytes()));
-        let compile_only = hungry;
+            .any(|w| source.windows(w.len()).any(|window| window == w.as_bytes()))
+    }
+
+    /// Compile `source` and, unless `compile_only`, run `main` in the sandbox.
+    fn judge(source: &[u8], compile_only: bool) -> Meaning {
         let result = compile(source, compile_only);
         let mut errors: Vec<String> = result
             .diagnostics

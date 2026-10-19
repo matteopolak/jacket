@@ -1,0 +1,9 @@
+#import "Basic";
+
+main :: () {
+    line_number := 0;
+    for "ab" {
+        print("% %\n", line_number, it);
+        line_number += 1;
+    }
+}

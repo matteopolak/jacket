@@ -72,10 +72,7 @@ pub fn jailint_fix(data: &[u8]) {
         jaic::parser::parse_file(jaic::source::FileId(0), &fixed).is_ok(),
         "the fixed text does not parse:\n{fixed}"
     );
-    let (before, after) = (
-        crate::Meaning::of(data),
-        crate::Meaning::of(fixed.as_bytes()),
-    );
+    let (before, after) = crate::Meaning::pair(data, fixed.as_bytes());
     if before.errors_empty() {
         assert!(
             before == after,

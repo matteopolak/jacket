@@ -137,10 +137,7 @@ pub fn jaifmt(data: &[u8]) {
         panic!("the formatted text parses differently (config {config:?})");
     }
     if before.is_some() {
-        let (old, new) = (
-            crate::Meaning::of(data),
-            crate::Meaning::of(formatted.as_bytes()),
-        );
+        let (old, new) = crate::Meaning::pair(data, formatted.as_bytes());
         if old != new {
             if verbose {
                 eprintln!("--- input meaning ---\n{old:?}\n--- formatted meaning ---\n{new:?}");
