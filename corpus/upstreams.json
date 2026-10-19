@@ -12524,6 +12524,1260 @@
       ]
     },
     {
+      "repository": "ahmedqarmout2/raylib-jai",
+      "revision": "643e36043b36bb90f3fba77fe8730e538c79a710",
+      "latest_jai_change": "2026-10-19T10:33:34-04:00",
+      "source_of_truth": "https://github.com/ahmedqarmout2/raylib-jai/tree/643e36043b36bb90f3fba77fe8730e538c79a710",
+      "selection": "recent-source",
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1070,
+          "sha256": "0a7270457c5da9e87564f5a83ec7041a2276de1ed510565468a0642cd1e6b3ba"
+        },
+        {
+          "path": "README.md",
+          "bytes": 3483,
+          "sha256": "bcfeb275b916067e8ee1b4d5d135582dc47e0a75095fd51dc113756a64437532"
+        },
+        {
+          "path": "examples/audio/audio_amp_envelope.jai",
+          "bytes": 7167,
+          "sha256": "3d5df18ea40ac0e8d6378b531835460ce155b7f438d17a198da50fa4e1c46b3d"
+        },
+        {
+          "path": "examples/audio/audio_mixed_processor.jai",
+          "bytes": 4343,
+          "sha256": "4153e796a9ffef17398be162ba1cd740516f896f567bfcb0663c55941d6b51d2"
+        },
+        {
+          "path": "examples/audio/audio_module_playing.jai",
+          "bytes": 5765,
+          "sha256": "678eb83efa6573f86caafd29a625a3a4348537177041c9af867c46af3086a8a0"
+        },
+        {
+          "path": "examples/audio/audio_music_stream.jai",
+          "bytes": 4830,
+          "sha256": "f90db5b993e4047ab9502558bb4d90c356bf92645f88cbd1b190dc733b3fb750"
+        },
+        {
+          "path": "examples/audio/audio_raw_stream.jai",
+          "bytes": 4724,
+          "sha256": "7332ba5e17612165fa001512fa09d2a21d145a3d896177859e55811ef3b9f4be"
+        },
+        {
+          "path": "examples/audio/audio_sound_loading.jai",
+          "bytes": 2370,
+          "sha256": "31ee716f1a8c3a6238cc4f70de95040ce5d08fdd0703e06534f4f43414af95ad"
+        },
+        {
+          "path": "examples/audio/audio_sound_multi.jai",
+          "bytes": 2997,
+          "sha256": "8c9bef5a18d7cc51a776e650fef1773e15aa46c92d348690017ddfa562058da6"
+        },
+        {
+          "path": "examples/audio/audio_sound_positioning.jai",
+          "bytes": 3900,
+          "sha256": "7f12ee601de7dde5f9aa21727c38c86badde93062fc2bf73eee1069d918caea0"
+        },
+        {
+          "path": "examples/audio/audio_spectrum_visualizer.jai",
+          "bytes": 10599,
+          "sha256": "b3a0f1eae3bf6c947397bd2341bd6eefed01f9e8973baf2a7122ded6d3d869b4"
+        },
+        {
+          "path": "examples/audio/audio_stream_callback.jai",
+          "bytes": 8278,
+          "sha256": "46750c0f3b3e3c2af71703aba2a50613d4267d274ee0be57a621cedeb7b7e319"
+        },
+        {
+          "path": "examples/audio/audio_stream_effects.jai",
+          "bytes": 6534,
+          "sha256": "294ca0539e497937cb57f3db0bf2f9a2fcbff2e53cbc94abd87cda90b0ab67d3"
+        },
+        {
+          "path": "examples/audio/resources/LICENSE.md",
+          "bytes": 1571,
+          "sha256": "400995075fdf5c103118bdeddb5488bb18626692b6ac5bd80516670defa03cac"
+        },
+        {
+          "path": "examples/core/core_2d_camera.jai",
+          "bytes": 4882,
+          "sha256": "587f019f3bc9e7fa66db71d26cfd7175672b133d158795de13a37e8b363fd4cd"
+        },
+        {
+          "path": "examples/core/core_2d_camera_mouse_zoom.jai",
+          "bytes": 5557,
+          "sha256": "93a5d0c565b4a4015df0cc1a9794bf6e446383033630b60b36276888d8a2f7c1"
+        },
+        {
+          "path": "examples/core/core_2d_camera_platformer.jai",
+          "bytes": 9687,
+          "sha256": "0785a66f958dfa3457687b53b72008c503643aaf8e88eb455632e8e07d1d40ff"
+        },
+        {
+          "path": "examples/core/core_2d_camera_split_screen.jai",
+          "bytes": 6303,
+          "sha256": "08de102909daab48a56333574a9153266b0058c43d1f48def1812e4755751c50"
+        },
+        {
+          "path": "examples/core/core_3d_camera_first_person.jai",
+          "bytes": 9375,
+          "sha256": "067ae95e255b28d12866de3f52f5178fa6cd6f98f4c35b479b2a58e0f82c955d"
+        },
+        {
+          "path": "examples/core/core_3d_camera_fps.jai",
+          "bytes": 10867,
+          "sha256": "d49f03c64e5a6159626a0a11778281012237127b8055102a3a85d6d10ea7561b"
+        },
+        {
+          "path": "examples/core/core_3d_camera_free.jai",
+          "bytes": 3064,
+          "sha256": "d3eb833c6951e566502c7500e1bd1c5b6cc3ee643ad98a89a377e6133db4e370"
+        },
+        {
+          "path": "examples/core/core_3d_camera_mode.jai",
+          "bytes": 2549,
+          "sha256": "a3f853c27e9ecfca3cd1c19ec81567177dc30ebd4a0068e0c388f83f6ad5d09e"
+        },
+        {
+          "path": "examples/core/core_3d_camera_split_screen.jai",
+          "bytes": 6662,
+          "sha256": "a5df88637b2269063c768b2625b61ae9f5bf9fc4ba0d9241487afbd6d3eec6ab"
+        },
+        {
+          "path": "examples/core/core_3d_picking.jai",
+          "bytes": 4424,
+          "sha256": "4e79d707ad4aa89f44f21486c2293982b69f6c84690945bcf2b135add5dcae18"
+        },
+        {
+          "path": "examples/core/core_automation_events.jai",
+          "bytes": 13428,
+          "sha256": "e32a96d874eb6415be6af499d2e6ff2023af94cf3aecbd711ed8c26f001357b0"
+        },
+        {
+          "path": "examples/core/core_basic_screen_manager.jai",
+          "bytes": 4247,
+          "sha256": "392ef81e488352f1ff57f050ffe2693093234b31645eb3f067da88e0cac45621"
+        },
+        {
+          "path": "examples/core/core_basic_window.jai",
+          "bytes": 1738,
+          "sha256": "ecd4a3e907d74bbf79bc8a959b02e1b74ea9c81716a3b1483d2dc1e34b4a5702"
+        },
+        {
+          "path": "examples/core/core_clipboard_text.jai",
+          "bytes": 5781,
+          "sha256": "eaccc7da34b4c3aadd253587275ba21d027cba52838a8f320ca5af0f9aae5492"
+        },
+        {
+          "path": "examples/core/core_compute_hash.jai",
+          "bytes": 5827,
+          "sha256": "2b92905d99e4e1b9c695f86692aeb3120e984c83727b3efa1c568ab023ea2706"
+        },
+        {
+          "path": "examples/core/core_delta_time.jai",
+          "bytes": 4060,
+          "sha256": "0798a3b440f2f8ca075aba7395552594dad629f96b564f9f5d8bdf226e6b8e60"
+        },
+        {
+          "path": "examples/core/core_directory_files.jai",
+          "bytes": 3849,
+          "sha256": "2acebf07b55639acbfa0d6d7f43e1f6da724b74a30b615dfe91b21895314ad3c"
+        },
+        {
+          "path": "examples/core/core_drop_files.jai",
+          "bytes": 3447,
+          "sha256": "23a082ae6d5becb779a6e7b17a20562c6bd78cc4045c7bfbd282e297dbc2b0a2"
+        },
+        {
+          "path": "examples/core/core_highdpi_demo.jai",
+          "bytes": 5257,
+          "sha256": "c3b72a8e9e368e936bb5126048edece81d86ad5663d51dfb0056968aeab2bd69"
+        },
+        {
+          "path": "examples/core/core_highdpi_testbed.jai",
+          "bytes": 4170,
+          "sha256": "32a727a09900c570238f65fc7a505128cbedda56788842b682ab627e564ccd91"
+        },
+        {
+          "path": "examples/core/core_input_actions.jai",
+          "bytes": 6754,
+          "sha256": "e8f0780143687faaebbdabb0175c00264c34674b36c9a1361b8ef99b16839ed2"
+        },
+        {
+          "path": "examples/core/core_input_gamepad.jai",
+          "bytes": 19732,
+          "sha256": "5bc01a16ad3b76e6d192ec41ecf14a337e5133ad4761edb1bb7acefa9ad15835"
+        },
+        {
+          "path": "examples/core/core_input_gestures.jai",
+          "bytes": 4825,
+          "sha256": "36332caf33b25ad35eec55c30d30452f8735b312760d15dda74300eeff333f71"
+        },
+        {
+          "path": "examples/core/core_input_gestures_testbed.jai",
+          "bytes": 16769,
+          "sha256": "8a653c41097ecbfb9c32f242ba6416531d185b138ac22571c9af07a1b65af5a6"
+        },
+        {
+          "path": "examples/core/core_input_keys.jai",
+          "bytes": 2080,
+          "sha256": "94b0f17ab1bfeaa087a472ca4217ff35079ca0e75bd22ac2a75fd66cbd0133e1"
+        },
+        {
+          "path": "examples/core/core_input_mouse.jai",
+          "bytes": 2878,
+          "sha256": "a8e624cabea6d196dfd54aa101613c4c8686287b8bcf95674bf675e27bc963fb"
+        },
+        {
+          "path": "examples/core/core_input_mouse_wheel.jai",
+          "bytes": 2061,
+          "sha256": "479d5e74571a9f93dbe4a543146ebf3ac3983c95b0612fdad86b604c298ff87e"
+        },
+        {
+          "path": "examples/core/core_input_multitouch.jai",
+          "bytes": 2728,
+          "sha256": "b9e8b2a117485960483bf1632881a6b751e8928865122be1845f4168b806e346"
+        },
+        {
+          "path": "examples/core/core_input_virtual_controls.jai",
+          "bytes": 5504,
+          "sha256": "dac9ef325e3426a152c7fba8584be7b5eb8fbeee8a14741bc6a84bfa9bd1d83d"
+        },
+        {
+          "path": "examples/core/core_keyboard_testbed.jai",
+          "bytes": 16126,
+          "sha256": "91a50e9a00db71a0ebc7d9e7c5ac221c65948c5f1908b1797e107cb3fbcc5b90"
+        },
+        {
+          "path": "examples/core/core_monitor_detector.jai",
+          "bytes": 5986,
+          "sha256": "061425df1b1c03351d68c75e649f88b8c1e960bae7c50ec6afd9fbfbeefb7208"
+        },
+        {
+          "path": "examples/core/core_random_sequence.jai",
+          "bytes": 5272,
+          "sha256": "110d71388afebede1443496151f2a9bc13af494ec1480ce7e5f548c0c1401d00"
+        },
+        {
+          "path": "examples/core/core_random_values.jai",
+          "bytes": 2324,
+          "sha256": "b95cb03d8b4468f0d7732993c1b585a914634041b5eef5748b44ed768bb221a2"
+        },
+        {
+          "path": "examples/core/core_render_texture.jai",
+          "bytes": 3438,
+          "sha256": "4c95042eec0cb5015341a9e1a04e5e13f4a25cdafc700b6fae32d611cdd60c5f"
+        },
+        {
+          "path": "examples/core/core_scissor_test.jai",
+          "bytes": 2587,
+          "sha256": "4a0e416f4c4e470a1b8265067fa5c7862bb73a615c710252f70d992ecd387e0f"
+        },
+        {
+          "path": "examples/core/core_smooth_pixelperfect.jai",
+          "bytes": 5567,
+          "sha256": "0b06e5bfe75ba328ae2259ec666fe500978905c21d8e119385e7efa2767c1ba4"
+        },
+        {
+          "path": "examples/core/core_storage_values.jai",
+          "bytes": 4275,
+          "sha256": "a7dc24201700aa17504cf0191b212799681b4b5e2990ea04b68cc5882801db99"
+        },
+        {
+          "path": "examples/core/core_text_file_loading.jai",
+          "bytes": 6161,
+          "sha256": "ff6412dec4a45133624d468aef090b04cbcb12621154aae66c6041ca1ac48c1f"
+        },
+        {
+          "path": "examples/core/core_undo_redo.jai",
+          "bytes": 13216,
+          "sha256": "3d80cf45916a88f646ceefa105ac32bf893cd5cf72f88802dc281debd3684986"
+        },
+        {
+          "path": "examples/core/core_viewport_scaling.jai",
+          "bytes": 14210,
+          "sha256": "877e83d1565ee7f040ed5db2ebcbe0693bc52abc0a57b03d65c3b4360c09f97c"
+        },
+        {
+          "path": "examples/core/core_vr_simulator.jai",
+          "bytes": 6939,
+          "sha256": "13af7f47d2cd1ac182ac09bf20bb9717cb0beb4e5f8242315b8d0d6bd9efdd86"
+        },
+        {
+          "path": "examples/core/core_window_flags.jai",
+          "bytes": 8531,
+          "sha256": "751597115e772f284eac798235975ebe650321698131a910d1a921625d135796"
+        },
+        {
+          "path": "examples/core/core_window_letterbox.jai",
+          "bytes": 4720,
+          "sha256": "88dad9b1e745d3d865ff44c544bff0ca819b700f893c6b0c77d74fa1fc8ebad3"
+        },
+        {
+          "path": "examples/core/core_window_should_close.jai",
+          "bytes": 2610,
+          "sha256": "e49358ec8b3f524f160b07dcfd8f281e86d1063180d76e16e9fbacb5247e4d78"
+        },
+        {
+          "path": "examples/core/core_world_screen.jai",
+          "bytes": 3223,
+          "sha256": "779a366fc344d9e1a7907e4275bac95a9c8fd59879e6109893139c0e02a4c004"
+        },
+        {
+          "path": "examples/core/resources/LICENSE.md",
+          "bytes": 350,
+          "sha256": "781ae71be98d9a35ce20b1e374f50be809ca33c679729b8d00edd68dd5027d06"
+        },
+        {
+          "path": "examples/games/cat_vs_roomba/README.md",
+          "bytes": 809,
+          "sha256": "2f6fdbcd4154c8e42ef546db1be76ed324928a9a8b908ed655304764e5a43d1c"
+        },
+        {
+          "path": "examples/games/cat_vs_roomba/src/cat_vs_roomba.jai",
+          "bytes": 8266,
+          "sha256": "9c94e5193dc9f9c9a7b03878428ba9a685bfb79d7fef71e3aab590f2e7949423"
+        },
+        {
+          "path": "examples/games/cat_vs_roomba/src/screen_ending.jai",
+          "bytes": 3239,
+          "sha256": "450ab17760f296ab3ad3888971ac9c4b7eb9909ec7f8f0aa79786dc81a9a41c3"
+        },
+        {
+          "path": "examples/games/cat_vs_roomba/src/screen_gameplay.jai",
+          "bytes": 25921,
+          "sha256": "4f52ea81d0ea973c6e38723e2502025e25c7dbf4dc26f49838f97ee7ea8263b7"
+        },
+        {
+          "path": "examples/games/cat_vs_roomba/src/screen_logo.jai",
+          "bytes": 5867,
+          "sha256": "d82c6c73140c6928c5d4e0b94989a24c5ea7af634235bb5e5a14506456bf4c3a"
+        },
+        {
+          "path": "examples/games/cat_vs_roomba/src/screen_title.jai",
+          "bytes": 4724,
+          "sha256": "39e2ddd15d7d988b74330ad2c2b35cc11aeec790b1470158888fc5d368048a93"
+        },
+        {
+          "path": "examples/games/classics/README.md",
+          "bytes": 621,
+          "sha256": "780a4d1c74d412ed5bf2a3b4850a286f0d259b65083acc1558c3a1fdada98da4"
+        },
+        {
+          "path": "examples/games/classics/src/arkanoid.c",
+          "bytes": 11856,
+          "sha256": "8b759b7a344cb0c0c768d456741fb9bfeec54f52c0615f0a65ddd5d7a843a218"
+        },
+        {
+          "path": "examples/games/classics/src/asteroids.c",
+          "bytes": 23284,
+          "sha256": "b27e39cbad11be1182bf9dca261ff2bf05b2c8e8de91b5f62fffa3e520844872"
+        },
+        {
+          "path": "examples/games/classics/src/asteroids_survival.c",
+          "bytes": 14124,
+          "sha256": "36d27771843d2ad3624c8bcf28b8e493fa4f93f690cb6711b4aedf34f082993f"
+        },
+        {
+          "path": "examples/games/classics/src/floppy.c",
+          "bytes": 7469,
+          "sha256": "6c67454aa7b0e7d4586e1e3eb9d3950ba8c2c3ff18db77f8a3a258c251ce6691"
+        },
+        {
+          "path": "examples/games/classics/src/gold_fever.c",
+          "bytes": 9711,
+          "sha256": "e8f3e45482fdaae5f0e19e8b135276feaaa87bae256b36f84c3812a4e94d9de8"
+        },
+        {
+          "path": "examples/games/classics/src/gorilas.c",
+          "bytes": 22317,
+          "sha256": "ec866becef5757519b102cc4abd7d1e632c59fa6d28c38d45ebd65c377ae2d46"
+        },
+        {
+          "path": "examples/games/classics/src/missile_commander.c",
+          "bytes": 20086,
+          "sha256": "52604888c9063b9fe3963ba23ac219b6fd1271f1fae9865a9088296fdacab727"
+        },
+        {
+          "path": "examples/games/classics/src/pang.c",
+          "bytes": 23965,
+          "sha256": "2fccc977fcf330a731c6682b83345263d95c0ac15db84feb4d08a19ef4e9ace9"
+        },
+        {
+          "path": "examples/games/classics/src/platformer.c",
+          "bytes": 20248,
+          "sha256": "214e5cb62980da0b62eadd5c194db669719608aa2d1afa4b52601dba47c2de3f"
+        },
+        {
+          "path": "examples/games/classics/src/snake.jai",
+          "bytes": 9203,
+          "sha256": "6ed66ee69af33b79a5bb92cfc38ce7bd7f619ca4beff31f9cfb4dcc079a218d3"
+        },
+        {
+          "path": "examples/games/classics/src/space_invaders.jai",
+          "bytes": 11960,
+          "sha256": "3db7ebb2a0edfc478a2fe856abde1668251f8fdc5e232dd0c8ae67bb27e02b0c"
+        },
+        {
+          "path": "examples/games/classics/src/tetris.c",
+          "bytes": 27222,
+          "sha256": "5cf18fa64914dd1250317e4d79ac9c3ccf98fd24653aaa0d3ae4d71bd109f9f6"
+        },
+        {
+          "path": "examples/models/models_animation_blend_custom.jai",
+          "bytes": 14496,
+          "sha256": "4c268cad0b96685d23dcbda8f10a58a978e56634271a146042a15ea7dc680726"
+        },
+        {
+          "path": "examples/models/models_animation_blending.jai",
+          "bytes": 13988,
+          "sha256": "d2d9039ffab2beaaad087379feadc0e916b18f06ab38faf27b1324ee18b37e90"
+        },
+        {
+          "path": "examples/models/models_animation_gpu_skinning.jai",
+          "bytes": 4703,
+          "sha256": "9a6b031e1edd7c9dcc1a61d7fa79da34f7a09e07a773110fad9678e019318342"
+        },
+        {
+          "path": "examples/models/models_animation_timing.jai",
+          "bytes": 5197,
+          "sha256": "c9e33012ab7a16aa932714b50f21758114c25d49eb1803e4fe36ee49303d7688"
+        },
+        {
+          "path": "examples/models/models_basic_voxel.jai",
+          "bytes": 6065,
+          "sha256": "d85c25338e0f196c131d4a6b42d84ff2abe0ad15499d4b205cf5bdf152778700"
+        },
+        {
+          "path": "examples/models/models_billboard_rendering.jai",
+          "bytes": 4317,
+          "sha256": "bdfb39e3ee779383821f6e072d16804bb1d68d5f6b4ba6a0b044042f64bde340"
+        },
+        {
+          "path": "examples/models/models_bone_socket.jai",
+          "bytes": 7763,
+          "sha256": "82c66f3eaa885c9e315b39e7ababae0a4b0ec5a1fc1cb62d734a18928839fa93"
+        },
+        {
+          "path": "examples/models/models_box_collisions.jai",
+          "bytes": 4883,
+          "sha256": "f498792ecada203311fe91206cfd0ec53fa4de717f5aaab9ac6216a2fdd7de45"
+        },
+        {
+          "path": "examples/models/models_cubicmap_rendering.jai",
+          "bytes": 3850,
+          "sha256": "e4b2118b0f5ac1773ae7fbb5765b4ddc8fb266b0d5dce95c0d12b47bd728827b"
+        },
+        {
+          "path": "examples/models/models_decals.jai",
+          "bytes": 22515,
+          "sha256": "17031bb195323adf49c5929f01cb59632657e1d10bc545ed085981b415ded4b8"
+        },
+        {
+          "path": "examples/models/models_directional_billboard.jai",
+          "bytes": 3680,
+          "sha256": "8d5a4f8b84a97ccfaea379e91077e7048ef39a55342a54db29f99a12282c4a85"
+        },
+        {
+          "path": "examples/models/models_first_person_maze.jai",
+          "bytes": 5522,
+          "sha256": "6dd83cf44ab27e91f5ab7a8e6d1981e81816d7a840786da752515b51925e7021"
+        },
+        {
+          "path": "examples/models/models_geometric_shapes.jai",
+          "bytes": 3156,
+          "sha256": "e41fbc326166b0e26f361950e87b4c01e2b5931b92c40b186687dc940e6ed870"
+        },
+        {
+          "path": "examples/models/models_heightmap_rendering.jai",
+          "bytes": 3407,
+          "sha256": "0bc3724e268d469ae7d2d8a4c93025745314bb8c532f8977fcfb01eb6d844511"
+        },
+        {
+          "path": "examples/models/models_loading.jai",
+          "bytes": 5733,
+          "sha256": "79e84d2042e0efdab039ee47d9ea2ef39c4c20786e78a61e672b2c55b7270fe0"
+        },
+        {
+          "path": "examples/models/models_loading_gltf.jai",
+          "bytes": 3591,
+          "sha256": "d8e2f3a7ae2dc41f5623e04e8e8050cb766ca530ca90ede4c3f404c7b5b5c4cc"
+        },
+        {
+          "path": "examples/models/models_loading_iqm.jai",
+          "bytes": 4787,
+          "sha256": "98ba65fd5e28f21036b767ab0803c3417d51617272074fcbfc1c24624f8528fe"
+        },
+        {
+          "path": "examples/models/models_loading_m3d.jai",
+          "bytes": 4828,
+          "sha256": "83a82769518651c2b208cb3ad8ae2056bc3d62b6e9274903240e31dd182c2ea1"
+        },
+        {
+          "path": "examples/models/models_loading_vox.jai",
+          "bytes": 7706,
+          "sha256": "646fec7ef7e7716bb03f8bfc6a7b19a3cdfc884e740e8094b9364eb584982813"
+        },
+        {
+          "path": "examples/models/models_mesh_generation.jai",
+          "bytes": 6257,
+          "sha256": "5e1f87313f0ab82ebebe28e9f1f1c2a76b2cf00f08d330f752a2147a9e9d6dd1"
+        },
+        {
+          "path": "examples/models/models_mesh_picking.jai",
+          "bytes": 9373,
+          "sha256": "9f9e2ca306c3ede890224e655aeaf53d95aa388bbff39b7f334452e2ae6f49a8"
+        },
+        {
+          "path": "examples/models/models_mesh_uv_painting.jai",
+          "bytes": 12857,
+          "sha256": "5ea1da9402045fb0318d922435d9bb91b7a84a49c44ab4027038af36f4e3fb8b"
+        },
+        {
+          "path": "examples/models/models_orthographic_projection.jai",
+          "bytes": 3589,
+          "sha256": "cc06a47c1d4248a67c2cd18ee7a05490c83517ade6f2f569bdfbea9ee729b2dd"
+        },
+        {
+          "path": "examples/models/models_point_rendering.jai",
+          "bytes": 6741,
+          "sha256": "32bdb1e09abac9767cefaf6f4fc72a677254a5ea7b9712d48af8963cdfaea087"
+        },
+        {
+          "path": "examples/models/models_procedural_decals.jai",
+          "bytes": 18610,
+          "sha256": "3e97dc70d5bbd52c7897e5c61cd4e8c1b6a461216e123490a26592f44dc47eb5"
+        },
+        {
+          "path": "examples/models/models_rlgl_solar_system.jai",
+          "bytes": 7281,
+          "sha256": "00c419fa325c260a23d3c31631659a8bb324d6a3e7e30d579b8b4c6095d2ad0e"
+        },
+        {
+          "path": "examples/models/models_rotating_cube.jai",
+          "bytes": 2969,
+          "sha256": "bf1b5322b933d1457b8b847563ed4bacc884b32c4269d619aa92c6faf175aff2"
+        },
+        {
+          "path": "examples/models/models_skybox_rendering.jai",
+          "bytes": 12659,
+          "sha256": "9bfb2a002632b6f3a9c13b533933c42c3d11e9321d7dbbf6f1c57c9bb5e46295"
+        },
+        {
+          "path": "examples/models/models_tesseract_view.jai",
+          "bytes": 4462,
+          "sha256": "966b7a589a28ba0592d36bc325e1e67a88b949df86bea0a507c34ca5c364f973"
+        },
+        {
+          "path": "examples/models/models_textured_cube.jai",
+          "bytes": 12227,
+          "sha256": "2a0a0cbe2092531e062a3d3c05902149c4ec1cc711a0ed4da93692080eb1cb78"
+        },
+        {
+          "path": "examples/models/models_waving_cubes.jai",
+          "bytes": 4327,
+          "sha256": "1275c9a01d3d47948d7a774a746ad2fe295758452f2cbb2eb07527ec11d67112"
+        },
+        {
+          "path": "examples/models/models_yaw_pitch_roll.jai",
+          "bytes": 4520,
+          "sha256": "103ee8511a63188c35bf7d5733c3a4fe4adca10441e138b0d8800214f6ac6778"
+        },
+        {
+          "path": "examples/models/resources/LICENSE.md",
+          "bytes": 3124,
+          "sha256": "99b3f6082b2b2378c880df1e7cf359d7b28e08d5b418585cdf01b37328e838ed"
+        },
+        {
+          "path": "examples/models/resources/models/gltf/LICENSE",
+          "bytes": 432,
+          "sha256": "1e2ea0a4711eeda1b71d5ce5a50ba420e1c8bac0accd85e8ea3ee34b4041bef5"
+        },
+        {
+          "path": "examples/models/resources/models/vox/LICENSE",
+          "bytes": 601,
+          "sha256": "b83c9864e91597e91f91da6726323150554c539cd354a2357c56fc7d4a844157"
+        },
+        {
+          "path": "examples/models/rlights.jai",
+          "bytes": 4492,
+          "sha256": "96be609a6c5497e8fe6b0e2c724d6111396f277b8346df7defbe52c2e2a16124"
+        },
+        {
+          "path": "examples/shaders/resources/LICENSE.md",
+          "bytes": 2256,
+          "sha256": "22180a8ab0b8f2adf0068d5f03132fdc790050aa42c4df2388048ae42df60189"
+        },
+        {
+          "path": "examples/shaders/rlights.jai",
+          "bytes": 6936,
+          "sha256": "fb12016edf27a008dfecc7c25597bf10e9d3d0fa298b47de0b1ca5bf777734cf"
+        },
+        {
+          "path": "examples/shaders/shaders_ascii_rendering.jai",
+          "bytes": 4296,
+          "sha256": "0a61e1f242ac3f9a52603871edf4d300d247ec22e7c8687b1d958e85e815b858"
+        },
+        {
+          "path": "examples/shaders/shaders_basic_lighting.jai",
+          "bytes": 5356,
+          "sha256": "c9dcec6de1a9472d80c48edff1dec4664faa404fd11888435d183968d79eae83"
+        },
+        {
+          "path": "examples/shaders/shaders_basic_pbr.jai",
+          "bytes": 13059,
+          "sha256": "dfca1dc529f895a2eaf25db9250d31ff00785a0d895825aa62a66b517c575e9b"
+        },
+        {
+          "path": "examples/shaders/shaders_cel_shading.jai",
+          "bytes": 6420,
+          "sha256": "993293ac5e7fb15e9688a035fde9800b85747477121c9bb4310de5230562a215"
+        },
+        {
+          "path": "examples/shaders/shaders_color_correction.jai",
+          "bytes": 5311,
+          "sha256": "8f045d5a99dc99c854b64aa242151b0e106302afb0877caf7ed7858aa3145bb2"
+        },
+        {
+          "path": "examples/shaders/shaders_custom_uniform.jai",
+          "bytes": 5204,
+          "sha256": "71ee4a7ee5d6cf4a6b881704d8e634080b7b239c060c5ccafb604abf5ee70a38"
+        },
+        {
+          "path": "examples/shaders/shaders_deferred_rendering.jai",
+          "bytes": 15233,
+          "sha256": "1449740660329fd24cf801997e8d15cfd637638064b836ab9df4f9d86ff7534d"
+        },
+        {
+          "path": "examples/shaders/shaders_depth_rendering.jai",
+          "bytes": 6313,
+          "sha256": "8741a8dff0efcb426978fa0a1bcb7dca4870a79f6e278c1aa7d5910f5c901fed"
+        },
+        {
+          "path": "examples/shaders/shaders_depth_writing.jai",
+          "bytes": 5973,
+          "sha256": "64e492edeb4113e5b4c52763faff3a21feb164fe781b774b7f2586846562e36f"
+        },
+        {
+          "path": "examples/shaders/shaders_eratosthenes_sieve.jai",
+          "bytes": 3281,
+          "sha256": "0088cfdc823825af30ad8d35b45ac9f099e28f5ebb919450ed93f9e7ad5d3080"
+        },
+        {
+          "path": "examples/shaders/shaders_fog_rendering.jai",
+          "bytes": 5930,
+          "sha256": "70a8d7d8f1f72b6e2ebdcbc22f595da58f58ab2de2b40f4c6ee49e0dc9c681af"
+        },
+        {
+          "path": "examples/shaders/shaders_game_of_life.jai",
+          "bytes": 15708,
+          "sha256": "1990a03217ad8e8432c6d021697453c4045a4b0f44bc9b28c89c58dd09c615bd"
+        },
+        {
+          "path": "examples/shaders/shaders_hot_reloading.jai",
+          "bytes": 5068,
+          "sha256": "35edc025191da8d12a858e83a54cb46fd052759d787cb5425e3c06ab948d8b0c"
+        },
+        {
+          "path": "examples/shaders/shaders_hybrid_render.jai",
+          "bytes": 7911,
+          "sha256": "665d30fe37f5d1863bd8887c494f5a9e605c90524ef0f0bca819d1059d28ac45"
+        },
+        {
+          "path": "examples/shaders/shaders_julia_set.jai",
+          "bytes": 8618,
+          "sha256": "a6dc1a2de85f13f593b98d6dfb73ad2cc07c69e3b6a03e710e1f3cf35865b5e6"
+        },
+        {
+          "path": "examples/shaders/shaders_lightmap_rendering.jai",
+          "bytes": 5974,
+          "sha256": "02d5368a9f54031b55deeb2081a255f88a0d446b494cf907d5e7489b914d4487"
+        },
+        {
+          "path": "examples/shaders/shaders_lights_bloom.jai",
+          "bytes": 6287,
+          "sha256": "0b3f3f9baa5e505516790a19d3f0684189d8900939aaf8ca6db9d71c8c2ee734"
+        },
+        {
+          "path": "examples/shaders/shaders_mandelbrot_set.jai",
+          "bytes": 9255,
+          "sha256": "695c4ae3074c578ce5a15e16b8e26f3780f01c5e1b71f024a9fd64705668db05"
+        },
+        {
+          "path": "examples/shaders/shaders_mesh_instancing.jai",
+          "bytes": 6095,
+          "sha256": "43ccbe166a9c9dcb9b4aad4ba4f2846f9cf9a449f12a149770d9620aee5afbb2"
+        },
+        {
+          "path": "examples/shaders/shaders_model_shader.jai",
+          "bytes": 3664,
+          "sha256": "35ace20bdcdd66abc25f72bc74e0907be1f68d593b2690be12e72c50c1ce622d"
+        },
+        {
+          "path": "examples/shaders/shaders_multi_sample2d.jai",
+          "bytes": 3647,
+          "sha256": "86543007d617a91885a11ce2ac68ea1e51e185ffa0fbd202159cb84c6eb0f7c2"
+        },
+        {
+          "path": "examples/shaders/shaders_normalmap_rendering.jai",
+          "bytes": 6940,
+          "sha256": "c2c9c7b93996c3a2ad315eb4aacd6c775d0ac8e141ace61de564d92286f9c60a"
+        },
+        {
+          "path": "examples/shaders/shaders_palette_switch.jai",
+          "bytes": 4568,
+          "sha256": "efde559b7568499fb7ac493aaeef4f3e67b3ed18cf06e593e2b364229156c558"
+        },
+        {
+          "path": "examples/shaders/shaders_postprocessing.jai",
+          "bytes": 7509,
+          "sha256": "f26af075a560daaead72a17583ab7012632d8e3a20068861909394f90bac4855"
+        },
+        {
+          "path": "examples/shaders/shaders_raymarching_rendering.jai",
+          "bytes": 4547,
+          "sha256": "4fc6065a933629341cb0a529d8b01ad3b042e654d4d5ff47de91f4bd7db22fa9"
+        },
+        {
+          "path": "examples/shaders/shaders_rlgl_compute.jai",
+          "bytes": 7011,
+          "sha256": "548710979a683c75df2bffd24efd36b3e2d8197f7c08ae0fca6c39d30457c974"
+        },
+        {
+          "path": "examples/shaders/shaders_rounded_rectangle.jai",
+          "bytes": 10291,
+          "sha256": "d6b796f0887ad2d8a7540919ddcae76ef9c1f1cb366177fdec1022a563c99531"
+        },
+        {
+          "path": "examples/shaders/shaders_shadowmap_rendering.jai",
+          "bytes": 10224,
+          "sha256": "39e4938890159a23e0fad83a4fa10a81c5f85afd7f51b5e4b2b454a636ca3b63"
+        },
+        {
+          "path": "examples/shaders/shaders_shapes_textures.jai",
+          "bytes": 3991,
+          "sha256": "036468d171f734b5dee5836f6f8218c68da36f89c3b4287188bcbdd47ea18ec9"
+        },
+        {
+          "path": "examples/shaders/shaders_simple_mask.jai",
+          "bytes": 5273,
+          "sha256": "a30a0fb33cace255ca7c64f060e4b277dd6fc7c4aab68ebfd8c2d60824a18495"
+        },
+        {
+          "path": "examples/shaders/shaders_spotlight_rendering.jai",
+          "bytes": 7684,
+          "sha256": "7218cf5550b2d7b046cd337ec8e814540412284c31087e3e4a126bd4855df6e2"
+        },
+        {
+          "path": "examples/shaders/shaders_texture_outline.jai",
+          "bytes": 3274,
+          "sha256": "8d29065b9683308c0f8476ea6f1b8e59fd8b48c6c00712ff5f28b416bf476104"
+        },
+        {
+          "path": "examples/shaders/shaders_texture_rendering.jai",
+          "bytes": 2809,
+          "sha256": "06ffa1ce6d3ba304ed8b1c5ba5b56f9e60bb8134a93e627dddfe8f666d2a64ce"
+        },
+        {
+          "path": "examples/shaders/shaders_texture_tiling.jai",
+          "bytes": 3623,
+          "sha256": "f830b731988644848ab562c2065a22c3f4e99fdef8e92293e602cf04e77c7f0a"
+        },
+        {
+          "path": "examples/shaders/shaders_texture_waves.jai",
+          "bytes": 3656,
+          "sha256": "8f1bd5cefb0400a74004df239e868ef932e18634cdc8ec644458c88628321b0b"
+        },
+        {
+          "path": "examples/shaders/shaders_vertex_displacement.jai",
+          "bytes": 3537,
+          "sha256": "99ddcc6cb91ef1385b67229cc3327b20666a1fe3c1dd6b621dec0744bfea89c7"
+        },
+        {
+          "path": "examples/shapes/shapes_ball_physics.jai",
+          "bytes": 8991,
+          "sha256": "b6d0b63a393663598780128c69c78e5f001f52d0b74a712d9dcb95248bf4e64b"
+        },
+        {
+          "path": "examples/shapes/shapes_basic_shapes.jai",
+          "bytes": 3512,
+          "sha256": "a15a52a6cc1ebdfb423d4263c3e2805dacc31e70ef242c675f095fc0b33fdb49"
+        },
+        {
+          "path": "examples/shapes/shapes_bouncing_ball.jai",
+          "bytes": 2953,
+          "sha256": "b7e4ca17d4af41b0b354ff45e6430ebcb91d5f043fdd9db67ee65ec1300c143d"
+        },
+        {
+          "path": "examples/shapes/shapes_bullet_hell.jai",
+          "bytes": 10292,
+          "sha256": "ff48d272ac8929c4853fd14d7a412d7c83733bc863c2a3d743251d3d8f800aca"
+        },
+        {
+          "path": "examples/shapes/shapes_circle_sector_drawing.jai",
+          "bytes": 3082,
+          "sha256": "521809832b7ee0a8583e9c9cea869d05dab8e0edcd185259d8166f5cbb479202"
+        },
+        {
+          "path": "examples/shapes/shapes_clock_of_clocks.jai",
+          "bytes": 7952,
+          "sha256": "c2a42e3fc54ea86b73f3051f2d4a2d564c39541b85a437815012640e40d5cdc3"
+        },
+        {
+          "path": "examples/shapes/shapes_collision_area.jai",
+          "bytes": 3895,
+          "sha256": "1cc074d71572a2d8f9b8127f54b6e99227d41c2b81f5c100a92d313ef97bbdba"
+        },
+        {
+          "path": "examples/shapes/shapes_colors_palette.jai",
+          "bytes": 3929,
+          "sha256": "171338a85a14853f4caa59414c25ab255eff4b16124e1c17cb3bfc631a1a1fe1"
+        },
+        {
+          "path": "examples/shapes/shapes_dashed_line.jai",
+          "bytes": 3310,
+          "sha256": "b0c7d1b0481aa40376075bdad333b73fd849fa6360f599a153fcd3553c27ce5f"
+        },
+        {
+          "path": "examples/shapes/shapes_digital_clock.jai",
+          "bytes": 13263,
+          "sha256": "98c90729de7d98e9224d29acf83d09b9dd252730a9e352ac62b77bbd9f4cff13"
+        },
+        {
+          "path": "examples/shapes/shapes_double_pendulum.jai",
+          "bytes": 5857,
+          "sha256": "69483ffefbef9cfeeeaaa34ae82e177f844609d5726dd14e88b9b05111348d7c"
+        },
+        {
+          "path": "examples/shapes/shapes_drag_puzzle.jai",
+          "bytes": 6476,
+          "sha256": "5fbe7472c4bfd890a3cfa4ae292d5e028b3e7ad605ece33c7f6c5359c353cee4"
+        },
+        {
+          "path": "examples/shapes/shapes_easings_ball.jai",
+          "bytes": 3610,
+          "sha256": "20827c9aa064ad8f5be72143ffb382bb018d4e8983ec1b52218fb4dd6a3ce3bb"
+        },
+        {
+          "path": "examples/shapes/shapes_easings_box.jai",
+          "bytes": 4536,
+          "sha256": "88b3bf1b18d63f6fbd965a98f54301501fd91fb095f85cba68e9193f91f35b76"
+        },
+        {
+          "path": "examples/shapes/shapes_easings_rectangles.jai",
+          "bytes": 3859,
+          "sha256": "f49285b353e5eb7baaa06ec1f52a3d3dcb3ec130f33f330c8567f09c1587eec3"
+        },
+        {
+          "path": "examples/shapes/shapes_easings_testbed.jai",
+          "bytes": 8848,
+          "sha256": "4fa3d2a210aeec0deb37dac4c5b89f81373d68105f270f255fedf49d9105138d"
+        },
+        {
+          "path": "examples/shapes/shapes_ellipse_collision.jai",
+          "bytes": 4741,
+          "sha256": "5ebf2b0e5488ed3d5dce64a680a2f4e6267b5b5bac2aca62329e42a100248e16"
+        },
+        {
+          "path": "examples/shapes/shapes_following_eyes.jai",
+          "bytes": 3900,
+          "sha256": "88896418e19c8e6c07fe83d91c8e8203e1dc93d2c0d8a6d00df0a48e4f498274"
+        },
+        {
+          "path": "examples/shapes/shapes_hilbert_curve.jai",
+          "bytes": 5791,
+          "sha256": "40533ce7df7d6a18d9de12cefd5eb32fcc16415624d70291731d0102ba8e4c15"
+        },
+        {
+          "path": "examples/shapes/shapes_kaleidoscope.jai",
+          "bytes": 5663,
+          "sha256": "ec4a61d0d455c3335a7e6289765b592d58697292e0fb0100b2504489f674566e"
+        },
+        {
+          "path": "examples/shapes/shapes_lines_bezier.jai",
+          "bytes": 3116,
+          "sha256": "c87250b234056ceef26e7cf5333c05d4a717a820fcf0e1132b4fab0e4ce04d2b"
+        },
+        {
+          "path": "examples/shapes/shapes_lines_drawing.jai",
+          "bytes": 4908,
+          "sha256": "7c7287f941318dc5ed68fcd5f706579d171d013c16c9eb454dced84c9dda11ba"
+        },
+        {
+          "path": "examples/shapes/shapes_logo_raylib.jai",
+          "bytes": 2008,
+          "sha256": "170fc94a012635eeb2ddc0797175b33e6885abf2b2c46c74e0f3752be64127a0"
+        },
+        {
+          "path": "examples/shapes/shapes_logo_raylib_anim.jai",
+          "bytes": 5724,
+          "sha256": "4275eee334cfd3f0343230eeb9c91fa8d07610615ca072bd558196b33fb000b3"
+        },
+        {
+          "path": "examples/shapes/shapes_outlines_testbed.jai",
+          "bytes": 22431,
+          "sha256": "229cf04fba8c4c9c94155a6117afada014953ea36fc8d2cef146d8cd3d34893f"
+        },
+        {
+          "path": "examples/shapes/shapes_outlines_thickness.jai",
+          "bytes": 2462,
+          "sha256": "84be931e21bdd5a5b666f4a0859cd8603c243689b78a052c44e36700c573a3ac"
+        },
+        {
+          "path": "examples/shapes/shapes_rectangle_scaling.jai",
+          "bytes": 3560,
+          "sha256": "78995d1280480dfa18d05519806b8cad8db2b02770cf3a1a88de30279b5fc75d"
+        },
+        {
+          "path": "examples/shapes/shapes_recursive_tree.jai",
+          "bytes": 4978,
+          "sha256": "9e8844db9165949a8942abbb768190f5120da3c9e759a7b51b62360ec572d6b6"
+        },
+        {
+          "path": "examples/shapes/shapes_ring_drawing.jai",
+          "bytes": 4097,
+          "sha256": "a1ff348e5406ccd84f6c49f613742edfc81486b53035281dbee9842561075124"
+        },
+        {
+          "path": "examples/shapes/shapes_rlgl_color_wheel.jai",
+          "bytes": 10464,
+          "sha256": "9d2f8c68fcb40c08dee0f47b78b231524763d1a7d26550a12766c10947020455"
+        },
+        {
+          "path": "examples/shapes/shapes_rlgl_triangle.jai",
+          "bytes": 6311,
+          "sha256": "08f751fecc20641f871ea4abbab6216dd4357a64ae08c98106a3098cb63e9f26"
+        },
+        {
+          "path": "examples/shapes/shapes_rounded_rectangle_drawing.jai",
+          "bytes": 3786,
+          "sha256": "434866ed2e2addf254930bb5d4d226d17704fdba12d365bb73177018175f6b43"
+        },
+        {
+          "path": "examples/shapes/shapes_simple_particles.jai",
+          "bytes": 10534,
+          "sha256": "163d316bdbb90c9bc3fa3b21d8ddc07a4ebad21956220e7ada88f85ff377bcd6"
+        },
+        {
+          "path": "examples/shapes/shapes_splines_drawing.jai",
+          "bytes": 11903,
+          "sha256": "cc2d91d716deed166a9284f053be6fce9036f5d4e7020730f45183038df7751a"
+        },
+        {
+          "path": "examples/shapes/shapes_starfield_effect.jai",
+          "bytes": 5040,
+          "sha256": "ec2c167c8587d67b6574a8791420cde58e81c1b5b60516307b3b0522ed6e6202"
+        },
+        {
+          "path": "examples/shapes/shapes_top_down_lights.jai",
+          "bytes": 12819,
+          "sha256": "13d9fadf0aef82c91fc61464589225f6a37a2d24eace33451fc83829d4001b75"
+        },
+        {
+          "path": "examples/shapes/shapes_triangle_strip.jai",
+          "bytes": 3823,
+          "sha256": "8bf9c50037b7d8f36b3043faa99c4171a390209c3342ee7f48b145015965456f"
+        },
+        {
+          "path": "examples/shapes/shapes_vector_angle.jai",
+          "bytes": 4517,
+          "sha256": "bde08967dc593da6927f785db81f18e825be852bb82ab686b8ec24ae7fdbe699"
+        },
+        {
+          "path": "examples/text/resources/LICENSE.md",
+          "bytes": 4180,
+          "sha256": "c312093b1d9a681ad102258e15df4028c240f8cfb27268d7068256598ec7246a"
+        },
+        {
+          "path": "examples/text/text_3d_drawing.jai",
+          "bytes": 29068,
+          "sha256": "c0a734677a8cc2ccedefa2aeae4074ca7ea2eabf4d49ed9e69284b6788646306"
+        },
+        {
+          "path": "examples/text/text_codepoints_loading.jai",
+          "bytes": 5796,
+          "sha256": "7cdd206cc00c10f96cc1c1e4f1deb6e360303122c9b7cbb1b9731a4f5fdeb9c2"
+        },
+        {
+          "path": "examples/text/text_font_filters.jai",
+          "bytes": 5180,
+          "sha256": "649d7aa3f70507ebd99550e618c58b58fc0cff7c72c76f73865a3d5f2c0db3c1"
+        },
+        {
+          "path": "examples/text/text_font_loading.jai",
+          "bytes": 3528,
+          "sha256": "62a4bce9729f68686c082ec735b98323789df469f2c3430f7f989da87841e384"
+        },
+        {
+          "path": "examples/text/text_font_sdf.jai",
+          "bytes": 5676,
+          "sha256": "2747fcb5734567504febe7479abf3fccf6647e5e41179e00753b70176e320791"
+        },
+        {
+          "path": "examples/text/text_font_spritefont.jai",
+          "bytes": 3391,
+          "sha256": "99401b89ae3e495d3ae80aa969bb0dde24c244c250f5c429cbcf0c350bdf32a4"
+        },
+        {
+          "path": "examples/text/text_format_text.jai",
+          "bytes": 2141,
+          "sha256": "10a77f853e9e94845a6b7b17666b0679c7335809f3061e849d8796661637c401"
+        },
+        {
+          "path": "examples/text/text_input_box.jai",
+          "bytes": 4720,
+          "sha256": "95dce84e84b7d4b3bef88bf5fbc0f732b9c77f5cd699eff471386aad32be985d"
+        },
+        {
+          "path": "examples/text/text_rectangle_bounds.jai",
+          "bytes": 11529,
+          "sha256": "7bde3fc64474cea69d5795ee96862a1718eac79541ae82fa653834dc0be50d17"
+        },
+        {
+          "path": "examples/text/text_sprite_fonts.jai",
+          "bytes": 3898,
+          "sha256": "eb3c61e156ac3fc33f890a0c96eed5998ae4db70c12bc54d85f712827736f82b"
+        },
+        {
+          "path": "examples/text/text_unicode_emojis.jai",
+          "bytes": 29789,
+          "sha256": "f34d37f22201188812979678c5e4ce4bb5abb329d03e9317b37598086aaa3074"
+        },
+        {
+          "path": "examples/text/text_writing_anim.jai",
+          "bytes": 2228,
+          "sha256": "c5a0b0da3b2830bbdb5014dc3d531c02ec601e875f1587c364f0feaa3e1ee528"
+        },
+        {
+          "path": "examples/textures/resources/LICENSE.md",
+          "bytes": 2885,
+          "sha256": "43f7076995b8b68eb1412ad4761f9bc9be3a1ad14f3963636bcf9a46d6f5aa5d"
+        },
+        {
+          "path": "examples/textures/textures_background_scrolling.jai",
+          "bytes": 3827,
+          "sha256": "e99bd976111ff9c1dca0bbd2e1f9d80509221814575b703ac661140039b00c4c"
+        },
+        {
+          "path": "examples/textures/textures_blend_modes.jai",
+          "bytes": 4045,
+          "sha256": "88b5c5f9eb6cca6f6ee1a9133f98ed09bc8b691ebca3c5093ca4cb8b0f87b3dd"
+        },
+        {
+          "path": "examples/textures/textures_bunnymark.jai",
+          "bytes": 5075,
+          "sha256": "0539c8f0609bfca95f2149f8f9e3bf4c2cdbae589db3c729a5796871bc29a110"
+        },
+        {
+          "path": "examples/textures/textures_fog_of_war.jai",
+          "bytes": 7138,
+          "sha256": "23c35edbf625a1064f04fd27979b793f1eb5fea316b6a54cd80b24d92cc68db9"
+        },
+        {
+          "path": "examples/textures/textures_gif_player.jai",
+          "bytes": 4911,
+          "sha256": "9aaf038ceeef85f1b18b10905505af8acfb52d91171c8f23a0d9f42b79e4b171"
+        },
+        {
+          "path": "examples/textures/textures_image_channel.jai",
+          "bytes": 4193,
+          "sha256": "3251f520e6154ec42d7138890053f312a34004af9524fc4c324102c6d6fca862"
+        },
+        {
+          "path": "examples/textures/textures_image_drawing.jai",
+          "bytes": 4055,
+          "sha256": "a83ac8356faeff5f993946695b1cbab9a083accf3298f281fd903f631cc40996"
+        },
+        {
+          "path": "examples/textures/textures_image_generation.jai",
+          "bytes": 4802,
+          "sha256": "b96472046c9da163926ea679bb859be9d8f6a3528ace02b84c40eb472df5b0be"
+        },
+        {
+          "path": "examples/textures/textures_image_kernel.jai",
+          "bytes": 4038,
+          "sha256": "2bfc78114e0d8dd1fa30a026e517f73fb503a17f3a53e0c0242fab311897feb6"
+        },
+        {
+          "path": "examples/textures/textures_image_loading.jai",
+          "bytes": 2380,
+          "sha256": "a8330c5fce384db2098a18155452c71179ba408c243b2aef3d0fac1f3d812812"
+        },
+        {
+          "path": "examples/textures/textures_image_processing.jai",
+          "bytes": 6402,
+          "sha256": "e45961c4780120b62aad91b7cce5e74f0303c9a89c7c5d8320b17e0a16a9bc39"
+        },
+        {
+          "path": "examples/textures/textures_image_rotate.jai",
+          "bytes": 2754,
+          "sha256": "79b1b4a1b414d3cb231d65b9847025b86f577763281adadee7f5efb54818a7e6"
+        },
+        {
+          "path": "examples/textures/textures_image_text.jai",
+          "bytes": 3177,
+          "sha256": "eaaa6fa353788a04dc95ec63dc9b99b6c6294b8ea8d2a8743de6a8aa2393a242"
+        },
+        {
+          "path": "examples/textures/textures_logo_raylib.jai",
+          "bytes": 2131,
+          "sha256": "c4187b4f9452517896e1aa9aef6d34296a731552abf92c7023631f84e210ba01"
+        },
+        {
+          "path": "examples/textures/textures_mouse_painting.jai",
+          "bytes": 8571,
+          "sha256": "5900a353cc54f29aec141a211ea6fed08e6874ad7993f6f0365575f64803c085"
+        },
+        {
+          "path": "examples/textures/textures_npatch_drawing.jai",
+          "bytes": 4597,
+          "sha256": "d7ef59be2d006b0c8215d31851fc5563380c429857a4d11505594fd9db4293c7"
+        },
+        {
+          "path": "examples/textures/textures_particles_blending.jai",
+          "bytes": 4995,
+          "sha256": "b8c2842176398993ff98badb679524ca5f58cd309da74c39189fb314952c44f8"
+        },
+        {
+          "path": "examples/textures/textures_polygon_drawing.jai",
+          "bytes": 4421,
+          "sha256": "9b3db0b45c2f6aaf3434c6a49a19bafa4e7ca1bee02a02c3a611d2be862f1408"
+        },
+        {
+          "path": "examples/textures/textures_raw_data.jai",
+          "bytes": 3776,
+          "sha256": "84939c4a2d7b4bfcf92553633a4cccf7237bfa3b83b772d36988614c8788d601"
+        },
+        {
+          "path": "examples/textures/textures_sprite_animation.jai",
+          "bytes": 3825,
+          "sha256": "6cdea7b74dc7aa497c7691032da8567b17a7c1a048b271e48b137d3c58c5b5ef"
+        },
+        {
+          "path": "examples/textures/textures_sprite_button.jai",
+          "bytes": 3405,
+          "sha256": "22bbdb4b99eef8a61c68c9b05add55c9b26e88d959f9a4bc5e968442e97c4114"
+        },
+        {
+          "path": "examples/textures/textures_sprite_explosion.jai",
+          "bytes": 3725,
+          "sha256": "c75bb033ffac8663edf52d39bef5923713d769e75ea204ba55fd9c4d58564e67"
+        },
+        {
+          "path": "examples/textures/textures_srcrec_dstrec.jai",
+          "bytes": 3354,
+          "sha256": "8113fbb3bd2062ef4d5d1837e102e7be7cf93a9a30fd38d46a4c45d801076930"
+        },
+        {
+          "path": "examples/textures/textures_textured_curve.jai",
+          "bytes": 8454,
+          "sha256": "ae42ac837bbf57f4b21039915974e7df49ca9647f97d4906dd6156a21da4c61b"
+        },
+        {
+          "path": "examples/textures/textures_tiled_drawing.jai",
+          "bytes": 13794,
+          "sha256": "9e049edd48065669819f331e0a5f342307fb2cb370b1ba3b4a368dc4dd9a4cc3"
+        },
+        {
+          "path": "examples/textures/textures_to_image.jai",
+          "bytes": 2836,
+          "sha256": "f4196e4d03dc832d25782b515c7a4acc44b303598540d8bc27e48af779f0d392"
+        },
+        {
+          "path": "generate.jai",
+          "bytes": 8775,
+          "sha256": "ad257b6ea189f7b8fe8c673597e5de95934221d83b1232f0a3d22c7cc1779eee"
+        },
+        {
+          "path": "raylib/extra.jai",
+          "bytes": 1640,
+          "sha256": "7fd92424cf9396ccfe857f5bde07cfa97cf5d3dd776a35796b3b8a42befe1f7b"
+        },
+        {
+          "path": "raylib/module.jai",
+          "bytes": 1111,
+          "sha256": "b8da9fd54dff85b32a96bdcf5f8fc5bfa0455f707c6ff1f6daeb92a9fbd5f2c8"
+        },
+        {
+          "path": "raylib/raygui.jai",
+          "bytes": 92200,
+          "sha256": "365698db209e5d4ba8d3a1f71d0a1f8388c0c6cf66672d880b41ff4eadd04f4d"
+        },
+        {
+          "path": "raylib/raylib.jai",
+          "bytes": 103133,
+          "sha256": "81d6dc32a01adaf95a701cf83b0ca27512adfe252c687eecb12ff077f468b4a4"
+        },
+        {
+          "path": "raylib/raymath.jai",
+          "bytes": 26164,
+          "sha256": "b87c3a866ba0aa4fa08521a5db286debf0f90c60ae4375ee0dcd80127cad5734"
+        },
+        {
+          "path": "raylib/rcamera.jai",
+          "bytes": 4264,
+          "sha256": "f5655f41bea969857b1d85e6a1b825bb6cf0ee0e622a375540092e40ef123942"
+        },
+        {
+          "path": "raylib/reasings.jai",
+          "bytes": 10668,
+          "sha256": "02c0ac277a59d7fff7cf9f62ed589a1b33552be4bc6496a129c096d6fdc2c3c0"
+        },
+        {
+          "path": "raylib/rlgl.jai",
+          "bytes": 41248,
+          "sha256": "8c3baa28d0aedf353c5e3f73e679122916fdc9c344a0f165ab845b23f38a0065"
+        },
+        {
+          "path": "src/binding_generator.jai",
+          "bytes": 41453,
+          "sha256": "55fd3968801c38655f0ad02b505d311ded9a65fa35f648c1b222f65c5d76ec98"
+        },
+        {
+          "path": "src/example_compiler.jai",
+          "bytes": 13771,
+          "sha256": "83a275c838feae64c1689cda782585fb9ed732197f77fdf0890080d961347763"
+        },
+        {
+          "path": "src/lib_builder.jai",
+          "bytes": 15834,
+          "sha256": "35a79fd15c6f6374dbc8d413c89d2f66e59b4d4b0de47a8ce6fac2a682f1100f"
+        },
+        {
+          "path": "src/raygui.c",
+          "bytes": 317804,
+          "sha256": "eeaed183c94143dab7b25ad212d3f9bca913811bc94ebb028acc3849458d9e8d"
+        },
+        {
+          "path": "src/raygui.h",
+          "bytes": 317804,
+          "sha256": "eeaed183c94143dab7b25ad212d3f9bca913811bc94ebb028acc3849458d9e8d"
+        },
+        {
+          "path": "src/raylib.h",
+          "bytes": 139659,
+          "sha256": "9762546bcd5be5f41d7d78a9275b5d03186818faaac3a337505ce9e94704a597"
+        },
+        {
+          "path": "src/raymath.h",
+          "bytes": 97112,
+          "sha256": "9c20e288d578328804c7f360817eb0bff6dd54902a394cb452b0865b640affb6"
+        },
+        {
+          "path": "src/rcamera.h",
+          "bytes": 22184,
+          "sha256": "d5b02c7d2a523f88c7f4248047be5292a085c9e47a71b460c43575e218f96293"
+        },
+        {
+          "path": "src/rlgl.h",
+          "bytes": 265023,
+          "sha256": "d708ce2511b42e4f46f745ff8bdb97fab8e8452abae7c34a3224c7ec7d90366a"
+        }
+      ]
+    },
+    {
       "repository": "SogoCZE/jai_parser",
       "revision": "a06033e0f2a2e8f26c9129a58a7d67cbf28ff98a",
       "latest_jai_change": "2026-10-04T04:16:49+02:00",
