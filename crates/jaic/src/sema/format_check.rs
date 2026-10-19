@@ -3,45 +3,9 @@
 use super::calls::{CallArg, Slot};
 use super::*;
 use crate::ast::ExprKind as E;
+use crate::format_string;
 use crate::lexer::{self, P, Tok};
 use crate::types::{ArrayKind, TypeKind};
-
-/// Arguments the directives of `format` use, read as `Basic`'s formatter reads them: `%` (or
-/// `%0`) takes the next argument, `%N` takes argument N (1-based) and a following `%` continues
-/// after it, `%00` takes none, and `%%` is two arguments in a row. A `\%` in source is byte 31
-/// by now, so it is not a directive.
-pub(super) fn arguments_used(format: &[u8]) -> usize {
-    let mut at = 0;
-    let mut next = 0usize;
-    let mut used = 0usize;
-    while at < format.len() {
-        if format[at] != b'%' {
-            at += 1;
-            continue;
-        }
-        at += 1;
-        if format.get(at) == Some(&b'0') && format.get(at + 1) == Some(&b'0') {
-            at += 2;
-            continue;
-        }
-        let index = if format.get(at).is_some_and(|c| (b'1'..=b'9').contains(c)) {
-            let mut n = 0usize;
-            while let Some(d) = format.get(at).filter(|c| c.is_ascii_digit()) {
-                n = n.saturating_mul(10).saturating_add((d - b'0') as usize);
-                at += 1;
-            }
-            n - 1
-        } else {
-            if format.get(at) == Some(&b'0') {
-                at += 1;
-            }
-            next
-        };
-        next = index.saturating_add(1);
-        used = used.max(next);
-    }
-    used
-}
 
 /// Whether `body` passes the parameters `format` and `values` to the same call, which is what
 /// makes a `(string, ..Any)` procedure a formatter rather than a coincidence of signature.
@@ -81,7 +45,12 @@ impl Compiler {
     /// Whether `p` is declared with the `@PrintLike` note: its `string` parameter before a
     /// variadic `..Any` takes a format string.
     pub fn is_print_like(&self, p: ProcId) -> bool {
-        let noted = |notes: &[ast::Note]| notes.iter().any(|n| n.text.trim() == "PrintLike");
+        self.proc_has_note(p, format_string::PRINT_LIKE_NOTE)
+    }
+
+    /// Whether `p` is declared with the note `@name`, on its header or after its body.
+    pub fn proc_has_note(&self, p: ProcId, name: &str) -> bool {
+        let noted = |notes: &[ast::Note]| notes.iter().any(|n| n.is(name));
         noted(&self.proc(p).lit.header.notes)
             || self.proc_decl_notes.get(&p).is_some_and(|n| noted(n))
     }
@@ -150,7 +119,7 @@ impl Compiler {
                 return Ok(());
             }
         }
-        let need = arguments_used(bytes);
+        let need = format_string::required(&format_string::specs_of_value(bytes));
         let name = self.proc(chosen).name;
         let plural = |n: usize| {
             format!(
@@ -186,22 +155,5 @@ impl Compiler {
         };
         self.warn(warning);
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::arguments_used;
-
-    #[test]
-    fn counts_directives_as_basic_reads_them() {
-        assert_eq!(arguments_used(b"none"), 0);
-        assert_eq!(arguments_used(b"% and %"), 2);
-        assert_eq!(arguments_used(b"%2 %"), 3);
-        assert_eq!(arguments_used(b"%2 %1"), 2);
-        assert_eq!(arguments_used(b"%%"), 2);
-        assert_eq!(arguments_used(b"%00 x"), 0);
-        assert_eq!(arguments_used(b"%0"), 1);
-        assert_eq!(arguments_used(b"100\x1f done"), 0);
     }
 }

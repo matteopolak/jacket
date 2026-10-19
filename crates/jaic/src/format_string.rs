@@ -3,8 +3,11 @@
 //! continues after it, `%00` prints nothing, and `%%` is two arguments in a row. A literal
 //! percent sign is written `\%`.
 //!
-//! Used by the language server's format-string features (hover and diagnostics that work
-//! without type checking); `jaic` makes the same count check at compile time.
+//! The one reader of these directives: the compile-time argument count check, the language
+//! server's hover and diagnostics, and the linter all go through it.
+
+/// The note that marks a procedure as taking a format string: `@PrintLike`.
+pub const PRINT_LIKE_NOTE: &str = "PrintLike";
 
 /// The largest argument index a directive reports. A string can ask for argument
 /// 77777777777777777777777777, which no call passes; clamping keeps `index + 1` and the counts
@@ -22,16 +25,17 @@ pub struct Spec {
     pub index: Option<usize>,
 }
 
-/// The directives of the string literal at `start..end` of `text` (quotes included).
-pub fn specs(text: &str, start: usize, end: usize) -> Vec<Spec> {
-    let bytes = text.as_bytes();
-    let end = end.saturating_sub(1).min(bytes.len());
-    let mut at = start + 1;
+/// The directives in `bytes[start..end]`. With `escapes`, the bytes are source text, where a
+/// backslash makes the next byte literal (`\%`); without, they are the string's value, where
+/// the lexer has already turned `\%` into byte 31.
+fn scan(bytes: &[u8], start: usize, end: usize, escapes: bool) -> Vec<Spec> {
+    let end = end.min(bytes.len());
+    let mut at = start;
     let mut next = 0usize;
     let mut out = Vec::new();
     while at < end {
         match bytes[at] {
-            b'\\' => at += 2,
+            b'\\' if escapes => at += 2,
             b'%' => {
                 let from = at;
                 at += 1;
@@ -72,6 +76,17 @@ pub fn specs(text: &str, start: usize, end: usize) -> Vec<Spec> {
     out
 }
 
+/// The directives of the string literal at `start..end` of `text` (quotes included); the
+/// ranges are byte offsets into `text`.
+pub fn specs(text: &str, start: usize, end: usize) -> Vec<Spec> {
+    scan(text.as_bytes(), start + 1, end.saturating_sub(1), true)
+}
+
+/// The directives of a string's value, as the compiler holds it (`\%` already byte 31).
+pub fn specs_of_value(value: &[u8]) -> Vec<Spec> {
+    scan(value, 0, value.len(), false)
+}
+
 /// Arguments the directives use: one past the highest index.
 pub fn required(specs: &[Spec]) -> usize {
     specs
@@ -101,6 +116,19 @@ mod tests {
         assert_eq!(indices("%%"), [Some(0), Some(1)]);
         assert_eq!(indices("100\\%"), []);
         assert_eq!(indices("%00x%0"), [None, Some(0)]);
+    }
+
+    #[test]
+    fn values_and_source_agree_once_escapes_are_resolved() {
+        assert_eq!(required(&specs_of_value(b"none")), 0);
+        assert_eq!(required(&specs_of_value(b"% and %")), 2);
+        assert_eq!(required(&specs_of_value(b"%2 %")), 3);
+        assert_eq!(required(&specs_of_value(b"%2 %1")), 2);
+        assert_eq!(required(&specs_of_value(b"%00 x")), 0);
+        assert_eq!(required(&specs_of_value(b"%0")), 1);
+        assert_eq!(required(&specs_of_value(b"100\x1f done")), 0);
+        // A literal backslash in the value is not an escape.
+        assert_eq!(required(&specs_of_value(b"\\%")), 1);
     }
 
     #[test]

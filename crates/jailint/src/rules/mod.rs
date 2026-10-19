@@ -370,18 +370,7 @@ pub(crate) fn callee_procs<'c>(cx: &'c Cx, callee: &Expr) -> &'c [ProcId] {
 
 /// The procedure is declared with the note `@name`, on its header or after its body.
 pub(crate) fn has_note(cx: &Cx, proc: ProcId, name: &str) -> bool {
-    let is_name = |note: &jaic::ast::Note| &*note.text == name;
-    cx.compiler.procs[proc.0 as usize]
-        .lit
-        .header
-        .notes
-        .iter()
-        .any(is_name)
-        || cx
-            .compiler
-            .proc_decl_notes
-            .get(&proc)
-            .is_some_and(|notes| notes.iter().any(is_name))
+    cx.compiler.proc_has_note(proc, name)
 }
 
 /// Every procedure the callee named carries the note `@name`: the declaration, not the

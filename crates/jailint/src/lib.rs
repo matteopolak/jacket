@@ -12,7 +12,6 @@ pub mod config;
 pub mod driver;
 pub mod facts;
 pub mod fix;
-pub mod format_string;
 pub mod render;
 mod rules;
 mod suppress;

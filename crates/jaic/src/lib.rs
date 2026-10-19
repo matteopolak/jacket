@@ -9,6 +9,7 @@ pub mod build;
 pub mod builtin_keys;
 pub mod docs;
 pub mod fiber;
+pub mod format_string;
 pub mod fxhash;
 pub mod intern;
 pub mod interp;

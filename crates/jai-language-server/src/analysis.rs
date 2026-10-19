@@ -317,7 +317,7 @@ impl Analysis {
     /// The `@PrintLike` names and `$` parameters of the document's procedures.
     fn procedure_facts(&mut self, file: &jaic::ast::File) {
         for procedure in ide_facts::procedures(file) {
-            if procedure.has_note("PrintLike") {
+            if procedure.has_note(jaic::format_string::PRINT_LIKE_NOTE) {
                 self.print_like
                     .insert(procedure.name.name.as_str().to_owned());
             }

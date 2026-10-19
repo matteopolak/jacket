@@ -63,6 +63,13 @@ pub struct Note {
     pub span: Span,
 }
 
+impl Note {
+    /// Whether this is the note `@name`.
+    pub fn is(&self, name: &str) -> bool {
+        self.text.trim() == name
+    }
+}
+
 /// The `@note` annotations of a statement or declaration. Nearly always empty, so it is a single
 /// pointer (null when empty) rather than a `Vec`'s three words; it reads as a `[Note]` slice.
 #[derive(Clone, Debug, Default, PartialEq)]

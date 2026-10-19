@@ -234,7 +234,7 @@ impl Procedure<'_> {
             .notes
             .iter()
             .chain(self.notes)
-            .any(|note| note.text.trim() == name)
+            .any(|note| note.is(name))
     }
 }
 
