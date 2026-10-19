@@ -209,10 +209,17 @@ impl Parser<'_> {
             || header.flags.elsewhere.is_some();
         let header = Rc::new(header);
         if self.at(P::LBrace) && in_return_type {
-            return Err(Diagnostic::error(
+            let error = Diagnostic::error(
                 header.span,
                 "a procedure type in a return type must be parenthesised before the body: write `-> ((A, B) -> C) {`",
-            ));
+            );
+            // The editor reads it as parenthesised, so the outer procedure keeps its body.
+            let Some(errors) = self.recovery.as_mut() else {
+                return Err(error);
+            };
+            errors.push(error);
+            let span = header.span;
+            return Ok(mk(ExprKind::ProcType(header), span));
         }
         if self.at(P::LBrace) {
             let body = self.parse_block()?;

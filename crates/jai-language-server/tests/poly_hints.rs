@@ -80,3 +80,39 @@ fn uninstantiated_polymorphic_body_hints_use_the_generic_signature() {
         assert!(hover.contains(want) && !hover.contains('?'), "{hover}");
     }
 }
+
+#[test]
+fn an_unparenthesised_procedure_type_result_still_gets_a_hint() {
+    const TEXT: &str = r"cmp :: (a: int, b: int) -> bool { return a < b; }
+pick :: () -> (int, int) -> bool { return cmp; }
+main :: () {
+    f := pick();
+}
+";
+    let s = open(TEXT);
+    let all = Range {
+        start: Position {
+            line: 0,
+            character: 0,
+        },
+        end: Position {
+            line: 5,
+            character: 0,
+        },
+    };
+    let hints = s.inlay_hints(&uri(), all).unwrap();
+    let at = at_nth(TEXT, "f :=", 0, 1);
+    let label = hints
+        .iter()
+        .find(|h| h.position == at)
+        .map(|h| h.label.clone());
+    assert_eq!(label.as_deref(), Some(": (s64, s64) -> bool"), "{hints:?}");
+    // The compiler rejects the form; the editor still says so.
+    let diagnostics = s.diagnostics(&uri()).unwrap();
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.message.contains("must be parenthesised")),
+        "{diagnostics:?}"
+    );
+}
