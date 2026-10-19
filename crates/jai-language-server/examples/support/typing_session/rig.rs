@@ -414,9 +414,8 @@ impl<'a, C: Choices> Rig<'a, C> {
             .is_some_and(|r| Self::touches(&d.text, range, r.start, r.end))
     }
 
-    /// Whether a diagnostic range touches the region, the header line above it or the closing line
-    /// below it: a missing return or an unused parameter is reported there, on what the body is
-    /// checked against.
+    /// Whether a diagnostic range touches the region or the header line above it: a missing return
+    /// or an unused parameter is reported there, on what the body is checked against.
     pub(super) fn near_region(&self, doc: usize, range: Range, original: bool) -> bool {
         let d = &self.docs[doc];
         let Some(r) = d.region else {
@@ -428,11 +427,7 @@ impl<'a, C: Choices> Rig<'a, C> {
             (&d.text, r.end)
         };
         let line = text[..r.start].rfind('\n').map_or(0, |i| i + 1);
-        // The line after the body too: the closing brace is where an unfinished statement ends.
-        let after = text[end..]
-            .strip_prefix('\n')
-            .map_or(end, |rest| end + 1 + rest.find('\n').unwrap_or(rest.len()));
-        Self::touches(text, range, line, after)
+        Self::touches(text, range, line, end)
     }
 
     pub(super) fn check_light(&mut self) {

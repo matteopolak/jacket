@@ -66,53 +66,20 @@ pub(super) fn sorted_debug<T: std::fmt::Debug>(items: &[T]) -> Vec<String> {
 
 /// Identifier offsets, thinned to at most `cap` by a fixed stride.
 pub(super) fn sample_identifiers(text: &str, cap: usize) -> Vec<usize> {
-    let skipped: Vec<(usize, usize)> = here_strings(text)
-        .into_iter()
-        .chain(conditional_blocks(text))
-        .collect();
+    let skipped: Vec<(usize, usize)> = here_strings(text);
+    // A `#run` shows the value its call computed, which follows from what another body does.
+    let is_run = |i: usize| {
+        text[..i].ends_with('#')
+            && text[i..]
+                .strip_prefix("run")
+                .is_some_and(|rest| !rest.starts_with(|c: char| c == '_' || c.is_alphanumeric()))
+    };
     let all: Vec<usize> = identifier_starts(text)
         .into_iter()
-        .filter(|&i| !skipped.iter().any(|&(a, b)| a <= i && i < b))
+        .filter(|&i| !skipped.iter().any(|&(a, b)| a <= i && i < b) && !is_run(i))
         .collect();
     let stride = all.len().div_ceil(cap.max(1)).max(1);
     all.into_iter().step_by(stride).collect()
-}
-
-/// Byte ranges of `#if` blocks with their `else` branches. Which branch is live depends on the
-/// target, and code another target would check is answered from a compile for that target, so
-/// the answer there is not the one from the compile the checker compares against.
-pub(super) fn conditional_blocks(text: &str) -> Vec<(usize, usize)> {
-    let mut out = Vec::new();
-    let mut offset = 0;
-    let mut open: Option<(usize, usize)> = None;
-    for line in text.split_inclusive('\n') {
-        let trimmed = line.trim_start();
-        let indent = line.len() - trimmed.len();
-        match open {
-            None if trimmed.starts_with("#if ") => {
-                if trimmed.trim_end().ends_with('{') {
-                    open = Some((offset, indent));
-                } else {
-                    out.push((offset, offset + line.len()));
-                }
-            }
-            Some((start, at))
-                if indent == at
-                    && trimmed.starts_with('}')
-                    && !trimmed.starts_with("} else")
-                    && !trimmed.starts_with("}else") =>
-            {
-                out.push((start, offset + line.len()));
-                open = None;
-            }
-            _ => {}
-        }
-        offset += line.len();
-    }
-    if let Some((start, _)) = open {
-        out.push((start, text.len()));
-    }
-    out
 }
 
 pub(super) fn probe_at(
