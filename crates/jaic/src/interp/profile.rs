@@ -9,7 +9,7 @@
 //! `tools/stdlib/stdlib_coverage.py` reads it.
 use crate::fxhash::HashMap;
 use std::collections::BTreeSet;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
 
 pub(crate) fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
@@ -48,15 +48,43 @@ pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
     .as_deref()
 }
 
-/// Every procedure any interpreter of this process ran, as `path:line name`.
-static COVERED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+/// What every interpreter of this process has counted, merged when each flushes.
+///
+/// This is process-wide on purpose: the main compile and every metaprogram workspace run their
+/// own `Interp`, and the report (or the `atexit` coverage hook) covers all of them. One lock
+/// guards all of it, because the tables are only touched at flush and report time.
+#[derive(Default)]
+struct Totals {
+    /// Every procedure that ran, as `path:line name`.
+    covered: BTreeSet<String>,
+    /// Calls, blocks and instructions per procedure name.
+    rows: HashMap<String, Row>,
+    /// IR instructions executed by kind (`IConst`, `Load`, ...).
+    ir_ops: HashMap<String, u64>,
+    /// The interpreter's own ops executed by kind (`code.rs`: folded loads, immediates...).
+    code_ops: HashMap<String, u64>,
+    /// Adjacent op pairs executed within a block, by kind, to find what to fuse.
+    code_pairs: HashMap<String, u64>,
+}
+
+static TOTALS: LazyLock<Mutex<Totals>> = LazyLock::new(Mutex::default);
+
+fn totals() -> MutexGuard<'static, Totals> {
+    TOTALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Add `counts` into `table`.
+fn merge(table: &mut HashMap<String, u64>, counts: impl Iterator<Item = (String, u64)>) {
+    for (name, n) in counts {
+        *table.entry(name).or_default() += n;
+    }
+}
 
 /// Record that the procedure declared at `path:line` ran.
 pub(crate) fn cover(path: &str, line: u32, name: &str) {
-    let mut covered = COVERED
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    covered.insert(format!("{path}:{line} {name}"));
+    totals().covered.insert(format!("{path}:{line} {name}"));
 }
 
 /// Append the procedures that ran since the last call to the `-coverage_file` (nothing when
@@ -66,11 +94,7 @@ pub fn write_coverage() {
     let Some(path) = coverage_file() else {
         return;
     };
-    let covered = std::mem::take(
-        &mut *COVERED
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner),
-    );
+    let covered = std::mem::take(&mut totals().covered);
     if covered.is_empty() {
         return;
     }
@@ -93,17 +117,6 @@ struct Row {
     blocks: u64,
     insts: u64,
 }
-
-static TOTALS: Mutex<Option<HashMap<String, Row>>> = Mutex::new(None);
-
-/// IR instructions executed by kind (`IConst`, `Load`, ...).
-static OPS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
-
-/// The interpreter's own ops executed by kind (`code.rs`: folded loads, immediates...).
-static CODE_OPS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
-
-/// Adjacent op pairs executed within a block, by kind (`code.rs` ops), to find what to fuse.
-static CODE_PAIRS: Mutex<Option<HashMap<String, u64>>> = Mutex::new(None);
 
 /// Counts of one interpreter, indexed by `FuncId`.
 #[derive(Default)]
@@ -147,14 +160,13 @@ impl Kinds {
         }
     }
 
-    fn flush(&mut self, into: &Mutex<Option<HashMap<String, u64>>>) {
-        let mut table = into
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let table = table.get_or_insert_with(HashMap::default);
-        for (name, n) in &mut self.names {
-            *table.entry(name.clone()).or_default() += std::mem::take(n);
-        }
+    fn flush(&mut self, into: &mut HashMap<String, u64>) {
+        merge(
+            into,
+            self.names
+                .iter_mut()
+                .map(|(name, n)| (name.clone(), std::mem::take(n))),
+        );
     }
 }
 
@@ -184,26 +196,15 @@ impl Counts {
     }
 
     pub(crate) fn flush(&mut self) {
-        self.ir.flush(&OPS);
-        self.ops.flush(&CODE_OPS);
-        {
-            let mut table = CODE_PAIRS
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let table = table.get_or_insert_with(HashMap::default);
-            for (name, n) in self.pairs.drain() {
-                *table.entry(name).or_default() += n;
-            }
-        }
-        let mut totals = TOTALS
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let totals = totals.get_or_insert_with(HashMap::default);
+        let mut totals = totals();
+        self.ir.flush(&mut totals.ir_ops);
+        self.ops.flush(&mut totals.code_ops);
+        merge(&mut totals.code_pairs, self.pairs.drain());
         for (row, name) in self.rows.drain(..) {
             let Some(name) = name else {
                 continue;
             };
-            let total = totals.entry(name).or_default();
+            let total = totals.rows.entry(name).or_default();
             total.calls += row.calls;
             total.blocks += row.blocks;
             total.insts += row.insts;
@@ -216,10 +217,8 @@ pub fn report(top: usize) -> Option<String> {
     if !enabled() {
         return None;
     }
-    let totals = TOTALS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let mut rows: Vec<(&String, &Row)> = totals.iter().flat_map(|t| t.iter()).collect();
+    let totals = totals();
+    let mut rows: Vec<(&String, &Row)> = totals.rows.iter().collect();
     rows.sort_by_key(|a| std::cmp::Reverse(a.1.insts));
     let all: u64 = rows.iter().map(|(_, r)| r.insts).sum();
     let mut out = format!(
@@ -235,39 +234,26 @@ pub fn report(top: usize) -> Option<String> {
             r.calls
         ));
     }
-    out.push_str(&kind_line("instructions by kind:", &OPS, all));
-    let ran: u64 = {
-        let table = CODE_OPS
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        table.iter().flat_map(|t| t.values()).sum()
-    };
+    out.push_str(&kind_line("instructions by kind:", &totals.ir_ops, all));
+    let ran: u64 = totals.code_ops.values().sum();
     out.push_str(&kind_line(
         &format!("{ran} interpreter ops by kind:"),
-        &CODE_OPS,
+        &totals.code_ops,
         ran,
     ));
-    {
-        let table = CODE_PAIRS
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut pairs: Vec<(&String, &u64)> = table.iter().flat_map(|t| t.iter()).collect();
-        pairs.sort_by_key(|a| std::cmp::Reverse(*a.1));
-        out.push_str("op pairs within blocks:");
-        for (name, n) in pairs.into_iter().take(24) {
-            out.push_str(&format!(" [{name}] {n}"));
-        }
-        out.push('\n');
+    let mut pairs: Vec<(&String, &u64)> = totals.code_pairs.iter().collect();
+    pairs.sort_by_key(|a| std::cmp::Reverse(*a.1));
+    out.push_str("op pairs within blocks:");
+    for (name, n) in pairs.into_iter().take(24) {
+        out.push_str(&format!(" [{name}] {n}"));
     }
+    out.push('\n');
     Some(out)
 }
 
 /// One line of kind shares, as percentages of `all`.
-fn kind_line(title: &str, table: &Mutex<Option<HashMap<String, u64>>>, all: u64) -> String {
-    let table = table
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let mut kinds: Vec<(&String, &u64)> = table.iter().flat_map(|t| t.iter()).collect();
+fn kind_line(title: &str, table: &HashMap<String, u64>, all: u64) -> String {
+    let mut kinds: Vec<(&String, &u64)> = table.iter().collect();
     kinds.sort_by_key(|a| std::cmp::Reverse(*a.1));
     let mut out = title.to_string();
     for (name, n) in kinds.into_iter().take(40) {

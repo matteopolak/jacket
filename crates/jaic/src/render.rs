@@ -43,6 +43,10 @@ impl Style {
 }
 
 /// Bits 0-1: layout; bit 2: colour.
+///
+/// Process-wide because diagnostics are rendered from deep inside the checker, interpreter and
+/// panic hooks, where no options value reaches; a tool decides once in `main` (`set_style`), and
+/// a library user that needs another style for one call uses `with_style` or `render_with`.
 static STYLE: AtomicU8 = AtomicU8::new(0);
 
 /// Set the style every later `render` (and `Diagnostic::render`) uses.

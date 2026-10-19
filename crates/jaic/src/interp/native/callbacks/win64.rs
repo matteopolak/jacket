@@ -36,6 +36,11 @@ struct Slot {
     sig: Sig,
 }
 
+/// The slots behind the stubs, indexed by stub number.
+///
+/// A static for the same reason as `callbacks::TABLE`: a stub is a fixed code address C calls
+/// from any thread, and it can reach only a static. The two tables are never both in use, since
+/// each belongs to one calling convention.
 static TABLE: Mutex<Vec<Option<Slot>>> = Mutex::new(Vec::new());
 
 macro_rules! stubs {

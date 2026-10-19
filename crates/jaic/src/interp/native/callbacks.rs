@@ -148,6 +148,11 @@ struct Slot {
     sret: bool,
 }
 
+/// The slots behind the thunks, one list per return shape.
+///
+/// This has to be a process-wide table: a thunk is a fixed code address that C may call from any
+/// thread at any time, and the only state it can reach is a static. The Win64 thunks have their
+/// own table (`win64::TABLE`) because they are different stubs with a different slot index.
 static TABLE: Mutex<[Vec<Option<Slot>>; SHAPES]> = Mutex::new([const { Vec::new() }; SHAPES]);
 
 /// The C-callable address for interpreted procedure `func` of `program` (an identity for the

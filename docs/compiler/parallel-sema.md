@@ -92,6 +92,20 @@ What to change first: stage 0's `Send + Sync` conversion (it unblocks the parse 
 
 Nothing of stage 0 or 1 is done yet (no `Send + Sync` conversion, no context split). Name lookup now writes four generation-keyed memo tables in place during body checking: `module_names`, `module_misses`, `scope_misses` and `using_member_free` (all in `Compiler`, keyed by `namespace_generation`). They belong in the stage 0 write audit: each is a pure cache of the declarations, so a worker can keep a private copy or share a read-only one per batch. Body scopes (`Proc`, `Block`, `Macro`) are deliberately not cached because they gain `using`s without moving the generation.
 
+## Process-wide state
+
+The statics and thread-locals in `jaic`, with why each stays. Anything not listed is a lazily initialised read-only value (`OnceLock` of a knob, a feature probe, a table built from constants).
+
+| State | Where | Why it is global |
+| --- | --- | --- |
+| Callback slot tables | `interp/native/callbacks.rs`, `callbacks/win64.rs` | A C-callable thunk is a fixed code address that C calls from any thread; a static is the only state it can reach. One table per calling convention, never both live. |
+| Profile totals | `interp/profile.rs` (`TOTALS`, one lock) | Every interpreter (the main compile and each metaprogram workspace) merges into one report when it is flushed or the process exits. |
+| Render style | `render.rs` (`STYLE`, with a thread-local `with_style` override) | Diagnostics are rendered where no options value reaches; a tool sets it once in `main`. |
+| Crash report buffer, signal handlers | `interp/crash.rs` | A signal handler can only reach a static, and must not allocate. |
+| Memory limit counters | `memory_limit.rs` | They are the global allocator's counters. |
+| Interner, AST ids, record names | `intern.rs`, `ast.rs`, `records.rs` (`thread_local!`) | Not justified: they only work because one thread does the checking. Parallel parsing works around them with per-job interners and `ast::relocate`. Replacing them with sharded globals is the last stage of the plan above. |
+| libclang state | `clang.rs` (`thread_local!`) | The handle arena Jai code sees; libclang is used from the thread that runs the interpreter. |
+
 ## Other things that could run in parallel
 
 - **Codegen** already does: `jaic-llvm` splits into units of 5,000 instructions on one thread each (`docs/compiler/compile-speed.md`); `-check` has no codegen. Overlapping codegen with the front end was tried and rejected there.
