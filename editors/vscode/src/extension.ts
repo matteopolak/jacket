@@ -5,7 +5,7 @@ import { LanguageClient, type LanguageClientOptions, type ServerOptions, Transpo
 import { type JaicCommand, runJaic } from "./commands";
 import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findServer, nodeEnvironment } from "./discovery";
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
-import { CONFIG_FILE, findConfig, ignoreGlobs, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
+import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
 /** Settings files jailsp reads as open documents, so unsaved edits apply at once. */
@@ -328,19 +328,9 @@ async function formatDocument(document: vscode.TextDocument, _options: vscode.Fo
     document.uri.scheme === "file"
       ? path.dirname(document.uri.fsPath)
       : (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? os.homedir());
-  if (document.uri.scheme === "file") {
-    const config = findConfig(fileDir);
-    if (config) {
-      try {
-        const text = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.file(config))).toString("utf8");
-        if (isIgnored(config, ignoreGlobs(text, config), document.uri.fsPath)) {
-          log.info(`not formatting ${document.uri.fsPath}: ignored by ${config}`);
-          return [];
-        }
-      } catch (error) {
-        log.warn(`reading ${config}: ${String(error)}`);
-      }
-    }
+  if (document.uri.scheme === "file" && (await isIgnored(formatter.path, document.uri.fsPath))) {
+    log.info(`not formatting ${document.uri.fsPath}: ignored by the format config`);
+    return [];
   }
   const before = document.getText();
   let result;

@@ -3,6 +3,7 @@
 //     jaic jaifmt/build.jai    (or: jaic jaifmt/main.jai -O2 -exe target/jaifmt)
 //     jaifmt [--check] [--config file] [--verbose] paths...
 //     jaifmt --stdin [--config file] < in.jai > out.jai
+//     jaifmt --is-ignored file [--config file]    (exit 0 ignored, 1 formatted, 2 error)
 
 #import "Basic";
 #import "String";
@@ -19,15 +20,17 @@ Options :: struct {
     check: bool;
     stdin: bool;
     config: string; @value=FILE
+    is_ignored: string; @value=FILE @conflicts=paths @conflicts=stdin @conflicts=check
     verbose: bool; @short=v
     color: Args.Color_Mode = .AUTO;
 }
 
 HELP :: Args.Help(Options).{
-    about = "Formats Jai source files in place. Directories are searched recursively for *.jai files.\n\nExit status: 0 success, 1 files would change (--check), 2 errors.",
+    about = "Formats Jai source files in place. Directories are searched recursively for *.jai files.\n\nExit status: 0 success, 1 files would change (--check), 2 errors. With --is-ignored: 0 the file is ignored by the config's ignore list, 1 it is formatted, 2 errors.",
     paths = "Files or directories to format",
     check = "Do not write; list the files that would change and exit with 1",
     stdin = "Format standard input to standard output",
+    is_ignored = "Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors)",
     config = "Use this config (a jacket.toml or a jaifmt.toml) instead of the nearest one",
     verbose = "Report every file, a summary, and lines over max_width",
     color = "Colour errors; auto means on a terminal, unless NO_COLOR is set",
@@ -54,6 +57,10 @@ main :: () {
         }
 
         explicit_config = config;
+    }
+
+    if options.is_ignored.count {
+        exit(cast(s32) check_ignored(options.is_ignored, explicit_config));
     }
 
     if options.stdin {
@@ -294,6 +301,17 @@ first_difference_line :: (a: string, b: string) -> int {
     }
 
     return line;
+}
+
+// The `--is-ignored` answer for one file: 0 ignored, 1 not ignored, 2 when the config is unreadable.
+check_ignored :: (file: string, explicit_config: *Format_Config) -> int {
+    path := absolute_path(file);
+    totals: Totals;
+    config := config_for(path, explicit_config, *totals);
+
+    if !config return 2;
+
+    return ifx format_is_ignored(config.*, path) then 0 else 1;
 }
 
 format_stdin :: (explicit_config: *Format_Config) -> int {

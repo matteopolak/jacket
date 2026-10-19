@@ -3,29 +3,6 @@ local commands = require('jai.commands')
 local config = require('jai.config')
 local format = require('jai.format')
 
-h.test('jaifmt.toml ignore globs are read', function()
-  local toml = '# c\nindent_width = 4\nignore = ["tests/corpus/**", "fuzz/**"] # comment\n'
-  assert(vim.deep_equal(format.ignore_globs(toml), { 'tests/corpus/**', 'fuzz/**' }))
-  assert(vim.deep_equal(format.ignore_globs('indent_width = 4'), {}))
-end)
-
-h.test('jacket.toml ignore globs come from [format] only', function()
-  local toml = '[lint]\nignore = ["no"]\n[format]\nindent_width = 4\nignore = ["gen/**"]\n[experimental]\nignore = ["no"]\n'
-  assert(vim.deep_equal(format.ignore_globs(toml, '/proj/jacket.toml'), { 'gen/**' }))
-  assert(vim.deep_equal(format.ignore_globs('[lint]\nexclude = []\n', '/proj/jacket.toml'), {}))
-end)
-
-h.test('ignored files are those the globs cover, directories included', function()
-  local cfg = '/proj/jaifmt.toml'
-  local globs = { 'tests/corpus/**', 'vendor', './gen/*.jai' }
-  assert(format.is_ignored(cfg, globs, '/proj/tests/corpus/a/b.jai'))
-  assert(format.is_ignored(cfg, globs, '/proj/vendor/deep/x.jai'), 'a directory glob covers what is below')
-  assert(format.is_ignored(cfg, globs, '/proj/gen/x.jai'))
-  assert(not format.is_ignored(cfg, globs, '/proj/gen/sub/x.jai'), '* stays in one component')
-  assert(not format.is_ignored(cfg, globs, '/proj/src/main.jai'))
-  assert(not format.is_ignored(cfg, globs, '/elsewhere/tests/corpus/a.jai'))
-end)
-
 h.test('jailint output becomes quickfix items', function()
   local items = commands.parse_jailint(table.concat({
     'warning[index_only_loop]: `i` counts through `names` to index it',
@@ -45,7 +22,11 @@ if h.is_windows() then
   h.skip('jaifmt is stood in for by a shell script')
 end
 
----Buffer lines of a saved file formatted by a stand-in `jaifmt` that strips trailing blanks.
+-- A stand-in `jaifmt`: strips trailing blanks from standard input; `--is-ignored FILE` answers 0
+-- when a `.ignored` file sits beside FILE, else 1 (the real answers are tested in format_ignore_spec).
+local STUB = [[if [ "$1" = --is-ignored ]; then [ -e "$(dirname "$2")/.ignored" ]; exit; fi; cat | sed 's/[ \t]*$//']]
+
+---Buffer lines of a saved file formatted by the stand-in `jaifmt`.
 ---@param dir string
 ---@param lines string[]
 ---@return string[] result
@@ -53,7 +34,7 @@ end
 ---@return string? err
 local function format_file(dir, lines)
   local bin = h.tmpdir()
-  h.script(bin .. '/jaifmt', [[cat | sed 's/[ \t]*$//']])
+  h.script(bin .. '/jaifmt', STUB)
   config.set({ formatter = { path = bin .. '/jaifmt' } })
   local file = dir .. '/a.jai'
   vim.fn.writefile(lines, file)
@@ -77,9 +58,9 @@ h.test('format reports nothing to do for formatted text', function()
   assert(not changed and vim.deep_equal(result, { 'a :: 1;' }))
 end)
 
-h.test('files ignored by jaifmt.toml are left alone', function()
+h.test('files jaifmt reports as ignored are left alone', function()
   local dir = h.tmpdir()
-  vim.fn.writefile({ 'ignore = ["a.jai"]' }, dir .. '/jaifmt.toml')
+  vim.fn.writefile({}, dir .. '/.ignored')
   local result, changed = format_file(dir, { 'a :: 1;   ' })
   assert(not changed and result[1] == 'a :: 1;   ', vim.inspect(result))
 end)
@@ -98,7 +79,7 @@ end)
 
 h.test('format_on_save formats when the buffer is written', function()
   local bin = h.tmpdir()
-  h.script(bin .. '/jaifmt', [[cat | sed 's/[ \t]*$//']])
+  h.script(bin .. '/jaifmt', STUB)
   config.set({ formatter = { path = bin .. '/jaifmt' }, format_on_save = true })
   local file = h.tmpdir() .. '/save.jai'
   vim.fn.writefile({ 'a :: 1;   ' }, file)

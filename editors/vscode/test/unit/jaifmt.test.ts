@@ -1,69 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { describe, it } from "node:test";
-import { findConfig, globToRegExp, ignoreGlobs, isIgnored, minimalReplacement, runJaifmt } from "../../src/jaifmt";
-
-function repoFile(rel: string): string {
-  return path.join(path.sep, "repo", ...rel.split("/"));
-}
+import { isIgnored, minimalReplacement, runJaifmt } from "../../src/jaifmt";
 
 function apply(text: string, change: ReturnType<typeof minimalReplacement>): string {
   return change ? text.slice(0, change.start) + change.text + text.slice(change.end) : text;
 }
-
-describe("jacket.toml", () => {
-  it("wins over jaifmt.toml in the same directory", () => {
-    const files = new Set([path.join("/repo", "jaifmt.toml"), path.join("/repo", "jacket.toml")]);
-    assert.equal(findConfig("/repo/src", (f) => files.has(f)), path.join("/repo", "jacket.toml"));
-  });
-
-  it("reads ignore only from [format]", () => {
-    const toml = '[lint]\nignore = ["no"]\n[format]\nindent_width = 2\nignore = ["gen/**"]\n[experimental]\nignore = ["no"]\n';
-    assert.deepEqual(ignoreGlobs(toml, "/repo/jacket.toml"), ["gen/**"]);
-    assert.deepEqual(ignoreGlobs("[lint]\nexclude = []\n", "/repo/jacket.toml"), []);
-  });
-
-  it("the repository's own ignores apply", () => {
-    // The root jacket.toml leaves the formatter's golden inputs alone.
-    const config = path.join(__dirname, "..", "..", "..", "..", "..", "jacket.toml");
-    const globs = ignoreGlobs(readFileSync(config, "utf8"), config);
-    const golden = path.join(path.dirname(config), "stdlib", "Extensions", "Jai_Format", "tests", "fixtures", "spacing.in.jai");
-    assert.ok(isIgnored(config, globs, golden));
-    assert.ok(!isIgnored(config, globs, path.join(path.dirname(config), "examples", "tour", "main.jai")));
-  });
-});
-
-describe("jaifmt.toml", () => {
-  it("is found in the file's directory or above", () => {
-    const files = new Set([path.join("/repo", "jaifmt.toml")]);
-    assert.equal(findConfig("/repo/src/deep", (f) => files.has(f)), path.join("/repo", "jaifmt.toml"));
-    assert.equal(findConfig("/elsewhere", (f) => files.has(f)), undefined);
-  });
-
-  it("ignore globs are read from the one-line array", () => {
-    const toml = '# settings\nindent_width = 4\nignore = ["tests/corpus/**", "gen/*.jai"]  # why\n';
-    assert.deepEqual(ignoreGlobs(toml), ["tests/corpus/**", "gen/*.jai"]);
-    assert.deepEqual(ignoreGlobs("indent_width = 2\n"), []);
-  });
-
-  it("globs follow jaifmt: `*` within a component, `**` across, directories cover their files", () => {
-    assert.ok(globToRegExp("gen/*.jai").test("gen/a.jai"));
-    assert.ok(!globToRegExp("gen/*.jai").test("gen/sub/a.jai"));
-    assert.ok(globToRegExp("tests/corpus/**").test("tests/corpus/x/y.jai"));
-    assert.ok(globToRegExp("**/fixtures").test("a/b/fixtures/c.jai"));
-    assert.ok(globToRegExp("fuzz").test("fuzz/seeds/1.jai"));
-    assert.ok(!globToRegExp("fuzz").test("fuzzy.jai"));
-    assert.ok(globToRegExp("a?.jai").test("ab.jai"));
-  });
-
-  it("matches files relative to the config's directory", () => {
-    const config = path.join(path.sep, "repo", "jaifmt.toml");
-    assert.ok(isIgnored(config, ["tests/corpus/**"], repoFile("tests/corpus/ok/a.jai")));
-    assert.ok(!isIgnored(config, ["tests/corpus/**"], repoFile("tests/other/a.jai")));
-    assert.ok(!isIgnored(config, ["**"], path.join(path.sep, "elsewhere", "a.jai")));
-  });
-});
 
 describe("minimal replacement", () => {
   it("keeps the common prefix and suffix", () => {
@@ -112,5 +54,23 @@ describe("jaifmt --stdin", { skip: !process.env.JAIFMT && "set JAIFMT to a jaifm
     const broken = await runJaifmt(process.env.JAIFMT!, "main :: () {", dir);
     assert.equal(broken.ok, false);
     assert.match(broken.stderr, /unbalanced|bracket|\{/);
+  });
+});
+
+describe("jaifmt --is-ignored", { skip: !process.env.JAIFMT && "set JAIFMT to a jaifmt executable" }, () => {
+  it("reports the files the config's ignore list covers", async () => {
+    const { mkdirSync, mkdtempSync, realpathSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), "jaifmt-ignore-")));
+    mkdirSync(path.join(dir, "gen", "deep"), { recursive: true });
+    writeFileSync(path.join(dir, "jacket.toml"), '[format]\nignore = ["gen/*.jai", "vendor"]\n');
+    assert.equal(await isIgnored(process.env.JAIFMT!, path.join(dir, "gen", "a.jai")), true);
+    assert.equal(await isIgnored(process.env.JAIFMT!, path.join(dir, "vendor", "x", "a.jai")), true);
+    assert.equal(await isIgnored(process.env.JAIFMT!, path.join(dir, "gen", "deep", "a.jai")), false);
+    assert.equal(await isIgnored(process.env.JAIFMT!, path.join(dir, "src", "a.jai")), false);
+  });
+
+  it("is false when the executable does not exist", async () => {
+    assert.equal(await isIgnored(path.join(path.sep, "no", "such", "jaifmt"), path.join(path.sep, "tmp", "a.jai")), false);
   });
 });

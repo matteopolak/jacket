@@ -1,87 +1,21 @@
 // Running jaifmt on a document's text. Pure apart from spawning the process, so the unit tests
-// cover the config lookup, ignore globs and the edit computation without VS Code.
+// cover the ignore query and the edit computation without VS Code.
 import { spawn } from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
 
 export const CONFIG_FILE = "jaifmt.toml";
-export const JACKET_FILE = "jacket.toml";
-
-/** The nearest `jacket.toml` or `jaifmt.toml` in `dir` or above it; a directory's jacket.toml wins. */
-export function findConfig(dir: string, isFile: (file: string) => boolean = defaultIsFile): string | undefined {
-  let current = path.resolve(dir);
-  for (;;) {
-    for (const name of [JACKET_FILE, CONFIG_FILE]) {
-      const candidate = path.join(current, name);
-      if (isFile(candidate)) return candidate;
-    }
-    const parent = path.dirname(current);
-    if (parent === current) return undefined;
-    current = parent;
-  }
-}
-
-function defaultIsFile(file: string): boolean {
-  try {
-    return fs.statSync(file).isFile();
-  } catch {
-    return false;
-  }
-}
 
 /**
- * The `ignore = [...]` globs of a config file (the one-line string array jaifmt accepts). In a
- * `jacket.toml` only the `[format]` table counts.
+ * Whether the `ignore` list of the config that applies to `file` covers it, asked of
+ * `jaifmt --is-ignored` (exit 0 ignored, 1 formatted; it finds the config from the
+ * absolute path) so the globs have one implementation. Any
+ * other outcome (a config error, no executable) counts as not ignored; formatting then reports it.
  */
-export function ignoreGlobs(toml: string, file = CONFIG_FILE): string[] {
-  const jacket = path.basename(file) === JACKET_FILE;
-  let inFormat = !jacket;
-  for (const raw of toml.split(/\r?\n/)) {
-    const line = raw.replace(/^\s+/, "");
-    if (jacket && line.startsWith("[")) {
-      inFormat = /^\[\s*format\s*\]\s*(?:#.*)?$/.test(line);
-      continue;
-    }
-    if (!inFormat) continue;
-    const match = /^ignore\s*=\s*\[(.*)\]\s*(?:#.*)?$/.exec(line);
-    if (!match) continue;
-    return [...match[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1].replace(/\\(.)/g, "$1"));
-  }
-  return [];
-}
-
-/**
- * jaifmt's glob semantics: `*` and `?` stay within a path component, `**` crosses components,
- * and a pattern that matches a directory covers everything below it.
- */
-export function globToRegExp(glob: string): RegExp {
-  let source = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*" && glob[i + 1] === "*") {
-      i += 1;
-      if (glob[i + 1] === "/") {
-        i += 1;
-        source += "(?:.*/)?";
-      } else {
-        source += ".*";
-      }
-    } else if (c === "*") {
-      source += "[^/]*";
-    } else if (c === "?") {
-      source += "[^/]";
-    } else {
-      source += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  return new RegExp(`^${source}(?:/.*)?$`);
-}
-
-/** Whether `file` is ignored by the globs of the config at `configPath`. */
-export function isIgnored(configPath: string, globs: string[], file: string): boolean {
-  const relative = path.relative(path.dirname(configPath), file).split(path.sep).join("/");
-  if (relative.startsWith("../")) return false;
-  return globs.some((glob) => globToRegExp(glob.replace(/^\.\//, "")).test(relative));
+export function isIgnored(executable: string, file: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn(executable, ["--is-ignored", file], { windowsHide: true, stdio: "ignore" });
+    child.on("error", () => resolve(false));
+    child.on("close", (code) => resolve(code === 0));
+  });
 }
 
 export interface Replacement {

@@ -5,70 +5,15 @@ local toolchain = require('jai.toolchain')
 
 local M = {}
 
-M.CONFIG_FILE = 'jaifmt.toml'
-M.JACKET_FILE = 'jacket.toml'
-
----The nearest `jacket.toml` or `jaifmt.toml` in `dir` or above it; a directory's jacket.toml wins.
----@param dir string
----@return string?
-function M.find_config(dir)
-  return vim.fs.find({ M.JACKET_FILE, M.CONFIG_FILE }, { path = dir, upward = true, type = 'file', limit = 1 })[1]
-end
-
----The `ignore = [...]` globs of a config file (the one-line string array jaifmt accepts). In a
----`jacket.toml` only the `[format]` table counts.
----@param toml string
----@param file? string  the config's path; a `jacket.toml` is read by section
----@return string[]
-function M.ignore_globs(toml, file)
-  local jacket = file ~= nil and vim.fs.basename(file) == M.JACKET_FILE
-  local in_format = not jacket
-  for raw in toml:gmatch('[^\r\n]+') do
-    if jacket and raw:match('^%s*%[') then
-      in_format = raw:match('^%s*%[%s*format%s*%]%s*#?.*$') ~= nil
-    end
-    local list = in_format and raw:match('^%s*ignore%s*=%s*%[(.*)%]%s*#?.*$')
-    if list then
-      local globs = {}
-      for glob in list:gmatch('"([^"]*)"') do
-        globs[#globs + 1] = glob
-      end
-      return globs
-    end
-  end
-  return {}
-end
-
----Whether the config's `ignore` globs cover `file`. A glob naming a directory covers
----everything below it.
----@param config_path string
----@param globs string[]
----@param file string
+---Whether the `[format]` ignore list of the config that applies to `file` covers it, asked of
+---`jaifmt --is-ignored` (exit 0 ignored, 1 formatted) so the globs have one implementation. Any
+---other outcome counts as not ignored; formatting then reports the problem.
+---@param formatter string  the jaifmt executable
+---@param file string  absolute path
 ---@return boolean
-function M.is_ignored(config_path, globs, file)
-  local base = vim.fs.dirname(config_path)
-  local relative = vim.fs.relpath(base, file)
-  if not relative or relative:sub(1, 3) == '../' then
-    return false
-  end
-  relative = relative:gsub('\\', '/')
-  local prefixes, at = {}, 0
-  while true do
-    at = relative:find('/', at + 1, true)
-    prefixes[#prefixes + 1] = at and relative:sub(1, at - 1) or relative
-    if not at then
-      break
-    end
-  end
-  for _, glob in ipairs(globs) do
-    local pattern = vim.glob.to_lpeg((glob:gsub('^%./', '')))
-    for _, prefix in ipairs(prefixes) do
-      if pattern:match(prefix) then
-        return true
-      end
-    end
-  end
-  return false
+function M.is_ignored(formatter, file)
+  local ok, job = pcall(vim.system, { formatter, '--is-ignored', file })
+  return ok and job:wait(10000).code == 0
 end
 
 ---Replaces the lines of `bufnr` that differ from `formatted`.
@@ -86,7 +31,7 @@ local function apply(bufnr, formatted)
   end
 end
 
----Formats a buffer with `jaifmt`, waiting for it. Buffers ignored by the `[format]` ignore list are left alone.
+---Formats a buffer with `jaifmt`, waiting for it. Buffers the config's ignore list covers are left alone.
 ---@param bufnr? integer
 ---@return boolean changed
 ---@return string? err
@@ -98,12 +43,8 @@ function M.format(bufnr)
   if not formatter then
     return false, 'jaifmt was not found: set formatter.path, put jaifmt on PATH, or run :Jai install'
   end
-  local config_path = M.find_config(dir)
-  if config_path and name ~= '' then
-    local ok, lines = pcall(vim.fn.readfile, config_path)
-    if ok and M.is_ignored(config_path, M.ignore_globs(table.concat(lines, '\n'), config_path), name) then
-      return false
-    end
+  if name ~= '' and M.is_ignored(formatter.path, name) then
+    return false
   end
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local text = table.concat(lines, '\n') .. '\n'

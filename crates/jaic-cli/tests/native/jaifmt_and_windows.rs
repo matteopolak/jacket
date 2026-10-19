@@ -89,6 +89,17 @@ fn jaifmt_builds_and_formats() {
             .unwrap()
     };
 
+    // `--is-ignored` answers the ignore list: 0 ignored, 1 formatted, 2 for a config error.
+    assert_eq!(
+        fmt(&["--is-ignored", "src/skipped/b.jai"]).status.code(),
+        Some(0)
+    );
+    assert_eq!(fmt(&["--is-ignored", "src/a.jai"]).status.code(), Some(1));
+    assert_eq!(
+        fmt(&["--is-ignored", "src/a.jai", "--check"]).status.code(),
+        Some(2)
+    );
+
     let check = fmt(&["--check", "src/a.jai"]);
     assert_eq!(check.status.code(), Some(1));
     // Paths below the current directory are shown relative to it.

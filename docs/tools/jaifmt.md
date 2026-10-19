@@ -39,7 +39,7 @@ Behaviour in short:
 
 ## Configuration
 
-The `[format]` table of `jacket.toml` ([jacket](jacket.md)), or a legacy `jaifmt.toml` with the same keys at its top (small TOML subset: integers, quoted strings, string arrays that may span lines; unknown keys are errors). The nearest one up the tree applies per file, and a directory's `jacket.toml` beats its `jaifmt.toml`; other tables in `jacket.toml` are skipped. A legacy file is used with a hint on stderr to run `jacket config migrate`. `--config` overrides (a path to either kind of file, or inline text).
+The `[format]` table of `jacket.toml` ([jacket](jacket.md)), or a legacy `jaifmt.toml` with the same keys at its top (small TOML subset: integers, quoted strings, string arrays that may span lines; unknown keys are errors). The nearest one up the tree applies per file, and a directory's `jacket.toml` beats its `jaifmt.toml`; other tables in `jacket.toml` are skipped. A legacy file is used with a hint on stderr to run `jacket config migrate`. `--config` overrides (a path to either kind of file, or inline text). `jaifmt --is-ignored <file>` answers the ignore question without formatting (exit 0 ignored, 1 not, 2 error); the VS Code and Neovim plugins call it instead of reading the globs themselves.
 
 ```toml
 [format]

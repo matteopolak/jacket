@@ -11,7 +11,7 @@ src/extension.ts         activation, LanguageClient, restart, jacket.toml sync, 
 src/discovery.ts         finding jailsp, jaic, jaifmt (pure; unit-tested)
 src/toolchain.ts         archive per platform, checksums, download, versioned install (pure)
 src/toolchainManager.ts  prompts, progress, remembered answers
-src/jaifmt.ts            jaifmt.toml lookup, ignore globs, minimal edit, jaifmt --stdin
+src/jaifmt.ts            ignore query (`jaifmt --is-ignored`), minimal edit, jaifmt --stdin
 src/commands.ts          Run/Build/Check File as tasks
 src/expansion.ts         jai.showExpansion / jai.showPolymorphs, jai-expansion: documents
 scripts/build-grammar.ts writes syntaxes/jai.tmLanguage.json
@@ -24,7 +24,7 @@ scripts/build-schemas.ts writes schemas/jailint.schema.json (from jailint's RULE
 - **Language client.** Starts `jailsp` over stdio for `file:` documents. `JAIC_STDLIB` comes from `jai.stdlib.path`; entry files, module folders and lint levels from the nearest `jacket.toml` ([project settings](../compiler/language-server.md#project-settings), [jacket](jacket.md); the legacy `jai.toml` and `jailint.toml` still work). Settings go as `initializationOptions` and `workspace/didChangeConfiguration`; a watcher on `**/{*.jai,jacket.toml,jai.toml}` keeps the auto-import index current. The extension sends `didOpen/didChange/didClose` for `jacket.toml`, `jailint.toml` and `jai.toml` itself (`SETTINGS_FILES`) so unsaved edits apply at once.
 - **Binary discovery.** `jailsp`: `jai.server.path`, `PATH`, next to `jaic`, downloaded toolchain. `jaic`: `jai.compiler.path`, `PATH`, download. `jaifmt`: `jai.formatter.path`, `PATH`, next to `jaic`/`jailsp`, download. A configured path that does not exist is an error naming the setting, never a silent fallback.
 - **Toolchain download.** With nothing found, `jai.toolchain.autoDownload` (`prompt`/`always`/`never`) decides. The archive name comes from `RELEASE_ASSETS` (`${platform}-${arch}` to `jacket-<platform>.tar.gz`, `.zip` on Windows). It is checked against `toolchain-checksums.json` (compiler version and SHA-256 of each archive, written at packaging time by `scripts/pin-toolchain.ts`; development builds fall back to the release's `SHA256SUMS`), unpacked with system `tar` into staging, then renamed to `<globalStorage>/toolchain/<version>/`. A cached folder whose recorded hash differs from the current pin is replaced; older versions are deleted only after the new one is installed.
-- **Formatting.** `jailsp` has no `textDocument/formatting`, so the extension runs `jaifmt --stdin` in the document's folder, first skipping files the nearest `jaifmt.toml` `ignore` globs match (`--stdin` does not apply them). It returns one edit covering the changed span; on failure it leaves the text alone and shows jaifmt's message.
+- **Formatting.** `jailsp` has no `textDocument/formatting`, so the extension runs `jaifmt --stdin` in the document's folder, first skipping files the config's `ignore` list covers (asked of `jaifmt --is-ignored <file>`; `--stdin` does not apply the list). It returns one edit covering the changed span; on failure it leaves the text alone and shows jaifmt's message.
 - **Commands.** *Run/Build/Check File* save and run `jaic <file> [-interp|-check] <jai.run.arguments>` as a task. Refactorings, call hierarchy and expand selection are plain `jailsp` capabilities with no extension code. `source.fixAll.jailint` works with `editor.codeActionsOnSave`.
 
 ## How to change it
