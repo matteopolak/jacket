@@ -8,7 +8,7 @@
 !language-configuration.json
 !toml-language-configuration.json
 !wgsl-language-configuration.json
-!toolchain-checksums.json
+!toolchain-manifest.json
 !README.md
 !LICENSE
 !package.json

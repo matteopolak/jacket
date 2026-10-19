@@ -65,7 +65,7 @@ The plugin looks for each tool (`jailsp`, `jaic`, `jaifmt`, `jailint`) in this o
 3. next to `jaic` (from `compiler.path` or `PATH`);
 4. the toolchain downloaded by `:Jai install`, in `stdpath('data')/jai/<version>`.
 
-When no `jailsp` is found, the plugin asks once per session whether to download the toolchain (`toolchain.auto_download = 'prompt'`); `'always'` downloads without asking and `'never'` only prints how to install it. `:Jai install` downloads the release that matches the plugin's version from GitHub with `curl`, checks its SHA-256 (the checksums shipped with the plugin, else the release's `SHA256SUMS`), and unpacks it with `tar`. Older downloaded versions are removed.
+When no `jailsp` is found, the plugin asks once per session whether to download the toolchain (`toolchain.auto_download = 'prompt'`); `'always'` downloads without asking and `'never'` only prints how to install it. `:Jai install` downloads the release that matches the plugin's version from GitHub with `curl`, checks its SHA-256 (the `toolchain-manifest.json` shipped with the plugin, else the release's own), and unpacks it with `tar`. Older downloaded versions are removed.
 
 ## Settings
 

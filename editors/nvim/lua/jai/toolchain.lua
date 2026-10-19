@@ -39,6 +39,18 @@ function M.wanted_version()
   return configured ~= '' and configured or require('jai.version')
 end
 
+---The manifest shipped with the plugin (the release workflow stamps `toolchain-manifest.json`
+---into the plugin's root); nil in a development checkout, which then reads the release's own.
+---@return jai.Manifest?
+function M.manifest()
+  local root = vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(vim.fs.abspath(debug.getinfo(1, 'S').source:sub(2)))))
+  local file = vim.fs.joinpath(root, require('jai.install').MANIFEST_FILE)
+  if not vim.uv.fs_stat(file) then
+    return nil
+  end
+  return require('jai.install').parse_manifest(table.concat(vim.fn.readfile(file), '\n'))
+end
+
 ---@param a string
 ---@param b string
 ---@return boolean  whether `a` is a newer version than `b`
@@ -67,8 +79,8 @@ function M.installed_versions()
   local wanted = M.wanted_version()
   local expected
   local pinned_version = false
-  local pins_ok, pins = pcall(require, 'jai.checksums')
-  if pins_ok and pins.version == wanted then
+  local pins = M.manifest()
+  if pins and pins.version == wanted then
     pinned_version = true
     local uname = vim.uv.os_uname()
     local asset = require('jai.install').asset_for(uname.sysname, uname.machine)

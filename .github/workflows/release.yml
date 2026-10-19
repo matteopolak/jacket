@@ -476,9 +476,10 @@ jobs:
         working-directory: editors/vscode
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
-          node scripts/pin-toolchain.ts --toolchain-version "$TOOLCHAIN_VERSION" --extension-version "$EDITOR_VERSION" --archives ../../archives
+          npm pkg set version="$EDITOR_VERSION"
+          python3 ../../tools/ci/toolchain_manifest.py --version "$TOOLCHAIN_VERSION" --archives ../../archives --out toolchain-manifest.json
           test "$(node -p 'require("./package.json").version')" = "$EDITOR_VERSION"
-          test "$(node -p 'require("./toolchain-checksums.json").version')" = "$TOOLCHAIN_VERSION"
+          test "$(node -p 'require("./toolchain-manifest.json").version')" = "$TOOLCHAIN_VERSION"
           pnpm run package -o "jacket-vscode-$EDITOR_VERSION.vsix"
           mkdir -p ../../vsix && mv "jacket-vscode-$EDITOR_VERSION.vsix" ../../vsix/
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -509,14 +510,8 @@ jobs:
           TAG: ${{ needs.release-meta.outputs.tag }}
         run: |
           tag="$TAG"
-          version="${tag#v}"
-          # The section under "## [version]" up to the next "## [".
-          awk -v v="$version" '
-            $0 ~ "^## \\[" v "\\]" { on = 1; next }
-            on && /^## \[/ { exit }
-            on { print }
-          ' CHANGELOG.md > notes.md
-          test -s notes.md || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+          python3 tools/ci/release_notes.py "$tag" > notes.md
+          python3 tools/ci/toolchain_manifest.py --version "$tag" --archives dist --out dist/toolchain-manifest.json
           (cd dist && sha256sum -- * > SHA256SUMS)
           echo "TAG=$tag" >> "$GITHUB_ENV"
       - name: Publish
@@ -681,7 +676,7 @@ jobs:
 
   # The Neovim plugin (editors/nvim) is mirrored to matteopolak/jacket.nvim, because vim.pack and
   # plugin managers need a repository whose root is the plugin. The mirror's main branch is
-  # replaced by the plugin's files with its version and the release's checksums stamped in, and
+  # replaced by the plugin's files with its version and the release's toolchain manifest stamped in, and
   # tagged vX.Y.Z. It pushes only when the NVIM_MIRROR_DEPLOY_KEY secret (a write-enabled
   # deploy key of that repository) is set; see docs/tools/neovim-plugin.md#publishing.
   neovim:
@@ -705,7 +700,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
-      - name: Stamp the version and the release's checksums into the plugin
+      - name: Stamp the version and the release's toolchain manifest into the plugin
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -714,18 +709,8 @@ jobs:
           sed -i "s/^return '.*'$/return '$VERSION'/" lua/jai/version.lua
           grep -q "^return '$VERSION'$" lua/jai/version.lua
           if [ -n "$TAG" ]; then
-            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
-            {
-              echo "---SHA-256 checksums of the release archives, written by the release workflow."
-              echo "return {"
-              echo "  version = '$VERSION',"
-              echo "  sha256 = {"
-              awk '$2 ~ /^jacket-.*\.(tar\.gz|zip)$/ { printf "    [\047%s\047] = \047%s\047,\n", $2, $1 }' "$RUNNER_TEMP/SHA256SUMS"
-              echo "  },"
-              echo "}"
-            } > lua/jai/checksums.lua
-            grep -c "jacket-linux-x64.tar.gz" lua/jai/checksums.lua
-            cat lua/jai/checksums.lua
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p toolchain-manifest.json -D .
+            cat toolchain-manifest.json
           fi
       - name: Push to matteopolak/jacket.nvim
         env:

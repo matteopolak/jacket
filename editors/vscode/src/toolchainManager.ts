@@ -4,7 +4,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import {
-  type PinnedChecksums,
+  type ToolchainManifest,
+  MANIFEST_FILE,
+  parseManifest,
   RELEASES_URL,
   REPOSITORY,
   ToolchainError,
@@ -28,7 +30,7 @@ export class ToolchainManager {
   /** This version's archive; undefined on a platform without prebuilt releases. */
   readonly asset: string | undefined;
   readonly store: ToolchainStore;
-  private readonly pinnedChecksums: PinnedChecksums | undefined;
+  private readonly pinnedChecksums: ToolchainManifest | undefined;
   private downloading: Promise<Installed | undefined> | undefined;
 
   constructor(
@@ -48,14 +50,13 @@ export class ToolchainManager {
   }
 
   /** Checksums pinned into this build of the extension by the release workflow. */
-  pinned(): PinnedChecksums | undefined {
+  pinned(): ToolchainManifest | undefined {
     return this.pinnedChecksums;
   }
 
-  private readPinned(): PinnedChecksums | undefined {
+  private readPinned(): ToolchainManifest | undefined {
     try {
-      const file = path.join(this.context.extensionPath, "toolchain-checksums.json");
-      return JSON.parse(fs.readFileSync(file, "utf8")) as PinnedChecksums;
+      return parseManifest(fs.readFileSync(path.join(this.context.extensionPath, MANIFEST_FILE), "utf8"));
     } catch {
       return undefined;
     }

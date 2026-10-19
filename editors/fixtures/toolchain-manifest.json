@@ -1,0 +1,11 @@
+{
+  "version": "0.4.0",
+  "sha256": {
+    "jacket-linux-arm64.tar.gz": "a4d52fb958bc47fe22209fc0cadb662503425179d64a5e07c0d09ec075d63518",
+    "jacket-linux-x64.tar.gz": "ababadd436d9049e20a1295f6a325b520c56eadf53ff1022deb6452d7ffd1ac4",
+    "jacket-macos-arm64.tar.gz": "66ead349976fbb89a41f6fdb488f7846cedc8bb77c954c9fe35f96833dac87a7",
+    "jacket-macos-x64.tar.gz": "141ecb67e0d741de0bce97a84d1324184febc761d33a27082b4648effda87a0b",
+    "jacket-windows-arm64.zip": "6281d3458fa5f88dd6d48d4e9d30dd41114199937f88ad5825699489a593007e",
+    "jacket-windows-x64.zip": "006a7fccea8d0731c4832a3d4f7cd209f6905e916c9c848affccf2996d71fd2d"
+  }
+}

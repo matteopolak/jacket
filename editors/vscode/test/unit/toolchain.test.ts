@@ -15,7 +15,8 @@ import {
   compareVersions,
   downloadUrl,
   install,
-  parseSha256Sums,
+  MANIFEST_FILE,
+  parseManifest,
   sha256,
   unsupportedMessage,
   verifyChecksum,
@@ -73,11 +74,19 @@ describe("platform to release archive", () => {
 });
 
 describe("checksums", () => {
-  it("parses sha256sum output", () => {
-    const text = `${"a".repeat(64)}  jacket-linux-x64.tar.gz\n${"B".repeat(64)} *jacket-windows-x64.zip\nnot a line\n`;
-    assert.deepEqual(parseSha256Sums(text), {
-      "jacket-linux-x64.tar.gz": "a".repeat(64),
-      "jacket-windows-x64.zip": "b".repeat(64),
+  it("parses the manifest the release workflow writes (shared fixture)", () => {
+    const text = readFileSync(path.join(repository, "editors", "fixtures", MANIFEST_FILE), "utf8");
+    const manifest = parseManifest(text)!;
+    assert.equal(manifest.version, "0.4.0");
+    assert.deepEqual(Object.keys(manifest.sha256).toSorted(), Object.values(RELEASE_ASSETS).toSorted());
+  });
+
+  it("rejects a manifest of the wrong shape and drops malformed hashes", () => {
+    assert.equal(parseManifest("not json"), undefined);
+    assert.equal(parseManifest('{"version": 4}'), undefined);
+    assert.deepEqual(parseManifest(JSON.stringify({ version: "1.0.0", sha256: { a: "B".repeat(64), b: "xyz" } })), {
+      version: "1.0.0",
+      sha256: { a: "b".repeat(64) },
     });
   });
 
@@ -163,7 +172,7 @@ describe("install", () => {
     assert.ok(existsSync(path.join(dir, "stdlib", "prelude", "module.jai")), "the stdlib stays next to the binaries");
     assert.equal(statSync(path.join(dir, "jailsp")).mode & 0o111, 0o111, "executable bits are set");
     assert.deepEqual(await fs.readdir(store.root), ["0.4.0"], "older versions and staging leftovers are removed");
-    assert.deepEqual(requests, [downloadUrl("0.4.0", asset)], "pinned checksums need no SHA256SUMS request");
+    assert.deepEqual(requests, [downloadUrl("0.4.0", asset)], "pinned checksums need no manifest request");
     assert.equal(progress.at(-1), archive.length);
     assert.deepEqual(await store.installedVersions(), ["0.4.0"]);
   });
@@ -180,11 +189,11 @@ describe("install", () => {
     assert.deepEqual(existsSync(store.root) ? await fs.readdir(store.root) : [], []);
   });
 
-  it("uses the release's SHA256SUMS when no checksums are pinned for the version", async () => {
+  it("uses the release's manifest when no checksums are pinned for the version", async () => {
     const storage = mkdtempSync(path.join(tmpdir(), "jai-toolchain-"));
     const store = new ToolchainStore(storage, "linux");
-    const sums = `${sha256(archive)}  ${asset}\n`;
-    const { fetcher, requests } = fakeRelease({ [asset]: archive, SHA256SUMS: sums });
+    const manifest = JSON.stringify({ version: "0.5.0", sha256: { [asset]: sha256(archive) } });
+    const { fetcher, requests } = fakeRelease({ [asset]: archive, [MANIFEST_FILE]: manifest });
     const logged: string[] = [];
     await install({
       version: "0.5.0",
@@ -195,14 +204,14 @@ describe("install", () => {
       log: (line) => logged.push(line),
       unpack: fakeUnpack(asset),
     });
-    assert.ok(requests[0].endsWith("/v0.5.0/SHA256SUMS"));
+    assert.ok(requests[0].endsWith(`/v0.5.0/${MANIFEST_FILE}`));
     assert.ok(logged.some((line) => line.includes("no checksums are pinned")));
     assert.ok(store.isInstalled("0.5.0", asset));
   });
 
-  it("refuses an archive SHA256SUMS does not list", async () => {
+  it("refuses an archive the manifest does not list", async () => {
     const store = new ToolchainStore(mkdtempSync(path.join(tmpdir(), "jai-toolchain-")), "linux");
-    const { fetcher } = fakeRelease({ [asset]: archive, SHA256SUMS: "" });
+    const { fetcher } = fakeRelease({ [asset]: archive, [MANIFEST_FILE]: JSON.stringify({ version: "0.5.0", sha256: {} }) });
     await assert.rejects(
       install({ version: "0.5.0", asset, store, fetcher, log: () => {}, unpack: fakeUnpack(asset) }),
       (e: ToolchainError) => e.kind === "integrity",

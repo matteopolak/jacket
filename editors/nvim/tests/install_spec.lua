@@ -4,16 +4,20 @@ local install = require('jai.install')
 local ZERO = ('0'):rep(64)
 local GOOD = ('ab'):rep(32)
 
-h.test('SHA256SUMS lines are parsed', function()
-  local sums = install.parse_sums(table.concat({
-    GOOD .. '  jacket-linux-x64.tar.gz',
-    ZERO:upper() .. ' *jacket-windows-x64.zip',
-    'not a checksum line',
-    'abc123  short.tar.gz',
-  }, '\n'))
-  assert(sums['jacket-linux-x64.tar.gz'] == GOOD)
-  assert(sums['jacket-windows-x64.zip'] == ZERO, 'binary-mode marker and upper case')
-  assert(sums['short.tar.gz'] == nil, 'too short to be a SHA-256')
+h.test('the manifest is parsed (shared fixture)', function()
+  local fixture = vim.fs.joinpath(vim.g.jai_test_dir, '..', '..', 'fixtures', install.MANIFEST_FILE)
+  local manifest = assert(install.parse_manifest(table.concat(vim.fn.readfile(fixture), '\n')))
+  assert(manifest.version == '0.4.0')
+  for _, asset in ipairs({ 'jacket-linux-x64.tar.gz', 'jacket-macos-arm64.tar.gz', 'jacket-windows-x64.zip' }) do
+    assert(#manifest.sha256[asset] == 64, asset)
+  end
+end)
+
+h.test('a malformed manifest is rejected and bad hashes are dropped', function()
+  assert(install.parse_manifest('not json') == nil)
+  assert(install.parse_manifest('{"version": 4}') == nil)
+  local manifest = assert(install.parse_manifest(vim.json.encode({ version = '1.0.0', sha256 = { a = GOOD:upper(), b = 'xyz' } })))
+  assert(manifest.sha256.a == GOOD and manifest.sha256.b == nil, vim.inspect(manifest))
 end)
 
 h.test('hash tool output is parsed', function()
@@ -45,7 +49,14 @@ if h.is_windows() then
   h.skip('the fake release is built with sh and tar')
 end
 
----Builds a fake release (`<base>/jacket-linux-x64.tar.gz` and `SHA256SUMS`) holding the four tools.
+---@param dir string
+---@param version string
+---@param sums table<string, string>
+local function write_manifest(dir, version, sums)
+  vim.fn.writefile({ vim.json.encode({ version = version, sha256 = sums }) }, dir .. '/' .. install.MANIFEST_FILE)
+end
+
+---Builds a fake release (`<base>/jacket-linux-x64.tar.gz` and its manifest) holding the four tools.
 ---@param tools string[]
 ---@return string base  a file:// URL
 ---@return string hash  of the archive
@@ -67,7 +78,7 @@ local function fake_release(tools)
   h.wait_for(5000, function()
     return hash
   end, 'the archive hash')
-  vim.fn.writefile({ hash .. '  jacket-linux-x64.tar.gz' }, dir .. '/SHA256SUMS')
+  write_manifest(dir, '9.9.9', { ['jacket-linux-x64.tar.gz'] = hash })
   return 'file://' .. dir, hash
 end
 
@@ -88,7 +99,7 @@ end
 
 local ALL = { 'jaic', 'jailsp', 'jailint', 'jaifmt' }
 
-h.test('an archive with the right checksum from SHA256SUMS is unpacked into <root>/<version>', function()
+h.test('an archive with the right checksum from the release manifest is unpacked into <root>/<version>', function()
   local base = fake_release(ALL)
   local root = h.tmpdir() .. '/jai'
   local err, dir = run_install({ version = '9.9.9', asset = 'jacket-linux-x64.tar.gz', root = root, base_url = base })
@@ -101,9 +112,9 @@ h.test('an archive with the right checksum from SHA256SUMS is unpacked into <roo
   assert(#vim.fn.readdir(root) == 1, 'no staging folder is left: ' .. vim.inspect(vim.fn.readdir(root)))
 end)
 
-h.test('pinned checksums are used instead of SHA256SUMS', function()
+h.test('pinned checksums are used instead of the release manifest', function()
   local base, hash = fake_release(ALL)
-  os.remove(vim.uri_to_fname(base .. '/SHA256SUMS'))
+  os.remove(vim.uri_to_fname(base .. '/' .. install.MANIFEST_FILE))
   local root = h.tmpdir() .. '/jai'
   local pinned = { version = '9.9.9', sha256 = { ['jacket-linux-x64.tar.gz'] = hash } }
   local err = run_install({ version = '9.9.9', asset = 'jacket-linux-x64.tar.gz', root = root, base_url = base, pinned = pinned })
@@ -115,17 +126,17 @@ end)
 h.test('a wrong checksum installs nothing', function()
   local base = fake_release(ALL)
   local root = h.tmpdir() .. '/jai'
-  vim.fn.writefile({ ZERO .. '  jacket-linux-x64.tar.gz' }, vim.uri_to_fname(base) .. '/SHA256SUMS')
+  write_manifest(vim.uri_to_fname(base), '9.9.9', { ['jacket-linux-x64.tar.gz'] = ZERO })
   local err, dir = run_install({ version = '9.9.9', asset = 'jacket-linux-x64.tar.gz', root = root, base_url = base })
   assert(err and err:find('does not match its checksum'), tostring(err))
   assert(dir == nil)
   assert(#vim.fn.readdir(root) == 0, 'nothing is left behind: ' .. vim.inspect(vim.fn.readdir(root)))
 end)
 
-h.test('an archive missing from SHA256SUMS is refused', function()
+h.test('an archive missing from the release manifest is refused', function()
   local base = fake_release(ALL)
   local root = h.tmpdir() .. '/jai'
-  vim.fn.writefile({ GOOD .. '  jacket-other.tar.gz' }, vim.uri_to_fname(base) .. '/SHA256SUMS')
+  write_manifest(vim.uri_to_fname(base), '9.9.9', { ['jacket-other.tar.gz'] = GOOD })
   local err = run_install({ version = '9.9.9', asset = 'jacket-linux-x64.tar.gz', root = root, base_url = base })
   assert(err and err:find('no SHA%-256 checksum is known'), tostring(err))
 end)

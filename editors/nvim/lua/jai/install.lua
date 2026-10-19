@@ -28,18 +28,28 @@ function M.asset_for(sysname, machine)
   return ('jacket-%s-%s.%s'):format(os, arch, os == 'windows' and 'zip' or 'tar.gz')
 end
 
----Parses `sha256sum` output: `<hex>  <name>` (or `<hex> *<name>`) per line.
+M.MANIFEST_FILE = 'toolchain-manifest.json'
+
+---@class jai.Manifest
+---@field version string
+---@field sha256 table<string, string>  lower-case hex by archive name
+
+---Parses `toolchain-manifest.json` (written by tools/ci/toolchain_manifest.py); nil unless it has
+---the expected shape. Malformed hashes are dropped.
 ---@param text string
----@return table<string, string>  lower-case hex by file name
-function M.parse_sums(text)
+---@return jai.Manifest?
+function M.parse_manifest(text)
+  local ok, value = pcall(vim.json.decode, text)
+  if not ok or type(value) ~= 'table' or type(value.version) ~= 'string' or type(value.sha256) ~= 'table' then
+    return nil
+  end
   local sums = {}
-  for line in text:gmatch('[^\r\n]+') do
-    local hex, name = line:match('^(%x+)%s+%*?(.-)%s*$')
-    if hex and #hex == 64 and name ~= '' then
-      sums[name] = hex:lower()
+  for name, hash in pairs(value.sha256) do
+    if type(hash) == 'string' and #hash == 64 and not hash:find('%X') then
+      sums[name] = hash:lower()
     end
   end
-  return sums
+  return { version = value.version, sha256 = sums }
 end
 
 ---The hash in the output of `sha256sum`, `shasum`, `openssl dgst` or `certutil -hashfile`.
@@ -85,7 +95,7 @@ end
 ---@class jai.InstallOptions
 ---@field version string
 ---@field asset string
----@field pinned? { version: string?, sha256: table<string, string> }  checksums shipped with the plugin
+---@field pinned? jai.Manifest  the manifest shipped with the plugin
 ---@field root? string  where versions live (default `<data>/jai`)
 ---@field base_url? string  release download URL (a `file://` folder in tests)
 ---@field log? fun(msg: string)
@@ -229,14 +239,17 @@ function M.install(opts, done)
     end
     return download_and_check(pinned.sha256[asset])
   end
-  log('no checksums are pinned for ' .. opts.version .. '; using the release SHA256SUMS')
-  local sums_file = vim.fs.joinpath(staging, 'SHA256SUMS')
-  curl(base .. '/SHA256SUMS', sums_file, function(err)
+  log(('no checksums are pinned for %s; using the release %s'):format(opts.version, M.MANIFEST_FILE))
+  local manifest_file = vim.fs.joinpath(staging, M.MANIFEST_FILE)
+  curl(base .. '/' .. M.MANIFEST_FILE, manifest_file, function(err)
     if err then
       return fail(err)
     end
-    local lines = vim.fn.readfile(sums_file)
-    download_and_check(M.parse_sums(table.concat(lines, '\n'))[asset])
+    local manifest = M.parse_manifest(table.concat(vim.fn.readfile(manifest_file), '\n'))
+    if not manifest or manifest.version ~= opts.version then
+      return fail(('the release %s is not for %s'):format(M.MANIFEST_FILE, opts.version))
+    end
+    download_and_check(manifest.sha256[asset])
   end)
 end
 

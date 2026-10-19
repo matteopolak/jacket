@@ -105,10 +105,12 @@ h.test('a cached toolchain with an obsolete pinned checksum is not selected', fu
     local dir = toolchain.version_dir(version)
     make_tools(dir, { 'jailsp' })
     vim.fn.writefile({ vim.json.encode({ version = version, asset = asset, sha256 = ('a'):rep(64) }) }, dir .. '/.jai-installed.json')
-    local prior = package.loaded['jai.checksums']
-    package.loaded['jai.checksums'] = { version = version, sha256 = { [asset] = ('b'):rep(64) } }
+    local prior = toolchain.manifest
+    toolchain.manifest = function()
+      return { version = version, sha256 = { [asset] = ('b'):rep(64) } }
+    end
     local ok, versions = pcall(toolchain.installed_versions)
-    package.loaded['jai.checksums'] = prior
+    toolchain.manifest = prior
     assert(ok, versions)
     assert(not vim.list_contains(versions, version), vim.inspect(versions))
   end)
@@ -121,8 +123,10 @@ h.test('missing or malformed cache markers do not break checksum validation', fu
     local asset = assert(install.asset_for(uname.sysname, uname.machine))
     local dir = toolchain.version_dir(version)
     make_tools(dir, { 'jailsp' })
-    local prior = package.loaded['jai.checksums']
-    package.loaded['jai.checksums'] = { version = version, sha256 = { [asset] = ('b'):rep(64) } }
+    local prior = toolchain.manifest
+    toolchain.manifest = function()
+      return { version = version, sha256 = { [asset] = ('b'):rep(64) } }
+    end
     for _, contents in ipairs({ false, '{ invalid json' }) do
       local marker = dir .. '/.jai-installed.json'
       os.remove(marker)
@@ -131,7 +135,7 @@ h.test('missing or malformed cache markers do not break checksum validation', fu
       assert(ok, versions)
       assert(not vim.list_contains(versions, version), vim.inspect(versions))
     end
-    package.loaded['jai.checksums'] = prior
+    toolchain.manifest = prior
   end)
 end)
 

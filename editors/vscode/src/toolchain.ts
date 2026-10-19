@@ -56,20 +56,27 @@ export function downloadUrl(version: string, asset: string): string {
   return `https://github.com/${REPOSITORY}/releases/download/v${version}/${asset}`;
 }
 
-/** Checksums written into the extension when it is packaged (`toolchain-checksums.json`). */
-export interface PinnedChecksums {
+/** The file naming a release's archives and their checksums (`tools/ci/toolchain_manifest.py`). */
+export const MANIFEST_FILE = "toolchain-manifest.json";
+
+export interface ToolchainManifest {
   version: string;
   sha256: Record<string, string>;
 }
 
-/** Parses `sha256sum` output: `<hex>  <name>` (or `<hex> *<name>`) per line. */
-export function parseSha256Sums(text: string): Record<string, string> {
-  const sums: Record<string, string> = {};
-  for (const line of text.split(/\r?\n/)) {
-    const match = /^([0-9a-fA-F]{64})\s+\*?(.+?)\s*$/.exec(line);
-    if (match) sums[match[2]] = match[1].toLowerCase();
+/** Parses `toolchain-manifest.json`; `undefined` unless it has the expected shape. */
+export function parseManifest(text: string): ToolchainManifest | undefined {
+  try {
+    const value = JSON.parse(text) as Partial<ToolchainManifest>;
+    if (typeof value?.version !== "string" || typeof value.sha256 !== "object" || value.sha256 === null) return undefined;
+    const sha256: Record<string, string> = {};
+    for (const [name, hash] of Object.entries(value.sha256)) {
+      if (typeof hash === "string" && /^[0-9a-fA-F]{64}$/.test(hash)) sha256[name] = hash.toLowerCase();
+    }
+    return { version: value.version, sha256 };
+  } catch {
+    return undefined;
   }
-  return sums;
 }
 
 export function sha256(data: Uint8Array): string {
@@ -163,14 +170,14 @@ export async function download(
 }
 
 /**
- * The checksum to hold `asset` to: the one pinned into the extension when it was packaged for
- * this version, else (a development build) the release's own `SHA256SUMS`.
+ * The checksum to hold `asset` to: the one in the manifest shipped with the extension when it was
+ * packaged for this version, else (a development build) the release's own manifest.
  */
 export async function expectedChecksum(
   fetcher: Fetch,
   version: string,
   asset: string,
-  pinned: PinnedChecksums | undefined,
+  pinned: ToolchainManifest | undefined,
   log: (line: string) => void,
   signal?: AbortSignal,
 ): Promise<string | undefined> {
@@ -181,9 +188,13 @@ export async function expectedChecksum(
     }
     return sum;
   }
-  log(`no checksums are pinned for ${version} in this build of the extension; using the release's SHA256SUMS`);
-  const text = new TextDecoder().decode(await download(fetcher, downloadUrl(version, "SHA256SUMS"), undefined, signal));
-  return parseSha256Sums(text)[asset];
+  log(`no checksums are pinned for ${version} in this build of the extension; using the release's ${MANIFEST_FILE}`);
+  const text = new TextDecoder().decode(await download(fetcher, downloadUrl(version, MANIFEST_FILE), undefined, signal));
+  const manifest = parseManifest(text);
+  if (manifest?.version !== version) {
+    throw new ToolchainError(`the release's ${MANIFEST_FILE} is not for ${version}`, "integrity");
+  }
+  return manifest.sha256[asset];
 }
 
 /** The folders under the extension's storage: `<storage>/toolchain/<version>/<archive root>/`. */
@@ -297,7 +308,7 @@ export interface InstallOptions {
   asset: string;
   store: ToolchainStore;
   fetcher: Fetch;
-  pinned?: PinnedChecksums;
+  pinned?: ToolchainManifest;
   log: (line: string) => void;
   progress?: (received: number, total: number | undefined) => void;
   signal?: AbortSignal;
@@ -313,7 +324,7 @@ export async function install(options: InstallOptions): Promise<string> {
   const { version, asset, store, fetcher, log, signal } = options;
   const expected = await expectedChecksum(fetcher, version, asset, options.pinned, log, signal);
   if (!expected) {
-    throw new ToolchainError(`the release's SHA256SUMS does not list ${asset}`, "integrity");
+    throw new ToolchainError(`the release's ${MANIFEST_FILE} does not list ${asset}`, "integrity");
   }
   const url = downloadUrl(version, asset);
   log(`downloading ${url}`);

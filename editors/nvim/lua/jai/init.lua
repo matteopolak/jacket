@@ -111,7 +111,7 @@ function M.install(opts)
   install.install({
     version = version,
     asset = asset,
-    pinned = require('jai.checksums'),
+    pinned = toolchain.manifest(),
   }, function(err, dir)
     if err then
       notify('could not install the toolchain: ' .. err, vim.log.levels.ERROR)
