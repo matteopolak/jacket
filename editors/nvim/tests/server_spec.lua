@@ -3,39 +3,45 @@ local h = require('harness')
 
 local jailsp = vim.env.JAILSP
 if not jailsp or jailsp == '' then
-  h.skip('JAILSP is not set')
+  return h.skipped(h.set(), 'JAILSP is not set')
 end
 
 local config = require('jai.config')
 local jai = require('jai')
 
-local dir = h.tmpdir()
-local file = dir .. '/main.jai'
-vim.fn.writefile({
-  '// Adds two numbers.',
-  '//',
-  '// Returns their sum.',
-  'add :: (a: int, b: int) -> int {',
-  '    return a + b;',
-  '}',
-  '',
-  'main :: () {',
-  '    total := add(1, 2);',
-  '    missing_name;',
-  '}',
-}, file)
+local file, bufnr
 
-config.set({ server = { path = jailsp } })
-vim.lsp.enable('jailsp')
-vim.cmd.edit(file)
-local bufnr = vim.api.nvim_get_current_buf()
+---Before the first case: open a Jai file with a real jailsp attached.
+local function open()
+  local dir = h.tmpdir()
+  file = dir .. '/main.jai'
+  vim.fn.writefile({
+    '// Adds two numbers.',
+    '//',
+    '// Returns their sum.',
+    'add :: (a: int, b: int) -> int {',
+    '    return a + b;',
+    '}',
+    '',
+    'main :: () {',
+    '    total := add(1, 2);',
+    '    missing_name;',
+    '}',
+  }, file)
+  config.set({ server = { path = jailsp } })
+  vim.lsp.enable('jailsp')
+  vim.cmd.edit(file)
+  bufnr = vim.api.nvim_get_current_buf()
+end
+
+local T = h.set({ hooks = { pre_once = open } })
 
 ---@return vim.lsp.Client
 local function client()
   return assert(vim.lsp.get_clients({ bufnr = bufnr, name = 'jailsp' })[1])
 end
 
-h.test('jailsp attaches to a Jai buffer', function()
+T['jailsp attaches to a Jai buffer'] = function()
   h.wait_for(15000, function()
     return #vim.lsp.get_clients({ bufnr = bufnr, name = 'jailsp' }) > 0
   end, 'jailsp to attach')
@@ -43,9 +49,9 @@ h.test('jailsp attaches to a Jai buffer', function()
   assert(c.server_info and c.server_info.name == 'jai-language-server', vim.inspect(c.server_info))
   assert(c.server_capabilities.hoverProvider)
   assert(c.server_capabilities.semanticTokensProvider)
-end)
+end
 
-h.test('the error is published as a diagnostic', function()
+T['the error is published as a diagnostic'] = function()
   h.wait_for(30000, function()
     return #vim.diagnostic.get(bufnr) > 0
   end, 'diagnostics')
@@ -54,9 +60,9 @@ h.test('the error is published as a diagnostic', function()
     return d.lnum == 9
   end, diagnostics)
   assert(#on_line_10 > 0, vim.inspect(diagnostics))
-end)
+end
 
-h.test('hover returns the doc comment', function()
+T['hover returns the doc comment'] = function()
   local result
   local params = { textDocument = { uri = vim.uri_from_bufnr(bufnr) }, position = { line = 8, character = 14 } }
   client():request('textDocument/hover', params, function(err, res)
@@ -69,9 +75,9 @@ h.test('hover returns the doc comment', function()
   assert(result, 'hover returned nothing')
   local text = type(result.contents) == 'table' and (result.contents.value or vim.inspect(result.contents)) or tostring(result.contents)
   assert(text:find('Adds two numbers', 1, true), text)
-end)
+end
 
-h.test('semantic tokens are requested and highlight the buffer', function()
+T['semantic tokens are requested and highlight the buffer'] = function()
   h.wait_for(10000, function()
     local marks = vim.api.nvim_buf_get_extmarks(bufnr, -1, 0, -1, { details = true })
     for _, mark in ipairs(marks) do
@@ -80,9 +86,9 @@ h.test('semantic tokens are requested and highlight the buffer', function()
       end
     end
   end, 'semantic token highlights')
-end)
+end
 
-h.test('go to definition finds the procedure', function()
+T['go to definition finds the procedure'] = function()
   local result
   local params = { textDocument = { uri = vim.uri_from_bufnr(bufnr) }, position = { line = 8, character = 14 } }
   client():request('textDocument/definition', params, function(_, res)
@@ -95,15 +101,15 @@ h.test('go to definition finds the procedure', function()
   assert(location, 'no definition')
   local range = location.range or location.targetSelectionRange
   assert(range.start.line == 3, vim.inspect(location))
-end)
+end
 
-h.test(':Jai expand reports no expansion where there is none, without an error', function()
+T[':Jai expand reports no expansion where there is none, without an error'] = function()
   vim.api.nvim_win_set_cursor(0, { 9, 14 })
   vim.cmd('Jai expand')
   vim.wait(500)
-end)
+end
 
-h.test(':Jai restart brings the server back', function()
+T[':Jai restart brings the server back'] = function()
   local old = client().id
   local done = false
   jai.restart(function()
@@ -116,11 +122,13 @@ h.test(':Jai restart brings the server back', function()
     local c = vim.lsp.get_clients({ bufnr = bufnr, name = 'jailsp' })[1]
     return c and c.id ~= old
   end, 'a new client to attach')
-end)
+end
 
-h.test('the server stops with the editor', function()
+T['the server stops with the editor'] = function()
   vim.lsp.enable('jailsp', false)
   h.wait_for(10000, function()
     return #vim.lsp.get_clients({ name = 'jailsp' }) == 0
   end, 'jailsp to stop')
-end)
+end
+
+return T

@@ -18,7 +18,7 @@
 - **Syntax words** in `syntax/jai.vim` copy `editors/vscode/scripts/build-grammar.ts`; nothing checks them against each other.
 - Gotchas: `vim.lsp.enable()` does not attach to already open buffers after startup, so `restart` re-triggers `FileType`; use `vim.uv`, never `vim.loop`.
 
-Tests are plain-Lua specs in `editors/nvim/tests/` (`filetype`, `toolchain`, `install`, `format`, `server`):
+Tests are [mini.test](https://github.com/echasnovski/mini.test) specs in `editors/nvim/tests/*_spec.lua` (each builds `local T = h.set()`, adds cases as `T['name'] = function() ... end` and returns `T`; `h.skipped(T, why)` skips a whole file; helpers are in `tests/harness.lua`). `tools/dev/fetch_mini_test.py` fetches mini.test at the commit pinned as `mini_test_commit` in `.github/pins.json` into `target/nvim-deps/` (override with `MINI_TEST_DIR`); nothing is installed globally. Bump the pin by changing `mini_test` and `mini_test_commit` together.
 
 ```sh
 just nvim-test            # builds a debug jailsp, runs everything

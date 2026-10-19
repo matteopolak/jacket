@@ -1,7 +1,8 @@
 local h = require('harness')
+local T = h.set()
 
 if h.is_windows() then
-  h.skip('uses shell-script stand-ins for the tools')
+  return h.skipped(T, 'uses shell-script stand-ins for the tools')
 end
 
 local config = require('jai.config')
@@ -33,21 +34,21 @@ local function make_tools(dir, names)
   end
 end
 
-h.test('the lsp config is defined by the plugin and needs no setup', function()
+T['the lsp config is defined by the plugin and needs no setup'] = function()
   local cfg = vim.lsp.config['jailsp']
   assert(cfg, 'vim.lsp.config.jailsp')
   assert(vim.deep_equal(cfg.filetypes, { 'jai' }))
   assert(type(cfg.cmd) == 'function')
   assert(vim.tbl_contains(cfg.root_markers, 'jacket.toml'))
-end)
+end
 
-h.test('nothing is found when nothing is installed', function()
+T['nothing is found when nothing is installed'] = function()
   isolated(function()
     assert(toolchain.find('jailsp') == nil)
   end)
-end)
+end
 
-h.test('a tool on PATH is found', function()
+T['a tool on PATH is found'] = function()
   isolated(function()
     local bin = h.tmpdir()
     make_tools(bin, { 'jailsp' })
@@ -55,9 +56,9 @@ h.test('a tool on PATH is found', function()
     local found = assert(toolchain.find('jailsp'))
     assert(found.source == 'path' and vim.fs.normalize(found.path) == vim.fs.normalize(bin .. '/jailsp'), vim.inspect(found))
   end)
-end)
+end
 
-h.test('the configured path beats PATH, and a missing one is an error', function()
+T['the configured path beats PATH, and a missing one is an error'] = function()
   isolated(function()
     local bin, mine = h.tmpdir(), h.tmpdir()
     make_tools(bin, { 'jailsp' })
@@ -71,9 +72,9 @@ h.test('the configured path beats PATH, and a missing one is an error', function
     assert(none == nil and err and err:find('does not exist'), tostring(err))
     config.set(nil)
   end)
-end)
+end
 
-h.test('tools are found next to jaic', function()
+T['tools are found next to jaic'] = function()
   isolated(function()
     local bin = h.tmpdir()
     make_tools(bin, { 'jaic', 'jaifmt' })
@@ -82,9 +83,9 @@ h.test('tools are found next to jaic', function()
     assert(found.source == 'next to jaic', vim.inspect(found))
     config.set(nil)
   end)
-end)
+end
 
-h.test('the downloaded toolchain is the last resort; the wanted version wins', function()
+T['the downloaded toolchain is the last resort; the wanted version wins'] = function()
   isolated(function()
     local version = toolchain.wanted_version()
     make_tools(toolchain.version_dir('0.0.1'), { 'jailsp' })
@@ -95,9 +96,9 @@ h.test('the downloaded toolchain is the last resort; the wanted version wins', f
     assert(wanted.path:find(version, 1, true), wanted.path)
     assert(toolchain.installed_versions()[1] == version, 'newest first')
   end)
-end)
+end
 
-h.test('a cached toolchain with an obsolete pinned checksum is not selected', function()
+T['a cached toolchain with an obsolete pinned checksum is not selected'] = function()
   isolated(function()
     local version = toolchain.wanted_version()
     local uname = vim.uv.os_uname()
@@ -114,9 +115,9 @@ h.test('a cached toolchain with an obsolete pinned checksum is not selected', fu
     assert(ok, versions)
     assert(not vim.list_contains(versions, version), vim.inspect(versions))
   end)
-end)
+end
 
-h.test('missing or malformed cache markers do not break checksum validation', function()
+T['missing or malformed cache markers do not break checksum validation'] = function()
   isolated(function()
     local version = toolchain.wanted_version()
     local uname = vim.uv.os_uname()
@@ -137,9 +138,9 @@ h.test('missing or malformed cache markers do not break checksum validation', fu
     end
     toolchain.manifest = prior
   end)
-end)
+end
 
-h.test('the server command starts the resolved binary', function()
+T['the server command starts the resolved binary'] = function()
   isolated(function()
     local bin = h.tmpdir()
     make_tools(bin, { 'jailsp' })
@@ -157,18 +158,20 @@ h.test('the server command starts the resolved binary', function()
     assert(started.cmd[1] == vim.fs.normalize(bin .. '/jailsp'), vim.inspect(started))
     assert(started.env.JAIC_STDLIB == '/stdlib/here')
   end)
-end)
+end
 
-h.test('the server command explains a missing jailsp instead of starting', function()
+T['the server command explains a missing jailsp instead of starting'] = function()
   isolated(function()
     local ok, err = pcall(require('jai').server_cmd, {}, {})
     assert(not ok and tostring(err):find('jailsp was not found', 1, true), tostring(err))
   end)
-end)
+end
 
-h.test(':checkhealth jai runs', function()
+T[':checkhealth jai runs'] = function()
   vim.cmd('checkhealth jai')
   local text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
   vim.cmd('bwipeout!')
   assert(text:find('Neovim', 1, true) and text:find('jailsp', 1, true), text)
-end)
+end
+
+return T

@@ -192,6 +192,12 @@ def cmd_nvim(args) -> int:
         print(f"{banner[0] if banner else 'nvim'} is older than 0.11: skipping the Neovim plugin tests")
         return 0
     env = {k: v for k, v in os.environ.items() if k != "JAILSP"}
+    if "MINI_TEST_DIR" not in env:
+        fetched = subprocess.run([sys.executable, str(ROOT / "tools" / "dev" / "fetch_mini_test.py")], capture_output=True, text=True)
+        if fetched.returncode:
+            print(fetched.stderr, file=sys.stderr)
+            return 1
+        env["MINI_TEST_DIR"] = fetched.stdout.strip()
     if not args.unit:
         if cargo_build(["-p", "jai-language-server"], args.jobs):
             return 1

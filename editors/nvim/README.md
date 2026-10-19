@@ -121,7 +121,7 @@ Reports the Neovim version, which of `jailsp`, `jaic`, `jaifmt` and `jailint` we
 
 ```sh
 cd editors/nvim
-JAILSP=/path/to/jailsp nvim --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'
+MINI_TEST_DIR=$(python3 ../../tools/dev/fetch_mini_test.py) JAILSP=/path/to/jailsp nvim --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'
 ```
 
 Without `JAILSP` the end-to-end spec is skipped. From the repository root, `just nvim-test` builds `jailsp` and runs everything. More in [docs/tools/neovim-plugin.md](../../docs/tools/neovim-plugin.md).

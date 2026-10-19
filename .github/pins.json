@@ -9,5 +9,11 @@
   "mesa_sha256_x64": "d1b713ca2a7fba47a50c058099f13c435ddb76a16a422c334e4d787f9755a31d",
   "mesa_sha256_arm64": "e7df75398d50e07a68bbffa5cff2ece4c85e5f8ef8bda497f560dd04fe60cbbd",
   "nvim": "v0.12.4",
-  "nvim_sha256": "012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628"
+  "nvim_sha256": "012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628",
+  "mini_test": "v0.18.0",
+  "mini_test_commit": "35c67cb7f2dc697ed0c7c06400fcf29a8a521d7d",
+  "nextest": "0.9.148",
+  "nextest_sha256_linux_x64": "223ba936714cc861a9cdedad5a8eb664dfdd69d6fbdf6cea6aa8184f523290dc",
+  "nextest_sha256_linux_arm64": "81469eb963ef883fd590e60189e77d6aba3d91b418591d3391f50fe3e9480d2b",
+  "nextest_sha256_macos": "6c23b7fb4ca82c571fc8dfedbab45bfa773d45918f933170c85d21cd7f4b852b"
 }

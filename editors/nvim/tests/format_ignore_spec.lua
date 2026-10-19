@@ -1,11 +1,12 @@
 local h = require('harness')
+local T = h.set()
 local format = require('jai.format')
 
 if not vim.env.JAIFMT or vim.env.JAIFMT == '' then
-  h.skip('set JAIFMT to a jaifmt executable')
+  return h.skipped(T, 'set JAIFMT to a jaifmt executable')
 end
 
-h.test('the ignore list is asked of jaifmt --is-ignored', function()
+T['the ignore list is asked of jaifmt --is-ignored'] = function()
   local jaifmt = vim.env.JAIFMT
   local dir = vim.fn.resolve(vim.fn.tempname())
   vim.fn.mkdir(dir .. '/gen/deep', 'p')
@@ -15,4 +16,6 @@ h.test('the ignore list is asked of jaifmt --is-ignored', function()
   assert(not format.is_ignored(jaifmt, dir .. '/gen/deep/a.jai'), '* stays in one component')
   assert(not format.is_ignored(jaifmt, dir .. '/src/a.jai'))
   assert(not format.is_ignored('/no/such/jaifmt', dir .. '/gen/a.jai'))
-end)
+end
+
+return T

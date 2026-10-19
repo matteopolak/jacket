@@ -1,9 +1,10 @@
 local h = require('harness')
+local T = h.set()
 local commands = require('jai.commands')
 local config = require('jai.config')
 local format = require('jai.format')
 
-h.test('jailint output becomes quickfix items', function()
+T['jailint output becomes quickfix items'] = function()
   local items = commands.parse_jailint(table.concat({
     'warning[index_only_loop]: `i` counts through `names` to index it',
     '  --> list.jai:21:5',
@@ -16,10 +17,10 @@ h.test('jailint output becomes quickfix items', function()
   assert(items[1].filename == 'list.jai' and items[1].lnum == 21 and items[1].col == 5 and items[1].type == 'W')
   assert(items[1].text:find('index_only_loop', 1, true))
   assert(items[2].filename == 'src/main.jai' and items[2].type == 'E')
-end)
+end
 
 if h.is_windows() then
-  h.skip('jaifmt is stood in for by a shell script')
+  return h.skipped(T, 'jaifmt is stood in for by a shell script')
 end
 
 -- A stand-in `jaifmt`: strips trailing blanks from standard input; `--is-ignored FILE` answers 0
@@ -46,26 +47,26 @@ local function format_file(dir, lines)
   return result, changed, err
 end
 
-h.test('format applies only the changed lines', function()
+T['format applies only the changed lines'] = function()
   local result, changed, err = format_file(h.tmpdir(), { 'a :: 1;   ', 'b :: 2;', 'c :: 3;  ', 'd :: 4;' })
   assert(not err, err)
   assert(changed)
   assert(vim.deep_equal(result, { 'a :: 1;', 'b :: 2;', 'c :: 3;', 'd :: 4;' }), vim.inspect(result))
-end)
+end
 
-h.test('format reports nothing to do for formatted text', function()
+T['format reports nothing to do for formatted text'] = function()
   local result, changed = format_file(h.tmpdir(), { 'a :: 1;' })
   assert(not changed and vim.deep_equal(result, { 'a :: 1;' }))
-end)
+end
 
-h.test('files jaifmt reports as ignored are left alone', function()
+T['files jaifmt reports as ignored are left alone'] = function()
   local dir = h.tmpdir()
   vim.fn.writefile({}, dir .. '/.ignored')
   local result, changed = format_file(dir, { 'a :: 1;   ' })
   assert(not changed and result[1] == 'a :: 1;   ', vim.inspect(result))
-end)
+end
 
-h.test('a formatter failure leaves the buffer alone and says why', function()
+T['a formatter failure leaves the buffer alone and says why'] = function()
   local bin = h.tmpdir()
   h.script(bin .. '/jaifmt', 'echo "<stdin>:1:2: error: unbalanced" >&2; exit 2')
   config.set({ formatter = { path = bin .. '/jaifmt' } })
@@ -75,9 +76,9 @@ h.test('a formatter failure leaves the buffer alone and says why', function()
   vim.cmd('bwipeout!')
   config.set(nil)
   assert(not changed and err and err:find('unbalanced'), tostring(err))
-end)
+end
 
-h.test('format_on_save formats when the buffer is written', function()
+T['format_on_save formats when the buffer is written'] = function()
   local bin = h.tmpdir()
   h.script(bin .. '/jaifmt', STUB)
   config.set({ formatter = { path = bin .. '/jaifmt' }, format_on_save = true })
@@ -89,4 +90,6 @@ h.test('format_on_save formats when the buffer is written', function()
   vim.cmd('bwipeout!')
   config.set(nil)
   assert(vim.deep_equal(on_disk, { 'a :: 1;' }), vim.inspect(on_disk))
-end)
+end
+
+return T

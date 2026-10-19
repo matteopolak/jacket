@@ -4,6 +4,13 @@
 local here = vim.fs.dirname(vim.fs.abspath(debug.getinfo(1, 'S').source:sub(2)))
 local plugin = vim.fs.dirname(here)
 
+-- mini.test, the runner: `python3 tools/dev/fetch_mini_test.py` puts it in target/nvim-deps (or set MINI_TEST_DIR).
+local mini = vim.env.MINI_TEST_DIR or vim.fs.joinpath(plugin, '..', '..', 'target', 'nvim-deps', 'mini.test')
+if not vim.uv.fs_stat(vim.fs.joinpath(mini, 'lua', 'mini', 'test.lua')) then
+  io.stderr:write('mini.test not found at ' .. mini .. '; run python3 tools/dev/fetch_mini_test.py\n')
+  vim.cmd('cquit 2')
+end
+vim.opt.runtimepath:prepend(mini)
 vim.opt.runtimepath:prepend(plugin)
 vim.g.jai_test_dir = here
 -- Never prompt or download; the server specs enable jailsp themselves.

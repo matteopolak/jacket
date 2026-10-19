@@ -1,11 +1,12 @@
 local h = require('harness')
+local T = h.set()
 
-h.test('*.jai is detected as jai', function()
+T['*.jai is detected as jai'] = function()
   assert(vim.filetype.match({ filename = 'a.jai' }) == 'jai')
   assert(vim.filetype.match({ filename = '/some/dir/main.jai' }) == 'jai')
-end)
+end
 
-h.test('the ftplugin sets comments and four-space indentation', function()
+T['the ftplugin sets comments and four-space indentation'] = function()
   local dir = h.tmpdir()
   local file = dir .. '/a.jai'
   vim.fn.writefile({ 'main :: () {', '}' }, file)
@@ -14,7 +15,7 @@ h.test('the ftplugin sets comments and four-space indentation', function()
   assert(vim.bo.commentstring == '// %s')
   assert(vim.bo.expandtab and vim.bo.shiftwidth == 4)
   vim.cmd('bwipeout!')
-end)
+end
 
 ---The syntax group (syntax group name) of the character at `line`, `col` (1-based).
 ---@param line integer
@@ -24,7 +25,7 @@ local function group_at(line, col)
   return vim.fn.synIDattr(vim.fn.synID(line, col, 1), 'name')
 end
 
-h.test('the syntax file highlights the Jai lexical classes', function()
+T['the syntax file highlights the Jai lexical classes'] = function()
   local lines = {
     'main :: () {', -- 1
     '    // comment', -- 2
@@ -56,4 +57,6 @@ h.test('the syntax file highlights the Jai lexical classes', function()
   assert(group_at(9, 17) ~= 'jaiConditional', 'keyword inside a here-string')
   assert(group_at(11, 12) == 'jaiFloat', 'after the here-string: ' .. group_at(11, 12))
   vim.cmd('bwipeout!')
-end)
+end
+
+return T

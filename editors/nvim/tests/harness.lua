@@ -1,35 +1,23 @@
 -- A tiny test harness: `test(name, body)` runs now and records the result.
-local M = {
-  passed = 0,
-  failed = 0,
-  skipped = 0,
-  ---@type string[]
-  failures = {},
-  ---@type string
-  file = '',
-}
+local M = {}
 
----Defines a test; an error (or failed assert) in `body` fails it.
----@param name string
----@param body fun()
-function M.test(name, body)
-  local ok, err = xpcall(body, debug.traceback)
-  if ok then
-    M.passed = M.passed + 1
-    io.stdout:write(('  ok   %s: %s\n'):format(M.file, name))
-  else
-    M.failed = M.failed + 1
-    M.failures[#M.failures + 1] = ('%s: %s\n%s'):format(M.file, name, tostring(err))
-    io.stdout:write(('  FAIL %s: %s\n'):format(M.file, name))
-  end
+---A new test set for a spec file: `local T = h.set()`, `T['name'] = function() ... end`, `return T`.
+---@param opts? table  mini.test set options (hooks, parametrize)
+---@return table
+function M.set(opts)
+  return require('mini.test').new_set(opts)
 end
 
----Skips the rest of a spec file.
+---Marks the whole spec file skipped: `if cond then return h.skipped(T, 'why') end` before the rest
+---of the file's set-up runs.
+---@param set table
 ---@param why string
-function M.skip(why)
-  M.skipped = M.skipped + 1
-  io.stdout:write(('  skip %s: %s\n'):format(M.file, why))
-  error({ skip = true })
+---@return table
+function M.skipped(set, why)
+  set['skipped: ' .. why] = function()
+    require('mini.test').skip(why)
+  end
+  return set
 end
 
 ---Waits (processing events) until `cond()` is truthy.
