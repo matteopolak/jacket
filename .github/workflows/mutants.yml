@@ -14,7 +14,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Each manual dispatch gets its own group, so a second one does not cancel the first; the weekly run
+  # shares the ref's group and replaces a stale one of itself.
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
   cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: '0'
