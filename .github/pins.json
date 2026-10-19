@@ -15,5 +15,9 @@
   "nextest_sha256_linux_x64": "223ba936714cc861a9cdedad5a8eb664dfdd69d6fbdf6cea6aa8184f523290dc",
   "nextest_sha256_linux_arm64": "81469eb963ef883fd590e60189e77d6aba3d91b418591d3391f50fe3e9480d2b",
   "nextest_sha256_macos": "6c23b7fb4ca82c571fc8dfedbab45bfa773d45918f933170c85d21cd7f4b852b",
-  "cargo_fuzz": "0.13.2"
+  "cargo_fuzz": "0.13.2",
+  "llvm_cov": "0.9.1",
+  "llvm_cov_sha256_linux_x64": "b3f68e625481fed9b16444174f3fa5ebcdbde4a1878803a35eabe2dcefcdc41a",
+  "llvm_cov_sha256_linux_arm64": "abf5f13c1520f8756d2192bfaaeadb0208f5b7eaa8cadc15bf847befa42b7360",
+  "llvm_cov_sha256_macos": "cc00420e3a5500e4d603399fde223d76d84c1446102d1b60a9fbbbce1c1c2b52"
 }

@@ -48,6 +48,10 @@ READ_BY = {
     "nextest_sha256_linux_x64": "tools/ci/install_nextest.sh",
     "nextest_sha256_linux_arm64": "tools/ci/install_nextest.sh",
     "nextest_sha256_macos": "tools/ci/install_nextest.sh",
+    "llvm_cov": "tools/ci/install_llvm_cov.sh",
+    "llvm_cov_sha256_linux_x64": "tools/ci/install_llvm_cov.sh",
+    "llvm_cov_sha256_linux_arm64": "tools/ci/install_llvm_cov.sh",
+    "llvm_cov_sha256_macos": "tools/ci/install_llvm_cov.sh",
     "mini_test_commit": "tools/dev/fetch_mini_test.py",
 }
 

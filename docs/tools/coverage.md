@@ -9,6 +9,8 @@ $ tools/differential/jaic_sweep.py --coverage target/cov modules
 $ tools/coverage/report.py report target/cov --lcov target/cov.info --least 10
 ```
 
+Coverage of the Rust crates is separate: see [Rust code coverage](rust-coverage.md).
+
 ## How it works
 
 Compile (`Sanitize::coverage` in `crates/jaic-llvm/src/lib.rs`): after the optimization pipeline the `sancov-module` pass numbers every basic block (SanitizerCoverage `trace-pc-guard` plus `pc-table`, level 2). Its options come from LLVM's command line (`set_coverage_options`), not the pass name. `-coverage` travels as the `coverage` entry of the sanitizer list, so it shares the single-codegen-unit rule and the `.dSYM` that sanitized builds get.

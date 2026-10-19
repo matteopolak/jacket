@@ -38,6 +38,8 @@ Output must not depend on threads or hash order: [determinism checks](determinis
 
 Every compiler diagnostic needs a test that expects its text: [diagnostic coverage gate](diagnostic-coverage.md).
 
+Rust line coverage: [Rust code coverage](rust-coverage.md).
+
 Stdlib procedures are fuzzed from their types by `tools/fuzz/stdlib_fuzz.py`, see [stdlib fuzzing](stdlib-fuzzing.md).
 
 ## Differential testing

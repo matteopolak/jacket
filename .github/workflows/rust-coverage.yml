@@ -1,0 +1,75 @@
+name: rust coverage
+# Weekly and by hand: line and function coverage of the Rust crates (jaic, jaic-cli, jaic-llvm,
+# jai-language-server, jailint) from the test suite and, optionally, the regression sweep, published as an
+# artifact. Informational (docs/tools/rust-coverage.md).
+on:
+  schedule:
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      sweep:
+        description: Also run the corpus, negative and regressions sweep with the instrumented compiler
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  coverage:
+    name: coverage (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      CARGO_INCREMENTAL: '0'
+      # The wasm target tests fail, rather than skip, without node or wasm-ld.
+      JAIC_REQUIRE_WASM_TESTS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        with:
+          lld: 'true'
+          font: 'false'
+      # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Install cargo-llvm-cov and its LLVM tools
+        run: |
+          bash tools/ci/install_llvm_cov.sh
+          rustup component add llvm-tools --toolchain "$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+      - uses: ./.github/actions/native-libs-cache
+      - name: Build the native helper libraries
+        run: |
+          bash tools/native/ci_native_deps.sh clipboard
+          bash tools/native/ci_native_deps.sh developer
+      - name: Test suite
+        run: |
+          cargo llvm-cov nextest --profile ci --locked --no-report \
+            -p jaic -p jaic-cli -p jaic-llvm -p jai-language-server -p jailint
+      - name: Regression sweep with the instrumented compiler
+        if: ${{ github.event_name == 'schedule' || inputs.sweep }}
+        run: |
+          # show-env points builds at target/llvm-cov-target and sets LLVM_PROFILE_FILE, so every
+          # jaic the sweep starts writes its own profile next to the tests'.
+          # shellcheck source=/dev/null
+          source <(cargo llvm-cov show-env --export-prefix)
+          cargo build --locked -p jaic-cli
+          python3 tools/differential/jaic_sweep.py --jaic "$CARGO_LLVM_COV_TARGET_DIR/debug/jaic" --timeout 900 corpus negative regressions
+      - name: Reports
+        run: |
+          mkdir -p coverage
+          ignore='(/tests?/|_tests?\.rs$|/tests\.rs$|/\.cargo/|/rustc/)'
+          cargo llvm-cov report --lcov --output-path coverage/lcov.info --ignore-filename-regex "$ignore"
+          cargo llvm-cov report --html --output-dir coverage/html --ignore-filename-regex "$ignore"
+          cargo llvm-cov report --summary-only --ignore-filename-regex "$ignore" > coverage/summary.txt
+          python3 tools/coverage/rust_cold.py coverage/lcov.info --markdown --functions --top 30 > coverage/cold.md
+          { echo '## Rust coverage'; cat coverage/cold.md; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rust-coverage
+          path: coverage
+          retention-days: 30
