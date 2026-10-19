@@ -189,10 +189,6 @@ impl Compiler {
                 let what = match op {
                     Operand::Type(t) => {
                         if let Some(e) = entity
-                            && !matches!(
-                                self.types.kind(*t),
-                                TypeKind::Struct(_) | TypeKind::Enum(_)
-                            )
                             && let Some(ide) = self.ide.as_mut()
                         {
                             ide.type_names.insert(span, e);

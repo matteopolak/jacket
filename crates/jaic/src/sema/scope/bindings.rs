@@ -302,7 +302,24 @@ impl Compiler {
         value: Value,
         ty: TypeId,
     ) -> EntityId {
-        let id = self.add_entity(
+        let id = self.new_const(scope, name, span, value, ty);
+        if self.ide.is_some() {
+            self.ide_note_entity(id);
+        }
+        id
+    }
+
+    /// [`Self::add_const`] without the editor's record of the declaration: a constant the
+    /// source does not declare at `span`.
+    pub(in crate::sema) fn new_const(
+        &mut self,
+        scope: ScopeId,
+        name: Sym,
+        span: Span,
+        value: Value,
+        ty: TypeId,
+    ) -> EntityId {
+        let id = self.new_entity(
             scope,
             name,
             span,

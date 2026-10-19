@@ -1,5 +1,5 @@
 //! References, member queries and polymorphic bindings.
-use super::IdeMembers;
+use super::{IdeMembers, Target};
 use crate::sema::ide::IdeWhat;
 use crate::sema::scope::{EntityId, EntityKind};
 use crate::sema::value::ProcId;
@@ -67,10 +67,30 @@ impl Compiler {
         }
         let mut out: Vec<(Span, bool)> = Vec::new();
         for r in &ide.refs {
-            if self.ide_targets(r).iter().any(|t| wanted.contains(t))
-                && !out.iter().any(|(s, _)| *s == r.span)
+            if !self.ide_targets(r).iter().any(|t| wanted.contains(t)) {
+                continue;
+            }
+            // `$T` bound by `#bake_constants` is a use of `T` without its `$`.
+            let mut span = r.span;
+            let dollars = self
+                .ide_snippet(span)
+                .bytes()
+                .take_while(|&b| b == b'$')
+                .count();
+            span.start = (span.start + dollars as u32).min(span.end);
+            if !out.iter().any(|(s, _)| *s == span) {
+                out.push((span, r.decl));
+            }
+        }
+        // A named argument of a call or `#bake_constants` naming a declared parameter.
+        for &(u, d) in &ide.member_uses {
+            if u != d
+                && wanted
+                    .iter()
+                    .any(|t| matches!(t, Target::Declared(s, _) if *s == d))
+                && !out.iter().any(|(s, _)| *s == u)
             {
-                out.push((r.span, r.decl));
+                out.push((u, false));
             }
         }
         out.sort_by_key(|(s, _)| (s.file.0, s.start));

@@ -175,42 +175,74 @@ impl Compiler {
 
     pub(super) fn ide_targets(&self, r: &IdeRef) -> Vec<Target> {
         match &r.what {
-            IdeWhat::Entity(e) => match &self.entity(*e).state {
-                EntityState::Done(
-                    Resolved::Proc(p)
-                    | Resolved::Const {
-                        value: Value::Proc(p),
-                        ..
-                    },
-                ) => vec![Target::Proc(*p)],
-                EntityState::Done(Resolved::Const {
-                    value: Value::Type(t),
-                    ..
-                }) => vec![Target::Type(*t)],
-                EntityState::Done(Resolved::Module(m)) => vec![Target::Module(*m)],
-                _ => match &self.entity(*e).kind {
-                    EntityKind::Const {
-                        value: Value::Type(t),
-                        ..
-                    } => vec![Target::Type(*t)],
-                    EntityKind::Local {
-                        ..
-                    }
-                    | EntityKind::Const {
-                        ..
-                    }
-                    | EntityKind::UnboundGenericParameter => vec![Target::Declared(
-                        self.ide_entity_name_span(*e)
-                            .unwrap_or(self.entity(*e).span),
-                        self.entity(*e).name,
-                    )],
-                    _ => vec![Target::Entity(*e)],
-                },
-            },
+            // A type written by a name: what the name declares (`T` bound to `int` is not every
+            // `int`).
+            IdeWhat::Type(_)
+                if let Some(&e) = self.ide.as_ref().and_then(|i| i.type_names.get(&r.span)) =>
+            {
+                self.ide_entity_targets(e)
+            }
+            IdeWhat::Entity(e) => self.ide_entity_targets(*e),
             IdeWhat::Procs(ps) => ps.iter().map(|&p| Target::Proc(p)).collect(),
             IdeWhat::Type(t) => vec![Target::Type(*t)],
             IdeWhat::Module(m) => vec![Target::Module(*m)],
             IdeWhat::Member(_) => Vec::new(),
+        }
+    }
+
+    /// Whether constant `e` holding type `t` is the declaration of a struct or enum
+    /// (`Item :: struct`), rather than another name for a type (`T` bound to it, an alias).
+    fn ide_declares_type(&self, e: EntityId, t: crate::sema::TypeId) -> bool {
+        // A built-in name (`int`) is declared nowhere: its uses are the type's.
+        if self.ide_entity_name_span(e).is_none() {
+            return true;
+        }
+        if self.ide.as_ref().is_some_and(|i| i.stand_ins.contains(&t)) {
+            return false;
+        }
+        let name = self.entity(e).name;
+        match self.types.kind(t) {
+            TypeKind::Struct(s) => self.types.struct_info(*s).name == name,
+            TypeKind::Enum(en) => self.types.enum_info(*en).name == name,
+            _ => false,
+        }
+    }
+
+    fn ide_entity_targets(&self, e: EntityId) -> Vec<Target> {
+        let declared = || {
+            vec![Target::Declared(
+                self.ide_entity_name_span(e).unwrap_or(self.entity(e).span),
+                self.entity(e).name,
+            )]
+        };
+        let e = &e;
+        match &self.entity(*e).state {
+            EntityState::Done(
+                Resolved::Proc(p)
+                | Resolved::Const {
+                    value: Value::Proc(p),
+                    ..
+                },
+            ) => vec![Target::Proc(*p)],
+            EntityState::Done(Resolved::Const {
+                value: Value::Type(t),
+                ..
+            }) if self.ide_declares_type(*e, *t) => vec![Target::Type(*t)],
+            EntityState::Done(Resolved::Module(m)) => vec![Target::Module(*m)],
+            _ => match &self.entity(*e).kind {
+                EntityKind::Const {
+                    value: Value::Type(t),
+                    ..
+                } if self.ide_declares_type(*e, *t) => vec![Target::Type(*t)],
+                EntityKind::Local {
+                    ..
+                }
+                | EntityKind::Const {
+                    ..
+                }
+                | EntityKind::UnboundGenericParameter => declared(),
+                _ => vec![Target::Entity(*e)],
+            },
         }
     }
 }

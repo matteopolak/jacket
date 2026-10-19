@@ -50,6 +50,7 @@ impl Compiler {
                     .map(|n| n.name)
                     .collect();
                 let partial = !poly_args.is_empty() && poly_vars.iter().any(|v| !bound.contains(v));
+                let binders = self.poly_binders(&lit.header);
                 if partial {
                     for arg in &poly_args {
                         let ty = self.eval_type(scope, &arg.value)?;
@@ -72,6 +73,18 @@ impl Compiler {
                     body: lit.body.clone(),
                 });
                 let baked_scope = self.const_scope(def_scope, consts, span);
+                if partial {
+                    // A bound `$T` is still declared where the header writes it.
+                    for (n, at) in binders {
+                        let ids = self.scope(baked_scope).names.get(&n).cloned();
+                        for id in ids.into_iter().flatten().filter(|_| bound.contains(&n)) {
+                            self.entity_mut(id).span = at;
+                            if self.ide.is_some() {
+                                self.ide_note_entity(id);
+                            }
+                        }
+                    }
+                }
                 let baked = self.new_proc(name, lit, baked_scope, span);
                 if poly_args.is_empty() || partial {
                     return Ok(Operand::Procs(vec![baked]));
@@ -207,8 +220,9 @@ impl Compiler {
     ) -> ScopeId {
         let module = self.scope(parent).module;
         let scope = self.new_scope(scope::ScopeKind::Block, Some(parent), module, None);
+        // Each name is written as an argument, recorded as naming the parameter it bakes.
         for (name, value, ty) in consts {
-            self.add_const(scope, name, span, value, ty);
+            self.new_const(scope, name, span, value, ty);
         }
         scope
     }

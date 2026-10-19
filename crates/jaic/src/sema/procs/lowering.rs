@@ -418,21 +418,25 @@ impl Compiler {
         let mut bound = Vec::new();
         for (name, value, ty) in &bindings {
             // Declared at its `$T`, so go to definition from the body lands there.
-            let at = binders
+            let binder = binders.iter().find(|(n, _)| n == name).map(|&(_, s)| s);
+            let param = header
+                .params
                 .iter()
-                .find(|(n, _)| n == name)
-                .map(|&(_, s)| s)
-                .or_else(|| {
-                    // `$T: Type`: its parameter's name.
-                    header
-                        .params
-                        .iter()
-                        .filter_map(|p| p.name)
-                        .find(|n| n.name == *name)
-                        .map(|n| n.span)
-                })
-                .unwrap_or(span);
-            bound.push((*name, self.add_const(scope, *name, at, value.clone(), *ty)));
+                .find(|p| p.name.is_some_and(|n| n.name == *name));
+            let id = match (binder, param) {
+                (Some(at), _) => self.add_const(scope, *name, at, value.clone(), *ty),
+                // `$T: Type`: its parameter's name.
+                (None, Some(p)) if p.baked || p.auto_bake => {
+                    let at = p.name.map_or(span, |n| n.span);
+                    self.add_const(scope, *name, at, value.clone(), *ty)
+                }
+                // A runtime parameter typed with a bare polymorphic struct binds its name to
+                // the instance for the later parameter types; the parameter itself declares
+                // the name the body sees.
+                (None, Some(p)) => self.new_const(scope, *name, p.span, value.clone(), *ty),
+                (None, None) => self.add_const(scope, *name, span, value.clone(), *ty),
+            };
+            bound.push((*name, id));
         }
         if self.ide.is_some() {
             self.ide_note_poly_header(&header, &bound, parent);
