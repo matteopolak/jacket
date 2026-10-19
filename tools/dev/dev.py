@@ -263,6 +263,12 @@ def cmd_test(args) -> int:
         if shutil.which("cargo-nextest") is None:
             print("cargo-nextest not found: `brew install cargo-nextest` or `cargo install --locked cargo-nextest`", file=sys.stderr)
             return 1
+        # The native tests link the pinned third-party libraries; jaic finds them in the default output
+        # directory, so build whatever is missing there first (a no-op once they exist, and in CI after
+        # tools/native/ci_native_deps.sh).
+        if run([sys.executable, str(ROOT / "tools" / "native" / "build_native_libs.py"), "--missing"]):
+            print("could not build the native libraries the native tests link", file=sys.stderr)
+            return 1
         # The `ci` profile (.config/nextest.toml) leaves out the tests that need the separately supplied
         # reference sources or run in their own CI step; naming a crate or filter runs those too.
         profile = ["--ignore-default-filter"] if narrowed else []
