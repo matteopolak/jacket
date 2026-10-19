@@ -26,7 +26,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Building and testing
 
-[Development](tools/development.md) (Justfile, CI, hooks, dependency policy), [testing](tools/testing.md), [coverage](tools/coverage.md), [language server typing sessions](tools/lsp-fuzzing.md), [stdlib fuzzing](tools/stdlib-fuzzing.md), [tools/ layout](tools/tools-layout.md), [upstream corpus](tools/upstream-corpus.md), [benchmarks and profiling](tools/benchmarks.md), [LLVM setup](tools/llvm-setup.md), [releases](tools/releases.md), [license](license.md).
+[Development](tools/development.md) (Justfile, CI, hooks, dependency policy), [testing](tools/testing.md), [determinism checks](tools/determinism.md), [coverage](tools/coverage.md), [language server typing sessions](tools/lsp-fuzzing.md), [stdlib fuzzing](tools/stdlib-fuzzing.md), [tools/ layout](tools/tools-layout.md), [upstream corpus](tools/upstream-corpus.md), [benchmarks and profiling](tools/benchmarks.md), [LLVM setup](tools/llvm-setup.md), [releases](tools/releases.md), [license](license.md).
 
 ## Specifications
 

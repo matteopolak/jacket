@@ -1,0 +1,48 @@
+name: determinism
+# Nightly and by hand: compiling the local test programs must give the same diagnostics, IR, machine
+# code and language-server answers whatever the thread and codegen-unit settings and however often
+# it is repeated (tools/differential/determinism.py, docs/tools/determinism.md).
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+    inputs:
+      sets:
+        description: Space-separated sets to compare (positive negative regressions semantics)
+        default: positive negative regressions semantics
+      repeat:
+        description: Runs per configuration
+        default: '2'
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  determinism:
+    name: determinism (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - name: Build the release tools
+        run: cargo build --locked --release -p jaic-cli -p jai-language-server
+      - name: Compare configurations
+        env:
+          SETS: ${{ inputs.sets || 'positive negative regressions semantics' }}
+          REPEAT: ${{ inputs.repeat || '2' }}
+        run: |
+          # shellcheck disable=SC2086
+          python3 tools/differential/determinism.py --jaic target/release/jaic --jobs 2 --repeat "$REPEAT" $SETS

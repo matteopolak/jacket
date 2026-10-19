@@ -34,6 +34,8 @@ Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full swee
 - Must stop with a runtime error on every backend: `tests/corpus/positive/` with manifest `"runtime": {"error": "<message>", "stdout": "<output before the error>"}`.
 - Upstream entry point: add to `tools/upstream-cases.json`. A case may list `setup` argv commands, `copy` directories into a scratch copy (for programs that write into their tree) and read-only siblings to `link` (never link a directory that is written to), `run_after` to run a built program, `files` to map repository files into the copy, and an `expect` record (values from the project, never from jaic's output).
 
+Output must not depend on threads or hash order: [determinism checks](determinism.md).
+
 Stdlib procedures are fuzzed from their types by `tools/fuzz/stdlib_fuzz.py`, see [stdlib fuzzing](stdlib-fuzzing.md).
 
 ## Differential testing
