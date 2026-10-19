@@ -30,7 +30,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from toolkit.download import fetch
+from toolkit.download import fetch as http_fetch
 from toolkit.lsp import Lsp
 
 TOOLS = ("jaic", "jailsp", "jailint", "jaifmt", "jacket")
@@ -292,14 +292,14 @@ def vsix_store(tag: str, dest: Path) -> None:
     """The VSIX at Open VSX for the same editor version carries the same package.json version."""
     path = vsix(tag, dest)
     editor_version = re.fullmatch(r"jacket-vscode-(.+)\.vsix", path.name).group(1)
-    meta = json.loads(fetch(f"{OPEN_VSX}/{editor_version}", timeout=60))
+    meta = json.loads(http_fetch(f"{OPEN_VSX}/{editor_version}", timeout=60))
     if meta.get("version") != editor_version:
         raise SystemExit(
             f"Open VSX reports version {meta.get('version')}, expected {editor_version}"
         )
     download_url = meta["files"]["download"]
     fetched = dest / "open-vsx.vsix"
-    fetched.write_bytes(fetch(download_url))
+    fetched.write_bytes(http_fetch(download_url))
     with zipfile.ZipFile(fetched) as z:
         version = json.loads(z.read("extension/package.json"))["version"]
     if version != editor_version:
