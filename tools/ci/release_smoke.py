@@ -136,8 +136,7 @@ def check_versions(tag: str, bin_dir: Path) -> None:
     text = need(run([bin_dir / exe("jacket"), "version"]), "jacket version")
     print(text.strip())
     lines = [l for l in text.splitlines() if l.strip()]
-    # jaifmt is a Jai program and reports no version, only that it is installed.
-    stale = [l for l in lines if version not in l and not l.startswith("jaifmt: installed")]
+    stale = [l for l in lines if version not in l]
     if len(lines) < 4 or stale:
         raise SystemExit(f"expected every tool to report {version}; lines without it: {stale}")
 

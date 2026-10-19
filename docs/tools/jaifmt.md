@@ -9,6 +9,7 @@ jaic jaifmt/build.jai                      # optimised build -> target/jaifmt (a
 target/jaifmt stdlib tests                 # rewrite in place
 target/jaifmt --check stdlib tests         # CI: list files that would change, exit 1
 target/jaifmt --stdin < in.jai > out.jai   # editors
+target/jaifmt --version                    # `jaifmt <release>`, from jaifmt/version.jai (bumped by `just bump-version`)
 jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"   # interpreter: use absolute paths
 ```
 

@@ -15,6 +15,8 @@
 
 Args :: #import "Extensions/Args";
 
+#load "version.jai";
+
 Options :: struct {
     paths: [..] string; @positional @conflicts=stdin
     check: bool;
@@ -26,6 +28,7 @@ Options :: struct {
 }
 
 HELP :: Args.Help(Options).{
+    version = JAIFMT_VERSION,
     about = "Formats Jai source files in place. Directories are searched recursively for *.jai files.\n\nExit status: 0 success, 1 files would change (--check), 2 errors. With --is-ignored: 0 the file is ignored by the config's ignore list, 1 it is formatted, 2 errors.",
     paths = "Files or directories to format",
     check = "Do not write; list the files that would change and exit with 1",

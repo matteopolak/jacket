@@ -10,7 +10,10 @@ stdenv.mkDerivation {
 
   src = lib.fileset.toSource {
     root = ../.;
-    fileset = ../jaifmt/main.jai;
+    fileset = lib.fileset.unions [
+      ../jaifmt/main.jai
+      ../jaifmt/version.jai
+    ];
   };
 
   nativeBuildInputs = [ jaic ];

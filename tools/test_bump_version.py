@@ -9,6 +9,7 @@ LOCK = ('[[package]]\nname = "a"\nversion = "0.1.0"\ndependencies = [\n "serde",
         '[[package]]\nname = "serde"\nversion = "0.1.0"\nsource = "registry+https://example.test/index"\n\n'
         '[[package]]\nname = "fuzz"\nversion = "0.0.0"\n')
 LUA = "---doc\nreturn '0.1.0'\n"
+JAIFMT = '// doc\nJAIFMT_VERSION :: "0.1.0";\n'
 CHANGELOG = "# Changelog\n\n## [0.1.0] - 2026-01-01\n\nOld.\n"
 
 
@@ -18,7 +19,7 @@ class Bump(unittest.TestCase):
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
         files = {"Cargo.toml": MANIFEST, "Cargo.lock": LOCK, "fuzz/Cargo.lock": LOCK,
-                 bv.VERSION_LUA: LUA, "CHANGELOG.md": CHANGELOG}
+                 bv.VERSION_LUA: LUA, bv.VERSION_JAIFMT: JAIFMT, "CHANGELOG.md": CHANGELOG}
         for rel, text in files.items():
             (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
             (self.root / rel).write_text(text)
@@ -32,6 +33,7 @@ class Bump(unittest.TestCase):
             self.assertIn('name = "serde"\nversion = "0.1.0"', text)
             self.assertIn('name = "fuzz"\nversion = "0.0.0"', text)
         self.assertIn("return '0.2.0'", bv.read(self.root, bv.VERSION_LUA))
+        self.assertIn('JAIFMT_VERSION :: "0.2.0";', bv.read(self.root, bv.VERSION_JAIFMT))
         changelog = bv.read(self.root, "CHANGELOG.md")
         self.assertTrue(changelog.startswith("# Changelog\n\n## [0.2.0] - 2026-02-02\n\n## [0.1.0]"))
         self.assertEqual(bv.disagreements(self.root), [])
@@ -52,9 +54,12 @@ class Bump(unittest.TestCase):
         (self.root / bv.VERSION_LUA).write_text("return '0.0.9'\n")
         (self.root / "fuzz/Cargo.lock").write_text(LOCK.replace('name = "a"\nversion = "0.1.0"', 'name = "a"\nversion = "0.0.9"'))
         problems = bv.disagreements(self.root)
-        self.assertEqual(len(problems), 2)
+        (self.root / bv.VERSION_JAIFMT).write_text('JAIFMT_VERSION :: "0.0.9";\n')
+        problems = bv.disagreements(self.root)
+        self.assertEqual(len(problems), 3)
         self.assertIn("version.lua", problems[0])
-        self.assertIn("fuzz/Cargo.lock", problems[1])
+        self.assertIn("version.jai", problems[1])
+        self.assertIn("fuzz/Cargo.lock", problems[2])
 
 
 class Repository(unittest.TestCase):

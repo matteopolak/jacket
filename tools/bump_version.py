@@ -6,7 +6,7 @@
     python3 tools/bump_version.py --check         # only fail when the copies disagree
 
 Updates the root Cargo.toml `[workspace.package] version`, the path packages of Cargo.lock and
-fuzz/Cargo.lock that carry that version, editors/nvim/lua/jai/version.lua, and adds a
+fuzz/Cargo.lock that carry that version, editors/nvim/lua/jai/version.lua, jaifmt/version.jai, and adds a
 `## [X.Y.Z] - <today>` header to CHANGELOG.md when it has none. editors/vscode/package.json is left
 alone: the release workflow stamps its version (docs/tools/releases.md).
 """
@@ -21,8 +21,10 @@ SEMVER = re.compile(r"\d+\.\d+\.\d+")
 LOCKS = ("Cargo.lock", "fuzz/Cargo.lock")
 MANIFESTS = ("Cargo.toml", "fuzz/Cargo.toml")
 VERSION_LUA = "editors/nvim/lua/jai/version.lua"
+VERSION_JAIFMT = "jaifmt/version.jai"
 WORKSPACE_VERSION = re.compile(r'(\[workspace\.package\][^\[]*?^version = ")([^"]+)(")', re.M | re.S)
 LUA_VERSION = re.compile(r"^return '([^']*)'$", re.M)
+JAIFMT_VERSION = re.compile(r'^JAIFMT_VERSION :: "([^"]*)";$', re.M)
 # A lock entry for a path package has no `source =` line right after its version.
 PATH_PACKAGE = re.compile(r'(\[\[package\]\]\nname = "[^"]+"\nversion = ")([^"]+)("\n)(?!source)')
 
@@ -49,6 +51,9 @@ def disagreements(root):
     lua = LUA_VERSION.search(read(root, VERSION_LUA))
     if not lua or lua.group(1) != version:
         problems.append(f"{VERSION_LUA} says {lua.group(1) if lua else 'nothing'}, Cargo.toml says {version}")
+    fmt = JAIFMT_VERSION.search(read(root, VERSION_JAIFMT))
+    if not fmt or fmt.group(1) != version:
+        problems.append(f"{VERSION_JAIFMT} says {fmt.group(1) if fmt else 'nothing'}, Cargo.toml says {version}")
     for lock in LOCKS:
         if (root / lock).exists():
             stale = sorted({v for v in lock_versions(read(root, lock)) if v not in (version, "0.0.0")})
@@ -91,6 +96,10 @@ def bump(root, new, today=None):
     if not LUA_VERSION.search(lua):
         raise SystemExit(f"{VERSION_LUA} has no `return '<version>'` line")
     edits[VERSION_LUA] = LUA_VERSION.sub(f"return '{new}'", lua, count=1)
+    fmt = read(root, VERSION_JAIFMT)
+    if not JAIFMT_VERSION.search(fmt):
+        raise SystemExit(f'{VERSION_JAIFMT} has no `JAIFMT_VERSION :: "<version>";` line')
+    edits[VERSION_JAIFMT] = JAIFMT_VERSION.sub(f'JAIFMT_VERSION :: "{new}";', fmt, count=1)
     edits["CHANGELOG.md"] = bump_changelog(read(root, "CHANGELOG.md"), new, today)
     for rel, text in edits.items():
         (root / rel).write_text(text)
