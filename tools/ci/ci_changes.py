@@ -35,7 +35,7 @@ AREAS = {
     "nix": ["flake.nix", "flake.lock", "nix/**", "Cargo.lock", "rust-toolchain.toml"],
     # Every shell script (tools/dev/staged-files.sh lists them, shebang files included) is linted.
     "shell": ["**.sh", ".githooks/**", "tools/dev/staged-files.sh"],
-    "packaging": ["install.sh", "install.ps1", "packaging/**", "tools/dev/render_packages.py", "tools/ci/published_release.py"],
+    "packaging": ["install.sh", "install.ps1", "packaging/**", "tools/dev/render_packages.py", "tools/ci/published_release.py", "tools/ci/test_install_sh.py", "tools/ci/test_install_ps1.ps1"],
     # Windows runs on pushes (main, staging) only for the paths its coverage is about, never on
     # pull requests, and always on manual runs.
     "windows": [

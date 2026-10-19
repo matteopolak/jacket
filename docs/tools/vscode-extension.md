@@ -43,7 +43,7 @@ pnpm run package         # jacket-vscode-<version>.vsix
 - **New here-string language:** add to `EMBEDDED_LANGUAGES` in `build-grammar.ts` and the same tags in the same order to `LANGUAGE_TAGS` in `here_string.rs` (the build fails while they differ), and to the playground's table if supported. Avoid common generic terminators.
 - **New jailint rule:** nothing; the schema regenerates and lint fails while stale. **New jaifmt.toml key:** `build-schemas.ts`. **New release platform:** one row in `RELEASE_ASSETS` (a unit test compares it with the `release.yml` matrix).
 - **Icons:** `pnpm run icons` regenerates SVG/PNG icons from the playground glyph; lint fails when stale. **Screenshots** for the README: `pnpm run screenshots` on macOS (`test/screenshots/`).
-- **Dependencies:** pnpm is pinned by `packageManager`. Every npm package must be at least 14 days old ([development](development.md#dependency-policy)); `pnpm-workspace.yaml` sets `minimumReleaseAge` and `scripts/check-dependency-age.ts` checks the lockfile in CI. `@types/vscode` must not be newer than `engines.vscode`.
+- **Dependencies:** pnpm is pinned by `packageManager`. Every npm package must be at least 14 days old ([development](development.md#dependency-policy)); `pnpm-workspace.yaml` sets `minimumReleaseAge` and `scripts/check-dependency-age.ts` rejects non-registry lockfile entries and ages pnpm itself in CI. `@types/vscode` must not be newer than `engines.vscode`.
 
 Gotchas:
 

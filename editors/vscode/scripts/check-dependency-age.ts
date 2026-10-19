@@ -1,9 +1,12 @@
-// Every package in pnpm-lock.yaml (direct and transitive), and the pnpm release named by
-// package.json's packageManager, must have been published on the npm registry at least 14 days
-// ago, the same policy as Cargo.lock (docs/tools/development.md). Runs before any install,
-// so it reads the lockfile with a few regular expressions instead of a YAML library.
-// Fails closed: an entry that is not a plain registry package with an integrity hash, or whose
-// publish time the registry does not report, is an error.
+// Two checks pnpm does not make for itself (the 14-day age of every locked package is pnpm's own
+// `minimumReleaseAge` in pnpm-workspace.yaml, which it enforces on `--frozen-lockfile` installs too;
+// verified against pnpm 12.6 and 12.7, see docs/tools/development.md#dependency-policy):
+//   - every package in pnpm-lock.yaml is a plain registry package with an integrity hash (a tarball
+//     URL, git commit or local directory is an error: it would bypass the age policy);
+//   - the pnpm release named by package.json's packageManager is at least 14 days old, as pnpm
+//     cannot judge itself.
+// Runs before any install, so it reads the lockfile with a few regular expressions instead of a YAML
+// library. Fails closed.
 //
 //   node scripts/check-dependency-age.ts [--days 14]
 import { readFileSync } from "node:fs";
@@ -17,6 +20,7 @@ const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 const REGISTRY = "https://registry.npmjs.org/";
 
 const wanted = new Map(); // name -> Set of versions
+let locked = 0;
 const errors = [];
 function want(name: string, version: string) {
   if (!wanted.has(name)) wanted.set(name, new Set());
@@ -42,16 +46,17 @@ for (const entry of entries) {
     errors.push(`${name}@${version}: not a registry package with an integrity hash`);
     continue;
   }
-  want(name, version);
+  locked += 1;
 }
-if (!wanted.size) errors.push("pnpm-lock.yaml: no packages found");
+if (!locked) errors.push("pnpm-lock.yaml: no packages found");
 
 const packageManager = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).packageManager;
 const pnpm = /^pnpm@(\d+\.\d+\.\d+)$/.exec(packageManager ?? "");
 if (pnpm) want("pnpm", pnpm[1]);
 else errors.push(`package.json: packageManager should be pnpm@<exact version>, not ${packageManager}`);
 
-const names = [...wanted.keys()].toSorted();
+// The locked packages are pnpm's to age-check; only pnpm itself is looked up here.
+const names = ["pnpm"];
 let checked = 0;
 async function check(name: string) {
   const response = await fetch(REGISTRY + name.replace("/", "%2F"), {
@@ -62,7 +67,7 @@ async function check(name: string) {
     return;
   }
   const meta = await response.json();
-  for (const version of wanted.get(name)) {
+  for (const version of wanted.get(name) ?? []) {
     checked += 1;
     const published = Date.parse(meta.time?.[version] ?? "");
     if (Number.isNaN(published)) errors.push(`${name}@${version}: no publish time`);
@@ -81,4 +86,4 @@ if (errors.length) {
   console.error(errors.join("\n"));
   process.exit(1);
 }
-console.log(`npm dependency age check passed (${checked} packages, at least ${days} days old)`);
+console.log(`npm lockfile check passed (${locked} registry packages; pnpm ${[...wanted.get("pnpm") ?? []].join()} is at least ${days} days old)`);

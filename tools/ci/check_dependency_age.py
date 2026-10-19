@@ -7,9 +7,13 @@ import os
 from pathlib import Path
 import re
 import time
+import sys
 import tomllib
 import urllib.parse
-import urllib.request
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from toolkit.download import fetch
 
 REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
 # A git source locked to an exact commit given as `rev` in the manifest: the `?rev=` query and
@@ -58,9 +62,7 @@ def main():
     packages = tomllib.loads(args.lockfile.read_text())["package"]
     def get_version(name, version):
         url = "https://crates.io/api/v1/crates/" + urllib.parse.quote(name, safe="") + "/" + urllib.parse.quote(version, safe="")
-        request = urllib.request.Request(url, headers={"User-Agent": "jai-rs-dependency-policy/0.1 (local dependency age check)"})
-        with urllib.request.urlopen(request, timeout=30) as response:
-            record = json.load(response)["version"]
+        record = json.loads(fetch(url, timeout=30, headers={"User-Agent": "jai-rs-dependency-policy/0.1 (local dependency age check)"}))["version"]
         time.sleep(1)  # Respect registry API rate limits.
         return record
     commits = {}
@@ -71,8 +73,7 @@ def main():
             if os.environ.get("GITHUB_TOKEN"):
                 headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
             url = f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}"
-            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
-                record = json.load(response)
+            record = json.loads(fetch(url, timeout=30, headers=headers))
             if record["sha"] != sha:
                 raise ValueError(f"GitHub resolved {sha} to {record['sha']}")
             commits[owner, repo, sha] = record["commit"]["committer"]["date"]
