@@ -23,7 +23,8 @@ import signal
 import subprocess
 import sys
 import time
-from portable_toolchain import default_compiler, checked_compiler
+from portable_toolchain import checked_compiler
+from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
 
@@ -51,7 +52,7 @@ def run(command, env, expected=None, cwd=ROOT, expected_stderr="", expected_code
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", type=Path, default=default_compiler())
+    add_jaic_argument(parser)
     parser.add_argument("--stdlib", type=Path, help="Production tree; no source overlays")
     parser.add_argument("--posix-root", type=Path,
                         help="new independently implemented POSIX module directory")

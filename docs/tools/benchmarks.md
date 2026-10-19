@@ -12,7 +12,7 @@ python3 tools/bench/main.py fmt                                             # ja
 python3 tools/bench/main.py compile --compare target/bench/old.json         # exit 1 on regressions
 ```
 
-`tools/regex_bench.py` with `benchmarks/regex/` is separate: `Extensions/Regex` against other engines (results in `benchmarks/results/regex.md`). `benchmarks/results/` holds only the regex numbers: the compile and language-server baselines the old harnesses wrote there were removed. They measured other workloads in another format, so nothing could compare against them, and a committed baseline goes stale with every change; keep a baseline per machine from `--out` and pass it to `--compare` (a report in any other format is refused up front).
+`tools/regex_bench.py` with `benchmarks/regex/` is separate: `Extensions/Regex` against other engines (results in `benchmarks/results/regex.md`; `--jaic` defaults to the release build in the cargo target dir, built first when missing). `benchmarks/results/` holds only the regex numbers: the compile and language-server baselines the old harnesses wrote there were removed. They measured other workloads in another format, so nothing could compare against them, and a committed baseline goes stale with every change; keep a baseline per machine from `--out` and pass it to `--compare` (a report in any other format is refused up front).
 
 ## How it works
 

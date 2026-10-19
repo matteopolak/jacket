@@ -34,7 +34,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import os
 import re
 import shutil
 import signal
@@ -46,6 +45,7 @@ import time
 from pathlib import Path
 from native.http_native import ensure_native_libraries
 from stdlib.stdlib_test_catalog import validated_entries
+from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"
@@ -69,26 +69,6 @@ HTTP_CONFORMANCE_CASE_IDS = tuple(
         "testing",
     )
 )
-
-
-def find_jaic(explicit):
-    if explicit:
-        return Path(explicit)
-
-    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
-
-    for profile in ("release", "debug"):
-        candidate = target / profile / "jaic"
-
-        if candidate.exists():
-            return candidate
-
-    found = shutil.which("jaic")
-
-    if found:
-        return Path(found)
-
-    sys.exit("jaic not found: build it (cargo build --release -p jaic-cli) or pass --jaic")
 
 
 def check_corpus():
@@ -323,13 +303,15 @@ def external_suites(garden):
 def main():
     sys.stdout.reconfigure(line_buffering=True)
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--jaic", help="compiler to test (default: $CARGO_TARGET_DIR/release/jaic, then debug)")
+    add_jaic_argument(ap, profile="release")
     ap.add_argument("--modes", default="interp,native", help="stdlib_runtime.py modes (default interp,native)")
     ap.add_argument("--garden", help="a checkout of http-garden (needs Docker)")
     ap.add_argument("-j", "--jobs", type=int, default=2)
     args = ap.parse_args()
 
-    jaic = find_jaic(args.jaic)
+    jaic = args.jaic
+    if not jaic.exists():
+        sys.exit(f"jaic not found at {jaic}: build it (cargo build --release -p jaic-cli) or pass --jaic")
     # Configure the parent too: runtime-harness child environment changes cannot
     # supply the following echo-server/llhttp compiler processes.
     ensure_native_libraries()

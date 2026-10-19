@@ -268,7 +268,7 @@ def generate(src, plat, work, clang):
             cargs = ', '.join(p['type']['qualType'] + ' ' + p.get('name', 'arg'+str(i)) for i,p in enumerate(params)) or 'void'
             callargs = ', '.join(p.get('name', 'arg'+str(i)) for i,p in enumerate(params))
             glue.append(f'SDL_DECLSPEC {ret} SDLCALL {symbol}({cargs}) {{ '+('' if ret=='void' else 'return ')+f'{name}({callargs}); }}')
-        foreign = f' #foreign SDL3' + (f' "{symbol}"' if symbol != name else '')
+        foreign = ' #foreign SDL3' + (f' "{symbol}"' if symbol != name else '')
         emit(name,'procedure',f'{name} :: ({", ".join(args)}) -> {jai_type(ret)}{foreign};',n['_header'])
     # Evaluate all public object-like value macros in the target C frontend. Ignore only
     # explicitly inventoried compiler annotations/configuration/old-name poison macros.

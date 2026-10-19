@@ -943,7 +943,7 @@ class Gen:
         fields = self.structs[name]
         ops = set()
         self.out.append(f"operator + :: (a: {name}, b: {name}) -> {name} {{")
-        self.out.append(f"    r := a;")
+        self.out.append("    r := a;")
         for f, fty, _ in fields:
             if is_int(fty) or is_float(fty):
                 self.out.append(f"    r.{f} = a.{f} + b.{f};")
@@ -1021,9 +1021,9 @@ class Gen:
             self.stmt(1)
         if recursive and ret is not None:
             rec_args = ["depth - 1"] + [n for n, _ in params[1:]]
-            self.emit(f"if depth > 0 {{", 1)
+            self.emit("if depth > 0 {", 1)
             self.emit(f"inner := {name}({', '.join(rec_args)});", 2)
-            self.emit(f"return inner;", 2)
+            self.emit("return inner;", 2)
             self.emit("}", 1)
         if ret is not None:
             # A recursive call inside its own body expression is not in `self.procs` yet, so it cannot recurse unboundedly.

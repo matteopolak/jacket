@@ -399,7 +399,6 @@ class Gen:
 
     def assign(self, ctx, out, pad):
         r, scope = self.r, ctx['scope']
-        ints = [v for v in scope if v.kind == 'int']
         targets = []
         for v in scope:
             if v.kind == 'int' and v.mutable: targets.append((v.name, v.ty))
@@ -498,7 +497,6 @@ class Gen:
                 scope.append(Var(pn, 'enum', ty)); plist.append(f'{pn}: {ty}')
             else:
                 scope.append(Var(pn, k, ty)); plist.append(f'{pn}: {ty}')
-        simple = all(k in ('int', 'float', 'bool', 'string') for k, _ in params)
         out = []
         ctx = {'scope': scope, 'ret': ret, 'acc': 'acc', 'mult': 1, 'cost': 1, 'allow_defer': True}
         pre = []
@@ -556,7 +554,7 @@ class Gen:
                 body.append('    ' + self.fold(p, call, 'acc'))
                 if self.trace: body.append(f'    print("{p.name} %\\n", acc);')
             if self.trace:
-                body = [x for b in body for x in (b, f'    print("%\\n", acc);') if not b.startswith('    st')] if False else body
+                body = [x for b in body for x in (b, '    print("%\\n", acc);') if not b.startswith('    st')] if False else body
             body.append('    reset_temporary_storage();')
             self.lines += [f'{dn} :: () {{'] + body + ['}', '']
             names.append(dn)
@@ -584,10 +582,6 @@ class Gen:
         for _ in range(4): self.emit_struct()
         self.emit_macro(); self.emit_poly_proc(); self.emit_poly_proc(); self.emit_poly_struct()
         table_fns = [self.emit_table_user()]
-        drive_extra: list[str] = []
-        proc_budget_per_struct = max(1, int(sh['procs_per_kloc'] / sh['structs_per_kloc']))
-        mark_procs = 0
-        groups: list[list[Proc]] = []
         # Drivers add about one line per procedure (plus temporaries for pointer arguments).
         while len(self.lines) + int(len(self.procs) * 1.4) + 60 < target_lines:
             roll = self.r.random() * (sh['procs_per_kloc'] + sh['structs_per_kloc'] * 0.9 + sh['enums_per_kloc'])
@@ -610,8 +604,8 @@ class Gen:
         # Exercise the polymorphic boxes, compile-time tables and inserted procedures too.
         misc = ['    for 0..7 acc += cast(int) (it * 3);']
         for name, push, total in self.poly_boxes:
-            misc += [f'    {{', f'        b: {name}(int);', f'        for 1..5 {push}(*b, it * 3);', f'        acc += {total}(b);', '    }']
-            misc += [f'    {{', f'        b: {name}(float64);', f'        for 1..3 {push}(*b, cast(float64) it);', f'        acc += cast,trunc(int) {total}(b);', '    }']
+            misc += ['    {', f'        b: {name}(int);', f'        for 1..5 {push}(*b, it * 3);', f'        acc += {total}(b);', '    }']
+            misc += ['    {', f'        b: {name}(float64);', f'        for 1..3 {push}(*b, cast(float64) it);', f'        acc += cast,trunc(int) {total}(b);', '    }']
         for t in self.runs: misc.append(f'    for {t} acc += it & 255;')
         for p in getattr(self, 'insert_procs', []): misc.append(f'    acc += {p}(3);')
         for t in table_fns: misc.append(f'    acc += {t}(20);')

@@ -146,6 +146,8 @@ class HttpNativeSetupTests(unittest.TestCase):
         from stdlib import http_conformance
 
         provider = self.root / "provided"
+        compiler = self.root / "own-compiler"
+        compiler.touch()
         observed = []
 
         def setup():
@@ -159,9 +161,6 @@ class HttpNativeSetupTests(unittest.TestCase):
             patch.object(
                 http_conformance, "ensure_native_libraries", side_effect=setup
             ),
-            patch.object(
-                http_conformance, "find_jaic", return_value=Path("own-compiler")
-            ),
             patch.object(http_conformance, "check_corpus", return_value=True),
             patch.object(http_conformance, "run_harness", side_effect=child) as harness,
             patch.object(http_conformance, "check_server", side_effect=child),
@@ -172,6 +171,8 @@ class HttpNativeSetupTests(unittest.TestCase):
                 "sys.argv",
                 [
                     "http_conformance.py",
+                    "--jaic",
+                    str(compiler),
                     "--modes",
                     "interp,native,wasm-interp,wasm-native",
                 ],

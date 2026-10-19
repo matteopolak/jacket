@@ -10,18 +10,11 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import os
-from pathlib import Path
-from toolkit.repo import ROOT
-
+from toolkit.repo import ROOT, cargo_target_dir
 
 
 def assigned_target():
-    return Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target/compiler")).resolve()
-
-
-def default_compiler():
-    return assigned_target() / "debug/jaic"
+    return cargo_target_dir().resolve()
 
 
 def checked_compiler(candidate, parser):

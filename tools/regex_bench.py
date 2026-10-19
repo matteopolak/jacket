@@ -22,6 +22,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from toolkit.cli import add_jaic_argument
 from toolkit.hashing import sha256_bytes
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
@@ -139,19 +140,12 @@ def cxx() -> str | None:
     return os.environ.get("CXX") or shutil.which("clang++") or shutil.which("c++") or shutil.which("g++")
 
 
-def find_jaic(explicit: str | None) -> Path:
-    candidates = [explicit, os.environ.get("JAIC")]
-    cargo_target = os.environ.get("CARGO_TARGET_DIR")
-    if cargo_target:
-        candidates.append(str(Path(cargo_target) / "release" / "jaic"))
-    candidates += [str(ROOT / "target" / "release" / "jaic"), shutil.which("jaic")]
-    for c in candidates:
-        if c and Path(c).exists():
-            return Path(c)
-    print("jaic not found; building it with cargo (release)", file=sys.stderr)
-    must(["cargo", "build", "-q", "--release", "-p", "jaic-cli"], "cargo build jaic", cwd=ROOT)
-    base = Path(cargo_target) if cargo_target else ROOT / "target"
-    return base / "release" / "jaic"
+def ensure_jaic(jaic: Path) -> Path:
+    """`jaic`, building the release compiler first when the default one is missing."""
+    if not jaic.exists():
+        print(f"jaic not found at {jaic}; building it with cargo (release)", file=sys.stderr)
+        must(["cargo", "build", "-q", "--release", "-p", "jaic-cli"], "cargo build jaic", cwd=ROOT)
+    return jaic
 
 
 # ---- build and run one harness group -------------------------------------------------------
@@ -428,7 +422,7 @@ def main() -> int:
     ap.add_argument("--runs", type=int, default=7, help="timed runs per case; the best is reported")
     ap.add_argument("--size-mb", type=float, default=16)
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--jaic", help="path to jaic (default: $JAIC, $CARGO_TARGET_DIR/release/jaic, target/release/jaic)")
+    add_jaic_argument(ap, profile="release")
     ap.add_argument("--skip-build", action="store_true", help="reuse harness binaries already built")
     ap.add_argument("--timeout", type=int, default=900, help="seconds allowed per harness run")
     ap.add_argument("--out", default=str(RESULTS))
@@ -476,7 +470,7 @@ def main() -> int:
     for g in groups:
         # Preconditions: skip an engine whose toolchain or library is missing.
         if g == "jai":
-            ctx["jaic"] = find_jaic(args.jaic)
+            ctx["jaic"] = ensure_jaic(args.jaic)
         elif g == "rust" and not shutil.which("cargo"):
             report.skipped[g] = "cargo not found."
         elif g in ("re2", "pcre2", "ctre", "hyperscan") and not ctx["cxx"]:
