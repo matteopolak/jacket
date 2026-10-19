@@ -11,6 +11,30 @@ use crate::builtin_keys::OutputType;
 use crate::sema::Compiler;
 use std::path::PathBuf;
 
+/// The environment variable naming a file `jaic` appends each executable it writes to, one
+/// absolute path per line. `jacket run` reads it because a metaprogram picks the name.
+pub const REPORT_EXE_ENV: &str = "JAIC_REPORT_EXE";
+
+/// Append `output`, the path the backend finally wrote (with the platform's extension), to the [`REPORT_EXE_ENV`] file, if it is set. Best effort: a program that
+/// is built is not a failure because its location could not be reported.
+pub fn report_executable(settings: &BuildSettings, output: &std::path::Path) {
+    use std::io::Write;
+    if settings.output_type != OutputType::Executable {
+        return;
+    }
+    let Some(file) = std::env::var_os(REPORT_EXE_ENV).filter(|f| !f.is_empty()) else {
+        return;
+    };
+    let path = std::path::absolute(output).unwrap_or_else(|_| output.to_path_buf());
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file)
+    {
+        let _ = writeln!(file, "{}", path.display());
+    }
+}
+
 /// What [`write_output`] did.
 pub(super) enum Written {
     /// Whether the output was written (or not wanted).

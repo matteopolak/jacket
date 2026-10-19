@@ -11,7 +11,7 @@
 ```
 jacket build main.jai -o -exe app -import_dir vendor      # jaic main.jai -o -exe app -import_dir vendor
 jacket check                                              # jaic -check <entry>
-jacket run -- --port 8080                                 # jaic <entry>, then ./<entry> --port 8080
+jacket run -- --port 8080                                 # jaic <entry>, then the executable it wrote, with --port 8080
 jacket run main.jai -interp -- one two                    # jaic main.jai -interp -- one two
 jacket lint --fix src                                     # jailint --fix src
 jacket fmt --check                                        # jaifmt --check <project>

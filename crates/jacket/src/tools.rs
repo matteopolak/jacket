@@ -69,16 +69,22 @@ pub fn exec(program: &OsStr, args: &[OsString]) -> ExitCode {
 /// Starts `program`, waits, and returns its exit code.
 #[cfg(not(unix))]
 fn run(program: &OsStr, args: &[OsString]) -> ExitCode {
-    match status(program, args) {
+    match status(program, args, &[]) {
         Ok(code) => ExitCode::from(code),
         Err(error) => missing(program, &error),
     }
 }
 
-/// Starts `program` with inherited streams and waits; its exit status (255 when a signal ended
-/// it).
-pub fn status(program: &OsStr, args: &[OsString]) -> std::io::Result<u8> {
-    let status = Command::new(program).args(args).status()?;
+/// Runs `program` to the end with `env` added to its environment; its exit status, clamped to a byte.
+pub fn status(
+    program: &OsStr,
+    args: &[OsString],
+    env: &[(&str, &std::path::Path)],
+) -> std::io::Result<u8> {
+    let status = Command::new(program)
+        .args(args)
+        .envs(env.iter().copied())
+        .status()?;
     Ok(status.code().map_or(255, |c| c.clamp(0, 255) as u8))
 }
 

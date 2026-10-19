@@ -15,7 +15,7 @@ use clap::Parser;
 use cli::{Cli, Command, TOOL_COMMANDS};
 use jacket_config::Disk;
 use std::ffi::{OsStr, OsString};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -109,7 +109,13 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     if runs_itself {
         return tools::exec(jaic.as_os_str(), &argv);
     }
-    match tools::status(jaic.as_os_str(), &argv) {
+    // The build may be a metaprogram that names its own executable, so ask jaic what it wrote.
+    let report = std::env::temp_dir().join(format!("jacket-exe-{}.txt", std::process::id()));
+    let _ = std::fs::remove_file(&report);
+    let started = tools::status(jaic.as_os_str(), &argv, &[("JAIC_REPORT_EXE", &report)]);
+    let reported = std::fs::read_to_string(&report).ok();
+    let _ = std::fs::remove_file(&report);
+    match started {
         Ok(0) => {}
         Ok(code) => return ExitCode::from(code),
         Err(error) => {
@@ -117,7 +123,14 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
             return ExitCode::from(127);
         }
     }
-    let Some(exe) = compile::executable(&argv, ctx.cwd).filter(|p| p.is_file()) else {
+    let reported = reported
+        .as_deref()
+        .and_then(|text| text.lines().last())
+        .map(PathBuf::from);
+    let Some(exe) = reported
+        .or_else(|| compile::executable(&argv, ctx.cwd))
+        .filter(|p| p.is_file())
+    else {
         eprintln!(
             "jacket: error: jaic built nothing to run\nhelp: pass the executable's location with -exe, or run it yourself"
         );

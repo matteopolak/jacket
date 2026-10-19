@@ -446,6 +446,9 @@ impl OutputBackend for LlvmBackend {
             }
             OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
         });
+        if linked.is_ok() {
+            jaic::build::report_executable(settings, output);
+        }
         // macOS linkers leave DWARF in the objects and record where they are. An unoptimized
         // build keeps its objects for the debugger to read (the `dsymutil` pass would be a
         // tenth of the build); any other collects the DWARF into `output.dSYM` first.
@@ -479,6 +482,7 @@ impl OutputBackend for LlvmBackend {
         })?;
         let libraries = jaic_llvm::used_libraries(program);
         let inputs = jaic_llvm::link_inputs(&libraries, prepared.target)?;
+        jaic::build::report_executable(settings, &prepared.output);
         Ok(jaic::build::LinkObjects {
             objects: objects.iter().map(|o| o.display().to_string()).collect(),
             system_libraries: inputs.system_libraries,

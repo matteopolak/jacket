@@ -116,6 +116,7 @@ An unknown option suggests the closest known one. The spellings from before 0.17
 | --- | --- |
 | `JAIC_MEMORY_LIMIT` | stop with status 120 once this much memory is allocated (`512M`, `2G`, ...) |
 | `JAIC_DIAGNOSTICS` | diagnostic layout: `plain`, `ascii` or `unicode` (default: chosen by terminal) |
+| `JAIC_REPORT_EXE` | a file path: jaic appends the absolute path of every executable it writes, one per line. `jacket run` uses it, because a build metaprogram picks the executable's name |
 | `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` | turn colour off or on |
 
 ## How to change it
