@@ -2,10 +2,11 @@
 
 ## [0.21.0] - 2026-10-19
 
-Adds a `constant_condition` lint, `it`/`it_index` inlay hints and smarter dead-code fading, makes rename and hover more reliable in the editor, and fixes the Windows release archives.
+Adds `constant_condition` and `string_literal_write` lints, `it`/`it_index` inlay hints and smarter dead-code fading, makes rename and hover more reliable in the editor, keeps string literals read-only at compile time, and fixes the release archives' native libraries.
 
 ### Highlights
 
+- `jailint` has a `string_literal_write` rule: writing through a string literal (`s := "abc"; s[0] = #char "x";`) is a warning that suggests copying it first.
 - `jailint` has a `constant_condition` rule: a condition the compiler's reachability facts show is always `true` or always `false` is a warning naming the arm that never runs.
 - `jailsp` shows inlay hints for the implicit `it` and `it_index` of `for` loops.
 - Calls to procedures that never return end a block for dead-code analysis, so code after them is faded in the editor.
@@ -21,7 +22,14 @@ Adds a `constant_condition` lint, `it`/`it_index` inlay hints and smarter dead-c
 - In a polymorphic struct nothing instantiates, the editor resolves `T` and its uses as types and field hovers show checked types.
 - `jailsp` answers hover and go-to-definition in a callee it has not checked yet, and in a module alias and its members.
 - A struct whose fields refer to `#this` no longer hangs the editor's full check.
-- A procedure type in a return type no longer takes the procedure's body as its own.
+- A procedure type in a return type followed by a body (`f :: () -> () -> int { ... }`) is an error asking for parentheses, instead of the type taking the body as its own.
+- Compile-time code that writes into a string literal or other constant data stops with an error at the store, instead of silently changing every use of that literal. Native builds already kept literals in read-only memory.
+- `String.tprint` and Basic's other procedures resolve through the `String` module again. A module's top-level `using Alias;` of an imported module now makes that module's names its members (and, at export scope, visible to importers), as `using Alias :: #import` does.
+- Two constant aliases of the same procedure (`f :: g; f :: g;` across files) are one overload, not a redeclaration.
+- `#module_parameters` outside the top level of an imported module is an error.
+- Release archives include every native library the stdlib binds (audio, clipboard, callback context, rpmalloc and the rest) on all platforms, and the release checks each one is present.
+- Windows OpenGL contexts that ask for multisampling pick a multisampled pixel format through `WGL_ARB_pixel_format`, and fall back to one without MSAA when the driver has none.
+- Hovering a pointer constant no longer shows a compile-time address.
 - Identical overloads are reported even when a call names them first, or when a name was not yet resolvable.
 - An enum literal in the arm of an `ifx` a constant condition rules out (`ifx CPU == .X64 then .ARM64 else .X64`) infers its type from the target again.
 - A metaprogram that marks a workspace failed now gets a diagnostic saying so.
