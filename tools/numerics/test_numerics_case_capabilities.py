@@ -9,14 +9,12 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import contextlib
 import io
 import os
-from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
 
 from differential import jaic_sweep
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
-from toolkit.repo import ROOT
 
 EXPECTED = {
     "GetRect/tests/native-clipboard": {"macos"},

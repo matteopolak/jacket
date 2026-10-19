@@ -7,7 +7,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 from toolkit.repo import ROOT
 
 import sys
-from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(ROOT / "tools" / "native_bindings"))

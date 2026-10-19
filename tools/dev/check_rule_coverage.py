@@ -21,7 +21,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse, json, re, sys
-from pathlib import Path
 from toolkit.repo import ROOT
 
 DOC_DIRS = ("docs/language", "docs/metaprogramming")

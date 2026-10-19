@@ -13,7 +13,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 
-from lsp_partial_edits import ROOT, run_file
+from lsp_partial_edits import run_file
 from repo_output import output_dir
 
 

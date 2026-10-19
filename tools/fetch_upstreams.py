@@ -12,7 +12,6 @@ import subprocess
 import urllib.parse
 
 from repo_output import main_checkout, shared_output_dir
-from toolkit.download import fetch
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 

@@ -15,7 +15,6 @@ import datetime
 import re
 import subprocess
 import sys
-from pathlib import Path
 from toolkit.repo import ROOT
 
 SEMVER = re.compile(r"\d+\.\d+\.\d+")

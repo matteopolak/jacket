@@ -10,7 +10,6 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-from pathlib import Path
 import re
 from toolkit.repo import ROOT
 modules={'Math':'math.md','Sloppy_Math':'sloppy-math.md','Float16':'float16.md',

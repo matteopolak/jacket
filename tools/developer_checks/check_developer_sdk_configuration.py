@@ -7,7 +7,6 @@ import platform
 import re
 import shutil
 import build_developer_bindings
-import developer_native_runtime
 from dev_common import run_checked, ROOT, sha256_file
 
 

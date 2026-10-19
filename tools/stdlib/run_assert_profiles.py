@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 import platform
 import subprocess
-import sys
 from repo_output import output_dir
 from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT

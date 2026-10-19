@@ -16,7 +16,7 @@ from itertools import product
 
 from generate import MODULES
 from native_bindings.spec import parse_spec
-from verify import ROOT, TARGET_CONFIGS, select_stdlib, invoke, public_source
+from verify import ROOT, select_stdlib, invoke, public_source
 from toolkit.hashing import sha256_file
 
 # (module, parameter values, import suffix, applicable OS values)

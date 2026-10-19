@@ -20,8 +20,8 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse
 import os
 from pathlib import Path
-import subprocess
 import tempfile
+from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 from toolkit.cli import add_jaic_argument
 
@@ -34,8 +34,7 @@ UNAVAILABLE = "native-device-unavailable\nok\n"
 
 
 def run(command, env, cwd=ROOT):
-    result = subprocess.run(list(map(str, command)), cwd=cwd, env=env, capture_output=True,
-                            text=True, timeout=120)
+    result = toolkit_run(command, check=False, capture=True, echo=False, cwd=cwd, env=env, timeout=120)
     if result.returncode or result.stderr:
         raise RuntimeError(f"{Path(str(command[0])).name} {command[1:3]}: exit {result.returncode}\n"
                            f"{result.stderr[-800:]}")

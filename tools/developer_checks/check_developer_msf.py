@@ -2,7 +2,6 @@
 """Produce original MSF fixtures and independent official-tool stream oracles."""
 import os
 import build_developer_bindings
-import hashlib
 import json
 import re
 import shutil

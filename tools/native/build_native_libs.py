@@ -23,7 +23,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import urllib.request
+import urllib.request  # noqa: F401  (the tests patch urlopen through this module)
 from toolkit.download import fetch as fetch_pinned
 import zipfile
 from pathlib import Path

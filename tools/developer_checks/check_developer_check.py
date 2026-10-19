@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """SDK-derived mangled signatures through staged Windows-only Check on the Mac host."""
 import json
-import hashlib
 import os
 from pathlib import Path
 import platform
@@ -126,8 +125,7 @@ def main():
         manifest = json.loads((runtime / "runtime-sdk.json").read_text())
         name = Path(sdk_links[0]).name
         sdk_image = prefix / "lib" / name
-        with sdk_image.open("rb") as stream:
-            sdk_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+        sdk_hash = sha256_file(sdk_image)
         if manifest[name]["sdk_sha256"] != sdk_hash:
             raise RuntimeError("Bundled Check LLVM runtime must originate from configured SDK")
         evidence = {"host": platform.platform(), "configured_llvm_prefix": str(prefix),

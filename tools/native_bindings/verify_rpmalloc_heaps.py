@@ -20,7 +20,6 @@ import platform
 import subprocess
 from contextlib import ExitStack
 
-from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from native_bindings.rpmalloc_profiles import PROFILES
 from native_bindings.prepare_rpmalloc import prepare
 from verify import select_stdlib, place_private_unit, ROOT

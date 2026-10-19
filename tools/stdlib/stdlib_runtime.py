@@ -17,7 +17,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import threading
 import os
@@ -35,6 +34,8 @@ from stdlib.stdlib_test_catalog import (
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from repo_output import host_platform
 from pathlib import Path
+from toolkit.cli import add_jaic_argument
+from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 
 MODES = ["interp", "native", "wasm-interp", "wasm-native", "check"]
@@ -341,13 +342,13 @@ def deploy_windows_dlls(directories, destination):
     for directory in directories:
         for source in Path(directory).glob("*.dll"):
             key = source.name.casefold()
-            digest = hashlib.sha256(source.read_bytes()).digest()
+            digest = sha256_file(source)
             if key in planned and planned[key][1] != digest:
                 raise ValueError("conflicting Windows DLL providers: " + source.name)
             planned.setdefault(key, (source, digest))
     for source, digest in planned.values():
         target = Path(destination) / source.name
-        if target.exists() and hashlib.sha256(target.read_bytes()).digest() != digest:
+        if target.exists() and sha256_file(target) != digest:
             raise ValueError("conflicting Windows DLL destination: " + source.name)
     for source, _ in planned.values():
         target = Path(destination) / source.name
@@ -549,8 +550,7 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
-    ap.add_argument("--jaic", default=os.path.join(target, "debug", "jaic"))
+    add_jaic_argument(ap, type=str)
     ap.add_argument(
         "--modes", default="interp,native", help="comma-separated: " + ", ".join(MODES)
     )

@@ -6,7 +6,7 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import subprocess
+from toolkit.process import run as toolkit_run
 from toolkit.hashing import sha256_bytes
 
 SCALARS = {'int':('s32',4,4), 'short':('s16',2,2),
@@ -63,4 +63,4 @@ def assertions(shapes):
 
 
 def run(command):
-    return subprocess.run([str(x) for x in command],check=True,capture_output=True,text=True)
+    return toolkit_run(command, capture=True, echo=False)

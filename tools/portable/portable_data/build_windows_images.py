@@ -15,7 +15,6 @@ import argparse
 import json
 import os
 import subprocess
-import sys
 
 if os.name != "nt":
     raise SystemExit("Native Windows is required")

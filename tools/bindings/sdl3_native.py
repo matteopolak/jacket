@@ -17,7 +17,6 @@ import re
 import shutil
 import subprocess
 import tarfile
-import urllib.request
 from toolkit.download import fetch
 from pathlib import Path
 

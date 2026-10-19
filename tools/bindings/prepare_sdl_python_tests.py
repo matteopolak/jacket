@@ -17,7 +17,7 @@ import argparse
 import json
 from pathlib import Path
 import tarfile
-import urllib.request
+import urllib.request  # noqa: F401  (the tests patch urlopen through this module)
 from toolkit.download import fetch
 from sdl_test_support import repository_root
 from toolkit.hashing import sha256_bytes, sha256_file

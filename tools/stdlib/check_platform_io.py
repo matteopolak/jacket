@@ -23,6 +23,7 @@ import sys
 import time
 
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
+from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 from toolkit.cli import add_jaic_argument
 from toolkit.hashing import sha256_bytes
@@ -102,8 +103,7 @@ def save_result(directory, result, failed=()):
 
 
 def run(command, env, expected=None, expected_stderr=b"", failure_directory=None):
-    result = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
-                            capture_output=True, timeout=60)
+    result = toolkit_run(command, check=False, capture=True, echo=False, text=False, cwd=ROOT, env=env, timeout=60)
     if result.returncode or result.stderr.replace(b"\\", b"/") != expected_stderr or (expected is not None and result.stdout != expected.encode()):
         key = sha256_bytes(repr(list(map(str, command))).encode())[:16]
         save_result((failure_directory or ROOT / "target/platform-io-tests/failures") / key, result,
@@ -114,8 +114,7 @@ def run(command, env, expected=None, expected_stderr=b"", failure_directory=None
 
 
 def expect_diagnostic(command, env, message):
-    result = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
-                            capture_output=True, timeout=60)
+    result = toolkit_run(command, check=False, capture=True, echo=False, text=False, cwd=ROOT, env=env, timeout=60)
     if result.returncode == 0 or message.encode() not in result.stdout + result.stderr:
         raise RuntimeError(f"missing required diagnostic {message!r}: {result}")
 

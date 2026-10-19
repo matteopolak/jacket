@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 
-from shared_snapshot import ROOT, capture, unchanged
+from shared_snapshot import capture, unchanged
 from toolkit.hashing import sha256_file
 
 

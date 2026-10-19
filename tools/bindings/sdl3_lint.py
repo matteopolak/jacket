@@ -14,7 +14,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -22,6 +21,7 @@ import subprocess
 import sys
 from bindings.sdl3_gen import ROOT, TARGETS
 from repo_output import output_dir
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -53,7 +53,7 @@ def main():
         for source,name in pairs:
             dest=directory/name
             shutil.copyfile(source,dest)
-            if hashlib.sha256(source.read_bytes()).digest()!=hashlib.sha256(dest.read_bytes()).digest():
+            if sha256_file(source)!=sha256_file(dest):
                 raise RuntimeError(f'nonidentical lint input: {source}')
         (directory/'module.jai').write_text('// Isolated source/type lint root, not a runtime portability test.\nSDL3 :: #system_library "SDL3";\n#load "declarations.jai";\n#load "macros.jai";\n'
                                        f'#load "{link}";\n#load "abi.jai";\n')

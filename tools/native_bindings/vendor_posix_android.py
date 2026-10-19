@@ -15,7 +15,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse
 import json
 from pathlib import Path
-import re
 import shlex
 import tarfile
 from toolkit.repo import ROOT

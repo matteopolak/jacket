@@ -1,7 +1,5 @@
 """Target-routing policy tests; these are not native/WASM execution evidence."""
 
-import ast
-from pathlib import Path
 import unittest
 
 from target_contracts import GETRECT_CASES, PORTABLE_CASES, target_contract

@@ -8,8 +8,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
 
-import importlib.util
-from pathlib import Path
 import sys
 import unittest
 

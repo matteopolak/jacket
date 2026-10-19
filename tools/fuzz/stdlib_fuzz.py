@@ -27,6 +27,7 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
 from bench.sandbox import Sandbox, environment  # noqa: E402
@@ -387,7 +388,7 @@ def replay(runner: Runner, directory: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('modules', nargs='*', help='stdlib modules (default: every one in targets.json)')
-    parser.add_argument('--jaic', default=str(ROOT / 'target/release/jaic'))
+    add_jaic_argument(parser, profile='release', type=str)
     parser.add_argument('--count', type=int, default=200, help='seeds per procedure')
     parser.add_argument('--seed', type=int, default=1, help='first seed')
     parser.add_argument('--max-len', type=int, default=256, help='bound on generated lengths')

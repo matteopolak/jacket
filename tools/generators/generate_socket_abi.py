@@ -20,7 +20,6 @@ _TOOLS = _Path(__file__).resolve().parents[1]
 _sys.path[:0] = [str(_TOOLS / "native_bindings")]  # the spec parser shared with the bindings generator
 
 from collections import defaultdict
-from pathlib import Path
 import re
 
 from generators.jai_codegen import emit_generated, generator_parser

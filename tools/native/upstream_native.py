@@ -10,7 +10,6 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -21,11 +20,7 @@ from toolkit.repo import ROOT
 
 
 def file_sha256(path):
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return sha256_file(path)
 
 
 def native_plan(target, native, stdlib, root=ROOT):

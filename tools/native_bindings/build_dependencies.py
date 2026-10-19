@@ -18,9 +18,7 @@ import platform
 import shutil
 import tarfile
 import tempfile
-import time
-import urllib.request
-import sys
+import urllib.request  # noqa: F401  (the tests patch urlopen through this module)
 from toolkit.download import fetch  # noqa: E402
 from native_bindings.sdl_sdk_headers import prepare_runtime_headers
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS

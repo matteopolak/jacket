@@ -10,7 +10,6 @@ from pathlib import Path
 import math, random, struct
 from fractions import Fraction
 root=Path(__file__).resolve().parents[2]
-import sys
 from repo_output import output_dir
 rng=random.Random(0x986831)
 lines=['#import "Basic";', 'M :: #import "Math";', 'H :: #import "Float16";', 'C :: #import "Color_Interpolation";',

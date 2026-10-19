@@ -34,6 +34,7 @@ import tempfile
 from stdlib import stdlib_runtime  # noqa: E402
 from toolkit.hashing import sha256_file
 from toolkit.cli import add_jaic_argument
+from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
@@ -836,10 +837,13 @@ def run(args):
                 arguments = stdlib_runtime.program_arguments(
                     want.get("fixture", {}), scratch, environment
                 )
-                result = subprocess.run(
-                    [str(exe), *arguments],
+                result = toolkit_run(
+                    [exe, *arguments],
+                    check=False,
+                    capture=True,
+                    echo=False,
+                    text=False,
                     cwd=cwd if cwd.is_dir() else directory,
-                    capture_output=True,
                     timeout=60,
                 )
         except ValueError as error:

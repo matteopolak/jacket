@@ -13,6 +13,7 @@ import argparse
 import fnmatch
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -50,6 +51,26 @@ def sdl_environment(env):
     return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
 
 
+def ensure_formatter():
+    """The generator tests format with target/jaifmt (tools/generators/jai_codegen.py). Build it when it is
+    missing, as `tools/dev/dev.py fmt` does, and place it where they look; False when that was not possible."""
+    wanted = TOOLS.parent / "target" / "jaifmt"
+    if wanted.is_file():
+        return True
+    try:
+        sys.path.insert(0, str(TOOLS))
+        from dev.dev import ensure_jaifmt
+
+        built = Path(ensure_jaifmt(str(os.cpu_count() or 1)))
+        if built.resolve() != wanted.resolve():
+            wanted.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(built, wanted)
+    except (Exception, SystemExit) as error:
+        sys.stderr.write(f"run_tests.py: skipping tools/generators, target/jaifmt is missing and could not be built ({error})\n")
+        return False
+    return wanted.is_file()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-p", "--pattern", default="test_*.py", help="test file pattern (default: %(default)s)")
@@ -60,6 +81,8 @@ def main():
         env.update(sdl_environment(env))
     total, failed = 0, []
     for folder in folders(args.pattern):
+        if folder.name == "generators" and not ensure_formatter():
+            continue
         command = [sys.executable, "-m", "unittest", "discover", "-s", str(folder), "-p", args.pattern]
         if args.verbose:
             command.append("-v")

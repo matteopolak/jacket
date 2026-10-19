@@ -20,7 +20,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import urllib.request
 from toolkit.download import fetch
 from repo_output import host_platform
 from toolkit.hashing import sha256_bytes, sha256_file

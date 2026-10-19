@@ -19,7 +19,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse
 import glob
 import os
-import platform
 import shutil
 import subprocess
 import sys

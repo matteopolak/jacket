@@ -13,13 +13,13 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import platform
 import subprocess
 import time
+from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 
 SUITE = ROOT / "stdlib/Extensions/Io/tests/support/suite.jai"
@@ -54,8 +54,7 @@ KERNEL_FILES = [
 
 
 def sha(path):
-    with path.open("rb") as source:
-        return hashlib.file_digest(source, "sha256").hexdigest()
+    return sha256_file(path)
 
 
 def read_optional(path):
