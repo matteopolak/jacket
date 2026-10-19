@@ -336,3 +336,23 @@ fn a_loader_follows_the_recovered_view_of_a_loaded_file_that_says_so() {
         .collect();
     assert!(loader.is_empty(), "{loader:?}");
 }
+
+#[test]
+fn a_struct_argument_that_is_not_a_type_is_reported_at_the_use() {
+    // `Node(1)` was reported on the parameter `T: Type` of the struct, far from what was typed,
+    // so the struct's own line gained an error while a call was being written.
+    let source =
+        "Node :: struct(T: Type) {\n    value: T;\n}\n\nmain :: () {\n    node: Node(1);\n}\n";
+    let session = open(source);
+    let reported: Vec<_> = session
+        .diagnostics(&uri())
+        .unwrap()
+        .into_iter()
+        .filter(|d| d.message.contains("expected a type"))
+        .collect();
+    assert!(!reported.is_empty());
+    assert!(
+        reported.iter().all(|d| d.range.start.line == 5),
+        "{reported:?}"
+    );
+}

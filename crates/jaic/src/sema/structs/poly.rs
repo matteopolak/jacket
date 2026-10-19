@@ -296,7 +296,7 @@ impl Compiler {
                 let mut array =
                     value::Aggregate::zeroed(esize.saturating_mul(items.len() as u64), span)?;
                 for (k, op) in items.into_iter().enumerate() {
-                    let v = self.struct_arg_value(param_scope, op, elem, p.span)?;
+                    let v = self.struct_arg_value(param_scope, op, elem, span)?;
                     let v = match (v, self.types.is_float(elem)) {
                         (Value::Int(i), true) => Value::float(i as f64),
                         (v, _) => v,
@@ -310,6 +310,8 @@ impl Compiler {
                 bindings.push((pname, value, ty));
                 continue;
             }
+            // An argument that does not fit is the caller's to fix, so it is reported at the use.
+            let given = values[i].is_some();
             let argument = match values[i].take() {
                 Some(op) => op,
                 None => match &p.default {
@@ -334,7 +336,16 @@ impl Compiler {
                 } => self.default_untyped(*ty, value),
                 other => other.ty(),
             };
-            let value = self.struct_arg_value(param_scope, argument, ty, p.span)?;
+            let value = self.struct_arg_value(
+                param_scope,
+                argument,
+                ty,
+                if given {
+                    span
+                } else {
+                    p.span
+                },
+            )?;
             let value = match (value, self.types.is_float(ty)) {
                 (Value::Int(i), true) => Value::float(i as f64),
                 (v, _) => v,
