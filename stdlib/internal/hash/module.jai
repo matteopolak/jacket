@@ -2,9 +2,29 @@ FNV_64_PRIME: u64 : 0x100000001b3;
 FNV_64_OFFSET_BIAS: u64 : 0xcbf29ce484222325;
 
 sdbm_hash :: (data: *void, size: int, h := HASH_INIT) -> u32 #no_aoc {
+    // Each step is value * 65599 + byte. Wrapping arithmetic lets four steps fold into one sum of
+    // independent products, which takes fewer instructions than four dependent steps.
+    M: u32 : 65599;
+    M2: u32 : 0x7e0f81;
+    M3: u32 : 0x2e86d0bf;
+    M4: u32 : 0x43ec5f01; // the powers of M, wrapped to 32 bits
     value := h;
     bytes := cast(*u8) data;
-    for i: 0..size - 1 value = cast(u32) bytes[i] + (value << 6) + (value << 16) - value;
+    i := 0;
+
+    while i + 4 <= size {
+        value = value * M4 + cast(u32) bytes[i] * M3 + cast(u32) bytes[i + 1] * M2 + cast(u32) bytes[i + 2] * M + cast(u32) bytes[i + 3];
+        i += 4;
+    }
+
+    // At most three bytes are left: two steps, then one, without a loop.
+    if size - i >= 2 {
+        value = value * M2 + cast(u32) bytes[i] * M + cast(u32) bytes[i + 1];
+        i += 2;
+    }
+
+    if i < size value = value * M + cast(u32) bytes[i];
+
     return value;
 }
 
@@ -21,8 +41,23 @@ sdbm_float_hash :: inline (f: *float, count: int, h := HASH_INIT) -> u32 {
 }
 
 djb2_hash :: (s: string) -> u32 #no_aoc {
+    // Four steps of value * 33 + byte at a time, folded as in sdbm_hash.
+    M: u32 : 33;
     value: u32 = 5381;
-    for byte: s value = value * 33 + cast(u32) byte;
+    i := 0;
+
+    while i + 4 <= s.count {
+        value = value * (M * M * M * M) + cast(u32) s.data[i] * (M * M * M) + cast(u32) s.data[i + 1] * (M * M) + cast(u32) s.data[i + 2] * M + cast(u32) s.data[i + 3];
+        i += 4;
+    }
+
+    if s.count - i >= 2 {
+        value = value * (M * M) + cast(u32) s.data[i] * M + cast(u32) s.data[i + 1];
+        i += 2;
+    }
+
+    if i < s.count value = value * M + cast(u32) s.data[i];
+
     return value;
 }
 
