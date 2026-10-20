@@ -1085,7 +1085,7 @@ collect :: (message: *C.Message) {
         }
 
         if index < 0 {
-            Basic.array_add(*files, File_Group.{ Basic.copy_string(filename) });
+            Basic.array_add(*files, File_Group.{ name = Basic.copy_string(filename) });
             index = files.count - 1;
         }
 

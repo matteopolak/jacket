@@ -307,7 +307,7 @@ test_custom_source :: () {
     trickle.text = PAYLOAD;
     trickle.step = 5;
 
-    source := Io.Reader.{ *trickle, trickle_read, trickle_close };
+    source := Io.Reader.{ *trickle, trickle_read, trickle_close, null };
     buffer: [64] u8;
 
     // read gives some bytes, read_full all of them, whatever the source's step.

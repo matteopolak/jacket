@@ -2093,7 +2093,7 @@ test_wait_readable_unsupported :: () {
     assert(!Io.can_wait_readable(reader));
     assert(Io.wait_readable(reader) == .UNSUPPORTED, "a pipe reader cannot wait");
 
-    own := Io.Reader.{ null, null, null };
+    own := Io.Reader.{ null, null, null, null };
 
     assert(!Io.can_wait_readable(own) && Io.wait_readable(own) == .UNSUPPORTED);
 

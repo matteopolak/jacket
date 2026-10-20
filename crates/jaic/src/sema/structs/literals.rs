@@ -93,6 +93,26 @@ impl Compiler {
             let op = self.convert(f, op, mty, arg.value.span)?;
             values.push((path, mty, op, arg.value.span));
         }
+        // A field with no initializer of its own needs a positional value; trailing fields with
+        // one may be left out, and an overlay shares another field's storage.
+        let needed = match self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
+            Some(st) if !self.ty.types.struct_info(st).is_union => {
+                let fields = &self.ty.types.struct_info(st).fields;
+                let inits = &self.ty.struct_asts[&st].inits;
+                fields
+                    .iter()
+                    .zip(inits)
+                    .enumerate()
+                    .filter(|(_, (field, (init, _)))| !field.overlay && init.is_none())
+                    .map(|(i, _)| i + 1)
+                    .max()
+                    .unwrap_or(0)
+            }
+            _ => 0,
+        };
+        if positional > 0 && positional < needed && values.len() == positional {
+            return err(span, "Not enough values provided in this struct literal.");
+        }
         let all_const = values.iter().all(|(path, _, op, _)| {
             path.iter().all(|s| matches!(s, PathStep::Offset(_)))
                 && (op.is_const() || matches!(op, Operand::Procs(p) if p.len() == 1))

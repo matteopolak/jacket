@@ -33,6 +33,7 @@ New struct flags: parse them in `parser/aggregate.rs` next to `#no_padding` and 
 Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Member defaults apply to `v: Vec;` {#struct.1} and to members a literal omits {#struct.2}:
+- A positional literal must give a value to every member that has no initializer of its own; leaving out such a member is `Not enough values provided in this struct literal.` Trailing members with an initializer may be left out (`check_struct_literal`).
 - Positional literals fill members in declaration order {#struct.3} and `Vec.{}` is all defaults {#struct.4}.
 - Where a value is expected and its type is known, the dot may be left out: `gpu_init(1, {.GENERAL, 1})`, `e: Extent = {1280, 720};`, `return {w, h};`, `e = {width = 5};` and fields of another literal all build a struct like `.{...}` {#struct.17}. A `{` that starts with a statement keyword or directive, declares a name, holds a `;` or is a lambda's body (`x => { ... }`) is a block. Third-party Jai code relies on the dotless form (`UnNabbo/no_api`'s examples and README, and the `jai_parser` used by the Jails language server parses it in arguments, returns, declarations and operands).
 - `layout_struct` runs lazily, the first time a size or offset is needed (`LayoutState`). Every top-level struct is still laid out before compilation finishes, so a member of an undefined type is always an error {#struct.5} (see [sema: polymorphism and declarations](../compiler/sema.md)). Recursion is caught by `LayoutState::InProgress`.

@@ -294,7 +294,7 @@ lookup_header_name :: (name: string) -> Header_Name {
 Header_Field :: struct {
     name: string;
     value: string;
-    id: Header_Name;
+    id: Header_Name = .UNKNOWN;
 }
 
 // The first header called `name` (any case); `found` says whether there was one.

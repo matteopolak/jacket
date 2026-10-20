@@ -181,7 +181,7 @@ close :: (writer: Writer, now := false) -> Io_Error {
 // The built-in sources
 
 reader_of :: (file: *Io_File) -> Reader {
-    return .{ file, file_read_proc, file_close_proc };
+    return .{ file, file_read_proc, file_close_proc, null };
 }
 
 reader_of :: (stream: Tcp_Stream) -> Reader {
@@ -189,7 +189,7 @@ reader_of :: (stream: Tcp_Stream) -> Reader {
 }
 
 reader_of :: (stream: *Pipe_Stream) -> Reader {
-    return .{ stream, pipe_read_proc, pipe_close_proc };
+    return .{ stream, pipe_read_proc, pipe_close_proc, null };
 }
 
 writer_of :: (file: *Io_File) -> Writer {

@@ -217,8 +217,8 @@ test_deadline_and_cancel :: () {
 Timed_Reader :: struct {
     end: *Io.Pipe_Stream;
     group: *Io.Wait_Group;
-    count: s64;
-    error: Io.Io_Error;
+    count: s64 = 0;
+    error: Io.Io_Error = .NONE;
 }
 
 timed_reader :: (reader: *Timed_Reader) {

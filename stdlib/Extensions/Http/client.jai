@@ -382,7 +382,7 @@ read_json :: (response: *Client_Response, $T: Type) -> T, Client_Error {
 
     body := Body_Reader.{ response = response, source = source };
 
-    value, failure := Io.read_json(Io.Reader.{ *body, body_read_proc, null }, T);
+    value, failure := Io.read_json(Io.Reader.{ *body, body_read_proc, null, null }, T);
 
     source.streamed = false;
 

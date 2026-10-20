@@ -12,7 +12,7 @@ get_display :: () -> *X11.Display {
 }
 
 register_window :: (window: X11.Window, colormap: X11.Colormap) {
-    Basic.array_add(*resources, Resource.{ window, colormap });
+    Basic.array_add(*resources, Resource.{ window = window, colormap = colormap });
 }
 
 release_window :: (window: X11.Window) {

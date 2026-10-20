@@ -3749,6 +3749,19 @@
       "negative": {
         "check": "Number signedness mismatch. Type wanted: u64; type given: s64."
       }
+    },
+    {
+      "id": "struct-literal-too-few-values",
+      "source": "negative/struct-literal-too-few-values.jai",
+      "sha256": "e3723ea6172fd63ec474033f6f38df3a78b1ca07024535d95ebb58b92b34ef8f",
+      "suite": "negative",
+      "feature": "A positional struct literal names every field that has no initializer",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Not enough values provided in this struct literal."
+      }
     }
   ]
 }
