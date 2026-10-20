@@ -531,3 +531,23 @@ fn a_polymorph_parameter_hovers_with_every_instance_type_in_a_fixed_order() {
         }
     });
 }
+
+#[test]
+fn a_member_in_an_uncalled_polymorph_with_a_baked_polymorphic_parameter_is_a_field() {
+    on_big_stack(|| {
+        let source = "App :: struct { marker: int; }\npost :: (app: *App, $handler: $H) {\n    handler();\n    app.marker = 1;\n}\nmain :: () {}\n";
+        let session = open(source);
+        eprintln!("TOK {:?}", session.semantic_tokens(&uri()).unwrap());
+        eprintln!(
+            "HOV {:?}",
+            session.hover(
+                &uri(),
+                Position {
+                    line: 3,
+                    character: 9
+                }
+            )
+        );
+        assert_eq!(kind_at(&session, 3, 8), Some(SemanticTokenKind::Property));
+    });
+}

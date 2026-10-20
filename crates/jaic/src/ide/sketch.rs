@@ -142,7 +142,7 @@ impl Compiler {
     }
 
     /// Bindings for a sketch of `id`, or `None` when a baked parameter has no value to stand in
-    /// for it (a `Code`, a struct, a variadic pack).
+    /// for it (a `Code`, a struct that is not a stand-in, a variadic pack).
     fn ide_sketch_bindings(&mut self, id: ProcId) -> Option<Vec<(Sym, Value, TypeId)>> {
         let header = self.proc(id).lit.header.clone();
         let scope = self.proc(id).scope;
@@ -277,7 +277,21 @@ impl Compiler {
                 out.push((name.name, v, t));
                 continue;
             }
-            let ty = self.eval_type(scope, param.ty.as_ref()?).ok()?;
+            let param_ty = param.ty.as_ref()?;
+            // `$handler: $H`: of the type the sketch binds `H` to.
+            let bound = match &param_ty.kind {
+                ast::ExprKind::PolyVar {
+                    name, ..
+                } => out.iter().find_map(|(n, v, _)| match v {
+                    Value::Type(t) if n == name => Some(*t),
+                    _ => None,
+                }),
+                _ => None,
+            };
+            let ty = match bound {
+                Some(t) => t,
+                None => self.eval_type(scope, param_ty).ok()?,
+            };
             let value = match self.ty.types.kind(self.ty.types.repr(ty)) {
                 TypeKind::Type => Value::Type(self.ide_stand_in(name.name, name.span, scope)),
                 TypeKind::Int {
@@ -289,6 +303,11 @@ impl Compiler {
                 } => Value::float(0.0),
                 TypeKind::Bool => Value::Bool(false),
                 TypeKind::String => Value::String(Rc::from(&b""[..])),
+                TypeKind::Pointer(_) => Value::Null,
+                // `$handler: $H`: a value of a stand-in type is its (empty) zero.
+                _ if self.is_stand_in(ty) => Value::Bytes(Rc::new(
+                    crate::sema::value::Aggregate::zeroed(0, name.span).ok()?,
+                )),
                 _ => return None,
             };
             out.push((name.name, value, ty));
