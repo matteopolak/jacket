@@ -3,7 +3,7 @@ use super::{CallArg, inferred_flags, is_deferred};
 use crate::ast::ExprKind as E;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
-use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err};
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -122,7 +122,27 @@ impl Compiler {
         {
             return Ok(None);
         }
-        let unfilled = members.len().saturating_sub(positional + named);
+        // Positional values fill members from the front, so a type with exactly that many
+        // members is closer. Named values pick their members, and a member left to its
+        // initializer is not a shortfall.
+        let unfilled = if named == 0 {
+            members.len().saturating_sub(positional)
+        } else {
+            let defaults = self.positional_member_defaults(param);
+            let named_here = |name: Option<Sym>| {
+                fields
+                    .iter()
+                    .any(|f| f.name.is_some_and(|n| Some(n.name) == name))
+            };
+            members
+                .iter()
+                .enumerate()
+                .skip(positional)
+                .filter(|&(i, &(name, ..))| {
+                    !named_here(name) && !defaults.get(i).copied().unwrap_or(false)
+                })
+                .count()
+        };
         Ok(Some(u32::try_from(unfilled).unwrap_or(u32::MAX)))
     }
 

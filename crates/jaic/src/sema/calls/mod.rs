@@ -86,8 +86,8 @@ struct Candidate {
 }
 
 /// An argument that names no type of its own: one still waiting for its parameter's type
-/// (`.{...}`, `.[...]`, `.NAME`) or `null`. Equal candidates for one of these leave the call
-/// without a meaning; an untyped number is not one, as every integer type takes it.
+/// (`.{...}`, `.[...]`, `.NAME`) or `null`. An untyped number is not one, as every integer type
+/// takes it.
 fn is_untyped_argument(arg: &CallArg) -> bool {
     match &arg.op {
         None => arg.expr.as_ref().is_some_and(takes_context_type),
@@ -322,11 +322,12 @@ impl Compiler {
     }
 
     /// The best of the ranked candidates, and whether another is as good (the editor keeps the
-    /// whole overload set then). Equally good candidates are an error when an argument has no
-    /// type of its own: the call does not say which one it means. Only overloads declared
-    /// together are rivals: one in an inner scope is nearer, as an inner declaration is to a
-    /// name of an outer one. Overloads with the same procedure type are copies of one
-    /// declaration, not different readings.
+    /// whole overload set then). Equally good candidates declared together as different
+    /// procedures are an error when the call does not say which one it means: an argument has no
+    /// type of its own, or the candidates are polymorphic (an untyped number fits every numeric
+    /// parameter alike, and declaration order settles that). One in an inner scope is nearer, as
+    /// an inner declaration is to a name of an outer one, and two candidates of one declaration
+    /// are not rivals.
     fn choose_candidate(
         &self,
         mut best: Vec<Candidate>,
@@ -334,18 +335,33 @@ impl Compiler {
         span: Span,
     ) -> Result<(Candidate, bool)> {
         let ambiguous = self.order_candidates(&mut best);
-        if ambiguous && args.iter().any(is_untyped_argument) {
-            let scope_of = |c: &Candidate| self.proc(c.proc).scope;
+        if ambiguous {
             let rank = self.candidate_rank(&best[0]);
+            let home = self.proc(best[0].proc).scope;
+            // Candidates of another shape are not rivals: `f(array)` and `f(array, ..items)`
+            // called with one argument leave the variadic empty, and `(d: [] u8)` is closer to
+            // `[] u8` than `(d: [] $T)` is.
+            let shape = |c: &Candidate| {
+                let header = &self.proc(c.proc).lit.header;
+                (
+                    header.params.iter().any(|p| p.variadic),
+                    header_poly_names(header).len(),
+                )
+            };
+            let first = shape(&best[0]);
             let tied = best
                 .iter()
-                .take_while(|c| self.candidate_rank(c) == rank && scope_of(c) == scope_of(&best[0]))
+                .take_while(|c| {
+                    self.candidate_rank(c) == rank
+                        && self.proc(c.proc).scope == home
+                        && shape(c) == first
+                })
                 .count();
-            let first = self.proc(best[0].proc).sig.as_ref().map(|sig| sig.ty);
-            if best[..tied]
+            let declared = self.proc(best[0].proc).span;
+            let rivals = best[..tied]
                 .iter()
-                .any(|c| self.proc(c.proc).sig.as_ref().map(|sig| sig.ty) != first)
-            {
+                .any(|c| self.proc(c.proc).span != declared);
+            if rivals && (rank.0 || args.iter().any(is_untyped_argument)) {
                 return Err(Box::new(self.ambiguous_overloads(&best[..tied], span)));
             }
         }

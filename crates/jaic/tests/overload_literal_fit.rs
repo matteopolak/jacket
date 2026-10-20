@@ -135,3 +135,68 @@ fn a_candidate_taking_the_argument_itself_beats_one_gathering_it_into_a_variadic
         #assert(one == 1);",
     );
 }
+
+#[test]
+fn polymorphic_overloads_that_fit_equally_are_ambiguous() {
+    let arguments = [
+        "5",
+        "5.5",
+        "\"text\"",
+        "true",
+        "V.{1, 2}",
+        "s32.[1, 2, 3]",
+        "null",
+        "cast(u8) 3",
+    ];
+    for argument in arguments {
+        ambiguous(&format!(
+            "V :: struct {{ a: s32; b: s32; }}
+            f :: (x: $T) -> s32 {{ return 1; }}
+            f :: (x: $U) -> s32 {{ return 2; }}
+            main :: () {{ f({argument}); }}"
+        ));
+    }
+    // A header that pins down more of the type is not a tie.
+    accepts(
+        "f :: (x: *$T) -> s32 { return 1; }
+        f :: (x: $U) -> s32 { return 2; }
+        main :: () { v: s32; #assert(type_of(f(*v)) == s32); }",
+    );
+}
+
+#[test]
+fn polymorphic_overloads_of_another_shape_are_not_rivals() {
+    // An empty variadic and a parameter list without one differ in shape.
+    accepts(
+        "add :: (array: *[..] $T) -> s32 { return 1; }
+        add :: (array: *[..] $T, items: ..T) -> s32 { return 2; }
+        main :: () { a: [..] s32; x := add(*a); #assert(type_of(x) == s32); }",
+    );
+    // A header with fewer polymorphic variables is the closer reading.
+    accepts(
+        "read :: (d: [] u8) -> s32 { return 1; }
+        read :: (d: [] $T) -> s32 { return 2; }
+        main :: () { d: [4] u8; x := read(d); #assert(type_of(x) == s32); }",
+    );
+}
+
+#[test]
+fn an_untyped_number_fits_every_numeric_parameter_alike() {
+    accepts(
+        "take :: (p: u8) -> s32 { return 1; }
+        take :: (p: s32) -> s32 { return 2; }
+        one :: #run take(200);
+        #assert(one == 1);",
+    );
+}
+
+#[test]
+fn a_named_literal_leaves_members_with_initializers_to_them() {
+    ambiguous(&format!(
+        "{SHAPES} main :: () {{ take(.{{ a = 1, b = 2 }}); }}"
+    ));
+    // A member with no initializer is a shortfall, so the type without it is closer.
+    accepts(&format!(
+        "{FIELDS} one :: #run take(.{{ a = 1 }}); #assert(one == 1);"
+    ));
+}

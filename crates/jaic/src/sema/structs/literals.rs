@@ -27,6 +27,23 @@ impl Compiler {
         }
     }
 
+    /// For each member [`Self::positional_members`] lists: whether it has an initializer.
+    pub(in crate::sema) fn positional_member_defaults(&self, ty: TypeId) -> Vec<bool> {
+        match self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
+            Some(st) => self
+                .ty
+                .types
+                .struct_info(st)
+                .fields
+                .iter()
+                .zip(&self.ty.struct_asts[&st].inits)
+                .filter(|(field, _)| !field.overlay)
+                .map(|(_, (init, _))| init.is_some())
+                .collect(),
+            None => Vec::new(),
+        }
+    }
+
     /// The members that positional values of a literal of `ty` fill, in order. Overlays share
     /// the storage of another member and take no value of their own.
     pub(in crate::sema) fn positional_members(
