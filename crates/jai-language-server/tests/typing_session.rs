@@ -91,3 +91,16 @@ fn typing_in_partial_fixtures_keeps_every_answer() {
     });
     assert!(problems.is_empty(), "{}", problems.join("\n\n"));
 }
+
+/// A statement typed at the end of a body has the body checked again, with fresh locals for
+/// its parameters: hovering one still shows its layout.
+#[test]
+fn typing_after_a_switch_keeps_parameter_hovers() {
+    let config = Config {
+        scenarios: 1,
+        ..Config::default()
+    };
+    let problems =
+        on_big_stack(move || check("stdlib/Extensions/Args/tests/help.jai", 0..1, &config));
+    assert!(problems.is_empty(), "{}", problems.join("\n\n"));
+}

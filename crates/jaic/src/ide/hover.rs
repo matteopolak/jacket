@@ -38,11 +38,23 @@ impl Compiler {
             .iter()
             .copied()
             .min_by_key(|r| r.span.end - r.span.start)?;
-        let same = here
-            .iter()
-            .filter(|o| o.span == r.span)
-            .all(|o| o.ty == r.ty && same_what(&o.what, &r.what));
+        let same = here.iter().filter(|o| o.span == r.span).all(|o| {
+            o.ty == r.ty && (same_what(&o.what, &r.what) || self.same_local(&o.what, &r.what))
+        });
         Some((r.clone(), same))
+    }
+
+    /// Two locals for one declaration: a body checked again (after a statement in it failed)
+    /// declares its parameters and locals afresh.
+    fn same_local(&self, a: &IdeWhat, b: &IdeWhat) -> bool {
+        let (IdeWhat::Entity(x), IdeWhat::Entity(y)) = (a, b) else {
+            return false;
+        };
+        let (x, y) = (self.entity(*x), self.entity(*y));
+        matches!(x.kind, EntityKind::Local { .. })
+            && matches!(y.kind, EntityKind::Local { .. })
+            && x.span == y.span
+            && x.name == y.name
     }
 
     pub fn ide_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
