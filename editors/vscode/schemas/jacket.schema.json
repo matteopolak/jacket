@@ -135,6 +135,16 @@
               "default": "warn",
               "markdownDescription": "a `defer` in a loop body that cleans up something from outside the loop (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#defer_in_loop)"
             },
+            "double_free": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "two `@FreesArgument` calls on the same variable with nothing in between (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#double_free)"
+            },
             "dropped_result": {
               "type": "string",
               "enum": [
@@ -424,6 +434,16 @@
               ],
               "default": "warn",
               "markdownDescription": "a local variable that is never used (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_variable)"
+            },
+            "use_after_free": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#use_after_free)"
             },
             "wrapping_constant": {
               "type": "string",

@@ -74,6 +74,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `broken_doc_link` | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
 | `constant_condition` | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
 | `defer_in_loop` | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
+| `double_free` | warn | no | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
 | `dropped_result` | warn | no | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
 | `duplicate_condition` | warn | no | an `else if` or `case` that repeats an earlier one and can never run |
 | `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
@@ -103,6 +104,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `unused_parameter` | warn | no | a parameter the procedure never uses |
 | `unused_result` | warn | no | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
 | `unused_variable` | warn | yes | a local variable that is never used |
+| `use_after_free` | warn | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
 | `wrapping_constant` | warn | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
 
 ### absurd_comparison
@@ -121,6 +123,8 @@ Only comments directly above a declaration (or trailing a field or parameter) ar
 Reads the compiler's reachability facts (`jaic::sema::reachability` and `jaic::ide::values`, the code the editor fades): reports the condition behind a branch that never runs, such as `if count < 5` inside `if count > 10`, or an `else` after a test that always holds. No analysis of its own, so it is as sure as the fading: unsure means silent. Compile-time constants (`if DEBUG`, `while true`), tests inside code that is dead anyway, and comparisons a type's range decides (left to `absurd_comparison`) are skipped.
 ### defer_in_loop
 The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@FreesArgument` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
+### double_free
+The same walk as `use_after_free`: a statement-level `@FreesArgument` call on a local or parameter, then, as the next thing that mentions it in the block, a statement-level call of the *same* procedure on it (`free(p); free(p);`, `close(f); close(f);`). Calls of different procedures are not paired, because `deinit(p); free(p);` releases the contents and then the memory. Silent when anything else mentions the variable in between, when a `return`/`break`/`continue` comes first, for a `defer` or a free nested in a branch, and for the cases listed under `use_after_free`.
 ### dropped_result
 A declaration or assignment whose right side is one call that returns more values than the left side names, where the first dropped value, the one right after the last kept, is a `bool`: `value := parse(text);` quietly turns a failed parse into `0`. Receive the flag (`value, ok := parse(text);`) or write `value, _ := parse(text);` to say it is ignored on purpose. A success or found flag sits right after the value it describes, so a `bool` that comes later, after other results (status extras of a wide API such as `pressed, state, released := button(...)`), and dropped values of other types (counts, remainders) are fine, as are `_ := f();`, calls used as statements, compound assignments and calls whose procedure type is not known. Calls through procedure values count. To make dropping a result a hard compile error, mark it `#must` where the procedure is declared (see [directives and notes](../language/directives-and-notes.md)).
 ### duplicate_condition
@@ -179,6 +183,8 @@ Only for procedures whose every caller is in view: named, only called (never tak
 Procedures declared with `@UseResult` (many in `Basic`/`String`/`Math`), so a program's own `trim` is left alone unless it carries the note. Calls with a pointer argument (works in place) are skipped.
 ### unused_variable
 A name that appears anywhere else in its block is never reported (covers `#if`-excluded code and `#asm`). Skipped: backtick declarations, `using`, `_` names, blocks with `#insert`, macros. Fix removes the declaration, drops trailing call results, or renames to `_`.
+### use_after_free
+A local or parameter that is the first argument of a statement-level `@FreesArgument` call (`free(p);`, not `free(p.data)` or `array_free(*xs)`) and is read by a later statement of the same block before anything gives it a new value. Deliberately narrow: the first mention after the free decides, so `p = null;`, `p == null`, a `return`/`break`/`continue`, a second free (see `double_free`), `#insert`, `using`, a macro call or a taken address all end the check silently. A `defer`red free and a free nested in a branch are not followed. What counts as a read follows the callee's first parameter: for a raw pointer, string, array or handle (`free(p)`, `close(fd)`) any read does; for a pointer to a struct (`deinit(*table)`) only reaching into it (`t.field`, `t.*`) does, since the struct itself may be started over (`t.* = .{}`) or handed to the allocator. So a `@FreesArgument` note must be on a procedure whose *first* argument is what it releases.
 ### wrapping_constant
 A constant takes the other operand's type, so the first divides `-41` by `h`. Only `/ % < <= > >=` next to a non-constant integer; `+ - *`, `==`, bitwise operators, named constants and casts are not reported. Suggested fix is computing in `s64`.
 

@@ -1,0 +1,27 @@
+warning[double_free]: `node` is freed a second time
+  --> tests/lint/double_free/bad.jai:11:5
+   |
+11 |     free(node);
+   |     ^^^^^^^^^^
+   |
+   = help: remove one of the calls, or assign `node` a new value in between
+   = note: `double_free` is `warn` by default
+
+warning[double_free]: `text` is freed a second time
+  --> tests/lint/double_free/bad.jai:17:5
+   |
+17 |     free(text);
+   |     ^^^^^^^^^^
+   |
+   = help: remove one of the calls, or assign `text` a new value in between
+   = note: `double_free` is `warn` by default
+
+warning[double_free]: `items` is freed a second time
+  --> tests/lint/double_free/bad.jai:22:5
+   |
+22 |     array_free(items);
+   |     ^^^^^^^^^^^^^^^^^
+   |
+   = help: remove one of the calls, or assign `items` a new value in between
+   = note: `double_free` is `warn` by default
+

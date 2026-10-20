@@ -14,11 +14,13 @@ mod bool_comparison;
 pub(crate) mod broken_doc_link;
 mod constant_condition;
 mod defer_in_loop;
+mod double_free;
 mod dropped_result;
 mod duplicate_condition;
 mod erasing_op;
 mod excessive_nesting;
 mod float_equality;
+mod frees;
 mod identical_branches;
 mod identical_operands;
 mod identity_op;
@@ -44,6 +46,7 @@ mod unused_parameter;
 pub(crate) use unused_parameter::RunState;
 mod unused_result;
 mod unused_variable;
+mod use_after_free;
 mod wrapping_constant;
 
 pub struct RuleInfo {
@@ -102,6 +105,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "a `defer` in a loop body that cleans up something from outside the loop",
         check: defer_in_loop::check,
+    },
+    RuleInfo {
+        name: "double_free",
+        default: Level::Warn,
+        summary: "two `@FreesArgument` calls on the same variable with nothing in between",
+        check: double_free::check,
     },
     RuleInfo {
         name: "dropped_result",
@@ -276,6 +285,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "a local variable that is never used",
         check: unused_variable::check,
+    },
+    RuleInfo {
+        name: "use_after_free",
+        default: Level::Warn,
+        summary: "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`)",
+        check: use_after_free::check,
     },
     RuleInfo {
         name: "wrapping_constant",
