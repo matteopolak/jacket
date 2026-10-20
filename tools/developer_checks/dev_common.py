@@ -15,8 +15,16 @@ from toolkit.process import run_expect  # noqa: E402
 from toolkit.repo import ROOT, cargo_target_dir, jaifmt_path, stdlib_env  # noqa: E402,F401
 
 ENV = stdlib_env()
-JAIC = cargo_target_dir() / "debug/jaic"
-JAIFMT = jaifmt_path()
+
+
+def __getattr__(name):
+    """`JAIC` and `JAIFMT` ask cargo where its target directory is, which can wait on a cargo lock, so
+    they are resolved on first use rather than by every import of this module."""
+    if name == "JAIC":
+        return cargo_target_dir() / "debug/jaic"
+    if name == "JAIFMT":
+        return jaifmt_path()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def run_checked(command, *, label, env=ENV, timeout=90, **expectations):

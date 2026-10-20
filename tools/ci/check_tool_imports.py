@@ -35,6 +35,7 @@ from pathlib import Path
 from toolkit.repo import ROOT
 
 TOOLS = ROOT / "tools"
+LOAD_TIMEOUT = 45  # seconds one load may take; a hang is reported against its module instead of stalling the job
 MISSING = 3  # the child's exit status for an import error; its stdout is "MISSING <module>" or "FAILED <detail>"
 
 # Runs in the child interpreter. argv: <file> <mode> <tools dir>.
@@ -101,15 +102,18 @@ def load(path: Path, mode: str) -> tuple[str, str]:
     if mode == "runner":
         env["PYTHONPATH"] = str(TOOLS)
     command = [sys.executable, "-c", LOADER, str(path), mode, str(TOOLS)]
-    result = subprocess.run(
-        command,
-        cwd=ROOT,
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=120,
-        stdin=subprocess.DEVNULL,
-    )
+    try:
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=LOAD_TIMEOUT,
+            stdin=subprocess.DEVNULL,
+        )
+    except subprocess.TimeoutExpired:
+        return "fail", f"importing it did not finish within {LOAD_TIMEOUT} s (something at module level is blocking)"
     out = result.stdout.strip()
     if result.returncode == 0:
         return "ok", ""

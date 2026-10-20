@@ -17,9 +17,9 @@ def _metadata_target_dir() -> Path:
     """Cargo's own answer (`.cargo/config.toml` and `build.target-dir` are honoured); `<repo>/target` when cargo cannot say."""
     try:
         out = subprocess.run(["cargo", "metadata", "--no-deps", "--format-version", "1", "--offline"],
-                             cwd=ROOT, capture_output=True, text=True, check=True)
+                             cwd=ROOT, capture_output=True, text=True, check=True, timeout=30)
         return Path(json.loads(out.stdout)["target_directory"])
-    except (OSError, subprocess.CalledProcessError, ValueError, KeyError):
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError):
         return ROOT / "target"
 
 
