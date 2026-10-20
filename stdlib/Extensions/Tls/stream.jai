@@ -36,6 +36,8 @@ Tls_Stream :: struct {
     // both ends of a connection write a lot at once and still read each other.
     out: [..] u8;
     flush_lock: Io.Fiber_Mutex;
+    // A fiber started by `flush_later` is sending `out` (it counts as a user of the stream).
+    flusher_running: bool;
 
     // What the Io call under the running library call returned, when it failed.
     io_error: Io.Io_Error;
@@ -191,11 +193,12 @@ read :: (stream: *Tls_Stream, buffer: [] u8) -> s64, Io.Io_Error {
 
         if error != .NONE return 0, error;
 
-        // An alert or a key update the read produced goes out, unless a write is already doing it.
-        flush_error := flush(stream, false);
+        // An alert or a key update the read produced goes out, but not through this fiber: it is
+        // the one that reads, and while it waits for the peer to take bytes the peer's reader may
+        // be doing the same, with nobody left to take what either has sent.
+        flush_later(stream);
 
         if result > 0 return result, .NONE;
-        if flush_error != .NONE && result != ERR_SSL_PEER_CLOSE_NOTIFY return 0, flush_error;
 
         if result == ERR_SSL_PEER_CLOSE_NOTIFY {
             stream.peer_closed = true;
@@ -666,10 +669,30 @@ sni_callback :: (data: *void, ssl: *void, name: *u8, length: u64) -> s32 #c_call
     return 0;
 }
 
+// Sends what a read made the library produce on a fiber of its own, so that the read can go on
+// (and a failure shows up as the stream being broken, to the next call).
+flush_later :: (stream: *Tls_Stream) {
+    if stream.out.count == 0 || stream.flusher_running return;
+
+    stream.flusher_running = true;
+    stream.users += 1;
+
+    Io.spawn(flusher, stream);
+}
+
+flusher :: (stream: *Tls_Stream) {
+    flush(stream, true);
+
+    stream.flusher_running = false;
+    stream.users -= 1;
+
+    if stream.users == 0 && stream.closing release_stream(stream);
+}
+
 // Writes what the library produced to the connection, in order. Only one flush writes at a time
 // (the others wait their turn, or, with `wait` off, leave their bytes to the one that is writing,
 // which does not stop before `out` is empty). A call that must know its bytes are out, like a
-// write, waits; a read that produced an alert or a key update does not hold itself up for it.
+// write, waits; a read that produced an alert or a key update hands it to `flush_later`.
 // Deadlines and `cancel` apply as to any write. A failed write breaks the stream.
 flush :: (stream: *Tls_Stream, wait: bool) -> Io.Io_Error {
     if stream.out.count == 0 return .NONE;
