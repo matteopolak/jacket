@@ -76,7 +76,7 @@ inspect :: (cur: B.CXCursor, _parent: B.CXCursor, data: *void) -> B.CXChildVisit
 
         if count.* <= 2 {
             assert(existing.text == comment && existing.text.data != pointer);
-            assert(existing.location.line == (ifx count.* == 1 then 1 else 99));
+            assert(existing.location.line == (ifx count.* == 1 then cast(u32) 1 else 99));
             free(existing.text);
         } else {
             assert(existing.text == "retained" && existing.location.line == 99);

@@ -234,7 +234,7 @@ parse_url :: (text: string) -> Url, Url_Problem {
 
 // The port a URL without one means.
 default_port :: (url: Url) -> u16 {
-    return ifx url.secure then 443 else 80;
+    return ifx url.secure then cast(u16) 443 else 80;
 }
 
 #scope_module

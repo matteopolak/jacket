@@ -132,7 +132,7 @@ atlas_copy_coverage :: (source: *FT_Bitmap, destination: *u8, destination_stride
 
             if source.pixel_mode == cast(u8) FT_Pixel_Mode.MONO {
                 bit := from[col / 8] & (cast(u8) 0x80 >> (col % 8));
-                coverage = ifx bit != 0 then 255 else 0;
+                coverage = ifx bit != 0 then cast(u8) 255 else 0;
             }
 
             to[col * channels + channels - 1] = coverage;

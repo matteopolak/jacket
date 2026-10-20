@@ -96,7 +96,7 @@ add_shifted :: (into: *Wide, high: u64, low: u64, shift: s64) #no_context {
 
         before := into.*[limb + i];
         sum := before + piece;
-        next_carry: u64 = ifx sum < before then 1 else 0;
+        next_carry: u64 = ifx sum < before then cast(u64) 1 else 0;
         total := sum + carry;
 
         if total < sum next_carry = 1;
@@ -122,7 +122,7 @@ subtract_wide :: (a: *Wide, b: *Wide) #no_context {
     for i: 0..LIMBS - 1 {
         before := a.*[i];
         difference := before - b.*[i];
-        next_borrow: u64 = ifx before < b.*[i] then 1 else 0;
+        next_borrow: u64 = ifx before < b.*[i] then cast(u64) 1 else 0;
 
         if difference < borrow next_borrow = 1;
 

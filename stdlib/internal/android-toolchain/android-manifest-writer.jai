@@ -160,7 +160,7 @@ am_write :: (out: *String_Builder, c: Android_Project_Config) -> bool {
 
     for feature: c.features {
         am_attr(*w, "name", feature.name);
-        am_attr(*w, "required", kind = 0x12, data = ifx feature.required then 0xffffffff else 0);
+        am_attr(*w, "required", kind = 0x12, data = ifx feature.required then cast(u32) 0xffffffff else 0);
         am_start(*w, "uses-feature");
         am_end(*w, "uses-feature");
     }

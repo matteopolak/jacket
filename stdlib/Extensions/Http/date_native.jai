@@ -9,7 +9,7 @@ http_date_now :: (cache: *Date_Cache) -> string #no_aoc {
     epoch := APOLLO_TIME_FOR_JAN_1_1970;
     elapsed: Apollo_Time;
     elapsed.low = now.low - epoch.low;
-    borrow: u64 = ifx now.low < epoch.low then 1 else 0;
+    borrow: u64 = ifx now.low < epoch.low then cast(u64) 1 else 0;
 
     elapsed.high = now.high - epoch.high - cast(s64) borrow;
     seconds, ok := to_seconds(elapsed);

@@ -3723,6 +3723,32 @@
       "negative": {
         "check": "#complete only applies to 'if' on enum types."
       }
+    },
+    {
+      "id": "ifx-untyped-arms-unsigned-target",
+      "source": "negative/ifx-untyped-arms-unsigned-target.jai",
+      "sha256": "bfd7f000182b9fc0658c6ceeba138aef2d307531b85bf5b416a193917e8c5d30",
+      "suite": "negative",
+      "feature": "An ifx of two untyped numbers is signed and does not fit an unsigned target",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Number signedness mismatch. Type wanted: u64; type given: s64."
+      }
+    },
+    {
+      "id": "ifx-constant-condition-unsigned-target",
+      "source": "negative/ifx-constant-condition-unsigned-target.jai",
+      "sha256": "c1bde1e085169d5d7aa1673dbb75e13beb46e13d150f6c2dd03103573fe1f9e9",
+      "suite": "negative",
+      "feature": "A constant-condition ifx of two untyped numbers does not fit an unsigned target",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Number signedness mismatch. Type wanted: u64; type given: s64."
+      }
     }
   ]
 }

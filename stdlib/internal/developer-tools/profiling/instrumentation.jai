@@ -290,7 +290,7 @@ profile_parse_size :: (text: string) -> s64, bool {
 
     start := i;
     value: u64;
-    limit: u64 = ifx negative then 0x8000000000000000 else 0x7fffffffffffffff;
+    limit: u64 = ifx negative then cast(u64) 0x8000000000000000 else 0x7fffffffffffffff;
 
     while i < text.count && text[i] >= #char "0" && text[i] <= #char "9" {
         digit := cast(u64) (text[i] - #char "0");

@@ -366,6 +366,7 @@ fn compiler_and_abi_regressions_run_natively() {
         "signed-bit-pattern-constants",
         "for-iterator-value-semantics",
         "case-constant-forms",
+        "ifx-target-type",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {

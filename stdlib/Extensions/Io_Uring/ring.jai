@@ -89,8 +89,8 @@ ring_init_params :: (ring: *Ring, entries: u32, params: *io_uring_params) -> s32
     ring.fd = fd;
     ring.flags = params.flags;
     ring.features = params.features;
-    ring.sqe_bytes = ifx params.flags & IORING_SETUP_SQE128 then 128 else 64;
-    ring.cqe_bytes = ifx params.flags & IORING_SETUP_CQE32 then 32 else 16;
+    ring.sqe_bytes = ifx params.flags & IORING_SETUP_SQE128 then cast(u32) 128 else 64;
+    ring.cqe_bytes = ifx params.flags & IORING_SETUP_CQE32 then cast(u32) 32 else 16;
 
     has_array := (params.flags & IORING_SETUP_NO_SQARRAY) == 0;
 

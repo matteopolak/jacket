@@ -175,7 +175,7 @@ zip_deflate_blocks :: (data: string) -> string {
     for block: 0..blocks - 1 {
         length := cast(u16) min(data.count - input, cast(s64) 65535);
 
-        encoded[output] = ifx block + 1 == blocks then 1 else 0;
+        encoded[output] = ifx block + 1 == blocks then cast(u8) 1 else 0;
         encoded[output + 1] = cast(u8) (length & 255);
         encoded[output + 2] = cast(u8) (length >> 8);
         inverse := ~length;

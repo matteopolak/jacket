@@ -78,7 +78,7 @@ native_key :: (window: W.Window_Type, down: bool) {
     make := cast(Make) O.objc_msgSend;
     text := O.NSString.getTempString("a");
     event := make(O.objc_getClass("NSEvent"), O.selector("keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:"),
-                  ifx down then 10 else 11, .{ 10, 10 }, 0, 0,
+                  ifx down then cast(u64) 10 else 11, .{ 10, 10 }, 0, 0,
                   native_integer(window, "windowNumber"), null, text, text, O.NO, 0);
 
     assert(event != null, "native key factory failed");

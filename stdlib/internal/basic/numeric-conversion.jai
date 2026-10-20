@@ -69,9 +69,9 @@ portable_float :: (value: float64, conversion: u8, precision: s64, round_up := f
 
 parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool, remainder: string) {
     #assert T == float64 || T == float32;
-    sign_mask: u64 = ifx T == float64 then 0x8000000000000000 else 0x80000000;
-    infinity: u64 = ifx T == float64 then 0x7ff0000000000000 else 0x7f800000;
-    quiet_nan: u64 = ifx T == float64 then 0x7ff8000000000000 else 0x7fc00000;
+    sign_mask: u64 = ifx T == float64 then cast(u64) 0x8000000000000000 else 0x80000000;
+    infinity: u64 = ifx T == float64 then cast(u64) 0x7ff0000000000000 else 0x7f800000;
+    quiet_nan: u64 = ifx T == float64 then cast(u64) 0x7ff8000000000000 else 0x7fc00000;
     cursor: s64;
 
     while cursor < text.count && is_space(text[cursor]) cursor += 1;
@@ -146,7 +146,7 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
     if digits == 0 return 0, false, text;
 
     exponent: s64;
-    marker: u8 = ifx base == 16 then 112 else 101;
+    marker: u8 = ifx base == 16 then cast(u8) 112 else 101;
 
     if cursor < text.count && to_lower(text[cursor]) == marker {
         end := cursor + 1;
@@ -304,7 +304,7 @@ nat_subtract :: (a: *Natural, b: Natural) {
         original := cast(u64) word.*;
 
         word.* = cast,truncate(u32) (0x100000000 + original - sub);
-        borrow = ifx original < sub then 1 else 0;
+        borrow = ifx original < sub then cast(u64) 1 else 0;
     }
 
     nat_trim(a);
@@ -507,7 +507,7 @@ rational_bits :: (numerator: *Natural, denominator: *Natural, $T: Type) -> u64 {
     mantissa_bits: s64 = ifx T == float64 then 52 else 23;
     bias: s64 = ifx T == float64 then 1023 else 127;
     minimum := 1 - bias;
-    infinity: u64 = ifx T == float64 then 0x7ff0000000000000 else 0x7f800000;
+    infinity: u64 = ifx T == float64 then cast(u64) 0x7ff0000000000000 else 0x7f800000;
     exponent := nat_bit_count(numerator.*) - nat_bit_count(denominator.*);
     shifted := ifx exponent >= 0 then nat_copy(denominator.*) else nat_copy(numerator.*);
 

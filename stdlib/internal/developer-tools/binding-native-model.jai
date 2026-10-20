@@ -1045,7 +1045,7 @@ generate_callback_model :: (command: [] string, options: Generate_Bindings_Optio
     unit: CXTranslationUnit;
     status := clang_parseTranslationUnit2(index, filename, args.data, cast(s32) args.count,
                                         ifx options.source_files.count > 1 then *unsaved else null,
-                                        ifx options.source_files.count > 1 then 1 else 0, 1, *unit);
+                                        ifx options.source_files.count > 1 then cast(u32) 1 else 0, 1, *unit);
 
     if !unit || status != .Success {
         if unit clang_disposeTranslationUnit(unit);

@@ -51,7 +51,7 @@ operator - :: (a: S128, b: S128) -> S128 #no_aoc {
 }
 
 operator - :: (a: U128, b: U128) -> U128 #no_aoc {
-    borrow: u64 = ifx a.low < b.low then 1 else 0;
+    borrow: u64 = ifx a.low < b.low then cast(u64) 1 else 0;
     return .{ a.low - b.low, a.high - b.high - borrow };
 }
 

@@ -80,7 +80,7 @@ float64_from_token :: (token: string) -> float64, bool {
     ok, negative, w, q := split_decimal(token);
 
     if ok {
-        sign: u64 = ifx negative then 0x8000_0000_0000_0000 else 0;
+        sign: u64 = ifx negative then cast(u64) 0x8000_0000_0000_0000 else 0;
 
         if w == 0 return cast,force(float64) sign, false;
 
@@ -106,7 +106,7 @@ float32_from_token :: (token: string) -> float32, bool {
     ok, negative, w, q := split_decimal(token);
 
     if ok {
-        sign: u32 = ifx negative then 0x8000_0000 else 0;
+        sign: u32 = ifx negative then cast(u32) 0x8000_0000 else 0;
 
         if w == 0 return cast,force(float32) sign, false;
 

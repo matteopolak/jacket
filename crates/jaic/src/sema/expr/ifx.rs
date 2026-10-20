@@ -36,6 +36,31 @@ impl Compiler {
         ) {
             return Ok(());
         }
+        // Two untyped integer arms make an `s64`, which an unsigned target does not take.
+        let untyped_int = |o: &Operand| {
+            matches!(
+                o,
+                Operand::Const {
+                    value: Value::Int(_),
+                    untyped: true,
+                    ..
+                }
+            )
+        };
+        if untyped_int(then_op)
+            && untyped_int(else_op)
+            && let Some(want) = expected
+            && let Some((_, false)) = self.ty.types.int_info(self.ty.types.repr(want))
+        {
+            let wanted = self.ty.types.name(want).clone();
+            return Err(Box::new(Diagnostic::error(
+                span,
+                format!(
+                    "Number signedness mismatch. Type wanted: {wanted}; type given: {}.",
+                    self.ty.types.name(TypeId::S64)
+                ),
+            )));
+        }
         let (tt, et) = (
             Self::ifx_branch_type(then_op),
             Self::ifx_branch_type(else_op),

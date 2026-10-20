@@ -41,7 +41,7 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     else if format.positive_number_prefix == .PLUS prefix = 43;
     else if format.positive_number_prefix == .SPACE prefix = 32;
 
-    if exponent == (ifx wide then 0x7ff else 0xff) {
+    if exponent == (ifx wide then cast(u64) 0x7ff else 0xff) {
         text := ifx fraction != 0 then "NaN" else "Inf";
         count := text.count;
 

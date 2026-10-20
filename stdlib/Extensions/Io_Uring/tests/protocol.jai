@@ -27,7 +27,7 @@ exercise :: (with_array: bool, wide: bool, initial: u32) {
     ring.sq_flags = *flags;
     ring.sq_array = ifx with_array then indexes.data else null;
     ring.sqes = cast(*u8) submissions.data;
-    ring.sqe_bytes = ifx wide then 128 else 64;
+    ring.sqe_bytes = ifx wide then cast(u32) 128 else 64;
     ring.sqe_head = initial;
     ring.sqe_tail = initial;
     ring.cq_entries = 4;
@@ -35,7 +35,7 @@ exercise :: (with_array: bool, wide: bool, initial: u32) {
     ring.cq_head = *completion_head;
     ring.cq_tail = *completion_tail;
     ring.cqes = cast(*u8) completions.data;
-    ring.cqe_bytes = ifx wide then 32 else 16;
+    ring.cqe_bytes = ifx wide then cast(u32) 32 else 16;
 
     // Multiple laps, including the u32 index rollover, retain mask/stride rules.
     for lap: 0..31 {

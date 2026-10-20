@@ -245,7 +245,7 @@ main :: () {
         // NSEventTypeKeyDown, NSEventTypeKeyUp; key code 0 is the A key.
         event := make(cast(*void) objc_getClass("NSEvent"),
             sel_registerName("keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:"),
-            ifx down then 10 else 11, .{ 10, 10 }, 0, 0, window_number(window), null, a, a, NO, 0);
+            ifx down then cast(u64) 10 else 11, .{ 10, 10 }, 0, 0, window_number(window), null, a, a, NO, 0);
 
         assert(event != null, "NSEvent key event");
         post(event);
@@ -257,7 +257,7 @@ main :: () {
         // NSEventTypeLeftMouseDown, NSEventTypeLeftMouseUp, in the window's content area.
         event := make(cast(*void) objc_getClass("NSEvent"),
             sel_registerName("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
-            ifx down then 1 else 2, .{ 40, 40 }, 0, 0, window_number(window), null, 0, 1, 1);
+            ifx down then cast(u64) 1 else 2, .{ 40, 40 }, 0, 0, window_number(window), null, 0, 1, 1);
 
         assert(event != null, "NSEvent mouse event");
         post(event);
@@ -321,13 +321,13 @@ main :: () {
 
     post_key :: (window: HWND, down: bool) {
         // WM_KEYDOWN / WM_KEYUP for virtual key 'A', with the repeat count and transition bits.
-        ok := PostMessageW(window, ifx down then 0x100 else 0x101, 0x41, ifx down then 1 else 0xc000_0001);
+        ok := PostMessageW(window, ifx down then cast(u32) 0x100 else 0x101, 0x41, ifx down then 1 else 0xc000_0001);
         assert(ok != 0, "PostMessageW key");
     }
 
     post_click :: (window: HWND, down: bool) {
         // WM_LBUTTONDOWN / WM_LBUTTONUP at client (40, 40).
-        ok := PostMessageW(window, ifx down then 0x201 else 0x202, ifx down then 1 else 0, (40 << 16) | 40);
+        ok := PostMessageW(window, ifx down then cast(u32) 0x201 else 0x202, ifx down then cast(u64) 1 else 0, (40 << 16) | 40);
         assert(ok != 0, "PostMessageW click");
     }
 

@@ -522,7 +522,7 @@ wasi_pow :: (x: float64, y: float64) -> float64 #c_call {
     if x == 0 || !is_finite(x) {
         // x^y is 0 or infinite, negative for a negative x and an odd y.
         large := (x == 0) == (y < 0);
-        result := from_bits(ifx large then INFINITY else 0);
+        result := from_bits(ifx large then cast(u64) INFINITY else 0);
 
         if y_odd && (bits_of(x) & SIGN_BIT) != 0 result = -result;
 
@@ -544,7 +544,7 @@ wasi_pow :: (x: float64, y: float64) -> float64 #c_call {
     } else if y_magnitude >= 18446744073709551616.0 {
         // |y ln x| is far past every float64 exponent, for any x other than 1.
         grows := (magnitude > 1) == (y > 0);
-        result = from_bits(ifx grows then INFINITY else 0);
+        result = from_bits(ifx grows then cast(u64) INFINITY else 0);
     } else {
         exponent := pair_multiply_float(log_pair(magnitude), y);
         if exponent.head > EXP_OVERFLOW result = from_bits(INFINITY);

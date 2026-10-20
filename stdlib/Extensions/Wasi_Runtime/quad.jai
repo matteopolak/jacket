@@ -225,7 +225,7 @@ quad_divide :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_co
         quotient_high, quotient_low = shift_left(quotient_high, quotient_low, 1);
 
         if remainder_high > b.high || (remainder_high == b.high && remainder_low >= b.low) {
-            borrow: u64 = ifx remainder_low < b.low then 1 else 0;
+            borrow: u64 = ifx remainder_low < b.low then cast(u64) 1 else 0;
             remainder_low -= b.low;
             remainder_high = remainder_high - b.high - borrow;
             quotient_low |= 1;

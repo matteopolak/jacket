@@ -271,7 +271,7 @@ am_utf8_units :: (s: string) -> bool, u32 {
 
         if cp < minimum || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff) return false, 0;
 
-        units += ifx cp >= 0x10000 then 2 else 1;
+        units += ifx cp >= 0x10000 then cast(u32) 2 else 1;
         pos += count;
     }
 
