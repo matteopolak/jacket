@@ -415,3 +415,18 @@ fn a_constant_whose_run_fails_is_still_a_constant_where_it_is_used() {
         }
     });
 }
+
+#[test]
+fn a_member_of_a_constant_whose_run_fails_is_still_a_field() {
+    on_big_stack(|| {
+        let source = "#import \"Basic\";\nPair :: struct { data: int; }\nf :: () -> Pair { assert(false); return .{}; }\nregistered :: #run f();\nalias :: registered;\nmain :: () { print(\"%\", alias.data); }\n";
+        let session = open(source);
+        let token = session
+            .semantic_tokens(&uri())
+            .unwrap()
+            .into_iter()
+            .find(|t| t.position.line == 5 && t.position.character == 30)
+            .expect("a token for `data`");
+        assert_eq!(token.kind, SemanticTokenKind::Property);
+    });
+}

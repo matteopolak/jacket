@@ -99,6 +99,9 @@ pub struct IdeFacts {
     /// Entity the named expression being checked resolved to (set by identifier
     /// lookup or explicit module-member lookup, after resolving its operand).
     pub(crate) last_entity: Option<(Span, EntityId)>,
+    /// The type of each `#run` expression that checked but failed when run, by its span: a
+    /// constant it initializes still has that type for member accesses on it.
+    pub(crate) failed_runs: HashMap<Span, TypeId>,
     /// Field the identifier being checked reached through a `using` (set by `check_ident`).
     pub(crate) last_using_member: Option<Sym>,
     /// Names of a type that is neither a struct nor an enum (a polymorph's `T`, an alias of a

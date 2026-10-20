@@ -430,7 +430,16 @@ impl Compiler {
                     }
                     | Operand::Type(_)
                     | Operand::Procs(_) => Ok(vec![op]),
-                    other => self.run_thunk_all(f, other, span),
+                    other => {
+                        let ty = other.ty();
+                        let result = self.run_thunk_all(f, other, span);
+                        if result.is_err()
+                            && let Some(ide) = self.ed.facts_mut()
+                        {
+                            ide.failed_runs.insert(span, ty);
+                        }
+                        result
+                    }
                 }
             }
             ast::RunBody::Block(block) => {

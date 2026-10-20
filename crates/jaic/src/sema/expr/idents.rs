@@ -228,6 +228,42 @@ impl Compiler {
         Ok(None)
     }
 
+    /// The type a constant named by `expr` would have if its `#run` had not failed, following
+    /// constants that alias it (`alias :: registered;`) up to `depth` steps. Editor only.
+    pub(in crate::sema) fn failed_run_type(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        depth: u32,
+    ) -> Option<TypeId> {
+        match &expr.kind {
+            E::Run {
+                ..
+            } => self.ed.facts_mut()?.failed_runs.get(&expr.span).copied(),
+            E::Ident(name) if depth > 0 => {
+                let Ok(Found::Entities(ids)) = self.lookup_full(scope, *name) else {
+                    return None;
+                };
+                let [id] = ids[..] else {
+                    return None;
+                };
+                let entity = self.entity(id);
+                let EntityKind::Decl {
+                    decl, ..
+                } = &entity.kind
+                else {
+                    return None;
+                };
+                if decl.kind != ast::DeclKind::Const || decl.names.len() != 1 {
+                    return None;
+                }
+                let (decl, home) = (decl.clone(), entity.home);
+                self.failed_run_type(home, decl.value.as_ref()?, depth - 1)
+            }
+            _ => None,
+        }
+    }
+
     pub fn entities_operand(
         &mut self,
         f: &mut FnCtx,

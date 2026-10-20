@@ -298,7 +298,30 @@ impl Compiler {
                         });
                     }
                 }
-                let base_op = self.check_expr(f, scope, base, None)?;
+                let base_op = match self.check_expr(f, scope, base, None) {
+                    Ok(op) => op,
+                    Err(e) => {
+                        // A constant whose `#run` failed still has the type the run returns, so
+                        // its members are colored and hovered as fields. Nothing is lowered: the
+                        // expression fails either way.
+                        if self.ed.is_live()
+                            && let Some(ty) = self.failed_run_type(scope, base, 8)
+                        {
+                            let addr = f.b.iconst(Ty::Ptr, 0);
+                            let stand_in = Operand::Place {
+                                ty,
+                                addr,
+                            };
+                            if let Ok(op) =
+                                self.member_access(f, scope, stand_in, member.name, member.span)
+                            {
+                                self.ide_note_member_use(member.span, ty, member.name);
+                                self.ide_note_member_ref(member.span, member.name, op.ty());
+                            }
+                        }
+                        return Err(e);
+                    }
+                };
                 if self.ed.is_live() {
                     self.ide_note_receiver(member.span, &base_op);
                 }
