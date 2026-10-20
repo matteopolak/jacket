@@ -233,6 +233,9 @@ pub struct FnCtx {
     pub file: FileId,
     /// Set when the body runs only at compile time.
     pub compile_time: bool,
+    /// Set just before checking an operand of a binary operator that is an `ifx`: its
+    /// expected type comes from the other operand, not from a declaration or parameter.
+    pub ifx_operand: bool,
     /// Set while a constant is being evaluated: reading a variable is an error, with this
     /// text as the start of the message (`#run` bodies get their own context and may read).
     pub constant_only: Option<&'static str>,
@@ -396,6 +399,7 @@ impl FnCtx {
             immutable: Vec::new(),
             file,
             compile_time: false,
+            ifx_operand: false,
             constant_only: None,
             macros: Vec::new(),
             insert_replacements: Vec::new(),

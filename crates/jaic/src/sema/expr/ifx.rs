@@ -20,11 +20,9 @@ impl Compiler {
     /// Both arms of an `ifx` must meet in one type: `ifx c then 1 else "a"` has none.
     fn ifx_branch_agreement(
         &mut self,
-        then_op: &Operand,
-        else_op: &Operand,
-        then_e: &ast::Expr,
-        else_e: &ast::Expr,
-        expected: Option<TypeId>,
+        (then_op, else_op): (&Operand, &Operand),
+        (then_e, else_e): (&ast::Expr, &ast::Expr),
+        (expected, operand): (Option<TypeId>, bool),
         span: Span,
     ) -> Result<()> {
         if matches!(
@@ -36,7 +34,9 @@ impl Compiler {
         ) {
             return Ok(());
         }
-        // Two untyped integer arms make an `s64`, which an unsigned target does not take.
+        // Two untyped integer arms make an `s64`, which an unsigned target does not take. An
+        // operand of a binary operator is not a target: `c - (ifx up then 32 else 0)` with a
+        // `u16` `c` takes the arms as that type.
         let untyped_int = |o: &Operand| {
             matches!(
                 o,
@@ -47,7 +47,8 @@ impl Compiler {
                 }
             )
         };
-        if untyped_int(then_op)
+        if !operand
+            && untyped_int(then_op)
             && untyped_int(else_op)
             && let Some(want) = expected
             && let Some((_, false)) = self.ty.types.int_info(self.ty.types.repr(want))
@@ -115,7 +116,7 @@ impl Compiler {
         scope: ScopeId,
         cond_holds: bool,
         (then_e, else_e): (&ast::Expr, &ast::Expr),
-        expected: Option<TypeId>,
+        (expected, operand): (Option<TypeId>, bool),
         span: Span,
     ) -> Result<Operand> {
         let (taken_e, other_e) = if cond_holds {
@@ -133,7 +134,12 @@ impl Compiler {
         } else {
             (&other, &taken)
         };
-        self.ifx_branch_agreement(then_op, else_op, then_e, else_e, expected, span)?;
+        self.ifx_branch_agreement(
+            (then_op, else_op),
+            (then_e, else_e),
+            (expected, operand),
+            span,
+        )?;
         // A one-character string only becomes a byte where a string is converted directly,
         // not through `ifx`.
         if let (
@@ -168,6 +174,7 @@ impl Compiler {
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
+        let operand = std::mem::take(&mut f.ifx_operand);
         let cond_op = self.check_expr(
             f,
             scope,
@@ -189,7 +196,14 @@ impl Compiler {
             };
             if let Some(t) = taken {
                 if let (Some(then_e), Some(else_e)) = (then_value, else_value) {
-                    return self.fold_constant_ifx(f, scope, t, (then_e, else_e), expected, span);
+                    return self.fold_constant_ifx(
+                        f,
+                        scope,
+                        t,
+                        (then_e, else_e),
+                        (expected, operand),
+                        span,
+                    );
                 }
                 if t {
                     return self.check_expr(f, scope, then_value.unwrap(), expected);
@@ -251,7 +265,12 @@ impl Compiler {
             None => None,
         };
         if let (Some(then_e), Some(else_e), Some(else_op)) = (then_value, else_value, &else_op) {
-            self.ifx_branch_agreement(&then_op, else_op, then_e, else_e, expected, span)?;
+            self.ifx_branch_agreement(
+                (&then_op, else_op),
+                (then_e, else_e),
+                (expected, operand),
+                span,
+            )?;
         }
         // Without a target type, a narrower numeric then-value widens to the else-value's
         // type (`ifx hit then entry.score_s16 else evaluate()` is an `s64`).
