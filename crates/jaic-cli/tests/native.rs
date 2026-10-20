@@ -383,6 +383,7 @@ fn compiler_and_abi_regressions_run_natively() {
         "operator-literal-overloads",
         "ifx-untyped-then-arm",
         "ifx-overflowing-constant",
+        "xx-binary-operand",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {

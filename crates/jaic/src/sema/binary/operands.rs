@@ -51,12 +51,22 @@ impl Compiler {
             });
         let mut lhs = if ((is_cmp
             && (matches!(a.kind, E::InferredMember(_)) || (is_xx(a) && !is_xx(b))))
-            || (bitwise && matches!(a.kind, E::InferredMember(_))))
+            || (bitwise && matches!(a.kind, E::InferredMember(_)))
+            || (!is_cmp && !is_shift && is_xx(a) && !is_xx(b)))
             && !matches!(b.kind, E::InferredMember(_))
         {
-            // `xx err == GL_FALSE` casts to the other operand's type too.
+            // `xx err == GL_FALSE` casts to the other operand's type too, and so does `xx` in
+            // arithmetic next to an operand that has a type; the expected type of the whole
+            // expression does not reach it.
             let r = self.check_expr(f, scope, b, None)?;
-            let l = self.check_expr(f, scope, a, Some(r.ty()))?;
+            let typed = !matches!(
+                r,
+                Operand::Const {
+                    untyped: true,
+                    ..
+                }
+            );
+            let l = self.check_expr(f, scope, a, (is_cmp || typed).then(|| r.ty()))?;
             early_rhs = Some(r);
             l
         } else if lhs_expected.is_some() && is_number_literal(a) {
