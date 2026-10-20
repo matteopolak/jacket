@@ -44,6 +44,8 @@ WORKDIRS = {}
 CASE_METADATA = {}
 # Upstream cases that name the platforms they can run on (`only`, with `only_reason`), by id.
 UPSTREAM_PLATFORMS = {}
+# Upstream cases with `"review": "pending"`: unreviewed code that only runs inside a sandbox.
+UPSTREAM_PENDING = set()
 
 # Upstream cases are confined (docs/tools/upstream-corpus.md, "Sandbox"): UPSTREAM_IDS are their
 # ids, SANDBOX the run's settings (None when unconfined), and `_case.box` the (sandbox, scratch)
@@ -187,6 +189,8 @@ def cases(name):
             UPSTREAM_IDS.add(c["id"])
             if "only" in c:
                 UPSTREAM_PLATFORMS[c["id"]] = c
+            if select_upstream_cases.pending(c):
+                UPSTREAM_PENDING.add(c["id"])
             if "disabled" in c:
                 DISABLED_REASONS[c["id"]] = c["disabled"]
             yield (
@@ -597,7 +601,7 @@ def main():
     # once, serially, in the case's directory before any case starts.
     if "upstream" in a.sets:
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
-            if a.filter in c["id"] and wanted(c["id"]):
+            if a.filter in c["id"] and wanted(c["id"]) and not (select_upstream_cases.pending(c) and not SANDBOX):
                 if "copy" in c or (SANDBOX and (c["mode"] == "build" or c.get("run_after") or c.get("setup"))):
                     WORKDIRS[c["id"]] = make_workdir(c)
                 for command in c.get("setup", []):
@@ -634,6 +638,9 @@ def main():
         cid, path, mode, expect, extra = case
         if cid in DISABLED_REASONS:
             return cid, None, "", DISABLED_REASONS[cid], DISABLED
+        if cid in UPSTREAM_PENDING and not SANDBOX:
+            # Even `--no-sandbox` and CI runners do not excuse this: nobody has read the code.
+            return cid, None, "", "review pending: unreviewed code does not run without a sandbox", PLATFORM_UNAVAILABLE
         if cid in UPSTREAM_PLATFORMS:
             from stdlib.stdlib_runtime import host_platform
 

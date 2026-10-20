@@ -28,9 +28,15 @@ def load(path: Path = CASES) -> list[dict]:
     return json.loads(path.read_text())
 
 
+def pending(case: dict) -> bool:
+    """Whether nobody has reviewed the case's code yet (`"review": "pending"`): it runs only in a sandbox."""
+    return case.get("review") == "pending"
+
+
 def select(cases: list[dict], platform: str) -> list[dict]:
-    """Enabled cases restricted to (among others) `platform`."""
-    return [c for c in cases if "disabled" not in c and platform in c.get("only", [])]
+    """Enabled, reviewed cases restricted to (among others) `platform`. The jobs that use this run
+    unconfined (Windows has no sandbox), so a case awaiting review is never selected."""
+    return [c for c in cases if "disabled" not in c and not pending(c) and platform in c.get("only", [])]
 
 
 def directories(case: dict) -> list[str]:
