@@ -170,29 +170,24 @@
       "project": "smari--jai-xml",
       "steps": [
         {
-          "name": "test.jai",
+          "name": "examples/continue_iter.jai",
           "kind": "jaic",
           "argv": [
-            "test.jai",
+            "continue_iter.jai",
             "-exe",
-            "xml_test"
+            "continue_iter"
           ],
+          "cwd": "examples",
           "timeout": 600
         },
         {
           "argv": [
-            "./xml_test"
+            "./continue_iter"
           ],
-          "summary_counts": {
-            "Passed": {
-              "count": 6,
-              "percent": 100
-            },
-            "Failed": {
-              "count": 0,
-              "percent": 0
-            }
-          }
+          "cwd": "examples",
+          "contains": [
+            "Visit all nodes (with continue):"
+          ]
         }
       ]
     },
