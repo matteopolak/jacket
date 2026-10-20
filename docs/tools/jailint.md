@@ -74,6 +74,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `broken_doc_link` | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
 | `constant_condition` | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
 | `defer_in_loop` | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
+| `dropped_result` | warn | no | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
 | `duplicate_condition` | warn | no | an `else if` or `case` that repeats an earlier one and can never run |
 | `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
 | `excessive_nesting` | allow | no | blocks nested deeper than `max_nesting` (default 6) |
@@ -120,6 +121,8 @@ Only comments directly above a declaration (or trailing a field or parameter) ar
 Reads the compiler's reachability facts (`jaic::sema::reachability` and `jaic::ide::values`, the code the editor fades): reports the condition behind a branch that never runs, such as `if count < 5` inside `if count > 10`, or an `else` after a test that always holds. No analysis of its own, so it is as sure as the fading: unsure means silent. Compile-time constants (`if DEBUG`, `while true`), tests inside code that is dead anyway, and comparisons a type's range decides (left to `absurd_comparison`) are skipped.
 ### defer_in_loop
 The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@FreesArgument` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
+### dropped_result
+A declaration or assignment whose right side is one call that returns more values than the left side names, where the first dropped value, the one right after the last kept, is a `bool`: `value := parse(text);` quietly turns a failed parse into `0`. Receive the flag (`value, ok := parse(text);`) or write `value, _ := parse(text);` to say it is ignored on purpose. A success or found flag sits right after the value it describes, so a `bool` that comes later, after other results (status extras of a wide API such as `pressed, state, released := button(...)`), and dropped values of other types (counts, remainders) are fine, as are `_ := f();`, calls used as statements, compound assignments and calls whose procedure type is not known. Calls through procedure values count. To make dropping a result a hard compile error, mark it `#must` where the procedure is declared (see [directives and notes](../language/directives-and-notes.md)).
 ### duplicate_condition
 Conditions must be side-effect-free; a call in between restarts the comparison.
 ### erasing_op

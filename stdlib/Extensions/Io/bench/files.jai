@@ -59,7 +59,7 @@ run_case :: (size: int, fibers: int) -> float64, float64 {
 
     Io.wait(*group);
 
-    seconds := to_float64_seconds(current_time_monotonic() - started);
+    seconds, _ := to_float64_seconds(current_time_monotonic() - started);
 
     return seconds / total * 1_000_000, (total * size) / seconds / (1024 * 1024);
 }

@@ -146,7 +146,7 @@ gm_polymorphic_field_layout :: (record: *Struct, info: *Struct_Extra_Info) -> bo
             continue;
         }
 
-        alignment := gm_alignment(field.type, field);
+        alignment, _ := gm_alignment(field.type, field);
         if !field.type || field.type.size < 0 || field.bitfield_width >= 0 || field.bit_offset_in_parent < 0 || field.bit_offset_in_parent % 8 != 0 ||
            alignment <= 0 || (alignment & (alignment - 1)) != 0 || position > 0x7fffffffffffffff - (alignment - 1) {
             gm_construction_error("polymorphic field layout needs supported byte-aligned complete fields");

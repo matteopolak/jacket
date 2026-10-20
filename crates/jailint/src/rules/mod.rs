@@ -14,6 +14,7 @@ mod bool_comparison;
 pub(crate) mod broken_doc_link;
 mod constant_condition;
 mod defer_in_loop;
+mod dropped_result;
 mod duplicate_condition;
 mod erasing_op;
 mod excessive_nesting;
@@ -101,6 +102,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "a `defer` in a loop body that cleans up something from outside the loop",
         check: defer_in_loop::check,
+    },
+    RuleInfo {
+        name: "dropped_result",
+        default: Level::Warn,
+        summary: "a call drops the `bool` that follows the values it keeps (`n := to_integer(s);`)",
+        check: dropped_result::check,
     },
     RuleInfo {
         name: "duplicate_condition",

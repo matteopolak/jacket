@@ -24,7 +24,7 @@ IMPORT_DIRS :: string.[];
 started: Apollo_Time;
 
 mark :: (name: string) {
-    elapsed := to_float64_seconds(current_time_monotonic() - started);
+    elapsed, _ := to_float64_seconds(current_time_monotonic() - started);
     print("bench-phase: % %\n", name, elapsed);
 }
 

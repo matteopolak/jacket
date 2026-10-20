@@ -128,7 +128,7 @@ base_checkbox :: (_r: Rect, text: string, selected: bool, theme: *Checkbox_Theme
         t.text_color = theme.text_color_selected;
     }
 
-    clicked, base := button(_r, text, *t, identifier, loc);
+    clicked, base, _ := button(_r, text, *t, identifier, loc);
 
     checkbox_state.base = base.*;
     checkbox_state.widget = base.widget;
@@ -176,7 +176,7 @@ dropdown :: (r: Rect, choices: [] string, current_value_pointer: *s32, theme: *D
     text := "";
     if current_value_pointer.* >= 0 && current_value_pointer.* < choices.count text = choices[current_value_pointer.*];
 
-    pressed, base := button(r, text, *theme.theme_for_current_value, identifier, loc);
+    pressed, base, _ := button(r, text, *theme.theme_for_current_value, identifier, loc);
 
     state.current_value_state = base;
 

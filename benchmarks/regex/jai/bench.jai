@@ -112,7 +112,7 @@ bench_runtime :: (pattern: string, id: string) {
         if dt < best_compile best_compile = dt;
     }
 
-    re := Regex.compile(pattern);
+    re, _, _ := Regex.compile(pattern);
     count := 0;
     best: float64 = 1.0e30;
 
@@ -137,14 +137,14 @@ bench_runtime_captures :: (pattern: string, id: string) {
 
     for 1..20 {
         t := now();
-        re := Regex.compile(pattern);
+        re, _, _ := Regex.compile(pattern);
         dt := now() - t;
 
         Regex.free_regex(*re);
         if dt < best_compile best_compile = dt;
     }
 
-    re := Regex.compile(pattern);
+    re, _, _ := Regex.compile(pattern);
     count := 0;
     check: u64;
     best: float64 = 1.0e30;

@@ -27,7 +27,7 @@ webgpu_metal_layer :: (window: Window_Type) -> *void {
 // The content view's size in pixels (points times the backing scale).
 webgpu_macos_drawable_size :: (window: Window_Type) -> width: s32, height: s32 {
     WC :: #import "Window_Creation";
-    _, _, w, h := WC.get_dimensions(window, false);
+    _, _, w, h, _ := WC.get_dimensions(window, false);
     scale := msg_f64(window, sel("backingScaleFactor"));
     return cast(s32) (w * scale), cast(s32) (h * scale);
 }

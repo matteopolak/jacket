@@ -200,8 +200,12 @@ expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: st
         number, is_number := parse_group_number(name);
         text: string;
 
-        if is_number text = group(caps, number);
-        else text = group(caps, name);
+        // A group that did not take part expands to nothing.
+        if is_number {
+            text, _ = group(caps, number);
+        } else {
+            text, _ = group(caps, name);
+        }
 
         append(builder, text);
     }

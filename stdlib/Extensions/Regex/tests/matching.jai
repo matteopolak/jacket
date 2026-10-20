@@ -103,7 +103,7 @@ capturing :: () {
     key, ok := Regex.group(caps, "key");
 
     check(ok && key == "a", "named group");
-    value := Regex.group(caps, 2);
+    value, _ := Regex.group(caps, 2);
 
     check(value == "1", "numbered group");
     s, e := Regex.span(caps, 3);

@@ -50,7 +50,8 @@ main :: () {
     assert(calls == 0);
     if calls != 0 exit(1);
 
-    // must.5
+    // must.5: only the first result is #must, so keeping just it is fine.
+    // jailint: allow(dropped_result)
     a := first_must();
     if a != 3 exit(2);
 

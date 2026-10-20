@@ -135,6 +135,16 @@
               "default": "warn",
               "markdownDescription": "a `defer` in a loop body that cleans up something from outside the loop (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#defer_in_loop)"
             },
+            "dropped_result": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a call drops the `bool` that follows the values it keeps (`n := to_integer(s);`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#dropped_result)"
+            },
             "duplicate_condition": {
               "type": "string",
               "enum": [

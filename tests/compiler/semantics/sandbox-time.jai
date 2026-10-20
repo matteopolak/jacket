@@ -5,7 +5,7 @@ main :: () {
     start := current_time_monotonic();
 
     sleep_milliseconds(1500);
-    elapsed := to_float64_seconds(current_time_monotonic() - start);
+    elapsed, _ := to_float64_seconds(current_time_monotonic() - start);
 
     leap_day: Calendar_Time;
     leap_day.year = 2024;

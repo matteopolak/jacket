@@ -384,7 +384,7 @@ cached_engine :: (pattern: string, full: bool) -> *Engine {
     if found return engine;
 
     key = copy_string(key);
-    engine = build_engine(key, .{});
+    engine, _, _ = build_engine(key, .{});
     table_add(*engine_cache, key, engine);
 
     return engine;
