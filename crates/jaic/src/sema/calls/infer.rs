@@ -180,7 +180,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
-                } => self.default_untyped(*ty, value),
+                } => self.ty.default_untyped(*ty, value),
                 Operand::Const {
                     ..
                 }
@@ -350,7 +350,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
-                } => self.default_untyped(*ty, value),
+                } => self.ty.default_untyped(*ty, value),
                 Operand::Type(_) => TypeId::TYPE,
                 Operand::Procs(p) if p.len() == 1 && !self.proc(p[0]).is_poly => {
                     self.proc_type(p[0], arg.span)?
@@ -513,7 +513,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
-                } => self.default_untyped(ty, &value),
+                } => self.ty.default_untyped(ty, &value),
                 Operand::Type(_) => TypeId::TYPE,
                 other => other.ty(),
             };

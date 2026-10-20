@@ -1,6 +1,7 @@
 //! Collecting a struct's fields and the implicit context type.
 use super::model::{FieldDecl, FieldItem, MemberAlias, member_path};
 use crate::ast::ExprKind as E;
+use crate::sema::TypeState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
@@ -15,7 +16,7 @@ impl Compiler {
         for stmt in stmts {
             match &stmt.kind {
                 ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
-                    self.collect_decl_fields(scope, decl, out)?;
+                    self.ty.collect_decl_fields(scope, decl, out)?;
                 }
                 ast::StmtKind::StaticIf(boxed) => {
                     let crate::ast::StaticIfStmt {
@@ -146,23 +147,6 @@ impl Compiler {
         Ok(())
     }
 
-    pub(super) fn collect_decl_fields(
-        &mut self,
-        scope: ScopeId,
-        decl: &Rc<ast::Decl>,
-        out: &mut Vec<FieldItem>,
-    ) -> Result<()> {
-        for name in &decl.names {
-            self.ty
-                .field_declarations
-                .entry(scope)
-                .or_default()
-                .insert(name.name, decl.clone());
-        }
-        out.push(FieldItem::Declaration(scope, decl.clone()));
-        Ok(())
-    }
-
     pub(in crate::sema) fn resolve_field_decl_type(
         &mut self,
         scope: ScopeId,
@@ -203,7 +187,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: true,
-                    } => self.default_untyped(ty, &value),
+                    } => self.ty.default_untyped(ty, &value),
                     Operand::Type(_) => TypeId::TYPE,
                     Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], v.span)?,
                     other => other.ty(),
@@ -313,5 +297,23 @@ impl Compiler {
         self.ty.context_type = Some(ty);
         self.layout_struct(s, span)?;
         Ok(ty)
+    }
+}
+
+impl TypeState {
+    pub(super) fn collect_decl_fields(
+        &mut self,
+        scope: ScopeId,
+        decl: &Rc<ast::Decl>,
+        out: &mut Vec<FieldItem>,
+    ) -> Result<()> {
+        for name in &decl.names {
+            self.field_declarations
+                .entry(scope)
+                .or_default()
+                .insert(name.name, decl.clone());
+        }
+        out.push(FieldItem::Declaration(scope, decl.clone()));
+        Ok(())
     }
 }

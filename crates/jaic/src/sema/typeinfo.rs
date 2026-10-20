@@ -8,6 +8,7 @@ mod tagged;
 mod views;
 
 use super::{Compiler, Diagnostic, PreludeType, Rc, Result, Span, Sym, TypeId, Value, ir};
+use crate::sema::TypeState;
 use crate::types::TypeKind;
 
 /// A struct-scoped constant for type info: where it is declared, its name, type, value and notes.
@@ -132,7 +133,7 @@ impl Compiler {
     /// the struct's flags are or-ed in and an already built descriptor is rebuilt.
     pub fn apply_type_info_flags(&mut self, span: Span) -> Result<()> {
         for (g, flags) in std::mem::take(&mut self.ct.interp.pending_type_flags) {
-            let Some(ty) = self.type_from_info_global(g) else {
+            let Some(ty) = self.ty.type_from_info_global(g) else {
                 continue;
             };
             if !matches!(self.ty.types.kind(ty), TypeKind::Struct(_)) {
@@ -152,13 +153,11 @@ impl Compiler {
         }
         Ok(())
     }
+}
 
+impl TypeState {
     /// Map a type-info descriptor address back to its type (compile-time reads).
     pub fn type_from_info_global(&self, g: ir::GlobalId) -> Option<TypeId> {
-        self.ty
-            .infos
-            .iter()
-            .find(|(_, v)| **v == g)
-            .map(|(&t, _)| t)
+        self.infos.iter().find(|(_, v)| **v == g).map(|(&t, _)| t)
     }
 }

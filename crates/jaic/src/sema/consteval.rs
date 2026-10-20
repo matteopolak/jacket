@@ -819,7 +819,7 @@ impl Compiler {
 
     fn type_at(&self, p: u64, span: Span) -> Result<TypeId> {
         if let Some((g, 0)) = self.ct.interp.global_at(p)
-            && let Some(t) = self.type_from_info_global(g)
+            && let Some(t) = self.ty.type_from_info_global(g)
         {
             return Ok(t);
         }

@@ -88,7 +88,7 @@ impl Compiler {
         out: &mut Vec<(u64, Ty)>,
         span: Span,
     ) -> Result<()> {
-        if let Some(t) = self.ir_ty(ty).or_else(|| self.wide_abi_class(ty)) {
+        if let Some(t) = self.ir_ty(ty).or_else(|| self.ty.wide_abi_class(ty)) {
             out.push((base, t));
             return Ok(());
         }

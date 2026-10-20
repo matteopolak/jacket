@@ -6,6 +6,7 @@ use super::{
     Span, Sym, TypeId, Value, ast, err, ir, procs,
 };
 use crate::ir::{Builder, Ty, Val};
+use crate::sema::TypeState;
 use crate::types::{ArrayKind, TypeKind};
 
 /// Result of checking an expression.
@@ -512,7 +513,7 @@ impl Compiler {
                 untyped,
             } => {
                 let ty = if untyped {
-                    self.default_untyped(ty, &value)
+                    self.ty.default_untyped(ty, &value)
                 } else {
                     ty
                 };
@@ -536,25 +537,12 @@ impl Compiler {
             Operand::Void => err(span, "expression has no value"),
             Operand::Module(_) => err(span, "a module is not a value"),
             Operand::PolyStruct(ps) => {
-                let t = self.poly_struct_type(ps);
+                let t = self.ty.poly_struct_type(ps);
                 let val = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
                 Ok((TypeId::TYPE, val))
             }
             Operand::Builtin(_) => err(span, "builtin procedure is not a value"),
             Operand::Library(_) => err(span, "a library is not a value"),
-        }
-    }
-
-    /// The natural type of an untyped literal.
-    pub fn default_untyped(&self, ty: TypeId, value: &Value) -> TypeId {
-        match value {
-            Value::Float(_, p) if p.defaults_to_float64 || p.requires_float64 => TypeId::F64,
-            // `float64` only for literals too precise for `float32` (`float_literal_type`).
-            Value::Float(_, _) if ty == TypeId::F64 => ty,
-            Value::Float(_, _) => TypeId::F32,
-            Value::Int(_) if self.ty.types.is_float(ty) => ty,
-            Value::Int(_) => TypeId::S64,
-            _ => ty,
         }
     }
 
@@ -566,7 +554,7 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<Val> {
-        if let Some(fmt) = self.wide_float(ty)
+        if let Some(fmt) = self.ty.types.wide_float(ty)
             && let Some(bytes) = Self::wide_const(fmt, value)
         {
             return self.materialize(f, &bytes, ty, span);
@@ -716,6 +704,21 @@ impl Compiler {
                     Ok((ty, self.spill(f, ty, val, span)?))
                 }
             }
+        }
+    }
+}
+
+impl TypeState {
+    /// The natural type of an untyped literal.
+    pub fn default_untyped(&self, ty: TypeId, value: &Value) -> TypeId {
+        match value {
+            Value::Float(_, p) if p.defaults_to_float64 || p.requires_float64 => TypeId::F64,
+            // `float64` only for literals too precise for `float32` (`float_literal_type`).
+            Value::Float(_, _) if ty == TypeId::F64 => ty,
+            Value::Float(_, _) => TypeId::F32,
+            Value::Int(_) if self.types.is_float(ty) => ty,
+            Value::Int(_) => TypeId::S64,
+            _ => ty,
         }
     }
 }

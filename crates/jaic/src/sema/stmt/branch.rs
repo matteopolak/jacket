@@ -1,5 +1,6 @@
 //! `if` and `switch` statements and the comparisons they make.
 use crate::ir::{CmpOp, Ty};
+use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{
     Compiler, Diagnostic, DiagnosticKind, Result, ScopeId, Span, TypeId, Value, ast, ir,
@@ -207,7 +208,7 @@ impl Compiler {
         }
         // A missing case is reported after the bodies are checked, so they still have types.
         let missing = if complete {
-            self.check_switch_complete(vty, &covered, header)
+            self.ty.check_switch_complete(vty, &covered, header)
         } else {
             Ok(())
         };
@@ -295,7 +296,7 @@ impl Compiler {
         }
         f.b.switch_to(here);
         if complete {
-            self.check_switch_complete(vty, &covered, header)?;
+            self.ty.check_switch_complete(vty, &covered, header)?;
         }
         Ok(())
     }
@@ -340,38 +341,6 @@ impl Compiler {
         f.b.terminate(ir::Term::Unreachable);
         f.b.switch_to(here);
         Ok(Some(fail))
-    }
-
-    /// `if #complete x == {`: every member of x's enum needs a case of its own, default or
-    /// not. Flag enums and non-enum values are not checked.
-    fn check_switch_complete(&self, ty: TypeId, covered: &[i128], span: Span) -> Result<()> {
-        let TypeKind::Enum(id) = *self.ty.types.kind(ty) else {
-            return Ok(());
-        };
-        let info = &self.ty.types.enums[id.0 as usize];
-        if info.is_flags {
-            return Ok(());
-        }
-        let missing: Vec<String> = info
-            .members
-            .iter()
-            .filter(|(_, value)| !covered.contains(value))
-            .map(|(name, _)| format!(".{name}"))
-            .collect();
-        if missing.is_empty() {
-            return Ok(());
-        }
-        Err(Box::new(
-            Diagnostic::error(
-                span,
-                format!(
-                    "#complete switch on {} has no case for {}",
-                    self.ty.types.name(ty),
-                    missing.join(", ")
-                ),
-            )
-            .with_kind(DiagnosticKind::IncompleteSwitch),
-        ))
     }
 
     #[expect(
@@ -436,5 +405,39 @@ impl Compiler {
         f.b.jump(done);
         f.b.switch_to(done);
         f.b.load(Ty::I8, result)
+    }
+}
+
+impl TypeState {
+    /// `if #complete x == {`: every member of x's enum needs a case of its own, default or
+    /// not. Flag enums and non-enum values are not checked.
+    fn check_switch_complete(&self, ty: TypeId, covered: &[i128], span: Span) -> Result<()> {
+        let TypeKind::Enum(id) = *self.types.kind(ty) else {
+            return Ok(());
+        };
+        let info = &self.types.enums[id.0 as usize];
+        if info.is_flags {
+            return Ok(());
+        }
+        let missing: Vec<String> = info
+            .members
+            .iter()
+            .filter(|(_, value)| !covered.contains(value))
+            .map(|(name, _)| format!(".{name}"))
+            .collect();
+        if missing.is_empty() {
+            return Ok(());
+        }
+        Err(Box::new(
+            Diagnostic::error(
+                span,
+                format!(
+                    "#complete switch on {} has no case for {}",
+                    self.types.name(ty),
+                    missing.join(", ")
+                ),
+            )
+            .with_kind(DiagnosticKind::IncompleteSwitch),
+        ))
     }
 }

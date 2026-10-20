@@ -48,10 +48,10 @@ impl Compiler {
                     // Concrete default pointees share the explicit instance's identity.
                     // Required arguments still leave a source type for generic patterns.
                     Operand::PolyStruct(ps) => {
-                        let t = if self.poly_struct_has_defaults(ps) {
+                        let t = if self.ty.poly_struct_has_defaults(ps) {
                             self.instantiate_struct(ps, Vec::new(), span)?
                         } else {
-                            self.poly_struct_type(ps)
+                            self.ty.poly_struct_type(ps)
                         };
                         Ok(Operand::Type(self.ty.types.pointer(t)))
                     }
@@ -201,7 +201,7 @@ impl Compiler {
                 if op != UnOp::Not
                     && !self.ty.types.is_integer(ty)
                     && !self.ty.types.is_float(ty)
-                    && self.wide_float(ty).is_none()
+                    && self.ty.types.wide_float(ty).is_none()
                 {
                     let what = if op == UnOp::Neg {
                         "negate"
@@ -222,8 +222,8 @@ impl Compiler {
                             val: f.b.bin(ir::BinOp::Xor, Ty::I8, b, one),
                         })
                     }
-                    UnOp::Neg if self.wide_float(ty).is_some() => {
-                        let fmt = self.wide_float(ty).expect("checked above");
+                    UnOp::Neg if self.ty.types.wide_float(ty).is_some() => {
+                        let fmt = self.ty.types.wide_float(ty).expect("checked above");
                         Ok(self.wide_negate(f, fmt, ty, v))
                     }
                     UnOp::Neg => {
@@ -293,7 +293,7 @@ impl Compiler {
                         _ => false,
                     }
                 });
-                let ty = target.unwrap_or_else(|| self.default_untyped(ty, &value));
+                let ty = target.unwrap_or_else(|| self.ty.default_untyped(ty, &value));
                 let value = match value {
                     Value::Int(i) if self.ty.types.is_float(ty) => Value::float(i as f64),
                     v => v,

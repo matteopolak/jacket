@@ -1,6 +1,7 @@
 //! Creating struct types and instantiating polymorphic structs.
 use super::literals::const_operand;
 use super::model::{PolyStruct, StructSource};
+use crate::sema::TypeState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, ScopeKind};
 use crate::sema::value::PolyStructId;
@@ -95,42 +96,6 @@ impl Compiler {
             },
         );
         ty
-    }
-
-    /// The `Type` value standing for a polymorphic struct that has no arguments yet.
-    pub fn poly_struct_type(&mut self, ps: PolyStructId) -> TypeId {
-        let name = self.ty.poly_structs[ps.0 as usize].name;
-        self.ty.types.intern(TypeKind::PolyStruct {
-            id: ps,
-            name,
-        })
-    }
-
-    pub fn new_poly_struct(
-        &mut self,
-        name: Sym,
-        lit: Rc<ast::StructLit>,
-        scope: ScopeId,
-    ) -> PolyStructId {
-        self.ty.poly_structs.push(PolyStruct {
-            name,
-            lit,
-            scope,
-            instances: HashMap::default(),
-            baked: Vec::new(),
-            origin: None,
-        });
-        PolyStructId(self.ty.poly_structs.len() as u32 - 1)
-    }
-
-    /// A bare generic name denotes its default instance when every parameter has a default.
-    /// Keep the source type available separately for generic patterns and reflection.
-    pub(in crate::sema) fn poly_struct_has_defaults(&self, ps: PolyStructId) -> bool {
-        self.ty.poly_structs[ps.0 as usize]
-            .lit
-            .params
-            .iter()
-            .all(|p| p.default.is_some())
     }
 
     /// `Table(int, string)`: instantiate a polymorphic struct.
@@ -261,7 +226,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: true,
-                    } => self.default_untyped(*ty, value),
+                    } => self.ty.default_untyped(*ty, value),
                     Operand::Procs(procs) if procs.len() == 1 => self.proc_type(procs[0], span)?,
                     Operand::Type(_) => TypeId::TYPE,
                     other => other.ty(),
@@ -334,7 +299,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
-                } => self.default_untyped(*ty, value),
+                } => self.ty.default_untyped(*ty, value),
                 other => other.ty(),
             };
             let value = self.struct_arg_value(
@@ -390,5 +355,43 @@ impl Compiler {
             .instances
             .insert(cache_key, t);
         Ok(t)
+    }
+}
+
+impl TypeState {
+    /// The `Type` value standing for a polymorphic struct that has no arguments yet.
+    pub fn poly_struct_type(&mut self, ps: PolyStructId) -> TypeId {
+        let name = self.poly_structs[ps.0 as usize].name;
+        self.types.intern(TypeKind::PolyStruct {
+            id: ps,
+            name,
+        })
+    }
+
+    pub fn new_poly_struct(
+        &mut self,
+        name: Sym,
+        lit: Rc<ast::StructLit>,
+        scope: ScopeId,
+    ) -> PolyStructId {
+        self.poly_structs.push(PolyStruct {
+            name,
+            lit,
+            scope,
+            instances: HashMap::default(),
+            baked: Vec::new(),
+            origin: None,
+        });
+        PolyStructId(self.poly_structs.len() as u32 - 1)
+    }
+
+    /// A bare generic name denotes its default instance when every parameter has a default.
+    /// Keep the source type available separately for generic patterns and reflection.
+    pub(in crate::sema) fn poly_struct_has_defaults(&self, ps: PolyStructId) -> bool {
+        self.poly_structs[ps.0 as usize]
+            .lit
+            .params
+            .iter()
+            .all(|p| p.default.is_some())
     }
 }

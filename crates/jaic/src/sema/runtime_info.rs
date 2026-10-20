@@ -11,6 +11,7 @@
 use super::{
     Compiler, Diagnostic, EntityId, HashSet, Rc, Result, Span, TypeId, Value, ast, ir, scope,
 };
+use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
 use scope::{EntityKind, Resolved, ScopeKind};
 
@@ -205,7 +206,7 @@ impl Compiler {
         while index < self.ty.types.count() {
             let ty = TypeId(index as u32);
             index += 1;
-            if !self.describable_now(ty) {
+            if !self.ty.describable_now(ty) {
                 continue;
             }
             // A descriptor that cannot be built yet is left out.
@@ -276,12 +277,14 @@ impl Compiler {
             }
         }
     }
+}
 
+impl TypeState {
     /// A type the table can describe without resolving anything further: not a template or
     /// compile-time-only entity, and a struct only once it is laid out.
     fn describable_now(&self, ty: TypeId) -> bool {
-        match self.ty.types.kind(ty) {
-            TypeKind::Struct(s) => self.ty.types.struct_info(*s).layout == LayoutState::Done,
+        match self.types.kind(ty) {
+            TypeKind::Struct(s) => self.types.struct_info(*s).layout == LayoutState::Done,
             TypeKind::Null
             | TypeKind::CompileTimeOnly
             | TypeKind::PolyParam

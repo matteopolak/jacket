@@ -5,6 +5,7 @@ use super::{
     ProcTypeParams, Rc, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
     c_vararg_promote, err, ir, procs,
 };
+use crate::sema::TypeState;
 
 impl Compiler {
     /// Emit a resolved call, recording which of its results are `#must`.
@@ -121,7 +122,7 @@ impl Compiler {
                         let op = self.settle_untyped(op, None);
                         let op = c_vararg_promote(self, f, op, span)?;
                         // A wide `Long_Double` or a struct travels by value, as its layout.
-                        let by_value = self.wide_float(op.ty()).is_some()
+                        let by_value = self.ty.types.wide_float(op.ty()).is_some()
                             || (matches!(self.ty.types.kind(op.ty()), TypeKind::Struct(_))
                                 && self.size_of(op.ty(), span)? > 0);
                         let layout = if by_value {
@@ -230,17 +231,6 @@ impl Compiler {
         }
     }
 
-    /// The checked representation of a Jai runtime pack, distinct from C ellipses.
-    pub(super) fn jai_variadic_element(&self, ty: TypeId, span: Span) -> Result<TypeId> {
-        match *self.ty.types.kind(ty) {
-            TypeKind::Array {
-                elem,
-                kind: ArrayKind::View,
-            } => Ok(elem),
-            _ => err(span, "a Jai variadic pack requires an array-view parameter"),
-        }
-    }
-
     /// Join scalar and spread segments in their original argument order. The
     /// resulting storage belongs to the caller's frame, just as a fixed pack.
     pub(super) fn mixed_variadic_value(
@@ -251,7 +241,7 @@ impl Compiler {
         list: &[usize],
         span: Span,
     ) -> Result<ir::Val> {
-        let elem = self.jai_variadic_element(param.ty, span)?;
+        let elem = self.ty.jai_variadic_element(param.ty, span)?;
         let size = self.size_of(elem, span)?;
         let align = self.align_of(elem, span)?;
         let limit = f.b.iconst(Ty::I64, crate::types::MAX_SIZE / size.max(1));
@@ -345,7 +335,7 @@ impl Compiler {
             }
             Slot::Arg(a) | Slot::Spread(a) => {
                 let op = self.arg_operand(f, &args[*a], Some(param.ty))?;
-                if self.auto_deref_arg(op.ty(), param.ty) {
+                if self.ty.auto_deref_arg(op.ty(), param.ty) {
                     let (_, p) = self.rvalue(f, op, args[*a].span)?;
                     Operand::Place {
                         ty: param.ty,
@@ -382,7 +372,7 @@ impl Compiler {
                 if list.iter().any(|&a| args[a].spread) {
                     return self.mixed_variadic_value(f, param, args, list, span);
                 }
-                let elem = self.jai_variadic_element(param.ty, span)?;
+                let elem = self.ty.jai_variadic_element(param.ty, span)?;
                 let size = self.size_of(elem, span)?;
                 let align = self.align_of(elem, span)?;
                 let n = list.len() as u64;
@@ -585,5 +575,18 @@ impl Compiler {
             &returns,
         );
         Ok(self.call_results(&pt.returns, results, outs, &result_parameters))
+    }
+}
+
+impl TypeState {
+    /// The checked representation of a Jai runtime pack, distinct from C ellipses.
+    pub(super) fn jai_variadic_element(&self, ty: TypeId, span: Span) -> Result<TypeId> {
+        match *self.types.kind(ty) {
+            TypeKind::Array {
+                elem,
+                kind: ArrayKind::View,
+            } => Ok(elem),
+            _ => err(span, "a Jai variadic pack requires an array-view parameter"),
+        }
     }
 }

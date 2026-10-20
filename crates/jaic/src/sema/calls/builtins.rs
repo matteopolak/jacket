@@ -125,7 +125,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: true,
-                    } => self.default_untyped(ty, &value),
+                    } => self.ty.default_untyped(ty, &value),
                     Operand::Procs(p) if p.len() == 1 && self.proc(p[0]).is_poly => {
                         self.poly_proc_type(p[0])
                     }
@@ -396,7 +396,7 @@ impl Compiler {
         };
         let inst = self.proc_for_param_types(proc, &info.params, span)?;
         let ty = self.proc_type(inst, span).ok()?;
-        (ty == target || self.proc_types_compatible(ty, target)).then_some(inst)
+        (ty == target || self.ty.proc_types_compatible(ty, target)).then_some(inst)
     }
 
     /// The type of a polymorphic procedure for compile-time inspection (`type_of(poly)`):
@@ -417,7 +417,7 @@ impl Compiler {
                                 ty,
                                 value,
                                 untyped: true,
-                            } => self.default_untyped(ty, &value),
+                            } => self.ty.default_untyped(ty, &value),
                             other => other.ty(),
                         })
                 }

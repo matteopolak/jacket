@@ -4,16 +4,9 @@ use super::{
     CallArg, Candidate, Compiler, FnCtx, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId,
     TypeKind, Value, ast, err, ir, scope,
 };
+use crate::sema::TypeState;
 
 impl Compiler {
-    /// Scope a struct (or pointer to one) was declared in, for its
-    /// `for_expansion` protocol.
-    pub fn struct_home_scope(&self, t: TypeId) -> Option<ScopeId> {
-        let t = self.ty.types.pointee(t).unwrap_or(t);
-        let s = self.ty.types.as_struct(self.ty.types.repr_struct(t))?;
-        self.ty.struct_asts.get(&s).map(|src| src.scope)
-    }
-
     /// Operators obey ordinary visibility and filtered reexports. A canonical
     /// operand type alias does not import the defining scope's overloads.
     pub(in crate::sema) fn operator_candidates(
@@ -46,17 +39,6 @@ impl Compiler {
         Ok(procs)
     }
 
-    pub(in crate::sema) fn overloadable(&self, ty: TypeId) -> bool {
-        matches!(
-            self.ty.types.kind(ty),
-            TypeKind::Struct(_)
-                | TypeKind::Array { .. }
-                | TypeKind::Pointer(_)
-                | TypeKind::Enum(_)
-                | TypeKind::Distinct(_)
-        )
-    }
-
     pub fn try_binary_operator_overload(
         &mut self,
         f: &mut FnCtx,
@@ -67,7 +49,9 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let (lt, rt) = (lhs.ty(), rhs.ty());
-        if !(self.overloadable(lt) || self.overloadable(rt)) || matches!(lhs, Operand::Type(_)) {
+        if !(self.ty.overloadable(lt) || self.ty.overloadable(rt))
+            || matches!(lhs, Operand::Type(_))
+        {
             return Ok(None);
         }
         if (self.ty.types.is_pointer(lt) || matches!(self.ty.types.kind(lt), TypeKind::Enum(_)))
@@ -302,5 +286,26 @@ pub fn binop_text(op: ast::BinOp) -> &'static str {
         Ge => ">=",
         And => "&&",
         Or => "||",
+    }
+}
+
+impl TypeState {
+    /// Scope a struct (or pointer to one) was declared in, for its
+    /// `for_expansion` protocol.
+    pub fn struct_home_scope(&self, t: TypeId) -> Option<ScopeId> {
+        let t = self.types.pointee(t).unwrap_or(t);
+        let s = self.types.as_struct(self.types.repr_struct(t))?;
+        self.struct_asts.get(&s).map(|src| src.scope)
+    }
+
+    pub(in crate::sema) fn overloadable(&self, ty: TypeId) -> bool {
+        matches!(
+            self.types.kind(ty),
+            TypeKind::Struct(_)
+                | TypeKind::Array { .. }
+                | TypeKind::Pointer(_)
+                | TypeKind::Enum(_)
+                | TypeKind::Distinct(_)
+        )
     }
 }

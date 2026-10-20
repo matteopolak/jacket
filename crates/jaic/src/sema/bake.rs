@@ -118,7 +118,7 @@ impl Compiler {
                     .collect();
                 let mut lit = (*lit).clone();
                 lit.params = kept;
-                let baked = self.new_poly_struct(name, Rc::new(lit), def_scope);
+                let baked = self.ty.new_poly_struct(name, Rc::new(lit), def_scope);
                 self.ty.poly_structs[baked.0 as usize].baked = consts;
                 self.ty.poly_structs[baked.0 as usize].origin = Some(origin);
                 if self.ty.poly_structs[baked.0 as usize].lit.params.is_empty() {
@@ -192,7 +192,7 @@ impl Compiler {
                         untyped,
                     } => {
                         let ty = if untyped {
-                            self.default_untyped(ty, &value)
+                            self.ty.default_untyped(ty, &value)
                         } else {
                             ty
                         };

@@ -289,7 +289,7 @@ impl Compiler {
             }
             ast::ExprKind::Struct(lit) => {
                 if !lit.params.is_empty() {
-                    return Ok(Resolved::PolyStruct(self.new_poly_struct(
+                    return Ok(Resolved::PolyStruct(self.ty.new_poly_struct(
                         name,
                         lit.clone(),
                         scope,
@@ -384,7 +384,7 @@ impl Compiler {
                     Some(t) => t,
                     None if untyped => {
                         self.entity_mut(id).untyped_const = true;
-                        self.default_untyped(ty, &value)
+                        self.ty.default_untyped(ty, &value)
                     }
                     None => ty,
                 };
@@ -460,7 +460,7 @@ impl Compiler {
                         untyped,
                     } => {
                         if *untyped {
-                            self.default_untyped(*ty, value)
+                            self.ty.default_untyped(*ty, value)
                         } else {
                             evaluated = Some(value.clone());
                             *ty
@@ -594,7 +594,7 @@ impl Compiler {
                 self.proc_type(p[0], span)
             }
             // A polymorphic struct whose parameters all have defaults is a type already.
-            Operand::PolyStruct(ps) if self.poly_struct_has_defaults(ps) => {
+            Operand::PolyStruct(ps) if self.ty.poly_struct_has_defaults(ps) => {
                 self.instantiate_struct(ps, Vec::new(), span)
             }
             other => err(

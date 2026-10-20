@@ -85,7 +85,7 @@ impl Compiler {
         let (lhs, rhs) = self.procedure_operands(f, lhs, rhs, span)?;
         let (lty, rty) = (lhs.ty(), rhs.ty());
         if matches!(op, BinOp::Eq | BinOp::Ne) {
-            self.reject_array_comparison(op, lty, rty, span)?;
+            self.ty.reject_array_comparison(op, lty, rty, span)?;
         }
         if self.ty.types.is_pointer(lty) && matches!(op, BinOp::Add | BinOp::Sub) {
             return self.pointer_offset(f, op, lhs, rhs, span);

@@ -167,7 +167,7 @@ impl Compiler {
                     let elem = if sig.c_varargs {
                         param.ty
                     } else {
-                        self.jai_variadic_element(param.ty, span)?
+                        self.ty.jai_variadic_element(param.ty, span)?
                     };
                     for &a in list {
                         if sig.c_varargs {

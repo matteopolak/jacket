@@ -47,10 +47,14 @@ impl Compiler {
                 && !matches!(s.ty.types.kind(o.ty()), TypeKind::Enum(_))
         };
         if !is_shift && is_float_lit(&rhs) && is_int_value(self, &lhs) {
-            let ty = self.default_untyped(rhs.ty(), &rhs.const_value().unwrap());
+            let ty = self
+                .ty
+                .default_untyped(rhs.ty(), &rhs.const_value().unwrap());
             lhs = self.explicit_cast(f, lhs, ty, ast::CastFlags::default(), span)?;
         } else if !is_shift && is_float_lit(&lhs) && is_int_value(self, &rhs) {
-            let ty = self.default_untyped(lhs.ty(), &lhs.const_value().unwrap());
+            let ty = self
+                .ty
+                .default_untyped(lhs.ty(), &lhs.const_value().unwrap());
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
         // Unify operand types.
@@ -97,11 +101,11 @@ impl Compiler {
         // A literal that met the other operand's type takes it as a bit pattern
         // (`mask & ~0x7` with a `u32` mask).
         if !is_shift {
-            lhs = self.literal_as_bits(lhs, ty);
-            rhs = self.literal_as_bits(rhs, ty);
+            lhs = self.ty.literal_as_bits(lhs, ty);
+            rhs = self.ty.literal_as_bits(rhs, ty);
         }
         let rhs_ty = if is_shift {
-            self.shift_amount_type(&rhs, ty)
+            self.ty.shift_amount_type(&rhs, ty)
         } else {
             ty
         };
@@ -151,7 +155,7 @@ impl Compiler {
         if ty == TypeId::STRING && is_cmp {
             return self.string_compare(f, op, x, y, span);
         }
-        if self.wide_float(ty).is_some() && !is_shift {
+        if self.ty.types.wide_float(ty).is_some() && !is_shift {
             return self.wide_binary(f, ty, op, x, y, span);
         }
         let Some(t) = self.ir_ty(ty) else {

@@ -18,7 +18,7 @@ impl Compiler {
         if to == TypeId::ANY && from != TypeId::COMPILE_TIME {
             return Some(TO_ANY);
         }
-        if self.wide_float(from).is_some() || self.wide_float(to).is_some() {
+        if self.ty.types.wide_float(from).is_some() || self.ty.types.wide_float(to).is_some() {
             return self.wide_implicit_cost(from, untyped, to);
         }
         let fk = self.ty.types.kind(from).clone();

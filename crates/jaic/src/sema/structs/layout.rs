@@ -152,7 +152,7 @@ impl Compiler {
             self.collect_fields(src.scope, &src.lit.body, &mut items)?;
         }
         for (decl, scope) in &src.extra {
-            self.collect_decl_fields(*scope, decl, &mut items)?;
+            self.ty.collect_decl_fields(*scope, decl, &mut items)?;
         }
         let mut using_order = Vec::new();
         for item in &mut items {

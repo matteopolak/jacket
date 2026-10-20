@@ -7,6 +7,7 @@ use super::{Compiler, Sym};
 use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
 use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
+use crate::sema::TypeState;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -446,16 +447,17 @@ impl Compiler {
         }
         d
     }
+}
 
+impl TypeState {
     /// "type `T` has no member `x`", with the closest member name or the members there are.
     pub(super) fn no_member(&self, ty: crate::types::TypeId, name: Sym, span: Span) -> Diagnostic {
         use crate::types::TypeKind;
-        let shown = self.ty.types.name(ty);
-        let (what, members): (&str, Vec<String>) = match self.ty.types.kind(ty) {
+        let shown = self.types.name(ty);
+        let (what, members): (&str, Vec<String>) = match self.types.kind(ty) {
             TypeKind::Struct(id) => (
                 "type",
-                self.ty
-                    .types
+                self.types
                     .struct_info(*id)
                     .fields
                     .iter()
@@ -464,8 +466,7 @@ impl Compiler {
             ),
             TypeKind::Enum(id) => (
                 "enum",
-                self.ty
-                    .types
+                self.types
                     .enum_info(*id)
                     .members
                     .iter()
@@ -473,7 +474,7 @@ impl Compiler {
                     .collect(),
             ),
             TypeKind::Pointer(inner) => {
-                if matches!(self.ty.types.kind(*inner), TypeKind::Pointer(_)) {
+                if matches!(self.types.kind(*inner), TypeKind::Pointer(_)) {
                     return Diagnostic::error(
                         span,
                         format!("type `{shown}` has no member `{name}`"),
@@ -501,7 +502,7 @@ impl Compiler {
             d = d.with_note(Span::NONE, format!("its members are {}", list.join(", ")));
         } else if members.is_empty()
             && matches!(
-                self.ty.types.kind(ty),
+                self.types.kind(ty),
                 TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::Bool
             )
         {

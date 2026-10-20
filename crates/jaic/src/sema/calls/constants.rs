@@ -1,6 +1,7 @@
 //! Deciding whether an argument is a constant expression.
 use super::const_marker;
 use crate::ast::ExprKind as E;
+use crate::sema::TypeState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::EntityKind;
 use crate::sema::{Compiler, ScopeId, TypeId, ast};
@@ -90,9 +91,11 @@ impl Compiler {
             EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Var
         ))
     }
+}
 
+impl TypeState {
     /// A `*Struct` argument passed to a by-value `Struct` parameter is dereferenced.
     pub(super) fn auto_deref_arg(&self, from: TypeId, param: TypeId) -> bool {
-        self.ty.types.pointee(from) == Some(param) && self.ty.types.as_struct(param).is_some()
+        self.types.pointee(from) == Some(param) && self.types.as_struct(param).is_some()
     }
 }

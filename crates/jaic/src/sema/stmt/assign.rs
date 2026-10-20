@@ -211,7 +211,7 @@ impl Compiler {
         let Ok(probe) = self.check_expr_no_emit(scope, target) else {
             return Ok(false);
         };
-        if !self.overloadable(probe.ty()) {
+        if !self.ty.overloadable(probe.ty()) {
             return Ok(false);
         }
         let text = format!("{}=", calls::binop_text(bin));

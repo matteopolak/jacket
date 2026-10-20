@@ -1,5 +1,6 @@
 //! Implicit conversions of operands and constants.
 use super::{int_constant_fits, int_to_float};
+use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, DiagnosticKind, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
@@ -52,7 +53,7 @@ impl Compiler {
         }
         match op {
             Operand::PolyStruct(ps) if to == TypeId::TYPE || to == TypeId::ANY => {
-                let t = self.poly_struct_type(ps);
+                let t = self.ty.poly_struct_type(ps);
                 return self.convert(f, Operand::Type(t), to, span);
             }
             Operand::Type(t) if to == TypeId::TYPE => return Ok(Operand::Type(t)),
@@ -69,7 +70,7 @@ impl Compiler {
                             continue;
                         }
                         let pt = self.proc_type(p, span)?;
-                        if pt == to || self.proc_types_compatible(pt, to) {
+                        if pt == to || self.ty.proc_types_compatible(pt, to) {
                             return Ok(Operand::Procs(vec![p]));
                         }
                     }
@@ -142,53 +143,12 @@ impl Compiler {
                     "only a one-character string converts to a `u8`, and this one has {} bytes",
                     s.len()
                 ));
-            } else if let Some(help) = self.conversion_help(from, to) {
+            } else if let Some(help) = self.ty.conversion_help(from, to) {
                 d = d.with_help(help);
             }
             return Err(Box::new(d));
         }
         self.coerce(f, op, to, span)
-    }
-
-    /// How to get a `to` from a `from`, for the common mismatches with an obvious fix.
-    pub(in crate::sema) fn conversion_help(&self, from: TypeId, to: TypeId) -> Option<String> {
-        let to_name = self.ty.types.name(to);
-        let kind = |t| self.ty.types.kind(t).clone();
-        Some(match (kind(from), kind(to)) {
-            (TypeKind::Float { .. }, TypeKind::Int { .. }) => {
-                format!("convert with `cast({to_name})`, which drops the fraction")
-            }
-            (TypeKind::Int { .. }, TypeKind::Int { .. }) => {
-                format!("convert with `cast({to_name})` if every value fits")
-            }
-            (TypeKind::Int { .. } | TypeKind::Float { .. }, TypeKind::String) => {
-                "to turn a number into text, format it: `tprint(\"%\", value)` (from Basic)".into()
-            }
-            (TypeKind::String, TypeKind::Pointer(p)) if self.ty.types.is_integer(p) => {
-                "pass `value.data` for the bytes, or `to_c_string(value)` (from Basic) for a zero-terminated copy".into()
-            }
-            (TypeKind::Int { .. }, TypeKind::Bool) => "compare instead: `value != 0`".into(),
-            (TypeKind::Int { .. }, TypeKind::Enum(_)) | (TypeKind::Enum(_), TypeKind::Int { .. }) => {
-                format!("convert with `cast({to_name})`")
-            }
-            (TypeKind::Pointer(p), _) if p == to => {
-                "this is a pointer to the value: dereference it with `value.*`".into()
-            }
-            (_, TypeKind::Pointer(p)) if p == from => {
-                "this is the value itself: take its address with `*value`".into()
-            }
-            _ => return None,
-        })
-    }
-
-    /// Structurally identical procedure types (ignoring parameter names).
-    pub(in crate::sema) fn proc_types_compatible(&self, a: TypeId, b: TypeId) -> bool {
-        match (self.ty.types.kind(a), self.ty.types.kind(b)) {
-            (TypeKind::Proc(x), TypeKind::Proc(y)) => {
-                x.params == y.params && x.returns == y.returns && x.c_call == y.c_call
-            }
-            _ => false,
-        }
     }
 
     /// Constant-to-constant conversions (returns None when a runtime conversion is needed).
@@ -201,8 +161,8 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let tr = self.ty.types.repr(to);
-        if let Some(fmt) = self.wide_float(to) {
-            if self.wide_float(ty).is_none()
+        if let Some(fmt) = self.ty.types.wide_float(to) {
+            if self.ty.types.wide_float(ty).is_none()
                 && (untyped || self.implicit_cost(ty, false, to).is_some())
                 && let Some(value) = Self::wide_const(fmt, value)
             {
@@ -286,5 +246,48 @@ impl Compiler {
             value: result,
             untyped: false,
         }))
+    }
+}
+
+impl TypeState {
+    /// How to get a `to` from a `from`, for the common mismatches with an obvious fix.
+    pub(in crate::sema) fn conversion_help(&self, from: TypeId, to: TypeId) -> Option<String> {
+        let to_name = self.types.name(to);
+        let kind = |t| self.types.kind(t).clone();
+        Some(match (kind(from), kind(to)) {
+            (TypeKind::Float { .. }, TypeKind::Int { .. }) => {
+                format!("convert with `cast({to_name})`, which drops the fraction")
+            }
+            (TypeKind::Int { .. }, TypeKind::Int { .. }) => {
+                format!("convert with `cast({to_name})` if every value fits")
+            }
+            (TypeKind::Int { .. } | TypeKind::Float { .. }, TypeKind::String) => {
+                "to turn a number into text, format it: `tprint(\"%\", value)` (from Basic)".into()
+            }
+            (TypeKind::String, TypeKind::Pointer(p)) if self.types.is_integer(p) => {
+                "pass `value.data` for the bytes, or `to_c_string(value)` (from Basic) for a zero-terminated copy".into()
+            }
+            (TypeKind::Int { .. }, TypeKind::Bool) => "compare instead: `value != 0`".into(),
+            (TypeKind::Int { .. }, TypeKind::Enum(_)) | (TypeKind::Enum(_), TypeKind::Int { .. }) => {
+                format!("convert with `cast({to_name})`")
+            }
+            (TypeKind::Pointer(p), _) if p == to => {
+                "this is a pointer to the value: dereference it with `value.*`".into()
+            }
+            (_, TypeKind::Pointer(p)) if p == from => {
+                "this is the value itself: take its address with `*value`".into()
+            }
+            _ => return None,
+        })
+    }
+
+    /// Structurally identical procedure types (ignoring parameter names).
+    pub(in crate::sema) fn proc_types_compatible(&self, a: TypeId, b: TypeId) -> bool {
+        match (self.types.kind(a), self.types.kind(b)) {
+            (TypeKind::Proc(x), TypeKind::Proc(y)) => {
+                x.params == y.params && x.returns == y.returns && x.c_call == y.c_call
+            }
+            _ => false,
+        }
     }
 }

@@ -739,7 +739,7 @@ impl Compiler {
         let mut ids = self.lookup(scope, macro_name)?;
         if ids.is_empty()
             && for_.iterator.is_none()
-            && let Some(home) = self.struct_home_scope(collection.ty())
+            && let Some(home) = self.ty.struct_home_scope(collection.ty())
         {
             ids = self.lookup(home, macro_name)?;
         }

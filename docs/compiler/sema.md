@@ -14,7 +14,7 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 - `src: SourceState` (`source_state.rs`): the file system, the `SourceMap` and per-file info, path canonicalisation, parse-ahead workers, `#insert` nesting and provided texts. External crates read `compiler.src.sources`.
 - `diag: Diagnostics` (`diagnostics.rs`): warnings, why deferred items failed, declaration dependencies.
 - `epochs: Epochs` (`epochs.rs`): the counters a cached failure is stamped with (`namespace_generation`, `placeholder_misses`, `in_progress_misses`) and the flags of deferred expansion's phases.
-- `ty: TypeState` (`type_state.rs`): the `Types` table and what sema keeps per type: struct declarations, field types and `using` filters, polymorphic structs, `Type_Info` globals and the type-table snapshot, default values and initializers.
+- `ty: TypeState` (`type_state.rs`): the `Types` table and what sema keeps per type: struct declarations, field types and `using` filters, polymorphic structs, `Type_Info` globals and the type-table snapshot, default values and initializers. Helpers that read only this state (wide-float conversion, literal fits, switch completeness, `Type_Info` global lookups) are `impl TypeState` in the file that uses them, called as `self.ty.helper(..)`; write new ones the same way when they need nothing else.
 - `out: Output` (`output.rs`): the IR program, constant data pooled into globals (strings, packs, constant addresses), runtime-info globals, compile-time output. `release_lowered_code` empties its bodies for an editor.
 - `meta: MetaState` (`meta_state.rs`): the workspace being built, records exported to metaprograms, perf counts.
 - `ed: Editor` (`ide/editor.rs`): the editor analysis, if any.

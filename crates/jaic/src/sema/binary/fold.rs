@@ -29,7 +29,7 @@ impl Compiler {
         else {
             return Ok(None);
         };
-        if self.wide_float(*lt).is_some() || self.wide_float(*rt).is_some() {
+        if self.ty.types.wide_float(*lt).is_some() || self.ty.types.wide_float(*rt).is_some() {
             return Ok(self.wide_fold(op, (*lt, lv), (*rt, rv)));
         }
         let untyped = *lu && *ru;

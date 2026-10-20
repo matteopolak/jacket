@@ -1,6 +1,7 @@
 //! Checking the operands of a binary expression.
 use super::{is_comparison, is_complement_literal, is_number_literal, is_shift};
 use crate::ast::{BinOp, ExprKind as E};
+use crate::sema::TypeState;
 use crate::sema::calls::binop_text;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
@@ -78,7 +79,7 @@ impl Compiler {
             )?
         };
         if let Operand::PolyStruct(ps) = lhs {
-            lhs = Operand::Type(self.poly_struct_type(ps));
+            lhs = Operand::Type(self.ty.poly_struct_type(ps));
         }
         // Inferred enum members on the right take the left operand's type.
         let pointer_lhs = self.ty.types.is_pointer(self.ty.types.repr(lhs.ty()));
@@ -118,7 +119,7 @@ impl Compiler {
             )?,
         };
         if let Operand::PolyStruct(ps) = rhs {
-            rhs = Operand::Type(self.poly_struct_type(ps));
+            rhs = Operand::Type(self.ty.poly_struct_type(ps));
         }
         // `s[0] == "-"`, `c - "0"`: a one-byte string constant next to a `u8` compares and
         // offsets as that byte. Wider integers do not take the conversion.
@@ -205,7 +206,9 @@ impl Compiler {
             val,
         })
     }
+}
 
+impl TypeState {
     /// Arrays (`[]T`, `[N]T`, `[..]T`) have no `==`; strings do.
     pub(super) fn reject_array_comparison(
         &self,
@@ -215,16 +218,13 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         for t in [lty, rty] {
-            if matches!(
-                self.ty.types.kind(self.ty.types.repr(t)),
-                TypeKind::Array { .. }
-            ) {
+            if matches!(self.types.kind(self.types.repr(t)), TypeKind::Array { .. }) {
                 let symbol = binop_text(op);
                 return Err(Box::new(
                     Diagnostic::error(span, format!("arrays cannot be compared with `{symbol}`"))
                         .with_note(
                             span,
-                            format!("the compared type is `{}`", self.ty.types.name(t)),
+                            format!("the compared type is `{}`", self.types.name(t)),
                         )
                         .with_help("compare the lengths and elements in a loop"),
                 ));

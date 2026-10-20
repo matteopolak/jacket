@@ -351,7 +351,7 @@ impl Compiler {
         if from == TypeId::F32 && untyped && param == TypeId::F32 {
             return Ok(convert::EXACT);
         }
-        if self.auto_deref_arg(from, param) {
+        if self.ty.auto_deref_arg(from, param) {
             return Ok(convert::SUBTYPE);
         }
         // Code macro parameters may quote a caller variable by name.
@@ -372,7 +372,7 @@ impl Compiler {
                     self.ty.types.name(param)
                 ),
             );
-            if let Some(help) = self.conversion_help(from, param) {
+            if let Some(help) = self.ty.conversion_help(from, param) {
                 d = d.with_help(help);
             }
             Box::new(d)

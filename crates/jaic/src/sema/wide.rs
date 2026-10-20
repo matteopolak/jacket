@@ -10,21 +10,11 @@ use super::value::Aggregate;
 use super::{Compiler, Rc, Result, Span, TypeId, Value, convert, err};
 use crate::ast::BinOp;
 use crate::ir::{CmpOp, ConvOp, Intrinsic, Ty, Val, WideArith, WideFloat, WideOp};
+use crate::sema::TypeState;
 use crate::types::TypeKind;
 use crate::wide_float;
 
 impl Compiler {
-    /// The format of `ty` when it is a wide `long double`.
-    pub(super) fn wide_float(&self, ty: TypeId) -> Option<WideFloat> {
-        self.ty.types.wide_float(ty)
-    }
-
-    /// Numbers (integer or float types) that convert to and from a wide float.
-    fn wide_peer(&self, ty: TypeId) -> bool {
-        let r = self.ty.types.repr(ty);
-        self.ty.types.is_integer(r) || self.ty.types.is_float(r)
-    }
-
     /// An integer or float constant as a wide constant, when it is one.
     pub(super) fn wide_const(fmt: WideFloat, value: &Value) -> Option<Value> {
         let bytes = match value {
@@ -65,7 +55,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let from = op.ty();
-        let (from_wide, to_wide) = (self.wide_float(from), self.wide_float(to));
+        let (from_wide, to_wide) = (self.ty.types.wide_float(from), self.ty.types.wide_float(to));
         if from_wide.is_none() && to_wide.is_none() {
             return Ok(None);
         }
@@ -103,21 +93,21 @@ impl Compiler {
                     val: addr,
                 }))
             }
-            (None, Some(fmt)) if self.wide_peer(from) => {
+            (None, Some(fmt)) if self.ty.wide_peer(from) => {
                 let op = self.settle_untyped(op, None);
                 let from = op.ty();
                 let (_, v) = self.rvalue(f, op, span)?;
                 let dst = Self::wide_slot(f);
-                let (wop, v) = self.wide_source(f, from, v);
+                let (wop, v) = self.ty.wide_source(f, from, v);
                 f.b.intrinsic(Intrinsic::Wide(wop, fmt), vec![dst, v], &[]);
                 Ok(Some(Operand::Value {
                     ty: to,
                     val: dst,
                 }))
             }
-            (Some(fmt), None) if self.wide_peer(to) => {
+            (Some(fmt), None) if self.ty.wide_peer(to) => {
                 let (_, addr) = self.rvalue(f, op, span)?;
-                let val = self.wide_to_scalar(f, fmt, addr, to);
+                let val = self.ty.wide_to_scalar(f, fmt, addr, to);
                 Ok(Some(Operand::Value {
                     ty: to,
                     val,
@@ -125,67 +115,6 @@ impl Compiler {
             }
             // Anything else (`cast,force` to bytes...) is the general cast's business.
             _ => Ok(None),
-        }
-    }
-
-    /// The conversion that brings scalar `v` of type `from` into a wide float, and its operand
-    /// widened to what that conversion takes.
-    fn wide_source(&mut self, f: &mut FnCtx, from: TypeId, v: Val) -> (WideOp, Val) {
-        let r = self.ty.types.repr(from);
-        if r == TypeId::F32 {
-            return (WideOp::FromF32, v);
-        }
-        if self.ty.types.is_float(r) {
-            return (WideOp::FromF64, v);
-        }
-        let (bits, signed) = self
-            .ty
-            .types
-            .int_info(r)
-            .expect("invariant: `wide_peer` admits only integer and float types");
-        let t = Ty::int(bits as u64 / 8);
-        let wide = match (t == Ty::I64, signed) {
-            (true, _) => v,
-            (false, true) => f.b.conv(ConvOp::SExt, t, Ty::I64, v),
-            (false, false) => f.b.conv(ConvOp::ZExt, t, Ty::I64, v),
-        };
-        let op = if signed {
-            WideOp::FromS64
-        } else {
-            WideOp::FromU64
-        };
-        (op, wide)
-    }
-
-    fn wide_to_scalar(&mut self, f: &mut FnCtx, fmt: WideFloat, addr: Val, to: TypeId) -> Val {
-        let r = self.ty.types.repr(to);
-        if r == TypeId::F32 {
-            return f
-                .b
-                .intrinsic(Intrinsic::Wide(WideOp::ToF32, fmt), vec![addr], &[Ty::F32])[0];
-        }
-        if self.ty.types.is_float(r) {
-            return f
-                .b
-                .intrinsic(Intrinsic::Wide(WideOp::ToF64, fmt), vec![addr], &[Ty::F64])[0];
-        }
-        let (bits, signed) = self
-            .ty
-            .types
-            .int_info(r)
-            .expect("invariant: `wide_peer` admits only integer and float types");
-        let op = if signed {
-            WideOp::ToS64
-        } else {
-            WideOp::ToU64
-        };
-        let v =
-            f.b.intrinsic(Intrinsic::Wide(op, fmt), vec![addr], &[Ty::I64])[0];
-        let t = Ty::int(bits as u64 / 8);
-        if t == Ty::I64 {
-            v
-        } else {
-            f.b.conv(ConvOp::Trunc, Ty::I64, t, v)
         }
     }
 
@@ -198,12 +127,12 @@ impl Compiler {
         untyped: bool,
         to: TypeId,
     ) -> Option<u32> {
-        let (from_wide, to_wide) = (self.wide_float(from), self.wide_float(to));
+        let (from_wide, to_wide) = (self.ty.types.wide_float(from), self.ty.types.wide_float(to));
         match (from_wide, to_wide) {
             (Some(a), Some(b)) if a == b && self.ty.types.repr(from) == self.ty.types.repr(to) => {
                 Some(convert::EXACT)
             }
-            (None, Some(_)) if untyped && self.wide_peer(from) => Some(convert::LITERAL + 1),
+            (None, Some(_)) if untyped && self.ty.wide_peer(from) => Some(convert::LITERAL + 1),
             (None, Some(_)) if self.ty.types.is_float(from) => Some(convert::WIDEN),
             (None, Some(_))
                 if self
@@ -228,7 +157,7 @@ impl Compiler {
         y: Val,
         span: Span,
     ) -> Result<Operand> {
-        let fmt = self.wide_float(ty).expect("a wide float type");
+        let fmt = self.ty.types.wide_float(ty).expect("a wide float type");
         let cmp = match op {
             BinOp::Eq => Some(CmpOp::FEq),
             BinOp::Ne => Some(CmpOp::FNe),
@@ -291,14 +220,6 @@ impl Compiler {
             val: dst,
         }
     }
-
-    /// The memory-only ABI class of a wide float, for `AggLayout`s.
-    pub(super) fn wide_abi_class(&self, ty: TypeId) -> Option<Ty> {
-        match self.ty.types.kind(self.ty.types.repr(ty)) {
-            TypeKind::WideFloat(fmt) => Some(Ty::wide(*fmt)),
-            _ => None,
-        }
-    }
 }
 
 impl Compiler {
@@ -309,12 +230,12 @@ impl Compiler {
         (lt, lv): (TypeId, &Value),
         (rt, rv): (TypeId, &Value),
     ) -> Option<Operand> {
-        let ty = if self.wide_float(lt).is_some() {
+        let ty = if self.ty.types.wide_float(lt).is_some() {
             lt
         } else {
             rt
         };
-        let fmt = self.wide_float(ty)?;
+        let fmt = self.ty.types.wide_float(ty)?;
         let bytes = |v: &Value| -> Option<wide_float::Bytes> {
             let v = match v {
                 Value::Bytes(_) => v.clone(),
@@ -355,5 +276,80 @@ impl Compiler {
             })),
             untyped: false,
         })
+    }
+}
+
+impl TypeState {
+    /// Numbers (integer or float types) that convert to and from a wide float.
+    fn wide_peer(&self, ty: TypeId) -> bool {
+        let r = self.types.repr(ty);
+        self.types.is_integer(r) || self.types.is_float(r)
+    }
+
+    /// The conversion that brings scalar `v` of type `from` into a wide float, and its operand
+    /// widened to what that conversion takes.
+    fn wide_source(&mut self, f: &mut FnCtx, from: TypeId, v: Val) -> (WideOp, Val) {
+        let r = self.types.repr(from);
+        if r == TypeId::F32 {
+            return (WideOp::FromF32, v);
+        }
+        if self.types.is_float(r) {
+            return (WideOp::FromF64, v);
+        }
+        let (bits, signed) = self
+            .types
+            .int_info(r)
+            .expect("invariant: `wide_peer` admits only integer and float types");
+        let t = Ty::int(bits as u64 / 8);
+        let wide = match (t == Ty::I64, signed) {
+            (true, _) => v,
+            (false, true) => f.b.conv(ConvOp::SExt, t, Ty::I64, v),
+            (false, false) => f.b.conv(ConvOp::ZExt, t, Ty::I64, v),
+        };
+        let op = if signed {
+            WideOp::FromS64
+        } else {
+            WideOp::FromU64
+        };
+        (op, wide)
+    }
+
+    fn wide_to_scalar(&mut self, f: &mut FnCtx, fmt: WideFloat, addr: Val, to: TypeId) -> Val {
+        let r = self.types.repr(to);
+        if r == TypeId::F32 {
+            return f
+                .b
+                .intrinsic(Intrinsic::Wide(WideOp::ToF32, fmt), vec![addr], &[Ty::F32])[0];
+        }
+        if self.types.is_float(r) {
+            return f
+                .b
+                .intrinsic(Intrinsic::Wide(WideOp::ToF64, fmt), vec![addr], &[Ty::F64])[0];
+        }
+        let (bits, signed) = self
+            .types
+            .int_info(r)
+            .expect("invariant: `wide_peer` admits only integer and float types");
+        let op = if signed {
+            WideOp::ToS64
+        } else {
+            WideOp::ToU64
+        };
+        let v =
+            f.b.intrinsic(Intrinsic::Wide(op, fmt), vec![addr], &[Ty::I64])[0];
+        let t = Ty::int(bits as u64 / 8);
+        if t == Ty::I64 {
+            v
+        } else {
+            f.b.conv(ConvOp::Trunc, Ty::I64, t, v)
+        }
+    }
+
+    /// The memory-only ABI class of a wide float, for `AggLayout`s.
+    pub(super) fn wide_abi_class(&self, ty: TypeId) -> Option<Ty> {
+        match self.types.kind(self.types.repr(ty)) {
+            TypeKind::WideFloat(fmt) => Some(Ty::wide(*fmt)),
+            _ => None,
+        }
     }
 }

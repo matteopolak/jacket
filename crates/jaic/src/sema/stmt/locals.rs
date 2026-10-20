@@ -1,5 +1,6 @@
 //! Local declarations and `using` statements.
 use crate::ast::ExprKind as E;
+use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Resolved, UsingEntry};
 use crate::sema::{
@@ -368,30 +369,6 @@ impl Compiler {
         })
     }
 
-    /// `using x;` on a variable needs a struct (or union) or enum, or a pointer to one.
-    fn check_using_target(&self, ty: TypeId, span: Span) -> Result<()> {
-        let target = self.ty.types.pointee(ty).unwrap_or(ty);
-        if self
-            .ty
-            .types
-            .as_struct(self.ty.types.repr_struct(target))
-            .is_some()
-            || matches!(
-                self.ty.types.kind(self.ty.types.repr(target)),
-                TypeKind::Enum(_)
-            )
-        {
-            return Ok(());
-        }
-        err(
-            span,
-            format!(
-                "`using` needs a struct, an enum or a pointer to one; this is `{}`",
-                self.ty.types.name(ty)
-            ),
-        )
-    }
-
     pub(super) fn check_using(
         &mut self,
         f: &mut FnCtx,
@@ -406,7 +383,7 @@ impl Compiler {
                     EntityKind::Local {
                         ty, ..
                     } => {
-                        self.check_using_target(ty, value.span)?;
+                        self.ty.check_using_target(ty, value.span)?;
                         let entry = self.filter_using_entry(
                             scope,
                             UsingEntry::Place {
@@ -458,7 +435,7 @@ impl Compiler {
             }) => {
                 // `using a.b;`: bind a hidden local pointing at the place (or holding the
                 // pointer itself when `a.b` is one).
-                self.check_using_target(op.ty(), value.span)?;
+                self.ty.check_using_target(op.ty(), value.span)?;
                 let (ptr, ptr_value) = if self.ty.types.pointee(op.ty()).is_some() {
                     let ty = op.ty();
                     let (_, v) = self.rvalue(f, op, value.span)?;
@@ -524,5 +501,27 @@ impl Compiler {
         let entry = self.filter_using_entry(scope, entry, filter, value.span)?;
         self.push_using(scope, entry);
         Ok(())
+    }
+}
+
+impl TypeState {
+    /// `using x;` on a variable needs a struct (or union) or enum, or a pointer to one.
+    fn check_using_target(&self, ty: TypeId, span: Span) -> Result<()> {
+        let target = self.types.pointee(ty).unwrap_or(ty);
+        if self
+            .types
+            .as_struct(self.types.repr_struct(target))
+            .is_some()
+            || matches!(self.types.kind(self.types.repr(target)), TypeKind::Enum(_))
+        {
+            return Ok(());
+        }
+        err(
+            span,
+            format!(
+                "`using` needs a struct, an enum or a pointer to one; this is `{}`",
+                self.types.name(ty)
+            ),
+        )
     }
 }
