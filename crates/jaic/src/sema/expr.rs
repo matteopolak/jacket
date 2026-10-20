@@ -312,6 +312,7 @@ impl Compiler {
                                 ty,
                                 addr,
                             };
+                            self.ide_note_receiver(member.span, &stand_in);
                             if let Ok(op) =
                                 self.member_access(f, scope, stand_in, member.name, member.span)
                             {

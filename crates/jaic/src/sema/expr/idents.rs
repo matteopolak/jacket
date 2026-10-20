@@ -222,7 +222,8 @@ impl Compiler {
     }
 
     /// The type a constant named by `expr` would have if its `#run` had not failed, following
-    /// constants that alias it (`alias :: registered;`) up to `depth` steps. Editor only.
+    /// constants that alias it (`alias :: registered;`) and the fields of one
+    /// (`registered.tags`) up to `depth` steps. Editor only.
     pub(crate) fn failed_run_type(
         &mut self,
         scope: ScopeId,
@@ -252,6 +253,18 @@ impl Compiler {
                 }
                 let (decl, home) = (decl.clone(), entity.home);
                 self.failed_run_type(home, decl.value.as_ref()?, depth - 1)
+            }
+            E::Member(base, member) if depth > 0 => {
+                let mut ty = self.failed_run_type(scope, base, depth - 1)?;
+                while let Some(p) = self.types.pointee(ty) {
+                    ty = p;
+                }
+                let s = self.types.as_struct(self.types.repr(ty))?;
+                let fields = &self.types.struct_info(s).fields;
+                fields
+                    .iter()
+                    .find(|f| f.name == Some(member.name))
+                    .map(|f| f.ty)
             }
             _ => None,
         }

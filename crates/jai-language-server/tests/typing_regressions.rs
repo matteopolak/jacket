@@ -496,3 +496,22 @@ fn a_binder_keeps_its_layout_while_its_instance_body_is_half_typed() {
         );
     });
 }
+
+#[test]
+fn a_field_of_a_constant_whose_run_fails_keeps_its_layout_and_members() {
+    on_big_stack(|| {
+        let source = "Point :: struct { n: int; tags: [] string; }\nf :: () -> Point { assert(false); return .{}; }\nbaked :: #run f();\nmain :: () { x := baked.tags.count; }\n";
+        let session = open(source);
+        assert_eq!(kind_at(&session, 3, 29), Some(SemanticTokenKind::Property));
+        let at = Position {
+            line: 3,
+            character: 24,
+        };
+        let hover = session.hover(&uri(), at).unwrap().expect("a hover");
+        assert!(
+            hover.contents.value.contains("offset 8, size 16"),
+            "{}",
+            hover.contents.value
+        );
+    });
+}
