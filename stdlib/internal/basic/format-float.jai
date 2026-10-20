@@ -233,7 +233,7 @@ candidate_reads_back :: (value: float64, digits: s64, wide: bool, round_up: bool
 
     defer if owned free(text);
 
-    return candidate_matches(text, value, wide);
+    return text_reads_back(text, value, wide, power_of_two);
 }
 
 // The `g` text with `digits` significant digits: in `storage`, or allocated (`owned`) when it
@@ -250,17 +250,6 @@ float_text :: (value: float64, conversion: u8, precision: s64) -> string {
     text, fast := fast_float_text(value, conversion, precision, *storage);
     if fast return copy_string(text);
     return portable_float(value, conversion, precision);
-}
-
-candidate_matches :: (text: string, value: float64, wide: bool) -> bool {
-    if wide {
-        parsed, ok, rest := string_to_float64(text);
-        return ok && rest.count == 0 && parsed == value;
-    }
-
-    parsed, ok, rest := string_to_float(text);
-
-    return ok && rest.count == 0 && parsed == cast(float32) value;
 }
 
 // Reads a long_double in memory without the target's runtime library: a wasm module that has no

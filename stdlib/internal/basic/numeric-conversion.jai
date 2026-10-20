@@ -23,15 +23,7 @@ portable_float :: (value: float64, conversion: u8, precision: s64, round_up := f
 
     if binary_scale < 0 {
         decimal_scale = -binary_scale;
-        remaining := decimal_scale;
-
-        // 5^13 is the largest power of five that fits in a word.
-        while remaining >= 13 {
-            nat_multiply(*number, 1220703125);
-            remaining -= 13;
-        }
-
-        for i: 0..remaining - 1 nat_multiply(*number, 5);
+        nat_multiply_five_power(*number, decimal_scale);
     } else nat_shift(*number, binary_scale);
 
     exact := nat_decimal(*number);
@@ -209,7 +201,7 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
     return float_bits(sign | rational_bits(*number, *denominator, T), T), true, rest;
 }
 
-#scope_file
+// Natural numbers in 32-bit words, also used by the binary-to-decimal fallbacks.
 Natural :: struct {
     words: [..] u32;
 }
@@ -245,6 +237,18 @@ nat_multiply :: (value: *Natural, factor: u32) {
     }
 
     if carry != 0 array_add(*value.words, cast(u32) carry);
+}
+
+nat_multiply_five_power :: (value: *Natural, count: s64) {
+    remaining := count;
+
+    // 5^13 is the largest power of five that fits in a word.
+    while remaining >= 13 {
+        nat_multiply(value, 1220703125);
+        remaining -= 13;
+    }
+
+    for i: 0..remaining - 1 nat_multiply(value, 5);
 }
 
 nat_add :: (value: *Natural, amount: u32) {
@@ -370,6 +374,7 @@ nat_decimal :: (value: *Natural) -> string {
     return builder_to_string(*builder);
 }
 
+#scope_file
 round_decimal :: (digits: string, keep: s64, round_up: bool) -> string {
     retained := max(keep, cast(s64) 0);
     up := false;

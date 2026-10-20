@@ -354,23 +354,106 @@ digits_read_back :: (value: float64, wide: bool, significant: s64, round_up: boo
     digits, power, ok := leading_digits(mantissa, binary, significant, rounding);
     if !ok return false, false;
 
-    // The interval belongs to the value's own type: m * 2^b with m its significand.
-    m := mantissa;
-    b := binary;
+    m, b := own_significand(value, wide);
 
-    if !wide {
-        single := cast(float32) value;
-        narrow := (cast(*u32) *single).*;
-        field := cast(s64) ((narrow >> 23) & 0xff);
+    return inside_interval(digits, power - significant + 1, m, b, power_of_two);
+}
 
-        m = cast(u64) (narrow & 0x7f_ffff);
-        if field != 0 m |= 0x80_0000;
+// Whether the `g` text of a positive value reads back as `value`. Used when `digits_read_back`
+// cannot decide; the comparison is exact at any magnitude.
+text_reads_back :: (text: string, value: float64, wide: bool, power_of_two: bool) -> bool {
+    digits: u64;
+    decimal: s64;
+    seen_point := false;
+    at := 0;
 
-        b = ifx field == 0 then -149 else field - 150;
+    while at < text.count && text[at] != 101 {
+        byte := text[at];
+
+        at += 1;
+
+        if byte == 46 {
+            seen_point = true;
+            continue;
+        }
+
+        digits = digits * 10 + cast(u64) (byte - 48);
+        if seen_point decimal -= 1;
     }
 
+    if at < text.count {
+        negative := text[at + 1] == 45;
+        written: s64;
+
+        for i: at + 2..text.count - 1 written = written * 10 + cast(s64) (text[i] - 48);
+
+        decimal += ifx negative then -written else written;
+    }
+
+    m, b := own_significand(value, wide);
+    if digits == 0 return m == 0;
+
+    matches, known := inside_interval(digits, decimal, m, b, power_of_two);
+    if known return matches;
+
+    // Same comparison as `inside_interval`, in big integers.
+    lower: u64 = ifx power_of_two then cast(u64) 1 else 2;
+    twos := min(decimal, b - 2);
+    fives := min(decimal, 0);
+
+    candidate := nat_from(digits);
+    top := nat_from(4 * m + 2);
+    bottom := nat_from(4 * m - lower);
+
+    defer {
+        array_free(candidate.words);
+        array_free(top.words);
+        array_free(bottom.words);
+    }
+
+    nat_multiply_five_power(*candidate, decimal - fives);
+    nat_shift(*candidate, decimal - twos);
+    nat_multiply_five_power(*top, -fives);
+    nat_shift(*top, b - 2 - twos);
+    nat_multiply_five_power(*bottom, -fives);
+    nat_shift(*bottom, b - 2 - twos);
+
+    above_bottom := nat_compare(candidate, bottom);
+    below_top := nat_compare(candidate, top);
+
+    if above_bottom > 0 && below_top < 0 return true;
+    if above_bottom == 0 || below_top == 0 return (m & 1) == 0;
+
+    return false;
+}
+
+#scope_file
+// The significand and binary exponent of `value` in its own type, so the value is m * 2^b.
+own_significand :: (value: float64, wide: bool) -> m: u64, b: s64 {
+    if wide {
+        bits := (cast(*u64) *value).*;
+        field := cast(s64) ((bits >> 52) & 0x7ff);
+        m := bits & 0x000f_ffff_ffff_ffff;
+
+        if field != 0 m |= 0x0010_0000_0000_0000;
+
+        return m, ifx field == 0 then -1074 else field - 1075;
+    }
+
+    single := cast(float32) value;
+    narrow := (cast(*u32) *single).*;
+    field := cast(s64) ((narrow >> 23) & 0xff);
+    m := cast(u64) (narrow & 0x7f_ffff);
+
+    if field != 0 m |= 0x80_0000;
+
+    return m, ifx field == 0 then -149 else field - 150;
+}
+
+// Whether digits * 10^decimal lies in the rounding interval of m * 2^b, in 128-bit integers;
+// `known` is false when the scaled numbers do not fit.
+inside_interval :: (digits: u64, decimal: s64, m: u64, b: s64, power_of_two: bool) -> matches: bool, known: bool {
     // In units of 2^(b - 2): the value is 4m, half a unit is 2, and a quarter unit is 1.
-    decimal := power - significant + 1;
     lower: u64 = ifx power_of_two then cast(u64) 1 else 2;
 
     // Divide both sides by the smaller power of two and of five they share, leaving integers.
@@ -414,7 +497,6 @@ digits_read_back :: (value: float64, wide: bool, significant: s64, round_up: boo
     return false, true;
 }
 
-#scope_file
 // Shifts the 128-bit (high, low) left by `amount`; false when bits would be lost.
 shift_wide :: (high: *u64, low: *u64, amount: s64) -> bool {
     if amount == 0 return true;
