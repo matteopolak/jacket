@@ -23,5 +23,5 @@ main :: () {
 
     assert(type_of(total) == int && total == 4);
 
-    print("target: %\n", target);
+    print("ok\n");
 }

@@ -68,7 +68,14 @@ fn equally_good_overloads_for_a_literal_operand_are_ambiguous() {
          operator * :: (x: T, f: float) -> T { return x; }
          main :: () { x := .{ 1.0, 2.0 } * 2.0; }",
     );
-    assert!(error.contains("matches 2 possible overloads"), "{error}");
+    assert!(
+        error.contains("Procedure call matches 2 possible overloads"),
+        "{error}"
+    );
+    assert!(
+        error.contains("is ambiguous for these arguments"),
+        "{error}"
+    );
     assert!(error.contains("operator *"), "{error}");
     // Both candidates are named, at their own declarations.
     assert!(error.matches("operator * ::").count() >= 2, "{error}");
@@ -90,4 +97,16 @@ fn a_literal_that_fits_no_overload_is_an_error() {
          main :: () {{ x := .{{ 1.0, 2.0 }} * 2.0; }}"
     ));
     assert!(error.contains("operator"), "{error}");
+}
+
+#[test]
+fn a_type_is_not_an_operand_of_an_overloaded_operator() {
+    let error = failure(&format!(
+        "{TYPES} operator * :: (x: S, f: float) -> S {{ return x; }}
+         main :: () {{ x := .{{ 1.0, 2.0 }} * S; }}"
+    ));
+    assert!(
+        error.contains("a type cannot be an operand of an overloaded operator"),
+        "{error}"
+    );
 }

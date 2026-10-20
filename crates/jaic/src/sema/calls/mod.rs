@@ -279,21 +279,29 @@ impl Compiler {
         }
     }
 
-    /// Sort equally cheap candidates so the preferred one is first (non-polymorphic and more
-    /// specific candidates win), and say whether the first two are still equally good.
+    /// What still separates equally cheap candidates: a non-polymorphic one beats a polymorphic
+    /// one, one that takes every argument as itself beats one that gathers some into a variadic
+    /// parameter, and a more specific header beats a looser one.
+    fn candidate_rank(&self, c: &Candidate) -> (bool, bool, std::cmp::Reverse<u32>) {
+        let gathers = c
+            .slots
+            .iter()
+            .any(|slot| matches!(slot, Slot::Variadic(list) if !list.is_empty()));
+        (
+            self.proc(c.proc).bindings.is_some(),
+            gathers,
+            std::cmp::Reverse(c.specificity),
+        )
+    }
+
+    /// Sort equally cheap candidates so the preferred one is first, and say whether the first
+    /// two are still equally good. Only the candidates tied with the first stay in `best`'s
+    /// leading run.
     fn order_candidates(&self, best: &mut [Candidate]) -> bool {
         if best.len() > 1 {
-            best.sort_by_key(|c| {
-                (
-                    self.proc(c.proc).bindings.is_some() as u32,
-                    std::cmp::Reverse(c.specificity),
-                )
-            });
+            best.sort_by_key(|c| self.candidate_rank(c));
         }
-        best.len() > 1 && {
-            let key = |c: &Candidate| (self.proc(c.proc).bindings.is_some(), c.specificity);
-            key(&best[0]) == key(&best[1])
-        }
+        best.len() > 1 && self.candidate_rank(&best[0]) == self.candidate_rank(&best[1])
     }
 
     /// Two or more candidates that take the arguments equally well, and none better: the call
@@ -388,7 +396,11 @@ impl Compiler {
         // Several equally good candidates: the editor keeps the whole overload set.
         let ambiguous = self.order_candidates(&mut best);
         if ambiguous && args.iter().any(is_untyped_argument) {
-            return Err(self.ambiguous_overloads(&best, span));
+            let tied = best
+                .iter()
+                .take_while(|c| self.candidate_rank(c) == self.candidate_rank(&best[0]))
+                .count();
+            return Err(self.ambiguous_overloads(&best[..tied], span));
         }
         let chosen = best.swap_remove(0);
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;

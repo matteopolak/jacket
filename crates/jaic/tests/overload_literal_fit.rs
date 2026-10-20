@@ -17,7 +17,8 @@ fn accepts(source: &str) {
 fn ambiguous(source: &str) {
     let message = outcome(source).expect_err(source);
     assert!(
-        message.contains("Procedure call matches"),
+        message.contains("Procedure call matches")
+            && message.contains("is ambiguous for these arguments"),
         "{source}: {message}"
     );
 }
@@ -82,5 +83,16 @@ fn values_beyond_the_positional_members_rule_a_candidate_out() {
         four :: #run pick(.{1, 2, 3, 4});
         three :: #run pick(.{1, 2, 3});
         #assert(four == 4 && three == 3);",
+    );
+}
+
+#[test]
+fn a_candidate_taking_the_argument_itself_beats_one_gathering_it_into_a_variadic() {
+    accepts(
+        "V :: struct { a: s32; }
+        add :: (item: V) -> s32 { return 1; }
+        add :: (items: ..V) -> s32 { return 2; }
+        one :: #run add(.{ a = 1 });
+        #assert(one == 1);",
     );
 }
