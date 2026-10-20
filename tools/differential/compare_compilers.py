@@ -38,12 +38,12 @@ import compare_grid                                         # noqa: E402
 import compare_rewrite                                      # noqa: E402
 import jaigen                                               # noqa: E402
 from bench.sandbox import Sandbox, environment              # noqa: E402
-from cmd_compile import install_reads                       # noqa: E402
+from bench.cmd_compile import install_reads                 # noqa: E402
 from compare_core import (CLASSES, CRASH, OK,  # noqa: E402
                           REJECTED, RUNTIME, TIMEOUT, Outcome, Program, Record, cluster_by_error, cluster_by_tag, cluster_rejections, first_error, has_diagnostic, looks_crashed,
                           reduce_lines, summarise)
-from dialects import Compiler, Mode, Request, detect_dialect  # noqa: E402
-from measure import run_measured                             # noqa: E402
+from bench.dialects import Compiler, Mode, Request, detect_dialect  # noqa: E402
+from bench.measure import run_measured                       # noqa: E402
 
 MODES = {'check': Mode.CHECK, 'interp': Mode.INTERP, 'run': Mode.BUILD, 'run-opt': Mode.OPTIMIZED}
 MAX_STDOUT = 20000
