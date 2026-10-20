@@ -68,7 +68,7 @@ base64_decode :: (input: string, table: [256] u8 = BASE64_DECODER_TABLE) -> stri
         bits += 6;
         if bits >= 8 {
             bits -= 8;
-            result.data[count] = cast,truncate(u8) (accumulator >> bits);
+            result.data[count] = cast,trunc(u8) (accumulator >> bits);
             count += 1;
             accumulator &= (1 << bits) - 1;
         }

@@ -3,7 +3,7 @@
 R :: #import "internal/watching/event-records";
 
 put :: (data: [] u8, index: int, value: u32) {
-    for shift: 0..3 data[index + shift] = cast,truncate(u8) (value >> (shift * 8));
+    for shift: 0..3 data[index + shift] = cast,trunc(u8) (value >> (shift * 8));
 }
 
 main :: () {

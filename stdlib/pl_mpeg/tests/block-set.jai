@@ -27,7 +27,7 @@ main :: () {
         expected: u8 = 0x5a;
 
         for y: 0..2 for x : 0..2 {
-            if index == 5 + y * 7 + x expected = cast,truncate(u8) (source[2 + y * 9 + x] + 37);
+            if index == 5 + y * 7 + x expected = cast,trunc(u8) (source[2 + y * 9 + x] + 37);
         }
 
         if storage[index] != expected exit(3);

@@ -130,7 +130,7 @@ CONFIG :: (speaker_config: s32) -> DSSPEAKER {
 }
 
 GEOMETRY :: (speaker_config: s32) -> u8 {
-    return cast,truncate(u8) (speaker_config >> 16);
+    return cast,trunc(u8) (speaker_config >> 16);
 }
 
 init_KSDATAFORMAT_SUBTYPE_PCM :: (dest: *GUID) {

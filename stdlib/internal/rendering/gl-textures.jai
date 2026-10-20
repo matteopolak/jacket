@@ -171,7 +171,7 @@ backend_create_render_target :: (texture: *Texture) {
         old_handle := texture.gl_handle;
         release_texture_framebuffers(old_handle);
         GL.gl.glDeleteTextures(1, *old_handle);
-        if cast,truncate(u32) previous.binding == old_handle previous.binding = cast,truncate(s32) handle;
+        if cast,trunc(u32) previous.binding == old_handle previous.binding = cast,trunc(s32) handle;
     }
 
     texture.gl_handle = handle;
@@ -264,8 +264,8 @@ restore_texture_state :: (state: GL_Texture_State) {
     GL.gl.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, state.skip_rows);
     GL.gl.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, state.skip_pixels);
     GL.gl.glPixelStorei(GL.GL_UNPACK_SWAP_BYTES, state.swap_bytes);
-    GL.gl.glBindBuffer(GL.GL_PIXEL_UNPACK_BUFFER, cast,truncate(u32) state.unpack_buffer);
-    GL.gl.glBindTexture(GL.GL_TEXTURE_2D, cast,truncate(u32) state.binding);
+    GL.gl.glBindBuffer(GL.GL_PIXEL_UNPACK_BUFFER, cast,trunc(u32) state.unpack_buffer);
+    GL.gl.glBindTexture(GL.GL_TEXTURE_2D, cast,trunc(u32) state.binding);
 }
 
 upload_bitmap :: (texture: *Texture, bitmap: *Bitmap) -> bool {
@@ -341,7 +341,7 @@ upload_bitmap :: (texture: *Texture, bitmap: *Bitmap) -> bool {
     if old_handle != 0 {
         release_texture_framebuffers(old_handle);
         GL.gl.glDeleteTextures(1, *old_handle);
-        if cast,truncate(u32) previous.binding == old_handle previous.binding = cast,truncate(s32) handle;
+        if cast,trunc(u32) previous.binding == old_handle previous.binding = cast,trunc(s32) handle;
     }
 
     texture.* = .{};

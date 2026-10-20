@@ -210,7 +210,7 @@ nat_from :: (value: u64) -> Natural {
     result: Natural;
 
     if value != 0 {
-        array_add(*result.words, cast, truncate(u32) value);
+        array_add(*result.words, cast,trunc(u32) value);
         if value >> 32 != 0 array_add(*result.words, cast(u32) (value >> 32));
     }
 
@@ -232,7 +232,7 @@ nat_multiply :: (value: *Natural, factor: u32) {
 
     for *word: value.words {
         product := (cast(u64) word.*) * cast(u64) factor + carry;
-        word.* = cast,truncate(u32) product;
+        word.* = cast,trunc(u32) product;
         carry = product >> 32;
     }
 
@@ -244,7 +244,7 @@ nat_add :: (value: *Natural, amount: u32) {
 
     for *word: value.words {
         sum := cast(u64) word.* + carry;
-        word.* = cast,truncate(u32) sum;
+        word.* = cast,trunc(u32) sum;
         carry = sum >> 32;
         if carry == 0 return;
     }
@@ -273,7 +273,7 @@ nat_shift :: (value: *Natural, bits: s64) {
 
     for i: whole..old + whole - 1 {
         word := ((cast(u64) value.words[i]) << part) | carry;
-        value.words[i] = cast,truncate(u32) word;
+        value.words[i] = cast,trunc(u32) word;
         carry = word >> 32;
     }
 
@@ -303,7 +303,7 @@ nat_subtract :: (a: *Natural, b: Natural) {
 
         original := cast(u64) word.*;
 
-        word.* = cast,truncate(u32) (0x100000000 + original - sub);
+        word.* = cast,trunc(u32) (0x100000000 + original - sub);
         borrow = ifx original < sub then cast(u64) 1 else 0;
     }
 
@@ -498,7 +498,7 @@ word_at :: (text: string, cursor: s64, word: string) -> bool {
 float_bits :: (bits: u64, $T: Type) -> T {
     #if T == float64 return (cast(*float64) *bits).*;
     else {
-        narrow := cast,truncate(u32) bits;
+        narrow := cast,trunc(u32) bits;
         return (cast(*float32) *narrow).*;
     }
 }

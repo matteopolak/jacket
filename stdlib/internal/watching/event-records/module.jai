@@ -12,7 +12,7 @@ inotify_record :: (data: [] u8, cursor: s64) -> Record, next: s64, valid: bool {
     length := read_u32(data, cursor + 12);
     if cast(s64) length > data.count - cursor - 16 return .{}, cursor, false;
 
-    result := Record.{ descriptor = cast,truncate(s32) read_u32(data, cursor), flags = read_u32(data, cursor + 4), cookie = read_u32(data, cursor + 8) };
+    result := Record.{ descriptor = cast,trunc(s32) read_u32(data, cursor), flags = read_u32(data, cursor + 4), cookie = read_u32(data, cursor + 8) };
 
     if length > 0 {
         size: s64;

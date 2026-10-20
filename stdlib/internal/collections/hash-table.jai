@@ -268,7 +268,7 @@ Walk_Table :: (code: Code) #expand {
     `hash: u32 = `table.hash_function(`key);
     if `hash < FIRST_VALID_HASH `hash += FIRST_VALID_HASH;
 
-    `index: u32 = `hash & cast,truncate(u32) (`table.allocated - 1);
+    `index: u32 = `hash & cast,trunc(u32) (`table.allocated - 1);
     first_probe := true;
     while `table_while_loop := walk_probe_hash(`table, *`index, *first_probe) {
         #insert code;
@@ -282,7 +282,7 @@ Hash :: #import "Hash";
 // Advance at the next condition evaluation: continue advances, break does not.
 walk_probe_hash :: inline (table: $T, index: *u32, first: *bool) -> u32 {
     if first.* first.* = false;
-    else index.* = cast,truncate(u32) ((cast(u64) index.* + 1) & cast(u64) (table.allocated - 1));
+    else index.* = cast,trunc(u32) ((cast(u64) index.* + 1) & cast(u64) (table.allocated - 1));
     return table.entries[index.*].hash;
 }
 

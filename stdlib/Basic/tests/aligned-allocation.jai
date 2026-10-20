@@ -33,7 +33,7 @@ main :: () {
     assert(cast(u64) values.data % 256 == 0 && values[6].value == 0);
     free(base);
     memory := cast(*u8) alloc(1024);
-    for i: 0..1023 memory[i] = cast,truncate(u8) i;
+    for i: 0..1023 memory[i] = cast,trunc(u8) i;
 
     memory = cast(*u8) realloc(memory, 33, 1024);
     assert(memory != null);

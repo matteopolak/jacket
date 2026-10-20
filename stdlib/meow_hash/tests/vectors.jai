@@ -34,7 +34,7 @@ main :: () {
     input, base := NewArray(8192, u8, alignment = 4096);
 
     defer free(base);
-    for 0..8191 input[it] = cast,truncate(u8) (it * 73 + 19);
+    for 0..8191 input[it] = cast,trunc(u8) (it * 73 + 19);
 
     saved_seed := M.MeowDefaultSeed[0];
     saved_mask := M.MeowMaskLen[13];

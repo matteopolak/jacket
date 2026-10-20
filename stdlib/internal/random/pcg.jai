@@ -2,7 +2,7 @@ random_get :: (state: *u64) -> u32 #no_aoc {
     old := state.*;
 
     state.* = old * 6364136223846793005 + 1442695040888963407;
-    value := cast,truncate(u32) (((old >> 18) ^ old) >> 27);
+    value := cast,trunc(u32) (((old >> 18) ^ old) >> 27);
     rotation := cast(u32) (old >> 59);
 
     return (value >> rotation) | (value << ((0 - rotation) & 31));

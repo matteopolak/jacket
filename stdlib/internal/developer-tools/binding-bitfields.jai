@@ -222,18 +222,18 @@ binding_bitfield_accessors :: (builder: *String_Builder, group: *Bitfield, scope
         }
 
         if member.bitfield_width == 1 append(builder, " return bits != 0;\n}\n");
-        else print_to_builder(builder, " return cast,truncate(%) bits;\n}\n", value_type);
+        else print_to_builder(builder, " return cast,trunc(%) bits;\n}\n", value_type);
 
         print_to_builder(builder, "set_%% :: (fields: *%, value: %) {\n bits := cast(u64) value;\n", name_prefix, member.output_name, scope_name, value_type);
 
         for bit: 0..member.bitfield_width - 1 {
             position := start + bit;
-            if array print_to_builder(builder, " fields.%%[%] = cast,truncate(u8) ((cast(u64) fields.%%[%] & ~(cast(u64) 1 << %)) | (((bits >> %) & 1) << %));\n", access_prefix, group.output_name, position / 8, access_prefix, group.output_name, position / 8, position % 8, bit, position % 8);
+            if array print_to_builder(builder, " fields.%%[%] = cast,trunc(u8) ((cast(u64) fields.%%[%] & ~(cast(u64) 1 << %)) | (((bits >> %) & 1) << %));\n", access_prefix, group.output_name, position / 8, access_prefix, group.output_name, position / 8, position % 8, bit, position % 8);
             else {
                 storage_type := type_to_string(group.type, cast(*Declaration) scope);
                 defer free(storage_type);
                 if !storage_type return false;
-                print_to_builder(builder, " fields.%% = cast,truncate(%) ((cast(u64) fields.%% & ~(cast(u64) 1 << %)) | (((bits >> %) & 1) << %));\n", access_prefix, group.output_name, storage_type, access_prefix, group.output_name, position, bit, position);
+                print_to_builder(builder, " fields.%% = cast,trunc(%) ((cast(u64) fields.%% & ~(cast(u64) 1 << %)) | (((bits >> %) & 1) << %));\n", access_prefix, group.output_name, storage_type, access_prefix, group.output_name, position, bit, position);
             }
         }
 

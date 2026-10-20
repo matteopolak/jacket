@@ -46,7 +46,7 @@ parse_int :: (line: *string, $T: Type = int, spaces := " \t", delimiters := DEFA
     token, ok := parse_token(line, delimiters, spaces);
     if !ok return cast(T) 0, false;
     value, valid, rest := string_to_int(token);
-    return cast,truncate(T) value, valid && rest.count == 0;
+    return cast,trunc(T) value, valid && rest.count == 0;
 }
 
 parse_float :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: float, success: bool {

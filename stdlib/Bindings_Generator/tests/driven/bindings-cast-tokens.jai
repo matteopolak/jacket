@@ -67,7 +67,7 @@ main :: () {
             defer free(text);
 
             if index == 0 {
-                assert(contains(text, "cast,truncate(s32)"));
+                assert(contains(text, "cast,trunc(s32)"));
                 enumeration: B.Enum;
                 enumeration.type = generator.type_def_s32;
                 stripped, stripped_last := B.maybe_append_cast(*builder, tokens, 1, *enumeration);

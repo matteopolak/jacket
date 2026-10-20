@@ -16,7 +16,7 @@ check_frames :: (encoded: string, channels: s32, expected: [] u8) {
         entry := 6 + 16 * index;
         bytes := 40 + 2 * size * size * channels + 2 * ((size * size) / 4);
 
-        assert(encoded[entry] == cast,truncate(u8) size && encoded[entry + 1] == cast,truncate(u8) size);
+        assert(encoded[entry] == cast,trunc(u8) size && encoded[entry + 1] == cast,trunc(u8) size);
         assert(encoded[entry + 2] == 0 && encoded[entry + 3] == 0);
         assert(encoded[entry + 4] == 1 && encoded[entry + 6] == channels * 8);
         assert(u32_at(encoded, entry + 8) == cast(u32) bytes && u32_at(encoded, entry + 12) == offset);

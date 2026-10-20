@@ -33,11 +33,11 @@ range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -
         }
 
         lo, hi := unsigned_integer_range_from_size(info.runtime_size);
-        if value < 0 || cast(u64) value > hi return false, cast(T) lo, cast, truncate(T) hi;
+        if value < 0 || cast(u64) value > hi return false, cast(T) lo, cast,trunc(T) hi;
 
         store_integer(pointer, info.runtime_size, cast(u64) value);
 
-        return true, cast(T) lo, cast, truncate(T) hi;
+        return true, cast(T) lo, cast,trunc(T) hi;
     }
 }
 
@@ -163,11 +163,11 @@ S :: #import "String";
 #scope_file
 store_integer :: (pointer: *void, size: s64, value: u64) {
     if size == 1 {
-        (cast(*u8) pointer).* = cast,truncate(u8) value;
+        (cast(*u8) pointer).* = cast,trunc(u8) value;
     } else if size == 2 {
-        (cast(*u16) pointer).* = cast,truncate(u16) value;
+        (cast(*u16) pointer).* = cast,trunc(u16) value;
     } else if size == 4 {
-        (cast(*u32) pointer).* = cast,truncate(u32) value;
+        (cast(*u32) pointer).* = cast,trunc(u32) value;
     } else {
         assert(size == 8);
         (cast(*u64) pointer).* = value;

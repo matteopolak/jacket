@@ -55,7 +55,7 @@ write_relative_pointer :: ($type: Type, pointer_address: *void, base_address: *v
     displacement := cast(s64) target_address - cast(s64) base_address;
     encoded := displacement ^ signed_mask(cast(s32) size_of(type));
 
-    (cast(*type) pointer_address).* = cast,truncate(type) encoded;
+    (cast(*type) pointer_address).* = cast,trunc(type) encoded;
 }
 
 #scope_file

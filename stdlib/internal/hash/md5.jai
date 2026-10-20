@@ -7,7 +7,7 @@ md5 :: (input: string) -> string #no_aoc {
     memcpy(buffer.data, input.data, input.count);
     buffer.data[input.count] = 128;
     bit_count := (cast(u64) input.count) * 8;
-    for i: 0..7 buffer.data[length - 8 + i] = cast,truncate(u8) (bit_count >> (i * 8));
+    for i: 0..7 buffer.data[length - 8 + i] = cast,trunc(u8) (bit_count >> (i * 8));
 
     state: [4] u32 = .[0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
 

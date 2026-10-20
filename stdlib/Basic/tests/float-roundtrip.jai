@@ -15,7 +15,7 @@ main :: () #no_aoc {
         parsed, success, remainder := string_to_float64(text);
 
         assert(success && remainder.count == 0 && (cast(*u64) *parsed).* == bits);
-        narrow := cast,truncate(u32) (state >> 17);
+        narrow := cast,trunc(u32) (state >> 17);
         if ((narrow >> 23) & 0xff) == 0xff narrow ^= 0x00800000;
 
         single := (cast(*float32) *narrow).*;

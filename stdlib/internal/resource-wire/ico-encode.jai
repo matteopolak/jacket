@@ -39,8 +39,8 @@ create_ico_file :: (x: s32, y: s32, comp: s32, image_data: *u8) -> string {
     for size, index: sizes {
         length := get_total_bytes_for_size(comp, size);
         entry := 6 + 16 * index;
-        result.data[entry] = cast,truncate(u8) size;
-        result.data[entry + 1] = cast,truncate(u8) size;
+        result.data[entry] = cast,trunc(u8) size;
+        result.data[entry + 1] = cast,trunc(u8) size;
         Wire.store_u16(result.data, entry + 4, 1);
         Wire.store_u16(result.data, entry + 6, cast(u16) (comp * 8));
         Wire.store_u32(result.data, entry + 8, cast(u32) length);

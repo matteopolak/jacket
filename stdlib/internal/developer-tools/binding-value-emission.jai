@@ -119,7 +119,7 @@ binding_append_token_cast :: (builder: *String_Builder, tokens: [] CXToken, star
     underlying := strip_type(type, typedefs = true, enums = true);
     truncate := !stars && !function_pointer && underlying && underlying.number_flags != 0 && !(underlying.number_flags & .FLOAT) && index + 1 < tokens.count && (is_token(tokens[index + 1], "-") || is_token(tokens[index + 1], "~"));
 
-    append(*fragment, ifx truncate then "cast,truncate(" else "cast(");
+    append(*fragment, ifx truncate then "cast,trunc(" else "cast(");
 
     if function_pointer {
         if !jai_model_type(*fragment, generator.type_def_ptr_void, null, 0, 0) return false, -1;

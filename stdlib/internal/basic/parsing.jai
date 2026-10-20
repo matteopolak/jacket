@@ -42,7 +42,7 @@ string_to_int :: (t: string, base := 10, $T := int) -> result: T, success: bool,
     if cursor == start return 0, false, t;
     if negative value = 0 - value;
 
-    return cast,truncate(T) value, true, advance(t, cursor);
+    return cast,trunc(T) value, true, advance(t, cursor);
 } @UseResult
 
 to_integer :: (s: string) -> result: int, success: bool, remainder: string {

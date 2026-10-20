@@ -51,7 +51,7 @@ BLOCK_SET :: (dest: *u8, dest_width: s32, source_width: s32, block_size: s32, co
     while row < side {
         column: s32 = 0;
         while column < side {
-            target[`di] = cast,truncate(u8) (#insert code);
+            target[`di] = cast,trunc(u8) (#insert code);
             `di += 1;
             `si += 1;
             column += 1;

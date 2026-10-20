@@ -30,13 +30,13 @@ main :: () {
             reserved, packet := C.writer_reserve_message(*writer, length);
 
             assert(reserved);
-            for i: 0..length - 1 packet.user_write_pointer[i] = cast,truncate(u8) (sequence + i);
+            for i: 0..length - 1 packet.user_write_pointer[i] = cast,trunc(u8) (sequence + i);
 
             assert(C.writer_commit_message(*writer, packet));
             found, fatal, message := C.reader_poll_for_message(*reader);
 
             assert(found && !fatal && message.user_read_bytes == length);
-            for i: 0..length - 1 assert(message.user_read_pointer[i] == cast,truncate(u8) (sequence + i));
+            for i: 0..length - 1 assert(message.user_read_pointer[i] == cast,trunc(u8) (sequence + i));
 
             assert(C.reader_done_with_message(*message));
         }

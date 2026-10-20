@@ -42,7 +42,7 @@ knuth_hash :: inline (x: u64) -> u64 #no_aoc {
 }
 
 get_hash :: (s: string, h := HASH_INIT) -> u32 {
-    return cast,truncate(u32) fnv1a_hash(s.data, s.count, cast(u64) h);
+    return cast,trunc(u32) fnv1a_hash(s.data, s.count, cast(u64) h);
 }
 
 get_hash :: (array: [] $T, h := HASH_INIT) -> u32 {

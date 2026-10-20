@@ -17,7 +17,7 @@ main :: () {
 
     assert(cast(float64) floating == 1.5);
     assert("héllo".count == 6);
-    converted := cast,truncate(s32) -3;
+    converted := cast,trunc(s32) -3;
 
     assert(converted == -3);
     assert(RenamedArithmetic == 42);

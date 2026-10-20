@@ -190,7 +190,7 @@ read_pcm_sample :: inline (samples: *s16, index: s64) -> s16 {
     high := cast(u32) bytes[1];
     bits := low | (high << 8);
 
-    return cast(s16) cast,truncate(u16) bits;
+    return cast(s16) cast,trunc(u16) bits;
 }
 
 fmod :: (x: float64, y: float64) -> float64 {

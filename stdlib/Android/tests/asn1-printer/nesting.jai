@@ -15,7 +15,7 @@ main :: () {
         bytes[cursor] = 0x30;
         bytes[cursor + 1] = 0x82;
         bytes[cursor + 2] = cast(u8) (count >> 8);
-        bytes[cursor + 3] = cast,truncate(u8) count;
+        bytes[cursor + 3] = cast,trunc(u8) count;
     }
 
     assert(cursor == 0);

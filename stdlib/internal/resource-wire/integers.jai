@@ -1,14 +1,14 @@
 store_u16 :: (data: *u8, offset: s64, value: u16) {
-    data[offset] = cast,truncate(u8) value;
-    data[offset + 1] = cast,truncate(u8) (value >> 8);
+    data[offset] = cast,trunc(u8) value;
+    data[offset + 1] = cast,trunc(u8) (value >> 8);
 }
 
 store_u32 :: (data: *u8, offset: s64, value: u32) {
-    for byte: 0..3 data[offset + byte] = cast,truncate(u8) (value >> (byte * 8));
+    for byte: 0..3 data[offset + byte] = cast,trunc(u8) (value >> (byte * 8));
 }
 
 store_u64 :: (data: *u8, offset: s64, value: u64) {
-    for byte: 0..7 data[offset + byte] = cast,truncate(u8) (value >> (byte * 8));
+    for byte: 0..7 data[offset + byte] = cast,trunc(u8) (value >> (byte * 8));
 }
 
 contains_extent :: (data: string, offset: s64, count: s64) -> bool {

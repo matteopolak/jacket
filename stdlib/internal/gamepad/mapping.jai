@@ -17,7 +17,7 @@ get_guid_string :: (bustype: s16, vendor: s16, product: s16, version: s16) -> te
     result := talloc_string(32);
     for i: 0..31 result[i] = #char "0";
 
-    values := u16.[cast,truncate(u16) bustype, cast,truncate(u16) vendor, cast,truncate(u16) product, cast,truncate(u16) version];
+    values := u16.[cast,trunc(u16) bustype, cast,trunc(u16) vendor, cast,trunc(u16) product, cast,trunc(u16) version];
     for value, i: values {
         offset := i * 8;
         result[offset] = hex_digits[(value >> 4) & 15];

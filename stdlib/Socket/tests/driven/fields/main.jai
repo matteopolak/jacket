@@ -17,7 +17,7 @@ main :: () {
         assert(read_word(bytes.data + 8) == size_of(S.tcphdr) && read_word(bytes.data + 12) == size_of(S.tcp_connection_info));
 
         for i: 0..255 {
-            scaled := cast,truncate(u32) (cast(u64) i * 0x01054321);
+            scaled := cast,trunc(u32) (cast(u64) i * 0x01054321);
             pattern := scaled ^ 0xa5c31f00;
             packet: S.tcphdr;
 

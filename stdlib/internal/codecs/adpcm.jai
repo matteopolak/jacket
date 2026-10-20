@@ -60,8 +60,8 @@ IMA_ADPCM_decode :: (info: Adpcm_Info, input_block: [] u8, dest_buffer: [] u8) -
             offset := source + c * 4;
             sample := cast(u32) input_block[offset];
             sample |= (cast(u32) input_block[offset + 1]) << 8;
-            states[c].sample = cast(s32) cast(s16) cast,truncate(u16) sample;
-            states[c].index = cast,truncate(s8) input_block[offset + 2];
+            states[c].sample = cast(s32) cast(s16) cast,trunc(u16) sample;
+            states[c].index = cast,trunc(s8) input_block[offset + 2];
             store_sample(dest_buffer, written + cast(s32) c * 2, states[c].sample);
         }
 
@@ -107,6 +107,6 @@ index_table: [16] s8 : .[
 #import "Basic";
 
 store_sample :: (dest: [] u8, offset: s32, sample: s32) {
-    dest[offset] = cast,truncate(u8) sample;
-    dest[offset + 1] = cast,truncate(u8) (sample >> 8);
+    dest[offset] = cast,trunc(u8) sample;
+    dest[offset + 1] = cast,trunc(u8) (sample >> 8);
 }

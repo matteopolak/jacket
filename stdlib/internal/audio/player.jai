@@ -344,8 +344,8 @@ fill_sample_buffer :: (buffer: string) {
                 record_history_sample(channel, value);
                 sample := cast(s16) clamp(value * 32768.0, -32768.0, 32767.0);
                 byte_offset := offset + (frame * channels + channel) * 2;
-                buffer[byte_offset] = cast,truncate(u8) sample;
-                buffer[byte_offset + 1] = cast,truncate(u8) (sample >> 8);
+                buffer[byte_offset] = cast,trunc(u8) sample;
+                buffer[byte_offset + 1] = cast,trunc(u8) (sample >> 8);
             }
 
             finish_history_frame();

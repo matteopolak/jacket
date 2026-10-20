@@ -25,7 +25,7 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
 
     clear_last_error(0);
     mapping = W.CreateFileMappingW(W.INVALID_HANDLE_VALUE, null, W.PAGE_READWRITE,
-                                  cast,truncate(u32) (extent_bits >> 32), cast,truncate(u32) extent_bits, wide);
+                                  cast,trunc(u32) (extent_bits >> 32), cast,trunc(u32) extent_bits, wide);
     if !mapping || cast(u32) W.GetLastError() == W.ERROR_ALREADY_EXISTS return false, .{};
 
     view = W.MapViewOfFile(mapping, W.FILE_MAP_ALL_ACCESS, 0, 0, 0);
