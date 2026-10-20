@@ -65,7 +65,7 @@ impl Compiler {
             Operand::Const {
                 ty, ..
             } if matches!(
-                self.types.kind(ty),
+                self.ty.types.kind(ty),
                 TypeKind::Array {
                     kind: ArrayKind::Fixed(_),
                     ..
@@ -75,7 +75,7 @@ impl Compiler {
                 let TypeKind::Array {
                     kind: ArrayKind::Fixed(n),
                     ..
-                } = *self.types.kind(ty)
+                } = *self.ty.types.kind(ty)
                 else {
                     unreachable!()
                 };
@@ -85,19 +85,19 @@ impl Compiler {
         }
         let ty = base.ty();
         // `value.MEMBER` on an enum value yields the member constant (`flags.POLYMORPHIC`).
-        if matches!(self.types.kind(ty), TypeKind::Enum(_)) && self.type_has_member(ty, name)? {
+        if matches!(self.ty.types.kind(ty), TypeKind::Enum(_)) && self.type_has_member(ty, name)? {
             return self.type_member(f, scope, ty, name, span);
         }
         // Fixed arrays: count is constant, data is the base address.
         if let TypeKind::Array {
             elem,
             kind: ArrayKind::Fixed(n),
-        } = *self.types.kind(self.types.repr(ty))
+        } = *self.ty.types.kind(self.ty.types.repr(ty))
         {
             match name.as_str() {
                 "count" => return Ok(Operand::untyped_int(n as i128)),
                 "data" => {
-                    let p = self.types.pointer(elem);
+                    let p = self.ty.types.pointer(elem);
                     // An empty array has no storage: its data is null, as for an empty view.
                     if n == 0 {
                         return Ok(Operand::Const {
@@ -116,11 +116,11 @@ impl Compiler {
             }
         }
         // Auto-dereference one level of pointer to struct.
-        let (target, addr) = match self.types.pointee(ty) {
+        let (target, addr) = match self.ty.types.pointee(ty) {
             Some(p)
                 if p != TypeId::VOID
                     && !matches!(
-                        self.types.kind(p),
+                        self.ty.types.kind(p),
                         TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::Bool
                     ) =>
             {
@@ -140,12 +140,12 @@ impl Compiler {
         if let TypeKind::Array {
             kind: ArrayKind::Fixed(n),
             elem,
-        } = *self.types.kind(target)
+        } = *self.ty.types.kind(target)
         {
             return match name.as_str() {
                 "count" => Ok(Operand::untyped_int(n as i128)),
                 "data" => {
-                    let p = self.types.pointer(elem);
+                    let p = self.ty.types.pointer(elem);
                     Ok(Operand::Value {
                         ty: p,
                         val: addr,
@@ -190,19 +190,19 @@ impl Compiler {
             return Ok(None);
         };
         let key = (scope, decl.id);
-        if let Some(filter) = self.field_filter_cache.get(&key) {
+        if let Some(filter) = self.ty.field_filter_cache.get(&key) {
             return Ok(Some(filter.clone()));
         }
-        if !self.field_filter_pending.insert(key) {
+        if !self.ty.field_filter_pending.insert(key) {
             return err(decl.span, "cycle in struct using filters");
         }
         let result = self.filter_using_entry(scope, scope::UsingEntry::Type(ty), filter, decl.span);
-        self.field_filter_pending.remove(&key);
+        self.ty.field_filter_pending.remove(&key);
         let resolved = match result? {
             scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
             _ => filter.clone(),
         };
-        self.field_filter_cache.insert(key, resolved.clone());
+        self.ty.field_filter_cache.insert(key, resolved.clone());
         Ok(Some(resolved))
     }
 
@@ -215,14 +215,15 @@ impl Compiler {
         let ScopeKind::Struct(owner_ty) = self.scope(scope).kind else {
             return Ok(None);
         };
-        let owner = self.types.as_struct(owner_ty).unwrap();
+        let owner = self.ty.types.as_struct(owner_ty).unwrap();
         let candidates = self
+            .ty
             .field_using_order
             .get(&scope)
             .cloned()
             .unwrap_or_else(|| {
                 // Before conditional/insert expansion, only direct declarations are available.
-                self.struct_asts[&owner]
+                self.ty.struct_asts[&owner]
                     .lit
                     .body
                     .iter()
@@ -253,7 +254,7 @@ impl Compiler {
             if let Some((_, member_ty, _)) =
                 self.find_promoted_member(vec![(ty, 0, target)], span, &mut vec![owner])?
             {
-                self.ide_note_member_use(span, self.types.pointee(ty).unwrap_or(ty), target);
+                self.ide_note_member_use(span, self.ty.types.pointee(ty).unwrap_or(ty), target);
                 return Ok(Some(member_ty));
             }
         }
@@ -266,14 +267,15 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Result<Option<TypeId>> {
-        let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) else {
+        let Some(s) = self.ty.types.as_struct(self.ty.types.repr_struct(ty)) else {
             return Ok(None);
         };
-        if self.types.struct_info(s).layout != LayoutState::InProgress {
+        if self.ty.types.struct_info(s).layout != LayoutState::InProgress {
             return Ok(None);
         }
-        let scope = self.struct_asts[&s].scope;
+        let scope = self.ty.struct_asts[&s].scope;
         let Some(decl) = self
+            .ty
             .field_declarations
             .get(&scope)
             .and_then(|fields| fields.get(&name))
@@ -307,19 +309,19 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         // `array.type` where `array: *Struct(...)` is bound as a type (implicit polymorphs).
-        if let Some(p) = self.types.pointee(t)
-            && self.types.as_struct(p).is_some()
+        if let Some(p) = self.ty.types.pointee(t)
+            && self.ty.types.as_struct(p).is_some()
             && let Some(ids) = self.struct_constant(p, name)?
         {
             self.ide_note_constant_use(span, &ids);
             return self.entities_operand(f, scope, &ids, span);
         }
-        match self.types.kind(t).clone() {
+        match self.ty.types.kind(t).clone() {
             TypeKind::Enum(_) if name.as_str() == "loose" => {
-                Ok(Operand::Type(self.types.loose_enum(t)))
+                Ok(Operand::Type(self.ty.types.loose_enum(t)))
             }
             TypeKind::Enum(e) => {
-                if let Some(&member_scope) = self.enum_member_scopes.get(&t)
+                if let Some(&member_scope) = self.ty.enum_member_scopes.get(&t)
                     && let Some(ids) = self.scope(member_scope).names.get(&name).cloned()
                     && ids
                         .iter()
@@ -328,6 +330,7 @@ impl Compiler {
                     return self.entities_operand(f, member_scope, &ids, span);
                 }
                 if let Some(&(_, v)) = self
+                    .ty
                     .types
                     .enum_info(e)
                     .members
@@ -359,7 +362,7 @@ impl Compiler {
                     span,
                     format!(
                         "type {} has no constant member `{name}`",
-                        self.types.name(t)
+                        self.ty.types.name(t)
                     ),
                 )
             }
@@ -368,7 +371,7 @@ impl Compiler {
                 ..
             } if name.as_str() == "count" => Ok(Operand::untyped_int(n as i128)),
             TypeKind::Distinct(d) => {
-                let base = self.types.distincts[d.0 as usize].base;
+                let base = self.ty.types.distincts[d.0 as usize].base;
                 self.type_member(f, scope, base, name, span)
             }
             _ => Err(Box::new(self.no_member(t, name, span))),

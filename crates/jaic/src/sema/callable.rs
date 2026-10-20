@@ -128,7 +128,7 @@ impl Compiler {
             E::Member(base, member) => {
                 if let Some(ty) = self.callable_source_type(scope, base)? {
                     return self.callable_member_parameters(
-                        self.types.pointee(ty).unwrap_or(ty),
+                        self.ty.types.pointee(ty).unwrap_or(ty),
                         member.name,
                         member.span,
                     );
@@ -139,7 +139,7 @@ impl Compiler {
                     && let Some(ty) = entry.member_type()
                 {
                     return self.callable_member_parameters(
-                        self.types.pointee(ty).unwrap_or(ty),
+                        self.ty.types.pointee(ty).unwrap_or(ty),
                         member,
                         expression.span,
                     );
@@ -180,7 +180,7 @@ impl Compiler {
         expression: &ast::Expr,
     ) -> Result<Option<TypeId>> {
         if matches!(expression.kind, E::Context) {
-            return Ok(self.context_type);
+            return Ok(self.ty.context_type);
         }
         if let Some(entity) = self.callable_source_entity(scope, expression)? {
             if let EntityKind::Local {
@@ -208,7 +208,7 @@ impl Compiler {
         {
             return Ok(self
                 .find_member(
-                    self.types.pointee(ty).unwrap_or(ty),
+                    self.ty.types.pointee(ty).unwrap_or(ty),
                     member.name,
                     member.span,
                 )?

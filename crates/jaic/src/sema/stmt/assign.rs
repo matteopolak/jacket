@@ -26,8 +26,13 @@ impl Compiler {
             return Ok(false);
         };
         let bt = probe.ty();
-        let st = self.types.pointee(bt).unwrap_or(bt);
-        if self.types.as_struct(self.types.repr_struct(st)).is_none() {
+        let st = self.ty.types.pointee(bt).unwrap_or(bt);
+        if self
+            .ty
+            .types
+            .as_struct(self.ty.types.repr_struct(st))
+            .is_none()
+        {
             return Ok(false);
         }
         let mut setters = self.operator_candidates(scope, "[]=")?;
@@ -38,8 +43,8 @@ impl Compiler {
             return Ok(false);
         }
         let base_op = self.check_expr(f, scope, base, None)?;
-        let ptr_ty = self.types.pointer(st);
-        let ptr = if self.types.is_pointer(bt) {
+        let ptr_ty = self.ty.types.pointer(st);
+        let ptr = if self.ty.types.is_pointer(bt) {
             let (_, v) = self.rvalue(f, base_op, base.span)?;
             v
         } else {
@@ -126,7 +131,7 @@ impl Compiler {
         let Some(param_ty) = lit.header.params.first().and_then(|p| p.ty.clone()) else {
             return false;
         };
-        let pointer = self.types.pointer(ty);
+        let pointer = self.ty.types.pointer(ty);
         if procs::has_poly(&param_ty)
             || self.mentions_poly_struct(scope, &param_ty).unwrap_or(false)
         {
@@ -179,7 +184,7 @@ impl Compiler {
             scope,
         };
         let ptr = Operand::Value {
-            ty: self.types.pointer(ty),
+            ty: self.ty.types.pointer(ty),
             val: addr,
         };
         let by_ptr = vec![arg(ptr), arg(value.clone())];
@@ -233,7 +238,7 @@ impl Compiler {
             scope,
         };
         let ptr = Operand::Value {
-            ty: self.types.pointer(ty),
+            ty: self.ty.types.pointer(ty),
             val: addr,
         };
         let by_ptr = vec![arg(ptr), arg(value.clone())];
@@ -264,7 +269,7 @@ impl Compiler {
                 .backtick_scope
                 .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
             let operand = self.check_expr(&mut scratch, scope, base, None)?;
-            if self.types.is_pointer(operand.ty()) {
+            if self.ty.types.is_pointer(operand.ty()) {
                 return Ok(());
             }
             if let Operand::Const {
@@ -299,7 +304,7 @@ impl Compiler {
             return true;
         }
         match self.check_expr_no_emit(scope, root) {
-            Ok(op) => !self.types.is_pointer(op.ty()),
+            Ok(op) => !self.ty.types.is_pointer(op.ty()),
             Err(_) => false,
         }
     }
@@ -359,7 +364,7 @@ impl Compiler {
                 return Ok(());
             }
             let inner = self.new_block_scope(scope);
-            let ptr_ty = self.types.pointer(ty);
+            let ptr_ty = self.ty.types.pointer(ty);
             let slot = self.spill(f, ptr_ty, addr, span)?;
             let tmp = Sym::intern("\u{0}lhs");
             let depth = self.scope(inner).proc_depth;

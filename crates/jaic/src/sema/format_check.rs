@@ -63,7 +63,7 @@ impl Compiler {
             w[0].ty == TypeId::STRING
                 && w[1].variadic
                 && matches!(
-                    self.types.kind(w[1].ty),
+                    self.ty.types.kind(w[1].ty),
                     TypeKind::Array {
                         elem: TypeId::ANY,
                         kind: ArrayKind::View,

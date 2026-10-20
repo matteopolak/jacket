@@ -178,7 +178,7 @@ impl Compiler {
             callee, ..
         } = &expr.kind
             && let Operand::Type(t) = op
-            && matches!(self.types.kind(*t), TypeKind::Struct(_))
+            && matches!(self.ty.types.kind(*t), TypeKind::Struct(_))
         {
             let name = match &callee.kind {
                 ast::ExprKind::Ident(_) => Some(callee.span),

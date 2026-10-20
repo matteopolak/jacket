@@ -7,7 +7,7 @@ use crate::types::TypeId;
 impl Compiler {
     pub(in crate::sema) fn declare_builtins(&mut self) {
         let root = self.root_scope;
-        let register = self.types.new_distinct(crate::types::DistinctInfo {
+        let register = self.ty.types.new_distinct(crate::types::DistinctInfo {
             name: Sym::intern("__reg"),
             base: TypeId::U16,
             isa: false,

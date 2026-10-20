@@ -213,7 +213,7 @@ impl Compiler {
             let typed = typed
                 .iter()
                 .find(|(n, _)| *n == name)
-                .map(|&(_, t)| (t, self.types.kind(self.types.repr(t)).clone()));
+                .map(|&(_, t)| (t, self.ty.types.kind(self.ty.types.repr(t)).clone()));
             if sizes.contains(&name) {
                 out.push((name, Value::Int(1), TypeId::S64));
             } else if let Some((
@@ -278,7 +278,7 @@ impl Compiler {
                 continue;
             }
             let ty = self.eval_type(scope, param.ty.as_ref()?).ok()?;
-            let value = match self.types.kind(self.types.repr(ty)) {
+            let value = match self.ty.types.kind(self.ty.types.repr(ty)) {
                 TypeKind::Type => Value::Type(self.ide_stand_in(name.name, name.span, scope)),
                 TypeKind::Int {
                     ..
@@ -318,7 +318,7 @@ impl Compiler {
         scope: ScopeId,
         span: Span,
     ) -> Option<TypeId> {
-        let lit = self.poly_structs[ps.0 as usize].lit.clone();
+        let lit = self.ty.poly_structs[ps.0 as usize].lit.clone();
         let mut args: Vec<(Option<Sym>, Operand)> = Vec::new();
         for (i, param) in lit.params.iter().enumerate() {
             let name = param.name?;
@@ -326,7 +326,7 @@ impl Compiler {
                 continue;
             }
             let ty = self.poly_struct_param_type(ps, i, None)?;
-            let op = match self.types.kind(self.types.repr(ty)) {
+            let op = match self.ty.types.kind(self.ty.types.repr(ty)) {
                 TypeKind::Type => Operand::Type(self.ide_stand_in(name.name, name.span, scope)),
                 TypeKind::Int {
                     ..
@@ -348,9 +348,9 @@ impl Compiler {
     /// Check a sketch of every polymorphic struct of the recorded files that has no instance,
     /// so its parameters and the uses of them in its body have the facts an instance gives.
     fn ide_sketch_structs(&mut self) {
-        for i in 0..self.poly_structs.len() {
+        for i in 0..self.ty.poly_structs.len() {
             let ps = PolyStructId(i as u32);
-            let p = &self.poly_structs[i];
+            let p = &self.ty.poly_structs[i];
             let (file, scope) = (p.lit.span.file, p.scope);
             if p.origin.is_some()
                 || !p.instances.is_empty()
@@ -360,7 +360,7 @@ impl Compiler {
             {
                 continue;
             }
-            let span = self.poly_structs[i].lit.span;
+            let span = self.ty.poly_structs[i].lit.span;
             let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
             let (warnings, deferred) = (self.diag.warnings.len(), self.diag.deferred_errors.len());
             let refs = self.ed.facts().map_or(0, |ide| ide.refs.len());
@@ -423,7 +423,7 @@ impl Compiler {
             if self.is_stand_in(t) {
                 return true;
             }
-            t = match self.types.kind(t) {
+            t = match self.ty.types.kind(t) {
                 TypeKind::Array {
                     elem, ..
                 } => *elem,
@@ -444,7 +444,7 @@ impl Compiler {
             if ide.stand_ins.contains(&t) {
                 return true;
             }
-            match self.types.pointee(t) {
+            match self.ty.types.pointee(t) {
                 Some(p) => t = p,
                 None => return false,
             }
@@ -617,6 +617,7 @@ impl Compiler {
     /// The stand-in for member `name` of stand-in `base`, named `T.name`.
     pub(crate) fn ide_stand_in_member(&mut self, base: TypeId, name: Sym, span: Span) -> TypeId {
         let base = self
+            .ty
             .types
             .pointee(base)
             .filter(|_| !self.ide_is_own_stand_in(base))
@@ -629,9 +630,9 @@ impl Compiler {
             return t;
         }
         let full = if name.as_str() == "[]" || name.as_str() == "()" {
-            format!("{}{}", self.types.name(base), name.as_str())
+            format!("{}{}", self.ty.types.name(base), name.as_str())
         } else {
-            format!("{}.{}", self.types.name(base), name.as_str())
+            format!("{}.{}", self.ty.types.name(base), name.as_str())
         };
         let scope = self.root_scope;
         let t = self.ide_stand_in(Sym::intern(&full), span, scope);

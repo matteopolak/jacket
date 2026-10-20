@@ -44,7 +44,7 @@ impl Compiler {
                     inner?
                 };
                 match inner {
-                    Operand::Type(t) => Ok(Operand::Type(self.types.pointer(t))),
+                    Operand::Type(t) => Ok(Operand::Type(self.ty.types.pointer(t))),
                     // Concrete default pointees share the explicit instance's identity.
                     // Required arguments still leave a source type for generic patterns.
                     Operand::PolyStruct(ps) => {
@@ -53,13 +53,13 @@ impl Compiler {
                         } else {
                             self.poly_struct_type(ps)
                         };
-                        Ok(Operand::Type(self.types.pointer(t)))
+                        Ok(Operand::Type(self.ty.types.pointer(t)))
                     }
                     Operand::Place {
                         ty,
                         addr,
                     } => Ok(Operand::Value {
-                        ty: self.types.pointer(ty),
+                        ty: self.ty.types.pointer(ty),
                         val: addr,
                     }),
                     Operand::Procs(p) if p.len() == 1 => {
@@ -106,7 +106,7 @@ impl Compiler {
                         };
                         let addr = f.b.global_addr(global);
                         Ok(Operand::Value {
-                            ty: self.types.pointer(ty),
+                            ty: self.ty.types.pointer(ty),
                             val: addr,
                         })
                     }
@@ -114,7 +114,7 @@ impl Compiler {
                         // Address of a temporary.
                         let (ty, addr) = self.address_of(f, other, span)?;
                         Ok(Operand::Value {
-                            ty: self.types.pointer(ty),
+                            ty: self.ty.types.pointer(ty),
                             val: addr,
                         })
                     }
@@ -123,10 +123,13 @@ impl Compiler {
             UnOp::Deref => {
                 let inner = self.check_expr(f, scope, a, None)?;
                 let (ty, v) = self.rvalue(f, inner, span)?;
-                let Some(pointee) = self.types.pointee(ty) else {
+                let Some(pointee) = self.ty.types.pointee(ty) else {
                     return err(
                         span,
-                        format!("cannot dereference a value of type {}", self.types.name(ty)),
+                        format!(
+                            "cannot dereference a value of type {}",
+                            self.ty.types.name(ty)
+                        ),
                     );
                 };
                 // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
@@ -161,10 +164,10 @@ impl Compiler {
                         (UnOp::Not, Value::Null) => Some(Value::Bool(true)),
                         (UnOp::BitNot, Value::Int(v)) => {
                             // Non-integer constant types (an enum value) complement as 64-bit signed.
-                            let (bits, signed) = self.types.int_info(*ty).unwrap_or((64, true));
+                            let (bits, signed) = self.ty.types.int_info(*ty).unwrap_or((64, true));
                             let bits = if *untyped {
                                 expected
-                                    .and_then(|e| self.types.int_info(e))
+                                    .and_then(|e| self.ty.types.int_info(e))
                                     .map_or(bits, |i| i.0)
                             } else {
                                 bits
@@ -196,8 +199,8 @@ impl Compiler {
                 // `-` and `~` are arithmetic: a `Type`, `bool`, pointer or other non-number has no meaning
                 // under them, and a `Type` would otherwise become a garbage type id at run time.
                 if op != UnOp::Not
-                    && !self.types.is_integer(ty)
-                    && !self.types.is_float(ty)
+                    && !self.ty.types.is_integer(ty)
+                    && !self.ty.types.is_float(ty)
                     && self.wide_float(ty).is_none()
                 {
                     let what = if op == UnOp::Neg {
@@ -207,7 +210,7 @@ impl Compiler {
                     };
                     return Err(Box::new(Diagnostic::error(
                         span,
-                        format!("cannot {what} {}", self.types.name(ty)),
+                        format!("cannot {what} {}", self.ty.types.name(ty)),
                     )));
                 }
                 match op {
@@ -227,7 +230,7 @@ impl Compiler {
                         let t = self.ir_ty(ty).ok_or_else(|| {
                             Box::new(Diagnostic::error(
                                 span,
-                                format!("cannot negate {}", self.types.name(ty)),
+                                format!("cannot negate {}", self.ty.types.name(ty)),
                             ))
                         })?;
                         let op = if t.is_float() {
@@ -244,7 +247,7 @@ impl Compiler {
                         let t = self.ir_ty(ty).filter(|t| !t.is_float()).ok_or_else(|| {
                             Box::new(Diagnostic::error(
                                 span,
-                                format!("cannot bit-complement {}", self.types.name(ty)),
+                                format!("cannot bit-complement {}", self.ty.types.name(ty)),
                             ))
                         })?;
                         Ok(Operand::Value {
@@ -277,22 +280,22 @@ impl Compiler {
                 untyped: true,
             } => {
                 let target = expected.filter(|&e| {
-                    let r = self.types.repr(e);
+                    let r = self.ty.types.repr(e);
                     match &value {
-                        Value::Int(_) => self.types.is_integer(r) || self.types.is_float(r),
+                        Value::Int(_) => self.ty.types.is_integer(r) || self.ty.types.is_float(r),
                         Value::Float(_, p) => {
-                            self.types.is_float(r) && !(p.requires_float64 && r == TypeId::F32)
+                            self.ty.types.is_float(r) && !(p.requires_float64 && r == TypeId::F32)
                         }
                         Value::Null => {
-                            self.types.is_pointer(r)
-                                || matches!(self.types.kind(r), TypeKind::Proc(_))
+                            self.ty.types.is_pointer(r)
+                                || matches!(self.ty.types.kind(r), TypeKind::Proc(_))
                         }
                         _ => false,
                     }
                 });
                 let ty = target.unwrap_or_else(|| self.default_untyped(ty, &value));
                 let value = match value {
-                    Value::Int(i) if self.types.is_float(ty) => Value::float(i as f64),
+                    Value::Int(i) if self.ty.types.is_float(ty) => Value::float(i as f64),
                     v => v,
                 };
                 Operand::Const {
@@ -319,14 +322,14 @@ impl Compiler {
             if let TypeKind::Array {
                 kind: ArrayKind::Fixed(n),
                 ..
-            } = self.types.kind(ty)
+            } = self.ty.types.kind(ty)
             {
                 // A fixed array's count is part of its type.
                 return Ok(f.b.iconst(Ty::I8, (*n != 0) as u64));
             }
             if let TypeKind::Array {
                 ..
-            } = self.types.kind(ty)
+            } = self.ty.types.kind(ty)
             {
                 let count = f.b.load(Ty::I64, v);
                 let zero = f.b.iconst(Ty::I64, 0);
@@ -336,7 +339,7 @@ impl Compiler {
                 span,
                 format!(
                     "a value of type {} cannot be used as a condition",
-                    self.types.name(ty)
+                    self.ty.types.name(ty)
                 ),
             );
         };
@@ -395,7 +398,7 @@ impl Compiler {
                     .iter()
                     .zip(expected)
                     .any(|(p, ty)| p.ty != ty)
-                || !matches!(self.types.kind(signature.params[5].ty), TypeKind::Pointer(ty) if *ty == TypeId::U8)
+                || !matches!(self.ty.types.kind(signature.params[5].ty), TypeKind::Pointer(ty) if *ty == TypeId::U8)
             {
                 return err(
                     span,

@@ -92,9 +92,10 @@ impl Compiler {
             .collect();
 
         let mut types: Vec<(TypeId, ir::GlobalId)> = self
-            .type_infos
+            .ty
+            .infos
             .iter()
-            .filter(|(t, _)| !self.snapshot_infos.contains(t))
+            .filter(|(t, _)| !self.ty.snapshot_infos.contains(t))
             .map(|(&t, &g)| (t, g))
             .collect();
         types.sort_by_key(|&(t, _)| t);
@@ -156,7 +157,7 @@ impl Compiler {
     /// Whether the compile-time function `root` can reach the `get_type_table` primitive
     /// through direct calls (bodies not lowered yet count as not reaching).
     pub(super) fn reaches_type_table(&self, root: ir::FuncId) -> bool {
-        let Some(target) = self.type_table_func else {
+        let Some(target) = self.ty.table_func else {
             return false;
         };
         let mut seen = HashSet::default();
@@ -190,18 +191,18 @@ impl Compiler {
     pub fn refresh_type_table(&mut self) {
         let key = (
             self.entities.len(),
-            self.types.count(),
-            self.type_infos.len(),
+            self.ty.types.count(),
+            self.ty.infos.len(),
         );
-        if key == self.snapshot_key {
+        if key == self.ty.snapshot_key {
             return;
         }
         let span = Span::NONE;
         self.resolve_declared_types();
-        let before: HashSet<TypeId> = self.type_infos.keys().copied().collect();
-        self.in_snapshot = true;
+        let before: HashSet<TypeId> = self.ty.infos.keys().copied().collect();
+        self.ty.in_snapshot = true;
         let mut index = 0;
-        while index < self.types.count() {
+        while index < self.ty.types.count() {
             let ty = TypeId(index as u32);
             index += 1;
             if !self.describable_now(ty) {
@@ -210,14 +211,14 @@ impl Compiler {
             // A descriptor that cannot be built yet is left out.
             let _ = self.type_info_global(ty, span);
         }
-        self.in_snapshot = false;
-        for &ty in self.type_infos.keys() {
+        self.ty.in_snapshot = false;
+        for &ty in self.ty.infos.keys() {
             if !before.contains(&ty) {
-                self.snapshot_infos.insert(ty);
+                self.ty.snapshot_infos.insert(ty);
             }
         }
         let mut entries: Vec<(TypeId, ir::GlobalId)> =
-            self.type_infos.iter().map(|(&t, &g)| (t, g)).collect();
+            self.ty.infos.iter().map(|(&t, &g)| (t, g)).collect();
         entries.sort_by_key(|&(t, _)| t);
         let mut table = Vec::with_capacity(entries.len());
         for (_, g) in entries {
@@ -228,10 +229,10 @@ impl Compiler {
         self.ct.interp.ct_type_tables.push(table);
         let table = self.ct.interp.ct_type_tables.last().unwrap();
         self.ct.interp.ct_type_table = (table.as_ptr() as u64, table.len() as u64);
-        self.snapshot_key = (
+        self.ty.snapshot_key = (
             self.entities.len(),
-            self.types.count(),
-            self.type_infos.len(),
+            self.ty.types.count(),
+            self.ty.infos.len(),
         );
     }
 
@@ -269,7 +270,7 @@ impl Compiler {
                 value: Value::Type(t),
                 ..
             }) = self.resolve_entity(id)
-                && let TypeKind::Struct(s) = self.types.kind(t).clone()
+                && let TypeKind::Struct(s) = self.ty.types.kind(t).clone()
             {
                 let _ = self.layout_struct(s, span);
             }
@@ -279,8 +280,8 @@ impl Compiler {
     /// A type the table can describe without resolving anything further: not a template or
     /// compile-time-only entity, and a struct only once it is laid out.
     fn describable_now(&self, ty: TypeId) -> bool {
-        match self.types.kind(ty) {
-            TypeKind::Struct(s) => self.types.struct_info(*s).layout == LayoutState::Done,
+        match self.ty.types.kind(ty) {
+            TypeKind::Struct(s) => self.ty.types.struct_info(*s).layout == LayoutState::Done,
             TypeKind::Null
             | TypeKind::CompileTimeOnly
             | TypeKind::PolyParam

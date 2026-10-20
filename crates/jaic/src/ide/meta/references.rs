@@ -118,7 +118,7 @@ impl Compiler {
             _ => r.ty,
         };
         for _ in 0..8 {
-            t = match self.types.kind(t) {
+            t = match self.ty.types.kind(t) {
                 TypeKind::Pointer(inner) => *inner,
                 TypeKind::Array {
                     elem, ..
@@ -126,9 +126,9 @@ impl Compiler {
                 _ => break,
             };
         }
-        let span = match self.types.kind(t) {
-            TypeKind::Struct(s) => self.types.struct_info(*s).span,
-            TypeKind::Enum(e) => self.types.enum_info(*e).span,
+        let span = match self.ty.types.kind(t) {
+            TypeKind::Struct(s) => self.ty.types.struct_info(*s).span,
+            TypeKind::Enum(e) => self.ty.types.enum_info(*e).span,
             _ => return Vec::new(),
         };
         if span.end <= span.start {
@@ -157,9 +157,9 @@ impl Compiler {
         } else {
             r.ty
         };
-        match self.types.kind(t) {
+        match self.ty.types.kind(t) {
             TypeKind::Enum(e) => {
-                let info = self.types.enum_info(*e);
+                let info = self.ty.types.enum_info(*e);
                 Some(IdeMembers {
                     name: info.name.to_string(),
                     is_enum: true,
@@ -171,7 +171,7 @@ impl Compiler {
                 })
             }
             TypeKind::Struct(s) => {
-                let info = self.types.struct_info(*s);
+                let info = self.ty.types.struct_info(*s);
                 Some(IdeMembers {
                     name: info.name.to_string(),
                     is_enum: false,
@@ -189,7 +189,7 @@ impl Compiler {
 
     /// A value of type `t` to write where one is wanted.
     fn ide_placeholder(&self, t: TypeId) -> String {
-        match self.types.kind(t) {
+        match self.ty.types.kind(t) {
             TypeKind::Bool => "false".into(),
             TypeKind::Int {
                 ..
@@ -203,7 +203,7 @@ impl Compiler {
             TypeKind::Array {
                 ..
             } => ".[]".into(),
-            TypeKind::Enum(e) => match self.types.enum_info(*e).members.first() {
+            TypeKind::Enum(e) => match self.ty.types.enum_info(*e).members.first() {
                 Some((n, _)) => format!(".{n}"),
                 None => "---".into(),
             },
@@ -249,7 +249,7 @@ impl Compiler {
                 } => format!(
                     "{n} = {}",
                     self.ide_literal(value)
-                        .unwrap_or_else(|| value.render(&self.types))
+                        .unwrap_or_else(|| value.render(&self.ty.types))
                 ),
                 _ => n.to_string(),
             })

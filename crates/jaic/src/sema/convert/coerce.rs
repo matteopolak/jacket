@@ -37,8 +37,8 @@ impl Compiler {
         } else {
             op.ty()
         };
-        let fk = self.types.kind(from).clone();
-        let tk = self.types.kind(to).clone();
+        let fk = self.ty.types.kind(from).clone();
+        let tk = self.ty.types.kind(to).clone();
         match (&fk, &tk) {
             (
                 TypeKind::Array {
@@ -169,7 +169,7 @@ impl Compiler {
             }
             // `*Wrapper` → the value of its `#as` member (`#as id: u32`).
             (TypeKind::Pointer(inner), _)
-                if self.types.as_struct(*inner).is_some()
+                if self.ty.types.as_struct(*inner).is_some()
                     && self.as_offset(*inner, to).is_some() =>
             {
                 let offset = self.as_offset(*inner, to).unwrap();
@@ -194,7 +194,7 @@ impl Compiler {
         let from = op.ty();
         let (_, v) = self.rvalue(f, op, span)?;
         let (Some(ft), Some(tt)) = (self.ir_ty(from), self.ir_ty(to)) else {
-            if self.types.repr(from) == self.types.repr(to) {
+            if self.ty.types.repr(from) == self.ty.types.repr(to) {
                 return Ok(Operand::Value {
                     ty: to,
                     val: v,
@@ -204,13 +204,13 @@ impl Compiler {
                 span,
                 format!(
                     "cannot convert {} to {}",
-                    self.types.name(from),
-                    self.types.name(to)
+                    self.ty.types.name(from),
+                    self.ty.types.name(to)
                 ),
             );
         };
-        let fsigned = self.types.int_info(from).is_some_and(|(_, s)| s);
-        let tsigned = self.types.int_info(to).is_some_and(|(_, s)| s);
+        let fsigned = self.ty.types.int_info(from).is_some_and(|(_, s)| s);
+        let tsigned = self.ty.types.int_info(to).is_some_and(|(_, s)| s);
         let val = numeric_conv(f, v, ft, tt, fsigned, tsigned);
         Ok(Operand::Value {
             ty: to,

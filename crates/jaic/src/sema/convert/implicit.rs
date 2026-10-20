@@ -19,7 +19,7 @@ impl Compiler {
         } = op
         {
             let converted = self.convert(f, *operand, to, span)?;
-            return Ok(if matches!(self.types.kind(to), TypeKind::Proc(_)) {
+            return Ok(if matches!(self.ty.types.kind(to), TypeKind::Proc(_)) {
                 converted.with_callable(Some(parameters))
             } else {
                 converted
@@ -60,7 +60,7 @@ impl Compiler {
                 return self.box_any(f, Operand::Type(t), span);
             }
             Operand::Procs(ref procs) => {
-                if let TypeKind::Proc(_) = self.types.kind(to) {
+                if let TypeKind::Proc(_) = self.ty.types.kind(to) {
                     for &p in procs {
                         if self.proc(p).is_poly {
                             if let Some(inst) = self.instantiate_for_proc_type(p, to, span) {
@@ -75,10 +75,13 @@ impl Compiler {
                     }
                     return err(
                         span,
-                        format!("no overload matches procedure type {}", self.types.name(to)),
+                        format!(
+                            "no overload matches procedure type {}",
+                            self.ty.types.name(to)
+                        ),
                     );
                 }
-                if to == TypeId::VOID_PTR || (self.types.is_pointer(to) && procs.len() == 1) {
+                if to == TypeId::VOID_PTR || (self.ty.types.is_pointer(to) && procs.len() == 1) {
                     let (_, v) = self.rvalue(f, op, span)?;
                     return Ok(Operand::Value {
                         ty: to,
@@ -92,7 +95,7 @@ impl Compiler {
             Operand::Const {
                 value: Value::String(ref bytes),
                 ..
-            } if self.types.pointee(to) == Some(TypeId::U8) => {
+            } if self.ty.types.pointee(to) == Some(TypeId::U8) => {
                 // String literals are NUL-terminated: their data pointer is a C string.
                 let global = self.string_global(bytes);
                 let val = f.b.global_addr(global);
@@ -124,8 +127,8 @@ impl Compiler {
                 span,
                 format!(
                     "type mismatch: expected `{}`, found `{}`",
-                    self.types.name(to),
-                    self.types.name(from)
+                    self.ty.types.name(to),
+                    self.ty.types.name(from)
                 ),
             )
             .with_kind(DiagnosticKind::TypeMismatch);
@@ -149,8 +152,8 @@ impl Compiler {
 
     /// How to get a `to` from a `from`, for the common mismatches with an obvious fix.
     pub(in crate::sema) fn conversion_help(&self, from: TypeId, to: TypeId) -> Option<String> {
-        let to_name = self.types.name(to);
-        let kind = |t| self.types.kind(t).clone();
+        let to_name = self.ty.types.name(to);
+        let kind = |t| self.ty.types.kind(t).clone();
         Some(match (kind(from), kind(to)) {
             (TypeKind::Float { .. }, TypeKind::Int { .. }) => {
                 format!("convert with `cast({to_name})`, which drops the fraction")
@@ -161,7 +164,7 @@ impl Compiler {
             (TypeKind::Int { .. } | TypeKind::Float { .. }, TypeKind::String) => {
                 "to turn a number into text, format it: `tprint(\"%\", value)` (from Basic)".into()
             }
-            (TypeKind::String, TypeKind::Pointer(p)) if self.types.is_integer(p) => {
+            (TypeKind::String, TypeKind::Pointer(p)) if self.ty.types.is_integer(p) => {
                 "pass `value.data` for the bytes, or `to_c_string(value)` (from Basic) for a zero-terminated copy".into()
             }
             (TypeKind::Int { .. }, TypeKind::Bool) => "compare instead: `value != 0`".into(),
@@ -180,7 +183,7 @@ impl Compiler {
 
     /// Structurally identical procedure types (ignoring parameter names).
     pub(in crate::sema) fn proc_types_compatible(&self, a: TypeId, b: TypeId) -> bool {
-        match (self.types.kind(a), self.types.kind(b)) {
+        match (self.ty.types.kind(a), self.ty.types.kind(b)) {
             (TypeKind::Proc(x), TypeKind::Proc(y)) => {
                 x.params == y.params && x.returns == y.returns && x.c_call == y.c_call
             }
@@ -197,7 +200,7 @@ impl Compiler {
         to: TypeId,
         span: Span,
     ) -> Result<Option<Operand>> {
-        let tr = self.types.repr(to);
+        let tr = self.ty.types.repr(to);
         if let Some(fmt) = self.wide_float(to) {
             if self.wide_float(ty).is_none()
                 && (untyped || self.implicit_cost(ty, false, to).is_some())
@@ -213,26 +216,26 @@ impl Compiler {
         }
         let result = match value {
             Value::Int(i)
-                if self.types.is_integer(tr)
+                if self.ty.types.is_integer(tr)
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
-                let (bits, signed) = self.types.int_info(tr).unwrap();
+                let (bits, signed) = self.ty.types.int_info(tr).unwrap();
                 if untyped && !int_constant_fits(*i, bits, signed, self.bit_pattern(span)) {
                     return err(
                         span,
-                        format!("constant {i} does not fit in {}", self.types.name(to)),
+                        format!("constant {i} does not fit in {}", self.ty.types.name(to)),
                     );
                 }
-                if matches!(self.types.kind(to), TypeKind::Enum(_)) && untyped {
+                if matches!(self.ty.types.kind(to), TypeKind::Enum(_)) && untyped {
                     return Ok(None);
                 }
                 Value::Int(*i)
             }
-            Value::Int(i) if self.types.is_float(tr) && untyped => {
+            Value::Int(i) if self.ty.types.is_float(tr) && untyped => {
                 Value::float(int_to_float(*i, tr))
             }
             Value::Float(x, _)
-                if self.types.is_float(tr)
+                if self.ty.types.is_float(tr)
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
                 if tr == TypeId::F32 {
@@ -254,8 +257,8 @@ impl Compiler {
                             span,
                             format!(
                                 "constant {x:e} does not fit in {} (convert with `cast({})` to round it)",
-                                self.types.name(to),
-                                self.types.name(to)
+                                self.ty.types.name(to),
+                                self.ty.types.name(to)
                             ),
                         );
                     }
@@ -266,7 +269,7 @@ impl Compiler {
             }
             Value::Null
                 if matches!(
-                    self.types.kind(tr),
+                    self.ty.types.kind(tr),
                     TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Type
                 ) =>
             {

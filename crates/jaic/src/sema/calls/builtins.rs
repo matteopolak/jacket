@@ -150,14 +150,14 @@ impl Compiler {
                     let (_, v) = self.rvalue(f, op, span)?;
                     let info = self.preload_type(PreludeType::TypeInfo, span)?;
                     return Ok(Operand::Value {
-                        ty: self.types.pointer(info),
+                        ty: self.ty.types.pointer(info),
                         val: v,
                     });
                 }
                 // A generic struct named without arguments has the descriptor its instances
                 // carry as `polymorph_source_struct`.
                 if let Operand::PolyStruct(ps) = op
-                    && !self.poly_structs[ps.0 as usize]
+                    && !self.ty.poly_structs[ps.0 as usize]
                         .lit
                         .params
                         .iter()
@@ -165,19 +165,19 @@ impl Compiler {
                 {
                     let desc = self.preload_type(PreludeType::TypeInfoStruct, span)?;
                     let (key, name) = {
-                        let p = &self.poly_structs[ps.0 as usize];
+                        let p = &self.ty.poly_structs[ps.0 as usize];
                         (p.lit.id, p.name)
                     };
                     let global = self.generic_struct_info_global(key, name, desc, span)?;
                     let v = f.b.global_addr(global);
                     return Ok(Operand::Value {
-                        ty: self.types.pointer(desc),
+                        ty: self.ty.types.pointer(desc),
                         val: v,
                     });
                 }
                 let ty = self.operand_as_type(op, arg.value.span)?;
                 let info_ty = self.type_info_struct_type(ty, span)?;
-                let ptr = self.types.pointer(info_ty);
+                let ptr = self.ty.types.pointer(info_ty);
                 let global = self.type_info_global(ty, span)?;
                 let v = f.b.global_addr(global);
                 Ok(Operand::Value {
@@ -243,7 +243,7 @@ impl Compiler {
                         offset += o;
                         cur = t;
                     } else {
-                        let tn = self.types.name(cur);
+                        let tn = self.ty.types.name(cur);
                         return err(
                             span,
                             format!("`{tn}` has no member `{part}` at a fixed offset"),
@@ -267,8 +267,8 @@ impl Compiler {
     /// Whether copying a value of `ty` byte for byte copies all of it: no pointers, strings,
     /// array views, resizable arrays, procedures, `Any`, `Type` or `Code` inside.
     pub(super) fn is_value_type(&mut self, ty: TypeId, span: Span) -> Result<bool> {
-        let ty = self.types.repr(ty);
-        Ok(match self.types.kind(ty).clone() {
+        let ty = self.ty.types.repr(ty);
+        Ok(match self.ty.types.kind(ty).clone() {
             TypeKind::Void
             | TypeKind::Bool
             | TypeKind::Int {
@@ -285,6 +285,7 @@ impl Compiler {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
                 let fields: Vec<TypeId> = self
+                    .ty
                     .types
                     .struct_info(s)
                     .fields
@@ -312,7 +313,11 @@ impl Compiler {
     ) -> Result<Option<TypeId>> {
         if let E::Member(base, field) = &expr.kind
             && let Ok(Operand::Type(t)) = self.check_expr_no_emit(scope, base)
-            && self.types.as_struct(self.types.repr_struct(t)).is_some()
+            && self
+                .ty
+                .types
+                .as_struct(self.ty.types.repr_struct(t))
+                .is_some()
             && self.struct_constant(t, field.name)?.is_none()
         {
             if let Some(ty) = self.pending_struct_field_type(t, field.name, expr.span)? {
@@ -339,8 +344,8 @@ impl Compiler {
             let mut s = Some(scope);
             while let Some(sid) = s {
                 if let ScopeKind::Struct(t) = self.scope(sid).kind
-                    && self.types.as_struct(t).is_none_or(|s| {
-                        self.types.struct_info(s).layout != crate::types::LayoutState::InProgress
+                    && self.ty.types.as_struct(t).is_none_or(|s| {
+                        self.ty.types.struct_info(s).layout != crate::types::LayoutState::InProgress
                     })
                     && let Some((_, fty)) = self.find_member(t, *name, expr.span)?
                 {
@@ -386,7 +391,7 @@ impl Compiler {
         target: TypeId,
         span: Span,
     ) -> Option<ProcId> {
-        let TypeKind::Proc(info) = self.types.kind(target).clone() else {
+        let TypeKind::Proc(info) = self.ty.types.kind(target).clone() else {
             return None;
         };
         let inst = self.proc_for_param_types(proc, &info.params, span)?;
@@ -420,7 +425,7 @@ impl Compiler {
             };
             if p.variadic {
                 variadic = true;
-                ty = self.types.array(ty, ArrayKind::View);
+                ty = self.ty.types.array(ty, ArrayKind::View);
             }
             params.push(ty);
         }
@@ -433,7 +438,8 @@ impl Compiler {
             })
             .filter(|&t| t != TypeId::VOID)
             .collect();
-        self.types
+        self.ty
+            .types
             .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
                 params,
                 returns,
@@ -457,14 +463,15 @@ impl Compiler {
             .map(|p| {
                 if p.variadic {
                     variadic = true;
-                    self.types.array(TypeId::POLY_PARAM, ArrayKind::View)
+                    self.ty.types.array(TypeId::POLY_PARAM, ArrayKind::View)
                 } else {
                     TypeId::POLY_PARAM
                 }
             })
             .collect();
         let returns = header.returns.iter().map(|_| TypeId::POLY_PARAM).collect();
-        self.types
+        self.ty
+            .types
             .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
                 params,
                 returns,
@@ -485,14 +492,14 @@ impl Compiler {
         match &ty.kind {
             E::Unary(ast::UnOp::Star, inner) => {
                 let inner = self.poly_shape_type(scope, inner);
-                self.types.pointer(inner)
+                self.ty.types.pointer(inner)
             }
             E::ArrayType {
                 size: ast::ArraySize::Fixed(_),
                 elem,
             } => {
                 let elem = self.poly_shape_type(scope, elem);
-                self.types.array(elem, ArrayKind::Fixed(0))
+                self.ty.types.array(elem, ArrayKind::Fixed(0))
             }
             _ => TypeId::POLY_PARAM,
         }

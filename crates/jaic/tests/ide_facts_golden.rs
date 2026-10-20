@@ -89,13 +89,13 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
                     at_span(c, p.span)
                 )
             }
-            "TypeId" => format!("T({})", c.types.name(TypeId(n))),
+            "TypeId" => format!("T({})", c.ty.types.name(TypeId(n))),
             "ScopeId" => scopes.get(&ScopeId(n)).map_or_else(
                 || format!("S({:?})", c.scope(ScopeId(n)).kind),
                 |s| format!("S({})", span(c, *s)),
             ),
             _ => {
-                let s = c.types.struct_info(StructId(n));
+                let s = c.ty.types.struct_info(StructId(n));
                 format!(
                     "St({}@{})",
                     s.name.to_string().escape_debug(),
@@ -140,7 +140,7 @@ fn dump(c: &Compiler, errors: Vec<String>) -> String {
     let ide = c.ed.facts().unwrap();
     let scopes: HashMap<ScopeId, Span> = ide.scopes.iter().map(|(s, id)| (*id, *s)).collect();
     let span = |s: &Span| span(c, *s);
-    let ty = |t: &TypeId| c.types.name(*t);
+    let ty = |t: &TypeId| c.ty.types.name(*t);
     let opt_ty = |t: &Option<TypeId>| t.as_ref().map_or("-".into(), ty);
     let mut sections: Vec<(&str, Vec<String>)> = vec![
         ("errors", errors),

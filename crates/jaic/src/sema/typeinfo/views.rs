@@ -37,7 +37,7 @@ impl Compiler {
         let Some((path, fty)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
                 span,
-                format!("{} has no field `{name}`", self.types.name(desc)),
+                format!("{} has no field `{name}`", self.ty.types.name(desc)),
             );
         };
         let offset = path
@@ -64,7 +64,7 @@ impl Compiler {
         let Some((path, _)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
                 span,
-                format!("{} has no field `{name}`", self.types.name(desc)),
+                format!("{} has no field `{name}`", self.ty.types.name(desc)),
             );
         };
         let offset = path
@@ -115,7 +115,7 @@ impl Compiler {
         let Some((path, _)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
                 span,
-                format!("{} has no field `{name}`", self.types.name(desc)),
+                format!("{} has no field `{name}`", self.ty.types.name(desc)),
             );
         };
         let offset: u64 = path

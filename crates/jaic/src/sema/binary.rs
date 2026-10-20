@@ -54,7 +54,7 @@ impl Compiler {
         // operand of an operator that floats lack, so it does not reach the operands (an `ifx`
         // would widen to it, and the operator would then fail on a float).
         let expected = if is_bitwise(op) || op == BinOp::Rem {
-            expected.filter(|&t| !self.types.is_float(self.types.repr(t)))
+            expected.filter(|&t| !self.ty.types.is_float(self.ty.types.repr(t)))
         } else {
             expected
         };
@@ -87,10 +87,10 @@ impl Compiler {
         if matches!(op, BinOp::Eq | BinOp::Ne) {
             self.reject_array_comparison(op, lty, rty, span)?;
         }
-        if self.types.is_pointer(lty) && matches!(op, BinOp::Add | BinOp::Sub) {
+        if self.ty.types.is_pointer(lty) && matches!(op, BinOp::Add | BinOp::Sub) {
             return self.pointer_offset(f, op, lhs, rhs, span);
         }
-        if self.types.is_pointer(rty) && op == BinOp::Add && self.types.is_integer(lty) {
+        if self.ty.types.is_pointer(rty) && op == BinOp::Add && self.ty.types.is_integer(lty) {
             return self.check_binary(
                 f,
                 scope,
@@ -103,8 +103,8 @@ impl Compiler {
                 span,
             );
         }
-        let pointer_and_int = (self.types.is_pointer(lty) && self.types.is_integer(rty))
-            || (self.types.is_pointer(rty) && self.types.is_integer(lty));
+        let pointer_and_int = (self.ty.types.is_pointer(lty) && self.ty.types.is_integer(rty))
+            || (self.ty.types.is_pointer(rty) && self.ty.types.is_integer(lty));
         if is_bitwise(op) && pointer_and_int {
             return self.mask_pointer(f, op, lhs, rhs, span);
         }

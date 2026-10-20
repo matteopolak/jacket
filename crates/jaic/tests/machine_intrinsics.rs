@@ -412,7 +412,7 @@ mod registers {
         let ty = c
             .preload_type(jaic::sema::PreludeType::Reg, jaic::source::Span::NONE)
             .unwrap();
-        assert_eq!(c.types.name(ty), "__reg");
+        assert_eq!(c.ty.types.name(ty), "__reg");
         for bad in [
             "use :: (v:__reg) #expand {} main :: () { n:u16; use(n); }",
             "use :: (v:__reg) #expand {} main :: () { n:[16]u8; use(n); }",

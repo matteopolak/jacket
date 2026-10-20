@@ -310,7 +310,9 @@ impl Compiler {
         };
         if let Some((value, ty, untyped)) = constant
             && (ty == param.ty
-                || (untyped && matches!(value, Value::Int(_)) && self.types.is_integer(param.ty)))
+                || (untyped
+                    && matches!(value, Value::Int(_))
+                    && self.ty.types.is_integer(param.ty)))
         {
             self.local_consts.insert(e, (value.clone(), param.ty));
             // A constant argument the body never writes stays a constant.

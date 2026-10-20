@@ -6,10 +6,10 @@ use crate::types::{ArrayKind, TypeKind};
 impl Compiler {
     /// Lowered IR signature for a procedure type.
     pub fn ir_sig(&mut self, ty: TypeId, span: Span) -> Result<Sig> {
-        let TypeKind::Proc(p) = self.types.kind(ty).clone() else {
+        let TypeKind::Proc(p) = self.ty.types.kind(ty).clone() else {
             return err(
                 span,
-                format!("{} is not a procedure type", self.types.name(ty)),
+                format!("{} is not a procedure type", self.ty.types.name(ty)),
             );
         };
         let mut params = Vec::new();
@@ -92,10 +92,10 @@ impl Compiler {
             out.push((base, t));
             return Ok(());
         }
-        match self.types.kind(ty).clone() {
+        match self.ty.types.kind(ty).clone() {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
-                let fields = self.types.struct_info(s).fields.clone();
+                let fields = self.ty.types.struct_info(s).fields.clone();
                 for field in fields.iter() {
                     self.flatten_fields(field.ty, base + field.offset, out, span)?;
                 }

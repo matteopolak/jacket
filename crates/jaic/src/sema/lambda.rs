@@ -95,7 +95,7 @@ impl Compiler {
         let Some(expected) = expected else {
             return Ok(Operand::Procs(vec![proc]));
         };
-        let TypeKind::Proc(pt) = self.types.kind(expected).clone() else {
+        let TypeKind::Proc(pt) = self.ty.types.kind(expected).clone() else {
             return Ok(Operand::Procs(vec![proc]));
         };
         if pt.params.len() != header.params.len() {
@@ -104,7 +104,7 @@ impl Compiler {
                 format!(
                     "lambda takes {} parameters, but {} expects {}",
                     header.params.len(),
-                    self.types.name(expected),
+                    self.ty.types.name(expected),
                     pt.params.len()
                 ),
             );

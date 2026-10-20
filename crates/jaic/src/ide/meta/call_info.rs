@@ -39,7 +39,7 @@ impl Compiler {
                 let label = names
                     .as_ref()?
                     .iter()
-                    .map(|(name, ty)| format!("{name}: {}", self.types.name(*ty)))
+                    .map(|(name, ty)| format!("{name}: {}", self.ty.types.name(*ty)))
                     .collect::<Vec<_>>()
                     .join(", ");
                 Some((at.start, label))
@@ -156,7 +156,7 @@ impl Compiler {
                 ty: a
                     .ty
                     .filter(|&t| t != TypeId::COMPILE_TIME)
-                    .map(|t| self.types.name(t)),
+                    .map(|t| self.ty.types.name(t)),
             })
             .collect();
         IdeCallInfo {
@@ -175,25 +175,29 @@ impl Compiler {
         let Some(crate::ide::IdeReceiver::Value(mut ty)) = self.ide_receiver(scope, chain) else {
             return None;
         };
-        while let Some(inner) = self.types.pointee(ty) {
+        while let Some(inner) = self.ty.types.pointee(ty) {
             ty = inner;
         }
-        let TypeKind::Proc(proc) = self.types.kind(ty).clone() else {
+        let TypeKind::Proc(proc) = self.ty.types.kind(ty).clone() else {
             return None;
         };
-        let mut params: Vec<String> = proc.params.iter().map(|&t| self.types.name(t)).collect();
+        let mut params: Vec<String> = proc.params.iter().map(|&t| self.ty.types.name(t)).collect();
         if proc.variadic
             && let Some(last) = proc.params.last()
             && let TypeKind::Array {
                 elem, ..
-            } = self.types.kind(*last)
+            } = self.ty.types.kind(*last)
         {
             let elem = *elem;
             if let Some(slot) = params.last_mut() {
-                *slot = format!("..{}", self.types.name(elem));
+                *slot = format!("..{}", self.ty.types.name(elem));
             }
         }
-        let returns: Vec<String> = proc.returns.iter().map(|&t| self.types.name(t)).collect();
+        let returns: Vec<String> = proc
+            .returns
+            .iter()
+            .map(|&t| self.ty.types.name(t))
+            .collect();
         let mut label = format!("{}: ({})", chain.last()?, params.join(", "));
         if !returns.is_empty() {
             label.push_str(&format!(" -> {}", returns.join(", ")));

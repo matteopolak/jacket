@@ -48,7 +48,7 @@ impl Compiler {
                     untyped: true,
                     ..
                 }
-            ) && !c.types.is_pointer(o.ty())
+            ) && !c.ty.types.is_pointer(o.ty())
         };
         let agree = match (tt, et) {
             (Some(a), Some(b)) if a != b => {
@@ -59,8 +59,8 @@ impl Compiler {
                     || to(self, b, a)
                     || expected.is_some_and(|e| to(self, a, e) && to(self, b, e))
             }
-            (None, Some(b)) => !(number(self, then_op) && self.types.repr(b) == TypeId::STRING),
-            (Some(a), None) => !(number(self, else_op) && self.types.repr(a) == TypeId::STRING),
+            (None, Some(b)) => !(number(self, then_op) && self.ty.types.repr(b) == TypeId::STRING),
+            (Some(a), None) => !(number(self, else_op) && self.ty.types.repr(a) == TypeId::STRING),
             _ => true,
         };
         if agree {
@@ -68,10 +68,10 @@ impl Compiler {
         }
         let describe = |c: &mut Self, o: &Operand| {
             if let Some(t) = Self::ifx_branch_type(o) {
-                c.types.name(t).clone()
+                c.ty.types.name(t).clone()
             } else {
                 let d = c.settle_untyped(o.clone(), None).ty();
-                format!("{} (untyped constant)", c.types.name(d))
+                format!("{} (untyped constant)", c.ty.types.name(d))
             }
         };
         let (a, b) = (describe(self, then_op), describe(self, else_op));
@@ -118,7 +118,7 @@ impl Compiler {
             },
             Some(e),
         ) = (&taken, expected)
-            && self.types.is_integer(self.types.repr(e))
+            && self.ty.types.is_integer(self.ty.types.repr(e))
         {
             let (ty, val) = self.rvalue(f, taken.clone(), span)?;
             self.convert(
@@ -208,8 +208,8 @@ impl Compiler {
         // A numeric then-value widens to an expected numeric type, so the else-value may be
         // wider (`ifx c then small_u8 else big_s32` into an `s32`).
         let numeric = |c: &Compiler, t: TypeId| {
-            let r = c.types.repr(t);
-            c.types.is_integer(r) || c.types.is_float(r)
+            let r = c.ty.types.repr(t);
+            c.ty.types.is_integer(r) || c.ty.types.is_float(r)
         };
         let widen = match (then_ty, expected) {
             (Some(t), Some(e)) if t != e && numeric(self, t) && numeric(self, e) => {

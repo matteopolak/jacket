@@ -42,7 +42,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
-            let types = &cx.compiler.types;
+            let types = &cx.compiler.ty.types;
             let returns = cx
                 .ty(e)
                 .is_some_and(|t| t != TypeId::VOID && !matches!(types.kind(t), TypeKind::Void));

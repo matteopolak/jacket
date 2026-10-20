@@ -303,7 +303,7 @@ impl Exporter<'_> {
             .filter(|&t| {
                 self.c
                     .as_deref()
-                    .is_some_and(|c| matches!(c.types.kind(t), TypeKind::Enum(_)))
+                    .is_some_and(|c| matches!(c.ty.types.kind(t), TypeKind::Enum(_)))
             })
             .map_or(0, |t| self.ty(t));
         let block = self.enum_block(&lit.items, span);
@@ -414,7 +414,7 @@ impl Exporter<'_> {
             .filter(|&t| {
                 self.c
                     .as_deref()
-                    .is_some_and(|c| matches!(c.types.kind(t), TypeKind::Struct(_)))
+                    .is_some_and(|c| matches!(c.ty.types.kind(t), TypeKind::Struct(_)))
             })
             .map(|t| self.ty(t))
             .filter(|&t| t != 0);

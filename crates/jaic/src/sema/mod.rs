@@ -55,6 +55,7 @@ mod stmt;
 mod structs;
 mod suggestions;
 mod trap_report;
+mod type_state;
 mod typeinfo;
 pub(crate) mod using;
 mod wide;
@@ -82,6 +83,7 @@ pub use source_state::SourceState;
 use std::path::PathBuf;
 use std::rc::Rc;
 pub use suggestions::COMPILER_INTERNAL_MODULES;
+pub use type_state::TypeState;
 pub use value::{ModuleId, ProcId, Value};
 
 pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;
@@ -411,7 +413,7 @@ pub struct Compiler {
     pub ct: CompileTime,
     pub options: Options,
     pub src: SourceState,
-    pub types: Types,
+    pub ty: TypeState,
     pub out: Output,
     pub modules: Vec<Module>,
     module_cache: HashMap<(PathBuf, Vec<ConstArg>), ModuleId>,
@@ -419,7 +421,6 @@ pub struct Compiler {
     pub scopes: Vec<scope::Scope>,
     pub entities: Vec<scope::Entity>,
     pub procs: Vec<procs::ProcInfo>,
-    pub poly_structs: Vec<structs::PolyStruct>,
     pub codes: Vec<Rc<ast::CodeBody>>,
     pub libraries: Vec<decls::LibraryInfo>,
     pub root_scope: ScopeId,
@@ -434,14 +435,6 @@ pub struct Compiler {
     pub add_contexts: Vec<(Rc<ast::Decl>, ScopeId)>,
     /// `#poke_name Module name;` directives: (module expression, name, declaring file scope).
     pub pokes: Vec<(ast::Expr, Sym, ScopeId)>,
-    /// Field type queries do not require storage layout or declaration reordering.
-    pub field_types: HashMap<ScopeId, HashMap<Sym, TypeId>>,
-    field_declarations: HashMap<ScopeId, HashMap<Sym, Rc<ast::Decl>>>,
-    field_type_pending: HashSet<(ScopeId, ast::AstId)>,
-    field_filter_cache: HashMap<(ScopeId, ast::AstId), ast::UsingFilter>,
-    field_filter_pending: HashSet<(ScopeId, ast::AstId)>,
-    field_using_order: HashMap<ScopeId, Vec<structs::FieldUsing>>,
-    pub context_type: Option<TypeId>,
     pub meta: MetaState,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
     pub(crate) lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
@@ -482,19 +475,6 @@ pub struct Compiler {
     /// Debug builds check `namespace_generation` against a full count of scope contents.
     #[cfg(debug_assertions)]
     namespace_check: std::cell::Cell<(usize, u64)>,
-    /// `Type_Info` globals per type.
-    pub type_infos: HashMap<TypeId, ir::GlobalId>,
-    /// `Type_Info` globals whose descriptor could not be built yet (`type_info_global`).
-    failed_type_infos: HashMap<TypeId, ir::GlobalId>,
-    /// Descriptors only a compile-time `get_type_table()` made (kept out of the runtime table
-    /// until real code asks for them), the table's state when it was last built, and the
-    /// `__jaic_type_table` primitive once the program references it.
-    snapshot_infos: HashSet<TypeId>,
-    in_snapshot: bool,
-    snapshot_key: (usize, usize, usize),
-    type_table_func: Option<ir::FuncId>,
-    /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
-    pub type_info_flags: HashMap<TypeId, u32>,
     pub diag: Diagnostics,
     /// Overload sets already checked for identical parameter lists.
     pub overload_sets_checked: crate::fxhash::HashSet<Vec<EntityId>>,
@@ -504,8 +484,6 @@ pub struct Compiler {
     /// Procedures `compiler_make_procedure_live` asked to keep in the program though nothing
     /// calls them.
     pub live_procs: Vec<ProcId>,
-    /// Struct declaration AST per struct (for layout).
-    pub struct_asts: HashMap<crate::types::StructId, structs::StructSource>,
     pub entry_point: Option<ProcId>,
     pub exports: Vec<ProcId>,
     /// Procedure literals and anonymous types, per (AST node, scope).
@@ -530,8 +508,6 @@ pub struct Compiler {
     /// Types of local variable declarations, by declaration (first name), once lowered.
     /// Types of local declarations, by declaration and name index (`a, b := f()`).
     pub local_decl_types: HashMap<(ast::AstId, usize), TypeId>,
-    pub anonymous_types: HashMap<(ast::AstId, ScopeId), TypeId>,
-    enum_member_scopes: HashMap<TypeId, ScopeId>,
     /// Scope each `Code` value was written in (parallel to `codes`).
     pub code_scopes: Vec<ScopeId>,
     /// Codes `compiler_get_code` made without a scope to copy: their names resolve where
@@ -543,18 +519,9 @@ pub struct Compiler {
     /// line, column): the span of their first argument. A failed `assert` names its call's
     /// location, so the report shows this as the condition.
     pub first_arguments: HashMap<(u32, u32, u32), Span>,
-    /// `using,only(...) field.path;` aliases declared in struct bodies.
-    pub member_aliases: HashMap<crate::types::StructId, Vec<structs::MemberAlias>>,
-    /// `using,only(..)`/`using,except(..)` on struct members: field index and filter.
-    using_filters: HashMap<crate::types::StructId, structs::UsingFilters>,
-    pub default_images: HashMap<TypeId, Option<Rc<value::Aggregate>>>,
-    pub default_globals: HashMap<TypeId, ir::GlobalId>,
-    pub initializers: HashMap<TypeId, ir::FuncId>,
     /// Interpreted function -> source procedure (reading back procedure values).
     pub func_procs: HashMap<ir::FuncId, ProcId>,
     pub thunk_scopes: HashMap<ScopeId, ScopeId>,
-    /// The stand-in `Type_Info_Struct` of each polymorphic struct, by its literal.
-    pub generic_struct_infos: HashMap<ast::AstId, ir::GlobalId>,
     /// Declarations the driver resolves even when unreferenced: `#program_export`
     /// procedures and `link_always` libraries.
     pub export_entities: Vec<EntityId>,
@@ -621,20 +588,19 @@ impl Compiler {
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
+            ty: TypeState::default(),
             src: SourceState::new(fs),
             out: Output::new(cross_target),
             meta: MetaState::default(),
             epochs: Epochs::default(),
             diag: Diagnostics::default(),
             options,
-            types: Types::new(),
             modules: Vec::new(),
             module_cache: HashMap::default(),
             module_failures: HashMap::default(),
             scopes: Vec::new(),
             entities: Vec::new(),
             procs: Vec::new(),
-            poly_structs: Vec::new(),
             codes: Vec::new(),
             libraries: Vec::new(),
             root_scope: ScopeId(0),
@@ -645,13 +611,6 @@ impl Compiler {
             main_module: None,
             add_contexts: Vec::new(),
             pokes: Vec::new(),
-            field_types: HashMap::default(),
-            field_declarations: HashMap::default(),
-            field_type_pending: HashSet::default(),
-            field_filter_cache: HashMap::default(),
-            field_filter_pending: HashSet::default(),
-            field_using_order: HashMap::default(),
-            context_type: None,
             lenient_failures: HashMap::default(),
             default_scopes: HashMap::default(),
             auto_bake_variants: HashMap::default(),
@@ -671,17 +630,9 @@ impl Compiler {
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0)),
             ct: CompileTime::default(),
-            type_infos: HashMap::default(),
-            failed_type_infos: HashMap::default(),
-            snapshot_infos: HashSet::default(),
-            in_snapshot: false,
-            snapshot_key: (usize::MAX, 0, 0),
-            type_table_func: None,
-            type_info_flags: HashMap::default(),
             overload_sets_checked: HashSet::default(),
             failed_imports: Vec::new(),
             live_procs: Vec::new(),
-            struct_asts: HashMap::default(),
             entry_point: None,
             exports: Vec::new(),
             anonymous_procs: HashMap::default(),
@@ -692,20 +643,12 @@ impl Compiler {
             const_macro_params: HashMap::default(),
             reexport_visiting: Vec::new(),
             local_decl_types: HashMap::default(),
-            anonymous_types: HashMap::default(),
-            enum_member_scopes: HashMap::default(),
             code_scopes: Vec::new(),
             unscoped_codes: HashMap::default(),
             proc_decl_notes: HashMap::default(),
             first_arguments: HashMap::default(),
-            member_aliases: HashMap::default(),
-            using_filters: HashMap::default(),
-            default_images: HashMap::default(),
-            default_globals: HashMap::default(),
-            initializers: HashMap::default(),
             func_procs: HashMap::default(),
             thunk_scopes: HashMap::default(),
-            generic_struct_infos: HashMap::default(),
             export_entities: Vec::new(),
             asm_regs: HashMap::default(),
             asm_pins: Vec::new(),

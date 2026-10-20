@@ -115,7 +115,7 @@ impl Compiler {
                         hook,
                         crate::interp::Hook::Meta(crate::build::MetaOp::TypeTable, _)
                     ) {
-                        self.type_table_func = Some(func);
+                        self.ty.table_func = Some(func);
                         if let Some(workspaces) = &self.ct.interp.workspaces {
                             crate::build::Workspaces::note_type_table_used(workspaces);
                         }
@@ -183,12 +183,12 @@ impl Compiler {
         if let Some(&rt) = sig.returns.first() {
             let want = self.ir_ty(rt).unwrap_or(Ty::I32);
             let v = match (results.first(), main_sig.returns.first()) {
-                (Some(&r), Some(&mt)) if self.types.is_integer(mt) => {
+                (Some(&r), Some(&mt)) if self.ty.types.is_integer(mt) => {
                     let have = f.b.val_ty(r);
                     match have.size().cmp(&want.size()) {
                         std::cmp::Ordering::Greater => f.b.conv(ir::ConvOp::Trunc, have, want, r),
                         std::cmp::Ordering::Less => {
-                            let signed = self.types.int_info(mt).is_some_and(|i| i.1);
+                            let signed = self.ty.types.int_info(mt).is_some_and(|i| i.1);
                             let op = if signed {
                                 ir::ConvOp::SExt
                             } else {

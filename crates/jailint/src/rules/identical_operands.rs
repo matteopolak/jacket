@@ -31,7 +31,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(ty) = cx.ty(a) else {
                 return true;
             };
-            let types = &cx.compiler.types;
+            let types = &cx.compiler.ty.types;
             let scalar = matches!(
                 types.kind(types.repr(ty)),
                 TypeKind::Int { .. }

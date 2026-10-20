@@ -59,8 +59,8 @@ fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
         && let E::Binary(op, a, b) = &cond.kind
         && let Some(opposite) = opposite(*op)
         && !parenthesized(cx, cond)
-        && cx.ty(a).is_some_and(|t| !cx.compiler.types.is_float(t))
-        && cx.ty(b).is_some_and(|t| !cx.compiler.types.is_float(t))
+        && cx.ty(a).is_some_and(|t| !cx.compiler.ty.types.is_float(t))
+        && cx.ty(b).is_some_and(|t| !cx.compiler.ty.types.is_float(t))
     {
         let flipped = format!(
             "{} {} {}",

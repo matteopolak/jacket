@@ -270,7 +270,7 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
         .callable_member_parameters(record, Sym::intern("first"), Span::NONE)
         .unwrap()
         .unwrap();
-    let pointer = compiler.types.pointer(record);
+    let pointer = compiler.ty.types.pointer(record);
     let second = compiler
         .callable_member_parameters(pointer, Sym::intern("second"), Span::NONE)
         .unwrap()

@@ -397,9 +397,9 @@ impl Compiler {
     /// Strip pointers and distinct wrappers: what `.` reaches.
     pub(super) fn ide_deref(&self, mut t: TypeId) -> TypeId {
         for _ in 0..8 {
-            t = match self.types.kind(t) {
+            t = match self.ty.types.kind(t) {
                 TypeKind::Pointer(inner) => *inner,
-                TypeKind::Distinct(d) => self.types.distincts[d.0 as usize].base,
+                TypeKind::Distinct(d) => self.ty.types.distincts[d.0 as usize].base,
                 _ => return t,
             };
         }
@@ -415,9 +415,9 @@ impl Compiler {
 
     fn ide_member_type(&mut self, t: TypeId, name: Sym) -> Option<TypeId> {
         let t = self.ide_deref(t);
-        match self.types.kind(t) {
+        match self.ty.types.kind(t) {
             TypeKind::Struct(s) => {
-                for f in self.types.struct_info(*s).fields.clone().iter() {
+                for f in self.ty.types.struct_info(*s).fields.clone().iter() {
                     if f.name == Some(name) {
                         return Some(f.ty);
                     }
@@ -434,10 +434,10 @@ impl Compiler {
                 ..
             } => match name.as_str() {
                 "count" | "allocated" => Some(TypeId::S64),
-                "data" => Some(match self.types.kind(t).clone() {
+                "data" => Some(match self.ty.types.kind(t).clone() {
                     TypeKind::Array {
                         elem, ..
-                    } => self.types.pointer(elem),
+                    } => self.ty.types.pointer(elem),
                     _ => TypeId::U8_PTR,
                 }),
                 _ => None,
@@ -456,9 +456,9 @@ impl Compiler {
         match recv {
             IdeReceiver::Module(m) => return self.ide_module_exports(m, &mut HashSet::default()),
             IdeReceiver::Type(t) => {
-                if let TypeKind::Enum(e) = self.types.kind(t) {
-                    let info = self.types.enum_info(*e);
-                    let strict = info.loose_of.map_or(*e, |t| match self.types.kind(t) {
+                if let TypeKind::Enum(e) = self.ty.types.kind(t) {
+                    let info = self.ty.types.enum_info(*e);
+                    let strict = info.loose_of.map_or(*e, |t| match self.ty.types.kind(t) {
                         TypeKind::Enum(strict) => *strict,
                         _ => *e,
                     });
@@ -502,15 +502,15 @@ impl Compiler {
             }
             IdeReceiver::Value(t) => {
                 let t = self.ide_deref(t);
-                match self.types.kind(t).clone() {
+                match self.ty.types.kind(t).clone() {
                     TypeKind::Struct(s) => {
-                        let fields = self.types.struct_info(s).fields.clone();
+                        let fields = self.ty.types.struct_info(s).fields.clone();
                         for f in fields.iter() {
                             if let Some(n) = f.name {
                                 out.push(IdeName {
                                     name: n.to_string(),
                                     kind: IdeKind::Field,
-                                    detail: self.types.name(f.ty),
+                                    detail: self.ty.types.name(f.ty),
                                     decl: f.span,
                                     call: None,
                                 });
@@ -529,7 +529,7 @@ impl Compiler {
                         elem,
                         kind,
                     } => {
-                        let elem = self.types.name(elem);
+                        let elem = self.ty.types.name(elem);
                         out.push(field("count", "s64"));
                         out.push(field("data", &format!("*{elem}")));
                         if kind == ArrayKind::Resizable {

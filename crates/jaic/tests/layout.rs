@@ -104,12 +104,12 @@ fn forward_overlay_offsets_types_and_reflection_order_are_independent() {
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }
-    let packet = c
-        .types
-        .structs
-        .iter()
-        .find(|s| s.name.as_str() == "Packet")
-        .unwrap();
+    let packet =
+        c.ty.types
+            .structs
+            .iter()
+            .find(|s| s.name.as_str() == "Packet")
+            .unwrap();
     let names: Vec<_> = packet
         .fields
         .iter()

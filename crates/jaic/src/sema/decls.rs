@@ -197,10 +197,10 @@ impl Compiler {
         else {
             return err(span, format!("{enum_name} is not a type"));
         };
-        let TypeKind::Enum(e) = self.types.kind(ty).clone() else {
+        let TypeKind::Enum(e) = self.ty.types.kind(ty).clone() else {
             return err(span, format!("{enum_name} is not an enum"));
         };
-        let info = self.types.enum_info(e);
+        let info = self.ty.types.enum_info(e);
         let Some(&(_, value)) = info.members.iter().find(|(n, _)| n.as_str() == member) else {
             return err(span, format!("{enum_name} has no member {member}"));
         };
@@ -315,7 +315,7 @@ impl Compiler {
             } if *modifier != ast::TypeModifier::Plain => {
                 let base = self.eval_type(scope, ty)?;
                 let isa = *modifier == ast::TypeModifier::Isa;
-                let ty = self.types.new_distinct(DistinctInfo {
+                let ty = self.ty.types.new_distinct(DistinctInfo {
                     name,
                     base,
                     isa,
@@ -388,7 +388,7 @@ impl Compiler {
                     }
                     None => ty,
                 };
-                let value = if self.types.is_float(ty) {
+                let value = if self.ty.types.is_float(ty) {
                     match value {
                         Value::Int(i) => Value::float(i as f64),
                         v => v,
@@ -614,17 +614,17 @@ impl Compiler {
             }
             | Operand::Place {
                 ty, ..
-            } => format!("a value of type {}", self.types.name(*ty)),
+            } => format!("a value of type {}", self.ty.types.name(*ty)),
             Operand::Const {
                 ty,
                 value,
                 ..
             } => format!(
                 "constant {} of type {}",
-                value.render(&self.types),
-                self.types.name(*ty)
+                value.render(&self.ty.types),
+                self.ty.types.name(*ty)
             ),
-            Operand::Type(t) => format!("type {}", self.types.name(*t)),
+            Operand::Type(t) => format!("type {}", self.ty.types.name(*t)),
             Operand::Procs(_) => "a procedure".into(),
             Operand::PolyStruct(_) => "a polymorphic struct".into(),
             Operand::Module(_) => "a module".into(),
@@ -744,7 +744,9 @@ impl Compiler {
                 value: Value::Bytes(agg),
                 ty,
                 ..
-            } if self.types.is_pointer(ty) || matches!(self.types.kind(ty), TypeKind::Proc(_)) => {
+            } if self.ty.types.is_pointer(ty)
+                || matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) =>
+            {
                 Ok(!agg.relocs.is_empty() || agg.bytes.iter().any(|&b| b != 0))
             }
             other => err(

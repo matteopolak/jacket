@@ -78,7 +78,7 @@ fn check_operand(
     if eval(other).is_some() || cx.constant(other) {
         return;
     }
-    let types = &cx.compiler.types;
+    let types = &cx.compiler.ty.types;
     let Some(ty) = ty else {
         return;
     };

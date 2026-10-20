@@ -153,7 +153,8 @@ impl Compiler {
         out: &mut Vec<FieldItem>,
     ) -> Result<()> {
         for name in &decl.names {
-            self.field_declarations
+            self.ty
+                .field_declarations
                 .entry(scope)
                 .or_default()
                 .insert(name.name, decl.clone());
@@ -170,19 +171,20 @@ impl Compiler {
         if let Some(ty) = decl
             .names
             .first()
-            .and_then(|n| self.field_types.get(&scope)?.get(&n.name))
+            .and_then(|n| self.ty.field_types.get(&scope)?.get(&n.name))
         {
             return Ok(*ty);
         }
         let key = (scope, decl.id);
-        if !self.field_type_pending.insert(key) {
+        if !self.ty.field_type_pending.insert(key) {
             return err(decl.span, "cycle in struct field types");
         }
         let result = self.field_decl_type_inner(scope, decl);
-        self.field_type_pending.remove(&key);
+        self.ty.field_type_pending.remove(&key);
         if let Ok(ty) = result {
             for name in &decl.names {
-                self.field_types
+                self.ty
+                    .field_types
                     .entry(scope)
                     .or_default()
                     .insert(name.name, ty);
@@ -245,7 +247,7 @@ impl Compiler {
     /// The synthesized `#Context` type: Preload's `FIRST_ADD_CONTEXT` followed by
     /// every `#add_context` in load order.
     pub fn context_type(&mut self, span: Span) -> Result<TypeId> {
-        if let Some(t) = self.context_type {
+        if let Some(t) = self.ty.context_type {
             return Ok(t);
         }
         self.expand_all()?;
@@ -290,13 +292,13 @@ impl Compiler {
         });
         let root = self.root_scope;
         let ty = self.new_struct_type(Sym::intern("Context"), lit, root, Vec::new(), None);
-        let s = self.types.as_struct(ty).unwrap();
+        let s = self.ty.types.as_struct(ty).unwrap();
         // `#add_context name :: value;` adds a constant member (`#Context._Iprof.Zone()`), not a
         // field. It is resolved where it was declared.
         let (consts, extra): (Vec<_>, Vec<_>) = extra
             .into_iter()
             .partition(|(decl, _)| decl.kind == ast::DeclKind::Const);
-        let struct_scope = self.struct_asts[&s].scope;
+        let struct_scope = self.ty.struct_asts[&s].scope;
         for (decl, home) in consts {
             for (index, n) in decl.names.iter().enumerate() {
                 let kind = EntityKind::Decl {
@@ -307,8 +309,8 @@ impl Compiler {
                 self.entity_mut(id).home = home;
             }
         }
-        self.struct_asts.get_mut(&s).unwrap().extra = extra;
-        self.context_type = Some(ty);
+        self.ty.struct_asts.get_mut(&s).unwrap().extra = extra;
+        self.ty.context_type = Some(ty);
         self.layout_struct(s, span)?;
         Ok(ty)
     }

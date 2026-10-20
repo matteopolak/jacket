@@ -81,7 +81,7 @@ impl Compiler {
         let TypeKind::Array {
             elem,
             kind,
-        } = *self.types.kind(ty)
+        } = *self.ty.types.kind(ty)
         else {
             return err(span, "a computed using filter must be an array of strings");
         };
@@ -173,7 +173,7 @@ impl Compiler {
                 | UsingEntry::Type(ty) => *ty,
                 _ => return err(span, "using mapper requires an aggregate"),
             };
-            let ty = self.types.pointee(ty).unwrap_or(ty);
+            let ty = self.ty.types.pointee(ty).unwrap_or(ty);
             self.ensure_complete(ty, span)?;
             let names = self.aggregate_using_names(ty)?;
             let mapper = self.eval_const_value(scope, expr)?;
@@ -253,10 +253,10 @@ impl Compiler {
 
     fn aggregate_using_names(&mut self, ty: TypeId) -> Result<Vec<Sym>> {
         let mut names = Vec::new();
-        if let TypeKind::Enum(e) = *self.types.kind(ty) {
-            names.extend(self.types.enum_info(e).members.iter().map(|(n, _)| *n));
-        } else if let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) {
-            for field in self.types.struct_info(s).fields.clone().iter() {
+        if let TypeKind::Enum(e) = *self.ty.types.kind(ty) {
+            names.extend(self.ty.types.enum_info(e).members.iter().map(|(n, _)| *n));
+        } else if let Some(s) = self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
+            for field in self.ty.types.struct_info(s).fields.clone().iter() {
                 names.extend(field.name);
                 if field.using {
                     names.extend(self.aggregate_using_names(field.ty)?);

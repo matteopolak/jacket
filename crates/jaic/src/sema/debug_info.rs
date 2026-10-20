@@ -196,8 +196,8 @@ impl Compiler {
             return simple("", 8, DebugTypeKind::Pointer(ir::DEBUG_CHAR));
         }
         let ty = TypeId(key);
-        let name = self.types.name(ty);
-        let kind = match self.types.kind(ty).clone() {
+        let name = self.ty.types.name(ty);
+        let kind = match self.ty.types.kind(ty).clone() {
             TypeKind::Bool => DebugTypeKind::Bool,
             TypeKind::Int {
                 signed, ..
@@ -243,7 +243,7 @@ impl Compiler {
                 }
             }
             TypeKind::Struct(s) => {
-                let info = self.types.struct_info(s);
+                let info = self.ty.types.struct_info(s);
                 if info.layout == LayoutState::Done {
                     let fields = info
                         .fields
@@ -259,7 +259,7 @@ impl Compiler {
                 }
             }
             TypeKind::Enum(e) => {
-                let info = self.types.enum_info(e);
+                let info = self.ty.types.enum_info(e);
                 DebugTypeKind::Enum {
                     base: info.base.0,
                     members: info
@@ -270,7 +270,7 @@ impl Compiler {
                 }
             }
             TypeKind::Distinct(d) => {
-                DebugTypeKind::Typedef(self.types.distincts[d.0 as usize].base.0)
+                DebugTypeKind::Typedef(self.ty.types.distincts[d.0 as usize].base.0)
             }
             TypeKind::Void
             | TypeKind::CompileTimeOnly
@@ -283,12 +283,12 @@ impl Compiler {
         DebugType {
             name,
             size: if sized {
-                self.types.size_of(ty)
+                self.ty.types.size_of(ty)
             } else {
                 0
             },
             align: if sized {
-                self.types.align_of(ty)
+                self.ty.types.align_of(ty)
             } else {
                 1
             },

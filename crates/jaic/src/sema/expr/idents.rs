@@ -25,7 +25,7 @@ impl Compiler {
         };
         match name {
             "long_double" => Ok(match self.options.long_double {
-                Some(fmt) => self.types.intern(TypeKind::WideFloat(fmt)),
+                Some(fmt) => self.ty.types.intern(TypeKind::WideFloat(fmt)),
                 None => TypeId::F64,
             }),
             other => err(span, format!("unknown jaic extension type `{other}`")),
@@ -203,6 +203,7 @@ impl Compiler {
                 return Ok(None);
             }
             if let Some(decl) = self
+                .ty
                 .field_declarations
                 .get(&sid)
                 .and_then(|fields| fields.get(&name))
@@ -256,11 +257,11 @@ impl Compiler {
             }
             E::Member(base, member) if depth > 0 => {
                 let mut ty = self.failed_run_type(scope, base, depth - 1)?;
-                while let Some(p) = self.types.pointee(ty) {
+                while let Some(p) = self.ty.types.pointee(ty) {
                     ty = p;
                 }
-                let s = self.types.as_struct(self.types.repr(ty))?;
-                let fields = &self.types.struct_info(s).fields;
+                let s = self.ty.types.as_struct(self.ty.types.repr(ty))?;
+                let fields = &self.ty.types.struct_info(s).fields;
                 fields
                     .iter()
                     .find(|f| f.name == Some(member.name))
@@ -418,7 +419,7 @@ impl Compiler {
                     return err(span, format!("{what}, but `{name}` is a variable"));
                 }
                 let addr = f.b.storage_addr(storage);
-                let parameters = if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+                let parameters = if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
                     self.callable_entity_parameters(id)?
                 } else {
                     None
@@ -452,7 +453,7 @@ impl Compiler {
             self.ed.inferred(name.span, t);
         }
         // Allow pointer-to-enum targets? No: enums only, but look through distinct.
-        match self.types.kind(t).clone() {
+        match self.ty.types.kind(t).clone() {
             TypeKind::Enum(_) | TypeKind::Struct(_) => {
                 let result =
                     self.member_access(f, ScopeId(0), Operand::Type(t), name.name, name.span);
@@ -466,7 +467,7 @@ impl Compiler {
                 format!(
                     "cannot infer `.{}` for type {}",
                     name.name,
-                    self.types.name(t)
+                    self.ty.types.name(t)
                 ),
             ),
         }
@@ -474,7 +475,7 @@ impl Compiler {
 
     /// Is `name` a field (not a constant) of struct type `ty`? Reading one needs a value.
     pub(super) fn names_field(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
-        Ok(self.types.as_struct(ty).is_some()
+        Ok(self.ty.types.as_struct(ty).is_some()
             && self.struct_constant(ty, name)?.is_none()
             && self.find_member(ty, name, Span::NONE)?.is_some())
     }
@@ -509,8 +510,8 @@ impl Compiler {
         if depth == self.scope(scope).proc_depth {
             return Ok(None);
         }
-        let ty = self.types.pointee(ty).unwrap_or(ty);
-        if self.types.as_struct(ty).is_none() || self.names_field(ty, member.name)? {
+        let ty = self.ty.types.pointee(ty).unwrap_or(ty);
+        if self.ty.types.as_struct(ty).is_none() || self.names_field(ty, member.name)? {
             return Ok(None);
         }
         Ok(self
@@ -575,7 +576,7 @@ impl Compiler {
                     continue;
                 }
                 variadic = true;
-                params.push(self.types.array(ty, ArrayKind::View));
+                params.push(self.ty.types.array(ty, ArrayKind::View));
             } else {
                 params.push(ty);
             }
@@ -593,7 +594,7 @@ impl Compiler {
                 returns.push(t);
             }
         }
-        let ty = self.types.intern(TypeKind::Proc(Rc::new(ProcType {
+        let ty = self.ty.types.intern(TypeKind::Proc(Rc::new(ProcType {
             params,
             returns,
             variadic,

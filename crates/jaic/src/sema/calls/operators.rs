@@ -9,9 +9,9 @@ impl Compiler {
     /// Scope a struct (or pointer to one) was declared in, for its
     /// `for_expansion` protocol.
     pub fn struct_home_scope(&self, t: TypeId) -> Option<ScopeId> {
-        let t = self.types.pointee(t).unwrap_or(t);
-        let s = self.types.as_struct(self.types.repr_struct(t))?;
-        self.struct_asts.get(&s).map(|src| src.scope)
+        let t = self.ty.types.pointee(t).unwrap_or(t);
+        let s = self.ty.types.as_struct(self.ty.types.repr_struct(t))?;
+        self.ty.struct_asts.get(&s).map(|src| src.scope)
     }
 
     /// Operators obey ordinary visibility and filtered reexports. A canonical
@@ -48,7 +48,7 @@ impl Compiler {
 
     pub(in crate::sema) fn overloadable(&self, ty: TypeId) -> bool {
         matches!(
-            self.types.kind(ty),
+            self.ty.types.kind(ty),
             TypeKind::Struct(_)
                 | TypeKind::Array { .. }
                 | TypeKind::Pointer(_)
@@ -70,8 +70,8 @@ impl Compiler {
         if !(self.overloadable(lt) || self.overloadable(rt)) || matches!(lhs, Operand::Type(_)) {
             return Ok(None);
         }
-        if (self.types.is_pointer(lt) || matches!(self.types.kind(lt), TypeKind::Enum(_)))
-            && !matches!(self.types.kind(rt), TypeKind::Struct(_))
+        if (self.ty.types.is_pointer(lt) || matches!(self.ty.types.kind(lt), TypeKind::Enum(_)))
+            && !matches!(self.ty.types.kind(rt), TypeKind::Struct(_))
         {
             return Ok(None);
         }
@@ -135,8 +135,8 @@ impl Compiler {
                 return Ok(Some(r));
             }
         }
-        if matches!(self.types.kind(lt), TypeKind::Struct(_))
-            || matches!(self.types.kind(rt), TypeKind::Struct(_))
+        if matches!(self.ty.types.kind(lt), TypeKind::Struct(_))
+            || matches!(self.ty.types.kind(rt), TypeKind::Struct(_))
         {
             // Report the overload failure for struct operands.
             self.call_procs(f, scope, &procs, args, None, span)
@@ -189,7 +189,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         if !matches!(
-            self.types.kind(self.types.repr_struct(operand.ty())),
+            self.ty.types.kind(self.ty.types.repr_struct(operand.ty())),
             TypeKind::Struct(_)
         ) {
             return Ok(None);
@@ -226,8 +226,8 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let bt = base.ty();
-        let target = self.types.pointee(bt).unwrap_or(bt);
-        if !matches!(self.types.kind(target), TypeKind::Struct(_)) {
+        let target = self.ty.types.pointee(bt).unwrap_or(bt);
+        if !matches!(self.ty.types.kind(target), TypeKind::Struct(_)) {
             return Ok(None);
         }
         let mut procs = self.operator_candidates(scope, text)?;
@@ -262,8 +262,8 @@ impl Compiler {
             Operand::Value {
                 ty,
                 val,
-            } if self.types.pointee(ty).is_some_and(|p| p != TypeId::VOID)
-                && self.types.pointee(ty) != Some(target) =>
+            } if self.ty.types.pointee(ty).is_some_and(|p| p != TypeId::VOID)
+                && self.ty.types.pointee(ty) != Some(target) =>
             {
                 let _ = val;
                 Operand::Value {

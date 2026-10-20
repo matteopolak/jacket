@@ -10,10 +10,10 @@ use crate::types::{ArrayKind, TypeKind};
 impl Compiler {
     /// Constant image of a default-initialized value (`None` = all zero).
     pub fn default_initializer(&mut self, ty: TypeId, span: Span) -> Result<Option<Rc<Aggregate>>> {
-        if let Some(img) = self.default_images.get(&ty) {
+        if let Some(img) = self.ty.default_images.get(&ty) {
             return Ok(img.clone());
         }
-        let img = match self.types.kind(ty).clone() {
+        let img = match self.ty.types.kind(ty).clone() {
             TypeKind::Type => {
                 // A Type value is a descriptor address. Its default is the
                 // canonical void descriptor, not a null pointer image.
@@ -23,9 +23,9 @@ impl Compiler {
             }
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
-                let size = self.types.struct_info(s).size;
-                let fields = self.types.struct_info(s).fields.clone();
-                let inits = self.struct_asts[&s].inits.clone();
+                let size = self.ty.types.struct_info(s).size;
+                let fields = self.ty.types.struct_info(s).fields.clone();
+                let inits = self.ty.struct_asts[&s].inits.clone();
                 // Built on the first nonzero default: a struct whose defaults are all zero
                 // (however large) never gets an image.
                 let mut image: Option<Aggregate> = None;
@@ -47,7 +47,7 @@ impl Compiler {
                 // `member = value;` in the body overrides the default of a member
                 // reached through a `using` field.
                 let (lit, scope) = {
-                    let src = &self.struct_asts[&s];
+                    let src = &self.ty.struct_asts[&s];
                     (src.lit.clone(), src.scope)
                 };
                 for stmt in &lit.body {
@@ -85,12 +85,12 @@ impl Compiler {
                 None => None,
             },
             TypeKind::Distinct(d) => {
-                let base = self.types.distincts[d.0 as usize].base;
+                let base = self.ty.types.distincts[d.0 as usize].base;
                 self.default_initializer(base, span)?
             }
             _ => None,
         };
-        self.default_images.insert(ty, img.clone());
+        self.ty.default_images.insert(ty, img.clone());
         Ok(img)
     }
 
@@ -165,12 +165,12 @@ impl Compiler {
         match self.default_initializer(ty, span)? {
             None => f.b.zero(addr, size),
             Some(img) => {
-                let g = if let Some(&g) = self.default_globals.get(&ty) {
+                let g = if let Some(&g) = self.ty.default_globals.get(&ty) {
                     g
                 } else {
                     let align = self.align_of(ty, span)?;
                     let g = self.out.program.add_global(ir::Global {
-                        name: format!("default.{}", self.types.name(ty)),
+                        name: format!("default.{}", self.ty.types.name(ty)),
                         size,
                         align,
                         init: img.bytes.clone(),
@@ -178,7 +178,7 @@ impl Compiler {
                         read_only: true,
                         export: None,
                     });
-                    self.default_globals.insert(ty, g);
+                    self.ty.default_globals.insert(ty, g);
                     g
                 };
                 let src = f.b.global_addr(g);
@@ -191,6 +191,7 @@ impl Compiler {
     /// `initializer_of(T)`: a `(*void) #no_context` procedure that default-initializes.
     pub fn initializer_proc(&mut self, ty: TypeId, span: Span) -> Result<(ir::FuncId, TypeId)> {
         let proc_ty = self
+            .ty
             .types
             .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
                 params: vec![TypeId::VOID_PTR],
@@ -201,12 +202,12 @@ impl Compiler {
                 no_context: true,
                 non_pod_return: false,
             })));
-        if let Some(&func) = self.initializers.get(&ty) {
+        if let Some(&func) = self.ty.initializers.get(&ty) {
             return Ok((func, proc_ty));
         }
-        let name = format!("__init_{}", self.types.name(ty));
+        let name = format!("__init_{}", self.ty.types.name(ty));
         let func = self.out.program.reserve_func(name.clone());
-        self.initializers.insert(ty, func);
+        self.ty.initializers.insert(ty, func);
         let sig = ir::Sig {
             params: vec![Ty::Ptr],
             returns: vec![],

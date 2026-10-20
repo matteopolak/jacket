@@ -495,7 +495,7 @@ impl Compiler {
             return Ok(None);
         }
         let ty = self.eval_type(scope, ty)?;
-        Ok(ValueClass::of_type(self.types.kind(ty)))
+        Ok(ValueClass::of_type(self.ty.types.kind(ty)))
     }
 }
 

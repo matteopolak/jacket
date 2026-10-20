@@ -40,7 +40,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             };
             if !matches!(
-                cx.compiler.types.kind(ty),
+                cx.compiler.ty.types.kind(ty),
                 TypeKind::Array { .. } | TypeKind::String
             ) {
                 return true;

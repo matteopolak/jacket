@@ -23,7 +23,7 @@ impl Compiler {
             None
         } else if is_shift {
             // `cast(float) (1 << n)` shifts an integer.
-            expected.filter(|&t| self.types.is_integer(self.types.repr(t)))
+            expected.filter(|&t| self.ty.types.is_integer(self.ty.types.repr(t)))
         } else {
             expected
         };
@@ -44,7 +44,7 @@ impl Compiler {
         let bitwise = matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor)
             && !lhs_expected.is_some_and(|t| {
                 matches!(
-                    self.types.kind(self.types.repr_struct(t)),
+                    self.ty.types.kind(self.ty.types.repr_struct(t)),
                     TypeKind::Enum(_)
                 )
             });
@@ -81,7 +81,7 @@ impl Compiler {
             lhs = Operand::Type(self.poly_struct_type(ps));
         }
         // Inferred enum members on the right take the left operand's type.
-        let pointer_lhs = self.types.is_pointer(self.types.repr(lhs.ty()));
+        let pointer_lhs = self.ty.types.is_pointer(self.ty.types.repr(lhs.ty()));
         let pointer_offset = matches!(op, BinOp::Add | BinOp::Sub) && pointer_lhs;
         let pointer_bits =
             matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor) && pointer_lhs;
@@ -127,7 +127,7 @@ impl Compiler {
                 Operand::Const {
                     value: Value::String(bytes),
                     ..
-                } if bytes.len() == 1 && c.types.repr(other.ty()) == TypeId::U8 => {
+                } if bytes.len() == 1 && c.ty.types.repr(other.ty()) == TypeId::U8 => {
                     Some(Operand::untyped_int(bytes[0] as i128))
                 }
                 _ => None,
@@ -215,13 +215,16 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         for t in [lty, rty] {
-            if matches!(self.types.kind(self.types.repr(t)), TypeKind::Array { .. }) {
+            if matches!(
+                self.ty.types.kind(self.ty.types.repr(t)),
+                TypeKind::Array { .. }
+            ) {
                 let symbol = binop_text(op);
                 return Err(Box::new(
                     Diagnostic::error(span, format!("arrays cannot be compared with `{symbol}`"))
                         .with_note(
                             span,
-                            format!("the compared type is `{}`", self.types.name(t)),
+                            format!("the compared type is `{}`", self.ty.types.name(t)),
                         )
                         .with_help("compare the lengths and elements in a loop"),
                 ));

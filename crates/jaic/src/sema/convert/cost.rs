@@ -21,36 +21,36 @@ impl Compiler {
         if self.wide_float(from).is_some() || self.wide_float(to).is_some() {
             return self.wide_implicit_cost(from, untyped, to);
         }
-        let fk = self.types.kind(from).clone();
-        let tk = self.types.kind(to).clone();
+        let fk = self.ty.types.kind(from).clone();
+        let tk = self.ty.types.kind(to).clone();
         if untyped {
-            let tr = self.types.repr(to);
+            let tr = self.ty.types.repr(to);
             if from == TypeId::NULL {
                 return matches!(
-                    self.types.kind(tr),
+                    self.ty.types.kind(tr),
                     TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Type
                 )
                 .then_some(LITERAL);
             }
             // Between float overloads a literal prefers float32 (`log(2)` is `log(float32)`).
             let float_cost = |c: &Self| {
-                if c.types.repr(to) == TypeId::F64 {
+                if c.ty.types.repr(to) == TypeId::F64 {
                     LITERAL + 1
                 } else {
                     LITERAL
                 }
             };
-            if self.types.is_integer(from) {
-                if self.types.is_integer(to) {
+            if self.ty.types.is_integer(from) {
+                if self.ty.types.is_integer(to) {
                     return Some(LITERAL);
                 }
-                if self.types.is_float(to) {
+                if self.ty.types.is_float(to) {
                     return Some(float_cost(self));
                 }
                 return None;
             }
-            if self.types.is_float(from) {
-                return self.types.is_float(to).then(|| float_cost(self));
+            if self.ty.types.is_float(from) {
+                return self.ty.types.is_float(to).then(|| float_cost(self));
             }
         }
         match (&fk, &tk) {
@@ -110,7 +110,7 @@ impl Compiler {
                         elem: te,
                         kind: ArrayKind::View,
                     },
-                ) = (self.types.kind(*f), self.types.kind(*t))
+                ) = (self.ty.types.kind(*f), self.ty.types.kind(*t))
                     && fe == te
                 {
                     return Some(POINTER);
@@ -126,8 +126,8 @@ impl Compiler {
             // `E.loose` and `E` convert to each other (a node's `operator_type` passed as
             // `Operator_Type`).
             (TypeKind::Enum(a), TypeKind::Enum(b))
-                if self.types.enums[a.0 as usize].loose_of == Some(to)
-                    || self.types.enums[b.0 as usize].loose_of == Some(from) =>
+                if self.ty.types.enums[a.0 as usize].loose_of == Some(to)
+                    || self.ty.types.enums[b.0 as usize].loose_of == Some(from) =>
             {
                 Some(WIDEN)
             }
@@ -137,13 +137,13 @@ impl Compiler {
                 TypeKind::Int {
                     ..
                 },
-            ) if self.types.is_loose_enum(from) => Some(WIDEN),
+            ) if self.ty.types.is_loose_enum(from) => Some(WIDEN),
             (
                 TypeKind::Int {
                     ..
                 },
                 TypeKind::Enum(_),
-            ) if self.types.is_loose_enum(to) => Some(WIDEN),
+            ) if self.ty.types.is_loose_enum(to) => Some(WIDEN),
             (
                 TypeKind::Array {
                     elem: fe,
@@ -163,8 +163,8 @@ impl Compiler {
                 },
                 TypeKind::Pointer(te),
             ) if fe == te => Some(INT_TO_FLOAT),
-            (TypeKind::Distinct(d), _) if self.types.distincts[d.0 as usize].isa => {
-                let base = self.types.distincts[d.0 as usize].base;
+            (TypeKind::Distinct(d), _) if self.ty.types.distincts[d.0 as usize].isa => {
+                let base = self.ty.types.distincts[d.0 as usize].base;
                 self.implicit_cost(base, false, to).map(|c| c + 1)
             }
             (TypeKind::Struct(_), _) => self.as_offset(from, to).map(|_| SUBTYPE),
@@ -184,11 +184,11 @@ impl Compiler {
 
     /// Offset of a `#as` member of type `to` inside struct `from` (searching recursively).
     pub fn as_offset(&mut self, from: TypeId, to: TypeId) -> Option<u64> {
-        let s = self.types.as_struct(from)?;
+        let s = self.ty.types.as_struct(from)?;
         if self.layout_struct(s, Span::NONE).is_err() {
             return None;
         }
-        let fields = self.types.struct_info(s).fields.clone();
+        let fields = self.ty.types.struct_info(s).fields.clone();
         for field in fields.iter() {
             if field.as_ {
                 if field.ty == to {

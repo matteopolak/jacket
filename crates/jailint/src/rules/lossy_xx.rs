@@ -16,7 +16,7 @@ use jaic::ast::{BinOp, Expr, ExprKind as E};
 use jaic::types::{TypeId, TypeKind, Types};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
-    let types = &cx.compiler.types;
+    let types = &cx.compiler.ty.types;
     for p in &cx.procs {
         if !p.typed() {
             continue;

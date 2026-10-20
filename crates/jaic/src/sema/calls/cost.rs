@@ -81,8 +81,9 @@ impl Compiler {
         if self.size_of(param, span).is_err() {
             return Ok(true);
         }
-        let members: Vec<TypeId> = match self.types.as_struct(self.types.repr_struct(param)) {
+        let members: Vec<TypeId> = match self.ty.types.as_struct(self.ty.types.repr_struct(param)) {
             Some(s) => self
+                .ty
                 .types
                 .struct_info(s)
                 .fields
@@ -90,7 +91,7 @@ impl Compiler {
                 .map(|f| f.ty)
                 .collect(),
             None => self
-                .builtin_members(self.types.repr(param), span)?
+                .builtin_members(self.ty.types.repr(param), span)?
                 .into_iter()
                 .map(|(_, t, _)| t)
                 .collect(),
@@ -105,7 +106,7 @@ impl Compiler {
             };
             if matches!(field.value.kind, E::ArrayLit { .. })
                 && !matches!(
-                    self.types.kind(self.types.repr(member)),
+                    self.ty.types.kind(self.ty.types.repr(member)),
                     TypeKind::Array { .. }
                 )
             {
@@ -145,7 +146,7 @@ impl Compiler {
                 ..
             }) = &arg.expr
             {
-                match self.types.kind(param) {
+                match self.ty.types.kind(param) {
                     TypeKind::Proc(pt) if pt.params.len() == header.params.len() => {}
                     TypeKind::Proc(pt) => {
                         return err(
@@ -153,7 +154,7 @@ impl Compiler {
                             format!(
                                 "lambda takes {} parameters, but {} expects {}",
                                 header.params.len(),
-                                self.types.name(param),
+                                self.ty.types.name(param),
                                 pt.params.len()
                             ),
                         );
@@ -161,7 +162,7 @@ impl Compiler {
                     _ => {
                         return err(
                             arg.span,
-                            format!("a lambda cannot be passed as {}", self.types.name(param)),
+                            format!("a lambda cannot be passed as {}", self.ty.types.name(param)),
                         );
                     }
                 }
@@ -201,7 +202,7 @@ impl Compiler {
             }
             // Deferred arguments fit any plausible target; prefer exact-looking ones.
             let scalar = matches!(
-                self.types.kind(self.types.repr_struct(param)),
+                self.ty.types.kind(self.ty.types.repr_struct(param)),
                 TypeKind::Bool
                     | TypeKind::Int { .. }
                     | TypeKind::Float { .. }
@@ -215,7 +216,7 @@ impl Compiler {
                 }) => {
                     (!scalar
                         || !self
-                            .builtin_members(self.types.repr(param), arg.span)?
+                            .builtin_members(self.ty.types.repr(param), arg.span)?
                             .is_empty())
                         && self.struct_lit_args_fit(param, lit_args, arg.span)?
                 }
@@ -223,7 +224,7 @@ impl Compiler {
                     ..
                 }) => !scalar,
                 Some(_) if arg.expr.as_ref().is_some_and(inferred_flags) => matches!(
-                    self.types.kind(param),
+                    self.ty.types.kind(param),
                     TypeKind::Enum(_) | TypeKind::Struct(_)
                 ),
                 _ => true,
@@ -233,7 +234,7 @@ impl Compiler {
                     arg.span,
                     format!(
                         "argument cannot be inferred as parameter type {}",
-                        self.types.name(param)
+                        self.ty.types.name(param)
                     ),
                 );
             }
@@ -254,7 +255,7 @@ impl Compiler {
             Operand::PolyStruct(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
             Operand::Type(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
             Operand::Procs(procs) => {
-                if let TypeKind::Proc(_) = self.types.kind(param) {
+                if let TypeKind::Proc(_) = self.ty.types.kind(param) {
                     for &p in &procs.clone() {
                         if !self.proc(p).is_poly && self.proc_type(p, arg.span)? == param {
                             return Ok(convert::EXACT);
@@ -270,7 +271,7 @@ impl Compiler {
                     if procs.len() == 1 && !self.proc(procs[0]).is_poly {
                         let pt = self.proc_type(procs[0], arg.span)?;
                         if let (TypeKind::Proc(a), TypeKind::Proc(b)) =
-                            (self.types.kind(pt), self.types.kind(param))
+                            (self.ty.types.kind(pt), self.ty.types.kind(param))
                             && a.params == b.params
                             && a.returns == b.returns
                         {
@@ -281,7 +282,7 @@ impl Compiler {
                         arg.span,
                         format!(
                             "procedure does not match parameter type {}",
-                            self.types.name(param)
+                            self.ty.types.name(param)
                         ),
                     );
                 }
@@ -299,18 +300,18 @@ impl Compiler {
                 value: Value::Int(v),
                 untyped: true,
                 ..
-            } if self.types.is_integer(param) => {
-                let (bits, signed) = self.types.int_info(param).unwrap();
+            } if self.ty.types.is_integer(param) => {
+                let (bits, signed) = self.ty.types.int_info(param).unwrap();
                 if !convert::int_constant_fits(*v, bits, signed, self.bit_pattern(arg.span)) {
                     return err(
                         arg.span,
-                        format!("constant {v} does not fit in {}", self.types.name(param)),
+                        format!("constant {v} does not fit in {}", self.ty.types.name(param)),
                     );
                 }
                 // Jai lets an untyped integer constant (`#char ","`, `3`) stand for an
                 // enum value; rank it below every ordinary integer conversion.
-                if matches!(self.types.kind(param), TypeKind::Enum(_))
-                    && !self.types.is_loose_enum(param)
+                if matches!(self.ty.types.kind(param), TypeKind::Enum(_))
+                    && !self.ty.types.is_loose_enum(param)
                 {
                     return Ok(convert::SUBTYPE);
                 }
@@ -324,7 +325,7 @@ impl Compiler {
                 value: Value::Float(_, precision),
                 untyped: true,
                 ..
-            } if precision.requires_float64 && self.types.repr(param) == TypeId::F32 => {
+            } if precision.requires_float64 && self.ty.types.repr(param) == TypeId::F32 => {
                 return err(
                     arg.span,
                     "this floating literal requires float64 precision (use an explicit cast to round it)",
@@ -334,13 +335,13 @@ impl Compiler {
             Operand::Const {
                 value: Value::String(_),
                 ..
-            } if self.types.pointee(param) == Some(TypeId::U8) => return Ok(convert::POINTER),
+            } if self.ty.types.pointee(param) == Some(TypeId::U8) => return Ok(convert::POINTER),
             // A string literal converts to a `#type,distinct` / `#type,isa` string variant.
             Operand::Const {
                 value: Value::String(_),
                 ..
-            } if matches!(self.types.kind(param), TypeKind::Distinct(_))
-                && self.types.repr(param) == TypeId::STRING =>
+            } if matches!(self.ty.types.kind(param), TypeKind::Distinct(_))
+                && self.ty.types.repr(param) == TypeId::STRING =>
             {
                 return Ok(convert::LITERAL);
             }
@@ -367,8 +368,8 @@ impl Compiler {
                 arg.span,
                 format!(
                     "argument of type `{}` does not match parameter type `{}`",
-                    self.types.name(from),
-                    self.types.name(param)
+                    self.ty.types.name(from),
+                    self.ty.types.name(param)
                 ),
             );
             if let Some(help) = self.conversion_help(from, param) {

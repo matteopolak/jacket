@@ -43,8 +43,8 @@ impl Compiler {
                     untyped: true,
                     ..
                 }
-            ) && s.types.is_integer(o.ty())
-                && !matches!(s.types.kind(o.ty()), TypeKind::Enum(_))
+            ) && s.ty.types.is_integer(o.ty())
+                && !matches!(s.ty.types.kind(o.ty()), TypeKind::Enum(_))
         };
         if !is_shift && is_float_lit(&rhs) && is_int_value(self, &lhs) {
             let ty = self.default_untyped(rhs.ty(), &rhs.const_value().unwrap());
@@ -72,20 +72,20 @@ impl Compiler {
                             ..
                         }
                     )
-                    && self.types.int_info(other.ty()) == Some((64, false))
-                    && !matches!(self.types.kind(other.ty()), TypeKind::Enum(_))
+                    && self.ty.types.int_info(other.ty()) == Some((64, false))
+                    && !matches!(self.ty.types.kind(other.ty()), TypeKind::Enum(_))
                 {
                     return err(
                         span,
                         format!(
                             "signedness mismatch: the constant {v} does not fit in `{}`",
-                            self.types.name(other.ty())
+                            self.ty.types.name(other.ty())
                         ),
                     );
                 }
             }
         }
-        if self.types.repr(ty) == TypeId::BOOL
+        if self.ty.types.repr(ty) == TypeId::BOOL
             && matches!(
                 op,
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Rem
@@ -106,18 +106,19 @@ impl Compiler {
             ty
         };
         // An integer value meeting a float converts like `cast(float) x`.
-        let int_to_float =
-            |s: &Self, o: &Operand| !is_shift && s.types.is_float(ty) && s.types.is_integer(o.ty());
+        let int_to_float = |s: &Self, o: &Operand| {
+            !is_shift && s.ty.types.is_float(ty) && s.ty.types.is_integer(o.ty())
+        };
         if int_to_float(self, &lhs) {
             lhs = self.explicit_cast(f, lhs, ty, ast::CastFlags::default(), span)?;
         }
         if int_to_float(self, &rhs) {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
-        if ty == TypeId::VOID_PTR && matches!(self.types.kind(lhs.ty()), TypeKind::Proc(_)) {
+        if ty == TypeId::VOID_PTR && matches!(self.ty.types.kind(lhs.ty()), TypeKind::Proc(_)) {
             lhs = self.explicit_cast(f, lhs, ty, ast::CastFlags::default(), span)?;
         }
-        if ty == TypeId::VOID_PTR && matches!(self.types.kind(rhs.ty()), TypeKind::Proc(_)) {
+        if ty == TypeId::VOID_PTR && matches!(self.ty.types.kind(rhs.ty()), TypeKind::Proc(_)) {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
         let lhs = self.convert(f, lhs, ty, span)?;
@@ -176,11 +177,11 @@ impl Compiler {
                 format!(
                     "operator {:?} is not defined for {}",
                     op,
-                    self.types.name(ty)
+                    self.ty.types.name(ty)
                 ),
             );
         };
-        let signed = self.types.int_info(ty).is_some_and(|(_, s)| s);
+        let signed = self.ty.types.int_info(ty).is_some_and(|(_, s)| s);
         if is_cmp {
             let cmp = cmp_op(op, t.is_float(), signed);
             return Ok(Operand::Value {
@@ -198,7 +199,7 @@ impl Compiler {
                 format!(
                     "operator {:?} is not defined for {}",
                     op,
-                    self.types.name(ty)
+                    self.ty.types.name(ty)
                 ),
             ))
         })?;
@@ -208,7 +209,7 @@ impl Compiler {
                 format!(
                     "arithmetic operator {:?} is not defined for {}",
                     op,
-                    self.types.name(ty)
+                    self.ty.types.name(ty)
                 ),
             );
         }
@@ -232,8 +233,8 @@ impl Compiler {
             && !f.checks_off.no_aoc()
             && !f.type_only
             && matches!(ir_op, ir::BinOp::Add | ir::BinOp::Sub | ir::BinOp::Mul)
-            && self.types.is_integer(ty)
-            && !matches!(self.types.kind(ty), TypeKind::Enum(_))
+            && self.ty.types.is_integer(ty)
+            && !matches!(self.ty.types.kind(ty), TypeKind::Enum(_))
         {
             self.emit_overflow_check(f, (ir_op, signed, t), (x, y), span)?;
         }

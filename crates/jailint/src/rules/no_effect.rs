@@ -49,7 +49,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 E::Ident(_) | E::Member(..)
                     if !super::callee_procs(cx, e).is_empty()
                         || cx.ty(e).is_some_and(|t| {
-                            matches!(cx.compiler.types.kind(t), jaic::types::TypeKind::Proc(_))
+                            matches!(cx.compiler.ty.types.kind(t), jaic::types::TypeKind::Proc(_))
                         }) =>
                 {
                     format!("to call it, write `{}();`", cx.whole_src(e.span).trim())

@@ -450,11 +450,12 @@ impl Compiler {
     /// "type `T` has no member `x`", with the closest member name or the members there are.
     pub(super) fn no_member(&self, ty: crate::types::TypeId, name: Sym, span: Span) -> Diagnostic {
         use crate::types::TypeKind;
-        let shown = self.types.name(ty);
-        let (what, members): (&str, Vec<String>) = match self.types.kind(ty) {
+        let shown = self.ty.types.name(ty);
+        let (what, members): (&str, Vec<String>) = match self.ty.types.kind(ty) {
             TypeKind::Struct(id) => (
                 "type",
-                self.types
+                self.ty
+                    .types
                     .struct_info(*id)
                     .fields
                     .iter()
@@ -463,7 +464,8 @@ impl Compiler {
             ),
             TypeKind::Enum(id) => (
                 "enum",
-                self.types
+                self.ty
+                    .types
                     .enum_info(*id)
                     .members
                     .iter()
@@ -471,7 +473,7 @@ impl Compiler {
                     .collect(),
             ),
             TypeKind::Pointer(inner) => {
-                if matches!(self.types.kind(*inner), TypeKind::Pointer(_)) {
+                if matches!(self.ty.types.kind(*inner), TypeKind::Pointer(_)) {
                     return Diagnostic::error(
                         span,
                         format!("type `{shown}` has no member `{name}`"),
@@ -499,7 +501,7 @@ impl Compiler {
             d = d.with_note(Span::NONE, format!("its members are {}", list.join(", ")));
         } else if members.is_empty()
             && matches!(
-                self.types.kind(ty),
+                self.ty.types.kind(ty),
                 TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::Bool
             )
         {

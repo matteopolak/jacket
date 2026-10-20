@@ -60,7 +60,7 @@ impl Compiler {
             .refs_at(file, offset)
             .into_iter()
             .filter(|o| o.span == r.span && !facts.sketched(o) && self.same_local(&o.what, &r.what))
-            .map(|o| self.types.name(o.ty))
+            .map(|o| self.ty.types.name(o.ty))
             .collect();
         names.sort();
         names.dedup();
@@ -131,7 +131,7 @@ impl Compiler {
             )
             && let Some(&Some(t)) = self.ed.facts()?.instances.get(&r.span)
         {
-            let name = self.types.name(t);
+            let name = self.ty.types.name(t);
             let text = self.ide_type_hover(&name, t);
             let layout = if same {
                 self.ide_type_layout(t)
@@ -160,7 +160,7 @@ impl Compiler {
                     .join("\n")
             }
             IdeWhat::Entity(e) => self.ide_entity_hover(*e, Some(r.ty)),
-            IdeWhat::Member(_) => format!("{name}: {}", self.types.name(r.ty)),
+            IdeWhat::Member(_) => format!("{name}: {}", self.ty.types.name(r.ty)),
             IdeWhat::Type(t) => self.ide_type_hover(&name, *t),
             // An overload set may include aliases (`print :: print_to_builder;`): show each
             // under the name used.
@@ -209,7 +209,7 @@ impl Compiler {
             }) else {
                 return Vec::new();
             };
-            let f = &self.types.struct_info(site.declaring).fields[site.field];
+            let f = &self.ty.types.struct_info(site.declaring).fields[site.field];
             let named = f.name.map(|n| (f.span, n.to_string()));
             return self.ide_narrow_decls(named.into_iter().collect());
         };
@@ -265,8 +265,8 @@ impl Compiler {
                 layout: None,
             });
         };
-        let f = &self.types.struct_info(site.declaring).fields[site.field];
-        let text = format!("{}: {}", f.name?, self.types.name(f.ty));
+        let f = &self.ty.types.struct_info(site.declaring).fields[site.field];
+        let text = format!("{}: {}", f.name?, self.ty.types.name(f.ty));
         Some(IdeHover {
             span,
             text,
@@ -287,7 +287,7 @@ impl Compiler {
     /// Size and alignment of a type, and for a struct the bytes its fields leave unused.
     fn ide_type_layout(&mut self, t: TypeId) -> Option<IdeLayout> {
         if matches!(
-            self.types.kind(t),
+            self.ty.types.kind(t),
             TypeKind::Void
                 | TypeKind::CompileTimeOnly
                 | TypeKind::PolyParam
@@ -296,15 +296,16 @@ impl Compiler {
         {
             return None;
         }
-        let size = self.types.size_of(t);
-        let padding = match self.types.kind(t) {
+        let size = self.ty.types.size_of(t);
+        let padding = match self.ty.types.kind(t) {
             TypeKind::Struct(s) => {
                 let mut spans: Vec<(u64, u64)> = self
+                    .ty
                     .types
                     .struct_info(*s)
                     .fields
                     .iter()
-                    .map(|f| (f.offset, f.offset + self.types.size_of(f.ty)))
+                    .map(|f| (f.offset, f.offset + self.ty.types.size_of(f.ty)))
                     .collect();
                 spans.sort_unstable();
                 let mut covered = 0;
@@ -323,7 +324,7 @@ impl Compiler {
         Some(IdeLayout {
             offset: None,
             size,
-            align: self.types.align_of(t),
+            align: self.ty.types.align_of(t),
             padding,
         })
     }
@@ -368,14 +369,14 @@ impl Compiler {
 
     /// Structs, unions, arrays, strings and `Any`: types whose size is worth showing on a value.
     fn ide_aggregate(&self, ty: TypeId) -> bool {
-        match self.types.kind(ty) {
+        match self.ty.types.kind(ty) {
             TypeKind::Struct(_)
             | TypeKind::Array {
                 ..
             }
             | TypeKind::String
             | TypeKind::Any => true,
-            TypeKind::Distinct(d) => self.ide_aggregate(self.types.distincts[d.0 as usize].base),
+            TypeKind::Distinct(d) => self.ide_aggregate(self.ty.types.distincts[d.0 as usize].base),
             _ => false,
         }
     }
@@ -383,10 +384,10 @@ impl Compiler {
     /// The field `name` of the value left of the `.` at `span`.
     fn ide_member_layout(&mut self, span: Span, name: Sym) -> Option<IdeLayout> {
         let mut ty = (*self.ed.facts()?.receivers.get(&span)?)?;
-        while let Some(p) = self.types.pointee(ty) {
+        while let Some(p) = self.ty.types.pointee(ty) {
             ty = p;
         }
-        let TypeKind::Struct(s) = *self.types.kind(self.types.repr(ty)) else {
+        let TypeKind::Struct(s) = *self.ty.types.kind(self.ty.types.repr(ty)) else {
             return None;
         };
         if !self.ide_laid_out(ty) {
@@ -405,7 +406,7 @@ impl Compiler {
         base: u64,
         depth: u32,
     ) -> Option<IdeFieldSite> {
-        let fields = &self.types.struct_info(s).fields;
+        let fields = &self.ty.types.struct_info(s).fields;
         if let Some(at) = fields.iter().position(|f| f.name == Some(name)) {
             return Some(IdeFieldSite {
                 owner: s,
@@ -418,7 +419,7 @@ impl Compiler {
             return None;
         }
         fields.iter().filter(|f| f.using).find_map(|f| {
-            let TypeKind::Struct(inner) = *self.types.kind(self.types.repr(f.ty)) else {
+            let TypeKind::Struct(inner) = *self.ty.types.kind(self.ty.types.repr(f.ty)) else {
                 return None;
             };
             self.ide_find_field(inner, name, base + f.offset, depth + 1)
@@ -428,7 +429,7 @@ impl Compiler {
     /// A field's offset (in the struct it is reached through or declared in), size, alignment
     /// and the bytes skipped before it.
     fn ide_field_layout(&self, site: IdeFieldSite) -> IdeLayout {
-        let info = self.types.struct_info(site.declaring);
+        let info = self.ty.types.struct_info(site.declaring);
         let f = &info.fields[site.field];
         let padding = if f.overlay || info.is_union {
             0
@@ -436,14 +437,14 @@ impl Compiler {
             let before = info.fields[..site.field]
                 .iter()
                 .filter(|g| !g.overlay)
-                .map(|g| g.offset + self.types.size_of(g.ty))
+                .map(|g| g.offset + self.ty.types.size_of(g.ty))
                 .max()
                 .unwrap_or(0);
             f.offset.saturating_sub(before)
         };
         IdeLayout {
             offset: Some(site.offset),
-            size: self.types.size_of(f.ty),
+            size: self.ty.types.size_of(f.ty),
             align: f.align,
             padding,
         }

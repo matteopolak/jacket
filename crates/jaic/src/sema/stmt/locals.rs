@@ -107,7 +107,7 @@ impl Compiler {
                             ));
                         }
                         // `p := null;` declares a `*void`.
-                        ref o if o.ty() == TypeId::NULL => self.types.pointer(TypeId::VOID),
+                        ref o if o.ty() == TypeId::NULL => self.ty.types.pointer(TypeId::VOID),
                         other => other.ty(),
                     }
                 }
@@ -122,7 +122,7 @@ impl Compiler {
                 align = align.max(self.eval_int(scope, a)? as u64);
             }
             let addr = f.b.alloca(size.max(1), align);
-            let callable = if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+            let callable = if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
                 match &decl.ty {
                     Some(source) => self.callable_expression_parameters(scope, Some(source))?,
                     None => match &value {
@@ -370,12 +370,16 @@ impl Compiler {
 
     /// `using x;` on a variable needs a struct (or union) or enum, or a pointer to one.
     fn check_using_target(&self, ty: TypeId, span: Span) -> Result<()> {
-        let target = self.types.pointee(ty).unwrap_or(ty);
+        let target = self.ty.types.pointee(ty).unwrap_or(ty);
         if self
+            .ty
             .types
-            .as_struct(self.types.repr_struct(target))
+            .as_struct(self.ty.types.repr_struct(target))
             .is_some()
-            || matches!(self.types.kind(self.types.repr(target)), TypeKind::Enum(_))
+            || matches!(
+                self.ty.types.kind(self.ty.types.repr(target)),
+                TypeKind::Enum(_)
+            )
         {
             return Ok(());
         }
@@ -383,7 +387,7 @@ impl Compiler {
             span,
             format!(
                 "`using` needs a struct, an enum or a pointer to one; this is `{}`",
-                self.types.name(ty)
+                self.ty.types.name(ty)
             ),
         )
     }
@@ -443,7 +447,7 @@ impl Compiler {
             Operand::Module(m) => UsingEntry::Module(m, None),
             Operand::Type(t) => UsingEntry::Type(t),
             // `using fruit.tag;` on an enum value brings in the enum's names (match-jai).
-            op if matches!(self.types.kind(op.ty()), TypeKind::Enum(_)) => {
+            op if matches!(self.ty.types.kind(op.ty()), TypeKind::Enum(_)) => {
                 UsingEntry::Type(op.ty())
             }
             op @ (Operand::Place {
@@ -455,12 +459,12 @@ impl Compiler {
                 // `using a.b;`: bind a hidden local pointing at the place (or holding the
                 // pointer itself when `a.b` is one).
                 self.check_using_target(op.ty(), value.span)?;
-                let (ptr, ptr_value) = if self.types.pointee(op.ty()).is_some() {
+                let (ptr, ptr_value) = if self.ty.types.pointee(op.ty()).is_some() {
                     let ty = op.ty();
                     let (_, v) = self.rvalue(f, op, value.span)?;
                     (ty, v)
                 } else {
-                    let ty = self.types.pointer(op.ty());
+                    let ty = self.ty.types.pointer(op.ty());
                     let (_, a) = self.address_of(f, op, value.span)?;
                     (ty, a)
                 };
@@ -484,14 +488,14 @@ impl Compiler {
             }
             Operand::Const {
                 ty, ..
-            } if self.types.as_struct(ty).is_some() => {
+            } if self.ty.types.as_struct(ty).is_some() => {
                 // `using Ice_Cream.{...};`: the literal lives in an anonymous local.
                 let (ty, v) = self.rvalue(f, op, value.span)?;
                 let size = self.size_of(ty, value.span)?;
                 let align = self.align_of(ty, value.span)?;
                 let addr = f.b.alloca(size.max(1), align);
                 self.store_value(f, ty, addr, v, value.span)?;
-                let ptr = self.types.pointer(ty);
+                let ptr = self.ty.types.pointer(ty);
                 let slot = self.spill(f, ptr, addr, value.span)?;
                 let depth = self.scope(scope).proc_depth;
                 let e = self.add_entity(

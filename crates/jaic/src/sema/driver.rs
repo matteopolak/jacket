@@ -374,7 +374,7 @@ impl Compiler {
                     // struct lays it out first, so do the same here.
                     let scope = self.entity(id).scope;
                     if let ScopeKind::Struct(t) = self.scope(scope).kind
-                        && let TypeKind::Struct(s) = self.types.kind(t).clone()
+                        && let TypeKind::Struct(s) = self.ty.types.kind(t).clone()
                     {
                         let span = self.entity(id).span;
                         self.layout_struct(s, span)?;
@@ -441,8 +441,8 @@ impl Compiler {
             match s.kind {
                 ScopeKind::Macro | ScopeKind::StructParams => return true,
                 ScopeKind::Struct(t) => {
-                    if let TypeKind::Struct(st) = self.types.kind(t)
-                        && self.types.struct_info(*st).poly_parent.is_some()
+                    if let TypeKind::Struct(st) = self.ty.types.kind(t)
+                        && self.ty.types.struct_info(*st).poly_parent.is_some()
                     {
                         return true;
                     }
@@ -637,7 +637,7 @@ impl Compiler {
                 value: Value::Type(t),
                 ..
             } = self.resolve_entity(id)?
-                && let TypeKind::Struct(s) = self.types.kind(t).clone()
+                && let TypeKind::Struct(s) = self.ty.types.kind(t).clone()
             {
                 self.layout_struct(s, span)?;
             }

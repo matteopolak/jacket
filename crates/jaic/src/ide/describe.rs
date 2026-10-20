@@ -50,16 +50,16 @@ impl Compiler {
     }
 
     pub(super) fn ide_type_hover(&mut self, name: &str, t: TypeId) -> String {
-        match self.types.kind(t) {
+        match self.ty.types.kind(t) {
             TypeKind::Struct(s) => {
                 // A polymorphic instance may not have its fields yet when nothing has used it.
                 let s = *s;
                 self.ide_laid_out(t);
-                let info = self.types.struct_info(s);
+                let info = self.ty.types.struct_info(s);
                 let fields: Vec<String> = info
                     .fields
                     .iter()
-                    .filter_map(|f| Some(format!("{}: {};", f.name?, self.types.name(f.ty))))
+                    .filter_map(|f| Some(format!("{}: {};", f.name?, self.ty.types.name(f.ty))))
                     .take(16)
                     .collect();
                 let keyword = if info.is_union {
@@ -70,7 +70,7 @@ impl Compiler {
                 format!("{name} :: {keyword} {{ {} }}", fields.join(" "))
             }
             TypeKind::Enum(e) => {
-                let info = self.types.enum_info(*e);
+                let info = self.ty.types.enum_info(*e);
                 let members: Vec<String> = info
                     .members
                     .iter()
@@ -84,12 +84,12 @@ impl Compiler {
                 };
                 format!(
                     "{name} :: {keyword} {} {{ {} }}",
-                    self.types.name(info.base),
+                    self.ty.types.name(info.base),
                     members.join(" ")
                 )
             }
             _ => {
-                let full = self.types.name(t);
+                let full = self.ty.types.name(t);
                 if full == name {
                     format!("{name} :: Type")
                 } else {
@@ -104,19 +104,19 @@ impl Compiler {
         let resolved = match self.entity(id).kind.clone() {
             EntityKind::Local {
                 ty, ..
-            } => return format!("{name}: {}", self.types.name(ty)),
+            } => return format!("{name}: {}", self.ty.types.name(ty)),
             EntityKind::Const {
                 value: value::Value::Type(t),
                 ..
             } => return self.ide_type_hover(name.as_str(), t),
             EntityKind::Const {
                 ty, ..
-            } => return format!("{name} :: {}", self.types.name(ty)),
+            } => return format!("{name} :: {}", self.ty.types.name(ty)),
             EntityKind::Placeholder => return format!("{name} :: #placeholder"),
             EntityKind::Builtin(_) => {
                 return format!(
                     "{name}: {}",
-                    self.types.name(ty.unwrap_or(TypeId::COMPILE_TIME))
+                    self.ty.types.name(ty.unwrap_or(TypeId::COMPILE_TIME))
                 );
             }
             _ => self.resolve_entity(id).ok(),
@@ -143,25 +143,25 @@ impl Compiler {
             Some(Resolved::Const {
                 ty,
                 value,
-            }) if self.types.is_pointer(ty) && matches!(value, value::Value::Int(_)) => {
+            }) if self.ty.types.is_pointer(ty) && matches!(value, value::Value::Int(_)) => {
                 let null = if matches!(value, value::Value::Int(0)) {
                     " = null"
                 } else {
                     ""
                 };
-                format!("{name} :: {}{null}", self.types.name(ty))
+                format!("{name} :: {}{null}", self.ty.types.name(ty))
             }
             Some(Resolved::Const {
                 ty,
                 value,
             }) => format!(
                 "{name} :: {} = {}",
-                self.types.name(ty),
-                value.render(&self.types)
+                self.ty.types.name(ty),
+                value.render(&self.ty.types)
             ),
             Some(Resolved::Global {
                 ty, ..
-            }) => format!("{name}: {}", self.types.name(ty)),
+            }) => format!("{name}: {}", self.ty.types.name(ty)),
             Some(Resolved::Module(m)) => {
                 format!("{name} :: #import \"{}\"", self.modules[m.0 as usize].name)
             }
@@ -176,11 +176,11 @@ impl Compiler {
                 && let home = self.entity(id).home
                 && let Some(t) = self.failed_run_type(home, &value, 8) =>
             {
-                format!("{name} :: {}", self.types.name(t))
+                format!("{name} :: {}", self.ty.types.name(t))
             }
             None => format!(
                 "{name}: {}",
-                self.types.name(ty.unwrap_or(TypeId::COMPILE_TIME))
+                self.ty.types.name(ty.unwrap_or(TypeId::COMPILE_TIME))
             ),
         }
     }
@@ -216,17 +216,17 @@ impl Compiler {
         let (kind, detail) = match &e.kind {
             EntityKind::EnumMember {
                 ty, ..
-            } => (IdeKind::Constant, self.types.name(*ty)),
+            } => (IdeKind::Constant, self.ty.types.name(*ty)),
             EntityKind::Local {
                 ty, ..
-            } => (IdeKind::Variable, self.types.name(*ty)),
+            } => (IdeKind::Variable, self.ty.types.name(*ty)),
             EntityKind::Const {
                 value: value::Value::Type(_),
                 ..
             } => (IdeKind::Type, "Type".into()),
             EntityKind::Const {
                 ty, ..
-            } => (IdeKind::Constant, self.types.name(*ty)),
+            } => (IdeKind::Constant, self.ty.types.name(*ty)),
             EntityKind::Placeholder | EntityKind::UnboundGenericParameter => return None,
             EntityKind::Import(_) => (IdeKind::Module, "module".into()),
             EntityKind::Builtin(b) => match b {
@@ -265,14 +265,14 @@ impl Compiler {
                 }
                 EntityState::Done(Resolved::Global {
                     ty, ..
-                }) => (IdeKind::Variable, self.types.name(*ty)),
+                }) => (IdeKind::Variable, self.ty.types.name(*ty)),
                 EntityState::Done(Resolved::Const {
                     value: value::Value::Type(_),
                     ..
                 }) => (IdeKind::Type, "Type".into()),
                 EntityState::Done(Resolved::Const {
                     ty, ..
-                }) => (IdeKind::Constant, self.types.name(*ty)),
+                }) => (IdeKind::Constant, self.ty.types.name(*ty)),
                 EntityState::Done(Resolved::Module(_)) => (IdeKind::Module, "module".into()),
                 _ => {
                     use crate::ast::ExprKind as E;

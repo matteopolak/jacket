@@ -30,8 +30,9 @@ impl Compiler {
         let size = self.size_of(ty, span)?;
         // Member list for positional arguments.
         let members: Vec<(Option<Sym>, TypeId, u64)> =
-            match self.types.as_struct(self.types.repr_struct(ty)) {
+            match self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
                 Some(s) => self
+                    .ty
                     .types
                     .struct_info(s)
                     .fields
@@ -39,20 +40,24 @@ impl Compiler {
                     .map(|f| (f.name, f.ty, f.offset))
                     .collect(),
                 None => self
-                    .builtin_members(self.types.repr(ty), span)?
+                    .builtin_members(self.ty.types.repr(ty), span)?
                     .into_iter()
                     .map(|(n, t, o)| (Some(n), t, o))
                     .collect(),
             };
         if members.is_empty()
             && !args.is_empty()
-            && self.types.as_struct(self.types.repr_struct(ty)).is_none()
+            && self
+                .ty
+                .types
+                .as_struct(self.ty.types.repr_struct(ty))
+                .is_none()
         {
             return err(
                 span,
                 format!(
                     "cannot use a struct literal for type {}",
-                    self.types.name(ty)
+                    self.ty.types.name(ty)
                 ),
             );
         }
@@ -78,7 +83,7 @@ impl Compiler {
                 let Some(&(_, mty, off)) = members.get(positional) else {
                     return err(
                         arg.value.span,
-                        format!("too many values for {}", self.types.name(ty)),
+                        format!("too many values for {}", self.ty.types.name(ty)),
                     );
                 };
                 positional += 1;
@@ -200,7 +205,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let elem_ty = match ty_expr {
             Some(t) => Some(self.eval_type_in(f, scope, t)?),
-            None => match expected.map(|e| self.types.kind(self.types.repr(e)).clone()) {
+            None => match expected.map(|e| self.ty.types.kind(self.ty.types.repr(e)).clone()) {
                 Some(TypeKind::Array {
                     elem, ..
                 }) => Some(elem),
@@ -228,12 +233,12 @@ impl Compiler {
             );
         };
         let n = ops.len() as u64;
-        let mut ty = self.types.array(elem, ArrayKind::Fixed(n));
+        let mut ty = self.ty.types.array(elem, ArrayKind::Fixed(n));
         // `g: Grid3i = .[1, 4, 9]`: a literal takes a `#type,distinct` variant of its own type.
         if ty_expr.is_none()
             && let Some(e) = expected
-            && matches!(self.types.kind(e), TypeKind::Distinct(_))
-            && self.types.repr(e) == ty
+            && matches!(self.ty.types.kind(e), TypeKind::Distinct(_))
+            && self.ty.types.repr(e) == ty
         {
             ty = e;
         }
@@ -282,13 +287,13 @@ impl Compiler {
     ) -> Result<()> {
         let size = self.size_of(ty, span)?;
         let o = offset as usize;
-        let r = self.types.repr(ty);
+        let r = self.ty.types.repr(ty);
         // Overwriting (a literal field over the struct's default): drop the old pointers there.
         agg.relocs
             .retain(|reloc| reloc.offset < offset || reloc.offset >= offset + size);
         match value {
             Value::Int(i) => {
-                if self.types.is_float(r) {
+                if self.ty.types.is_float(r) {
                     return self.write_value(agg, offset, &Value::float(*i as f64), ty, span);
                 }
                 let bytes = (*i as u128).to_le_bytes();
@@ -309,7 +314,10 @@ impl Compiler {
                 if r != TypeId::STRING {
                     return err(
                         span,
-                        format!("string constant cannot initialize {}", self.types.name(ty)),
+                        format!(
+                            "string constant cannot initialize {}",
+                            self.ty.types.name(ty)
+                        ),
                     );
                 }
                 agg.bytes[o..o + 8].copy_from_slice(&(s.len() as u64).to_le_bytes());

@@ -30,7 +30,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(kept) = identity(*op, a, b) else {
                 return true;
             };
-            let types = &cx.compiler.types;
+            let types = &cx.compiler.ty.types;
             if !cx.ty(kept).is_some_and(|t| types.is_integer(t))
                 || cx.constant(kept)
                 || cx.ty(e) != cx.ty(kept)

@@ -40,7 +40,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let TypeKind::Int {
                 bits,
                 signed,
-            } = *cx.compiler.types.kind(ty)
+            } = *cx.compiler.ty.types.kind(ty)
             else {
                 return true;
             };
@@ -59,7 +59,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 BinOp::Le if literal < min => false,
                 _ => return true,
             };
-            let ty_name = cx.compiler.types.name(ty);
+            let ty_name = cx.compiler.ty.types.name(ty);
             let shown = cx.whole_src(value.span).trim();
             let why = if signed {
                 format!("`{ty_name}` holds nothing below {min}")

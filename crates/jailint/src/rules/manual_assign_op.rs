@@ -52,7 +52,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
-            let types = &cx.compiler.types;
+            let types = &cx.compiler.ty.types;
             let Some(ty) = cx.ty(target) else {
                 return true;
             };

@@ -19,7 +19,7 @@ impl Compiler {
         bindings: Vec<(Sym, Value, TypeId)>,
         poly: Option<(PolyStructId, Vec<Value>)>,
     ) -> TypeId {
-        let ty = self.types.new_struct(StructInfo {
+        let ty = self.ty.types.new_struct(StructInfo {
             name,
             ast: Some(lit.id),
             // A tagged union is a struct: the tag, then the members' union.
@@ -49,7 +49,8 @@ impl Compiler {
             match &stmt.kind {
                 ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
                     for n in &decl.names {
-                        self.field_declarations
+                        self.ty
+                            .field_declarations
                             .entry(scope)
                             .or_default()
                             .insert(n.name, decl.clone());
@@ -83,8 +84,8 @@ impl Compiler {
                 _ => {}
             }
         }
-        let s = self.types.as_struct(ty).unwrap();
-        self.struct_asts.insert(
+        let s = self.ty.types.as_struct(ty).unwrap();
+        self.ty.struct_asts.insert(
             s,
             StructSource {
                 lit,
@@ -98,8 +99,8 @@ impl Compiler {
 
     /// The `Type` value standing for a polymorphic struct that has no arguments yet.
     pub fn poly_struct_type(&mut self, ps: PolyStructId) -> TypeId {
-        let name = self.poly_structs[ps.0 as usize].name;
-        self.types.intern(TypeKind::PolyStruct {
+        let name = self.ty.poly_structs[ps.0 as usize].name;
+        self.ty.types.intern(TypeKind::PolyStruct {
             id: ps,
             name,
         })
@@ -111,7 +112,7 @@ impl Compiler {
         lit: Rc<ast::StructLit>,
         scope: ScopeId,
     ) -> PolyStructId {
-        self.poly_structs.push(PolyStruct {
+        self.ty.poly_structs.push(PolyStruct {
             name,
             lit,
             scope,
@@ -119,13 +120,13 @@ impl Compiler {
             baked: Vec::new(),
             origin: None,
         });
-        PolyStructId(self.poly_structs.len() as u32 - 1)
+        PolyStructId(self.ty.poly_structs.len() as u32 - 1)
     }
 
     /// A bare generic name denotes its default instance when every parameter has a default.
     /// Keep the source type available separately for generic patterns and reflection.
     pub(in crate::sema) fn poly_struct_has_defaults(&self, ps: PolyStructId) -> bool {
-        self.poly_structs[ps.0 as usize]
+        self.ty.poly_structs[ps.0 as usize]
             .lit
             .params
             .iter()
@@ -171,7 +172,7 @@ impl Compiler {
         name: Option<Sym>,
     ) -> Option<TypeId> {
         let (lit, scope) = {
-            let p = &self.poly_structs[ps.0 as usize];
+            let p = &self.ty.poly_structs[ps.0 as usize];
             (p.lit.clone(), p.scope)
         };
         let param = match name {
@@ -192,10 +193,10 @@ impl Compiler {
         span: Span,
     ) -> Result<TypeId> {
         let (name, lit, def_scope) = {
-            let p = &self.poly_structs[ps.0 as usize];
+            let p = &self.ty.poly_structs[ps.0 as usize];
             (p.name, p.lit.clone(), p.scope)
         };
-        if let Some(origin) = self.poly_structs[ps.0 as usize].origin {
+        if let Some(origin) = self.ty.poly_structs[ps.0 as usize].origin {
             // Name the arguments for the origin and add the baked ones.
             let mut named = Vec::new();
             for (i, (n, v)) in args.into_iter().enumerate() {
@@ -208,7 +209,7 @@ impl Compiler {
                 });
                 named.push((n, v));
             }
-            for (n, value, ty) in self.poly_structs[ps.0 as usize].baked.clone() {
+            for (n, value, ty) in self.ty.poly_structs[ps.0 as usize].baked.clone() {
                 named.push((Some(n), const_operand(value, ty)));
             }
             return self.instantiate_struct(origin, named, span);
@@ -246,7 +247,7 @@ impl Compiler {
             }
             values[index] = Some(v);
         }
-        let mut bindings = self.poly_structs[ps.0 as usize].baked.clone();
+        let mut bindings = self.ty.poly_structs[ps.0 as usize].baked.clone();
         let mut key = Vec::new();
         for (i, p) in lit.params.iter().enumerate() {
             let pname = p.name.map_or_else(|| Sym::intern("_"), |n| n.name);
@@ -297,16 +298,16 @@ impl Compiler {
                     value::Aggregate::zeroed(esize.saturating_mul(items.len() as u64), span)?;
                 for (k, op) in items.into_iter().enumerate() {
                     let v = self.struct_arg_value(param_scope, op, elem, span)?;
-                    let v = match (v, self.types.is_float(elem)) {
+                    let v = match (v, self.ty.types.is_float(elem)) {
                         (Value::Int(i), true) => Value::float(i as f64),
                         (v, _) => v,
                     };
                     self.write_value(&mut array, k as u64 * esize, &v, elem, p.span)?;
                 }
                 let value = self.const_pack(elem, array, count, p.span)?;
-                let ty = self.types.array(elem, ArrayKind::View);
+                let ty = self.ty.types.array(elem, ArrayKind::View);
                 self.add_const(param_scope, pname, p.span, value.clone(), ty);
-                key.push(crate::sema::instance_key_value(&self.types, &value, ty).value);
+                key.push(crate::sema::instance_key_value(&self.ty.types, &value, ty).value);
                 bindings.push((pname, value, ty));
                 continue;
             }
@@ -346,7 +347,7 @@ impl Compiler {
                     p.span
                 },
             )?;
-            let value = match (value, self.types.is_float(ty)) {
+            let value = match (value, self.ty.types.is_float(ty)) {
                 (Value::Int(i), true) => Value::float(i as f64),
                 (v, _) => v,
             };
@@ -362,27 +363,30 @@ impl Compiler {
             bindings.push((pname, value, ty));
         }
         if let Some(block) = &lit.modify {
-            let baked = self.poly_structs[ps.0 as usize].baked.len();
+            let baked = self.ty.poly_structs[ps.0 as usize].baked.len();
             let params = bindings.split_off(baked);
             let modified = self.run_struct_modify(def_scope, name, block, params, span)?;
             key = modified
                 .iter()
-                .map(|(_, v, t)| crate::sema::instance_key_value(&self.types, v, *t).value)
+                .map(|(_, v, t)| crate::sema::instance_key_value(&self.ty.types, v, *t).value)
                 .collect();
             bindings.extend(modified);
         }
         let cache_key = bindings
             .iter()
-            .map(|(_, value, ty)| crate::sema::instance_key_value(&self.types, value, *ty))
+            .map(|(_, value, ty)| crate::sema::instance_key_value(&self.ty.types, value, *ty))
             .collect::<Vec<_>>();
-        if let Some(&t) = self.poly_structs[ps.0 as usize].instances.get(&cache_key) {
+        if let Some(&t) = self.ty.poly_structs[ps.0 as usize]
+            .instances
+            .get(&cache_key)
+        {
             return Ok(t);
         }
-        if self.poly_structs[ps.0 as usize].instances.len() >= crate::sema::MAX_INSTANCES {
+        if self.ty.poly_structs[ps.0 as usize].instances.len() >= crate::sema::MAX_INSTANCES {
             return err(span, crate::sema::too_many_instances(name));
         }
         let t = self.new_struct_type(name, lit, def_scope, bindings, Some((ps, key.clone())));
-        self.poly_structs[ps.0 as usize]
+        self.ty.poly_structs[ps.0 as usize]
             .instances
             .insert(cache_key, t);
         Ok(t)

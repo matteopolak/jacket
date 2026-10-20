@@ -67,11 +67,11 @@ impl Compiler {
     }
 
     fn layout_struct_with_runtime_dependencies(&mut self, s: StructId, span: Span) -> Result<()> {
-        match self.types.struct_info(s).layout {
+        match self.ty.types.struct_info(s).layout {
             LayoutState::Done => return Ok(()),
             LayoutState::InProgress => {
                 self.epochs.in_progress_misses += 1;
-                let name = self.types.struct_info(s).name;
+                let name = self.ty.types.struct_info(s).name;
                 return err(
                     span,
                     format!("struct `{name}` contains itself (use a pointer)"),
@@ -80,10 +80,10 @@ impl Compiler {
             LayoutState::Pending => {}
         }
         crate::sema::body_probe::bump(crate::sema::body_probe::C::Layout);
-        self.types.struct_info_mut(s).layout = LayoutState::InProgress;
+        self.ty.types.struct_info_mut(s).layout = LayoutState::InProgress;
         let result = self.layout_struct_inner(s);
         if result.is_err() {
-            self.types.struct_info_mut(s).layout = LayoutState::Pending;
+            self.ty.types.struct_info_mut(s).layout = LayoutState::Pending;
         }
         result
     }
@@ -92,8 +92,8 @@ impl Compiler {
     /// with the field declarations of `using` members resolved.
     fn struct_field_items(&mut self, src: &StructSource) -> Result<Vec<FieldItem>> {
         let mut items = Vec::new();
-        self.field_types.remove(&src.scope);
-        self.field_using_order.remove(&src.scope);
+        self.ty.field_types.remove(&src.scope);
+        self.ty.field_using_order.remove(&src.scope);
         if let Some(ast::UnionTag {
             name: tag,
             ty,
@@ -179,7 +179,7 @@ impl Compiler {
                 _ => {}
             }
         }
-        self.field_using_order.insert(src.scope, using_order);
+        self.ty.field_using_order.insert(src.scope, using_order);
         let mut typed_items = Vec::with_capacity(items.len());
         for item in items {
             match item {
@@ -194,6 +194,7 @@ impl Compiler {
 
     fn layout_struct_inner(&mut self, s: StructId) -> Result<()> {
         let src = self
+            .ty
             .struct_asts
             .get(&s)
             .cloned()
@@ -260,10 +261,10 @@ impl Compiler {
                         span: d.span,
                     });
                     self.callable_fields.remove(&(s, index));
-                    if matches!(self.types.kind(d.ty), TypeKind::Proc(_))
+                    if matches!(self.ty.types.kind(d.ty), TypeKind::Proc(_))
                         && let Some(declaration) = d
                             .name
-                            .and_then(|name| self.field_declarations.get(&d.scope)?.get(&name))
+                            .and_then(|name| self.ty.field_declarations.get(&d.scope)?.get(&name))
                             .cloned()
                         && let Some(parameters) = self.callable_expression_parameters(
                             d.scope,
@@ -385,18 +386,18 @@ impl Compiler {
             );
         }
         self.check_using_clashes(&fields, &filters)?;
-        let info = self.types.struct_info_mut(s);
+        let info = self.ty.types.struct_info_mut(s);
         info.fields = fields.into();
         if !filters.is_empty() {
-            self.using_filters.insert(s, filters);
+            self.ty.using_filters.insert(s, filters);
         }
         if !aliases.is_empty() {
-            self.member_aliases.insert(s, aliases);
+            self.ty.member_aliases.insert(s, aliases);
         }
         info.size = size;
         info.align = align;
         info.layout = LayoutState::Done;
-        self.struct_asts.get_mut(&s).unwrap().inits = inits;
+        self.ty.struct_asts.get_mut(&s).unwrap().inits = inits;
         if self.ed.is_live() {
             self.ide_note_layout(s);
         }
@@ -511,17 +512,17 @@ impl Compiler {
         searched: &mut Vec<StructId>,
         out: &mut Vec<Sym>,
     ) -> bool {
-        let ty = self.types.repr_struct(ty);
-        let ty = self.types.pointee(ty).unwrap_or(ty);
-        let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) else {
+        let ty = self.ty.types.repr_struct(ty);
+        let ty = self.ty.types.pointee(ty).unwrap_or(ty);
+        let Some(s) = self.ty.types.as_struct(self.ty.types.repr_struct(ty)) else {
             return true;
         };
-        let info = self.types.struct_info(s);
+        let info = self.ty.types.struct_info(s);
         if searched.contains(&s) || info.layout != LayoutState::Done {
             return !searched.is_empty();
         }
         searched.push(s);
-        let own_filters = self.using_filters.get(&s);
+        let own_filters = self.ty.using_filters.get(&s);
         let mut names = Vec::new();
         for (i, f) in info.fields.iter().enumerate() {
             names.extend(f.name);

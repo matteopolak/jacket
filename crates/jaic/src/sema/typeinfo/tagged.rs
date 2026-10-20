@@ -18,24 +18,24 @@ impl Compiler {
         fields: &[crate::types::Field],
         span: Span,
     ) -> Result<(Vec<crate::types::Field>, Vec<(Value, usize)>)> {
-        let Some(src) = self.struct_asts.get(&s).cloned() else {
+        let Some(src) = self.ty.struct_asts.get(&s).cloned() else {
             return Ok((fields.to_vec(), Vec::new()));
         };
         let (Some(_), [tag, variants]) = (&src.lit.tag, fields) else {
             return Ok((fields.to_vec(), Vec::new()));
         };
-        let Some(vs) = self.types.as_struct(variants.ty) else {
+        let Some(vs) = self.ty.types.as_struct(variants.ty) else {
             return Ok((fields.to_vec(), Vec::new()));
         };
         self.layout_struct(vs, span)?;
         let mut flat = vec![tag.clone()];
-        for f in self.types.struct_info(vs).fields.iter() {
+        for f in self.ty.types.struct_info(vs).fields.iter() {
             let mut f = f.clone();
             f.offset += variants.offset;
             flat.push(f);
         }
-        let tag_members = match self.types.kind(tag.ty) {
-            TypeKind::Enum(e) => self.types.enum_info(*e).members.clone(),
+        let tag_members = match self.ty.types.kind(tag.ty) {
+            TypeKind::Enum(e) => self.ty.types.enum_info(*e).members.clone(),
             _ => Vec::new(),
         };
         let mut bindings = Vec::new();
@@ -125,7 +125,7 @@ impl Compiler {
         &self,
         s: crate::types::StructId,
     ) -> Vec<(Sym, Value, TypeId)> {
-        let Some(scope) = self.struct_asts.get(&s).map(|src| src.scope) else {
+        let Some(scope) = self.ty.struct_asts.get(&s).map(|src| src.scope) else {
             return Vec::new();
         };
         let mut bindings: Vec<(EntityId, Sym, Value, TypeId)> = self

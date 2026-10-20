@@ -204,7 +204,7 @@ impl Compiler {
         };
         let op = match op.ty() {
             t if t == ctx_ty => op,
-            t if self.types.pointee(t) == Some(ctx_ty) => {
+            t if self.ty.types.pointee(t) == Some(ctx_ty) => {
                 let (_, p) = self.rvalue(f, op, span)?;
                 Operand::Place {
                     ty: ctx_ty,
@@ -214,7 +214,10 @@ impl Compiler {
             t => {
                 return err(
                     context.span,
-                    format!("push_context needs a Context, found {}", self.types.name(t)),
+                    format!(
+                        "push_context needs a Context, found {}",
+                        self.ty.types.name(t)
+                    ),
                 );
             }
         };

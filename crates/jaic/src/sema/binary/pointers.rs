@@ -16,9 +16,9 @@ impl Compiler {
     ) -> Result<Operand> {
         let (lty, rty) = (lhs.ty(), rhs.ty());
         let (_, base) = self.rvalue(f, lhs, span)?;
-        if op == BinOp::Sub && self.types.is_pointer(rty) {
+        if op == BinOp::Sub && self.ty.types.is_pointer(rty) {
             let (_, other) = self.rvalue(f, rhs, span)?;
-            let pointee = self.types.pointee(lty).unwrap();
+            let pointee = self.ty.types.pointee(lty).unwrap();
             let size = if pointee == TypeId::VOID {
                 1
             } else {
@@ -34,13 +34,13 @@ impl Compiler {
             });
         }
         // Any runtime integer offsets a pointer (`data + total_read` with a u64).
-        let rhs = if self.types.is_integer(rty) && !matches!(rhs, Operand::Const { .. }) {
+        let rhs = if self.ty.types.is_integer(rty) && !matches!(rhs, Operand::Const { .. }) {
             self.explicit_cast(f, rhs, TypeId::S64, ast::CastFlags::default(), span)?
         } else {
             self.convert(f, rhs, TypeId::S64, span)?
         };
         let (_, idx) = self.rvalue(f, rhs, span)?;
-        let pointee = self.types.pointee(lty).unwrap();
+        let pointee = self.ty.types.pointee(lty).unwrap();
         let size = if pointee == TypeId::VOID {
             1
         } else {
@@ -68,7 +68,7 @@ impl Compiler {
         rhs: Operand,
         span: Span,
     ) -> Result<Operand> {
-        let (ptr, int) = if self.types.is_pointer(lhs.ty()) {
+        let (ptr, int) = if self.ty.types.is_pointer(lhs.ty()) {
             (lhs, rhs)
         } else {
             (rhs, lhs)

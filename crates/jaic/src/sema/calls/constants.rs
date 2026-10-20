@@ -21,12 +21,12 @@ impl Compiler {
                 .lookup(scope, const_marker(*name))
                 .is_ok_and(|v| !v.is_empty()),
             E::Member(base, member) => match member.name.as_str() {
-                "data" if self.types.is_pointer(op.ty()) => {
+                "data" if self.ty.types.is_pointer(op.ty()) => {
                     let Ok(b) = self.check_expr_no_emit(scope, base) else {
                         return false;
                     };
                     let fixed = matches!(
-                        self.types.kind(self.types.repr(b.ty())),
+                        self.ty.types.kind(self.ty.types.repr(b.ty())),
                         TypeKind::Array {
                             kind: ArrayKind::Fixed(_),
                             ..
@@ -44,9 +44,9 @@ impl Compiler {
             E::Unary(ast::UnOp::Star, inner) => self.is_global_var(scope, inner),
             E::Cast {
                 value, ..
-            } if self.types.is_pointer(op.ty()) => self.is_constant_expr(scope, value),
+            } if self.ty.types.is_pointer(op.ty()) => self.is_constant_expr(scope, value),
             E::Binary(ast::BinOp::Add | ast::BinOp::Sub, a, b)
-                if self.types.is_pointer(op.ty()) =>
+                if self.ty.types.is_pointer(op.ty()) =>
             {
                 self.is_constant_expr(scope, a) && self.is_constant_expr(scope, b)
             }
@@ -55,7 +55,7 @@ impl Compiler {
                     return false;
                 };
                 matches!(
-                    self.types.kind(self.types.repr(b.ty())),
+                    self.ty.types.kind(self.ty.types.repr(b.ty())),
                     TypeKind::Array { .. } | TypeKind::String
                 ) && self.is_constant_expr(scope, base)
                     && self.is_constant_expr(scope, index)
@@ -93,6 +93,6 @@ impl Compiler {
 
     /// A `*Struct` argument passed to a by-value `Struct` parameter is dereferenced.
     pub(super) fn auto_deref_arg(&self, from: TypeId, param: TypeId) -> bool {
-        self.types.pointee(from) == Some(param) && self.types.as_struct(param).is_some()
+        self.ty.types.pointee(from) == Some(param) && self.ty.types.as_struct(param).is_some()
     }
 }

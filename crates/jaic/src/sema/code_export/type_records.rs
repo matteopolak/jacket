@@ -10,7 +10,7 @@ impl Compiler {
     /// (`Type` parameters) are listed in `__constant_pointers` as (offset,
     /// record) pairs for the metaprogram to patch.
     fn poly_parameters(&mut self, r: &mut Records, s: crate::types::StructId, rec: &mut Record) {
-        let Some(span) = self.struct_asts.get(&s).map(|src| src.lit.span) else {
+        let Some(span) = self.ty.struct_asts.get(&s).map(|src| src.lit.span) else {
             return;
         };
         let mut storage = value::Aggregate {
@@ -48,7 +48,10 @@ impl Compiler {
         let mut generic = Record::new(RecordTag::TypeInfoStruct);
         generic
             .int("type", 7)
-            .str("name", self.types.struct_info(s).name.as_str().as_bytes())
+            .str(
+                "name",
+                self.ty.types.struct_info(s).name.as_str().as_bytes(),
+            )
             .int("nontextual_flags", 0x100);
         rec.refs("specified_parameters", params)
             .list(
@@ -65,7 +68,7 @@ impl Compiler {
         if let Some(&id) = self.meta.export.types.get(&ty) {
             return id;
         }
-        let kind = self.types.kind(ty).clone();
+        let kind = self.ty.types.kind(ty).clone();
         let span = Span::NONE;
         let size = match &kind {
             TypeKind::Struct(s) => {
@@ -105,7 +108,7 @@ impl Compiler {
         let mut rec = Record::new(tag);
         rec.int("type", info_tag as i64).int("runtime_size", size);
         if builtin {
-            rec.str("__builtin", self.types.name(ty).as_bytes());
+            rec.str("__builtin", self.ty.types.name(ty).as_bytes());
         }
         match kind {
             TypeKind::Int {
@@ -140,7 +143,7 @@ impl Compiler {
                     .int("procedure_flags", flags);
             }
             TypeKind::Enum(e) => {
-                let info = self.types.enum_info(e).clone();
+                let info = self.ty.types.enum_info(e).clone();
                 let base = self.type_record(r, info.base);
                 rec.str("name", info.name.as_str().as_bytes())
                     .ptr("internal_type", base)
@@ -161,7 +164,7 @@ impl Compiler {
                     .int("enum_type_flags", info.type_flags());
             }
             TypeKind::Distinct(d) => {
-                let info = self.types.distincts[d.0 as usize].clone();
+                let info = self.ty.types.distincts[d.0 as usize].clone();
                 let base = self.type_record(r, info.base);
                 rec.str("name", info.name.as_str().as_bytes())
                     .ptr("variant_of", base)
@@ -175,7 +178,7 @@ impl Compiler {
                     );
             }
             TypeKind::Struct(s) => {
-                let info = self.types.struct_info(s).clone();
+                let info = self.ty.types.struct_info(s).clone();
                 let mut members = Vec::new();
                 for field in info.fields.iter() {
                     let fty = self.type_record(r, field.ty);

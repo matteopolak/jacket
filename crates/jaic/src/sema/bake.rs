@@ -100,17 +100,17 @@ impl Compiler {
             }
             Operand::PolyStruct(ps) => {
                 let (name, lit) = {
-                    let p = &self.poly_structs[ps.0 as usize];
+                    let p = &self.ty.poly_structs[ps.0 as usize];
                     (p.name, p.lit.clone())
                 };
-                let def_scope = self.poly_structs[ps.0 as usize].scope;
+                let def_scope = self.ty.poly_structs[ps.0 as usize].scope;
                 self.ide_note_bake_struct_args(ps, &lit.params, args);
                 let args: Vec<&ast::Arg> = args.iter().collect();
                 let (kept, consts) =
                     self.bake_params(scope, def_scope, &lit.params, &args, span)?;
                 // Constants baked earlier stay; instances are the origin's instances.
-                let origin = self.poly_structs[ps.0 as usize].origin.unwrap_or(ps);
-                let consts: Vec<_> = self.poly_structs[ps.0 as usize]
+                let origin = self.ty.poly_structs[ps.0 as usize].origin.unwrap_or(ps);
+                let consts: Vec<_> = self.ty.poly_structs[ps.0 as usize]
                     .baked
                     .iter()
                     .cloned()
@@ -119,9 +119,9 @@ impl Compiler {
                 let mut lit = (*lit).clone();
                 lit.params = kept;
                 let baked = self.new_poly_struct(name, Rc::new(lit), def_scope);
-                self.poly_structs[baked.0 as usize].baked = consts;
-                self.poly_structs[baked.0 as usize].origin = Some(origin);
-                if self.poly_structs[baked.0 as usize].lit.params.is_empty() {
+                self.ty.poly_structs[baked.0 as usize].baked = consts;
+                self.ty.poly_structs[baked.0 as usize].origin = Some(origin);
+                if self.ty.poly_structs[baked.0 as usize].lit.params.is_empty() {
                     return Ok(Operand::Type(self.instantiate_struct(
                         baked,
                         Vec::new(),

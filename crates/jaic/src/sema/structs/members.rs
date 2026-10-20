@@ -16,20 +16,20 @@ impl Compiler {
         span: Span,
     ) -> Result<Vec<(Sym, TypeId, u64)>> {
         let s = |n: &str| Sym::intern(n);
-        Ok(match self.types.kind(ty).clone() {
+        Ok(match self.ty.types.kind(ty).clone() {
             TypeKind::String => vec![(s("count"), TypeId::S64, 0), (s("data"), TypeId::U8_PTR, 8)],
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::View,
             } => {
-                let p = self.types.pointer(elem);
+                let p = self.ty.types.pointer(elem);
                 vec![(s("count"), TypeId::S64, 0), (s("data"), p, 8)]
             }
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::Resizable,
             } => {
-                let p = self.types.pointer(elem);
+                let p = self.ty.types.pointer(elem);
                 let alloc = self.preload_type(PreludeType::Allocator, span)?;
                 vec![
                     (s("count"), TypeId::S64, 0),
@@ -40,7 +40,7 @@ impl Compiler {
             }
             TypeKind::Any => {
                 let ti = self.preload_type(PreludeType::TypeInfo, span)?;
-                let p = self.types.pointer(ti);
+                let p = self.ty.types.pointer(ti);
                 vec![(s("type"), p, 0), (s("value_pointer"), TypeId::VOID_PTR, 8)]
             }
             _ => Vec::new(),
@@ -67,7 +67,7 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Result<Option<Rc<ProcTypeParams>>> {
-        let ty = self.types.pointee(ty).unwrap_or(ty);
+        let ty = self.ty.types.pointee(ty).unwrap_or(ty);
         Ok(self
             .find_member_in(ty, name, span, &mut Vec::new())?
             .and_then(|(_, _, origin)| origin)
@@ -123,8 +123,8 @@ impl Compiler {
         span: Span,
         searched: &mut Vec<StructId>,
     ) -> Result<Option<MemberResolution>> {
-        let ty = self.types.repr_struct(ty);
-        let Some(s) = self.types.as_struct(ty) else {
+        let ty = self.ty.types.repr_struct(ty);
+        let Some(s) = self.ty.types.as_struct(ty) else {
             let members = self.builtin_members(ty, span)?;
             return Ok(members
                 .into_iter()
@@ -137,7 +137,7 @@ impl Compiler {
         searched.push(s);
         self.layout_struct(s, span)?;
         // Without cloning the field list: this runs for every member access.
-        let fields = &self.types.struct_info(s).fields;
+        let fields = &self.ty.types.struct_info(s).fields;
         if let Some((index, f)) = fields
             .iter()
             .enumerate()
@@ -150,12 +150,12 @@ impl Compiler {
             )));
         }
         let no_filters = UsingFilters::default();
-        let filters = self.using_filters.get(&s).unwrap_or(&no_filters);
+        let filters = self.ty.using_filters.get(&s).unwrap_or(&no_filters);
         let candidates = using_candidates(fields, filters, name);
         if let Some(found) = self.find_promoted_member(candidates, span, searched)? {
             return Ok(Some(found));
         }
-        let aliases = self.member_aliases.get(&s).cloned().unwrap_or_default();
+        let aliases = self.ty.member_aliases.get(&s).cloned().unwrap_or_default();
         for alias in aliases {
             let Some(target) = alias.target_name(name) else {
                 continue;
@@ -165,8 +165,8 @@ impl Compiler {
             let mut origin = None;
             for &step in alias.path.iter().chain([&target]) {
                 // A pointer field on the path is followed.
-                if let Some(p) = self.types.pointee(at)
-                    && self.types.as_struct(p).is_some()
+                if let Some(p) = self.ty.types.pointee(at)
+                    && self.ty.types.as_struct(p).is_some()
                 {
                     full.push(PathStep::Deref);
                     at = p;
@@ -176,7 +176,7 @@ impl Compiler {
                 else {
                     return err(
                         span,
-                        format!("`{step}` is not a member of {}", self.types.name(at)),
+                        format!("`{step}` is not a member of {}", self.ty.types.name(at)),
                     );
                 };
                 full.append(&mut path);
@@ -197,8 +197,8 @@ impl Compiler {
         searched: &mut Vec<StructId>,
     ) -> Result<Option<MemberResolution>> {
         for (field_ty, offset, name) in candidates {
-            let (inner, deref) = match self.types.pointee(field_ty) {
-                Some(p) if self.types.as_struct(p).is_some() => (p, true),
+            let (inner, deref) = match self.ty.types.pointee(field_ty) {
+                Some(p) if self.ty.types.as_struct(p).is_some() => (p, true),
                 _ => (field_ty, false),
             };
             if let Some((mut path, ty, origin)) =
@@ -227,15 +227,15 @@ impl Compiler {
         name: Sym,
         searched: &mut Vec<StructId>,
     ) -> Result<Option<Vec<EntityId>>> {
-        let ty = self.types.repr_struct(ty);
-        let Some(s) = self.types.as_struct(ty) else {
+        let ty = self.ty.types.repr_struct(ty);
+        let Some(s) = self.ty.types.as_struct(ty) else {
             return Ok(None);
         };
         if searched.contains(&s) {
             return Ok(None);
         }
         searched.push(s);
-        if let Some(src) = self.struct_asts.get(&s) {
+        if let Some(src) = self.ty.struct_asts.get(&s) {
             let scope = src.scope;
             self.expand_pending(scope)?;
             if let Some(ids) = self.scope(scope).names.get(&name)
@@ -247,11 +247,12 @@ impl Compiler {
         // Constants of `using` fields are reachable too (`context.default_allocator`). A struct
         // being laid out has no fields yet: a name looked up from its own field types finds
         // only its declared constants.
-        if self.types.struct_info(s).layout == LayoutState::InProgress {
+        if self.ty.types.struct_info(s).layout == LayoutState::InProgress {
             return Ok(None);
         }
         self.layout_struct(s, Span::NONE)?;
         let usings: Vec<TypeId> = self
+            .ty
             .types
             .struct_info(s)
             .fields
@@ -260,7 +261,7 @@ impl Compiler {
             .map(|f| f.ty)
             .collect();
         for field_ty in usings {
-            let inner = self.types.pointee(field_ty).unwrap_or(field_ty);
+            let inner = self.ty.types.pointee(field_ty).unwrap_or(field_ty);
             if let Some(ids) = self.struct_constant_in(inner, name, searched)? {
                 return Ok(Some(ids));
             }
@@ -269,15 +270,16 @@ impl Compiler {
     }
 
     pub fn type_has_member(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
-        let target = self.types.pointee(ty).unwrap_or(ty);
-        if let Some(&scope) = self.enum_member_scopes.get(&target) {
+        let target = self.ty.types.pointee(ty).unwrap_or(ty);
+        if let Some(&scope) = self.ty.enum_member_scopes.get(&target) {
             return Ok(self.scope(scope).names.get(&name).is_some_and(|ids| {
                 ids.iter()
                     .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
             }));
         }
-        if let TypeKind::Enum(e) = self.types.kind(target) {
+        if let TypeKind::Enum(e) = self.ty.types.kind(target) {
             return Ok(self
+                .ty
                 .types
                 .enum_info(*e)
                 .members
@@ -291,12 +293,13 @@ impl Compiler {
         // global of its type (no_api's `using gpu_context;`), from its own body. Layout goes
         // through declarations independently of offsets; asking only whether a declared
         // field exists must not request storage layout recursively.
-        if let Some(s) = self.types.as_struct(self.types.repr_struct(target))
-            && self.types.struct_info(s).layout == LayoutState::InProgress
-            && let Some(src) = self.struct_asts.get(&s)
+        if let Some(s) = self.ty.types.as_struct(self.ty.types.repr_struct(target))
+            && self.ty.types.struct_info(s).layout == LayoutState::InProgress
+            && let Some(src) = self.ty.struct_asts.get(&s)
         {
             let tag = src.lit.tag.as_ref().map(|t| t.name.name);
             let declared = self
+                .ty
                 .field_declarations
                 .get(&src.scope)
                 .is_some_and(|fields| fields.contains_key(&name));

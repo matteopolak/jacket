@@ -400,7 +400,7 @@ impl FnCtx {
 impl Compiler {
     /// Scalar register class of a type, or `None` for memory-class types.
     pub fn ir_ty(&self, ty: TypeId) -> Option<Ty> {
-        match self.types.kind(ty) {
+        match self.ty.types.kind(ty) {
             TypeKind::Bool => Some(Ty::I8),
             TypeKind::Int {
                 bits, ..
@@ -417,10 +417,10 @@ impl Compiler {
             | TypeKind::Type
             | TypeKind::Code => Some(Ty::Ptr),
             TypeKind::Enum(e) => {
-                let base = self.types.enum_info(*e).base;
+                let base = self.ty.types.enum_info(*e).base;
                 self.ir_ty(base)
             }
-            TypeKind::Distinct(d) => self.ir_ty(self.types.distincts[d.0 as usize].base),
+            TypeKind::Distinct(d) => self.ir_ty(self.ty.types.distincts[d.0 as usize].base),
             TypeKind::Void
             | TypeKind::CompileTimeOnly
             | TypeKind::PolyParam
@@ -444,30 +444,30 @@ impl Compiler {
     /// Size/alignment, laying out structs on demand.
     pub fn size_of(&mut self, ty: TypeId, span: Span) -> Result<u64> {
         self.ensure_complete(ty, span)?;
-        Ok(self.types.size_of(ty))
+        Ok(self.ty.types.size_of(ty))
     }
 
     pub fn align_of(&mut self, ty: TypeId, span: Span) -> Result<u64> {
         self.ensure_complete(ty, span)?;
-        Ok(self.types.align_of(ty))
+        Ok(self.ty.types.align_of(ty))
     }
 
     /// Make sure every struct contained by value in `ty` is laid out.
     pub fn ensure_complete(&mut self, ty: TypeId, span: Span) -> Result<()> {
-        match self.types.kind(ty).clone() {
+        match self.ty.types.kind(ty).clone() {
             TypeKind::Struct(s) => self.layout_struct(s, span),
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::Fixed(n),
             } => {
                 self.ensure_complete(elem, span)?;
-                let size = self.types.size_of(elem).checked_mul(n);
+                let size = self.ty.types.size_of(elem).checked_mul(n);
                 if size.is_none_or(|size| size > crate::types::MAX_SIZE) {
                     return err(
                         span,
                         format!(
                             "array type {} is too large (the limit is {} bytes)",
-                            self.types.name(ty),
+                            self.ty.types.name(ty),
                             crate::types::MAX_SIZE
                         ),
                     );
@@ -475,7 +475,7 @@ impl Compiler {
                 Ok(())
             }
             TypeKind::Distinct(d) => {
-                let base = self.types.distincts[d.0 as usize].base;
+                let base = self.ty.types.distincts[d.0 as usize].base;
                 self.ensure_complete(base, span)
             }
             _ => Ok(()),
@@ -552,7 +552,7 @@ impl Compiler {
             // `float64` only for literals too precise for `float32` (`float_literal_type`).
             Value::Float(_, _) if ty == TypeId::F64 => ty,
             Value::Float(_, _) => TypeId::F32,
-            Value::Int(_) if self.types.is_float(ty) => ty,
+            Value::Int(_) if self.ty.types.is_float(ty) => ty,
             Value::Int(_) => TypeId::S64,
             _ => ty,
         }
@@ -581,14 +581,17 @@ impl Compiler {
                 }
                 err(
                     span,
-                    format!("integer constant cannot have type {}", self.types.name(ty)),
+                    format!(
+                        "integer constant cannot have type {}",
+                        self.ty.types.name(ty)
+                    ),
                 )
             }
             Value::Float(v, _) => {
                 let Some(t) = self.ir_ty(ty).filter(|t| t.is_float()) else {
                     return err(
                         span,
-                        format!("float constant cannot have type {}", self.types.name(ty)),
+                        format!("float constant cannot have type {}", self.ty.types.name(ty)),
                     );
                 };
                 Ok(f.b.fconst(t, *v))

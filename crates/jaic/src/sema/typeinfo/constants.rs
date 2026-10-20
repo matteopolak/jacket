@@ -11,7 +11,7 @@ impl Compiler {
     /// `Type_Info_Struct.members` with the `CONSTANT` flag, used or not. A constant that fails to resolve
     /// is left out: type info never reports errors for code nothing uses.
     pub(super) fn struct_constants(&mut self, s: crate::types::StructId) -> Vec<StructConstant> {
-        let Some(scope) = self.struct_asts.get(&s).map(|src| src.scope) else {
+        let Some(scope) = self.ty.struct_asts.get(&s).map(|src| src.scope) else {
             return Vec::new();
         };
         let mut ids: Vec<EntityId> = self

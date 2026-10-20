@@ -6,7 +6,7 @@ use crate::sema::value::Aggregate;
 use crate::sema::{
     Compiler, PreludeType, Rc, Result, Span, Sym, TypeId, Value, ast, err, ir, structs,
 };
-use crate::types::{ArrayKind, TypeKind};
+use crate::types::{ArrayKind, StructId, TypeKind};
 
 impl Compiler {
     pub(super) fn build_type_info(
@@ -20,12 +20,12 @@ impl Compiler {
             bytes: vec![0; size as usize],
             relocs: Vec::new(),
         };
-        let kind = self.types.kind(ty).clone();
+        let kind = self.ty.types.kind(ty).clone();
         let tag = descriptor_of(&kind).1;
         self.set_field(&mut agg, desc, "type", Value::Int(tag), span)?;
         let runtime_size = match &kind {
             TypeKind::Struct(s)
-                if self.types.struct_info(*s).layout != crate::types::LayoutState::Done =>
+                if self.ty.types.struct_info(*s).layout != crate::types::LayoutState::Done =>
             {
                 // A struct still being laid out (its own members ask for its type info): the
                 // size is not known yet, and `-1` marks it so until the layout is done.
@@ -78,7 +78,7 @@ impl Compiler {
                 self.set_field(&mut agg, desc, "nontextual_flags", Value::Int(0x100), span)?;
             }
             TypeKind::Distinct(d) => {
-                let info = self.types.distincts[d.0 as usize].clone();
+                let info = self.ty.types.distincts[d.0 as usize].clone();
                 self.set_field(
                     &mut agg,
                     desc,
@@ -104,6 +104,72 @@ impl Compiler {
         Ok(agg)
     }
 
+    /// `textual_flags`, `nontextual_flags`, `status_flags` and the notes written on struct `s`.
+    fn type_info_struct_flags(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        s: StructId,
+        is_union: bool,
+        span: Span,
+    ) -> Result<()> {
+        // A tagged union (`union(tag) {..}`) is laid out as a struct.
+        let src = self.ty.struct_asts.get(&s);
+        let tagged = src.is_some_and(|src| src.lit.tag.is_some());
+        let textual = match (is_union, tagged) {
+            (_, true) => 0x42,
+            (true, false) => 0x2,
+            (false, false) => 0,
+        };
+        if is_union || tagged {
+            self.set_field(agg, desc, "textual_flags", Value::Int(textual), span)?;
+        }
+        let Some(src) = self.ty.struct_asts.get(&s) else {
+            return Ok(());
+        };
+        let no_padding = src.lit.flags.has(ast::StructBits::NO_PADDING);
+        // Every member is `= ---`: ALL_MEMBERS_UNINITIALIZED. The initializer stays
+        // set (it leaves the members untouched).
+        let all_uninit = !src.inits.is_empty()
+            && src.inits.iter().all(|(e, _)| {
+                e.as_ref()
+                    .is_some_and(|e| matches!(e.kind, ast::ExprKind::Uninit))
+            });
+        // A struct declared inside a procedure, a block or another struct is LOCAL.
+        let mut at = self.scope(src.scope).parent;
+        while let Some(p) = at
+            && self.scope(p).kind == ScopeKind::StructParams
+        {
+            at = self.scope(p).parent;
+        }
+        let local = at.is_some_and(|p| {
+            !matches!(
+                self.scope(p).kind,
+                ScopeKind::Module | ScopeKind::File | ScopeKind::Root
+            )
+        });
+        // Notes written on the struct itself: `S :: struct @thing { ... }`.
+        let notes: Vec<Rc<[u8]>> = src
+            .lit
+            .notes
+            .iter()
+            .map(|n| Rc::from(n.text.as_bytes()))
+            .collect();
+        if no_padding {
+            self.set_field(agg, desc, "textual_flags", Value::Int(textual | 0x4), span)?;
+        }
+        if all_uninit {
+            self.set_field(agg, desc, "nontextual_flags", Value::Int(0x40), span)?;
+        }
+        if local {
+            self.set_field(agg, desc, "status_flags", Value::Int(0x4), span)?;
+        }
+        if !notes.is_empty() {
+            self.set_notes_view(agg, desc, &notes, span)?;
+        }
+        Ok(())
+    }
+
     fn type_info_struct(
         &mut self,
         agg: &mut Aggregate,
@@ -115,7 +181,7 @@ impl Compiler {
         match kind {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
-                let info = self.types.struct_info(s).clone();
+                let info = self.ty.types.struct_info(s).clone();
                 self.set_field(agg, desc, "alignment", Value::Int(info.align as i128), span)?;
                 // Anonymous structs are named after the keyword internally; at runtime
                 // they have no name.
@@ -134,8 +200,8 @@ impl Compiler {
                 let msize = self.size_of(member_ty, span)?;
                 let malign = self.align_of(member_ty, span)?;
                 // `Type_Info_Flags` from `compiler_set_type_info_flags` plus the directives.
-                let mut tflags = self.type_info_flags.get(&ty).copied().unwrap_or(0);
-                if let Some(src) = self.struct_asts.get(&s) {
+                let mut tflags = self.ty.info_flags.get(&ty).copied().unwrap_or(0);
+                if let Some(src) = self.ty.struct_asts.get(&s) {
                     if src.lit.flags.has(ast::StructBits::TYPE_INFO_NONE) {
                         tflags |= 0x1;
                     }
@@ -218,8 +284,8 @@ impl Compiler {
                         Value::String(name.as_bytes().into()),
                         span,
                     )?;
-                    let hidden_procedure =
-                        tflags & 0x2 != 0 && matches!(self.types.kind(field.ty), TypeKind::Proc(_));
+                    let hidden_procedure = tflags & 0x2 != 0
+                        && matches!(self.ty.types.kind(field.ty), TypeKind::Proc(_));
                     let reflected_type = if hidden_procedure {
                         TypeId::VOID_PTR
                     } else {
@@ -273,80 +339,7 @@ impl Compiler {
                 if !bindings.is_empty() {
                     self.set_tagged_union_bindings(agg, desc, &bindings, span)?;
                 }
-                // A tagged union (`union(tag) {..}`) is laid out as a struct.
-                let tagged = self
-                    .struct_asts
-                    .get(&s)
-                    .is_some_and(|src| src.lit.tag.is_some());
-                if info.is_union || tagged {
-                    let flags = if tagged {
-                        0x42
-                    } else {
-                        0x2
-                    };
-                    self.set_field(agg, desc, "textual_flags", Value::Int(flags), span)?;
-                }
-                let no_padding = self
-                    .struct_asts
-                    .get(&s)
-                    .is_some_and(|src| src.lit.flags.has(ast::StructBits::NO_PADDING));
-                if no_padding {
-                    let cur = if info.is_union || tagged {
-                        if tagged {
-                            0x42
-                        } else {
-                            0x2
-                        }
-                    } else {
-                        0
-                    };
-                    self.set_field(agg, desc, "textual_flags", Value::Int(cur | 0x4), span)?;
-                }
-                // Every member is `= ---`: ALL_MEMBERS_UNINITIALIZED. The initializer stays
-                // set (it leaves the members untouched).
-                let all_uninit = self.struct_asts.get(&s).is_some_and(|src| {
-                    !src.inits.is_empty()
-                        && src.inits.iter().all(|(e, _)| {
-                            e.as_ref()
-                                .is_some_and(|e| matches!(e.kind, ast::ExprKind::Uninit))
-                        })
-                });
-                if all_uninit {
-                    self.set_field(agg, desc, "nontextual_flags", Value::Int(0x40), span)?;
-                }
-                // A struct declared inside a procedure, a block or another struct is LOCAL.
-                let local = self.struct_asts.get(&s).is_some_and(|src| {
-                    let mut at = self.scope(src.scope).parent;
-                    while let Some(p) = at
-                        && self.scope(p).kind == ScopeKind::StructParams
-                    {
-                        at = self.scope(p).parent;
-                    }
-                    at.is_some_and(|p| {
-                        !matches!(
-                            self.scope(p).kind,
-                            ScopeKind::Module | ScopeKind::File | ScopeKind::Root
-                        )
-                    })
-                });
-                if local {
-                    self.set_field(agg, desc, "status_flags", Value::Int(0x4), span)?;
-                }
-                // Notes written on the struct itself: `S :: struct @thing { ... }`.
-                let struct_notes: Vec<Rc<[u8]>> = self
-                    .struct_asts
-                    .get(&s)
-                    .map(|src| {
-                        src.lit
-                            .notes
-                            .iter()
-                            .map(|n| Rc::from(n.text.as_bytes()))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                if !struct_notes.is_empty() {
-                    self.set_notes_view(agg, desc, &struct_notes, span)?;
-                }
+                self.type_info_struct_flags(agg, desc, s, info.is_union, span)?;
                 let (func, _) = self.initializer_proc(ty, span)?;
                 let Some((path, _)) = self.find_member(desc, Sym::intern("initializer"), span)?
                 else {
@@ -408,7 +401,7 @@ impl Compiler {
                 self.set_field(agg, desc, "procedure_flags", Value::Int(flags), span)?;
             }
             TypeKind::Enum(e) => {
-                let info = self.types.enum_info(e).clone();
+                let info = self.ty.types.enum_info(e).clone();
                 // Like anonymous structs, an inline `enum {...}` has no name at runtime.
                 let name = match info.name.as_str() {
                     "enum" => "",

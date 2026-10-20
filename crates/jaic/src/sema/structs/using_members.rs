@@ -108,13 +108,13 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<(u64, TypeId, Span)>> {
         self.layout_struct(s, span)?;
-        let fields = self.types.struct_info(s).fields.clone();
+        let fields = self.ty.types.struct_info(s).fields.clone();
         for f in fields.iter().filter(|f| f.using) {
-            let Some(inner) = self.types.as_struct(f.ty) else {
+            let Some(inner) = self.ty.types.as_struct(f.ty) else {
                 continue;
             };
             self.layout_struct(inner, span)?;
-            let inner_fields = self.types.struct_info(inner).fields.clone();
+            let inner_fields = self.ty.types.struct_info(inner).fields.clone();
             if let Some(m) = inner_fields.iter().find(|m| m.name == Some(name)) {
                 return Ok(Some((f.offset + m.offset, m.ty, m.span)));
             }
@@ -146,7 +146,7 @@ impl Compiler {
                 let Some((offset, ty)) = self.override_path(s, base, span)? else {
                     return Ok(None);
                 };
-                let Some(inner) = self.types.as_struct(ty) else {
+                let Some(inner) = self.ty.types.as_struct(ty) else {
                     return Ok(None);
                 };
                 Ok(self
@@ -186,7 +186,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<(u64, TypeId, Span)>> {
         self.layout_struct(s, span)?;
-        let fields = self.types.struct_info(s).fields.clone();
+        let fields = self.ty.types.struct_info(s).fields.clone();
         if let Some(f) = fields.iter().find(|f| f.name == Some(name)) {
             return Ok(Some((f.offset, f.ty, f.span)));
         }

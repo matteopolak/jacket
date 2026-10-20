@@ -27,7 +27,7 @@ impl Compiler {
     }
 
     pub(in crate::sema) fn is_register_operand_type(&mut self, ty: TypeId, span: Span) -> bool {
-        matches!(self.types.kind(ty), crate::types::TypeKind::Distinct(_))
+        matches!(self.ty.types.kind(ty), crate::types::TypeKind::Distinct(_))
             && self.register_operand_type(span).ok() == Some(ty)
     }
 
@@ -39,12 +39,12 @@ impl Compiler {
                 "a SIMD register operand has no standalone storage or runtime ABI; use #asm and expanded parameters",
             );
         }
-        match self.types.kind(ty).clone() {
+        match self.ty.types.kind(ty).clone() {
             crate::types::TypeKind::Array {
                 elem, ..
             } => self.ensure_storage_type(elem, span),
             crate::types::TypeKind::Distinct(d) => {
-                self.ensure_storage_type(self.types.distincts[d.0 as usize].base, span)
+                self.ensure_storage_type(self.ty.types.distincts[d.0 as usize].base, span)
             }
             _ => Ok(()),
         }
@@ -299,12 +299,12 @@ impl Compiler {
                     span,
                     format!(
                         "#asm operand of type `{}` is not a scalar",
-                        self.types.name(ty)
+                        self.ty.types.name(ty)
                     ),
                 );
             }
         };
-        let signed = self.types.int_info(ty).is_some_and(|(_, s)| s);
+        let signed = self.ty.types.int_info(ty).is_some_and(|(_, s)| s);
         Ok(Opd::Reg(RegPlace {
             addr,
             storage,

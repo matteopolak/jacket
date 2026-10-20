@@ -19,10 +19,10 @@ impl Compiler {
             value: Value::Int(v),
             ..
         } = lit
-            && let Some((bits, signed)) = self.types.int_info(ty)
+            && let Some((bits, signed)) = self.ty.types.int_info(ty)
             && !crate::sema::convert::int_constant_fits(*v, bits, signed, bit_pattern)
             && !(bit_pattern && crate::sema::convert::int_fits(*v, bits, signed))
-            && !matches!(self.types.kind(ty), TypeKind::Enum(_))
+            && !matches!(self.ty.types.kind(ty), TypeKind::Enum(_))
         {
             return if crate::sema::convert::int_fits(*v, 64, true) {
                 TypeId::S64
@@ -41,8 +41,8 @@ impl Compiler {
                 value: Value::Int(v),
                 untyped: true,
                 ..
-            } if !matches!(self.types.kind(ty), TypeKind::Enum(_))
-                && let Some((bits, signed)) = self.types.int_info(ty)
+            } if !matches!(self.ty.types.kind(ty), TypeKind::Enum(_))
+                && let Some((bits, signed)) = self.ty.types.int_info(ty)
                 && bits <= 64
                 && crate::sema::convert::int_fits(v, bits, signed) =>
             {
@@ -63,7 +63,7 @@ impl Compiler {
             } => lhs_ty,
             other => {
                 let t = other.ty();
-                if self.types.is_integer(t) {
+                if self.ty.types.is_integer(t) {
                     t
                 } else {
                     lhs_ty
@@ -99,7 +99,7 @@ impl Compiler {
         if is_shift {
             if lu {
                 return Ok(expected
-                    .filter(|&e| self.types.is_integer(e))
+                    .filter(|&e| self.ty.types.is_integer(e))
                     .unwrap_or(TypeId::S64));
             }
             return Ok(lt);
@@ -133,11 +133,11 @@ impl Compiler {
                         TypeId::F32
                     };
                     expected
-                        .filter(|&e| self.types.is_float(e))
+                        .filter(|&e| self.ty.types.is_float(e))
                         .unwrap_or(natural)
                 } else {
                     expected
-                        .filter(|&e| self.types.is_integer(e) || self.types.is_float(e))
+                        .filter(|&e| self.ty.types.is_integer(e) || self.ty.types.is_float(e))
                         .unwrap_or(TypeId::S64)
                 })
             }
@@ -155,13 +155,13 @@ impl Compiler {
                     return Ok(rt);
                 }
                 // An integer meeting a float in arithmetic becomes that float.
-                if self.types.is_float(lt) && self.types.is_integer(rt) {
+                if self.ty.types.is_float(lt) && self.ty.types.is_integer(rt) {
                     return Ok(lt);
                 }
-                if self.types.is_integer(lt) && self.types.is_float(rt) {
+                if self.ty.types.is_integer(lt) && self.ty.types.is_float(rt) {
                     return Ok(rt);
                 }
-                let (li, ri) = (self.types.int_info(lt), self.types.int_info(rt));
+                let (li, ri) = (self.ty.types.int_info(lt), self.ty.types.int_info(rt));
                 if let (Some((lb, _)), Some((rb, _))) = (li, ri) {
                     // Mixed signedness: Jai requires a cast, but comparisons with
                     // literals are common; pick the wider type.
@@ -172,7 +172,7 @@ impl Compiler {
                     });
                 }
                 // A procedure value meets a `*void` as an address (`proc == get_caller_address()`).
-                let is_proc = |c: &Self, t| matches!(c.types.kind(t), TypeKind::Proc(_));
+                let is_proc = |c: &Self, t| matches!(c.ty.types.kind(t), TypeKind::Proc(_));
                 if (is_proc(self, lt) && rt == TypeId::VOID_PTR)
                     || (is_proc(self, rt) && lt == TypeId::VOID_PTR)
                 {
@@ -182,8 +182,8 @@ impl Compiler {
                     span,
                     format!(
                         "type mismatch: `{}` and `{}` cannot be combined",
-                        self.types.name(lt),
-                        self.types.name(rt)
+                        self.ty.types.name(lt),
+                        self.ty.types.name(rt)
                     ),
                 );
                 // `c * "2"`: a one-character string where a character code was meant (`+` and `-`
@@ -201,16 +201,16 @@ impl Compiler {
                     _ => (lt, None),
                 };
                 if let Some(c) = text
-                    && self.types.is_integer(int_side)
+                    && self.ty.types.is_integer(int_side)
                 {
                     d = d.with_help(format!(
                         "`\"{c}\"` is a string; for the character's code write `#char \"{c}\"`"
                     ));
-                } else if self.types.is_integer(lt) && self.types.is_float(rt)
-                    || self.types.is_float(lt) && self.types.is_integer(rt)
+                } else if self.ty.types.is_integer(lt) && self.ty.types.is_float(rt)
+                    || self.ty.types.is_float(lt) && self.ty.types.is_integer(rt)
                 {
                     d = d.with_help("convert one side with `cast(float)` or `cast(int)` first");
-                } else if self.types.is_integer(lt) && self.types.is_integer(rt) {
+                } else if self.ty.types.is_integer(lt) && self.ty.types.is_integer(rt) {
                     d = d.with_help(
                         "integers of different sizes or signedness need a `cast` to one type",
                     );

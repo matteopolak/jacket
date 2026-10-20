@@ -24,9 +24,9 @@ impl Compiler {
         // of exactly the base type is cast back up to the variant.
         let variant = args.iter().find_map(|a| {
             let ty = a.op.as_ref()?.ty();
-            match self.types.kind(ty) {
-                TypeKind::Distinct(d) if self.types.distincts[d.0 as usize].isa => {
-                    Some((ty, self.types.distincts[d.0 as usize].base))
+            match self.ty.types.kind(ty) {
+                TypeKind::Distinct(d) if self.ty.types.distincts[d.0 as usize].isa => {
+                    Some((ty, self.ty.types.distincts[d.0 as usize].base))
                 }
                 _ => None,
             }
@@ -122,7 +122,7 @@ impl Compiler {
                         let op = c_vararg_promote(self, f, op, span)?;
                         // A wide `Long_Double` or a struct travels by value, as its layout.
                         let by_value = self.wide_float(op.ty()).is_some()
-                            || (matches!(self.types.kind(op.ty()), TypeKind::Struct(_))
+                            || (matches!(self.ty.types.kind(op.ty()), TypeKind::Struct(_))
                                 && self.size_of(op.ty(), span)? > 0);
                         let layout = if by_value {
                             Some(self.agg_layout(op.ty(), span)?)
@@ -232,7 +232,7 @@ impl Compiler {
 
     /// The checked representation of a Jai runtime pack, distinct from C ellipses.
     pub(super) fn jai_variadic_element(&self, ty: TypeId, span: Span) -> Result<TypeId> {
-        match *self.types.kind(ty) {
+        match *self.ty.types.kind(ty) {
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::View,
@@ -510,10 +510,10 @@ impl Compiler {
         mut args: Vec<CallArg>,
         span: Span,
     ) -> Result<Operand> {
-        let TypeKind::Proc(pt) = self.types.kind(ty).clone() else {
+        let TypeKind::Proc(pt) = self.ty.types.kind(ty).clone() else {
             return err(
                 span,
-                format!("cannot call a value of type {}", self.types.name(ty)),
+                format!("cannot call a value of type {}", self.ty.types.name(ty)),
             );
         };
         let result_parameters = parameters

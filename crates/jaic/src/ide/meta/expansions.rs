@@ -183,13 +183,13 @@ impl Compiler {
                 let text = literal.clone().unwrap_or_else(|| match value {
                     Value::Proc(p) => self.proc(*p).name.to_string(),
                     Value::Code(c) => format!("#code {}", self.ide_code_text(*c)),
-                    Value::Bytes(_) => format!("{}.{{…}}", self.types.name(*ty)),
-                    other => other.render(&self.types),
+                    Value::Bytes(_) => format!("{}.{{…}}", self.ty.types.name(*ty)),
+                    other => other.render(&self.ty.types),
                 });
-                (text, self.types.name(*ty), literal)
+                (text, self.ty.types.name(*ty), literal)
             }
             Operand::Type(t) => {
-                let name = self.types.name(*t);
+                let name = self.ty.types.name(*t);
                 (name.clone(), "Type".into(), Some(name))
             }
             Operand::Procs(ps) => (
@@ -220,7 +220,7 @@ impl Compiler {
             Value::Bool(b) => b.to_string(),
             Value::Null => "null".into(),
             Value::String(s) => quote(&String::from_utf8_lossy(s)),
-            Value::Type(t) => self.types.name(*t),
+            Value::Type(t) => self.ty.types.name(*t),
             _ => return None,
         })
     }

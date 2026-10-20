@@ -335,7 +335,7 @@ impl Compiler {
                 (None, None) => return err(param.span, "parameter needs a type"),
             };
             let ty = if param.variadic && !header.uses_c_abi() {
-                self.types.array(ty, ArrayKind::View)
+                self.ty.types.array(ty, ArrayKind::View)
             } else {
                 ty
             };
@@ -343,7 +343,7 @@ impl Compiler {
                 name: param.name.map(|n| n.name),
                 ty,
                 default: param.default.clone(),
-                callable: if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+                callable: if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
                     self.callable_expression_parameters(
                         scope,
                         param.ty.as_ref().or(param.default.as_ref()),
@@ -393,7 +393,7 @@ impl Compiler {
             }
             if ty != TypeId::VOID {
                 returns.push(ty);
-                return_callables.push(if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+                return_callables.push(if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
                     self.callable_expression_parameters(
                         scope,
                         r.ty.as_ref().or(r.default.as_ref()),
@@ -435,7 +435,7 @@ impl Compiler {
             no_context: !has_context,
             non_pod_return: header.flags.cpp_return_type_is_non_pod(),
         };
-        let ty = self.types.intern(TypeKind::Proc(Rc::new(proc_type)));
+        let ty = self.ty.types.intern(TypeKind::Proc(Rc::new(proc_type)));
         Ok(Signature {
             params,
             returns,
@@ -484,7 +484,7 @@ impl Compiler {
                 complete = false;
                 continue;
             };
-            let TypeKind::Proc(ty) = self.types.kind(sig.ty).clone() else {
+            let TypeKind::Proc(ty) = self.ty.types.kind(sig.ty).clone() else {
                 continue;
             };
             // Two aliases of one procedure are the same overload, not a clash.

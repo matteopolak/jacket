@@ -1,6 +1,8 @@
 //! Inferring `$T` bindings of a polymorphic procedure from its arguments, and matching type
 //! patterns.
 
+use crate::types::Types;
+
 use super::{
     ArrayKind, CallArg, Compiler, Diagnostic, DiagnosticKind, E, Operand, ProcId, Result, ScopeId,
     Slot, Span, Sym, TypeId, TypeKind, Value, ast, err, header_poly_names, is_deferred,
@@ -244,7 +246,7 @@ impl Compiler {
                     && let TypeKind::Array {
                         elem,
                         kind: ArrayKind::View,
-                    } = *self.types.kind(vt)
+                    } = *self.ty.types.kind(vt)
                     && matches!(
                         &t.kind,
                         E::ArrayType {
@@ -255,7 +257,7 @@ impl Compiler {
                     && let Some(bytes) = image.bytes.get(0..8)
                 {
                     let count = u64::from_le_bytes(bytes.try_into().unwrap());
-                    vt = self.types.array(elem, ArrayKind::Fixed(count));
+                    vt = self.ty.types.array(elem, ArrayKind::Fixed(count));
                 }
                 let represented = if let Value::Type(t) = &value {
                     Some(*t)
@@ -359,7 +361,7 @@ impl Compiler {
                 && arg.spread
                 && let TypeKind::Array {
                     elem, ..
-                } = self.types.kind(ty)
+                } = self.ty.types.kind(ty)
             {
                 ty = *elem;
             }
@@ -466,7 +468,7 @@ impl Compiler {
             self.match_pattern(&pattern, ty, &mut st.bindings, def_scope)?;
         }
         // A type variable seen only through `null` is `*void`.
-        let void_ptr = self.types.pointer(TypeId::VOID);
+        let void_ptr = self.ty.types.pointer(TypeId::VOID);
         for pattern in std::mem::take(&mut st.null_patterns) {
             let mut probe = st.bindings.clone();
             if self
@@ -603,13 +605,13 @@ impl Compiler {
         if ty == want {
             return true;
         }
-        let Some(s) = self.types.as_struct(ty) else {
+        let Some(s) = self.ty.types.as_struct(ty) else {
             return false;
         };
         if self.layout_struct(s, Span::NONE).is_err() {
             return false;
         }
-        let fields = self.types.struct_info(s).fields.clone();
+        let fields = self.ty.types.struct_info(s).fields.clone();
         fields
             .iter()
             .filter(|f| f.as_)
@@ -634,17 +636,17 @@ impl Compiler {
         ty: TypeId,
     ) -> Option<TypeId> {
         // A `#bake_arguments` struct's instances are its origin's with the baked values.
-        let poly = &self.poly_structs[ps.0 as usize];
+        let poly = &self.ty.poly_structs[ps.0 as usize];
         let (origin, baked) = match poly.origin {
             Some(origin) => (origin, poly.baked.clone()),
             None => (ps, Vec::new()),
         };
-        if self.poly_structs[origin.0 as usize]
+        if self.ty.poly_structs[origin.0 as usize]
             .instances
             .values()
             .any(|&t| t == ty)
             && (baked.is_empty() || {
-                let bindings = self.poly_struct_bindings(self.types.as_struct(ty)?);
+                let bindings = self.poly_struct_bindings(self.ty.types.as_struct(ty)?);
                 baked.iter().all(|(name, value, _)| {
                     bindings.iter().any(|(n, v, _)| n == name && v == value)
                 })
@@ -652,9 +654,9 @@ impl Compiler {
         {
             return Some(ty);
         }
-        let s = self.types.as_struct(ty)?;
+        let s = self.ty.types.as_struct(ty)?;
         self.layout_struct(s, Span::NONE).ok()?;
-        let fields = self.types.struct_info(s).fields.clone();
+        let fields = self.ty.types.struct_info(s).fields.clone();
         fields
             .iter()
             .filter(|f| f.as_)
@@ -671,6 +673,101 @@ impl Compiler {
         self.match_pattern_value(pattern, ty, bindings, scope, None)
     }
 
+    /// `Table($K, $V)` against an instance of the same polymorphic struct
+    /// (a `*Instance` argument is dereferenced for a by-value parameter).
+    fn match_instance_pattern(
+        &mut self,
+        callee: &ast::Expr,
+        args: &[ast::Arg],
+        ty: TypeId,
+        bindings: &mut Vec<(Sym, Value, TypeId)>,
+        scope: ScopeId,
+        span: Span,
+    ) -> Result<()> {
+        let ty = match self.ty.types.pointee(ty) {
+            Some(p) if self.ty.types.as_struct(p).is_some() => p,
+            _ => ty,
+        };
+        // The instance itself, or (for a named struct) an `#as` member that is one.
+        let (instance, parameters) = match &callee.kind {
+            E::Ident(name) => match self.ident_poly_struct(scope, *name)? {
+                Some(ps) => (
+                    self.instance_or_as_base(ps, ty),
+                    Some(self.ty.poly_structs[ps.0 as usize].lit.params.clone()),
+                ),
+                None => (None, None),
+            },
+            _ => match self.eval_const(scope, callee, None)? {
+                Operand::PolyStruct(ps) => (
+                    self.instance_or_as_base(ps, ty),
+                    Some(self.ty.poly_structs[ps.0 as usize].lit.params.clone()),
+                ),
+                _ => (self.ty.types.as_struct(ty).map(|_| ty), None),
+            },
+        };
+        let Some(ty) = instance else {
+            return err(
+                span,
+                format!(
+                    "{} is not an instance of this struct",
+                    self.ty.types.name(ty)
+                ),
+            );
+        };
+        let s = self.ty.types.as_struct(ty).unwrap();
+        let parameters = parameters
+            .or_else(|| {
+                self.ty
+                    .struct_asts
+                    .get(&s)
+                    .map(|src| src.lit.params.clone())
+            })
+            .unwrap_or_default();
+        // Instance keys store values, not their declared types, and may contain
+        // inferred type bindings absent from the written parameter list. Match
+        // that list by parameter identity against the canonical typed bindings.
+        let actual = self.poly_struct_bindings(s);
+        let mut position = 0;
+        for a in args {
+            let parameter = if let Some(name) = a.name {
+                parameters
+                    .iter()
+                    .find(|p| p.name.map(|n| n.name) == Some(name.name))
+            } else {
+                let parameter = parameters.get(position);
+                position += 1;
+                parameter
+            };
+            let Some(name) = parameter.and_then(|p| p.name).map(|n| n.name) else {
+                return err(a.value.span, "unknown polymorphic struct parameter");
+            };
+            let Some((_, value, value_type)) = actual.iter().find(|(n, _, _)| *n == name) else {
+                return err(a.value.span, "missing polymorphic struct parameter binding");
+            };
+            match &a.value.kind {
+                E::PolyVar {
+                    name, ..
+                } => {
+                    bind_pattern(
+                        span,
+                        &self.ty.types,
+                        bindings,
+                        *name,
+                        value.clone(),
+                        *value_type,
+                    )?;
+                }
+                _ if procs::has_poly(&a.value) => {
+                    if let Value::Type(t) = value {
+                        self.match_pattern(&a.value, *t, bindings, scope)?;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     pub(in crate::sema) fn match_pattern_value(
         &mut self,
         pattern: &ast::Expr,
@@ -680,32 +777,17 @@ impl Compiler {
         represented: Option<TypeId>,
     ) -> Result<()> {
         let span = pattern.span;
-        let bind = |c: &mut Compiler,
-                    bindings: &mut Vec<(Sym, Value, TypeId)>,
-                    name: Sym,
-                    value: Value,
-                    vty: TypeId|
-         -> Result<()> {
-            if let Some((_, existing, _)) = bindings.iter().find(|(n, _, _)| *n == name) {
-                if *existing != value {
-                    return err(
-                        span,
-                        format!(
-                            "conflicting types for `${name}`: {} and {}",
-                            existing.render(&c.types),
-                            value.render(&c.types)
-                        ),
-                    );
-                }
-                return Ok(());
-            }
-            bindings.push((name, value, vty));
-            Ok(())
-        };
         match &pattern.kind {
             E::PolyVar {
                 name, ..
-            } => bind(self, bindings, *name, Value::Type(ty), TypeId::TYPE),
+            } => bind_pattern(
+                span,
+                &self.ty.types,
+                bindings,
+                *name,
+                Value::Type(ty),
+                TypeId::TYPE,
+            ),
             // A bare polymorphic struct matches any of its instances; binding its
             // name makes the instance signature name the instance.
             E::Ident(name) => match self.ident_poly_struct(scope, *name)? {
@@ -717,15 +799,23 @@ impl Compiler {
                     let matched = if self.instance_or_as_base(ps, ty).is_some() {
                         Some(ty)
                     } else {
-                        self.types
+                        self.ty
+                            .types
                             .pointee(ty)
                             .filter(|&p| self.instance_or_as_base(ps, p).is_some())
                     };
                     match matched {
-                        Some(t) => bind(self, bindings, *name, Value::Type(t), TypeId::TYPE),
+                        Some(t) => bind_pattern(
+                            span,
+                            &self.ty.types,
+                            bindings,
+                            *name,
+                            Value::Type(t),
+                            TypeId::TYPE,
+                        ),
                         None => err(
                             span,
-                            format!("{} is not an instance of `{name}`", self.types.name(ty)),
+                            format!("{} is not an instance of `{name}`", self.ty.types.name(ty)),
                         ),
                     }
                 }
@@ -764,12 +854,12 @@ impl Compiler {
                     && self.instance_or_as_base(ps, ty).is_none()
                 {
                     // A `*Instance` argument is dereferenced for a by-value parameter.
-                    match self.types.pointee(ty) {
+                    match self.ty.types.pointee(ty) {
                         Some(p) if self.instance_or_as_base(ps, p).is_some() => ty = p,
                         _ => {
                             return err(
                                 span,
-                                format!("{} is not an instance of `{r}`", self.types.name(ty)),
+                                format!("{} is not an instance of `{r}`", self.ty.types.name(ty)),
                             );
                         }
                     }
@@ -779,26 +869,33 @@ impl Compiler {
                     && let E::Ident(_) | E::Member(..) = &restriction.kind
                     && self.ident_poly_struct_expr(scope, restriction)?.is_none()
                     && let Ok(want) = self.eval_type(scope, restriction)
-                    && self.types.as_struct(want).is_some()
-                    && self.types.as_struct(ty).is_some()
+                    && self.ty.types.as_struct(want).is_some()
+                    && self.ty.types.as_struct(ty).is_some()
                     && !self.has_as_base(ty, want)
                 {
                     return err(
                         span,
                         format!(
                             "{} does not satisfy the restriction `{}`",
-                            self.types.name(ty),
-                            self.types.name(want)
+                            self.ty.types.name(ty),
+                            self.ty.types.name(want)
                         ),
                     );
                 }
-                bind(self, bindings, *name, Value::Type(ty), TypeId::TYPE)
+                bind_pattern(
+                    span,
+                    &self.ty.types,
+                    bindings,
+                    *name,
+                    Value::Type(ty),
+                    TypeId::TYPE,
+                )
             }
-            E::Unary(ast::UnOp::Star, inner) => match self.types.kind(ty).clone() {
+            E::Unary(ast::UnOp::Star, inner) => match self.ty.types.kind(ty).clone() {
                 TypeKind::Pointer(p) => self.match_pattern(inner, p, bindings, scope),
                 _ => err(
                     span,
-                    format!("expected a pointer, found {}", self.types.name(ty)),
+                    format!("expected a pointer, found {}", self.ty.types.name(ty)),
                 ),
             },
             E::ArrayType {
@@ -808,11 +905,11 @@ impl Compiler {
                 let TypeKind::Array {
                     elem: actual,
                     kind,
-                } = self.types.kind(ty).clone()
+                } = self.ty.types.kind(ty).clone()
                 else {
                     return err(
                         span,
-                        format!("expected an array, found {}", self.types.name(ty)),
+                        format!("expected an array, found {}", self.ty.types.name(ty)),
                     );
                 };
                 match (size, kind) {
@@ -823,8 +920,9 @@ impl Compiler {
                             name, ..
                         } = &n.kind
                         {
-                            bind(
-                                self,
+                            bind_pattern(
+                                span,
+                                &self.ty.types,
                                 bindings,
                                 *name,
                                 Value::Int(count as i128),
@@ -835,7 +933,7 @@ impl Compiler {
                     _ => {
                         return err(
                             span,
-                            format!("array kind mismatch with {}", self.types.name(ty)),
+                            format!("array kind mismatch with {}", self.ty.types.name(ty)),
                         );
                     }
                 }
@@ -845,83 +943,12 @@ impl Compiler {
                 callee,
                 args,
                 ..
-            } => {
-                // `Table($K, $V)` against an instance of the same polymorphic struct
-                // (a `*Instance` argument is dereferenced for a by-value parameter).
-                let ty = match self.types.pointee(ty) {
-                    Some(p) if self.types.as_struct(p).is_some() => p,
-                    _ => ty,
-                };
-                // The instance itself, or (for a named struct) an `#as` member that is one.
-                let (instance, parameters) = match &callee.kind {
-                    E::Ident(name) => match self.ident_poly_struct(scope, *name)? {
-                        Some(ps) => (
-                            self.instance_or_as_base(ps, ty),
-                            Some(self.poly_structs[ps.0 as usize].lit.params.clone()),
-                        ),
-                        None => (None, None),
-                    },
-                    _ => match self.eval_const(scope, callee, None)? {
-                        Operand::PolyStruct(ps) => (
-                            self.instance_or_as_base(ps, ty),
-                            Some(self.poly_structs[ps.0 as usize].lit.params.clone()),
-                        ),
-                        _ => (self.types.as_struct(ty).map(|_| ty), None),
-                    },
-                };
-                let Some(ty) = instance else {
-                    return err(
-                        span,
-                        format!("{} is not an instance of this struct", self.types.name(ty)),
-                    );
-                };
-                let s = self.types.as_struct(ty).unwrap();
-                let parameters = parameters
-                    .or_else(|| self.struct_asts.get(&s).map(|src| src.lit.params.clone()))
-                    .unwrap_or_default();
-                // Instance keys store values, not their declared types, and may contain
-                // inferred type bindings absent from the written parameter list. Match
-                // that list by parameter identity against the canonical typed bindings.
-                let actual = self.poly_struct_bindings(s);
-                let mut position = 0;
-                for a in args {
-                    let parameter = if let Some(name) = a.name {
-                        parameters
-                            .iter()
-                            .find(|p| p.name.map(|n| n.name) == Some(name.name))
-                    } else {
-                        let parameter = parameters.get(position);
-                        position += 1;
-                        parameter
-                    };
-                    let Some(name) = parameter.and_then(|p| p.name).map(|n| n.name) else {
-                        return err(a.value.span, "unknown polymorphic struct parameter");
-                    };
-                    let Some((_, value, value_type)) = actual.iter().find(|(n, _, _)| *n == name)
-                    else {
-                        return err(a.value.span, "missing polymorphic struct parameter binding");
-                    };
-                    match &a.value.kind {
-                        E::PolyVar {
-                            name, ..
-                        } => {
-                            bind(self, bindings, *name, value.clone(), *value_type)?;
-                        }
-                        _ if procs::has_poly(&a.value) => {
-                            if let Value::Type(t) = value {
-                                self.match_pattern(&a.value, *t, bindings, scope)?;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                Ok(())
-            }
+            } => self.match_instance_pattern(callee, args, ty, bindings, scope, span),
             E::ProcType(header) => {
-                let TypeKind::Proc(pt) = self.types.kind(ty).clone() else {
+                let TypeKind::Proc(pt) = self.ty.types.kind(ty).clone() else {
                     return err(
                         span,
-                        format!("expected a procedure, found {}", self.types.name(ty)),
+                        format!("expected a procedure, found {}", self.ty.types.name(ty)),
                     );
                 };
                 for (p, &actual) in header.params.iter().zip(&pt.params) {
@@ -939,4 +966,30 @@ impl Compiler {
             _ => Ok(()),
         }
     }
+}
+
+/// Binds `$name` to `value` while matching a polymorphic pattern; a second binding must agree.
+fn bind_pattern(
+    span: Span,
+    types: &Types,
+    bindings: &mut Vec<(Sym, Value, TypeId)>,
+    name: Sym,
+    value: Value,
+    vty: TypeId,
+) -> Result<()> {
+    if let Some((_, existing, _)) = bindings.iter().find(|(n, _, _)| *n == name) {
+        if *existing != value {
+            return err(
+                span,
+                format!(
+                    "conflicting types for `${name}`: {} and {}",
+                    existing.render(types),
+                    value.render(types)
+                ),
+            );
+        }
+        return Ok(());
+    }
+    bindings.push((name, value, vty));
+    Ok(())
 }

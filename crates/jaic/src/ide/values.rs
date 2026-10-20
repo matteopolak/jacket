@@ -326,7 +326,7 @@ impl Compiler {
 
     /// The values of `ty` and whether it is unsigned, if it is a number or bool they are known for.
     fn value_range(&self, ty: TypeId) -> Option<(Interval, bool)> {
-        match self.types.kind(self.types.repr(ty)) {
+        match self.ty.types.kind(self.ty.types.repr(ty)) {
             TypeKind::Bool => Some((Interval::BOOL, true)),
             TypeKind::Int {
                 bits,

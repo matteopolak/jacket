@@ -14,6 +14,7 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 - `src: SourceState` (`source_state.rs`): the file system, the `SourceMap` and per-file info, path canonicalisation, parse-ahead workers, `#insert` nesting and provided texts. External crates read `compiler.src.sources`.
 - `diag: Diagnostics` (`diagnostics.rs`): warnings, why deferred items failed, declaration dependencies.
 - `epochs: Epochs` (`epochs.rs`): the counters a cached failure is stamped with (`namespace_generation`, `placeholder_misses`, `in_progress_misses`) and the flags of deferred expansion's phases.
+- `ty: TypeState` (`type_state.rs`): the `Types` table and what sema keeps per type: struct declarations, field types and `using` filters, polymorphic structs, `Type_Info` globals and the type-table snapshot, default values and initializers.
 - `out: Output` (`output.rs`): the IR program, constant data pooled into globals (strings, packs, constant addresses), runtime-info globals, compile-time output. `release_lowered_code` empties its bodies for an editor.
 - `meta: MetaState` (`meta_state.rs`): the workspace being built, records exported to metaprograms, perf counts.
 - `ed: Editor` (`ide/editor.rs`): the editor analysis, if any.
@@ -36,7 +37,7 @@ A new field goes in the group it belongs to; a field used only by one group's me
 - `#run`, `#assert` and constant initialisers are checked in a thunk scope one procedure level deeper, so using a runtime local is an error (except `#if x.CONST` and `type_of(local.*)`).
 - `name :: overloaded;` resolves to `Resolved::ProcSet`; an alias to a name in another scope joins an overload set (`overloadable_or_alias`).
 - `#poke_name Module name;` adds the importer's entity to the module scope after `expand_all` (`apply_pokes`).
-- `using,only(a, b) field.desc;` in a struct body makes nested members reachable without storage (`Compiler::member_aliases`, consulted last by `find_member`).
+- `using,only(a, b) field.desc;` in a struct body makes nested members reachable without storage (`Compiler::ty.member_aliases`, consulted last by `find_member`).
 - A parameter or result type mentioning an earlier parameter (`proc: cache.Proc`, `-> type_of(asset)`) is checked with the parameters in a scratch scope (`type_from_params`).
 - **Declared structs are always checked.** Sema is demand-driven, but Jai type-checks every declaration, so `check_declared_structs` (`driver.rs`) lays out every top-level non-polymorphic struct and union after reachable code is lowered; `a: Missing;` is reported whether or not the struct is used. Unused constants, globals and bodies are checked afterwards in the program's own files only (all files with `-no_dce`; [dead-code elimination](../language/dead-code-elimination.md)). `type_info_global` registers a descriptor before building it because descriptors refer to themselves; on failure the type is unregistered (`failed_type_infos`).
 

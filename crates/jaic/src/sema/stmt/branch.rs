@@ -310,16 +310,16 @@ impl Compiler {
         val: ir::Val,
         span: Span,
     ) -> Result<Option<ir::BlockId>> {
-        let TypeKind::Enum(id) = *self.types.kind(ty) else {
+        let TypeKind::Enum(id) = *self.ty.types.kind(ty) else {
             return Ok(None);
         };
-        if self.types.enums[id.0 as usize].is_flags {
+        if self.ty.types.enums[id.0 as usize].is_flags {
             return Ok(None);
         }
         let Some(t) = self.ir_ty(ty) else {
             return Ok(None);
         };
-        let Some((_, signed)) = self.types.int_info(self.types.repr(ty)) else {
+        let Some((_, signed)) = self.ty.types.int_info(self.ty.types.repr(ty)) else {
             return Ok(None);
         };
         let here = f.b.current;
@@ -345,10 +345,10 @@ impl Compiler {
     /// `if #complete x == {`: every member of x's enum needs a case of its own, default or
     /// not. Flag enums and non-enum values are not checked.
     fn check_switch_complete(&self, ty: TypeId, covered: &[i128], span: Span) -> Result<()> {
-        let TypeKind::Enum(id) = *self.types.kind(ty) else {
+        let TypeKind::Enum(id) = *self.ty.types.kind(ty) else {
             return Ok(());
         };
-        let info = &self.types.enums[id.0 as usize];
+        let info = &self.ty.types.enums[id.0 as usize];
         if info.is_flags {
             return Ok(());
         }
@@ -366,7 +366,7 @@ impl Compiler {
                 span,
                 format!(
                     "#complete switch on {} has no case for {}",
-                    self.types.name(ty),
+                    self.ty.types.name(ty),
                     missing.join(", ")
                 ),
             )

@@ -480,15 +480,15 @@ impl Compiler {
                 self.add_contexts.push((decl.clone(), file_scope));
                 // Context already made (a `#run` needed it): extend it while its layout
                 // is still open.
-                if let Some(ty) = self.context_type {
-                    let s = self.types.as_struct(ty).unwrap();
-                    if self.types.struct_info(s).layout != crate::types::LayoutState::Pending {
+                if let Some(ty) = self.ty.context_type {
+                    let s = self.ty.types.as_struct(ty).unwrap();
+                    if self.ty.types.struct_info(s).layout != crate::types::LayoutState::Pending {
                         return err(
                             stmt.span,
                             "#add_context after the Context type was laid out (by compile-time code that ran earlier)",
                         );
                     }
-                    if let Some(src) = self.struct_asts.get_mut(&s) {
+                    if let Some(src) = self.ty.struct_asts.get_mut(&s) {
                         src.extra.push((decl.clone(), file_scope));
                     }
                 }

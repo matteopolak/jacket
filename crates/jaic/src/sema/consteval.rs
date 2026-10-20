@@ -138,7 +138,7 @@ impl Compiler {
         // The trace layout needs the Context type. When it could not be laid out yet (its
         // declarations wait on an import that fails), asking again would expand every pending
         // item once more, re-entrantly and for each thunk below it: exponential in their depth.
-        if self.context_type.is_some() {
+        if self.ty.context_type.is_some() {
             self.enable_stack_traces(span);
         }
         if !nested && self.reaches_type_table(id) {
@@ -740,7 +740,7 @@ impl Compiler {
 
     /// Read a value of type `ty` at interpreter address `addr` as a constant.
     pub fn read_value(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {
-        match self.types.kind(ty).clone() {
+        match self.ty.types.kind(ty).clone() {
             TypeKind::Bool => Ok(Value::Bool(self.program_bytes(addr, 1, span)?[0] != 0)),
             TypeKind::Int {
                 bits,
@@ -764,8 +764,8 @@ impl Compiler {
                 ..
             } => Ok(Value::float(f64::from_bits(self.program_u64(addr, span)?))),
             TypeKind::Enum(_) | TypeKind::Distinct(_) => {
-                let r = self.types.repr(ty);
-                if r != ty && self.ir_ty(r).is_some() && !self.types.is_pointer(r) {
+                let r = self.ty.types.repr(ty);
+                if r != ty && self.ir_ty(r).is_some() && !self.ty.types.is_pointer(r) {
                     return self.read_value(addr, r, span);
                 }
                 self.read_aggregate(addr, ty, span)
@@ -805,7 +805,7 @@ impl Compiler {
                 if pointer == 0 {
                     return Ok(Value::Null);
                 }
-                if self.types.pointee(ty) == Some(TypeId::VOID)
+                if self.ty.types.pointee(ty) == Some(TypeId::VOID)
                     && self.ct.interp.global_at(pointer).is_none()
                 {
                     return Ok(Value::Int(pointer as i128));
@@ -852,10 +852,10 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<()> {
-        match self.types.kind(ty).clone() {
+        match self.ty.types.kind(ty).clone() {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
-                let info = self.types.struct_info(s).clone();
+                let info = self.ty.types.struct_info(s).clone();
                 if info.is_union {
                     return Ok(());
                 }
@@ -1121,7 +1121,7 @@ impl Compiler {
                 Value::Float(x, _) => x.to_string(),
                 Value::Bool(b) => b.to_string(),
                 Value::String(s) => String::from_utf8_lossy(&s).into_owned(),
-                Value::Type(t) => self.types.name(t),
+                Value::Type(t) => self.ty.types.name(t),
                 Value::Null => "null".to_string(),
                 _ => "?".to_string(),
             });

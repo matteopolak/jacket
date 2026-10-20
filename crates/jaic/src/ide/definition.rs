@@ -23,7 +23,7 @@ impl Compiler {
     /// polymorphic struct's instance are recorded as having no one layout: their source is the
     /// polymorphic definition.
     pub(crate) fn ide_note_layout(&mut self, s: StructId) {
-        let info = self.types.struct_info(s);
+        let info = self.ty.types.struct_info(s);
         let instance = !info.poly_args.is_empty();
         let mut sites = Vec::new();
         let mut absorbed = Vec::new();
@@ -37,8 +37,8 @@ impl Compiler {
                 };
                 sites.push((f.span, site));
             } else if f.using
-                && let TypeKind::Struct(inner) = *self.types.kind(f.ty)
-                && self.types.struct_info(inner).name.as_str() == "anonymous"
+                && let TypeKind::Struct(inner) = *self.ty.types.kind(f.ty)
+                && self.ty.types.struct_info(inner).name.as_str() == "anonymous"
             {
                 absorbed.push((inner, f.offset));
             }
@@ -50,7 +50,7 @@ impl Compiler {
         let names: Vec<Span> = sites
             .iter()
             .filter_map(|(span, site)| {
-                let name = self.types.struct_info(site.declaring).fields[site.field].name?;
+                let name = self.ty.types.struct_info(site.declaring).fields[site.field].name?;
                 Some(self.ide_name_span(*span, name))
             })
             .collect();
@@ -196,9 +196,9 @@ impl Compiler {
                     .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
                     .collect(),
             },
-            IdeWhat::Type(t) => match self.types.kind(*t) {
-                TypeKind::Struct(s) => vec![(self.types.struct_info(*s).span, name)],
-                TypeKind::Enum(e) => vec![(self.types.enum_info(*e).span, name)],
+            IdeWhat::Type(t) => match self.ty.types.kind(*t) {
+                TypeKind::Struct(s) => vec![(self.ty.types.struct_info(*s).span, name)],
+                TypeKind::Enum(e) => vec![(self.ty.types.enum_info(*e).span, name)],
                 _ => match self.ed.facts().and_then(|i| i.type_names.get(&r.span)) {
                     Some(&e) => vec![(self.entity(e).span, name)],
                     None => Vec::new(),
@@ -378,7 +378,7 @@ impl Compiler {
         let Ok(Resolved::PolyStruct(p)) = self.resolve_entity(id) else {
             return Vec::new();
         };
-        let lit = self.poly_structs[p.0 as usize].lit.clone();
+        let lit = self.ty.poly_structs[p.0 as usize].lit.clone();
         let params = lit.params.iter().filter_map(|p| p.name.as_ref());
         let fields = lit.body.iter().flat_map(|stmt| match &stmt.kind {
             ast::StmtKind::Decl(decl) => decl.names.as_slice(),

@@ -139,7 +139,7 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<TypeId> {
-        let kind = host.types.kind(ty).clone();
+        let kind = host.ty.types.kind(ty).clone();
         match kind {
             TypeKind::Bool
             | TypeKind::Int {
@@ -148,17 +148,17 @@ impl Compiler {
             | TypeKind::Float {
                 ..
             }
-            | TypeKind::String => Ok(self.types.intern(kind)),
+            | TypeKind::String => Ok(self.ty.types.intern(kind)),
             TypeKind::Array {
                 elem,
                 kind,
             } if matches!(
-                host.types.kind(elem),
+                host.ty.types.kind(elem),
                 TypeKind::Bool | TypeKind::Int { .. } | TypeKind::Float { .. }
             ) =>
             {
                 let elem = self.import_host_result_type(host, elem, span)?;
-                Ok(self.types.array(elem, kind))
+                Ok(self.ty.types.array(elem, kind))
             }
             _ => err(
                 span,

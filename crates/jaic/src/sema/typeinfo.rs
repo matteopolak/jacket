@@ -70,14 +70,14 @@ pub(in crate::sema) fn descriptor_of(kind: &TypeKind) -> (PreludeType, i128) {
 impl Compiler {
     /// The Preload struct describing `ty` (`Type_Info_Struct`, `Type_Info_Integer`...).
     pub fn type_info_struct_type(&mut self, ty: TypeId, span: Span) -> Result<TypeId> {
-        let name = descriptor_of(self.types.kind(ty)).0;
+        let name = descriptor_of(self.ty.types.kind(ty)).0;
         self.preload_type(name, span)
     }
 
     pub fn type_info_global(&mut self, ty: TypeId, span: Span) -> Result<ir::GlobalId> {
-        if let Some(&g) = self.type_infos.get(&ty) {
-            if !self.in_snapshot {
-                self.snapshot_infos.remove(&ty);
+        if let Some(&g) = self.ty.infos.get(&ty) {
+            if !self.ty.in_snapshot {
+                self.ty.snapshot_infos.remove(&ty);
             }
             return Ok(g);
         }
@@ -86,10 +86,10 @@ impl Compiler {
         let align = self.align_of(desc, span)?;
         // A descriptor whose build failed before keeps its global, so code lowered since
         // (a self-reference) points at the one that is filled in now.
-        let g = match self.failed_type_infos.remove(&ty) {
+        let g = match self.ty.failed_infos.remove(&ty) {
             Some(g) => g,
             None => self.out.program.add_global(ir::Global {
-                name: format!("type_info.{}", self.types.name(ty)),
+                name: format!("type_info.{}", self.ty.types.name(ty)),
                 size,
                 align,
                 init: Vec::new(),
@@ -99,9 +99,9 @@ impl Compiler {
             }),
         };
         // Register first: descriptors may refer to themselves.
-        self.type_infos.insert(ty, g);
-        if let Some(s) = self.types.as_struct(ty) {
-            let span = self.types.struct_info(s).span;
+        self.ty.infos.insert(ty, g);
+        if let Some(s) = self.ty.types.as_struct(ty) {
+            let span = self.ty.types.struct_info(s).span;
             if (span.file.0 as usize) < self.src.sources.len() {
                 let source = self.src.sources.get(span.file);
                 let (line, col) = source.line_col(span.start);
@@ -117,8 +117,8 @@ impl Compiler {
             Err(e) => {
                 // Unregister it: a later request (a retried body) must build it again and
                 // report the error, not get an empty descriptor from the cache.
-                self.type_infos.remove(&ty);
-                self.failed_type_infos.insert(ty, g);
+                self.ty.infos.remove(&ty);
+                self.ty.failed_infos.insert(ty, g);
                 return Err(e);
             }
         };
@@ -135,10 +135,10 @@ impl Compiler {
             let Some(ty) = self.type_from_info_global(g) else {
                 continue;
             };
-            if !matches!(self.types.kind(ty), TypeKind::Struct(_)) {
+            if !matches!(self.ty.types.kind(ty), TypeKind::Struct(_)) {
                 continue;
             }
-            *self.type_info_flags.entry(ty).or_insert(0) |= flags;
+            *self.ty.info_flags.entry(ty).or_insert(0) |= flags;
             let desc = self.type_info_struct_type(ty, span)?;
             let size = self.size_of(desc, span)?;
             let agg = self.build_type_info(ty, desc, size, span)?;
@@ -155,7 +155,8 @@ impl Compiler {
 
     /// Map a type-info descriptor address back to its type (compile-time reads).
     pub fn type_from_info_global(&self, g: ir::GlobalId) -> Option<TypeId> {
-        self.type_infos
+        self.ty
+            .infos
             .iter()
             .find(|(_, v)| **v == g)
             .map(|(&t, _)| t)

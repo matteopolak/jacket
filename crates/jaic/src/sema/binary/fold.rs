@@ -35,7 +35,7 @@ impl Compiler {
         let untyped = *lu && *ru;
         let is_shift = matches!(op, BinOp::Shl | BinOp::Shr | BinOp::Rotl | BinOp::Rotr);
         let plain_int = |c: &Self, t: TypeId| {
-            c.types.int_info(t).is_some() && !matches!(c.types.kind(t), TypeKind::Enum(_))
+            c.ty.types.int_info(t).is_some() && !matches!(c.ty.types.kind(t), TypeKind::Enum(_))
         };
         let ty = if *lu && !*ru && !is_shift {
             *rt
@@ -52,7 +52,9 @@ impl Compiler {
                 *lt
             } else if self.implicit_cost(*lt, false, *rt).is_some() {
                 *rt
-            } else if self.types.int_info(*lt).unwrap().0 >= self.types.int_info(*rt).unwrap().0 {
+            } else if self.ty.types.int_info(*lt).unwrap().0
+                >= self.ty.types.int_info(*rt).unwrap().0
+            {
                 *lt
             } else {
                 *rt
@@ -73,7 +75,7 @@ impl Compiler {
             }))
         };
         let result = match (lv, rv) {
-            (Value::Int(a), Value::Int(b)) if !self.types.is_float(ty) => {
+            (Value::Int(a), Value::Int(b)) if !self.ty.types.is_float(ty) => {
                 let (a, b) = (*a, *b);
                 let v = match op {
                     BinOp::Add => Some(Value::Int(a.wrapping_add(b))),
@@ -118,7 +120,7 @@ impl Compiler {
                     Some(Value::Int(x)) if !untyped => {
                         // A typed integer constant may carry a non-integer type (an enum value, a
                         // `bool`); those wrap like a 64-bit signed integer.
-                        let (bits, signed) = self.types.int_info(ty).unwrap_or((64, true));
+                        let (bits, signed) = self.ty.types.int_info(ty).unwrap_or((64, true));
                         Some(Value::Int(wrap_int(x, bits, signed)))
                     }
                     Some(Value::Int(x)) => Some(Value::Int(x)),
@@ -135,7 +137,7 @@ impl Compiler {
                             p.requires_float64_due_to_significant_digits;
                     }
                 }
-                if self.types.repr(ty) == TypeId::F32 && !untyped && precision.requires_float64 {
+                if self.ty.types.repr(ty) == TypeId::F32 && !untyped && precision.requires_float64 {
                     return err(
                         span,
                         "this floating literal requires float64 precision (use an explicit cast to round it)",
@@ -190,8 +192,8 @@ impl Compiler {
             && !matches!((lv, rv), (Value::Bool(_), Value::Bool(_)) if !matches!(op, BinOp::Eq | BinOp::Ne))
         {
             TypeId::BOOL
-        } else if matches!(value, Value::Float(_, _)) && !self.types.is_float(ty) {
-            if self.types.is_float(*rt) {
+        } else if matches!(value, Value::Float(_, _)) && !self.ty.types.is_float(ty) {
+            if self.ty.types.is_float(*rt) {
                 *rt
             } else {
                 TypeId::F32

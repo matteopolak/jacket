@@ -15,7 +15,7 @@ pub(super) fn c_vararg_promote(
     if ty == TypeId::F32 {
         return c.convert(f, op, TypeId::F64, span);
     }
-    if let Some((bits, signed)) = c.types.int_info(ty)
+    if let Some((bits, signed)) = c.ty.types.int_info(ty)
         && bits < 32
     {
         let target = if signed {

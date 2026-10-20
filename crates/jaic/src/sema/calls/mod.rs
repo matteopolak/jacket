@@ -258,7 +258,7 @@ impl Compiler {
             }
             Operand::Type(t) => {
                 // `Type(x)` is not Jai; but `T.{}` etc are handled elsewhere.
-                err(span, format!("cannot call type {}", self.types.name(t)))
+                err(span, format!("cannot call type {}", self.ty.types.name(t)))
             }
             other => {
                 let parameters = self.callable_operand_parameters(&other)?;

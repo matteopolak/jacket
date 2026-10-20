@@ -18,7 +18,7 @@ impl Compiler {
         desc: TypeId,
         span: Span,
     ) -> Result<ir::GlobalId> {
-        let cached = self.generic_struct_infos.get(&key).copied();
+        let cached = self.ty.generic_struct_infos.get(&key).copied();
         if let Some(g) = cached {
             return Ok(g);
         }
@@ -43,6 +43,7 @@ impl Compiler {
             span,
         )?;
         let source = self
+            .ty
             .poly_structs
             .iter()
             .find(|p| p.lit.id == key && p.origin.is_none())
@@ -78,7 +79,7 @@ impl Compiler {
             read_only: true,
             export: None,
         });
-        self.generic_struct_infos.insert(key, g);
+        self.ty.generic_struct_infos.insert(key, g);
         Ok(g)
     }
 
@@ -158,7 +159,7 @@ impl Compiler {
                             expr.span,
                         )?;
                         Some(
-                            match (value, declared.is_some_and(|t| self.types.is_float(t))) {
+                            match (value, declared.is_some_and(|t| self.ty.types.is_float(t))) {
                                 (Value::Int(i), true) => Value::float(i as f64),
                                 (value, _) => value,
                             },
@@ -299,7 +300,7 @@ impl Compiler {
             relocs: Vec::new(),
         };
         let actual = self.poly_struct_bindings(s);
-        if let Some(source) = self.struct_asts.get(&s) {
+        if let Some(source) = self.ty.struct_asts.get(&s) {
             let (lit, scope) = (source.lit.clone(), source.scope);
             let parent = self.scope(scope).parent.unwrap_or(scope);
             self.generic_parameters(agg, desc, &lit, (parent, &actual), storage, span)?;
@@ -329,6 +330,7 @@ impl Compiler {
         )?;
         // The shared generic declaration descriptor preserves source identity.
         let generic_key = self
+            .ty
             .struct_asts
             .get(&s)
             .map(|src| src.lit.id)
@@ -338,7 +340,7 @@ impl Compiler {
                     "generic instance declaration metadata is unavailable",
                 ))
             })?;
-        let name = self.types.struct_info(s).name;
+        let name = self.ty.types.struct_info(s).name;
         let g = self.generic_struct_info_global(generic_key, name, desc, span)?;
         let Some((path, _)) =
             self.find_member(desc, Sym::intern("polymorph_source_struct"), span)?

@@ -15,28 +15,30 @@ impl Compiler {
             if !checked.insert((actual, required)) {
                 continue;
             }
-            let Some(contract) = self.types.as_struct(self.types.repr_struct(required)) else {
+            let Some(contract) = self.ty.types.as_struct(self.ty.types.repr_struct(required))
+            else {
                 return err(span, "an interface restriction must name a struct contract");
             };
             if self
+                .ty
                 .types
-                .as_struct(self.types.repr_struct(actual))
+                .as_struct(self.ty.types.repr_struct(actual))
                 .is_none()
             {
                 return err(
                     span,
                     format!(
                         "{} does not satisfy interface {}: expected a struct",
-                        self.types.name(actual),
-                        self.types.name(required)
+                        self.ty.types.name(actual),
+                        self.ty.types.name(required)
                     ),
                 );
             }
             self.layout_struct(contract, span)?;
-            let fields = self.types.struct_info(contract).fields.clone();
+            let fields = self.ty.types.struct_info(contract).fields.clone();
             for field in fields.iter() {
                 if field.using {
-                    pending.push((actual, self.types.pointee(field.ty).unwrap_or(field.ty)));
+                    pending.push((actual, self.ty.types.pointee(field.ty).unwrap_or(field.ty)));
                     continue;
                 }
                 let Some(name) = field.name else {
@@ -48,14 +50,14 @@ impl Compiler {
                         span,
                         format!(
                             "{} does not satisfy interface {}: missing or incompatible field `{}`",
-                            self.types.name(actual),
-                            self.types.name(required),
+                            self.ty.types.name(actual),
+                            self.ty.types.name(required),
                             name
                         ),
                     );
                 }
             }
-            let Some(source) = self.struct_asts.get(&contract) else {
+            let Some(source) = self.ty.struct_asts.get(&contract) else {
                 continue;
             };
             let mut declarations: Vec<_> = self
@@ -72,8 +74,8 @@ impl Compiler {
                         span,
                         format!(
                             "{} does not satisfy interface {}: missing member `{name}`",
-                            self.types.name(actual),
-                            self.types.name(required)
+                            self.ty.types.name(actual),
+                            self.ty.types.name(required)
                         ),
                     );
                 };
@@ -108,8 +110,8 @@ impl Compiler {
                         span,
                         format!(
                             "{} does not satisfy interface {}: incompatible member `{name}`",
-                            self.types.name(actual),
-                            self.types.name(required)
+                            self.ty.types.name(actual),
+                            self.ty.types.name(required)
                         ),
                     );
                 }
@@ -140,7 +142,7 @@ impl Compiler {
         };
         let ty = self.proc_type(candidate, span)?;
         Ok(matches!(
-            (self.types.kind(ty), self.types.kind(target)),
+            (self.ty.types.kind(ty), self.ty.types.kind(target)),
             (crate::types::TypeKind::Proc(a), crate::types::TypeKind::Proc(b)) if a == b
         ))
     }

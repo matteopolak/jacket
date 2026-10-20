@@ -21,11 +21,11 @@ impl Compiler {
         let mode = self.options.cast_bounds_check;
         let from = op.ty();
         let plain_int = |s: &Self, t: TypeId| {
-            !matches!(s.types.kind(t), TypeKind::Enum(_))
-                && !matches!(s.types.kind(s.types.repr(t)), TypeKind::Enum(_))
+            !matches!(s.ty.types.kind(t), TypeKind::Enum(_))
+                && !matches!(s.ty.types.kind(s.ty.types.repr(t)), TypeKind::Enum(_))
         };
         let (Some((sbits, ssigned)), Some((tbits, tsigned))) =
-            (self.types.int_info(from), self.types.int_info(to))
+            (self.ty.types.int_info(from), self.ty.types.int_info(to))
         else {
             return Ok(op);
         };
@@ -128,18 +128,21 @@ impl Compiler {
         else {
             return Ok(());
         };
-        if matches!(self.types.kind(to), TypeKind::Enum(_))
-            || matches!(self.types.kind(self.types.repr(to)), TypeKind::Enum(_))
+        if matches!(self.ty.types.kind(to), TypeKind::Enum(_))
+            || matches!(
+                self.ty.types.kind(self.ty.types.repr(to)),
+                TypeKind::Enum(_)
+            )
         {
             return Ok(());
         }
-        let Some((bits, signed)) = self.types.int_info(to) else {
+        let Some((bits, signed)) = self.ty.types.int_info(to) else {
             return Ok(());
         };
         if int_constant_fits(*v, bits, signed, self.bit_pattern(span)) {
             return Ok(());
         }
-        let name = self.types.name(to);
+        let name = self.ty.types.name(to);
         err(
             span,
             format!(
@@ -189,7 +192,7 @@ impl Compiler {
             ..
         } = &op
             && s.len() == 1
-            && self.types.is_integer(self.types.repr(to))
+            && self.ty.types.is_integer(self.ty.types.repr(to))
         {
             return self.explicit_cast(f, Operand::untyped_int(s[0] as i128), to, flags, span);
         }
@@ -213,14 +216,14 @@ impl Compiler {
                 value: Value::String(_),
                 ..
             }
-        ) && self.types.pointee(to) == Some(TypeId::U8)
+        ) && self.ty.types.pointee(to) == Some(TypeId::U8)
         {
             return self.convert(f, op, to, span);
         }
         if let Operand::Procs(procs) = &op
             && procs.len() == 1
             && matches!(
-                self.types.kind(to),
+                self.ty.types.kind(to),
                 TypeKind::Proc(_) | TypeKind::Pointer(_)
             )
         {
@@ -254,9 +257,9 @@ impl Compiler {
         );
         // A number, enum or pointer cast to `bool` tests for non-zero; keeping its low byte
         // would make `cast(bool) 2` a bool that `!` does not negate.
-        if self.types.repr(to) == TypeId::BOOL
-            && self.types.repr(from) != TypeId::BOOL
-            && self.ir_ty(self.types.repr(from)).is_some()
+        if self.ty.types.repr(to) == TypeId::BOOL
+            && self.ty.types.repr(from) != TypeId::BOOL
+            && self.ir_ty(self.ty.types.repr(from)).is_some()
             && !untyped
         {
             let (ty, v) = self.rvalue(f, op, span)?;
@@ -267,8 +270,8 @@ impl Compiler {
             });
         }
         if self.implicit_cost(from, untyped, to).is_some()
-            && !self.types.is_integer(to)
-            && !self.types.is_float(to)
+            && !self.ty.types.is_integer(to)
+            && !self.ty.types.is_float(to)
         {
             return self.convert(f, op, to, span);
         }
@@ -284,16 +287,16 @@ impl Compiler {
         to: TypeId,
         flags: ast::CastFlags,
     ) -> Option<Value> {
-        let tr = self.types.repr(to);
-        let fr = self.types.repr(from);
+        let tr = self.ty.types.repr(to);
+        let fr = self.ty.types.repr(from);
         match value {
             Value::Int(i)
-                if self.types.is_pointer(tr)
-                    && (self.types.is_integer(fr) || self.types.is_pointer(fr)) =>
+                if self.ty.types.is_pointer(tr)
+                    && (self.ty.types.is_integer(fr) || self.ty.types.is_pointer(fr)) =>
             {
                 // A raw address is a scalar bit pattern, not a request to capture
                 // pointed-to memory. Use the target width, never the host's usize.
-                let bits = (self.types.pointer_size * 8) as u8;
+                let bits = (self.ty.types.pointer_size * 8) as u8;
                 let address = expr::wrap_int(*i, bits, false);
                 Some(if address == 0 {
                     Value::Null
@@ -302,39 +305,39 @@ impl Compiler {
                 })
             }
             // `cast,force` between same-size ints and floats reinterprets the bits.
-            Value::Int(i) if flags.force && self.types.is_float(tr) => {
+            Value::Int(i) if flags.force && self.ty.types.is_float(tr) => {
                 Some(Value::float(if tr == TypeId::F32 {
                     f32::from_bits(*i as u32) as f64
                 } else {
                     f64::from_bits(*i as u64)
                 }))
             }
-            Value::Float(x, _) if flags.force && self.types.is_integer(tr) => {
+            Value::Float(x, _) if flags.force && self.ty.types.is_integer(tr) => {
                 let bits = if fr == TypeId::F32 {
                     (*x as f32).to_bits() as i128
                 } else {
                     x.to_bits() as i128
                 };
-                let (width, signed) = self.types.int_info(tr).unwrap();
+                let (width, signed) = self.ty.types.int_info(tr).unwrap();
                 Some(Value::Int(expr::wrap_int(bits, width, signed)))
             }
-            Value::Int(i) if self.types.is_integer(tr) => {
-                let (bits, signed) = self.types.int_info(tr).unwrap();
+            Value::Int(i) if self.ty.types.is_integer(tr) => {
+                let (bits, signed) = self.ty.types.int_info(tr).unwrap();
                 Some(Value::Int(expr::wrap_int(*i, bits, signed)))
             }
-            Value::Int(i) if self.types.is_float(tr) => Some(Value::float(int_to_float(*i, tr))),
-            Value::Float(x, _) if self.types.is_float(tr) => {
+            Value::Int(i) if self.ty.types.is_float(tr) => Some(Value::float(int_to_float(*i, tr))),
+            Value::Float(x, _) if self.ty.types.is_float(tr) => {
                 Some(Value::float(if tr == TypeId::F32 {
                     *x as f32 as f64
                 } else {
                     *x
                 }))
             }
-            Value::Float(x, _) if self.types.is_integer(tr) => {
-                let (bits, signed) = self.types.int_info(tr).unwrap();
+            Value::Float(x, _) if self.ty.types.is_integer(tr) => {
+                let (bits, signed) = self.ty.types.int_info(tr).unwrap();
                 Some(Value::Int(expr::wrap_int(*x as i128, bits, signed)))
             }
-            Value::Bool(b) if self.types.is_integer(tr) => Some(Value::Int(*b as i128)),
+            Value::Bool(b) if self.ty.types.is_integer(tr) => Some(Value::Int(*b as i128)),
             Value::Int(i) if tr == TypeId::BOOL => Some(Value::Bool(*i != 0)),
             Value::Null if self.ir_ty(tr) == Some(Ty::Ptr) => Some(Value::Null),
             _ => None,
@@ -354,8 +357,8 @@ impl Compiler {
     ) -> Result<Operand> {
         let from = op.ty();
         // Same-representation reinterpretations (distinct/enum/struct-of-same-size are not allowed except via pointer).
-        let fr = self.types.repr(from);
-        let tr = self.types.repr(to);
+        let fr = self.ty.types.repr(from);
+        let tr = self.ty.types.repr(to);
         if flags.force
             && let (Some(fi), Some(ti)) = (self.ir_ty(fr), self.ir_ty(tr))
             && fi.is_float() != ti.is_float()
@@ -376,7 +379,7 @@ impl Compiler {
             && let TypeKind::Array {
                 elem,
                 kind: ArrayKind::Fixed(n),
-            } = self.types.kind(tr).clone()
+            } = self.ty.types.kind(tr).clone()
             && (elem == TypeId::U8 || elem == TypeId::S8)
             && n as usize == bytes.len()
         {
@@ -418,8 +421,10 @@ impl Compiler {
                 kind: ArrayKind::View,
                 ..
             },
-        ) = (self.types.kind(fr).clone(), self.types.kind(tr).clone())
-        {
+        ) = (
+            self.ty.types.kind(fr).clone(),
+            self.ty.types.kind(tr).clone(),
+        ) {
             let (_, addr) = self.address_of(f, op, span)?;
             return Ok(Operand::Value {
                 ty: to,
@@ -432,7 +437,7 @@ impl Compiler {
         // `string` and `[] u8` share the same layout (count, data).
         let is_bytes_view = |s: &Self, t: TypeId| {
             matches!(
-                s.types.kind(t),
+                s.ty.types.kind(t),
                 TypeKind::Array {
                     elem,
                     kind: ArrayKind::View,
@@ -452,9 +457,9 @@ impl Compiler {
         if to == TypeId::STRING
             && let TypeKind::Array {
                 elem: TypeId::U8, ..
-            } = self.types.kind(fr)
+            } = self.ty.types.kind(fr)
         {
-            let view = self.types.array(TypeId::U8, ArrayKind::View);
+            let view = self.ty.types.array(TypeId::U8, ArrayKind::View);
             let op = self.explicit_cast(f, op, view, flags, span)?;
             return self.explicit_cast(f, op, to, flags, span);
         }
@@ -474,8 +479,8 @@ impl Compiler {
             span,
             format!(
                 "cannot cast {} to {}",
-                self.types.name(from),
-                self.types.name(to)
+                self.ty.types.name(from),
+                self.ty.types.name(to)
             ),
         )
     }

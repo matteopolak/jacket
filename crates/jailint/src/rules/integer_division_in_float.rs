@@ -30,7 +30,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Binary(BinOp::Div, a, b) = &e.kind else {
                 return true;
             };
-            let types = &cx.compiler.types;
+            let types = &cx.compiler.ty.types;
             let int = |x: &Expr| cx.ty(x).is_some_and(|t| types.is_integer(t));
             if !int(e) || !int(a) || !int(b) {
                 return true;

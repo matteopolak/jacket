@@ -320,7 +320,7 @@ impl Compiler {
             ) => other.ty(),
             (other, _) => other.ty(),
         };
-        let ty = if self.types.is_integer(ty) {
+        let ty = if self.ty.types.is_integer(ty) {
             ty
         } else {
             TypeId::S64
@@ -330,7 +330,7 @@ impl Compiler {
         let (_, start) = self.rvalue(f, av, a.span)?;
         let (_, end) = self.rvalue(f, bv, b.span)?;
         let t = self.ir_ty(ty).unwrap();
-        let signed = self.types.int_info(ty).is_some_and(|i| i.1);
+        let signed = self.ty.types.int_info(ty).is_some_and(|i| i.1);
         let it = f.b.alloca(t.size(), t.size());
         let idx = f.b.alloca(8, 8);
         f.b.store(
@@ -495,13 +495,13 @@ impl Compiler {
         let iterated = c.span;
         let op = self.check_expr(f, scope, c, None)?;
         let cty = op.ty();
-        let target = self.types.pointee(cty).unwrap_or(cty);
+        let target = self.ty.types.pointee(cty).unwrap_or(cty);
         // A sketch's stand-in iterates like an array of stand-ins.
         let stand_in_elem = (for_.iterator.is_none() && self.is_stand_in(cty))
             .then(|| self.ide_stand_in_member(target, Sym::intern("[]"), c.span));
         let is_struct = stand_in_elem.is_none()
             && matches!(
-                self.types.kind(self.types.repr_struct(target)),
+                self.ty.types.kind(self.ty.types.repr_struct(target)),
                 TypeKind::Struct(_)
             );
         if for_.iterator.is_some() || is_struct {
@@ -538,10 +538,10 @@ impl Compiler {
                 }
             }
             let wants_pointer = by_pointer && !by_value;
-            let op = if wants_pointer && !self.types.is_pointer(cty) {
+            let op = if wants_pointer && !self.ty.types.is_pointer(cty) {
                 let (_, addr) = self.address_of(f, op, span)?;
                 Operand::Value {
-                    ty: self.types.pointer(cty),
+                    ty: self.ty.types.pointer(cty),
                     val: addr,
                 }
             } else {
@@ -564,7 +564,7 @@ impl Compiler {
                 span,
             );
         }
-        let (elem, fixed) = match self.types.kind(self.types.repr(cty)).clone() {
+        let (elem, fixed) = match self.ty.types.kind(self.ty.types.repr(cty)).clone() {
             _ if let Some(elem) = stand_in_elem => (elem, None),
             TypeKind::Array {
                 elem,
@@ -579,7 +579,7 @@ impl Compiler {
                     c.span,
                     format!(
                         "cannot iterate over a value of type {}",
-                        self.types.name(cty)
+                        self.ty.types.name(cty)
                     ),
                 );
             }
@@ -649,7 +649,7 @@ impl Compiler {
         let off = f.b.bin(ir::BinOp::Mul, Ty::I64, i, s);
         let elem_addr = f.b.ptr_add(data, off);
         let (it_ty, it_addr) = if for_.by_pointer {
-            let pt = self.types.pointer(elem);
+            let pt = self.ty.types.pointer(elem);
             (pt, self.spill(f, pt, elem_addr, span)?)
         } else {
             // A by-value `it` names the element itself, as in jai: `*it` is the element's
@@ -685,11 +685,11 @@ impl Compiler {
         let remove = if fixed.is_none() {
             LoopRemove::Array(container.clone(), idx, elem, for_.reverse)
         } else {
-            let elem_name = self.types.name(elem);
+            let elem_name = self.ty.types.name(elem);
             LoopRemove::Unsupported(format!(
                 "remove cannot shrink the fixed-size array `{}`; loop over a resizable array \
                  (`[..] {elem_name}`) or an array view (`[] {elem_name}`) to remove elements",
-                self.types.name(cty)
+                self.ty.types.name(cty)
             ))
         };
         let defer_depth = f.mark_defers();
@@ -757,7 +757,7 @@ impl Compiler {
                 span,
                 format!(
                     "no `{macro_name}` is visible for iterating over {}",
-                    self.types.name(collection.ty())
+                    self.ty.types.name(collection.ty())
                 ),
             );
         }

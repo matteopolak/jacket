@@ -39,7 +39,7 @@ impl Compiler {
             None if lit.flags_enum => TypeId::U32,
             None => TypeId::S64,
         };
-        let ty = self.types.new_enum(EnumInfo {
+        let ty = self.ty.types.new_enum(EnumInfo {
             name,
             base,
             members: Vec::new(),
@@ -49,7 +49,7 @@ impl Compiler {
             loose_of: None,
             span: lit.span,
         });
-        let TypeKind::Enum(enum_id) = *self.types.kind(ty) else {
+        let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };
         let module = self.scope(scope).module;
@@ -57,7 +57,7 @@ impl Compiler {
         if name.as_str() != "enum" {
             self.add_const(members_scope, name, lit.span, Value::Type(ty), TypeId::TYPE);
         }
-        self.enum_member_scopes.insert(ty, members_scope);
+        self.ty.enum_member_scopes.insert(ty, members_scope);
         let result = (|| {
             let mut declarations = Vec::new();
             self.collect_enum_items(
@@ -79,10 +79,10 @@ impl Compiler {
                 };
                 members.push((self.entity(id).name, value));
             }
-            self.types.enums[enum_id.0 as usize].members = members;
+            self.ty.types.enums[enum_id.0 as usize].members = members;
             Ok(ty)
         })();
-        self.enum_member_scopes.remove(&ty);
+        self.ty.enum_member_scopes.remove(&ty);
         result
     }
 
@@ -146,7 +146,7 @@ impl Compiler {
             direct.push(id);
             preceding = Some(id);
             known_order = true;
-            let TypeKind::Enum(enum_id) = *self.types.kind(ty) else {
+            let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
                 unreachable!()
             };
             self.ide_note_enum_member(enum_id, member.name.name, member.name.span);
@@ -255,7 +255,7 @@ impl Compiler {
                 );
             }
         };
-        if let Some((bits, signed)) = self.types.int_info(ty)
+        if let Some((bits, signed)) = self.ty.types.int_info(ty)
             && !super::convert::int_constant_fits(value, bits, signed, true)
         {
             return err(

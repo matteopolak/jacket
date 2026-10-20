@@ -101,7 +101,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     // iterable at all.
     let arr_ty = cx.ty(arr)?;
     if !matches!(
-        cx.compiler.types.kind(arr_ty),
+        cx.compiler.ty.types.kind(arr_ty),
         TypeKind::Array { .. } | TypeKind::String
     ) {
         return None;

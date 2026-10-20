@@ -21,7 +21,7 @@ impl Compiler {
         let base = match base.clone().without_callable() {
             // A pointer stored in a variable denotes the receiver, not the
             // address of the variable containing that pointer.
-            operand if self.types.pointee(operand.ty()).is_some() => {
+            operand if self.ty.types.pointee(operand.ty()).is_some() => {
                 let (ty, val) = self.rvalue(f, operand, span)?;
                 Operand::Value {
                     ty,
@@ -32,7 +32,7 @@ impl Compiler {
                 ty,
                 addr,
             } => Operand::Value {
-                ty: self.types.pointer(ty),
+                ty: self.ty.types.pointer(ty),
                 val: addr,
             },
             // By-value receivers also accept computed aggregate values. The
@@ -44,7 +44,7 @@ impl Compiler {
             return Ok(None);
         };
         let (ty, val) = self.rvalue(f, result, span)?;
-        let Some(elem) = self.types.pointee(ty) else {
+        let Some(elem) = self.ty.types.pointee(ty) else {
             return err(span, "operator *[] must return a pointer");
         };
         Ok(Some(Operand::Place {
@@ -111,7 +111,7 @@ impl Compiler {
     ) -> Result<Option<Operand>> {
         let ty = base.ty();
         if !matches!(
-            self.types.kind(self.types.repr_struct(ty)),
+            self.ty.types.kind(self.ty.types.repr_struct(ty)),
             TypeKind::Struct(_)
         ) {
             return Ok(None);
@@ -153,7 +153,10 @@ impl Compiler {
         let base_op = match base_op {
             Operand::Type(ty)
                 if f.type_only
-                    && matches!(self.types.kind(self.types.repr(ty)), TypeKind::Array { .. }) =>
+                    && matches!(
+                        self.ty.types.kind(self.ty.types.repr(ty)),
+                        TypeKind::Array { .. }
+                    ) =>
             {
                 Operand::Place {
                     ty,
@@ -189,19 +192,22 @@ impl Compiler {
             return Ok(result);
         }
         // A pointer indexes its memory when no operator for the pointee fits.
-        if self.types.pointee(bty).is_none() {
+        if self.ty.types.pointee(bty).is_none() {
             getter?;
         }
         let index_op = self.settle_untyped(index_op, Some(TypeId::S64));
         let ity = index_op.ty();
-        if !self.types.is_integer(ity)
-            && !matches!(self.types.kind(self.types.repr(ity)), TypeKind::Enum(_))
+        if !self.ty.types.is_integer(ity)
+            && !matches!(
+                self.ty.types.kind(self.ty.types.repr(ity)),
+                TypeKind::Enum(_)
+            )
         {
             return err(
                 index_span,
                 format!(
                     "array index must be an integer, found {}",
-                    self.types.name(ity)
+                    self.ty.types.name(ity)
                 ),
             );
         }
@@ -221,7 +227,7 @@ impl Compiler {
         if check {
             self.note_check_handler(span)?;
         }
-        let (elem, data) = match self.types.kind(self.types.repr(bty)).clone() {
+        let (elem, data) = match self.ty.types.kind(self.ty.types.repr(bty)).clone() {
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::Fixed(n),
@@ -260,7 +266,7 @@ impl Compiler {
             _ => {
                 return err(
                     span,
-                    format!("cannot index a value of type {}", self.types.name(bty)),
+                    format!("cannot index a value of type {}", self.ty.types.name(bty)),
                 );
             }
         };

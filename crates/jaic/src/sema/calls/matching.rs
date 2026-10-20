@@ -214,7 +214,7 @@ impl Compiler {
             let mut pattern = pattern;
             let mut ty = op.ty();
             while let E::Unary(ast::UnOp::Star, inner) = &pattern.kind {
-                let Some(p) = self.types.pointee(ty) else {
+                let Some(p) = self.ty.types.pointee(ty) else {
                     break;
                 };
                 pattern = inner;

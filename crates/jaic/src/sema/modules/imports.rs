@@ -77,7 +77,7 @@ impl Compiler {
                 // scalars get `VOID` and take their type from the value.
                 let (value, ty, untyped) = self.eval_const_literal(from_scope, &arg.value)?;
                 let typed = matches!(value, Value::Bytes(_))
-                    || matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_))
+                    || matches!(self.ty.types.kind(ty), crate::types::TypeKind::Enum(_))
                     || (!untyped && matches!(value, Value::Int(_) | Value::Float(_, _)));
                 (
                     value,

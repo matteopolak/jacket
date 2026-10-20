@@ -39,7 +39,7 @@ impl Compiler {
                 // Match ordinary unreferenced checking: establish the containing
                 // record's fields before resolving its member constants.
                 let result = if let ScopeKind::Struct(t) = self.scope(scope).kind
-                    && let TypeKind::Struct(s) = self.types.kind(t).clone()
+                    && let TypeKind::Struct(s) = self.ty.types.kind(t).clone()
                 {
                     self.layout_struct(s, span)
                         .and_then(|()| self.resolve_entity(id))
@@ -70,8 +70,8 @@ impl Compiler {
                 _ => None,
             };
             if let Some(t) = ty
-                && let TypeKind::Struct(s) = *self.types.kind(t)
-                && self.types.struct_info(s).poly_args.is_empty()
+                && let TypeKind::Struct(s) = *self.ty.types.kind(t)
+                && self.ty.types.struct_info(s).poly_args.is_empty()
                 && self.ide_wants(span.file)
                 && laid_out.insert(s)
             {
@@ -84,7 +84,7 @@ impl Compiler {
         // Field defaults are evaluated when a value of the struct is first made, so a struct
         // nothing uses has none: evaluate them for their facts (`void` in `t: Type = void` is a
         // type either way), keeping quiet about their errors as compilation does.
-        unused_defaults.retain(|(t, _)| !self.default_images.contains_key(t));
+        unused_defaults.retain(|(t, _)| !self.ty.default_images.contains_key(t));
         let quiet = (
             self.ed.facts().map_or(0, |ide| ide.errors.len()),
             self.diag.warnings.len(),

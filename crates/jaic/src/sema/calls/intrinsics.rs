@@ -140,17 +140,17 @@ impl Compiler {
             let pointee = sig
                 .params
                 .first()
-                .and_then(|p| self.types.pointee(p.ty))
+                .and_then(|p| self.ty.types.pointee(p.ty))
                 .ok_or_else(|| {
                     Box::new(Diagnostic::error(
                         span,
                         "an atomic operation requires a pointer to an atomic scalar",
                     ))
                 })?;
-            let repr = self.types.repr(pointee);
+            let repr = self.ty.types.repr(pointee);
             let width = self.size_of(pointee, span)?;
             if !matches!(
-                self.types.kind(repr),
+                self.ty.types.kind(repr),
                 TypeKind::Int { .. }
                     | TypeKind::Float { .. }
                     | TypeKind::Bool

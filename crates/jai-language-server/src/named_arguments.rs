@@ -113,17 +113,17 @@ fn compatible(
             TypeKind::Bool | TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::String
         )
     };
-    if !scalar(compiler.types.kind(from)) || !scalar(compiler.types.kind(to)) {
+    if !scalar(compiler.ty.types.kind(from)) || !scalar(compiler.ty.types.kind(to)) {
         return true;
     }
     // Constants can carry untyped arithmetic or one-byte string
     // conversions; the type fact cannot establish their value/flags.
     if constant
         && ((matches!(
-            compiler.types.kind(from),
+            compiler.ty.types.kind(from),
             TypeKind::Int { .. } | TypeKind::Float { .. }
         ) && matches!(
-            compiler.types.kind(to),
+            compiler.ty.types.kind(to),
             TypeKind::Int { .. } | TypeKind::Float { .. }
         ) && !argument.literal)
             || (from == jaic::types::TypeId::STRING && to == jaic::types::TypeId::U8))
@@ -140,7 +140,7 @@ fn callback(
     ctx: &CallSite,
     facts: &[Option<(jaic::types::TypeId, bool)>],
 ) -> Option<Callable> {
-    let jaic::types::TypeKind::Proc(signature) = compiler.types.kind(ty) else {
+    let jaic::types::TypeKind::Proc(signature) = compiler.ty.types.kind(ty) else {
         return None;
     };
     let signature = signature.clone();
@@ -159,7 +159,7 @@ fn callback(
                 let mut detail = format!(
                     "{}: {}",
                     name.as_deref().unwrap_or("_"),
-                    compiler.types.name(ty)
+                    compiler.ty.types.name(ty)
                 );
                 if let Some(default) = &header.defaults[i] {
                     detail.push_str(" = ");
@@ -194,7 +194,7 @@ fn callback(
                         && !ctx.args[i].spread
                         && let jaic::types::TypeKind::Array {
                             elem, ..
-                        } = compiler.types.kind(to)
+                        } = compiler.ty.types.kind(to)
                     {
                         to = *elem;
                     }
@@ -304,7 +304,7 @@ fn resolved(
                                 && !ctx.args[i].spread
                                 && let jaic::types::TypeKind::Array {
                                     elem, ..
-                                } = compiler.types.kind(to)
+                                } = compiler.ty.types.kind(to)
                             {
                                 to = *elem;
                             }

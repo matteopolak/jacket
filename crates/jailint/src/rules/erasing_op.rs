@@ -32,7 +32,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 BinOp::Rem | BinOp::Div | BinOp::Shl | BinOp::Shr if la == Some(0) => b,
                 _ => return true,
             };
-            let types = &cx.compiler.types;
+            let types = &cx.compiler.ty.types;
             if !cx.ty(erased).is_some_and(|t| types.is_integer(t))
                 || cx.constant(erased)
                 || chain.iter().any(|n| {

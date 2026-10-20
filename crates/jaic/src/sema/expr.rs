@@ -171,8 +171,8 @@ impl Compiler {
             } => self.check_ident(f, scope, *name, span),
             E::Int(v) => {
                 let v = v.get() as i128;
-                match expected.map(|t| self.types.repr(t)) {
-                    Some(t) if self.types.is_float(t) => Ok(Operand::Const {
+                match expected.map(|t| self.ty.types.repr(t)) {
+                    Some(t) if self.ty.types.is_float(t) => Ok(Operand::Const {
                         ty: t,
                         value: Value::float(v as f64),
                         untyped: true,
@@ -266,11 +266,11 @@ impl Compiler {
                 // (`#if table.FLAG`): only the local's type is needed.
                 if f.compile_time
                     && let Some(ty) = self.outer_local_type(scope, base)?
-                    && !self.names_field(self.types.pointee(ty).unwrap_or(ty), member.name)?
+                    && !self.names_field(self.ty.types.pointee(ty).unwrap_or(ty), member.name)?
                     && let Ok(op) = self.member_access(
                         f,
                         scope,
-                        Operand::Type(self.types.pointee(ty).unwrap_or(ty)),
+                        Operand::Type(self.ty.types.pointee(ty).unwrap_or(ty)),
                         member.name,
                         member.span,
                     )
@@ -290,7 +290,7 @@ impl Compiler {
                         && let TypeKind::Array {
                             kind: ArrayKind::Fixed(n),
                             ..
-                        } = self.types.kind(self.types.repr(op.ty()))
+                        } = self.ty.types.kind(self.ty.types.repr(op.ty()))
                     {
                         return Ok(Operand::Const {
                             ty: TypeId::S64,
@@ -370,7 +370,7 @@ impl Compiler {
                     self.emit_cast_check(f, op, target, span)?
                 };
                 let result = self.explicit_cast(f, op, target, *flags, span)?;
-                let parameters = if matches!(self.types.kind(target), TypeKind::Proc(_)) {
+                let parameters = if matches!(self.ty.types.kind(target), TypeKind::Proc(_)) {
                     self.callable_expression_parameters(scope, ty.as_deref())?
                 } else {
                     None
@@ -454,7 +454,7 @@ impl Compiler {
                         }
                     }
                 };
-                Ok(Operand::Type(self.types.array(elem, kind)))
+                Ok(Operand::Type(self.ty.types.array(elem, kind)))
             }
             E::ProcType(header) => Ok(Operand::Type(self.proc_type_from_header(f, scope, header)?)),
             E::Proc(lit) => {
@@ -470,7 +470,7 @@ impl Compiler {
                 Ok(Operand::Procs(vec![proc]))
             }
             E::Struct(lit) => {
-                if let Some(&t) = self.anonymous_types.get(&(lit.id, scope)) {
+                if let Some(&t) = self.ty.anonymous.get(&(lit.id, scope)) {
                     return Ok(Operand::Type(t));
                 }
                 self.check_struct_modify(Sym::intern("struct"), lit)?;
@@ -481,15 +481,15 @@ impl Compiler {
                     Vec::new(),
                     None,
                 );
-                self.anonymous_types.insert((lit.id, scope), t);
+                self.ty.anonymous.insert((lit.id, scope), t);
                 Ok(Operand::Type(t))
             }
             E::Enum(lit) => {
-                if let Some(&t) = self.anonymous_types.get(&(lit.id, scope)) {
+                if let Some(&t) = self.ty.anonymous.get(&(lit.id, scope)) {
                     return Ok(Operand::Type(t));
                 }
                 let t = self.new_enum_type(Sym::intern("enum"), lit, scope)?;
-                self.anonymous_types.insert((lit.id, scope), t);
+                self.ty.anonymous.insert((lit.id, scope), t);
                 Ok(Operand::Type(t))
             }
             E::TypeDirective {
@@ -501,7 +501,7 @@ impl Compiler {
                     Ok(Operand::Type(base))
                 } else {
                     let isa = *modifier == ast::TypeModifier::Isa;
-                    let t = self.types.new_distinct(crate::types::DistinctInfo {
+                    let t = self.ty.types.new_distinct(crate::types::DistinctInfo {
                         name: Sym::intern("distinct"),
                         base,
                         isa,

@@ -26,7 +26,7 @@ impl Compiler {
             else {
                 continue;
             };
-            let name = self.types.name(ty);
+            let name = self.ty.types.name(ty);
             match out.iter().find(|(s, _)| *s == r.span) {
                 Some((_, n)) if *n != name => conflicting.push(r.span),
                 Some(_) => {}
@@ -147,9 +147,10 @@ impl Compiler {
                 }
                 IdeWhat::Type(_) => IdeClass::Type,
                 IdeWhat::Module(_) => IdeClass::Module,
-                IdeWhat::Member(name) => match self.types.kind(r.ty) {
+                IdeWhat::Member(name) => match self.ty.types.kind(r.ty) {
                     TypeKind::Enum(en)
                         if self
+                            .ty
                             .types
                             .enum_info(*en)
                             .members
@@ -204,9 +205,9 @@ impl Compiler {
             return false;
         }
         let name = self.entity(e).name;
-        match self.types.kind(t) {
-            TypeKind::Struct(s) => self.types.struct_info(*s).name == name,
-            TypeKind::Enum(en) => self.types.enum_info(*en).name == name,
+        match self.ty.types.kind(t) {
+            TypeKind::Struct(s) => self.ty.types.struct_info(*s).name == name,
+            TypeKind::Enum(en) => self.ty.types.enum_info(*en).name == name,
             _ => false,
         }
     }

@@ -60,25 +60,23 @@ impl Compiler {
     /// pointers and `using` members.
     pub(super) fn ide_member_decl(&self, ty: TypeId, name: Sym) -> Option<Span> {
         let mut ty = ty;
-        while let Some(p) = self.types.pointee(ty) {
+        while let Some(p) = self.ty.types.pointee(ty) {
             ty = p;
         }
-        let ty = self.types.repr_struct(ty);
-        match self.types.kind(ty) {
+        let ty = self.ty.types.repr_struct(ty);
+        match self.ty.types.kind(ty) {
             TypeKind::Struct(s) => {
                 let (s, field) = self.ide_find_field_decl(*s, name, &mut Vec::new())?;
-                let span = self.types.struct_info(s).fields[field].span;
+                let span = self.ty.types.struct_info(s).fields[field].span;
                 (span.end > span.start).then(|| self.ide_name_span(span, name))
             }
             TypeKind::Enum(e) => {
-                let e =
-                    self.types
-                        .enum_info(*e)
-                        .loose_of
-                        .map_or(*e, |t| match self.types.kind(t) {
-                            TypeKind::Enum(strict) => *strict,
-                            _ => *e,
-                        });
+                let e = self.ty.types.enum_info(*e).loose_of.map_or(*e, |t| {
+                    match self.ty.types.kind(t) {
+                        TypeKind::Enum(strict) => *strict,
+                        _ => *e,
+                    }
+                });
                 self.ed.facts()?.enum_decls.get(&(e, name)).copied()
             }
             _ => None,
@@ -95,16 +93,16 @@ impl Compiler {
             return None;
         }
         searched.push(s);
-        let fields = &self.types.struct_info(s).fields;
+        let fields = &self.ty.types.struct_info(s).fields;
         if let Some(at) = fields.iter().position(|f| f.name == Some(name)) {
             return Some((s, at));
         }
         fields.iter().filter(|f| f.using).find_map(|f| {
             let mut ty = f.ty;
-            while let Some(p) = self.types.pointee(ty) {
+            while let Some(p) = self.ty.types.pointee(ty) {
                 ty = p;
             }
-            let TypeKind::Struct(inner) = *self.types.kind(self.types.repr_struct(ty)) else {
+            let TypeKind::Struct(inner) = *self.ty.types.kind(self.ty.types.repr_struct(ty)) else {
                 return None;
             };
             self.ide_find_field_decl(inner, name, searched)
@@ -185,10 +183,10 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
-        let Some(s) = self.types.as_struct(ty) else {
+        let Some(s) = self.ty.types.as_struct(ty) else {
             return;
         };
-        let Some(source) = self.struct_asts.get(&s) else {
+        let Some(source) = self.ty.struct_asts.get(&s) else {
             return;
         };
         let (lit, scope) = (source.lit.clone(), source.scope);
@@ -341,8 +339,8 @@ impl Compiler {
         };
         let mut out: Vec<IdeName> = Vec::new();
         for t in types {
-            let t = self.types.repr_struct(t);
-            if matches!(self.types.kind(t), TypeKind::Enum(_)) {
+            let t = self.ty.types.repr_struct(t);
+            if matches!(self.ty.types.kind(t), TypeKind::Enum(_)) {
                 for n in self.ide_members(IdeReceiver::Type(t)) {
                     if !out.iter().any(|o| o.name == n.name) {
                         out.push(n);

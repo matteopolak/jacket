@@ -403,7 +403,7 @@ impl Compiler {
     ) -> Result<ProcId> {
         let key: Vec<InstanceKeyValue> = bindings
             .iter()
-            .map(|(_, v, t)| crate::sema::instance_key_value(&self.types, v, *t))
+            .map(|(_, v, t)| crate::sema::instance_key_value(&self.ty.types, v, *t))
             .collect();
         if let Some(&inst) = self.proc(id).instances.get(&key) {
             self.meta.perf.poly_request(id, true, span);

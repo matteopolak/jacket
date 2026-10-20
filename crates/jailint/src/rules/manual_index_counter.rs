@@ -78,7 +78,7 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
         };
         if !cx.ty(c).is_some_and(|t| {
             matches!(
-                cx.compiler.types.kind(t),
+                cx.compiler.ty.types.kind(t),
                 TypeKind::Array { .. } | TypeKind::String
             )
         }) {

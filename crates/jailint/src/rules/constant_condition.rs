@@ -112,7 +112,7 @@ fn decided_by_type(cx: &Cx, cond: &Expr) -> bool {
     let TypeKind::Int {
         bits,
         signed,
-    } = *cx.compiler.types.kind(ty)
+    } = *cx.compiler.ty.types.kind(ty)
     else {
         return false;
     };

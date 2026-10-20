@@ -46,7 +46,7 @@ fn type_default_image_has_the_same_relocation_as_explicit_void() {
     assert_eq!(image.bytes, explicit.bytes);
     assert_eq!(image.relocs, explicit.relocs);
     assert_eq!(image.relocs.len(), 1);
-    let pointer = compiler.types.pointer(TypeId::VOID);
+    let pointer = compiler.ty.types.pointer(TypeId::VOID);
     assert!(
         compiler
             .default_initializer(pointer, Span::NONE)

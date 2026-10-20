@@ -105,7 +105,7 @@ impl Compiler {
             Some(t) if !procs::has_poly(t) => self.eval_type(def_scope, t)?,
             _ => TypeId::TYPE,
         };
-        let ty = self.types.array(elem, ArrayKind::View);
+        let ty = self.ty.types.array(elem, ArrayKind::View);
         let op = match (&arg.op, &arg.expr) {
             (Some(op), _) => op.clone(),
             (None, Some(e)) => self.eval_const(arg.scope, e, Some(ty))?,
@@ -163,7 +163,7 @@ impl Compiler {
             count += 1;
         }
         let view = self.const_pack(elem, array, count, span)?;
-        Ok((view, self.types.array(elem, ArrayKind::View)))
+        Ok((view, self.ty.types.array(elem, ArrayKind::View)))
     }
 
     /// Snapshot a constant view through interpreter memory so changed compile-time
@@ -176,7 +176,7 @@ impl Compiler {
         view: Value,
         span: Span,
     ) -> Result<()> {
-        let ty = self.types.array(elem, ArrayKind::View);
+        let ty = self.ty.types.array(elem, ArrayKind::View);
         let mut image = value::Aggregate::zeroed(16, span)?;
         self.write_value(&mut image, 0, &view, ty, span)?;
         let g = self.out.program.add_global(ir::Global {

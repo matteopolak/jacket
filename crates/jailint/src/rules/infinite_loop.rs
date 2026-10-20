@@ -88,7 +88,7 @@ fn condition_vars(cx: &Cx, cond: &Expr) -> Option<Vec<EntityId>> {
 }
 
 fn collect(cx: &Cx, e: &Expr, vars: &mut Vec<EntityId>) -> bool {
-    let types = &cx.compiler.types;
+    let types = &cx.compiler.ty.types;
     match &e.kind {
         E::Int(_) | E::Float(_) | E::Bool(_) | E::Char(_) | E::InferredMember(_) | E::Null => true,
         E::Ident(_) => {
