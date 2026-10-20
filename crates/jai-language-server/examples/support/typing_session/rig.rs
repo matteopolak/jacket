@@ -614,9 +614,30 @@ impl<'a, C: Choices> Rig<'a, C> {
         });
         let d = &self.docs[doc];
         if let (Ok(now), Ok(was)) = (&diagnostics, &d.baseline.diagnostics) {
+            // An error in another document that names a declaration here is also shown here,
+            // with its note (`check` is declared here): it follows that document's edits.
+            let others = (0..self.docs.len()).filter(|&k| k != doc);
+            let elsewhere: Vec<String> = others
+                .clone()
+                .filter_map(|k| self.session.diagnostics(&self.docs[k].uri).ok())
+                .flatten()
+                .map(|x| x.message)
+                .collect();
+            let was_elsewhere: Vec<String> = others
+                .filter_map(|k| self.docs[k].baseline.diagnostics.as_ref().ok())
+                .flatten()
+                .map(|x| x.message.clone())
+                .collect();
+            let in_list = |list: &[String], x: &Diagnostic| {
+                x.message
+                    .split_once('\n')
+                    .is_some_and(|(first, _)| list.iter().any(|m| m.lines().next() == Some(first)))
+            };
+            let mirrored = |x: &Diagnostic| in_list(&elsewhere, x);
             let expected: Vec<_> = was
                 .iter()
                 .filter(|x| !usage_lint(x) && !self.near_region(doc, x.range, true))
+                .filter(|x| !in_list(&was_elsewhere, x))
                 .filter_map(|x| {
                     Some(Diagnostic {
                         range: self.map_range(doc, x.range)?,
@@ -627,6 +648,7 @@ impl<'a, C: Choices> Rig<'a, C> {
             let actual: Vec<_> = now
                 .iter()
                 .filter(|x| !usage_lint(x) && !self.near_region(doc, x.range, false))
+                .filter(|x| !mirrored(x))
                 .cloned()
                 .collect();
             if sorted_debug(&expected) != sorted_debug(&actual) {
