@@ -229,10 +229,16 @@ for_expansion :: (table: *$T/Table, body: Code, flags: For_Flags) #expand {
 
             #if (flags & .POINTER) != 0 {
                 `it := *entry.value;
-                #insert body;
+                #insert (remove = {
+                    entry.hash = REMOVED_HASH;
+                    table.count -= 1;
+                }) body;
             } else {
                 `it := entry.value;
-                #insert body;
+                #insert (remove = {
+                    entry.hash = REMOVED_HASH;
+                    table.count -= 1;
+                }) body;
             }
         }
     } else {
@@ -243,10 +249,16 @@ for_expansion :: (table: *$T/Table, body: Code, flags: For_Flags) #expand {
 
             #if (flags & .POINTER) != 0 {
                 `it := *entry.value;
-                #insert body;
+                #insert (remove = {
+                    entry.hash = REMOVED_HASH;
+                    table.count -= 1;
+                }) body;
             } else {
                 `it := entry.value;
-                #insert body;
+                #insert (remove = {
+                    entry.hash = REMOVED_HASH;
+                    table.count -= 1;
+                }) body;
             }
         }
     }
