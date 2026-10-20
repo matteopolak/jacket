@@ -28,6 +28,14 @@ pub fn native_environment(stdlib: PathBuf) -> Environment {
 /// Files next to `path` named by a quoted `#load` or `#import` string.
 fn sibling_files(path: &Path, text: &str) -> Vec<PathBuf> {
     let dir = path.parent().unwrap_or(Path::new("."));
+    // Names as the directory spells them: a case-insensitive file system would otherwise turn
+    // `#import "IntroSort"` into the file `introsort.jai` itself.
+    let names: Vec<String> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect();
     let mut out = Vec::new();
     for directive in ["#load \"", "#import \""] {
         for (at, _) in text.match_indices(directive) {
@@ -35,6 +43,7 @@ fn sibling_files(path: &Path, text: &str) -> Vec<PathBuf> {
             let name = &rest[..rest.find('"').unwrap_or(0)];
             let found = [name.to_string(), format!("{name}.jai")]
                 .into_iter()
+                .filter(|n| n.contains('/') || names.contains(n))
                 .map(|n| dir.join(n))
                 .find(|p| p.is_file() && p.extension().is_some_and(|e| e == "jai") && p != path);
             if let Some(found) = found
