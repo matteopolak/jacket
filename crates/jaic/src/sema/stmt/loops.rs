@@ -455,6 +455,41 @@ impl Compiler {
         Ok(())
     }
 
+    /// Whether a `for_expansion :: (x: *T, ...)` iterates a struct value through its address:
+    /// true unless an overload takes this very type by value (overloads for other types in
+    /// the same set do not count).
+    fn for_expansion_wants_pointer(&mut self, procs: &[ProcId], cty: TypeId) -> bool {
+        let mut by_value = false;
+        let mut by_pointer = false;
+        for &p in procs {
+            let Some(t) = self
+                .proc(p)
+                .lit
+                .header
+                .params
+                .first()
+                .and_then(|q| q.ty.clone())
+            else {
+                continue;
+            };
+            if matches!(t.kind, E::Unary(ast::UnOp::Star, _)) {
+                by_pointer = true;
+            } else {
+                let home = self.proc(p).scope;
+                let takes_it = if procs::has_poly(&t)
+                    || self.mentions_poly_struct(home, &t).unwrap_or(false)
+                {
+                    // A polymorphic pattern counts only when it matches this very type.
+                    self.match_pattern(&t, cty, &mut Vec::new(), home).is_ok()
+                } else {
+                    self.eval_type(home, &t).ok() == Some(cty)
+                };
+                by_value |= takes_it;
+            }
+        }
+        by_pointer && !by_value
+    }
+
     /// `for x: collection`: an array, a view, or a struct with a `for_expansion`.
     fn check_for_collection(
         &mut self,
@@ -506,38 +541,7 @@ impl Compiler {
             );
         if for_.iterator.is_some() || is_struct {
             let procs = self.for_expansion_procs(scope, for_, &op, span)?;
-            // `for_expansion :: (x: *T, ...)` iterates a struct value through its address.
-            // Unless an overload takes this very type by value (overloads for other types
-            // in the same set do not count).
-            let mut by_value = false;
-            let mut by_pointer = false;
-            for &p in &procs {
-                let Some(t) = self
-                    .proc(p)
-                    .lit
-                    .header
-                    .params
-                    .first()
-                    .and_then(|q| q.ty.clone())
-                else {
-                    continue;
-                };
-                if matches!(t.kind, E::Unary(ast::UnOp::Star, _)) {
-                    by_pointer = true;
-                } else {
-                    let home = self.proc(p).scope;
-                    let takes_it = if procs::has_poly(&t)
-                        || self.mentions_poly_struct(home, &t).unwrap_or(false)
-                    {
-                        // A polymorphic pattern counts only when it matches this very type.
-                        self.match_pattern(&t, cty, &mut Vec::new(), home).is_ok()
-                    } else {
-                        self.eval_type(home, &t).ok() == Some(cty)
-                    };
-                    by_value |= takes_it;
-                }
-            }
-            let wants_pointer = by_pointer && !by_value;
+            let wants_pointer = self.for_expansion_wants_pointer(&procs, cty);
             let op = if wants_pointer && !self.ty.types.is_pointer(cty) {
                 let (_, addr) = self.address_of(f, op, span)?;
                 Operand::Value {
@@ -651,10 +655,15 @@ impl Compiler {
         let (it_ty, it_addr) = if for_.by_pointer {
             let pt = self.ty.types.pointer(elem);
             (pt, self.spill(f, pt, elem_addr, span)?)
-        } else {
-            // A by-value `it` names the element itself, as in jai: `*it` is the element's
-            // address and stays valid after the loop (toml-jai, Photon rely on it).
+        } else if self.is_memory_type(elem) {
+            // A by-value `it` over aggregates names the element itself: `*it` is the
+            // element's address and stays valid after the loop.
             (elem, elem_addr)
+        } else {
+            // A scalar element is copied into `it`, which then outlives a `remove`.
+            let copy = f.b.alloca(esize.max(1), self.align_of(elem, span)?.max(1));
+            f.b.copy(copy, elem_addr, esize);
+            (elem, copy)
         };
         self.declare_loop_vars(
             f,
