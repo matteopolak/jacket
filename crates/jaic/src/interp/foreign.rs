@@ -298,6 +298,10 @@ impl Interp {
                 return result.map(Rets::from);
             }
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        if symbol == "abort" {
+            crash::skip_core_dump();
+        }
         if let Some(result) = self.host.foreign(symbol, args, sig) {
             let exits = matches!(symbol, "exit" | "_exit");
             return result.map(Rets::from).map_err(|m| {

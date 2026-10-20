@@ -253,6 +253,13 @@ fn report_and_exit(what: &str) -> bool {
     sys::exit_now(CRASH_STATUS)
 }
 
+/// Called before compiled code aborts the compiler process: a core file of the compiler is no use
+/// for the program's own failure, and writing one for a large multithreaded process takes long
+/// enough to look like a hang.
+pub fn skip_core_dump() {
+    sys::skip_core_dump();
+}
+
 fn install() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(sys::install);
@@ -315,7 +322,11 @@ mod sys {
         fn write(fd: c_int, buf: *const c_void, count: usize) -> isize;
         fn _exit(status: c_int) -> !;
         fn pause() -> c_int;
+        fn getrlimit(resource: c_int, limit: *mut [u64; 2]) -> c_int;
+        fn setrlimit(resource: c_int, limit: *const [u64; 2]) -> c_int;
     }
+
+    const RLIMIT_CORE: c_int = 4;
 
     const SIGNALS: [c_int; 4] = [SIGSEGV, SIGBUS, SIGILL, SIGFPE];
 
@@ -403,6 +414,17 @@ mod sys {
                 return;
             }
             bytes = &bytes[n as usize..];
+        }
+    }
+
+    pub fn skip_core_dump() {
+        let mut limit = [0u64; 2];
+        // SAFETY: plain C calls on a `struct rlimit` (two 64-bit fields on both platforms).
+        unsafe {
+            if getrlimit(RLIMIT_CORE, &raw mut limit) == 0 {
+                limit[0] = 0;
+                setrlimit(RLIMIT_CORE, &raw const limit);
+            }
         }
     }
 
@@ -526,6 +548,9 @@ mod sys {
         }
     }
 
+    pub fn skip_core_dump() {
+    }
+
     pub fn exit_now(status: i32) -> ! {
         // SAFETY: ends this process.
         unsafe {
@@ -549,6 +574,9 @@ mod sys {
     }
 
     pub fn write_stderr(_bytes: &[u8]) {
+    }
+
+    pub fn skip_core_dump() {
     }
 
     pub fn exit_now(status: i32) -> ! {
