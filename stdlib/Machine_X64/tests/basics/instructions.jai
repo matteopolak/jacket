@@ -18,7 +18,6 @@ main :: () {
     cpu := M.get_cpu_info();
 
     assert(M.check_feature(cpu.feature_leaves, .TSC));
-    assert(M.check_feature(cpu.feature_leaves, .RDTSCP));
     memory: [64] u8;
     memory[0] = 73;
     M.prefetch(memory.data, .T0);
@@ -34,12 +33,21 @@ main :: () {
     M.lfence();
     first := M.rdtsc();
 
-    M.lfence();
-    second, auxiliary := M.rdtscp();
+    // Some hypervisors hide RDTSCP, so fall back to a second RDTSC sample there.
+    second: u64;
+
+    if M.check_feature(cpu.feature_leaves, .RDTSCP) {
+        M.lfence();
+        value, auxiliary := M.rdtscp();
+        #assert type_of(auxiliary) == u32;
+        second = value;
+    } else {
+        M.lfence();
+        second = M.rdtsc();
+    }
 
     M.lfence();
     assert(first > 0 && second >= first);
-    #assert type_of(auxiliary) == u32;
 
     if M.check_feature(cpu.feature_leaves, .RDRAND) {
         success, value := random_attempt();
