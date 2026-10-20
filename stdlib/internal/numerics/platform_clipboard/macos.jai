@@ -36,8 +36,8 @@ read_text :: (_window: *void = null) -> (success: bool, text: string, message: s
 
     defer CFRelease(flavor);
 
-    // Another process may change the pasteboard between synchronizing and reading, which the
-    // native calls report as badPasteboardSyncErr. Synchronize again and start over when that happens.
+    // Another process may change the pasteboard between synchronizing and reading: the native calls
+    // then report it out of sync or name an item or index it no longer has. Synchronize again and start over.
     for 1..8 {
         success, text, message, out_of_sync := read_synchronized(board, flavor);
         if !out_of_sync return success, text, message;
@@ -50,14 +50,20 @@ read_text :: (_window: *void = null) -> (success: bool, text: string, message: s
 #import "Basic";
 
 PASTEBOARD_OUT_OF_SYNC :: -25130; // Native badPasteboardSyncErr.
+PASTEBOARD_NO_SUCH_INDEX :: -25131; // Native badPasteboardIndexErr.
+PASTEBOARD_NO_SUCH_ITEM :: -25132; // Native badPasteboardItemErr.
 PASTEBOARD_NO_SUCH_FLAVOR :: -25133; // Native badPasteboardFlavorErr.
+
+changed_under_us :: (status: s32) -> bool {
+    return status == PASTEBOARD_OUT_OF_SYNC || status == PASTEBOARD_NO_SUCH_INDEX || status == PASTEBOARD_NO_SUCH_ITEM;
+}
 
 read_synchronized :: (board: *void, flavor: *void) -> (success: bool, text: string, message: string, out_of_sync: bool) {
     PasteboardSynchronize(board);
     count: u64;
     status := PasteboardGetItemCount(board, *count);
 
-    if status == PASTEBOARD_OUT_OF_SYNC return false, "", "", true;
+    if changed_under_us(status) return false, "", "", true;
     if status != 0 return false, "", sprint("PasteboardGetItemCount failed: %", status), false;
     if count == 0 return true, "", "", false;
 
@@ -65,14 +71,14 @@ read_synchronized :: (board: *void, flavor: *void) -> (success: bool, text: stri
         item: *void;
 
         status = PasteboardGetItemIdentifier(board, cast(s64) index, *item);
-        if status == PASTEBOARD_OUT_OF_SYNC return false, "", "", true;
+        if changed_under_us(status) return false, "", "", true;
         if status != 0 return false, "", sprint("PasteboardGetItemIdentifier failed: %", status), false;
 
         data: *void;
 
         status = PasteboardCopyItemFlavorData(board, item, flavor, *data);
         if status == PASTEBOARD_NO_SUCH_FLAVOR continue; // This item is not UTF-8 text.
-        if status == PASTEBOARD_OUT_OF_SYNC return false, "", "", true;
+        if changed_under_us(status) return false, "", "", true;
         if status != 0 return false, "", sprint("PasteboardCopyItemFlavorData failed: %", status), false;
         if data == null return false, "", "Pasteboard returned a null data reference", false;
 
