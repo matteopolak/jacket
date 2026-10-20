@@ -82,6 +82,15 @@ Checked, not assumed (a dry run with a crate published minutes earlier): Cargo's
 
 `inkwell` currently comes from git: release 0.10.0 supports LLVM up to 22, while LLVM 23 support (`llvm23-1`) is on its main branch. The root `Cargo.toml` pins an aged commit for `inkwell` and `inkwell_internals`. Once a crates.io release with `llvm23-1` is 14 days old, switch back to `version = "..."` and drop `allowBuiltinFetchGit` in `nix/jaic.nix`. Put shared dependencies in `[workspace.dependencies]`, prefer exact versions, and never weaken the age policy to resolve a conflict.
 
+## Fixing reported bugs
+
+A fix for an issue is done only when a test fails before it and passes after it, on a machine CI has. The steps:
+
+1. **Explain the reported output.** Every line of the reporter's output (diagnostics, error codes, values printed) must follow from the cause you name. If a line doesn't fit, the cause is wrong. For example, issue 15's `pixel_format=0, descriptor unavailable` showed that a format was chosen and then rejected, not that choosing failed.
+2. **Reproduce before fixing.** Write the test first and watch it fail. When the bug depends on hardware, a driver or an OS version CI doesn't have, make the code under test take those calls as replaceable procedures and write a stand-in that behaves like the reporter's environment (for example a GL driver whose chosen format has an incomplete descriptor).
+3. **Check that the new code ran.** A passing test proves nothing if it never reaches the changed lines. Assert, or print and check, which path the test took.
+4. **Ask for confirmation on environment-specific bugs.** When the bug was only seen on hardware or setups we can't run, label the issue `needs confirmation` and leave it open until the reporter confirms the release fixes it.
+
 ## Continuous integration
 
 Workflows in `.github/workflows/`:
