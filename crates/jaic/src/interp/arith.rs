@@ -204,3 +204,6 @@ pub(super) fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
         ConvOp::Bitcast => mask(to, v),
     }
 }
+
+#[cfg(test)]
+mod tests;

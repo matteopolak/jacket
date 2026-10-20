@@ -1,6 +1,6 @@
 # cargo-mutants settings (docs/tools/mutation-testing.md). Mutants are only made in the files the
 # workflow or the command line names with --file; this file removes the ones that cannot matter.
-additional_cargo_test_args = ["--lib"]
+# The tests each mutant runs come from the workflow (.github/workflows/mutants.yml), after `--`.
 # Panics, diagnostics text and Debug/Display impls are covered by their own tests, and mutating them
 # only reports that a message changed.
 exclude_re = [
