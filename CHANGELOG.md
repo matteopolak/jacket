@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.22.0] - 2026-10-20
+
+### New
+
+- `jaic` and `jacket build` show a live build status on the terminal, with `Compiling` and `Finished` lines.
+
+### Fixed
+
+- The browser compiler is about 15 MB smaller and fits static hosts' 25 MiB file limit again.
+- `compiler_get_code` prints a `case` that ends in `#through` as code that parses again.
+- Reading the macOS clipboard no longer fails when another program changes it during the read.
+- Several editor fixes: hovers on polymorphic procedures and their instances, constants whose `#run` failed, the branches of an `if` whose condition has an error, and braces around a broken statement.
+
 ## [0.21.1] - 2026-10-20
 
 ### New
