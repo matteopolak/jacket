@@ -1,6 +1,7 @@
 //! `ifx` expressions: branch agreement and constant folding.
 use super::implicit_then_expr;
 use crate::ast::ExprKind as E;
+use crate::sema::convert::int_fits;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
 
@@ -32,6 +33,43 @@ impl Compiler {
             | Operand::Void => None,
             other => Some(other.ty()),
         }
+    }
+
+    /// With no target type, an untyped integer constant that does not fit the other arm's
+    /// integer type makes the result `s64` when that holds both (`ifx c then 300 else a_u8`).
+    fn ifx_overflow_widening(&mut self, (a, b): (&Operand, &Operand)) -> Option<TypeId> {
+        let overflows = |c: &Self, constant: &Operand, other: &Operand| {
+            let Operand::Const {
+                value: Value::Int(v),
+                untyped: true,
+                ..
+            } = constant
+            else {
+                return false;
+            };
+            if matches!(
+                other,
+                Operand::Const {
+                    untyped: true,
+                    ..
+                }
+            ) {
+                return false;
+            }
+            let repr = c.ty.types.repr(other.ty());
+            c.ty.types
+                .int_info(repr)
+                .is_some_and(|(bits, signed)| !int_fits(*v, bits, signed))
+        };
+        let other = if overflows(self, a, b) {
+            b
+        } else if overflows(self, b, a) {
+            a
+        } else {
+            return None;
+        };
+        self.implicit_cost(other.ty(), false, TypeId::S64)
+            .map(|_| TypeId::S64)
     }
 
     /// Both arms of an `ifx` must meet in one type: `ifx c then 1 else "a"` has none.
@@ -338,7 +376,11 @@ impl Compiler {
             }
             _ => None,
         };
-        let ty = match (else_wider.or(result_ty), &else_op) {
+        let overflow = match &else_op {
+            Some(op) if expected.is_none() => self.ifx_overflow_widening((&then_op, op)),
+            _ => None,
+        };
+        let ty = match (overflow.or(else_wider).or(result_ty), &else_op) {
             (Some(t), _) => t,
             (None, Some(Operand::Procs(p))) if p.len() == 1 => self.proc_type(p[0], span)?,
             (None, Some(op)) => self.settle_untyped(op.clone(), None).ty(),

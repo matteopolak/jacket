@@ -24,6 +24,7 @@ bits := cast,force(u32) f;           // reinterprets float bits
 - The two branches of an `ifx` must agree on a type: `ifx c then 1 else "a"` is an error even for a constant `c` (the branch not taken is still checked, `fold_constant_ifx` and `ifx_branch_agreement` in `sema/expr.rs`), with a note naming each branch's type.
 - An `ifx` whose two branches are both untyped integer constants is an `s64`. It does not take an unsigned declared type: `base: u64 = ifx c then 1024 else 1000;` is `Number signedness mismatch. Type wanted: u64; type given: s64.` Give one branch a type (`cast(u64) 1024`) (`ifx_branch_agreement`). The rule is for declarations, assignments, arguments and returns only: an `ifx` that is an operand of a binary operator takes the other operand's type (`c - (ifx up then 32 else 0)` with a `u16` `c`; `FnCtx::ifx_operand`).
 - An `ifx` arm that only an expected type can type (`.B`, `.{}`, `.[1, 2]`) takes the other arm's type, on either side: `ifx c then .{} else V.{1, 1}` is a `V` (`check_ifx`, `fold_constant_ifx`).
+- With no target type, an untyped integer constant that does not fit the other arm's integer type makes the `ifx` an `s64` (`ifx c then 300 else a_u8`); one that fits keeps the arm's type (`ifx_overflow_widening`).
 - `ifx c then a else b` with no expected type takes the else type when only the then value converts to it, otherwise the then type. A call whose single result has exactly the base type of an `#type,isa` argument returns the variant (`emit_call`).
 
 ### Reach of a prefix cast
