@@ -74,6 +74,24 @@ A backend is declined for a case only for a stated reason taken from existing me
 
 **To change it:** a new backend goes in `ALL_BACKENDS` and `Runner.run` (map failures onto the statuses, add printed paths to `Runner.normalize`); a new set in `cases()` (give a `Case` a `root` when it reads sibling files, `skip={backend: reason}` for principled exclusions). Flags: `--jaic`, `--wasm DIR`, `--backends`, `--jobs` (3), `--timeout`/`--memory-limit` (120 s / 3 GiB), `--gen-size`, `--keep DIR`. CI runs `corpus gen:1:40` on `interp,native,native-O2` (every OS), `interp,wasm` (`scripting-wasm` job) and `interp,wasm-native`. Unit tests: `tools/differential/test_jaic_diff.py`.
 
+### Comparing two compilers
+
+`tools/differential/compare_compilers.py` takes two opaque binaries, A and B, and reports where they disagree on many small programs: an old `jaic` against a new one, `-interp` against a native build of the same binary, or any other pair. It targets pairs of features (a `.{...}` literal as an operator operand, `ifx` with an enum shorthand) that random programs rarely combine.
+
+```
+python3 tools/differential/compare_compilers.py --a OLD --b target/release/jaic --mode interp --jobs 4 grid
+python3 tools/differential/compare_compilers.py --a target/release/jaic --mode-a interp --b target/release/jaic --mode-b run grid
+python3 tools/differential/compare_compilers.py --a OLD --b NEW --reduce --sandbox rewrite:tests/compiler gen:90000:100 prog.jai dir/
+```
+
+Sets: `grid[:context,poly,using]` (the tables in `compare_grid.py`), `rewrite:PATHS` (text-level edits of existing programs from `compare_rewrite.py`: erase a literal's type, swap commutative operands, inline a single-use local, `x: T = e` to `cast`, `x := e` to `type_of`, ...; default paths `tests/compiler/{semantics,language}`; some rewrites are tagged `noisy:` because they can change meaning), `gen:SEED:COUNT` (`jaigen.py`), files and folders. `--mode` is `check` (default), `interp`, `run` or `run-opt` (build, then execute), per side with `--mode-a`/`--mode-b`; `--args-a`/`--args-b` add arguments; `--sandbox` runs every compile and program without network and with minimal file access (it cannot start inside another sandbox); `--only TEXT`, `--limit N` pick a subset. Each side's command line comes from `tools/bench/dialects.py`, chosen by probing the binary's `-help`, so a binary without jaic's flags gets the portable command line.
+
+Per program each side records compiled or not, exit code, stdout and the first error line without paths, positions or colour; a non-zero exit of the program is compared only as a fact. A pair is `agree`, `both_reject` (also agreement), `a_only`, `b_only`, `output_differs` or `failure` (timeout or crash; the run continues). Exit 1 on any disagreement, 2 when a generated program does not parse (`jaic -check` on B, or `--check-with`, runs at generation time: a syntax error there is a template bug, `--no-self-check` skips it).
+
+Read `target/compare/report.md` (`--out` moves it; `results.json` has the same data): counts per class, disagreements clustered by error text with the smallest example of each (`--reduce` shrinks it by deleting lines while the pair still splits the same way), clusters by feature tag (`kind:`, `context:`, `form:`, `rewrite:` ...) with their share, and the programs both sides reject that were not marked `variant:near_miss`, which are either a template mistake or a gap both share.
+
+**To add a grid axis:** write a generator of `Program(name, source, tags)` in `compare_grid.py` (tags start with `axis:NAME`; every program prints a deterministic line) and list it in `AXES`. A new row or column of an existing table is one entry in `KINDS`/`CONTEXTS`, `FORMS`/`ARGS` or `SETUPS`/`ACCESSES`. Unit tests (`python3 tools/differential/test_compare_compilers.py`; the end-to-end ones need `JAIC` or a built `target/release/jaic`) check the grid is well formed. Limits: rewrites are regex based, so they miss multi-line constructs and can edit text inside block comments; classification compares stdout only (stderr of a program is not).
+
 ## Fuzzing
 
 Coverage-guided fuzzing with cargo-fuzz (libFuzzer). Every panic, abort, stack overflow, hang and runaway allocation is a bug: bad input must produce a diagnostic. One round-trip property is also checked: `jaifmt` must not change what a program means.
