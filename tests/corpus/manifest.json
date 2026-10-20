@@ -3775,6 +3775,19 @@
       "negative": {
         "check": "Redeclaration of 'model'."
       }
+    },
+    {
+      "id": "load-file-twice",
+      "source": "negative/load-file-twice.jai",
+      "sha256": "407b0d49de770a1dd27679648a45c28adf91fceedaf8936e6179608e1d827691",
+      "suite": "negative",
+      "feature": "Loading one file twice into a module redeclares its declarations",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Redeclaration: 'load-twice-support.jai' is already loaded into this module."
+      }
     }
   ]
 }

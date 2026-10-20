@@ -12,8 +12,7 @@ bump :: () -> int {
 // Visible to importers through the context as soon as the module is imported.
 #add_context rules_plain_marker := 5;
 
-// `sub/part.jai` loads `deeper.jai` relative to itself; loading it twice is a no-op.
-#load "sub/part.jai";
+// `sub/part.jai` loads `deeper.jai` relative to itself.
 #load "sub/part.jai";
 
 #scope_file

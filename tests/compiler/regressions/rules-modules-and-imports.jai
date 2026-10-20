@@ -42,8 +42,8 @@ main :: () {
     // import.11: a `#load` inside a loaded file resolves next to that file.
     assert(Plain.from_deeper() == 142, "nested load");
 
-    // import.12: loading the same file twice is a no-op (no duplicate declarations).
-    assert(Plain.from_part == 100, "twice-loaded file");
+    // import.12: a file loaded by `#load` is relative to the file that loads it.
+    assert(Plain.from_part == 100, "loaded file");
 
     // import.13: two plain imports of one module share one instance.
     assert(Plain.bump() == 1 && Plain_Again.bump() == 2 && Dir.bump() == 3, "one instance");

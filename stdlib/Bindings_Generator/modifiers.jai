@@ -1,5 +1,4 @@
 // Canonical-model modifiers.
-#load "active-context.jai";
 
 add_access_flags :: (decl: *Declaration, cur: CXCursor) {
     modifiers_add_access(decl, cur);

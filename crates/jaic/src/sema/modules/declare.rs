@@ -329,6 +329,12 @@ impl Compiler {
             } => {
                 let module = self.scope(scope).module;
                 let full = self.file_dir(file).join(&**path);
+                if self.file_is_loaded(&full, module) {
+                    return err(
+                        *span,
+                        format!("Redeclaration: '{path}' is already loaded into this module."),
+                    );
+                }
                 self.load_file(&full, module, *span)?;
             }
             ast::StmtKind::ModuleParameters(boxed) => {

@@ -57,6 +57,12 @@ impl Compiler {
         )
     }
 
+    /// Whether `path` was already loaded (or is being loaded) into `module`.
+    pub fn file_is_loaded(&self, path: &Path, module: ModuleId) -> bool {
+        let path = self.src.canon(path);
+        self.src.file_by_path.contains_key(&(path, module))
+    }
+
     /// Load a file into `module`, declaring its top-level statements.
     pub fn load_file(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         self.check_source_access(path, span)?;
