@@ -40,5 +40,6 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - `using basket.tag;` on an enum-typed value brings in the enum's members, so `case MANGO;` works in a switch {#using.14}.
 - `using Type.{...};` in a procedure copies the literal into an anonymous local. It is writable, where Jai uses read-only data {#using.12}.
 - `using name := value;` at file scope works for variables, not only constants (`sema/modules.rs`) {#using.13}.
+- If two `using` locals or parameters of one scope both provide a name, using that name is `Redeclaration of 'model'.`; a `using` in an inner block takes over the name without conflict (`using_name_is_ambiguous`).
 - Member lookup order is in `find_member`: direct members come before promoted ones, so a direct member shadows a promoted one {#using.15}. Default overrides resolve through `override_target`/`override_path` and apply when `default_initializer` builds the default value.
 - `using g;` of a global pointer to a struct does not make the struct contain itself: names in its field types are looked up while it is laid out {#using.17}.

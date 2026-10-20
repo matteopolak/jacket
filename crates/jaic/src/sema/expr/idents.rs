@@ -148,6 +148,9 @@ impl Compiler {
                     }
                     _ => None,
                 };
+                if place.is_some() && self.using_name_is_ambiguous(scope, member)? {
+                    return err(span, format!("Redeclaration of '{member}'."));
+                }
                 let op = self.using_member(f, entry, member, span)?;
                 // `name` stands for `value.name`: hover and go to definition treat it as the field.
                 if let Some(ty) = place {

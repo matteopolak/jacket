@@ -3762,6 +3762,19 @@
       "negative": {
         "check": "Not enough values provided in this struct literal."
       }
+    },
+    {
+      "id": "using-member-name-clash",
+      "source": "negative/using-member-name-clash.jai",
+      "sha256": "d6a342b1b33b6eff3953809c331f4cf0ca7803b7e920777375af3acd56d02345",
+      "suite": "negative",
+      "feature": "A name that two using locals both provide cannot be used",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Redeclaration of 'model'."
+      }
     }
   ]
 }
