@@ -340,6 +340,16 @@
     ]
   },
   {
+    "name": "poly-inference-forms",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
     "name": "proc-type-defaults-ifx",
     "disabled": "the ifx branches have different procedure types (an overloaded and a concrete one)"
   },
