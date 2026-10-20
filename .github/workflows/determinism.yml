@@ -20,11 +20,12 @@ concurrency:
   cancel-in-progress: true
 jobs:
   determinism:
-    name: determinism (${{ matrix.runner }})
+    name: determinism (${{ matrix.runner }}, ${{ matrix.shard }})
     strategy:
       fail-fast: false
       matrix:
         runner: [ubuntu-24.04, macos-15]
+        shard: [1/3, 2/3, 3/3]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     env:
@@ -43,6 +44,7 @@ jobs:
         env:
           SETS: ${{ inputs.sets || 'positive negative regressions semantics' }}
           REPEAT: ${{ inputs.repeat || '2' }}
+          SHARD: ${{ matrix.shard }}
         run: |
           # shellcheck disable=SC2086
-          python3 tools/differential/determinism.py --jaic target/release/jaic --jobs 2 --repeat "$REPEAT" --scramble 1,2 $SETS
+          python3 tools/differential/determinism.py --jaic target/release/jaic --jobs "$(getconf _NPROCESSORS_ONLN)" --shard "$SHARD" --repeat "$REPEAT" --scramble 1,2 $SETS

@@ -2,7 +2,7 @@
 """Check that the compiler's observable output does not depend on threads, unit counts or hash order.
 
 Usage: tools/differential/determinism.py [--jaic PATH] [--jailsp PATH] [--repeat N] [--filter TEXT]
-                                          [--jobs N] [--no-build] [--no-lsp] [--scramble SEED,...] SET...
+                                          [--jobs N] [--shard K/N] [--no-build] [--no-lsp] [--scramble SEED,...] SET...
 Sets: positive (tests/corpus/positive), negative (tests/corpus/negative), regressions
 (tests/compiler/regressions), semantics (tests/compiler/semantics) or file paths.
 
@@ -15,7 +15,7 @@ What is compared (docs/tools/determinism.md):
   symbol or syntax-node numbers.
 - `build`: for each `-codegen_units N`, the build's diagnostics across the parse settings, repeats and seeds,
   the LLVM IR (`-emit_ir`) and the linked executable's bytes across repeats of the single-threaded build
-  (`-threads 1`; other settings may number things differently), and the executable's run output across
+  (`-threads 1`; other settings may number things differently; the seeds run only this build), and the executable's run output across
   everything (the split changes the objects, never what the program does). Only the sets that compile
   (positive, regressions, semantics).
 - `lsp`: one `jailsp` session per run opening each file, plus one per seed; the pushed diagnostics, document
@@ -38,12 +38,14 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from toolkit.cli import add_jaic_argument
 from toolkit.lsp import Lsp
 from toolkit.repo import ROOT, stdlib_env
+from stdlib.stdlib_runtime import shard, take_shard
 
 SETS = {
     "positive": ROOT / "tests/corpus/positive",
@@ -150,7 +152,8 @@ def build_case(jaic, path: Path, repeat: int, seeds: list[str], report: Report):
             for units in UNIT_COUNTS:
                 builds, single = [], []
                 for config in BUILD_CONFIGS:
-                    for label, seed in runs(repeat, seeds):
+                    # The seeds go after numbering-order bugs; the single-threaded build's IR and bytes show them.
+                    for label, seed in runs(repeat, seeds if config == SINGLE_THREADED else []):
                         exe.unlink(missing_ok=True)
                         ll.unlink(missing_ok=True)
                         shutil.rmtree(kept, ignore_errors=True)
@@ -238,21 +241,29 @@ def main() -> int:
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--scramble", default="", metavar="SEED,...",
                         help="also run every configuration once under each of these scramble seeds")
+    parser.add_argument("--shard", type=shard, default=(1, 1), metavar="K/N", help="run only the K-th of N parts of the files")
     parser.add_argument("sets", nargs="+")
     args = parser.parse_args()
     jaic = args.jaic.resolve()
     jailsp = (args.jailsp or jaic.with_name("jailsp" + jaic.suffix)).resolve()
     report = Report()
-    cases = collect(args.sets, args.filter)
+    cases = take_shard(collect(args.sets, args.filter), args.shard)
     seeds = [s for s in args.scramble.split(",") if s]
+
+    started, finished, progress = time.monotonic(), [0], threading.Lock()
 
     def work(item):
         which, path = item
+        begun = time.monotonic()
         check_case(jaic, path, args.repeat, seeds, report)
         if not args.no_build and which in BUILDABLE | {"path"} and path.name not in HOST_ADDRESS_CASES:
             build_case(jaic, path, args.repeat, seeds, report)
         if not args.no_lsp:
             lsp_case(jailsp, path, args.repeat, seeds, report)
+        with progress:
+            finished[0] += 1
+            elapsed = time.monotonic() - started
+            print(f"[{finished[0]}/{len(cases)}] {which}/{path.name} {time.monotonic() - begun:.0f} s ({elapsed / 60:.0f} min)", file=sys.stderr, flush=True)
 
     with ThreadPoolExecutor(args.jobs) as pool:
         list(pool.map(work, cases))

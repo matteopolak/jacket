@@ -12,7 +12,7 @@ python3 tools/differential/determinism.py --jaic target/release/jaic --filter ca
 python3 tools/differential/determinism.py --jaic target/release/jaic --scramble 1,2 regressions        # number-order bugs
 ```
 
-A full run takes about 20 minutes on an M-series laptop (`--jobs 3`); CI runs it nightly (`.github/workflows/determinism.yml`) and on demand.
+A full run with `--scramble 1,2` takes about an hour on an M-series laptop (`--jobs 4`). CI runs it nightly (`.github/workflows/determinism.yml`) and on demand, split into three `--shard`s per OS so each stays well inside the job's 120 minutes. Each finished file prints a progress line with its time.
 
 ## How it works
 
@@ -21,7 +21,7 @@ For every file, in its own directory:
 | Check | Configurations | Must be equal |
 | --- | --- | --- |
 | `check` | `jaic -check` with `-parse_threads 1`, `-serial_parse`, `-parse_threads 8`, `-threads 1` and the defaults, each `--repeat` (2) times plus once per `--scramble` seed | exit code, stdout, stderr: diagnostic text and order |
-| `build` | `-threads 1`, `-parse_threads 8` and the defaults x `-codegen_units 1` and `3` x default (debug) and `-O2 -no_debug_info`, each repeated and once per seed | exit code, stdout, stderr |
+| `build` | `-threads 1`, `-parse_threads 8` and the defaults x `-codegen_units 1` and `3` x default (debug) and `-O2 -no_debug_info`, each repeated; the seeds run only `-threads 1` | exit code, stdout, stderr |
 | `single-threaded bytes` | the `-threads 1` builds' plain repeats | the LLVM IR from `-emit_ir` and the machine code (below) |
 | `run` | the built program under each unit count, level and seed | what the program prints and its exit code (the split changes the objects, never behaviour) |
 | `lsp` | two `jailsp` sessions per file, plus one per seed | pushed diagnostics, document symbols, semantic tokens, inlay hints and hovers on the first column of each line |
@@ -43,7 +43,7 @@ Rust seeds hash maps per process, so two runs of the same binary already differ 
 
 ## Configuration
 
-`--jaic`, `--jailsp` (default: beside `jaic`), `--repeat`, `--filter`, `--jobs`, `--no-lsp`, `--no-build`, `--scramble`. `JAIC_STDLIB` is set to the checkout's `stdlib/`.
+`--jaic`, `--jailsp` (default: beside `jaic`), `--repeat`, `--filter`, `--jobs`, `--shard K/N` (every N-th file from the K-th, as in `stdlib_runtime.py`), `--no-lsp`, `--no-build`, `--scramble`. `JAIC_STDLIB` is set to the checkout's `stdlib/`.
 
 ## Dependencies
 
