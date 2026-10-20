@@ -22,7 +22,7 @@ fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
         options.temporary_storage_size = size;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         if let Err(error) = c.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
-            panic!("{}", error.render(&c.sources));
+            panic!("{}", error.render(&c.src.sources));
         }
         let index = c
             .out
@@ -50,11 +50,11 @@ fn final_runtime_size_replaces_previously_interpreted_configuration_data() {
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     let source = format!("{SOURCE}\n#assert(configured_size()==32768);");
     if let Err(error) = c.begin_sources(&[ProgramSource::String(source)]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
     c.options.temporary_storage_size = 65536;
     if let Err(error) = c.finish_program() {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
     for name in ["configured_size", "wrapped_size"] {
         let index = c
@@ -91,7 +91,7 @@ fn private_runtime_configuration_preserves_invalid_signature_and_size_diagnostic
         assert!(
             error.message.contains("signature"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
     for size in [-1, i32::MAX as i64 + 1] {
@@ -105,7 +105,7 @@ fn private_runtime_configuration_preserves_invalid_signature_and_size_diagnostic
         assert!(
             error.message.contains("temporary_storage_size"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -131,7 +131,7 @@ fn compile_time_reads_and_unused_getters_cannot_opt_in_an_old_target_runtime() {
         assert!(
             error.message.contains("target runtime"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -162,7 +162,7 @@ fn ordinary_private_target_startup_reads_nondefault_configuration() {
     "#,
         1_048_576,
     );
-    result.map_err(|e| e.render(&c.sources)).unwrap();
+    result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
@@ -184,7 +184,7 @@ fn retained_startup_callback_relocation_reads_nondefault_configuration() {
     "#,
         1_048_576,
     );
-    result.map_err(|e| e.render(&c.sources)).unwrap();
+    result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
@@ -212,7 +212,7 @@ fn unreachable_or_reset_callback_reads_do_not_opt_in_target_startup() {
         assert!(
             error.message.contains("target runtime"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -236,7 +236,7 @@ fn overwritten_retained_callback_cannot_claim_its_old_configuration_read() {
     assert!(
         error.message.contains("target runtime"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -257,7 +257,7 @@ fn retained_startup_aggregate_and_global_cycles_preserve_reachability() {
     "#,
         1_048_576,
     );
-    result.map_err(|e| e.render(&c.sources)).unwrap();
+    result.map_err(|e| e.render(&c.src.sources)).unwrap();
     c.finalize_runtime_configuration().unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
@@ -286,7 +286,7 @@ fn reviewed_public_constant_configures_target_storage_and_keeps_alias_values() {
         "#
         );
         let (mut c, result) = startup_reader(&runtime, 1_048_576);
-        result.map_err(|e| e.render(&c.sources)).unwrap();
+        result.map_err(|e| e.render(&c.src.sources)).unwrap();
         let entry = c.exported_func("main").unwrap();
         assert_eq!(
             c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
@@ -312,7 +312,7 @@ fn cached_record_layout_preserves_its_public_constant_binding_dependency() {
     "#,
         1_048_576,
     );
-    result.map_err(|e| e.render(&c.sources)).unwrap();
+    result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
@@ -331,7 +331,7 @@ fn runtime_scalar_public_constant_and_alias_reads_are_real_target_dependencies()
     "#,
         1_048_576,
     );
-    result.map_err(|e| e.render(&c.sources)).unwrap();
+    result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
@@ -359,7 +359,7 @@ fn public_constant_inspection_unused_storage_and_shadowed_names_do_not_opt_in() 
         assert!(
             error.message.contains("target runtime"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -374,7 +374,7 @@ fn changing_final_size_cannot_leave_a_consumed_public_constant_at_an_old_value()
     "#,
         1_048_576,
     );
-    result.map_err(|e| e.render(&c.sources)).unwrap();
+    result.map_err(|e| e.render(&c.src.sources)).unwrap();
     for size in [0, 32768, 2_097_152] {
         c.options.temporary_storage_size = size;
         let error = c
@@ -383,7 +383,7 @@ fn changing_final_size_cannot_leave_a_consumed_public_constant_at_an_old_value()
         assert!(
             error.message.contains("TEMPORARY_STORAGE_SIZE") && error.message.contains("1048576"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
     c.options.temporary_storage_size = 1_048_576;
@@ -404,7 +404,7 @@ fn private_dynamic_reader_does_not_mask_a_stale_public_storage_extent() {
     "#,
         1_048_576,
     );
-    result.map_err(|e| e.render(&c.sources)).unwrap();
+    result.map_err(|e| e.render(&c.src.sources)).unwrap();
     c.options.temporary_storage_size = 2_097_152;
     let error = c
         .finalize_runtime_configuration()
@@ -412,6 +412,6 @@ fn private_dynamic_reader_does_not_mask_a_stale_public_storage_extent() {
     assert!(
         error.message.contains("TEMPORARY_STORAGE_SIZE"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }

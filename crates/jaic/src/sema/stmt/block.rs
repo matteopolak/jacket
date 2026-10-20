@@ -308,7 +308,7 @@ impl Compiler {
     pub fn check_stmt(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) -> Result<()> {
         let span = stmt.span;
         if span.file == f.file && !f.b.is_terminated() {
-            let (line, col) = self.sources.get(span.file).line_col(span.start);
+            let (line, col) = self.src.sources.get(span.file).line_col(span.start);
             let debug_scope = self.debug_scope(f, scope, line, col);
             f.b.loc(span.file.0, line, col, debug_scope);
         }
@@ -635,7 +635,7 @@ impl Compiler {
             match &stmt.kind {
                 // `using Name :: #import` brings the names in like an unnamed import.
                 S::Import(import) if import.name.is_none() || import.using.is_some() => {
-                    if self.hoisted_imports.insert(import.span) {
+                    if self.src.hoisted_imports.insert(import.span) {
                         // An anonymous import belongs to the module's import environment,
                         // wherever it is written (as a top-level one does), so the module's
                         // other files see it too. Paths and parameters still resolve from

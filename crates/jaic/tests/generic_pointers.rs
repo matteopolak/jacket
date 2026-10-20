@@ -28,7 +28,7 @@ fn implicit_default_pointees_bind_the_same_constraint_as_explicit_instances() {
         "
         ));
         if let Err(e) = result {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
     }
 }
@@ -47,7 +47,7 @@ fn default_pointer_types_preserve_canonical_type_and_alias_identity() {
     ",
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -62,7 +62,7 @@ fn invalid_type_arguments_are_rejected_even_when_the_parameter_is_unused() {
         assert!(
             e.message.contains("expected a type"),
             "{}",
-            e.render(&c.sources)
+            e.render(&c.src.sources)
         );
     }
 }
@@ -82,7 +82,7 @@ fn pointer_constraints_retain_nominal_and_pointer_diagnostics() {
         "
         ));
         let e = result.expect_err("constraint mismatch must still reject");
-        assert!(e.message.contains(expected), "{}", e.render(&c.sources));
+        assert!(e.message.contains(expected), "{}", e.render(&c.src.sources));
     }
 }
 
@@ -96,7 +96,7 @@ fn explicit_specializations_do_not_accept_different_type_arguments() {
     ",
     );
     let e = result.expect_err("explicit specialization must not become a wildcard constraint");
-    assert!(e.message.contains("Parcel"), "{}", e.render(&c.sources));
+    assert!(e.message.contains("Parcel"), "{}", e.render(&c.src.sources));
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn defaults_dependent_arguments_and_nondefault_instances_execute_through_constra
         include_str!("../../../tests/compiler/semantics/default-generic-pointers.jai")
     ));
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -125,6 +125,6 @@ fn reflection_keeps_default_instance_identity_and_separate_generic_source() {
     ",
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }

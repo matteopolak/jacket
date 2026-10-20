@@ -24,7 +24,7 @@ fn c_variadic_before_fixed_parameter_is_a_diagnostic_not_a_lowering_panic() {
         assert!(
             error.message.contains("variadic") && error.message.contains("last"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -40,7 +40,7 @@ fn c_procedure_types_reject_nonfinal_variadics() {
     assert!(
         error.message.contains("variadic") && error.message.contains("last"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -65,7 +65,7 @@ fn module_type_arguments_do_not_bypass_c_variadic_header_validation() {
     assert!(
         error.message.contains("variadic") && error.message.contains("last"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -86,7 +86,7 @@ fn valid_c_varargs_and_baked_type_packs_are_distinct_from_jai_runtime_packs() {
     options.preload = Some("/call-tests/prelude/module.jai".into());
     let mut c = Compiler::new(options, Rc::new(fs));
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -106,6 +106,6 @@ fn ordinary_variadic_with_named_tail_and_valid_overloads_still_typechecks() {
     ";
     let mut c = compiler();
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }

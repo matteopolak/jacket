@@ -22,14 +22,14 @@ mod cpuid {
         let result = compiler.compile_sources(&[ProgramSource::String(source)]);
         if cfg!(target_arch = "x86_64") {
             if let Err(e) = result {
-                panic!("{}", e.render(&compiler.sources));
+                panic!("{}", e.render(&compiler.src.sources));
             }
         } else {
             let error = result.expect_err("non-x64 host must not report fake features");
             assert!(
                 error.message.contains("x86-64 interpreter host"),
                 "{}",
-                error.render(&compiler.sources)
+                error.render(&compiler.src.sources)
             );
         }
     }
@@ -47,7 +47,7 @@ mod cpuid {
             assert!(
                 error.message.contains("x86-64 target"),
                 "{}",
-                error.render(&c.sources)
+                error.render(&c.src.sources)
             );
         }
     }
@@ -64,7 +64,7 @@ mod cpuid {
             source.push_str(&format!("\nprobe_{leaf}_{subleaf} :: () -> bool #no_context {{ data:[4]u64; cpu_query({leaf},{subleaf},*data); return data[0]=={} && data[1]=={} && data[2]=={} && data[3]=={}; }} #assert probe_{leaf}_{subleaf}();",r.eax,r.ebx,r.ecx,r.edx));
         }
         if let Err(e) = compiler.compile_sources(&[ProgramSource::String(source)]) {
-            panic!("{}", e.render(&compiler.sources));
+            panic!("{}", e.render(&compiler.src.sources));
         }
     }
 
@@ -91,7 +91,7 @@ mod cpuid {
             assert!(
                 error.message.contains(expected),
                 "{}",
-                error.render(&compiler.sources)
+                error.render(&compiler.src.sources)
             );
         }
     }
@@ -210,7 +210,7 @@ mod xgetbv {
             assert!(
                 error.message.contains("x86-64 target"),
                 "{}",
-                error.render(&c.sources)
+                error.render(&c.src.sources)
             );
         }
     }
@@ -241,7 +241,7 @@ mod xgetbv {
         assert!(
             error.message.contains("x86-64 interpreter host"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 
@@ -388,7 +388,7 @@ mod registers {
         if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
             "{SOURCE}\n#assert(check()==0);"
         ))]) {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
     }
 
@@ -407,7 +407,7 @@ mod registers {
         if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
             "{SOURCE}\n#assert(check()==0);"
         ))]) {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
         let ty = c
             .preload_type(jaic::sema::PreludeType::Reg, jaic::source::Span::NONE)
@@ -431,7 +431,7 @@ mod registers {
             assert!(
                 error.message.contains("register"),
                 "{}",
-                error.render(&c.sources)
+                error.render(&c.src.sources)
             );
         }
     }
@@ -463,7 +463,7 @@ mod x86_machine {
                 assert!(
                     error.message.contains("x86-64 target"),
                     "{}",
-                    error.render(&c.sources)
+                    error.render(&c.src.sources)
                 );
             }
         }
@@ -491,7 +491,7 @@ mod x86_machine {
             assert!(
                 error.message.contains("x86-64 interpreter host"),
                 "{}",
-                error.render(&c.sources)
+                error.render(&c.src.sources)
             );
         }
     }
@@ -829,7 +829,7 @@ mod x86_machine {
             assert!(
                 error.message.contains(message),
                 "{message}: {}",
-                error.render(&c.sources)
+                error.render(&c.src.sources)
             );
         }
     }

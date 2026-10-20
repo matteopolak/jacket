@@ -7,7 +7,7 @@ fn compile(source: &str) -> Result<(), String> {
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     c.compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&c.sources))
+        .map_err(|error| error.render(&c.src.sources))
 }
 
 const PAIR: &str = "f :: (x:=3)->int {return 100+x;} g :: (x:=4)->int {return 200+x;}";
@@ -82,7 +82,7 @@ fn else_default_keeps_its_private_loaded_file_scope() {
     options.import_paths = vec!["/lib".into()];
     let mut c = Compiler::new(options, Rc::new(fs));
     if let Err(error) = c.compile_program(std::path::Path::new("/main.jai")) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 

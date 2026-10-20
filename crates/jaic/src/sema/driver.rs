@@ -69,7 +69,7 @@ impl Compiler {
 
     /// Starts the parse workers on the files this compile loads first.
     fn start_parse_ahead(&mut self, sources: &[ProgramSource]) {
-        if !self.ed.allows_parse_ahead() || self.ahead.is_some() || !self.fs.is_native() {
+        if !self.ed.allows_parse_ahead() || self.src.ahead.is_some() || !self.src.fs.is_native() {
             return;
         }
         let mut roots: Vec<PathBuf> = Vec::new();
@@ -82,7 +82,7 @@ impl Compiler {
                 roots.push(path.clone());
             }
         }
-        self.ahead = crate::parse_ahead::ParseAhead::start(&self.options, roots);
+        self.src.ahead = crate::parse_ahead::ParseAhead::start(&self.options, roots);
     }
 
     /// Compile a program whose main file is `path`.
@@ -147,25 +147,31 @@ impl Compiler {
         let Some(m) = self.main_module else {
             return err(Span::NONE, "no main module to add sources to");
         };
-        self.added_sources += 1;
+        self.src.added += 1;
         match source {
             ProgramSource::File(path) => self.load_file(path, m, Span::NONE),
             ProgramSource::String(text) => {
-                let label = format!("added string {}", self.added_sources);
+                let label = format!("added string {}", self.src.added);
                 self.load_string(&label, text, m)
             }
             ProgramSource::ModuleString(text, module) => {
-                let label = format!("added string {}", self.added_sources);
+                let label = format!("added string {}", self.src.added);
                 self.load_string(&label, text, ModuleId(*module))
             }
             ProgramSource::FileString(text, file) => {
-                let Some(scope) = self.files.iter().find(|f| f.id == *file).map(|f| f.scope) else {
+                let Some(scope) = self
+                    .src
+                    .files
+                    .iter()
+                    .find(|f| f.id == *file)
+                    .map(|f| f.scope)
+                else {
                     return err(
                         Span::NONE,
                         "add_build_string: file scope does not belong to this workspace",
                     );
                 };
-                let label = format!("added file string {}", self.added_sources);
+                let label = format!("added file string {}", self.src.added);
                 self.load_string_in_scope(&label, text, scope)
             }
             ProgramSource::CodeString(text, code) => {
@@ -176,7 +182,7 @@ impl Compiler {
                         "add_build_string: Code scope does not belong to this workspace",
                     );
                 };
-                let label = format!("added code string {}", self.added_sources);
+                let label = format!("added code string {}", self.src.added);
                 self.load_string_in_scope(&label, text, scope)
             }
         }
@@ -680,15 +686,15 @@ impl Compiler {
             return;
         }
         if self.out.program.stack_trace.is_some()
-            && self.out.program.file_paths.len() == self.sources.len()
+            && self.out.program.file_paths.len() == self.src.sources.len()
         {
             return;
         }
         let Some(layout) = self.trace_layout(span) else {
             return;
         };
-        self.out.program.file_paths = (0..self.sources.len())
-            .map(|i| self.sources.get(FileId(i as u32)).path.to_string())
+        self.out.program.file_paths = (0..self.src.sources.len())
+            .map(|i| self.src.sources.get(FileId(i as u32)).path.to_string())
             .collect();
         self.out.program.stack_trace = Some(layout);
     }

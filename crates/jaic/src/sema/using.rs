@@ -212,7 +212,7 @@ impl Compiler {
                 names.len(),
                 names.len()
             );
-            let file = self.sources.add(
+            let file = self.src.sources.add(
                 SourcePath::virtual_source("using mapper"),
                 source.clone().into(),
             );

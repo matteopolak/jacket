@@ -39,7 +39,7 @@ pub fn execute(
             }
             let mut c = Compiler::new(options, Rc::new(fs));
             if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-                panic!("{}", error.render(&c.sources));
+                panic!("{}", error.render(&c.src.sources));
             }
             let object = dir.join("program.o");
             emit_object(

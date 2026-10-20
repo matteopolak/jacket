@@ -109,7 +109,7 @@ fn ide_selected_internal_entry_is_admitted_without_opening_application_imports()
     let mut c = compiler(&files, true);
     c.ed.record(jaic::ide::IdeFacts::default());
     c.compile_program(Path::new("/lib/internal/helper/module.jai"))
-        .unwrap_or_else(|e| panic!("{}", e.render(&c.sources)));
+        .unwrap_or_else(|e| panic!("{}", e.render(&c.src.sources)));
 
     let mut c = compiler(&files, true);
     c.ed.record(jaic::ide::IdeFacts::default());

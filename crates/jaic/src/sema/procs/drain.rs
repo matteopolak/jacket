@@ -126,7 +126,7 @@ impl Compiler {
 
     /// Counts the events after which a body that failed to lower may succeed.
     pub(super) fn lower_epoch(&self) -> u64 {
-        let base = self.added_sources + self.files.len() + self.modules.len() + self.ct.runs_done;
+        let base = self.src.added + self.src.files.len() + self.modules.len() + self.ct.runs_done;
         // Generated declarations/using entries can become visible without loading
         // a file or completing another run. IDE failure reuse must observe that
         // progress too. Body-local scopes are recreated by each lowering attempt;
@@ -134,7 +134,7 @@ impl Compiler {
         let namespaces = if self.ed.counts_scope_changes() {
             #[cfg(debug_assertions)]
             self.check_namespace_generation();
-            self.sources.len() as u64 + self.epochs.namespace_generation
+            self.src.sources.len() as u64 + self.epochs.namespace_generation
         } else {
             0
         };

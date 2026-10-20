@@ -8,7 +8,7 @@ fn compile(source: &str) -> Result<(), String> {
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn module_parameters_are_rejected_in_a_loaded_program_file() {
         .compile_sources(&[ProgramSource::String(
             "#load \"/p/params.jai\";\nmain :: () {}\n".into(),
         )])
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
         .unwrap_err();
     assert!(error.contains("top level of an imported module"), "{error}");
 }

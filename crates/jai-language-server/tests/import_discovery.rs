@@ -144,7 +144,10 @@ fn actual_compile_time_execution_invalidates_missing_discovery() {
         "new_binding :: 19;",
     );
     let text = "value :: #run trigger();";
-    let file = c.sources.add("/discovery/execution-probe.jai", text.into());
+    let file = c
+        .src
+        .sources
+        .add("/discovery/execution-probe.jai", text.into());
     let parsed = jaic::parser::parse_file(file, text).unwrap();
     let jaic::ast::StmtKind::Decl(decl) = &parsed.stmts[0].kind else {
         panic!("declaration");

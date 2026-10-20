@@ -227,7 +227,7 @@ pub(super) fn output_path(settings: &BuildSettings, compiler: &Compiler) -> Path
     let name = if settings.output_executable_name.is_empty() {
         compiler
             .main_module
-            .and_then(|m| compiler.files.iter().find(|f| f.module == m))
+            .and_then(|m| compiler.src.files.iter().find(|f| f.module == m))
             .and_then(|f| f.path.as_file()?.file_stem())
             .map_or_else(|| "output".into(), |s| s.to_string_lossy().into_owned())
     } else {

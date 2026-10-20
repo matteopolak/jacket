@@ -170,9 +170,13 @@ impl Compiler {
                 self.load_module_request(&wanted, &entry, params, import.span, Some(import))
             }
             ast::ImportSource::File(path) | ast::ImportSource::Dir(path) => {
-                let entry =
-                    import_entry(&*self.fs, &self.options.import_paths, &import.source, &dir)
-                        .unwrap_or_default();
+                let entry = import_entry(
+                    &*self.src.fs,
+                    &self.options.import_paths,
+                    &import.source,
+                    &dir,
+                )
+                .unwrap_or_default();
                 self.load_module_request(path, &entry, params, import.span, Some(import))
             }
             ast::ImportSource::String(source) => {
@@ -180,7 +184,7 @@ impl Compiler {
                 self.modules[id.0 as usize]
                     .argument_imports
                     .push(Rc::new(import.clone()));
-                let label = format!("import string {}", self.sources.len());
+                let label = format!("import string {}", self.src.sources.len());
                 self.load_string(&label, source, id)?;
                 self.validate_module_arguments(id, import.span)?;
                 Ok(id)
@@ -301,7 +305,7 @@ impl Compiler {
                 Some(self.canon(&Path::new(&provided.value).join("module.jai")))
             }
             ProvidedKind::FullText => {
-                if let Some(&id) = self.provided_texts.get(&provided.value) {
+                if let Some(&id) = self.src.provided_texts.get(&provided.value) {
                     self.validate_or_queue_import_groups(id, import)?;
                     return Ok(Some(id));
                 }
@@ -312,12 +316,12 @@ impl Compiler {
                 let label = format!("provided import {name}");
                 self.load_string(&label, &provided.value, id)?;
                 self.validate_module_arguments(id, span)?;
-                self.provided_texts.insert(provided.value.clone(), id);
+                self.src.provided_texts.insert(provided.value.clone(), id);
                 return Ok(Some(id));
             }
         };
         match entry {
-            Some(entry) if self.fs.is_file(&entry) => Ok(Some(self.load_module_request(
+            Some(entry) if self.src.fs.is_file(&entry) => Ok(Some(self.load_module_request(
                 name,
                 &entry,
                 params.to_vec(),

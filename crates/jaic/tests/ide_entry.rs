@@ -32,9 +32,9 @@ fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
         .prepare_sources(&[ProgramSource::File(path.clone())])
         .unwrap();
     let before = (
-        compiler.sources.len(),
+        compiler.src.sources.len(),
         compiler.procs.len(),
-        compiler.files.len(),
+        compiler.src.files.len(),
     );
     assert_eq!(
         compiler.ed.selected_entry(),
@@ -43,9 +43,9 @@ fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
     assert_eq!(
         before,
         (
-            compiler.sources.len(),
+            compiler.src.sources.len(),
             compiler.procs.len(),
-            compiler.files.len()
+            compiler.src.files.len()
         )
     );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();

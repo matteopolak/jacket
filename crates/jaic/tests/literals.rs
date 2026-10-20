@@ -7,7 +7,7 @@ fn check(source: &str) {
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -18,7 +18,7 @@ fn failure(source: &str) -> String {
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     match c.compile_sources(&[ProgramSource::String(source.into())]) {
         Ok(()) => panic!("compiled: {source}"),
-        Err(error) => error.render(&c.sources),
+        Err(error) => error.render(&c.src.sources),
     }
 }
 
@@ -109,7 +109,7 @@ fn scalar_float_intrinsics_reject_inconsistent_signatures() {
         assert!(
             error.message.contains("floating intrinsic signature"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }

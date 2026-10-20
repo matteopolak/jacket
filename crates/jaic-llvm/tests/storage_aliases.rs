@@ -22,7 +22,7 @@ fn filtered_reexports_share_actual_c_memory_native_and_wasm_o0_o2() {
             }
             let mut c = Compiler::new(options, Rc::new(NativeFs));
             if let Err(e) = c.compile_program(&fixture.join("main.jai")) {
-                panic!("{}", e.render(&c.sources));
+                panic!("{}", e.render(&c.src.sources));
             }
             assert_eq!(
                 c.out.program.foreigns.iter().filter(|f| f.is_data).count(),

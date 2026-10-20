@@ -80,6 +80,7 @@ impl Compiler {
                     && name.end <= c.span.end
                     && c.candidates == ps
                     && !self
+                        .src
                         .sources
                         .snippet(Span {
                             end: name.end,

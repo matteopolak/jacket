@@ -23,7 +23,7 @@ fn default_generic_pointers_execute_native_and_wasm_at_o0_and_o2() {
                 include_str!("../../../tests/compiler/semantics/default-generic-pointers.jai")
                     .into(),
             )]) {
-                panic!("{}", e.render(&c.sources));
+                panic!("{}", e.render(&c.src.sources));
             }
             let object = dir.join("pointers.o");
             emit_object(

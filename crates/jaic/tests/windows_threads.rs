@@ -40,7 +40,7 @@ mod win32_threads {
             options.runtime_support = false;
             let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
             if let Err(error) = c.compile_sources(&[ProgramSource::String(source)]) {
-                panic!("{create}: {}", error.render(&c.sources));
+                panic!("{create}: {}", error.render(&c.src.sources));
             }
         }
     }
@@ -70,7 +70,7 @@ mod win32_threads {
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-            panic!("{}", error.render(&c.sources));
+            panic!("{}", error.render(&c.src.sources));
         }
     }
 
@@ -93,7 +93,7 @@ mod win32_threads {
         assert!(
             error.message.contains("thread entry ABI"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 
@@ -122,7 +122,7 @@ mod win32_threads {
             assert!(
                 error.message.contains(expected),
                 "{}",
-                error.render(&compiler.sources)
+                error.render(&compiler.src.sources)
             );
         }
     }
@@ -145,7 +145,7 @@ mod thread_aliases {
             include_str!("../../../tests/compiler/semantics/windows-thread-alias-lifecycle.jai")
         );
         if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
-            panic!("{}", error.render(&compiler.sources));
+            panic!("{}", error.render(&compiler.src.sources));
         }
     }
 }
@@ -167,7 +167,7 @@ mod thread_description {
             include_str!("../../../tests/compiler/semantics/windows-thread-description.jai")
         );
         if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
-            panic!("{}", error.render(&compiler.sources));
+            panic!("{}", error.render(&compiler.src.sources));
         }
     }
 }

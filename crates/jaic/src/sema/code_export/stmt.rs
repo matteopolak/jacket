@@ -369,10 +369,9 @@ impl Exporter<'_> {
                     args,
                 } = &**boxed;
                 let mut rec = self.node(RecordTag::CodeDirectiveRun, node::DIRECTIVE_RUN, span);
-                let text = self
-                    .c
-                    .as_deref()
-                    .map_or(String::new(), |c| c.sources.snippet(cond.span).to_string());
+                let text = self.c.as_deref().map_or(String::new(), |c| {
+                    c.src.sources.snippet(cond.span).to_string()
+                });
                 let cond = self.expr(cond);
                 let message = self.opt_expr(message.as_ref());
                 let args = self.comma_values(args, span);
@@ -477,9 +476,9 @@ impl Exporter<'_> {
                 let mut rec = self.node(RecordTag::CodeDirectiveLoad, node::DIRECTIVE_LOAD, span);
                 rec.str("short_name", path.as_bytes());
                 if let Some(c) = self.c.as_deref()
-                    && (span.file.0 as usize) < c.sources.len()
+                    && (span.file.0 as usize) < c.src.sources.len()
                 {
-                    let from = c.sources.get(span.file).path.to_path();
+                    let from = c.src.sources.get(span.file).path.to_path();
                     let full = from.parent().unwrap_or(&from).join(&**path);
                     rec.str("fully_pathed_filename", full.to_string_lossy().as_bytes());
                 }

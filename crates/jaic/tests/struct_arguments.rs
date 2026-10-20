@@ -19,7 +19,7 @@ mod bindings {
         );
         let mut c = Compiler::new(options, Rc::new(fs));
         c.compile_sources(&[ProgramSource::String(source.into())])
-            .map_err(|e| e.render(&c.sources))
+            .map_err(|e| e.render(&c.src.sources))
     }
 
     #[test]
@@ -201,7 +201,7 @@ mod conversion {
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
         compiler
             .compile_sources(&[ProgramSource::String(source.into())])
-            .map_err(|error| error.render(&compiler.sources))
+            .map_err(|error| error.render(&compiler.src.sources))
     }
 
     #[test]

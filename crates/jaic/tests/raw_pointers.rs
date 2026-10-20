@@ -22,7 +22,7 @@ fn raw_pointer_constants_defaults_globals_and_run_results_are_values() {
             cpu,
         );
         if let Err(e) = result {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
         assert!(
             !c.out.program.globals.iter().any(|g| g.name == "frozen"),
@@ -42,7 +42,7 @@ fn checked_integer_narrowing_still_rejects_out_of_range_pointer_bits() {
         assert!(
             e.message.contains("out of range"),
             "{}",
-            e.render(&c.sources)
+            e.render(&c.src.sources)
         );
     }
 }
@@ -60,7 +60,7 @@ fn invalid_pointer_access_still_traps_and_forged_views_cannot_capture_memory() {
         assert!(
             e.message.contains("null pointer") || e.message.contains("cannot be read"),
             "{}",
-            e.render(&c.sources)
+            e.render(&c.src.sources)
         );
     }
 }
@@ -88,7 +88,7 @@ fn baked_pointer_constants_retain_their_pointer_type() {
         TargetCpu::X64,
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -111,6 +111,6 @@ fn pointer_bit_patterns_preserve_full_64_bit_width() {
         TargetCpu::X64,
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }

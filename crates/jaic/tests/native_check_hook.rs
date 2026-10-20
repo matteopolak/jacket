@@ -39,7 +39,7 @@ fn malformed_private_hook_and_failed_body_are_not_ignored() {
         assert!(
             error.message.contains(expected),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
 }

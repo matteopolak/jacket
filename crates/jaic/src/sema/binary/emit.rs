@@ -311,7 +311,7 @@ impl Compiler {
             | (operator << 7)
             | t.size();
         let code = f.b.iconst(Ty::I16, code);
-        let file = self.sources.get(span.file);
+        let file = self.src.sources.get(span.file);
         let (line, _) = file.line_col(span.start);
         let path: Rc<[u8]> = Rc::from(file.path.to_string().as_bytes());
         let line = f.b.iconst(Ty::I64, line as u64);

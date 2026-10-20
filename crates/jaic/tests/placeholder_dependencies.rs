@@ -43,7 +43,7 @@ fn typed_procedure_value_is_available_while_its_body_waits() {
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     let source = "#placeholder Body; Callback :: #type () -> int; delayed :: () -> int { #insert Body; } available :: #run () -> bool { callback: Callback = delayed; return callback != null; }(); #assert available; main :: () {}";
     if let Err(error) = compiler.begin_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     let error = compiler
         .finish_program()
@@ -51,7 +51,7 @@ fn typed_procedure_value_is_available_while_its_body_waits() {
     assert!(
         error.message.contains("#placeholder"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -127,7 +127,7 @@ fn scoped_placeholder_definitions_preserve_overload_sets_for_other_files() {
         ))
         .unwrap();
     if let Err(error) = compiler.finish_program() {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -139,7 +139,7 @@ fn an_unstarted_insertion_generator_waits_for_later_source_without_execution() {
     let source =
         "#placeholder Body; #insert -> string { return Body; } main :: () { #assert Ready; }";
     if let Err(error) = compiler.begin_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     assert!(
         compiler.meta.perf.runs.is_empty(),
@@ -149,7 +149,7 @@ fn an_unstarted_insertion_generator_waits_for_later_source_without_execution() {
         .add_source(&ProgramSource::String("Body :: \"Ready :: true;\";".into()))
         .unwrap();
     if let Err(error) = compiler.finish_program() {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -169,7 +169,7 @@ fn module_insertion_generator_waits_in_its_canonical_module_scope() {
     options.import_paths = vec!["/lib".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
     if let Err(error) = compiler.begin_sources(&[ProgramSource::File("/main.jai".into())]) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     assert!(compiler.meta.perf.runs.is_empty());
     let module = compiler
@@ -184,7 +184,7 @@ fn module_insertion_generator_waits_in_its_canonical_module_scope() {
         ))
         .unwrap();
     if let Err(error) = compiler.finish_program() {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 

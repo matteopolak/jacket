@@ -184,7 +184,7 @@ impl Compiler {
                 .into_iter()
                 .collect();
         }
-        let name = self.sources.snippet(r.span).to_string();
+        let name = self.src.sources.snippet(r.span).to_string();
         let spans: Vec<(Span, String)> = match &r.what {
             IdeWhat::Entity(e) => vec![(self.entity(*e).span, name)],
             // Each under its own name: an overload set can include aliases.
@@ -217,7 +217,7 @@ impl Compiler {
         file: FileId,
         offset: u32,
     ) -> Option<IdeModuleName> {
-        let text = self.sources.try_get(file)?.text.clone();
+        let text = self.src.sources.try_get(file)?.text.clone();
         let bytes = text.as_bytes();
         let word = |b: u8| b == b'_' || b.is_ascii_alphanumeric();
         let word_at = |at: usize| -> Option<(usize, usize)> {
@@ -274,12 +274,13 @@ impl Compiler {
             // Builtins such as `OS` are declared nowhere: `Span::NONE` has no file. The slicing
             // below needs a range of whole characters in it.
             .filter(|(s, _)| {
-                self.sources
+                self.src
+                    .sources
                     .try_get(s.file)
                     .is_some_and(|f| f.text.get(s.start as usize..s.end as usize).is_some())
             })
             .map(|(s, name)| {
-                let text = self.sources.snippet(s);
+                let text = self.src.sources.snippet(s);
                 if let Some(at) = text.find(name.as_str())
                     && text[..at].trim().is_empty()
                 {
@@ -305,7 +306,7 @@ impl Compiler {
                     };
                 }
                 // A procedure's span starts at its literal: find `name :` earlier on the line.
-                let source = self.sources.get(s.file);
+                let source = self.src.sources.get(s.file);
                 let file = &source.text;
                 let line = source.lines().line_start(s.start as usize);
                 let found = file[line..s.start as usize]

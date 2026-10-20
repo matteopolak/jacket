@@ -26,7 +26,7 @@ fn written_defaults_forwarding_and_storage_follow_instance_identity() {
         "../../../tests/fixtures/module-written-defaults/main.jai"
     ));
     if let Err(error) = c.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 

@@ -170,7 +170,7 @@ impl Compiler {
     /// program and its failed-body guards stay intact; no argument values are invented.
     pub fn ide_call_target_at(&mut self, file: FileId, open: u32) -> Option<IdeCallTarget> {
         self.ed.facts()?;
-        let text = self.sources.get(file).text.clone();
+        let text = self.src.sources.get(file).text.clone();
         let callee = crate::parser::parse_callee_ide(file, &text, open)?;
         let scope = self.ide_scope_at(file, callee.span.start)?;
         let operand = self.check_expr_no_emit(scope, &callee).ok()?;
@@ -206,7 +206,7 @@ impl Compiler {
         {
             return;
         }
-        let Some(source) = self.sources.try_get(file) else {
+        let Some(source) = self.src.sources.try_get(file) else {
             return;
         };
         let bytes = source.text.as_bytes();

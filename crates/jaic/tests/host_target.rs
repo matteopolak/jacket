@@ -55,7 +55,7 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
                 cross = os != host.os || cpu != host.cpu,
             );
             if let Err(error) = c.compile_sources(&[ProgramSource::String(source)]) {
-                panic!("{}", error.render(&c.sources));
+                panic!("{}", error.render(&c.src.sources));
             }
         }
     }

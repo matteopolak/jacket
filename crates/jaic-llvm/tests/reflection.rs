@@ -54,7 +54,7 @@ fn generic_default_storage_and_relocations_native_and_wasm() {
             fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
             let mut compiler = Compiler::new(options, Rc::new(fs));
             if let Err(e) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
-                panic!("{}", e.render(&compiler.sources));
+                panic!("{}", e.render(&compiler.src.sources));
             }
             let object = dir.join("reflection.o");
             emit_object(

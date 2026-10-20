@@ -40,7 +40,7 @@ fn readiness_probe_does_not_discard_an_imported_invalid_condition() {
     assert!(
         error.message.contains("unknown identifier `missing_flag`"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -70,7 +70,7 @@ fn acyclic_imported_conditional_flag_becomes_ready() {
         false,
     );
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -97,7 +97,7 @@ fn readiness_probe_does_not_discard_an_imported_undeclared_call() {
             .message
             .contains("unknown identifier `undeclared_predicate`"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -117,7 +117,7 @@ fn readiness_constant_run_effect_is_not_replayed() {
         false,
     );
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -137,7 +137,7 @@ fn readiness_constant_run_can_depend_on_pending_declarations() {
         false,
     );
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -189,7 +189,7 @@ fn pending_insert_fulfills_placeholder_before_conditional_commit() {
         false,
     );
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 

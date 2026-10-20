@@ -22,7 +22,7 @@ mod cpuid {
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/cpuid.jai").into(),
         )]) {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
         let target = if cfg!(target_os = "macos") {
             "x86_64-apple-darwin"
@@ -237,7 +237,7 @@ mod xgetbv {
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/xgetbv.jai").into(),
         )]) {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
         c
     }
@@ -380,7 +380,7 @@ mod registers {
                 }
                 let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
                 if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-                    panic!("{}", e.render(&c.sources));
+                    panic!("{}", e.render(&c.src.sources));
                 }
                 let object = dir.join("variadics.o");
                 emit_object(
@@ -520,7 +520,7 @@ mod x86_machine {
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/x86-machine.jai").into(),
         )]) {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
         for target in [
             "x86_64-apple-darwin",

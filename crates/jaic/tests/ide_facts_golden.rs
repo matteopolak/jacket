@@ -112,7 +112,7 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
 /// A file as its path under the repository.
 fn file(c: &Compiler, f: FileId) -> String {
     let repo = repo();
-    match c.sources.get(f).path.as_file() {
+    match c.src.sources.get(f).path.as_file() {
         Some(path) => path
             .strip_prefix(&repo)
             .unwrap_or(path)

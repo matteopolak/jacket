@@ -16,7 +16,7 @@ fn compile(facade: &str, body: &str) -> Result<(), String> {
     let mut compiler = Compiler::new(options, Rc::new(fs));
     compiler
         .compile_program(Path::new("/main.jai"))
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]

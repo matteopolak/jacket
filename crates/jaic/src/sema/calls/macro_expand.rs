@@ -23,7 +23,7 @@ impl Compiler {
     /// `name =`, `name op=`, `name.field =` or `*name`. Conservative: comments and strings
     /// count too.
     pub(super) fn text_may_write(&self, body: &ast::Block, name: Sym) -> bool {
-        let text = &self.sources.get(body.span.file).text;
+        let text = &self.src.sources.get(body.span.file).text;
         let text = &text.as_bytes()[body.span.start as usize..body.span.end as usize];
         // `#asm` operands may write any name they mention.
         if text.windows(4).any(|w| w == b"#asm") {

@@ -12,7 +12,7 @@ fn compile(source: &str) -> Result<(), String> {
     let mut compiler = Compiler::new(options, Rc::new(fs));
     compiler
         .compile_program(Path::new("/main.jai"))
-        .map_err(|e| e.render(&compiler.sources))
+        .map_err(|e| e.render(&compiler.src.sources))
 }
 
 /// Wraps statements in a procedure whose result is asserted at compile time.

@@ -131,7 +131,7 @@ impl Compiler {
             && header.flags.inline != ast::CallHintFlag::Inline
             && !header.flags.no_debug()
         {
-            let (line, col) = self.sources.get(span.file).line_col(span.start);
+            let (line, col) = self.src.sources.get(span.file).line_col(span.start);
             f.b.func.trace = Some(ir::TraceInfo {
                 name: self.proc(id).name.to_string(),
                 file: span.file.0,

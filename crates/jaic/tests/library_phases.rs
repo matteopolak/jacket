@@ -69,7 +69,7 @@ fn cross_target_host_service_does_not_load_unrelated_target_requirements() {
         let (mut c, calls) = compiler(os, cpu);
         let source = format!("{REQUIREMENT}{HOST_CALL}");
         if let Err(error) = c.compile_sources(&[ProgramSource::String(source)]) {
-            panic!("{}", error.render(&c.sources));
+            panic!("{}", error.render(&c.src.sources));
         }
         assert_eq!(calls.get(), 1);
         assert!(c.out.program.cross_target);
@@ -87,7 +87,7 @@ fn same_target_host_service_still_initializes_required_libraries() {
     assert!(
         error.message.contains("required native library"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
     assert_eq!(calls.get(), 0);
 }
@@ -123,7 +123,7 @@ fn explicit_unavailable_target_foreign_is_still_rejected() {
     assert!(
         error.message.contains("foreign procedure") && error.message.contains("not available"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
     assert_eq!(calls.get(), 0);
 }

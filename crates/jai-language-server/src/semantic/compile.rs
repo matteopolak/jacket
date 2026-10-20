@@ -14,18 +14,19 @@ use std::rc::Rc;
 
 /// `path`'s id among the files `compiler` compiled.
 pub(super) fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
-    let files = || (0..compiler.sources.len() as u32).map(FileId);
+    let files = || (0..compiler.src.sources.len() as u32).map(FileId);
     files()
-        .find(|&f| compiler.sources.get(f).path.as_file() == Some(path))
+        .find(|&f| compiler.src.sources.get(f).path.as_file() == Some(path))
         .or_else(|| {
-            let want = compiler.fs.canonical(path);
+            let want = compiler.src.fs.canonical(path);
             files().find(|&f| {
                 compiler
+                    .src
                     .sources
                     .get(f)
                     .path
                     .as_file()
-                    .is_some_and(|file| compiler.fs.canonical(file) == want)
+                    .is_some_and(|file| compiler.src.fs.canonical(file) == want)
             })
         })
 }
@@ -112,7 +113,7 @@ fn known(
             .ed
             .facts()
             .is_some_and(|ide| ide.refused.iter().any(|s| s.file == file))
-            && compiler.sources.get(file).text.contains("#insert")
+            && compiler.src.sources.get(file).text.contains("#insert")
     };
     errors.retain(|e| {
         e.kind != DiagnosticKind::Untrusted
@@ -172,7 +173,7 @@ pub(super) fn compile(
     let added = Rc::new(RefCell::new(BTreeMap::new()));
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
-        fs: compiler.fs.clone(),
+        fs: compiler.src.fs.clone(),
         options: options(),
         backend: None,
         command_line: Vec::new(),

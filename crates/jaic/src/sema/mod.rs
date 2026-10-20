@@ -50,6 +50,7 @@ pub(crate) mod reachability;
 mod runtime_config;
 mod runtime_info;
 pub mod scope;
+mod source_state;
 mod stmt;
 mod structs;
 mod suggestions;
@@ -62,7 +63,7 @@ use crate::ast;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
-use crate::source::{Diagnostic, DiagnosticKind, FileId, SourceMap, SourcePath, Span};
+use crate::source::{Diagnostic, DiagnosticKind, FileId, SourcePath, Span};
 use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).
 pub use asm::catalog as asm_catalog;
@@ -77,6 +78,7 @@ pub use module_rank::{ModuleRanking, Rank, count_importers};
 pub use modules::{BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
 pub use output::Output;
 pub use scope::{EntityId, ScopeId};
+pub use source_state::SourceState;
 use std::path::PathBuf;
 use std::rc::Rc;
 pub use suggestions::COMPILER_INTERNAL_MODULES;
@@ -408,21 +410,9 @@ type ModuleNames = (u64, Rc<[EntityId]>);
 pub struct Compiler {
     pub ct: CompileTime,
     pub options: Options,
-    pub fs: Rc<dyn FileSystem>,
-    /// Real paths already worked out (see [`Compiler::canon`]).
-    canon_cache: crate::paths::CanonCache,
-    /// Worker threads lexing and parsing the files this compile will load (`parse_ahead`).
-    ahead: Option<crate::parse_ahead::ParseAhead>,
-    pub sources: SourceMap,
+    pub src: SourceState,
     pub types: Types,
     pub out: Output,
-    pub files: Vec<FileInfo>,
-    /// Lexical provenance of scoped/generated sources, for relative source loads
-    /// and the distribution boundary around library-owned internals.
-    source_origins: HashMap<FileId, FileId>,
-    file_by_path: HashMap<(PathBuf, ModuleId), modules::FileLoadState>,
-    /// Whether each source file is the stdlib's, for trap reports (a `#run` can trap often).
-    library_files: std::cell::RefCell<HashMap<u32, bool>>,
     pub modules: Vec<Module>,
     module_cache: HashMap<(PathBuf, Vec<ConstArg>), ModuleId>,
     module_failures: HashMap<ModuleId, Box<Diagnostic>>,
@@ -453,16 +443,12 @@ pub struct Compiler {
     field_using_order: HashMap<ScopeId, Vec<structs::FieldUsing>>,
     pub context_type: Option<TypeId>,
     pub meta: MetaState,
-    /// Sources added so far (labels of added strings).
-    pub(crate) added_sources: usize,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
     pub(crate) lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
     /// Scopes holding the bindings that a polymorphic parameter's default is evaluated in.
     default_scopes: HashMap<(ScopeId, Vec<Value>), ScopeId>,
     /// `$$x` variants: (procedure, which auto-bake params are baked) -> procedure.
     auto_bake_variants: HashMap<(ProcId, Vec<calls::AutoBake>), ProcId>,
-    /// Body `#import`s already added to their file scope (by statement span).
-    hoisted_imports: HashSet<Span>,
     /// Procedures that need their bodies lowered.
     pub body_queue: Vec<ProcId>,
     /// Queued bodies whose last lenient attempt failed at `parked_epoch`: skipped as a group by
@@ -518,8 +504,6 @@ pub struct Compiler {
     /// Procedures `compiler_make_procedure_live` asked to keep in the program though nothing
     /// calls them.
     pub live_procs: Vec<ProcId>,
-    /// Modules made from `provide_import` texts, by text.
-    pub provided_texts: HashMap<String, ModuleId>,
     /// Struct declaration AST per struct (for layout).
     pub struct_asts: HashMap<crate::types::StructId, structs::StructSource>,
     pub entry_point: Option<ProcId>,
@@ -595,9 +579,6 @@ pub struct Compiler {
     /// module entry path: (name, value expression, scope it is evaluated in). Applied to
     /// the module's instance as soon as both exist, before anything reads the parameter.
     pub program_param_settings: Vec<(PathBuf, Sym, ast::Expr, ScopeId)>,
-    /// How deeply each `#insert`ed string file is nested in other inserted strings (absent: a
-    /// real file). Bounds code that inserts itself (`X :: "#insert X;"`).
-    insert_depth: HashMap<FileId, u32>,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: crate::ide::Editor,
 }
@@ -640,20 +621,13 @@ impl Compiler {
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
+            src: SourceState::new(fs),
             out: Output::new(cross_target),
             meta: MetaState::default(),
             epochs: Epochs::default(),
             diag: Diagnostics::default(),
-            library_files: std::cell::RefCell::default(),
             options,
-            fs,
-            canon_cache: crate::paths::CanonCache::new(),
-            ahead: None,
-            sources: SourceMap::default(),
             types: Types::new(),
-            files: Vec::new(),
-            source_origins: HashMap::default(),
-            file_by_path: HashMap::default(),
             modules: Vec::new(),
             module_cache: HashMap::default(),
             module_failures: HashMap::default(),
@@ -678,11 +652,9 @@ impl Compiler {
             field_filter_pending: HashSet::default(),
             field_using_order: HashMap::default(),
             context_type: None,
-            added_sources: 0,
             lenient_failures: HashMap::default(),
             default_scopes: HashMap::default(),
             auto_bake_variants: HashMap::default(),
-            hoisted_imports: HashSet::default(),
             body_queue: Vec::new(),
             parked_bodies: Vec::new(),
             lowering_depth: 0,
@@ -709,7 +681,6 @@ impl Compiler {
             overload_sets_checked: HashSet::default(),
             failed_imports: Vec::new(),
             live_procs: Vec::new(),
-            provided_texts: HashMap::default(),
             struct_asts: HashMap::default(),
             entry_point: None,
             exports: Vec::new(),
@@ -744,7 +715,6 @@ impl Compiler {
             callable_entities: HashMap::default(),
             callable_fields: HashMap::default(),
             program_param_settings: Vec::new(),
-            insert_depth: HashMap::default(),
         };
         c.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();
@@ -771,8 +741,8 @@ impl Compiler {
             ast::CodeBody::Stmt(s) => s.span,
             ast::CodeBody::Block(b) => b.span,
         };
-        let text: Rc<str> = if (span.file.0 as usize) < self.sources.len() {
-            self.sources.snippet(span).into()
+        let text: Rc<str> = if (span.file.0 as usize) < self.src.sources.len() {
+            self.src.sources.snippet(span).into()
         } else {
             "".into()
         };
@@ -809,7 +779,7 @@ impl Compiler {
             let scope = from
                 .and_then(|f| self.code_scopes.get(f).copied())
                 .unwrap_or(self.root_scope);
-            let file = self.sources.add(
+            let file = self.src.sources.add(
                 SourcePath::virtual_source(format!("compiler_get_code {id}")),
                 format!("__jaic_code :: #code {text};\n").into(),
             );
@@ -854,8 +824,8 @@ impl Compiler {
     /// `d` as text for the user, with a "did you mean" help line where one applies.
     pub fn render(&self, d: &Diagnostic) -> String {
         match self.with_name_suggestion(d) {
-            Some(d) => d.render(&self.sources),
-            None => d.render(&self.sources),
+            Some(d) => d.render(&self.src.sources),
+            None => d.render(&self.src.sources),
         }
     }
 }

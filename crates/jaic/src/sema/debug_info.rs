@@ -19,7 +19,7 @@ impl Compiler {
         if !self.options.debug_info {
             return;
         }
-        let (line, _) = self.sources.get(span.file).line_col(span.start);
+        let (line, _) = self.src.sources.get(span.file).line_col(span.start);
         let name = self.proc(id).name.to_string();
         f.b.func.debug = Some(Box::new(ir::FuncDebug {
             name,
@@ -82,7 +82,7 @@ impl Compiler {
         if f.b.func.debug.is_none() || name.as_str().starts_with('\0') || name.as_str() == "_" {
             return;
         }
-        let (line, col) = self.sources.get(span.file).line_col(span.start);
+        let (line, col) = self.src.sources.get(span.file).line_col(span.start);
         let scope = if arg > 0 {
             0
         } else {
@@ -125,7 +125,7 @@ impl Compiler {
         if !self.options.debug_info {
             return;
         }
-        let (line, _) = self.sources.get(span.file).line_col(span.start);
+        let (line, _) = self.src.sources.get(span.file).line_col(span.start);
         self.out.program.debug_globals.push(ir::DebugGlobal {
             global,
             name: name.to_string(),
@@ -138,10 +138,11 @@ impl Compiler {
     /// Describe every type the recorded debug information names (idempotent), and make
     /// sure `Program::file_paths` names every source file.
     pub fn collect_debug_types(&mut self) {
-        if self.out.program.file_paths.len() < self.sources.len() {
-            self.out.program.file_paths = (0..self.sources.len())
+        if self.out.program.file_paths.len() < self.src.sources.len() {
+            self.out.program.file_paths = (0..self.src.sources.len())
                 .map(|i| {
-                    self.sources
+                    self.src
+                        .sources
                         .get(crate::source::FileId(i as u32))
                         .path
                         .to_string()

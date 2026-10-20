@@ -16,7 +16,7 @@ fn compiler(files: &[(&str, &str)]) -> Compiler {
 
 fn success(mut compiler: Compiler) {
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -57,7 +57,7 @@ fn nested_loads_and_anonymous_string_imports_keep_module_ownership() {
         assert!(
             error.message.contains("main program"),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
     let mut compiler = compiler(&[(
@@ -70,7 +70,7 @@ fn nested_loads_and_anonymous_string_imports_keep_module_ownership() {
     assert!(
         error.message.contains("main program"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -98,7 +98,7 @@ fn imported_files_and_modules_may_only_supply_module_parameters() {
         assert!(
             error.message.contains("main program"),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
 }
@@ -123,7 +123,7 @@ fn generated_main_inputs_and_each_workspace_root_have_their_own_origin() {
         );
         compiler
             .compile_sources(&[ProgramSource::String(source)])
-            .unwrap_or_else(|error| panic!("{}", error.render(&compiler.sources)));
+            .unwrap_or_else(|error| panic!("{}", error.render(&compiler.src.sources)));
     }
 }
 
@@ -144,7 +144,7 @@ fn generated_module_inputs_do_not_acquire_main_program_privileges() {
     assert!(
         error.message.contains("main program"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -176,7 +176,7 @@ fn first_list_cannot_bind_a_declared_program_slot() {
         assert!(
             error.message.contains("module parameter"),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
 }
@@ -218,7 +218,7 @@ fn program_only_header_rejects_first_list_with_official_count_category() {
                 .message
                 .contains("Too many module parameters: Wanted 0, got 1"),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
 }

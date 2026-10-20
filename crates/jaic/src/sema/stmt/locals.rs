@@ -85,7 +85,7 @@ impl Compiler {
                         Operand::Type(_) | Operand::PolyStruct(_) => TypeId::TYPE,
                         Operand::Void => {
                             let value = decl.value.as_ref().map_or(span, |v| v.span);
-                            let text = self.sources.snippet(value).trim();
+                            let text = self.src.sources.snippet(value).trim();
                             let shown = if text.is_empty() || text.contains('\n') || text.len() > 60
                             {
                                 "this expression".to_string()

@@ -10,7 +10,7 @@ mod fixture;
 fn inserted_condition_binding_preserves_value_identity_and_labelled_control() {
     let (c, result) = compile(&format!("{}\n#assert(check()==0);", fixture::SOURCE));
     if let Err(error) = result {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -26,7 +26,7 @@ fn private_macro_condition_does_not_leak_to_inserted_caller_code() {
     assert!(
         error.message.contains("unknown identifier `hidden`"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -41,7 +41,7 @@ fn backtick_condition_without_expansion_remains_loop_local() {
     assert!(
         error.message.contains("unknown identifier `local`"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -55,7 +55,7 @@ fn private_macro_condition_preserves_an_outer_caller_binding() {
     ",
     );
     if let Err(error) = result {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -73,6 +73,6 @@ fn invalid_loop_targets_still_diagnose() {
             .message
             .contains("no enclosing loop named `unrelated`"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }

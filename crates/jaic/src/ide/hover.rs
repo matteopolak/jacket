@@ -103,7 +103,7 @@ impl Compiler {
                     span,
                     text: format!(
                         "{} :: #import \"{}\"",
-                        self.sources.snippet(span),
+                        self.src.sources.snippet(span),
                         self.modules[module.0 as usize].name
                     ),
                     layout: None,
@@ -122,7 +122,7 @@ impl Compiler {
                 }
             };
         };
-        let name = self.sources.snippet(r.span).to_string();
+        let name = self.src.sources.snippet(r.span).to_string();
         // `Poly(args)`: the instance, not the polymorphic struct.
         if let IdeWhat::Entity(e) = r.what
             && matches!(
@@ -256,7 +256,7 @@ impl Compiler {
             .map(|(s, site)| (*s, *site))?;
         // A polymorphic struct's field: its declaration as written (`items: [N] T`).
         let Some(site) = site else {
-            let file = &self.sources.try_get(span.file)?.text;
+            let file = &self.src.sources.try_get(span.file)?.text;
             let rest = file.get(span.start as usize..)?;
             let text = rest[..rest.find([';', '\n', '}']).unwrap_or(rest.len())].trim_end();
             return Some(IdeHover {

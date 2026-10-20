@@ -18,12 +18,12 @@ impl Compiler {
         let mut options = self.options.clone();
         (options.os, options.cpu) = compiler_host();
         options.long_double = Options::host().long_double;
-        let mut host = Compiler::new(options.clone(), self.fs.clone());
-        host.sources = self.sources.clone();
-        let source_count = self.sources.len();
+        let mut host = Compiler::new(options.clone(), self.src.fs.clone());
+        host.src.sources = self.src.sources.clone();
+        let source_count = self.src.sources.len();
         if let Some(parent) = &self.ct.interp.workspaces {
             let (shared, provider) =
-                crate::build::isolated_host_environment(parent, options, self.fs.clone());
+                crate::build::isolated_host_environment(parent, options, self.src.fs.clone());
             host.ct.interp = crate::interp::Interp::new(provider);
             host.ct.interp.workspaces = Some(shared);
         } else {
@@ -83,9 +83,9 @@ impl Compiler {
         self.ct.executions += host.ct.executions;
         self.ct.traps += host.ct.traps;
         // Errors from newly loaded host files retain real source locations.
-        for index in source_count..host.sources.len() {
-            let file = host.sources.get(FileId(index as u32));
-            self.sources.add(file.path.clone(), file.text.clone());
+        for index in source_count..host.src.sources.len() {
+            let file = host.src.sources.get(FileId(index as u32));
+            self.src.sources.add(file.path.clone(), file.text.clone());
         }
         let mut globals = HashMap::default();
         result?

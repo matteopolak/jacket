@@ -163,7 +163,7 @@ fn callback(
                 );
                 if let Some(default) = &header.defaults[i] {
                     detail.push_str(" = ");
-                    detail.push_str(compiler.sources.snippet(default.span));
+                    detail.push_str(compiler.src.sources.snippet(default.span));
                 }
                 Parameter {
                     name,
@@ -416,10 +416,11 @@ mod tests {
                 .is_err()
         );
         compiler.ide_check_all();
-        let file = (0..compiler.sources.len() as u32)
+        let file = (0..compiler.src.sources.len() as u32)
             .map(FileId)
             .find(|&f| {
-                compiler.sources.get(f).path.as_file() == Some(Path::new("/named-safety/main.jai"))
+                compiler.src.sources.get(f).path.as_file()
+                    == Some(Path::new("/named-safety/main.jai"))
             })
             .unwrap();
         let errors = compiler.ed.facts().unwrap().parse_errors.len();
@@ -428,7 +429,7 @@ mod tests {
         assert_eq!(procs.len(), 1);
         assert_eq!(compiler.proc(procs[0]).name.as_str(), "f");
         assert_eq!(
-            &*compiler.sources.get(file).text,
+            &*compiler.src.sources.get(file).text,
             source,
             "metadata query must not rewrite program text"
         );

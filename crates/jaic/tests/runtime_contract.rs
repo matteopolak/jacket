@@ -25,7 +25,7 @@ fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
 fn windows_arm64_entry_backtrace_uses_the_private_native_backend() {
     let (compiler, result) = compile(true, true);
     if let Err(error) = result {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     assert!(compiler.modules.iter().any(|module| {
         module
@@ -55,7 +55,7 @@ fn public_x64_crash_record_facade_still_rejects_windows_arm64() {
             .message
             .contains("the Windows crash handler supports x64 only"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -64,7 +64,7 @@ fn disabled_backtrace_or_embedding_does_not_import_a_native_handler() {
     for (entry, backtrace) in [(true, false), (false, true)] {
         let (compiler, result) = compile(entry, backtrace);
         if let Err(error) = result {
-            panic!("{}", error.render(&compiler.sources));
+            panic!("{}", error.render(&compiler.src.sources));
         }
     }
 }

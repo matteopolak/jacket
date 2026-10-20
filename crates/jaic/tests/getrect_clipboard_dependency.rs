@@ -14,7 +14,7 @@ fn public_getrect_text_actions_reach_canonical_linux_clipboard_calls() {
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
         let input = root.join("stdlib/GetRect/tests/clipboard-text-actions-linux.jai");
         if let Err(error) = compiler.compile_program(&input) {
-            panic!("{}", error.render(&compiler.sources));
+            panic!("{}", error.render(&compiler.src.sources));
         }
         for symbol in [
             "portable_clipboard_text",

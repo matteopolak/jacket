@@ -235,7 +235,7 @@ impl Exporter<'_> {
         float: Option<f64>,
         negative: bool,
     ) -> i64 {
-        let text = self.c.as_ref().map_or("", |c| c.sources.snippet(span));
+        let text = self.c.as_ref().map_or("", |c| c.src.sources.snippet(span));
         let spelling = text.trim_start_matches('-').trim_start();
         let mut flags = 0x1
             | if negative {

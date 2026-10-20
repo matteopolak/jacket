@@ -19,8 +19,8 @@ use std::rc::Rc;
 impl Compiler {
     fn ide_missing_module_epoch(&self) -> IdeMissingModuleEpoch {
         (
-            self.added_sources,
-            self.files.len(),
+            self.src.added,
+            self.src.files.len(),
             self.modules.len(),
             self.ct.runs_done,
             self.ct.executions,
@@ -140,12 +140,12 @@ impl Compiler {
         if let Some(&w) = ide.wanted.get(&file) {
             return w;
         }
-        let w = match &self.sources.get(file).path {
+        let w = match &self.src.sources.get(file).path {
             SourcePath::Virtual(_) => ide.roots.contains(&IdeRoot::Virtual),
             SourcePath::File(path) => {
                 // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a
                 // folder name one file.
-                let key = self.fs.canonical(path);
+                let key = self.src.fs.canonical(path);
                 ide.roots.iter().any(|r| match r {
                     IdeRoot::Under(root) => path.starts_with(root) || key.starts_with(root),
                     IdeRoot::Virtual => false,
@@ -305,10 +305,10 @@ impl Compiler {
     pub(crate) fn ide_entity_name_span(&self, id: EntityId) -> Option<Span> {
         let e = self.entity(id);
         let (span, name) = (e.span, e.name);
-        if span.end <= span.start || (span.file.0 as usize) >= self.sources.len() {
+        if span.end <= span.start || (span.file.0 as usize) >= self.src.sources.len() {
             return None;
         }
-        let text = self.sources.snippet(span);
+        let text = self.src.sources.snippet(span);
         let at = text.find(name.as_str())?;
         let start = span.start + at as u32;
         Some(Span {

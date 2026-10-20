@@ -8,7 +8,7 @@ fn compile(source: &str) -> Result<(), String> {
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn exact_human_declaration_insertion_is_visible_to_the_following_statement() {
         include_str!("../../../tests/fixtures/insert-scope/main.jai").into(),
     )]);
     result
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
         .unwrap();
 }
 
@@ -261,14 +261,14 @@ fn captured_private_module_names_do_not_escape_with_new_bindings() {
         let result = compiler.compile_program(std::path::Path::new("/main.jai"));
         if tail == "return generated;" {
             result
-                .map_err(|error| error.render(&compiler.sources))
+                .map_err(|error| error.render(&compiler.src.sources))
                 .unwrap();
         } else {
             let error = result.expect_err("captured module privacy is not a namespace reexport");
             assert!(
                 error.message.contains("unknown identifier"),
                 "{}",
-                error.render(&compiler.sources)
+                error.render(&compiler.src.sources)
             );
         }
     }

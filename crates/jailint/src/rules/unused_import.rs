@@ -48,7 +48,7 @@ pub(crate) fn prepare(
     tokens: &[Token],
 ) -> Vec<Unused> {
     let mut out = Vec::new();
-    let Some(info) = compiler.files.iter().find(|f| f.id == file) else {
+    let Some(info) = compiler.src.files.iter().find(|f| f.id == file) else {
         return out;
     };
     let (file_scope, module) = (info.scope, info.module);
@@ -159,11 +159,14 @@ fn entry(
 fn exports_entry_points(compiler: &Compiler, cache: &mut ModuleFacts, m: ModuleId) -> bool {
     *cache.entry_points.entry(m).or_insert_with(|| {
         compiler
+            .src
             .files
             .iter()
             .filter(|f| f.module == m)
             // A file that does not lex is assumed to export: importing it may have an effect.
-            .any(|f| file_facts(&compiler.sources.get(f.id).text).is_none_or(|k| k.program_export))
+            .any(|f| {
+                file_facts(&compiler.src.sources.get(f.id).text).is_none_or(|k| k.program_export)
+            })
     })
 }
 
@@ -185,8 +188,8 @@ fn module_identifiers(
     let mut seen: HashSet<PathBuf> = HashSet::default();
     let mut queue: Vec<(PathBuf, String)> = Vec::new();
     let mut own: Option<PathBuf> = None;
-    for f in compiler.files.iter().filter(|f| f.module == module) {
-        let src = compiler.sources.get(f.id);
+    for f in compiler.src.files.iter().filter(|f| f.module == module) {
+        let src = compiler.src.sources.get(f.id);
         let Some(path) = src.path.as_file().map(std::path::Path::to_path_buf) else {
             continue;
         };

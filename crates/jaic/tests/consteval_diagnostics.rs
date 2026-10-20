@@ -6,7 +6,7 @@ fn error_of(source: &str) -> String {
     let (c, result) = compile_source(source);
     match result {
         Ok(()) => panic!("expected an error from:\n{source}"),
-        Err(error) => error.render(&c.sources),
+        Err(error) => error.render(&c.src.sources),
     }
 }
 

@@ -115,7 +115,7 @@ impl Compiler {
             else {
                 return Ok(());
             };
-            if !forwards_format(self.sources.snippet(body.span), f.name, v.name) {
+            if !forwards_format(self.src.sources.snippet(body.span), f.name, v.name) {
                 return Ok(());
             }
         }

@@ -181,8 +181,8 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
             code: d.kind.code(),
         };
     }
-    if (d.span.file.0 as usize) < compiler.sources.len() {
-        let file = compiler.sources.get(d.span.file);
+    if (d.span.file.0 as usize) < compiler.src.sources.len() {
+        let file = compiler.src.sources.get(d.span.file);
         // Characters, as the command line counts them.
         let (line, column) = file.lines().line_col(&file.text, d.span.start as usize);
         return PlayDiagnostic {

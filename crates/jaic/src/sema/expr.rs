@@ -184,7 +184,7 @@ impl Compiler {
                 ty: self.float_literal_type(*v, expr.span),
                 value: Value::Float(
                     *v,
-                    crate::lexer::float_literal_precision(self.sources.snippet(span), *v),
+                    crate::lexer::float_literal_precision(self.src.sources.snippet(span), *v),
                 ),
                 untyped: true,
             }),
@@ -560,7 +560,7 @@ impl Compiler {
             E::CallerLocation => self.location_operand(f, span),
             // `#file` is the full path of the file, as loaded.
             E::File => {
-                let path = forward_slashes(&self.sources.get(span.file).path.to_string());
+                let path = forward_slashes(&self.src.sources.get(span.file).path.to_string());
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
                     value: Value::String(path.as_bytes().into()),
@@ -568,7 +568,7 @@ impl Compiler {
                 })
             }
             E::Filepath => {
-                let path = self.sources.get(span.file).path.to_path();
+                let path = self.src.sources.get(span.file).path.to_path();
                 let dir = path
                     .parent()
                     .map(|p| format!("{}/", forward_slashes(&p.display().to_string())))
@@ -580,7 +580,7 @@ impl Compiler {
                 })
             }
             E::Line => {
-                let (line, _) = self.sources.get(span.file).line_col(span.start);
+                let (line, _) = self.src.sources.get(span.file).line_col(span.start);
                 Ok(Operand::untyped_int(line as i128))
             }
             E::ProcedureName(_) => {

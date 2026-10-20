@@ -130,7 +130,7 @@ impl Compiler {
             let Some(next) = stmts[i + 1..].iter().find(|s| runs_in_order(s)) else {
                 return false;
             };
-            if (next.span.file.0 as usize) >= self.sources.len() {
+            if (next.span.file.0 as usize) >= self.src.sources.len() {
                 return false;
             }
             let word = match &stmt.kind {

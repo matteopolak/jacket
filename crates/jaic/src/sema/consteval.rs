@@ -610,7 +610,7 @@ impl Compiler {
     /// more (`X :: "#insert X;"`), so nesting is bounded.
     pub(super) fn insert_source(&mut self, at: Span, text: Rc<str>) -> Result<FileId> {
         const MAX_INSERT_DEPTH: u32 = 256;
-        let depth = self.insert_depth.get(&at.file).map_or(1, |d| d + 1);
+        let depth = self.src.insert_depth.get(&at.file).map_or(1, |d| d + 1);
         if depth > MAX_INSERT_DEPTH {
             return err(
                 at,
@@ -618,14 +618,14 @@ impl Compiler {
             );
         }
         // Named after the outermost real file, so nested inserts keep a short path.
-        let path = self.sources.get(at.file).path.clone();
+        let path = self.src.sources.get(at.file).path.clone();
         let path = if depth > 1 {
             path
         } else {
             SourcePath::virtual_source(format!("#insert at {path}"))
         };
-        let file = self.sources.add(path, text);
-        self.insert_depth.insert(file, depth);
+        let file = self.src.sources.add(path, text);
+        self.src.insert_depth.insert(file, depth);
         Ok(file)
     }
 

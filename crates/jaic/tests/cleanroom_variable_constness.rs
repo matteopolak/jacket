@@ -7,7 +7,7 @@ fn compile(source: &str) -> Result<(), String> {
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     c.compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&c.sources))
+        .map_err(|error| error.render(&c.src.sources))
 }
 
 fn accepts(source: &str) {

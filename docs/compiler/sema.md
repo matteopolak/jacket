@@ -11,6 +11,7 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 `Compiler` holds its state in groups, one struct per concern, each in its own file under `sema/`:
 
 - `ct: CompileTime` (`compile_time.rs`): the interpreter, top-level `#run`s/`#assert`s and their progress, frozen values. `Drop for Compiler` joins compile-time threads before any field drops.
+- `src: SourceState` (`source_state.rs`): the file system, the `SourceMap` and per-file info, path canonicalisation, parse-ahead workers, `#insert` nesting and provided texts. External crates read `compiler.src.sources`.
 - `diag: Diagnostics` (`diagnostics.rs`): warnings, why deferred items failed, declaration dependencies.
 - `epochs: Epochs` (`epochs.rs`): the counters a cached failure is stamped with (`namespace_generation`, `placeholder_misses`, `in_progress_misses`) and the flags of deferred expansion's phases.
 - `out: Output` (`output.rs`): the IR program, constant data pooled into globals (strings, packs, constant addresses), runtime-info globals, compile-time output. `release_lowered_code` empties its bodies for an editor.

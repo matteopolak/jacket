@@ -57,7 +57,7 @@ impl Compiler {
             .find_map(|p| Some((p.name?, p.ty.as_ref()?)));
         match runtime {
             Some((param, ty)) => {
-                let ty = self.sources.snippet(ty.span).to_string();
+                let ty = self.src.sources.snippet(ty.span).to_string();
                 let pname = param.name;
                 d = d
                     .with_fix(
@@ -113,10 +113,10 @@ impl Compiler {
     /// The `#modify` directive in front of `block`, or the block when it cannot be found.
     fn modify_directive_span(&self, block: &ast::Block) -> Span {
         let span = block.span;
-        if (span.file.0 as usize) >= self.sources.len() {
+        if (span.file.0 as usize) >= self.src.sources.len() {
             return span;
         }
-        let text = &self.sources.get(span.file).text;
+        let text = &self.src.sources.get(span.file).text;
         match text
             .get(..span.start as usize)
             .and_then(|t| t.rfind("#modify"))

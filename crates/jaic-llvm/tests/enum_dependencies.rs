@@ -22,7 +22,7 @@ fn enum_dependencies_execute_native_and_wasm_at_o0_and_o2() {
             if let Err(e) = c.compile_sources(&[ProgramSource::String(
                 include_str!("../../../tests/compiler/semantics/enum-dependencies.jai").into(),
             )]) {
-                panic!("{}", e.render(&c.sources));
+                panic!("{}", e.render(&c.src.sources));
             }
             let object = dir.join("enums.o");
             emit_object(

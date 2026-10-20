@@ -17,11 +17,11 @@ pub(in crate::sema) enum FileLoadState {
 
 impl Compiler {
     fn read_source(&mut self, path: &Path, span: Span) -> Result<FileId> {
-        let Some(bytes) = self.fs.read(path) else {
+        let Some(bytes) = self.src.fs.read(path) else {
             return Err(Box::new(self.unreadable_file(path, span)));
         };
         let text: Rc<str> = String::from_utf8_lossy(&bytes).into();
-        Ok(self.sources.add(path, text))
+        Ok(self.src.sources.add(path, text))
     }
 
     /// Distribution boundary for library-owned helpers, checked before cache hits.
@@ -38,6 +38,7 @@ impl Compiler {
             return Ok(());
         }
         let from_library = self
+            .src
             .sources
             .try_get(self.source_origin(span.file))
             .is_some_and(|source| {
@@ -58,41 +59,45 @@ impl Compiler {
         self.check_source_access(path, span)?;
         let path = self.canon(path);
         let key = (path.clone(), module);
-        if let Some(state) = self.file_by_path.get(&key) {
+        if let Some(state) = self.src.file_by_path.get(&key) {
             return match state {
                 FileLoadState::Loading | FileLoadState::Ready => Ok(()),
                 FileLoadState::Failed(error) => Err(error.clone()),
             };
         }
-        self.file_by_path
+        self.src
+            .file_by_path
             .insert(key.clone(), FileLoadState::Loading);
         let result = self.load_file_inner(&path, module, span);
         let state = match &result {
             Ok(()) => FileLoadState::Ready,
             Err(error) => FileLoadState::Failed(error.clone()),
         };
-        self.file_by_path.insert(key, state);
+        self.src.file_by_path.insert(key, state);
         result
     }
 
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         let parsing = crate::progress::enter(crate::progress::Phase::Parsing);
         if self.ed.allows_parse_ahead()
-            && let Some(prepared) = self.ahead.as_ref().and_then(|a| a.claim(path))
+            && let Some(prepared) = self.src.ahead.as_ref().and_then(|a| a.claim(path))
         {
             let (text, line_starts, tree) = prepared.into_parts();
-            let file = self.sources.add_file(crate::source::SourceFile::with_lines(
-                path.into(),
-                text,
-                line_starts,
-            ));
+            let file = self
+                .src
+                .sources
+                .add_file(crate::source::SourceFile::with_lines(
+                    path.into(),
+                    text,
+                    line_starts,
+                ));
             let ast = tree.finish(file);
             drop(parsing);
             crate::progress::file_loaded();
             return self.declare_loaded(path, module, file, &ast);
         }
         let file = self.read_source(path, span)?;
-        let text = self.sources.get(file).text.clone();
+        let text = self.src.sources.get(file).text.clone();
         let shared;
         let own;
         let ast = if let Some(parsed) = self.ed.parse(path, file, &text) {
@@ -104,7 +109,7 @@ impl Compiler {
                 None => crate::parser::parse_file(file, &text),
             }
             .map_err(Box::new)?;
-            if let Some(ahead) = &self.ahead {
+            if let Some(ahead) = &self.src.ahead {
                 ahead.discover(&own, path);
             }
             &own
@@ -124,7 +129,7 @@ impl Compiler {
     ) -> Result<()> {
         let module_scope = self.modules[module.0 as usize].scope;
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
-        self.files.push(FileInfo {
+        self.src.files.push(FileInfo {
             id: file,
             path: SourcePath::File(path.to_path_buf()),
             module,
@@ -150,7 +155,12 @@ impl Compiler {
     }
 
     pub fn file_dir(&self, file: FileId) -> PathBuf {
-        let path = self.sources.get(self.source_origin(file)).path.to_path();
+        let path = self
+            .src
+            .sources
+            .get(self.source_origin(file))
+            .path
+            .to_path();
         path.parent().map(Path::to_path_buf).unwrap_or_default()
     }
 
@@ -314,7 +324,7 @@ impl Compiler {
         {
             return Some(preload.clone());
         }
-        find_module_in(&*self.fs, &self.options.import_paths, name, from_dir)
+        find_module_in(&*self.src.fs, &self.options.import_paths, name, from_dir)
     }
 
     /// Where the runtime's entry file is, on the import path.
@@ -367,11 +377,11 @@ impl Compiler {
         self.ct.interp.invalidate_callable_inspections();
         let module = self.scope(target).module;
         let name = SourcePath::virtual_source(label);
-        let file = self.sources.add(name.clone(), source.into());
+        let file = self.src.sources.add(name.clone(), source.into());
         let mut origin_scope = Some(target);
         while let Some(scope) = origin_scope {
             if let Some(origin) = self.scope(scope).file {
-                self.source_origins.insert(file, self.source_origin(origin));
+                self.src.origins.insert(file, self.source_origin(origin));
                 break;
             }
             origin_scope = self.scope(scope).parent;
@@ -379,7 +389,7 @@ impl Compiler {
         let ast = crate::parser::parse_file(file, source).map_err(Box::new)?;
         self.diag.dependencies.source_scopes.insert(file, target);
         let file_scope = self.new_scope(ScopeKind::File, Some(target), module, Some(file));
-        self.files.push(FileInfo {
+        self.src.files.push(FileInfo {
             id: file,
             path: name,
             module,
@@ -391,6 +401,6 @@ impl Compiler {
     }
 
     fn source_origin(&self, file: FileId) -> FileId {
-        self.source_origins.get(&file).copied().unwrap_or(file)
+        self.src.origins.get(&file).copied().unwrap_or(file)
     }
 }

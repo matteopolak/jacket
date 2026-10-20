@@ -26,7 +26,7 @@ fn execute(name: &str, source: &str) {
             }
             let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
             if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-                panic!("{}", e.render(&c.sources));
+                panic!("{}", e.render(&c.src.sources));
             }
             let object = dir.join("variadics.o");
             emit_object(

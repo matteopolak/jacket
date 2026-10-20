@@ -42,8 +42,8 @@ impl Compiler {
             name
         };
         let path = format!("{folder}/{wanted}");
-        let exists = self.fs.is_file(&stdlib.join(&path).join("module.jai"))
-            || self.fs.is_file(&stdlib.join(format!("{path}.jai")));
+        let exists = self.src.fs.is_file(&stdlib.join(&path).join("module.jai"))
+            || self.src.fs.is_file(&stdlib.join(format!("{path}.jai")));
         if !exists {
             return Err(d);
         }
@@ -55,7 +55,7 @@ impl Compiler {
             format!("`{name}` was replaced by `{path}`: `#import \"{path}\";`")
         };
         Ok(
-            match self.sources.snippet(span).find(&format!("\"{name}\"")) {
+            match self.src.sources.snippet(span).find(&format!("\"{name}\"")) {
                 Some(at) => {
                     let start = span.start as usize + at + 1;
                     d.with_fix(
@@ -74,8 +74,10 @@ impl Compiler {
         let mut dirs = vec![from_dir.join("modules")];
         dirs.extend(self.options.import_paths.iter().cloned());
         dirs.dedup();
-        let mut available: Vec<String> =
-            dirs.iter().flat_map(|d| modules_in(&*self.fs, d)).collect();
+        let mut available: Vec<String> = dirs
+            .iter()
+            .flat_map(|d| modules_in(&*self.src.fs, d))
+            .collect();
         available.sort();
         available.dedup();
         let d = Diagnostic::error(span, format!("module `{name}` not found"))
@@ -98,7 +100,7 @@ impl Compiler {
             crate::suggest::closest(name, available.iter().map(String::as_str)).map(str::to_string);
         let near_found = near.is_some();
         if let Some(near) = near {
-            let quoted = self.sources.snippet(span).find(&format!("\"{name}\""));
+            let quoted = self.src.sources.snippet(span).find(&format!("\"{name}\""));
             d = match quoted {
                 Some(at) => {
                     let start = span.start as usize + at + 1;
@@ -147,8 +149,8 @@ impl Compiler {
     /// subdirectories) that holds the module `name`.
     fn module_nearby(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
         let holds = |dir: &Path| {
-            self.fs.is_file(&dir.join(format!("{name}.jai")))
-                || self.fs.is_file(&dir.join(name).join("module.jai"))
+            self.src.fs.is_file(&dir.join(format!("{name}.jai")))
+                || self.src.fs.is_file(&dir.join(name).join("module.jai"))
         };
         let start = self.canon(from_dir);
         for ancestor in start.ancestors().take(4) {
@@ -156,6 +158,7 @@ impl Compiler {
                 return Some(ancestor.to_path_buf());
             }
             let mut subdirs: Vec<String> = self
+                .src
                 .fs
                 .list_dir(ancestor)
                 .into_iter()
@@ -175,7 +178,7 @@ impl Compiler {
 
     /// `#load` (or another read) of a file that is not there, with a close name if one is.
     pub(super) fn unreadable_file(&self, path: &Path, span: Span) -> Diagnostic {
-        let snippet = self.sources.snippet(span);
+        let snippet = self.src.sources.snippet(span);
         // An `#import,file` or `#import,dir` span covers the directive, not only its path.
         let import = snippet.starts_with("#import");
         let shown = match snippet.split_once('"') {
@@ -194,7 +197,7 @@ impl Compiler {
         };
         if import && snippet.contains(",dir") {
             let folder = path.parent().unwrap_or(Path::new("."));
-            let message = if self.fs.is_dir(folder) {
+            let message = if self.src.fs.is_dir(folder) {
                 format!("`{shown}` has no module.jai")
             } else {
                 format!("folder `{shown}` does not exist")
@@ -204,7 +207,7 @@ impl Compiler {
                 .with_note(Span::NONE, format!("looked for {}", path.display()))
                 .with_help(relative);
         }
-        if self.fs.is_dir(path) {
+        if self.src.fs.is_dir(path) {
             return Diagnostic::error(span, format!("`{shown}` is a directory, not a file"))
                 .with_help(
                     "`#load` takes a .jai file; `#import,dir` imports a directory's module.jai",
@@ -218,6 +221,7 @@ impl Compiler {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         let files: Vec<String> = self
+            .src
             .fs
             .list_dir(dir)
             .into_iter()

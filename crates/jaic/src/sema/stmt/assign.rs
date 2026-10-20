@@ -276,7 +276,7 @@ impl Compiler {
                     target.span,
                     format!(
                         "cannot assign into the constant `{}`",
-                        self.sources.snippet(base.span).trim()
+                        self.src.sources.snippet(base.span).trim()
                     ),
                 );
             }

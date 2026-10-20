@@ -72,6 +72,6 @@ fn code_parsed_on_a_started_thread_keeps_its_names() {
     let mut compiler = Compiler::new(options, fs);
     compiler.attach_workspaces(workspaces);
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(PROGRAM.into())]) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }

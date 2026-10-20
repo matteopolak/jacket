@@ -42,7 +42,7 @@ fn forward_overlay_reflection_preserves_declaration_order_offsets_and_flags() {
 fn check(source: &str) {
     let (c, result) = compile(source);
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -175,6 +175,6 @@ fn invalid_defaults_are_errors_even_when_explicit_arguments_bypass_them() {
     assert!(
         error.message.contains("missing_default_symbol"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }

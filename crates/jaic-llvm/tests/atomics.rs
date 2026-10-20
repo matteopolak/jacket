@@ -83,7 +83,7 @@ fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
     }
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
-        panic!("{}", e.render(&compiler.sources));
+        panic!("{}", e.render(&compiler.src.sources));
     }
     let object = dir.join("atomics.o");
     let options = jaic_llvm::Options {

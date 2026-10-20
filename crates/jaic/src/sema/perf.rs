@@ -148,10 +148,12 @@ impl Compiler {
                 continue;
             };
             let (line, _) = self
+                .src
                 .sources
                 .try_get(info.span.file)
                 .map_or((0, 0), |f| f.line_col(info.span.start));
             let path = self
+                .src
                 .sources
                 .try_get(info.span.file)
                 .map_or_else(String::new, |f| f.path.to_string());

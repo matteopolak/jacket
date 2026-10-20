@@ -23,7 +23,7 @@ fn reflected_struct_alignment_matches_completed_layout() {
         main :: () {}
     ";
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -55,7 +55,7 @@ fn hidden_procedure_members_keep_their_reflected_marker_and_storage() {
         main :: () {}
     "#;
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -66,7 +66,7 @@ fn overlay_and_place_resolve_inline_promoted_fields() {
         "Base :: struct { padding: u64; storage: [16] u8; } Middle :: struct { using base: Base; } Outer :: struct { lead: u64; #as using base: Middle; #overlay(storage) value: u64; } Placed :: struct { using base: Base; #place storage; value: u64; } #assert(offset_of(Outer, \"value\") == 16); #assert(offset_of(Outer, \"value\") == offset_of(Outer, \"storage\")); #assert(offset_of(Placed, \"value\") == 8); #assert(size_of(Outer) == 32); object: Outer; #assert(cast(*u8) *object.value == *object.base.base.storage[0]);",
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -76,7 +76,11 @@ fn embedded_using_filter_applies_to_member_lookup() {
         "Base :: struct { x: int; y: int; } Outer :: struct { using,only(x) base: Base; } object: Outer; #assert(*object.x == *object.base.x); #assert(*object.y == *object.base.y);",
     );
     let error = result.expect_err("filtered member must be inaccessible");
-    assert!(error.message.contains('y'), "{}", error.render(&c.sources));
+    assert!(
+        error.message.contains('y'),
+        "{}",
+        error.render(&c.src.sources)
+    );
 }
 
 #[test]
@@ -88,7 +92,7 @@ fn overlay_cannot_target_storage_behind_using_pointer() {
     assert!(
         error.message.contains("storage"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -98,7 +102,7 @@ fn forward_overlay_offsets_types_and_reflection_order_are_independent() {
         "../../../tests/compiler/semantics/forward-overlay.jai"
     ));
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
     let packet = c
         .types
@@ -131,7 +135,7 @@ fn overlay_dependency_cycles_and_dynamic_targets_reject() {
         assert!(
             error.message.contains("cycle") || error.message.contains("inline storage offset"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
     let (c, result) = compile(
@@ -141,7 +145,7 @@ fn overlay_dependency_cycles_and_dynamic_targets_reject() {
     assert!(
         error.message.contains("too large"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -175,7 +179,7 @@ fn forward_layouts_keep_filters_alignment_conditionals_and_cursor_semantics() {
     "#,
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
     for source in [
         "R :: struct { #overlay(anchor) alias:type_of(anchor); anchor:type_of(alias); } #assert size_of(R)>0;",
@@ -186,7 +190,7 @@ fn forward_layouts_keep_filters_alignment_conditionals_and_cursor_semantics() {
         assert!(
             e.message.contains("cycle") || e.message.contains("no field"),
             "{}",
-            e.render(&c.sources)
+            e.render(&c.src.sources)
         );
     }
 }
@@ -200,7 +204,7 @@ fn long_forward_overlay_chains_do_not_recurse_in_the_layout_solver() {
     source.push_str("f5000:u64; tail:u8; } #assert offset_of(R,\"f0\")==0 && offset_of(R,\"tail\")==8 && size_of(R)==16;");
     let (c, result) = compile(&source);
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -220,7 +224,7 @@ fn filtered_member_paths_preserve_pointer_storage_and_filters() {
     ",
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
     let (c, result) = compile(
         "Leaf :: struct {kept:s64;other:s64;} Wrap :: struct {link:*Leaf;using,only(kept) link;} main :: () {wrap:Wrap;wrap.other=1;}",
@@ -229,7 +233,7 @@ fn filtered_member_paths_preserve_pointer_storage_and_filters() {
     assert!(
         error.message.contains("no field") || error.message.contains("no member"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -245,7 +249,7 @@ fn ide_forward_anchor_navigation_and_padding_use_storage_order() {
         "/app/",
     )]));
     if let Err(e) = c.compile_program(std::path::Path::new("/app/main.jai")) {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
     assert!(c.ide_check_all().is_empty());
     let file = jaic::source::FileId(0);

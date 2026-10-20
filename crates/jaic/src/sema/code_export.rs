@@ -139,11 +139,11 @@ impl Exporter<'_> {
         let Some(c) = self.c.as_deref_mut() else {
             return rec;
         };
-        if (span.file.0 as usize) < c.sources.len() {
+        if (span.file.0 as usize) < c.src.sources.len() {
             // Nodes come in runs from one file: remember the last file's module.
             let module = match c.meta.export.last_file_module {
                 Some((file, module)) if file == span.file => module,
-                _ => match c.files.iter().find(|f| f.id == span.file) {
+                _ => match c.src.files.iter().find(|f| f.id == span.file) {
                     Some(f) => {
                         c.meta.export.last_file_module = Some((span.file, f.module));
                         f.module
@@ -152,7 +152,7 @@ impl Exporter<'_> {
                 },
             };
             let file = c.file_record_in(self.r, span.file, module);
-            let source = c.sources.get(span.file);
+            let source = c.src.sources.get(span.file);
             let (l0, c0) = source.line_col(span.start);
             let (l1, c1) = source.line_col(span.end);
             rec.ptr("enclosing_load", file)

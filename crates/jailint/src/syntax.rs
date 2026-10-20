@@ -78,7 +78,7 @@ impl<'a> Cx<'a> {
             facts,
             file: ast.file,
             text,
-            lines: compiler.sources.get(ast.file).lines(),
+            lines: compiler.src.sources.get(ast.file).lines(),
             tokens,
             comments,
             procs,

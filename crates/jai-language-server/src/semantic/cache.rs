@@ -271,7 +271,7 @@ impl Cache {
             let cost = std::iter::once(&compiler)
                 .chain(others.iter().map(|p| &p.compiler))
                 .flat_map(|c| {
-                    (0..c.sources.len() as u32).map(|f| c.sources.get(FileId(f)).text.len())
+                    (0..c.src.sources.len() as u32).map(|f| c.src.sources.get(FileId(f)).text.len())
                 })
                 .sum();
             let usable = errors.is_empty()

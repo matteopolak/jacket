@@ -51,7 +51,7 @@ fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Comp
     "#
             .into(),
         )])
-        .unwrap_or_else(|error| panic!("{}", error.render(&compiler.sources)));
+        .unwrap_or_else(|error| panic!("{}", error.render(&compiler.src.sources)));
     jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget).unwrap();
     captured
 }

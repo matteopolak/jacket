@@ -35,7 +35,7 @@ fn compile(source: &str, private: bool) -> Result<(), String> {
     let mut compiler = Compiler::new(options, Rc::new(fs));
     compiler
         .compile_program(Path::new("/main.jai"))
-        .map_err(|e| e.render(&compiler.sources))
+        .map_err(|e| e.render(&compiler.src.sources))
 }
 
 #[test]

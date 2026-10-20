@@ -612,7 +612,7 @@ impl Exporter<'_> {
             // literal they evaluate to when the compiler's sources are at hand.
             E::File | E::Filepath | E::Line if self.c.is_some() => {
                 let c = self.c.as_deref().unwrap();
-                let src = c.sources.get(span.file);
+                let src = c.src.sources.get(span.file);
                 match &e.kind {
                     E::Line => {
                         let (line, _) = src.line_col(span.start);

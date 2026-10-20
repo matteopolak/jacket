@@ -38,7 +38,7 @@ fn compile_configured(
     configure(&mut compiler);
     compiler
         .compile_program(Path::new("/main.jai"))
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]

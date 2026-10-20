@@ -221,10 +221,10 @@ impl Compiler {
 
     /// Does type `t` name one of the parameters (`-> type_of(asset)`, `p: cache.Proc`)?
     fn mentions_param(&self, t: &ast::Expr, params: &[ParamInfo]) -> bool {
-        if (t.span.file.0 as usize) >= self.sources.len() {
+        if (t.span.file.0 as usize) >= self.src.sources.len() {
             return false;
         }
-        let text = self.sources.snippet(t.span);
+        let text = self.src.sources.snippet(t.span);
         let word = |c: char| c.is_alphanumeric() || c == '_';
         text.split(|c: char| !word(c)).any(|w| {
             params
@@ -278,8 +278,8 @@ impl Compiler {
         // such types are resolved after the others.
         let names_later = |c: &Compiler, i: usize| {
             runtime[i].ty.as_ref().is_some_and(|t| {
-                (t.span.file.0 as usize) < c.sources.len() && {
-                    let text = c.sources.snippet(t.span);
+                (t.span.file.0 as usize) < c.src.sources.len() && {
+                    let text = c.src.sources.snippet(t.span);
                     let word = |ch: char| ch.is_alphanumeric() || ch == '_';
                     text.split(|ch: char| !word(ch)).any(|w| {
                         runtime[i + 1..]

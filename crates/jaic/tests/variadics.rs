@@ -30,7 +30,7 @@ fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
         #assert(!identity(u32,u16));
     ";
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -46,7 +46,7 @@ fn baked_mixed_packs_preserve_values_and_order() {
     main :: () {}
     ";
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -56,7 +56,7 @@ fn scalar_prefix_is_not_discarded_by_a_following_spread() {
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     if let Err(e)=c.compile_sources(&[ProgramSource::String("encode :: (items: ..int) -> int { result: int; for items result=result*10+it; return result; } test :: () -> int { tail: [2]int = .[2,3]; return encode(1,..tail); } #assert(test()==123);".into())]) {
-        panic!("{}",e.render(&c.sources));
+        panic!("{}",e.render(&c.src.sources));
     }
 }
 
@@ -68,7 +68,7 @@ fn mixed_segments_preserve_values_order_defaults_and_polymorphism() {
     if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
         "{SOURCE}\n#assert(check()==0);"
     ))]) {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -100,7 +100,7 @@ fn invalid_spread_lengths_and_c_variadic_arity_are_diagnosed() {
         assert!(
             error.message.contains(expected),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }

@@ -12,7 +12,7 @@ fn explicit_widening_preserves_constant_and_runtime_shift_bits() {
     if let Err(error) = c.compile_sources(&[ProgramSource::String(format!(
         "{SOURCE}\n#assert(check()==0);"
     ))]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -31,7 +31,7 @@ fn shift_use_does_not_remove_checked_cast_errors() {
         let error = c
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("checked out-of-range cast must still reject or trap");
-        let rendered = error.render(&c.sources);
+        let rendered = error.render(&c.src.sources);
         assert!(error.message.contains(expected), "{rendered}");
     }
 }

@@ -9,8 +9,8 @@ impl Compiler {
     /// loaded since the last call.
     pub fn export_file_events(&mut self, r: &mut Records) -> Vec<FileEvent> {
         let mut events = Vec::new();
-        while self.meta.export.files_announced < self.files.len() {
-            let info = &self.files[self.meta.export.files_announced];
+        while self.meta.export.files_announced < self.src.files.len() {
+            let info = &self.src.files[self.meta.export.files_announced];
             let (file, module) = (info.id, info.module);
             self.meta.export.files_announced += 1;
             if !self.meta.export.modules.contains_key(&module) {
@@ -40,7 +40,8 @@ impl Compiler {
     }
 
     fn file_module(&self, file: FileId) -> ModuleId {
-        self.files
+        self.src
+            .files
             .iter()
             .find(|f| f.id == file)
             .map_or(ModuleId(0), |f| f.module)
@@ -68,7 +69,7 @@ impl Compiler {
                 module
                     .files
                     .first()
-                    .map(|&f| self.sources.get(f).path.to_string())
+                    .map(|&f| self.src.sources.get(f).path.to_string())
             })
             .unwrap_or_default();
         let mut rec = Record::new(RecordTag::MessageImport);
@@ -105,8 +106,8 @@ impl Compiler {
             return id;
         }
         let import = self.module_record(r, module);
-        let virtual_source = self.sources.get(file).is_virtual();
-        let path = self.sources.get(file).path.to_string();
+        let virtual_source = self.src.sources.get(file).is_virtual();
+        let path = self.src.sources.get(file).path.to_string();
         let mut rec = Record::new(RecordTag::MessageFile);
         rec.int("kind", message_kind::FILE)
             .int("workspace", self.meta.workspace)

@@ -110,6 +110,6 @@ fn field_type_queries_infer_values_select_branches_and_reject_real_cycles() {
     assert!(
         error.message.contains("cycle in struct field types"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }

@@ -154,7 +154,7 @@ fn snapshot(c: &Compiler, bumps: [u64; 3], nested: u64) -> [u64; N] {
     v[C::Globals as usize] = c.out.program.globals.len() as u64;
     v[C::Foreigns as usize] = c.out.program.foreigns.len() as u64;
     v[C::Modules as usize] = c.modules.len() as u64;
-    v[C::Files as usize] = c.files.len() as u64;
+    v[C::Files as usize] = c.src.files.len() as u64;
     v[C::NamespaceGen as usize] = c.epochs.namespace_generation;
     v[C::CtExec as usize] = c.ct.executions;
     v[C::EntResolve as usize] = bumps[0];

@@ -47,7 +47,7 @@ fn initialized_constants_are_never_assignable_storage_aliases() {
         assert!(
             error.message.contains("constant"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -63,7 +63,7 @@ fn filtered_storage_reexports_do_not_publish_excluded_declarations() {
     assert!(
         error.message.contains("no exported member `Secret`"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -91,7 +91,7 @@ fn foreign_storage_type_queries_and_reexports_need_no_runtime_symbol() {
             cpu,
         );
         if let Err(e) = result {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
         assert_eq!(
             c.out.program.foreigns.iter().filter(|f| f.is_data).count(),
@@ -112,7 +112,7 @@ fn unavailable_foreign_value_expressions_still_require_runtime_storage() {
     assert!(
         error.message.contains("not available"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -175,7 +175,7 @@ fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
         include_str!("../../../tests/compiler/semantics/storage-aliases/behavior.jai")
     );
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source)]) {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
     assert_eq!(
         c.out.program.foreigns.iter().filter(|f| f.is_data).count(),
@@ -194,6 +194,6 @@ fn unavailable_foreign_storage_still_diagnoses_real_reads() {
     assert!(
         error.message.contains("unavailable_data") && error.message.contains("not available"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }

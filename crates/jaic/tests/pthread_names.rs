@@ -14,7 +14,7 @@ fn current_and_managed_worker_names_round_trip_through_the_sdk() {
         include_str!("../../../tests/compiler/semantics/pthread-names.jai")
     );
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     let id = compiler
         .out

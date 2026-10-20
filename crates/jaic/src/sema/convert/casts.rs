@@ -114,7 +114,7 @@ impl Compiler {
     /// decimal expression. Hex and binary literals, `~` and named constants count; a constant
     /// without source text is given the benefit of the doubt.
     pub(crate) fn bit_pattern(&self, span: Span) -> bool {
-        let text = self.sources.snippet(span);
+        let text = self.src.sources.snippet(span);
         text.is_empty() || text.bytes().any(|b| b.is_ascii_alphabetic() || b == b'~')
     }
 

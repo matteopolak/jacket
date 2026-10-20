@@ -102,8 +102,8 @@ impl Compiler {
         self.type_infos.insert(ty, g);
         if let Some(s) = self.types.as_struct(ty) {
             let span = self.types.struct_info(s).span;
-            if (span.file.0 as usize) < self.sources.len() {
-                let source = self.sources.get(span.file);
+            if (span.file.0 as usize) < self.src.sources.len() {
+                let source = self.src.sources.get(span.file);
                 let (line, col) = source.line_col(span.start);
                 let path: Rc<str> = source.path.to_string().into();
                 self.ct

@@ -608,7 +608,7 @@ impl Compiler {
     /// `#location` / `#caller_location` as a `Source_Code_Location` constant.
     pub fn location_operand(&mut self, f: &mut FnCtx, span: Span) -> Result<Operand> {
         let ty = self.preload_type(PreludeType::SourceCodeLocation, span)?;
-        let file = self.sources.get(span.file);
+        let file = self.src.sources.get(span.file);
         let (line, col) = file.line_col(span.start);
         let path = file.path.to_string();
         let _ = f;

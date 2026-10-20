@@ -44,10 +44,10 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
             }
             let mut c = Compiler::new(options, Rc::new(fs));
             c.compile_sources(&[ProgramSource::String("main::(){}".into())])
-                .map_err(|e| e.render(&c.sources))
+                .map_err(|e| e.render(&c.src.sources))
                 .unwrap();
             c.prepare_compiled_output()
-                .map_err(|e| e.render(&c.sources))
+                .map_err(|e| e.render(&c.src.sources))
                 .unwrap();
             let object = dir.join("program.o");
             emit_object(

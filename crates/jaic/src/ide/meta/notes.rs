@@ -274,7 +274,7 @@ impl Compiler {
 
     /// The `name` of a `name = value` argument whose value (or whole argument) is at `span`.
     fn ide_arg_name_span(&self, span: Span, name: Sym) -> Option<Span> {
-        let text = &self.sources.try_get(span.file)?.text;
+        let text = &self.src.sources.try_get(span.file)?.text;
         let name = name.as_str();
         let start = span.start as usize;
         // The argument's span may start at the name or at the value.

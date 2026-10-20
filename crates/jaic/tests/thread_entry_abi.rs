@@ -26,7 +26,7 @@ pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #fo
         assert!(
             error.message.contains("thread entry ABI"),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
 }
@@ -50,6 +50,6 @@ check :: ()->bool #no_context {
 #assert check();
 ";
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }

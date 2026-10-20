@@ -453,10 +453,10 @@ fn lint_root(
         {
             error = Some(diagnostic.message.clone());
         }
-        let files = (0..compiler.sources.len() as u32)
+        let files = (0..compiler.src.sources.len() as u32)
             .map(jaic::source::FileId)
             .filter_map(|f| {
-                let file = compiler.sources.get(f).path.as_file()?;
+                let file = compiler.src.sources.get(f).path.as_file()?;
                 let path = canon.get_or_insert_with(file, canonical);
                 report.contains(&path).then_some((f, path))
             })
@@ -486,7 +486,7 @@ fn lint_root(
             if owned.contains(path) {
                 texts.insert(
                     path.to_string_lossy().into_owned(),
-                    compiler.sources.get(*f).text.clone(),
+                    compiler.src.sources.get(*f).text.clone(),
                 );
             }
         }

@@ -19,15 +19,15 @@ use crate::paths::normalize;
 use std::path::Path;
 
 impl Compiler {
-    /// `self.fs.canonical(path)`, remembered for the rest of the run: the standard library's
+    /// `self.src.fs.canonical(path)`, remembered for the rest of the run: the standard library's
     /// modules are named over and over, and every uncached answer is a `realpath` walk.
     pub(super) fn canon(&self, path: &Path) -> PathBuf {
-        if let Some(real) = self.canon_cache.get(path) {
+        if let Some(real) = self.src.canon_cache.get(path) {
             return real;
         }
-        match self.fs.canonical_exact(path) {
+        match self.src.fs.canonical_exact(path) {
             Some(real) => {
-                self.canon_cache.remember(path, real.clone());
+                self.src.canon_cache.remember(path, real.clone());
                 real
             }
             None => normalize(path),

@@ -46,7 +46,7 @@ fn malformed_or_compiler_only_handlers_are_rejected() {
         assert!(
             error.message.contains(message),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
 }
@@ -63,7 +63,7 @@ fn private_transport_is_not_an_application_export() {
             .message
             .contains("has no exported member `__jaic_interpreter_assertion`"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -80,6 +80,6 @@ fn interpreter_transport_still_checks_the_native_handler_body() {
     assert!(
         error.message.contains("missing_value"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }

@@ -15,7 +15,7 @@ fn check(files: &[(&str, &str)]) -> Result<Compiler, String> {
     let mut compiler = Compiler::new(options, Rc::new(fs));
     compiler
         .compile_program(Path::new("/main.jai"))
-        .map_err(|error| error.render(&compiler.sources))?;
+        .map_err(|error| error.render(&compiler.src.sources))?;
     Ok(compiler)
 }
 

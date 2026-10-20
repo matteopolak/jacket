@@ -128,6 +128,6 @@ fn invalid_local_expression_still_reports_original_type_error() {
     assert!(
         error.message.contains("type") || error.message.contains("operator"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }

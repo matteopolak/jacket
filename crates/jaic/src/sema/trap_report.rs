@@ -202,8 +202,9 @@ impl Compiler {
     fn assert_condition(&self, path: &str, line: u32, col: u32) -> Option<String> {
         let file = self.file_by_path(path)?;
         let span = *self.first_arguments.get(&(file.0, line, col))?;
-        let tokens = crate::lexer::lex(file, &self.sources.get(file).text).ok()?;
+        let tokens = crate::lexer::lex(file, &self.src.sources.get(file).text).ok()?;
         let text = self
+            .src
             .sources
             .snippet(crate::lexer::balanced(&tokens, span))
             .trim();
@@ -213,8 +214,8 @@ impl Compiler {
     /// ` at path:line` for a frame location, or nothing.
     fn loc_suffix(&self, loc: Option<(u32, u32, u32)>) -> String {
         match loc {
-            Some((file, line, _)) if (file as usize) < self.sources.len() => {
-                let path = self.sources.get(FileId(file)).path.to_path();
+            Some((file, line, _)) if (file as usize) < self.src.sources.len() => {
+                let path = self.src.sources.get(FileId(file)).path.to_path();
                 format!(" at {}:{line}", crate::display_path(&path))
             }
             _ => String::new(),
@@ -224,8 +225,8 @@ impl Compiler {
     /// The loaded file at `path`, compared as given and as an absolute path.
     fn file_by_path(&self, path: &str) -> Option<FileId> {
         let wanted = std::path::absolute(path).ok();
-        (0..self.sources.len() as u32).map(FileId).find(|&id| {
-            let have = &self.sources.get(id).path;
+        (0..self.src.sources.len() as u32).map(FileId).find(|&id| {
+            let have = &self.src.sources.get(id).path;
             have.to_string() == path || wanted.as_deref().is_some_and(|w| have.to_path() == w)
         })
     }
@@ -233,10 +234,10 @@ impl Compiler {
     /// The statement at `loc`: from its column to the end of that line (without a trailing
     /// `;` or whitespace), so the carets cover what ran.
     fn statement_span(&self, (file, line, col): (u32, u32, u32)) -> Span {
-        if file as usize >= self.sources.len() {
+        if file as usize >= self.src.sources.len() {
             return Span::NONE;
         }
-        let source = self.sources.get(FileId(file));
+        let source = self.src.sources.get(FileId(file));
         let start = source.offset_of(line, col) as usize;
         let text = source.line_text(line);
         let rest = text.get(col.saturating_sub(1) as usize..).unwrap_or("");
@@ -252,17 +253,17 @@ impl Compiler {
     /// Whether `file` belongs to the standard library, including bootstrap support,
     /// canonical through the compiler's file system (the browser's is virtual).
     fn is_library_file(&self, file: FileId) -> bool {
-        if file.0 as usize >= self.sources.len() {
+        if file.0 as usize >= self.src.sources.len() {
             return true;
         }
-        if let Some(&known) = self.library_files.borrow().get(&file.0) {
+        if let Some(&known) = self.src.library_files.borrow().get(&file.0) {
             return known;
         }
         let known = self.options.stdlib_root().is_some_and(|stdlib| {
-            let path = self.canon(&self.sources.get(file).path.to_path());
+            let path = self.canon(&self.src.sources.get(file).path.to_path());
             path.starts_with(self.canon(stdlib))
         });
-        self.library_files.borrow_mut().insert(file.0, known);
+        self.src.library_files.borrow_mut().insert(file.0, known);
         known
     }
 }

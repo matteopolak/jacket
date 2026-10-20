@@ -286,8 +286,8 @@ impl Compiler {
                         call = Some(IdeCall::of_headers([&*lit.header]));
                     }
                     let detail = match decl.value.as_ref().map(|v| &v.kind) {
-                        Some(E::Proc(lit)) => clip(self.sources.snippet(lit.header.span)),
-                        _ => clip(self.sources.snippet(e.span)),
+                        Some(E::Proc(lit)) => clip(self.src.sources.snippet(lit.header.span)),
+                        _ => clip(self.src.sources.snippet(e.span)),
                     };
                     (kind, detail)
                 }

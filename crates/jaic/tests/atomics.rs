@@ -44,7 +44,7 @@ fn bootstrap_atomics_preserve_scalar_bits_and_previous_values() {
     ",
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -68,7 +68,7 @@ fn atomic_enum_and_procedure_values_keep_their_types_and_identity() {
     ",
     );
     if let Err(e) = result {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -82,7 +82,7 @@ fn atomic_aggregate_and_wide_operands_are_rejected() {
         assert!(
             error.message.contains("atomic scalar"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -96,7 +96,7 @@ fn atomic_misalignment_is_an_explicit_runtime_error() {
     assert!(
         error.message.contains("aligned"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -114,7 +114,7 @@ fn intrinsic_signatures_cannot_change_the_accessed_scalar_type() {
     assert!(
         error.message.contains("signature"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -135,7 +135,7 @@ fn ordered_atomics_reject_invalid_and_stronger_failure_orders() {
         assert!(
             error.message.contains("order"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }

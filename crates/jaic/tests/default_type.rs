@@ -21,7 +21,7 @@ fn compiler(source: &str) -> Compiler {
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut compiler = Compiler::new(options, Rc::new(fs));
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     compiler
 }

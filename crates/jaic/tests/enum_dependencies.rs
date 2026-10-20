@@ -22,7 +22,7 @@ fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
 fn check(source: &str) {
     let (c, r) = compile(source);
     if let Err(e) = r {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
 }
 
@@ -48,7 +48,7 @@ fn ide_forward_member_navigation_preserves_declaration_locations() {
         "/app/",
     )]));
     if let Err(e) = c.compile_program(std::path::Path::new("/app/main.jai")) {
-        panic!("{}", e.render(&c.sources));
+        panic!("{}", e.render(&c.src.sources));
     }
     assert!(c.ide_check_all().is_empty());
     for (usage, declaration) in [
@@ -142,6 +142,6 @@ fn invalid_enums_retain_duplicate_cycle_unknown_and_range_diagnostics() {
     ] {
         let (c, r) = compile(&format!("{source} main :: () {{}}"));
         let e = r.expect_err("invalid enum must fail");
-        assert!(e.message.contains(expected), "{}", e.render(&c.sources));
+        assert!(e.message.contains(expected), "{}", e.render(&c.src.sources));
     }
 }

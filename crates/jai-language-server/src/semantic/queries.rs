@@ -254,7 +254,7 @@ impl Analysis {
     /// A span of any compiled file as (path, text, start, end); `None` for a span in no file
     /// (`Span::NONE`, which builtins carry).
     pub fn location(&self, span: jaic::source::Span) -> Option<(String, Rc<str>, usize, usize)> {
-        let source = self.compiler.sources.try_get(span.file)?;
+        let source = self.compiler.src.sources.try_get(span.file)?;
         Some((
             source.path.to_string(),
             source.text.clone(),
@@ -309,7 +309,7 @@ impl Analysis {
         let Some(file) = self.file(path) else {
             return;
         };
-        let Some(source) = self.compiler.sources.try_get(file) else {
+        let Some(source) = self.compiler.src.sources.try_get(file) else {
             return;
         };
         let (old, new) = (source.text.as_bytes(), text.as_bytes());
@@ -345,7 +345,7 @@ impl Analysis {
         for name in names {
             let file = name.decl.file;
             if let std::collections::btree_map::Entry::Vacant(slot) = out.entry(file.0)
-                && let Some(source) = self.compiler.sources.try_get(file)
+                && let Some(source) = self.compiler.src.sources.try_get(file)
             {
                 slot.insert(source.path.to_string());
             }

@@ -19,7 +19,7 @@ fn compiler(files: &[(&str, &str)], bootstrap: bool) -> Compiler {
 
 fn succeeds(c: &mut Compiler) {
     if let Err(error) = c.compile_program(Path::new("/app/main.jai")) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -71,7 +71,11 @@ fn rejects(c: &mut Compiler, name: &str) {
     let error = c
         .compile_program(Path::new("/app/main.jai"))
         .expect_err("source violating visibility must be rejected");
-    assert!(error.message.contains(name), "{}", error.render(&c.sources));
+    assert!(
+        error.message.contains(name),
+        "{}",
+        error.render(&c.src.sources)
+    );
 }
 
 #[test]
@@ -140,7 +144,7 @@ fn implicit_runtime_load_passes_only_reviewed_module_parameters() {
     options.import_paths = vec!["/lib".into()];
     let mut c = Compiler::new(options, Rc::new(fs));
     if let Err(error) = c.load_bootstrap() {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
@@ -193,7 +197,7 @@ fn library_modules_do_not_ignore_unknown_excess_or_duplicate_arguments() {
         assert!(
             error.message.contains("parameter") || error.message.contains("argument"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -371,9 +375,11 @@ fn editor_completions_apply_import_and_transitive_reexport_filters() {
             .iter()
             .any(|n| n.name == "hidden" || n.name == "extra")
     );
-    let file = (0..c.sources.len())
+    let file = (0..c.src.sources.len())
         .map(|i| jaic::source::FileId(i as u32))
-        .find(|&f| c.sources.get(f).path.as_file() == Some(std::path::Path::new("/app/main.jai")))
+        .find(|&f| {
+            c.src.sources.get(f).path.as_file() == Some(std::path::Path::new("/app/main.jai"))
+        })
         .unwrap();
     let scope = c.scopes.iter().position(|s| s.file == Some(file)).unwrap();
     let visible = c.ide_visible(ScopeId(scope as u32), file, u32::MAX);
@@ -696,7 +702,7 @@ fn native_symlink_cannot_expose_internal_source_as_public_module() {
         assert!(
             error.message.contains("internal"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
     std::fs::remove_dir_all(root).unwrap();

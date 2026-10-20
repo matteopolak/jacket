@@ -260,7 +260,7 @@ impl Compiler {
     /// Default precision follows `lexer::float_literal_precision`: the fractional-digit count for
     /// decimal spellings and the digit width for `0h` bit patterns.
     pub(super) fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
-        let precision = crate::lexer::float_literal_precision(self.sources.snippet(span), v);
+        let precision = crate::lexer::float_literal_precision(self.src.sources.snippet(span), v);
         if precision.defaults_to_float64 || precision.requires_float64 {
             TypeId::F64
         } else {

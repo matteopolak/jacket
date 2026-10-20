@@ -20,7 +20,7 @@ fn emit(triple: &str, cpu: TargetCpu, level: OptLevel, dir: &Path) -> PathBuf {
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     let object = dir.join("frames.obj");
     emit_object(

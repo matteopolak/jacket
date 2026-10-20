@@ -124,7 +124,7 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
         return false;
     };
     let compiler = cx.compiler;
-    let Some(file) = compiler.files.iter().find(|f| f.id == cx.file) else {
+    let Some(file) = compiler.src.files.iter().find(|f| f.id == cx.file) else {
         return false;
     };
     let module_scope = compiler.modules[file.module.0 as usize].scope;
@@ -234,7 +234,7 @@ fn has_variant(cx: &Cx, own: &ProcSite, name: &str) -> bool {
 /// above and of its immediate subdirectories (`src/platform/macos.jai` and `windows.jai`, or
 /// `utils/macos_window.jai` and `utils/win32_window.jai`). They are parsed once per directory.
 fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
-    let Some(file) = cx.compiler.sources.try_get(cx.file) else {
+    let Some(file) = cx.compiler.src.sources.try_get(cx.file) else {
         return false;
     };
     let Some(path) = file.path.as_file() else {
@@ -267,6 +267,7 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
     let own = canonical(cx, path);
     let loaded: Vec<PathBuf> = cx
         .compiler
+        .src
         .files
         .iter()
         .filter_map(|f| Some(canonical(cx, f.path.as_file()?)))
@@ -306,7 +307,7 @@ impl RunState {
             .borrow_mut()
             .entry(file)
             .or_insert_with(|| {
-                let text = &compiler.sources.try_get(file)?.text;
+                let text = &compiler.src.sources.try_get(file)?.text;
                 jaic::lexer::lex(file, text).ok().map(Rc::from)
             })
             .clone()

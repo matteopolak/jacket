@@ -76,8 +76,8 @@ pub fn lint_files(
         return out;
     };
     for &file in files {
-        let path = compiler.sources.get(file).path.to_string();
-        let text = compiler.sources.get(file).text.clone();
+        let path = compiler.src.sources.get(file).path.to_string();
+        let text = compiler.src.sources.get(file).text.clone();
         // Lex once; the parser hands the tokens back for the rules and suppressions.
         let (tokens, comments, lex_errors) = jaic::lexer::lex_with_trivia(file, &text);
         if !lex_errors.is_empty() {

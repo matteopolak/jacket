@@ -8,7 +8,7 @@ fn error_of(declarations: &str, body: &str) -> String {
     let (c, result) = compile_source(&source);
     match result {
         Ok(()) => panic!("expected an error from `{body}`"),
-        Err(error) => error.render(&c.sources),
+        Err(error) => error.render(&c.src.sources),
     }
 }
 

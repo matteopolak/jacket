@@ -163,7 +163,7 @@ impl Compiler {
                 for (instance, span) in &stat.instances {
                     let polymorphed = self.header_record(r, *instance);
                     let mut location = Record::new(RecordTag::SourceCodeLocation);
-                    if let Some(file) = self.sources.try_get(span.file) {
+                    if let Some(file) = self.src.sources.try_get(span.file) {
                         let (line, column) = file.line_col(span.start);
                         location
                             .str("fully_pathed_filename", file.path.to_string().as_bytes())

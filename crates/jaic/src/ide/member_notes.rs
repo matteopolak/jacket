@@ -37,7 +37,7 @@ impl Compiler {
     /// The name of `name` within declaration `span` (a field's span can cover its type and
     /// initializer).
     pub(super) fn ide_name_span(&self, span: Span, name: Sym) -> Span {
-        let text = self.sources.snippet(span);
+        let text = self.src.sources.snippet(span);
         let word = name.as_str();
         let boundary = |c: Option<char>| !c.is_some_and(|c| c.is_alphanumeric() || c == '_');
         let mut from = 0;

@@ -21,7 +21,7 @@ fn compile(source: &str) -> Result<(), String> {
     let mut compiler = Compiler::new(options, Rc::new(fs));
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]
@@ -261,7 +261,7 @@ fn filtered_module_reexports_preserve_operator_visibility() {
         let result = compiler.compile_program(std::path::Path::new("/app/main.jai"));
         if expose {
             result
-                .map_err(|error| error.render(&compiler.sources))
+                .map_err(|error| error.render(&compiler.src.sources))
                 .unwrap();
         } else {
             let error =
@@ -269,7 +269,7 @@ fn filtered_module_reexports_preserve_operator_visibility() {
             assert!(
                 error.message.contains("index"),
                 "{}",
-                error.render(&compiler.sources)
+                error.render(&compiler.src.sources)
             );
         }
     }

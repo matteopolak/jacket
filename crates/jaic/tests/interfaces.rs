@@ -34,7 +34,7 @@ fn unused_interface_replacement_is_validated_when_module_binds() {
         assert!(
             error.message.contains("interface") && error.message.contains("run"),
             "{}",
-            error.render(&c.sources)
+            error.render(&c.src.sources)
         );
     }
 }
@@ -47,7 +47,7 @@ fn valid_replacements_and_the_declared_sentinel_bind() {
     ] {
         let (c, result) = compile(&format!("{source} #assert(M.touch()==7); main :: () {{}}"));
         if let Err(e) = result {
-            panic!("{}", e.render(&c.sources));
+            panic!("{}", e.render(&c.src.sources));
         }
     }
 }
@@ -78,10 +78,10 @@ fn interfaces_apply_to_procedure_and_struct_type_arguments() {
                 assert!(
                     error.message.contains("interface") && error.message.contains("run"),
                     "{}",
-                    error.render(&c.sources)
+                    error.render(&c.src.sources)
                 );
             } else if let Err(e) = result {
-                panic!("{}", e.render(&c.sources));
+                panic!("{}", e.render(&c.src.sources));
             }
         }
     }
@@ -102,7 +102,7 @@ fn later_variadic_arguments_cannot_bypass_interface_validation() {
     assert!(
         error.message.contains("interface") && error.message.contains("run"),
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
 }
 
@@ -123,7 +123,7 @@ fn unknown_type_values_do_not_silently_bypass_binding_time_validation() {
         error.kind,
         jaic::source::DiagnosticKind::InterfaceConstraint,
         "{}",
-        error.render(&c.sources)
+        error.render(&c.src.sources)
     );
     assert!(error.message.contains("concrete type binding"));
 }

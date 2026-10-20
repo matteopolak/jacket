@@ -67,7 +67,7 @@ main :: () {
 fn interface_program_setting_can_use_a_plain_imports_independent_public_type() {
     let (compiler, result) = compile(INTERFACE, PLAIN_IMPORT);
     if let Err(error) = result {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     assert_eq!(
         compiler
@@ -86,7 +86,7 @@ fn polymorphic_program_setting_uses_the_configured_value_before_validation() {
         PLAIN_IMPORT,
     );
     if let Err(error) = result {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -95,7 +95,7 @@ fn an_early_public_member_condition_does_not_consume_the_default() {
     let main = format!("#if Public.Number == s64 {{ early :: true; }} {PLAIN_IMPORT}");
     let (compiler, result) = compile(INTERFACE, &main);
     if let Err(error) = result {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -111,7 +111,7 @@ fn ordinary_interface_settings_keep_distinct_nominal_module_instances() {
     );
     let (compiler, result) = compile(&module, &main);
     if let Err(error) = result {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     assert_eq!(
         compiler
@@ -133,7 +133,7 @@ fn unused_invalid_program_interface_is_still_rejected() {
     assert!(
         error.message.contains("run"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -159,7 +159,7 @@ fn a_real_program_value_dependency_cycle_is_still_rejected() {
     assert!(
         error.message.contains("circular"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -171,7 +171,7 @@ fn conflicting_program_settings_are_still_rejected() {
     assert!(
         error.message.contains("another value"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -179,7 +179,7 @@ fn conflicting_program_settings_are_still_rejected() {
 fn a_valid_unused_default_contract_is_checked_without_configuration() {
     let (compiler, result) = compile(INTERFACE, "M :: #import \"Choice\"; main::(){}");
     if let Err(error) = result {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }
 
@@ -204,7 +204,7 @@ fn interfaces_loaded_only_while_lowering_a_body_are_still_checked() {
         assert!(
             error.message.contains("run"),
             "{}",
-            error.render(&compiler.sources)
+            error.render(&compiler.src.sources)
         );
     }
 }
@@ -222,7 +222,7 @@ fn modules_discovered_by_a_late_contract_keep_their_top_level_errors() {
     assert!(
         error.message.contains("assert"),
         "{}",
-        error.render(&compiler.sources)
+        error.render(&compiler.src.sources)
     );
 }
 
@@ -236,7 +236,7 @@ fn late_module_runs_execute_once_and_repeated_settlement_is_idempotent() {
         Some(dependency),
     );
     if let Err(error) = result {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
     compiler.settle().unwrap();
     compiler
@@ -245,6 +245,6 @@ fn late_module_runs_execute_once_and_repeated_settlement_is_idempotent() {
         ))
         .unwrap();
     if let Err(error) = compiler.settle() {
-        panic!("{}", error.render(&compiler.sources));
+        panic!("{}", error.render(&compiler.src.sources));
     }
 }

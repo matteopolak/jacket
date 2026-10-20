@@ -100,7 +100,7 @@ impl Compiler {
         };
         let name = Sym::intern(name);
         let mut found = Vec::new();
-        for file in &self.files {
+        for file in &self.src.files {
             if file.module == runtime
                 && let Some(ids) = self.scope(file.scope).names.get(&name)
             {

@@ -143,7 +143,7 @@ impl Compiler {
             return None;
         };
         let span = d.span;
-        let wanted = self.sources.snippet(span);
+        let wanted = self.src.sources.snippet(span);
         if wanted.is_empty() {
             return None;
         }
@@ -186,20 +186,20 @@ impl Compiler {
     /// The metaprogram next to the file of `span` (in its directory or the one above) that
     /// adds a declaration of `name` with `add_build_string`, as a path shown to the user.
     fn metaprogram_defining(&self, name: &str, span: Span) -> Option<String> {
-        if span.file.0 as usize >= self.sources.len() {
+        if span.file.0 as usize >= self.src.sources.len() {
             return None;
         }
-        let file = self.sources.get(span.file).path.as_file()?;
+        let file = self.src.sources.get(span.file).path.as_file()?;
         let dir = file.parent()?;
         for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
-            let mut entries = self.fs.list_dir(candidate_dir);
+            let mut entries = self.src.fs.list_dir(candidate_dir);
             entries.sort();
             for (entry, is_dir) in entries {
                 let path = candidate_dir.join(&entry);
                 if is_dir || !entry.ends_with(".jai") || path == file {
                     continue;
                 }
-                let Some(bytes) = self.fs.read(&path) else {
+                let Some(bytes) = self.src.fs.read(&path) else {
                     continue;
                 };
                 if adds_declaration(&String::from_utf8_lossy(&bytes), name) {
@@ -249,7 +249,8 @@ impl Compiler {
                 files.push(stdlib.join(format!("{module}.jai")));
             }
             let declares = files.iter().any(|path| {
-                self.fs
+                self.src
+                    .fs
                     .read(path)
                     .is_some_and(|bytes| exports_name(&String::from_utf8_lossy(&bytes), name))
             });
@@ -288,7 +289,7 @@ impl Compiler {
                 }
                 let paths = files
                     .iter()
-                    .filter_map(|path| self.fs.read(path))
+                    .filter_map(|path| self.src.fs.read(path))
                     .flat_map(|bytes| imported_modules(&String::from_utf8_lossy(&bytes)))
                     .collect();
                 (module.as_str(), paths)
@@ -312,7 +313,7 @@ impl Compiler {
         let Some(main) = self.main_module else {
             return counts;
         };
-        for file in self.files.iter().filter(|f| f.module == main) {
+        for file in self.src.files.iter().filter(|f| f.module == main) {
             for import in &self.scope(file.scope).imports {
                 if let Some(module) = import.module {
                     *counts
@@ -333,12 +334,14 @@ impl Compiler {
         } else {
             format!("{folder}/")
         };
-        self.fs
+        self.src
+            .fs
             .list_dir(&dir)
             .into_iter()
             .filter_map(|(entry, is_dir)| {
                 if is_dir {
-                    self.fs
+                    self.src
+                        .fs
                         .is_file(&dir.join(&entry).join("module.jai"))
                         .then(|| (format!("{prefix}{entry}"), true))
                 } else {
@@ -355,7 +358,7 @@ impl Compiler {
         if depth > 3 {
             return;
         }
-        for (entry, is_dir) in self.fs.list_dir(dir) {
+        for (entry, is_dir) in self.src.fs.list_dir(dir) {
             let path = dir.join(&entry);
             if is_dir {
                 if !matches!(entry.as_str(), "tests" | "examples" | "modules") {
@@ -407,7 +410,7 @@ impl Compiler {
         span: Span,
         message: String,
     ) -> Diagnostic {
-        let text = self.sources.snippet(cond.span).trim();
+        let text = self.src.sources.snippet(cond.span).trim();
         let shown = (!text.is_empty() && !text.contains('\n') && text.len() <= 80).then_some(text);
         let literal_false = matches!(cond.kind, ExprKind::Bool(false));
         let mut d = match (message.is_empty(), shown) {

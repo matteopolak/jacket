@@ -10,7 +10,7 @@ fn compile(source: &str) -> Result<(), String> {
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.sources))
+        .map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn filtered_module_alias_defaults_evaluate_in_the_declaring_private_scope() {
     let mut compiler = Compiler::new(options, Rc::new(fs));
     compiler
         .compile_program(std::path::Path::new("/app/main.jai"))
-        .map_err(|e| e.render(&compiler.sources))
+        .map_err(|e| e.render(&compiler.src.sources))
         .unwrap();
 }
 
@@ -255,7 +255,7 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
     "
             .into(),
         )])
-        .map_err(|e| e.render(&compiler.sources))
+        .map_err(|e| e.render(&compiler.src.sources))
         .unwrap();
     let scope = compiler.modules[compiler.main_module.unwrap().0 as usize].scope;
     let record = compiler.lookup(scope, Sym::intern("R")).unwrap()[0];

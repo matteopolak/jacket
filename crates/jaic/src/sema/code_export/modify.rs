@@ -115,8 +115,8 @@ impl Compiler {
     fn parse_inserted_code(&mut self, text: &str) -> Result<Vec<ast::Stmt>> {
         let source = format!("__jaic_inserted :: () {{\n{text};\n}}\n");
         let label =
-            SourcePath::virtual_source(format!("compiler_get_nodes {}", self.sources.len()));
-        let file = self.sources.add(label, source.as_str().into());
+            SourcePath::virtual_source(format!("compiler_get_nodes {}", self.src.sources.len()));
+        let file = self.src.sources.add(label, source.as_str().into());
         let parsed = crate::parser::parse_file(file, &source).map_err(Box::new)?;
         let body = parsed.stmts.into_iter().find_map(|s| match s.kind {
             ast::StmtKind::Decl(d) => match d.value.as_ref().map(|v| &v.kind) {

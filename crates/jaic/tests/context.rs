@@ -12,7 +12,7 @@ fn check(source: &str) {
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     if let Err(error) = c.compile_sources(&[ProgramSource::String(format!("{SETUP}{source}"))]) {
-        panic!("{}", error.render(&c.sources));
+        panic!("{}", error.render(&c.src.sources));
     }
 }
 
