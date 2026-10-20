@@ -74,7 +74,7 @@ def build(output, architectures=(), selected=None, source=None, sanitize=(), cc=
                     dependencies = ['-L', output, '-l'+profile['sdk']]
                 if system == 'Darwin':
                     flags = ['-dynamiclib', '-Wl,-install_name,@rpath/'+filename,
-                             '-Wl,-rpath,@loader_path']
+                             '-Wl,-rpath,@loader_path', '-Wl,-headerpad_max_install_names']
                 else:
                     flags = ['-shared', '-Wl,-soname,'+filename, '-Wl,-rpath,$ORIGIN',
                              '-pthread', '-lm']
