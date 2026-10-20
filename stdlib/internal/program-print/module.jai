@@ -579,7 +579,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
 
             Basic.append(builder, ";\n");
             if n.then_block && !statements(builder, n.then_block, bodies, next) return false;
-            if n.marked_as_fallthrough Basic.append(builder, "#through;\n");
+            if n.marked_as_fallthrough Basic.append(builder, "#through");
 
             return true;
         case .FOR;
