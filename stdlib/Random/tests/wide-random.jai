@@ -23,5 +23,17 @@ main :: () {
         assert(d >= 0 && d < 1);
     }
 
+    // The float helpers scale the low 24 bits of the next value.
+    copy := state;
+    raw := R.random_get(*copy);
+
+    assert(R.random_get_zero_to_one(*state) == cast(float) (raw & 0xffffff) / 16777215.0);
+    copy = state;
+    raw = R.random_get(*copy);
+    assert(R.random_get_zero_to_one_open(*state) == cast(float) (raw & 0xffffff) / 16777216.0);
+
+    // Reversed bounds give the first one.
+    assert(R.random_get_within_range(*state, 3, -3) == 3);
+
     print("ok\n");
 }

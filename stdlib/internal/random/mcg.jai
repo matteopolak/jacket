@@ -44,11 +44,11 @@ random_seed :: inline (time: $T/interface Some_Big_Time_Value) {
 }
 
 random_get_zero_to_one :: inline (state: *Random_State) -> float {
-    return cast(float) (random_get(state) >> 40) / 16777215.0;
+    return cast(float) (random_get(state) & 0xffffff) / 16777215.0;
 }
 
 random_get_zero_to_one_open :: inline (state: *Random_State) -> float {
-    return cast(float) (random_get(state) >> 40) / 16777216.0;
+    return cast(float) (random_get(state) & 0xffffff) / 16777216.0;
 }
 
 random_get_zero_to_one_new :: (state: *Random_State) -> float64 #no_aoc {
@@ -78,13 +78,12 @@ random_get_zero_to_one_open_new :: inline () -> float64 {
 }
 
 random_get_within_range :: inline (state: *Random_State, min: float, max: float) -> float {
+    // Bounds in the wrong order give `min`: the lower bound is checked first.
     value := min + (max - min) * random_get_zero_to_one(state);
-    low := min;
-    high := max;
+    if value < min return min;
+    if value > max return max;
 
-    if low > high swap(*low, *high);
-
-    return clamp(value, low, high);
+    return value;
 }
 
 random_get_within_range :: inline (min: float, max: float) -> float {
