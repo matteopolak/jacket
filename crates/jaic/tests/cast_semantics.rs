@@ -243,3 +243,70 @@ fn procedures_cast_by_address() {
     holds("g :: () {}\nf :: () -> *void { return cast(*void) g; }\n#assert(f() != null);");
     holds("g :: () {}\nf :: () -> u64 { return cast(u64) cast(*void) g; }\n#assert(f() != 0);");
 }
+
+#[test]
+fn checked_casts_report_the_value_and_the_target() {
+    let (c, result) = compile_source(&narrowing("s64", "u8", "-1"));
+    let rendered = result.expect_err("overflow").render(&c.src.sources);
+    assert!(rendered.contains("-1"), "{rendered}");
+    let (c, result) = compile_source(&narrowing("s32", "u8", "300"));
+    let rendered = result.expect_err("overflow").render(&c.src.sources);
+    assert!(rendered.contains("300"), "{rendered}");
+}
+
+#[test]
+fn enums_are_not_range_checked_at_run_time() {
+    holds(
+        "E :: enum u32 { A :: 0; B :: 1000; }\nf :: (e: E) -> u8 { return cast(u8) e; }\n#assert(f(.B) == 232);",
+    );
+    holds(
+        "E :: enum u8 { A :: 0; B :: 200; }\nf :: (x: s32) -> E { return cast(E) x; }\n#assert(f(200) == E.B);",
+    );
+    holds(
+        "E :: enum u8 { A :: 0; B :: 200; }\nf :: (x: s32) -> E { return cast(E) x; }\n#assert(f(456) == E.B);",
+    );
+}
+
+#[test]
+fn a_typed_constant_cast_to_its_own_type_stays_typed() {
+    rejected("x : u8 = cast(s64) 5;", "");
+    holds("x : s64 = cast(s64) 5; #assert(x == 5);");
+}
+
+#[test]
+fn types_cast_to_type_unchanged() {
+    holds("T :: cast(Type) s32;\n#assert(T == s32);");
+}
+
+#[test]
+fn string_constants_become_byte_arrays_only_of_matching_element_and_length() {
+    rejected("a := cast([4] s32) \"abcd\";", "cannot cast");
+    rejected("a := cast([5] u8) \"abcd\";", "cannot cast");
+}
+
+#[test]
+fn overloaded_procedure_names_do_not_cast_to_a_pointer() {
+    rejected(
+        "g :: (a: s32) {}\ng :: (a: float32) {}\nf :: () -> *void { return cast(*void) g; }",
+        "",
+    );
+}
+
+#[test]
+fn constants_declared_from_casts_stay_constant() {
+    holds("U : u32 : 0x3f800000;\nF :: cast,force(float32) U;\n#assert(F == 1.0);");
+    holds("U : u64 : 0x3ff0000000000000;\nF :: cast,force(float64) U;\n#assert(F == 1.0);");
+    holds("F : float32 : 1.0;\nU :: cast,force(u32) F;\n#assert(U == 0x3f800000);");
+    holds("F : float64 : 1.0;\nU :: cast,force(u64) F;\n#assert(U == 0x3ff0000000000000);");
+    holds("F : float32 : -1.0;\nU :: cast,force(u32) F;\n#assert(U == 0xbf800000);");
+    holds("N :: cast(float32) 3;\n#assert(N == 3.0);");
+    holds("N :: cast(float32) 0.1;\n#assert(cast(float64) N != 0.1);");
+    holds("N :: cast(float64) 0.1;\n#assert(N == 0.1);");
+    holds("N :: cast(s16) 3.9;\n#assert(N == 3);");
+    holds("N :: cast(s32) true;\n#assert(N == 1);");
+    holds("N :: cast(bool) 3;\n#assert(N);");
+    holds("N :: cast(bool) 0;\n#assert(!N);");
+    holds("P :: cast(*u8) 4096;\n#assert(cast(u64) P == 4096);");
+    holds("P : *u8 : null;\nQ :: cast(*s32) P;\n#assert(Q == null);");
+    holds("A : s64 : -1;\nP :: cast(*u8) A;\n#assert(cast(u64) P == 0xffff_ffff_ffff_ffff);");
+}
