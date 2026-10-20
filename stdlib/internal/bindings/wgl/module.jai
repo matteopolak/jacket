@@ -72,50 +72,12 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
     defer if !retained && W.ReleaseDC(window, dc) == 0 abort();
 
     multisample := has_extension(extensions, "WGL_ARB_multisample");
-    format := W.GetPixelFormat(dc);
+    native: Native = .{ choose = choose, query = query };
+    selection := F.select_format(native_driver(*native), dc, multisample, wanted_samples);
 
-    if format == 0 {
-        samples := ifx multisample then wanted_samples else 0;
+    if !selection.ok return null, null, 0;
 
-        // Walk down from the requested sample count, then relax the colour
-        // requirements, before settling on the legacy chooser. Some drivers
-        // report an unsupported sample count as a failed call, not an empty
-        // result, so a failure only ends the current attempt.
-        while choose {
-            format = choose_extended(dc, choose, multisample, samples, false);
-            if format == 0 format = choose_extended(dc, choose, multisample, samples, true);
-            if format != 0 || samples == 0 break;
-
-            samples /= 2;
-        }
-
-        // The extended chooser only returns formats that have every requested attribute, and some
-        // drivers describe those formats incompletely, so only the legacy chooser's nearest match
-        // is checked.
-        extended := format != 0;
-
-        if !extended {
-            descriptor = pixel_descriptor();
-            format = W.ChoosePixelFormat(dc, *descriptor);
-            if format == 0 return null, null, 0;
-        }
-
-        if W.DescribePixelFormat(dc, format, cast(u32) size_of(W.PIXELFORMATDESCRIPTOR), *descriptor) == 0 return null, null, 0;
-        if !extended && !valid_descriptor(descriptor) return null, null, 0;
-        if W.SetPixelFormat(dc, format, *descriptor) == 0 return null, null, 0;
-    } else {
-        if W.DescribePixelFormat(dc, format, cast(u32) size_of(W.PIXELFORMATDESCRIPTOR), *descriptor) == 0 return null, null, 0;
-        if !usable_format(dc, format, descriptor, query) return null, null, 0;
-    }
-
-    actual_samples: s32;
-
-    if multisample && query {
-        names: [2] s32 = .[0x2041, 0x2042];
-        values: [2] s32;
-        if query(dc, format, 0, 2, names.data, values.data) == 0 return null, null, 0;
-        if values[0] != 0 actual_samples = values[1];
-    }
+    actual_samples := selection.samples;
 
     result: W.HGLRC;
 
@@ -147,6 +109,7 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
 
 #scope_file
 W :: #import "Windows";
+F :: #import "internal/bindings/wgl-format";
 
 libc :: #library,system "c";
 abort :: () #foreign libc;
@@ -157,41 +120,72 @@ Construct :: #type (dc: W.HDC, share: W.HGLRC, attributes: *s32) -> W.HGLRC #c_c
 Extensions_ARB :: #type (dc: W.HDC) -> *u8 #c_call;
 Extensions_EXT :: #type () -> *u8 #c_call;
 
+// The driver calls reached through the process's real WGL entry points, plus the two extension
+// procedures resolved once the bootstrap context is current.
+Native :: struct {
+    choose: Choose;
+    query: Query;
+}
+
+native_driver :: (native: *Native) -> F.Driver {
+    driver: F.Driver = .{
+        data = native,
+        get_format = native_get_format,
+        describe = native_describe,
+        choose_legacy = native_choose_legacy,
+        set_format = native_set_format,
+    };
+
+    if native.choose driver.choose = native_choose;
+    if native.query driver.query = native_query;
+
+    return driver;
+}
+
+native_get_format :: (data: *void, dc: *void) -> s32 {
+    return W.GetPixelFormat(dc);
+}
+
+native_describe :: (data: *void, dc: *void, format: s32) -> F.Descriptor, bool {
+    descriptor: W.PIXELFORMATDESCRIPTOR;
+    if W.DescribePixelFormat(dc, format, cast(u32) size_of(W.PIXELFORMATDESCRIPTOR), *descriptor) == 0 return .{}, false;
+
+    return .{ flags = cast(u32) descriptor.dwFlags, pixel_type = descriptor.iPixelType }, true;
+}
+
+native_choose_legacy :: (data: *void, dc: *void) -> s32 {
+    descriptor := pixel_descriptor();
+    return W.ChoosePixelFormat(dc, *descriptor);
+}
+
+native_set_format :: (data: *void, dc: *void, format: s32) -> bool {
+    descriptor: W.PIXELFORMATDESCRIPTOR;
+    if W.DescribePixelFormat(dc, format, cast(u32) size_of(W.PIXELFORMATDESCRIPTOR), *descriptor) == 0 return false;
+
+    return W.SetPixelFormat(dc, format, *descriptor) != 0;
+}
+
+native_choose :: (data: *void, dc: *void, attributes: *s32) -> s32 {
+    native := cast(*Native) data;
+    format: s32;
+    count: u32;
+
+    if native.choose(dc, attributes, null, 1, *format, *count) == 0 return 0;
+    if count == 0 return 0;
+
+    return format;
+}
+
+native_query :: (data: *void, dc: *void, format: s32, count: u32, names: *s32, values: *s32) -> bool {
+    native := cast(*Native) data;
+    return native.query(dc, format, 0, count, names, values) != 0;
+}
+
 resolve :: (name: *u8) -> *void {
     address := W.wglGetProcAddress(name);
     value := cast(u64) address;
     if value <= 3 || value == 0xffff_ffff_ffff_ffff return null;
     return address;
-}
-
-// Asks the pixel-format extension for a double buffered RGBA window format.
-// The strict form wants 8-bit alpha and 24-bit depth; the relaxed form takes any
-// colour depth with at least 16 depth bits. Returns 0 when nothing matches.
-choose_extended :: (dc: W.HDC, choose: Choose, multisample: bool, samples: s32, relaxed: bool) -> s32 {
-    attributes: [19] s32 = .[0x2001, 1, 0x2010, 1, 0x2011, 1, 0x2013, 0x202B, 0x2014, 24, 0x201B, 8, 0x2022, 24, 0, 0, 0, 0, 0];
-
-    if relaxed {
-        attributes[8] = 0;
-        attributes[9] = 0;
-        attributes[10] = 0;
-        attributes[11] = 0;
-        attributes[13] = 16;
-    }
-
-    if multisample {
-        attributes[14] = 0x2041;
-        attributes[15] = ifx samples > 0 then 1 else 0;
-        attributes[16] = 0x2042;
-        attributes[17] = samples;
-    }
-
-    format: s32;
-    count: u32;
-
-    if choose(dc, attributes.data, null, 1, *format, *count) == 0 return 0;
-    if count == 0 return 0;
-
-    return format;
 }
 
 pixel_descriptor :: () -> W.PIXELFORMATDESCRIPTOR {
@@ -205,24 +199,6 @@ pixel_descriptor :: () -> W.PIXELFORMATDESCRIPTOR {
     result.cDepthBits = 24;
 
     return result;
-}
-
-// A format already on the window may have come from the extended chooser, so ask the driver for its
-// attributes when it can answer instead of trusting the descriptor.
-usable_format :: (dc: W.HDC, format: s32, descriptor: W.PIXELFORMATDESCRIPTOR, query: Query) -> bool {
-    if !query return valid_descriptor(descriptor);
-
-    names: [4] s32 = .[0x2001, 0x2010, 0x2011, 0x2013];
-    values: [4] s32;
-
-    if query(dc, format, 0, 4, names.data, values.data) == 0 return valid_descriptor(descriptor);
-
-    return values[0] != 0 && values[1] != 0 && values[2] != 0 && values[3] == 0x202B;
-}
-
-valid_descriptor :: (descriptor: W.PIXELFORMATDESCRIPTOR) -> bool {
-    needed := W.PFD_DRAW_TO_WINDOW | W.PFD_SUPPORT_OPENGL | W.PFD_DOUBLEBUFFER;
-    return (descriptor.dwFlags & needed) == needed && descriptor.iPixelType == W.PFD_TYPE_RGBA;
 }
 
 has_extension :: (pointer: *u8, wanted: string) -> bool {
