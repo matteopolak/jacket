@@ -28,7 +28,7 @@ fn facts(entry: &Path, root: &Path) -> String {
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let mut ide = IdeFacts::new(vec![IdeRoot::under(root)]);
     ide.lint = true;
-    compiler.ide = Some(Box::new(ide));
+    compiler.ed.record(ide);
     let mut errors: Vec<String> = Vec::new();
     if let Err(e) = compiler
         .begin_sources(&[ProgramSource::File(entry.to_path_buf())])
@@ -42,7 +42,7 @@ fn facts(entry: &Path, root: &Path) -> String {
 }
 
 fn dump(c: &Compiler, errors: Vec<String>) -> String {
-    let ide = c.ide.as_ref().unwrap();
+    let ide = c.ed.facts().unwrap();
     let span = |s: &Span| format!("{}:{}..{}", s.file.0, s.start, s.end);
     let ty = |t: &TypeId| c.types.name(*t);
     let opt_ty = |t: &Option<TypeId>| t.as_ref().map_or("-".into(), ty);

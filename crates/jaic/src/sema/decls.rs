@@ -706,7 +706,7 @@ impl Compiler {
         what: Option<&'static str>,
     ) -> Result<bool> {
         let holds = self.static_condition(scope, expr, what);
-        if self.ide.is_some()
+        if self.ed.is_live()
             && let Ok(holds) = holds
         {
             self.ide_note_condition(expr, holds);

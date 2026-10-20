@@ -51,7 +51,7 @@ impl Compiler {
                     self.check_expr(f, scope, e, None)?
                 } else {
                     let place = self.check_ident(f, scope, name.name, name.span)?;
-                    if self.ide.is_some() {
+                    if self.ed.is_live() {
                         let expr = ast::Expr {
                             kind: ast::ExprKind::Ident(name.name),
                             span: name.span,

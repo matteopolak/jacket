@@ -166,7 +166,7 @@ impl Analysis {
         let Some(file) = self.file(path) else {
             return Some((0, usize::MAX));
         };
-        self.compiler.ide.as_ref().and_then(|ide| {
+        self.compiler.ed.facts().and_then(|ide| {
             ide.skipped
                 .iter()
                 .find(|s| s.file == file && s.start as usize <= offset && offset <= s.end as usize)
@@ -178,7 +178,7 @@ impl Analysis {
     /// branch or loop its condition rules out, and `#if` or `ifx` arms no evaluation took.
     /// A procedure analysed once per instance counts only where every instance agrees.
     pub fn unreachable(&self, path: &Path) -> Vec<(usize, usize)> {
-        let (Some(file), Some(ide)) = (self.file(path), self.compiler.ide.as_ref()) else {
+        let (Some(file), Some(ide)) = (self.file(path), self.compiler.ed.facts()) else {
             return Vec::new();
         };
         let dead = ide
@@ -218,7 +218,7 @@ impl Analysis {
 
     pub fn coverage(&self, path: &Path) -> SemanticCoverage {
         let file = self.file(path);
-        let ide = self.compiler.ide.as_ref();
+        let ide = self.compiler.ed.facts();
         SemanticCoverage {
             context_id: format!("{:016x}", self.key),
             analysis: SemanticAnalysisContext {

@@ -318,7 +318,7 @@ impl Compiler {
             }
         }
         if best.is_empty() {
-            if self.ide.is_some() {
+            if self.ed.is_live() {
                 self.ide_note_unmatched_inferred(procs, &args, span);
             }
             let name = procs
@@ -357,7 +357,7 @@ impl Compiler {
         };
         let chosen = best.swap_remove(0);
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
-        if self.ide.is_some() {
+        if self.ed.is_live() {
             self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args, ambiguous);
             if f.pending_for_body
                 .as_ref()

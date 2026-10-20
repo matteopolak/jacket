@@ -132,7 +132,7 @@ impl Compiler {
         exported: bool,
     ) -> EntityId {
         let id = self.new_entity(scope, name, span, kind, exported);
-        if self.ide.is_some() {
+        if self.ed.is_live() {
             self.ide_note_entity(id);
         }
         id
@@ -303,7 +303,7 @@ impl Compiler {
         ty: TypeId,
     ) -> EntityId {
         let id = self.new_const(scope, name, span, value, ty);
-        if self.ide.is_some() {
+        if self.ed.is_live() {
             self.ide_note_entity(id);
         }
         id

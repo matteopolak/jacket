@@ -8,7 +8,7 @@ fn compiler(editor: bool) -> Compiler {
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     if editor {
-        compiler.ide = Some(Box::new(IdeFacts::new(Vec::new())));
+        compiler.ed.record(IdeFacts::new(Vec::new()));
     }
     compiler
 }
@@ -27,7 +27,7 @@ fn entry_file(name: &str) -> PathBuf {
 fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
     let path = entry_file("passive");
     let mut compiler = compiler(true);
-    assert!(compiler.ide_selected_entry_path().is_none());
+    assert!(compiler.ed.selected_entry().is_none());
     compiler
         .prepare_sources(&[ProgramSource::File(path.clone())])
         .unwrap();
@@ -37,7 +37,7 @@ fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
         compiler.files.len(),
     );
     assert_eq!(
-        compiler.ide_selected_entry_path(),
+        compiler.ed.selected_entry(),
         Some(path.canonicalize().unwrap().as_path())
     );
     assert_eq!(
@@ -58,11 +58,11 @@ fn generated_strings_and_later_added_files_do_not_invent_an_entry() {
     compiler
         .prepare_sources(&[ProgramSource::String("value :: 7;".into())])
         .unwrap();
-    assert!(compiler.ide_selected_entry_path().is_none());
+    assert!(compiler.ed.selected_entry().is_none());
     compiler
         .add_source(&ProgramSource::File(path.clone()))
         .unwrap();
-    assert!(compiler.ide_selected_entry_path().is_none());
+    assert!(compiler.ed.selected_entry().is_none());
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
@@ -73,6 +73,6 @@ fn a_non_editor_compile_has_no_captured_ide_entry() {
     compiler
         .prepare_sources(&[ProgramSource::File(path.clone())])
         .unwrap();
-    assert!(compiler.ide_selected_entry_path().is_none());
+    assert!(compiler.ed.selected_entry().is_none());
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

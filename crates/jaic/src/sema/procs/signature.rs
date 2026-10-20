@@ -387,7 +387,7 @@ impl Compiler {
                 (None, None) => return err(r.span, "result needs a type"),
             };
             if let Some(n) = r.name
-                && self.ide.is_some()
+                && self.ed.is_live()
             {
                 self.ide_note_param_name(n.span, n.name, ty);
             }

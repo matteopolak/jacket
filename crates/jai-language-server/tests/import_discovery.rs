@@ -69,9 +69,9 @@ fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usi
             })
         })
         .unwrap();
-    c.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+    c.ed.record(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
         "/discovery/",
-    )])));
+    )]));
     fs.listings.set(0);
     (c, fs, scope, index)
 }
@@ -182,7 +182,7 @@ fn argument_binding_progress_is_resolved_before_missing_discovery_reuse() {
 fn strict_resolution_does_not_reuse_editor_discovery_memo() {
     let (mut c, fs, scope, index) = compiler(SOURCE);
     assert!(c.import_module(scope, index).is_err());
-    c.ide = None;
+    c.ed.stop();
     let before = fs.listings.get();
     assert!(c.import_module(scope, index).is_err());
     let after = fs.listings.get();

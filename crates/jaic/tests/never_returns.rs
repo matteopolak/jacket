@@ -9,14 +9,14 @@ fn dead_runs(source: &str) -> Vec<String> {
     let mut options = Options::host();
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![IdeRoot::Virtual])));
+    compiler.ed.record(IdeFacts::new(vec![IdeRoot::Virtual]));
     compiler
         .begin_sources(&[ProgramSource::String(source.into())])
         .unwrap();
     let _ = compiler.finish_program();
     let errors = compiler.ide_check_all();
     assert!(errors.is_empty(), "{errors:?}");
-    let ide = compiler.ide.as_ref().unwrap();
+    let ide = compiler.ed.facts().unwrap();
     let mut runs: Vec<(u32, u32)> = ide
         .dead_runs
         .iter()

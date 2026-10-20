@@ -13,7 +13,7 @@ use crate::types::TypeKind;
 impl Compiler {
     /// The uses of the struct field or enum member named at `offset`, with its declaration.
     fn ide_member_references(&self, file: FileId, offset: u32) -> Option<Vec<(Span, bool)>> {
-        let ide = self.ide.as_ref()?;
+        let ide = self.ed.facts()?;
         let (_, decl) = ide.member_use_at(file, offset)?;
         let mut out: Vec<(Span, bool)> = ide
             .member_uses
@@ -28,7 +28,7 @@ impl Compiler {
     /// For a struct field or enum member named at `offset`: whether its declaration is in the
     /// recorded files (a rename can reach it). `None` when `offset` names no member.
     pub fn ide_member_declared(&self, file: FileId, offset: u32) -> Option<bool> {
-        let ide = self.ide.as_ref()?;
+        let ide = self.ed.facts()?;
         let (_, decl) = ide.member_use_at(file, offset)?;
         Some(ide.member_uses.contains(&(decl, decl)))
     }
@@ -46,7 +46,7 @@ impl Compiler {
         if wanted.is_empty() {
             return Vec::new();
         }
-        let Some(ide) = self.ide.as_ref() else {
+        let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
         // A use naming an overload set reaches every overload in it, so renaming one renames the

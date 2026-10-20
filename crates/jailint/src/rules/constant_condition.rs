@@ -24,7 +24,7 @@ use jaic::source::Span;
 use jaic::types::TypeKind;
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
-    let Some(ide) = cx.compiler.ide.as_ref() else {
+    let Some(ide) = cx.compiler.ed.facts() else {
         return;
     };
     for p in &cx.procs {

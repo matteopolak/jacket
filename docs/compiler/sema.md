@@ -51,7 +51,7 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 
 ### Unreachable code (`reachability.rs`, `interval.rs`)
 
-The editor fades code that can never run. Two parts, both only with `Compiler::ide` set and only for recorded files.
+The editor fades code that can never run. Two parts, both only while `Compiler::ed` is recording and only for recorded files.
 
 - While a body is checked, `ide_note_ainfo` gives every integer or bool expression an `AInfo` (`IdeFacts::ainfo`): the `Interval` its operands allow, from the type's range, constants (the checker's own evaluation), arithmetic, bit ops, shifts, casts and `!`/`&&`/`||`. Anything that may wrap in the result type, or that mixes a negative with an unsigned type, falls back to the type's range. `interval.rs` holds the domain (`compare`, `binary`, `unary`) with no compiler dependency, so a lint such as "condition always true" or a bounds-check proof can reuse it.
 - `warn_unreachable` (called once per checked body) walks the statements. Dead: code after `return`/`break`/`continue`, after an `if`/`switch` whose paths all exit, after a loop whose condition is always true and that no reached `break` leaves; the branch of an `if` whose condition has one value, a `while` body that never starts, a `case` its value cannot select. Inside a branch the walk narrows the locals the condition constrains, but only locals never address-taken or named by a macro (`addr_taken`) and not assigned in that branch (`assigned`). `defer` bodies are read but are not "after" anything. The first statement after a direct `return`/`break`/`continue` still gets Jai's warning.

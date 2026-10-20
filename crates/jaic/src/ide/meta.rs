@@ -1,4 +1,4 @@
-//! Editor facts about metaprogramming and calls. With `Compiler::ide` set, checking records what
+//! Facts about metaprogramming and calls. While `Compiler::ed` records, checking records what
 //! each `#insert`, `#run`, `#if` and `#expand` macro call of the user's files produced, and which
 //! procedure and parameters each call resolved to. The language server builds expansion hovers,
 //! inlay hints, signature help and format-string hovers from these.
@@ -169,7 +169,7 @@ impl Compiler {
     /// Resolve only the actual callee at this call's opening parenthesis. The original
     /// program and its failed-body guards stay intact; no argument values are invented.
     pub fn ide_call_target_at(&mut self, file: FileId, open: u32) -> Option<IdeCallTarget> {
-        self.ide.as_ref()?;
+        self.ed.facts()?;
         let text = self.sources.get(file).text.clone();
         let callee = crate::parser::parse_callee_ide(file, &text, open)?;
         let scope = self.ide_scope_at(file, callee.span.start)?;
@@ -200,8 +200,8 @@ impl Compiler {
     /// `(`: an answer must not depend on whether the colouring ran against this analysis first.
     pub(crate) fn ide_note_callee_at(&mut self, file: FileId, offset: u32) {
         if self
-            .ide
-            .as_ref()
+            .ed
+            .facts()
             .is_none_or(|ide| !ide.refs_at(file, offset).is_empty())
         {
             return;

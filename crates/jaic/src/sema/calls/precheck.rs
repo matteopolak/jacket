@@ -27,7 +27,7 @@ impl Compiler {
                 return err(o.value.span, format!("Context has no member `{name}`"));
             };
             if let Some(n) = o.name
-                && self.ide.is_some()
+                && self.ed.is_live()
             {
                 self.ide_note_member_use(n.span, ctx_ty, name);
                 self.ide_note_member_ref(n.span, name, fty);

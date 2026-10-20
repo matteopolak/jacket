@@ -27,7 +27,7 @@ impl Compiler {
         if probing {
             crate::sema::body_probe::begin(self, id.0);
         }
-        let error_mark = self.ide.as_ref().map(|ide| ide.errors.len());
+        let error_mark = self.ed.facts().map(|ide| ide.errors.len());
         let executions = self.ct_executions;
         self.dependencies.begin_body(id);
         self.export.expression_types.remove(&id);
@@ -40,7 +40,7 @@ impl Compiler {
             && !self.placeholders_final
             && self.ct_executions == executions
             && !self.unresolved_body_placeholders(id).is_empty()
-            && let (Some(mark), Some(ide)) = (error_mark, self.ide.as_mut())
+            && let (Some(mark), Some(ide)) = (error_mark, self.ed.facts_mut())
         {
             // Diagnostics of an unfinished attempt are provisional. A complete
             // retry owns the final diagnostics, including independent errors.
@@ -269,7 +269,7 @@ impl Compiler {
         // that names them all is never short of a `return`.
         let reaches_end = self.warn_unreachable(&f, body);
         if f.macro_returned
-            && let Some(ide) = self.ide.as_mut()
+            && let Some(ide) = self.ed.facts_mut()
         {
             ide.macro_returners.insert(id);
         }
@@ -280,7 +280,7 @@ impl Compiler {
             && !f.named_results.iter().all(Option::is_some)
             && !f.macro_returned
             && !self.stmts_return(&f, &body.stmts)
-            && (self.ide.is_none() || reaches_end);
+            && (!self.ed.is_live() || reaches_end);
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
@@ -438,7 +438,7 @@ impl Compiler {
             };
             bound.push((*name, id));
         }
-        if self.ide.is_some() {
+        if self.ed.is_live() {
             self.ide_note_poly_header(&header, &bound, parent);
         }
         let p = self.proc(id);
@@ -461,7 +461,7 @@ impl Compiler {
             export: None,
         });
         self.procs[id.0 as usize].instances.insert(key, inst);
-        if signature_only && let Some(ide) = self.ide.as_mut() {
+        if signature_only && let Some(ide) = self.ed.facts_mut() {
             ide.sketch_signatures.insert(inst);
         }
         self.perf.poly_instance(id, inst, span);

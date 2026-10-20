@@ -16,7 +16,9 @@ fn failed() -> (Compiler, ProcId) {
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![IdeRoot::under("/audit/")])));
+    compiler
+        .ed
+        .record(IdeFacts::new(vec![IdeRoot::under("/audit/")]));
     assert!(
         compiler
             .compile_program(std::path::Path::new("/audit/main.jai"))
@@ -118,7 +120,7 @@ fn removing_ide_facts_keeps_strict_lowering_unmemoized() {
         .iter()
         .filter(|n| n.as_str() == "nested")
         .count();
-    compiler.ide = None;
+    compiler.ed.stop();
     assert!(
         compiler
             .lower_body(id)

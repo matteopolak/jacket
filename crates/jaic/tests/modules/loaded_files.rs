@@ -107,12 +107,12 @@ fn ide_selected_internal_entry_is_admitted_without_opening_application_imports()
         ("/app/main.jai", "H :: #import \"internal/helper\";"),
     ];
     let mut c = compiler(&files, true);
-    c.ide = Some(Box::default());
+    c.ed.record(jaic::ide::IdeFacts::default());
     c.compile_program(Path::new("/lib/internal/helper/module.jai"))
         .unwrap_or_else(|e| panic!("{}", e.render(&c.sources)));
 
     let mut c = compiler(&files, true);
-    c.ide = Some(Box::default());
+    c.ed.record(jaic::ide::IdeFacts::default());
     rejects(&mut c, "private");
     let mut c = compiler(&files, true);
     assert!(

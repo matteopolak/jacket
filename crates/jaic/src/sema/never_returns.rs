@@ -193,7 +193,7 @@ impl Compiler {
     /// Compute the procedures that never return from what the analysis checked, and record the
     /// code after a call to one as dead in the bodies analysed. See the module documentation.
     pub(crate) fn ide_note_never_returns(&mut self) {
-        let Some(ide) = self.ide.take() else {
+        let Some(ide) = self.ed.stop() else {
             return;
         };
         let mut ide = ide;
@@ -252,7 +252,7 @@ impl Compiler {
             }
         }
         self.record_dead_after_exits(&mut ide, &candidates, &never);
-        self.ide = Some(ide);
+        self.ed.resume(ide);
     }
 
     fn record_dead_after_exits(

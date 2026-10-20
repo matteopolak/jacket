@@ -27,7 +27,7 @@ Compiles on demand and caches by source text:
 
 1. Open documents overlay the file system (`OverlayFs`; disk plus repo stdlib natively, the bundled `VirtualFs` in the browser).
 2. The root is the open document that `#load`s the requested one, else the project entry (`jacket.toml` `[project] entry`, or an inferred `build.jai`/`first.jai`/`main.jai`/`src/main.jai`).
-3. `Compiler::ide` is set to `IdeFacts`. Sema records what each identifier names, scopes, expansions and calls. Every hook is a no-op when `ide` is `None`.
+3. `compiler.ed.record(IdeFacts)` starts recording. Sema records what each identifier names, scopes, expansions and calls. Every hook is a no-op while the `Editor` is idle (a batch compile).
 4. `ide_check_all` lowers every non-polymorphic body, not only what `main` reaches, and keeps each declaration's error separately (so several errors per file show). It also evaluates the field defaults of structs no value is made of, for their facts only: compilation never evaluates them, so their errors are dropped.
 5. `ide_sketch_polymorphs` checks each uninstantiated polymorphic procedure and unexpanded macro, and each polymorphic struct with no instance, once with stand-in types so hover and completion work inside them. The sketch is then discarded; jailint ignores its facts.
 6. Compile-time code runs in `SandboxHost` with a block budget, so a looping `#run` traps instead of hanging and never writes to protocol stdout.
@@ -89,7 +89,7 @@ Configs are read through the open buffers over the disk and cached per directory
 
 ## How to change it
 
-- **Record more facts**: add a sema hook calling an `ide_*` method guarded by `self.ide.is_some()`; keep it cheap. Name facts go in `ide/facts.rs`, call and metaprogramming facts in `ide/meta.rs` (module `jaic::ide`). Extend `ide_hover`/`ide_entity_hover` to show them.
+- **Record more facts**: add a sema hook calling an `ide_*` method guarded by `self.ed.is_live()`, or an event method on `Editor` (`ide/editor.rs`) when sema only reports something happened; keep it cheap. Name facts go in `ide/facts.rs`, call and metaprogramming facts in `ide/meta.rs` (module `jaic::ide`). Extend `ide_hover`/`ide_entity_hover` to show them.
 - **New hover content**: add a `hover::Block` kind with cases in `HoverText::plain` and `HoverText::markdown`.
 - **New block scope**: call `ide_scope_span`, or completion inside it sees only the enclosing scope.
 - **New expansion kind**: add an `IdeExpansionKind`, record it where the compiler evaluates it, handle it in `kind_name`, `describe`, `expansion` and `code_actions` (`features.rs`).

@@ -152,7 +152,7 @@ impl Compiler {
                 // `name` stands for `value.name`: hover and go to definition treat it as the field.
                 if let Some(ty) = place {
                     self.ide_note_member_use(span, ty, member);
-                    if let Some(ide) = self.ide.as_mut() {
+                    if let Some(ide) = self.ed.facts_mut() {
                         ide.last_using_member = Some(member);
                     }
                 }
@@ -179,7 +179,7 @@ impl Compiler {
                     ));
                 }
                 let op = self.entities_operand(f, scope, &ids, span);
-                if let Some(ide) = self.ide.as_mut() {
+                if let Some(ide) = self.ed.facts_mut() {
                     ide.last_entity = Some((span, ids[0]));
                     if ide.lint {
                         ide.used.extend(ids.iter().copied());
@@ -399,9 +399,9 @@ impl Compiler {
                 format!("cannot infer the type of `.{}` here", name.name),
             );
         };
-        if self.ide.is_some()
+        if self.ed.is_live()
             && self.ide_wants_pub(name.span.file)
-            && let Some(ide) = self.ide.as_mut()
+            && let Some(ide) = self.ed.facts_mut()
         {
             let seen = ide.inferred_expected.entry(name.span).or_default();
             if !seen.contains(&t) {
@@ -522,7 +522,7 @@ impl Compiler {
                 (None, None) => return err(p.span, "procedure type parameter needs a type"),
             };
             if let Some(name) = &p.name
-                && self.ide.is_some()
+                && self.ed.is_live()
             {
                 self.ide_note_param_name(name.span, name.name, ty);
             }

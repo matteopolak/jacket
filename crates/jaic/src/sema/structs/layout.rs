@@ -107,7 +107,7 @@ impl Compiler {
                 (None, None) => return err(tag.span, "union tag needs a type"),
             };
             // `.A ,, a: int;`: each member's tag value names a member of the tag's enum.
-            if self.ide.is_some() {
+            if self.ed.is_live() {
                 for stmt in &src.lit.body {
                     if let ast::StmtKind::Decl(d) = &stmt.kind
                         && let Some(t) = &d.union_tag()
@@ -397,7 +397,7 @@ impl Compiler {
         info.align = align;
         info.layout = LayoutState::Done;
         self.struct_asts.get_mut(&s).unwrap().inits = inits;
-        if self.ide.is_some() {
+        if self.ed.is_live() {
             self.ide_note_layout(s);
         }
         Ok(())

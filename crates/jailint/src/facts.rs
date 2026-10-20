@@ -17,10 +17,12 @@ use jaic::types::TypeId;
 /// Record lint facts for the files under `roots` (an existing editor
 /// record is extended).
 pub fn enable(compiler: &mut Compiler, roots: Vec<jaic::ide::IdeRoot>) {
-    let ide = compiler
-        .ide
-        .get_or_insert_with(|| Box::new(IdeFacts::new(roots)));
-    ide.lint = true;
+    if !compiler.ed.is_live() {
+        compiler.ed.record(IdeFacts::new(roots));
+    }
+    if let Some(ide) = compiler.ed.facts_mut() {
+        ide.lint = true;
+    }
 }
 
 pub struct Facts {
@@ -42,7 +44,7 @@ pub struct Facts {
 
 impl Facts {
     pub fn collect(compiler: &Compiler, files: &[FileId]) -> Option<Facts> {
-        let ide = compiler.ide.as_ref()?;
+        let ide = compiler.ed.facts()?;
         if !ide.lint {
             return None;
         }
@@ -167,14 +169,14 @@ pub trait Recorded {
 
 impl Recorded for Compiler {
     fn expr_fact(&self, span: Span) -> Option<IdeExprFact> {
-        self.ide.as_ref()?.exprs.get(&span).copied()
+        self.ed.facts()?.exprs.get(&span).copied()
     }
 
     fn cast_fact(&self, span: Span) -> Option<IdeCast> {
-        self.ide.as_ref()?.casts.get(&span).copied()
+        self.ed.facts()?.casts.get(&span).copied()
     }
 
     fn is_used(&self, e: EntityId) -> bool {
-        self.ide.as_ref().is_some_and(|i| i.used.contains(&e))
+        self.ed.facts().is_some_and(|i| i.used.contains(&e))
     }
 }

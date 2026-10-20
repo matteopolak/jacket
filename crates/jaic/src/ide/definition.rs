@@ -54,7 +54,7 @@ impl Compiler {
                 Some(self.ide_name_span(*span, name))
             })
             .collect();
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return;
         };
         for name in names {
@@ -98,7 +98,7 @@ impl Compiler {
                     .collect(),
             );
         }
-        if let Some(selection) = self.ide.as_ref().and_then(|ide| {
+        if let Some(selection) = self.ed.facts().and_then(|ide| {
             (0..3).find_map(|delta| {
                 let start = offset.checked_sub(delta)?;
                 let end = start.checked_add(3)?;
@@ -121,13 +121,13 @@ impl Compiler {
             return definitions;
         }
         // A struct field or enum member: the declaration its use was matched to.
-        if let Some(ide) = self.ide.as_ref()
+        if let Some(ide) = self.ed.facts()
             && let Some((_, decl)) = ide.member_use_at(file, offset)
             && decl.end > decl.start
         {
             return vec![decl];
         }
-        let Some(r) = self.ide.as_ref().and_then(|ide| {
+        let Some(r) = self.ed.facts().and_then(|ide| {
             ide.refs_at(file, offset)
                 .into_iter()
                 .min_by_key(|r| r.span.end - r.span.start)
@@ -199,7 +199,7 @@ impl Compiler {
             IdeWhat::Type(t) => match self.types.kind(*t) {
                 TypeKind::Struct(s) => vec![(self.types.struct_info(*s).span, name)],
                 TypeKind::Enum(e) => vec![(self.types.enum_info(*e).span, name)],
-                _ => match self.ide.as_ref().and_then(|i| i.type_names.get(&r.span)) {
+                _ => match self.ed.facts().and_then(|i| i.type_names.get(&r.span)) {
                     Some(&e) => vec![(self.entity(e).span, name)],
                     None => Vec::new(),
                 },

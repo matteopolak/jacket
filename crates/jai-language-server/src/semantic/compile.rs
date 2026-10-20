@@ -38,12 +38,12 @@ fn editor_facts(
     host: &Rc<RefCell<SandboxHost>>,
     lint: bool,
     untrusted: bool,
-) -> Box<IdeFacts> {
+) -> IdeFacts {
     let mut facts = IdeFacts::new(vec![IdeRoot::under(root)]).with_files(open.to_vec());
     facts.output = Some(host.clone());
     facts.lint = lint;
     facts.untrusted = untrusted;
-    Box::new(facts)
+    facts
 }
 
 /// Gives each compiler a metaprogram creates editor facts, and keeps it when it is done.
@@ -60,7 +60,7 @@ struct Built {
 
 impl WorkspaceObserver for Built {
     fn created(&mut self, compiler: &mut Compiler) {
-        compiler.ide = Some(editor_facts(
+        compiler.ed.record(editor_facts(
             &self.root,
             &self.open,
             &self.host,
@@ -109,8 +109,8 @@ fn known(
     use jaic::source::DiagnosticKind;
     let refused = |file: FileId| {
         compiler
-            .ide
-            .as_ref()
+            .ed
+            .facts()
             .is_some_and(|ide| ide.refused.iter().any(|s| s.file == file))
             && compiler.sources.get(file).text.contains("#insert")
     };
@@ -189,9 +189,11 @@ pub(super) fn compile(
         })),
     });
     compiler.attach_workspaces(workspaces);
-    compiler.ide = Some(editor_facts(&dir_key, &open, &host, lint, untrusted));
+    compiler
+        .ed
+        .record(editor_facts(&dir_key, &open, &host, lint, untrusted));
     let number = parses.borrow_mut().begin();
-    compiler.parse_reuse = Some((parses.clone(), number));
+    compiler.ed.parse_reuse = Some((parses.clone(), number));
     let errors = compiler
         .compile_program(root)
         .err()

@@ -14,7 +14,7 @@ use crate::types::{StructId, TypeKind};
 impl Compiler {
     /// The innermost recorded scope at `offset` of `file` (else the file's own scope).
     pub fn ide_scope_at(&self, file: FileId, offset: u32) -> Option<ScopeId> {
-        let inner = self.ide.as_ref().and_then(|ide| {
+        let inner = self.ed.facts().and_then(|ide| {
             ide.scopes
                 .iter()
                 .filter(|(s, _)| s.file == file && s.start <= offset && offset <= s.end)
@@ -33,7 +33,7 @@ impl Compiler {
     /// The innermost recorded name at `offset` of `file`, and whether every record of that
     /// exact span agrees (a polymorphic body is checked once per instance).
     fn ide_hover_ref(&self, file: FileId, offset: u32) -> Option<(IdeRef, bool)> {
-        let here = self.ide.as_ref()?.refs_at(file, offset);
+        let here = self.ed.facts()?.refs_at(file, offset);
         let r = here
             .iter()
             .copied()
@@ -94,7 +94,7 @@ impl Compiler {
                 self.entity(e).state,
                 EntityState::Done(Resolved::PolyStruct(_))
             )
-            && let Some(&Some(t)) = self.ide.as_ref()?.instances.get(&r.span)
+            && let Some(&Some(t)) = self.ed.facts()?.instances.get(&r.span)
         {
             let text = self.ide_type_hover(&self.types.name(t), t);
             let layout = if same {
@@ -151,7 +151,7 @@ impl Compiler {
             );
         }
         let Some((r, _)) = self.ide_hover_ref(file, offset) else {
-            let Some(site) = self.ide.as_ref().and_then(|ide| {
+            let Some(site) = self.ed.facts().and_then(|ide| {
                 ide.fields
                     .iter()
                     .find(|(s, _)| s.file == file && s.start <= offset && offset <= s.end)
@@ -198,8 +198,8 @@ impl Compiler {
     /// (the instances of a polymorphic struct) has no one type and layout to show.
     fn ide_field_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
         let (span, site) = self
-            .ide
-            .as_ref()?
+            .ed
+            .facts()?
             .fields
             .iter()
             .find(|(s, _)| s.file == file && s.start <= offset && offset <= s.end)
@@ -332,7 +332,7 @@ impl Compiler {
 
     /// The field `name` of the value left of the `.` at `span`.
     fn ide_member_layout(&mut self, span: Span, name: Sym) -> Option<IdeLayout> {
-        let mut ty = (*self.ide.as_ref()?.receivers.get(&span)?)?;
+        let mut ty = (*self.ed.facts()?.receivers.get(&span)?)?;
         while let Some(p) = self.types.pointee(ty) {
             ty = p;
         }

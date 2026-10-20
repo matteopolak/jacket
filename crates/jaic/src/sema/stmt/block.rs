@@ -52,7 +52,7 @@ impl Compiler {
             if error.kind == DiagnosticKind::Untrusted && !self.sketching() {
                 self.sketch_salvage(f, scope, stmt);
             } else if !self.sketching()
-                && self.ide.is_some()
+                && self.ed.is_live()
                 && let S::Decl(decl) = &stmt.kind
             {
                 // A declaration whose initializer failed still declares its names (as the
@@ -84,10 +84,10 @@ impl Compiler {
         failed: &mut Option<Box<Diagnostic>>,
         error: Box<Diagnostic>,
     ) -> Result<()> {
-        if self.ide.is_none() || self.sketching() {
+        if !self.ed.is_live() || self.sketching() {
             return Err(error);
         }
-        self.ide.as_mut().unwrap().errors.push((*error).clone());
+        self.ed.error(&error);
         if failed.is_none() {
             *failed = Some(error);
         }
@@ -121,15 +121,13 @@ impl Compiler {
     /// declare the names a declaration did not.
     fn sketch_salvage(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) {
         let checked = |c: &Self, e: &ast::Expr| {
-            c.ide
-                .as_ref()
+            c.ed.facts()
                 .is_some_and(|ide| ide.sketch_tried.contains(&e.span))
         };
         // A condition that has a type was fine: the failure was in a body, which salvaged
         // its own statements.
         let typed = |c: &Self, e: &ast::Expr| {
-            c.ide
-                .as_ref()
+            c.ed.facts()
                 .is_some_and(|ide| ide.sketch_types.contains_key(&e.span))
         };
         let check = |c: &mut Self, f: &mut FnCtx, e: &ast::Expr| {
@@ -372,7 +370,7 @@ impl Compiler {
             S::For(for_) => self.check_for(f, scope, for_, span),
             S::Break(label) => {
                 if let Some(l) = label
-                    && self.ide.is_some()
+                    && self.ed.is_live()
                 {
                     self.ide_note_label(scope, *l);
                 }
@@ -384,7 +382,7 @@ impl Compiler {
             }
             S::Continue(label) => {
                 if let Some(l) = label
-                    && self.ide.is_some()
+                    && self.ed.is_live()
                 {
                     self.ide_note_label(scope, *l);
                 }
@@ -396,7 +394,7 @@ impl Compiler {
             }
             S::Remove(label) => {
                 if let Some(l) = label
-                    && self.ide.is_some()
+                    && self.ed.is_live()
                 {
                     self.ide_note_label(scope, *l);
                 }

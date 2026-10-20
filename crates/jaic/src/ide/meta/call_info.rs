@@ -14,8 +14,8 @@ impl Compiler {
 
     /// Expansions recorded in `file`.
     pub fn ide_expansions(&self, file: FileId) -> Vec<IdeExpansion> {
-        self.ide
-            .as_ref()
+        self.ed
+            .facts()
             .map(|ide| {
                 ide.expansions
                     .iter()
@@ -29,7 +29,7 @@ impl Compiler {
     /// The `it` and `it_index` that loops of `file` declare without naming them, as (start of
     /// the iterated expression, `it: T, it_index: s64`).
     pub fn ide_implicit_loop_names(&self, file: FileId) -> Vec<(u32, String)> {
-        let Some(ide) = self.ide.as_ref() else {
+        let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
         ide.implicit_loop_names
@@ -50,8 +50,8 @@ impl Compiler {
     /// Calls recorded in `file`, described.
     pub fn ide_calls(&mut self, file: FileId) -> Vec<IdeCallInfo> {
         let calls: Vec<IdeCall> = self
-            .ide
-            .as_ref()
+            .ed
+            .facts()
             .map(|ide| {
                 ide.calls
                     .iter()
@@ -70,7 +70,7 @@ impl Compiler {
         if ps.len() < 2 {
             return None;
         }
-        let ide = self.ide.as_ref()?;
+        let ide = self.ed.facts()?;
         let call = ide
             .calls
             .iter()

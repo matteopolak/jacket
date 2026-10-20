@@ -44,9 +44,9 @@ fn ide_forward_member_navigation_preserves_declaration_locations() {
     let mut fs = VirtualFs::default();
     fs.insert("/app/main.jai", source.as_bytes());
     let mut c = Compiler::new(options, Rc::new(fs));
-    c.ide = Some(Box::new(jaic::ide::IdeFacts::new(vec![
-        jaic::ide::IdeRoot::under("/app/"),
-    ])));
+    c.ed.record(jaic::ide::IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+        "/app/",
+    )]));
     if let Err(e) = c.compile_program(std::path::Path::new("/app/main.jai")) {
         panic!("{}", e.render(&c.sources));
     }

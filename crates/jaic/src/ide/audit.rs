@@ -17,7 +17,7 @@ impl Compiler {
     /// a declaration another one depends on reports its own error once, at its own span).
     pub fn ide_check_all(&mut self) -> Vec<Diagnostic> {
         let mut errors: Vec<Diagnostic> = Vec::new();
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             errors.append(&mut ide.errors);
         } else {
             return errors;
@@ -86,14 +86,14 @@ impl Compiler {
         // type either way), keeping quiet about their errors as compilation does.
         unused_defaults.retain(|(t, _)| !self.default_images.contains_key(t));
         let quiet = (
-            self.ide.as_ref().map_or(0, |ide| ide.errors.len()),
+            self.ed.facts().map_or(0, |ide| ide.errors.len()),
             self.warnings.len(),
             self.deferred_errors.len(),
         );
         for (t, span) in unused_defaults {
             let _ = self.default_initializer(t, span);
         }
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.errors.truncate(quiet.0);
         }
         self.warnings.truncate(quiet.1);
@@ -139,7 +139,7 @@ impl Compiler {
             .collect();
         failed.sort_by_key(|e| (e.span.file.0, e.span.start));
         errors.extend(failed);
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             errors.append(&mut ide.errors);
         }
         self.ide_note_never_returns();
@@ -174,7 +174,7 @@ impl Compiler {
             if let Some(lib) = header.foreign.as_ref().and_then(|f| f.library)
                 && let Ok(ids) = self.lookup(scope, lib.name)
                 && let [lib_id] = ids[..]
-                && let Some(ide) = self.ide.as_mut()
+                && let Some(ide) = self.ed.facts_mut()
             {
                 ide.refs.push(IdeRef {
                     span: lib.span,
@@ -206,10 +206,10 @@ impl Compiler {
     /// checked as running (`ran`) or as skipped by a constant condition. Evaluations merge: a
     /// branch is faded only when none of them ran it.
     pub(crate) fn ide_note_ran(&mut self, span: Span, ran: bool) {
-        if self.ide.is_some()
+        if self.ed.is_live()
             && !self.sketching()
             && self.ide_wants(span.file)
-            && let Some(ide) = self.ide.as_mut()
+            && let Some(ide) = self.ed.facts_mut()
         {
             *ide.static_branches.entry(span).or_insert(false) |= ran;
         }
@@ -221,11 +221,11 @@ impl Compiler {
         let (Some(first), Some(last)) = (branch.first(), branch.last()) else {
             return;
         };
-        if self.ide.is_none() || !self.ide_wants(first.span.file) || !names_target(cond) {
+        if !self.ed.is_live() || !self.ide_wants(first.span.file) || !names_target(cond) {
             return;
         }
         let span = first.span.to(last.span);
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.skipped.push(span);
         }
     }

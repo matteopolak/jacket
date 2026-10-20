@@ -16,9 +16,9 @@ fn compiler(source: &str, dependency: &str) -> Compiler {
     options.stack_trace = false;
     options.import_paths = vec!["/modules".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
-        "/audit/",
-    )])));
+    compiler
+        .ed
+        .record(IdeFacts::new(vec![jaic::ide::IdeRoot::under("/audit/")]));
     assert!(
         compiler
             .compile_program(Path::new("/audit/main.jai"))
@@ -102,7 +102,7 @@ fn sketching_does_not_retry_unrelated_failed_bodies_after_compile_time_progress(
     ))
     .unwrap();
     c.ide_sketch_polymorphs();
-    let ide = c.ide.as_ref().unwrap();
+    let ide = c.ed.facts().unwrap();
     assert!(ide.refs.len() > ide.sketch_from.as_ref().unwrap().refs);
     assert_eq!(
         ide.expansions.len(),

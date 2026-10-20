@@ -189,7 +189,7 @@ pub(super) fn step(
         Err(d) => {
             let text = compiler.render(&d);
             // An editor compile (see `WorkspaceObserver`) keeps the error with its facts.
-            if let Some(ide) = compiler.ide.as_mut() {
+            if let Some(ide) = compiler.ed.facts_mut() {
                 ide.errors.push((*d).clone());
             }
             let mut imports = Vec::new();

@@ -11,7 +11,7 @@ use crate::types::TypeKind;
 impl Compiler {
     /// Inferred types of declarations `x := value` in `file`: (name span, type).
     pub fn ide_declared_types(&self, file: FileId) -> Vec<(Span, String)> {
-        let Some(ide) = self.ide.as_ref() else {
+        let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
         let mut out: Vec<(Span, String)> = Vec::new();
@@ -109,7 +109,7 @@ impl Compiler {
     /// yet are resolved first: an alias such as `Mod :: #import "Module";` is a module only once
     /// it is, so the color would otherwise depend on which requests were made before.
     pub fn ide_classes(&mut self, file: FileId) -> Vec<(Span, IdeClass)> {
-        let pending: Vec<EntityId> = match self.ide.as_ref() {
+        let pending: Vec<EntityId> = match self.ed.facts() {
             Some(ide) => ide
                 .refs
                 .iter()
@@ -128,7 +128,7 @@ impl Compiler {
         for id in pending {
             let _ = self.resolve_entity(id);
         }
-        let Some(ide) = self.ide.as_ref() else {
+        let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
         let mut out = Vec::new();
@@ -167,8 +167,8 @@ impl Compiler {
     }
 
     pub(super) fn ide_ref_at(&self, file: FileId, offset: u32) -> Option<IdeRef> {
-        self.ide
-            .as_ref()?
+        self.ed
+            .facts()?
             .refs
             .iter()
             .filter(|r| r.span.file == file && r.span.start <= offset && offset <= r.span.end)
@@ -181,7 +181,7 @@ impl Compiler {
             // A type written by a name: what the name declares (`T` bound to `int` is not every
             // `int`).
             IdeWhat::Type(_)
-                if let Some(&e) = self.ide.as_ref().and_then(|i| i.type_names.get(&r.span)) =>
+                if let Some(&e) = self.ed.facts().and_then(|i| i.type_names.get(&r.span)) =>
             {
                 self.ide_entity_targets(e)
             }
@@ -200,7 +200,7 @@ impl Compiler {
         if self.ide_entity_name_span(e).is_none() {
             return true;
         }
-        if self.ide.as_ref().is_some_and(|i| i.stand_ins.contains(&t)) {
+        if self.ed.facts().is_some_and(|i| i.stand_ins.contains(&t)) {
             return false;
         }
         let name = self.entity(e).name;

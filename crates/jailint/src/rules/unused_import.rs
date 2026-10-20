@@ -99,8 +99,8 @@ pub(crate) fn prepare(
             continue;
         };
         if compiler
-            .ide
-            .as_ref()
+            .ed
+            .facts()
             .is_some_and(|i| i.used_imports.contains(&(scope, index)))
             || exports_entry_points(compiler, cache, m)
         {

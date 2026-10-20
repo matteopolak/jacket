@@ -20,7 +20,7 @@ impl Compiler {
         literal: Option<String>,
     ) {
         let text = bounded(text);
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return;
         };
         if let Some(&at) = ide.expansion_index.get(&(span, kind)) {
@@ -50,8 +50,8 @@ impl Compiler {
 
     /// Bytes compile-time code has printed so far (to tell what one `#run` printed).
     pub(crate) fn ide_output_mark(&self) -> usize {
-        self.ide
-            .as_ref()
+        self.ed
+            .facts()
             .and_then(|i| i.output.as_ref())
             .map_or(0, |o| {
                 o.try_borrow()
@@ -60,7 +60,7 @@ impl Compiler {
     }
 
     fn ide_output_since(&self, mark: usize) -> String {
-        let Some(out) = self.ide.as_ref().and_then(|i| i.output.as_ref()) else {
+        let Some(out) = self.ed.facts().and_then(|i| i.output.as_ref()) else {
             return String::new();
         };
         let Ok(host) = out.try_borrow() else {

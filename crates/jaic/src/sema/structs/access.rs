@@ -32,7 +32,7 @@ impl Compiler {
                         // as check_ident does. Set it after operand resolution because
                         // an initializer may itself resolve other named expressions.
                         if result.is_ok()
-                            && let Some(ide) = self.ide.as_mut()
+                            && let Some(ide) = self.ed.facts_mut()
                         {
                             ide.last_entity = ids.first().map(|&id| (span, id));
                         }
@@ -295,7 +295,7 @@ impl Compiler {
 
     /// `name` at `span` named the constant `ids` declare in a struct: a use of it, like any name.
     fn ide_note_constant_use(&mut self, span: Span, ids: &[EntityId]) {
-        if let Some(ide) = self.ide.as_mut()
+        if let Some(ide) = self.ed.facts_mut()
             && let Some(&first) = ids.first()
         {
             ide.last_entity = Some((span, first));

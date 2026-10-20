@@ -416,8 +416,6 @@ pub struct Compiler {
     /// Lexical provenance of scoped/generated sources, for relative source loads
     /// and the distribution boundary around library-owned internals.
     source_origins: HashMap<FileId, FileId>,
-    /// Explicit editor entry, admitted for inspection without authorizing imports.
-    ide_selected_entry: Option<PathBuf>,
     file_by_path: HashMap<(PathBuf, ModuleId), modules::FileLoadState>,
     /// Whether each source file is the stdlib's, for trap reports (a `#run` can trap often).
     library_files: std::cell::RefCell<HashMap<u32, bool>>,
@@ -646,11 +644,8 @@ pub struct Compiler {
     /// Interpreter blocks already copied into globals while freezing one compile-time value,
     /// by `(address, bytes)`: pointer cycles (`n.next = n`) refer back instead of recursing.
     frozen: HashMap<(u64, u64), ir::GlobalId>,
-    /// Editor facts recorded while checking (`ide.rs`); `None` outside the language server.
-    pub ide: Option<Box<crate::ide::IdeFacts>>,
-    /// Editor parses shared with other compiles, and this compile's number in it (see
-    /// `ParseReuse::begin`). Only read while `ide` is set.
-    pub parse_reuse: Option<(Rc<std::cell::RefCell<crate::parser::ParseReuse>>, u64)>,
+    /// The editor analysis this compile records for, if any (`crate::ide`).
+    pub ed: crate::ide::Editor,
     /// Set by `finish_program`: pending items no longer wait for placeholders.
     pub placeholders_final: bool,
     /// Set while the plain `#if` pass expands an item: lookups then leave other pending items
@@ -728,7 +723,6 @@ impl Compiler {
             registered_data_segments: HashMap::default(),
             files: Vec::new(),
             source_origins: HashMap::default(),
-            ide_selected_entry: None,
             file_by_path: HashMap::default(),
             modules: Vec::new(),
             module_cache: HashMap::default(),
@@ -775,7 +769,7 @@ impl Compiler {
             parked_epoch: 0,
             namespace_generation: 0,
             func_targets: HashMap::default(),
-            parse_reuse: None,
+            ed: crate::ide::Editor::default(),
             module_names: HashMap::default(),
             module_names_unsettled: false,
             module_misses: HashMap::default(),
@@ -849,7 +843,6 @@ impl Compiler {
             resolving_depth: 0,
             insert_depth: HashMap::default(),
             frozen: HashMap::default(),
-            ide: None,
             placeholders_final: false,
             lookup_without_expansion: false,
             no_reset_globals: Vec::new(),

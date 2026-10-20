@@ -21,7 +21,7 @@ impl Compiler {
     /// which a linter should not see.
     pub fn ide_sketch_polymorphs(&mut self) {
         let (entities, procs) = (self.entities.len(), self.procs.len());
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return;
         };
         ide.sketch_from.get_or_insert(crate::ide::SketchMark {
@@ -40,8 +40,7 @@ impl Compiler {
             let p = self.proc(id);
             let (file, scope) = (p.span.file, p.scope);
             let expanded = |c: &Self, i: &ProcId| {
-                c.ide
-                    .as_ref()
+                c.ed.facts()
                     .is_some_and(|ide| ide.expanded_macros.contains(i))
             };
             if !(p.is_poly || p.is_macro)
@@ -61,7 +60,7 @@ impl Compiler {
             }
         }
         self.ide_sketch_structs();
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.lint = lint;
             ide.sketching = false;
             ide.sketch_types.clear();
@@ -78,11 +77,11 @@ impl Compiler {
     /// Check a sketch of `id`; false when checking it panicked, which may have left the
     /// checker's state half-way.
     fn ide_sketch(&mut self, id: ProcId) -> bool {
-        let errors = self.ide.as_ref().map_or(0, |ide| ide.errors.len());
+        let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
         let (warnings, deferred) = (self.warnings.len(), self.deferred_errors.len());
         let first_new = self.procs.len();
         let asserts = self.asserts.len();
-        let refs = self.ide.as_ref().map_or(0, |ide| ide.refs.len());
+        let refs = self.ed.facts().map_or(0, |ide| ide.refs.len());
         // A sketch is ordinary checking, but with types nothing was written for: should it
         // trip an assumption, lose the sketch, not the editor's other facts.
         let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -90,11 +89,11 @@ impl Compiler {
                 return;
             };
             let span = self.proc(id).span;
-            if let Some(ide) = self.ide.as_mut() {
+            if let Some(ide) = self.ed.facts_mut() {
                 ide.sketch_root = true;
             }
             let inst = self.instantiate(id, bindings, span);
-            if let Some(ide) = self.ide.as_mut() {
+            if let Some(ide) = self.ed.facts_mut() {
                 ide.sketch_root = false;
             }
             if let Ok(inst) = inst {
@@ -122,7 +121,7 @@ impl Compiler {
                 p.body_state = BodyState::NotNeeded;
             }
         }
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.errors.truncate(errors);
             // A sketch that ran away (compile-time code generating without end) is dropped.
             if ide.refs.len() - refs > MAX_SKETCH_REFS {
@@ -356,13 +355,13 @@ impl Compiler {
                 continue;
             }
             let span = self.poly_structs[i].lit.span;
-            let errors = self.ide.as_ref().map_or(0, |ide| ide.errors.len());
+            let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
             let (warnings, deferred) = (self.warnings.len(), self.deferred_errors.len());
-            let refs = self.ide.as_ref().map_or(0, |ide| ide.refs.len());
+            let refs = self.ed.facts().map_or(0, |ide| ide.refs.len());
             let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 self.ide_sketch_struct_instance(ps, scope, span)
             }));
-            if let Some(ide) = self.ide.as_mut() {
+            if let Some(ide) = self.ed.facts_mut() {
                 ide.errors.truncate(errors);
                 if ide.refs.len() - refs > MAX_SKETCH_REFS {
                     ide.truncate_refs(refs);
@@ -390,7 +389,7 @@ impl Compiler {
             span,
         });
         let t = self.new_struct_type(name, lit, scope, Vec::new(), None);
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.stand_ins.insert(t);
         }
         t
@@ -401,22 +400,20 @@ impl Compiler {
     /// A declaration that failed left a stand-in type behind: expressions over its values are
     /// unknown, not wrong.
     pub(super) fn ide_has_stand_ins(&self) -> bool {
-        self.ide
-            .as_ref()
-            .is_some_and(|ide| !ide.stand_ins.is_empty())
+        self.ed.facts().is_some_and(|ide| !ide.stand_ins.is_empty())
     }
 
     /// A sketch is being checked.
     pub(crate) fn sketching(&self) -> bool {
-        self.ide.as_ref().is_some_and(|ide| ide.sketching)
+        self.ed.facts().is_some_and(|ide| ide.sketching)
     }
 
     /// A call in a sketch would instantiate a polymorph with a stand-in. Only its signature is
     /// made (so the call has the caller's own `T` in its types): each member of a stand-in is a
     /// new stand-in, so checking bodies of polymorphs calling each other would not end.
     pub(super) fn ide_sketch_refuses(&self, bindings: &[(Sym, Value, TypeId)]) -> bool {
-        self.ide
-            .as_ref()
+        self.ed
+            .facts()
             .is_some_and(|ide| ide.sketching && !ide.sketch_root)
             && bindings.iter().any(|(_, v, _)| match v {
                 Value::Type(t) => self.mentions_stand_in(*t),
@@ -444,7 +441,7 @@ impl Compiler {
 
     /// `ty` (or what it points to) is a sketch's stand-in type.
     pub(super) fn is_stand_in(&self, ty: TypeId) -> bool {
-        let Some(ide) = self.ide.as_ref().filter(|ide| !ide.stand_ins.is_empty()) else {
+        let Some(ide) = self.ed.facts().filter(|ide| !ide.stand_ins.is_empty()) else {
             return false;
         };
         let mut t = ty;
@@ -475,7 +472,7 @@ impl Compiler {
             Operand::Type(_) | Operand::Procs(_) | Operand::Module(_) | Operand::Void => return,
             other => other.ty(),
         };
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.sketch_types.insert(span, ty);
         }
     }
@@ -530,12 +527,12 @@ impl Compiler {
         for child in &children {
             let tried = sketching
                 && self
-                    .ide
-                    .as_ref()
+                    .ed
+                    .facts()
                     .is_some_and(|ide| ide.sketch_tried.contains(&child.span));
             let failed = self
-                .ide
-                .as_ref()
+                .ed
+                .facts()
                 .is_some_and(|ide| ide.failed_exprs.contains(&child.span));
             if !tried
                 && !failed
@@ -551,8 +548,7 @@ impl Compiler {
         }
         let ty_of = |c: &Self, e: &ast::Expr| {
             checked.get(&e.span).copied().or_else(|| {
-                c.ide
-                    .as_ref()
+                c.ed.facts()
                     .and_then(|ide| ide.sketch_types.get(&e.span).copied())
             })
         };
@@ -631,8 +627,8 @@ impl Compiler {
             .filter(|_| !self.ide_is_own_stand_in(base))
             .unwrap_or(base);
         if let Some(&t) = self
-            .ide
-            .as_ref()
+            .ed
+            .facts()
             .and_then(|ide| ide.stand_in_members.get(&(base, name)))
         {
             return t;
@@ -644,15 +640,15 @@ impl Compiler {
         };
         let scope = self.root_scope;
         let t = self.ide_stand_in(Sym::intern(&full), span, scope);
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.stand_in_members.insert((base, name), t);
         }
         t
     }
 
     fn ide_is_own_stand_in(&self, ty: TypeId) -> bool {
-        self.ide
-            .as_ref()
+        self.ed
+            .facts()
             .is_some_and(|ide| ide.stand_ins.contains(&ty))
     }
 }

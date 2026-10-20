@@ -31,7 +31,7 @@ impl Compiler {
             }
             if !progress {
                 // Only the first is reported; an editor wants the others too.
-                if let Some(ide) = self.ide.as_mut() {
+                if let Some(ide) = self.ed.facts_mut() {
                     ide.errors.extend(failed.iter().map(|(_, e)| (**e).clone()));
                 }
                 return Err(failed.into_iter().next().unwrap().1);
@@ -57,7 +57,7 @@ impl Compiler {
         let mut first = None;
         let mut retry = Vec::new();
         if self.lower_epoch() != self.parked_epoch
-            || (self.ide.is_some()
+            || (self.ed.is_live()
                 && self.parked_bodies.iter().any(|&id| {
                     self.ide_cached_body_failure(id, self.parked_epoch)
                         .is_none()
@@ -77,7 +77,7 @@ impl Compiler {
             let epoch = self.lower_epoch();
             if let Some((at, err)) = self.lenient_failures.get(&id)
                 && *at == epoch
-                && (self.ide.is_none() || self.ide_cached_body_failure(id, epoch).is_some())
+                && (!self.ed.is_live() || self.ide_cached_body_failure(id, epoch).is_some())
             {
                 first.get_or_insert_with(|| err.clone());
                 if epoch != self.parked_epoch {
@@ -127,7 +127,7 @@ impl Compiler {
         // a file or completing another run. IDE failure reuse must observe that
         // progress too. Body-local scopes are recreated by each lowering attempt;
         // their bindings cannot repair another procedure and are not progress.
-        let namespaces = if self.ide.is_some() {
+        let namespaces = if self.ed.is_live() {
             #[cfg(debug_assertions)]
             self.check_namespace_generation();
             self.sources.len() as u64 + self.namespace_generation
@@ -241,8 +241,8 @@ impl Compiler {
                 .is_none_or(Option::is_none)
                 && let Some(p) = self.queued_proc_of(f)
                 && !self
-                    .ide
-                    .as_ref()
+                    .ed
+                    .facts()
                     .is_some_and(|ide| ide.sketch_signatures.contains(&p))
                 && let Err(e) = self.lower_body(p)
             {

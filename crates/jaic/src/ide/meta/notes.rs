@@ -128,7 +128,7 @@ impl Compiler {
         }
         out.sort_by_key(|a| a.span.start);
         self.ide_note_named_args(chosen, slots, args);
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return;
         };
         if ide.calls.len() >= MAX_CALLS || !ide.call_spans.insert(span) {
@@ -148,7 +148,7 @@ impl Compiler {
         if self.sketching() {
             return;
         }
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return;
         };
         ide.callees
@@ -172,7 +172,7 @@ impl Compiler {
             end: span.start + 3,
             ..span
         };
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return;
         };
         let selections = ide
@@ -216,7 +216,7 @@ impl Compiler {
             end: at.start,
             ..at
         };
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return;
         };
         match ide.implicit_loop_names.entry(key) {
@@ -257,7 +257,7 @@ impl Compiler {
                 .and_then(|p| p.name)
                 .filter(|n| n.span.end > n.span.start)
                 .map(|n| n.span);
-            let Some(ide) = self.ide.as_mut() else {
+            let Some(ide) = self.ed.facts_mut() else {
                 return;
             };
             ide.refs.push(IdeRef {
@@ -297,6 +297,6 @@ impl Compiler {
     }
 
     pub(super) fn ide_wants_file(&mut self, file: FileId) -> bool {
-        self.ide.is_some() && self.ide_wants_pub(file)
+        self.ed.is_live() && self.ide_wants_pub(file)
     }
 }

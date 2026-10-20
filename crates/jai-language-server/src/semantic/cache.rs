@@ -276,8 +276,8 @@ impl Cache {
                 .sum();
             let usable = errors.is_empty()
                 || compiler
-                    .ide
-                    .as_ref()
+                    .ed
+                    .facts()
                     .is_some_and(|ide| !ide.scopes.is_empty());
             self.entries.push(Analysis {
                 compiler,

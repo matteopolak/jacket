@@ -28,8 +28,8 @@ impl Compiler {
     /// Canonical paths cover relative traversal and native filesystem aliases alike.
     fn check_source_access(&self, path: &Path, span: Span) -> Result<()> {
         if span == Span::NONE
-            && self.ide.is_some()
-            && self.ide_selected_entry.as_ref() == Some(&self.canon(path))
+            && self.ed.is_live()
+            && self.ed.selected_entry.as_ref() == Some(&self.canon(path))
         {
             return Ok(());
         }
@@ -79,7 +79,7 @@ impl Compiler {
     }
 
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
-        if self.ide.is_none()
+        if !self.ed.is_live()
             && let Some(prepared) = self.ahead.as_ref().and_then(|a| a.claim(path))
         {
             let (text, line_starts, tree) = prepared.into_parts();
@@ -95,18 +95,8 @@ impl Compiler {
         let text = self.sources.get(file).text.clone();
         let shared;
         let own;
-        let ast = if let Some(ide) = self.ide.as_mut() {
-            shared = if let Some((reuse, compile)) = &self.parse_reuse {
-                reuse.borrow_mut().parse(*compile, path, file, &text)
-            } else {
-                let parsed = crate::parser::parse_file_ide(file, &text);
-                Rc::new(crate::parser::SharedParse {
-                    file: parsed.file,
-                    diagnostics: parsed.diagnostics,
-                })
-            };
-            ide.parse_errors.extend(shared.diagnostics.iter().cloned());
-            ide.errors.extend(shared.diagnostics.iter().cloned());
+        let ast = if let Some(parsed) = self.ed.parse(path, file, &text) {
+            shared = parsed;
             &shared.file
         } else {
             own = match self.library_platform(path) {

@@ -168,7 +168,7 @@ impl Compiler {
         }
         let info = self.compute_ainfo(expr, op);
         self.ide_note_macro_writes(expr);
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             match info {
                 Some(info) => {
                     ide.ainfo.insert(expr.span, info);
@@ -193,7 +193,7 @@ impl Compiler {
     }
 
     fn compute_ainfo(&self, expr: &ast::Expr, op: &Operand) -> Option<AInfo> {
-        let ide = self.ide.as_ref()?;
+        let ide = self.ed.facts()?;
         if let Operand::Const {
             value,
             ty,
@@ -268,19 +268,19 @@ impl Compiler {
         };
         let id = match (
             &target.kind,
-            self.ide.as_ref().and_then(|i| i.ainfo.get(&target.span)),
+            self.ed.facts().and_then(|i| i.ainfo.get(&target.span)),
         ) {
             (E::Ident(_), Some(info)) => info.local,
             (E::Ident(_), None) => self
-                .ide
-                .as_ref()
+                .ed
+                .facts()
                 .and_then(|i| i.last_entity)
                 .filter(|(span, _)| *span == target.span)
                 .map(|(_, id)| id),
             _ => None,
         };
         if let Some(id) = id
-            && let Some(ide) = self.ide.as_mut()
+            && let Some(ide) = self.ed.facts_mut()
         {
             ide.addr_taken.insert(id);
         }
@@ -288,7 +288,7 @@ impl Compiler {
 
     /// An assignment statement at `span` wrote the variables `lhs` names.
     pub(super) fn ide_note_assign(&mut self, scope: ScopeId, lhs: &[ast::Expr], span: Span) {
-        if self.ide.is_none() || self.sketching() {
+        if !self.ed.is_live() || self.sketching() {
             return;
         }
         for target in lhs {
@@ -298,7 +298,7 @@ impl Compiler {
             }
             if let E::Ident(name) = &root.kind
                 && let Ok(ids) = self.lookup(scope, *name)
-                && let Some(ide) = self.ide.as_mut()
+                && let Some(ide) = self.ed.facts_mut()
             {
                 for id in ids {
                     ide.assigned.entry(id).or_default().push(span);
@@ -314,12 +314,12 @@ impl Compiler {
         then_value: Option<&ast::Expr>,
         else_value: Option<&ast::Expr>,
     ) {
-        if self.ide.is_none() || self.sketching() {
+        if !self.ed.is_live() || self.sketching() {
             return;
         }
         let truth = self
-            .ide
-            .as_ref()
+            .ed
+            .facts()
             .and_then(|i| i.ainfo.get(&cond.span))
             .and_then(|a| a.iv.truth());
         if let Some(then) = then_value {
@@ -344,7 +344,7 @@ impl Compiler {
         }
         walk.dead.sort_by_key(|s| (s.start, s.end));
         walk.dead.dedup();
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             *ide.body_evals.entry(body.span).or_default() += 1;
             for run in walk.dead {
                 *ide.dead_runs.entry((body.span, run)).or_default() += 1;
@@ -569,7 +569,7 @@ impl Compiler {
 
     fn compare_exprs(&self, walk: &Walk, op: BinOp, a: &ast::Expr, b: &ast::Expr) -> Option<bool> {
         let (ia, ib) = (self.eval(walk, a)?, self.eval(walk, b)?);
-        let ide = self.ide.as_ref()?;
+        let ide = self.ed.facts()?;
         let (ua, ub) = (
             ide.ainfo.get(&a.span)?.unsigned,
             ide.ainfo.get(&b.span)?.unsigned,
@@ -583,7 +583,7 @@ impl Compiler {
     /// What `expr` can be where the walk is: its checked interval, tightened by the narrowing
     /// of the branches around it.
     fn eval(&self, walk: &Walk, expr: &ast::Expr) -> Option<Interval> {
-        let ide = self.ide.as_ref()?;
+        let ide = self.ed.facts()?;
         let info = *ide.ainfo.get(&expr.span)?;
         let flags = |e: &ast::Expr| ide.ainfo.get(&e.span).map(|a| a.unsigned);
         let tighter = match &expr.kind {
@@ -609,7 +609,7 @@ impl Compiler {
 
     /// Whether `local` keeps the value it has at a test through `region`.
     fn narrowable(&self, local: EntityId, region: Span) -> bool {
-        let Some(ide) = self.ide.as_ref() else {
+        let Some(ide) = self.ed.facts() else {
             return false;
         };
         !ide.addr_taken.contains(&local)
@@ -657,7 +657,7 @@ impl Compiler {
         let E::Ident(_) = side.kind else {
             return;
         };
-        let Some(ide) = self.ide.as_ref() else {
+        let Some(ide) = self.ed.facts() else {
             return;
         };
         let (Some(info), Some(other_info)) =
@@ -701,8 +701,8 @@ impl Compiler {
             return;
         };
         let Some(local) = self
-            .ide
-            .as_ref()
+            .ed
+            .facts()
             .and_then(|i| i.ainfo.get(&value.span))
             .and_then(|a| a.local)
         else {

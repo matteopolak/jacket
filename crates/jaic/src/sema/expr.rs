@@ -36,19 +36,9 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
-        if let Some(ide) = self.ide.as_mut()
-            && ide.sketching
-        {
-            ide.sketch_tried.insert(expr.span);
-        }
+        self.ed.sketch_tried(expr.span);
         let mut result = self.check_expr_kind(f, scope, expr, expected);
-        if let Some(ide) = self.ide.as_mut() {
-            if result.is_err() {
-                ide.failed_exprs.insert(expr.span);
-            } else {
-                ide.failed_exprs.remove(&expr.span);
-            }
-        }
+        self.ed.expr_checked(expr.span, result.is_ok());
         if result.is_err()
             && (self.sketching() || self.ide_has_stand_ins())
             && let Some(op) = self.ide_sketch_recover(f, scope, expr)
@@ -68,7 +58,7 @@ impl Compiler {
                 .or_default()
                 .record(expr.span, ty);
         }
-        if self.ide.is_some()
+        if self.ed.is_live()
             && let Ok(op) = &result
         {
             self.ide_note_expr(expr, op);
@@ -309,10 +299,10 @@ impl Compiler {
                     }
                 }
                 let base_op = self.check_expr(f, scope, base, None)?;
-                if self.ide.is_some() {
+                if self.ed.is_live() {
                     self.ide_note_receiver(member.span, &base_op);
                 }
-                let note = self.ide.is_some().then(|| match &base_op {
+                let note = self.ed.is_live().then(|| match &base_op {
                     Operand::Type(t) => *t,
                     other => other.ty(),
                 });
@@ -345,7 +335,7 @@ impl Compiler {
                 // the target {#cast.29}.
                 let operand_expected = cast_operand_needs_target(value).then_some(target);
                 let op = self.check_expr(f, scope, value, operand_expected)?;
-                if self.ide.is_some() {
+                if self.ed.is_live() {
                     self.ide_note_cast(span, target, &op);
                 }
                 let op = if flags.no_check || flags.truncate || flags.force {

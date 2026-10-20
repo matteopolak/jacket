@@ -41,7 +41,7 @@ Diagnostics and program behaviour match a serial run. File ids are assigned when
 
 Measured on the 10-core development Mac (sandboxed shell, mimalloc), `-check`, median of 21: hello 33.1 -> 29.2 ms, 60k generated lines 146 -> 120 ms, using up to 4 workers (about 1.3 cores of CPU per check instead of 1). What stays on the main thread is the claim itself (source map entry and relocation, about 5% of a 60k-line check), waiting for the first big file, and the roughly 10 ms of process start and exit that hello world is mostly made of. `-timings` still shows one `front end` phase, now shorter.
 
-The IDE (`Compiler::ide`), non-native filesystems and `wasm32` always parse serially. `-serial_parse` turns the workers off (use it to compare outputs); `-parse_threads N` sets their number (both also come from `[experimental]` in `jacket.toml`, [jacket](../tools/jacket.md)) (default: cores - 1, at most 4).
+The IDE (a recording `Compiler::ed`), non-native filesystems and `wasm32` always parse serially. `-serial_parse` turns the workers off (use it to compare outputs); `-parse_threads N` sets their number (both also come from `[experimental]` in `jacket.toml`, [jacket](../tools/jacket.md)) (default: cores - 1, at most 4).
 
 ### Interpreter speed
 

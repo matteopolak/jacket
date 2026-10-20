@@ -327,7 +327,7 @@ impl Compiler {
             if let Some(&id) = ids.last() {
                 let kind = self.entity(id).kind.clone();
                 let alias_id = self.add_entity(body.scope, alias, at.unwrap_or(span), kind, false);
-                if at.is_some() && self.ide.is_some() {
+                if at.is_some() && self.ed.is_live() {
                     self.ide_note_entity(alias_id);
                 }
                 borrowed.push((alias, alias_id));

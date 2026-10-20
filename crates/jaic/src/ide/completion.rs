@@ -203,8 +203,8 @@ impl Compiler {
         file: FileId,
         offset: u32,
     ) -> Option<(Span, Vec<EntityId>)> {
-        self.ide
-            .as_ref()?
+        self.ed
+            .facts()?
             .filter_targets
             .iter()
             .filter(|(span, _)| span.file == file && span.start <= offset && offset <= span.end)
@@ -220,7 +220,7 @@ impl Compiler {
         entry: &scope::UsingEntry,
         filter: &ast::UsingFilter,
     ) {
-        if self.ide.is_none() {
+        if !self.ed.is_live() {
             return;
         }
         let (ast::UsingFilter::Only(names) | ast::UsingFilter::Except(names)) = filter else {
@@ -253,7 +253,7 @@ impl Compiler {
                 }
                 match self.module_member_lookup(*module, target) {
                     Ok(Found::Entities(ids)) if !ids.is_empty() => {
-                        if let Some(ide) = self.ide.as_mut() {
+                        if let Some(ide) = self.ed.facts_mut() {
                             if ids.len() > 1 {
                                 ide.filter_targets.insert(name.span, ids);
                             } else {
@@ -468,8 +468,8 @@ impl Compiler {
                             kind: IdeKind::EnumMember,
                             detail: format!("{} = {v}", info.name),
                             decl: self
-                                .ide
-                                .as_ref()
+                                .ed
+                                .facts()
                                 .and_then(|ide| ide.enum_decls.get(&(strict, *n)).copied())
                                 .unwrap_or(Span::NONE),
                             call: None,

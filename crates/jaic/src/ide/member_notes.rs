@@ -22,7 +22,7 @@ impl Compiler {
             return;
         }
         let ty = base.ty();
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.receivers
                 .entry(span)
                 .and_modify(|t| {
@@ -79,7 +79,7 @@ impl Compiler {
                             TypeKind::Enum(strict) => *strict,
                             _ => *e,
                         });
-                self.ide.as_ref()?.enum_decls.get(&(e, name)).copied()
+                self.ed.facts()?.enum_decls.get(&(e, name)).copied()
             }
             _ => None,
         }
@@ -114,13 +114,13 @@ impl Compiler {
     /// `name` at `span` named a member of `ty` (a field through `a.name`, `T.{ name = v }`, an
     /// enum member through `Enum.NAME` or `.NAME`).
     pub(crate) fn ide_note_member_use(&mut self, span: Span, ty: TypeId, name: Sym) {
-        if self.ide.is_none() || !self.ide_wants(span.file) {
+        if !self.ed.is_live() || !self.ide_wants(span.file) {
             return;
         }
         let Some(decl) = self.ide_member_decl(ty, name) else {
             return;
         };
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.member_uses.insert((span, decl));
         }
     }
@@ -145,7 +145,7 @@ impl Compiler {
             } => *ty,
             _ => return,
         };
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span: label.span,
                 what: IdeWhat::Entity(id),
@@ -161,7 +161,7 @@ impl Compiler {
             return;
         }
         let decl = self.ide_name_span(decl, name);
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.member_uses.insert((span, decl));
         }
         self.ide_note_member_ref(span, name, ty);
@@ -171,8 +171,8 @@ impl Compiler {
     /// type is evaluated.
     pub(crate) fn ide_note_param_name(&mut self, span: Span, name: Sym, ty: TypeId) {
         if self
-            .ide
-            .as_mut()
+            .ed
+            .facts_mut()
             .is_some_and(|i| i.param_names.insert(span))
         {
             self.ide_note_named_field(span, name, span, ty);
@@ -182,7 +182,7 @@ impl Compiler {
     /// Named arguments of a successfully selected struct instance. Its bound constants
     /// supply the actual parameter types, including dependent and baked parameters.
     pub(crate) fn ide_note_struct_arguments(&mut self, ty: TypeId, args: &[ast::Arg]) {
-        if self.ide.is_none() {
+        if !self.ed.is_live() {
             return;
         }
         let Some(s) = self.types.as_struct(ty) else {
@@ -220,10 +220,10 @@ impl Compiler {
     /// `name` at `span` names a member of type `ty` where nothing else records it for hover
     /// (a field of a struct literal).
     pub(crate) fn ide_note_member_ref(&mut self, span: Span, name: Sym, ty: TypeId) {
-        if self.ide.is_none() || !self.ide_wants(span.file) {
+        if !self.ed.is_live() || !self.ide_wants(span.file) {
             return;
         }
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
                 what: IdeWhat::Member(name),
@@ -307,7 +307,7 @@ impl Compiler {
                 },
                 _ => TypeId::TYPE,
             };
-            if let Some(ide) = self.ide.as_mut() {
+            if let Some(ide) = self.ed.facts_mut() {
                 ide.refs.push(IdeRef {
                     span,
                     what,
@@ -331,7 +331,7 @@ impl Compiler {
     /// The enum members an inferred `.NAME` at `offset` can stand for, from the type its
     /// context expected (a variable's declared type, a parameter, the other side of `==`).
     pub fn ide_inferred_members(&mut self, file: FileId, offset: u32) -> Vec<IdeName> {
-        let Some(types) = self.ide.as_ref().and_then(|ide| {
+        let Some(types) = self.ed.facts().and_then(|ide| {
             ide.inferred_expected
                 .iter()
                 .find(|(s, _)| s.file == file && s.start == offset)
@@ -398,7 +398,7 @@ impl Compiler {
                     continue;
                 };
                 let ty = param.ty;
-                if let Some(ide) = self.ide.as_mut() {
+                if let Some(ide) = self.ed.facts_mut() {
                     let seen = ide.inferred_expected.entry(name.span).or_default();
                     if !seen.contains(&ty) {
                         seen.push(ty);
@@ -410,12 +410,12 @@ impl Compiler {
 
     /// An enum member's declaration.
     pub(crate) fn ide_note_enum_member(&mut self, e: crate::types::EnumId, name: Sym, span: Span) {
-        if self.ide.is_none() {
+        if !self.ed.is_live() {
             return;
         }
         // Every file's: a use in a recorded file can name a member declared in a module.
         let wanted = self.ide_wants(span.file);
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.enum_decls.insert((e, name), span);
             if wanted {
                 ide.member_uses.insert((span, span));
@@ -425,7 +425,7 @@ impl Compiler {
 
     /// `Poly(args)` with `Poly` at `span` gave the struct `t`.
     pub(super) fn ide_note_instance(&mut self, span: Span, t: TypeId) {
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.instances
                 .entry(span)
                 .and_modify(|old| {

@@ -31,15 +31,6 @@ pub struct ProgramMark {
 }
 
 impl Compiler {
-    /// The canonical file entry captured when IDE sources were prepared.
-    ///
-    /// This is passive metadata: it does not load, settle, or inspect sources.
-    /// String-only workspaces and non-IDE compilers have no captured file entry;
-    /// adding a file later does not infer a replacement for that unknown entry.
-    pub fn ide_selected_entry_path(&self) -> Option<&Path> {
-        self.ide_selected_entry.as_deref()
-    }
-
     /// Load the bootstrap modules (Preload, `Runtime_Support`).
     pub fn load_bootstrap(&mut self) -> Result<()> {
         let span = Span::NONE;
@@ -78,7 +69,7 @@ impl Compiler {
 
     /// Starts the parse workers on the files this compile loads first.
     fn start_parse_ahead(&mut self, sources: &[ProgramSource]) {
-        if self.ide.is_some() || self.ahead.is_some() || !self.fs.is_native() {
+        if self.ed.is_live() || self.ahead.is_some() || !self.fs.is_native() {
             return;
         }
         let mut roots: Vec<PathBuf> = Vec::new();
@@ -133,7 +124,7 @@ impl Compiler {
     /// then add further sources before `settle` and `finish_program`. In particular,
     /// all module context extensions must be present before compile-time execution.
     pub fn prepare_sources(&mut self, sources: &[ProgramSource]) -> Result<()> {
-        self.ide_selected_entry = if self.ide.is_some() {
+        self.ed.selected_entry = if self.ed.is_live() {
             sources.iter().find_map(|source| match source {
                 ProgramSource::File(path) => Some(self.canon(path)),
                 _ => None,
@@ -472,7 +463,7 @@ impl Compiler {
         if p.is_macro
             && p.bindings.is_none()
             && p.target.is_none()
-            && self.ide.is_some()
+            && self.ed.is_live()
             && self.checks_unreferenced_in(self.scope(p.scope).module)
         {
             self.ide_note_unchecked_header(id);
@@ -490,7 +481,7 @@ impl Compiler {
         let span = p.span;
         self.refresh_implicit_poly(id)?;
         if self.proc(id).is_poly {
-            if self.ide.is_some() {
+            if self.ed.is_live() {
                 self.ide_note_unchecked_header(id);
             }
             return Ok(());

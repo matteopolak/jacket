@@ -40,7 +40,7 @@ impl Compiler {
         if self.interp.run_effects.is_some() {
             return None;
         }
-        let cached = self.ide.as_ref()?.missing_modules.get(&(scope, span))?;
+        let cached = self.ed.facts()?.missing_modules.get(&(scope, span))?;
         (cached.epoch == self.ide_missing_module_epoch()
             && cached.wanted == wanted
             && cached.dir == dir
@@ -57,7 +57,7 @@ impl Compiler {
         dir: &Path,
         error: &Diagnostic,
     ) {
-        if self.ide.is_none() || self.interp.run_effects.is_some() {
+        if !self.ed.is_live() || self.interp.run_effects.is_some() {
             return;
         }
         let cached = IdeMissingModule {
@@ -68,8 +68,8 @@ impl Compiler {
             preload: self.options.preload.clone(),
             error: Box::new(error.clone()),
         };
-        self.ide
-            .as_mut()
+        self.ed
+            .facts_mut()
             .unwrap()
             .missing_modules
             .insert((scope, span), cached);
@@ -80,7 +80,7 @@ impl Compiler {
         id: ProcId,
         epoch: u64,
     ) -> Option<Box<Diagnostic>> {
-        let ide = self.ide.as_ref()?;
+        let ide = self.ed.facts()?;
         if !self.placeholders_final || ide.sketching {
             return None;
         }
@@ -96,18 +96,22 @@ impl Compiler {
         misses: (u64, u64),
         result: &Result<()>,
     ) {
-        if !self.placeholders_final || self.ide.as_ref().is_none_or(|ide| ide.sketching) {
+        if !self.placeholders_final || self.ed.facts().is_none_or(|ide| ide.sketching) {
             return;
         }
         match result {
             Ok(()) => {
                 self.lenient_failures.remove(&id);
-                self.ide.as_mut().unwrap().failed_body_lits.remove(&id);
+                self.ed.facts_mut().unwrap().failed_body_lits.remove(&id);
             }
             Err(error) if (self.placeholder_misses, self.in_progress_misses) == misses => {
                 let lit = self.proc(id).lit.clone();
                 self.lenient_failures.insert(id, (epoch, error.clone()));
-                self.ide.as_mut().unwrap().failed_body_lits.insert(id, lit);
+                self.ed
+                    .facts_mut()
+                    .unwrap()
+                    .failed_body_lits
+                    .insert(id, lit);
             }
             Err(_) => {}
         }
@@ -118,7 +122,7 @@ impl Compiler {
     }
 
     pub(super) fn ide_wants(&mut self, file: FileId) -> bool {
-        let Some(ide) = self.ide.as_mut() else {
+        let Some(ide) = self.ed.facts_mut() else {
             return false;
         };
         if let Some(&w) = ide.wanted.get(&file) {
@@ -141,10 +145,10 @@ impl Compiler {
     }
 
     pub(crate) fn ide_note_expr(&mut self, expr: &ast::Expr, op: &Operand) {
-        if self.ide.as_ref().is_some_and(|i| i.lint) && self.ide_wants(expr.span.file) {
+        if self.ed.facts().is_some_and(|i| i.lint) && self.ide_wants(expr.span.file) {
             let ty = op.ty();
             let constant = matches!(op, Operand::Const { .. });
-            if let Some(ide) = self.ide.as_mut() {
+            if let Some(ide) = self.ed.facts_mut() {
                 ide.exprs
                     .entry(expr.span)
                     .and_modify(|f| f.conflicting |= f.ty != ty || f.constant != constant)
@@ -155,7 +159,7 @@ impl Compiler {
                     });
             }
         }
-        if self.ide.is_some() {
+        if self.ed.is_live() {
             self.ide_note_ainfo(expr, op);
         }
         if let ast::ExprKind::Call {
@@ -185,16 +189,16 @@ impl Compiler {
                 // Failed expressions can leave scratch state behind. Only consume
                 // the association made for this exact source expression.
                 let entity = self
-                    .ide
-                    .as_mut()
+                    .ed
+                    .facts_mut()
                     .and_then(|i| i.last_entity.take())
                     .and_then(|(at, id)| (at == span).then_some(id));
-                let using_member = self.ide.as_mut().and_then(|i| i.last_using_member.take());
+                let using_member = self.ed.facts_mut().and_then(|i| i.last_using_member.take());
                 let member = qualified_member.or(using_member);
                 let what = match op {
                     Operand::Type(t) => {
                         if let Some(e) = entity
-                            && let Some(ide) = self.ide.as_mut()
+                            && let Some(ide) = self.ed.facts_mut()
                         {
                             ide.type_names.insert(span, e);
                         }
@@ -217,7 +221,7 @@ impl Compiler {
             return;
         }
         let ty = op.ty();
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
                 what,
@@ -233,7 +237,7 @@ impl Compiler {
         if self.sketching() || !self.ide_wants(name.span.file) {
             return;
         }
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span: name.span,
                 what: IdeWhat::Procs(procs.to_vec()),
@@ -245,12 +249,12 @@ impl Compiler {
 
     /// Lint mode: `cast` at `span` converted a `from` operand to `target`.
     pub(crate) fn ide_note_cast(&mut self, span: Span, target: TypeId, op: &Operand) {
-        if !self.ide.as_ref().is_some_and(|i| i.lint) || !self.ide_wants(span.file) {
+        if !self.ed.facts().is_some_and(|i| i.lint) || !self.ide_wants(span.file) {
             return;
         }
         let from = op.ty();
         let from_constant = matches!(op, Operand::Const { .. });
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.casts
                 .entry(span)
                 .and_modify(|c| {
@@ -268,7 +272,7 @@ impl Compiler {
 
     /// Lint mode: a lookup found a name through import `index` of `scope`.
     pub(crate) fn ide_note_import_use(&mut self, scope: ScopeId, index: usize) {
-        if let Some(ide) = self.ide.as_mut()
+        if let Some(ide) = self.ed.facts_mut()
             && ide.lint
         {
             ide.used_imports.insert((scope, index));
@@ -277,7 +281,7 @@ impl Compiler {
 
     /// Lint mode: a name resolved to `id`.
     pub(crate) fn ide_note_use(&mut self, id: EntityId) {
-        if let Some(ide) = self.ide.as_mut()
+        if let Some(ide) = self.ed.facts_mut()
             && ide.lint
         {
             ide.used.insert(id);
@@ -319,7 +323,7 @@ impl Compiler {
             } => *ty,
             _ => TypeId::COMPILE_TIME,
         };
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
                 what: IdeWhat::Entity(id),
@@ -347,7 +351,7 @@ impl Compiler {
             } => *ty,
             _ => TypeId::COMPILE_TIME,
         };
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
                 what: IdeWhat::Entity(id),
@@ -363,7 +367,7 @@ impl Compiler {
         if !self.ide_wants(span.file) {
             return;
         }
-        if let Some(ide) = self.ide.as_mut() {
+        if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
                 what: IdeWhat::Entity(id),
@@ -374,7 +378,7 @@ impl Compiler {
     }
 
     pub(crate) fn ide_note_module_arguments(&mut self, module: ModuleId, import: &ast::Import) {
-        if self.ide.is_none() {
+        if !self.ed.is_live() {
             return;
         }
         let parameters = self.modules[module.0 as usize].param_entities.clone();
@@ -405,7 +409,7 @@ impl Compiler {
     pub(crate) fn ide_scope_span(&mut self, scope: ScopeId, span: Span) {
         if span.end > span.start
             && self.ide_wants(span.file)
-            && let Some(ide) = self.ide.as_mut()
+            && let Some(ide) = self.ed.facts_mut()
         {
             ide.scopes.push((span, scope));
         }
@@ -413,7 +417,7 @@ impl Compiler {
 
     /// Recovered bodies supply facts but cannot be executed as valid procedures or code.
     pub(crate) fn ide_require_parsed_body(&self, span: Span) -> Result<()> {
-        if let Some(error) = self.ide.as_ref().and_then(|ide| {
+        if let Some(error) = self.ed.facts().and_then(|ide| {
             ide.parse_errors.iter().find(|e| {
                 e.span.file == span.file && span.start <= e.span.start && e.span.start < span.end
             })

@@ -116,8 +116,7 @@ impl Compiler {
     pub fn call_thunk(&mut self, f: FnCtx, span: Span) -> Result<Vec<u64>> {
         // The one place compile-time code starts running (`#run`, computed `#insert`,
         // `#modify`, build metaprograms): an untrusted workspace's code never does.
-        if let Some(ide) = self.ide.as_mut().filter(|ide| ide.untrusted) {
-            ide.refused.push(span);
+        if self.ed.refuse_untrusted(span) {
             return Err(Box::new(
                 Diagnostic::error(
                     span,
@@ -390,7 +389,7 @@ impl Compiler {
             let results = self.check_isolated_host_run_all(body, span)?;
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }
-        if self.ide.is_none() {
+        if !self.ed.is_live() {
             return self.check_run_inner(scope, body, expected, span);
         }
         let mark = self.ide_output_mark();
@@ -546,13 +545,13 @@ impl Compiler {
                 span: value.span,
             };
             let op = self.check_run_inner(scope, &ast::RunBody::Expr(call), None, value.span)?;
-            if self.ide.is_some() {
+            if self.ed.is_live() {
                 self.ide_note_insert(value, &op);
             }
             return Ok(op);
         }
         let op = self.eval_const(scope, value, None)?;
-        if self.ide.is_some() {
+        if self.ed.is_live() {
             self.ide_note_insert(value, &op);
         }
         Ok(op)

@@ -79,7 +79,7 @@ impl Compiler {
                         let ids = self.scope(baked_scope).names.get(&n).cloned();
                         for id in ids.into_iter().flatten().filter(|_| bound.contains(&n)) {
                             self.entity_mut(id).span = at;
-                            if self.ide.is_some() {
+                            if self.ed.is_live() {
                                 self.ide_note_entity(id);
                             }
                         }
@@ -235,7 +235,7 @@ impl Compiler {
         header: &ast::ProcHeader,
         args: &[ast::Arg],
     ) {
-        if self.ide.is_none() {
+        if !self.ed.is_live() {
             return;
         }
         let binders = self.poly_binders(header);
@@ -272,7 +272,7 @@ impl Compiler {
         params: &[ast::Param],
         args: &[ast::Arg],
     ) {
-        if self.ide.is_none() {
+        if !self.ed.is_live() {
             return;
         }
         for arg in args {

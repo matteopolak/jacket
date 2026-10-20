@@ -211,7 +211,7 @@ fn resolved(
     file: FileId,
     ctx: &CallSite,
 ) -> Option<Vec<Callable>> {
-    let ide = compiler.ide.as_ref()?;
+    let ide = compiler.ed.facts()?;
     let selected = ide.calls.iter().find(|call| {
         call.span.file == file
             && !call.ambiguous
@@ -405,9 +405,11 @@ mod tests {
         options.runtime_support = false;
         options.stack_trace = false;
         let mut compiler = Compiler::new(options, Rc::new(fs));
-        compiler.ide = Some(Box::new(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
-            "/named-safety/",
-        )])));
+        compiler
+            .ed
+            .record(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
+                "/named-safety/",
+            )]));
         assert!(
             compiler
                 .compile_program(Path::new("/named-safety/main.jai"))
@@ -420,7 +422,7 @@ mod tests {
                 compiler.sources.get(f).path.as_file() == Some(Path::new("/named-safety/main.jai"))
             })
             .unwrap();
-        let errors = compiler.ide.as_ref().unwrap().parse_errors.len();
+        let errors = compiler.ed.facts().unwrap().parse_errors.len();
         assert!(errors > 0);
         let procs = compiler.ide_callee_at(file, ctx.open);
         assert_eq!(procs.len(), 1);
@@ -430,7 +432,7 @@ mod tests {
             source,
             "metadata query must not rewrite program text"
         );
-        assert_eq!(compiler.ide.as_ref().unwrap().parse_errors.len(), errors);
+        assert_eq!(compiler.ed.facts().unwrap().parse_errors.len(), errors);
         assert!(
             compiler
                 .compile_program(Path::new("/named-safety/main.jai"))
