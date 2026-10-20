@@ -2,8 +2,6 @@
 
 ## [0.22.1] - 2026-10-20
 
-## [0.22.1] - 2026-10-20
-
 ### Fixed
 
 - Installing with Homebrew on macOS works again.
