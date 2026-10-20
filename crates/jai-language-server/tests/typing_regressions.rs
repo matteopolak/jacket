@@ -567,3 +567,23 @@ fn an_operand_after_a_failed_one_has_the_same_color_whether_or_not_a_declaration
         assert_eq!(kind_at(&session, 3, 34), Some(SemanticTokenKind::Property));
     });
 }
+
+#[test]
+fn a_type_in_a_rejected_overload_header_hovers_with_its_layout_whether_or_not_it_is_called() {
+    on_big_stack(|| {
+        let head = "Client :: struct { marker: int; }\nApp :: struct { marker: int; }\npost :: (client: *Client, payload: $V) {\n    #assert V == int \"rejected\";\n    client.marker = payload;\n}\npost :: (app: *App, $handler: $H) {\n    handler();\n    app.marker = 1;\n}\nhandler :: () {}\n";
+        for call in ["    post(*app, handler);\n", ""] {
+            let source = format!("{head}main :: () {{\n    app: App;\n{call}}}\n");
+            let session = open(&source);
+            let at = Position {
+                line: 2,
+                character: 19,
+            };
+            let hover = session.hover(&uri(), at).unwrap().expect("a hover");
+            assert_eq!(
+                hover.contents.value,
+                "Client :: struct { marker: s64; }\nsize 8, align 8"
+            );
+        }
+    });
+}

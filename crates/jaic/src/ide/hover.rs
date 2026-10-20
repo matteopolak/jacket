@@ -45,7 +45,10 @@ impl Compiler {
             .copied()
             .min_by_key(|r| r.span.end - r.span.start)?;
         let same = here.iter().filter(|o| o.span == r.span).all(|o| {
-            o.ty == r.ty && (same_what(&o.what, &r.what) || self.same_local(&o.what, &r.what))
+            o.ty == r.ty
+                && (same_what(&o.what, &r.what)
+                    || self.same_local(&o.what, &r.what)
+                    || self.same_type(&o.what, &r.what))
         });
         Some((r.clone(), same))
     }
@@ -65,6 +68,23 @@ impl Compiler {
         names.sort();
         names.dedup();
         names
+    }
+
+    /// A type's name and the type: a header evaluated for a rejected overload records the
+    /// type it names, a checked one the declaration.
+    fn same_type(&self, a: &IdeWhat, b: &IdeWhat) -> bool {
+        let named = |w: &IdeWhat| match w {
+            IdeWhat::Type(t) => Some(*t),
+            IdeWhat::Entity(e) => match &self.entity(*e).state {
+                EntityState::Done(Resolved::Const {
+                    value: value::Value::Type(t),
+                    ..
+                }) => Some(*t),
+                _ => None,
+            },
+            _ => None,
+        };
+        matches!((named(a), named(b)), (Some(x), Some(y)) if self.ty.types.repr(x) == self.ty.types.repr(y))
     }
 
     /// Two locals for one declaration: a body checked again (after a statement in it failed)
