@@ -38,7 +38,7 @@ To add a recipe: give it a doc comment (it becomes the `--list` text) and a `[gr
 | `Cargo.toml`, `Cargo.lock` | `cargo metadata --locked --offline` for the workspace and `fuzz/`, so a stale lock file fails here, not in CI's `--locked` builds |
 | `crates/**`, `editors/vscode/**` | `node scripts/build-grammar.ts --check` and `node scripts/build.ts schemas --check` in `editors/vscode` (needs node 24) |
 
-Tools are found in cargo's target directory (`$CARGO_TARGET_DIR`, else what `cargo metadata` reports from `.cargo/config.toml`, else `target/`), the same one `tools/dev/dev.py` builds into: `<target>/jaifmt` (rebuilt with `jaic jaifmt/main.jai -O2 -exe <target>/jaifmt` when sources are newer and a `jaic` exists), `<target>/{release,debug}/jailint` (else `cargo build -p jailint`), then `PATH`. `toolkit.repo.jaifmt_path()` is the single Python definition of that jaifmt location: `dev.py`, `run_tests.py`, the generators and the developer checks all read it. A missing tool prints a warning and skips its check. Clippy is not run (minutes per crate); CI runs it. `rustfmt --check` in stdin mode exits 0 on a diff, so any output counts as failure. To add a check, add a file filter and a block appending to `fixes`; keep it fast. A CI check that takes about a second and needs no build belongs here too.
+Tools are found in cargo's target directory (`$CARGO_TARGET_DIR`, else what `cargo metadata` reports from `.cargo/config.toml`, else `target/`), the same one `tools/dev/dev.py` builds into: `<target>/jaifmt` (rebuilt with `jaic jaifmt/main.jai -O2 -exe <target>/jaifmt` when sources are newer and a `jaic` exists), `<target>/{release,debug}/jailint` (else `cargo build -p jailint`), then `PATH`. `toolkit.repo.jaifmt_path()` is the single Python definition of that jaifmt location: `dev.py`, `run_tests.py`, the generators and the developer checks all read it. A missing tool prints a warning and skips its check. Clippy runs in the pre-push hook instead. `rustfmt --check` in stdin mode exits 0 on a diff, so any output counts as failure. To add a check, add a file filter and a block appending to `fixes`; keep it fast. A CI check that takes about a second and needs no build belongs here too.
 
 | Variable | Effect |
 | --- | --- |
@@ -47,6 +47,10 @@ Tools are found in cargo's target directory (`$CARGO_TARGET_DIR`, else what `car
 | `JAI_HOOK_VERBOSE=1` | say which checks run |
 
 Tested by `tools/ci/test_pre_commit_hook.py` on a temporary repository with stand-in tools.
+
+## Pre-push hook
+
+`.githooks/pre-push` runs CI's clippy lint (`--all-targets --locked -- -D warnings`) on the workspace packages whose `.rs` or `Cargo.toml` files differ between the pushed commits and the remote (or `origin/main` for a new branch), via `tools/dev/pre_push_clippy.py`. Clippy is too slow for every commit but catches what CI's `compiler` jobs would reject. It lints the working tree, so it warns about uncommitted Rust changes. Skip once with `git push --no-verify`, or with `JAI_HOOK_SKIP=clippy`. Enabled by the same `just hooks`.
 
 ## Code formatting
 
