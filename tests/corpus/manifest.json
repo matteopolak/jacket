@@ -3647,16 +3647,42 @@
       }
     },
     {
-      "id": "complete-on-integer",
-      "source": "negative/complete-on-integer.jai",
-      "sha256": "c0e28d96e541a679d0df8415a04ae28ce00582819501966f250c0c3727276c58",
+      "id": "case-duplicate-value",
+      "source": "negative/case-duplicate-value.jai",
+      "sha256": "7a16183bee77fa3cc6fb144f252440c2eb1d9f4762d08300fb5948d86a6fa208",
       "suite": "negative",
-      "feature": "#complete only applies to an if-== on an enum",
+      "feature": "Two cases of one if-== name the same value",
       "kind": "negative",
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#complete only applies to 'if' on enum types."
+        "check": "Duplicate case."
+      }
+    },
+    {
+      "id": "case-duplicate-string",
+      "source": "negative/case-duplicate-string.jai",
+      "sha256": "b49c6ebfd0d52f406b5ae0b892bfb5d272db9901ba8d993a922cd4d2ec14ddee",
+      "suite": "negative",
+      "feature": "Two cases of one if-== name the same string",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Duplicate case."
+      }
+    },
+    {
+      "id": "case-not-constant",
+      "source": "negative/case-not-constant.jai",
+      "sha256": "bfb1b90611253d968e23f77e1e47d8e7f6874e2ddeca8c5ac54f0eb27c6a4cef",
+      "suite": "negative",
+      "feature": "A case value must be a constant",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Conditions listed by 'case' must be constant."
       }
     },
     {
@@ -3683,6 +3709,19 @@
       "dependencies": [],
       "negative": {
         "check": "'if ==' statements do not support struct or array types at this time."
+      }
+    },
+    {
+      "id": "complete-on-integer",
+      "source": "negative/complete-on-integer.jai",
+      "sha256": "c0e28d96e541a679d0df8415a04ae28ce00582819501966f250c0c3727276c58",
+      "suite": "negative",
+      "feature": "#complete only applies to an if-== on an enum",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#complete only applies to 'if' on enum types."
       }
     }
   ]

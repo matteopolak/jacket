@@ -194,6 +194,7 @@ impl Compiler {
         let mut default = done;
         // Enum values named by a case, for the `#complete` check below.
         let mut covered = Vec::new();
+        let mut seen = Vec::new();
         for (i, case) in cases.iter().enumerate() {
             if case.values.is_empty() {
                 default = bodies[i];
@@ -202,6 +203,7 @@ impl Compiler {
             for cv in &case.values {
                 let c = self.check_expr(f, scope, cv, Some(vty))?;
                 let c = self.convert(f, c, vty, cv.span)?;
+                Self::check_case_value(&c, cv.span, &mut seen)?;
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);
                 }
@@ -250,6 +252,25 @@ impl Compiler {
         missing
     }
 
+    /// A case value must be a constant, and no two cases may name the same one.
+    fn check_case_value(c: &Operand, span: Span, seen: &mut Vec<(Value, Span)>) -> Result<()> {
+        let value = match c {
+            Operand::Procs(p) if p.len() == 1 => Value::Proc(p[0]),
+            _ => match c.const_value() {
+                Some(value) => value,
+                None => return err(span, "Conditions listed by 'case' must be constant."),
+            },
+        };
+        if let Some((_, earlier)) = seen.iter().find(|(v, _)| *v == value) {
+            return Err(Box::new(
+                Diagnostic::error(span, "Duplicate case.")
+                    .with_note(*earlier, "The earlier case is here."),
+            ));
+        }
+        seen.push((value, span));
+        Ok(())
+    }
+
     /// A switch on a constant runs one case, but every case is still type-checked (only `#if`
     /// skips code), as is `#complete`. The bodies not taken are checked into a block nothing
     /// jumps to.
@@ -268,10 +289,12 @@ impl Compiler {
             complete,
         } = switch;
         let mut covered = Vec::new();
+        let mut seen = Vec::new();
         for case in cases {
             for cv in &case.values {
                 let c = self.check_expr(f, scope, cv, Some(vty))?;
                 let c = self.convert(f, c, vty, cv.span)?;
+                Self::check_case_value(&c, cv.span, &mut seen)?;
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);
                 }
