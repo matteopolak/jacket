@@ -371,6 +371,14 @@ fn compiler_and_abi_regressions_run_natively() {
         "using-local-members",
         "struct-body-own-member-default",
         "array-size-constant-index",
+        "loop-forms",
+        "if-case-forms",
+        "procedure-forms",
+        "struct-and-using-forms",
+        "string-and-array-forms",
+        "hash-table-operations",
+        "context-forms",
+        "type-and-constant-forms",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {
