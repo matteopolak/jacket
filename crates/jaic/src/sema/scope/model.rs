@@ -72,6 +72,17 @@ pub enum UsingEntry {
 }
 
 impl UsingEntry {
+    /// The variable whose members this entry brings in, when it is a place.
+    pub fn place_entity(&self) -> Option<EntityId> {
+        match self {
+            Self::Place {
+                entity, ..
+            } => Some(*entity),
+            Self::Filtered(entry, _) => entry.place_entity(),
+            Self::Type(_) | Self::Module(..) => None,
+        }
+    }
+
     pub fn member_type(&self) -> Option<TypeId> {
         match self {
             Self::Place {

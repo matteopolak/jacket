@@ -2,7 +2,7 @@
 use crate::ast::ExprKind as E;
 use crate::sema::calls::CallArg;
 use crate::sema::lower::{FnCtx, Immutable, Operand};
-use crate::sema::scope::EntityKind;
+use crate::sema::scope::{EntityKind, Found};
 use crate::sema::{
     Compiler, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err, ir, procs,
 };
@@ -308,7 +308,11 @@ impl Compiler {
             // Compare the local's own storage: evaluating the name in a scratch context
             // numbers its values from zero, so an address made there (a global, a `using`
             // member) can equal an argument's address by chance.
-            let found = self.lookup(scope, *name)?;
+            // A member brought in by `using` is part of that name's storage.
+            let found = match self.lookup_full(scope, *name)? {
+                Found::Entities(ids) => ids,
+                Found::Using(entry, _) => entry.place_entity().into_iter().collect(),
+            };
             if let [entity] = found[..]
                 && let EntityKind::Local {
                     addr, ..
