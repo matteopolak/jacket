@@ -58,9 +58,12 @@ reads back as the same value; normal powers of two also try the rounded-up text,
 interval below is half the size of the one above. `digits_read_back` answers each try without
 writing or parsing text: with the value as `m * 2^b`, it scales the candidate digits and the
 rounding interval (`4m - 2` to `4m + 2` in units of `2^(b-2)`, or from `4m - 1` for a normal power
-of two) to one integer scale, after dividing out the shared powers of two and five, and checks that the candidate lies inside (ends
-included when `m` is even). `float32` values use their own `float32` interval. When the scaled
-numbers would not fit in 128 bits the try falls back to formatting the text and parsing it.
+of two) to one integer scale, after dividing out the shared powers of two and five, and checks
+that the candidate lies inside (ends included when `m` is even). `float32` values use their own
+`float32` interval. When the scaled numbers would not fit in 128 bits, the candidate text is
+formatted and `text_reads_back` reads its digits and exponent back and runs the same comparison
+on `Natural` big integers. Shortest mode
+never calls the parser, so a program that prints does not compile the parsing code.
 
 `emit_float` patches the decimal and exponent characters into the text in place and appends it in
 one or two calls; only thousands separators fall back to appending byte by byte.
@@ -76,8 +79,10 @@ about 800 instructions, default `print("%", x)` about 900, shortest mode about 3
   from -1 to 30 in each mode, for `float64` and `float32`.
 - Raising the limits needs wider arithmetic: `FIVE_POWERS` stops at `5^27` because `m * 5^27` must
   stay under 2^117, and the `10^significant` limit table stops at `10^19`.
-- `digits_read_back` must agree with what the parser returns for the candidate text, or answer
-  `known = false`. Check shortest output against format-then-parse on the same bit patterns.
+- `digits_read_back` and `text_reads_back` must agree with what the parser returns for the
+  candidate text. Don't call the parser from the formatting code: everything `print` can reach is
+  compiled into every program that prints, and the parser is a large share of that. Check
+  shortest output against format-then-parse on the same bit patterns.
 - `stdlib/Basic/tests/format-floats.jai` holds the edge cases.
 
 ## How to change parsing
