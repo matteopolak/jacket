@@ -85,8 +85,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help='counted runs of each built program that is safe to run (0 to skip counting)')
     parser.add_argument('--programs-only', action='store_true',
                         help='only measure the built programs (size, instructions, retired instructions); time nothing')
+    parser.add_argument('--swap-modules', default='', metavar='NAMES',
+                        help='comma-separated modules to take from --baseline-modules / --candidate-modules')
     parser.add_argument('--baseline-modules', type=Path, default=None, metavar='DIR',
-                        help='build the baseline against the library modules in DIR (see module_swap.py); '
+                        help='build the baseline against the --swap-modules found in DIR (see module_swap.py); '
                              "its diagnostics are left out of the results")
     parser.add_argument('--candidate-modules', type=Path, default=None, metavar='DIR',
                         help='the same for the candidate')
@@ -309,7 +311,7 @@ class Comparison:
         for name, source in zip(NAMES, (args.baseline_modules, args.candidate_modules)):
             if source:
                 folder = scratch / 'modules' / name
-                module_swap.module_folder(source.resolve(), folder)
+                module_swap.module_folder(source.resolve(), folder, [n for n in args.swap_modules.split(',') if n])
                 self.module_dirs[name] = (str(folder),)
         # A binary built against another tree's modules may report on that tree's code: quote none of it.
         self.quote_output = not any(self.module_dirs.values())
@@ -487,6 +489,8 @@ def block_progress(block: dict) -> str:
 def run(args: argparse.Namespace) -> int:
     if args.rounds < 1 or args.cold_rounds < 0 or args.program_runs < 0:
         sys.exit('--rounds must be at least 1, and --cold-rounds and --program-runs at least 0')
+    if bool(args.swap_modules) != bool(args.baseline_modules or args.candidate_modules):
+        sys.exit('--swap-modules goes with --baseline-modules or --candidate-modules, and they with it')
     jobs = plan_jobs(args)
     if args.list:
         for job in jobs:
@@ -535,7 +539,8 @@ def run(args: argparse.Namespace) -> int:
                                 'max_load': max_load, 'forced': args.force, 'program_runs': args.program_runs,
                                 'programs_only': args.programs_only,
                                 'modules': {name: str(p) for name, p in zip(NAMES, (args.baseline_modules,
-                                                                                    args.candidate_modules)) if p}},
+                                                                                    args.candidate_modules)) if p},
+                                'swap_modules': args.swap_modules},
                    'purge': 'OS file cache purged before each cold run' if comparison.purge_ok
                             else f'file cache not purged: {comparison.purge_note}',
                    'start': start, 'start_warnings': [*errors, *warnings], 'blocks': []}

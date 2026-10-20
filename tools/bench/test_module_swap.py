@@ -8,18 +8,21 @@ from cmd_compare import Observed, compare_outputs
 
 
 class ModuleFolder(unittest.TestCase):
-    def test_links_library_modules_and_keeps_compiler_modules(self):
+    def test_links_the_named_modules_and_the_shared_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
             source, dest = Path(tmp, 'other'), Path(tmp, 'swap')
-            for name in ('Basic', 'Hash_Table', 'Runtime_Support', 'Compiler'):
+            for name in ('Basic', 'Sort', 'internal/sort'):
                 (source / name).mkdir(parents=True)
-            linked = module_swap.module_folder(source, dest)
-            self.assertIn('Basic', linked)
-            self.assertIn('Hash_Table', linked)
-            self.assertNotIn('Runtime_Support', linked)
-            self.assertNotIn('Compiler', linked)
-            self.assertEqual((dest / 'Basic').resolve(), (source / 'Basic').resolve())
-            self.assertFalse((dest / 'Sort').exists())  # not in the other tree: the compiler's own is used
+            (source / 'Single.jai').write_text('')
+            linked = module_swap.module_folder(source, dest, ['Sort', 'Single'])
+            self.assertEqual(sorted(linked), ['Single.jai', 'Sort', 'internal'])
+            self.assertEqual((dest / 'Sort').resolve(), (source / 'Sort').resolve())
+            self.assertFalse((dest / 'Basic').exists())  # not named: the compiler's own is used
+
+    def test_a_missing_module_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(SystemExit):
+                module_swap.module_folder(Path(tmp), Path(tmp, 'swap'), ['Sort'])
 
 
 class Settings(unittest.TestCase):

@@ -24,6 +24,8 @@ CORPUS = main_checkout() / 'corpus' / 'upstream'
 COMPILE_PROGRAMS = ROOT / 'benchmarks' / 'compile'
 MICRO_PROGRAMS = ROOT / 'benchmarks'
 RUNTIME_PROGRAMS = ROOT / 'benchmarks' / 'runtime'
+# Entry files that make an upstream library do real work; each is copied into its project.
+PROJECT_DRIVERS = ROOT / 'benchmarks' / 'runtime-projects'
 
 
 class Category(str, Enum):
@@ -82,6 +84,9 @@ class CorpusProject:
     tools/upstream-cases.json that prepare vendored libraries first."""
     project: str
     setup_ids: tuple[str, ...] = ()
+    # A file copied into the project's folder (a driver from PROJECT_DRIVERS), for a library with no
+    # program of its own that does enough work.
+    driver: Path | None = None
 
     @property
     def directory(self) -> Path:
@@ -94,7 +99,10 @@ class CorpusProject:
                 for command in case.get('setup', []):
                     subprocess.run(command, cwd=(CORPUS / case['path']).parent, capture_output=True,
                                    stdin=subprocess.DEVNULL)
-        return copy_in(self.directory, scratch, CORPUS / Path(self.project).parts[0])
+        copy = copy_in(self.directory, scratch, CORPUS / Path(self.project).parts[0])
+        if self.driver:
+            shutil.copy(self.driver, copy / self.driver.name)
+        return copy
 
     def available(self) -> str:
         return '' if self.directory.is_dir() else f'{self.directory} is missing; run python3 tools/fetch_upstreams.py'
@@ -190,6 +198,15 @@ def runtime_programs() -> list[Workload]:
             for path in sorted(RUNTIME_PROGRAMS.glob('*.jai'))]
 
 
+def project_drivers() -> list[Workload]:
+    """Upstream libraries built and run through a driver named after the project's repository."""
+    projects = {'jai-crypto': 'smari--jai-crypto', 'jaison': 'rluba--jaison', 'jai-xml': 'smari--jai-xml'}
+    return [Workload(f'{name}-run', Category.REAL_PROJECT,
+                     CorpusProject(projects[name], driver=PROJECT_DRIVERS / f'{name}.jai'),
+                     single(f'{name}.jai', Mode.BUILD, Mode.OPTIMIZED), compare_output=True, runtime=True)
+            for name in sorted(projects)]
+
+
 def own_output(entry: str, *metaprogram_args: str) -> Plan:
     """A build driven by the project's metaprogram, which decides where the executable goes."""
     return Plan(entry, metaprogram_args, redirect_output=False)
@@ -222,4 +239,5 @@ def all_workloads() -> list[Workload]:
         program('stdlib-imports', Category.STDLIB, COMPILE_PROGRAMS),
         *interpreter_programs(),
         *runtime_programs(),
+        *project_drivers(),
     ]

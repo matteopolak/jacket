@@ -1,31 +1,28 @@
-"""Building one compiler against another module tree, to tell code generation apart from library code.
+"""Building one compiler against some of another tree's modules, to tell code generation apart from
+library code: `--swap-modules Sort,Hash_Table` with `--baseline-modules` or `--candidate-modules DIR`.
 
-`module_folder` makes a folder of links to the library modules of `source`, by the names this repository's
-stdlib uses, leaving out the modules a compiler is built around (its runtime, its compiler interface), which
-always stay the compiler's own. The phase-timing metaprogram searches that folder first."""
+`module_folder` makes a folder of links to the named modules of a tree, plus its `internal` folder when it
+has one (this repository's modules keep their shared code there). The phase-timing metaprogram searches
+that folder first, so those modules replace the compiler's own and everything else stays its own. Whole
+trees don't swap: each compiler's modules use things only that compiler accepts."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from results import ROOT
-
-STDLIB = ROOT / 'stdlib'
-# Modules tied to the compiler that loads them; swapping these measures nothing useful and rarely builds.
-COMPILER_MODULES = frozenset({'Compiler', 'Preload', 'Runtime_Support', 'Runtime_Support_Crash_Handler',
-                              'Program_Print', 'Remap_Context', 'Wasi_Numeric_Runtime'})
+SHARED = 'internal'
 
 
-def module_names() -> list[str]:
-    return sorted(entry.name for entry in STDLIB.iterdir() if not entry.name.startswith('.'))
-
-
-def module_folder(source: Path, dest: Path) -> list[str]:
-    """Links in `dest` to each library module of `source`; returns the names linked."""
+def module_folder(source: Path, dest: Path, names: list[str]) -> list[str]:
+    """Links in `dest` to each of `names` in `source` (and its `internal` folder); returns the names linked.
+    A name `source` lacks is an error: the comparison would quietly use the compiler's own module."""
     dest.mkdir(parents=True, exist_ok=True)
+    missing = [name for name in names if not (source / name).exists() and not (source / f'{name}.jai').exists()]
+    if missing:
+        raise SystemExit(f'{source} has no module {", ".join(missing)}')
     linked = []
-    for name in module_names():
-        if Path(name).stem in COMPILER_MODULES or not (source / name).exists():
-            continue
-        (dest / name).symlink_to(source / name)
-        linked.append(name)
+    for name in [*names, SHARED]:
+        for entry in (source / name, source / f'{name}.jai'):
+            if entry.exists() and not (dest / entry.name).exists():
+                (dest / entry.name).symlink_to(entry)
+                linked.append(entry.name)
     return linked
