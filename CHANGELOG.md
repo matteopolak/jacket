@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.21.1] - 2026-10-20
+
+### New
+
+- `jacket upgrade` updates a script or PowerShell install to the latest release.
+- `-exe name` with no folder writes the executable to the current directory.
+
+### Fixed
+
+- Browser and wasm builds have Basic's clock, calendar, `sleep_milliseconds` and `exit`.
+- `log` and `log_error` end each message with a newline, as in the official compiler.
+- `#module_parameters` in a program file is now an error, as in the official compiler.
+- C callbacks that take stack arguments work on Windows arm64.
+- Several editor fixes: renames, procedure-type results, statements before a switch's first `case`, constants whose `#run` failed, and hovers while a procedure is being edited.
+
 ## [0.21.0] - 2026-10-19
 
 ### New
