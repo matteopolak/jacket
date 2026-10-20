@@ -22,7 +22,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Standard library
 
-[Extensions](extensions/README.md) (Io, Http, Tls, Json and the rest), [native layout](stdlib-native-layout.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md), [benchmarks](tools/stdlib-benchmarks.md).
+[Extensions](extensions/README.md) (Io, Http, Tls, Json and the rest), [native layout](stdlib-native-layout.md), [float conversion](stdlib-float-conversion.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md), [benchmarks](tools/stdlib-benchmarks.md).
 
 ## Building and testing
 

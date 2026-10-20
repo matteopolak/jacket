@@ -23,6 +23,7 @@ from toolkit.repo import ROOT, jaifmt_path
 # Generators that format their output with the repository jaifmt.
 FORMATTED = [
     "tools/generators/audio_generate_signatures.py",
+    "tools/generators/generate_float_powers.py",
     "tools/generators/generate_jai_lexer_contract.py",
     "tools/generators/generate_machine_x64.py",
     "tools/generators/generate_mpeg_tables.py",

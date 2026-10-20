@@ -85,13 +85,15 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
 
     sign := ifx negative then sign_mask else cast(u64) 0;
 
-    if word_at(text, cursor, "inf") {
+    first := ifx cursor < text.count then to_lower(text[cursor]) else 0;
+
+    if first == 105 && word_at(text, cursor, "inf") {
         cursor += 3;
         if word_at(text, cursor, "inity") cursor += 5;
         return float_bits(sign | infinity, T), true, advance(text, cursor);
     }
 
-    if word_at(text, cursor, "nan") {
+    if first == 110 && word_at(text, cursor, "nan") {
         cursor += 3;
         end := cursor;
         if end < text.count && text[end] == 40 {
@@ -113,6 +115,12 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
             base = 16;
             cursor += 2;
         }
+    }
+
+    if base == 10 {
+        bits, status, rest := decimal_float_bits(text, cursor, T);
+        if status == .DONE return float_bits(sign | bits, T), true, rest;
+        if status == .NO_DIGITS return 0, false, text;
     }
 
     number := nat_from(0);
