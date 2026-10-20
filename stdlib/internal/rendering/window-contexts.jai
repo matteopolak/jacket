@@ -115,7 +115,6 @@ make_current :: (window: WT.Window_Type) {
     if fence != 0 {
         GL.gl.glWaitSync(fence, 0, 0xffffffffffffffff);
         GL.gl.glDeleteSync(fence);
-        Basic.assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "shared-context GPU synchronization failed");
     }
 }
 

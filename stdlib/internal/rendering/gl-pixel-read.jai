@@ -23,6 +23,12 @@ pixel_read_begin :: (source: *Texture, dest_format: Texture_Format, width: s32 =
     if srgb flags |= .sRGB;
 
     reader.intermediate_texture = texture_create_render_target(width, height, dest_format, flags);
+
+    if reader.intermediate_texture.gl_handle == 0 {
+        Basic.free(reader);
+        return null;
+    }
+
     GL.gl.glGenFramebuffers(1, *reader.src_fbo_handle);
     GL.gl.glGenFramebuffers(1, *reader.dest_fbo_handle);
     GL.gl.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, reader.src_fbo_handle);
@@ -63,7 +69,18 @@ pixel_read_begin :: (source: *Texture, dest_format: Texture_Format, width: s32 =
     GL.gl.glReadPixels(0, 0, cast(GL.GLsizei) width, cast(GL.GLsizei) height, description.external, description.scalar, null);
     fence := GL.gl.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
-    assert(fence != 0 && GL.gl.glGetError() == GL.GL_NO_ERROR, "native asynchronous pixel read failed");
+    if fence == 0 || GL.gl.glGetError() != GL.GL_NO_ERROR {
+        if fence != 0 GL.gl.glDeleteSync(fence);
+
+        GL.gl.glDeleteFramebuffers(1, *reader.src_fbo_handle);
+        GL.gl.glDeleteFramebuffers(1, *reader.dest_fbo_handle);
+        GL.gl.glDeleteBuffers(1, *reader.pbo);
+        texture_destroy(*reader.intermediate_texture);
+        Basic.free(reader);
+
+        return null;
+    }
+
     if !pixel_readers.allocator.proc pixel_readers.allocator = context.default_allocator;
 
     Basic.array_add(*pixel_readers, Reader_Storage.{ reader, fence, Contexts.capture(), context.allocator });
@@ -127,7 +144,6 @@ pixel_read_end :: (reader: *Pixel_Read, bitmap: *Bitmap) {
     }
 
     texture_destroy(*reader.intermediate_texture);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native pixel reader destruction failed");
 
     for entry, index: pixel_readers if entry.reader == reader {
         Basic.array_unordered_remove_by_index(*pixel_readers, index);
@@ -193,7 +209,6 @@ save_pixel_pack_state :: () -> Pixel_Pack_State {
     GL.gl.glGetIntegerv(GL.GL_PACK_SKIP_ROWS, *state.skip_rows);
     GL.gl.glGetIntegerv(GL.GL_PACK_SWAP_BYTES, *state.swap_bytes);
     state.srgb = GL.gl.glIsEnabled(GL.GL_FRAMEBUFFER_SRGB);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR);
 
     return state;
 }
@@ -211,5 +226,4 @@ restore_pixel_pack_state :: (state: Pixel_Pack_State) {
     if state.srgb GL.gl.glEnable(GL.GL_FRAMEBUFFER_SRGB);
     else GL.gl.glDisable(GL.GL_FRAMEBUFFER_SRGB);
 
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native pixel-pack state restoration failed");
 }

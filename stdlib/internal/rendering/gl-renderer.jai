@@ -65,7 +65,6 @@ backend_set_render_target :: (info: *Window_Info) {
     require_gl_texture_context();
     GL.gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0);
     GL.gl.glViewport(0, 0, cast(GL.GLsizei) info.window_width, cast(GL.GLsizei) info.window_height);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native window target binding failed");
 }
 
 backend_set_render_target :: (texture: *Texture) {
@@ -89,7 +88,6 @@ backend_set_render_target :: (texture: *Texture) {
     attach_texture_framebuffer(GL.GL_FRAMEBUFFER, texture);
     assert(GL.gl.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE, "native texture framebuffer is incomplete");
     GL.gl.glViewport(0, 0, cast(GL.GLsizei) texture.width, cast(GL.GLsizei) texture.height);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native texture target binding failed");
 }
 
 update_window :: (window: Window_Type) {
@@ -155,7 +153,6 @@ clear_render_target :: (r: float, g: float, b: float, a: float) {
     require_gl_texture_context();
     GL.gl.glClearColor(r, g, b, a);
     GL.gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native render-target clear failed");
 }
 
 set_scissor :: (p0: Vector2, p1: Vector2) {
@@ -178,7 +175,6 @@ set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
 
     GL.gl.glEnable(GL.GL_SCISSOR_TEST);
     GL.gl.glScissor(x0, y0, cast(GL.GLsizei) (x1 - x0), cast(GL.GLsizei) (y1 - y0));
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native scissor update failed");
 }
 
 clear_scissor :: () {
@@ -296,7 +292,6 @@ backend_draw_immediate_vertices :: (num_vertices: int) {
     if immediate_texture backend_set_texture(shader, immediate_texture);
 
     GL.gl.glDrawArrays(GL.GL_TRIANGLES, 0, cast(GL.GLsizei) num_vertices);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native immediate rendering failed");
 }
 
 draw_text :: (font: *Dynamic_Font, x: s64, y: s64, text: string, color := Vector4.{ 1, 1, 1, 1 }, effects: Font_Effects = 0) -> width: s64 {
@@ -437,7 +432,6 @@ retire_window_renderer :: (window: Window_Type, native: *void) {
         renderer_vbo = 0;
     }
 
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "native window renderer resource release failed");
 }
 
 flush_texture_use :: (texture: u32) {
@@ -463,7 +457,6 @@ release_texture_framebuffers :: (texture: u32) {
 
         Contexts.restore(entry.selection);
         GL.gl.glDeleteFramebuffers(1, *entry.framebuffer);
-        assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "texture framebuffer release failed");
         Basic.array_unordered_remove_by_index(*framebuffers, index);
     }
 

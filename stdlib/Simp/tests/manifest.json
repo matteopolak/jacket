@@ -65,6 +65,19 @@
     "input": "font"
   },
   {
+    "name": "gl-error-tolerance",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
+    ],
+    "required_os": [
+      "macos"
+    ]
+  },
+  {
     "name": "gl-render-readback",
     "unsupported_modes": [
       "wasm-interp",

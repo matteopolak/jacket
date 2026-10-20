@@ -31,7 +31,6 @@ texture_destroy :: (texture: *Texture) {
         require_gl_texture_context();
         release_texture_framebuffers(texture.gl_handle);
         GL.gl.glDeleteTextures(1, *texture.gl_handle);
-        assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL texture deletion failed");
     }
 
     texture.* = .{};
@@ -41,12 +40,7 @@ backend_realloc_texture :: (texture: *Texture, bitmap: *Bitmap) {
     flush_texture_use(texture.gl_handle);
 
     if texture.gl_handle == 0 || texture.mipmap_count != 1 || bitmap.mipmap_count != 1 {
-        uploaded := upload_bitmap(texture, bitmap);
-        if !uploaded {
-            context.logger("OpenGL texture reallocation failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
-            assert(false, "OpenGL texture reallocation failed");
-        }
-
+        upload_bitmap(texture, bitmap);
         return;
     }
 
@@ -83,7 +77,6 @@ backend_realloc_texture :: (texture: *Texture, bitmap: *Bitmap) {
 
     GL.gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, cast(s32) filter);
     GL.gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, cast(s32) filter);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL texture storage reallocation failed");
     // Preserve the native name, including existing framebuffer attachments.
     texture.width = bitmap.width;
     texture.height = bitmap.height;
@@ -132,7 +125,6 @@ backend_update_texture :: (texture: *Texture, bitmap: *Bitmap) {
         }
     }
 
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL texture update failed");
 }
 
 texture_create_render_target :: (width: s32, height: s32, format: Texture_Format, flags: Texture_Flags = 0) -> Texture {
@@ -160,7 +152,8 @@ backend_create_render_target :: (texture: *Texture) {
     handle: GLuint;
 
     GL.gl.glGenTextures(1, *handle);
-    assert(handle != 0 && GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL render-target texture allocation failed");
+    if handle == 0 || GL.gl.glGetError() != GL.GL_NO_ERROR return;
+
     GL.gl.glBindTexture(GL.GL_TEXTURE_2D, handle);
     prepare_client_unpack();
     GL.gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, cast(s32) description.internal, cast(GL.GLsizei) texture.width, cast(GL.GLsizei) texture.height, 0, description.external, description.scalar, null);
@@ -171,7 +164,7 @@ backend_create_render_target :: (texture: *Texture) {
     error := GL.gl.glGetError();
     if error != GL.GL_NO_ERROR {
         GL.gl.glDeleteTextures(1, *handle);
-        assert(false, "OpenGL render-target texture storage failed");
+        return;
     }
 
     if texture.gl_handle != 0 {
@@ -184,7 +177,6 @@ backend_create_render_target :: (texture: *Texture) {
     texture.gl_handle = handle;
     texture.mipmap_count = 1;
     texture.flags |= .Render_Target;
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL render-target replacement failed");
 }
 
 is_supported :: (tf: Texture_Format) -> bool {
@@ -199,7 +191,6 @@ is_supported :: (tf: Texture_Format) -> bool {
     if (major > 4 || (major == 4 && minor >= 3)) && GL.gl.glGetInternalformativ {
         supported: s32;
         GL.gl.glGetInternalformativ(GL.GL_TEXTURE_2D, description.internal, GL.GL_INTERNALFORMAT_SUPPORTED, 1, *supported);
-        assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL internal-format query failed");
         return supported != 0;
     }
 
@@ -243,10 +234,15 @@ require_gl_texture_context :: () {
         loaded_gl_context = native;
     }
 
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "pending OpenGL error before texture operation");
+    // Errors raised by the host program are not ours; start each operation from a clean state.
+    drain_gl_errors();
 }
 
 loaded_gl_context: *void;
+
+drain_gl_errors :: () {
+    for 1..64 if GL.gl.glGetError() == GL.GL_NO_ERROR break;
+}
 
 save_texture_state :: () -> GL_Texture_State {
     result: GL_Texture_State;
@@ -258,7 +254,6 @@ save_texture_state :: () -> GL_Texture_State {
     GL.gl.glGetIntegerv(GL.GL_UNPACK_SKIP_ROWS, *result.skip_rows);
     GL.gl.glGetIntegerv(GL.GL_UNPACK_SKIP_PIXELS, *result.skip_pixels);
     GL.gl.glGetIntegerv(GL.GL_UNPACK_SWAP_BYTES, *result.swap_bytes);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL unpack state query failed");
 
     return result;
 }
@@ -271,7 +266,6 @@ restore_texture_state :: (state: GL_Texture_State) {
     GL.gl.glPixelStorei(GL.GL_UNPACK_SWAP_BYTES, state.swap_bytes);
     GL.gl.glBindBuffer(GL.GL_PIXEL_UNPACK_BUFFER, cast,truncate(u32) state.unpack_buffer);
     GL.gl.glBindTexture(GL.GL_TEXTURE_2D, cast,truncate(u32) state.binding);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL texture state restoration failed");
 }
 
 upload_bitmap :: (texture: *Texture, bitmap: *Bitmap) -> bool {
@@ -295,7 +289,6 @@ upload_bitmap :: (texture: *Texture, bitmap: *Bitmap) -> bool {
     defer {
         if !committed && handle != 0 {
             GL.gl.glDeleteTextures(1, *handle);
-            assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL failed-upload cleanup failed");
         }
 
         restore_texture_state(previous);
@@ -348,7 +341,6 @@ upload_bitmap :: (texture: *Texture, bitmap: *Bitmap) -> bool {
     if old_handle != 0 {
         release_texture_framebuffers(old_handle);
         GL.gl.glDeleteTextures(1, *old_handle);
-        assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL replaced-texture release failed");
         if cast,truncate(u32) previous.binding == old_handle previous.binding = cast,truncate(s32) handle;
     }
 

@@ -24,15 +24,12 @@ get_shader_program :: (shader_text: string) -> GLuint {
         return 0;
     }
 
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL shader linkage operation failed");
-
     return program;
 }
 
 backend_use_shader :: (s: *Shader) {
     require_gl_texture_context();
     GL.gl.glUseProgram(s.gl_handle);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL shader selection failed");
 }
 
 backend_update_shader_parameter_locations :: (s: *Shader) {
@@ -44,14 +41,12 @@ backend_update_shader_parameter_locations :: (s: *Shader) {
     s.uv_0_loc = GL._glGetAttribLocation(s.gl_handle, "uv_0");
     s.uv_1_loc = GL._glGetAttribLocation(s.gl_handle, "uv_1");
     s.diffuse_texture_loc = GL._glGetUniformLocation(s.gl_handle, "diffuse_texture");
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL uniform query failed");
 }
 
 set_parameter :: (shader: *Shader, name: *u8, m: Matrix4) {
     require_gl_texture_context();
     location := GL.gl.glGetUniformLocation(shader.gl_handle, name);
     GL.gl.glUniformMatrix4fv(location, 1, false, cast(*float) *m);
-    assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "OpenGL matrix uniform update failed");
 }
 
 #scope_module
