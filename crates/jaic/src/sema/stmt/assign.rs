@@ -302,14 +302,17 @@ impl Compiler {
             }
             container = base;
         }
-        if matches!(container.kind, E::Ident(_)) && !f.immutable.is_empty() {
-            let mut scratch = self.scratch_ctx(scope);
-            scratch.backtick_scope = f
-                .backtick_scope
-                .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
-            if let Ok(Operand::Place {
-                addr, ..
-            }) = self.check_expr(&mut scratch, scope, container, None)
+        if let E::Ident(name) = &container.kind
+            && !f.immutable.is_empty()
+        {
+            // Compare the local's own storage: evaluating the name in a scratch context
+            // numbers its values from zero, so an address made there (a global, a `using`
+            // member) can equal an argument's address by chance.
+            let found = self.lookup(scope, *name)?;
+            if let [entity] = found[..]
+                && let EntityKind::Local {
+                    addr, ..
+                } = self.entity(entity).kind
                 && let Some(&(_, why)) = f.immutable.iter().find(|(a, _)| *a == addr)
             {
                 return err(
