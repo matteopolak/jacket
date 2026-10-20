@@ -293,8 +293,10 @@ def first_difference(a: list[str], b: list[str]) -> str:
 def install_reads(compiler: Compiler) -> list[Path]:
     """What a compiler reads besides the workload: its own install. A build reads the stdlib and
     native libraries of the checkout it was built in (or `JAIC_STDLIB` / `JAIC_NATIVE_LIBS`), or the ones
-    unpacked next to it in a release."""
-    reads = [compiler.path.parent, ROOT / 'stdlib', ROOT / 'target' / 'native-libs', *library_folders(compiler.path)]
+    unpacked next to it in a release. A binary in a `bin/` folder reads the whole install around it,
+    where compilers keep their modules."""
+    folder = compiler.path.parent
+    reads = [folder.parent if folder.name == 'bin' else folder, ROOT / 'stdlib', ROOT / 'target' / 'native-libs', *library_folders(compiler.path)]
     reads += [Path(os.environ[v]).resolve() for v in ('JAIC_STDLIB', 'JAIC_NATIVE_LIBS') if os.environ.get(v)]
     return [r for r in reads if r.exists()]
 
