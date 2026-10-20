@@ -100,7 +100,6 @@ argument `{}` is not a parameter of this module
 argument cannot be inferred as parameter type {}
 argument for `${}` must be a compile-time constant
 argument {} supplied more than once
-array size must be a non-negative constant, found {}
 array type {} is too large (the limit is {} bytes)
 assignment needs a value
 baked spread pointer overflow
@@ -108,11 +107,9 @@ bootstrap __reg must be a type
 builtin needs an argument
 builtin procedure is not a value
 cannot bake an unnamed parameter
-cannot call `{}` without a context (use push_context in #c_call code)
 cannot call type {}
 cannot cast {} to {}
 cannot convert {} to {}
-cannot dereference a value of type {}
 cannot infer `.{}` for type {}
 cannot use `using` on {}
 cannot use a struct literal for type {}
@@ -189,7 +186,6 @@ retained runtime configuration dependency has no target image
 return value has no name to assign
 runtime defines multiple private extensions `{}`
 signature of `{}` depends on itself
-signedness mismatch: the constant {} does not fit in `{}`
 strings can only be compared with == and !=
 struct `{}` contains itself (use a pointer)
 target TEMPORARY_STORAGE_SIZE was bound to {}, but the final workspace temporary_storage_size is {}
@@ -231,13 +227,7 @@ void value used
 xgetbv operands must be 32- or 64-bit integer registers
 xgetbv requires an x86-64 target
 {} cache operation is not implemented
-{} does not satisfy interface {}: expected a struct
-{} does not satisfy interface {}: incompatible member `{}`
-{} does not satisfy interface {}: missing member `{}`
-{} does not satisfy interface {}: missing or incompatible field `{}`
-{} does not satisfy the restriction `{}`
 {} is not a procedure type
-{} is not a type
 {} is not an instance of `{}`
 {} is not an instance of this struct
 {} outputs must be 32- or 64-bit integer registers
