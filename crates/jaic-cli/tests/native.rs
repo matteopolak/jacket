@@ -433,9 +433,26 @@ fn asm_instructions_run_natively() {
         "asm-simd-extended",
         "asm-avx512-masks",
         "asm-f16c-sha-gfni",
+        "asm-string-compare",
+        "asm-string-compare-operands",
     ] {
         let source = repo_root().join(format!("tests/compiler/regressions/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "ok\n",
+            "{name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+/// The SSE4.2 string compares give the same results when interpreted, whatever the host.
+#[test]
+fn asm_string_compares_run_interpreted() {
+    for name in ["asm-string-compare", "asm-string-compare-operands"] {
+        let source = repo_root().join(format!("tests/compiler/regressions/{name}.jai"));
+        let output = jaic().arg("-interp").arg(&source).output().unwrap();
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
             "ok\n",

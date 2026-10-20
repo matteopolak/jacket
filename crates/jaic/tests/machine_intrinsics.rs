@@ -785,6 +785,48 @@ mod x86_machine {
     }
 
     #[test]
+    fn string_compares_check_their_operand_count_and_control_constant() {
+        for (body, message) in [
+            (
+                "#asm SSE4_2 { a:vec; b:vec; pcmpistri ecx:, a, b; }",
+                "`pcmpistri` takes 4 operands",
+            ),
+            (
+                "#asm SSE4_2 { a:vec; b:vec; pcmpistrm m:, a, b, 0, 0; }",
+                "`pcmpistrm` takes 4 operands",
+            ),
+            (
+                "#asm SSE4_2 { a:vec; b:vec; pcmpestri ecx:, a, b, 0; }",
+                "`pcmpestri` takes 6 operands",
+            ),
+            (
+                "#asm SSE4_2 { a:vec; b:vec; m:vec; pcmpestrm m, a, b, 0; }",
+                "`pcmpestrm` takes 6 operands",
+            ),
+            (
+                "#asm SSE4_2 { a:vec; b:vec; pcmpistri ecx:, a, b, b; }",
+                "`pcmpistri` needs an 8-bit control constant",
+            ),
+            (
+                "#asm SSE4_2 { a:vec; b:vec; pcmpistri ecx:, a, b, 256; }",
+                "`pcmpistri` needs an 8-bit control constant",
+            ),
+            (
+                "#asm SSE4_2 { a:vec; b:vec; pcmpistri ecx:, a, b, -1; }",
+                "`pcmpistri` needs an 8-bit control constant",
+            ),
+        ] {
+            let (c, result) = compile(TargetCpu::X64, &format!("main :: () {{ {body} }}"));
+            let error = result.expect_err("a malformed string compare must diagnose");
+            assert!(
+                error.message.contains(message),
+                "{message}: {}",
+                error.render(&c.sources)
+            );
+        }
+    }
+
+    #[test]
     fn wasm_cycle_counter_is_an_explicit_missing_capability() {
         let (_, result) = compile(
             TargetCpu::Wasm,
