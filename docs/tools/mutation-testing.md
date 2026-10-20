@@ -15,7 +15,7 @@ Each mutant runs a **fast subset** of the `jaic` tests, chosen in the workflow's
 ## How to change it
 
 - Run it on one file: `cargo mutants -p jaic -f crates/jaic/src/ide/interval.rs`. Each mutant rebuilds `jaic`, about a minute, so use `--list` first and a small file. `-F 'regex'` narrows to mutants whose name matches.
-- A surviving mutant is a missing test, an equivalent change, or dead code. Add a test that fails with the mutant (the report names the line and the replacement); if the code is unreachable, delete it. A mutant that cannot be told apart from the original can be skipped in place with `#[mutants::skip]` and a comment saying why; add the `mutants` crate only when one is needed.
+- A surviving mutant is a missing test, an equivalent change, or dead code. Add a test that fails with the mutant (the report names the line and the replacement); if the code is unreachable, delete it. A mutant that cannot be told apart from the original is listed in `exclude_re` in `.cargo/mutants.toml` with a comment saying why (rotation's `|`, the type-only early return and `fold_cast`'s guards are there); `#[mutants::skip]` would need the `mutants` crate. `sema/convert/casts.rs` is tested by `crates/jaic/tests/cast_semantics.rs` and `interp/arith.rs` by `interp/arith/tests.rs`; both ended with only those listed survivors.
 - Widen the scope by adding a glob to `SCOPE` in the workflow; extend the subset by adding a test binary name to the `for name in` list.
 - Deep run of a hot file: dispatch `mutants` with `scope` set to the file and `full_suite` true.
 - Timeouts count as caught (the mutant made the program loop), so a mutated loop condition is not a finding.

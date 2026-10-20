@@ -213,23 +213,6 @@ impl Compiler {
         {
             return self.convert(f, op, to, span);
         }
-        if let Operand::Procs(procs) = &op
-            && procs.len() == 1
-            && matches!(
-                self.ty.types.kind(to),
-                TypeKind::Proc(_) | TypeKind::Pointer(_)
-            )
-        {
-            // Casting a procedure to another procedure type (or a pointer) reinterprets its address.
-            if let Ok(c) = self.convert(f, op.clone(), to, span) {
-                return Ok(c);
-            }
-            let (_, v) = self.rvalue(f, op, span)?;
-            return Ok(Operand::Value {
-                ty: to,
-                val: v,
-            });
-        }
         if let Operand::Type(t) = op {
             if to == TypeId::TYPE {
                 return Ok(Operand::Type(t));

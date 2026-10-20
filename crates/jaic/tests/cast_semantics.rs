@@ -276,6 +276,7 @@ fn a_typed_constant_cast_to_its_own_type_stays_typed() {
 #[test]
 fn types_cast_to_type_unchanged() {
     holds("T :: cast(Type) s32;\n#assert(T == s32);");
+    holds("x : cast(Type) s32 = 5;\n#assert(type_of(x) == s32);");
 }
 
 #[test]
