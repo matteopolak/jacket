@@ -78,6 +78,7 @@ impl Compiler {
         &mut self,
         param: TypeId,
         fields: &[ast::Arg],
+        scope: ScopeId,
         span: Span,
     ) -> Result<Option<u32>> {
         if self.size_of(param, span).is_err() || fields.is_empty() {
@@ -88,7 +89,10 @@ impl Compiler {
         let mut named = 0;
         for field in fields {
             if let Some(name) = field.name {
-                if self.find_member(param, name.name, name.span)?.is_none() {
+                let Some((_, member)) = self.find_member(param, name.name, name.span)? else {
+                    return Ok(None);
+                };
+                if !self.value_fits_member(scope, &field.value, member) {
                     return Ok(None);
                 }
                 named += 1;
@@ -102,6 +106,9 @@ impl Compiler {
                         TypeKind::Array { .. }
                     )
                 {
+                    return Ok(None);
+                }
+                if !self.value_fits_member(scope, &field.value, member) {
                     return Ok(None);
                 }
                 positional += 1;
@@ -119,6 +126,26 @@ impl Compiler {
         Ok(Some(u32::try_from(unfilled).unwrap_or(u32::MAX)))
     }
 
+    /// Whether a value of a literal can be stored in a member of type `member`. A value that
+    /// takes its type from the member (`.A`, `.{...}`) always can.
+    fn value_fits_member(&mut self, scope: ScopeId, value: &ast::Expr, member: TypeId) -> bool {
+        if is_deferred(value) {
+            return true;
+        }
+        let Ok(op) = self.check_expr_no_emit(scope, value) else {
+            return true;
+        };
+        let probe = CallArg {
+            name: None,
+            spread: false,
+            expr: Some(value.clone()),
+            op: Some(op),
+            span: value.span,
+            scope,
+        };
+        self.arg_cost(&probe, member, false).is_ok()
+    }
+
     /// The fit of a deferred argument to `param` that breaks ties between equally cheap
     /// candidates: see [`Self::struct_lit_fit`]. Arguments of any other shape fit alike.
     pub(super) fn arg_fit(&mut self, arg: &CallArg, param: TypeId) -> Result<u32> {
@@ -132,7 +159,9 @@ impl Compiler {
                 ..
             }) = &arg.expr
         {
-            return Ok(self.struct_lit_fit(param, fields, arg.span)?.unwrap_or(0));
+            return Ok(self
+                .struct_lit_fit(param, fields, arg.scope, arg.span)?
+                .unwrap_or(0));
         }
         Ok(0)
     }
@@ -239,7 +268,9 @@ impl Compiler {
                         || !self
                             .builtin_members(self.ty.types.repr(param), arg.span)?
                             .is_empty())
-                        && self.struct_lit_fit(param, lit_args, arg.span)?.is_some()
+                        && self
+                            .struct_lit_fit(param, lit_args, arg.scope, arg.span)?
+                            .is_some()
                 }
                 Some(E::ArrayLit {
                     ..

@@ -87,6 +87,20 @@ fn values_beyond_the_positional_members_rule_a_candidate_out() {
 }
 
 #[test]
+fn a_value_that_cannot_be_stored_in_a_member_rules_a_candidate_out() {
+    accepts(
+        "Number :: struct { value: u8; extra: int = 6; }
+        Flag :: struct { value: bool; }
+        choose :: (item: Number) -> s32 { return 1; }
+        choose :: (item: Flag) -> s32 { return 2; }
+        number :: #run choose(.{ value = 7 });
+        flag :: #run choose(.{ value = true });
+        positional :: #run choose(.{ true });
+        #assert(number == 1 && flag == 2 && positional == 2);",
+    );
+}
+
+#[test]
 fn a_typed_literal_and_a_code_argument_are_not_ambiguous() {
     accepts(
         "V :: struct { a: s32; }
