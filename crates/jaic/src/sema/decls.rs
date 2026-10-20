@@ -396,6 +396,17 @@ impl Compiler {
                         Value::Int(i) => Value::float(i as f64),
                         v => v,
                     }
+                } else if let Value::Int(i) = value
+                    && untyped
+                    && expected.is_some()
+                    && let Some((bits, signed)) = self.ty.types.int_info(self.ty.types.repr(ty))
+                    && signed
+                    && bits <= 64
+                    && crate::sema::convert::int_fits(i, bits, signed)
+                {
+                    // A bit pattern that fills a signed type (`0x8000_0000` for `s32`) is the
+                    // negative number its sign bit makes.
+                    Value::Int(crate::sema::expr::wrap_int(i, bits, signed))
                 } else {
                     value
                 };
