@@ -34,7 +34,7 @@ impl Compiler {
         let header = p.lit.header.clone();
         let name = p.name;
         if header.params.iter().any(|p| p.auto_bake)
-            || self.auto_bake_variants.values().any(|&v| v == id)
+            || self.pr.auto_bake_variants.values().any(|&v| v == id)
         {
             return Ok(());
         }

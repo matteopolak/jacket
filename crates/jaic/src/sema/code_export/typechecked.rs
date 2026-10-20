@@ -236,6 +236,7 @@ impl Compiler {
         // without the syntax exporter's call lookup finding it. Lowering is the
         // authority for these events, not whether its source has a global name.
         let completed: Vec<_> = self
+            .pr
             .procs
             .iter()
             .enumerate()
@@ -280,7 +281,7 @@ impl Compiler {
             let lit = self.proc(p).lit.clone();
             let span = self.proc(p).span;
             let sig = self.signature(p, span).ok();
-            let notes = self.proc_decl_notes.get(&p).cloned().unwrap_or_default();
+            let notes = self.pr.proc_decl_notes.get(&p).cloned().unwrap_or_default();
             let mut ex = Exporter {
                 c: Some(self),
                 r,
@@ -303,7 +304,7 @@ impl Compiler {
     pub fn export_code_typed(&mut self, code: usize) {
         self.adopt_made_codes();
         // `code_of(f)`: f's locals have types once its body is lowered.
-        if let Some(&p) = self.code_procs.get(&code)
+        if let Some(&p) = self.pr.code_procs.get(&code)
             && !self.proc(p).is_poly
             && !self.proc(p).is_macro
             && self.proc_func(p, self.proc(p).span).is_ok()
@@ -315,8 +316,8 @@ impl Compiler {
             return;
         };
         let (Some(body), Some(&scope), Some((_, text))) = (
-            self.codes.get(code).cloned(),
-            self.code_scopes.get(code),
+            self.pr.codes.get(code).cloned(),
+            self.pr.code_scopes.get(code),
             self.ct.interp.codes.get(code).cloned(),
         ) else {
             return;

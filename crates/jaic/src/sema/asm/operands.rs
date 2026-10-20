@@ -65,7 +65,7 @@ impl Compiler {
         match self.lookup_full(cx.scope, decl.name.name)? {
             Found::Entities(ids) if !ids.is_empty() => {
                 if let Some(&id) = ids.last()
-                    && self.asm_regs.get(&id) == Some(&AsmReg::Gpr)
+                    && self.pr.asm_regs.get(&id) == Some(&AsmReg::Gpr)
                     && let EntityKind::Local {
                         addr, ..
                     } = self.entity(id).kind
@@ -112,7 +112,7 @@ impl Compiler {
                 }
             }
         };
-        self.asm_pins.push((reg, addr));
+        self.pr.asm_pins.push((reg, addr));
     }
 
     /// Declare the register named by `decl` in the enclosing scope (reusing an earlier
@@ -135,7 +135,7 @@ impl Compiler {
         let name = decl.name.name;
         if let Some(ids) = self.scope(cx.scope).names.get(&name)
             && let Some(&existing) = ids.last()
-            && self.asm_regs.get(&existing) == Some(&kind)
+            && self.pr.asm_regs.get(&existing) == Some(&kind)
             && let EntityKind::Local {
                 addr, ..
             } = self.entity(existing).kind
@@ -167,7 +167,7 @@ impl Compiler {
             },
             false,
         );
-        self.asm_regs.insert(id, kind);
+        self.pr.asm_regs.insert(id, kind);
         Ok((kind, addr))
     }
 
@@ -228,7 +228,7 @@ impl Compiler {
         if let E::Ident(name) = &e.kind
             && let Found::Entities(ids) = self.lookup_full(scope, *name)?
             && let Some(&id) = ids.last()
-            && let Some(&kind) = self.asm_regs.get(&id)
+            && let Some(&kind) = self.pr.asm_regs.get(&id)
         {
             is_gpr = true;
             Self::asm_require_gpr(kind, e.span)?;
@@ -247,8 +247,8 @@ impl Compiler {
                 if depth > 8 {
                     return err(e.span, "#asm register argument is nested too deeply");
                 }
-                let body = self.codes[code.0 as usize].clone();
-                let code_scope = self.code_scopes[code.0 as usize];
+                let body = self.pr.codes[code.0 as usize].clone();
+                let code_scope = self.pr.code_scopes[code.0 as usize];
                 match &*body {
                     CodeBody::Expr(inner) => self.asm_value(f, code_scope, inner, depth + 1),
                     CodeBody::Block(_) | CodeBody::Stmt(_) => {

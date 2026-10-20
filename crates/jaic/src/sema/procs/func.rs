@@ -64,9 +64,9 @@ impl Compiler {
             if header.flags.intrinsic() || header.flags.compiler() {
                 // Intrinsics are expanded at call sites; a reference as a value gets a wrapper later.
                 let func = self.out.program.reserve_func(name.to_string());
-                self.procs[id.0 as usize].body_state = BodyState::Queued;
+                self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
                 crate::sema::body_probe::enqueued(id.0);
-                self.body_queue.push(id);
+                self.pr.body_queue.push(id);
                 ProcTarget::Func(func)
             } else {
                 // `#elsewhere` or a declaration without body: resolve as a process symbol.
@@ -80,13 +80,13 @@ impl Compiler {
         } else {
             let display = self.proc_display_name(id);
             let func = self.out.program.reserve_func_with_sig(display, ir_sig);
-            self.procs[id.0 as usize].body_state = BodyState::Queued;
+            self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
             crate::sema::body_probe::enqueued(id.0);
-            self.body_queue.push(id);
+            self.pr.body_queue.push(id);
             ProcTarget::Func(func)
         };
         self.set_proc_target(id, target);
-        if self.runtime_interpreter_assertion == Some(id) {
+        if self.pr.runtime_interpreter_assertion == Some(id) {
             let ProcTarget::Func(func) = target else {
                 return err(
                     span,
@@ -104,7 +104,7 @@ impl Compiler {
             self.ct.interp.hooks[func.0 as usize] = Some(hook);
         }
         if let ProcTarget::Func(func) = target {
-            self.func_procs.insert(func, id);
+            self.pr.func_procs.insert(func, id);
             if header.flags.compiler() {
                 let hook = crate::interp::Hook::for_compiler_proc(
                     name.as_str(),

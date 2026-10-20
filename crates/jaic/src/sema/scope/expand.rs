@@ -72,6 +72,7 @@ impl Compiler {
                 let reentrant = !self.epochs.retrying_pending
                     && (self.epochs.resolving_depth > 0
                         || self
+                            .pr
                             .procs
                             .iter()
                             .any(|p| p.body_state == crate::sema::procs::BodyState::Lowering));

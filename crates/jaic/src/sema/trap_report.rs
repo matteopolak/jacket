@@ -201,7 +201,7 @@ impl Compiler {
     /// written, when it fits on one line.
     fn assert_condition(&self, path: &str, line: u32, col: u32) -> Option<String> {
         let file = self.file_by_path(path)?;
-        let span = *self.first_arguments.get(&(file.0, line, col))?;
+        let span = *self.pr.first_arguments.get(&(file.0, line, col))?;
         let tokens = crate::lexer::lex(file, &self.src.sources.get(file).text).ok()?;
         let text = self
             .src

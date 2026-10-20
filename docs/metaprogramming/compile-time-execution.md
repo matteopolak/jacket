@@ -39,7 +39,7 @@ Compile-time changes to globals are undone before `main`, matching Jai: `resolve
 
 ### `#code` and `#insert`
 
-`Compiler::add_code` (`sema/mod.rs`) stores the AST in `Compiler::codes` and its scope in `code_scopes`; the value is `Value::Code(CodeId)`, compile-time only. `#insert X` evaluates `X` with `eval_insert_operand`, and `insert_stmts_from` turns `Code` into its statements, a string into a parsed source named `<#insert at path>`, `void` into nothing; anything else is `#insert needs a string or Code`.
+`Compiler::add_code` (`sema/mod.rs`) stores the AST in `Compiler::pr.codes` and its scope in `code_scopes`; the value is `Value::Code(CodeId)`, compile-time only. `#insert X` evaluates `X` with `eval_insert_operand`, and `insert_stmts_from` turns `Code` into its statements, a string into a parsed source named `<#insert at path>`, `void` into nothing; anything else is `#insert needs a string or Code`.
 
 ```jai
 make :: (name: string) -> string { return tprint("% :: 42;\n", name); }

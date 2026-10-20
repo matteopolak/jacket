@@ -31,6 +31,7 @@ fn failed() -> (Compiler, ProcId) {
             .any(|e| e.message.contains("absent"))
     );
     let at = compiler
+        .pr
         .procs
         .iter()
         .position(|p| p.name.as_str() == "failed")
@@ -43,6 +44,7 @@ fn replacing_body_retries_without_source_epoch_change() {
     let (mut compiler, id) = failed();
     assert!(compiler.lower_body(id).is_err());
     let replacement = compiler
+        .pr
         .procs
         .iter()
         .find(|p| p.name.as_str() == "replacement")
@@ -50,7 +52,7 @@ fn replacing_body_retries_without_source_epoch_change() {
         .lit
         .clone();
     let header = compiler.proc(id).lit.header.clone();
-    compiler.procs[id.0 as usize].lit = Rc::new(ast::ProcLit {
+    compiler.pr.procs[id.0 as usize].lit = Rc::new(ast::ProcLit {
         header,
         body: replacement.body.clone(),
     });
@@ -65,8 +67,9 @@ fn replacing_body_retries_without_source_epoch_change() {
 fn replacing_a_parked_body_retries_during_the_next_audit() {
     let (mut compiler, id) = failed();
     compiler.ide_check_all();
-    assert!(compiler.parked_bodies.contains(&id));
+    assert!(compiler.pr.parked_bodies.contains(&id));
     let replacement = compiler
+        .pr
         .procs
         .iter()
         .find(|p| p.name.as_str() == "replacement")
@@ -74,7 +77,7 @@ fn replacing_a_parked_body_retries_during_the_next_audit() {
         .lit
         .clone();
     let header = compiler.proc(id).lit.header.clone();
-    compiler.procs[id.0 as usize].lit = Rc::new(ast::ProcLit {
+    compiler.pr.procs[id.0 as usize].lit = Rc::new(ast::ProcLit {
         header,
         body: replacement.body.clone(),
     });

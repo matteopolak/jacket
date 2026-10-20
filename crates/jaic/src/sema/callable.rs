@@ -21,7 +21,7 @@ impl Compiler {
         entity: EntityId,
         visiting: &mut HashSet<EntityId>,
     ) -> Result<Option<Rc<ProcTypeParams>>> {
-        if let Some(info) = self.callable_entities.get(&entity) {
+        if let Some(info) = self.pr.callable_entities.get(&entity) {
             return Ok(Some(info.clone()));
         }
         if !visiting.insert(entity) {

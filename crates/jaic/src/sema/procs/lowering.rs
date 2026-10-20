@@ -34,10 +34,10 @@ impl Compiler {
         let executions = self.ct.executions;
         self.diag.dependencies.begin_body(id);
         self.meta.export.expression_types.remove(&id);
-        self.procs[id.0 as usize].body_state = BodyState::Lowering;
-        let outermost = (self.lowering_depth == 0).then(|| self.meta.perf.start_lowering());
+        self.pr.procs[id.0 as usize].body_state = BodyState::Lowering;
+        let outermost = (self.pr.lowering_depth == 0).then(|| self.meta.perf.start_lowering());
         let checking = crate::progress::enter(crate::progress::Phase::Checking);
-        self.lowering_depth += 1;
+        self.pr.lowering_depth += 1;
         let result = self.lower_body_inner(id);
         self.diag.dependencies.end_body(id, result.is_err());
         if result.is_err()
@@ -49,7 +49,7 @@ impl Compiler {
             // retry owns the final diagnostics, including independent errors.
             self.ed.forget_errors(error_mark);
         }
-        self.lowering_depth -= 1;
+        self.pr.lowering_depth -= 1;
         if result.is_err() {
             self.meta.export.expression_types.remove(&id);
         }
@@ -57,9 +57,9 @@ impl Compiler {
             self.meta.perf.finish_lowering(mark);
         }
         drop(checking);
-        self.procs[id.0 as usize].body_state = if result.is_ok() {
+        self.pr.procs[id.0 as usize].body_state = if result.is_ok() {
             crate::progress::procedure_checked();
-            self.lenient_failures.remove(&id);
+            self.pr.lenient_failures.remove(&id);
             BodyState::Done
         } else {
             BodyState::Queued
@@ -165,7 +165,7 @@ impl Compiler {
             if param.discard {
                 if let Some(name) = param.name {
                     let e = self.add_const(scope, name, param.span, Value::Int(0), TypeId::S64);
-                    self.discard_params.insert(e);
+                    self.pr.discard_params.insert(e);
                 }
                 continue;
             }
@@ -195,7 +195,7 @@ impl Compiler {
                     false,
                 );
                 if let Some(info) = &param.callable {
-                    self.callable_entities.insert(e, info.clone());
+                    self.pr.callable_entities.insert(e, info.clone());
                 }
                 if param.using {
                     let mut entry = UsingEntry::Place {
@@ -447,8 +447,8 @@ impl Compiler {
         }
         let p = self.proc(id);
         let (name, lit, pspan, is_macro) = (p.name, p.lit.clone(), p.span, p.is_macro);
-        let inst = ProcId(self.procs.len() as u32);
-        self.procs.push(ProcInfo {
+        let inst = ProcId(self.pr.procs.len() as u32);
+        self.pr.procs.push(ProcInfo {
             name,
             lit,
             scope: parent,
@@ -464,13 +464,13 @@ impl Compiler {
             bindings: Some(scope),
             export: None,
         });
-        self.procs[id.0 as usize].instances.insert(key, inst);
+        self.pr.procs[id.0 as usize].instances.insert(key, inst);
         if signature_only {
             self.ed.signature_only(inst);
         }
         self.meta.perf.poly_instance(id, inst, span);
-        if let Some(notes) = self.proc_decl_notes.get(&id).cloned() {
-            self.proc_decl_notes.insert(inst, notes);
+        if let Some(notes) = self.pr.proc_decl_notes.get(&id).cloned() {
+            self.pr.proc_decl_notes.insert(inst, notes);
         }
         Ok(inst)
     }

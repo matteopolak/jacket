@@ -319,7 +319,7 @@ impl Compiler {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
             S::Case(_) => err(span, "`case` outside of a switch"),
             S::Expr(e) => {
-                self.last_call_must = None;
+                self.pr.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;
                 if matches!(e.kind, E::Call { .. }) {
                     self.check_must_used(e.span, 0)?;

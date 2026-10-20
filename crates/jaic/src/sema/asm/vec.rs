@@ -904,7 +904,7 @@ impl Compiler {
         if let E::Ident(name) = &e.kind
             && let Found::Entities(ids) = self.lookup_full(scope, *name)?
             && let Some(&id) = ids.last()
-            && let Some(&kind) = self.asm_regs.get(&id)
+            && let Some(&kind) = self.pr.asm_regs.get(&id)
             && let EntityKind::Local {
                 addr, ..
             } = self.entity(id).kind

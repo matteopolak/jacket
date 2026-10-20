@@ -35,8 +35,8 @@ impl Compiler {
                 Some(bytes) => String::from_utf8_lossy(bytes).into_owned(),
                 None => name.to_string(),
             });
-        let id = ProcId(self.procs.len() as u32);
-        self.procs.push(ProcInfo {
+        let id = ProcId(self.pr.procs.len() as u32);
+        self.pr.procs.push(ProcInfo {
             name,
             lit,
             scope,
@@ -52,8 +52,8 @@ impl Compiler {
             bindings: None,
             export,
         });
-        if self.procs[id.0 as usize].export.is_some() {
-            self.exports.push(id);
+        if self.pr.procs[id.0 as usize].export.is_some() {
+            self.pr.exports.push(id);
         }
         id
     }
@@ -69,7 +69,7 @@ impl Compiler {
             return Ok(());
         }
         // Set while resolving, so the names it resolves cannot start the same decision again.
-        self.procs[id.0 as usize].poly_checked = true;
+        self.pr.procs[id.0 as usize].poly_checked = true;
         let header = self.proc(id).lit.header.clone();
         let scope = self.proc(id).scope;
         for p in &header.params {
@@ -78,12 +78,12 @@ impl Compiler {
             };
             match self.mentions_poly_struct_resolved(scope, t) {
                 Ok(true) => {
-                    self.procs[id.0 as usize].is_poly = true;
+                    self.pr.procs[id.0 as usize].is_poly = true;
                     break;
                 }
                 Ok(false) => {}
                 Err(_) => {
-                    self.procs[id.0 as usize].poly_checked = false;
+                    self.pr.procs[id.0 as usize].poly_checked = false;
                     return Ok(());
                 }
             }
@@ -155,7 +155,7 @@ impl Compiler {
     }
 
     pub fn proc(&self, id: ProcId) -> &ProcInfo {
-        &self.procs[id.0 as usize]
+        &self.pr.procs[id.0 as usize]
     }
 
     /// Resolve the signature of a non-polymorphic procedure (or instance).
@@ -211,11 +211,11 @@ impl Compiler {
                 seen.push(name.name);
             }
         }
-        self.procs[id.0 as usize].sig_resolving = true;
+        self.pr.procs[id.0 as usize].sig_resolving = true;
         let result = self.build_signature(id);
-        self.procs[id.0 as usize].sig_resolving = false;
+        self.pr.procs[id.0 as usize].sig_resolving = false;
         let sig = Rc::new(result?);
-        self.procs[id.0 as usize].sig = Some(sig.clone());
+        self.pr.procs[id.0 as usize].sig = Some(sig.clone());
         Ok(sig)
     }
 

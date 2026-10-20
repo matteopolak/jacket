@@ -17,7 +17,7 @@ impl Exporter<'_> {
         let ty = self
             .c
             .as_deref()
-            .and_then(|c| c.local_decl_types.get(&(d.id, 0)).copied());
+            .and_then(|c| c.pr.local_decl_types.get(&(d.id, 0)).copied());
         let rec = self.decl(d, name, ty, None, true, 0);
         // `x := value`: the value has the declared type (its own typing may not see locals).
         if d.ty.is_none()
@@ -73,7 +73,7 @@ impl Exporter<'_> {
                 let ty = self
                     .c
                     .as_deref()
-                    .and_then(|c| c.local_decl_types.get(&(d.id, i)).copied())
+                    .and_then(|c| c.pr.local_decl_types.get(&(d.id, i)).copied())
                     .map_or(0, |t| self.ty(t));
                 let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, n.span);
                 let backticked = d.backtick || d.backtick_names().get(i).copied().unwrap_or(false);

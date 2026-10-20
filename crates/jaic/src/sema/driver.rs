@@ -176,7 +176,7 @@ impl Compiler {
             }
             ProgramSource::CodeString(text, code) => {
                 self.adopt_made_codes();
-                let Some(&scope) = self.code_scopes.get(code.0 as usize) else {
+                let Some(&scope) = self.pr.code_scopes.get(code.0 as usize) else {
                     return err(
                         Span::NONE,
                         "add_build_string: Code scope does not belong to this workspace",
@@ -248,8 +248,8 @@ impl Compiler {
             i += 1;
         }
         let mut i = 0;
-        while i < self.exports.len() {
-            let p = self.exports[i];
+        while i < self.pr.exports.len() {
+            let p = self.pr.exports[i];
             self.proc_func(p, self.proc(p).span)?;
             i += 1;
         }
@@ -259,8 +259,8 @@ impl Compiler {
             }
         }
         let mut i = 0;
-        while i < self.live_procs.len() {
-            let p = self.live_procs[i];
+        while i < self.pr.live_procs.len() {
+            let p = self.pr.live_procs[i];
             i += 1;
             if self.proc(p).is_poly || self.proc(p).is_macro {
                 continue;
@@ -278,7 +278,7 @@ impl Compiler {
                     let proc = self.proc(p);
                     Some(self.scope(proc.scope).module) == self.ns.main_module
                         && (!proc.lit.header.notes.is_empty()
-                            || self.proc_decl_notes.contains_key(&p))
+                            || self.pr.proc_decl_notes.contains_key(&p))
                 })
                 .collect();
             for p in noted {
@@ -364,7 +364,7 @@ impl Compiler {
         // Checking creates more of both (a body's nested procedures, the declarations of an
         // `#insert`): go on until a round finds nothing new.
         let (mut entity_index, mut proc_index) = (0, 0);
-        while entity_index < self.ns.entities.len() || proc_index < self.procs.len() {
+        while entity_index < self.ns.entities.len() || proc_index < self.pr.procs.len() {
             while entity_index < self.ns.entities.len() {
                 let id = EntityId(entity_index as u32);
                 entity_index += 1;
@@ -382,7 +382,7 @@ impl Compiler {
                     self.resolve_entity(id)?;
                 }
             }
-            while proc_index < self.procs.len() {
+            while proc_index < self.pr.procs.len() {
                 let id = ProcId(proc_index as u32);
                 proc_index += 1;
                 self.check_unreferenced_proc(id)?;
@@ -671,7 +671,8 @@ impl Compiler {
 
     /// The exported IR function named `name` (e.g. `"main"`).
     pub fn exported_func(&self, name: &str) -> Option<ir::FuncId> {
-        self.exports
+        self.pr
+            .exports
             .iter()
             .find(|&&p| self.proc(p).export.as_deref() == Some(name))
             .and_then(|&p| match self.proc(p).target {
@@ -812,7 +813,7 @@ impl Compiler {
                 }
                 None => false,
             };
-            if self.exports.is_empty() || !declares_main {
+            if self.pr.exports.is_empty() || !declares_main {
                 return Ok(0);
             }
             return err(

@@ -202,11 +202,11 @@ impl Compiler {
             return;
         };
         let mut ide = ide;
-        let mut never: HashSet<ProcId> = (0..self.procs.len())
+        let mut never: HashSet<ProcId> = (0..self.pr.procs.len())
             .map(|i| ProcId(i as u32))
             .filter(|&id| self.is_exit_primitive(id))
             .collect();
-        let candidates: Vec<ProcId> = (0..self.procs.len())
+        let candidates: Vec<ProcId> = (0..self.pr.procs.len())
             .map(|i| ProcId(i as u32))
             .filter(|&id| {
                 let proc = self.proc(id);

@@ -240,7 +240,7 @@ impl Compiler {
                 want(3, 3)?;
                 let mut args = vec![self.asm_read(f, opds[2], Ty::I64, span)?];
                 for reg in [7u8, 6, 2, 10, 8, 9] {
-                    let pinned = self.asm_pins.iter().rev().find(|(r, _)| *r == reg);
+                    let pinned = self.pr.asm_pins.iter().rev().find(|(r, _)| *r == reg);
                     args.push(match pinned {
                         Some(&(_, addr)) => f.b.load(Ty::I64, addr),
                         None => konst(f, Ty::I64, 0),
@@ -252,7 +252,7 @@ impl Compiler {
                     self.asm_write(f, o, Ty::I64, z, span)?;
                 }
                 self.asm_write(f, opds[2], Ty::I64, ret, span)?;
-                if let Some(&(_, addr)) = self.asm_pins.iter().rev().find(|(r, _)| *r == 0) {
+                if let Some(&(_, addr)) = self.pr.asm_pins.iter().rev().find(|(r, _)| *r == 0) {
                     f.b.store(Ty::I64, addr, ret);
                 }
             }

@@ -29,8 +29,8 @@ impl Compiler {
             });
         match found {
             Some(p) => {
-                if !self.live_procs.contains(&p) {
-                    self.live_procs.push(p);
+                if !self.pr.live_procs.contains(&p) {
+                    self.pr.live_procs.push(p);
                 }
                 true
             }
@@ -94,7 +94,7 @@ impl Compiler {
                 checks_off: old_body.checks_off,
             }),
         };
-        self.procs[p.0 as usize].lit = Rc::new(lit);
+        self.pr.procs[p.0 as usize].lit = Rc::new(lit);
         if self.proc(p).body_state == procs::BodyState::Done {
             self.meta.export.relower.push(p);
         }

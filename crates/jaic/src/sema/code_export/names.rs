@@ -187,7 +187,7 @@ impl Exporter<'_> {
         let ty = sig.as_ref().map_or(0, |s| self.ty(s.ty));
         // Checkers such as MetaThreadSafe read the callee's notes (`@thread`).
         let decl_notes = (self.c.as_deref())
-            .and_then(|c| c.proc_decl_notes.get(&p).cloned())
+            .and_then(|c| c.pr.proc_decl_notes.get(&p).cloned())
             .unwrap_or_default();
         let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
         for n in &decl_notes {

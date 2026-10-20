@@ -260,7 +260,7 @@ impl Compiler {
                         notes: d.notes,
                         span: d.span,
                     });
-                    self.callable_fields.remove(&(s, index));
+                    self.pr.callable_fields.remove(&(s, index));
                     if matches!(self.ty.types.kind(d.ty), TypeKind::Proc(_))
                         && let Some(declaration) = d
                             .name
@@ -271,7 +271,7 @@ impl Compiler {
                             declaration.ty.as_ref().or(declaration.value.as_ref()),
                         )?
                     {
-                        self.callable_fields.insert((s, index), parameters);
+                        self.pr.callable_fields.insert((s, index), parameters);
                     }
                     sizes.push(size);
                     inits.push((d.init, d.scope));

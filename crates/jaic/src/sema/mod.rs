@@ -47,6 +47,7 @@ mod namespaces;
 mod output;
 pub mod perf;
 mod private_names;
+mod proc_state;
 pub mod procs;
 pub(crate) mod reachability;
 mod runtime_config;
@@ -82,6 +83,7 @@ pub use modules::{BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_
 pub use name_caches::NameCaches;
 pub use namespaces::Namespaces;
 pub use output::Output;
+pub use proc_state::ProcState;
 pub use scope::{EntityId, ScopeId};
 pub use source_state::SourceState;
 use std::path::PathBuf;
@@ -417,82 +419,14 @@ pub struct Compiler {
     pub ty: TypeState,
     pub out: Output,
     pub ns: Namespaces,
-    pub procs: Vec<procs::ProcInfo>,
-    pub codes: Vec<Rc<ast::CodeBody>>,
-    /// Runtime opt-in to compiler-host assertion faults, keyed by actual procedure identity.
-    pub runtime_interpreter_assertion: Option<ProcId>,
+    pub pr: ProcState,
     pub meta: MetaState,
-    /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
-    pub(crate) lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
-    /// `$$x` variants: (procedure, which auto-bake params are baked) -> procedure.
-    auto_bake_variants: HashMap<(ProcId, Vec<calls::AutoBake>), ProcId>,
-    /// Procedures that need their bodies lowered.
-    pub body_queue: Vec<ProcId>,
-    /// Queued bodies whose last lenient attempt failed at `parked_epoch`: skipped as a group by
-    /// `drain_bodies_lenient` until the epoch moves, instead of being looked at on every call.
-    pub(crate) parked_bodies: Vec<ProcId>,
-    /// Bodies being lowered right now (nested through compile-time runs).
-    pub(super) lowering_depth: u32,
-    /// Values of `a, b :: expr;` declarations, by declaration and scope.
-    multi_consts: HashMap<(ast::AstId, ScopeId), Vec<lower::Operand>>,
-    /// Codes made by `code_of(procedure)`: their procedure, lowered before a typed export
-    /// so its locals have types.
-    pub(super) code_procs: HashMap<usize, ProcId>,
-    parked_epoch: u64,
-    /// The procedures targeting each IR function (`procs_of_func`).
-    func_targets: HashMap<ir::FuncId, Vec<ProcId>>,
     pub epochs: Epochs,
     pub caches: NameCaches,
     /// Debug builds check `namespace_generation` against a full count of scope contents.
     #[cfg(debug_assertions)]
     namespace_check: std::cell::Cell<(usize, u64)>,
     pub diag: Diagnostics,
-    /// Procedures `compiler_make_procedure_live` asked to keep in the program though nothing
-    /// calls them.
-    pub live_procs: Vec<ProcId>,
-    pub entry_point: Option<ProcId>,
-    pub exports: Vec<ProcId>,
-    /// Procedure literals and anonymous types, per (AST node, scope).
-    pub anonymous_procs: HashMap<(ast::AstId, ScopeId), ProcId>,
-    /// Macro parameters whose argument was a compile-time constant: compile-time code in
-    /// the macro (`#insert -> string { ... }`) reads them even though they are locals.
-    /// User-written calls being emitted, innermost last: `#caller_code` evaluates to the
-    /// innermost one. Only calls to procedures that use `#caller_code` are recorded.
-    pub calls_in_flight: Vec<(Rc<ast::Expr>, ScopeId)>,
-    pub local_consts: HashMap<EntityId, (Value, TypeId)>,
-    /// `#discard` parameters: naming one in the body is an error.
-    pub discard_params: HashSet<EntityId>,
-    /// The most recently emitted call that has `#must` results: call span, procedure name, and
-    /// which results are `#must`.
-    pub last_call_must: Option<(Span, Sym, Vec<bool>)>,
-    /// Macro parameters bound to a constant argument the macro never writes: reading them
-    /// gives the constant (`#if n <= 1` in a recursive macro; `message.count` of a constant
-    /// string fits a `u64` parameter).
-    pub const_macro_params: HashMap<EntityId, (Value, TypeId)>,
-    /// Types of local variable declarations, by declaration (first name), once lowered.
-    /// Types of local declarations, by declaration and name index (`a, b := f()`).
-    pub local_decl_types: HashMap<(ast::AstId, usize), TypeId>,
-    /// Scope each `Code` value was written in (parallel to `codes`).
-    pub code_scopes: Vec<ScopeId>,
-    /// Codes `compiler_get_code` made without a scope to copy: their names resolve where
-    /// they are inserted.
-    pub unscoped_codes: HashMap<usize, Vec<ScopeId>>,
-    /// Notes after a procedure declaration's body (`f :: () { ... } @thread`).
-    pub proc_decl_notes: HashMap<ProcId, Vec<ast::Note>>,
-    /// Calls that received their `#caller_location` by default, by that location (file,
-    /// line, column): the span of their first argument. A failed `assert` names its call's
-    /// location, so the report shows this as the condition.
-    pub first_arguments: HashMap<(u32, u32, u32), Span>,
-    /// Interpreted function -> source procedure (reading back procedure values).
-    pub func_procs: HashMap<ir::FuncId, ProcId>,
-    /// Locals declared by `#asm` register declarations (`x: gpr`).
-    pub asm_regs: HashMap<EntityId, asm::AsmReg>,
-    /// Pinned general-purpose registers of the `#asm` block being lowered: (register number in
-    /// x86 encoding order, address of its slot). Later pins of a register win.
-    pub asm_pins: Vec<(u8, ir::Val)>,
-    /// Callable metadata belongs to declarations, never structural `TypeIds`.
-    pub(super) callable_entities: HashMap<EntityId, Rc<ProcTypeParams>>,
-    pub(super) callable_fields: HashMap<(crate::types::StructId, usize), Rc<ProcTypeParams>>,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: crate::ide::Editor,
 }
@@ -535,6 +469,7 @@ impl Compiler {
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
+            pr: ProcState::default(),
             caches: NameCaches::default(),
             ns: Namespaces::default(),
             ty: TypeState::default(),
@@ -544,41 +479,10 @@ impl Compiler {
             epochs: Epochs::default(),
             diag: Diagnostics::default(),
             options,
-            procs: Vec::new(),
-            codes: Vec::new(),
-            runtime_interpreter_assertion: None,
-            lenient_failures: HashMap::default(),
-            auto_bake_variants: HashMap::default(),
-            body_queue: Vec::new(),
-            parked_bodies: Vec::new(),
-            lowering_depth: 0,
-            multi_consts: HashMap::default(),
-            code_procs: HashMap::default(),
-            parked_epoch: 0,
-            func_targets: HashMap::default(),
             ed: crate::ide::Editor::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0)),
             ct: CompileTime::default(),
-            live_procs: Vec::new(),
-            entry_point: None,
-            exports: Vec::new(),
-            anonymous_procs: HashMap::default(),
-            calls_in_flight: Vec::new(),
-            local_consts: HashMap::default(),
-            discard_params: HashSet::default(),
-            last_call_must: None,
-            const_macro_params: HashMap::default(),
-            local_decl_types: HashMap::default(),
-            code_scopes: Vec::new(),
-            unscoped_codes: HashMap::default(),
-            proc_decl_notes: HashMap::default(),
-            first_arguments: HashMap::default(),
-            func_procs: HashMap::default(),
-            asm_regs: HashMap::default(),
-            asm_pins: Vec::new(),
-            callable_entities: HashMap::default(),
-            callable_fields: HashMap::default(),
         };
         c.ns.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();
@@ -599,7 +503,7 @@ impl Compiler {
             }
             scope = parent;
         }
-        let id = value::CodeId(self.codes.len() as u32);
+        let id = value::CodeId(self.pr.codes.len() as u32);
         let span = match &*body {
             ast::CodeBody::Expr(e) => e.span,
             ast::CodeBody::Stmt(s) => s.span,
@@ -611,16 +515,16 @@ impl Compiler {
             "".into()
         };
         self.ct.interp.codes.push((body.clone(), text));
-        self.codes.push(body);
-        self.code_scopes.push(scope);
+        self.pr.codes.push(body);
+        self.pr.code_scopes.push(scope);
         id
     }
 
     /// Take over the codes compile-time code made (`compiler_get_code`), parsing their
     /// text again as a registered source so diagnostics can point into it.
     pub fn adopt_made_codes(&mut self) {
-        while self.codes.len() < self.ct.interp.codes.len() {
-            let id = self.codes.len();
+        while self.pr.codes.len() < self.ct.interp.codes.len() {
+            let id = self.pr.codes.len();
             let text = self.ct.interp.codes[id].1.clone();
             let from = self
                 .ct
@@ -630,18 +534,18 @@ impl Compiler {
                 .find(|(made, _)| *made == id)
                 .map(|&(_, from)| from);
             let unscoped = from.is_none_or(|f| {
-                matches!(&*self.codes[f], ast::CodeBody::Expr(e) if matches!(e.kind, ast::ExprKind::Null))
+                matches!(&*self.pr.codes[f], ast::CodeBody::Expr(e) if matches!(e.kind, ast::ExprKind::Null))
             });
             if unscoped {
                 // Names the insertion site lacks come from where the nodes were written.
                 let fallbacks = (self.ct.interp.nodes_codes.iter().rev())
-                    .filter_map(|&c| self.code_scopes.get(c).copied())
+                    .filter_map(|&c| self.pr.code_scopes.get(c).copied())
                     .take(32)
                     .collect();
-                self.unscoped_codes.insert(id, fallbacks);
+                self.pr.unscoped_codes.insert(id, fallbacks);
             }
             let scope = from
-                .and_then(|f| self.code_scopes.get(f).copied())
+                .and_then(|f| self.pr.code_scopes.get(f).copied())
                 .unwrap_or(self.ns.root_scope);
             let file = self.src.sources.add(
                 SourcePath::virtual_source(format!("compiler_get_code {id}")),
@@ -650,8 +554,8 @@ impl Compiler {
             let body = crate::build::parse_code_text(file, &text)
                 .unwrap_or_else(|_| self.ct.interp.codes[id].0.clone());
             self.ct.interp.codes[id].0 = body.clone();
-            self.codes.push(body);
-            self.code_scopes.push(scope);
+            self.pr.codes.push(body);
+            self.pr.code_scopes.push(scope);
         }
     }
 
@@ -659,7 +563,7 @@ impl Compiler {
     /// for code `compiler_get_code` made without one, the site (falling back on the
     /// scopes its nodes came from).
     pub fn code_scope_at(&mut self, code: value::CodeId, site: ScopeId) -> ScopeId {
-        match self.unscoped_codes.get(&(code.0 as usize)) {
+        match self.pr.unscoped_codes.get(&(code.0 as usize)) {
             Some(fallbacks) if fallbacks.is_empty() => site,
             Some(fallbacks) => {
                 let fallbacks = fallbacks.clone();
@@ -668,7 +572,7 @@ impl Compiler {
                 self.ns.scopes[scope.0 as usize].fallbacks = fallbacks;
                 scope
             }
-            None => self.code_scopes[code.0 as usize],
+            None => self.pr.code_scopes[code.0 as usize],
         }
     }
 

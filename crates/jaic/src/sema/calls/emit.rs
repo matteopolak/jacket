@@ -47,7 +47,7 @@ impl Compiler {
             }),
             (result, _) => result,
         };
-        self.last_call_must = must.iter().any(|&m| m).then_some((span, name, must));
+        self.pr.last_call_must = must.iter().any(|&m| m).then_some((span, name, must));
         result
     }
 
@@ -55,7 +55,7 @@ impl Compiler {
     /// first `used` results are taken (0 for a call statement). Checked when the call's code
     /// is generated, so a violation inside never-expanded macro code is harmless.
     pub(in crate::sema) fn check_must_used(&mut self, call_span: Span, used: usize) -> Result<()> {
-        let Some((span, name, must)) = self.last_call_must.take() else {
+        let Some((span, name, must)) = self.pr.last_call_must.take() else {
             return Ok(());
         };
         if span != call_span {
@@ -359,7 +359,8 @@ impl Compiler {
                             && (span.file.0 as usize) < self.src.sources.len()
                         {
                             let (line, col) = self.src.sources.get(span.file).line_col(span.start);
-                            self.first_arguments
+                            self.pr
+                                .first_arguments
                                 .insert((span.file.0, line, col), first.span);
                         }
                         self.location_operand(f, span)?

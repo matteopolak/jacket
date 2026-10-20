@@ -99,7 +99,7 @@ impl Compiler {
         self.diag.warnings.truncate(quiet.1);
         self.diag.deferred_errors.truncate(quiet.2);
         let mut i = 0;
-        while i < self.procs.len() {
+        while i < self.pr.procs.len() {
             let id = ProcId(i as u32);
             i += 1;
             // Header classification resolves names and can run compile-time code. Apply
@@ -150,7 +150,7 @@ impl Compiler {
     /// their parameters, so their names are recorded from the signature, as is the library
     /// `#foreign` names.
     fn ide_note_bodiless(&mut self) {
-        for i in 0..self.procs.len() {
+        for i in 0..self.pr.procs.len() {
             let id = ProcId(i as u32);
             if !self.ide_wants(self.proc(id).span.file) {
                 continue;

@@ -128,7 +128,7 @@ impl Compiler {
     }
 
     pub(super) fn prepare_interpreter_assertion(&mut self, span: Span) -> Result<()> {
-        self.runtime_interpreter_assertion = None;
+        self.pr.runtime_interpreter_assertion = None;
         let Some(proc) =
             self.private_runtime_procedure(super::private_names::INTERPRETER_ASSERTION, span)?
         else {
@@ -161,7 +161,7 @@ impl Compiler {
                 "private interpreter assertion handler must have an ordinary Jai body for native execution",
             );
         }
-        self.runtime_interpreter_assertion = Some(proc);
+        self.pr.runtime_interpreter_assertion = Some(proc);
         Ok(())
     }
 

@@ -92,7 +92,7 @@ impl Compiler {
                             span,
                         };
                         let id = self.add_code(Rc::new(ast::CodeBody::Expr(expr)), pscope);
-                        self.code_procs.insert(id.0 as usize, p);
+                        self.pr.code_procs.insert(id.0 as usize, p);
                         id
                     }
                     None => self.add_code(Rc::new(ast::CodeBody::Expr(arg.value.clone())), scope),

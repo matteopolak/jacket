@@ -114,7 +114,7 @@ impl Compiler {
 
     /// Source text of a `Code` value: an expression, or a block's statements without braces.
     pub(crate) fn ide_code_text(&self, code: CodeId) -> String {
-        match &*self.codes[code.0 as usize] {
+        match &*self.pr.codes[code.0 as usize] {
             ast::CodeBody::Expr(e) => self.ide_snippet(e.span).trim().to_string(),
             ast::CodeBody::Stmt(s) => self.ide_snippet(s.span).trim().to_string(),
             ast::CodeBody::Block(b) => {

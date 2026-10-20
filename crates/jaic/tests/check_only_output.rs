@@ -63,6 +63,7 @@ fn check_only_child_keeps_unreferenced_checked_bodies_for_later_analysis() {
     assert_eq!(children.len(), 1);
     let child = &children[0];
     let procedure = child
+        .pr
         .procs
         .iter()
         .find(|p| p.name.as_str() == "predicate")

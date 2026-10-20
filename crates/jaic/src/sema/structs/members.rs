@@ -71,7 +71,7 @@ impl Compiler {
         Ok(self
             .find_member_in(ty, name, span, &mut Vec::new())?
             .and_then(|(_, _, origin)| origin)
-            .and_then(|origin| self.callable_fields.get(&origin).cloned()))
+            .and_then(|origin| self.pr.callable_fields.get(&origin).cloned()))
     }
 
     /// The byte offset and type of field `name` of `ty`, when it sits inline (not behind a

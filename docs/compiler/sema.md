@@ -11,15 +11,19 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 `Compiler` holds its state in groups, one struct per concern, each in its own file under `sema/`:
 
 - `ct: CompileTime` (`compile_time.rs`): the interpreter, top-level `#run`s/`#assert`s and their progress, frozen values. `Drop for Compiler` joins compile-time threads before any field drops.
+- `options: Options`: the build options this compile was started with.
 - `src: SourceState` (`source_state.rs`): the file system, the `SourceMap` and per-file info, path canonicalisation, parse-ahead workers, `#insert` nesting and provided texts. External crates read `compiler.src.sources`.
 - `diag: Diagnostics` (`diagnostics.rs`): warnings, why deferred items failed, declaration dependencies.
 - `epochs: Epochs` (`epochs.rs`): the counters a cached failure is stamped with (`namespace_generation`, `placeholder_misses`, `in_progress_misses`) and the flags of deferred expansion's phases.
 - `ty: TypeState` (`type_state.rs`): the `Types` table and what sema keeps per type: struct declarations, field types and `using` filters, polymorphic structs, `Type_Info` globals and the type-table snapshot, default values and initializers. Helpers that read only this state (wide-float conversion, literal fits, switch completeness, `Type_Info` global lookups) are `impl TypeState` in the file that uses them, called as `self.ty.helper(..)`; write new ones the same way when they need nothing else.
 - `ns: Namespaces` (`namespaces.rs`): modules, scopes, entities and libraries, and the queues that fill them (pending and failed imports, `#poke_name`, `#add_context`, program parameters, scopes left unsettled).
 - `caches: NameCaches` (`name_caches.rs`): memoised lookups (`module_names`, `module_misses`, `scope_misses`, `using_member_free`), each stamped with the `epochs` counter it holds for. Separate from `ns` so a lookup can read `ns` while it writes the caches.
+- `pr: ProcState` (`proc_state.rs`): procedure records and code bodies, the body queue and parked bodies, failures remembered per body, entry point and exports, and per-body side tables (local constants and declaration types, `#asm` registers, calls in flight).
 - `out: Output` (`output.rs`): the IR program, constant data pooled into globals (strings, packs, constant addresses), runtime-info globals, compile-time output. `release_lowered_code` empties its bodies for an editor.
 - `meta: MetaState` (`meta_state.rs`): the workspace being built, records exported to metaprograms, perf counts.
 - `ed: Editor` (`ide/editor.rs`): the editor analysis, if any.
+
+A new field goes into the group it belongs to, not onto `Compiler`. Keep groups disjoint so a method can borrow one group mutably while it reads another (`self.caches` while walking `self.ns`).
 
 A new field goes in the group it belongs to; a field used only by one group's methods should not live on `Compiler` itself.
 

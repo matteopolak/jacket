@@ -248,7 +248,7 @@ impl Compiler {
 
     /// The copy of `proc` with the `$$` parameters flagged in `mask` turned into `$` ones.
     fn auto_bake_variant(&mut self, proc: ProcId, mask: Vec<AutoBake>) -> ProcId {
-        if let Some(&v) = self.auto_bake_variants.get(&(proc, mask.clone())) {
+        if let Some(&v) = self.pr.auto_bake_variants.get(&(proc, mask.clone())) {
             return v;
         }
         let p = self.proc(proc);
@@ -282,7 +282,7 @@ impl Compiler {
             self.const_scope(scope, consts, span)
         };
         let v = self.new_proc(name, lit, scope, span);
-        self.auto_bake_variants.insert((proc, mask), v);
+        self.pr.auto_bake_variants.insert((proc, mask), v);
         v
     }
 }

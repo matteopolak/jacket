@@ -33,7 +33,7 @@ fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
         .unwrap();
     let before = (
         compiler.src.sources.len(),
-        compiler.procs.len(),
+        compiler.pr.procs.len(),
         compiler.src.files.len(),
     );
     assert_eq!(
@@ -44,7 +44,7 @@ fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
         before,
         (
             compiler.src.sources.len(),
-            compiler.procs.len(),
+            compiler.pr.procs.len(),
             compiler.src.files.len()
         )
     );

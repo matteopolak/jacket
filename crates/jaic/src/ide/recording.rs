@@ -91,7 +91,7 @@ impl Compiler {
         if !self.epochs.placeholders_final || ide.sketching {
             return None;
         }
-        let (at, error) = self.lenient_failures.get(&id)?;
+        let (at, error) = self.pr.lenient_failures.get(&id)?;
         (*at == epoch && Rc::ptr_eq(ide.failed_body_lits.get(&id)?, &self.proc(id).lit))
             .then(|| error.clone())
     }
@@ -108,7 +108,7 @@ impl Compiler {
         }
         match result {
             Ok(()) => {
-                self.lenient_failures.remove(&id);
+                self.pr.lenient_failures.remove(&id);
                 self.ed.facts_mut().unwrap().failed_body_lits.remove(&id);
             }
             Err(error)
@@ -118,7 +118,7 @@ impl Compiler {
                 ) == misses =>
             {
                 let lit = self.proc(id).lit.clone();
-                self.lenient_failures.insert(id, (epoch, error.clone()));
+                self.pr.lenient_failures.insert(id, (epoch, error.clone()));
                 self.ed
                     .facts_mut()
                     .unwrap()

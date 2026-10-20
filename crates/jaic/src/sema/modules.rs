@@ -98,6 +98,7 @@ impl Compiler {
             }
             // Deferred items wait until no body is mid-lowering (an outer `expand_all`).
             let lowering = self
+                .pr
                 .procs
                 .iter()
                 .any(|p| p.body_state == super::procs::BodyState::Lowering);

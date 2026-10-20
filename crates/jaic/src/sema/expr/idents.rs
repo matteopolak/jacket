@@ -323,7 +323,7 @@ impl Compiler {
         id: EntityId,
         span: Span,
     ) -> Result<Operand> {
-        if self.discard_params.contains(&id) {
+        if self.pr.discard_params.contains(&id) {
             return err(
                 span,
                 format!(
@@ -338,7 +338,7 @@ impl Compiler {
                 addr,
                 depth,
             } => {
-                if let Some((value, ty)) = self.const_macro_params.get(&id).cloned() {
+                if let Some((value, ty)) = self.pr.const_macro_params.get(&id).cloned() {
                     if let Value::Type(t) = value {
                         return Ok(Operand::Type(t));
                     }
@@ -347,16 +347,16 @@ impl Compiler {
                         value,
                         untyped: false,
                     }
-                    .with_callable(self.callable_entities.get(&id).cloned()));
+                    .with_callable(self.pr.callable_entities.get(&id).cloned()));
                 }
                 if depth != self.scope(scope).proc_depth {
-                    if let Some((value, ty)) = self.local_consts.get(&id).cloned() {
+                    if let Some((value, ty)) = self.pr.local_consts.get(&id).cloned() {
                         return Ok(Operand::Const {
                             ty,
                             value,
                             untyped: false,
                         }
-                        .with_callable(self.callable_entities.get(&id).cloned()));
+                        .with_callable(self.pr.callable_entities.get(&id).cloned()));
                     }
                     if f.type_only {
                         // `type_of(local.*)` at compile time: the address is never used.
@@ -382,7 +382,7 @@ impl Compiler {
                     ty,
                     addr,
                 }
-                .with_callable(self.callable_entities.get(&id).cloned()));
+                .with_callable(self.pr.callable_entities.get(&id).cloned()));
             }
             EntityKind::Builtin(scope::Builtin::Proc(p)) => return Ok(Operand::Builtin(p)),
             _ => {}

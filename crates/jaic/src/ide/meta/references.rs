@@ -215,7 +215,7 @@ impl Compiler {
     /// procedure's span, each instance's bindings as `T = s64`).
     pub fn ide_polymorphs(&self, file: FileId) -> Vec<(Span, String, Vec<String>)> {
         let mut out = Vec::new();
-        for p in &self.procs {
+        for p in &self.pr.procs {
             if !p.is_poly || p.span.file != file || p.bindings.is_some() {
                 continue;
             }

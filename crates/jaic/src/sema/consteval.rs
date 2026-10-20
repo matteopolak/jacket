@@ -132,7 +132,7 @@ impl Compiler {
         self.out.program.funcs[id.0 as usize] = Some(func);
         // The entry thunk is ready. Callee bodies are compiled when execution
         // actually requests them; taking a procedure value does not need a body.
-        let nested = self.lowering_depth > 0;
+        let nested = self.pr.lowering_depth > 0;
         let mut deferred = None;
         let ctx = self.compile_time_context(span)?;
         // The trace layout needs the Context type. When it could not be laid out yet (its
@@ -577,7 +577,7 @@ impl Compiler {
             Operand::Const {
                 value: Value::Code(code),
                 ..
-            } => Ok(match &*self.codes[code.0 as usize] {
+            } => Ok(match &*self.pr.codes[code.0 as usize] {
                 ast::CodeBody::Block(b) => b.stmts.clone(),
                 ast::CodeBody::Stmt(s) => vec![s.clone()],
                 ast::CodeBody::Expr(e) => vec![ast::Stmt {
@@ -662,7 +662,7 @@ impl Compiler {
             Operand::Const {
                 value: Value::Code(code),
                 ..
-            } => match &*self.codes[code.0 as usize] {
+            } => match &*self.pr.codes[code.0 as usize] {
                 ast::CodeBody::Expr(e) => Ok(e.clone()),
                 ast::CodeBody::Stmt(_) => {
                     err(value.span, "#insert of a statement in expression position")
@@ -778,7 +778,7 @@ impl Compiler {
                 self.adopt_made_codes();
                 // Any integer can be cast to `Code`; only ids of real code are usable.
                 let id = self.program_u64(addr, span)?;
-                if id >= self.codes.len() as u64 {
+                if id >= self.pr.codes.len() as u64 {
                     return err(span, format!("{id} is not a valid Code value"));
                 }
                 Ok(Value::Code(value::CodeId(id as u32)))
@@ -794,7 +794,7 @@ impl Compiler {
                     return Ok(Value::Null);
                 }
                 if let Some(func) = self.ct.interp.func_of(p)
-                    && let Some(&proc) = self.func_procs.get(&func)
+                    && let Some(&proc) = self.pr.func_procs.get(&func)
                 {
                     return Ok(Value::Proc(proc));
                 }

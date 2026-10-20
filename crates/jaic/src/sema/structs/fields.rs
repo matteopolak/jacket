@@ -244,11 +244,11 @@ impl Compiler {
                     ..
                 } = self.resolve_entity(id)?
             {
-                let body = self.codes[code.0 as usize].clone();
+                let body = self.pr.codes[code.0 as usize].clone();
                 // The base context struct lives in Runtime_Support.
                 let scope = match self.ns.runtime_support {
                     Some(m) => self.ns.modules[m.0 as usize].scope,
-                    None => self.code_scopes[code.0 as usize],
+                    None => self.pr.code_scopes[code.0 as usize],
                 };
                 let statements = match &*body {
                     ast::CodeBody::Block(block) => block.stmts.as_slice(),

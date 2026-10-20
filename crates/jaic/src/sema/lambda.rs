@@ -72,12 +72,12 @@ impl Compiler {
         body: &ast::Expr,
         span: Span,
     ) -> ProcId {
-        if let Some(&p) = self.anonymous_procs.get(&(header.id, scope)) {
+        if let Some(&p) = self.pr.anonymous_procs.get(&(header.id, scope)) {
             return p;
         }
         let name = Sym::intern("lambda");
         let p = self.new_proc(name, lambda_lit(header, body), scope, span);
-        self.anonymous_procs.insert((header.id, scope), p);
+        self.pr.anonymous_procs.insert((header.id, scope), p);
         p
     }
 

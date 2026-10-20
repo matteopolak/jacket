@@ -249,11 +249,11 @@ impl Compiler {
                 if let Some(op) = self.enclosing_local_constant(f, scope, base, member)? {
                     return Ok(op);
                 }
-                if !self.const_macro_params.is_empty()
+                if !self.pr.const_macro_params.is_empty()
                     && member.name.as_str() == "count"
                     && let E::Ident(name) = &base.kind
                     && let Some(&id) = self.lookup(scope, *name)?.first()
-                    && let Some((Value::String(s), _)) = self.const_macro_params.get(&id)
+                    && let Some((Value::String(s), _)) = self.pr.const_macro_params.get(&id)
                 {
                     let count = s.len();
                     return Ok(Operand::Const {
@@ -460,11 +460,11 @@ impl Compiler {
             E::Proc(lit) => {
                 let name = Sym::intern("anonymous_procedure");
                 let key = lit.header.id;
-                let proc = if let Some(&p) = self.anonymous_procs.get(&(key, scope)) {
+                let proc = if let Some(&p) = self.pr.anonymous_procs.get(&(key, scope)) {
                     p
                 } else {
                     let p = self.new_proc(name, lit.clone(), scope, span);
-                    self.anonymous_procs.insert((key, scope), p);
+                    self.pr.anonymous_procs.insert((key, scope), p);
                     p
                 };
                 Ok(Operand::Procs(vec![proc]))
@@ -665,7 +665,7 @@ impl Compiler {
             } => self.check_bake(scope, callee, args, span),
             E::ProcedureOfCall(call) => self.check_procedure_of_call(f, scope, call),
             E::CallerCode => {
-                let Some((call, caller_scope)) = self.calls_in_flight.last().cloned() else {
+                let Some((call, caller_scope)) = self.pr.calls_in_flight.last().cloned() else {
                     return err(span, "#caller_code is only valid as a parameter default");
                 };
                 let id = self.add_code(Rc::new(ast::CodeBody::Expr((*call).clone())), caller_scope);

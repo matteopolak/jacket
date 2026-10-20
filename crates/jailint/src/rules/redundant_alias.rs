@@ -257,7 +257,7 @@ fn returned(
         if procs.is_empty()
             || procs
                 .iter()
-                .any(|&p| cx.compiler.procs[p.0 as usize].lit.header.returns.len() != 1)
+                .any(|&p| cx.compiler.pr.procs[p.0 as usize].lit.header.returns.len() != 1)
         {
             return;
         }
@@ -299,7 +299,7 @@ fn return_types(cx: &Cx, header: Span) -> Option<Vec<TypeId>> {
     let procs = cx.facts.procs_by_header.get(&header)?;
     let mut tys = Vec::new();
     for &p in procs {
-        let info = &cx.compiler.procs[p.0 as usize];
+        let info = &cx.compiler.pr.procs[p.0 as usize];
         let sig = info.sig.as_ref()?;
         if sig.returns.len() != 1 || sig.return_names.iter().any(std::option::Option::is_some) {
             return None;

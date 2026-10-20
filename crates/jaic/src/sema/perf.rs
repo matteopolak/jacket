@@ -130,7 +130,7 @@ impl Compiler {
     /// compiler made the procedures. Each is a heading and the listing of the procedure's IR.
     pub fn debug_dumps(&self) -> Vec<String> {
         let mut dumps = Vec::new();
-        for info in &self.procs {
+        for info in &self.pr.procs {
             let dump = info
                 .lit
                 .header

@@ -83,7 +83,7 @@ impl Compiler {
                 .any(|f| f.name.as_str().starts_with(prefix))
         };
         let vex = has("AVX");
-        self.asm_pins.clear();
+        self.pr.asm_pins.clear();
         let mut cx = AsmCtx {
             scope,
             flags: Flags::default(),

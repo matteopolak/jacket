@@ -52,7 +52,7 @@ impl Compiler {
     pub fn proc_has_note(&self, p: ProcId, name: &str) -> bool {
         let noted = |notes: &[ast::Note]| notes.iter().any(|n| n.is(name));
         noted(&self.proc(p).lit.header.notes)
-            || self.proc_decl_notes.get(&p).is_some_and(|n| noted(n))
+            || self.pr.proc_decl_notes.get(&p).is_some_and(|n| noted(n))
     }
 
     /// Where `proc` takes a format string: the `string` parameter right before a variadic

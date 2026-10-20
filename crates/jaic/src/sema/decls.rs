@@ -263,7 +263,7 @@ impl Compiler {
             ast::ExprKind::Proc(lit) => {
                 let proc = self.new_proc(name, lit.clone(), scope, value.span);
                 if !decl.notes.is_empty() {
-                    self.proc_decl_notes.insert(proc, decl.notes.to_vec());
+                    self.pr.proc_decl_notes.insert(proc, decl.notes.to_vec());
                 }
                 return Ok(Resolved::Proc(proc));
             }
@@ -350,11 +350,13 @@ impl Compiler {
         let op = if multiple {
             // Evaluated once for all the names.
             // Per scope: a macro body's declaration is evaluated per expansion.
-            let values = if let Some(values) = self.multi_consts.get(&(decl.id, scope)) {
+            let values = if let Some(values) = self.pr.multi_consts.get(&(decl.id, scope)) {
                 values.clone()
             } else {
                 let values = self.eval_const_all(scope, value)?;
-                self.multi_consts.insert((decl.id, scope), values.clone());
+                self.pr
+                    .multi_consts
+                    .insert((decl.id, scope), values.clone());
                 values
             };
             match values.get(index) {

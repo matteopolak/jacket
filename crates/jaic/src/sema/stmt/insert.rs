@@ -71,7 +71,7 @@ impl Compiler {
                 };
                 return self.insert_for_body(f, frame_index, replacements, span);
             }
-            let body = self.codes[code.0 as usize].clone();
+            let body = self.pr.codes[code.0 as usize].clone();
             // Inserted code resolves names where it was written, unless `,scope()` names
             // the insertion site or `,scope(other_code)` another code's scope.
             let code_scope = match target {
@@ -80,8 +80,8 @@ impl Compiler {
                         value: Value::Code(other),
                         ..
                     } => {
-                        let target = self.code_scopes[other.0 as usize];
-                        if self.unscoped_codes.contains_key(&(code.0 as usize)) {
+                        let target = self.pr.code_scopes[other.0 as usize];
+                        if self.pr.unscoped_codes.contains_key(&(code.0 as usize)) {
                             self.code_scope_at(code, target)
                         } else {
                             target

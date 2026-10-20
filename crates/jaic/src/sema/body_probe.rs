@@ -148,9 +148,9 @@ fn snapshot(c: &Compiler, bumps: [u64; 3], nested: u64) -> [u64; N] {
     v[C::ConstAddr as usize] = c.out.const_addr_globals.len() as u64;
     v[C::TypeInfos as usize] = c.ty.infos.len() as u64;
     v[C::AnonTypes as usize] = c.ty.anonymous.len() as u64;
-    v[C::Procs as usize] = c.procs.len() as u64;
+    v[C::Procs as usize] = c.pr.procs.len() as u64;
     v[C::Funcs as usize] = c.out.program.funcs.len() as u64;
-    v[C::AnonProcs as usize] = c.anonymous_procs.len() as u64;
+    v[C::AnonProcs as usize] = c.pr.anonymous_procs.len() as u64;
     v[C::Globals as usize] = c.out.program.globals.len() as u64;
     v[C::Foreigns as usize] = c.out.program.foreigns.len() as u64;
     v[C::Modules as usize] = c.ns.modules.len() as u64;

@@ -53,7 +53,7 @@ impl Facts {
         let mark = ide.sketch_from.unwrap_or(jaic::ide::SketchMark {
             refs: ide.refs.len(),
             entities: compiler.ns.entities.len(),
-            procs: compiler.procs.len(),
+            procs: compiler.pr.procs.len(),
         });
         let refs = &ide.refs[..mark.refs];
         let mut idents: HashMap<Span, Vec<EntityId>> = HashMap::default();
@@ -76,7 +76,7 @@ impl Facts {
         }
         let mut done: HashSet<Span> = HashSet::default();
         let mut failed: HashSet<Span> = HashSet::default();
-        for p in &compiler.procs[..mark.procs] {
+        for p in &compiler.pr.procs[..mark.procs] {
             let Some(body) = &p.lit.body else {
                 continue;
             };
@@ -95,7 +95,7 @@ impl Facts {
         }
         let clean = done.difference(&failed).copied().collect();
         let mut procs_by_header: HashMap<Span, Vec<ProcId>> = HashMap::default();
-        for (i, p) in compiler.procs[..mark.procs].iter().enumerate() {
+        for (i, p) in compiler.pr.procs[..mark.procs].iter().enumerate() {
             if wanted.contains(&p.lit.header.span.file) {
                 procs_by_header
                     .entry(p.lit.header.span)

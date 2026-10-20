@@ -116,7 +116,7 @@ impl Compiler {
             };
             self.ensure_storage_type(ty, span)?;
             // Metaprograms read local declaration types from the exported syntax tree.
-            self.local_decl_types.entry((decl.id, i)).or_insert(ty);
+            self.pr.local_decl_types.entry((decl.id, i)).or_insert(ty);
             let size = self.size_of(ty, span)?;
             let mut align = self.align_of(ty, span)?;
             if let Some(a) = &decl.align() {
@@ -181,14 +181,14 @@ impl Compiler {
             };
             let e = self.add_entity(target, name.name, name.span, kind.clone(), false);
             if let Some(info) = callable {
-                self.callable_entities.insert(e, info);
+                self.pr.callable_entities.insert(e, info);
             }
             self.debug_var(f, target, name.name, name.span, (ty, addr), 0);
             if target != scope {
                 // A backtick name is visible to the rest of the macro body too.
                 let alias = self.add_entity(scope, name.name, name.span, kind, false);
-                if let Some(info) = self.callable_entities.get(&e).cloned() {
-                    self.callable_entities.insert(alias, info);
+                if let Some(info) = self.pr.callable_entities.get(&e).cloned() {
+                    self.pr.callable_entities.insert(alias, info);
                 }
             }
             if decl.using {
@@ -338,7 +338,7 @@ impl Compiler {
             }
             return Ok(ops.into_iter().take(names).map(Some).collect());
         }
-        self.last_call_must = None;
+        self.pr.last_call_must = None;
         let first_op = self.check_expr(f, scope, first, declared)?;
         if matches!(first.kind, E::Call { .. }) {
             self.check_must_used(first.span, names)?;

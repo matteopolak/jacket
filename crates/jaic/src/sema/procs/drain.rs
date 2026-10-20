@@ -16,8 +16,8 @@ impl Compiler {
         loop {
             let mut failed = Vec::new();
             let mut progress = false;
-            let existing = self.procs.len();
-            while let Some(id) = crate::sema::body_probe::next_body(&mut self.body_queue) {
+            let existing = self.pr.procs.len();
+            while let Some(id) = crate::sema::body_probe::next_body(&mut self.pr.body_queue) {
                 if self.proc(id).body_state != BodyState::Queued {
                     continue;
                 }
@@ -34,14 +34,16 @@ impl Compiler {
                 self.ed.errors(failed.iter().map(|(_, e)| &**e));
                 return Err(failed.into_iter().next().unwrap().1);
             }
-            self.body_queue
+            self.pr
+                .body_queue
                 .extend(failed.into_iter().rev().map(|(id, _)| id));
         }
     }
 
     /// The errors of the bodies that failed their last lenient attempt.
     pub(crate) fn lenient_failures_list(&self) -> Vec<Diagnostic> {
-        self.lenient_failures
+        self.pr
+            .lenient_failures
             .values()
             .map(|(_, e)| (**e).clone())
             .collect()
@@ -54,15 +56,16 @@ impl Compiler {
     pub fn drain_bodies_lenient(&mut self) -> Option<Box<Diagnostic>> {
         let mut first = None;
         let mut retry = Vec::new();
-        if self.lower_epoch() != self.parked_epoch
+        if self.lower_epoch() != self.pr.parked_epoch
             || self
+                .pr
                 .parked_bodies
                 .iter()
-                .any(|&id| !self.failure_reusable(id, self.parked_epoch))
+                .any(|&id| !self.failure_reusable(id, self.pr.parked_epoch))
         {
             self.unpark_bodies();
         }
-        while let Some(id) = self.body_queue.pop() {
+        while let Some(id) = self.pr.body_queue.pop() {
             if self.proc(id).body_state != BodyState::Queued {
                 continue;
             }
@@ -72,16 +75,16 @@ impl Compiler {
             // runs compile-time code (a body using a module that did not load). Such bodies are
             // parked, so later calls in the same epoch skip them without looking.
             let epoch = self.lower_epoch();
-            if let Some((at, err)) = self.lenient_failures.get(&id)
+            if let Some((at, err)) = self.pr.lenient_failures.get(&id)
                 && *at == epoch
                 && self.failure_reusable(id, epoch)
             {
                 first.get_or_insert_with(|| err.clone());
-                if epoch != self.parked_epoch {
-                    retry.append(&mut self.parked_bodies);
-                    self.parked_epoch = epoch;
+                if epoch != self.pr.parked_epoch {
+                    retry.append(&mut self.pr.parked_bodies);
+                    self.pr.parked_epoch = epoch;
                 }
-                self.parked_bodies.push(id);
+                self.pr.parked_bodies.push(id);
                 continue;
             }
             let misses = (
@@ -90,7 +93,7 @@ impl Compiler {
             );
             match self.lower_body(id) {
                 Ok(()) => {
-                    self.lenient_failures.remove(&id);
+                    self.pr.lenient_failures.remove(&id);
                 }
                 Err(e) => {
                     // Waiting for a `#placeholder` is settled by the metaprogram, at any time;
@@ -101,17 +104,17 @@ impl Compiler {
                     ) == misses
                     {
                         let epoch = self.lower_epoch();
-                        self.lenient_failures.insert(id, (epoch, e.clone()));
+                        self.pr.lenient_failures.insert(id, (epoch, e.clone()));
                     }
                     first.get_or_insert(e);
                     retry.push(id);
                 }
             }
         }
-        self.body_queue.extend(retry);
+        self.pr.body_queue.extend(retry);
         if first.is_none()
-            && let Some(id) = self.parked_bodies.last()
-            && let Some((_, err)) = self.lenient_failures.get(id)
+            && let Some(id) = self.pr.parked_bodies.last()
+            && let Some((_, err)) = self.pr.lenient_failures.get(id)
         {
             first = Some(err.clone());
         }
@@ -120,8 +123,8 @@ impl Compiler {
 
     /// Put the parked bodies back in the queue.
     fn unpark_bodies(&mut self) {
-        let parked = std::mem::take(&mut self.parked_bodies);
-        self.body_queue.extend(parked);
+        let parked = std::mem::take(&mut self.pr.parked_bodies);
+        self.pr.body_queue.extend(parked);
     }
 
     /// Counts the events after which a body that failed to lower may succeed.
@@ -172,9 +175,9 @@ impl Compiler {
     }
 
     pub(super) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
-        self.procs[id.0 as usize].target = Some(target);
+        self.pr.procs[id.0 as usize].target = Some(target);
         if let ProcTarget::Func(func) = target {
-            let procs = self.func_targets.entry(func).or_default();
+            let procs = self.pr.func_targets.entry(func).or_default();
             if let Err(at) = procs.binary_search(&id) {
                 procs.insert(at, id);
             }
@@ -186,7 +189,8 @@ impl Compiler {
         &self,
         func: ir::FuncId,
     ) -> impl Iterator<Item = ProcId> + '_ {
-        self.func_targets
+        self.pr
+            .func_targets
             .get(&func)
             .into_iter()
             .flatten()
@@ -281,14 +285,14 @@ impl Compiler {
     /// Lower `id` and then the bodies its lowering queued (its callees, transitively), but
     /// nothing queued before. Returns the first error.
     pub fn lower_with_callees(&mut self, id: ProcId) -> Option<Box<Diagnostic>> {
-        let mark = self.body_queue.len();
+        let mark = self.pr.body_queue.len();
         if let Err(e) = self.lower_body(id) {
             return Some(e);
         }
         let mut first = None;
         let mut failed = Vec::new();
-        while self.body_queue.len() > mark {
-            let q = self.body_queue.pop().unwrap();
+        while self.pr.body_queue.len() > mark {
+            let q = self.pr.body_queue.pop().unwrap();
             if self.proc(q).body_state != BodyState::Queued {
                 continue;
             }
@@ -297,7 +301,7 @@ impl Compiler {
                 failed.push(q);
             }
         }
-        self.body_queue.extend(failed);
+        self.pr.body_queue.extend(failed);
         first
     }
 }

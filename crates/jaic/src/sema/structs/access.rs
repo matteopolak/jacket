@@ -47,11 +47,11 @@ impl Compiler {
                 value: Value::Code(code),
                 ..
             } if name.as_str() == "type" => {
-                let body = self.codes[code.0 as usize].clone();
+                let body = self.pr.codes[code.0 as usize].clone();
                 let ast::CodeBody::Expr(e) = &*body else {
                     return err(span, "only a Code expression has a type");
                 };
-                let code_scope = self.code_scopes[code.0 as usize];
+                let code_scope = self.pr.code_scopes[code.0 as usize];
                 let ty = match self.check_expr_no_emit(code_scope, e)? {
                     Operand::Const {
                         ty,
@@ -159,7 +159,7 @@ impl Compiler {
         {
             let a = self.apply_path(f, addr, &path);
             let parameters = origin
-                .and_then(|origin| self.callable_fields.get(&origin))
+                .and_then(|origin| self.pr.callable_fields.get(&origin))
                 .cloned();
             return Ok(Operand::Place {
                 ty: mty,

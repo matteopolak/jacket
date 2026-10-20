@@ -26,7 +26,7 @@ impl Compiler {
     /// instance. Call after `ide_check_all`, only for an editor: the facts name stand-in types,
     /// which a linter should not see.
     pub fn ide_sketch_polymorphs(&mut self) {
-        let (entities, procs) = (self.ns.entities.len(), self.procs.len());
+        let (entities, procs) = (self.ns.entities.len(), self.pr.procs.len());
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
@@ -39,7 +39,7 @@ impl Compiler {
         let lint = std::mem::replace(&mut ide.lint, false);
         ide.sketching = true;
         let mut i = 0;
-        let count = self.procs.len();
+        let count = self.pr.procs.len();
         while i < count {
             let id = ProcId(i as u32);
             i += 1;
@@ -77,7 +77,7 @@ impl Compiler {
     /// The body of instance `id` was checked to its end. Overload resolution makes instances
     /// whose bodies are never needed, and a body may have failed.
     fn ide_body_checked(&self, id: ProcId) -> bool {
-        self.proc(id).body_state == BodyState::Done && !self.lenient_failures.contains_key(&id)
+        self.proc(id).body_state == BodyState::Done && !self.pr.lenient_failures.contains_key(&id)
     }
 
     /// Check a sketch of `id`; false when checking it panicked, which may have left the
@@ -85,7 +85,7 @@ impl Compiler {
     fn ide_sketch(&mut self, id: ProcId) -> bool {
         let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
         let (warnings, deferred) = (self.diag.warnings.len(), self.diag.deferred_errors.len());
-        let first_new = self.procs.len();
+        let first_new = self.pr.procs.len();
         let asserts = self.ct.asserts.len();
         let refs = self.ed.facts().map_or(0, |ide| ide.refs.len());
         // A sketch is ordinary checking, but with types nothing was written for: should it
@@ -103,12 +103,12 @@ impl Compiler {
                 ide.sketch_root = false;
             }
             if let Ok(inst) = inst {
-                self.procs[id.0 as usize]
+                self.pr.procs[id.0 as usize]
                     .instances
                     .retain(|_, &mut i| i != inst);
                 // A macro is sketched as a procedure: what it reaches in its caller (`x`) is
                 // missing, and those statements are skipped.
-                self.procs[inst.0 as usize].is_macro = false;
+                self.pr.procs[inst.0 as usize].is_macro = false;
                 if let Ok(ProcTarget::Func(root)) = self.proc_func(inst, span) {
                     // A sketch owns only its reachable work. Draining the global queue
                     // retries independent failed bodies after source/compile-time progress,
@@ -119,10 +119,10 @@ impl Compiler {
         }));
         // Forget the sketch: what it queued, its errors, and the bodies that failed.
         let sketch = |p: &ProcId| (p.0 as usize) >= first_new;
-        self.body_queue.retain(|p| !sketch(p));
-        self.parked_bodies.retain(|p| !sketch(p));
-        self.lenient_failures.retain(|p, _| !sketch(p));
-        for p in &mut self.procs[first_new..] {
+        self.pr.body_queue.retain(|p| !sketch(p));
+        self.pr.parked_bodies.retain(|p| !sketch(p));
+        self.pr.lenient_failures.retain(|p, _| !sketch(p));
+        for p in &mut self.pr.procs[first_new..] {
             if p.body_state == BodyState::Queued {
                 p.body_state = BodyState::NotNeeded;
             }

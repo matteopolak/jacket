@@ -25,7 +25,7 @@ a, b :: f();                          // every value of a multi-value constant
 - A nested procedure sees enclosing constants, types and globals, not locals (``cannot access local `x` of an enclosing procedure``). There are no closures; the IR has no capture representation.
 - `#run` initialisers run at compile time. Changes other compile-time code makes to a global do not reach the program unless it is `#no_reset`.
 - Struct bodies may hold constants and procedures. They take no space, and `type_info(T).members` lists them with the `CONSTANT` flag (`struct_constants` in `sema/typeinfo.rs`). A procedure whose signature is unresolved is listed with a `$`-shaped header type so reflection does not force layout early.
-- `a, b :: f()` is evaluated once per scope (`Compiler::multi_consts`); more names than values is an error, fewer take the leading values.
+- `a, b :: f()` is evaluated once per scope (`Compiler::pr.multi_consts`); more names than values is an error, fewer take the leading values.
 
 ### Foreign data
 
@@ -57,7 +57,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - Assigning to a constant fails: `cannot assign to constant 3 of type s64` {#decl.10}.
 - A nested procedure sees constants, types and globals of its enclosing scope, not its locals {#decl.11}: ``cannot access local `local` of an enclosing procedure`` {#decl.12}. It is a plain procedure, not a closure.
 - `#run` initialisers run at compile time {#decl.13}. Changes other compile-time code makes to a global do not reach the running program unless the global is `#no_reset` (`tests/compiler/regressions/compile-time-globals-reset.jai`) {#decl.14}.
-- `a, b :: f();` binds every value of a multi-value constant, evaluated once per scope. `Compiler::multi_consts` is keyed by declaration and scope, so each macro expansion gets its own {#decl.15}. Naming more values than the expression has is an error (`3 names but 2 values`), while fewer names take the leading values {#decl.16}. `#run f()` keeps all of f's values {#decl.17}.
+- `a, b :: f();` binds every value of a multi-value constant, evaluated once per scope. `Compiler::pr.multi_consts` is keyed by declaration and scope, so each macro expansion gets its own {#decl.15}. Naming more values than the expression has is an error (`3 names but 2 values`), while fewer names take the leading values {#decl.16}. `#run f()` keeps all of f's values {#decl.17}.
 - `#assert cond "message";` and `#assert(cond, "message");` run at compile time and report at the assertion {#decl.18}: `#assert failed: Rec must be 8 bytes` {#decl.19}.
 - Notes after a field (`v : s32 = 9 @Hidden;`) appear in `type_info(T).members[i].notes` {#decl.20}; notes on the struct (`S :: struct @thing { ... }`) in `type_info(S).notes` {#decl.21}. Notes on a struct-scoped constant (`K :: 3; @kn`) appear in that constant member's `notes`; `#no_padding` sets `textual_flags.NO_PADDING` and a struct whose members are all `= ---` sets `nontextual_flags.ALL_MEMBERS_UNINITIALIZED` (its `initializer` stays non-null and leaves the members untouched). A struct declared inside a procedure, a block or another struct has `status_flags.LOCAL`.
 - `x: T #elsewhere lib "symbol";` declares a variable whose storage lives in a foreign library or the process {#extdata.1}. It has no initializer.
