@@ -201,9 +201,9 @@ impl Compiler {
                 continue;
             }
             for cv in &case.values {
-                let c = self.check_expr(f, scope, cv, Some(vty))?;
-                let c = self.convert(f, c, vty, cv.span)?;
-                Self::check_case_value(&c, cv.span, &mut seen)?;
+                let raw = self.check_expr(f, scope, cv, Some(vty))?;
+                let c = self.convert(f, raw.clone(), vty, cv.span)?;
+                Self::check_case_value(f, &raw, &c, cv.span, &mut seen)?;
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);
                 }
@@ -252,12 +252,21 @@ impl Compiler {
         missing
     }
 
-    /// A case value must be a constant, and no two cases may name the same one.
-    fn check_case_value(c: &Operand, span: Span, seen: &mut Vec<(Value, Span)>) -> Result<()> {
+    /// A case value must be a constant, and no two cases may name the same one. A constant
+    /// that only converts at run time (`#char "+"` against an enum) still counts as one, as
+    /// does the address of a program-wide object (`type_info(T)`).
+    fn check_case_value(
+        f: &FnCtx,
+        raw: &Operand,
+        c: &Operand,
+        span: Span,
+        seen: &mut Vec<(Value, Span)>,
+    ) -> Result<()> {
         let value = match c {
             Operand::Procs(p) if p.len() == 1 => Value::Proc(p[0]),
-            _ => match c.const_value() {
+            _ => match c.const_value().or_else(|| raw.const_value()) {
                 Some(value) => value,
+                None if Self::is_fixed_address(f, c) => return Ok(()),
                 None => return err(span, "Conditions listed by 'case' must be constant."),
             },
         };
@@ -269,6 +278,27 @@ impl Compiler {
         }
         seen.push((value, span));
         Ok(())
+    }
+
+    /// Whether the operand is a value the program fixes before it runs: the address of a
+    /// global or a procedure, or a literal the converter materialised.
+    fn is_fixed_address(f: &FnCtx, c: &Operand) -> bool {
+        let Operand::Value {
+            val, ..
+        } = c
+        else {
+            return false;
+        };
+        f.b.func.blocks.iter().flat_map(|b| &b.insts).any(|inst| {
+            matches!(
+                inst,
+                ir::Inst::GlobalAddr { dst, .. }
+                    | ir::Inst::FuncAddr { dst, .. }
+                    | ir::Inst::IConst { dst, .. }
+                    | ir::Inst::FConst { dst, .. }
+                    if dst == val
+            )
+        })
     }
 
     /// A switch on a constant runs one case, but every case is still type-checked (only `#if`
@@ -292,9 +322,9 @@ impl Compiler {
         let mut seen = Vec::new();
         for case in cases {
             for cv in &case.values {
-                let c = self.check_expr(f, scope, cv, Some(vty))?;
-                let c = self.convert(f, c, vty, cv.span)?;
-                Self::check_case_value(&c, cv.span, &mut seen)?;
+                let raw = self.check_expr(f, scope, cv, Some(vty))?;
+                let c = self.convert(f, raw.clone(), vty, cv.span)?;
+                Self::check_case_value(f, &raw, &c, cv.span, &mut seen)?;
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);
                 }
