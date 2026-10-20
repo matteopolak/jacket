@@ -58,7 +58,16 @@ impl Compiler {
             // `xx err == GL_FALSE` casts to the other operand's type too, and so does `xx` in
             // arithmetic next to an operand that has a type; the expected type of the whole
             // expression does not reach it.
-            let r = self.check_expr(f, scope, b, None)?;
+            let r = self.check_expr(
+                f,
+                scope,
+                b,
+                if is_cmp {
+                    None
+                } else {
+                    expected
+                },
+            )?;
             let typed = !matches!(
                 r,
                 Operand::Const {
@@ -66,7 +75,12 @@ impl Compiler {
                     ..
                 }
             );
-            let l = self.check_expr(f, scope, a, (is_cmp || typed).then(|| r.ty()))?;
+            let hint = if is_cmp || typed {
+                Some(r.ty())
+            } else {
+                lhs_expected
+            };
+            let l = self.check_expr(f, scope, a, hint)?;
             early_rhs = Some(r);
             l
         } else if lhs_expected.is_some() && is_number_literal(a) {

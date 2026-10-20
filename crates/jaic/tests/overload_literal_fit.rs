@@ -87,6 +87,17 @@ fn values_beyond_the_positional_members_rule_a_candidate_out() {
 }
 
 #[test]
+fn a_typed_literal_and_a_code_argument_are_not_ambiguous() {
+    accepts(
+        "V :: struct { a: s32; }
+        element :: (style := V.{}, body: Code = #code {}) #expand {}
+        element :: (body: Code) #expand {}
+        element :: (style: V, key: string) #expand {}
+        main :: () { element(V.{ a = 1 }, #code { x := 1; }); }",
+    );
+}
+
+#[test]
 fn overloads_of_an_outer_scope_do_not_rival_a_nearer_one() {
     accepts(
         "E :: enum { A; B; }

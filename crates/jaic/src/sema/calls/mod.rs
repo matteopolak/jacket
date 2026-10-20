@@ -90,7 +90,7 @@ struct Candidate {
 /// without a meaning; an untyped number is not one, as every integer type takes it.
 fn is_untyped_argument(arg: &CallArg) -> bool {
     match &arg.op {
-        None => true,
+        None => arg.expr.as_ref().is_some_and(takes_context_type),
         Some(Operand::Const {
             value: Value::Null,
             untyped: true,

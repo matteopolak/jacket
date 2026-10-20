@@ -23,5 +23,10 @@ main :: () {
 
     assert(type_of(total) == int && total == 4);
 
+    shown: float32 = 3.5;
+    pixel: s64 = xx shown + 1;
+
+    assert(pixel == 4);
+
     print("ok\n");
 }
