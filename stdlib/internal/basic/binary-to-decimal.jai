@@ -312,3 +312,123 @@ trimmed_fraction :: (text: string) -> string {
 
     return result;
 }
+
+#scope_module
+// Whether the `g` text of `value` with `significant` digits (rounded up with `round_up`) parses back
+// to `value` as a float64, or with `wide` false as the float32 `value` came from. The text is the
+// exact decimal D * 10^E, which parses back exactly when it lies inside `value`'s rounding interval:
+// half a unit either side, a quarter below for a normal power of two, with the ends included when
+// the significand is even. `known` is false when the integers do not fit.
+digits_read_back :: (value: float64, wide: bool, significant: s64, round_up: bool, power_of_two: bool) -> matches: bool, known: bool {
+    bits := (cast(*u64) *value).*;
+    exponent := cast(s64) ((bits >> 52) & 0x7ff);
+    mantissa := bits & 0x000f_ffff_ffff_ffff;
+
+    if exponent != 0 mantissa |= 0x0010_0000_0000_0000;
+    if mantissa == 0 return true, true;
+
+    binary := ifx exponent == 0 then -1074 else exponent - 1075;
+    rounding := ifx round_up then Rounding.UP else .NEAREST;
+
+    if significant < 1 || significant > 19 return false, false;
+
+    digits, power, ok := leading_digits(mantissa, binary, significant, rounding);
+    if !ok return false, false;
+
+    // The interval belongs to the value's own type: m * 2^b with m its significand.
+    m := mantissa;
+    b := binary;
+
+    if !wide {
+        single := cast(float32) value;
+        narrow := (cast(*u32) *single).*;
+        field := cast(s64) ((narrow >> 23) & 0xff);
+
+        m = cast(u64) (narrow & 0x7f_ffff);
+        if field != 0 m |= 0x80_0000;
+
+        b = ifx field == 0 then -149 else field - 150;
+    }
+
+    // In units of 2^(b - 2): the value is 4m, half a unit is 2, and a quarter unit is 1.
+    decimal := power - significant + 1;
+    lower: u64 = ifx power_of_two then cast(u64) 1 else 2;
+
+    // Divide both sides by the smaller power of two and of five they share, leaving integers.
+    twos := min(decimal, b - 2);
+    fives := min(decimal, 0);
+
+    if decimal - fives >= FIVE_POWERS.count || -fives >= FIVE_POWERS.count return false, false;
+
+    candidate_high, candidate_low := multiply_64bits_with_overflow(digits, FIVE_POWERS[decimal - fives]);
+    scale := FIVE_POWERS[-fives];
+    value_high, value_low := multiply_64bits_with_overflow(4 * m, scale);
+    upper := 2 * scale;
+    below := lower * scale;
+
+    candidate_ok := shift_wide(*candidate_high, *candidate_low, decimal - twos);
+    value_ok := shift_wide(*value_high, *value_low, b - 2 - twos);
+
+    if !candidate_ok || !value_ok return false, false;
+
+    // The gaps are at most 2 * 5^27 < 2^64 before shifting, and stay below the value after it.
+    upper_high: u64;
+    upper_low := upper;
+    below_high: u64;
+    below_low := below;
+
+    if !shift_wide(*upper_high, *upper_low, b - 2 - twos) || !shift_wide(*below_high, *below_low, b - 2 - twos) return false, false;
+
+    // value + upper must not wrap; value - below cannot go negative since 4m >= 4 > 2.
+    top_high, top_low := add_wide(value_high, value_low, upper_high, upper_low);
+    if top_high < value_high return false, false;
+
+    bottom_high, bottom_low := subtract_wide(value_high, value_low, below_high, below_low);
+    even := (m & 1) == 0;
+
+    above_bottom := compare_wide(candidate_high, candidate_low, bottom_high, bottom_low);
+    below_top := compare_wide(candidate_high, candidate_low, top_high, top_low);
+
+    if above_bottom > 0 && below_top < 0 return true, true;
+    if above_bottom == 0 || below_top == 0 return even, true;
+
+    return false, true;
+}
+
+#scope_file
+// Shifts the 128-bit (high, low) left by `amount`; false when bits would be lost.
+shift_wide :: (high: *u64, low: *u64, amount: s64) -> bool {
+    if amount == 0 return true;
+    if amount < 0 || amount >= 128 return high.* == 0 && low.* == 0 && amount >= 0;
+
+    if amount >= 64 {
+        if high.* != 0 || low.* >> (128 - amount) != 0 return false;
+        high.* = low.* << (amount - 64);
+        low.* = 0;
+        return true;
+    }
+
+    if high.* >> (64 - amount) != 0 return false;
+
+    high.* = (high.* << amount) | (low.* >> (64 - amount));
+    low.* <<= amount;
+
+    return true;
+}
+
+add_wide :: (a_high: u64, a_low: u64, b_high: u64, b_low: u64) -> high: u64, low: u64 {
+    low := a_low + b_low;
+    carry: u64 = ifx low < a_low then cast(u64) 1 else 0;
+    return a_high + b_high + carry, low;
+}
+
+subtract_wide :: (a_high: u64, a_low: u64, b_high: u64, b_low: u64) -> high: u64, low: u64 {
+    borrow: u64 = ifx a_low < b_low then cast(u64) 1 else 0;
+    return a_high - b_high - borrow, a_low - b_low;
+}
+
+compare_wide :: (a_high: u64, a_low: u64, b_high: u64, b_low: u64) -> s64 {
+    if a_high != b_high return ifx a_high < b_high then -1 else 1;
+    if a_low != b_low return ifx a_low < b_low then -1 else 1;
+    return 0;
+}
