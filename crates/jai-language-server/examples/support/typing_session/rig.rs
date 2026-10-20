@@ -205,6 +205,15 @@ impl<'a, C: Choices> Rig<'a, C> {
         }
         let recent: Vec<_> = self.trace.iter().rev().take(6).rev().cloned().collect();
         let text: String = self.docs[doc].text.chars().take(1500).collect();
+        // `TYPING_FUZZ_DUMP=dir` keeps every document's whole text at each failure, to replay it.
+        if let Some(dir) = std::env::var_os("TYPING_FUZZ_DUMP") {
+            let n = self.report.failures.len();
+            for (k, d) in self.docs.iter().enumerate() {
+                let name = d.uri.as_str().rsplit('/').next().unwrap_or("doc");
+                let path = std::path::Path::new(&dir).join(format!("{n}-{k}-{name}"));
+                let _ = std::fs::write(path, &d.text);
+            }
+        }
         if oracle == "d" {
             self.flush_log();
             self.report.histories.push((

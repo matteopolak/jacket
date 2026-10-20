@@ -56,7 +56,7 @@ The input is a document, then optionally a NUL and the bytes that choose the edi
 
 ## Configuration
 
-`Config` (in `typing_session.rs`): `scenarios`, `diff_every`, `probes`, `full_probes`, `budget`, `hang`, `outside`, `max_failures`. The example takes `--seeds A..B`, `--scenarios N`, `--diff-every N`, `--stdlib DIR`, `--list FILE`. The environment is the one `jailsp` starts with: the stdlib directory and `find_preload`.
+`Config` (in `typing_session.rs`): `scenarios`, `diff_every`, `probes`, `full_probes`, `budget`, `hang`, `outside`, `max_failures`. The example takes `--seeds A..B`, `--scenarios N`, `--diff-every N`, `--stdlib DIR`, `--list FILE`. With `TYPING_FUZZ_DUMP=DIR` set, each failure also writes every open document's whole text to `DIR/<failure>-<doc>-<file name>`, so the failing state can be opened fresh in a test. The environment is the one `jailsp` starts with: the stdlib directory and `find_preload`.
 
 ## Dependencies
 
