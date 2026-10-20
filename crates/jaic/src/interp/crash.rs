@@ -267,10 +267,10 @@ mod sys {
     const SIGSEGV: c_int = 11;
 
     #[cfg(target_os = "macos")]
-    const SIGBUS: c_int = 10;
+    pub(super) const SIGBUS: c_int = 10;
 
     #[cfg(target_os = "linux")]
-    const SIGBUS: c_int = 7;
+    pub(super) const SIGBUS: c_int = 7;
 
     #[cfg(target_os = "macos")]
     const SA_SIGINFO: c_int = 0x40;
@@ -373,7 +373,7 @@ mod sys {
         }
     }
 
-    fn describe(
+    pub(super) fn describe(
         sig: c_int,
         address: usize,
         out: &mut super::Report<{ super::WHAT_BYTES }>,
@@ -559,5 +559,201 @@ mod sys {
         loop {
             std::thread::park();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir::FuncId;
+
+    fn program() -> Program {
+        Program {
+            file_paths: vec!["/work/main.jai".into(), "/elsewhere/lib.jai".into()],
+            func_names: vec![
+                "main".into(),
+                "helper#3".into(),
+                "__hidden".into(),
+                String::new(),
+                "#run".into(),
+                "inner".into(),
+            ],
+            ..Default::default()
+        }
+    }
+
+    fn report_for(state: &ExecState, program: &Program, symbol: &str) -> String {
+        let current = Current {
+            symbol: (symbol.as_ptr(), symbol.len()),
+            state,
+            program,
+        };
+        let mut out = Report::<8192>::new();
+        write_report(current, "SIGSEGV, test", &mut out);
+        out.text().to_string()
+    }
+
+    #[test]
+    fn the_report_names_the_call_the_line_and_the_visible_frames() {
+        let program = program();
+        let state = ExecState {
+            // Each frame is shown at the line it called the next one from; the innermost, `inner`,
+            // at the foreign call. The hidden and unnamed procedures are left out.
+            calls: vec![
+                (FuncId(0), Some((0, 3, 1))),
+                (FuncId(1), Some((0, 4, 2))),
+                (FuncId(2), Some((0, 5, 1))),
+                (FuncId(3), None),
+                (FuncId(4), Some((1, 9, 1))),
+                (FuncId(5), Some((1, 12, 3))),
+            ],
+            loc: Some((1, 12, 7)),
+            ..Default::default()
+        };
+        let text = report_for(&state, &program, "strlen");
+        let lines: Vec<&str> = text.lines().collect();
+        assert!(
+            lines[0].ends_with(
+                ":12:7: error: native code crashed (SIGSEGV, test) while calling foreign procedure `strlen`"
+            ),
+            "{text}"
+        );
+        assert_eq!(lines[1], "note: call stack (innermost first):");
+        assert_eq!(lines[2], "    `inner` at /elsewhere/lib.jai:12");
+        assert_eq!(lines[3], "    `#run` at /elsewhere/lib.jai:12");
+        assert_eq!(lines[4], "    `helper` at /work/main.jai:5");
+        assert_eq!(lines[5], "    `main` at /work/main.jai:4");
+        assert!(lines[6].starts_with("help: check the arguments passed to `strlen`"));
+        assert_eq!(lines.len(), 7, "{text}");
+    }
+
+    #[test]
+    fn a_frame_without_a_known_file_is_shown_by_name_only() {
+        let mut program = program();
+        program.file_paths.clear();
+        let state = ExecState {
+            calls: vec![(FuncId(0), Some((0, 1, 1)))],
+            loc: Some((0, 1, 1)),
+            ..Default::default()
+        };
+        let text = report_for(&state, &program, "puts");
+        assert!(text.starts_with("error: native code crashed"), "{text}");
+        assert!(text.contains("\n    `main`\n"), "{text}");
+    }
+
+    #[test]
+    fn deep_call_stacks_are_cut_after_the_shown_limit() {
+        let mut program = program();
+        program.func_names = vec!["recur".into()];
+        let state = ExecState {
+            calls: vec![(FuncId(0), Some((0, 2, 1))); MAX_SHOWN_FRAMES + 5],
+            loc: Some((0, 2, 1)),
+            ..Default::default()
+        };
+        let text = report_for(&state, &program, "memcpy");
+        assert_eq!(text.matches("    `recur` at").count(), MAX_SHOWN_FRAMES);
+        assert!(text.contains("\n    ...\n"), "{text}");
+    }
+
+    #[test]
+    fn a_stack_of_hidden_procedures_prints_no_call_stack_note() {
+        let program = program();
+        let state = ExecState {
+            calls: vec![(FuncId(2), None), (FuncId(3), None)],
+            ..Default::default()
+        };
+        let text = report_for(&state, &program, "abort");
+        assert!(!text.contains("call stack"), "{text}");
+    }
+
+    #[test]
+    fn reports_stop_at_the_buffer_end_instead_of_failing() {
+        use std::fmt::Write;
+        let mut small = Report::<4>::new();
+        write!(small, "abcdef").unwrap();
+        assert_eq!(small.text(), "abcd");
+        write!(small, "more").unwrap();
+        assert_eq!(small.text(), "abcd");
+        let mut broken = Report::<2>::new();
+        broken.bytes = [0xff, 0xfe];
+        broken.len = 2;
+        assert_eq!(broken.text(), "a fault");
+    }
+
+    #[test]
+    fn paths_are_shown_relative_only_inside_the_display_base() {
+        // Nothing sets the base in this process unless another test did: either way an
+        // unrelated path is left alone.
+        assert_eq!(shown_path("/nowhere/at/all.jai"), "/nowhere/at/all.jai");
+        if let Some(base) = crate::display_base().and_then(|b| b.to_str()) {
+            let inside = format!("{base}/inside.jai");
+            assert_eq!(shown_path(&inside), "inside.jai");
+            assert_eq!(shown_path(base), base);
+        }
+    }
+
+    #[test]
+    fn foreign_calls_nest_and_restore_the_outer_call() {
+        let program = program();
+        let state = ExecState::default();
+        assert!(current().program.is_null());
+        {
+            let _outer = ForeignCall::enter("outer", &state, &program);
+            assert_eq!(current().symbol.1, "outer".len());
+            {
+                let _inner = ForeignCall::enter("nested", &state, &program);
+                assert_eq!(current().symbol.1, "nested".len());
+            }
+            assert_eq!(current().symbol.1, "outer".len());
+        }
+        assert!(current().program.is_null());
+        // Outside a call a fault is not ours.
+        assert!(!report_and_exit("SIGSEGV"));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_call_carried_to_another_thread_is_attributed_there() {
+        let program = program();
+        let state = ExecState::default();
+        let _call = ForeignCall::enter("carried", &state, &program);
+        let carried = Attribution::of_this_thread();
+        let program_address = &raw const program as usize;
+        struct Moved(Attribution);
+        // SAFETY: the carried call only names data that outlives the scope below.
+        unsafe impl Send for Moved {
+        }
+        let moved = Moved(carried);
+        std::thread::scope(|scope| {
+            scope.spawn(move || {
+                let moved = moved;
+                assert!(current().program.is_null());
+                let call = moved.0.enter();
+                assert_eq!(current().symbol.1, "carried".len());
+                assert_eq!(current().program as usize, program_address);
+                drop(call);
+                assert!(current().program.is_null());
+            });
+        });
+    }
+
+    #[cfg(all(unix, any(target_os = "macos", target_os = "linux")))]
+    #[test]
+    fn faults_are_named_by_signal() {
+        let name = |sig: i32, address: usize| {
+            let mut text = Report::<WHAT_BYTES>::new();
+            sys::describe(sig, address, &mut text).to_string()
+        };
+        assert_eq!(
+            name(11, 0x10),
+            "SIGSEGV, invalid memory access at address 0x10"
+        );
+        assert_eq!(name(4, 0x20), "SIGILL, illegal instruction at 0x20");
+        assert_eq!(
+            name(8, 0),
+            "SIGFPE, arithmetic fault such as an integer division by zero"
+        );
+        assert!(name(sys::SIGBUS, 0x30).starts_with("SIGBUS, bad memory access at address 0x30"));
+        assert_eq!(name(99, 0), "signal 99");
     }
 }
