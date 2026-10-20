@@ -1,0 +1,10 @@
+[
+  {
+    "name": "agreement",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  }
+]
