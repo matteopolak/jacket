@@ -79,7 +79,7 @@ pub struct SemanticAnalysisContext {
     pub entry: Option<SemanticPath>,
     /// Exact selected compiler `options.import_paths`, preserving order and native spelling.
     pub import_dirs: Option<Vec<SemanticPath>>,
-    /// Actual selected compiler.workspace, not a scanner-assigned label.
+    /// Actual selected compiler.meta.workspace, not a scanner-assigned label.
     pub workspace_id: Option<i64>,
 }
 

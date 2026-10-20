@@ -108,7 +108,7 @@ impl Compiler {
     /// one of them (a missing import leaves a name undefined): show why they failed.
     fn with_deferred_errors<T>(&mut self, result: Result<T>) -> Result<T> {
         result.map_err(|mut e| {
-            for d in std::mem::take(&mut self.deferred_errors) {
+            for d in std::mem::take(&mut self.diag.deferred_errors) {
                 e.notes.push((
                     d.span,
                     format!("a top-level item failed earlier: {}", d.message),
@@ -195,7 +195,7 @@ impl Compiler {
         let Some(workspaces) = self.ct.interp.workspaces.clone() else {
             return Ok(false);
         };
-        let added = crate::build::take_own_sources(&workspaces, self.workspace);
+        let added = crate::build::take_own_sources(&workspaces, self.meta.workspace);
         if added.is_empty() {
             return Ok(false);
         }
@@ -248,7 +248,7 @@ impl Compiler {
             i += 1;
         }
         if let Some(workspaces) = self.ct.interp.workspaces.clone() {
-            for header in crate::build::take_live_requests(&workspaces, self.workspace) {
+            for header in crate::build::take_live_requests(&workspaces, self.meta.workspace) {
                 self.make_procedure_live(header);
             }
         }
@@ -267,7 +267,7 @@ impl Compiler {
             // program's own files count; a noted procedure in an imported module stays unchecked
             // until something calls it (Vk-Engine's `Common` has an uncalled `@PrintLike`
             // procedure whose body names a procedure that does not exist).
-            let noted: Vec<ProcId> = (self.export.pending_procs())
+            let noted: Vec<ProcId> = (self.meta.export.pending_procs())
                 .filter(|&p| {
                     let proc = self.proc(p);
                     Some(self.scope(proc.scope).module) == self.main_module
@@ -309,7 +309,7 @@ impl Compiler {
 
     fn finish_program_inner(&mut self) -> Result<()> {
         // No more code is coming: items still waiting for a `#placeholder` fail now.
-        self.placeholders_final = true;
+        self.epochs.placeholders_final = true;
         self.settle()?;
         let lowered = self.lower_reachable_inner(false)?;
         self.check_declared_structs()?;
@@ -343,7 +343,7 @@ impl Compiler {
     fn check_unreferenced(&mut self) -> Result<()> {
         // The program may have set its own workspace's options while it compiled.
         if let Some(workspaces) = &self.ct.interp.workspaces
-            && let Some(mode) = crate::build::dead_code_setting(workspaces, self.workspace)
+            && let Some(mode) = crate::build::dead_code_setting(workspaces, self.meta.workspace)
         {
             self.options.dead_code = mode;
         }

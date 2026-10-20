@@ -84,7 +84,10 @@ impl Compiler {
                 self.parked_bodies.push(id);
                 continue;
             }
-            let misses = (self.placeholder_misses, self.in_progress_misses);
+            let misses = (
+                self.epochs.placeholder_misses,
+                self.epochs.in_progress_misses,
+            );
             match self.lower_body(id) {
                 Ok(()) => {
                     self.lenient_failures.remove(&id);
@@ -92,7 +95,11 @@ impl Compiler {
                 Err(e) => {
                     // Waiting for a `#placeholder` is settled by the metaprogram, at any time;
                     // something in progress (a signature, a layout) by the caller finishing.
-                    if (self.placeholder_misses, self.in_progress_misses) == misses {
+                    if (
+                        self.epochs.placeholder_misses,
+                        self.epochs.in_progress_misses,
+                    ) == misses
+                    {
                         let epoch = self.lower_epoch();
                         self.lenient_failures.insert(id, (epoch, e.clone()));
                     }
@@ -127,7 +134,7 @@ impl Compiler {
         let namespaces = if self.ed.counts_scope_changes() {
             #[cfg(debug_assertions)]
             self.check_namespace_generation();
-            self.sources.len() as u64 + self.namespace_generation
+            self.sources.len() as u64 + self.epochs.namespace_generation
         } else {
             0
         };
@@ -155,10 +162,11 @@ impl Compiler {
             .sum::<usize>();
         let (last_total, last_generation) = self.namespace_check.get();
         debug_assert!(
-            total == last_total || self.namespace_generation != last_generation,
+            total == last_total || self.epochs.namespace_generation != last_generation,
             "a scope changed without `namespace_changed`"
         );
-        self.namespace_check.set((total, self.namespace_generation));
+        self.namespace_check
+            .set((total, self.epochs.namespace_generation));
     }
 
     pub(super) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {

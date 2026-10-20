@@ -102,7 +102,7 @@ impl Exporter<'_> {
                 .ptr(SyntaxKey::StatementNotes, notes);
         }
         if let Some(c) = self.c.as_deref_mut() {
-            c.export.stmts.insert(id, Rc::new(s.clone()));
+            c.meta.export.stmts.insert(id, Rc::new(s.clone()));
         }
         Some(id)
     }

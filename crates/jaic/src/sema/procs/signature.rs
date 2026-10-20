@@ -191,7 +191,7 @@ impl Compiler {
             );
         }
         if self.proc(id).sig_resolving {
-            self.in_progress_misses += 1;
+            self.epochs.in_progress_misses += 1;
             return err(
                 self.proc(id).span,
                 format!("signature of `{}` depends on itself", self.proc(id).name),

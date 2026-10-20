@@ -26,7 +26,7 @@ impl Compiler {
         // audit has a complete source snapshot: no metaprogram is still supplying
         // placeholders. Use the compiler's existing finalization rule so a failed
         // generator cannot stay speculative and recreate nested procedures forever.
-        self.placeholders_final = true;
+        self.epochs.placeholders_final = true;
         for i in 0..self.entities.len() {
             let id = EntityId(i as u32);
             let e = self.entity(id);
@@ -87,8 +87,8 @@ impl Compiler {
         unused_defaults.retain(|(t, _)| !self.default_images.contains_key(t));
         let quiet = (
             self.ed.facts().map_or(0, |ide| ide.errors.len()),
-            self.warnings.len(),
-            self.deferred_errors.len(),
+            self.diag.warnings.len(),
+            self.diag.deferred_errors.len(),
         );
         for (t, span) in unused_defaults {
             let _ = self.default_initializer(t, span);
@@ -96,8 +96,8 @@ impl Compiler {
         if let Some(ide) = self.ed.facts_mut() {
             ide.errors.truncate(quiet.0);
         }
-        self.warnings.truncate(quiet.1);
-        self.deferred_errors.truncate(quiet.2);
+        self.diag.warnings.truncate(quiet.1);
+        self.diag.deferred_errors.truncate(quiet.2);
         let mut i = 0;
         while i < self.procs.len() {
             let id = ProcId(i as u32);

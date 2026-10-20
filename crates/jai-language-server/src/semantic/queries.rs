@@ -75,7 +75,7 @@ impl Analysis {
     /// The compiler's warnings (a print format with the wrong argument count, a body that can
     /// fall off its end), placed like the errors.
     pub fn check_warnings(&self, path: &Path) -> Vec<(usize, usize, String)> {
-        self.located(path, &self.compiler.warnings)
+        self.located(path, &self.compiler.diag.warnings)
     }
 
     fn located(
@@ -233,7 +233,7 @@ impl Analysis {
                         .map(SemanticPath::observed)
                         .collect(),
                 ),
-                workspace_id: Some(self.compiler.workspace),
+                workspace_id: Some(self.compiler.meta.workspace),
             },
             source_loaded: file.is_some(),
             recorded_references: ide.map_or(0, |i| {

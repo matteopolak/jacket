@@ -6,6 +6,18 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 
 ## How it works
 
+### Compiler state (`mod.rs`)
+
+`Compiler` holds its state in groups, one struct per concern, each in its own file under `sema/`:
+
+- `ct: CompileTime` (`compile_time.rs`): the interpreter, top-level `#run`s/`#assert`s and their progress, frozen values. `Drop for Compiler` joins compile-time threads before any field drops.
+- `diag: Diagnostics` (`diagnostics.rs`): warnings, why deferred items failed, declaration dependencies.
+- `epochs: Epochs` (`epochs.rs`): the counters a cached failure is stamped with (`namespace_generation`, `placeholder_misses`, `in_progress_misses`) and the flags of deferred expansion's phases.
+- `meta: MetaState` (`meta_state.rs`): the workspace being built, records exported to metaprograms, perf counts.
+- `ed: Editor` (`ide/editor.rs`): the editor analysis, if any.
+
+A new field goes in the group it belongs to; a field used only by one group's methods should not live on `Compiler` itself.
+
 ### Modules and top-level expansion (`modules.rs`, `scope.rs`)
 
 - `load_module` keys a module by entry path and parameter values. The first `#module_parameters (...)` list is part of the instance key; the second holds program parameters (`Module.program_params`) shared by every instance. `#import "Basic"()(MEMORY_DEBUGGER = DEBUG)` records a setting in `Compiler::program_param_settings`; `apply_program_params` patches the declaration value as soon as both instance and setting exist, before anything reads it. See [module parameters](../language/module-parameters.md).

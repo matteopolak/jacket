@@ -51,7 +51,7 @@ impl Compiler {
                         && !self.entity_is_overloadable(e)
                 })
             });
-            if !settled && !self.lookup_without_expansion {
+            if !settled && !self.epochs.lookup_without_expansion {
                 self.expand_pending(sid)?;
             }
             if let Some(ids) = self.scope(sid).names.get(&name) {
@@ -70,7 +70,7 @@ impl Compiler {
             }
             // What `sid`'s `using`s, imports and the implicit modules hold under `name` can
             // only change with the namespace: a miss is remembered for this generation.
-            let generation = self.namespace_generation;
+            let generation = self.epochs.namespace_generation;
             let key = (sid, name);
             // Body scopes gain `using`s and imports without moving the generation.
             let stable = !matches!(
@@ -145,7 +145,7 @@ impl Compiler {
                         }
                     }
                 }
-                if cacheable && found.is_empty() && self.namespace_generation == generation {
+                if cacheable && found.is_empty() && self.epochs.namespace_generation == generation {
                     self.scope_misses.insert(key, generation);
                 }
             }

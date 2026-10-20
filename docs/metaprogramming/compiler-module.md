@@ -38,7 +38,7 @@ A metaprogram runs in its own compiler's interpreter, and the target workspace's
 
 ### Rust exporter
 
-`sema/code_export.rs`, state in `Compiler::export`:
+`sema/code_export.rs`, state in `Compiler::meta.export` (`MetaState`):
 
 - `export_file_events` sends an IMPORT record per module and a FILE record per file (module types `PRELOAD`, `RUNTIME_SUPPORT`, `MAIN_PROGRAM`, else `UNINITIALIZED`).
 - `export_typechecked` exports every new top-level declaration of a user module (not Preload, Runtime_Support or the system module directory) with its type, plus procedure headers, bodies, structs and `subexpressions`. Declarations that fail to resolve are skipped. Global declarations, parameters, returns and type instantiations get `type`; locals do not. Variadic parameters have `inst_flags = .VARARGS`. Notes after a body attach to the declaration and header.

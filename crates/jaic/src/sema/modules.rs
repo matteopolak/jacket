@@ -103,12 +103,12 @@ impl Compiler {
                 .any(|p| p.body_state == super::procs::BodyState::Lowering);
             if !self.deferred_pending.is_empty() && !lowering {
                 let deferred = std::mem::take(&mut self.deferred_pending);
-                self.deferred_errors.clear();
-                let retrying = std::mem::replace(&mut self.retrying_pending, true);
+                self.diag.deferred_errors.clear();
+                let retrying = std::mem::replace(&mut self.epochs.retrying_pending, true);
                 let result = deferred
                     .into_iter()
                     .try_for_each(|sid| self.expand_pending(sid));
-                self.retrying_pending = retrying;
+                self.epochs.retrying_pending = retrying;
                 result?;
                 continue;
             }

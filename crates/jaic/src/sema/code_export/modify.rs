@@ -13,13 +13,15 @@ impl Compiler {
     /// compiler exported.
     pub fn make_procedure_live(&mut self, header: i64) -> bool {
         let found = self
+            .meta
             .export
             .resolved_headers
             .iter()
             .find(|&(_, &record)| record == header)
             .map(|(&(p, _), _)| p)
             .or_else(|| {
-                self.export
+                self.meta
+                    .export
                     .pending_bodies
                     .iter()
                     .find(|&&(_, record, _)| record == header)
@@ -44,7 +46,7 @@ impl Compiler {
     ) -> Result<()> {
         // Ownership is attached to the actual exported workspace procedure, never
         // recovered from a display name, copied serial or caller-created header.
-        let Some(&p) = self.export.bodies.get(&body) else {
+        let Some(&p) = self.meta.export.bodies.get(&body) else {
             return err(
                 Span::NONE,
                 "compiler_modify_procedure: body record does not belong to this workspace procedure",
@@ -72,7 +74,7 @@ impl Compiler {
                     continue;
                 }
             };
-            if let Some(stmt) = self.export.stmts.get(&id) {
+            if let Some(stmt) = self.meta.export.stmts.get(&id) {
                 new_stmts.push((**stmt).clone());
                 continue;
             }
@@ -94,7 +96,7 @@ impl Compiler {
         };
         self.procs[p.0 as usize].lit = Rc::new(lit);
         if self.proc(p).body_state == procs::BodyState::Done {
-            self.export.relower.push(p);
+            self.meta.export.relower.push(p);
         }
         Ok(())
     }
@@ -103,7 +105,7 @@ impl Compiler {
     /// so the caller can release the registry first: the new bodies may run compile-time
     /// code that uses it.
     pub fn relower_modified(&mut self) -> Result<()> {
-        for p in std::mem::take(&mut self.export.relower) {
+        for p in std::mem::take(&mut self.meta.export.relower) {
             self.lower_body(p)?;
         }
         Ok(())

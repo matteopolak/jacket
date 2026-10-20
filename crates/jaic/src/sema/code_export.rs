@@ -119,14 +119,14 @@ impl Exporter<'_> {
         let ast::ExprKind::Ident(name) = &expr.kind else {
             return c.eval_type(scope, expr).ok();
         };
-        c.export.refresh_name_caches(c.entities.len());
-        if let Some(&cached) = c.export.type_names.get(&(scope, *name)) {
+        c.meta.export.refresh_name_caches(c.entities.len());
+        if let Some(&cached) = c.meta.export.type_names.get(&(scope, *name)) {
             return cached;
         }
         let found = c.eval_type(scope, expr).ok();
         // Evaluating may have added entities, which drops the caches; the result is still good.
-        c.export.refresh_name_caches(c.entities.len());
-        c.export.type_names.insert((scope, *name), found);
+        c.meta.export.refresh_name_caches(c.entities.len());
+        c.meta.export.type_names.insert((scope, *name), found);
         found
     }
 
@@ -141,11 +141,11 @@ impl Exporter<'_> {
         };
         if (span.file.0 as usize) < c.sources.len() {
             // Nodes come in runs from one file: remember the last file's module.
-            let module = match c.export.last_file_module {
+            let module = match c.meta.export.last_file_module {
                 Some((file, module)) if file == span.file => module,
                 _ => match c.files.iter().find(|f| f.id == span.file) {
                     Some(f) => {
-                        c.export.last_file_module = Some((span.file, f.module));
+                        c.meta.export.last_file_module = Some((span.file, f.module));
                         f.module
                     }
                     None => c.scope(self.scope).module,
@@ -179,7 +179,7 @@ impl Exporter<'_> {
         if self.own {
             // Read by this compiler's own compile-time code: its real type descriptor, so
             // `get_type` gives back a `Type` the compiler knows.
-            if let Some(&id) = c.export.own_types.get(&ty) {
+            if let Some(&id) = c.meta.export.own_types.get(&ty) {
                 return id;
             }
             let addr = c
@@ -190,7 +190,7 @@ impl Exporter<'_> {
                 let mut rec = Record::new(RecordTag::TypeInfo);
                 rec.int("__address", addr as i64);
                 let id = self.r.add(rec);
-                c.export.own_types.insert(ty, id);
+                c.meta.export.own_types.insert(ty, id);
                 return id;
             }
         }

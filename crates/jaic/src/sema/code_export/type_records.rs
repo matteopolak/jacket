@@ -62,7 +62,7 @@ impl Compiler {
     /// The record of a type descriptor (`Type_Info_*`). Primitive types carry
     /// `__builtin`, their name, so the metaprogram can use its own descriptor.
     pub fn type_record(&mut self, r: &mut Records, ty: TypeId) -> i64 {
-        if let Some(&id) = self.export.types.get(&ty) {
+        if let Some(&id) = self.meta.export.types.get(&ty) {
             return id;
         }
         let kind = self.types.kind(ty).clone();
@@ -101,7 +101,7 @@ impl Compiler {
         };
         // Registered before the fields: types may refer to themselves.
         let id = r.reserve(tag);
-        self.export.types.insert(ty, id);
+        self.meta.export.types.insert(ty, id);
         let mut rec = Record::new(tag);
         rec.int("type", info_tag as i64).int("runtime_size", size);
         if builtin {

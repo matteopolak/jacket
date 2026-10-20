@@ -331,7 +331,7 @@ impl Compiler {
     /// The `remap_import` and `provide_import` rules of this compiler's workspace.
     fn import_rules(&self) -> (Vec<(String, String, String)>, Vec<ProvidedImport>) {
         match &self.ct.interp.workspaces {
-            Some(w) => crate::build::import_rules(w, self.workspace),
+            Some(w) => crate::build::import_rules(w, self.meta.workspace),
             None => (Vec::new(), Vec::new()),
         }
     }

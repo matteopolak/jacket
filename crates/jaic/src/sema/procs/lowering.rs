@@ -16,7 +16,10 @@ impl Compiler {
         if let Some(error) = self.ide_cached_body_failure(id, self.lower_epoch()) {
             return Err(error);
         }
-        let misses = (self.placeholder_misses, self.in_progress_misses);
+        let misses = (
+            self.epochs.placeholder_misses,
+            self.epochs.in_progress_misses,
+        );
         let result = self.lower_body_uncached(id);
         self.ide_record_body_result(id, self.lower_epoch(), misses, &result);
         result
@@ -29,16 +32,16 @@ impl Compiler {
         }
         let error_mark = self.ed.error_count();
         let executions = self.ct.executions;
-        self.dependencies.begin_body(id);
-        self.export.expression_types.remove(&id);
+        self.diag.dependencies.begin_body(id);
+        self.meta.export.expression_types.remove(&id);
         self.procs[id.0 as usize].body_state = BodyState::Lowering;
-        let outermost = (self.lowering_depth == 0).then(|| self.perf.start_lowering());
+        let outermost = (self.lowering_depth == 0).then(|| self.meta.perf.start_lowering());
         let checking = crate::progress::enter(crate::progress::Phase::Checking);
         self.lowering_depth += 1;
         let result = self.lower_body_inner(id);
-        self.dependencies.end_body(id, result.is_err());
+        self.diag.dependencies.end_body(id, result.is_err());
         if result.is_err()
-            && !self.placeholders_final
+            && !self.epochs.placeholders_final
             && self.ct.executions == executions
             && !self.unresolved_body_placeholders(id).is_empty()
         {
@@ -48,10 +51,10 @@ impl Compiler {
         }
         self.lowering_depth -= 1;
         if result.is_err() {
-            self.export.expression_types.remove(&id);
+            self.meta.export.expression_types.remove(&id);
         }
         if let Some(mark) = outermost {
-            self.perf.finish_lowering(mark);
+            self.meta.perf.finish_lowering(mark);
         }
         drop(checking);
         self.procs[id.0 as usize].body_state = if result.is_ok() {
@@ -402,10 +405,10 @@ impl Compiler {
             .map(|(_, v, t)| crate::sema::instance_key_value(&self.types, v, *t))
             .collect();
         if let Some(&inst) = self.proc(id).instances.get(&key) {
-            self.perf.poly_request(id, true, span);
+            self.meta.perf.poly_request(id, true, span);
             return Ok(inst);
         }
-        self.perf.poly_request(id, false, span);
+        self.meta.perf.poly_request(id, false, span);
         let signature_only = self.ide_sketch_refuses(&bindings);
         if self.proc(id).instances.len() >= crate::sema::MAX_INSTANCES {
             return err(span, crate::sema::too_many_instances(self.proc(id).name));
@@ -464,7 +467,7 @@ impl Compiler {
         if signature_only {
             self.ed.signature_only(inst);
         }
-        self.perf.poly_instance(id, inst, span);
+        self.meta.perf.poly_instance(id, inst, span);
         if let Some(notes) = self.proc_decl_notes.get(&id).cloned() {
             self.proc_decl_notes.insert(inst, notes);
         }

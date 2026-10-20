@@ -51,7 +51,7 @@ impl Exporter<'_> {
         rec.ptr("block", block).ptr("header", header_id);
         let body_id = self.add(rec);
         if let (Some(p), Some(c)) = (proc, self.c.as_deref_mut()) {
-            c.export.bodies.insert(body_id, p);
+            c.meta.export.bodies.insert(body_id, p);
         }
         body_id
     }
@@ -180,13 +180,13 @@ impl Exporter<'_> {
         // One header record per procedure: calls that resolved to it before it was reported
         // (`resolved_header`) and later ones see the reported header, body included.
         let known = match (&resolved, self.c.as_deref()) {
-            (Some((p, _)), Some(c)) => c.export.resolved_headers.get(&(*p, self.own)).copied(),
+            (Some((p, _)), Some(c)) => c.meta.export.resolved_headers.get(&(*p, self.own)).copied(),
             _ => None,
         };
         let header_id = known.unwrap_or_else(|| self.r.reserve(RecordTag::CodeProcedureHeader));
         let own = self.own;
         if let (Some((p, _)), Some(c)) = (&resolved, self.c.as_deref_mut()) {
-            c.export.resolved_headers.insert((*p, own), header_id);
+            c.meta.export.resolved_headers.insert((*p, own), header_id);
         }
         let mut body_id = 0;
         // A procedure's body is reported once it is lowered; until then only its header.
@@ -204,7 +204,7 @@ impl Exporter<'_> {
             let (p, _) = resolved.as_ref().unwrap();
             let scope = self.scope;
             let c = self.c.as_deref_mut().unwrap();
-            c.export.schedule_body(*p, header_id, scope);
+            c.meta.export.schedule_body(*p, header_id, scope);
         } else if let Some(body) = &lit.body {
             body_id = match self.r.field(header_id, "body_or_null") {
                 Some(FieldRef::Ref(body)) if body != 0 => body,
@@ -294,7 +294,7 @@ impl Exporter<'_> {
         self.sub.push(header_id);
         let sub = self.sub[start..].to_vec();
         let first_header = match (resolved.as_ref(), self.c.as_deref_mut()) {
-            (Some((p, _)), Some(c)) if !own => c.export.reported_headers.insert(*p),
+            (Some((p, _)), Some(c)) if !own => c.meta.export.reported_headers.insert(*p),
             (None, Some(_)) if !own => false,
             _ => true,
         };
@@ -303,8 +303,8 @@ impl Exporter<'_> {
         }
         let first_body = match (resolved.as_ref(), self.c.as_deref_mut()) {
             (Some((p, _)), Some(c)) if !own && body_id != 0 => {
-                c.export.scheduled_bodies.insert(*p);
-                c.export.reported_bodies.insert(*p)
+                c.meta.export.scheduled_bodies.insert(*p);
+                c.meta.export.reported_bodies.insert(*p)
             }
             (None, Some(_)) if !own => false,
             _ => true,

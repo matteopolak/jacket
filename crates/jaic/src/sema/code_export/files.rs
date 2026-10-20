@@ -9,11 +9,11 @@ impl Compiler {
     /// loaded since the last call.
     pub fn export_file_events(&mut self, r: &mut Records) -> Vec<FileEvent> {
         let mut events = Vec::new();
-        while self.export.files_announced < self.files.len() {
-            let info = &self.files[self.export.files_announced];
+        while self.meta.export.files_announced < self.files.len() {
+            let info = &self.files[self.meta.export.files_announced];
             let (file, module) = (info.id, info.module);
-            self.export.files_announced += 1;
-            if !self.export.modules.contains_key(&module) {
+            self.meta.export.files_announced += 1;
+            if !self.meta.export.modules.contains_key(&module) {
                 let id = self.module_record(r, module);
                 events.push((message_kind::IMPORT, id));
             }
@@ -30,7 +30,7 @@ impl Compiler {
             .map(|(host, target)| {
                 let mut rec = Record::new(RecordTag::MessageFailedImport);
                 rec.int("kind", message_kind::FAILED_IMPORT)
-                    .int("workspace", self.workspace)
+                    .int("workspace", self.meta.workspace)
                     .int("status", 2) // NOT_FOUND
                     .str("host_module_name", host.as_bytes())
                     .str("target_module_name", target.as_bytes());
@@ -47,7 +47,7 @@ impl Compiler {
     }
 
     fn module_record(&mut self, r: &mut Records, m: ModuleId) -> i64 {
-        if let Some(&id) = self.export.modules.get(&m) {
+        if let Some(&id) = self.meta.export.modules.get(&m) {
             return id;
         }
         let module_type = if Some(m) == self.preload {
@@ -73,7 +73,7 @@ impl Compiler {
             .unwrap_or_default();
         let mut rec = Record::new(RecordTag::MessageImport);
         rec.int("kind", message_kind::IMPORT)
-            .int("workspace", self.workspace)
+            .int("workspace", self.meta.workspace)
             .int("module_type", module_type)
             .str("module_name", module.name.as_bytes())
             .str(
@@ -82,12 +82,12 @@ impl Compiler {
             )
             .int("__module", m.0 as i64);
         let id = r.add(rec);
-        self.export.modules.insert(m, id);
+        self.meta.export.modules.insert(m, id);
         id
     }
 
     pub fn file_record(&mut self, r: &mut Records, file: FileId) -> i64 {
-        if let Some(&id) = self.export.files.get(&file) {
+        if let Some(&id) = self.meta.export.files.get(&file) {
             return id;
         }
         let module = self.file_module(file);
@@ -101,7 +101,7 @@ impl Compiler {
         file: FileId,
         module: ModuleId,
     ) -> i64 {
-        if let Some(&id) = self.export.files.get(&file) {
+        if let Some(&id) = self.meta.export.files.get(&file) {
             return id;
         }
         let import = self.module_record(r, module);
@@ -109,7 +109,7 @@ impl Compiler {
         let path = self.sources.get(file).path.to_string();
         let mut rec = Record::new(RecordTag::MessageFile);
         rec.int("kind", message_kind::FILE)
-            .int("workspace", self.workspace)
+            .int("workspace", self.meta.workspace)
             .str(
                 "fully_pathed_filename",
                 crate::sema::expr::forward_slashes(&path).as_bytes(),
@@ -118,7 +118,7 @@ impl Compiler {
             .int("from_a_string", virtual_source as i64)
             .int("__file", file.0 as i64);
         let id = r.add(rec);
-        self.export.files.insert(file, id);
+        self.meta.export.files.insert(file, id);
         id
     }
 
@@ -126,7 +126,7 @@ impl Compiler {
         if Some(m) == self.preload || Some(m) == self.runtime_support {
             return true;
         }
-        if self.export.system_dir.is_none() {
+        if self.meta.export.system_dir.is_none() {
             let dir = self
                 .options
                 .stdlib_root()
@@ -135,16 +135,19 @@ impl Compiler {
                     self.runtime_support_entry()
                         .and_then(|p| p.parent().map(|d| self.canon(d)))
                 });
-            self.export.system_dir = Some(dir);
+            self.meta.export.system_dir = Some(dir);
         }
-        if let Some(&system) = self.export.system_modules.get(&m) {
+        if let Some(&system) = self.meta.export.system_modules.get(&m) {
             return system;
         }
-        let system = match (&self.export.system_dir, &self.modules[m.0 as usize].path) {
+        let system = match (
+            &self.meta.export.system_dir,
+            &self.modules[m.0 as usize].path,
+        ) {
             (Some(Some(dir)), Some(path)) => self.canon(path).starts_with(dir),
             _ => false,
         };
-        self.export.system_modules.insert(m, system);
+        self.meta.export.system_modules.insert(m, system);
         system
     }
 }

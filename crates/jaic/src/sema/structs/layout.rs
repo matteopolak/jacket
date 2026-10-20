@@ -70,7 +70,7 @@ impl Compiler {
         match self.types.struct_info(s).layout {
             LayoutState::Done => return Ok(()),
             LayoutState::InProgress => {
-                self.in_progress_misses += 1;
+                self.epochs.in_progress_misses += 1;
                 let name = self.types.struct_info(s).name;
                 return err(
                     span,

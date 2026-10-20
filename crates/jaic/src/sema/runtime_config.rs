@@ -167,7 +167,7 @@ impl Compiler {
             .and_then(|workspaces| {
                 crate::build::runtime_storage_setting(
                     workspaces,
-                    self.workspace,
+                    self.meta.workspace,
                     self.options.temporary_storage_size,
                 )
             })
@@ -380,7 +380,7 @@ impl Compiler {
                 "nondefault temporary_storage_size requires the target runtime to consume TEMPORARY_STORAGE_SIZE or the private runtime configuration getter",
             ).with_note(Span::NONE, format!(
                 "workspace {}; temporary storage {} bytes; system entry {}; initialization {}; exported target procedures {}; private configuration reader lowered {}",
-                self.workspace, size, self.options.runtime_entry_point,
+                self.meta.workspace, size, self.options.runtime_entry_point,
                 self.options.runtime_initialization, exports,
                 self.runtime_storage_global.is_some(),
             ))));

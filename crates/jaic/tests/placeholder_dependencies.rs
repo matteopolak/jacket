@@ -142,7 +142,7 @@ fn an_unstarted_insertion_generator_waits_for_later_source_without_execution() {
         panic!("{}", error.render(&compiler.sources));
     }
     assert!(
-        compiler.perf.runs.is_empty(),
+        compiler.meta.perf.runs.is_empty(),
         "semantic waiting must precede thunk execution"
     );
     compiler
@@ -171,7 +171,7 @@ fn module_insertion_generator_waits_in_its_canonical_module_scope() {
     if let Err(error) = compiler.begin_sources(&[ProgramSource::File("/main.jai".into())]) {
         panic!("{}", error.render(&compiler.sources));
     }
-    assert!(compiler.perf.runs.is_empty());
+    assert!(compiler.meta.perf.runs.is_empty());
     let module = compiler
         .modules
         .iter()

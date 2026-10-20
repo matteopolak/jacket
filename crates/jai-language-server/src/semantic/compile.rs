@@ -218,7 +218,7 @@ pub(super) fn compile(
         .take()
         .into_iter()
         .map(|mut compiler| {
-            let id = compiler.workspace;
+            let id = compiler.meta.workspace;
             let mut program = BuiltProgram::default();
             for source in added.borrow().get(&id).into_iter().flatten() {
                 match source {

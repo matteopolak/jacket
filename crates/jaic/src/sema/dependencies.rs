@@ -36,14 +36,15 @@ impl Compiler {
     }
 
     pub(super) fn unresolved_body_placeholders(&self, procedure: ProcId) -> Vec<EntityId> {
-        self.dependencies
+        self.diag
+            .dependencies
             .bodies
             .get(&procedure)
             .into_iter()
             .flatten()
             .copied()
             .filter(|placeholder| {
-                if self.dependencies.bindings.contains_key(placeholder) {
+                if self.diag.dependencies.bindings.contains_key(placeholder) {
                     return false;
                 }
                 let entity = self.entity(*placeholder);
@@ -130,9 +131,9 @@ impl Compiler {
                 format!("cyclic compile-time body dependency for `{}`", info.name),
             );
         }
-        self.dependencies.controllers.push(procedure);
+        self.diag.dependencies.controllers.push(procedure);
         let result = self.satisfy_body_dependency_inner(procedure, function, callable, optional);
-        let popped = self.dependencies.controllers.pop();
+        let popped = self.diag.dependencies.controllers.pop();
         debug_assert_eq!(popped, Some(procedure));
         if result.is_ok() && self.reaches_type_table(function) {
             self.refresh_type_table();
@@ -154,9 +155,11 @@ impl Compiler {
             let traps = self.ct.traps;
             let executions = self.ct.executions;
             let lowered = if callable {
-                self.dependencies.begin_body(procedure);
+                self.diag.dependencies.begin_body(procedure);
                 let failure = self.lower_reachable_from(function);
-                self.dependencies.end_body(procedure, failure.is_some());
+                self.diag
+                    .dependencies
+                    .end_body(procedure, failure.is_some());
                 failure.map_or(Ok(()), Err)
             } else {
                 self.lower_body(procedure)

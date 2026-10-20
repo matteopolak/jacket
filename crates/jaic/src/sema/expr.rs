@@ -52,7 +52,8 @@ impl Compiler {
             && op.ty() != TypeId::COMPILE_TIME
         {
             let ty = op.ty();
-            self.export
+            self.meta
+                .export
                 .expression_types
                 .entry(procedure)
                 .or_default()

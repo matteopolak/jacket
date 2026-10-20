@@ -84,7 +84,7 @@ impl Compiler {
     /// checker's state half-way.
     fn ide_sketch(&mut self, id: ProcId) -> bool {
         let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
-        let (warnings, deferred) = (self.warnings.len(), self.deferred_errors.len());
+        let (warnings, deferred) = (self.diag.warnings.len(), self.diag.deferred_errors.len());
         let first_new = self.procs.len();
         let asserts = self.ct.asserts.len();
         let refs = self.ed.facts().map_or(0, |ide| ide.refs.len());
@@ -134,8 +134,8 @@ impl Compiler {
                 ide.truncate_refs(refs);
             }
         }
-        self.warnings.truncate(warnings);
-        self.deferred_errors.truncate(deferred);
+        self.diag.warnings.truncate(warnings);
+        self.diag.deferred_errors.truncate(deferred);
         self.ct.asserts.truncate(asserts);
         self.ct.asserts_done = self.ct.asserts_done.min(asserts);
         checked.is_ok()
@@ -362,7 +362,7 @@ impl Compiler {
             }
             let span = self.poly_structs[i].lit.span;
             let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
-            let (warnings, deferred) = (self.warnings.len(), self.deferred_errors.len());
+            let (warnings, deferred) = (self.diag.warnings.len(), self.diag.deferred_errors.len());
             let refs = self.ed.facts().map_or(0, |ide| ide.refs.len());
             let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 self.ide_sketch_struct_instance(ps, scope, span)
@@ -373,8 +373,8 @@ impl Compiler {
                     ide.truncate_refs(refs);
                 }
             }
-            self.warnings.truncate(warnings);
-            self.deferred_errors.truncate(deferred);
+            self.diag.warnings.truncate(warnings);
+            self.diag.deferred_errors.truncate(deferred);
             if checked.is_err() {
                 break;
             }

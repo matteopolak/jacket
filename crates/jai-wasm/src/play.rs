@@ -370,7 +370,7 @@ fn run_styled(
             result.diagnostics.push(convert(&compiler, &d));
         }
     }
-    for warning in &compiler.warnings {
+    for warning in &compiler.diag.warnings {
         result.diagnostics.push(convert(&compiler, warning));
     }
     let host = host.borrow();

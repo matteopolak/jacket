@@ -377,7 +377,7 @@ impl Compiler {
             origin_scope = self.scope(scope).parent;
         }
         let ast = crate::parser::parse_file(file, source).map_err(Box::new)?;
-        self.dependencies.source_scopes.insert(file, target);
+        self.diag.dependencies.source_scopes.insert(file, target);
         let file_scope = self.new_scope(ScopeKind::File, Some(target), module, Some(file));
         self.files.push(FileInfo {
             id: file,

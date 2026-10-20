@@ -357,7 +357,7 @@ fn compile_front_end(
         flush_sandbox(shared_sandbox);
     }
     if !cli.quiet {
-        for warning in &compiler.warnings {
+        for warning in &compiler.diag.warnings {
             eprintln!("{}", compiler.render(warning));
         }
     }

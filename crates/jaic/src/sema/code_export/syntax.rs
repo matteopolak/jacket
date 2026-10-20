@@ -273,7 +273,7 @@ impl Exporter<'_> {
         let checked = self.procedure.and_then(|procedure| {
             self.c
                 .as_ref()
-                .and_then(|c| c.export.expression_types.get(&procedure))
+                .and_then(|c| c.meta.export.expression_types.get(&procedure))
                 .and_then(|types| types.get(e.span))
         });
         if let Some(checked) = checked {

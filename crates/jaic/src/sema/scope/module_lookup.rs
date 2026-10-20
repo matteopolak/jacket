@@ -13,7 +13,7 @@ impl Compiler {
             let ids = self.module_declarations_unbound(module, name)?;
             return Ok(self.bound_entities(&ids));
         }
-        let generation = self.namespace_generation;
+        let generation = self.epochs.namespace_generation;
         if let Some((at, ids)) = self.module_names.get(&(module, name))
             && *at == generation
         {
@@ -23,7 +23,7 @@ impl Compiler {
         let ids = self.module_declarations_unbound(module, name);
         let unsettled = std::mem::replace(&mut self.module_names_unsettled, outer);
         let ids = ids?;
-        if !unsettled && self.namespace_generation == generation {
+        if !unsettled && self.epochs.namespace_generation == generation {
             self.module_names
                 .insert((module, name), (generation, ids.as_slice().into()));
         }
@@ -132,7 +132,7 @@ impl Compiler {
     pub fn module_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
         // Looking up a name a module lacks walks its re-exports and `using` globals, and a
         // scope asks every module it imports for every name it uses: remember the misses.
-        let generation = self.namespace_generation;
+        let generation = self.epochs.namespace_generation;
         if self.reexport_visiting.is_empty()
             && self.module_misses.get(&(module, name)) == Some(&generation)
         {
@@ -153,7 +153,7 @@ impl Compiler {
             .collect();
         if params.is_empty()
             && self.reexport_visiting.is_empty()
-            && self.namespace_generation == generation
+            && self.epochs.namespace_generation == generation
             && matches!(self.module_names.get(&(module, name)), Some((at, _)) if *at == generation)
         {
             self.module_misses.insert((module, name), generation);
@@ -191,13 +191,13 @@ impl Compiler {
     /// `false` answer is remembered until the namespace next changes; anything not yet
     /// settled (a module still loading, an import not resolved) answers `true`.
     fn module_may_have_using_members(&mut self, module: ModuleId) -> bool {
-        let generation = self.namespace_generation;
+        let generation = self.epochs.namespace_generation;
         if self.using_member_free.get(&module) == Some(&generation) {
             return false;
         }
         let mut visiting = Vec::new();
         let may = self.module_may_have_using_members_inner(module, &mut visiting);
-        if !may && self.namespace_generation == generation {
+        if !may && self.epochs.namespace_generation == generation {
             for m in visiting {
                 self.using_member_free.insert(m, generation);
             }

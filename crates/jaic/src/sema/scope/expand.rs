@@ -39,7 +39,7 @@ impl Compiler {
     pub fn expand_pending(&mut self, scope: ScopeId) -> Result<()> {
         // Readiness probes may resolve existing bindings, but must not drain
         // dependencies whose failures the probe treats as "not ready yet".
-        if self.lookup_without_expansion {
+        if self.epochs.lookup_without_expansion {
             return Ok(());
         }
         let s = self.scope_mut(scope);
@@ -69,15 +69,15 @@ impl Compiler {
                 // Compile-time code run from inside a body that is being lowered
                 // (a lookup reached this scope) cannot call procedures that are
                 // themselves mid-lowering. Put the item back and retry it later.
-                let reentrant = !self.retrying_pending
-                    && (self.resolving_depth > 0
+                let reentrant = !self.epochs.retrying_pending
+                    && (self.epochs.resolving_depth > 0
                         || self
                             .procs
                             .iter()
                             .any(|p| p.body_state == crate::sema::procs::BodyState::Lowering));
-                let misses = self.placeholder_misses;
+                let misses = self.epochs.placeholder_misses;
                 let executions = self.ct.executions;
-                let in_progress = self.in_progress_misses;
+                let in_progress = self.epochs.in_progress_misses;
                 let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
                 // Retry only unresolved semantic work. A generator that executed
                 // and failed is terminal, even while its enclosing body is lowering.
@@ -97,7 +97,7 @@ impl Compiler {
                 if let Err(e) = &result
                     && !spent
                     && self.ct.executions == executions
-                    && self.in_progress_misses != in_progress
+                    && self.epochs.in_progress_misses != in_progress
                     && e.message.starts_with("circular dependency while resolving")
                     && self
                         .entities
@@ -110,12 +110,12 @@ impl Compiler {
                 if reentrant
                     && !spent
                     && self.ct.executions == executions
-                    && self.in_progress_misses != in_progress
+                    && self.epochs.in_progress_misses != in_progress
                     && let Err(e) = result
                 {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     self.deferred_pending.push(scope);
-                    self.deferred_errors.push(e);
+                    self.diag.deferred_errors.push(e);
                     return Ok(());
                 }
                 self.scope_mut(scope).pending[i].state = PendingState::Done;
@@ -133,7 +133,7 @@ impl Compiler {
     pub fn expand_plain_ifs(&mut self, scope: ScopeId) -> Result<()> {
         // A constant reached by a readiness probe can re-enter expansion.
         // Committing pending declarations still belongs to the outer pass.
-        if self.lookup_without_expansion {
+        if self.epochs.lookup_without_expansion {
             return Ok(());
         }
         for i in 0..self.scope(scope).pending.len() {
@@ -168,11 +168,11 @@ impl Compiler {
             let (stmt, exported, file_scope) = (item.stmt.clone(), item.exported, item.file_scope);
             // The condition must resolve from what is already declared; if it needs a name that
             // another pending item declares, the item waits for the ordinary lazy expansion.
-            let saved = std::mem::replace(&mut self.lookup_without_expansion, true);
+            let saved = std::mem::replace(&mut self.epochs.lookup_without_expansion, true);
             let branch = self.select_plain_branch(scope, file_scope, &stmt);
             let ready = branch.is_some();
-            self.lookup_without_expansion = saved;
-            let misses = self.placeholder_misses;
+            self.epochs.lookup_without_expansion = saved;
+            let misses = self.epochs.placeholder_misses;
             let result = if let Some(branch) = branch {
                 // Commit the selection already made without draining unrelated
                 // pending items. Declaration itself resumes ordinary lookup.
@@ -241,6 +241,6 @@ impl Compiler {
 
     /// Did an item's failed expansion reach an undefined `#placeholder` (since `before`)?
     fn waits_for_placeholder(&self, before: u64) -> bool {
-        !self.placeholders_final && self.placeholder_misses != before
+        !self.epochs.placeholders_final && self.epochs.placeholder_misses != before
     }
 }

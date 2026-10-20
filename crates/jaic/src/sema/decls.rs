@@ -28,7 +28,7 @@ impl Compiler {
     }
 
     fn resolve_entity_with_runtime_dependencies(&mut self, id: EntityId) -> Result<Resolved> {
-        if let Some(definitions) = self.dependencies.bindings.get(&id).cloned() {
+        if let Some(definitions) = self.diag.dependencies.bindings.get(&id).cloned() {
             if definitions.len() == 1 {
                 return self.resolve_entity(definitions[0]);
             }
@@ -54,7 +54,7 @@ impl Compiler {
         match &self.entity(id).state {
             EntityState::Done(r) => return Ok(r.clone()),
             EntityState::Resolving => {
-                self.in_progress_misses += 1;
+                self.epochs.in_progress_misses += 1;
                 let e = self.entity(id);
                 return err(
                     e.span,
@@ -67,9 +67,9 @@ impl Compiler {
         super::body_probe::bump(super::body_probe::C::EntResolve);
         self.entity_mut(id).state = EntityState::Resolving;
         let traps = self.ct.traps;
-        self.resolving_depth += 1;
+        self.epochs.resolving_depth += 1;
         let result = self.resolve_entity_inner(id);
-        self.resolving_depth -= 1;
+        self.epochs.resolving_depth -= 1;
         match &result {
             Ok(r) => self.entity_mut(id).state = EntityState::Done(r.clone()),
             Err(e) if self.ct.traps != traps => {
@@ -120,8 +120,8 @@ impl Compiler {
             } => self.resolve_enum_initializer(scope, ty, &initializer, span),
             EntityKind::Placeholder => {
                 // Top-level items that needed it wait for the metaprogram to define it.
-                self.dependencies.read_placeholder(id);
-                self.placeholder_misses += 1;
+                self.diag.dependencies.read_placeholder(id);
+                self.epochs.placeholder_misses += 1;
                 err(
                     span,
                     format!("`{name}` is a #placeholder that was never defined"),

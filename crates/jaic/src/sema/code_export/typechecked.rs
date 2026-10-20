@@ -10,9 +10,9 @@ impl Compiler {
     /// A TYPECHECKED message for eligible declarations and ready bodies, or `None`.
     pub fn export_typechecked(&mut self, r: &mut Records) -> Option<i64> {
         let mut decls = Vec::new();
-        while self.export.next_entity < self.entities.len() {
-            let id = EntityId(self.export.next_entity as u32);
-            self.export.next_entity += 1;
+        while self.meta.export.next_entity < self.entities.len() {
+            let id = EntityId(self.meta.export.next_entity as u32);
+            self.meta.export.next_entity += 1;
             let entity = self.entity(id);
             let EntityKind::Decl {
                 decl,
@@ -104,7 +104,7 @@ impl Compiler {
             .collect();
         message
             .int("kind", message_kind::TYPECHECKED)
-            .int("workspace", self.workspace)
+            .int("workspace", self.meta.workspace)
             .list("declarations", group(r, &out.declarations))
             .list("procedure_headers", group(r, &out.headers))
             .list("procedure_bodies", group(r, &out.bodies))
@@ -124,15 +124,15 @@ impl Compiler {
     ) -> i64 {
         let seconds = |d: std::time::Duration| d.as_secs_f64().to_bits() as i64;
         let mut time = Record::new(RecordTag::TimeReport);
-        time.int("run_directives", seconds(self.perf.run_time))
+        time.int("run_directives", seconds(self.meta.perf.run_time))
             // jaic has no bytecode pass that inlines calls: the native backend inlines later.
             .int("bytecode_inlining", 0.0f64.to_bits() as i64)
-            .int("bytecode_generating", seconds(self.perf.lowering));
+            .int("bytecode_generating", seconds(self.meta.perf.lowering));
         let time = r.add(time);
 
         let mut run_report = Record::new(RecordTag::RunDirectiveReport);
         if runs {
-            let stats = self.perf.runs.clone();
+            let stats = self.meta.perf.runs.clone();
             let mut records = Vec::new();
             for run in &stats {
                 let callee = run
@@ -152,13 +152,13 @@ impl Compiler {
 
         let mut poly_report = Record::new(RecordTag::PolymorphReport);
         poly_report
-            .int("num_solves_invoked", self.perf.solves_invoked() as i64)
-            .int("num_solves_used", self.perf.solves_used as i64);
+            .int("num_solves_invoked", self.meta.perf.solves_invoked() as i64)
+            .int("num_solves_used", self.meta.perf.solves_used as i64);
         if polymorphs {
-            let order = self.perf.poly_order.clone();
+            let order = self.meta.perf.poly_order.clone();
             let mut records = Vec::new();
             for source in order {
-                let stat = self.perf.polys[&source].clone();
+                let stat = self.meta.perf.polys[&source].clone();
                 let mut distinct = Vec::new();
                 for (instance, span) in &stat.instances {
                     let polymorphed = self.header_record(r, *instance);
@@ -203,7 +203,7 @@ impl Compiler {
         let mut message = Record::new(RecordTag::MessagePerformanceReport);
         message
             .int("kind", message_kind::PERFORMANCE_REPORT)
-            .int("workspace", self.workspace)
+            .int("workspace", self.meta.workspace)
             .ptr("time_report", time)
             .ptr("run_directive_report", run_report)
             .ptr("polymorph_report", poly_report)
@@ -245,6 +245,7 @@ impl Compiler {
                     && !p.is_poly
                     && !p.is_macro
                     && !self
+                        .meta
                         .export
                         .scheduled_bodies
                         .contains(&ProcId(*index as u32))
@@ -267,13 +268,13 @@ impl Compiler {
                 };
                 exporter.resolved_header(p)
             };
-            self.export.schedule_body(p, header, scope);
+            self.meta.export.schedule_body(p, header, scope);
         }
-        let pending = std::mem::take(&mut self.export.pending_bodies);
+        let pending = std::mem::take(&mut self.meta.export.pending_bodies);
         let (ready, waiting): (Vec<_>, Vec<_>) = pending
             .into_iter()
             .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
-        self.export.pending_bodies = waiting;
+        self.meta.export.pending_bodies = waiting;
         let count = ready.len();
         for (p, _header_id, scope) in ready {
             let lit = self.proc(p).lit.clone();

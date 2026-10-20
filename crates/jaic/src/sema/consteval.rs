@@ -157,10 +157,10 @@ impl Compiler {
             .and_then(super::super::ir::Func::first_direct_callee);
         let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
         let _running = crate::progress::enter(crate::progress::Phase::Running);
-        let clock = self.perf.start_run();
+        let clock = self.meta.perf.start_run();
         self.ct.executions += 1;
         let mut result = self.call_with_dependencies(id, &[ctx], &mut deferred);
-        elapsed += self.perf.finish_run(clock);
+        elapsed += self.meta.perf.finish_run(clock);
         // Typed-code exports retain their existing effect-free retry protocol.
         // Body dependencies above resume retained frames and never replay a run.
         for _ in 0..10_000 {
@@ -191,11 +191,11 @@ impl Compiler {
             self.ct.interp.code_export_cursor.clear();
             self.ct.interp.run_codes.1 = 0;
             stalls += 1;
-            let clock = self.perf.start_run();
+            let clock = self.meta.perf.start_run();
             result = self.call_with_dependencies(id, &[ctx], &mut deferred);
-            elapsed += self.perf.finish_run(clock);
+            elapsed += self.meta.perf.finish_run(clock);
         }
-        self.perf.runs.push(super::perf::RunStat {
+        self.meta.perf.runs.push(super::perf::RunStat {
             span,
             callee,
             stalls,
@@ -467,24 +467,24 @@ impl Compiler {
             progress = false;
             let mut index = 0;
             while index < self.ct.top_level_runs.len() {
-                if self.dependencies.running_runs.contains(&index)
-                    || self.dependencies.finished_runs.contains(&index)
+                if self.diag.dependencies.running_runs.contains(&index)
+                    || self.diag.dependencies.finished_runs.contains(&index)
                 {
                     index += 1;
                     continue;
                 }
                 let (expr, scope) = self.ct.top_level_runs[index].clone();
-                let misses = self.placeholder_misses;
+                let misses = self.epochs.placeholder_misses;
                 let traps = self.ct.traps;
                 let executions = self.ct.executions;
-                self.dependencies.running_runs.insert(index);
+                self.diag.dependencies.running_runs.insert(index);
                 let result = self.eval_const(scope, &expr, None);
-                self.dependencies.running_runs.remove(&index);
+                self.diag.dependencies.running_runs.remove(&index);
                 // Only an unexecuted thunk may be retried. Executed callers retain
                 // frames in the dependency controller or fail terminally.
                 if result.is_err()
-                    && !self.placeholders_final
-                    && self.placeholder_misses != misses
+                    && !self.epochs.placeholders_final
+                    && self.epochs.placeholder_misses != misses
                     && self.ct.traps == traps
                     && self.ct.executions == executions
                 {
@@ -492,7 +492,7 @@ impl Compiler {
                     continue;
                 }
                 result?;
-                self.dependencies.finished_runs.insert(index);
+                self.diag.dependencies.finished_runs.insert(index);
                 self.ct.runs_done += 1;
                 progress = true;
                 self.pull_workspace_sources()?;
@@ -505,14 +505,17 @@ impl Compiler {
     /// Execute the remaining top-level runs, then their final assertions.
     pub fn run_top_level(&mut self) -> Result<()> {
         self.service_top_level_runs()?;
-        if self.dependencies.finished_runs.len() != self.ct.top_level_runs.len() {
+        if self.diag.dependencies.finished_runs.len() != self.ct.top_level_runs.len() {
             return Ok(());
         }
         while self.ct.asserts_done < self.ct.asserts.len() {
             let (cond, message, args, scope) = self.ct.asserts[self.ct.asserts_done].clone();
-            let misses = self.placeholder_misses;
+            let misses = self.epochs.placeholder_misses;
             let holds = self.eval_static_condition_as(scope, &cond, None);
-            if holds.is_err() && !self.placeholders_final && self.placeholder_misses != misses {
+            if holds.is_err()
+                && !self.epochs.placeholders_final
+                && self.epochs.placeholder_misses != misses
+            {
                 return Ok(());
             }
             self.ct.asserts_done += 1;

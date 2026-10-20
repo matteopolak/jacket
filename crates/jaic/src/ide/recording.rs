@@ -88,7 +88,7 @@ impl Compiler {
         epoch: u64,
     ) -> Option<Box<Diagnostic>> {
         let ide = self.ed.facts()?;
-        if !self.placeholders_final || ide.sketching {
+        if !self.epochs.placeholders_final || ide.sketching {
             return None;
         }
         let (at, error) = self.lenient_failures.get(&id)?;
@@ -103,7 +103,7 @@ impl Compiler {
         misses: (u64, u64),
         result: &Result<()>,
     ) {
-        if !self.placeholders_final || self.ed.facts().is_none_or(|ide| ide.sketching) {
+        if !self.epochs.placeholders_final || self.ed.facts().is_none_or(|ide| ide.sketching) {
             return;
         }
         match result {
@@ -111,7 +111,12 @@ impl Compiler {
                 self.lenient_failures.remove(&id);
                 self.ed.facts_mut().unwrap().failed_body_lits.remove(&id);
             }
-            Err(error) if (self.placeholder_misses, self.in_progress_misses) == misses => {
+            Err(error)
+                if (
+                    self.epochs.placeholder_misses,
+                    self.epochs.in_progress_misses,
+                ) == misses =>
+            {
                 let lit = self.proc(id).lit.clone();
                 self.lenient_failures.insert(id, (epoch, error.clone()));
                 self.ed

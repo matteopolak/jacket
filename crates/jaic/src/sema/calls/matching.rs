@@ -119,7 +119,7 @@ impl Compiler {
                 .sum();
             let bindings = self.infer_bindings(proc, &header, &slots, args, span)?;
             proc_id = self.instantiate(proc, bindings, span)?;
-            let made = self.export.call_instances.entry(span).or_default();
+            let made = self.meta.export.call_instances.entry(span).or_default();
             if !made.contains(&proc_id) {
                 made.push(proc_id);
             }

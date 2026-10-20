@@ -27,8 +27,10 @@ mod convert;
 mod debug_info;
 mod decls;
 mod dependencies;
+mod diagnostics;
 mod driver;
 mod enums;
+mod epochs;
 mod expr;
 mod flow;
 mod format_check;
@@ -36,6 +38,7 @@ mod host_run;
 mod interfaces;
 mod lambda;
 pub(crate) mod lower;
+mod meta_state;
 mod modify;
 mod module_rank;
 mod modules;
@@ -64,8 +67,11 @@ use crate::types::{TypeId, Types};
 pub use asm::catalog as asm_catalog;
 pub use code_export::ModifiedStmt;
 pub use compile_time::CompileTime;
+pub use diagnostics::Diagnostics;
 pub use driver::ProgramSource;
+pub use epochs::Epochs;
 pub use expr::PreludeType;
+pub use meta_state::MetaState;
 pub use module_rank::{ModuleRanking, Rank, count_importers};
 pub use modules::{BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
 pub use scope::{EntityId, ScopeId};
@@ -449,8 +455,7 @@ pub struct Compiler {
     runtime_info: Option<ir::GlobalId>,
     runtime_storage_global: Option<ir::GlobalId>,
     runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies,
-    /// Id of the workspace this compiler builds (1: the top-level program).
-    pub workspace: i64,
+    pub meta: MetaState,
     /// Sources added so far (labels of added strings).
     pub(crate) added_sources: usize,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
@@ -474,11 +479,9 @@ pub struct Compiler {
     /// so its locals have types.
     pub(super) code_procs: HashMap<usize, ProcId>,
     parked_epoch: u64,
-    /// Bumped whenever a name, import, `using` or expanded item becomes visible in a scope
-    /// that is not a body's own (`Scope::namespace_changed`): part of `lower_epoch`.
-    namespace_generation: u64,
     /// The procedures targeting each IR function (`procs_of_func`).
     func_targets: HashMap<ir::FuncId, Vec<ProcId>>,
+    pub epochs: Epochs,
     /// `module_declarations` answers (before `bound_entities`) and the `namespace_generation`
     /// they hold for. Only answers that no later expansion or import can change are kept.
     module_names: HashMap<(ModuleId, Sym), ModuleNames>,
@@ -517,7 +520,7 @@ pub struct Compiler {
     /// contents so that equal argument lists share one global (and one instance).
     pub packs: HashMap<PackKey, ir::GlobalId>,
     pub output: Vec<u8>,
-    pub warnings: Vec<Diagnostic>,
+    pub diag: Diagnostics,
     /// Overload sets already checked for identical parameter lists.
     pub overload_sets_checked: crate::fxhash::HashSet<Vec<EntityId>>,
     /// Imports that found no module: (importing module, wanted module). Metaprograms that
@@ -591,10 +594,6 @@ pub struct Compiler {
     pub asm_pair_lock: Option<ir::GlobalId>,
     /// The AES S-boxes used by `aesenc` & co. in `#asm` blocks.
     pub asm_aes_tables: Option<ir::GlobalId>,
-    /// Syntax trees and types already handed to metaprograms as records.
-    pub export: code_export::ExportState,
-    /// Counts for the workspace's `PERFORMANCE_REPORT` message (`perf.rs`).
-    pub perf: perf::PerfStats,
     /// Scopes with top-level items put back to waiting because they failed while
     /// procedure bodies were mid-lowering (retried by `expand_all`).
     pub deferred_pending: Vec<ScopeId>,
@@ -604,8 +603,6 @@ pub struct Compiler {
     pub unsettled: std::collections::BTreeSet<ScopeId>,
     /// Entities below this index have had their named imports (`X :: #import`) resolved.
     pub named_imports_done: usize,
-    /// Why each deferred item failed; shown with a later error if it is never retried.
-    pub deferred_errors: Vec<Box<Diagnostic>>,
     /// Callable metadata belongs to declarations, never structural `TypeIds`.
     pub(super) callable_entities: HashMap<EntityId, Rc<ProcTypeParams>>,
     pub(super) callable_fields: HashMap<(crate::types::StructId, usize), Rc<ProcTypeParams>>,
@@ -613,28 +610,11 @@ pub struct Compiler {
     /// module entry path: (name, value expression, scope it is evaluated in). Applied to
     /// the module's instance as soon as both exist, before anything reads the parameter.
     pub program_param_settings: Vec<(PathBuf, Sym, ast::Expr, ScopeId)>,
-    /// Set while `expand_all` retries deferred items: failures are then final.
-    pub retrying_pending: bool,
-    /// Lookups that reached an undefined `#placeholder`: a pending top-level item whose
-    /// expansion did so waits (a metaprogram may define it later) until `finish_program`.
-    pub placeholder_misses: u64,
-    dependencies: dependencies::Dependencies,
-    /// Lookups that reached something still being computed (a signature, entity or layout in
-    /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
-    pub in_progress_misses: u64,
-    /// Entities being resolved right now (nested): a conditional item whose condition names one
-    /// of them fails as circular only because the outer resolution has not finished.
-    pub resolving_depth: u32,
     /// How deeply each `#insert`ed string file is nested in other inserted strings (absent: a
     /// real file). Bounds code that inserts itself (`X :: "#insert X;"`).
     insert_depth: HashMap<FileId, u32>,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: crate::ide::Editor,
-    /// Set by `finish_program`: pending items no longer wait for placeholders.
-    pub placeholders_final: bool,
-    /// Set while the plain `#if` pass expands an item: lookups then leave other pending items
-    /// alone, so evaluating `OS` cannot run a sibling `using x: T` or `#insert` early.
-    pub lookup_without_expansion: bool,
     /// `#no_reset` globals with their types: compiled output starts from the values that
     /// compile-time code left in them (`prepare_compiled_output`).
     pub no_reset_globals: Vec<(ir::GlobalId, TypeId)>,
@@ -665,7 +645,7 @@ impl Compiler {
     /// code that reaches for the `Compiler` module traps.
     pub fn release_build_state(&mut self) {
         self.ct.interp.workspaces = None;
-        self.export = code_export::ExportState::default();
+        self.meta.export = code_export::ExportState::default();
     }
 
     /// Close the interpreter for good and drop what only running or emitting the program
@@ -693,6 +673,9 @@ impl Compiler {
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
+            meta: MetaState::default(),
+            epochs: Epochs::default(),
+            diag: Diagnostics::default(),
             library_files: std::cell::RefCell::default(),
             options,
             fs,
@@ -732,7 +715,6 @@ impl Compiler {
             field_filter_pending: HashSet::default(),
             field_using_order: HashMap::default(),
             context_type: None,
-            workspace: crate::build::TOP_LEVEL_WORKSPACE,
             runtime_info: None,
             runtime_storage_global: None,
             runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies::default(),
@@ -747,7 +729,6 @@ impl Compiler {
             multi_consts: HashMap::default(),
             code_procs: HashMap::default(),
             parked_epoch: 0,
-            namespace_generation: 0,
             func_targets: HashMap::default(),
             ed: crate::ide::Editor::default(),
             module_names: HashMap::default(),
@@ -769,7 +750,6 @@ impl Compiler {
             const_addr_globals: HashMap::default(),
             packs: HashMap::default(),
             output: Vec::new(),
-            warnings: Vec::new(),
             overload_sets_checked: HashSet::default(),
             failed_imports: Vec::new(),
             live_procs: Vec::new(),
@@ -804,23 +784,13 @@ impl Compiler {
             asm_pins: Vec::new(),
             asm_pair_lock: None,
             asm_aes_tables: None,
-            export: code_export::ExportState::default(),
-            perf: perf::PerfStats::default(),
             deferred_pending: Vec::new(),
             unsettled: std::collections::BTreeSet::new(),
             named_imports_done: 0,
-            deferred_errors: Vec::new(),
             callable_entities: HashMap::default(),
             callable_fields: HashMap::default(),
             program_param_settings: Vec::new(),
-            retrying_pending: false,
-            placeholder_misses: 0,
-            dependencies: dependencies::Dependencies::default(),
-            in_progress_misses: 0,
-            resolving_depth: 0,
             insert_depth: HashMap::default(),
-            placeholders_final: false,
-            lookup_without_expansion: false,
             no_reset_globals: Vec::new(),
             unreferenced_from: None,
         };
@@ -920,11 +890,12 @@ impl Compiler {
     /// source again).
     pub fn warn(&mut self, d: Diagnostic) {
         if !self
+            .diag
             .warnings
             .iter()
             .any(|w| w.span == d.span && w.message == d.message)
         {
-            self.warnings.push(d);
+            self.diag.warnings.push(d);
         }
     }
 

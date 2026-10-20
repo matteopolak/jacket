@@ -79,7 +79,7 @@ impl Compiler {
             self.scope(scope).kind,
             ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
         ) {
-            self.namespace_generation += 1;
+            self.epochs.namespace_generation += 1;
         }
     }
 
@@ -168,7 +168,8 @@ impl Compiler {
         });
         self.bind_name(scope, name, id);
         if let Some(placeholder) = placeholder {
-            self.dependencies
+            self.diag
+                .dependencies
                 .bindings
                 .entry(placeholder)
                 .or_default()
@@ -189,7 +190,7 @@ impl Compiler {
         }) {
             return Some(placeholder);
         }
-        if self.dependencies.source_scopes.get(&span.file) != Some(&scope) {
+        if self.diag.dependencies.source_scopes.get(&span.file) != Some(&scope) {
             return None;
         }
         let module = self.scope(scope).module;
@@ -207,7 +208,7 @@ impl Compiler {
                 {
                     return Some(placeholder);
                 }
-                return self.dependencies.bindings.iter().find_map(
+                return self.diag.dependencies.bindings.iter().find_map(
                     |(&placeholder, definitions)| {
                         let declaration = self.entity(placeholder);
                         (declaration.name == name
@@ -226,6 +227,7 @@ impl Compiler {
         let mut result = Vec::with_capacity(entities.len());
         for &entity in entities {
             for &definition in self
+                .diag
                 .dependencies
                 .bindings
                 .get(&entity)
@@ -258,7 +260,7 @@ impl Compiler {
             .cloned()
             .unwrap_or_default();
         if let Some(placeholder) = self.generated_placeholder(scope, name, span)
-            && let Some(definitions) = self.dependencies.bindings.get(&placeholder)
+            && let Some(definitions) = self.diag.dependencies.bindings.get(&placeholder)
         {
             ids.extend(definitions);
         }

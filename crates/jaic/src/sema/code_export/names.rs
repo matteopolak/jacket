@@ -16,18 +16,18 @@ impl Exporter<'_> {
         }
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
-        c.export.refresh_name_caches(c.entities.len());
-        let id = if let Some(&cached) = c.export.name_lookups.get(&(scope, name)) {
+        c.meta.export.refresh_name_caches(c.entities.len());
+        let id = if let Some(&cached) = c.meta.export.name_lookups.get(&(scope, name)) {
             cached?
         } else {
             let found = c
                 .lookup(scope, name)
                 .ok()
                 .and_then(|ids| ids.first().copied());
-            c.export.name_lookups.insert((scope, name), found);
+            c.meta.export.name_lookups.insert((scope, name), found);
             found?
         };
-        if let Some(&decl) = c.export.resolved_decls.get(&id) {
+        if let Some(&decl) = c.meta.export.resolved_decls.get(&id) {
             return Some(decl);
         }
         let entity = c.entity(id);
@@ -62,6 +62,7 @@ impl Exporter<'_> {
         let decl = self.reference_decl(name, ty, expression, flags, span);
         self.c
             .as_deref_mut()?
+            .meta
             .export
             .resolved_decls
             .insert(id, decl);
@@ -146,18 +147,18 @@ impl Exporter<'_> {
         let Some(c) = self.c.as_deref_mut() else {
             return 0;
         };
-        if let Some(&h) = c.export.resolved_headers.get(&(p, own)) {
+        if let Some(&h) = c.meta.export.resolved_headers.get(&(p, own)) {
             return h;
         }
         let id = self.r.reserve(RecordTag::CodeProcedureHeader);
-        c.export.resolved_headers.insert((p, own), id);
+        c.meta.export.resolved_headers.insert((p, own), id);
         let info = c.proc(p);
         let (name, lit, span, is_poly) = (info.name, info.lit.clone(), info.span, info.is_poly);
         // Called ordinary procedures and polymorph instances both need a body
         // event once lowered, regardless of where their declarations live.
         if !own && !is_poly && !info.is_macro && lit.body.is_some() {
             let scope = info.bindings.unwrap_or(info.scope);
-            c.export.schedule_body(p, id, scope);
+            c.meta.export.schedule_body(p, id, scope);
         }
         let sig = if is_poly {
             None
@@ -216,7 +217,7 @@ impl Exporter<'_> {
         if !c.proc(p).is_poly {
             return p;
         }
-        let made = c.export.call_instances.get(&span);
+        let made = c.meta.export.call_instances.get(&span);
         made.and_then(|list| {
             list.iter()
                 .rev()

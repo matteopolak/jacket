@@ -441,7 +441,7 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
     }
     let mut compiler = Box::new(Compiler::new(options, fs));
     compiler.ct.interp.host = host;
-    compiler.workspace = id;
+    compiler.meta.workspace = id;
     compiler.attach_workspaces(shared.clone());
     let observer = shared.borrow_mut().env.observer.take();
     if let Some(mut o) = observer {

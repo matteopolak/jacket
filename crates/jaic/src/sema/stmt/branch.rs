@@ -40,7 +40,7 @@ impl Compiler {
         if !self.ed.is_live() || self.ed.sketching() || !self.ide_wants_pub(branch.span.file) {
             return;
         }
-        let warned = self.warnings.len();
+        let warned = self.diag.warnings.len();
         let errors = self.ed.error_count();
         let dead = f.b.new_block();
         let after = f.b.new_block();
@@ -52,7 +52,7 @@ impl Compiler {
             f.b.jump(after);
         }
         f.b.switch_to(after);
-        self.warnings.truncate(warned);
+        self.diag.warnings.truncate(warned);
         self.ed.forget_errors(errors);
     }
 
