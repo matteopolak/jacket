@@ -1,22 +1,22 @@
 //! Operator overloading: finding and calling `operator` procedures.
 
 use super::{
-    CallArg, Candidate, Compiler, FnCtx, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId,
-    TypeKind, Value, ast, err, ir, scope,
+    CallArg, Compiler, FnCtx, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId, TypeKind, Value,
+    ast, err, ir, scope,
 };
 use crate::ast::ExprKind as E;
 use crate::sema::TypeState;
 use crate::sema::binary::Binary;
+use crate::sema::expr::takes_sibling_type;
 
-/// `.{...}` with no type written: its type comes from where it is used.
-fn is_untyped_literal(e: &ast::Expr) -> bool {
-    matches!(
-        e.kind,
-        E::StructLit {
-            ty: None,
-            ..
-        }
-    )
+/// One way to call the `operator` overloads of a binary operator.
+struct OperatorAttempt {
+    procs: Vec<ProcId>,
+    args: Vec<CallArg>,
+    /// `!=` through `==`: the result is negated.
+    negate: bool,
+    /// The operands of a `#symmetric` overload are exchanged.
+    swapped: bool,
 }
 
 /// An already checked operand as a call argument.
@@ -90,38 +90,41 @@ impl Compiler {
         self.call_operator(f, scope, op, args, reports_failure, span)
     }
 
-    /// `.{...} op x` and `x op .{...}`: the other operand is checked, and the untyped literal is
-    /// built as the type the chosen `operator` overload takes, as a literal argument of a call is.
-    /// `None` when there is no such literal, or no operator named `op` that could take it.
-    pub(in crate::sema) fn try_literal_operand_overload(
+    /// `.{...} op x` and `x op .{...}`: an operand with no type of its own next to a checked one
+    /// takes the type its parameter has in the best `operator` overload for the pair, as the
+    /// argument of a call does. The overloads are ranked with the other operand checked but not
+    /// emitted; the operands are then checked for real, the literal as that type. `None` when
+    /// there is no such operand or no overload takes the pair, and the operands are checked as
+    /// for a builtin operator.
+    pub(in crate::sema) fn overload_typed_operands(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
         node: Binary<'_>,
         span: Span,
-    ) -> Result<Option<Operand>> {
+    ) -> Result<Option<(Operand, Operand)>> {
         let Binary {
             op,
             a,
             b,
         } = node;
-        let (literal_first, literal, other) = match (is_untyped_literal(a), is_untyped_literal(b)) {
-            (true, false) => (true, a, b),
-            (false, true) => (false, b, a),
-            _ => return Ok(None),
+        let (literal_first, literal, other) = if takes_sibling_type(a, b) {
+            (true, a, b)
+        } else if takes_sibling_type(b, a) {
+            (false, b, a)
+        } else {
+            return Ok(None);
         };
         if self.operator_candidates(scope, binop_text(op))?.is_empty()
             && (op != ast::BinOp::Ne || self.operator_candidates(scope, "==")?.is_empty())
         {
             return Ok(None);
         }
-        let other = self.check_expr(f, scope, other, None)?;
-        if matches!(other, Operand::Type(_)) {
-            return err(
-                span,
-                "a type cannot be an operand of an overloaded operator",
-            );
-        }
+        let mut scratch = self.scratch_ctx(scope);
+        // An operand that fails here fails again, with its own message, as a builtin operand.
+        let Ok(probe) = self.check_expr(&mut scratch, scope, other, None) else {
+            return Ok(None);
+        };
         let deferred = CallArg {
             name: None,
             spread: false,
@@ -130,19 +133,108 @@ impl Compiler {
             span: literal.span,
             scope,
         };
-        let checked = operand_arg(scope, span, &other);
+        let checked = operand_arg(scope, span, &probe);
         let args = if literal_first {
             vec![deferred, checked]
         } else {
             vec![checked, deferred]
         };
-        self.call_operator(f, scope, op, args, true, span)
+        let attempts = self.operator_attempts(scope, op, &args)?;
+        if attempts.is_empty() {
+            return Ok(None);
+        }
+        if matches!(probe, Operand::Type(_)) {
+            return err(
+                span,
+                "a type cannot be an operand of an overloaded operator",
+            );
+        }
+        let position = usize::from(!literal_first);
+        let mut matched = false;
+        let mut taken = None;
+        for attempt in &attempts {
+            let (best, _) = self.rank_candidates(&attempt.procs, &attempt.args, span);
+            if best.is_empty() {
+                continue;
+            }
+            matched = true;
+            let (chosen, _) = self.choose_candidate(best, &attempt.args, span)?;
+            // The literal is at the other position when the operands are swapped.
+            let at = if attempt.swapped {
+                1 - position
+            } else {
+                position
+            };
+            taken = self.argument_param_type(&chosen, at, span)?;
+            break;
+        }
+        // `.{...}` and `.[...]` build aggregates, which only an overload takes; `.NAME` may be
+        // a member of an enum a builtin operator compares.
+        if !matched && !matches!(literal.kind, E::InferredMember(_)) {
+            let first = attempts.into_iter().next().expect("attempts is not empty");
+            return self
+                .call_procs(f, scope, &first.procs, first.args, None, span)
+                .map(|_| None);
+        }
+        let Some(ty) = taken else {
+            return Ok(None);
+        };
+        let other = self.check_expr(f, scope, other, None)?;
+        let literal = self.check_expr(f, scope, literal, Some(ty))?;
+        Ok(Some(if literal_first {
+            (literal, other)
+        } else {
+            (other, literal)
+        }))
     }
 
-    /// Call the `operator` overloads of `op` with `args`: a plain match, then `!=` as the negated
-    /// `==`, then a `#symmetric` overload with the operands swapped. An argument that is still
-    /// unchecked (an untyped literal) is typed by the overload chosen, and two overloads that
-    /// take it equally well are an error.
+    /// The ways to call the `operator` overloads of `op` on `args`, best first: a plain match,
+    /// then `!=` as the negated `==`, then a `#symmetric` overload with the operands swapped.
+    fn operator_attempts(
+        &mut self,
+        scope: ScopeId,
+        op: ast::BinOp,
+        args: &[CallArg],
+    ) -> Result<Vec<OperatorAttempt>> {
+        let procs = self.operator_candidates(scope, binop_text(op))?;
+        let mut attempts = Vec::new();
+        if !procs.is_empty() {
+            attempts.push(OperatorAttempt {
+                procs: procs.clone(),
+                args: args.to_vec(),
+                negate: false,
+                swapped: false,
+            });
+        }
+        // `a != b` without a matching `operator !=` is `!(a == b)`.
+        if op == ast::BinOp::Ne {
+            let equal = self.operator_candidates(scope, "==")?;
+            if !equal.is_empty() {
+                attempts.push(OperatorAttempt {
+                    procs: equal,
+                    args: args.to_vec(),
+                    negate: true,
+                    swapped: false,
+                });
+            }
+        }
+        let symmetric: Vec<ProcId> = procs
+            .into_iter()
+            .filter(|&p| self.proc(p).lit.header.flags.symmetric())
+            .collect();
+        if !symmetric.is_empty() {
+            attempts.push(OperatorAttempt {
+                procs: symmetric,
+                args: vec![args[1].clone(), args[0].clone()],
+                negate: false,
+                swapped: true,
+            });
+        }
+        Ok(attempts)
+    }
+
+    /// Call the `operator` overloads of `op` with checked `args` by the first attempt that
+    /// takes them. A failing emission counts as no match.
     fn call_operator(
         &mut self,
         f: &mut FnCtx,
@@ -152,27 +244,19 @@ impl Compiler {
         reports_failure: bool,
         span: Span,
     ) -> Result<Option<Operand>> {
-        let deferred = args.iter().any(|a| a.op.is_none());
-        let text = binop_text(op);
-        let procs = self.operator_candidates(scope, text)?;
-        // `a != b` without a matching `operator !=` is `!(a == b)`.
-        let ne_fallback = if op == ast::BinOp::Ne {
-            self.operator_candidates(scope, "==")?
-        } else {
-            Vec::new()
-        };
-        if procs.is_empty() && ne_fallback.is_empty() {
-            return Ok(None);
-        }
-        if !procs.is_empty()
-            && let Some(r) = self.call_overload(f, scope, &procs, args.clone(), deferred, span)?
-        {
-            return Ok(Some(r));
-        }
-        if !ne_fallback.is_empty()
-            && let Some(r) =
-                self.call_overload(f, scope, &ne_fallback, args.clone(), deferred, span)?
-        {
+        let attempts = self.operator_attempts(scope, op, &args)?;
+        for attempt in attempts {
+            let (best, _) = self.rank_candidates(&attempt.procs, &attempt.args, span);
+            if best.is_empty() {
+                continue;
+            }
+            let (chosen, _) = self.choose_candidate(best, &attempt.args, span)?;
+            let Ok(r) = self.emit_call(f, scope, chosen, attempt.args, span) else {
+                continue;
+            };
+            if !attempt.negate {
+                return Ok(Some(r));
+            }
             let (ty, v) = self.rvalue(f, r, span)?;
             let b = self.truthy(f, ty, v, span)?;
             let one = f.b.iconst(ir::Ty::I8, 1);
@@ -181,59 +265,14 @@ impl Compiler {
                 val: f.b.bin(ir::BinOp::Xor, ir::Ty::I8, b, one),
             }));
         }
-        if procs.is_empty() {
-            if deferred {
-                return self
-                    .call_procs(f, scope, &ne_fallback, args, None, span)
-                    .map(Some);
-            }
-            return Ok(None);
-        }
-        // #symmetric operators accept swapped operands.
-        let symmetric: Vec<ProcId> = procs
-            .iter()
-            .copied()
-            .filter(|&p| self.proc(p).lit.header.flags.symmetric())
-            .collect();
-        if !symmetric.is_empty() {
-            let swapped = vec![args[1].clone(), args[0].clone()];
-            if let Some(r) = self.call_overload(f, scope, &symmetric, swapped, deferred, span)? {
-                return Ok(Some(r));
-            }
-        }
-        if reports_failure {
+        let procs = self.operator_candidates(scope, binop_text(op))?;
+        if reports_failure && !procs.is_empty() {
             // Report the overload failure for struct operands.
-            self.call_procs(f, scope, &procs, args, None, span)
-                .map(Some)
-        } else {
-            Ok(None)
+            return self
+                .call_procs(f, scope, &procs, args, None, span)
+                .map(Some);
         }
-    }
-
-    /// The call of the best of `procs` for `args`, or `None` when none takes them. With an
-    /// unchecked argument the candidates are ranked as for an ordinary call, and a tie is an
-    /// error; otherwise the first cheapest wins and a failing emission counts as no match.
-    fn call_overload(
-        &mut self,
-        f: &mut FnCtx,
-        scope: ScopeId,
-        procs: &[ProcId],
-        args: Vec<CallArg>,
-        deferred: bool,
-        span: Span,
-    ) -> Result<Option<Operand>> {
-        if !deferred {
-            return Ok(self.try_call(f, scope, procs, args, span).ok());
-        }
-        let (mut best, _) = self.rank_candidates(procs, &args, span);
-        if best.is_empty() {
-            return Ok(None);
-        }
-        if self.order_candidates(&mut best) {
-            return Err(Box::new(self.ambiguous_overloads(&best, span)));
-        }
-        let chosen = best.swap_remove(0);
-        self.emit_call(f, scope, chosen, args, span).map(Some)
+        Ok(None)
     }
 
     /// Does any of `procs` accept `args`? Nothing is emitted.
@@ -248,6 +287,7 @@ impl Compiler {
             .any(|&p| self.match_candidate(p, args, span).is_ok())
     }
 
+    /// Call the best of `procs` for `args`, ranked as for an ordinary call.
     pub(in crate::sema) fn try_call(
         &mut self,
         f: &mut FnCtx,
@@ -256,18 +296,12 @@ impl Compiler {
         args: Vec<CallArg>,
         span: Span,
     ) -> Result<Operand> {
-        let mut best: Option<Candidate> = None;
-        for &p in procs {
-            if let Ok(c) = self.match_candidate(p, &args, span)
-                && best.as_ref().is_none_or(|b| c.cost < b.cost)
-            {
-                best = Some(c);
-            }
+        let (best, _) = self.rank_candidates(procs, &args, span);
+        if best.is_empty() {
+            return err(span, "no operator overload matches");
         }
-        match best {
-            Some(c) => self.emit_call(f, scope, c, args, span),
-            None => err(span, "no operator overload matches"),
-        }
+        let (chosen, _) = self.choose_candidate(best, &args, span)?;
+        self.emit_call(f, scope, chosen, args, span)
     }
 
     pub fn try_unary_operator_overload(

@@ -1,5 +1,5 @@
 //! `ifx` expressions: branch agreement and constant folding.
-use super::{implicit_then_expr, takes_context_type};
+use super::{Want, implicit_then_expr, takes_sibling_type};
 use crate::sema::convert::int_fits;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
@@ -60,7 +60,7 @@ impl Compiler {
         &mut self,
         (then_op, else_op): (&Operand, &Operand),
         (then_e, else_e): (&ast::Expr, &ast::Expr),
-        (expected, operand): (Option<TypeId>, bool),
+        (expected, want): (Option<TypeId>, Want),
         span: Span,
     ) -> Result<()> {
         if matches!(
@@ -72,9 +72,7 @@ impl Compiler {
         ) {
             return Ok(());
         }
-        // Two untyped integer arms make an `s64`, which an unsigned target does not take. An
-        // operand of a binary operator is not a target: `c - (ifx up then 32 else 0)` with a
-        // `u16` `c` takes the arms as that type.
+        // Two untyped integer arms make an `s64`, which an unsigned target does not take.
         let untyped_int = |o: &Operand| {
             matches!(
                 o,
@@ -85,7 +83,7 @@ impl Compiler {
                 }
             )
         };
-        if !operand
+        if want == Want::Target
             && untyped_int(then_op)
             && untyped_int(else_op)
             && let Some(want) = expected
@@ -154,7 +152,7 @@ impl Compiler {
         scope: ScopeId,
         cond_holds: bool,
         (then_e, else_e): (&ast::Expr, &ast::Expr),
-        (expected, operand): (Option<TypeId>, bool),
+        (expected, want): (Option<TypeId>, Want),
         span: Span,
     ) -> Result<Operand> {
         let (taken_e, other_e) = if cond_holds {
@@ -165,7 +163,7 @@ impl Compiler {
         // An arm that only an expected type can type takes the other arm's type.
         let mut scratch = self.scratch_ctx(scope);
         let (taken, other);
-        if expected.is_none() && takes_context_type(taken_e) && !takes_context_type(other_e) {
+        if expected.is_none() && takes_sibling_type(taken_e, other_e) {
             other = self.check_expr(&mut scratch, scope, other_e, None)?;
             let hint = Self::ifx_branch_type(&other);
             taken = self.check_expr(f, scope, taken_e, hint)?;
@@ -174,7 +172,7 @@ impl Compiler {
             // The other arm is checked for its type and diagnostics but emits no code. It
             // still sees the expected type, so `.ARM64` there names the target's enum.
             let hint = match Self::ifx_branch_type(&taken) {
-                Some(t) if expected.is_none() && takes_context_type(other_e) => Some(t),
+                Some(t) if expected.is_none() && takes_sibling_type(other_e, taken_e) => Some(t),
                 _ => expected,
             };
             other = self.check_expr(&mut scratch, scope, other_e, hint)?;
@@ -184,12 +182,7 @@ impl Compiler {
         } else {
             (&other, &taken)
         };
-        self.ifx_branch_agreement(
-            (then_op, else_op),
-            (then_e, else_e),
-            (expected, operand),
-            span,
-        )?;
+        self.ifx_branch_agreement((then_op, else_op), (then_e, else_e), (expected, want), span)?;
         // A one-character string only becomes a byte where a string is converted directly,
         // not through `ifx`.
         if let (
@@ -221,10 +214,9 @@ impl Compiler {
         scope: ScopeId,
         cond: &ast::Expr,
         (then_value, else_value): (Option<&ast::Expr>, Option<&ast::Expr>),
-        expected: Option<TypeId>,
+        (expected, want): (Option<TypeId>, Want),
         span: Span,
     ) -> Result<Operand> {
-        let operand = std::mem::take(&mut f.ifx_operand);
         let cond_op = self.check_expr(
             f,
             scope,
@@ -251,7 +243,7 @@ impl Compiler {
                         scope,
                         t,
                         (then_e, else_e),
-                        (expected, operand),
+                        (expected, want),
                         span,
                     );
                 }
@@ -282,9 +274,8 @@ impl Compiler {
         let mut early_else = None;
         let mut then_hint = expected;
         if expected.is_none()
-            && then_value.is_some_and(takes_context_type)
-            && let Some(else_e) = else_value
-            && !takes_context_type(else_e)
+            && let (Some(then_e), Some(else_e)) = (then_value, else_value)
+            && takes_sibling_type(then_e, else_e)
         {
             f.b.switch_to(else_block);
             let op = self.check_expr(f, scope, else_e, None)?;
@@ -334,7 +325,7 @@ impl Compiler {
             self.ifx_branch_agreement(
                 (&then_op, else_op),
                 (then_e, else_e),
-                (expected, operand),
+                (expected, want),
                 span,
             )?;
         }

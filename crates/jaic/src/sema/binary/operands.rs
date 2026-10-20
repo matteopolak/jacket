@@ -91,8 +91,7 @@ impl Compiler {
             self.check_expr(f, scope, a, None)?
         } else {
             let own = is_complement_literal(a) && !is_shift && !is_cmp;
-            f.ifx_operand = matches!(a.kind, E::Ifx { .. });
-            let l = self.check_expr(
+            self.check_expr_hinted(
                 f,
                 scope,
                 a,
@@ -101,9 +100,7 @@ impl Compiler {
                 } else {
                     lhs_expected
                 },
-            )?;
-            f.ifx_operand = false;
-            l
+            )?
         };
         if let Operand::PolyStruct(ps) = lhs {
             lhs = Operand::Type(self.ty.poly_struct_type(ps));
@@ -131,8 +128,7 @@ impl Compiler {
         let mut rhs = if let Some(r) = early_rhs {
             r
         } else {
-            f.ifx_operand = matches!(b.kind, E::Ifx { .. });
-            let r = self.check_expr(
+            self.check_expr_hinted(
                 f,
                 scope,
                 b,
@@ -145,9 +141,7 @@ impl Compiler {
                         expected
                     })
                 },
-            )?;
-            f.ifx_operand = false;
-            r
+            )?
         };
         if let Operand::PolyStruct(ps) = rhs {
             rhs = Operand::Type(self.ty.poly_struct_type(ps));

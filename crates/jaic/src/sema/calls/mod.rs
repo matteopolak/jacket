@@ -321,6 +321,37 @@ impl Compiler {
         d
     }
 
+    /// The best of the ranked candidates, and whether another is as good (the editor keeps the
+    /// whole overload set then). Equally good candidates are an error when an argument has no
+    /// type of its own: the call does not say which one it means. Only overloads declared
+    /// together are rivals: one in an inner scope is nearer, as an inner declaration is to a
+    /// name of an outer one. Overloads with the same procedure type are copies of one
+    /// declaration, not different readings.
+    fn choose_candidate(
+        &self,
+        mut best: Vec<Candidate>,
+        args: &[CallArg],
+        span: Span,
+    ) -> Result<(Candidate, bool)> {
+        let ambiguous = self.order_candidates(&mut best);
+        if ambiguous && args.iter().any(is_untyped_argument) {
+            let scope_of = |c: &Candidate| self.proc(c.proc).scope;
+            let rank = self.candidate_rank(&best[0]);
+            let tied = best
+                .iter()
+                .take_while(|c| self.candidate_rank(c) == rank && scope_of(c) == scope_of(&best[0]))
+                .count();
+            let first = self.proc(best[0].proc).sig.as_ref().map(|sig| sig.ty);
+            if best[..tied]
+                .iter()
+                .any(|c| self.proc(c.proc).sig.as_ref().map(|sig| sig.ty) != first)
+            {
+                return Err(Box::new(self.ambiguous_overloads(&best[..tied], span)));
+            }
+        }
+        Ok((best.swap_remove(0), ambiguous))
+    }
+
     /// Resolve and emit a call to one of `procs`.
     pub fn call_procs(
         &mut self,
@@ -393,27 +424,7 @@ impl Compiler {
             }
             return Err(Box::new(d));
         }
-        // Several equally good candidates: the editor keeps the whole overload set.
-        let ambiguous = self.order_candidates(&mut best);
-        if ambiguous && args.iter().any(is_untyped_argument) {
-            // Only overloads declared together are rivals: one in an inner scope is nearer, as
-            // an inner declaration is to a name of an outer one. Overloads with the same
-            // procedure type are copies of one declaration, not different readings.
-            let scope_of = |c: &Candidate| self.proc(c.proc).scope;
-            let rank = self.candidate_rank(&best[0]);
-            let tied = best
-                .iter()
-                .take_while(|c| self.candidate_rank(c) == rank && scope_of(c) == scope_of(&best[0]))
-                .count();
-            let first = self.proc(best[0].proc).sig.as_ref().map(|sig| sig.ty);
-            if best[..tied]
-                .iter()
-                .any(|c| self.proc(c.proc).sig.as_ref().map(|sig| sig.ty) != first)
-            {
-                return Err(Box::new(self.ambiguous_overloads(&best[..tied], span)));
-            }
-        }
-        let chosen = best.swap_remove(0);
+        let (chosen, ambiguous) = self.choose_candidate(best, &args, span)?;
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
         if self.ed.is_live() {
             self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args, ambiguous);

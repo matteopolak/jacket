@@ -29,9 +29,12 @@ bits := cast,force(u32) f;           // reinterprets float bits
 
 ### Types from context
 
-One rule gives a value its type when it has none of its own. An expression with no type of its own (`.NAME`, `.{...}`, `.[...]`, a bare `xx`, an `ifx` or arithmetic built from those, an untyped number) takes the type of its sibling: the other branch of an `ifx`, the other operand of a binary operator, or the parameter of the candidate overload it is passed to. The sibling is checked first and its type is the expected type of the other. The type the whole expression is later converted to is not a sibling, so `target = xx (xx a + n);` adds in `n`'s type and the outer `xx` converts the sum.
+One rule gives a value its type when it has none of its own. An expression with no type of its own (`.NAME`, `.{...}`, `.[...]`, a bare `xx`, an `ifx` or arithmetic built from those, an untyped number, `null`) takes the type of what it is combined with, and that is one of:
 
-Where candidates compete (call arguments, operands of an overloaded operator) each candidate is a possible sibling. Candidates are ranked by the conversion cost of the arguments, then by how well each untyped literal fits (`struct_lit_fit`), and a tie on an argument with no type of its own is an ambiguity error (`ambiguous_overloads`). One predicate says which expressions take a sibling's type (`takes_context_type` in `sema/expr.rs`); `check_ifx`, `binary_operands`, `is_deferred` and `cast_operand_needs_target` all use it.
+- a target: the declaration, assignment, parameter, return or cast it is for. A target can reject the value (`x: u16 = ifx c then 32 else 0` makes `s64` arms and is an error);
+- a sibling: the other branch of an `ifx`, the other operand of a binary operator, or, for a call, the parameter of a candidate overload. A sibling is only a hint, so `c - (ifx up then 32 else 0)` with a `u16` `c` takes the arms as `u16`. The sibling is checked first and its type is the hint for the other (`takes_sibling_type`, `Want::Hint`). The type the whole expression is later converted to is not a sibling, so `target = xx (xx a + n);` adds in `n`'s type and the outer `xx` converts the sum.
+
+Where candidates compete (call arguments, operands of an overloaded operator) each candidate is a possible sibling, and one function chooses among them (`choose_candidate`). Candidates are ranked by the conversion cost of the arguments, then by how well each literal fits, then by how little of the header is polymorphic. An exact tie between candidates declared together is an ambiguity error when an argument has no type of its own; a typed argument that matches one overload exactly never ties. For an operator, the operand with no type is built as the parameter of the best overload and the operands are then checked once, as typed values.
 
 ### Reach of a prefix cast
 

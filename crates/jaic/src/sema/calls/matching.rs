@@ -196,6 +196,33 @@ impl Compiler {
         })
     }
 
+    /// The type the chosen candidate gives argument `arg`, when it is a runtime parameter of an
+    /// ordinary procedure.
+    pub(super) fn argument_param_type(
+        &mut self,
+        c: &Candidate,
+        arg: usize,
+        span: Span,
+    ) -> Result<Option<TypeId>> {
+        if self.proc(c.proc).is_macro {
+            return Ok(None);
+        }
+        let header = self.proc(c.proc).lit.header.clone();
+        let sig = self.signature(c.proc, span)?;
+        let runtime = (0..header.params.len()).filter(|&i| !header.params[i].baked);
+        for (k, i) in runtime.enumerate() {
+            let param = &sig.params[k];
+            match &c.slots[i] {
+                Slot::Arg(a) | Slot::Spread(a) if *a == arg => return Ok(Some(param.ty)),
+                Slot::Variadic(list) if list.contains(&arg) && !sig.c_varargs => {
+                    return Ok(Some(self.ty.jai_variadic_element(param.ty, span)?));
+                }
+                _ => {}
+            }
+        }
+        Ok(None)
+    }
+
     /// How many arguments matched a bare polymorphic struct parameter (`r: *Reflector`)
     /// only through an `#as` member. The parameter takes the argument's own type, but the
     /// match costs like the `#as` conversion it stands for, so an overload taking the
