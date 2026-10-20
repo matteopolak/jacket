@@ -48,8 +48,9 @@ async function main(): Promise<void> {
     extensionDevelopmentPath: root,
     extensionTestsPath: path.join(__dirname, "suite", "index.cjs"),
     vscodeExecutablePath: process.env.VSCODE_EXECUTABLE || undefined,
-    // A short user data folder: its IPC socket path must fit in 103 bytes on macOS.
-    launchArgs: [workspace, "--user-data-dir", mkdtempSync(path.join(tmpdir(), "jai-vsc-")), "--disable-extensions", "--skip-welcome", "--skip-release-notes", "--disable-workspace-trust"],
+    // A short user data folder: its IPC socket path must fit in 103 bytes on macOS. No GPU: under
+    // xvfb the window's software GL once stalled startup long enough to be killed as unresponsive.
+    launchArgs: [workspace, "--user-data-dir", mkdtempSync(path.join(tmpdir(), "jai-vsc-")), "--disable-extensions", "--skip-welcome", "--skip-release-notes", "--disable-workspace-trust", "--disable-gpu"],
   });
 }
 
