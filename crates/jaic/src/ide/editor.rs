@@ -247,14 +247,13 @@ impl Editor {
         self.facts.as_ref().is_some_and(|facts| facts.sketching)
     }
 
-    /// An expression that failed gets a stand-in value instead: inside a sketch, or once a
-    /// failed declaration left a stand-in type behind (expressions over its values are
-    /// unknown, not wrong).
+    /// An expression that failed has its operands checked for their facts, and gets a
+    /// stand-in value when one of them is a stand-in (expressions over a failed
+    /// declaration's values are unknown, not wrong). Always, not only once something left
+    /// a stand-in behind: what an edit elsewhere declares must not change these facts.
     #[inline]
     pub(crate) fn recovers_exprs(&self) -> bool {
-        self.facts
-            .as_ref()
-            .is_some_and(|facts| facts.sketching || !facts.stand_ins.is_empty())
+        self.is_live()
     }
 
     /// Checking goes on past a failed statement of a block, for the facts of the rest.

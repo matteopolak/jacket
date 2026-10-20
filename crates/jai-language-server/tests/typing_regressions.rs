@@ -551,3 +551,19 @@ fn a_member_in_an_uncalled_polymorph_with_a_baked_polymorphic_parameter_is_a_fie
         assert_eq!(kind_at(&session, 3, 8), Some(SemanticTokenKind::Property));
     });
 }
+
+#[test]
+fn an_operand_after_a_failed_one_has_the_same_color_whether_or_not_a_declaration_failed() {
+    on_big_stack(|| {
+        let line = "    assert(s.eof == MISSING && !s.eof);\n";
+        let source =
+            format!("Pipe :: struct {{ eof: bool; }}\nmain :: () {{\n    s: Pipe;\n{line}}}\n");
+        let session = open(&source);
+        assert_eq!(kind_at(&session, 3, 34), Some(SemanticTokenKind::Property));
+        let source = format!(
+            "Pipe :: struct {{ eof: bool; }}\nmain :: () {{\n    s: Pipe;\n{line}    x := missing;\n}}\n"
+        );
+        let session = open(&source);
+        assert_eq!(kind_at(&session, 3, 34), Some(SemanticTokenKind::Property));
+    });
+}
