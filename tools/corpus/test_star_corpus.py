@@ -1,0 +1,100 @@
+"""The star-qualified (unreviewed) part of the upstream corpus: lists, binary guard, review gate."""
+
+import json
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import fetch_upstreams as fetch
+import select_upstream_cases as sel
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def directory(repo: str) -> str:
+    return repo.replace("/", "--", 1)
+
+
+class Lists(unittest.TestCase):
+    def test_lists_are_disjoint(self):
+        star, held, excluded = set(fetch.STAR_REPOSITORIES), set(fetch.HELD_REPOSITORIES), set(fetch.EXCLUDED_REPOSITORIES)
+        other = set(fetch.REPOSITORIES + fetch.DEPENDENCIES + fetch.LIBRARIES)
+        self.assertEqual(len(star), len(fetch.STAR_REPOSITORIES))
+        for a, b in ((star, held), (star, excluded), (held, excluded), (star, other), (held, other)):
+            self.assertFalse(a & b, a & b)
+
+    def test_held_repositories_are_not_in_the_manifest(self):
+        pinned = {p["repository"] for p in json.loads((ROOT / "corpus/upstreams.json").read_text())["projects"]}
+        self.assertFalse(pinned & set(fetch.HELD_REPOSITORIES))
+        self.assertTrue(set(fetch.STAR_REPOSITORIES) <= pinned)
+
+    def test_every_held_reason_names_a_line(self):
+        for repo, reason in fetch.HELD_REPOSITORIES.items():
+            self.assertRegex(reason, r"\.jai:\d", repo)
+
+
+class BinaryGuard(unittest.TestCase):
+    def test_suffixes_and_magic(self):
+        for name in ("a.dll", "dir/b.so", "c.so.1", "d.DYLIB", "e.exe", "f.a", "g.lib", "h.o", "i.bin", "j.zip", "k.tar.gz", "l.wasm"):
+            self.assertTrue(fetch.is_forbidden_file(name), name)
+        for name in ("a.jai", "b.h", "README.md", "c.png", "fonts/d.ttf", "lib/e.jai"):
+            self.assertFalse(fetch.is_forbidden_file(name), name)
+        self.assertTrue(fetch.is_forbidden_file("notes.txt", b"MZ\x90\x00"))
+        self.assertTrue(fetch.is_forbidden_file("x.jai", b"\x7fELF\x02\x01"))
+        self.assertTrue(fetch.is_forbidden_file("x.h", b"\xcf\xfa\xed\xfe"))
+        self.assertFalse(fetch.is_forbidden_file("x.jai", b"main :: () {}"))
+
+    def test_no_pin_holds_a_binary(self):
+        for project in json.loads((ROOT / "corpus/upstreams.json").read_text())["projects"]:
+            for entry in project["files"]:
+                self.assertFalse(fetch.is_forbidden_file(entry["path"]), (project["repository"], entry["path"]))
+
+    def test_star_repositories_take_no_resource_prefixes(self):
+        self.assertFalse(set(fetch.STAR_REPOSITORIES) & set(fetch.RESOURCE_PREFIXES))
+
+    def test_vendored_official_modules_are_left_out(self):
+        paths = {"modules/Basic/module.jai", "modules/Basic/x.jai", "modules/Mine/module.jai", "modules/Math.jai", "src/Basic.jai"}
+        self.assertTrue(fetch.vendored_official_module("modules/Basic/x.jai", paths))
+        self.assertTrue(fetch.vendored_official_module("modules/Basic/module.jai", paths))
+        self.assertTrue(fetch.vendored_official_module("modules/Math.jai", paths))
+        self.assertFalse(fetch.vendored_official_module("modules/Mine/module.jai", paths))
+        self.assertFalse(fetch.vendored_official_module("src/Basic.jai", paths))
+
+
+class ReviewGate(unittest.TestCase):
+    def cases(self):
+        return json.loads((ROOT / "tools/upstream-cases.json").read_text())
+
+    def test_pending_cases_are_never_selected_for_a_platform(self):
+        cases = [
+            {"id": "a", "path": "o--r/x.jai", "only": ["windows-x64"], "review": "pending"},
+            {"id": "b", "path": "o--s/x.jai", "only": ["windows-x64"]},
+        ]
+        self.assertEqual([c["id"] for c in sel.select(cases, "windows-x64")], ["b"])
+
+    def test_every_case_of_a_star_repository_is_pending_and_unrestricted(self):
+        star = {directory(r) for r in fetch.STAR_REPOSITORIES}
+        seen = 0
+        for case in self.cases():
+            if case["path"].split("/")[0] in star:
+                seen += 1
+                self.assertEqual(case.get("review"), "pending", case["id"])
+                self.assertNotIn("only", case, case["id"])
+        self.assertGreater(seen, 0)
+
+    def test_no_case_that_borrows_a_star_repository_is_selectable_unreviewed(self):
+        star = {directory(r) for r in fetch.STAR_REPOSITORIES}
+        for case in self.cases():
+            if star & set(sel.directories(case)) and case.get("review") != "pending":
+                self.assertNotIn("only", case, case["id"])
+
+    def test_the_smoke_checks_use_no_star_repository(self):
+        star = {directory(r) for r in fetch.STAR_REPOSITORIES}
+        checks = json.loads((ROOT / "tools/corpus/upstream-smoke.json").read_text())["checks"]
+        self.assertFalse({c.get("project") for c in checks} & star)
+
+
+if __name__ == "__main__":
+    unittest.main()

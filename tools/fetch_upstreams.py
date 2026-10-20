@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 import re
@@ -88,6 +89,79 @@ LIBRARIES = (
     "n00bmind/reflector",
     "smari/jai-xml",
 )
+# Every language:Jai repository with at least STAR_THRESHOLD stars as of 2026-10-20, regardless of
+# when it last changed (`gh search repos --language=Jai --stars=">=5"`). Exempt from the recency
+# cutoff like LIBRARIES, but unreviewed: tools/corpus/scan_upstream.py must report no high-risk
+# finding before a repository is listed here, only text sources are taken (see
+# `is_forbidden_file`), vendored copies of official Jai modules are left out
+# (`vendored_official_module`), and the cases of these repositories carry `"review": "pending"`
+# in tools/upstream-cases.json (docs/tools/upstream-corpus.md, "Review gate").
+STAR_THRESHOLD = 5
+STAR_REPOSITORIES = (
+    "valignatev/hitboxer",
+    "rezich/Enumerated_Array",
+    "charlesastaylor/jai-raddebugger",
+    "onelivesleft/jai-string",
+    "nick-celestin-zizic/joogle",
+    "isaplane/sdl3-jai",
+    "seg4lt/zed-jai",
+    "asmvik/spaced",
+    "mimhufford/AdventOfCode",
+    "666rayen999/rjyv",
+    "ostef/OhMyGUI",
+    "roeyb1/jai-wavefront",
+    "Breush/lava-jai",
+    "dbechrd/jai-yojimbo",
+    "filippocrocchini/Glyph_Cache",
+    "isomorphic-tech/fuzzy-match-jai",
+    "yasinkaraaslan/Gaco",
+    "ostef/Jai-Win32",
+    "bugulo/jai-glfw",
+    "kujukuju/JaiSteamworks",
+    "wrapperup/mew",
+    "Sl3dge78/JaiBoy",
+    "WeirdBirds/Jay_Math",
+    "666rayen999/hash_map",
+    "charlesastaylor/Performance_Monitoring_Counters",
+    "smari/jai-crypto",
+    "dbechrd/jai-simpler",
+    "de-senk/Physics_AVBD_2D",
+    "superjustin5000/tools_jai",
+    "isomorphic-tech/jai-sodium",
+    "Lunatoid/Rematch",
+    "SamuelDeboni/Microui-Jai",
+    "rytc/vulkan-jai",
+    "shiMusa/MathExtensions",
+    "drshapeless/vulkan-jai-binding",
+    "WeirdBirds/Jay_ECS",
+    "isomorphic-tech/jai-sqlite",
+    "666rayen999/qoa-jai",
+    "kujukuju/KodaPathFinding",
+)
+# Star-qualified repositories that are deliberately not pinned, with the reason.
+EXCLUDED_REPOSITORIES = {
+    "abhiramasonny/jaithon": "its own language that happens to use the .jai extension",
+    "matteopolak/jacket": "this project",
+}
+# Star-qualified repositories whose scan found a high-risk line: not fetched until a person has
+# read the findings (`scan_upstream.py`) and moved the repository into STAR_REPOSITORIES.
+HELD_REPOSITORIES: dict[str, str] = {
+    "tsoding/jaibreak": "build program spawns a process (first.jai:66 run_command)",
+    "valignatev/jai-on-linux": "build programs spawn processes (examples/static-binary/build.jai:98, build_musl.jai:24,35)",
+    "SogoCZE/jai_wgpu_native": "bindings generator spawns a process (wgpu/generate.jai:97 run_command)",
+    "danieltan1517/orange-xiangqi": "build.jai spawns processes that clone, download (wget, Invoke-WebRequest, Google Drive) and unpack (build.jai:154-284)",
+    "fda0/Treasure": "build program spawns a process (compile.jai:256 run_command)",
+    "judah-caruso/base.jai": "build helper spawns jai and deletes a file (_ensure_standalone.jai:11,22)",
+    "rubenbala/uppies": "build.jai spawns processes (build.jai:166-559), deletes directories (403,465) and reads UPPIES_SIGN_IDENTITY and PATH (389,704)",
+    "farzher/clipman": "compress_exe build module deletes files (src/modules/compress_exe/module.jai:129-130)",
+    "qiekn/ootss-cmd": "scripts delete files and spawn cwebp (scripts/check_config_reload.jai:131,174,284,348; scripts/capture_overworld_map/stitch_map.jai:53)",
+    "TheGag96/raspberry-jai": "build program spawns a process (first.jai:112 run_command)",
+    "TraceMyers/vai": "build.jai spawns cmake and builds (build.jai:94,108,137,151) and compile-time #asm (src/bit_array.jai:92,98)",
+    "MariuzM/jai-lsp-scratch": "server/build.jai spawns a process, deletes files and writes ../extension/bin (server/build.jai:37,116,145)",
+    "Breush/sloubi-chess": "src/first.jai runs git (first.jai:45-46) and second.jai copies from ../../bin/jai/modules/Curl (second.jai:49)",
+    "yanchith/editor": "build.jai deletes a directory it computes (build.jai:250 delete_directory(bundle_path))",
+    "QuattroMusic/6502-Simulator": "compile-time #asm SSE in a #run block (src/engine/dx11.jai:485,503)",
+}
 # Dependencies pinned to the consumer's submodule commit (else the newest commit).
 SUBMODULE_REVISIONS = {
     "ostef/Linalg": "5f60c11f057787a804ce9582c5daeccc0e8de89a",
@@ -164,9 +238,18 @@ MODULE_LINKS = (
     ("_modules/ContiguousJsonJai", "kujukuju--ContiguousJsonJai"),
     ("_modules/BlockAllocatorJai", "kujukuju--BlockAllocatorJai"),
     ("_modules/lz4_static", "kujukuju--lz4_static"),
+    # Star-qualified repositories whose sources import their own module name (`#import "OhMyGUI"`).
+    ("_modules/OhMyGUI", "ostef--OhMyGUI"),
+    ("_modules/Yojimbo", "dbechrd--jai-yojimbo"),
+    ("_modules/Jay_ECS", "WeirdBirds--Jay_ECS"),
+    ("_modules/Jay_Math", "WeirdBirds--Jay_Math"),
+    ("_modules/Win32", "ostef--Jai-Win32"),
+    ("_modules/SDL3", "isaplane--sdl3-jai"),
 )
 
 DATA = main_checkout()
+# Repositories whose newest Jai change may predate --since.
+RECENCY_EXEMPT = DEPENDENCIES + LIBRARIES + STAR_REPOSITORIES + tuple(HELD_REPOSITORIES)
 
 
 def git(cache: Path, *args: str) -> str:
@@ -199,6 +282,65 @@ def download(repo: str, revision: str, path: str) -> bytes:
 
 # C-family sources a project builds its own helper libraries from (never prebuilt binaries).
 NATIVE_SOURCE_SUFFIXES = (".c", ".h", ".m", ".mm", ".cpp", ".cc", ".hpp", ".inl")
+# Never pinned from any repository, whatever a RESOURCE_PREFIXES entry says: compiled code,
+# object files, archives and installers. (Fonts, images and data files stay allowed by prefix.)
+BINARY_SUFFIXES = (
+    ".dll", ".so", ".dylib", ".exe", ".a", ".lib", ".o", ".obj", ".bin", ".pdb", ".sys", ".node",
+    ".wasm", ".jar", ".class", ".apk", ".ipa", ".msi", ".dmg", ".pkg", ".deb", ".rpm", ".app",
+    ".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".zst", ".7z", ".rar", ".cab", ".iso", ".pyc",
+)
+# Leading bytes of executables, libraries and archives: refused even under a harmless name.
+BINARY_MAGIC = (
+    b"MZ", b"\x7fELF", b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe",
+    b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"!<arch>", b"PK\x03\x04", b"\x1f\x8b",
+    b"\x00asm", b"7z\xbc\xaf", b"Rar!",
+)
+# Names of the modules the official Jai distribution ships. A repository that vendors a copy keeps
+# it out of the pin: the corpus must not contain official sources.
+OFFICIAL_MODULE_NAMES = frozenset(
+    """Basic Math String File File_Utilities Hash_Table Hash Random Thread Process Socket Simp GL Input
+    Window_Creation Window_Type Compiler Reflection Sort Unicode Command_Line Bit_Operations Bit_Array
+    Bucket_Array Pool Flat_Pool Atomics System Runtime_Support Default_Allocator Memory Print_Color
+    Text_File_Handler Wav_File Sound_Player Debug Check Clipboard Curl Deep_Copy Gamepad GetRect
+    Jai_Lexer Keymap Machine_X64 POSIX Windows Linux X11 SDL freetype stb_image stb_image_write
+    stb_image_resize stb_vorbis Vulkan ImGui Metal Objective_C MacOS_Bundler Base64 Crc md5 xxHash
+    meow_hash lz4 Zip_File_Directory Program_Print Iprof Treemap IntroSort RadixSort Relative_Pointers
+    Remap_Context Soa SIMD Srgb Subtitles Tracy PCG Float16 Code_Visit Color_Interpolation
+    Default_Metaprogram Minimal_Metaprogram Metaprogram_Plugins Bindings_Generator Generate_C_Header
+    Project_Generator Windows_Registry Windows_Resources Windows_Utf8 Autorun BuildCpp Icon Ico_File
+    Mail File_Watcher Debug_Info Overwriting_Allocator Unmapping_Allocator Performance_Report
+    Print_Vars Rewrite Sloppy_Math d3d11 d3d12 dxgi d3d_compiler dxc_compiler rpmalloc meshoptimizer
+    nvtt pl_mpeg MojoShader Android iOS macOS""".split()
+)
+
+
+def is_forbidden_file(path: str, data: bytes | None = None) -> bool:
+    """Binary artefacts: by suffix, and (once downloaded) by magic bytes."""
+    name = PurePosixPath(path).name.lower()
+    if name.endswith(BINARY_SUFFIXES) or re.search(r"\.so\.\d", name):
+        return True
+    return data is not None and data.startswith(BINARY_MAGIC)
+
+
+def vendored_official_module(path: str, paths: list[str]) -> bool:
+    """Whether `path` sits in a directory named after an official module that holds its own
+    `module.jai` (a vendored copy), or is such a module's single-file form (`modules/Basic.jai`)."""
+    parts = PurePosixPath(path).parts
+    for i, part in enumerate(parts[:-1]):
+        if part in OFFICIAL_MODULE_NAMES and "/".join(parts[: i + 1] + ("module.jai",)) in paths:
+            return True
+    stem = PurePosixPath(path).stem
+    return (
+        len(parts) > 1
+        and parts[-2].lower() == "modules"
+        and stem in OFFICIAL_MODULE_NAMES
+        and path.endswith(".jai")
+    )
+
+
+def blob_id(data: bytes) -> str:
+    """The Git object id of a file's content."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
 def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
@@ -257,21 +399,33 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
         "latest_jai_change": stamp,
         "source_of_truth": f"https://github.com/{repo}/tree/{revision}",
     }
-    if source_date < since and repo not in DEPENDENCIES + LIBRARIES:
+    if source_date < since and repo not in RECENCY_EXEMPT:
         return record | {"selection": "stale-excluded", "files": []}
-    paths = git(cache, "ls-tree", "-r", "--name-only", revision).splitlines()
+    # path -> Git object id of every file (submodules excluded): each download must hash to it, so a
+    # truncated or substituted body is refused instead of pinned.
+    blobs = {}
+    for entry in git(cache, "ls-tree", "-r", "-z", revision).split("\0"):
+        if entry:
+            meta, path = entry.split("\t", 1)
+            _mode, kind, oid = meta.split()
+            if kind == "blob":
+                blobs[path] = oid
+    paths = list(blobs)
     if repo in SOURCE_PREFIXES:
         paths = [
             p for p in paths if p.startswith(SOURCE_PREFIXES[repo]) or "/" not in p
         ]
+    every_path = set(paths)
     selected = [
         p
         for p in paths
-        if p.endswith(".jai")
+        if not is_forbidden_file(p)
+        and not (repo in STAR_REPOSITORIES and vendored_official_module(p, every_path))
+        and (p.endswith(".jai")
         or p.endswith(NATIVE_SOURCE_SUFFIXES)
         or PurePosixPath(p).name.lower() in {"copying", "readme.md"}
         or PurePosixPath(p).name.lower().startswith("license")
-        or (p.startswith(RESOURCE_PREFIXES.get(repo, ())) and not p.endswith(".psd"))
+        or (p.startswith(RESOURCE_PREFIXES.get(repo, ())) and not p.endswith(".psd")))
     ]
     destination = DATA / "corpus/upstream" / key
 
@@ -283,8 +437,14 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
         )
         target = destination.joinpath(*safe_path(path).parts)
         if expected and target.exists() and sha256_file(target) == expected["sha256"]:
+            if blob_id(target.read_bytes()) != blobs[path]:
+                raise ValueError(f"pinned file differs from the Git object (truncated?): {repo}/{path}")
             return expected
         data = download(repo, revision, path)
+        if is_forbidden_file(path, data):
+            raise ValueError(f"binary content refused: {repo}/{path}")
+        if blob_id(data) != blobs[path]:
+            raise ValueError(f"download differs from the Git object (truncated?): {repo}/{path}")
         if expected and sha256_bytes(data) != expected["sha256"]:
             raise ValueError(
                 f"source hash changed at immutable revision: {repo}/{path}"
@@ -303,7 +463,7 @@ def main() -> None:
     parser.add_argument(
         "--since",
         default="2025-10-01",
-        help="minimum Jai source modification date (UTC)",
+        help="minimum Jai source modification date (UTC); STAR_REPOSITORIES, DEPENDENCIES and LIBRARIES are exempt",
     )
     parser.add_argument(
         "--only",
@@ -331,7 +491,7 @@ def main() -> None:
         for link, target in MODULE_LINKS:
             if link.split("/")[0].replace("--", "/", 1) in wanted:
                 wanted.add(target.split("/")[0].replace("--", "/", 1))
-    for repo in REPOSITORIES + DEPENDENCIES + LIBRARIES:
+    for repo in REPOSITORIES + DEPENDENCIES + LIBRARIES + STAR_REPOSITORIES:
         if wanted is not None and repo not in wanted:
             continue
         record = fetch(repo, since, pins.get(repo))

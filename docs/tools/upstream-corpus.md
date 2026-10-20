@@ -2,7 +2,7 @@
 
 ## What it is
 
-Pinned snapshots of open-source Jai projects that `jaic` is measured against: applications (Focus, Jails, The Way to Jai, Vk-Engine, sgpu, chess-jai, forbear, ...), their dependencies (jai_parser, Linalg, Jolt-Jai, Tracy's client) and libraries (metaprogramming libraries such as match-jai and yield-jai, rluba's family such as jaison, uniform and hyperserve, and libraries with their own tests: reflector, jai-format, jai-protobuf, toml-jai, jai-xml). The authoritative lists are `REPOSITORIES`, `DEPENDENCIES` and `LIBRARIES` in `tools/fetch_upstreams.py`. jaithon is excluded: it is its own language in `.jai` files.
+Pinned snapshots of open-source Jai projects that `jaic` is measured against: applications (Focus, Jails, The Way to Jai, Vk-Engine, sgpu, chess-jai, forbear, ...), their dependencies (jai_parser, Linalg, Jolt-Jai, Tracy's client) and libraries (metaprogramming libraries such as match-jai and yield-jai, rluba's family such as jaison, uniform and hyperserve, and libraries with their own tests: reflector, jai-format, jai-protobuf, toml-jai, jai-xml). The authoritative lists are `REPOSITORIES`, `DEPENDENCIES`, `LIBRARIES` and `STAR_REPOSITORIES` in `tools/fetch_upstreams.py`. jaithon is excluded: it is its own language in `.jai` files.
 
 Files live in the gitignored `corpus/upstream/`; the committed `corpus/upstreams.json` records exact commits and file hashes. Both the corpus and the Git cache live in the main checkout (via the Git common dir), so worktrees share them.
 
@@ -10,7 +10,8 @@ Files live in the gitignored `corpus/upstream/`; the committed `corpus/upstreams
 
 `tools/fetch_upstreams.py` downloads the pinned `.jai` files, READMEs, licences, C-family sources (`NATIVE_SOURCE_SUFFIXES`, for native-library builds) and compile-time data files (`RESOURCE_PREFIXES`) into `corpus/upstream/<owner>--<repo>/`. It never builds or runs a project.
 
-- Existing pins are kept. `--since YYYY-MM-DD` (default 2025-10-01) is the recency cutoff for new repositories; `DEPENDENCIES` and `LIBRARIES` are exempt.
+- Existing pins are kept. `--since YYYY-MM-DD` (default 2025-10-01) is the recency cutoff for new repositories; `DEPENDENCIES`, `LIBRARIES` and `STAR_REPOSITORIES` are exempt.
+- Binaries are never pinned: `is_forbidden_file` refuses executable, library, object and archive suffixes (`BINARY_SUFFIXES`) and, after download, files that start with an executable or archive header (`BINARY_MAGIC`), whatever their name. Only `.jai`, C-family sources, READMEs and licences are taken from a star repository (no `RESOURCE_PREFIXES`), under the 8 MiB cap. Every file, new or already pinned, must hash to its Git object id (`blob_id`), so a truncated download (`toolkit/download.py` also compares the body with `Content-Length`) fails the fetch instead of being pinned.
 - `MODULE_LINKS` symlinks dependencies into consumers' `modules/` and libraries imported by name into `corpus/upstream/_modules/` (cases pass `-I ../../_modules`).
 - `SOURCE_PREFIXES` limits a repository to some directories (Tracy: only `public/`); `MAX_FILE_BYTES` raises the size cap for a file (chess-jai's network).
 - Building the projects leaves libraries and generated files next to the sources, so a hash mismatch or stray file after a build means restore with `fetch_upstreams.py` and give the case a `setup` step that avoids the write.
@@ -56,9 +57,19 @@ Everything under `corpus/upstream` is unreviewed third-party code, and compiling
 
 Where no sandbox exists (Windows) the runs are unconfined on CI runners only: `tools/corpus/upstream_sandbox.py` refuses outside `CI` unless `--no-sandbox` is passed explicitly. Extra reads or writes a case needs are added as exact paths, never by opening the sandbox wholesale. `tools/corpus/test_upstream_sandbox.py` covers the policy, the wrapping and the write confinement.
 
+## Star-qualified repositories
+
+`STAR_REPOSITORIES` holds every `language:Jai` repository with at least `STAR_THRESHOLD` (5) stars, however old (found 2026-10-20 with `gh search repos --language=Jai --stars=">=5" --limit 200`). They are unreviewed, so:
+
+- **Scan first.** `tools/corpus/scan_upstream.py [owner--repo ...]` reads the pinned files (never runs anything) and prints a per-repository risk: process spawning, networking (sockets, URLs, IP literals), deletes and writes outside the project, credential and home paths, environment access, unusual `#foreign_library` names, `#asm`, base64/hex blobs and byte arrays (decoded and checked for executable headers), obfuscated identifiers, binaries. A finding is *build* context when it sits in a `#run`, a procedure a `#run` calls, or a build program (`first.jai`, `build.jai`, files using `set_build_options`), and *runtime* otherwise: the same call is `high` at build time and `medium` or `low` in ordinary runtime code. Exit status 1 means a `high` finding; `--json` keeps the lines. `test_scan_upstream.py` covers the rules.
+- **High risk is held.** A repository with a `high` finding goes in `HELD_REPOSITORIES` (with the lines) instead of `STAR_REPOSITORIES`, is not in `corpus/upstreams.json`, and stays out until a person has read those lines and moved it. Medium is pinned; the reasons are in the report.
+- **Excluded** (`EXCLUDED_REPOSITORIES`): jaithon (its own language), this repository. Vendored copies of official Jai modules are never pinned (`vendored_official_module`, by directory name), and forks of an already-pinned upstream, repositories without `.jai` source and repositories that are mostly prebuilt binaries are left out of the list.
+- **Review gate.** Every case of these repositories in `tools/upstream-cases.json` carries `"review": "pending"` and is a `check`-mode guess at an entry point, not triaged. `select_upstream_cases.py` never selects a pending case (so the Windows and linux-x64 jobs, which run unconfined, cannot pick it up even if it were given `only`), and `jaic_sweep.py` reports a pending case as unavailable unless the run is inside `tools/bench/sandbox.py`: `--no-sandbox` and CI do not excuse it. Remove the field only after reading the repository's code; `test_star_corpus.py` checks that every case of a star repository is pending and unrestricted, that no smoke check uses one, and that no pin holds a binary.
+
 ## How to change it
 
 - **Add a project:** add it to `REPOSITORIES`, `DEPENDENCIES` or `LIBRARIES`, run `fetch_upstreams.py`, review and commit `corpus/upstreams.json` (never `corpus/upstream/`), add entry points to `tools/upstream-cases.json`, and a smoke check if it can run. Prefer projects that check themselves. A project importing unpinned modules from the same author can only be tested once those are pinned (`LIBRARIES` plus `MODULE_LINKS`).
+- **Add a star repository:** append it to `STAR_REPOSITORIES`, fetch, run `scan_upstream.py` on it, hold it if it has a `high` finding, then add `"review": "pending"` cases.
 - **Find candidates:** `gh search repos --language=Jai --stars=">=20" --updated=">=<date of last pass>" --limit 100 --json fullName,stargazersCount,pushedAt`; "pushed" in the REST query (`language:Jai pushed:>=...`) means code changed, while "updated" also counts stars and issues.
 - **Try it:** entry point is usually `first.jai` or `build.jai` (arguments after `-` select targets). Try `jaic -check`, then a build, then a run, with a release `jaic`. Classify: passes; jaic or stdlib bug (reduce to a test under `tests/compiler/regressions/` and fix); needs native libraries or another platform (`-os linux`/`-os windows` still type-checks); outdated or broken upstream (note the line).
 - **Verify on every platform** before trusting a smoke check: `-os` flags only type-check. Push a `tmp/...` branch, run CI there, then delete it.
