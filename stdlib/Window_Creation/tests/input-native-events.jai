@@ -203,6 +203,14 @@ main :: () {
         return seen[0].quits > 0;
     }, 1000);
     assert(closed, "no QUIT after closing the first window");
+
+    #if OS == .WINDOWS {
+        // Windows destroys a window that is still open when its thread ends, and calls its window
+        // procedure for that after the interpreter has finished: destroy them here.
+        assert(DestroyWindow(first) != 0, "DestroyWindow first");
+        assert(DestroyWindow(second) != 0, "DestroyWindow second");
+    }
+
     print("ok\n");
 }
 
