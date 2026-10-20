@@ -71,7 +71,7 @@ fn check_only_child_keeps_unreferenced_checked_bodies_for_later_analysis() {
         panic!("predicate was not checked");
     };
     assert!(
-        child.program.funcs[function.0 as usize]
+        child.out.program.funcs[function.0 as usize]
             .as_ref()
             .is_some_and(|body| !body.blocks.is_empty()),
         "check-only output preparation discarded a checked body needed by editor #modify analysis"

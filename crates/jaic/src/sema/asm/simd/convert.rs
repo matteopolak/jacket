@@ -186,10 +186,10 @@ impl Compiler {
 
     /// Address of the S-box (256 bytes), then the inverse S-box and the field inverse.
     pub(super) fn aes_table_ptr(&mut self, f: &mut FnCtx) -> Val {
-        let global = if let Some(g) = self.asm_aes_tables {
+        let global = if let Some(g) = self.out.asm_aes_tables {
             g
         } else {
-            let g = self.program.add_global(crate::ir::Global {
+            let g = self.out.program.add_global(crate::ir::Global {
                 name: crate::sema::private_names::ASM_AES_SBOX.into(),
                 size: 768,
                 align: 16,
@@ -198,7 +198,7 @@ impl Compiler {
                 read_only: true,
                 export: None,
             });
-            self.asm_aes_tables = Some(g);
+            self.out.asm_aes_tables = Some(g);
             g
         };
         f.b.global_addr(global)

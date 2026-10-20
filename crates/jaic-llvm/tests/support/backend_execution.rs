@@ -43,7 +43,7 @@ pub fn execute(
             }
             let object = dir.join("program.o");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: if optimized {

@@ -26,7 +26,7 @@ fn enum_dependencies_execute_native_and_wasm_at_o0_and_o2() {
             }
             let object = dir.join("enums.o");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: level,

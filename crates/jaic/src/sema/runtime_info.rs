@@ -23,11 +23,11 @@ pub(super) const RUNTIME_INFO: &str = "__runtime_info";
 
 impl Compiler {
     pub(super) fn runtime_info_global(&mut self, _span: Span) -> Result<ir::GlobalId> {
-        if let Some(g) = self.runtime_info {
+        if let Some(g) = self.out.runtime_info {
             return Ok(g);
         }
         let g = self.data_global(RUNTIME_INFO, 24, Vec::new(), Vec::new());
-        self.runtime_info = Some(g);
+        self.out.runtime_info = Some(g);
         Ok(g)
     }
 
@@ -38,7 +38,7 @@ impl Compiler {
         init: Vec<u8>,
         relocs: Vec<ir::Reloc>,
     ) -> ir::GlobalId {
-        self.program.add_global(ir::Global {
+        self.out.program.add_global(ir::Global {
             name: name.into(),
             size,
             align: 8,
@@ -73,7 +73,7 @@ impl Compiler {
 
     /// Fill `__runtime_info` (if the program uses it) from the final program.
     pub(super) fn fill_runtime_info(&mut self) -> Result<()> {
-        let Some(info) = self.runtime_info else {
+        let Some(info) = self.out.runtime_info else {
             return Ok(());
         };
         let reloc = |offset: u64, target: ir::GlobalId| ir::Reloc {
@@ -82,6 +82,7 @@ impl Compiler {
             addend: 0,
         };
         let data_globals: Vec<(ir::GlobalId, u64, bool)> = self
+            .out
             .program
             .globals
             .iter()
@@ -112,6 +113,7 @@ impl Compiler {
         for (i, &(global, size, read_only)) in data_globals.iter().enumerate() {
             let at = i * SEGMENT_INFO_SIZE as usize;
             let tag = self
+                .out
                 .registered_data_segments
                 .get(&global)
                 .copied()
@@ -142,12 +144,12 @@ impl Compiler {
 
         let mut bytes = vec![0u8; 24];
         bytes[0..8].copy_from_slice(&(types.len() as u64).to_le_bytes());
-        let g = &mut self.program.globals[info.0 as usize];
+        let g = &mut self.out.program.globals[info.0 as usize];
         g.init = bytes;
         g.relocs = vec![reloc(8, table), reloc(16, gdi)];
         self.ct
             .interp
-            .refresh_global(&self.program, info)
+            .refresh_global(&self.out.program, info)
             .map_err(|t| Box::new(Diagnostic::error(Span::NONE, t.into_message())))
     }
 
@@ -166,7 +168,7 @@ impl Compiler {
             if !seen.insert(f) {
                 continue;
             }
-            let Some(Some(func)) = self.program.funcs.get(f.0 as usize) else {
+            let Some(Some(func)) = self.out.program.funcs.get(f.0 as usize) else {
                 continue;
             };
             for inst in func.blocks.iter().flat_map(|b| &b.insts) {
@@ -219,7 +221,7 @@ impl Compiler {
         entries.sort_by_key(|&(t, _)| t);
         let mut table = Vec::with_capacity(entries.len());
         for (_, g) in entries {
-            if let Ok(addr) = self.ct.interp.global_addr(&self.program, g) {
+            if let Ok(addr) = self.ct.interp.global_addr(&self.out.program, g) {
                 table.push(addr);
             }
         }

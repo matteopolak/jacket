@@ -92,7 +92,7 @@ impl Compiler {
         let align = self.align_of(ty, span)?;
         let mut image = Aggregate::zeroed(size, span)?;
         self.write_value(&mut image, 0, value, ty, span)?;
-        let g = self.program.add_global(ir::Global {
+        let g = self.out.program.add_global(ir::Global {
             name: "using.names".into(),
             size: size.max(1),
             align,
@@ -104,7 +104,7 @@ impl Compiler {
         let addr = self
             .ct
             .interp
-            .global_addr(&self.program, g)
+            .global_addr(&self.out.program, g)
             .map_err(|trap| {
                 Box::new(self.trap_diagnostic(&trap, "cannot read using filter", Some(span)))
             })?;

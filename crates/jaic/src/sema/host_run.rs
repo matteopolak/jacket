@@ -183,15 +183,15 @@ impl Compiler {
         if let Some(&copied) = globals.get(&old) {
             return Ok(ir::RelocTarget::Global(copied));
         }
-        let mut global = host.program.globals[old.0 as usize].clone();
+        let mut global = host.out.program.globals[old.0 as usize].clone();
         global.name = "host.run.data".into();
         global.export = None;
-        let copied = self.program.add_global(global.clone());
+        let copied = self.out.program.add_global(global.clone());
         globals.insert(old, copied);
         for relocation in &mut global.relocs {
             relocation.target = self.import_host_data(host, relocation.target, globals, span)?;
         }
-        self.program.globals[copied.0 as usize] = global;
+        self.out.program.globals[copied.0 as usize] = global;
         Ok(ir::RelocTarget::Global(copied))
     }
 }

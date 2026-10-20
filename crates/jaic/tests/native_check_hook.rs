@@ -19,7 +19,7 @@ fn custom_runtime_does_not_require_an_unreviewed_public_export() {
     compiler
         .compile_sources(&[ProgramSource::String("main :: () {}".into())])
         .unwrap();
-    assert!(compiler.program.check_failed.is_none());
+    assert!(compiler.out.program.check_failed.is_none());
 }
 
 #[test]

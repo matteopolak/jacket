@@ -624,8 +624,8 @@ impl Compiler {
             Value::Bytes(agg) => {
                 let size = self.size_of(ty, span)?;
                 let align = self.align_of(ty, span)?;
-                let global = self.program.add_global(ir::Global {
-                    name: format!("const.{}", self.program.globals.len()),
+                let global = self.out.program.add_global(ir::Global {
+                    name: format!("const.{}", self.out.program.globals.len()),
                     size,
                     align,
                     init: agg.bytes.clone(),
@@ -646,13 +646,13 @@ impl Compiler {
 
     /// Read-only global holding the bytes of a string literal.
     pub fn string_global(&mut self, bytes: &Rc<[u8]>) -> ir::GlobalId {
-        if let Some(&g) = self.strings.get(bytes) {
+        if let Some(&g) = self.out.strings.get(bytes) {
             return g;
         }
         let mut init = bytes.to_vec();
         init.push(0); // keep literals C-compatible
-        let g = self.program.add_global(ir::Global {
-            name: format!("str.{}", self.strings.len()),
+        let g = self.out.program.add_global(ir::Global {
+            name: format!("str.{}", self.out.strings.len()),
             size: init.len() as u64,
             align: 1,
             init,
@@ -660,7 +660,7 @@ impl Compiler {
             read_only: true,
             export: None,
         });
-        self.strings.insert(bytes.clone(), g);
+        self.out.strings.insert(bytes.clone(), g);
         g
     }
 

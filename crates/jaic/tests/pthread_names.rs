@@ -17,6 +17,7 @@ fn current_and_managed_worker_names_round_trip_through_the_sdk() {
         panic!("{}", error.render(&compiler.sources));
     }
     let id = compiler
+        .out
         .program
         .funcs
         .iter()
@@ -28,7 +29,7 @@ fn current_and_managed_worker_names_round_trip_through_the_sdk() {
     let result = compiler
         .ct
         .interp
-        .call(&compiler.program, jaic::ir::FuncId(id as u32), &[])
+        .call(&compiler.out.program, jaic::ir::FuncId(id as u32), &[])
         .unwrap();
     assert_eq!(result, vec![0], "independent naming contract failure stage");
 }

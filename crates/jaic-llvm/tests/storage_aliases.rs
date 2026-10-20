@@ -24,13 +24,16 @@ fn filtered_reexports_share_actual_c_memory_native_and_wasm_o0_o2() {
             if let Err(e) = c.compile_program(&fixture.join("main.jai")) {
                 panic!("{}", e.render(&c.sources));
             }
-            assert_eq!(c.program.foreigns.iter().filter(|f| f.is_data).count(), 2);
-            assert!(!c.program.globals.iter().any(|g| {
+            assert_eq!(
+                c.out.program.foreigns.iter().filter(|f| f.is_data).count(),
+                2
+            );
+            assert!(!c.out.program.globals.iter().any(|g| {
                 ["storage_alias_counter", "storage_alias_pair"].contains(&g.name.as_str())
             }));
             let object = dir.join("aliases.o");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: level,

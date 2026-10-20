@@ -14,14 +14,14 @@ fn null_guards_trap_without_a_runtime_reporter() {
         compiler
             .compile_sources(&[ProgramSource::String(source.into())])
             .unwrap();
-        assert!(compiler.program.check_failed.is_none());
+        assert!(compiler.out.program.check_failed.is_none());
         let directory = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
             .join(format!("runtime-disabled/{level:?}"));
         std::fs::create_dir_all(&directory).unwrap();
         let object = directory.join("guard.o");
         let ir = directory.join("guard.ll");
         emit_object(
-            &compiler.program,
+            &compiler.out.program,
             &jaic_llvm::Options {
                 opt_level: level,
                 emit_ir: Some(ir.clone()),

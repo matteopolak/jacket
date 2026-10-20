@@ -82,9 +82,9 @@ impl Compiler {
         // Body checking is not a constant's value dependency. Actual emitted
         // body uses are recorded in its FnCtx; #assert/type-only scratch uses
         // must not leak into a surrounding callback/global initializer.
-        let captures = std::mem::take(&mut self.runtime_storage_dependencies.captures);
+        let captures = std::mem::take(&mut self.out.runtime_storage_dependencies.captures);
         let result = self.lower_body_code_with_runtime_dependencies(id, func_id);
-        self.runtime_storage_dependencies.captures = captures;
+        self.out.runtime_storage_dependencies.captures = captures;
         result
     }
 
@@ -100,7 +100,7 @@ impl Compiler {
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let file = self.scope_file(sig.scope);
         let name = match func_id {
-            Some(func_id) => self.program.func_names[func_id.0 as usize].clone(),
+            Some(func_id) => self.out.program.func_names[func_id.0 as usize].clone(),
             None => "typecheck".into(),
         };
         let mut f = FnCtx::new(name, ir_sig, file);
@@ -299,10 +299,11 @@ impl Compiler {
             );
         }
         if let Some(func_id) = func_id {
-            self.runtime_storage_dependencies
+            self.out
+                .runtime_storage_dependencies
                 .functions
                 .insert(func_id, (storage_constants, span));
-            self.program.funcs[func_id.0 as usize] = Some(func);
+            self.out.program.funcs[func_id.0 as usize] = Some(func);
         }
         Ok(())
     }
@@ -350,7 +351,7 @@ impl Compiler {
                 unreachable!();
             };
             f.b.ret(vec![val]);
-            self.program.funcs[func_id.0 as usize] = Some(f.b.finish());
+            self.out.program.funcs[func_id.0 as usize] = Some(f.b.finish());
             return Ok(());
         }
         let start = usize::from(sig.has_context);
@@ -389,7 +390,7 @@ impl Compiler {
             let results = f.b.intrinsic(op, args, &returns);
             f.b.ret(results);
         }
-        self.program.funcs[func_id.0 as usize] = Some(f.b.finish());
+        self.out.program.funcs[func_id.0 as usize] = Some(f.b.finish());
         Ok(())
     }
 

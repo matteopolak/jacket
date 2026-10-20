@@ -51,7 +51,7 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
                 .unwrap();
             let object = dir.join("program.o");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level,

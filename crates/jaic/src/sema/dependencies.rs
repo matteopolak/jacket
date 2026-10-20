@@ -75,7 +75,7 @@ impl Compiler {
         let mut call = self
             .ct
             .interp
-            .call_for_compiler(&self.program, function, args);
+            .call_for_compiler(&self.out.program, function, args);
         loop {
             match call {
                 CompileCall::Complete(result) => return result,
@@ -90,7 +90,7 @@ impl Compiler {
                         Err(error) => {
                             self.ct
                                 .interp
-                                .cancel_compiler_call(&self.program, continuation);
+                                .cancel_compiler_call(&self.out.program, continuation);
                             *deferred = Some(error);
                             return Err(crate::interp::Trap::new("compile-time dependency failed"));
                         }
@@ -101,7 +101,7 @@ impl Compiler {
                     call = self
                         .ct
                         .interp
-                        .resume_for_compiler(&self.program, continuation);
+                        .resume_for_compiler(&self.out.program, continuation);
                 }
             }
         }

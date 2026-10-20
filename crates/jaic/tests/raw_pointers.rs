@@ -25,7 +25,7 @@ fn raw_pointer_constants_defaults_globals_and_run_results_are_values() {
             panic!("{}", e.render(&c.sources));
         }
         assert!(
-            !c.program.globals.iter().any(|g| g.name == "frozen"),
+            !c.out.program.globals.iter().any(|g| g.name == "frozen"),
             "raw handles must not acquire fabricated pointee storage"
         );
     }

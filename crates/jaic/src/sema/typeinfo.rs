@@ -88,7 +88,7 @@ impl Compiler {
         // (a self-reference) points at the one that is filled in now.
         let g = match self.failed_type_infos.remove(&ty) {
             Some(g) => g,
-            None => self.program.add_global(ir::Global {
+            None => self.out.program.add_global(ir::Global {
                 name: format!("type_info.{}", self.types.name(ty)),
                 size,
                 align,
@@ -122,7 +122,7 @@ impl Compiler {
                 return Err(e);
             }
         };
-        let global = &mut self.program.globals[g.0 as usize];
+        let global = &mut self.out.program.globals[g.0 as usize];
         global.init = agg.bytes;
         global.relocs = agg.relocs;
         Ok(g)
@@ -142,12 +142,12 @@ impl Compiler {
             let desc = self.type_info_struct_type(ty, span)?;
             let size = self.size_of(desc, span)?;
             let agg = self.build_type_info(ty, desc, size, span)?;
-            let global = &mut self.program.globals[g.0 as usize];
+            let global = &mut self.out.program.globals[g.0 as usize];
             global.init = agg.bytes;
             global.relocs = agg.relocs;
             self.ct
                 .interp
-                .refresh_global(&self.program, g)
+                .refresh_global(&self.out.program, g)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
         }
         Ok(())

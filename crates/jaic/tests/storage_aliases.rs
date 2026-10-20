@@ -94,7 +94,7 @@ fn foreign_storage_type_queries_and_reexports_need_no_runtime_symbol() {
             panic!("{}", e.render(&c.sources));
         }
         assert_eq!(
-            c.program.foreigns.iter().filter(|f| f.is_data).count(),
+            c.out.program.foreigns.iter().filter(|f| f.is_data).count(),
             1,
             "reexports must reuse the foreign storage descriptor"
         );
@@ -177,7 +177,10 @@ fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{}", e.render(&c.sources));
     }
-    assert_eq!(c.program.foreigns.iter().filter(|f| f.is_data).count(), 2);
+    assert_eq!(
+        c.out.program.foreigns.iter().filter(|f| f.is_data).count(),
+        2
+    );
 }
 
 #[test]

@@ -34,7 +34,8 @@ fn audit_does_not_evaluate_unselected_dependency_headers() {
         "Hidden :: [#run unneeded_size()] s64;\nunneeded_size :: () -> s64 { return 1; }\nunselected :: (value: Hidden) {}\n",
     );
     assert!(
-        !c.program
+        !c.out
+            .program
             .func_names
             .iter()
             .any(|n| n.contains("unneeded_size"))
@@ -45,7 +46,8 @@ fn audit_does_not_evaluate_unselected_dependency_headers() {
         "{errors:?}"
     );
     assert!(
-        !c.program
+        !c.out
+            .program
             .func_names
             .iter()
             .any(|n| n.contains("unneeded_size")),
@@ -60,7 +62,8 @@ fn bodiless_audit_does_not_evaluate_unselected_dependency_headers() {
         "Hidden :: [#run unneeded_size()] s64;\nunneeded_size :: () -> s64 { return 1; }\nunselected :: (value: Hidden) #foreign;\n",
     );
     assert!(
-        !c.program
+        !c.out
+            .program
             .func_names
             .iter()
             .any(|n| n.contains("unneeded_size"))
@@ -68,7 +71,8 @@ fn bodiless_audit_does_not_evaluate_unselected_dependency_headers() {
     let errors = c.ide_check_all();
     assert!(errors.iter().any(|e| e.message.contains("missing")));
     assert!(
-        !c.program
+        !c.out
+            .program
             .func_names
             .iter()
             .any(|n| n.contains("unneeded_size"))
@@ -84,13 +88,15 @@ fn sketching_does_not_retry_unrelated_failed_bodies_after_compile_time_progress(
     let errors = c.ide_check_all();
     assert!(errors.iter().any(|e| e.message.contains("missing_body")));
     let failed = c
+        .out
         .program
         .func_names
         .iter()
         .position(|n| n.contains("failed"))
         .unwrap();
-    assert!(c.program.funcs[failed].is_none());
+    assert!(c.out.program.funcs[failed].is_none());
     let nested_before = c
+        .out
         .program
         .func_names
         .iter()
@@ -111,21 +117,23 @@ fn sketching_does_not_retry_unrelated_failed_bodies_after_compile_time_progress(
     );
     for name in ["first#", "second#"] {
         let at = c
+            .out
             .program
             .func_names
             .iter()
             .position(|n| n.starts_with(name))
             .unwrap();
         assert!(
-            c.program.funcs[at].is_some(),
+            c.out.program.funcs[at].is_some(),
             "selected sketch {name} must finish"
         );
     }
     assert!(
-        c.program.funcs[failed].is_none(),
+        c.out.program.funcs[failed].is_none(),
         "a sketch must not recheck an unrelated failed body with stand-in recovery"
     );
     let nested_after = c
+        .out
         .program
         .func_names
         .iter()
@@ -156,7 +164,8 @@ fn reachable_dependency_and_independent_recorded_errors_remain_checked() {
         );
     }
     assert!(
-        c.program
+        c.out
+            .program
             .func_names
             .iter()
             .any(|n| n.contains("required_size")),
@@ -184,7 +193,8 @@ fn audit_shared_failed_generator_is_not_relowered_without_semantic_progress() {
         );
     }
     assert_eq!(
-        c.program
+        c.out
+            .program
             .func_names
             .iter()
             .filter(|n| n.as_str() == "nested_repeat")
@@ -193,19 +203,21 @@ fn audit_shared_failed_generator_is_not_relowered_without_semantic_progress() {
         "each compile-time caller must reuse an unchanged failed generator result"
     );
     let generator = c
+        .out
         .program
         .func_names
         .iter()
         .position(|n| n == "failed_generator")
         .unwrap();
-    assert!(c.program.funcs[generator].is_none());
+    assert!(c.out.program.funcs[generator].is_none());
     let healthy = c
+        .out
         .program
         .func_names
         .iter()
         .position(|n| n == "healthy")
         .unwrap();
-    assert!(c.program.funcs[healthy].is_some());
+    assert!(c.out.program.funcs[healthy].is_some());
     c.add_source(&jaic::sema::ProgramSource::String(
         "missing_generator :: \"generated :: 1;\";".into(),
     ))
@@ -218,7 +230,7 @@ fn audit_shared_failed_generator_is_not_relowered_without_semantic_progress() {
         "{retried:?}"
     );
     assert!(
-        c.program.funcs[generator].is_some(),
+        c.out.program.funcs[generator].is_some(),
         "new source must permit a real successful retry"
     );
 }

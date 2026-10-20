@@ -126,7 +126,7 @@ impl Compiler {
             return;
         }
         let (line, _) = self.sources.get(span.file).line_col(span.start);
-        self.program.debug_globals.push(ir::DebugGlobal {
+        self.out.program.debug_globals.push(ir::DebugGlobal {
             global,
             name: name.to_string(),
             ty: ty.0,
@@ -138,8 +138,8 @@ impl Compiler {
     /// Describe every type the recorded debug information names (idempotent), and make
     /// sure `Program::file_paths` names every source file.
     pub fn collect_debug_types(&mut self) {
-        if self.program.file_paths.len() < self.sources.len() {
-            self.program.file_paths = (0..self.sources.len())
+        if self.out.program.file_paths.len() < self.sources.len() {
+            self.out.program.file_paths = (0..self.sources.len())
                 .map(|i| {
                     self.sources
                         .get(crate::source::FileId(i as u32))
@@ -149,14 +149,14 @@ impl Compiler {
                 .collect();
         }
         let mut pending: Vec<u32> = Vec::new();
-        for func in self.program.funcs.iter().flatten() {
+        for func in self.out.program.funcs.iter().flatten() {
             if let Some(debug) = &func.debug {
                 pending.extend(debug.vars.iter().map(|v| v.ty));
             }
         }
-        pending.extend(self.program.debug_globals.iter().map(|g| g.ty));
+        pending.extend(self.out.program.debug_globals.iter().map(|g| g.ty));
         while let Some(key) = pending.pop() {
-            if self.program.debug_types.contains_key(&key) {
+            if self.out.program.debug_types.contains_key(&key) {
                 continue;
             }
             let ty = self.describe_debug_type(key);
@@ -177,7 +177,7 @@ impl Compiler {
                 | DebugTypeKind::Typedef(t) => pending.push(t),
                 _ => {}
             }
-            self.program.debug_types.insert(key, ty);
+            self.out.program.debug_types.insert(key, ty);
         }
     }
 

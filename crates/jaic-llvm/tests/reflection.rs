@@ -58,7 +58,7 @@ fn generic_default_storage_and_relocations_native_and_wasm() {
             }
             let object = dir.join("reflection.o");
             emit_object(
-                &compiler.program,
+                &compiler.out.program,
                 &jaic_llvm::Options {
                     target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: if optimized {

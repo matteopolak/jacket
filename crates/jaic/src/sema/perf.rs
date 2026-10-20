@@ -144,7 +144,7 @@ impl Compiler {
             let Some(ProcTarget::Func(func)) = info.target else {
                 continue;
             };
-            let Some(Some(body)) = self.program.funcs.get(func.0 as usize) else {
+            let Some(Some(body)) = self.out.program.funcs.get(func.0 as usize) else {
                 continue;
             };
             let (line, _) = self
@@ -167,7 +167,7 @@ impl Compiler {
     /// The instructions and direct calls in the program lowered so far, for `Bytecode_Report`.
     pub fn instruction_counts(&self) -> (u64, u64) {
         let (mut calls, mut instructions) = (0, 0);
-        for func in self.program.funcs.iter().flatten() {
+        for func in self.out.program.funcs.iter().flatten() {
             for block in &func.blocks {
                 instructions += block.insts.len() as u64 + 1;
                 calls += block

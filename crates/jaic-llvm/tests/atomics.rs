@@ -96,7 +96,7 @@ fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
         emit_ir: Some(dir.join("atomics.ll")),
         ..Default::default()
     };
-    emit_object(&compiler.program, &options, &object).unwrap();
+    emit_object(&compiler.out.program, &options, &object).unwrap();
     let ir = std::fs::read_to_string(dir.join("atomics.ll")).unwrap();
     for text in [
         "load atomic",
@@ -236,7 +236,7 @@ fn wasm_cannot_silently_disable_required_atomics() {
         features: Some("-atomics".into()),
         ..Default::default()
     };
-    let error = emit_object(&compiler.program, &options, &dir.join("disabled.o"))
+    let error = emit_object(&compiler.out.program, &options, &dir.join("disabled.o"))
         .expect_err("explicitly disabled required atomics must fail");
     assert!(error.contains("atomics target feature"), "{error}");
 }

@@ -42,6 +42,7 @@ mod meta_state;
 mod modify;
 mod module_rank;
 mod modules;
+mod output;
 pub mod perf;
 mod private_names;
 pub mod procs;
@@ -74,6 +75,7 @@ pub use expr::PreludeType;
 pub use meta_state::MetaState;
 pub use module_rank::{ModuleRanking, Rank, count_importers};
 pub use modules::{BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
+pub use output::Output;
 pub use scope::{EntityId, ScopeId};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -413,8 +415,7 @@ pub struct Compiler {
     ahead: Option<crate::parse_ahead::ParseAhead>,
     pub sources: SourceMap,
     pub types: Types,
-    pub program: ir::Program,
-    registered_data_segments: HashMap<ir::GlobalId, u16>,
+    pub out: Output,
     pub files: Vec<FileInfo>,
     /// Lexical provenance of scoped/generated sources, for relative source loads
     /// and the distribution boundary around library-owned internals.
@@ -451,10 +452,6 @@ pub struct Compiler {
     field_filter_pending: HashSet<(ScopeId, ast::AstId)>,
     field_using_order: HashMap<ScopeId, Vec<structs::FieldUsing>>,
     pub context_type: Option<TypeId>,
-    /// `__runtime_info`, when the program references it.
-    runtime_info: Option<ir::GlobalId>,
-    runtime_storage_global: Option<ir::GlobalId>,
-    runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies,
     pub meta: MetaState,
     /// Sources added so far (labels of added strings).
     pub(crate) added_sources: usize,
@@ -512,14 +509,6 @@ pub struct Compiler {
     type_table_func: Option<ir::FuncId>,
     /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
     pub type_info_flags: HashMap<TypeId, u32>,
-    /// String literal globals, deduplicated.
-    pub strings: HashMap<Rc<[u8]>, ir::GlobalId>,
-    /// Static storage for aggregate constants whose address was taken, one per distinct image.
-    pub const_addr_globals: HashMap<(TypeId, Vec<u8>, Vec<ir::Reloc>), ir::GlobalId>,
-    /// The data of constant views made from baked variadic arguments, deduplicated by
-    /// contents so that equal argument lists share one global (and one instance).
-    pub packs: HashMap<PackKey, ir::GlobalId>,
-    pub output: Vec<u8>,
     pub diag: Diagnostics,
     /// Overload sets already checked for identical parameter lists.
     pub overload_sets_checked: crate::fxhash::HashSet<Vec<EntityId>>,
@@ -590,10 +579,6 @@ pub struct Compiler {
     /// Pinned general-purpose registers of the `#asm` block being lowered: (register number in
     /// x86 encoding order, address of its slot). Later pins of a register win.
     pub asm_pins: Vec<(u8, ir::Val)>,
-    /// Spin lock word shared by `lock_cmpxchg8b`/`lock_cmpxchg16b` in `#asm` blocks.
-    pub asm_pair_lock: Option<ir::GlobalId>,
-    /// The AES S-boxes used by `aesenc` & co. in `#asm` blocks.
-    pub asm_aes_tables: Option<ir::GlobalId>,
     /// Scopes with top-level items put back to waiting because they failed while
     /// procedure bodies were mid-lowering (retried by `expand_all`).
     pub deferred_pending: Vec<ScopeId>,
@@ -615,12 +600,6 @@ pub struct Compiler {
     insert_depth: HashMap<FileId, u32>,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: crate::ide::Editor,
-    /// `#no_reset` globals with their types: compiled output starts from the values that
-    /// compile-time code left in them (`prepare_compiled_output`).
-    pub no_reset_globals: Vec<(ir::GlobalId, TypeId)>,
-    /// How much code existed when `finish_program` began checking what the program does not
-    /// reach: compiled output drops what was made after it and is still unreferenced.
-    pub(super) unreferenced_from: Option<driver::ProgramMark>,
 }
 
 /// Names and default values of a procedure type's parameters (defaults evaluate in `scope`).
@@ -654,25 +633,14 @@ impl Compiler {
     /// answers from its facts once it is checked, and these are tens of MB for a large
     /// program. Code checked later may still lower, but no compile-time code runs again.
     pub fn release_lowered_code(&mut self) {
-        for func in self.program.funcs.iter_mut().flatten() {
-            func.blocks = Vec::new();
-            func.vals = Vec::new();
-            func.slots = Vec::new();
-            func.trusted = Vec::new();
-            func.debug = None;
-        }
-        for global in &mut self.program.globals {
-            global.init = Vec::new();
-            global.relocs = Vec::new();
-        }
-        self.program.debug_types = HashMap::default();
-        self.program.debug_globals = Vec::new();
+        self.out.release_lowered();
         self.ct.interp.release_code();
     }
 
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
+            out: Output::new(cross_target),
             meta: MetaState::default(),
             epochs: Epochs::default(),
             diag: Diagnostics::default(),
@@ -683,11 +651,6 @@ impl Compiler {
             ahead: None,
             sources: SourceMap::default(),
             types: Types::new(),
-            program: ir::Program {
-                cross_target,
-                ..Default::default()
-            },
-            registered_data_segments: HashMap::default(),
             files: Vec::new(),
             source_origins: HashMap::default(),
             file_by_path: HashMap::default(),
@@ -715,9 +678,6 @@ impl Compiler {
             field_filter_pending: HashSet::default(),
             field_using_order: HashMap::default(),
             context_type: None,
-            runtime_info: None,
-            runtime_storage_global: None,
-            runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies::default(),
             added_sources: 0,
             lenient_failures: HashMap::default(),
             default_scopes: HashMap::default(),
@@ -746,10 +706,6 @@ impl Compiler {
             snapshot_key: (usize::MAX, 0, 0),
             type_table_func: None,
             type_info_flags: HashMap::default(),
-            strings: HashMap::default(),
-            const_addr_globals: HashMap::default(),
-            packs: HashMap::default(),
-            output: Vec::new(),
             overload_sets_checked: HashSet::default(),
             failed_imports: Vec::new(),
             live_procs: Vec::new(),
@@ -782,8 +738,6 @@ impl Compiler {
             export_entities: Vec::new(),
             asm_regs: HashMap::default(),
             asm_pins: Vec::new(),
-            asm_pair_lock: None,
-            asm_aes_tables: None,
             deferred_pending: Vec::new(),
             unsettled: std::collections::BTreeSet::new(),
             named_imports_done: 0,
@@ -791,8 +745,6 @@ impl Compiler {
             callable_fields: HashMap::default(),
             program_param_settings: Vec::new(),
             insert_depth: HashMap::default(),
-            no_reset_globals: Vec::new(),
-            unreferenced_from: None,
         };
         c.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();

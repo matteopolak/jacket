@@ -113,13 +113,14 @@ fn unchanged_missing_import_reuses_discovery_and_keeps_real_errors() {
         "{errors:?}"
     );
     let healthy = c
+        .out
         .program
         .func_names
         .iter()
         .position(|n| n == "healthy")
         .unwrap();
     assert!(
-        c.program.funcs[healthy].is_some(),
+        c.out.program.funcs[healthy].is_some(),
         "resolved imported declarations remain checked"
     );
 }

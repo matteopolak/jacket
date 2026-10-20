@@ -27,7 +27,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
             let object = dir.join("pointers.o");
             let ir = dir.join("pointers.ll");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: level,
@@ -43,6 +43,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
                     .contains("@opaque_handle_value")
             );
             let global = c
+                .out
                 .program
                 .globals
                 .iter()
@@ -112,7 +113,7 @@ fn unsupported_32_bit_targets_do_not_masquerade_as_supported_pointer_models() {
         );
     }
     let error = emit_object(
-        &c.program,
+        &c.out.program,
         &jaic_llvm::Options {
             target: Some(jaic::target::Target::parse("wasm32-unknown-unknown").unwrap()),
             ..Default::default()

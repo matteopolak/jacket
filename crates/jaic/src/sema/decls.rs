@@ -483,7 +483,7 @@ impl Compiler {
             let a = self.eval_int(scope, a)?;
             align = align.max(a as u64);
         }
-        let global = self.program.add_global(ir::Global {
+        let global = self.out.program.add_global(ir::Global {
             name: name.to_string(),
             size,
             align,
@@ -494,9 +494,9 @@ impl Compiler {
         });
         self.debug_global(global, name, ty, span);
         if decl.flags().iter().any(|f| f.name.as_str() == "no_reset") {
-            self.no_reset_globals.push((global, ty));
+            self.out.no_reset_globals.push((global, ty));
         } else {
-            self.program.reset_globals.push(global);
+            self.out.program.reset_globals.push(global);
         }
         // Mark resolved before evaluating the initializer so self-references work.
         // The entity state is set by resolve_entity on return; initializers that
@@ -513,7 +513,7 @@ impl Compiler {
             None => self.default_initializer(ty, span)?,
         };
         if let Some(agg) = init {
-            let g = &mut self.program.globals[global.0 as usize];
+            let g = &mut self.out.program.globals[global.0 as usize];
             g.init.clone_from(&agg.bytes);
             g.relocs.clone_from(&agg.relocs);
         }
@@ -557,7 +557,7 @@ impl Compiler {
             ast::ForeignName::Named(s) => s.to_string(),
             ast::ForeignName::Default => name.to_string(),
         };
-        let foreign = self.program.add_foreign(ir::Foreign {
+        let foreign = self.out.program.add_foreign(ir::Foreign {
             symbol,
             library,
             sig: ir::Sig {
@@ -889,8 +889,8 @@ impl Compiler {
         let system = system_directive || flag("system");
         let link_always = flag("link_always");
         let base_dir = self.file_dir(self.scope_file(scope)).display().to_string();
-        let ir = self.program.libraries.len();
-        self.program.libraries.push(ir::Library {
+        let ir = self.out.program.libraries.len();
+        self.out.program.libraries.push(ir::Library {
             name: lib_name.clone(),
             system,
             link_always,

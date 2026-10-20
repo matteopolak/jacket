@@ -169,7 +169,7 @@ impl Compiler {
                     g
                 } else {
                     let align = self.align_of(ty, span)?;
-                    let g = self.program.add_global(ir::Global {
+                    let g = self.out.program.add_global(ir::Global {
                         name: format!("default.{}", self.types.name(ty)),
                         size,
                         align,
@@ -205,7 +205,7 @@ impl Compiler {
             return Ok((func, proc_ty));
         }
         let name = format!("__init_{}", self.types.name(ty));
-        let func = self.program.reserve_func(name.clone());
+        let func = self.out.program.reserve_func(name.clone());
         self.initializers.insert(ty, func);
         let sig = ir::Sig {
             params: vec![Ty::Ptr],
@@ -219,7 +219,7 @@ impl Compiler {
         let addr = f.b.param(0);
         self.init_default(&mut f, ty, addr, span)?;
         f.b.ret(Vec::new());
-        self.program.funcs[func.0 as usize] = Some(f.b.finish());
+        self.out.program.funcs[func.0 as usize] = Some(f.b.finish());
         Ok((func, proc_ty))
     }
 }

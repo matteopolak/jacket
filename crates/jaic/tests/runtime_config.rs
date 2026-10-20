@@ -25,6 +25,7 @@ fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
             panic!("{}", error.render(&c.sources));
         }
         let index = c
+            .out
             .program
             .funcs
             .iter()
@@ -36,7 +37,7 @@ fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
             .unwrap();
         let func = jaic::ir::FuncId(index as u32);
         assert_eq!(
-            c.ct.interp.call(&c.program, func, &[]).unwrap(),
+            c.ct.interp.call(&c.out.program, func, &[]).unwrap(),
             vec![size as u64]
         );
     }
@@ -57,6 +58,7 @@ fn final_runtime_size_replaces_previously_interpreted_configuration_data() {
     }
     for name in ["configured_size", "wrapped_size"] {
         let index = c
+            .out
             .program
             .funcs
             .iter()
@@ -67,7 +69,7 @@ fn final_runtime_size_replaces_previously_interpreted_configuration_data() {
             .unwrap();
         assert_eq!(
             c.ct.interp
-                .call(&c.program, jaic::ir::FuncId(index as u32), &[])
+                .call(&c.out.program, jaic::ir::FuncId(index as u32), &[])
                 .unwrap(),
             vec![65536]
         );
@@ -163,7 +165,7 @@ fn ordinary_private_target_startup_reads_nondefault_configuration() {
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
-        c.ct.interp.call(&c.program, entry, &[]).unwrap(),
+        c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
     );
 }
@@ -185,7 +187,7 @@ fn retained_startup_callback_relocation_reads_nondefault_configuration() {
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
-        c.ct.interp.call(&c.program, entry, &[]).unwrap(),
+        c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
     );
 }
@@ -259,7 +261,7 @@ fn retained_startup_aggregate_and_global_cycles_preserve_reachability() {
     c.finalize_runtime_configuration().unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
-        c.ct.interp.call(&c.program, entry, &[]).unwrap(),
+        c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
     );
 }
@@ -287,7 +289,7 @@ fn reviewed_public_constant_configures_target_storage_and_keeps_alias_values() {
         result.map_err(|e| e.render(&c.sources)).unwrap();
         let entry = c.exported_func("main").unwrap();
         assert_eq!(
-            c.ct.interp.call(&c.program, entry, &[]).unwrap(),
+            c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
             vec![1_048_576]
         );
     }
@@ -313,7 +315,7 @@ fn cached_record_layout_preserves_its_public_constant_binding_dependency() {
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
-        c.ct.interp.call(&c.program, entry, &[]).unwrap(),
+        c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
     );
 }
@@ -332,7 +334,7 @@ fn runtime_scalar_public_constant_and_alias_reads_are_real_target_dependencies()
     result.map_err(|e| e.render(&c.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
     assert_eq!(
-        c.ct.interp.call(&c.program, entry, &[]).unwrap(),
+        c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
     );
 }

@@ -76,7 +76,7 @@ impl Compiler {
             let (ty, v) = self.rvalue(&mut f, operand, span)?;
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
-            let g = self.program.add_global(ir::Global {
+            let g = self.out.program.add_global(ir::Global {
                 name: "run.result".into(),
                 size: size.max(1),
                 align,
@@ -96,7 +96,7 @@ impl Compiler {
             let addr = self
                 .ct
                 .interp
-                .global_addr(&self.program, g)
+                .global_addr(&self.out.program, g)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
             results.push(
                 (match self.read_value(addr, ty, span)? {
@@ -128,8 +128,8 @@ impl Compiler {
         }
         let func = f.b.finish();
         self.preflight_thunk_entry(&func)?;
-        let id = self.program.reserve_func(func.name.clone());
-        self.program.funcs[id.0 as usize] = Some(func);
+        let id = self.out.program.reserve_func(func.name.clone());
+        self.out.program.funcs[id.0 as usize] = Some(func);
         // The entry thunk is ready. Callee bodies are compiled when execution
         // actually requests them; taking a procedure value does not need a body.
         let nested = self.lowering_depth > 0;
@@ -152,7 +152,7 @@ impl Compiler {
             std::mem::take(&mut self.ct.interp.code_export_cursor),
             std::mem::take(&mut self.ct.interp.run_codes),
         );
-        let callee = self.program.funcs[id.0 as usize]
+        let callee = self.out.program.funcs[id.0 as usize]
             .as_ref()
             .and_then(super::super::ir::Func::first_direct_callee);
         let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
@@ -212,7 +212,7 @@ impl Compiler {
         self.flush_interp_output();
         for data in std::mem::take(&mut self.ct.interp.pending_data_globals) {
             let init = self.program_bytes(data.address(), data.size as usize, span)?;
-            let global = self.program.add_global(ir::Global {
+            let global = self.out.program.add_global(ir::Global {
                 name: "compiler.global_data".into(),
                 size: data.size,
                 align: data.align,
@@ -221,10 +221,11 @@ impl Compiler {
                 read_only: data.read_only,
                 export: None,
             });
-            self.registered_data_segments
+            self.out
+                .registered_data_segments
                 .insert(global, data.segment_tag);
             if !data.read_only {
-                self.program.reset_globals.push(global);
+                self.out.program.reset_globals.push(global);
             }
             self.ct.interp.adopt_data_global(global, data);
         }
@@ -265,7 +266,7 @@ impl Compiler {
         let (init, relocs) = img
             .map(|a| (a.bytes.clone(), a.relocs.clone()))
             .unwrap_or_default();
-        let g = self.program.add_global(ir::Global {
+        let g = self.out.program.add_global(ir::Global {
             name: "compile_time_context".into(),
             size,
             align,
@@ -280,7 +281,7 @@ impl Compiler {
         {
             let ts_size = self.size_of(ts_ty, span)?;
             let buf_size = 1 << 20;
-            let buf = self.program.add_global(ir::Global {
+            let buf = self.out.program.add_global(ir::Global {
                 name: "compile_time_temporary".into(),
                 size: buf_size,
                 align: 16,
@@ -321,7 +322,7 @@ impl Compiler {
                     }
                 }
             }
-            let ts = self.program.add_global(ir::Global {
+            let ts = self.out.program.add_global(ir::Global {
                 name: "compile_time_temporary_storage".into(),
                 size: ts_size,
                 align: 8,
@@ -341,7 +342,7 @@ impl Compiler {
                         }
                     })
                     .sum();
-                let global = &mut self.program.globals[g.0 as usize];
+                let global = &mut self.out.program.globals[g.0 as usize];
                 if global.init.len() < size as usize {
                     global.init.resize(size as usize, 0);
                 }
@@ -357,7 +358,7 @@ impl Compiler {
         let addr = self
             .ct
             .interp
-            .global_addr(&self.program, g)
+            .global_addr(&self.out.program, g)
             .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
         self.ct.context = Some(addr);
         Ok(addr)
@@ -1062,7 +1063,7 @@ impl Compiler {
             self.align_of(elem, span)?
         };
         // Registered before its contents are frozen, so a pointer back to it ends the walk.
-        let g = self.program.add_global(ir::Global {
+        let g = self.out.program.add_global(ir::Global {
             name: "frozen".into(),
             size: bytes + 1,
             align,
@@ -1084,7 +1085,7 @@ impl Compiler {
         }
         let mut init = inner.bytes;
         init.push(0); // NUL after frozen strings
-        let global = &mut self.program.globals[g.0 as usize];
+        let global = &mut self.out.program.globals[g.0 as usize];
         global.init = init;
         global.relocs = inner.relocs;
         agg.relocs.push(ir::Reloc {

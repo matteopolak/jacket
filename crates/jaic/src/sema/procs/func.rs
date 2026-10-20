@@ -43,7 +43,7 @@ impl Compiler {
                 ast::ForeignName::Named(s) => s.to_string(),
                 ast::ForeignName::Default => name.to_string(),
             };
-            ProcTarget::Foreign(self.program.add_foreign(ir::Foreign {
+            ProcTarget::Foreign(self.out.program.add_foreign(ir::Foreign {
                 symbol,
                 library,
                 sig: ir_sig,
@@ -54,7 +54,7 @@ impl Compiler {
         {
             // `#intrinsic "llvm.x"`: a call to the LLVM intrinsic itself. It exists only in
             // native code; the interpreter cannot resolve the symbol.
-            ProcTarget::Foreign(self.program.add_foreign(ir::Foreign {
+            ProcTarget::Foreign(self.out.program.add_foreign(ir::Foreign {
                 symbol: llvm.to_string(),
                 library: None,
                 sig: ir_sig,
@@ -63,14 +63,14 @@ impl Compiler {
         } else if self.proc(id).lit.body.is_none() {
             if header.flags.intrinsic() || header.flags.compiler() {
                 // Intrinsics are expanded at call sites; a reference as a value gets a wrapper later.
-                let func = self.program.reserve_func(name.to_string());
+                let func = self.out.program.reserve_func(name.to_string());
                 self.procs[id.0 as usize].body_state = BodyState::Queued;
                 crate::sema::body_probe::enqueued(id.0);
                 self.body_queue.push(id);
                 ProcTarget::Func(func)
             } else {
                 // `#elsewhere` or a declaration without body: resolve as a process symbol.
-                ProcTarget::Foreign(self.program.add_foreign(ir::Foreign {
+                ProcTarget::Foreign(self.out.program.add_foreign(ir::Foreign {
                     symbol: name.to_string(),
                     library: None,
                     sig: ir_sig,
@@ -79,7 +79,7 @@ impl Compiler {
             }
         } else {
             let display = self.proc_display_name(id);
-            let func = self.program.reserve_func_with_sig(display, ir_sig);
+            let func = self.out.program.reserve_func_with_sig(display, ir_sig);
             self.procs[id.0 as usize].body_state = BodyState::Queued;
             crate::sema::body_probe::enqueued(id.0);
             self.body_queue.push(id);
@@ -136,7 +136,7 @@ impl Compiler {
     fn entry_point_wrapper(&mut self, id: ProcId, span: Span) -> Result<ir::FuncId> {
         let sig = self.signature(id, span)?;
         let ir_sig = self.ir_sig(sig.ty, span)?;
-        let func = self.program.reserve_func("__entry_point".into());
+        let func = self.out.program.reserve_func("__entry_point".into());
         self.set_proc_target(id, ProcTarget::Func(func));
         let main = match self.program_main(span) {
             Ok(main) => main,
@@ -148,7 +148,7 @@ impl Compiler {
                 f.b.intrinsic(ir::Intrinsic::Trap, Vec::new(), &[]);
                 let rets = ir_sig.returns.iter().map(|&t| f.b.iconst(t, 0)).collect();
                 f.b.ret(rets);
-                self.program.funcs[func.0 as usize] = Some(f.b.finish());
+                self.out.program.funcs[func.0 as usize] = Some(f.b.finish());
                 return Ok(func);
             }
             Err(e) => return Err(e),
@@ -204,7 +204,7 @@ impl Compiler {
             rets.push(v);
         }
         f.b.ret(rets);
-        self.program.funcs[func.0 as usize] = Some(f.b.finish());
+        self.out.program.funcs[func.0 as usize] = Some(f.b.finish());
         Ok(func)
     }
 

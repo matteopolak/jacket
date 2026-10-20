@@ -350,10 +350,10 @@ impl Compiler {
         if self.options.dead_code == DeadCode::All {
             return Ok(());
         }
-        self.unreferenced_from.get_or_insert(ProgramMark {
-            funcs: self.program.funcs.len(),
-            globals: self.program.globals.len(),
-            foreigns: self.program.foreigns.len(),
+        self.out.unreferenced_from.get_or_insert(ProgramMark {
+            funcs: self.out.program.funcs.len(),
+            globals: self.out.program.globals.len(),
+            foreigns: self.out.program.foreigns.len(),
         });
         // Checking creates more of both (a body's nested procedures, the declarations of an
         // `#insert`): go on until a round finds nothing new.
@@ -503,10 +503,10 @@ impl Compiler {
     /// globals, which compile-time code may have written since (`#no_reset`), so the walk
     /// starts from all older functions and globals.
     fn drop_unreferenced_code(&mut self) {
-        let Some(mark) = self.unreferenced_from.take() else {
+        let Some(mark) = self.out.unreferenced_from.take() else {
             return;
         };
-        let program = &mut self.program;
+        let program = &mut self.out.program;
         let mut funcs: Vec<bool> = (0..program.funcs.len()).map(|i| i < mark.funcs).collect();
         let mut globals: Vec<bool> = (0..program.globals.len())
             .map(|i| i < mark.globals)
@@ -679,17 +679,18 @@ impl Compiler {
         if !self.options.stack_trace {
             return;
         }
-        if self.program.stack_trace.is_some() && self.program.file_paths.len() == self.sources.len()
+        if self.out.program.stack_trace.is_some()
+            && self.out.program.file_paths.len() == self.sources.len()
         {
             return;
         }
         let Some(layout) = self.trace_layout(span) else {
             return;
         };
-        self.program.file_paths = (0..self.sources.len())
+        self.out.program.file_paths = (0..self.sources.len())
             .map(|i| self.sources.get(FileId(i as u32)).path.to_string())
             .collect();
-        self.program.stack_trace = Some(layout);
+        self.out.program.stack_trace = Some(layout);
     }
 
     /// `context.stack_trace`'s place and its node types' layout, from their declarations;
@@ -741,8 +742,8 @@ impl Compiler {
         self.bake_no_reset_globals();
         self.drop_unreferenced_code();
         self.enable_stack_traces(Span::NONE);
-        if let Some(layout) = self.program.stack_trace {
-            crate::stack_trace::instrument(&mut self.program, &layout);
+        if let Some(layout) = self.out.program.stack_trace {
+            crate::stack_trace::instrument(&mut self.out.program, &layout);
         }
         if self.options.debug_info {
             self.collect_debug_types();
@@ -754,14 +755,14 @@ impl Compiler {
     /// the interpreter's current bytes, with pointers frozen into relocations the way `#run`
     /// results are. Globals no compile-time code touched keep their declared initializer.
     fn bake_no_reset_globals(&mut self) {
-        for (global, ty) in std::mem::take(&mut self.no_reset_globals) {
+        for (global, ty) in std::mem::take(&mut self.out.no_reset_globals) {
             let Some(addr) = self.ct.interp.materialized_global(global) else {
                 continue;
             };
             let Ok(Value::Bytes(agg)) = self.read_aggregate(addr, ty, Span::NONE) else {
                 continue;
             };
-            let g = &mut self.program.globals[global.0 as usize];
+            let g = &mut self.out.program.globals[global.0 as usize];
             g.init.clone_from(&agg.bytes);
             g.relocs.clone_from(&agg.relocs);
         }
@@ -815,10 +816,10 @@ impl Compiler {
         };
         self.ct.interp.compile_time = false;
         self.enable_stack_traces(Span::NONE);
-        if let Err(trap) = self.ct.interp.reset_globals(&self.program) {
+        if let Err(trap) = self.ct.interp.reset_globals(&self.out.program) {
             return Err(Box::new(self.runtime_error(&trap)));
         }
-        let result = self.ct.interp.call(&self.program, main, &[argc, argv]);
+        let result = self.ct.interp.call(&self.out.program, main, &[argc, argv]);
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
             // `exit` in a sandbox host (the browser playground) ends the program as returning

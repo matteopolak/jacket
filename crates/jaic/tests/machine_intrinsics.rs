@@ -133,7 +133,8 @@ mod cpuid_leaf_zero {
         )])
         .unwrap();
         let function = jaic::ir::FuncId(
-            c.program
+            c.out
+                .program
                 .funcs
                 .iter()
                 .position(|f| {
@@ -153,7 +154,7 @@ mod cpuid_leaf_zero {
             let effects = c.ct.interp.effects;
             let actual = c
                 .interp
-                .call(&c.program, function, &[0, 0, index as u64])
+                .call(&c.out.program, function, &[0, 0, index as u64])
                 .unwrap()[0];
             assert_eq!(actual, u64::from(value), "leaf zero register {index}");
             assert!(c.ct.interp.effects > effects);
@@ -176,6 +177,7 @@ mod xgetbv {
         );
         result.unwrap();
         let function = c
+            .out
             .program
             .funcs
             .iter()
@@ -256,7 +258,8 @@ mod xgetbv {
         result.unwrap();
         let function = |c: &jaic::sema::Compiler, name: &str| {
             jaic::ir::FuncId(
-                c.program
+                c.out
+                    .program
                     .funcs
                     .iter()
                     .position(|f| {
@@ -282,13 +285,13 @@ mod xgetbv {
         let pointers = [(&raw mut high) as u64, (&raw mut low) as u64];
         let invalid = c
             .interp
-            .call(&c.program, read, &[2, pointers[0], pointers[1]])
+            .call(&c.out.program, read, &[2, pointers[0], pointers[1]])
             .unwrap_err();
         assert!(invalid.message.contains("index"), "{invalid:?}");
         if features & (3 << 26) != (3 << 26) {
             let error = c
                 .interp
-                .call(&c.program, read, &[0, pointers[0], pointers[1]])
+                .call(&c.out.program, read, &[0, pointers[0], pointers[1]])
                 .unwrap_err();
             assert!(error.message.contains("XSAVE"), "{error:?}");
             eprintln!(
@@ -309,7 +312,7 @@ mod xgetbv {
             let effects = c.ct.interp.effects;
             let actual = c
                 .interp
-                .call(&c.program, read, &[index, pointers[0], pointers[1]])
+                .call(&c.out.program, read, &[index, pointers[0], pointers[1]])
                 .unwrap()[0];
             assert_eq!((actual ^ expected) & defined, 0);
             assert_eq!(actual, (high << 32) | low);
@@ -319,19 +322,20 @@ mod xgetbv {
                 "architectural reads cannot use pure result caching"
             );
             assert_eq!(
-                (c.ct.interp.call(&c.program, alias, &[index]).unwrap()[0] ^ expected) & defined,
+                (c.ct.interp.call(&c.out.program, alias, &[index]).unwrap()[0] ^ expected)
+                    & defined,
                 0
             );
         }
         assert_eq!(
-            (c.ct.interp.call(&c.program, read32, &[0]).unwrap()[0] ^ expected) & defined,
+            (c.ct.interp.call(&c.out.program, read32, &[0]).unwrap()[0] ^ expected) & defined,
             0
         );
         let index1 = maximum >= 0xd && __cpuid_count(0xd, 1).eax & 4 != 0;
         if index1 {
             let actual = c
                 .interp
-                .call(&c.program, read, &[1, pointers[0], pointers[1]])
+                .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
                 .unwrap()[0];
             assert_eq!(
                 actual & !expected & defined,
@@ -342,7 +346,7 @@ mod xgetbv {
         } else {
             let error = c
                 .interp
-                .call(&c.program, read, &[1, pointers[0], pointers[1]])
+                .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
                 .unwrap_err();
             assert!(error.message.contains("index 1"), "{error:?}");
         }
@@ -356,13 +360,13 @@ mod xgetbv {
             ] {
                 assert_eq!(
                     c.ct.interp
-                        .call(&c.program, flags, &[index, lhs, rhs])
+                        .call(&c.out.program, flags, &[index, lhs, rhs])
                         .unwrap()[0],
                     1
                 );
             }
             let effects = c.ct.interp.effects;
-            c.ct.interp.call(&c.program, discard, &[index]).unwrap();
+            c.ct.interp.call(&c.out.program, discard, &[index]).unwrap();
             assert!(c.ct.interp.effects > effects);
         }
     }
@@ -521,7 +525,8 @@ mod x86_machine {
         result.unwrap();
         let function = |c: &jaic::sema::Compiler, name: &str| {
             jaic::ir::FuncId(
-                c.program
+                c.out
+                    .program
                     .funcs
                     .iter()
                     .position(|f| {
@@ -539,7 +544,7 @@ mod x86_machine {
                 _rdtsc()
             };
             let effects = c.ct.interp.effects;
-            let actual = c.ct.interp.call(&c.program, tsc, &[]).unwrap()[0];
+            let actual = c.ct.interp.call(&c.out.program, tsc, &[]).unwrap()[0];
             // SAFETY: as above, `rdtsc` is available on this CPU.
             let after = unsafe {
                 _mm_lfence();
@@ -556,7 +561,7 @@ mod x86_machine {
         } else {
             assert!(
                 c.ct.interp
-                    .call(&c.program, tsc, &[])
+                    .call(&c.out.program, tsc, &[])
                     .unwrap_err()
                     .message
                     .contains("unavailable")
@@ -575,7 +580,7 @@ mod x86_machine {
                 let before = unsafe { __rdtscp(&raw mut a) };
                 let actual = c
                     .interp
-                    .call(&c.program, tscp, &[(&raw mut auxiliary) as u64])
+                    .call(&c.out.program, tscp, &[(&raw mut auxiliary) as u64])
                     .unwrap()[0];
                 // SAFETY: as above, with `b`.
                 let after = unsafe { __rdtscp(&raw mut b) };
@@ -591,7 +596,7 @@ mod x86_machine {
         } else {
             assert!(
                 c.ct.interp
-                    .call(&c.program, tscp, &[(&raw mut auxiliary) as u64])
+                    .call(&c.out.program, tscp, &[(&raw mut auxiliary) as u64])
                     .unwrap_err()
                     .message
                     .contains("unavailable")
@@ -633,7 +638,9 @@ mod x86_machine {
             let id = function(&c, name);
             for _ in 0..64 {
                 let mut value = 0u64;
-                let result = c.ct.interp.call(&c.program, id, &[(&raw mut value) as u64]);
+                let result =
+                    c.ct.interp
+                        .call(&c.out.program, id, &[(&raw mut value) as u64]);
                 if available {
                     let flags = result.unwrap()[0];
                     assert!(flags <= 1, "other arithmetic flags must clear: {flags}");
@@ -660,11 +667,11 @@ mod x86_machine {
             }
         }
         let fences = function(&c, "machine_fences");
-        c.ct.interp.call(&c.program, fences, &[]).unwrap();
+        c.ct.interp.call(&c.out.program, fences, &[]).unwrap();
         let prefetch = function(&c, "machine_prefetch");
         let mut value = 0x1234_5678_9abc_def0_u64;
         c.ct.interp
-            .call(&c.program, prefetch, &[(&raw mut value) as u64])
+            .call(&c.out.program, prefetch, &[(&raw mut value) as u64])
             .unwrap();
         assert_eq!(value, 0x1234_5678_9abc_def0);
     }
@@ -717,7 +724,8 @@ mod x86_machine {
         result.unwrap();
         let function = |name: &str| {
             jaic::ir::FuncId(
-                c.program
+                c.out
+                    .program
                     .funcs
                     .iter()
                     .position(|f| {
@@ -735,7 +743,7 @@ mod x86_machine {
                 let expected = u64::from((low as u8).count_ones().is_multiple_of(2));
                 assert_eq!(
                     c.ct.interp
-                        .call(&c.program, result_parity, &[input, count])
+                        .call(&c.out.program, result_parity, &[input, count])
                         .unwrap()[0],
                     expected
                 );
@@ -751,7 +759,7 @@ mod x86_machine {
                 };
                 assert_eq!(
                     c.ct.interp
-                        .call(&c.program, cleared_parity, &[input, count])
+                        .call(&c.out.program, cleared_parity, &[input, count])
                         .unwrap()[0],
                     expected
                 );

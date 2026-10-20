@@ -569,8 +569,8 @@ impl Compiler {
             span,
         } = site;
         let lock_ptr = if lock {
-            let global = *self.asm_pair_lock.get_or_insert_with(|| {
-                self.program.add_global(crate::ir::Global {
+            let global = *self.out.asm_pair_lock.get_or_insert_with(|| {
+                self.out.program.add_global(crate::ir::Global {
                     name: crate::sema::private_names::ASM_CMPXCHG_LOCK.into(),
                     size: 8,
                     align: 8,

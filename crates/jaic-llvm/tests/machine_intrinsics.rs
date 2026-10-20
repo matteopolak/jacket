@@ -36,7 +36,7 @@ mod cpuid {
             std::fs::create_dir_all(&dir).unwrap();
             let object = dir.join("cpuid.o");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: Some(target.parse().unwrap()),
                     opt_level: level,
@@ -88,7 +88,7 @@ mod cpuid {
             for level in [OptLevel::O0, OptLevel::O2] {
                 let object = dir.join(format!("{target}-{level:?}.o"));
                 emit_object(
-                    &c.program,
+                    &c.out.program,
                     &jaic_llvm::Options {
                         target: Some(target.parse().unwrap()),
                         opt_level: level,
@@ -119,7 +119,7 @@ mod cpuid {
             "aarch64-pc-windows-msvc",
         ] {
             let error = emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: Some(target.parse().unwrap()),
                     ..Default::default()
@@ -169,7 +169,7 @@ mod cpuid_leaf_zero {
             let object = dir.join("cpuid.o");
             let ir = dir.join("cpuid.ll");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: Some(target.parse().unwrap()),
                     opt_level: level,
@@ -256,7 +256,7 @@ mod xgetbv {
             for level in [OptLevel::O0, OptLevel::O2] {
                 let path = dir.join(format!("{target}-{level:?}.o"));
                 emit_object(
-                    &c.program,
+                    &c.out.program,
                     &jaic_llvm::Options {
                         target: Some(target.parse().unwrap()),
                         opt_level: level,
@@ -283,7 +283,7 @@ mod xgetbv {
             "wasm64-unknown-unknown",
         ] {
             let error = emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: Some(target.parse().unwrap()),
                     ..Default::default()
@@ -316,7 +316,7 @@ mod xgetbv {
             std::fs::create_dir_all(&dir).unwrap();
             let object = dir.join("xgetbv.o");
             emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: Some(target.parse().unwrap()),
                     opt_level: level,
@@ -384,7 +384,7 @@ mod registers {
                 }
                 let object = dir.join("variadics.o");
                 emit_object(
-                    &c.program,
+                    &c.out.program,
                     &jaic_llvm::Options {
                         target: wasm.then(jaic::target::Target::wasm_module),
                         opt_level: if optimized {
@@ -469,7 +469,7 @@ mod x86_machine {
         std::fs::create_dir_all(&dir).unwrap();
         let ir = dir.join("parity.ll");
         emit_object(
-            &c.program,
+            &c.out.program,
             &jaic_llvm::Options {
                 target: Some("x86_64-unknown-linux-gnu".parse().unwrap()),
                 opt_level: OptLevel::O2,
@@ -534,7 +534,7 @@ mod x86_machine {
                 let object = dir.join("machine.o");
                 let ir = dir.join("machine.ll");
                 emit_object(
-                    &c.program,
+                    &c.out.program,
                     &jaic_llvm::Options {
                         target: Some(target.parse().unwrap()),
                         opt_level: level,
@@ -616,7 +616,7 @@ mod x86_machine {
             "wasm64-unknown-unknown",
         ] {
             let error = emit_object(
-                &c.program,
+                &c.out.program,
                 &jaic_llvm::Options {
                     target: Some(target.parse().unwrap()),
                     ..Default::default()

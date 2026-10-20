@@ -60,8 +60,8 @@ impl Compiler {
                     } if n > 0 => {
                         let size = self.size_of(from, span)?;
                         let align = self.align_of(from, span)?;
-                        let name = format!("array_literal.{}", self.program.globals.len());
-                        let global = self.program.add_global(ir::Global {
+                        let name = format!("array_literal.{}", self.out.program.globals.len());
+                        let global = self.out.program.add_global(ir::Global {
                             name,
                             size,
                             align,

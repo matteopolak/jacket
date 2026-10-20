@@ -13,6 +13,7 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 - `ct: CompileTime` (`compile_time.rs`): the interpreter, top-level `#run`s/`#assert`s and their progress, frozen values. `Drop for Compiler` joins compile-time threads before any field drops.
 - `diag: Diagnostics` (`diagnostics.rs`): warnings, why deferred items failed, declaration dependencies.
 - `epochs: Epochs` (`epochs.rs`): the counters a cached failure is stamped with (`namespace_generation`, `placeholder_misses`, `in_progress_misses`) and the flags of deferred expansion's phases.
+- `out: Output` (`output.rs`): the IR program, constant data pooled into globals (strings, packs, constant addresses), runtime-info globals, compile-time output. `release_lowered_code` empties its bodies for an editor.
 - `meta: MetaState` (`meta_state.rs`): the workspace being built, records exported to metaprograms, perf counts.
 - `ed: Editor` (`ide/editor.rs`): the editor analysis, if any.
 
@@ -44,7 +45,7 @@ A new field goes in the group it belongs to; a field used only by one group's me
 
 - A polymorphic procedure passed to a procedure-typed parameter is instantiated from the parameter's types (`instantiate_for_proc_type`); for `f: (T) -> $R` the overload set resolves after other bindings (`deferred_procs`), then `$R` binds.
 - `null` binds a type variable only when no other argument does (as `*void`); a baked default naming that variable is evaluated afterwards (`deferred_defaults`). `#char` binds `u8`. `$a: [$N] float` bound to `.[...]` infers `N`.
-- **Baked variadics** (`$types: ..Type`) become one constant `[] T` (`baked_pack`) deduplicated by contents (`Compiler::packs`). Instance keys go through `instance_key_value`, which adds a constant view's relocation targets to its bytes; without it `f(A)` and `f(G)` shared one instance.
+- **Baked variadics** (`$types: ..Type`) become one constant `[] T` (`baked_pack`) deduplicated by contents (`Compiler::out.packs`). Instance keys go through `instance_key_value`, which adds a constant view's relocation targets to its bytes; without it `f(A)` and `f(G)` shared one instance.
 - A bare `Base`, `*Base` or `$T/Base` parameter accepts a struct whose `#as` member is a `Base` (`instance_or_as_base`).
 - **Overload ties**: equal conversion cost prefers non-polymorphic procedures, then more structure (`pattern_specificity`: `*$T` beats `$T`). An untyped literal between `float32` and `float64` picks `float32`; integers beat floats.
 - `type_of(poly_proc)` gives a procedure type for inspection only (`poly_proc_type`; type variables are `TypeKind::PolyParam`, tag `POLYMORPHIC_VARIABLE`). A polymorphic struct used as a value is `TypeKind::PolyStruct`, a template, never a layout.

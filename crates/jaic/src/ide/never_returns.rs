@@ -188,8 +188,11 @@ impl Compiler {
         };
         proc.lit.body.is_none()
             && proc.sig.as_ref().is_some_and(|sig| sig.returns.is_empty())
-            && NEVER_RETURNING_SYMBOLS
-                .contains(&self.program.foreigns[foreign.0 as usize].symbol.as_str())
+            && NEVER_RETURNING_SYMBOLS.contains(
+                &self.out.program.foreigns[foreign.0 as usize]
+                    .symbol
+                    .as_str(),
+            )
     }
 
     /// Compute the procedures that never return from what the analysis checked, and record the

@@ -87,13 +87,13 @@ impl Compiler {
                         ..
                     } if self.is_memory_type(ty) => {
                         let key = (ty, agg.bytes.clone(), agg.relocs.clone());
-                        let global = if let Some(&g) = self.const_addr_globals.get(&key) {
+                        let global = if let Some(&g) = self.out.const_addr_globals.get(&key) {
                             g
                         } else {
                             let size = self.size_of(ty, span)?;
                             let align = self.align_of(ty, span)?;
-                            let g = self.program.add_global(ir::Global {
-                                name: format!("const.{}", self.program.globals.len()),
+                            let g = self.out.program.add_global(ir::Global {
+                                name: format!("const.{}", self.out.program.globals.len()),
                                 size,
                                 align,
                                 init: agg.bytes.clone(),
@@ -101,7 +101,7 @@ impl Compiler {
                                 read_only: false,
                                 export: None,
                             });
-                            self.const_addr_globals.insert(key, g);
+                            self.out.const_addr_globals.insert(key, g);
                             g
                         };
                         let addr = f.b.global_addr(global);
@@ -405,7 +405,7 @@ impl Compiler {
             let crate::sema::procs::ProcTarget::Func(func) = self.proc_func(proc, span)? else {
                 return err(span, "private native check reporter must be defined in Jai");
             };
-            self.program.check_failed = Some(func);
+            self.out.program.check_failed = Some(func);
             Ok(())
         })();
         if result.is_err() {

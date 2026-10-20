@@ -33,11 +33,15 @@ fn merge_values(target: &mut Vec<i64>, values: &[i64]) {
 
 impl Compiler {
     pub(super) fn begin_runtime_storage_dependencies(&mut self) {
-        self.runtime_storage_dependencies.captures.push(Vec::new());
+        self.out
+            .runtime_storage_dependencies
+            .captures
+            .push(Vec::new());
     }
 
     pub(super) fn end_runtime_storage_dependencies(&mut self) -> Result<Vec<i64>> {
-        self.runtime_storage_dependencies
+        self.out
+            .runtime_storage_dependencies
             .captures
             .pop()
             .ok_or_else(|| {
@@ -49,13 +53,14 @@ impl Compiler {
     }
 
     pub(super) fn note_runtime_storage_dependencies(&mut self, values: &[i64]) {
-        if let Some(capture) = self.runtime_storage_dependencies.captures.last_mut() {
+        if let Some(capture) = self.out.runtime_storage_dependencies.captures.last_mut() {
             merge_values(capture, values);
         }
     }
 
     pub(super) fn finish_runtime_storage_entity(&mut self, id: scope::EntityId, values: &[i64]) {
         let known = self
+            .out
             .runtime_storage_dependencies
             .entities
             .entry(id)
@@ -67,6 +72,7 @@ impl Compiler {
 
     pub(super) fn finish_runtime_storage_layout(&mut self, id: StructId, values: &[i64]) {
         let known = self
+            .out
             .runtime_storage_dependencies
             .layouts
             .entry(id)
@@ -77,7 +83,7 @@ impl Compiler {
     }
 
     pub(super) fn use_runtime_storage_entity(&self, f: &mut FnCtx, id: scope::EntityId) {
-        if let Some(values) = self.runtime_storage_dependencies.entities.get(&id) {
+        if let Some(values) = self.out.runtime_storage_dependencies.entities.get(&id) {
             merge_values(&mut f.runtime_storage_constants, values);
         }
     }
@@ -186,11 +192,11 @@ impl Compiler {
                 "private runtime size intrinsic requires signature () -> s64 without context",
             );
         }
-        let global = if let Some(global) = self.runtime_storage_global {
+        let global = if let Some(global) = self.out.runtime_storage_global {
             global
         } else {
             let (_, size) = self.runtime_storage_settings();
-            let global = self.program.add_global(ir::Global {
+            let global = self.out.program.add_global(ir::Global {
                 name: super::private_names::TEMPORARY_STORAGE_SIZE_LABEL.into(),
                 size: 8,
                 align: 8,
@@ -199,7 +205,7 @@ impl Compiler {
                 read_only: true,
                 export: None,
             });
-            self.runtime_storage_global = Some(global);
+            self.out.runtime_storage_global = Some(global);
             global
         };
         let address = f.b.global_addr(global);
@@ -225,6 +231,7 @@ impl Compiler {
                 continue;
             };
             if let Some(values) = self
+                .out
                 .runtime_storage_dependencies
                 .entities
                 .get(&scope::EntityId(index as u32))
@@ -242,8 +249,9 @@ impl Compiler {
         // serializer as target emission; it also materializes pointed-to target
         // data when necessary. Do not bake/consume the retained-global registry:
         // later workspace activity may still change the effective target image.
-        let retained: HashMap<_, _> = self.no_reset_globals.iter().copied().collect();
+        let retained: HashMap<_, _> = self.out.no_reset_globals.iter().copied().collect();
         let mut functions: Vec<usize> = self
+            .out
             .program
             .funcs
             .iter()
@@ -255,6 +263,7 @@ impl Compiler {
             })
             .collect();
         let mut globals: Vec<ir::GlobalId> = self
+            .out
             .program
             .globals
             .iter()
@@ -265,7 +274,7 @@ impl Compiler {
         let mut seen_globals = HashSet::default();
         while !functions.is_empty() || !globals.is_empty() {
             while let Some(global) = globals.pop() {
-                if Some(global) == self.runtime_storage_global {
+                if Some(global) == self.out.runtime_storage_global {
                     usage.dynamic = true;
                 }
                 if !seen_globals.insert(global) {
@@ -290,7 +299,7 @@ impl Compiler {
                         };
                         image.relocs.clone()
                     }
-                    None => self.program.globals[global.0 as usize].relocs.clone(),
+                    None => self.out.program.globals[global.0 as usize].relocs.clone(),
                 };
                 for relocation in relocations {
                     match relocation.target {
@@ -305,6 +314,7 @@ impl Compiler {
                     continue;
                 }
                 if let Some((values, span)) = self
+                    .out
                     .runtime_storage_dependencies
                     .functions
                     .get(&ir::FuncId(index as u32))
@@ -313,7 +323,7 @@ impl Compiler {
                         .constants
                         .extend(values.iter().map(|&value| (value, *span)));
                 }
-                let Some(function) = &self.program.funcs[index] else {
+                let Some(function) = &self.out.program.funcs[index] else {
                     continue;
                 };
                 for instruction in function.blocks.iter().flat_map(|block| &block.insts) {
@@ -369,6 +379,7 @@ impl Compiler {
             && usage.constants.is_empty()
         {
             let exports = self
+                .out
                 .program
                 .funcs
                 .iter()
@@ -382,14 +393,14 @@ impl Compiler {
                 "workspace {}; temporary storage {} bytes; system entry {}; initialization {}; exported target procedures {}; private configuration reader lowered {}",
                 self.meta.workspace, size, self.options.runtime_entry_point,
                 self.options.runtime_initialization, exports,
-                self.runtime_storage_global.is_some(),
+                self.out.runtime_storage_global.is_some(),
             ))));
         }
-        if let Some(global) = self.runtime_storage_global {
-            self.program.globals[global.0 as usize].init = size.to_le_bytes().to_vec();
+        if let Some(global) = self.out.runtime_storage_global {
+            self.out.program.globals[global.0 as usize].init = size.to_le_bytes().to_vec();
             self.ct
                 .interp
-                .refresh_global(&self.program, global)
+                .refresh_global(&self.out.program, global)
                 .map_err(|trap| Box::new(Diagnostic::error(Span::NONE, trap.into_message())))?;
         }
         // Native target startup reads the private data; interpreter entry

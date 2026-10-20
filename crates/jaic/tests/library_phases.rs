@@ -72,9 +72,9 @@ fn cross_target_host_service_does_not_load_unrelated_target_requirements() {
             panic!("{}", error.render(&c.sources));
         }
         assert_eq!(calls.get(), 1);
-        assert!(c.program.cross_target);
-        assert_eq!(c.program.libraries.len(), 1);
-        assert!(c.program.libraries[0].link_always);
+        assert!(c.out.program.cross_target);
+        assert_eq!(c.out.program.libraries.len(), 1);
+        assert!(c.out.program.libraries[0].link_always);
     }
 }
 
@@ -102,7 +102,7 @@ fn runtime_requirement_is_not_removed_from_cross_target_program() {
     c.ct.interp.compile_time = false;
     let error =
         c.ct.interp
-            .call(&c.program, ir::FuncId(0), &[])
+            .call(&c.out.program, ir::FuncId(0), &[])
             .expect_err("runtime required library remains mandatory");
     assert!(
         error.message.contains("required native library"),

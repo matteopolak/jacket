@@ -69,7 +69,7 @@ impl Compiler {
             )?;
         }
         let align = self.align_of(desc, span)?;
-        let g = self.program.add_global(ir::Global {
+        let g = self.out.program.add_global(ir::Global {
             name: format!("type_info.generic.{}", name.as_str()),
             size,
             align,

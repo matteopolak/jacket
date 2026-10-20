@@ -63,6 +63,7 @@ fn evaluates_true(body: &str) {
 fn evaluates_program(source: &str) {
     let mut compiler = compiler(source);
     let id = compiler
+        .out
         .program
         .funcs
         .iter()
@@ -75,7 +76,7 @@ fn evaluates_program(source: &str) {
         compiler
             .ct
             .interp
-            .call(&compiler.program, jaic::ir::FuncId(id as u32), &[])
+            .call(&compiler.out.program, jaic::ir::FuncId(id as u32), &[])
             .unwrap(),
         vec![1]
     );

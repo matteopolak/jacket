@@ -78,7 +78,7 @@ pub(super) fn write_output(
     if settings.use_custom_link_command && links {
         let mut reg = shared.borrow_mut();
         if let Some(backend) = reg.env.backend.as_mut() {
-            let objects = backend.write_objects(&compiler.program, &settings, &output);
+            let objects = backend.write_objects(&compiler.out.program, &settings, &output);
             return match objects {
                 Ok(o) => {
                     let mut strings: Vec<Vec<u8>> = Vec::new();
@@ -116,7 +116,7 @@ pub(super) fn write_output(
     let written = {
         let mut reg = shared.borrow_mut();
         if let Some(backend) = reg.env.backend.as_mut() {
-            backend.write_output(&compiler.program, &settings, &output)
+            backend.write_output(&compiler.out.program, &settings, &output)
         } else {
             if let Some(hint) = reg.env.unwritten_output_hint.clone() {
                 let name = reg.ws(id)?.name.clone();

@@ -224,7 +224,7 @@ impl Compiler {
                 if !globals.insert(g) {
                     continue;
                 }
-                let global: &ir::Global = &self.program.globals[g as usize];
+                let global: &ir::Global = &self.out.program.globals[g as usize];
                 for r in &global.relocs {
                     match r.target {
                         ir::RelocTarget::Func(f) => work.push(f),
@@ -240,6 +240,7 @@ impl Compiler {
                 continue;
             }
             if self
+                .out
                 .program
                 .funcs
                 .get(f.0 as usize)
@@ -250,7 +251,7 @@ impl Compiler {
             {
                 first.get_or_insert(e);
             }
-            let Some(Some(func)) = self.program.funcs.get(f.0 as usize) else {
+            let Some(Some(func)) = self.out.program.funcs.get(f.0 as usize) else {
                 continue;
             };
             for block in &func.blocks {

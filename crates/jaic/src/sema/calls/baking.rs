@@ -179,7 +179,7 @@ impl Compiler {
         let ty = self.types.array(elem, ArrayKind::View);
         let mut image = value::Aggregate::zeroed(16, span)?;
         self.write_value(&mut image, 0, &view, ty, span)?;
-        let g = self.program.add_global(ir::Global {
+        let g = self.out.program.add_global(ir::Global {
             name: "baked.spread.view".into(),
             size: 16,
             align: 8,
@@ -191,7 +191,7 @@ impl Compiler {
         let addr = self
             .ct
             .interp
-            .global_addr(&self.program, g)
+            .global_addr(&self.out.program, g)
             .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
         let n = self.program_u64(addr, span)?;
         let data = self.program_u64(addr + 8, span)?;
@@ -235,10 +235,10 @@ impl Compiler {
                 .map(|r| (r.offset, r.target, r.addend))
                 .collect(),
         );
-        let data = if let Some(&g) = self.packs.get(&key) {
+        let data = if let Some(&g) = self.out.packs.get(&key) {
             g
         } else {
-            let g = self.program.add_global(ir::Global {
+            let g = self.out.program.add_global(ir::Global {
                 name: "baked.pack".into(),
                 size: array.bytes.len().max(1) as u64,
                 align,
@@ -247,7 +247,7 @@ impl Compiler {
                 read_only: true,
                 export: None,
             });
-            self.packs.insert(key, g);
+            self.out.packs.insert(key, g);
             g
         };
         let mut view = value::Aggregate {

@@ -58,7 +58,7 @@ fn replacing_body_retries_without_source_epoch_change() {
     let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
-    assert!(compiler.program.funcs[func.0 as usize].is_some());
+    assert!(compiler.out.program.funcs[func.0 as usize].is_some());
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn replacing_a_parked_body_retries_during_the_next_audit() {
     let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
-    assert!(compiler.program.funcs[func.0 as usize].is_some());
+    assert!(compiler.out.program.funcs[func.0 as usize].is_some());
 }
 
 #[test]
@@ -108,13 +108,14 @@ fn adding_visible_binding_retries_without_loading_a_file() {
     let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
-    assert!(compiler.program.funcs[func.0 as usize].is_some());
+    assert!(compiler.out.program.funcs[func.0 as usize].is_some());
 }
 
 #[test]
 fn removing_ide_facts_keeps_strict_lowering_unmemoized() {
     let (mut compiler, id) = failed();
     let before = compiler
+        .out
         .program
         .func_names
         .iter()
@@ -129,6 +130,7 @@ fn removing_ide_facts_keeps_strict_lowering_unmemoized() {
             .contains("absent")
     );
     let after = compiler
+        .out
         .program
         .func_names
         .iter()

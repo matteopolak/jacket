@@ -23,6 +23,7 @@ fn public_getrect_text_actions_reach_canonical_linux_clipboard_calls() {
         ] {
             assert!(
                 compiler
+                    .out
                     .program
                     .foreigns
                     .iter()

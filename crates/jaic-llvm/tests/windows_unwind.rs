@@ -24,7 +24,7 @@ fn emit(triple: &str, cpu: TargetCpu, level: OptLevel, dir: &Path) -> PathBuf {
     }
     let object = dir.join("frames.obj");
     emit_object(
-        &compiler.program,
+        &compiler.out.program,
         &jaic_llvm::Options {
             target: Some(jaic::target::Target::parse(triple).unwrap()),
             opt_level: level,

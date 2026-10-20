@@ -242,7 +242,7 @@ impl Compiler {
         f.compile_time = true;
         f.set_context(Some(f.b.param(0)));
         // `return false, "message"`: the optional message goes to a global (empty by default).
-        let message = self.program.add_global(ir::Global {
+        let message = self.out.program.add_global(ir::Global {
             name: "modify.message".into(),
             size: 16,
             align: 8,
@@ -263,7 +263,7 @@ impl Compiler {
         let mut globals = Vec::new();
         for (name, value, ty) in variables {
             let size = self.size_of(ty, span)?.max(8);
-            let global = self.program.add_global(ir::Global {
+            let global = self.out.program.add_global(ir::Global {
                 name: format!("modify.{name}"),
                 size,
                 align: 8,
@@ -300,7 +300,7 @@ impl Compiler {
             let addr = self
                 .ct
                 .interp
-                .global_addr(&self.program, message)
+                .global_addr(&self.out.program, message)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
             let text = match self.read_value(addr, TypeId::STRING, span)? {
                 Value::String(s) if !s.is_empty() => format!(": {}", String::from_utf8_lossy(&s)),
@@ -316,7 +316,7 @@ impl Compiler {
             let addr = self
                 .ct
                 .interp
-                .global_addr(&self.program, global)
+                .global_addr(&self.out.program, global)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
             out.push((name, self.read_value(addr, ty, span)?, ty));
         }

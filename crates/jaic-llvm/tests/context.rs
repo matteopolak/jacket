@@ -59,7 +59,7 @@ fn conditional_context_and_exit_cleanup_native_and_wasm() {
             }
             let object = dir.join("context.o");
             emit_object(
-                &compiler.program,
+                &compiler.out.program,
                 &jaic_llvm::Options {
                     target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: if optimized {
