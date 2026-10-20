@@ -89,7 +89,8 @@ A fix for an issue is done only when a test fails before it and passes after it,
 1. **Explain the reported output.** Every line of the reporter's output (diagnostics, error codes, values printed) must follow from the cause you name. If a line doesn't fit, the cause is wrong. For example, issue 15's `pixel_format=0, descriptor unavailable` showed that a format was chosen and then rejected, not that choosing failed.
 2. **Reproduce before fixing.** Write the test first and watch it fail. When the bug depends on hardware, a driver or an OS version CI doesn't have, make the code under test take those calls as replaceable procedures and write a stand-in that behaves like the reporter's environment (for example a GL driver whose chosen format has an incomplete descriptor).
 3. **Check that the new code ran.** A passing test proves nothing if it never reaches the changed lines. Assert, or print and check, which path the test took.
-4. **Ask for confirmation on environment-specific bugs.** When the bug was only seen on hardware or setups we can't run, label the issue `needs confirmation` and leave it open until the reporter confirms the release fixes it.
+4. **Run real code before adding a compile error.** A change that rejects code jaic used to accept must pass the sandboxed upstream corpus sweep and smoke checks ([upstream corpus](upstream-corpus.md)) before it lands. Small probes show what the rule rejects; only real projects show what it wrongly rejects.
+5. **Ask for confirmation on environment-specific bugs.** When the bug was only seen on hardware or setups we can't run, label the issue `needs confirmation` and leave it open until the reporter confirms the release fixes it.
 
 ## Continuous integration
 
