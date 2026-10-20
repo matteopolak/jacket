@@ -1,7 +1,24 @@
 //! `ifx` expressions: branch agreement and constant folding.
 use super::implicit_then_expr;
+use crate::ast::ExprKind as E;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
+
+/// An arm whose type only an expected type can give it: `.B`, `.{...}`, `.[...]`.
+fn needs_expected_type(e: &ast::Expr) -> bool {
+    matches!(
+        e.kind,
+        E::InferredMember(_)
+            | E::StructLit {
+                ty: None,
+                ..
+            }
+            | E::ArrayLit {
+                ty: None,
+                ..
+            }
+    )
+}
 
 impl Compiler {
     /// The type an `ifx` branch contributes, or `None` when it adapts to the other branch
@@ -124,11 +141,23 @@ impl Compiler {
         } else {
             (else_e, then_e)
         };
-        let taken = self.check_expr(f, scope, taken_e, expected)?;
-        // The other arm is checked for its type and diagnostics but emits no code. It
-        // still sees the expected type, so `.ARM64` there names the target's enum.
+        // An arm that only an expected type can type takes the other arm's type.
         let mut scratch = self.scratch_ctx(scope);
-        let other = self.check_expr(&mut scratch, scope, other_e, expected)?;
+        let (taken, other);
+        if expected.is_none() && needs_expected_type(taken_e) && !needs_expected_type(other_e) {
+            other = self.check_expr(&mut scratch, scope, other_e, None)?;
+            let hint = Self::ifx_branch_type(&other);
+            taken = self.check_expr(f, scope, taken_e, hint)?;
+        } else {
+            taken = self.check_expr(f, scope, taken_e, expected)?;
+            // The other arm is checked for its type and diagnostics but emits no code. It
+            // still sees the expected type, so `.ARM64` there names the target's enum.
+            let hint = match Self::ifx_branch_type(&taken) {
+                Some(t) if expected.is_none() && needs_expected_type(other_e) => Some(t),
+                _ => expected,
+            };
+            other = self.check_expr(&mut scratch, scope, other_e, hint)?;
+        }
         let (then_op, else_op) = if cond_holds {
             (&taken, &other)
         } else {
@@ -227,8 +256,23 @@ impl Compiler {
             None => implicit_then_expr(cond),
             Some(_) => None,
         };
+        // A then-value that only an expected type can type (`.B`, `.{}`, `.[1, 2]`) takes the
+        // else-value's type, so the else-value is checked first.
+        let mut early_else = None;
+        let mut then_hint = expected;
+        if expected.is_none()
+            && then_value.is_some_and(needs_expected_type)
+            && let Some(else_e) = else_value
+            && !needs_expected_type(else_e)
+        {
+            f.b.switch_to(else_block);
+            let op = self.check_expr(f, scope, else_e, None)?;
+            then_hint = Self::ifx_branch_type(&op);
+            early_else = Some(op);
+            f.b.switch_to(then_block);
+        }
         let then_op = match (then_value, implicit_then) {
-            (Some(e), _) | (None, Some(e)) => self.check_expr(f, scope, e, expected)?,
+            (Some(e), _) | (None, Some(e)) => self.check_expr(f, scope, e, then_hint)?,
             (None, None) => Operand::Value {
                 ty: cty,
                 val: cv,
@@ -260,9 +304,10 @@ impl Compiler {
         let then_end = f.b.current;
         // Check else first to learn its type when then is untyped.
         f.b.switch_to(else_block);
-        let else_op = match else_value {
-            Some(e) => Some(self.check_expr(f, scope, e, result_ty.or(expected))?),
-            None => None,
+        let else_op = match (early_else, else_value) {
+            (Some(op), _) => Some(op),
+            (None, Some(e)) => Some(self.check_expr(f, scope, e, result_ty.or(expected))?),
+            (None, None) => None,
         };
         if let (Some(then_e), Some(else_e), Some(else_op)) = (then_value, else_value, &else_op) {
             self.ifx_branch_agreement(
