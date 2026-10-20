@@ -64,7 +64,17 @@ impl Compiler {
         then_branch: &ast::Stmt,
         else_branch: Option<&ast::Stmt>,
     ) -> Result<()> {
-        let c = self.check_expr(f, scope, cond, Some(TypeId::BOOL))?;
+        let c = match self.check_expr(f, scope, cond, Some(TypeId::BOOL)) {
+            Ok(c) => c,
+            Err(e) => {
+                // The branches still name and color what they use while the condition is wrong.
+                self.check_dead_for_facts(f, scope, then_branch);
+                if let Some(b) = else_branch {
+                    self.check_dead_for_facts(f, scope, b);
+                }
+                return Err(e);
+            }
+        };
         if let Some(t) = Self::const_truth(&c) {
             if t {
                 if let Some(e) = else_branch {

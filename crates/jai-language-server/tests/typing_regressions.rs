@@ -430,3 +430,19 @@ fn a_member_of_a_constant_whose_run_fails_is_still_a_field() {
         assert_eq!(token.kind, SemanticTokenKind::Property);
     });
 }
+
+#[test]
+fn the_branches_of_an_if_whose_condition_fails_keep_their_tokens() {
+    on_big_stack(|| {
+        let source = "Pair :: struct { tag: int; }\nmain :: () {\n    p: Pair;\n    if missing == 1 {\n        p.tag = 2;\n    } else {\n        p.tag = 3;\n    }\n}\n";
+        let session = open(source);
+        let tokens = session.semantic_tokens(&uri()).unwrap();
+        for line in [4, 6] {
+            let token = tokens
+                .iter()
+                .find(|t| t.position.line == line && t.position.character == 10)
+                .expect("a token for `tag`");
+            assert_eq!(token.kind, SemanticTokenKind::Property, "line {line}");
+        }
+    });
+}
