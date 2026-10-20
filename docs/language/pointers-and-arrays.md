@@ -43,6 +43,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - `*T` converts to `*void` implicitly; `cast(*int) void_ptr` goes back {#ptr.8}.
 - `arr.data` is a `*T` to the first element; pass it to hand an array to C {#ptr.9}.
 - Fixed arrays convert to views implicitly {#ptr.10}. Views and dynamic arrays start with an `s64` count, then the data pointer {#ptr.11}.
+- A fixed array's size is any constant integer expression, an element of a constant array included (`SIZES :: int.[1, 4, 9]; a: [SIZES[1]] int;` has four elements).
 - `for v, i: arr`, `for *e: arr` and `for < arr` iterate by value, by pointer and in reverse {#ptr.12}.
 - A constant literal like `.["a", "b"]` used as a `[] T` points at its own writable global (`convert.rs`), so a procedure can return it and callers can write through it {#ptr.16}. A literal with runtime elements is a stack temporary.
 - An empty array's `.data` is `null` {#ptr.17}.

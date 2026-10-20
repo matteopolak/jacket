@@ -435,19 +435,28 @@ impl Compiler {
                 let kind = match size {
                     ast::ArraySize::View => ArrayKind::View,
                     ast::ArraySize::Resizable => ArrayKind::Resizable,
-                    ast::ArraySize::Fixed(n) => {
-                        let n = self.check_expr(f, scope, n, Some(TypeId::S64))?;
-                        match n {
+                    ast::ArraySize::Fixed(size_expr) => {
+                        let n = self.check_expr(f, scope, size_expr, Some(TypeId::S64))?;
+                        let count = match &n {
                             Operand::Const {
-                                value: Value::Int(n),
+                                value: Value::Int(v),
                                 ..
-                            } if n >= 0 => ArrayKind::Fixed(n as u64),
-                            other => {
+                            } => Some(*v),
+                            // An element of a constant array, or another constant that only
+                            // evaluating the expression shows.
+                            _ => match self.const_value_of_type(scope, size_expr, TypeId::S64) {
+                                Ok(Value::Int(n)) => Some(n),
+                                _ => None,
+                            },
+                        };
+                        match count {
+                            Some(n) if n >= 0 => ArrayKind::Fixed(n as u64),
+                            _ => {
                                 return err(
                                     span,
                                     format!(
                                         "array size must be a non-negative constant, found {}",
-                                        self.describe(&other)
+                                        self.describe(&n)
                                     ),
                                 );
                             }
