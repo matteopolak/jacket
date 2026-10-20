@@ -152,10 +152,10 @@ mod cpuid_leaf_zero {
             .enumerate()
         {
             let effects = c.ct.interp.effects;
-            let actual = c
-                .interp
-                .call(&c.out.program, function, &[0, 0, index as u64])
-                .unwrap()[0];
+            let actual =
+                c.ct.interp
+                    .call(&c.out.program, function, &[0, 0, index as u64])
+                    .unwrap()[0];
             assert_eq!(actual, u64::from(value), "leaf zero register {index}");
             assert!(c.ct.interp.effects > effects);
         }
@@ -283,16 +283,16 @@ mod xgetbv {
         let mut high = u64::MAX;
         let mut low = u64::MAX;
         let pointers = [(&raw mut high) as u64, (&raw mut low) as u64];
-        let invalid = c
-            .interp
-            .call(&c.out.program, read, &[2, pointers[0], pointers[1]])
-            .unwrap_err();
+        let invalid =
+            c.ct.interp
+                .call(&c.out.program, read, &[2, pointers[0], pointers[1]])
+                .unwrap_err();
         assert!(invalid.message.contains("index"), "{invalid:?}");
         if features & (3 << 26) != (3 << 26) {
-            let error = c
-                .interp
-                .call(&c.out.program, read, &[0, pointers[0], pointers[1]])
-                .unwrap_err();
+            let error =
+                c.ct.interp
+                    .call(&c.out.program, read, &[0, pointers[0], pointers[1]])
+                    .unwrap_err();
             assert!(error.message.contains("XSAVE"), "{error:?}");
             eprintln!(
                 "XGETBV execution UNAVAILABLE: XSAVE/OSXSAVE absent; managed diagnostic PASS"
@@ -310,10 +310,10 @@ mod xgetbv {
         };
         for index in [0, 1u64 << 32] {
             let effects = c.ct.interp.effects;
-            let actual = c
-                .interp
-                .call(&c.out.program, read, &[index, pointers[0], pointers[1]])
-                .unwrap()[0];
+            let actual =
+                c.ct.interp
+                    .call(&c.out.program, read, &[index, pointers[0], pointers[1]])
+                    .unwrap()[0];
             assert_eq!((actual ^ expected) & defined, 0);
             assert_eq!(actual, (high << 32) | low);
             assert!(u32::try_from(high).is_ok() && u32::try_from(low).is_ok());
@@ -333,10 +333,10 @@ mod xgetbv {
         );
         let index1 = maximum >= 0xd && __cpuid_count(0xd, 1).eax & 4 != 0;
         if index1 {
-            let actual = c
-                .interp
-                .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
-                .unwrap()[0];
+            let actual =
+                c.ct.interp
+                    .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
+                    .unwrap()[0];
             assert_eq!(
                 actual & !expected & defined,
                 0,
@@ -344,10 +344,10 @@ mod xgetbv {
             );
             assert!(u32::try_from(high).is_ok() && u32::try_from(low).is_ok());
         } else {
-            let error = c
-                .interp
-                .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
-                .unwrap_err();
+            let error =
+                c.ct.interp
+                    .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
+                    .unwrap_err();
             assert!(error.message.contains("index 1"), "{error:?}");
         }
         for index in 0..=u64::from(index1) {
@@ -578,10 +578,10 @@ mod x86_machine {
                 let mut b = 0;
                 // SAFETY: `rdtscp` is available (checked above) and `a` is a live local.
                 let before = unsafe { __rdtscp(&raw mut a) };
-                let actual = c
-                    .interp
-                    .call(&c.out.program, tscp, &[(&raw mut auxiliary) as u64])
-                    .unwrap()[0];
+                let actual =
+                    c.ct.interp
+                        .call(&c.out.program, tscp, &[(&raw mut auxiliary) as u64])
+                        .unwrap()[0];
                 // SAFETY: as above, with `b`.
                 let after = unsafe { __rdtscp(&raw mut b) };
                 if a == b && auxiliary == a && before <= actual && actual <= after {
