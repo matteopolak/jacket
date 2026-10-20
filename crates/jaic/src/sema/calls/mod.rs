@@ -80,6 +80,23 @@ struct Candidate {
     cost: u32,
     /// How much type structure a polymorphic header pins down (`*$T` beats `$T`).
     specificity: u32,
+    /// How many members the literal arguments leave to their defaults: fewer fits better.
+    fit: u32,
+}
+
+/// An argument that names no type of its own: one still waiting for its parameter's type
+/// (`.{...}`, `.[...]`, `.NAME`) or `null`. Equal candidates for one of these leave the call
+/// without a meaning; an untyped number is not one, as every integer type takes it.
+fn is_untyped_argument(arg: &CallArg) -> bool {
+    match &arg.op {
+        None => true,
+        Some(Operand::Const {
+            value: Value::Null,
+            untyped: true,
+            ..
+        }) => true,
+        Some(_) => false,
+    }
 }
 
 fn is_deferred(expr: &ast::Expr) -> bool {
@@ -286,6 +303,23 @@ impl Compiler {
         }
     }
 
+    /// Two or more candidates that take the arguments equally well, and none better: the call
+    /// does not say which one it means.
+    fn ambiguous_overloads(&self, best: &[Candidate], span: Span) -> Box<Diagnostic> {
+        let name = self.proc(best[0].proc).name.to_string();
+        let mut d = Diagnostic::error(
+            span,
+            format!(
+                "Procedure call matches {} possible overloads: `{name}` is ambiguous for these arguments.",
+                best.len()
+            ),
+        );
+        for c in best {
+            d = d.with_note(self.proc(c.proc).span, "this overload matches");
+        }
+        Box::new(d)
+    }
+
     /// Resolve and emit a call to one of `procs`.
     pub fn call_procs(
         &mut self,
@@ -360,6 +394,9 @@ impl Compiler {
         }
         // Several equally good candidates: the editor keeps the whole overload set.
         let ambiguous = self.order_candidates(&mut best);
+        if ambiguous && args.iter().any(is_untyped_argument) {
+            return Err(self.ambiguous_overloads(&best, span));
+        }
         let chosen = best.swap_remove(0);
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
         if self.ed.is_live() {

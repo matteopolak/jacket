@@ -27,6 +27,33 @@ impl Compiler {
         }
     }
 
+    /// The members that positional values of a literal of `ty` fill, in order. Overlays share
+    /// the storage of another member and take no value of their own.
+    pub(in crate::sema) fn positional_members(
+        &mut self,
+        ty: TypeId,
+        span: Span,
+    ) -> Result<Vec<(Option<Sym>, TypeId, u64)>> {
+        Ok(
+            match self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
+                Some(s) => self
+                    .ty
+                    .types
+                    .struct_info(s)
+                    .fields
+                    .iter()
+                    .filter(|f| !f.overlay)
+                    .map(|f| (f.name, f.ty, f.offset))
+                    .collect(),
+                None => self
+                    .builtin_members(self.ty.types.repr(ty), span)?
+                    .into_iter()
+                    .map(|(n, t, o)| (Some(n), t, o))
+                    .collect(),
+            },
+        )
+    }
+
     pub fn check_struct_literal(
         &mut self,
         f: &mut FnCtx,
@@ -48,23 +75,7 @@ impl Compiler {
             },
         };
         let size = self.size_of(ty, span)?;
-        // Member list for positional arguments.
-        let members: Vec<(Option<Sym>, TypeId, u64)> =
-            match self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
-                Some(s) => self
-                    .ty
-                    .types
-                    .struct_info(s)
-                    .fields
-                    .iter()
-                    .map(|f| (f.name, f.ty, f.offset))
-                    .collect(),
-                None => self
-                    .builtin_members(self.ty.types.repr(ty), span)?
-                    .into_iter()
-                    .map(|(n, t, o)| (Some(n), t, o))
-                    .collect(),
-            };
+        let members = self.positional_members(ty, span)?;
         if members.is_empty()
             && !args.is_empty()
             && self

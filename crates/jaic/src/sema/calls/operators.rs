@@ -5,8 +5,8 @@ use super::{
     TypeKind, Value, ast, err, ir, scope,
 };
 use crate::ast::ExprKind as E;
+use crate::sema::TypeState;
 use crate::sema::binary::Binary;
-use crate::sema::{Diagnostic, TypeState};
 
 /// `.{...}` with no type written: its type comes from where it is used.
 fn is_untyped_literal(e: &ast::Expr) -> bool {
@@ -230,19 +230,7 @@ impl Compiler {
             return Ok(None);
         }
         if self.order_candidates(&mut best) {
-            let name = self.proc(best[0].proc).name.to_string();
-            let mut d = Diagnostic::error(
-                span,
-                format!(
-                    "Procedure call matches {} possible overloads: `{name}` is ambiguous for \
-                     these operands.",
-                    best.len()
-                ),
-            );
-            for c in &best {
-                d = d.with_note(self.proc(c.proc).span, "this overload matches");
-            }
-            return Err(Box::new(d));
+            return Err(self.ambiguous_overloads(&best, span));
         }
         let chosen = best.swap_remove(0);
         self.emit_call(f, scope, chosen, args, span).map(Some)

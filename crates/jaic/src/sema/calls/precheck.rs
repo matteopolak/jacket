@@ -145,7 +145,7 @@ impl Compiler {
                     let key = |c: &Candidate| {
                         let mild = self.proc(c.proc).bindings.is_none()
                             && c.cost < crate::sema::convert::INT_TO_FLOAT;
-                        (u32::from(!mild), c.cost)
+                        (u32::from(!mild), c.cost, c.fit)
                     };
                     match best.first() {
                         Some(b) if key(&c) > key(b) => {}

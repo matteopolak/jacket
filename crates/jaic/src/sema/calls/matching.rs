@@ -133,6 +133,7 @@ impl Compiler {
             return err(span, "internal: signature/parameter mismatch");
         }
         let mut cost = extra;
+        let mut fit = 0;
         let is_macro = self.proc(proc).is_macro;
         for (k, &i) in runtime_params.iter().enumerate() {
             let param = &sig.params[k];
@@ -161,7 +162,10 @@ impl Compiler {
                         ));
                     }
                 }
-                Slot::Arg(a) => cost += self.arg_cost(&args[*a], param.ty, is_macro)?,
+                Slot::Arg(a) => {
+                    cost += self.arg_cost(&args[*a], param.ty, is_macro)?;
+                    fit += self.arg_fit(&args[*a], param.ty)?;
+                }
                 Slot::Spread(a) => cost += self.arg_cost(&args[*a], param.ty, is_macro)?,
                 Slot::Variadic(list) => {
                     let elem = if sig.c_varargs {
@@ -188,6 +192,7 @@ impl Compiler {
             slots,
             cost,
             specificity,
+            fit,
         })
     }
 

@@ -69,63 +69,72 @@ impl Compiler {
         None
     }
 
-    /// Can the arguments of an untyped `.{...}` fill the members of `param`? Positional values
-    /// are compared with their members only where the value's kind decides it: more values than
-    /// members, or an array literal where the member is not an array.
-    fn struct_lit_args_fit(
+    /// How well the arguments of an untyped `.{...}` fit the members of `param`: `None` when
+    /// they cannot fill it, else the number of members left to their defaults (a literal with no
+    /// values says nothing about the shape, so it fits every type alike). A named member must
+    /// exist; positional values must not outnumber the members that take them, must reach the
+    /// last member without an initializer, and an array literal needs an array member.
+    pub(super) fn struct_lit_fit(
         &mut self,
         param: TypeId,
         fields: &[ast::Arg],
         span: Span,
-    ) -> Result<bool> {
-        if self.size_of(param, span).is_err() {
-            return Ok(true);
+    ) -> Result<Option<u32>> {
+        if self.size_of(param, span).is_err() || fields.is_empty() {
+            return Ok(Some(0));
         }
-        let members: Vec<TypeId> = match self.ty.types.as_struct(self.ty.types.repr_struct(param)) {
-            Some(s) => self
-                .ty
-                .types
-                .struct_info(s)
-                .fields
-                .iter()
-                .map(|f| f.ty)
-                .collect(),
-            None => self
-                .builtin_members(self.ty.types.repr(param), span)?
-                .into_iter()
-                .map(|(_, t, _)| t)
-                .collect(),
-        };
+        let members = self.positional_members(param, span)?;
+        let mut positional = 0;
+        let mut named = 0;
+        for field in fields {
+            if let Some(name) = field.name {
+                if self.find_member(param, name.name, name.span)?.is_none() {
+                    return Ok(None);
+                }
+                named += 1;
+            } else if field.target.is_none() {
+                let Some(&(_, member, _)) = members.get(positional) else {
+                    return Ok(None);
+                };
+                if matches!(field.value.kind, E::ArrayLit { .. })
+                    && !matches!(
+                        self.ty.types.kind(self.ty.types.repr(member)),
+                        TypeKind::Array { .. }
+                    )
+                {
+                    return Ok(None);
+                }
+                positional += 1;
+            }
+        }
         // All values positional and fewer than the fields without initializers: the literal
         // itself would be rejected, so it is not this type.
-        let positional = fields
-            .iter()
-            .filter(|a| a.target.is_none() && a.name.is_none())
-            .count();
         if positional > 0
             && positional == fields.len()
             && positional < self.positional_values_needed(param)
         {
-            return Ok(false);
+            return Ok(None);
         }
-        for (position, field) in fields
-            .iter()
-            .filter(|a| a.target.is_none() && a.name.is_none())
-            .enumerate()
+        let unfilled = members.len().saturating_sub(positional + named);
+        Ok(Some(u32::try_from(unfilled).unwrap_or(u32::MAX)))
+    }
+
+    /// The fit of a deferred argument to `param` that breaks ties between equally cheap
+    /// candidates: see [`Self::struct_lit_fit`]. Arguments of any other shape fit alike.
+    pub(super) fn arg_fit(&mut self, arg: &CallArg, param: TypeId) -> Result<u32> {
+        if arg.op.is_none()
+            && let Some(ast::Expr {
+                kind:
+                    E::StructLit {
+                        ty: None,
+                        fields,
+                    },
+                ..
+            }) = &arg.expr
         {
-            let Some(&member) = members.get(position) else {
-                return Ok(false);
-            };
-            if matches!(field.value.kind, E::ArrayLit { .. })
-                && !matches!(
-                    self.ty.types.kind(self.ty.types.repr(member)),
-                    TypeKind::Array { .. }
-                )
-            {
-                return Ok(false);
-            }
+            return Ok(self.struct_lit_fit(param, fields, arg.span)?.unwrap_or(0));
         }
-        Ok(true)
+        Ok(0)
     }
 
     /// `macro_call`: a Code parameter of a macro also binds a variable by name.
@@ -230,7 +239,7 @@ impl Compiler {
                         || !self
                             .builtin_members(self.ty.types.repr(param), arg.span)?
                             .is_empty())
-                        && self.struct_lit_args_fit(param, lit_args, arg.span)?
+                        && self.struct_lit_fit(param, lit_args, arg.span)?.is_some()
                 }
                 Some(E::ArrayLit {
                     ..
