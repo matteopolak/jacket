@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.22.1] - 2026-10-20
+
+## [0.22.1] - 2026-10-20
+
+### Fixed
+
+- Installing with Homebrew on macOS works again.
+- Editor hovers on polymorphic procedures that are never called and take a baked polymorphic parameter.
+
 ## [0.22.0] - 2026-10-20
 
 ### New

@@ -221,7 +221,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jacket"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "clap",
  "jacket-config",
@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "jacket-config"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "serde",
  "toml",
@@ -241,7 +241,7 @@ dependencies = [
 
 [[package]]
 name = "jai-language-server"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "jacket-config",
  "jaic",
@@ -252,7 +252,7 @@ dependencies = [
 
 [[package]]
 name = "jai-wasm"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "jai-language-server",
  "jaic",
@@ -261,7 +261,7 @@ dependencies = [
 
 [[package]]
 name = "jaic"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "find-msvc-tools",
  "pulldown-cmark",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "jaic-cli"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "jacket-config",
  "jaic",
@@ -281,7 +281,7 @@ dependencies = [
 
 [[package]]
 name = "jaic-llvm"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "inkwell",
  "jaic",
@@ -289,7 +289,7 @@ dependencies = [
 
 [[package]]
 name = "jailint"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "jacket-config",
  "jaic",
