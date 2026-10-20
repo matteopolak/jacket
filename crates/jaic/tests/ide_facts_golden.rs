@@ -75,11 +75,19 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
             "FileId" => file(c, FileId(n)),
             "EntityId" => {
                 let e = c.entity(EntityId(n));
-                format!("E({}@{})", e.name, at_span(c, e.span))
+                format!(
+                    "E({}@{})",
+                    e.name.to_string().escape_debug(),
+                    at_span(c, e.span)
+                )
             }
             "ProcId" => {
                 let p = c.proc(ProcId(n));
-                format!("P({}@{})", p.name, at_span(c, p.span))
+                format!(
+                    "P({}@{})",
+                    p.name.to_string().escape_debug(),
+                    at_span(c, p.span)
+                )
             }
             "TypeId" => format!("T({})", c.types.name(TypeId(n))),
             "ScopeId" => scopes.get(&ScopeId(n)).map_or_else(
@@ -88,7 +96,11 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
             ),
             _ => {
                 let s = c.types.struct_info(StructId(n));
-                format!("St({}@{})", s.name, at_span(c, s.span))
+                format!(
+                    "St({}@{})",
+                    s.name.to_string().escape_debug(),
+                    at_span(c, s.span)
+                )
             }
         });
         rest = &digits[len + 1..];
