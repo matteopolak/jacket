@@ -207,28 +207,31 @@ impl Parser<'_> {
     pub(super) fn ide_synchronize(&mut self, start: usize, in_block: bool) {
         self.pos = start;
         let mut braces = 0usize;
-        let mut brackets = 0usize;
+        // The brace depth at each open bracket.
+        let mut brackets: Vec<usize> = Vec::new();
         loop {
             if self.pos > start && self.ide_block_boundary(self.toks[start].span) {
                 break;
             }
             if self.at_eof()
-                || (self.pos > start && braces == 0 && brackets == 0 && self.newline_before())
+                || (self.pos > start && braces == 0 && brackets.is_empty() && self.newline_before())
             {
                 break;
             }
             match self.tok() {
                 Tok::Punct(P::LBrace | P::DotBrace) => braces += 1,
-                Tok::Punct(P::LBracket | P::DotBracket) => brackets += 1,
+                Tok::Punct(P::LBracket | P::DotBracket) => brackets.push(braces),
                 Tok::Punct(P::RBracket) => {
-                    brackets = brackets.saturating_sub(1);
                     // An explicit outer list closer also ends a damaged inner
-                    // struct-literal element whose closing brace was removed.
-                    braces = 0;
+                    // struct-literal element whose closing brace was removed,
+                    // but not a block opened before the list.
+                    if let Some(depth) = brackets.pop() {
+                        braces = braces.min(depth);
+                    }
                 }
                 Tok::Punct(P::RBrace) if braces > 0 => braces -= 1,
                 Tok::Punct(P::RBrace) if in_block => break,
-                Tok::Punct(P::Semi) if braces == 0 && brackets == 0 => {
+                Tok::Punct(P::Semi) if braces == 0 && brackets.is_empty() => {
                     self.bump();
                     break;
                 }

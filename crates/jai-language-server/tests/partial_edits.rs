@@ -732,3 +732,15 @@ fn statements_before_the_first_case_are_each_reported_where_they_are() {
         ]
     );
 }
+
+#[test]
+fn an_index_inside_a_broken_if_body_keeps_the_body_brace() {
+    let text = "main :: () {\n    #if OS == .WINDOWS {\n        if args. == 2 {\n            x := f(args[1]);\n        }\n    } else {\n        y := 1;\n    }\n}\n";
+    let parsed = jaic::parser::parse_file_ide(jaic::source::FileId(0), text);
+    let errors: Vec<_> = parsed
+        .diagnostics
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(errors, ["expected identifier after `.`, found `==`"]);
+}
