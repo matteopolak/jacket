@@ -306,7 +306,7 @@ impl Compiler {
 
     /// Two or more candidates that take the arguments equally well, and none better: the call
     /// does not say which one it means.
-    fn ambiguous_overloads(&self, best: &[Candidate], span: Span) -> Box<Diagnostic> {
+    fn ambiguous_overloads(&self, best: &[Candidate], span: Span) -> Diagnostic {
         let name = self.proc(best[0].proc).name.to_string();
         let mut d = Diagnostic::error(
             span,
@@ -318,7 +318,7 @@ impl Compiler {
         for c in best {
             d = d.with_note(self.proc(c.proc).span, "this overload matches");
         }
-        Box::new(d)
+        d
     }
 
     /// Resolve and emit a call to one of `procs`.
@@ -410,7 +410,7 @@ impl Compiler {
                 .iter()
                 .any(|c| self.proc(c.proc).sig.as_ref().map(|sig| sig.ty) != first)
             {
-                return Err(self.ambiguous_overloads(&best[..tied], span));
+                return Err(Box::new(self.ambiguous_overloads(&best[..tied], span)));
             }
         }
         let chosen = best.swap_remove(0);

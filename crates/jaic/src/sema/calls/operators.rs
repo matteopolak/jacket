@@ -230,7 +230,7 @@ impl Compiler {
             return Ok(None);
         }
         if self.order_candidates(&mut best) {
-            return Err(self.ambiguous_overloads(&best, span));
+            return Err(Box::new(self.ambiguous_overloads(&best, span)));
         }
         let chosen = best.swap_remove(0);
         self.emit_call(f, scope, chosen, args, span).map(Some)
