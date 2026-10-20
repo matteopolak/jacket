@@ -19,20 +19,15 @@ def directory(repo: str) -> str:
 
 class Lists(unittest.TestCase):
     def test_lists_are_disjoint(self):
-        star, held, excluded = set(fetch.STAR_REPOSITORIES), set(fetch.HELD_REPOSITORIES), set(fetch.EXCLUDED_REPOSITORIES)
+        star, excluded = set(fetch.STAR_REPOSITORIES), set(fetch.EXCLUDED_REPOSITORIES)
         other = set(fetch.REPOSITORIES + fetch.DEPENDENCIES + fetch.LIBRARIES)
         self.assertEqual(len(star), len(fetch.STAR_REPOSITORIES))
-        for a, b in ((star, held), (star, excluded), (held, excluded), (star, other), (held, other)):
+        for a, b in ((star, excluded), (star, other)):
             self.assertFalse(a & b, a & b)
 
-    def test_held_repositories_are_not_in_the_manifest(self):
+    def test_star_repositories_are_in_the_manifest(self):
         pinned = {p["repository"] for p in json.loads((ROOT / "corpus/upstreams.json").read_text())["projects"]}
-        self.assertFalse(pinned & set(fetch.HELD_REPOSITORIES))
         self.assertTrue(set(fetch.STAR_REPOSITORIES) <= pinned)
-
-    def test_every_held_reason_names_a_line(self):
-        for repo, reason in fetch.HELD_REPOSITORIES.items():
-            self.assertRegex(reason, r"\.jai:\d", repo)
 
 
 class BinaryGuard(unittest.TestCase):

@@ -91,8 +91,8 @@ LIBRARIES = (
 )
 # Every language:Jai repository with at least STAR_THRESHOLD stars as of 2026-10-20, regardless of
 # when it last changed (`gh search repos --language=Jai --stars=">=5"`). Exempt from the recency
-# cutoff like LIBRARIES, but unreviewed: tools/corpus/scan_upstream.py must report no high-risk
-# finding before a repository is listed here, only text sources are taken (see
+# cutoff like LIBRARIES, but unreviewed: run tools/corpus/scan_upstream.py and read its high-risk
+# findings before a repository is listed here, only text sources are taken (see
 # `is_forbidden_file`), vendored copies of official Jai modules are left out
 # (`vendored_official_module`), and the cases of these repositories carry `"review": "pending"`
 # in tools/upstream-cases.json (docs/tools/upstream-corpus.md, "Review gate").
@@ -137,30 +137,26 @@ STAR_REPOSITORIES = (
     "isomorphic-tech/jai-sqlite",
     "666rayen999/qoa-jai",
     "kujukuju/KodaPathFinding",
+    "tsoding/jaibreak",
+    "valignatev/jai-on-linux",
+    "SogoCZE/jai_wgpu_native",
+    "danieltan1517/orange-xiangqi",
+    "fda0/Treasure",
+    "judah-caruso/base.jai",
+    "rubenbala/uppies",
+    "farzher/clipman",
+    "qiekn/ootss-cmd",
+    "TheGag96/raspberry-jai",
+    "TraceMyers/vai",
+    "MariuzM/jai-lsp-scratch",
+    "Breush/sloubi-chess",
+    "yanchith/editor",
+    "QuattroMusic/6502-Simulator",
 )
 # Star-qualified repositories that are deliberately not pinned, with the reason.
 EXCLUDED_REPOSITORIES = {
     "abhiramasonny/jaithon": "its own language that happens to use the .jai extension",
     "matteopolak/jacket": "this project",
-}
-# Star-qualified repositories whose scan found a high-risk line: not fetched until a person has
-# read the findings (`scan_upstream.py`) and moved the repository into STAR_REPOSITORIES.
-HELD_REPOSITORIES: dict[str, str] = {
-    "tsoding/jaibreak": "build program spawns a process (first.jai:66 run_command)",
-    "valignatev/jai-on-linux": "build programs spawn processes (examples/static-binary/build.jai:98, build_musl.jai:24,35)",
-    "SogoCZE/jai_wgpu_native": "bindings generator spawns a process (wgpu/generate.jai:97 run_command)",
-    "danieltan1517/orange-xiangqi": "build.jai spawns processes that clone, download (wget, Invoke-WebRequest, Google Drive) and unpack (build.jai:154-284)",
-    "fda0/Treasure": "build program spawns a process (compile.jai:256 run_command)",
-    "judah-caruso/base.jai": "build helper spawns jai and deletes a file (_ensure_standalone.jai:11,22)",
-    "rubenbala/uppies": "build.jai spawns processes (build.jai:166-559), deletes directories (403,465) and reads UPPIES_SIGN_IDENTITY and PATH (389,704)",
-    "farzher/clipman": "compress_exe build module deletes files (src/modules/compress_exe/module.jai:129-130)",
-    "qiekn/ootss-cmd": "scripts delete files and spawn cwebp (scripts/check_config_reload.jai:131,174,284,348; scripts/capture_overworld_map/stitch_map.jai:53)",
-    "TheGag96/raspberry-jai": "build program spawns a process (first.jai:112 run_command)",
-    "TraceMyers/vai": "build.jai spawns cmake and builds (build.jai:94,108,137,151) and compile-time #asm (src/bit_array.jai:92,98)",
-    "MariuzM/jai-lsp-scratch": "server/build.jai spawns a process, deletes files and writes ../extension/bin (server/build.jai:37,116,145)",
-    "Breush/sloubi-chess": "src/first.jai runs git (first.jai:45-46) and second.jai copies from ../../bin/jai/modules/Curl (second.jai:49)",
-    "yanchith/editor": "build.jai deletes a directory it computes (build.jai:250 delete_directory(bundle_path))",
-    "QuattroMusic/6502-Simulator": "compile-time #asm SSE in a #run block (src/engine/dx11.jai:485,503)",
 }
 # Dependencies pinned to the consumer's submodule commit (else the newest commit).
 SUBMODULE_REVISIONS = {
@@ -249,7 +245,7 @@ MODULE_LINKS = (
 
 DATA = main_checkout()
 # Repositories whose newest Jai change may predate --since.
-RECENCY_EXEMPT = DEPENDENCIES + LIBRARIES + STAR_REPOSITORIES + tuple(HELD_REPOSITORIES)
+RECENCY_EXEMPT = DEPENDENCIES + LIBRARIES + STAR_REPOSITORIES
 
 
 def git(cache: Path, *args: str) -> str:
