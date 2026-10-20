@@ -1,9 +1,11 @@
 //! The compiler's handle on an editor analysis. A batch compile has an idle `Editor`: every
 //! event method returns at once, so recording costs the checker one branch per site.
 use super::IdeFacts;
+use crate::intern::Sym;
 use crate::parser::{ParseReuse, SharedParse};
-use crate::sema::Result;
+use crate::sema::{EntityId, ProcId, Result};
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
+use crate::types::TypeId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -87,6 +89,84 @@ impl Editor {
     pub(crate) fn sketch_tried(&mut self, span: Span) {
         if let Some(facts) = self.facts.as_mut().filter(|facts| facts.sketching) {
             facts.sketch_tried.insert(span);
+        }
+    }
+
+    /// Whether a sketch began checking the expression at `span`.
+    pub(crate) fn sketch_checked(&self, span: Span) -> bool {
+        self.facts()
+            .is_some_and(|facts| facts.sketch_tried.contains(&span))
+    }
+
+    /// Whether a sketch gave the expression at `span` a type.
+    pub(crate) fn sketch_typed(&self, span: Span) -> bool {
+        self.facts()
+            .is_some_and(|facts| facts.sketch_types.contains_key(&span))
+    }
+
+    /// The name at `span` resolved to `ids` (one entity, or overloads): a use of each, for a
+    /// linter.
+    #[inline]
+    pub(crate) fn named(&mut self, span: Span, ids: &[EntityId]) {
+        if let Some(facts) = &mut self.facts {
+            facts.last_entity = Some((span, ids[0]));
+            if facts.lint {
+                facts.used.extend(ids.iter().copied());
+            }
+        }
+    }
+
+    /// The name at `span` resolved to `id`, outside an identifier (a struct constant, a named
+    /// expression).
+    #[inline]
+    pub(crate) fn resolved(&mut self, span: Span, id: EntityId) {
+        if let Some(facts) = &mut self.facts {
+            facts.last_entity = Some((span, id));
+        }
+    }
+
+    /// The name just checked stands for `member` of a `using`d value.
+    #[inline]
+    pub(crate) fn named_using_member(&mut self, member: Sym) {
+        if let Some(facts) = &mut self.facts {
+            facts.last_using_member = Some(member);
+        }
+    }
+
+    /// The `#run` at `span`, of type `ty`, failed.
+    pub(crate) fn run_failed(&mut self, span: Span, ty: TypeId) {
+        if let Some(facts) = &mut self.facts {
+            facts.failed_runs.insert(span, ty);
+        }
+    }
+
+    /// The type of the failed `#run` at `span`.
+    pub(crate) fn failed_run_type(&self, span: Span) -> Option<TypeId> {
+        self.facts()?.failed_runs.get(&span).copied()
+    }
+
+    /// `.name` at `span` was inferred against `ty`.
+    pub(crate) fn inferred(&mut self, span: Span, ty: TypeId) {
+        if let Some(facts) = &mut self.facts {
+            let seen = facts.inferred_expected.entry(span).or_default();
+            if !seen.contains(&ty) {
+                seen.push(ty);
+            }
+        }
+    }
+
+    /// The macro `proc` was expanded.
+    #[inline]
+    pub(crate) fn macro_expanded(&mut self, proc: ProcId) {
+        if let Some(facts) = &mut self.facts {
+            facts.expanded_macros.insert(proc);
+        }
+    }
+
+    /// The body of `proc` expanded a macro that returns from its caller.
+    pub(crate) fn macro_returned(&mut self, proc: ProcId) {
+        if let Some(facts) = &mut self.facts {
+            facts.macro_returners.insert(proc);
         }
     }
 

@@ -152,9 +152,7 @@ impl Compiler {
                 // `name` stands for `value.name`: hover and go to definition treat it as the field.
                 if let Some(ty) = place {
                     self.ide_note_member_use(span, ty, member);
-                    if let Some(ide) = self.ed.facts_mut() {
-                        ide.last_using_member = Some(member);
-                    }
+                    self.ed.named_using_member(member);
                 }
                 Ok(op)
             }
@@ -186,12 +184,7 @@ impl Compiler {
                 {
                     self.ide_note_entity_use(span, id, TypeId::COMPILE_TIME);
                 }
-                if let Some(ide) = self.ed.facts_mut() {
-                    ide.last_entity = Some((span, ids[0]));
-                    if ide.lint {
-                        ide.used.extend(ids.iter().copied());
-                    }
-                }
+                self.ed.named(span, &ids);
                 op
             }
         }
@@ -239,7 +232,7 @@ impl Compiler {
         match &expr.kind {
             E::Run {
                 ..
-            } => self.ed.facts_mut()?.failed_runs.get(&expr.span).copied(),
+            } => self.ed.failed_run_type(expr.span),
             E::Ident(name) if depth > 0 => {
                 let Ok(Found::Entities(ids)) = self.lookup_full(scope, *name) else {
                     return None;
@@ -442,14 +435,8 @@ impl Compiler {
                 format!("cannot infer the type of `.{}` here", name.name),
             );
         };
-        if self.ed.is_live()
-            && self.ide_wants_pub(name.span.file)
-            && let Some(ide) = self.ed.facts_mut()
-        {
-            let seen = ide.inferred_expected.entry(name.span).or_default();
-            if !seen.contains(&t) {
-                seen.push(t);
-            }
+        if self.ed.is_live() && self.ide_wants_pub(name.span.file) {
+            self.ed.inferred(name.span, t);
         }
         // Allow pointer-to-enum targets? No: enums only, but look through distinct.
         match self.types.kind(t).clone() {

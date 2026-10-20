@@ -32,15 +32,12 @@ mod expr;
 mod flow;
 mod format_check;
 mod host_run;
-mod ide_sketch;
 mod interfaces;
-pub mod interval;
 mod lambda;
 pub(crate) mod lower;
 mod modify;
 mod module_rank;
 mod modules;
-mod never_returns;
 pub mod perf;
 mod private_names;
 pub mod procs;
@@ -452,7 +449,7 @@ pub struct Compiler {
     pub asserts: Vec<(ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId)>,
     /// How many of `top_level_runs`/`asserts` already executed.
     pub(crate) runs_done: usize,
-    asserts_done: usize,
+    pub(crate) asserts_done: usize,
     /// `__runtime_info`, when the program references it.
     runtime_info: Option<ir::GlobalId>,
     runtime_storage_global: Option<ir::GlobalId>,
@@ -473,7 +470,7 @@ pub struct Compiler {
     pub body_queue: Vec<ProcId>,
     /// Queued bodies whose last lenient attempt failed at `parked_epoch`: skipped as a group by
     /// `drain_bodies_lenient` until the epoch moves, instead of being looked at on every call.
-    parked_bodies: Vec<ProcId>,
+    pub(crate) parked_bodies: Vec<ProcId>,
     /// Bodies being lowered right now (nested through compile-time runs).
     pub(super) lowering_depth: u32,
     /// Values of `a, b :: expr;` declarations, by declaration and scope.

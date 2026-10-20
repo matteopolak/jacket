@@ -10,11 +10,11 @@
 
 Settings are in `.cargo/mutants.toml`: only `--lib` tests run (the unit tests; they build faster than the integration binaries and sit next to the code), and `Debug`/`Display` impls are not mutated.
 
-`sema/reachability.rs` is left out: only the language server's `unreachable` test exercises what it fades, and cargo-mutants 27.1 does not run another package's tests against a mutant (`--test-package` is ignored once `-p` names the mutated package), so every mutant would survive. Moving a unit test of `warn_unreachable` into `jaic` would bring it in.
+`sema/reachability.rs` and `ide/values.rs` are left out: only the language server's `unreachable` test exercises what it fades, and cargo-mutants 27.1 does not run another package's tests against a mutant (`--test-package` is ignored once `-p` names the mutated package), so every mutant would survive. Moving a unit test of `warn_unreachable` into `jaic` would bring it in.
 
 ## How to change it
 
-- Run it on one file: `cargo mutants -p jaic -f crates/jaic/src/sema/interval.rs`. Each mutant rebuilds `jaic`, about a minute, so use `--list` first and a small file. `-F 'regex'` narrows to mutants whose name matches.
+- Run it on one file: `cargo mutants -p jaic -f crates/jaic/src/ide/interval.rs`. Each mutant rebuilds `jaic`, about a minute, so use `--list` first and a small file. `-F 'regex'` narrows to mutants whose name matches.
 - A surviving mutant is a missing test, an equivalent change, or dead code. Add a test that fails with the mutant (the report names the line and the replacement); if the code is unreachable, delete it. A mutant that cannot be told apart from the original can be skipped in place with `#[mutants::skip]` and a comment saying why; add the `mutants` crate only when one is needed.
 - Widen the scope by adding a glob to `SCOPE` in the workflow.
 - Timeouts count as caught (the mutant made the program loop), so a mutated loop condition is not a finding.

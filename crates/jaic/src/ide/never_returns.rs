@@ -17,12 +17,14 @@
 //! The set then extends the dead code of `reachability.rs`: the statements after a call that
 //! never returns are recorded as dead runs of every body that was analysed, which is what the
 //! editor fades and what `jailint` consults.
-use super::ast::{self, ExprKind as E, StmtKind as S};
-use super::procs::ProcTarget;
-use super::reachability::runs_in_order;
-use super::value::ProcId;
-use super::{Compiler, HashMap, HashSet, Span, Sym};
-use crate::ide::IdeFacts;
+use super::IdeFacts;
+use crate::ast::{self, ExprKind as E, StmtKind as S};
+use crate::fxhash::{HashMap, HashSet};
+use crate::intern::Sym;
+use crate::sema::procs::ProcTarget;
+use crate::sema::reachability::runs_in_order;
+use crate::sema::{Compiler, ProcId};
+use crate::source::Span;
 
 /// The C symbols of the process and thread exits a body-less `#foreign` procedure can name.
 const NEVER_RETURNING_SYMBOLS: &[&str] = &[

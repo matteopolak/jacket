@@ -434,10 +434,8 @@ impl Compiler {
                     other => {
                         let ty = other.ty();
                         let result = self.run_thunk_all(f, other, span);
-                        if result.is_err()
-                            && let Some(ide) = self.ed.facts_mut()
-                        {
-                            ide.failed_runs.insert(span, ty);
+                        if result.is_err() {
+                            self.ed.run_failed(span, ty);
                         }
                         result
                     }

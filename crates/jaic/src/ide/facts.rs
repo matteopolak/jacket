@@ -140,7 +140,7 @@ pub struct IdeFacts {
     pub static_branches: HashMap<Span, bool>,
     /// What each checked integer or bool expression of the recorded files can evaluate to
     /// (see `reachability.rs`), for the last evaluation of it.
-    pub(crate) ainfo: HashMap<Span, crate::sema::reachability::AInfo>,
+    pub(crate) ainfo: HashMap<Span, super::AInfo>,
     /// Where each local was assigned.
     pub(crate) assigned: HashMap<EntityId, Vec<Span>>,
     /// Locals whose address was taken, or that a macro may write.

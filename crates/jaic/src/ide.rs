@@ -9,9 +9,13 @@ mod describe;
 mod editor;
 mod facts;
 mod hover;
+pub mod interval;
 mod member_notes;
 pub mod meta;
+mod never_returns;
 mod recording;
+mod sketch;
+mod values;
 
 pub use self::editor::Editor;
 pub(crate) use self::editor::StmtRecovery;
@@ -20,3 +24,4 @@ pub use self::facts::{
     IdeReceiver, IdeRef, IdeRoot, IdeWhat, SketchMark,
 };
 pub(crate) use self::member_notes::for_header_types;
+pub(crate) use self::values::{AInfo, Narrowing};

@@ -266,7 +266,7 @@ impl Compiler {
     }
 
     /// Whether `scope` itself already holds a runtime local called `name`.
-    pub(in crate::sema) fn declares_local(&self, scope: ScopeId, name: Sym) -> bool {
+    pub(crate) fn declares_local(&self, scope: ScopeId, name: Sym) -> bool {
         self.scope(scope).names.get(&name).is_some_and(|ids| {
             ids.iter()
                 .any(|&e| matches!(self.entity(e).kind, EntityKind::Local { .. }))

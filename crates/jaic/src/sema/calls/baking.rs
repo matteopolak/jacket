@@ -8,7 +8,7 @@ use super::{
 impl Compiler {
     /// The value of a defaulted baked parameter. A declared type naming earlier bindings
     /// (`$compare: (T, T) -> bool = ...`) is read in a scope holding them.
-    pub(in crate::sema) fn baked_default(
+    pub(crate) fn baked_default(
         &mut self,
         def_scope: ScopeId,
         param: &ast::Param,

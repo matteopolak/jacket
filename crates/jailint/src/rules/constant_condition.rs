@@ -8,7 +8,7 @@
 //! ```
 //!
 //! The compiler already works out which code can never run (the editor fades it, see
-//! `jaic::sema::reachability`): from the range of values each operand can take, from what an
+//! `jaic::sema::reachability` and `jaic::ide::values`): from the range of values each operand can take, from what an
 //! enclosing test narrowed, and from the width of each type. This rule reports the test behind
 //! such a branch. It adds no analysis of its own; where the compiler is unsure, so is the rule.
 //!
@@ -19,7 +19,7 @@ use super::{finding, int_literal};
 use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
-use jaic::sema::interval::{self, Interval};
+use jaic::ide::interval::{self, Interval};
 use jaic::source::Span;
 use jaic::types::TypeKind;
 

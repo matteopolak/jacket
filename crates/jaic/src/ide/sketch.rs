@@ -6,11 +6,17 @@
 //! member `x.name` of a `T` is a stand-in `T.name`, a comparison is a `bool`, it converts to
 //! and from every type and iterates like an array. A statement that fails anyway is skipped.
 //! The sketch is then forgotten: its errors are dropped and nothing can call it.
-use super::lower::{FnCtx, Operand};
-use super::procs::BodyState;
-use super::value::ProcId;
-use super::{Compiler, HashMap, Rc, ScopeId, Span, Sym, TypeId, Value, ast, scope};
-use crate::types::TypeKind;
+use crate::ast;
+use crate::fxhash::HashMap;
+use crate::intern::Sym;
+use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::procs::{self, BodyState, ProcTarget};
+use crate::sema::scope;
+use crate::sema::value::PolyStructId;
+use crate::sema::{Compiler, ProcId, ScopeId, Value};
+use crate::source::Span;
+use crate::types::{TypeId, TypeKind};
+use std::rc::Rc;
 
 /// The most facts one sketch may add.
 const MAX_SKETCH_REFS: usize = 20_000;
@@ -103,7 +109,7 @@ impl Compiler {
                 // A macro is sketched as a procedure: what it reaches in its caller (`x`) is
                 // missing, and those statements are skipped.
                 self.procs[inst.0 as usize].is_macro = false;
-                if let Ok(super::procs::ProcTarget::Func(root)) = self.proc_func(inst, span) {
+                if let Ok(ProcTarget::Func(root)) = self.proc_func(inst, span) {
                     // A sketch owns only its reachable work. Draining the global queue
                     // retries independent failed bodies after source/compile-time progress,
                     // applying stand-in recovery to real code and repeating its generators.
@@ -235,7 +241,7 @@ impl Compiler {
             let Some(mut ty) = param.ty.as_ref() else {
                 continue;
             };
-            if super::procs::has_poly(ty) {
+            if procs::has_poly(ty) {
                 continue;
             }
             while let ast::ExprKind::Unary(_, e)
@@ -308,7 +314,7 @@ impl Compiler {
     /// integer ones 4; `None` when a parameter is of another kind or the instance fails.
     fn ide_sketch_struct_instance(
         &mut self,
-        ps: super::value::PolyStructId,
+        ps: PolyStructId,
         scope: ScopeId,
         span: Span,
     ) -> Option<TypeId> {
@@ -343,7 +349,7 @@ impl Compiler {
     /// so its parameters and the uses of them in its body have the facts an instance gives.
     fn ide_sketch_structs(&mut self) {
         for i in 0..self.poly_structs.len() {
-            let ps = super::value::PolyStructId(i as u32);
+            let ps = PolyStructId(i as u32);
             let p = &self.poly_structs[i];
             let (file, scope) = (p.lit.span.file, p.scope);
             if p.origin.is_some()
@@ -400,7 +406,7 @@ impl Compiler {
     /// A call in a sketch would instantiate a polymorph with a stand-in. Only its signature is
     /// made (so the call has the caller's own `T` in its types): each member of a stand-in is a
     /// new stand-in, so checking bodies of polymorphs calling each other would not end.
-    pub(super) fn ide_sketch_refuses(&self, bindings: &[(Sym, Value, TypeId)]) -> bool {
+    pub(crate) fn ide_sketch_refuses(&self, bindings: &[(Sym, Value, TypeId)]) -> bool {
         self.ed
             .facts()
             .is_some_and(|ide| ide.sketching && !ide.sketch_root)
@@ -429,7 +435,7 @@ impl Compiler {
     }
 
     /// `ty` (or what it points to) is a sketch's stand-in type.
-    pub(super) fn is_stand_in(&self, ty: TypeId) -> bool {
+    pub(crate) fn is_stand_in(&self, ty: TypeId) -> bool {
         let Some(ide) = self.ed.facts().filter(|ide| !ide.stand_ins.is_empty()) else {
             return false;
         };
@@ -447,7 +453,7 @@ impl Compiler {
     }
 
     /// A runtime value of type `ty`. Only a sketch makes one up: its code never runs.
-    pub(super) fn ide_sketch_value(&mut self, f: &mut FnCtx, ty: TypeId, span: Span) -> Operand {
+    pub(crate) fn ide_sketch_value(&mut self, f: &mut FnCtx, ty: TypeId, span: Span) -> Operand {
         let size = self.size_of(ty, span).unwrap_or(8).max(1);
         Operand::Place {
             ty,
@@ -456,7 +462,7 @@ impl Compiler {
     }
 
     /// Note the type of an expression a sketch checked.
-    pub(super) fn ide_note_sketch_type(&mut self, span: Span, op: &Operand) {
+    pub(crate) fn ide_note_sketch_type(&mut self, span: Span, op: &Operand) {
         let ty = match op {
             Operand::Type(_) | Operand::Procs(_) | Operand::Module(_) | Operand::Void => return,
             other => other.ty(),
@@ -471,7 +477,7 @@ impl Compiler {
     /// checked again, or each enclosing expression would check it anew). When one has a stand-in type, a member of
     /// it is a stand-in named after it, a comparison is a `bool` and any other operation takes
     /// the type of an operand, preferring one that is not a stand-in.
-    pub(super) fn ide_sketch_recover(
+    pub(crate) fn ide_sketch_recover(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
@@ -609,7 +615,7 @@ impl Compiler {
     }
 
     /// The stand-in for member `name` of stand-in `base`, named `T.name`.
-    pub(super) fn ide_stand_in_member(&mut self, base: TypeId, name: Sym, span: Span) -> TypeId {
+    pub(crate) fn ide_stand_in_member(&mut self, base: TypeId, name: Sym, span: Span) -> TypeId {
         let base = self
             .types
             .pointee(base)
@@ -645,7 +651,7 @@ impl Compiler {
 impl Compiler {
     /// A local declaration of a sketch failed: declare the names it did not, as its type or a
     /// stand-in `?`, so the statements after it still know them.
-    pub(super) fn ide_sketch_declare(&mut self, f: &mut FnCtx, scope: ScopeId, decl: &ast::Decl) {
+    pub(crate) fn ide_sketch_declare(&mut self, f: &mut FnCtx, scope: ScopeId, decl: &ast::Decl) {
         if decl.kind != ast::DeclKind::Var || decl.backtick {
             return;
         }

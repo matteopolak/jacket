@@ -120,16 +120,10 @@ impl Compiler {
     /// A statement of a sketch failed: check what it did not get to, for the facts, and
     /// declare the names a declaration did not.
     fn sketch_salvage(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) {
-        let checked = |c: &Self, e: &ast::Expr| {
-            c.ed.facts()
-                .is_some_and(|ide| ide.sketch_tried.contains(&e.span))
-        };
+        let checked = |c: &Self, e: &ast::Expr| c.ed.sketch_checked(e.span);
         // A condition that has a type was fine: the failure was in a body, which salvaged
         // its own statements.
-        let typed = |c: &Self, e: &ast::Expr| {
-            c.ed.facts()
-                .is_some_and(|ide| ide.sketch_types.contains_key(&e.span))
-        };
+        let typed = |c: &Self, e: &ast::Expr| c.ed.sketch_typed(e.span);
         let check = |c: &mut Self, f: &mut FnCtx, e: &ast::Expr| {
             if !checked(c, e) {
                 let _ = c.check_expr(f, scope, e, None);
