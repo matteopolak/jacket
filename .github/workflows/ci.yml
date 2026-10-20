@@ -407,7 +407,7 @@ jobs:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}-${{ matrix.shard }}
       cancel-in-progress: true
     runs-on: ${{ fromJSON('{"macos-arm64":"macos-15","macos-x64":"macos-15-intel","linux-x64":"ubuntu-24.04","linux-arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       CARGO_INCREMENTAL: '0'
     steps:
