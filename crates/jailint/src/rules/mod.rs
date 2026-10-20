@@ -42,6 +42,7 @@ mod reversed_range;
 mod self_assignment;
 mod shadowed_it;
 mod string_literal_write;
+mod unpaired_lock;
 pub(crate) mod unused_import;
 mod unused_parameter;
 pub(crate) use unused_parameter::RunState;
@@ -268,6 +269,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
         check: string_literal_write::check,
+    },
+    RuleInfo {
+        name: "unpaired_lock",
+        default: Level::Warn,
+        summary: "a `@Locks` call with a path that returns or ends without a matching `@Unlocks`",
+        check: unpaired_lock::check,
     },
     RuleInfo {
         name: "unused_import",

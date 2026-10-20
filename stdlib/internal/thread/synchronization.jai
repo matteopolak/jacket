@@ -41,12 +41,12 @@ destroy :: (using m: *Mutex) {
 lock :: (using m: *Mutex) {
     result := P.pthread_mutex_lock(*csection);
     sdk_ok(result, "pthread mutex lock failed");
-}
+} @Locks
 
 unlock :: (using m: *Mutex) {
     result := P.pthread_mutex_unlock(*csection);
     sdk_ok(result, "pthread mutex unlock failed");
-}
+} @Unlocks
 
 init :: (using cv: *Condition_Variable, desired_name := "") {
     result := P.pthread_cond_init(*condition_variable, null);

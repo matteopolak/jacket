@@ -370,7 +370,7 @@ wasi_pthread_mutex_lock :: (mutex: *Green_Mutex) -> s32 #c_call {
     mutex.depth += 1;
 
     return 0;
-}
+} @Locks
 
 #program_export "pthread_mutex_trylock"
 wasi_pthread_mutex_trylock :: (mutex: *Green_Mutex) -> s32 #c_call {
@@ -391,7 +391,7 @@ wasi_pthread_mutex_unlock :: (mutex: *Green_Mutex) -> s32 #c_call {
     }
 
     return 0;
-}
+} @Unlocks
 
 #program_export "pthread_cond_init"
 wasi_pthread_cond_init :: (condition: *void, attributes: *void) -> s32 #c_call {

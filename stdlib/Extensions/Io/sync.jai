@@ -174,7 +174,7 @@ lock :: (mutex: *Fiber_Mutex) -> Io_Error {
 
     // `unlock` hands the lock over, so a woken waiter already holds it.
     return wait_on(scheduler, fiber, *mutex.waiters, *waiter);
-}
+} @Locks
 
 try_lock :: (mutex: *Fiber_Mutex) -> bool {
     if mutex.locked return false;
@@ -190,7 +190,7 @@ unlock :: (mutex: *Fiber_Mutex) {
     waiter := waiter_pop(*mutex.waiters);
     if waiter wake(waiter.fiber);
     else mutex.locked = false;
-}
+} @Unlocks
 
 #scope_module
 

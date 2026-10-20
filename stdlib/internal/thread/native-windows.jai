@@ -15,11 +15,11 @@ destroy :: (using m: *Mutex) {
 
 lock :: (using m: *Mutex) {
     W.EnterCriticalSection(*csection);
-}
+} @Locks
 
 unlock :: (using m: *Mutex) {
     W.LeaveCriticalSection(*csection);
-}
+} @Unlocks
 
 csection_lock :: (csection: *Per_OS_Critical_Section_Type) #expand {
     W.EnterCriticalSection(csection);

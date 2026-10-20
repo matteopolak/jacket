@@ -101,6 +101,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `self_assignment` | warn | editor | `x = x;` |
 | `shadowed_it` | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
 | `string_literal_write` | warn | no | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
+| `unpaired_lock` | warn | no | `lock(*m);` with a `return`, or the end of the procedure, reached before the matching unlock |
 | `unused_import` | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | warn | no | a parameter the procedure never uses |
 | `unused_result` | warn | no | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
@@ -178,6 +179,8 @@ Not auto-fixed: the slip may be on the other side. After `using info;`, `width =
 `row := it;` before the inner loop is the usual idiom and is not reported.
 ### string_literal_write
 Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native). Fires on `s[i] = x`, `s[i] += x`, `s.data[i] = x` and `s.data.* = x` when `s` was declared from a literal (`s := "abc";`, `s: string = "abc";`) in the same statement list and nothing since could have changed it: any assignment to `s`, taking `*s`, or redeclaring the name (in any nested scope) ends the check, so `s = copy_string(s);` silences later writes. Writes in nested blocks and in macros are not reported.
+### unpaired_lock
+A statement-level call of a `@Locks` procedure with an argument (`lock(*state.mutex);`) at the top level of a procedure body, followed by a path that reaches a `return`, or the end of the body, without a call of an `@Unlocks` procedure on the same first argument (compared as written, ignoring whitespace) or a `defer` of one. A `defer` earlier in the body counts. Paths made of statements in sequence, `if`/`else` and blocks are followed; anything else is silent: a loop or `switch` that mentions the unlock (one with a `return` and no unlock is reported at the `return`), `break`/`continue`, an `if` whose branches disagree about unlocking, `#insert`, `using`, macro calls. A procedure that is itself `@Locks` is a wrapper and is not checked, and a lock taken inside a nested block is not followed. A lock whose result reports failure (`err := lock(...)`) is not a statement-level call and is left alone.
 ### unused_import
 Unnamed imports count as used when any lookup went through them, or (guard for unchecked code) when the module's files mention a name it exports. Not reported: imports with module parameters, modules with `#program_export`, programs that did not compile fully, generated files. Files whose first 10 lines say a tool generated them (`Automatically generated`, `DO NOT EDIT`, ...) are skipped by every `unused_*` rule.
 ### unused_parameter
