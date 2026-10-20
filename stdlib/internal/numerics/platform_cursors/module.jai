@@ -26,6 +26,7 @@ create :: () -> (handles: [8] *void, success: bool, message: string) {
 
             if cursor == null {
                 destroy(handles);
+                handles = .{};
                 return handles, false, "AppKit returned a null system cursor";
             }
 
@@ -35,6 +36,7 @@ create :: () -> (handles: [8] *void, success: bool, message: string) {
         selector := selector_for("frameResizeCursorFromPosition:inDirections:");
         if message_bool(cls, selector_for("respondsToSelector:"), selector) == 0 {
             destroy(handles);
+            handles = .{};
             return handles, false, "Native diagonal cursors require macOS 15; provide the documented cursor callback on earlier systems";
         }
 
@@ -42,6 +44,7 @@ create :: () -> (handles: [8] *void, success: bool, message: string) {
         handles[7] = objc_retain(message_resize(cls, selector, 9, 3));
         if handles[6] == null || handles[7] == null {
             destroy(handles);
+            handles = .{};
             return handles, false, "AppKit returned a null diagonal cursor";
         }
 
