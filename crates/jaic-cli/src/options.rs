@@ -386,11 +386,13 @@ pub(super) const OPTIONS: &[CliOption] = {
             "-msvc_format",
             "one `path(line,col): error: message` line per diagnostic",
         ),
-        CliOption::new(&["-quiet"], Action::Switch(|cli| &mut cli.quiet)).help(
-            Diagnostics,
-            "-quiet",
-            "print nothing but errors",
-        ),
+        CliOption::new(&["-quiet"], Action::Switch(|cli| &mut cli.quiet))
+            .aliases(&["--quiet"])
+            .help(
+                Diagnostics,
+                "-quiet",
+                "print nothing but errors (no build status either)",
+            ),
         CliOption::new(&["-verbose"], Action::Switch(|cli| &mut cli.verbose)).help(
             Diagnostics,
             "-verbose",

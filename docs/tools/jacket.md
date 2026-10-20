@@ -48,6 +48,18 @@ jacket <other> ...                         Runs `jacket-<other>` from PATH, as c
 
 `new`, `init`, `config`, `clean`, `version` and `upgrade` are `jacket`'s own commands and use `--long` flags. Tools are found next to the `jacket` executable (symlinks are followed, so a `~/.local/bin/jacket` link finds the installed release), else on `PATH`.
 
+## Build status
+
+`jacket build`, `check` and `run` show jaic's [build status](cli.md#build-status): on a terminal, a `Compiling` line, a status line redrawn in place while the compiler works, and a `Finished` line. `jacket` names the project after its directory (it passes `JACKET_PROJECT` to jaic), and `jacket run` adds a line of its own before starting the program:
+
+```
+   Compiling demo (src/main.jai)
+    Finished debug [unoptimized] in 0.42s
+     Running `demo`
+```
+
+Pipes and logs get none of it. `-quiet`/`--quiet`, `NO_COLOR`, `-no_color` and `JAIC_PROGRESS` work as they do for jaic; `crates/jacket/src/status.rs` repeats jaic's rules for the `Running` line, so change both together.
+
 ## Upgrading
 
 `jacket upgrade` installs the latest GitHub release over the installation that holds the running `jacket`: the whole folder (`jaic`, `jailsp`, `jailint`, `jaifmt`, `jacket`, `stdlib/`, `native-libs/`), not only the binary. Source: `crates/jacket/src/upgrade/`.
@@ -143,7 +155,7 @@ The notices go to stderr, since stdout may be an LSP stream. The VS Code extensi
 
 ## Configuration
 
-Environment variables `jacket` reads: `CI` (suppresses migration writes); for `upgrade`, `GITHUB_TOKEN` and the proxy variables `curl` reads. Everything else is jaic's, such as `JAIC_STDLIB` ([native linking](../native/native-linking.md)).
+Environment variables `jacket` reads: `CI` (suppresses migration writes, and makes the build status plain); `JAIC_PROGRESS`, `NO_COLOR` and `TERM` (the `Running` line); for `upgrade`, `GITHUB_TOKEN` and the proxy variables `curl` reads. Everything else is jaic's, such as `JAIC_STDLIB` ([native linking](../native/native-linking.md)).
 
 ## Dependencies
 

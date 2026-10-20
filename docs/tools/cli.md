@@ -82,11 +82,35 @@ jaic build.jai +Check - release -- arg1 arg2
 - A lone `-` starts the metaprogram's arguments. The metaprogram reads them with `compiler_get_command_line`.
 - `--` starts the program's arguments. Only `-interp` runs the program, so `--` with a build or `-check` is an error. The program's `argv[0]` is the source file.
 
+### Build status
+
+On a terminal, jaic says what it is compiling, like `cargo build`:
+
+```
+   Compiling hello (hello.jai)
+    Checking 412 files, 38 modules, 5,120 procedures (1.4s)     <- redrawn in place
+    Finished debug [unoptimized] in 2.31s
+```
+
+The middle line is replaced as the compile moves through `Parsing`, `Checking`, `Running #run` (compile-time code and metaprograms), `Generating`, `Optimizing` (codegen of an optimized build) and `Linking`, and is erased when the compile ends. It appears only after 150 ms, so quick builds show just the two fixed lines. `-check` prints `Checking hello (...)` and `Finished check`; `-o` builds end with `Finished optimized`; `-interp` ends with `Finished interp` and `Running hello.jai` before the program starts. A failed compile has no `Finished` line.
+
+| Situation | What is shown |
+| --- | --- |
+| stderr is a terminal | the `Compiling`/`Finished` lines in colour and the live status line |
+| a terminal with `NO_COLOR`, `-no_color`, `-msvc_format`, `TERM=dumb` or `CI` set | the two lines, plain: no colour, no control codes |
+| stderr is not a terminal (pipes, logs, tests) | nothing, so output is unchanged |
+| `-quiet` / `--quiet` | nothing |
+| `JAIC_PROGRESS=off\|plain\|live` | that, whatever stderr is (`-quiet` still wins) |
+
+Diagnostics, `-verbose` lines, what compile-time code prints and the program's own output are never mixed with the status line: everything jaic writes to stderr, and every write compile-time code makes through `write`, `WriteFile` and friends, erases the line first and keeps it down for 400 ms. A jaic started by compile-time code inherits `JAIC_PROGRESS=off`, so two status lines never share a terminal.
+
+The implementation is `jaic::progress` (`crates/jaic/src/progress.rs`). The phases come from the same places `-timings` and `PERFORMANCE_REPORT` measure (`timings::time` in `jaic-cli`, the `#run` clock in `sema/consteval.rs`, body lowering, file loading); counters are relaxed atomics touched only while the status line is live, and a separate thread samples them about 12 times a second. With the status off the cost is one relaxed load per file, module and procedure body.
+
 ### Output and diagnostics
 
 | Option | Effect |
 | --- | --- |
-| `-quiet` | print nothing but errors |
+| `-quiet` (`--quiet`) | print nothing but errors, and no build status |
 | `-verbose` | say what is being done |
 | `-no_color` | plain diagnostics. `NO_COLOR` does the same; `FORCE_COLOR` and `CLICOLOR_FORCE` force colour on |
 | `-msvc_format` | one `path(line,col): error: message` line per diagnostic, for IDEs that parse that format |
@@ -116,6 +140,8 @@ An unknown option suggests the closest known one. The spellings from before 0.17
 | --- | --- |
 | `JAIC_MEMORY_LIMIT` | stop with status 120 once this much memory is allocated (`512M`, `2G`, ...) |
 | `JAIC_DIAGNOSTICS` | diagnostic layout: `plain`, `ascii` or `unicode` (default: chosen by terminal) |
+| `JAIC_PROGRESS` | [build status](#build-status): `off`, `plain` or `live` (default: chosen by terminal) |
+| `JACKET_PROJECT` | the name the build status gives the program (default: the main file's name); `jacket` sets it to the project directory's name |
 | `JAIC_REPORT_EXE` | a file path: jaic appends the absolute path of every executable it writes, one per line. `jacket run` uses it, because a build metaprogram picks the executable's name |
 | `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` | turn colour off or on |
 

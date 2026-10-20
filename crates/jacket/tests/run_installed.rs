@@ -84,3 +84,40 @@ fn run_starts_a_program_built_from_one_file() {
     assert!(String::from_utf8_lossy(&out.stdout).contains("plain file"));
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// `jacket run` names the project in jaic's status lines and adds its own `Running` line.
+#[test]
+fn run_shows_the_build_status() {
+    let root = scratch("status");
+    let Some(exe) = archive(&root) else {
+        return;
+    };
+    let made = jacket(&exe, &root, &["new", "demo"]);
+    assert!(made.status.success(), "{made:?}");
+    let out = Command::new(&exe)
+        .arg("run")
+        .current_dir(root.join("demo"))
+        .env("JAI_STDLIB", stdlib())
+        .env("JAIC_STDLIB", stdlib())
+        .env("JAIC_PROGRESS", "plain")
+        .output()
+        .expect("start jacket");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "{stderr}");
+    let lines: Vec<&str> = stderr.lines().collect();
+    assert!(lines[0].starts_with("   Compiling demo ("), "{stderr}");
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("    Finished debug [unoptimized] in ")),
+        "{stderr}"
+    );
+    assert!(
+        lines
+            .last()
+            .is_some_and(|l| l.starts_with("     Running `")),
+        "{stderr}"
+    );
+    assert!(!stderr.contains('\x1b'), "{stderr}");
+    let _ = std::fs::remove_dir_all(&root);
+}

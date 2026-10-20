@@ -76,6 +76,7 @@ impl Compiler {
     }
 
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
+        let parsing = crate::progress::enter(crate::progress::Phase::Parsing);
         if self.ed.allows_parse_ahead()
             && let Some(prepared) = self.ahead.as_ref().and_then(|a| a.claim(path))
         {
@@ -86,6 +87,8 @@ impl Compiler {
                 line_starts,
             ));
             let ast = tree.finish(file);
+            drop(parsing);
+            crate::progress::file_loaded();
             return self.declare_loaded(path, module, file, &ast);
         }
         let file = self.read_source(path, span)?;
@@ -106,6 +109,8 @@ impl Compiler {
             }
             &own
         };
+        drop(parsing);
+        crate::progress::file_loaded();
         self.declare_loaded(path, module, file, ast)
     }
 
@@ -205,6 +210,7 @@ impl Compiler {
         }
         let id = ModuleId(self.modules.len() as u32);
         let scope = self.new_scope(ScopeKind::Module, Some(self.root_scope), id, None);
+        crate::progress::module_created();
         self.modules.push(Module {
             loading: true,
             argument_span: span,

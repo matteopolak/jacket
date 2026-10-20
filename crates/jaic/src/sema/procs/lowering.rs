@@ -33,6 +33,7 @@ impl Compiler {
         self.export.expression_types.remove(&id);
         self.procs[id.0 as usize].body_state = BodyState::Lowering;
         let outermost = (self.lowering_depth == 0).then(|| self.perf.start_lowering());
+        let checking = crate::progress::enter(crate::progress::Phase::Checking);
         self.lowering_depth += 1;
         let result = self.lower_body_inner(id);
         self.dependencies.end_body(id, result.is_err());
@@ -52,7 +53,9 @@ impl Compiler {
         if let Some(mark) = outermost {
             self.perf.finish_lowering(mark);
         }
+        drop(checking);
         self.procs[id.0 as usize].body_state = if result.is_ok() {
+            crate::progress::procedure_checked();
             self.lenient_failures.remove(&id);
             BodyState::Done
         } else {

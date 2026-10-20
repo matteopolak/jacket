@@ -3,6 +3,15 @@
 //! Pipeline: `lexer` → `parser` (→ `ast`) → `sema` (demand-driven typing into
 //! the checked tree) → `ir` (lowered procedures) → `interp` (compile-time
 //! execution, scripting, browser) or the LLVM backend in `jaic-llvm`.
+
+// What the compiler prints to stderr takes the build status line down first (`progress`).
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{
+        $crate::progress::before_output();
+        ::std::eprintln!($($arg)*)
+    }};
+}
+
 pub mod abi;
 pub mod ast;
 pub mod build;
@@ -26,6 +35,7 @@ pub mod parse_ahead;
 pub mod parser;
 pub mod paths;
 pub mod pool;
+pub mod progress;
 pub mod project;
 pub mod record_build;
 pub mod records;

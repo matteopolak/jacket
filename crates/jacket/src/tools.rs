@@ -52,8 +52,13 @@ fn missing(program: &OsStr, error: &std::io::Error) -> ExitCode {
 /// Replaces this process with `program` (on Windows: starts it and waits), passing its exit
 /// code on.
 pub fn exec(program: &OsStr, args: &[OsString]) -> ExitCode {
+    exec_with_env(program, args, &[])
+}
+
+/// `exec` with `env` added to the environment.
+pub fn exec_with_env(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> ExitCode {
     let mut command = Command::new(program);
-    command.args(args);
+    command.args(args).envs(env.iter().map(|(k, v)| (k, v)));
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -62,28 +67,24 @@ pub fn exec(program: &OsStr, args: &[OsString]) -> ExitCode {
     }
     #[cfg(not(unix))]
     {
-        run(program, args)
+        run(program, args, env)
     }
 }
 
 /// Starts `program`, waits, and returns its exit code.
 #[cfg(not(unix))]
-fn run(program: &OsStr, args: &[OsString]) -> ExitCode {
-    match status(program, args, &[]) {
+fn run(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> ExitCode {
+    match status(program, args, env) {
         Ok(code) => ExitCode::from(code),
         Err(error) => missing(program, &error),
     }
 }
 
 /// Runs `program` to the end with `env` added to its environment; its exit status, clamped to a byte.
-pub fn status(
-    program: &OsStr,
-    args: &[OsString],
-    env: &[(&str, &std::path::Path)],
-) -> std::io::Result<u8> {
+pub fn status(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> std::io::Result<u8> {
     let status = Command::new(program)
         .args(args)
-        .envs(env.iter().copied())
+        .envs(env.iter().map(|(k, v)| (k, v)))
         .status()?;
     Ok(status.code().map_or(255, |c| c.clamp(0, 255) as u8))
 }

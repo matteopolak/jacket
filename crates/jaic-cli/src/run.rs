@@ -6,6 +6,7 @@ use super::options::NO_MAIN_STATUS;
 use super::parse::{check_input, print_cli_error, print_error, shown};
 use super::{timings, tuning};
 use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
+use jaic::builtin_keys::BitcodeOptimization;
 use jaic::interp::{NativeHost, SandboxHost, SharedHost};
 use jaic::sema::{Compiler, DeadCode, FileSystem, NativeFs, Options, ProgramSource, TargetOs};
 use std::cell::RefCell;
@@ -18,7 +19,10 @@ pub(super) fn run(cli: Cli) -> ExitCode {
     if cli.timings {
         timings::enable();
     }
+    start_progress(&cli);
     let code = timings::time("total", || compile_and_run(cli));
+    // A failed compile ends without a `Finished` line; a finished one already printed it.
+    jaic::progress::abandon();
     timings::report();
     // Interpreters flush their `-profile` counts when dropped, which has happened by now.
     if let Some(report) = jaic::interp::profile::report(40) {
@@ -107,10 +111,67 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         return ExitCode::from(1);
     }
     match cli.mode {
-        Mode::Check => ExitCode::SUCCESS,
-        Mode::Interp => interpret(&mut compiler, &cli, &path, &main_dir, sandbox.as_ref()),
-        Mode::Build => write_program(&mut compiler, &cli, &path, settings),
+        Mode::Check => {
+            jaic::progress::finish("check");
+            ExitCode::SUCCESS
+        }
+        Mode::Interp => {
+            jaic::progress::finish("interp");
+            jaic::progress::announce("Running", &shown(&path));
+            interpret(&mut compiler, &cli, &path, &main_dir, sandbox.as_ref())
+        }
+        Mode::Build => {
+            let optimized = !matches!(
+                cli.opt_level
+                    .or(cli.flavor.map(Flavor::level))
+                    .unwrap_or(settings.optimization),
+                BitcodeOptimization::Unset | BitcodeOptimization::O0
+            );
+            jaic::progress::set_optimized(optimized);
+            let code = write_program(&mut compiler, &cli, &path, settings);
+            if code == ExitCode::SUCCESS {
+                jaic::progress::finish(if optimized {
+                    "optimized"
+                } else {
+                    "debug [unoptimized]"
+                });
+            }
+            code
+        }
     }
+}
+
+/// The build status (`jaic::progress`): `   Compiling hello (hello.jai)` now, a status line on
+/// a terminal while the compile runs, and `    Finished ...` at the end. The name is the main
+/// file's, or the project's when jacket passes one in `JACKET_PROJECT`.
+fn start_progress(cli: &Cli) {
+    let mode = jaic::progress::mode(cli.quiet, cli.no_color || cli.msvc_format);
+    if mode == jaic::progress::Mode::Off {
+        return;
+    }
+    let path = Path::new(&cli.file);
+    let name = std::env::var("JACKET_PROJECT")
+        .ok()
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| {
+            path.file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        });
+    let verb = if cli.mode == Mode::Check {
+        "Checking"
+    } else {
+        "Compiling"
+    };
+    // jacket passes the entry file as an absolute path; show it as the user would type it.
+    let shown = if path.is_absolute() {
+        jaic::set_display_base(std::env::current_dir().unwrap_or_default());
+        jaic::display_path(path)
+    } else {
+        cli.file.clone()
+    };
+    jaic::progress::start(mode, verb, &name, &shown);
 }
 
 /// Resolve the main file and move into its directory. Like `jai`, the program runs from the

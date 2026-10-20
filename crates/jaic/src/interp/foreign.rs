@@ -89,6 +89,24 @@ const KEEPS_MEMORY: u8 = 2;
 /// The call can have effects outside the interpreter's memory.
 const OBSERVABLE: u8 = 4;
 
+/// The call can write to the terminal, so the build status line goes down first.
+const WRITES_OUTPUT: u8 = 8;
+
+/// C functions that write to a file descriptor or stream (`WRITES_OUTPUT`).
+const OUTPUT_SYMBOLS: &[&str] = &[
+    "write",
+    "writev",
+    "fwrite",
+    "fputs",
+    "puts",
+    "putchar",
+    "printf",
+    "fprintf",
+    "WriteFile",
+    "WriteConsoleA",
+    "WriteConsoleW",
+];
+
 impl Interp {
     pub(super) fn load_required_libraries(&mut self, program: &Program) -> Res<()> {
         if !self.host.native_linking() || (self.compile_time && program.cross_target) {
@@ -236,6 +254,9 @@ impl Interp {
         if !UNOBSERVABLE_SYMBOLS.contains(&symbol) {
             flags |= OBSERVABLE;
         }
+        if OUTPUT_SYMBOLS.contains(&symbol) {
+            flags |= WRITES_OUTPUT;
+        }
         if self.foreign_flags.len() <= id.0 as usize {
             self.foreign_flags.resize(id.0 as usize + 1, 0);
         }
@@ -258,6 +279,9 @@ impl Interp {
         }
         if effects & OBSERVABLE != 0 {
             self.effects += 1;
+        }
+        if effects & WRITES_OUTPUT != 0 {
+            crate::progress::before_output();
         }
         if !self.compile_time
             && let Some(result) = self.executable_path_foreign(symbol, args)

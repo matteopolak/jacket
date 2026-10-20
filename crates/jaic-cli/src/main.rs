@@ -19,6 +19,21 @@ static ALLOCATOR: jaic::memory_limit::CountingAllocator =
 static ALLOCATOR: jaic::memory_limit::CountingAllocator<mimalloc::MiMalloc> =
     jaic::memory_limit::CountingAllocator(mimalloc::MiMalloc);
 
+// What jaic prints to stderr takes the build status line down first (`jaic::progress`).
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{
+        jaic::progress::before_output();
+        ::std::eprintln!($($arg)*)
+    }};
+}
+
+macro_rules! eprint {
+    ($($arg:tt)*) => {{
+        jaic::progress::before_output();
+        ::std::eprint!($($arg)*)
+    }};
+}
+
 mod crash_runtime;
 
 /// `-timings`: wall time per compiler phase, printed to stderr when the command ends.
@@ -48,8 +63,21 @@ mod timings {
         jaic::memory_limit::count_allocations(true);
     }
 
-    /// Run `f`, adding its wall time to `phase`.
+    /// What the build status line calls `phase`.
+    fn progress_phase(phase: &str) -> Option<jaic::progress::Phase> {
+        use jaic::progress::Phase;
+        match phase {
+            "front end" | "workspaces" => Some(Phase::Checking),
+            "prepare output" | "codegen" => Some(Phase::Generating),
+            "link" | "debug info" => Some(Phase::Linking),
+            "run" => Some(Phase::Program),
+            _ => None,
+        }
+    }
+
+    /// Run `f`, adding its wall time to `phase`, and show `phase` on the build status line.
     pub fn time<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
+        let _shown = progress_phase(phase).map(jaic::progress::enter);
         if !ENABLED.load(Ordering::Relaxed) {
             return f();
         }

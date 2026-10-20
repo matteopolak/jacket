@@ -133,6 +133,7 @@ impl Host for NativeHost {
 
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         use std::io::Write;
+        crate::progress::before_output();
         if to_stderr {
             let _ = std::io::stderr().write_all(bytes);
         } else {

@@ -9,6 +9,7 @@ mod cli;
 mod commands;
 mod compile;
 mod project;
+mod status;
 mod tools;
 mod upgrade;
 
@@ -105,7 +106,20 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
 
 fn run_jaic(check: bool, args: &[OsString], ctx: &compile::Context) -> ExitCode {
     let argv = compile::jaic_argv(check, args, ctx);
-    tools::exec(tools::find(tools::JAIC).as_os_str(), &argv)
+    tools::exec_with_env(
+        tools::find(tools::JAIC).as_os_str(),
+        &argv,
+        &project_name_env(ctx),
+    )
+}
+
+/// `JACKET_PROJECT`: the name jaic's build status gives the project (its directory's).
+fn project_name_env(ctx: &compile::Context) -> Vec<(&'static str, OsString)> {
+    ctx.loaded
+        .and_then(|loaded| loaded.dir().file_name())
+        .map(|name| ("JACKET_PROJECT", name.to_os_string()))
+        .into_iter()
+        .collect()
 }
 
 /// `jacket run`: build with jaic, then start the executable with the arguments after `--`.
@@ -116,13 +130,15 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     let runs_itself = argv
         .iter()
         .any(|a| a == "-interp" || a == "-check" || a == "-help" || a == "-version");
+    let mut env = project_name_env(ctx);
     if runs_itself {
-        return tools::exec(jaic.as_os_str(), &argv);
+        return tools::exec_with_env(jaic.as_os_str(), &argv, &env);
     }
     // The build may be a metaprogram that names its own executable, so ask jaic what it wrote.
     let report = std::env::temp_dir().join(format!("jacket-exe-{}.txt", std::process::id()));
     let _ = std::fs::remove_file(&report);
-    let started = tools::status(jaic.as_os_str(), &argv, &[("JAIC_REPORT_EXE", &report)]);
+    env.push(("JAIC_REPORT_EXE", report.clone().into_os_string()));
+    let started = tools::status(jaic.as_os_str(), &argv, &env);
     let reported = std::fs::read_to_string(&report).ok();
     let _ = std::fs::remove_file(&report);
     match started {
@@ -146,6 +162,10 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         );
         return ExitCode::from(2);
     };
+    if let Some(color) = status::lines(&argv) {
+        let shown = exe.strip_prefix(ctx.cwd).unwrap_or(&exe);
+        status::print("Running", &format!("`{}`", shown.display()), color);
+    }
     tools::exec(exe.as_os_str(), program_args)
 }
 

@@ -155,6 +155,7 @@ impl Compiler {
             .as_ref()
             .and_then(super::super::ir::Func::first_direct_callee);
         let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
+        let _running = crate::progress::enter(crate::progress::Phase::Running);
         let clock = self.perf.start_run();
         self.ct_executions += 1;
         let mut result = self.call_with_dependencies(id, &[ctx], &mut deferred);

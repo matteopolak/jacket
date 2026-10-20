@@ -51,6 +51,10 @@ impl<T> Drop for LeakOnExit<T> {
 pub(super) fn flush_sandbox(host: &Rc<RefCell<SandboxHost>>) {
     use std::io::Write;
     let mut host = host.borrow_mut();
+    if host.stdout.is_empty() && host.stderr.is_empty() {
+        return;
+    }
+    jaic::progress::before_output();
     let _ = std::io::stdout().write_all(&std::mem::take(&mut host.stdout));
     let _ = std::io::stderr().write_all(&std::mem::take(&mut host.stderr));
 }
