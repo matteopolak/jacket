@@ -138,6 +138,7 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
         "aliases",
         "enum-members",
         "array-flags",
+        "directives",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
