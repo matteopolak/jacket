@@ -22,8 +22,8 @@ impl Compiler {
             self.added_sources,
             self.files.len(),
             self.modules.len(),
-            self.runs_done,
-            self.ct_executions,
+            self.ct.runs_done,
+            self.ct.executions,
         )
     }
 
@@ -37,7 +37,7 @@ impl Compiler {
         dir: &Path,
     ) -> Option<Box<Diagnostic>> {
         // A metaprogram can change files between two requests in the same run.
-        if self.interp.run_effects.is_some() {
+        if self.ct.interp.run_effects.is_some() {
             return None;
         }
         let cached = self.ed.facts()?.missing_modules.get(&(scope, span))?;
@@ -57,7 +57,7 @@ impl Compiler {
         dir: &Path,
         error: &Diagnostic,
     ) {
-        if !self.ed.is_live() || self.interp.run_effects.is_some() {
+        if !self.ed.is_live() || self.ct.interp.run_effects.is_some() {
             return;
         }
         let cached = IdeMissingModule {

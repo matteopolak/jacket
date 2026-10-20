@@ -20,6 +20,7 @@ T     :: #run -> Type { return int; };
 - Top-level `#run`s run in declaration order (`run_top_level`); top-level `#assert`s are checked after all of them. A `#run` that fails only because a `#placeholder` is undefined is retried later. `#compile_time` is true during `#run`. `#run,stallable` parses but runs synchronously. `jaic -check` also runs them.
 - Failures report `error during compile-time execution: <trap message>` at the failing statement with a note at the `#run`. Metaprogram-reported errors have no prefix. Deep recursion ends with `stack overflow (recursion too deep)`.
 - Compile-time code has full host access (files, `Process.run_command`, foreign procedures). `compile_time_context` builds one default context from Runtime_Support's `Context` (null without it).
+- State lives in `Compiler::ct` (`CompileTime`, `sema/compile_time.rs`): the interpreter, the top-level `#run`s and `#assert`s with how many have run, the compile-time `#Context`, trap and execution counts, and the blocks frozen into globals. Jai threads started at compile time may run in frames that borrow the program, sources and types, so `Drop for Compiler` calls `Interp::shutdown` (join the threads, release C callbacks) before any field drops; field order does not matter.
 - Limits: `STACK_SIZE` (32 MiB) and `MAX_DEPTH` (20,000) in `interp/mod.rs`. `jaic` sets no instruction budget; the playground, jailsp and jailint set `Interp::block_budget`.
 
 ### Results and globals

@@ -101,16 +101,20 @@ impl Compiler {
             read_only: false,
             export: None,
         });
-        let addr = self.interp.global_addr(&self.program, g).map_err(|trap| {
-            Box::new(self.trap_diagnostic(&trap, "cannot read using filter", Some(span)))
-        })?;
+        let addr = self
+            .ct
+            .interp
+            .global_addr(&self.program, g)
+            .map_err(|trap| {
+                Box::new(self.trap_diagnostic(&trap, "cannot read using filter", Some(span)))
+            })?;
         let (count, data) = if let ArrayKind::Fixed(n) = kind {
             (n, addr)
         } else {
-            let Some(n) = self.interp.read_u64(addr) else {
+            let Some(n) = self.ct.interp.read_u64(addr) else {
                 return err(span, "unreadable using filter count");
             };
-            let Some(data) = self.interp.read_u64(addr + 8) else {
+            let Some(data) = self.ct.interp.read_u64(addr + 8) else {
                 return err(span, "unreadable using filter data");
             };
             (n, data)

@@ -103,7 +103,7 @@ fn host_evaluation_shares_the_execution_budget() {
     let error = compile_configured(
         "#run,host {while true {}} main :: () {}",
         true,
-        |compiler| compiler.interp.block_budget = Some(10),
+        |compiler| compiler.ct.interp.block_budget = Some(10),
     )
     .expect_err("isolated execution must not evade the caller's budget");
     assert!(error.contains("execution budget exhausted"), "{error}");
@@ -138,7 +138,7 @@ fn host_effects_are_not_replayed_after_an_unresolved_target_body() {
     }
     let effects = Rc::new(Cell::new(0));
     let counter = effects.clone();
-    let error=compile_configured("#placeholder Body; generator :: () { value := #run,host -> int { L :: #library \"observer\"; observe_host :: ()->int #foreign L; return observe_host(); } #insert Body; } #run generator(); main :: () {}",true,move |compiler|compiler.interp=jaic::interp::Interp::new(Box::new(Observer(counter)))).expect_err("unresolved body must remain a real failure");
+    let error=compile_configured("#placeholder Body; generator :: () { value := #run,host -> int { L :: #library \"observer\"; observe_host :: ()->int #foreign L; return observe_host(); } #insert Body; } #run generator(); main :: () {}",true,move |compiler|compiler.ct.interp=jaic::interp::Interp::new(Box::new(Observer(counter)))).expect_err("unresolved body must remain a real failure");
     assert!(
         error.contains("Body") || error.contains("placeholder"),
         "{error}"
@@ -170,7 +170,7 @@ fn custom_provider_without_isolation_cannot_fall_back_to_native_execution() {
         }
     }
     let error = compile_configured("#run,host {} main :: () {}", true, |compiler| {
-        compiler.interp = jaic::interp::Interp::new(Box::new(RestrictedHost));
+        compiler.ct.interp = jaic::interp::Interp::new(Box::new(RestrictedHost));
     })
     .expect_err("an unsupported isolation provider must be diagnosed");
     assert!(

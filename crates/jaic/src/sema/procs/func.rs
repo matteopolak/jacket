@@ -97,10 +97,11 @@ impl Compiler {
                 context: sig.has_context,
                 location: self.location_layout(span)?,
             };
-            self.interp
+            self.ct
+                .interp
                 .hooks
-                .resize(self.interp.hooks.len().max(func.0 as usize + 1), None);
-            self.interp.hooks[func.0 as usize] = Some(hook);
+                .resize(self.ct.interp.hooks.len().max(func.0 as usize + 1), None);
+            self.ct.interp.hooks[func.0 as usize] = Some(hook);
         }
         if let ProcTarget::Func(func) = target {
             self.func_procs.insert(func, id);
@@ -115,15 +116,15 @@ impl Compiler {
                         crate::interp::Hook::Meta(crate::build::MetaOp::TypeTable, _)
                     ) {
                         self.type_table_func = Some(func);
-                        if let Some(workspaces) = &self.interp.workspaces {
+                        if let Some(workspaces) = &self.ct.interp.workspaces {
                             crate::build::Workspaces::note_type_table_used(workspaces);
                         }
                     }
                     let i = func.0 as usize;
-                    if self.interp.hooks.len() <= i {
-                        self.interp.hooks.resize(i + 1, None);
+                    if self.ct.interp.hooks.len() <= i {
+                        self.ct.interp.hooks.resize(i + 1, None);
                     }
-                    self.interp.hooks[i] = Some(hook);
+                    self.ct.interp.hooks[i] = Some(hook);
                 }
             }
         }

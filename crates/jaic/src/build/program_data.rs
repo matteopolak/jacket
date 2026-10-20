@@ -37,7 +37,7 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                 shared.borrow_mut().current.push(id);
                 compiler.refresh_type_table();
                 shared.borrow_mut().current.pop();
-                let found = compiler.interp.ct_type_table;
+                let found = compiler.ct.interp.ct_type_table;
                 shared.borrow_mut().ws(id).map_err(trap)?.compiler = Some(compiler);
                 found
             };

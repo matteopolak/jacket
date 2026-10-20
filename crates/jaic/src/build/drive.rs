@@ -53,7 +53,7 @@ pub(super) fn step(
         Some(c) => c,
         None => new_compiler(shared, id)?,
     };
-    compiler.interp.block_budget = *budget;
+    compiler.ct.interp.block_budget = *budget;
     let mut events = Vec::new();
     // The registry borrow is released while the compiler runs: its
     // compile-time code may call back into the registry.
@@ -158,7 +158,7 @@ pub(super) fn step(
         other => other,
     };
     shared.borrow_mut().current.pop();
-    *budget = compiler.interp.block_budget;
+    *budget = compiler.ct.interp.block_budget;
     let mut failed = false;
     let mut held = None;
     let mut compiled = false;

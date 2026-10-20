@@ -365,8 +365,8 @@ fn lint_root(
         })),
     });
     let mut compiler = Box::new(Compiler::new(copts, fs));
-    compiler.interp.host = Box::new(SharedHost(host));
-    compiler.interp.block_budget = Some(BLOCK_BUDGET);
+    compiler.ct.interp.host = Box::new(SharedHost(host));
+    compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
     compiler.attach_workspaces(workspaces.clone());
     crate::facts::enable(&mut compiler, roots);
     let result = match root {
@@ -420,7 +420,7 @@ fn lint_root(
     let top_complete = error.is_none();
     if top_complete
         && let Err(message) =
-            jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget)
+            jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget)
     {
         error = Some(message);
     }

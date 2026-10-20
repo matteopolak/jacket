@@ -51,7 +51,7 @@ fn compiler(cross_os: bool, cross_cpu: bool) -> (Compiler, Rc<Cell<usize>>) {
     }
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     let calls = Rc::new(Cell::new(0));
-    compiler.interp = Interp::new(Box::new(Observer {
+    compiler.ct.interp = Interp::new(Box::new(Observer {
         calls: calls.clone(),
         value: Box::new(37),
     }));
@@ -99,11 +99,11 @@ fn runtime_requirement_is_not_removed_from_cross_target_program() {
         "{REQUIREMENT}main :: () {{}}"
     ))])
     .unwrap();
-    c.interp.compile_time = false;
-    let error = c
-        .interp
-        .call(&c.program, ir::FuncId(0), &[])
-        .expect_err("runtime required library remains mandatory");
+    c.ct.interp.compile_time = false;
+    let error =
+        c.ct.interp
+            .call(&c.program, ir::FuncId(0), &[])
+            .expect_err("runtime required library remains mandatory");
     assert!(
         error.message.contains("required native library"),
         "{}",

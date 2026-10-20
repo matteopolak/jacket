@@ -185,7 +185,7 @@ impl Exporter<'_> {
             let addr = c
                 .type_info_global(ty, Span::NONE)
                 .ok()
-                .and_then(|g| c.interp.global_addr(&c.program, g).ok());
+                .and_then(|g| c.ct.interp.global_addr(&c.program, g).ok());
             if let Some(addr) = addr {
                 let mut rec = Record::new(RecordTag::TypeInfo);
                 rec.int("__address", addr as i64);

@@ -76,16 +76,16 @@ impl Compiler {
                             .iter()
                             .any(|p| p.body_state == crate::sema::procs::BodyState::Lowering));
                 let misses = self.placeholder_misses;
-                let executions = self.ct_executions;
+                let executions = self.ct.executions;
                 let in_progress = self.in_progress_misses;
                 let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
                 // Retry only unresolved semantic work. A generator that executed
                 // and failed is terminal, even while its enclosing body is lowering.
                 // Compile-time code that spent the whole budget fails the same way every time.
-                let spent = self.interp.block_budget == Some(0);
+                let spent = self.ct.interp.block_budget == Some(0);
                 if result.is_err()
                     && !spent
-                    && self.ct_executions == executions
+                    && self.ct.executions == executions
                     && self.waits_for_placeholder(misses)
                 {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
@@ -96,7 +96,7 @@ impl Compiler {
                 // outer resolution; the item is retried once the constant is done.
                 if let Err(e) = &result
                     && !spent
-                    && self.ct_executions == executions
+                    && self.ct.executions == executions
                     && self.in_progress_misses != in_progress
                     && e.message.starts_with("circular dependency while resolving")
                     && self
@@ -109,7 +109,7 @@ impl Compiler {
                 }
                 if reentrant
                     && !spent
-                    && self.ct_executions == executions
+                    && self.ct.executions == executions
                     && self.in_progress_misses != in_progress
                     && let Err(e) = result
                 {

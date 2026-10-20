@@ -119,7 +119,7 @@ impl Compiler {
 
     /// Counts the events after which a body that failed to lower may succeed.
     pub(super) fn lower_epoch(&self) -> u64 {
-        let base = self.added_sources + self.files.len() + self.modules.len() + self.runs_done;
+        let base = self.added_sources + self.files.len() + self.modules.len() + self.ct.runs_done;
         // Generated declarations/using entries can become visible without loading
         // a file or completing another run. IDE failure reuse must observe that
         // progress too. Body-local scopes are recreated by each lowering attempt;

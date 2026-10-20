@@ -73,6 +73,7 @@ fn evaluates_program(source: &str) {
         .unwrap();
     assert_eq!(
         compiler
+            .ct
             .interp
             .call(&compiler.program, jaic::ir::FuncId(id as u32), &[])
             .unwrap(),

@@ -157,8 +157,8 @@ pub(super) fn compile(
         fs,
         &dir.to_string_lossy(),
     )));
-    compiler.interp.host = Box::new(SharedHost(host.clone()));
-    compiler.interp.block_budget = Some(BLOCK_BUDGET);
+    compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
+    compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
     // Spelled like the compiler's source paths, which come through the overlay's keys.
     let dir_key = crate::document::file_key(&*env.fs, &dir);
     // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
@@ -206,9 +206,9 @@ pub(super) fn compile(
     // Workspaces no message loop drove compile once the metaprogram is done, as in a build.
     // Their stopping error is in their own facts, so the message here adds nothing.
     if errors.is_empty()
-        && let Some(workspaces) = compiler.interp.workspaces.clone()
+        && let Some(workspaces) = compiler.ct.interp.workspaces.clone()
     {
-        let _ = jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget);
+        let _ = jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget);
     }
     let errors = check_rest(&mut compiler, errors);
     let errors = known(&compiler, errors);
@@ -239,7 +239,7 @@ pub(super) fn compile(
                 .collect();
             recorded.push((id, program));
             // The metaprogram's code spent the budget; checking the rest gets its own.
-            compiler.interp.block_budget = Some(BLOCK_BUDGET);
+            compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
             let errors = check_rest(&mut compiler, Vec::new());
             let errors = known(&compiler, errors);
             Program {

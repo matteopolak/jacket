@@ -106,7 +106,8 @@ impl Compiler {
                 let source = self.sources.get(span.file);
                 let (line, col) = source.line_col(span.start);
                 let path: Rc<str> = source.path.to_string().into();
-                self.interp
+                self.ct
+                    .interp
                     .struct_locations
                     .insert(g, (path, i64::from(line), i64::from(col)));
             }
@@ -130,7 +131,7 @@ impl Compiler {
     /// Apply `compiler_set_type_info_flags` calls made by the `#run` that just returned:
     /// the struct's flags are or-ed in and an already built descriptor is rebuilt.
     pub fn apply_type_info_flags(&mut self, span: Span) -> Result<()> {
-        for (g, flags) in std::mem::take(&mut self.interp.pending_type_flags) {
+        for (g, flags) in std::mem::take(&mut self.ct.interp.pending_type_flags) {
             let Some(ty) = self.type_from_info_global(g) else {
                 continue;
             };
@@ -144,7 +145,8 @@ impl Compiler {
             let global = &mut self.program.globals[g.0 as usize];
             global.init = agg.bytes;
             global.relocs = agg.relocs;
-            self.interp
+            self.ct
+                .interp
                 .refresh_global(&self.program, g)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
         }

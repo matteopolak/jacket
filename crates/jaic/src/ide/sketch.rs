@@ -86,7 +86,7 @@ impl Compiler {
         let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
         let (warnings, deferred) = (self.warnings.len(), self.deferred_errors.len());
         let first_new = self.procs.len();
-        let asserts = self.asserts.len();
+        let asserts = self.ct.asserts.len();
         let refs = self.ed.facts().map_or(0, |ide| ide.refs.len());
         // A sketch is ordinary checking, but with types nothing was written for: should it
         // trip an assumption, lose the sketch, not the editor's other facts.
@@ -136,8 +136,8 @@ impl Compiler {
         }
         self.warnings.truncate(warnings);
         self.deferred_errors.truncate(deferred);
-        self.asserts.truncate(asserts);
-        self.asserts_done = self.asserts_done.min(asserts);
+        self.ct.asserts.truncate(asserts);
+        self.ct.asserts_done = self.ct.asserts_done.min(asserts);
         checked.is_ok()
     }
 

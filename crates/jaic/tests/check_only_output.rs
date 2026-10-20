@@ -38,7 +38,7 @@ fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Comp
         observer: Some(Box::new(Retain(captured.clone()))),
     });
     let mut compiler = Compiler::new(options, fs);
-    compiler.interp.host = Box::new(jaic::interp::SandboxHost::default());
+    compiler.ct.interp.host = Box::new(jaic::interp::SandboxHost::default());
     compiler.attach_workspaces(workspaces.clone());
     compiler
         .compile_sources(&[ProgramSource::String(
@@ -52,7 +52,7 @@ fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Comp
             .into(),
         )])
         .unwrap_or_else(|error| panic!("{}", error.render(&compiler.sources)));
-    jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget).unwrap();
+    jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget).unwrap();
     captured
 }
 

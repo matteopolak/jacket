@@ -421,15 +421,23 @@ fn record_coverage(covered: &mut Vec<bool>, program: &Program, id: FuncId, func:
     profile::cover(path, line, name);
 }
 
-impl Drop for Interp {
-    fn drop(&mut self) {
+impl Interp {
+    /// Stop for good: flush the profile, stop and join the Jai threads, and make the thunks C
+    /// may still hold fail with a message instead of running a dead interpreter. Calling it
+    /// again does nothing more.
+    pub fn shutdown(&mut self) {
         self.flush_profile();
-        // Thunks C may still hold now fail with a message instead of running a dead interpreter.
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(shared) = self.shared.take() {
             shared.close();
             let gate: std::sync::Arc<dyn native::Gate> = shared;
             native::release_callbacks(&gate);
         }
+    }
+}
+
+impl Drop for Interp {
+    fn drop(&mut self) {
+        self.shutdown();
     }
 }

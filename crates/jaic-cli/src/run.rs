@@ -71,10 +71,10 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     // `-check` and builds exit right after: tearing down the syntax trees and the program takes
     // about a tenth of a large check, and nothing observes it.
     let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.mode != Mode::Interp, |c| {
-        c.interp.flush_profile();
+        c.ct.interp.flush_profile();
     });
     if let Some(host) = &sandbox {
-        compiler.interp.host = Box::new(SharedHost(host.clone()));
+        compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
     }
     compiler.attach_workspaces(workspaces.clone());
     // `-os wasm` / `-target wasm64-unknown-wasi`: a WASI command, with its runtime added.
@@ -87,7 +87,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         return ExitCode::from(1);
     }
     let finished = timings::time("workspaces", || {
-        jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget)
+        jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget)
     });
     if cli.mode == Mode::Build {
         flush_sandbox(&shared_sandbox);
@@ -385,7 +385,7 @@ fn interpret(
         } else {
             stem.into_owned()
         };
-        compiler.interp.run_executable = Some(main_dir.join(name).display().to_string());
+        compiler.ct.interp.run_executable = Some(main_dir.join(name).display().to_string());
     }
     // The sandbox's memory is virtual; host-allocated argv strings are not visible there.
     let outcome = timings::time("run", || {

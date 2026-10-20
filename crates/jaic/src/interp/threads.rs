@@ -173,7 +173,7 @@ mod worker_lifetime_tests {
         let weak = Rc::downgrade(&source);
         compiler.sources.add("lifetime-order.jai", source);
         let alive = Rc::new(std::cell::Cell::new(false));
-        compiler.interp.host = Box::new(LifetimeHost {
+        compiler.ct.interp.host = Box::new(LifetimeHost {
             source: weak,
             alive: alive.clone(),
         });
@@ -204,7 +204,7 @@ worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
         compiler
             .compile_sources(&[ProgramSource::String(source)])
             .unwrap();
-        let shared = compiler.interp.shared.as_ref().unwrap().clone();
+        let shared = compiler.ct.interp.shared.as_ref().unwrap().clone();
         assert!(
             Arc::strong_count(&shared) > 1,
             "worker must exist before teardown"
@@ -294,7 +294,7 @@ worker :: (argument:*void)->u32 #c_call {{ {call} return 17; }}
         compiler
             .compile_sources(&[ProgramSource::String(source)])
             .unwrap();
-        let shared = compiler.interp.shared.as_ref().unwrap().clone();
+        let shared = compiler.ct.interp.shared.as_ref().unwrap().clone();
         drop(compiler);
         assert_eq!(
             Arc::strong_count(&shared),

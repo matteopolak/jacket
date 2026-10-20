@@ -192,7 +192,7 @@ impl Compiler {
     /// Load sources that compile-time code added to this compiler's own
     /// workspace (`add_build_string(s)` from inside a `#run`).
     pub(super) fn pull_workspace_sources(&mut self) -> Result<bool> {
-        let Some(workspaces) = self.interp.workspaces.clone() else {
+        let Some(workspaces) = self.ct.interp.workspaces.clone() else {
             return Ok(false);
         };
         let added = crate::build::take_own_sources(&workspaces, self.workspace);
@@ -247,7 +247,7 @@ impl Compiler {
             self.proc_func(p, self.proc(p).span)?;
             i += 1;
         }
-        if let Some(workspaces) = self.interp.workspaces.clone() {
+        if let Some(workspaces) = self.ct.interp.workspaces.clone() {
             for header in crate::build::take_live_requests(&workspaces, self.workspace) {
                 self.make_procedure_live(header);
             }
@@ -342,7 +342,7 @@ impl Compiler {
     /// output unless reachable code uses it (`drop_unreferenced_code`).
     fn check_unreferenced(&mut self) -> Result<()> {
         // The program may have set its own workspace's options while it compiled.
-        if let Some(workspaces) = &self.interp.workspaces
+        if let Some(workspaces) = &self.ct.interp.workspaces
             && let Some(mode) = crate::build::dead_code_setting(workspaces, self.workspace)
         {
             self.options.dead_code = mode;
@@ -755,7 +755,7 @@ impl Compiler {
     /// results are. Globals no compile-time code touched keep their declared initializer.
     fn bake_no_reset_globals(&mut self) {
         for (global, ty) in std::mem::take(&mut self.no_reset_globals) {
-            let Some(addr) = self.interp.materialized_global(global) else {
+            let Some(addr) = self.ct.interp.materialized_global(global) else {
                 continue;
             };
             let Ok(Value::Bytes(agg)) = self.read_aggregate(addr, ty, Span::NONE) else {
@@ -777,7 +777,7 @@ impl Compiler {
     /// an empty slice passes `argc = 0, argv = null`. The strings live for the whole process.
     pub fn run_program_with_args(&mut self, args: &[String]) -> Result<i32> {
         self.finalize_runtime_configuration()?;
-        self.interp.run_arguments = args.to_vec();
+        self.ct.interp.run_arguments = args.to_vec();
         let (argc, argv) = if args.is_empty() {
             (0, 0)
         } else {
@@ -813,12 +813,12 @@ impl Compiler {
                 "`main` is declared, but no entry point calls it (is Runtime_Support loaded?)",
             );
         };
-        self.interp.compile_time = false;
+        self.ct.interp.compile_time = false;
         self.enable_stack_traces(Span::NONE);
-        if let Err(trap) = self.interp.reset_globals(&self.program) {
+        if let Err(trap) = self.ct.interp.reset_globals(&self.program) {
             return Err(Box::new(self.runtime_error(&trap)));
         }
-        let result = self.interp.call(&self.program, main, &[argc, argv]);
+        let result = self.ct.interp.call(&self.program, main, &[argc, argv]);
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
             // `exit` in a sandbox host (the browser playground) ends the program as returning

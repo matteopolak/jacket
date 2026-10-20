@@ -298,6 +298,7 @@ impl Compiler {
         let results = self.call_thunk(f, span)?;
         if results.first().copied().unwrap_or(0).trailing_zeros() >= 8 {
             let addr = self
+                .ct
                 .interp
                 .global_addr(&self.program, message)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
@@ -313,6 +314,7 @@ impl Compiler {
         let mut out = Vec::new();
         for (name, ty, global) in globals {
             let addr = self
+                .ct
                 .interp
                 .global_addr(&self.program, global)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;

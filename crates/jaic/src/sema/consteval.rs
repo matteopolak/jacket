@@ -94,6 +94,7 @@ impl Compiler {
         let mut results = Vec::new();
         for (ty, g, parameters) in out {
             let addr = self
+                .ct
                 .interp
                 .global_addr(&self.program, g)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
@@ -143,13 +144,13 @@ impl Compiler {
         if !nested && self.reaches_type_table(id) {
             self.refresh_type_table();
         }
-        self.interp.compile_time = true;
-        let outer = self.interp.run_effects.replace(self.interp.effects);
+        self.ct.interp.compile_time = true;
+        let outer = self.ct.interp.run_effects.replace(self.ct.interp.effects);
         // Typed exports belong to this run (a nested one keeps the outer run's aside).
         let outer_exports = (
-            std::mem::take(&mut self.interp.code_exports),
-            std::mem::take(&mut self.interp.code_export_cursor),
-            std::mem::take(&mut self.interp.run_codes),
+            std::mem::take(&mut self.ct.interp.code_exports),
+            std::mem::take(&mut self.ct.interp.code_export_cursor),
+            std::mem::take(&mut self.ct.interp.run_codes),
         );
         let callee = self.program.funcs[id.0 as usize]
             .as_ref()
@@ -157,16 +158,16 @@ impl Compiler {
         let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
         let _running = crate::progress::enter(crate::progress::Phase::Running);
         let clock = self.perf.start_run();
-        self.ct_executions += 1;
+        self.ct.executions += 1;
         let mut result = self.call_with_dependencies(id, &[ctx], &mut deferred);
         elapsed += self.perf.finish_run(clock);
         // Typed-code exports retain their existing effect-free retry protocol.
         // Body dependencies above resume retained frames and never replay a run.
         for _ in 0..10_000 {
-            if result.is_ok() || self.interp.run_effects != Some(self.interp.effects) {
+            if result.is_ok() || self.ct.interp.run_effects != Some(self.ct.interp.effects) {
                 break;
             }
-            if let Some(code) = self.interp.export_request.take() {
+            if let Some(code) = self.ct.interp.export_request.take() {
                 self.export_code_typed(code);
             } else {
                 break;
@@ -174,20 +175,21 @@ impl Compiler {
             // The earlier attempt may have edited the nodes it got (built once per record):
             // the next one gets them exported anew.
             let counts: Vec<(usize, usize)> = self
+                .ct
                 .interp
                 .code_exports
                 .iter()
                 .map(|(&code, exports)| (code, exports.len()))
                 .collect();
-            self.interp.code_exports.clear();
+            self.ct.interp.code_exports.clear();
             for (code, n) in counts {
                 for _ in 0..n {
                     self.export_code_typed(code);
                 }
             }
-            self.interp.run_effects = Some(self.interp.effects);
-            self.interp.code_export_cursor.clear();
-            self.interp.run_codes.1 = 0;
+            self.ct.interp.run_effects = Some(self.ct.interp.effects);
+            self.ct.interp.code_export_cursor.clear();
+            self.ct.interp.run_codes.1 = 0;
             stalls += 1;
             let clock = self.perf.start_run();
             result = self.call_with_dependencies(id, &[ctx], &mut deferred);
@@ -200,15 +202,15 @@ impl Compiler {
             elapsed,
         });
         (
-            self.interp.code_exports,
-            self.interp.code_export_cursor,
-            self.interp.run_codes,
+            self.ct.interp.code_exports,
+            self.ct.interp.code_export_cursor,
+            self.ct.interp.run_codes,
         ) = outer_exports;
-        self.interp.export_request = None;
-        self.interp.missing_func = None;
-        self.interp.run_effects = outer;
+        self.ct.interp.export_request = None;
+        self.ct.interp.missing_func = None;
+        self.ct.interp.run_effects = outer;
         self.flush_interp_output();
-        for data in std::mem::take(&mut self.interp.pending_data_globals) {
+        for data in std::mem::take(&mut self.ct.interp.pending_data_globals) {
             let init = self.program_bytes(data.address(), data.size as usize, span)?;
             let global = self.program.add_global(ir::Global {
                 name: "compiler.global_data".into(),
@@ -224,19 +226,19 @@ impl Compiler {
             if !data.read_only {
                 self.program.reset_globals.push(global);
             }
-            self.interp.adopt_data_global(global, data);
+            self.ct.interp.adopt_data_global(global, data);
         }
-        if !self.interp.pending_type_flags.is_empty() {
+        if !self.ct.interp.pending_type_flags.is_empty() {
             self.apply_type_info_flags(span)?;
         }
         match result {
             Ok(values) => Ok(values),
             Err(_) if deferred.is_some() => {
-                self.ct_traps += 1;
+                self.ct.traps += 1;
                 Err(deferred.unwrap())
             }
             Err(trap) => {
-                self.ct_traps += 1;
+                self.ct.traps += 1;
                 let d =
                     self.trap_diagnostic(&trap, "error during compile-time execution", Some(span));
                 Err(Box::new(d))
@@ -249,12 +251,12 @@ impl Compiler {
 
     /// Context pointer used by compile-time code (allocated and initialized once).
     pub fn compile_time_context(&mut self, span: Span) -> Result<u64> {
-        if let Some(addr) = self.ct_context {
+        if let Some(addr) = self.ct.context {
             return Ok(addr);
         }
         let Ok(ty) = self.context_type(span) else {
             // No runtime support loaded: compile-time code without a context.
-            self.ct_context = Some(0);
+            self.ct.context = Some(0);
             return Ok(0);
         };
         let size = self.size_of(ty, span)?;
@@ -353,10 +355,11 @@ impl Compiler {
         // Materializing a procedure value in the context needs its signature,
         // not its body. Actual calls use the owning dependency controller.
         let addr = self
+            .ct
             .interp
             .global_addr(&self.program, g)
             .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
-        self.ct_context = Some(addr);
+        self.ct.context = Some(addr);
         Ok(addr)
     }
 
@@ -463,17 +466,17 @@ impl Compiler {
         while progress {
             progress = false;
             let mut index = 0;
-            while index < self.top_level_runs.len() {
+            while index < self.ct.top_level_runs.len() {
                 if self.dependencies.running_runs.contains(&index)
                     || self.dependencies.finished_runs.contains(&index)
                 {
                     index += 1;
                     continue;
                 }
-                let (expr, scope) = self.top_level_runs[index].clone();
+                let (expr, scope) = self.ct.top_level_runs[index].clone();
                 let misses = self.placeholder_misses;
-                let traps = self.ct_traps;
-                let executions = self.ct_executions;
+                let traps = self.ct.traps;
+                let executions = self.ct.executions;
                 self.dependencies.running_runs.insert(index);
                 let result = self.eval_const(scope, &expr, None);
                 self.dependencies.running_runs.remove(&index);
@@ -482,15 +485,15 @@ impl Compiler {
                 if result.is_err()
                     && !self.placeholders_final
                     && self.placeholder_misses != misses
-                    && self.ct_traps == traps
-                    && self.ct_executions == executions
+                    && self.ct.traps == traps
+                    && self.ct.executions == executions
                 {
                     index += 1;
                     continue;
                 }
                 result?;
                 self.dependencies.finished_runs.insert(index);
-                self.runs_done += 1;
+                self.ct.runs_done += 1;
                 progress = true;
                 self.pull_workspace_sources()?;
                 index += 1;
@@ -502,17 +505,17 @@ impl Compiler {
     /// Execute the remaining top-level runs, then their final assertions.
     pub fn run_top_level(&mut self) -> Result<()> {
         self.service_top_level_runs()?;
-        if self.dependencies.finished_runs.len() != self.top_level_runs.len() {
+        if self.dependencies.finished_runs.len() != self.ct.top_level_runs.len() {
             return Ok(());
         }
-        while self.asserts_done < self.asserts.len() {
-            let (cond, message, args, scope) = self.asserts[self.asserts_done].clone();
+        while self.ct.asserts_done < self.ct.asserts.len() {
+            let (cond, message, args, scope) = self.ct.asserts[self.ct.asserts_done].clone();
             let misses = self.placeholder_misses;
             let holds = self.eval_static_condition_as(scope, &cond, None);
             if holds.is_err() && !self.placeholders_final && self.placeholder_misses != misses {
                 return Ok(());
             }
-            self.asserts_done += 1;
+            self.ct.asserts_done += 1;
             if !holds? {
                 let msg = self.assert_message(scope, message.as_ref(), &args)?;
                 return Err(Box::new(self.static_assert_failed(&cond, cond.span, msg)));
@@ -786,7 +789,7 @@ impl Compiler {
                 if p == 0 {
                     return Ok(Value::Null);
                 }
-                if let Some(func) = self.interp.func_of(p)
+                if let Some(func) = self.ct.interp.func_of(p)
                     && let Some(&proc) = self.func_procs.get(&func)
                 {
                     return Ok(Value::Proc(proc));
@@ -799,7 +802,7 @@ impl Compiler {
                     return Ok(Value::Null);
                 }
                 if self.types.pointee(ty) == Some(TypeId::VOID)
-                    && self.interp.global_at(pointer).is_none()
+                    && self.ct.interp.global_at(pointer).is_none()
                 {
                     return Ok(Value::Int(pointer as i128));
                 }
@@ -811,7 +814,7 @@ impl Compiler {
     }
 
     fn type_at(&self, p: u64, span: Span) -> Result<TypeId> {
-        if let Some((g, 0)) = self.interp.global_at(p)
+        if let Some((g, 0)) = self.ct.interp.global_at(p)
             && let Some(t) = self.type_from_info_global(g)
         {
             return Ok(t);
@@ -828,9 +831,9 @@ impl Compiler {
             bytes: self.program_bytes(addr, size as usize, span)?,
             relocs: Vec::new(),
         };
-        self.frozen.clear();
+        self.ct.frozen.clear();
         let result = self.freeze(&mut agg, 0, addr, ty, span);
-        self.frozen.clear();
+        self.ct.frozen.clear();
         result?;
         Ok(Value::Bytes(Rc::new(agg)))
     }
@@ -949,7 +952,7 @@ impl Compiler {
             TypeKind::Proc(_) => {
                 let p = self.program_u64(addr, span)?;
                 agg.bytes[offset as usize..offset as usize + 8].fill(0);
-                if let Some(func) = self.interp.func_of(p) {
+                if let Some(func) = self.ct.interp.func_of(p) {
                     agg.relocs.push(ir::Reloc {
                         offset,
                         target: ir::RelocTarget::Func(func),
@@ -1015,7 +1018,7 @@ impl Compiler {
         if p == 0 {
             return Ok(());
         }
-        if let Some((g, off)) = self.interp.global_at(p) {
+        if let Some((g, off)) = self.ct.interp.global_at(p) {
             agg.relocs.push(ir::Reloc {
                 offset,
                 target: ir::RelocTarget::Global(g),
@@ -1038,11 +1041,11 @@ impl Compiler {
         }
         // Nothing to copy where nothing can be read: an integer cast to a pointer that the
         // range above does not catch (`cast(*T) 80000000`). It stays a number, like those.
-        let Some(contents) = self.interp.read(p, bytes as usize) else {
+        let Some(contents) = self.ct.interp.read(p, bytes as usize) else {
             agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
             return Ok(());
         };
-        if let Some(&g) = self.frozen.get(&(p, bytes)) {
+        if let Some(&g) = self.ct.frozen.get(&(p, bytes)) {
             agg.relocs.push(ir::Reloc {
                 offset,
                 target: ir::RelocTarget::Global(g),
@@ -1065,7 +1068,7 @@ impl Compiler {
             read_only: false,
             export: None,
         });
-        self.frozen.insert((p, bytes), g);
+        self.ct.frozen.insert((p, bytes), g);
         let mut inner = Aggregate {
             bytes: contents,
             relocs: Vec::new(),
@@ -1136,7 +1139,7 @@ impl Compiler {
 impl Compiler {
     /// `len` bytes of compile-time memory at `addr`, which a `#run` result points to.
     fn program_bytes(&self, addr: u64, len: usize, span: Span) -> Result<Vec<u8>> {
-        match self.interp.read(addr, len) {
+        match self.ct.interp.read(addr, len) {
             Some(bytes) => Ok(bytes),
             None => unreadable(addr, span),
         }
@@ -1144,7 +1147,7 @@ impl Compiler {
 
     /// The `u64` at `addr` in compile-time memory.
     pub(super) fn program_u64(&self, addr: u64, span: Span) -> Result<u64> {
-        match self.interp.read_u64(addr) {
+        match self.ct.interp.read_u64(addr) {
             Some(v) => Ok(v),
             None => unreadable(addr, span),
         }

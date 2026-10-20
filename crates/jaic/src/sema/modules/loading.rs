@@ -364,7 +364,7 @@ impl Compiler {
         source: &str,
         target: ScopeId,
     ) -> Result<()> {
-        self.interp.invalidate_callable_inspections();
+        self.ct.interp.invalidate_callable_inspections();
         let module = self.scope(target).module;
         let name = SourcePath::virtual_source(label);
         let file = self.sources.add(name.clone(), source.into());

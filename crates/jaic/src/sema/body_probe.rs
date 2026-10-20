@@ -156,7 +156,7 @@ fn snapshot(c: &Compiler, bumps: [u64; 3], nested: u64) -> [u64; N] {
     v[C::Modules as usize] = c.modules.len() as u64;
     v[C::Files as usize] = c.files.len() as u64;
     v[C::NamespaceGen as usize] = c.namespace_generation;
-    v[C::CtExec as usize] = c.ct_executions;
+    v[C::CtExec as usize] = c.ct.executions;
     v[C::EntResolve as usize] = bumps[0];
     v[C::SigResolve as usize] = bumps[1];
     v[C::Layout as usize] = bumps[2];

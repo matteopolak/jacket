@@ -160,7 +160,8 @@ impl Compiler {
     }
 
     fn runtime_storage_settings(&self) -> (bool, i64) {
-        self.interp
+        self.ct
+            .interp
             .workspaces
             .as_ref()
             .and_then(|workspaces| {
@@ -274,7 +275,8 @@ impl Compiler {
                     usage.constants.extend(values.iter().copied());
                 }
                 let relocations = match retained.get(&global).and_then(|ty| {
-                    self.interp
+                    self.ct
+                        .interp
                         .materialized_global(global)
                         .map(|address| (*ty, address))
                 }) {
@@ -385,7 +387,8 @@ impl Compiler {
         }
         if let Some(global) = self.runtime_storage_global {
             self.program.globals[global.0 as usize].init = size.to_le_bytes().to_vec();
-            self.interp
+            self.ct
+                .interp
                 .refresh_global(&self.program, global)
                 .map_err(|trap| Box::new(Diagnostic::error(Span::NONE, trap.into_message())))?;
         }

@@ -71,7 +71,10 @@ impl Compiler {
         deferred: &mut Option<Box<Diagnostic>>,
     ) -> std::result::Result<Vec<u64>, crate::interp::Trap> {
         use crate::interp::CompileCall;
-        let mut call = self.interp.call_for_compiler(&self.program, function, args);
+        let mut call = self
+            .ct
+            .interp
+            .call_for_compiler(&self.program, function, args);
         loop {
             match call {
                 CompileCall::Complete(result) => return result,
@@ -84,16 +87,20 @@ impl Compiler {
                     let ready = match self.satisfy_body_dependency(function, callable, optional) {
                         Ok(ready) => ready,
                         Err(error) => {
-                            self.interp
+                            self.ct
+                                .interp
                                 .cancel_compiler_call(&self.program, continuation);
                             *deferred = Some(error);
                             return Err(crate::interp::Trap::new("compile-time dependency failed"));
                         }
                     };
                     if callable && ready {
-                        self.interp.mark_callable_ready(function);
+                        self.ct.interp.mark_callable_ready(function);
                     }
-                    call = self.interp.resume_for_compiler(&self.program, continuation);
+                    call = self
+                        .ct
+                        .interp
+                        .resume_for_compiler(&self.program, continuation);
                 }
             }
         }
@@ -144,8 +151,8 @@ impl Compiler {
             if !callable && self.proc(procedure).body_state == procs::BodyState::Done {
                 return Ok(true);
             }
-            let traps = self.ct_traps;
-            let executions = self.ct_executions;
+            let traps = self.ct.traps;
+            let executions = self.ct.executions;
             let lowered = if callable {
                 self.dependencies.begin_body(procedure);
                 let failure = self.lower_reachable_from(function);
@@ -158,11 +165,11 @@ impl Compiler {
                 Ok(()) => return Ok(true),
                 Err(error) => error,
             };
-            if self.ct_traps != traps {
+            if self.ct.traps != traps {
                 return Err(error);
             }
             let placeholders = self.unresolved_body_placeholders(procedure);
-            if placeholders.is_empty() || self.ct_executions != executions {
+            if placeholders.is_empty() || self.ct.executions != executions {
                 // A completed generator cannot be replayed merely because a
                 // later stage of the body encounters another dependency.
                 return Err(error);
@@ -177,9 +184,9 @@ impl Compiler {
             if sources {
                 continue;
             }
-            let completed = self.runs_done;
+            let completed = self.ct.runs_done;
             self.service_top_level_runs()?;
-            if self.runs_done == completed {
+            if self.ct.runs_done == completed {
                 let info = self.proc(procedure);
                 let mut diagnostic = Diagnostic::error(info.span, format!(
                     "compile-time dependency deadlock: body of `{}` awaits an unresolved #placeholder",

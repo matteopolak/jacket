@@ -145,7 +145,8 @@ impl Compiler {
         let g = &mut self.program.globals[info.0 as usize];
         g.init = bytes;
         g.relocs = vec![reloc(8, table), reloc(16, gdi)];
-        self.interp
+        self.ct
+            .interp
             .refresh_global(&self.program, info)
             .map_err(|t| Box::new(Diagnostic::error(Span::NONE, t.into_message())))
     }
@@ -218,13 +219,13 @@ impl Compiler {
         entries.sort_by_key(|&(t, _)| t);
         let mut table = Vec::with_capacity(entries.len());
         for (_, g) in entries {
-            if let Ok(addr) = self.interp.global_addr(&self.program, g) {
+            if let Ok(addr) = self.ct.interp.global_addr(&self.program, g) {
                 table.push(addr);
             }
         }
-        self.interp.ct_type_tables.push(table);
-        let table = self.interp.ct_type_tables.last().unwrap();
-        self.interp.ct_type_table = (table.as_ptr() as u64, table.len() as u64);
+        self.ct.interp.ct_type_tables.push(table);
+        let table = self.ct.interp.ct_type_tables.last().unwrap();
+        self.ct.interp.ct_type_table = (table.as_ptr() as u64, table.len() as u64);
         self.snapshot_key = (
             self.entities.len(),
             self.types.count(),

@@ -21,6 +21,7 @@ pub mod body_probe;
 mod callable;
 pub(crate) mod calls;
 pub mod code_export;
+mod compile_time;
 mod consteval;
 mod convert;
 mod debug_info;
@@ -62,6 +63,7 @@ use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).
 pub use asm::catalog as asm_catalog;
 pub use code_export::ModifiedStmt;
+pub use compile_time::CompileTime;
 pub use driver::ProgramSource;
 pub use expr::PreludeType;
 pub use module_rank::{ModuleRanking, Rank, count_importers};
@@ -396,9 +398,7 @@ pub enum ProvidedKind {
 type ModuleNames = (u64, Rc<[EntityId]>);
 
 pub struct Compiler {
-    // Rust drops fields in declaration order. Join interpreter workers before any
-    // compiler-owned program/source/type storage that their frames may borrow.
-    pub interp: crate::interp::Interp,
+    pub ct: CompileTime,
     pub options: Options,
     pub fs: Rc<dyn FileSystem>,
     /// Real paths already worked out (see [`Compiler::canon`]).
@@ -445,11 +445,6 @@ pub struct Compiler {
     field_filter_pending: HashSet<(ScopeId, ast::AstId)>,
     field_using_order: HashMap<ScopeId, Vec<structs::FieldUsing>>,
     pub context_type: Option<TypeId>,
-    pub top_level_runs: Vec<(ast::Expr, ScopeId)>,
-    pub asserts: Vec<(ast::Expr, Option<ast::Expr>, Vec<ast::Expr>, ScopeId)>,
-    /// How many of `top_level_runs`/`asserts` already executed.
-    pub(crate) runs_done: usize,
-    pub(crate) asserts_done: usize,
     /// `__runtime_info`, when the program references it.
     runtime_info: Option<ir::GlobalId>,
     runtime_storage_global: Option<ir::GlobalId>,
@@ -582,10 +577,6 @@ pub struct Compiler {
     /// Interpreted function -> source procedure (reading back procedure values).
     pub func_procs: HashMap<ir::FuncId, ProcId>,
     pub thunk_scopes: HashMap<ScopeId, ScopeId>,
-    /// Interpreter address of the compile-time `#Context`.
-    pub ct_context: Option<u64>,
-    /// Compile-time runs that ended in a trap so far.
-    pub ct_traps: u64,
     /// The stand-in `Type_Info_Struct` of each polymorphic struct, by its literal.
     pub generic_struct_infos: HashMap<ast::AstId, ir::GlobalId>,
     /// Declarations the driver resolves even when unreferenced: `#program_export`
@@ -627,7 +618,6 @@ pub struct Compiler {
     /// Lookups that reached an undefined `#placeholder`: a pending top-level item whose
     /// expansion did so waits (a metaprogram may define it later) until `finish_program`.
     pub placeholder_misses: u64,
-    pub(crate) ct_executions: u64,
     dependencies: dependencies::Dependencies,
     /// Lookups that reached something still being computed (a signature, entity or layout in
     /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
@@ -638,9 +628,6 @@ pub struct Compiler {
     /// How deeply each `#insert`ed string file is nested in other inserted strings (absent: a
     /// real file). Bounds code that inserts itself (`X :: "#insert X;"`).
     insert_depth: HashMap<FileId, u32>,
-    /// Interpreter blocks already copied into globals while freezing one compile-time value,
-    /// by `(address, bytes)`: pointer cycles (`n.next = n`) refer back instead of recursing.
-    frozen: HashMap<(u64, u64), ir::GlobalId>,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: crate::ide::Editor,
     /// Set by `finish_program`: pending items no longer wait for placeholders.
@@ -669,7 +656,7 @@ pub struct ProcTypeParams {
 impl Compiler {
     /// Give compile-time code access to the `Compiler` module's workspaces.
     pub fn attach_workspaces(&mut self, workspaces: crate::build::SharedWorkspaces) {
-        self.interp.workspaces = Some(workspaces);
+        self.ct.interp.workspaces = Some(workspaces);
     }
 
     /// Let go of what only compile-time code uses: the workspaces (with the records and
@@ -677,7 +664,7 @@ impl Compiler {
     /// compiler to answer questions long after its metaprograms ran; afterwards compile-time
     /// code that reaches for the `Compiler` module traps.
     pub fn release_build_state(&mut self) {
-        self.interp.workspaces = None;
+        self.ct.interp.workspaces = None;
         self.export = code_export::ExportState::default();
     }
 
@@ -700,7 +687,7 @@ impl Compiler {
         }
         self.program.debug_types = HashMap::default();
         self.program.debug_globals = Vec::new();
-        self.interp.release_code();
+        self.ct.interp.release_code();
     }
 
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
@@ -745,10 +732,6 @@ impl Compiler {
             field_filter_pending: HashSet::default(),
             field_using_order: HashMap::default(),
             context_type: None,
-            top_level_runs: Vec::new(),
-            asserts: Vec::new(),
-            runs_done: 0,
-            asserts_done: 0,
             workspace: crate::build::TOP_LEVEL_WORKSPACE,
             runtime_info: None,
             runtime_storage_global: None,
@@ -774,7 +757,7 @@ impl Compiler {
             using_member_free: HashMap::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0)),
-            interp: crate::interp::Interp::default(),
+            ct: CompileTime::default(),
             type_infos: HashMap::default(),
             failed_type_infos: HashMap::default(),
             snapshot_infos: HashSet::default(),
@@ -815,8 +798,6 @@ impl Compiler {
             initializers: HashMap::default(),
             func_procs: HashMap::default(),
             thunk_scopes: HashMap::default(),
-            ct_context: None,
-            ct_traps: 0,
             generic_struct_infos: HashMap::default(),
             export_entities: Vec::new(),
             asm_regs: HashMap::default(),
@@ -834,12 +815,10 @@ impl Compiler {
             program_param_settings: Vec::new(),
             retrying_pending: false,
             placeholder_misses: 0,
-            ct_executions: 0,
             dependencies: dependencies::Dependencies::default(),
             in_progress_misses: 0,
             resolving_depth: 0,
             insert_depth: HashMap::default(),
-            frozen: HashMap::default(),
             placeholders_final: false,
             lookup_without_expansion: false,
             no_reset_globals: Vec::new(),
@@ -875,7 +854,7 @@ impl Compiler {
         } else {
             "".into()
         };
-        self.interp.codes.push((body.clone(), text));
+        self.ct.interp.codes.push((body.clone(), text));
         self.codes.push(body);
         self.code_scopes.push(scope);
         id
@@ -884,10 +863,11 @@ impl Compiler {
     /// Take over the codes compile-time code made (`compiler_get_code`), parsing their
     /// text again as a registered source so diagnostics can point into it.
     pub fn adopt_made_codes(&mut self) {
-        while self.codes.len() < self.interp.codes.len() {
+        while self.codes.len() < self.ct.interp.codes.len() {
             let id = self.codes.len();
-            let text = self.interp.codes[id].1.clone();
+            let text = self.ct.interp.codes[id].1.clone();
             let from = self
+                .ct
                 .interp
                 .made_codes
                 .iter()
@@ -898,7 +878,7 @@ impl Compiler {
             });
             if unscoped {
                 // Names the insertion site lacks come from where the nodes were written.
-                let fallbacks = (self.interp.nodes_codes.iter().rev())
+                let fallbacks = (self.ct.interp.nodes_codes.iter().rev())
                     .filter_map(|&c| self.code_scopes.get(c).copied())
                     .take(32)
                     .collect();
@@ -912,8 +892,8 @@ impl Compiler {
                 format!("__jaic_code :: #code {text};\n").into(),
             );
             let body = crate::build::parse_code_text(file, &text)
-                .unwrap_or_else(|_| self.interp.codes[id].0.clone());
-            self.interp.codes[id].0 = body.clone();
+                .unwrap_or_else(|_| self.ct.interp.codes[id].0.clone());
+            self.ct.interp.codes[id].0 = body.clone();
             self.codes.push(body);
             self.code_scopes.push(scope);
         }

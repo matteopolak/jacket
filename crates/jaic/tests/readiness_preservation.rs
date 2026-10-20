@@ -156,11 +156,11 @@ fn readiness_constant_run_failure_is_terminal() {
         ],
         false,
     );
-    compiler.interp.block_budget = Some(32);
+    compiler.ct.interp.block_budget = Some(32);
     let error = compiler
         .compile_program(Path::new("/app/main.jai"))
         .expect_err("executed constant failure must be retained");
-    assert_eq!(compiler.ct_traps, 1);
+    assert_eq!(compiler.ct.traps, 1);
     let flags = compiler
         .modules
         .iter()
@@ -174,7 +174,7 @@ fn readiness_constant_run_failure_is_terminal() {
     let repeated = compiler.resolve_entity(ready).unwrap_err();
     assert_eq!(repeated.message, error.message);
     assert_eq!(
-        compiler.ct_traps, 1,
+        compiler.ct.traps, 1,
         "diagnostic reuse must not execute the failing constant again"
     );
 }

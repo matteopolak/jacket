@@ -28,7 +28,7 @@ impl Compiler {
             crate::sema::body_probe::begin(self, id.0);
         }
         let error_mark = self.ed.error_count();
-        let executions = self.ct_executions;
+        let executions = self.ct.executions;
         self.dependencies.begin_body(id);
         self.export.expression_types.remove(&id);
         self.procs[id.0 as usize].body_state = BodyState::Lowering;
@@ -39,7 +39,7 @@ impl Compiler {
         self.dependencies.end_body(id, result.is_err());
         if result.is_err()
             && !self.placeholders_final
-            && self.ct_executions == executions
+            && self.ct.executions == executions
             && !self.unresolved_body_placeholders(id).is_empty()
         {
             // Diagnostics of an unfinished attempt are provisional. A complete

@@ -465,14 +465,15 @@ impl Compiler {
                     },
                 );
             }
-            ast::StmtKind::Run(expr) => self.top_level_runs.push(((**expr).clone(), file_scope)),
+            ast::StmtKind::Run(expr) => self.ct.top_level_runs.push(((**expr).clone(), file_scope)),
             ast::StmtKind::Assert(boxed) => {
                 let crate::ast::AssertStmt {
                     cond,
                     message,
                     args,
                 } = &**boxed;
-                self.asserts
+                self.ct
+                    .asserts
                     .push((cond.clone(), message.clone(), args.clone(), file_scope));
             }
             ast::StmtKind::AddContext(decl) => {

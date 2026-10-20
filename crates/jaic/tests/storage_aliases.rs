@@ -29,7 +29,7 @@ fn compile(source: &str, os: TargetOs, cpu: TargetCpu) -> (Compiler, jaic::sema:
         b"using,except(omitted_name) #import \"Facade\";".as_slice(),
     );
     let mut c = Compiler::new(options, Rc::new(fs));
-    c.interp.host = Box::new(jaic::interp::SandboxHost::default());
+    c.ct.interp.host = Box::new(jaic::interp::SandboxHost::default());
     let result = c.compile_sources(&[ProgramSource::String(source.into())]);
     (c, result)
 }

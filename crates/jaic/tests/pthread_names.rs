@@ -26,6 +26,7 @@ fn current_and_managed_worker_names_round_trip_through_the_sdk() {
         })
         .unwrap();
     let result = compiler
+        .ct
         .interp
         .call(&compiler.program, jaic::ir::FuncId(id as u32), &[])
         .unwrap();

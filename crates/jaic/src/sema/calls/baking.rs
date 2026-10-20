@@ -189,6 +189,7 @@ impl Compiler {
             export: None,
         });
         let addr = self
+            .ct
             .interp
             .global_addr(&self.program, g)
             .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;

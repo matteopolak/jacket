@@ -21,21 +21,21 @@ impl Compiler {
         let mut host = Compiler::new(options.clone(), self.fs.clone());
         host.sources = self.sources.clone();
         let source_count = self.sources.len();
-        if let Some(parent) = &self.interp.workspaces {
+        if let Some(parent) = &self.ct.interp.workspaces {
             let (shared, provider) =
                 crate::build::isolated_host_environment(parent, options, self.fs.clone());
-            host.interp = crate::interp::Interp::new(provider);
-            host.interp.workspaces = Some(shared);
+            host.ct.interp = crate::interp::Interp::new(provider);
+            host.ct.interp.workspaces = Some(shared);
         } else {
-            let provider = self.interp.host.isolated_host().ok_or_else(|| {
+            let provider = self.ct.interp.host.isolated_host().ok_or_else(|| {
                 Box::new(Diagnostic::error(
                     span,
                     "this compiler host does not provide isolated #run,host execution",
                 ))
             })?;
-            host.interp = crate::interp::Interp::new(provider);
+            host.ct.interp = crate::interp::Interp::new(provider);
         }
-        host.interp.block_budget = self.interp.block_budget;
+        host.ct.interp.block_budget = self.ct.interp.block_budget;
         let result = (|| {
             host.begin_sources(&[])?;
             let module = host.main_module.unwrap();
@@ -64,8 +64,8 @@ impl Compiler {
                 );
             }
             let result = host.check_run_inner_all(scope, body, None, span)?;
-            if let Some(shared) = host.interp.workspaces.clone() {
-                crate::build::finish_all(&shared, &mut host.interp.block_budget)
+            if let Some(shared) = host.ct.interp.workspaces.clone() {
+                crate::build::finish_all(&shared, &mut host.ct.interp.block_budget)
                     .map_err(|message| Box::new(Diagnostic::error(span, message)))?;
                 if shared.borrow().any_failed() {
                     return err(
@@ -76,12 +76,12 @@ impl Compiler {
             }
             Ok(result)
         })();
-        self.interp.block_budget = host.interp.block_budget;
+        self.ct.interp.block_budget = host.ct.interp.block_budget;
         // Dependency retries must observe real execution in the isolated
         // compiler too. Otherwise an effectful host run followed by a missing
         // target binding is incorrectly classified as an unstarted attempt.
-        self.ct_executions += host.ct_executions;
-        self.ct_traps += host.ct_traps;
+        self.ct.executions += host.ct.executions;
+        self.ct.traps += host.ct.traps;
         // Errors from newly loaded host files retain real source locations.
         for index in source_count..host.sources.len() {
             let file = host.sources.get(FileId(index as u32));
