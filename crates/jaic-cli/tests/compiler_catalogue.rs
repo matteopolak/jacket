@@ -184,6 +184,7 @@ fn retained_member_and_real_library_bodies_are_modifiable() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for path in [
         "tests/compiler/semantics/code-modify-members.jai",
+        "tests/compiler/semantics/code-modify-from-nodes.jai",
         "tests/compiler/metaprograms/profiler-member-modify.jai",
         "tests/compiler/metaprograms/profiler-stdlib-modify.jai",
         "tests/compiler/metaprograms/profiler-array-local-modify.jai",
