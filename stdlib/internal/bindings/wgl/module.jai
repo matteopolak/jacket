@@ -89,18 +89,23 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
             samples /= 2;
         }
 
-        if format == 0 {
+        // The extended chooser only returns formats that have every requested attribute, and some
+        // drivers describe those formats incompletely, so only the legacy chooser's nearest match
+        // is checked.
+        extended := format != 0;
+
+        if !extended {
             descriptor = pixel_descriptor();
             format = W.ChoosePixelFormat(dc, *descriptor);
             if format == 0 return null, null, 0;
         }
 
         if W.DescribePixelFormat(dc, format, cast(u32) size_of(W.PIXELFORMATDESCRIPTOR), *descriptor) == 0 return null, null, 0;
-        if !valid_descriptor(descriptor) return null, null, 0;
+        if !extended && !valid_descriptor(descriptor) return null, null, 0;
         if W.SetPixelFormat(dc, format, *descriptor) == 0 return null, null, 0;
     } else {
         if W.DescribePixelFormat(dc, format, cast(u32) size_of(W.PIXELFORMATDESCRIPTOR), *descriptor) == 0 return null, null, 0;
-        if !valid_descriptor(descriptor) return null, null, 0;
+        if !usable_format(dc, format, descriptor, query) return null, null, 0;
     }
 
     actual_samples: s32;
@@ -200,6 +205,19 @@ pixel_descriptor :: () -> W.PIXELFORMATDESCRIPTOR {
     result.cDepthBits = 24;
 
     return result;
+}
+
+// A format already on the window may have come from the extended chooser, so ask the driver for its
+// attributes when it can answer instead of trusting the descriptor.
+usable_format :: (dc: W.HDC, format: s32, descriptor: W.PIXELFORMATDESCRIPTOR, query: Query) -> bool {
+    if !query return valid_descriptor(descriptor);
+
+    names: [4] s32 = .[0x2001, 0x2010, 0x2011, 0x2013];
+    values: [4] s32;
+
+    if query(dc, format, 0, 4, names.data, values.data) == 0 return valid_descriptor(descriptor);
+
+    return values[0] != 0 && values[1] != 0 && values[2] != 0 && values[3] == 0x202B;
 }
 
 valid_descriptor :: (descriptor: W.PIXELFORMATDESCRIPTOR) -> bool {
