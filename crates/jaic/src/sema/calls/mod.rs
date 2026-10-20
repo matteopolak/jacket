@@ -269,6 +269,23 @@ impl Compiler {
         }
     }
 
+    /// Sort equally cheap candidates so the preferred one is first (non-polymorphic and more
+    /// specific candidates win), and say whether the first two are still equally good.
+    fn order_candidates(&self, best: &mut [Candidate]) -> bool {
+        if best.len() > 1 {
+            best.sort_by_key(|c| {
+                (
+                    self.proc(c.proc).bindings.is_some() as u32,
+                    std::cmp::Reverse(c.specificity),
+                )
+            });
+        }
+        best.len() > 1 && {
+            let key = |c: &Candidate| (self.proc(c.proc).bindings.is_some(), c.specificity);
+            key(&best[0]) == key(&best[1])
+        }
+    }
+
     /// Resolve and emit a call to one of `procs`.
     pub fn call_procs(
         &mut self,
@@ -341,20 +358,8 @@ impl Compiler {
             }
             return Err(Box::new(d));
         }
-        if best.len() > 1 {
-            // Prefer non-polymorphic and more specific candidates; otherwise take the first.
-            best.sort_by_key(|c| {
-                (
-                    self.proc(c.proc).bindings.is_some() as u32,
-                    std::cmp::Reverse(c.specificity),
-                )
-            });
-        }
         // Several equally good candidates: the editor keeps the whole overload set.
-        let ambiguous = best.len() > 1 && {
-            let key = |c: &Candidate| (self.proc(c.proc).bindings.is_some(), c.specificity);
-            key(&best[0]) == key(&best[1])
-        };
+        let ambiguous = self.order_candidates(&mut best);
         let chosen = best.swap_remove(0);
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
         if self.ed.is_live() {

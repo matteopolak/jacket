@@ -379,6 +379,8 @@ fn compiler_and_abi_regressions_run_natively() {
         "hash-table-operations",
         "context-forms",
         "type-and-constant-forms",
+        "operator-literal-operands",
+        "operator-literal-overloads",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {

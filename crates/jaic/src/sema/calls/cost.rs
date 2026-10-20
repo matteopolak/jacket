@@ -96,6 +96,18 @@ impl Compiler {
                 .map(|(_, t, _)| t)
                 .collect(),
         };
+        // All values positional and fewer than the fields without initializers: the literal
+        // itself would be rejected, so it is not this type.
+        let positional = fields
+            .iter()
+            .filter(|a| a.target.is_none() && a.name.is_none())
+            .count();
+        if positional > 0
+            && positional == fields.len()
+            && positional < self.positional_values_needed(param)
+        {
+            return Ok(false);
+        }
         for (position, field) in fields
             .iter()
             .filter(|a| a.target.is_none() && a.name.is_none())

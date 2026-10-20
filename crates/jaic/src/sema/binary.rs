@@ -58,6 +58,9 @@ impl Compiler {
         } else {
             expected
         };
+        if let Some(result) = self.try_literal_operand_overload(f, scope, node, span)? {
+            return Ok(result);
+        }
         let (lhs, rhs) = self.binary_operands(f, scope, op, a, b, expected)?;
         // Type comparisons fold at compile time.
         if let (Operand::Type(x), Operand::Type(y)) = (&lhs, &rhs) {

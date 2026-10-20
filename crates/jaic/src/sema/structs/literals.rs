@@ -7,6 +7,26 @@ use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, 
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
+    /// How many positional values a literal of `ty` must give: up to the last field with no
+    /// initializer of its own. Overlays and union members need none.
+    pub(in crate::sema) fn positional_values_needed(&self, ty: TypeId) -> usize {
+        match self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
+            Some(st) if !self.ty.types.struct_info(st).is_union => {
+                let fields = &self.ty.types.struct_info(st).fields;
+                let inits = &self.ty.struct_asts[&st].inits;
+                fields
+                    .iter()
+                    .zip(inits)
+                    .enumerate()
+                    .filter(|(_, (field, (init, _)))| !field.overlay && init.is_none())
+                    .map(|(i, _)| i + 1)
+                    .max()
+                    .unwrap_or(0)
+            }
+            _ => 0,
+        }
+    }
+
     pub fn check_struct_literal(
         &mut self,
         f: &mut FnCtx,
@@ -95,21 +115,7 @@ impl Compiler {
         }
         // A field with no initializer of its own needs a positional value; trailing fields with
         // one may be left out, and an overlay shares another field's storage.
-        let needed = match self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
-            Some(st) if !self.ty.types.struct_info(st).is_union => {
-                let fields = &self.ty.types.struct_info(st).fields;
-                let inits = &self.ty.struct_asts[&st].inits;
-                fields
-                    .iter()
-                    .zip(inits)
-                    .enumerate()
-                    .filter(|(_, (field, (init, _)))| !field.overlay && init.is_none())
-                    .map(|(i, _)| i + 1)
-                    .max()
-                    .unwrap_or(0)
-            }
-            _ => 0,
-        };
+        let needed = self.positional_values_needed(ty);
         if positional > 0 && positional < needed && values.len() == positional {
             return err(span, "Not enough values provided in this struct literal.");
         }
