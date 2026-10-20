@@ -95,13 +95,18 @@ table_add :: (table: *Table, key: table.Key_Type, value: table.Value_Type) -> *t
 }
 
 table_set :: (table: *Table, key: table.Key_Type, value: table.Value_Type) -> *table.Value_Type {
-    pointer := table_find_pointer(table, key);
-    if pointer {
-        pointer.* = value;
-        return pointer;
+    // One hash serves both the lookup and the insert.
+    hash := valid_hash(table, key);
+    entry := find_entry(table, key, hash);
+
+    if entry {
+        entry.value = value;
+        return *entry.value;
     }
 
-    return table_add(table, key, value);
+    table_ensure_space(table, 1);
+
+    return insert_entry(table, key, value, hash);
 }
 
 table_find_pointer :: (table: *Table, key: table.Key_Type) -> *table.Value_Type {
@@ -192,10 +197,16 @@ table_remove_multiple :: (table: *Table, key: table.Key_Type) -> (num_removed: s
 }
 
 find_or_add :: (table: *Table, key: table.Key_Type) -> (entry: *table.Value_Type, newly_added: bool) {
-    pointer := table_find_pointer(table, key);
-    if pointer return pointer, false;
+    hash := valid_hash(table, key);
+    entry := find_entry(table, key, hash);
+
+    if entry return *entry.value, false;
+
     value: table.Value_Type;
-    return table_add(table, key, value), true;
+
+    table_ensure_space(table, 1);
+
+    return insert_entry(table, key, value, hash), true;
 }
 
 table_reset_keeping_memory :: (using table: *Table) {
@@ -317,8 +328,12 @@ insert_entry :: (table: *Table, key: table.Key_Type, value: table.Value_Type, ha
 
 find_entry :: (table: *Table, key: table.Key_Type) -> *table.Entry {
     if table.allocated == 0 return null;
+    return find_entry(table, key, valid_hash(table, key));
+}
 
-    hash := valid_hash(table, key);
+find_entry :: (table: *Table, key: table.Key_Type, hash: u32) -> *table.Entry {
+    if table.allocated == 0 return null;
+
     index := cast(s64) hash & (table.allocated - 1);
 
     for 0..table.allocated - 1 {
