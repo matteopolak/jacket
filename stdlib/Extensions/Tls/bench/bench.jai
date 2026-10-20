@@ -162,7 +162,7 @@ send_bytes :: (job: *Transfer) {
     while sent < job.bytes {
         count := min(CHUNK, job.bytes - sent);
 
-        _, error := Io.write(job.writer, .{ count, buffer.data });
+        _, error := Io.write(job.writer, ([] u8).{ count, buffer.data });
 
         assert(error == .NONE, "send: %", error);
 

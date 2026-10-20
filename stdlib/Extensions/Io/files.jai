@@ -104,7 +104,7 @@ write :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
 }
 
 write :: (file: *Io_File, text: string) -> s64, Io_Error {
-    return write(file, .{ text.count, text.data });
+    return write(file, ([] u8).{ text.count, text.data });
 }
 
 // Writes all of `data` at `offset`; the file's position does not move.
@@ -132,7 +132,7 @@ write_at :: (file: *Io_File, data: [] u8, offset: s64) -> s64, Io_Error {
 }
 
 write_at :: (file: *Io_File, text: string, offset: s64) -> s64, Io_Error {
-    return write_at(file, .{ text.count, text.data }, offset);
+    return write_at(file, ([] u8).{ text.count, text.data }, offset);
 }
 
 file_size :: (file: *Io_File) -> s64, Io_Error {
@@ -181,5 +181,5 @@ write_file :: (path: string, data: [] u8) -> Io_Error {
 }
 
 write_file :: (path: string, text: string) -> Io_Error {
-    return write_file(path, .{ text.count, text.data });
+    return write_file(path, ([] u8).{ text.count, text.data });
 }

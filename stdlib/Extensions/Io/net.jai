@@ -401,7 +401,7 @@ write :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
 }
 
 write :: (stream: Tcp_Stream, text: string) -> s64, Io_Error {
-    return write(stream, .{ text.count, text.data });
+    return write(stream, ([] u8).{ text.count, text.data });
 }
 
 // Closes the sending side; the peer reads the end of the stream once it has what was sent.

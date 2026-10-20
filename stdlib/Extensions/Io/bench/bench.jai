@@ -27,7 +27,7 @@ echo_connection :: (conn: Io.Tcp_Stream) {
         count, error := Io.read(conn, buffer);
         if error != .NONE || count == 0 return;
 
-        _, write_error := Io.write(conn, .{ count, buffer.data });
+        _, write_error := Io.write(conn, ([] u8).{ count, buffer.data });
         if write_error != .NONE return;
     }
 }

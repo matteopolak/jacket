@@ -158,7 +158,7 @@ write :: (writer: Writer, data: [] u8) -> s64, Io_Error {
 }
 
 write :: (writer: Writer, text: string) -> s64, Io_Error {
-    return write(writer, .{ text.count, text.data });
+    return write(writer, ([] u8).{ text.count, text.data });
 }
 
 // Closing

@@ -145,7 +145,7 @@ write_some :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
 }
 
 write :: (stream: *Pipe_Stream, text: string) -> s64, Io_Error {
-    return write(stream, .{ text.count, text.data });
+    return write(stream, ([] u8).{ text.count, text.data });
 }
 
 // This end will send nothing more: the other end reads what was sent, then 0.
