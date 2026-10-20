@@ -1,5 +1,6 @@
 //! Looking names up in a module's declarations and `using` members.
 use super::model::{EntityId, Found, UsingEntry};
+use crate::sema::Namespaces;
 use crate::sema::{Compiler, ModuleId, Result, Span, Sym, ast};
 
 impl Compiler {
@@ -11,13 +12,13 @@ impl Compiler {
         // A search inside a re-export cycle skips modules, so only whole answers are kept.
         if !self.ns.reexport_visiting.is_empty() {
             let ids = self.module_declarations_unbound(module, name)?;
-            return Ok(self.bound_entities(&ids));
+            return Ok(self.diag.bound_entities(&ids));
         }
         let generation = self.epochs.namespace_generation;
         if let Some((at, ids)) = self.caches.module_names.get(&(module, name))
             && *at == generation
         {
-            return Ok(self.bound_entities(ids));
+            return Ok(self.diag.bound_entities(ids));
         }
         let outer = std::mem::replace(&mut self.caches.module_names_unsettled, false);
         let ids = self.module_declarations_unbound(module, name);
@@ -28,7 +29,7 @@ impl Compiler {
                 .module_names
                 .insert((module, name), (generation, ids.as_slice().into()));
         }
-        Ok(self.bound_entities(&ids))
+        Ok(self.diag.bound_entities(&ids))
     }
 
     /// `module_declarations` before aliases are replaced by what they are bound to.
@@ -99,7 +100,7 @@ impl Compiler {
             }
         }
         if matches!(&result, Ok(ids) if ids.is_empty()) {
-            for used in self.using_modules(module, name, true) {
+            for used in self.ns.using_modules(module, name, true) {
                 let ids = self.module_declarations_unbound(used, name);
                 if !matches!(&ids, Ok(ids) if ids.is_empty()) {
                     result = ids;
@@ -109,18 +110,6 @@ impl Compiler {
         }
         self.ns.reexport_visiting.pop();
         result
-    }
-
-    /// Modules `module` says `using M;` to whose filters let `name` through: only those at
-    /// export scope when `exported_only`.
-    fn using_modules(&self, module: ModuleId, name: Sym, exported_only: bool) -> Vec<ModuleId> {
-        self.ns.modules[module.0 as usize]
-            .using_modules
-            .iter()
-            .filter(|used| used.exported || !exported_only)
-            .filter(|used| !used.filter.as_ref().is_some_and(|f| filter_hides(f, name)))
-            .map(|used| used.module)
-            .collect()
     }
 
     /// What `name` means as a member of `module`: `M.name` through a named import, `name`
@@ -175,7 +164,7 @@ impl Compiler {
         {
             return Ok(found);
         }
-        let used = self.using_modules(module, name, false);
+        let used = self.ns.using_modules(module, name, false);
         self.ns.reexport_visiting.push(module);
         let mut result = Ok(found);
         for used in used {
@@ -309,7 +298,7 @@ impl Compiler {
             }
         }
         if matches!(result, Ok(None)) {
-            for used in self.using_modules(module, name, true) {
+            for used in self.ns.using_modules(module, name, true) {
                 match self.module_using_member(used, name) {
                     Ok(None) => {}
                     other => {
@@ -346,5 +335,19 @@ pub fn filter_hides(filter: &ast::UsingFilter, name: Sym) -> bool {
             crate::sema::using::filter_target(filter, name).is_none()
         }
         _ => false,
+    }
+}
+
+impl Namespaces {
+    /// Modules `module` says `using M;` to whose filters let `name` through: only those at
+    /// export scope when `exported_only`.
+    fn using_modules(&self, module: ModuleId, name: Sym, exported_only: bool) -> Vec<ModuleId> {
+        self.modules[module.0 as usize]
+            .using_modules
+            .iter()
+            .filter(|used| used.exported || !exported_only)
+            .filter(|used| !used.filter.as_ref().is_some_and(|f| filter_hides(f, name)))
+            .map(|used| used.module)
+            .collect()
     }
 }

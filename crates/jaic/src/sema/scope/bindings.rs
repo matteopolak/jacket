@@ -4,6 +4,7 @@ use super::model::{
     Entity, EntityId, EntityKind, EntityState, ImportEntry, Pending, PendingState, Resolved, Scope,
     ScopeId, ScopeKind, UsingEntry,
 };
+use crate::sema::Diagnostics;
 use crate::sema::{
     Compiler, Diagnostic, FileId, HashMap, ModuleId, Rc, Result, Span, Sym, Value, ast,
 };
@@ -223,24 +224,6 @@ impl Compiler {
         None
     }
 
-    pub(in crate::sema) fn bound_entities(&self, entities: &[EntityId]) -> Vec<EntityId> {
-        let mut result = Vec::with_capacity(entities.len());
-        for &entity in entities {
-            for &definition in self
-                .diag
-                .dependencies
-                .bindings
-                .get(&entity)
-                .map_or(std::slice::from_ref(&entity), Vec::as_slice)
-            {
-                if !result.contains(&definition) {
-                    result.push(definition);
-                }
-            }
-        }
-        result
-    }
-
     /// A declaration may not reuse a name declared in the same scope, except for procedures,
     /// which form an overload set (identical signatures are caught when the set is used).
     pub(in crate::sema) fn check_redeclared(
@@ -266,7 +249,7 @@ impl Compiler {
         }
         // A placeholder permits its definition, not additional definitions after it.
         // Real declarations retain the ordinary duplicate/overload rules.
-        for id in self.bound_entities(&ids) {
+        for id in self.diag.bound_entities(&ids) {
             match (&self.entity(id).kind, decl) {
                 (
                     EntityKind::Decl {
@@ -336,5 +319,24 @@ impl Compiler {
             ty,
         });
         id
+    }
+}
+
+impl Diagnostics {
+    pub(in crate::sema) fn bound_entities(&self, entities: &[EntityId]) -> Vec<EntityId> {
+        let mut result = Vec::with_capacity(entities.len());
+        for &entity in entities {
+            for &definition in self
+                .dependencies
+                .bindings
+                .get(&entity)
+                .map_or(std::slice::from_ref(&entity), Vec::as_slice)
+            {
+                if !result.contains(&definition) {
+                    result.push(definition);
+                }
+            }
+        }
+        result
     }
 }

@@ -191,7 +191,7 @@ impl Compiler {
         }
         let poly_report = r.add(poly_report);
 
-        let (calls, instructions) = self.instruction_counts();
+        let (calls, instructions) = self.out.instruction_counts();
         let mut bytecode = Record::new(RecordTag::BytecodeReport);
         bytecode
             .int("num_calls_inlined", 0)

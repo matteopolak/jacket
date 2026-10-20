@@ -1,5 +1,6 @@
 //! Draining queued bodies and lowering everything reachable from a root.
 use super::model::{BodyState, ProcTarget};
+use crate::sema::ProcState;
 #[cfg(debug_assertions)]
 use crate::sema::scope::ScopeKind;
 use crate::sema::{Compiler, Diagnostic, ProcId, Result, ir};
@@ -12,7 +13,7 @@ impl Compiler {
     /// count as progress: a failing body re-creates its nested procedures on every retry,
     /// and lowering those must not keep the loop alive.
     pub fn drain_bodies(&mut self) -> Result<()> {
-        self.unpark_bodies();
+        self.pr.unpark_bodies();
         loop {
             let mut failed = Vec::new();
             let mut progress = false;
@@ -40,15 +41,6 @@ impl Compiler {
         }
     }
 
-    /// The errors of the bodies that failed their last lenient attempt.
-    pub(crate) fn lenient_failures_list(&self) -> Vec<Diagnostic> {
-        self.pr
-            .lenient_failures
-            .values()
-            .map(|(_, e)| (**e).clone())
-            .collect()
-    }
-
     /// Lower the queued bodies that can be lowered now, for compile-time code running in the
     /// middle of checking. A body may need something still being computed (the layout of the
     /// struct whose constant is being evaluated); it stays queued, so the final `drain_bodies`
@@ -63,7 +55,7 @@ impl Compiler {
                 .iter()
                 .any(|&id| !self.failure_reusable(id, self.pr.parked_epoch))
         {
-            self.unpark_bodies();
+            self.pr.unpark_bodies();
         }
         while let Some(id) = self.pr.body_queue.pop() {
             if self.proc(id).body_state != BodyState::Queued {
@@ -121,12 +113,6 @@ impl Compiler {
         first
     }
 
-    /// Put the parked bodies back in the queue.
-    fn unpark_bodies(&mut self) {
-        let parked = std::mem::take(&mut self.pr.parked_bodies);
-        self.pr.body_queue.extend(parked);
-    }
-
     /// Counts the events after which a body that failed to lower may succeed.
     pub(super) fn lower_epoch(&self) -> u64 {
         let base =
@@ -172,16 +158,6 @@ impl Compiler {
         );
         self.namespace_check
             .set((total, self.epochs.namespace_generation));
-    }
-
-    pub(super) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
-        self.pr.procs[id.0 as usize].target = Some(target);
-        if let ProcTarget::Func(func) = target {
-            let procs = self.pr.func_targets.entry(func).or_default();
-            if let Err(at) = procs.binary_search(&id) {
-                procs.insert(at, id);
-            }
-        }
     }
 
     /// The procedures whose target is IR function `func`, lowest id first.
@@ -303,5 +279,31 @@ impl Compiler {
         }
         self.pr.body_queue.extend(failed);
         first
+    }
+}
+
+impl ProcState {
+    /// The errors of the bodies that failed their last lenient attempt.
+    pub(crate) fn lenient_failures_list(&self) -> Vec<Diagnostic> {
+        self.lenient_failures
+            .values()
+            .map(|(_, e)| (**e).clone())
+            .collect()
+    }
+
+    /// Put the parked bodies back in the queue.
+    fn unpark_bodies(&mut self) {
+        let parked = std::mem::take(&mut self.parked_bodies);
+        self.body_queue.extend(parked);
+    }
+
+    pub(super) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
+        self.procs[id.0 as usize].target = Some(target);
+        if let ProcTarget::Func(func) = target {
+            let procs = self.func_targets.entry(func).or_default();
+            if let Err(at) = procs.binary_search(&id) {
+                procs.insert(at, id);
+            }
+        }
     }
 }

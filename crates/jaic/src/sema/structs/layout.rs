@@ -57,9 +57,9 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
 
 impl Compiler {
     pub fn layout_struct(&mut self, s: StructId, span: Span) -> Result<()> {
-        self.begin_runtime_storage_dependencies();
+        self.out.begin_runtime_storage_dependencies();
         let result = self.layout_struct_with_runtime_dependencies(s, span);
-        let values = self.end_runtime_storage_dependencies()?;
+        let values = self.out.end_runtime_storage_dependencies()?;
         if result.is_ok() {
             self.finish_runtime_storage_layout(s, &values);
         }

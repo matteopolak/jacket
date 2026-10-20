@@ -2,6 +2,7 @@
 use super::constants::message_kind;
 use super::state::FileEvent;
 use crate::records::{Record, RecordTag, Records};
+use crate::sema::SourceState;
 use crate::sema::{Compiler, FileId, ModuleId};
 
 impl Compiler {
@@ -39,14 +40,6 @@ impl Compiler {
             .collect()
     }
 
-    fn file_module(&self, file: FileId) -> ModuleId {
-        self.src
-            .files
-            .iter()
-            .find(|f| f.id == file)
-            .map_or(ModuleId(0), |f| f.module)
-    }
-
     fn module_record(&mut self, r: &mut Records, m: ModuleId) -> i64 {
         if let Some(&id) = self.meta.export.modules.get(&m) {
             return id;
@@ -64,7 +57,7 @@ impl Compiler {
         let entry = module
             .path
             .as_ref()
-            .map(|p| self.canon(p).display().to_string())
+            .map(|p| self.src.canon(p).display().to_string())
             .or_else(|| {
                 module
                     .files
@@ -91,7 +84,7 @@ impl Compiler {
         if let Some(&id) = self.meta.export.files.get(&file) {
             return id;
         }
-        let module = self.file_module(file);
+        let module = self.src.file_module(file);
         self.file_record_in(r, file, module)
     }
 
@@ -131,10 +124,10 @@ impl Compiler {
             let dir = self
                 .options
                 .stdlib_root()
-                .map(|root| self.canon(root))
+                .map(|root| self.src.canon(root))
                 .or_else(|| {
                     self.runtime_support_entry()
-                        .and_then(|p| p.parent().map(|d| self.canon(d)))
+                        .and_then(|p| p.parent().map(|d| self.src.canon(d)))
                 });
             self.meta.export.system_dir = Some(dir);
         }
@@ -145,10 +138,19 @@ impl Compiler {
             &self.meta.export.system_dir,
             &self.ns.modules[m.0 as usize].path,
         ) {
-            (Some(Some(dir)), Some(path)) => self.canon(path).starts_with(dir),
+            (Some(Some(dir)), Some(path)) => self.src.canon(path).starts_with(dir),
             _ => false,
         };
         self.meta.export.system_modules.insert(m, system);
         system
+    }
+}
+
+impl SourceState {
+    fn file_module(&self, file: FileId) -> ModuleId {
+        self.files
+            .iter()
+            .find(|f| f.id == file)
+            .map_or(ModuleId(0), |f| f.module)
     }
 }

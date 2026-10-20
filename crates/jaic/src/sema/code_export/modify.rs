@@ -1,6 +1,7 @@
 //! Making procedures live and applying modifications to them.
 use super::state::ModifiedStmt;
 use crate::records::{Item, Records};
+use crate::sema::SourceState;
 use crate::sema::{Compiler, Rc, Result, SourcePath, Span, ast, err, procs};
 
 impl Compiler {
@@ -70,7 +71,7 @@ impl Compiler {
             let id = match stmt {
                 ModifiedStmt::Record(id) => *id,
                 ModifiedStmt::Source(text) => {
-                    new_stmts.extend(self.parse_inserted_code(text)?);
+                    new_stmts.extend(self.src.parse_inserted_code(text)?);
                     continue;
                 }
             };
@@ -84,7 +85,10 @@ impl Compiler {
                     "compiler_modify_procedure: a statement is neither from this procedure nor from compiler_get_nodes",
                 );
             };
-            new_stmts.extend(self.parse_inserted_code(&String::from_utf8_lossy(&text))?);
+            new_stmts.extend(
+                self.src
+                    .parse_inserted_code(&String::from_utf8_lossy(&text))?,
+            );
         }
         let lit = ast::ProcLit {
             header: old.header.clone(),
@@ -110,13 +114,15 @@ impl Compiler {
         }
         Ok(())
     }
+}
 
+impl SourceState {
     /// Statements of the text of a `#code` value, as source of this compiler.
     fn parse_inserted_code(&mut self, text: &str) -> Result<Vec<ast::Stmt>> {
         let source = format!("__jaic_inserted :: () {{\n{text};\n}}\n");
         let label =
-            SourcePath::virtual_source(format!("compiler_get_nodes {}", self.src.sources.len()));
-        let file = self.src.sources.add(label, source.as_str().into());
+            SourcePath::virtual_source(format!("compiler_get_nodes {}", self.sources.len()));
+        let file = self.sources.add(label, source.as_str().into());
         let parsed = crate::parser::parse_file(file, &source).map_err(Box::new)?;
         let body = parsed.stmts.into_iter().find_map(|s| match s.kind {
             ast::StmtKind::Decl(d) => match d.value.as_ref().map(|v| &v.kind) {

@@ -16,24 +16,10 @@ pub use self::parameters::ParameterContract;
 use super::scope::{EntityKind, ScopeKind};
 use super::{Compiler, EntityId, ModuleId, PathBuf, Result, ScopeId, Span, ast};
 use crate::paths::normalize;
+use crate::sema::SourceState;
 use std::path::Path;
 
 impl Compiler {
-    /// `self.src.fs.canonical(path)`, remembered for the rest of the run: the standard library's
-    /// modules are named over and over, and every uncached answer is a `realpath` walk.
-    pub(super) fn canon(&self, path: &Path) -> PathBuf {
-        if let Some(real) = self.src.canon_cache.get(path) {
-            return real;
-        }
-        match self.src.fs.canonical_exact(path) {
-            Some(real) => {
-                self.src.canon_cache.remember(path, real.clone());
-                real
-            }
-            None => normalize(path),
-        }
-    }
-
     /// Load every module reachable through imports and expand all pending
     /// top-level items, until nothing changes.
     pub fn expand_all(&mut self) -> Result<()> {
@@ -130,6 +116,23 @@ impl Compiler {
                 }
                 return Ok(());
             }
+        }
+    }
+}
+
+impl SourceState {
+    /// `self.fs.canonical(path)`, remembered for the rest of the run: the standard library's
+    /// modules are named over and over, and every uncached answer is a `realpath` walk.
+    pub(super) fn canon(&self, path: &Path) -> PathBuf {
+        if let Some(real) = self.canon_cache.get(path) {
+            return real;
+        }
+        match self.fs.canonical_exact(path) {
+            Some(real) => {
+                self.canon_cache.remember(path, real.clone());
+                real
+            }
+            None => normalize(path),
         }
     }
 }

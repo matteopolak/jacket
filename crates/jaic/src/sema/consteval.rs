@@ -8,6 +8,8 @@ use super::{
 };
 
 use crate::ir::Ty;
+use crate::sema::CompileTime;
+use crate::sema::SourceState;
 use crate::types::{ArrayKind, TypeKind};
 
 /// The `count` elements of `elem` (`bytes` in all) that a pointer freezes to, read at `p` in the
@@ -211,7 +213,9 @@ impl Compiler {
         self.ct.interp.run_effects = outer;
         self.flush_interp_output();
         for data in std::mem::take(&mut self.ct.interp.pending_data_globals) {
-            let init = self.program_bytes(data.address(), data.size as usize, span)?;
+            let init = self
+                .ct
+                .program_bytes(data.address(), data.size as usize, span)?;
             let global = self.out.program.add_global(ir::Global {
                 name: "compiler.global_data".into(),
                 size: data.size,
@@ -591,7 +595,7 @@ impl Compiler {
                 ..
             } => {
                 let text: Rc<str> = String::from_utf8_lossy(&s).into();
-                let file = self.insert_source(span, text.clone())?;
+                let file = self.src.insert_source(span, text.clone())?;
                 let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
                 Ok(ast.stmts)
             }
@@ -604,29 +608,6 @@ impl Compiler {
                 ),
             ),
         }
-    }
-
-    /// Register the text of an `#insert`ed string inserted at `at`. Inserted text may insert
-    /// more (`X :: "#insert X;"`), so nesting is bounded.
-    pub(super) fn insert_source(&mut self, at: Span, text: Rc<str>) -> Result<FileId> {
-        const MAX_INSERT_DEPTH: u32 = 256;
-        let depth = self.src.insert_depth.get(&at.file).map_or(1, |d| d + 1);
-        if depth > MAX_INSERT_DEPTH {
-            return err(
-                at,
-                format!("#insert strings are nested more than {MAX_INSERT_DEPTH} deep"),
-            );
-        }
-        // Named after the outermost real file, so nested inserts keep a short path.
-        let path = self.src.sources.get(at.file).path.clone();
-        let path = if depth > 1 {
-            path
-        } else {
-            SourcePath::virtual_source(format!("#insert at {path}"))
-        };
-        let file = self.src.sources.add(path, text);
-        self.src.insert_depth.insert(file, depth);
-        Ok(file)
     }
 
     pub fn eval_insert_stmts(
@@ -688,7 +669,7 @@ impl Compiler {
                 let source = String::from_utf8_lossy(&s);
                 let source = source.trim_end().trim_end_matches(';');
                 let text = format!("__jaic_insert :: ({source});");
-                let file = self.insert_source(value.span, text.clone().into())?;
+                let file = self.src.insert_source(value.span, text.clone().into())?;
                 let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
                 match ast.stmts.first().map(|s| &s.kind) {
                     Some(ast::StmtKind::Decl(d)) if d.value.is_some() => {
@@ -741,12 +722,12 @@ impl Compiler {
     /// Read a value of type `ty` at interpreter address `addr` as a constant.
     pub fn read_value(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {
         match self.ty.types.kind(ty).clone() {
-            TypeKind::Bool => Ok(Value::Bool(self.program_bytes(addr, 1, span)?[0] != 0)),
+            TypeKind::Bool => Ok(Value::Bool(self.ct.program_bytes(addr, 1, span)?[0] != 0)),
             TypeKind::Int {
                 bits,
                 signed,
             } => {
-                let bytes = self.program_bytes(addr, bits as usize / 8, span)?;
+                let bytes = self.ct.program_bytes(addr, bits as usize / 8, span)?;
                 let mut buf = [0u8; 8];
                 buf[..bytes.len()].copy_from_slice(&bytes);
                 let raw = u64::from_le_bytes(buf);
@@ -755,14 +736,16 @@ impl Compiler {
             TypeKind::Float {
                 bits: 32,
             } => {
-                let b = self.program_bytes(addr, 4, span)?;
+                let b = self.ct.program_bytes(addr, 4, span)?;
                 Ok(Value::float(
                     f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64
                 ))
             }
             TypeKind::Float {
                 ..
-            } => Ok(Value::float(f64::from_bits(self.program_u64(addr, span)?))),
+            } => Ok(Value::float(f64::from_bits(
+                self.ct.program_u64(addr, span)?,
+            ))),
             TypeKind::Enum(_) | TypeKind::Distinct(_) => {
                 let r = self.ty.types.repr(ty);
                 if r != ty && self.ir_ty(r).is_some() && !self.ty.types.is_pointer(r) {
@@ -771,25 +754,27 @@ impl Compiler {
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Type => {
-                let p = self.program_u64(addr, span)?;
+                let p = self.ct.program_u64(addr, span)?;
                 self.type_at(p, span).map(Value::Type)
             }
             TypeKind::Code => {
                 self.adopt_made_codes();
                 // Any integer can be cast to `Code`; only ids of real code are usable.
-                let id = self.program_u64(addr, span)?;
+                let id = self.ct.program_u64(addr, span)?;
                 if id >= self.pr.codes.len() as u64 {
                     return err(span, format!("{id} is not a valid Code value"));
                 }
                 Ok(Value::Code(value::CodeId(id as u32)))
             }
             TypeKind::String => {
-                let count = self.program_u64(addr, span)? as usize;
-                let data = self.program_u64(addr + 8, span)?;
-                Ok(Value::String(self.program_bytes(data, count, span)?.into()))
+                let count = self.ct.program_u64(addr, span)? as usize;
+                let data = self.ct.program_u64(addr + 8, span)?;
+                Ok(Value::String(
+                    self.ct.program_bytes(data, count, span)?.into(),
+                ))
             }
             TypeKind::Proc(_) => {
-                let p = self.program_u64(addr, span)?;
+                let p = self.ct.program_u64(addr, span)?;
                 if p == 0 {
                     return Ok(Value::Null);
                 }
@@ -801,7 +786,7 @@ impl Compiler {
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Pointer(_) | TypeKind::Null => {
-                let pointer = self.program_u64(addr, span)?;
+                let pointer = self.ct.program_u64(addr, span)?;
                 if pointer == 0 {
                     return Ok(Value::Null);
                 }
@@ -832,7 +817,7 @@ impl Compiler {
     pub(super) fn read_aggregate(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {
         let size = self.size_of(ty, span)?;
         let mut agg = Aggregate {
-            bytes: self.program_bytes(addr, size as usize, span)?,
+            bytes: self.ct.program_bytes(addr, size as usize, span)?,
             relocs: Vec::new(),
         };
         self.ct.frozen.clear();
@@ -882,8 +867,8 @@ impl Compiler {
                 elem,
                 kind,
             } => {
-                let count = self.program_u64(addr, span)?;
-                let data = self.program_u64(addr + 8, span)?;
+                let count = self.ct.program_u64(addr, span)?;
+                let data = self.ct.program_u64(addr + 8, span)?;
                 let esize = self.size_of(elem, span)?;
                 // Only the elements in use: the unused capacity of a resizable array is memory the
                 // program never wrote, so copying it would put whatever the interpreter's heap held
@@ -907,8 +892,8 @@ impl Compiler {
                 }
             }
             TypeKind::String => {
-                let count = self.program_u64(addr, span)?;
-                let data = self.program_u64(addr + 8, span)?;
+                let count = self.ct.program_u64(addr, span)?;
+                let data = self.ct.program_u64(addr + 8, span)?;
                 self.freeze_pointer(
                     agg,
                     offset + 8,
@@ -922,7 +907,7 @@ impl Compiler {
                 )?;
             }
             TypeKind::Pointer(to) => {
-                let p = self.program_u64(addr, span)?;
+                let p = self.ct.program_u64(addr, span)?;
                 let size = if to == TypeId::VOID {
                     0
                 } else {
@@ -941,7 +926,7 @@ impl Compiler {
                 )?;
             }
             TypeKind::Type => {
-                let p = self.program_u64(addr, span)?;
+                let p = self.ct.program_u64(addr, span)?;
                 if p != 0 {
                     let t = self.type_at(p, span)?;
                     let g = self.type_info_global(t, span)?;
@@ -954,7 +939,7 @@ impl Compiler {
                 }
             }
             TypeKind::Proc(_) => {
-                let p = self.program_u64(addr, span)?;
+                let p = self.ct.program_u64(addr, span)?;
                 agg.bytes[offset as usize..offset as usize + 8].fill(0);
                 if let Some(func) = self.ct.interp.func_of(p) {
                     agg.relocs.push(ir::Reloc {
@@ -974,8 +959,8 @@ impl Compiler {
                 }
             }
             TypeKind::Any => {
-                let t = self.program_u64(addr, span)?;
-                let v = self.program_u64(addr + 8, span)?;
+                let t = self.ct.program_u64(addr, span)?;
+                let v = self.ct.program_u64(addr + 8, span)?;
                 agg.bytes[offset as usize..offset as usize + 16].fill(0);
                 if t != 0 {
                     let vt = self.type_at(t, span)?;
@@ -1141,21 +1126,6 @@ impl Compiler {
 }
 
 impl Compiler {
-    /// `len` bytes of compile-time memory at `addr`, which a `#run` result points to.
-    fn program_bytes(&self, addr: u64, len: usize, span: Span) -> Result<Vec<u8>> {
-        match self.ct.interp.read(addr, len) {
-            Some(bytes) => Ok(bytes),
-            None => unreadable(addr, span),
-        }
-    }
-
-    /// The `u64` at `addr` in compile-time memory.
-    pub(super) fn program_u64(&self, addr: u64, span: Span) -> Result<u64> {
-        match self.ct.interp.read_u64(addr) {
-            Some(v) => Ok(v),
-            None => unreadable(addr, span),
-        }
-    }
 }
 
 /// A `#run` result points at memory that cannot be read (an integer made into a string's or an
@@ -1172,4 +1142,47 @@ fn unreadable<T>(addr: u64, span: Span) -> Result<T> {
 /// 64-bit hosts jaic runs on is never user-space memory (`cast(HKEY) cast(s32) 0x80000000`).
 fn is_integer_handle(p: u64) -> bool {
     p < 0x10000 || (p as i64) < 0
+}
+
+impl CompileTime {
+    /// `len` bytes of compile-time memory at `addr`, which a `#run` result points to.
+    fn program_bytes(&self, addr: u64, len: usize, span: Span) -> Result<Vec<u8>> {
+        match self.interp.read(addr, len) {
+            Some(bytes) => Ok(bytes),
+            None => unreadable(addr, span),
+        }
+    }
+
+    /// The `u64` at `addr` in compile-time memory.
+    pub(super) fn program_u64(&self, addr: u64, span: Span) -> Result<u64> {
+        match self.interp.read_u64(addr) {
+            Some(v) => Ok(v),
+            None => unreadable(addr, span),
+        }
+    }
+}
+
+impl SourceState {
+    /// Register the text of an `#insert`ed string inserted at `at`. Inserted text may insert
+    /// more (`X :: "#insert X;"`), so nesting is bounded.
+    pub(super) fn insert_source(&mut self, at: Span, text: Rc<str>) -> Result<FileId> {
+        const MAX_INSERT_DEPTH: u32 = 256;
+        let depth = self.insert_depth.get(&at.file).map_or(1, |d| d + 1);
+        if depth > MAX_INSERT_DEPTH {
+            return err(
+                at,
+                format!("#insert strings are nested more than {MAX_INSERT_DEPTH} deep"),
+            );
+        }
+        // Named after the outermost real file, so nested inserts keep a short path.
+        let path = self.sources.get(at.file).path.clone();
+        let path = if depth > 1 {
+            path
+        } else {
+            SourcePath::virtual_source(format!("#insert at {path}"))
+        };
+        let file = self.sources.add(path, text);
+        self.insert_depth.insert(file, depth);
+        Ok(file)
+    }
 }

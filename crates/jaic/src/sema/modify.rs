@@ -12,6 +12,7 @@ use super::{
     err, ir,
 };
 use crate::ir::Ty;
+use crate::sema::SourceState;
 
 /// The names a `#modify` block sees: those it may assign, those it only reads, and where the
 /// header declares each (a name without an entry is declared at the call).
@@ -46,7 +47,7 @@ impl Compiler {
             return Ok(());
         };
         let mut d = Diagnostic::error(
-            self.modify_directive_span(block),
+            self.src.modify_directive_span(block),
             format!("`#modify` needs polymorph variables to modify, but `{name}` has none"),
         )
         .with_label("this block never runs")
@@ -98,7 +99,7 @@ impl Compiler {
         };
         Err(Box::new(
             Diagnostic::error(
-                self.modify_directive_span(block),
+                self.src.modify_directive_span(block),
                 format!("`#modify` needs polymorph variables to modify, but {what} has none"),
             )
             .with_label("this block never runs")
@@ -108,26 +109,6 @@ impl Compiler {
                  (`struct (N: int) #modify { ... }`); give the struct parameters, or remove the block",
             ),
         ))
-    }
-
-    /// The `#modify` directive in front of `block`, or the block when it cannot be found.
-    fn modify_directive_span(&self, block: &ast::Block) -> Span {
-        let span = block.span;
-        if (span.file.0 as usize) >= self.src.sources.len() {
-            return span;
-        }
-        let text = &self.src.sources.get(span.file).text;
-        match text
-            .get(..span.start as usize)
-            .and_then(|t| t.rfind("#modify"))
-        {
-            Some(at) => Span {
-                file: span.file,
-                start: at as u32,
-                end: at as u32 + "#modify".len() as u32,
-            },
-            None => span,
-        }
     }
 
     pub(super) fn run_modify(
@@ -321,5 +302,27 @@ impl Compiler {
             out.push((name, self.read_value(addr, ty, span)?, ty));
         }
         Ok(out)
+    }
+}
+
+impl SourceState {
+    /// The `#modify` directive in front of `block`, or the block when it cannot be found.
+    fn modify_directive_span(&self, block: &ast::Block) -> Span {
+        let span = block.span;
+        if (span.file.0 as usize) >= self.sources.len() {
+            return span;
+        }
+        let text = &self.sources.get(span.file).text;
+        match text
+            .get(..span.start as usize)
+            .and_then(|t| t.rfind("#modify"))
+        {
+            Some(at) => Span {
+                file: span.file,
+                start: at as u32,
+                end: at as u32 + "#modify".len() as u32,
+            },
+            None => span,
+        }
     }
 }

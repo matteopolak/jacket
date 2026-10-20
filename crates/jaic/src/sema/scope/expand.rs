@@ -1,5 +1,6 @@
 //! Expanding pending declarations and plain static ifs.
 use super::model::{EntityState, PendingState, ScopeId};
+use crate::sema::Epochs;
 use crate::sema::{Compiler, Result, ast};
 
 /// A procedure-valued declaration can join an overload set.
@@ -87,7 +88,7 @@ impl Compiler {
                 if result.is_err()
                     && !spent
                     && self.ct.executions == executions
-                    && self.waits_for_placeholder(misses)
+                    && self.epochs.waits_for_placeholder(misses)
                 {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
@@ -190,7 +191,7 @@ impl Compiler {
             } else {
                 Ok(())
             };
-            if !ready || (result.is_err() && self.waits_for_placeholder(misses)) {
+            if !ready || (result.is_err() && self.epochs.waits_for_placeholder(misses)) {
                 self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                 continue;
             }
@@ -240,9 +241,11 @@ impl Compiler {
             _ => None,
         }
     }
+}
 
+impl Epochs {
     /// Did an item's failed expansion reach an undefined `#placeholder` (since `before`)?
     fn waits_for_placeholder(&self, before: u64) -> bool {
-        !self.epochs.placeholders_final && self.epochs.placeholder_misses != before
+        !self.placeholders_final && self.placeholder_misses != before
     }
 }

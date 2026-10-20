@@ -7,6 +7,7 @@ use super::{Compiler, Sym};
 use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
 use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
+use crate::sema::SourceState;
 use crate::sema::TypeState;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span};
 use std::cell::RefCell;
@@ -151,7 +152,7 @@ impl Compiler {
         let names = self.names_visible_from(ScopeId(scope));
         let mut d = d.clone().with_label("not found in this scope");
         // An exact declaration elsewhere is a better lead than a similar name in scope.
-        if let Some(builder) = self.metaprogram_defining(wanted, span) {
+        if let Some(builder) = self.src.metaprogram_defining(wanted, span) {
             return Some(d.with_help(format!(
                 "`{wanted}` is added by `{builder}` (with `add_build_string`) when it builds this file: build through it, as in `jaic {builder}`"
             )));
@@ -184,33 +185,6 @@ impl Compiler {
         Some(d)
     }
 
-    /// The metaprogram next to the file of `span` (in its directory or the one above) that
-    /// adds a declaration of `name` with `add_build_string`, as a path shown to the user.
-    fn metaprogram_defining(&self, name: &str, span: Span) -> Option<String> {
-        if span.file.0 as usize >= self.src.sources.len() {
-            return None;
-        }
-        let file = self.src.sources.get(span.file).path.as_file()?;
-        let dir = file.parent()?;
-        for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
-            let mut entries = self.src.fs.list_dir(candidate_dir);
-            entries.sort();
-            for (entry, is_dir) in entries {
-                let path = candidate_dir.join(&entry);
-                if is_dir || !entry.ends_with(".jai") || path == file {
-                    continue;
-                }
-                let Some(bytes) = self.src.fs.read(&path) else {
-                    continue;
-                };
-                if adds_declaration(&String::from_utf8_lossy(&bytes), name) {
-                    return Some(crate::display_path(&path));
-                }
-            }
-        }
-        None
-    }
-
     /// The `#import`s that would declare `name`, best first: the standard-library module of
     /// that name (bound to it, for `Name.member`), then the modules that declare it at their top
     /// level (outside `#scope_file`), best ranked first (`ModuleRanking`) and jaic's `Extensions/` modules
@@ -224,9 +198,13 @@ impl Compiler {
             return found;
         };
         let mut modules: Vec<(String, bool)> = self
+            .src
             .stdlib_modules_under(stdlib, "")
             .into_iter()
-            .chain(self.stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR))
+            .chain(
+                self.src
+                    .stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR),
+            )
             .filter(|(m, _)| !COMPILER_INTERNAL_MODULES.contains(&m.as_str()))
             .collect();
         let ranking = ModuleRanking::clone(&self.stdlib_importers(stdlib, &modules))
@@ -324,34 +302,6 @@ impl Compiler {
             }
         }
         counts
-    }
-
-    /// The modules in `stdlib/folder` as (import name, is a folder): `Name` for the stdlib
-    /// itself (`folder` empty), `folder/Name` below it.
-    pub(crate) fn stdlib_modules_under(&self, stdlib: &Path, folder: &str) -> Vec<(String, bool)> {
-        let dir = stdlib.join(folder);
-        let prefix = if folder.is_empty() {
-            String::new()
-        } else {
-            format!("{folder}/")
-        };
-        self.src
-            .fs
-            .list_dir(&dir)
-            .into_iter()
-            .filter_map(|(entry, is_dir)| {
-                if is_dir {
-                    self.src
-                        .fs
-                        .is_file(&dir.join(&entry).join("module.jai"))
-                        .then(|| (format!("{prefix}{entry}"), true))
-                } else {
-                    entry
-                        .strip_suffix(".jai")
-                        .map(|m| (format!("{prefix}{m}"), false))
-                }
-            })
-            .collect()
     }
 
     /// The `.jai` files of a module directory, leaving out tests and examples.
@@ -515,5 +465,60 @@ impl TypeState {
             );
         }
         d
+    }
+}
+
+impl SourceState {
+    /// The metaprogram next to the file of `span` (in its directory or the one above) that
+    /// adds a declaration of `name` with `add_build_string`, as a path shown to the user.
+    fn metaprogram_defining(&self, name: &str, span: Span) -> Option<String> {
+        if span.file.0 as usize >= self.sources.len() {
+            return None;
+        }
+        let file = self.sources.get(span.file).path.as_file()?;
+        let dir = file.parent()?;
+        for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
+            let mut entries = self.fs.list_dir(candidate_dir);
+            entries.sort();
+            for (entry, is_dir) in entries {
+                let path = candidate_dir.join(&entry);
+                if is_dir || !entry.ends_with(".jai") || path == file {
+                    continue;
+                }
+                let Some(bytes) = self.fs.read(&path) else {
+                    continue;
+                };
+                if adds_declaration(&String::from_utf8_lossy(&bytes), name) {
+                    return Some(crate::display_path(&path));
+                }
+            }
+        }
+        None
+    }
+
+    /// The modules in `stdlib/folder` as (import name, is a folder): `Name` for the stdlib
+    /// itself (`folder` empty), `folder/Name` below it.
+    pub(crate) fn stdlib_modules_under(&self, stdlib: &Path, folder: &str) -> Vec<(String, bool)> {
+        let dir = stdlib.join(folder);
+        let prefix = if folder.is_empty() {
+            String::new()
+        } else {
+            format!("{folder}/")
+        };
+        self.fs
+            .list_dir(&dir)
+            .into_iter()
+            .filter_map(|(entry, is_dir)| {
+                if is_dir {
+                    self.fs
+                        .is_file(&dir.join(&entry).join("module.jai"))
+                        .then(|| (format!("{prefix}{entry}"), true))
+                } else {
+                    entry
+                        .strip_suffix(".jai")
+                        .map(|m| (format!("{prefix}{m}"), false))
+                }
+            })
+            .collect()
     }
 }

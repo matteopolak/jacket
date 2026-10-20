@@ -375,7 +375,7 @@ impl Compiler {
             )
             .into_bytes()
             .into();
-            let data = self.string_global(&text);
+            let data = self.out.string_global(&text);
             let data = f.b.global_addr(data);
             let count = f.b.iconst(Ty::I64, text.len() as u64);
             let to_stderr = f.b.iconst(Ty::I8, 1);

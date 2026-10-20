@@ -4,6 +4,7 @@ use super::{
     CallArg, Compiler, E, EntityKind, FnCtx, MacroFrame, Operand, PreludeType, ProcId, Rc, Result,
     ScopeId, ScopeKind, Signature, Slot, Span, Sym, TypeId, Value, asm, ast, err, procs, scope,
 };
+use crate::sema::SourceState;
 
 /// What the parameters of one macro expansion share.
 #[derive(Clone, Copy)]
@@ -19,71 +20,6 @@ struct MacroCall<'a> {
 }
 
 impl Compiler {
-    /// Whether a block's source text may assign to (or take the address of) `name`:
-    /// `name =`, `name op=`, `name.field =` or `*name`. Conservative: comments and strings
-    /// count too.
-    pub(super) fn text_may_write(&self, body: &ast::Block, name: Sym) -> bool {
-        let text = &self.src.sources.get(body.span.file).text;
-        let text = &text.as_bytes()[body.span.start as usize..body.span.end as usize];
-        // `#asm` operands may write any name they mention.
-        if text.windows(4).any(|w| w == b"#asm") {
-            return true;
-        }
-        let name = name.as_str();
-        let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-        let skip_ws = |mut i: usize| {
-            while i < text.len() && text[i].is_ascii_whitespace() {
-                i += 1;
-            }
-            i
-        };
-        let assigns = |i: usize| {
-            let i = skip_ws(i);
-            let rest = &text[i.min(text.len())..];
-            match rest {
-                [b'=', b'=', ..] => false,
-                [b'=', ..] => true,
-                [op, b'=', ..] => b"+-*/%|&^".contains(op),
-                [b'<' | b'>', b'<' | b'>', b'=', ..] => true,
-                _ => false,
-            }
-        };
-        let mut from = 0;
-        while let Some(pos) = text[from..]
-            .windows(name.len())
-            .position(|w| w == name.as_bytes())
-        {
-            let start = from + pos;
-            let end = start + name.len();
-            from = end;
-            if (start > 0 && word(text[start - 1])) || (end < text.len() && word(text[end])) {
-                continue;
-            }
-            let mut before = start;
-            while before > 0 && text[before - 1].is_ascii_whitespace() {
-                before -= 1;
-            }
-            if before > 0 && text[before - 1] == b'*' {
-                return true;
-            }
-            if assigns(end) {
-                return true;
-            }
-            // `name.field = ...`
-            let mut i = skip_ws(end);
-            if i < text.len() && text[i] == b'.' {
-                i = skip_ws(i + 1);
-                while i < text.len() && word(text[i]) {
-                    i += 1;
-                }
-                if assigns(i) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
     /// Binds one parameter of a macro in the expansion scope.
     fn bind_macro_param(
         &mut self,
@@ -324,7 +260,7 @@ impl Compiler {
                     | Value::Float(_, _)
                     | Value::Proc(_)
                     | Value::Type(_)
-            ) && !self.text_may_write(body, name)
+            ) && !self.src.text_may_write(body, name)
             {
                 self.pr.const_macro_params.insert(e, (value, param.ty));
             }
@@ -437,5 +373,72 @@ impl Compiler {
             1 => values.remove(0),
             _ => Operand::Multi(values),
         })
+    }
+}
+
+impl SourceState {
+    /// Whether a block's source text may assign to (or take the address of) `name`:
+    /// `name =`, `name op=`, `name.field =` or `*name`. Conservative: comments and strings
+    /// count too.
+    pub(super) fn text_may_write(&self, body: &ast::Block, name: Sym) -> bool {
+        let text = &self.sources.get(body.span.file).text;
+        let text = &text.as_bytes()[body.span.start as usize..body.span.end as usize];
+        // `#asm` operands may write any name they mention.
+        if text.windows(4).any(|w| w == b"#asm") {
+            return true;
+        }
+        let name = name.as_str();
+        let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+        let skip_ws = |mut i: usize| {
+            while i < text.len() && text[i].is_ascii_whitespace() {
+                i += 1;
+            }
+            i
+        };
+        let assigns = |i: usize| {
+            let i = skip_ws(i);
+            let rest = &text[i.min(text.len())..];
+            match rest {
+                [b'=', b'=', ..] => false,
+                [b'=', ..] => true,
+                [op, b'=', ..] => b"+-*/%|&^".contains(op),
+                [b'<' | b'>', b'<' | b'>', b'=', ..] => true,
+                _ => false,
+            }
+        };
+        let mut from = 0;
+        while let Some(pos) = text[from..]
+            .windows(name.len())
+            .position(|w| w == name.as_bytes())
+        {
+            let start = from + pos;
+            let end = start + name.len();
+            from = end;
+            if (start > 0 && word(text[start - 1])) || (end < text.len() && word(text[end])) {
+                continue;
+            }
+            let mut before = start;
+            while before > 0 && text[before - 1].is_ascii_whitespace() {
+                before -= 1;
+            }
+            if before > 0 && text[before - 1] == b'*' {
+                return true;
+            }
+            if assigns(end) {
+                return true;
+            }
+            // `name.field = ...`
+            let mut i = skip_ws(end);
+            if i < text.len() && text[i] == b'.' {
+                i = skip_ws(i + 1);
+                while i < text.len() && word(text[i]) {
+                    i += 1;
+                }
+                if assigns(i) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }

@@ -597,3 +597,82 @@ impl Compiler {
         }
     }
 }
+
+#[cfg(test)]
+mod state_groups {
+    use std::path::Path;
+
+    /// The groups of `Compiler` state and the file each is declared in.
+    const GROUPS: [(&str, &str); 10] = [
+        ("CompileTime", "compile_time.rs"),
+        ("SourceState", "source_state.rs"),
+        ("TypeState", "type_state.rs"),
+        ("Namespaces", "namespaces.rs"),
+        ("NameCaches", "name_caches.rs"),
+        ("ProcState", "proc_state.rs"),
+        ("Output", "output.rs"),
+        ("MetaState", "meta_state.rs"),
+        ("Diagnostics", "diagnostics.rs"),
+        ("Epochs", "epochs.rs"),
+    ];
+
+    /// Whether `line` contains `pat` not preceded by an identifier character.
+    fn names(line: &str, pat: &str) -> bool {
+        line.match_indices(pat).any(|(i, _)| {
+            !line[..i]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric() || c == '_')
+        })
+    }
+
+    fn visit(dir: &Path, found: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                visit(&path, found);
+                continue;
+            }
+            if path.extension().is_none_or(|e| e != "rs") {
+                continue;
+            }
+            let rel = path.strip_prefix(env!("CARGO_MANIFEST_DIR")).unwrap();
+            let text = std::fs::read_to_string(&path).unwrap();
+            for (group, own) in GROUPS {
+                if rel.ends_with("src/sema/mod.rs")
+                    || rel.ends_with(Path::new("src/sema").join(own))
+                {
+                    continue;
+                }
+                for (n, line) in text.lines().enumerate() {
+                    let line = line.trim_start();
+                    let builds = names(line, &format!("{group}::new("))
+                        || names(line, &format!("{group}::default()"))
+                        || (names(line, &format!("{group} {{"))
+                            && !line.starts_with("impl")
+                            && !line.contains("struct ")
+                            && !line.contains("enum "));
+                    if builds {
+                        found.push(format!("{}:{}: {line}", rel.display(), n + 1));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Only `Compiler::new` builds the state groups, so each starts in one known state and a
+    /// reset is a method on its group rather than a fresh value made somewhere else.
+    #[test]
+    fn only_compiler_new_builds_state_groups() {
+        let mut found = Vec::new();
+        visit(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+            &mut found,
+        );
+        assert!(
+            found.is_empty(),
+            "state groups built outside sema/mod.rs:\n{}",
+            found.join("\n")
+        );
+    }
+}

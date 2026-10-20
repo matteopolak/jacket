@@ -2,6 +2,7 @@
 use super::{names_variable_path, wrap_int};
 use crate::ast::{ExprKind as E, UnOp};
 use crate::ir::{CmpOp, Ty};
+use crate::sema::SourceState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::types::{ArrayKind, TypeKind};
@@ -260,17 +261,6 @@ impl Compiler {
         }
     }
 
-    /// Default precision follows `lexer::float_literal_precision`: the fractional-digit count for
-    /// decimal spellings and the digit width for `0h` bit patterns.
-    pub(super) fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
-        let precision = crate::lexer::float_literal_precision(self.src.sources.snippet(span), v);
-        if precision.defaults_to_float64 || precision.requires_float64 {
-            TypeId::F64
-        } else {
-            TypeId::F32
-        }
-    }
-
     /// Give an untyped constant a concrete type from context (or its default).
     pub fn settle_untyped(&self, op: Operand, expected: Option<TypeId>) -> Operand {
         match op {
@@ -449,5 +439,18 @@ impl Compiler {
         let fatal = f.b.iconst(Ty::I8, u64::from(fatal));
         f.b.intrinsic(ir::Intrinsic::CheckFailed, vec![reason, a, b, fatal], &[]);
         Ok(())
+    }
+}
+
+impl SourceState {
+    /// Default precision follows `lexer::float_literal_precision`: the fractional-digit count for
+    /// decimal spellings and the digit width for `0h` bit patterns.
+    pub(super) fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
+        let precision = crate::lexer::float_literal_precision(self.sources.snippet(span), v);
+        if precision.defaults_to_float64 || precision.requires_float64 {
+            TypeId::F64
+        } else {
+            TypeId::F32
+        }
     }
 }

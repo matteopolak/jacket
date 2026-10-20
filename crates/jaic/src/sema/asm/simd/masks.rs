@@ -210,7 +210,7 @@ impl Compiler {
                     AesOp::KeygenAssist => self.simd_args(f, ops, 1, true, span)?,
                     _ => self.simd_args(f, ops, 2, false, span)?,
                 };
-                let tables = self.aes_table_ptr(f);
+                let tables = self.out.aes_table_ptr(f);
                 let inv_tables = f.b.ptr_offset(tables, 256);
                 let blocks = if matches!(aes, AesOp::Imc | AesOp::KeygenAssist) {
                     1

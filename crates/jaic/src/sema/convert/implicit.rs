@@ -98,7 +98,7 @@ impl Compiler {
                 ..
             } if self.ty.types.pointee(to) == Some(TypeId::U8) => {
                 // String literals are NUL-terminated: their data pointer is a C string.
-                let global = self.string_global(bytes);
+                let global = self.out.string_global(bytes);
                 let val = f.b.global_addr(global);
                 return Ok(Operand::Value {
                     ty: to,
@@ -180,7 +180,7 @@ impl Compiler {
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
                 let (bits, signed) = self.ty.types.int_info(tr).unwrap();
-                if untyped && !int_constant_fits(*i, bits, signed, self.bit_pattern(span)) {
+                if untyped && !int_constant_fits(*i, bits, signed, self.src.bit_pattern(span)) {
                     return err(
                         span,
                         format!("constant {i} does not fit in {}", self.ty.types.name(to)),

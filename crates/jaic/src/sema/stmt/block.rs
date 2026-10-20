@@ -322,7 +322,7 @@ impl Compiler {
                 self.pr.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;
                 if matches!(e.kind, E::Call { .. }) {
-                    self.check_must_used(e.span, 0)?;
+                    self.pr.check_must_used(e.span, 0)?;
                 }
                 Ok(())
             }

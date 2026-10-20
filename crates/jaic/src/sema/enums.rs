@@ -292,7 +292,7 @@ impl Compiler {
             "__jaic_enum :: enum {{\n{}\n}};",
             String::from_utf8_lossy(&text)
         );
-        let file = self.insert_source(value.span, text.clone().into())?;
+        let file = self.src.insert_source(value.span, text.clone().into())?;
         let parsed = crate::parser::parse_file(file, &text).map_err(Box::new)?;
         match parsed.stmts.first().map(|stmt| &stmt.kind) {
             Some(ast::StmtKind::Decl(decl)) => match decl.value.as_ref().map(|value| &value.kind) {

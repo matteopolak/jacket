@@ -3,6 +3,7 @@ use super::helpers::{bin, bits, konst, ptr_of, resize};
 use super::model::{AsmCtx, AsmReg, Imm, Opd, REG_CLASSES, RegPlace, Rmw};
 use crate::ast::{AsmDecl, AsmMem, AsmOperand, AsmPin, CodeBody, Expr, ExprKind as E};
 use crate::ir::{BinOp, ConvOp, Intrinsic, Ty, UnOp, Val};
+use crate::sema::ProcState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found};
 use crate::sema::{
@@ -70,7 +71,7 @@ impl Compiler {
                         addr, ..
                     } = self.entity(id).kind
                 {
-                    self.asm_record_pin(decl, addr);
+                    self.pr.asm_record_pin(decl, addr);
                 }
                 Ok(())
             }
@@ -84,35 +85,6 @@ impl Compiler {
                 }),
             )),
         }
-    }
-
-    /// Remember that the general-purpose register at `addr` is pinned as `decl` says.
-    fn asm_record_pin(&mut self, decl: &AsmDecl, addr: Val) {
-        let Some(pin) = decl.pin else {
-            return;
-        };
-        let reg = match pin {
-            AsmPin::Index(i) if i < 16 => i as u8,
-            AsmPin::Index(_) => return,
-            AsmPin::Name(name) => {
-                let name = name.name.as_str();
-                match name.strip_prefix('r').unwrap_or(name) {
-                    "a" | "ax" => 0,
-                    "c" | "cx" => 1,
-                    "d" | "dx" => 2,
-                    "b" | "bx" => 3,
-                    "sp" => 4,
-                    "bp" => 5,
-                    "si" => 6,
-                    "di" => 7,
-                    other => match other.parse::<u8>() {
-                        Ok(n) if (8..16).contains(&n) && name.starts_with('r') => n,
-                        _ => return,
-                    },
-                }
-            }
-        };
-        self.pr.asm_pins.push((reg, addr));
     }
 
     /// Declare the register named by `decl` in the enclosing scope (reusing an earlier
@@ -141,14 +113,14 @@ impl Compiler {
             } = self.entity(existing).kind
         {
             if kind == AsmReg::Gpr {
-                self.asm_record_pin(decl, addr);
+                self.pr.asm_record_pin(decl, addr);
             }
             return Ok((kind, addr));
         }
         let addr = f.b.alloca(size, 8);
         f.b.zero(addr, size);
         if kind == AsmReg::Gpr {
-            self.asm_record_pin(decl, addr);
+            self.pr.asm_record_pin(decl, addr);
         }
         let depth = self.scope(cx.scope).proc_depth;
         let ty = if kind == AsmReg::Vec {
@@ -541,5 +513,36 @@ impl Compiler {
             }
             None => self.asm_write(f, rmw.dst, rmw.sz, new, span),
         }
+    }
+}
+
+impl ProcState {
+    /// Remember that the general-purpose register at `addr` is pinned as `decl` says.
+    fn asm_record_pin(&mut self, decl: &AsmDecl, addr: Val) {
+        let Some(pin) = decl.pin else {
+            return;
+        };
+        let reg = match pin {
+            AsmPin::Index(i) if i < 16 => i as u8,
+            AsmPin::Index(_) => return,
+            AsmPin::Name(name) => {
+                let name = name.name.as_str();
+                match name.strip_prefix('r').unwrap_or(name) {
+                    "a" | "ax" => 0,
+                    "c" | "cx" => 1,
+                    "d" | "dx" => 2,
+                    "b" | "bx" => 3,
+                    "sp" => 4,
+                    "bp" => 5,
+                    "si" => 6,
+                    "di" => 7,
+                    other => match other.parse::<u8>() {
+                        Ok(n) if (8..16).contains(&n) && name.starts_with('r') => n,
+                        _ => return,
+                    },
+                }
+            }
+        };
+        self.asm_pins.push((reg, addr));
     }
 }

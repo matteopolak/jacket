@@ -1,6 +1,7 @@
 //! Checked and explicit casts.
 use super::{int_constant_fits, int_to_float};
 use crate::ir::{ConvOp, Ty};
+use crate::sema::SourceState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Result, Span, TypeId, Value, ast, err, expr, ir};
 use crate::types::{ArrayKind, TypeKind};
@@ -110,14 +111,6 @@ impl Compiler {
         })
     }
 
-    /// Whether the integer constant at `span` may stand for a bit pattern: it is not a plain
-    /// decimal expression. Hex and binary literals, `~` and named constants count; a constant
-    /// without source text is given the benefit of the doubt.
-    pub(crate) fn bit_pattern(&self, span: Span) -> bool {
-        let text = self.src.sources.snippet(span);
-        text.is_empty() || text.bytes().any(|b| b.is_ascii_alphabetic() || b == b'~')
-    }
-
     /// `cast(T) k` of an integer constant `k` checks the range at compile time, as a runtime
     /// cast would at run time: `cast(u8) -1` is an error, `cast(s8) 0xff` is `-1`.
     pub(crate) fn check_constant_cast(&self, op: &Operand, to: TypeId, span: Span) -> Result<()> {
@@ -139,7 +132,7 @@ impl Compiler {
         let Some((bits, signed)) = self.ty.types.int_info(to) else {
             return Ok(());
         };
-        if int_constant_fits(*v, bits, signed, self.bit_pattern(span)) {
+        if int_constant_fits(*v, bits, signed, self.src.bit_pattern(span)) {
             return Ok(());
         }
         let name = self.ty.types.name(to);
@@ -483,5 +476,15 @@ impl Compiler {
                 self.ty.types.name(to)
             ),
         )
+    }
+}
+
+impl SourceState {
+    /// Whether the integer constant at `span` may stand for a bit pattern: it is not a plain
+    /// decimal expression. Hex and binary literals, `~` and named constants count; a constant
+    /// without source text is given the benefit of the doubt.
+    pub(crate) fn bit_pattern(&self, span: Span) -> bool {
+        let text = self.sources.snippet(span);
+        text.is_empty() || text.bytes().any(|b| b.is_ascii_alphabetic() || b == b'~')
     }
 }

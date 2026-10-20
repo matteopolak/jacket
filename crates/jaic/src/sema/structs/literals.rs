@@ -322,7 +322,7 @@ impl Compiler {
                 }
                 agg.bytes[o..o + 8].copy_from_slice(&(s.len() as u64).to_le_bytes());
                 if !s.is_empty() {
-                    let g = self.string_global(s);
+                    let g = self.out.string_global(s);
                     agg.relocs.push(ir::Reloc {
                         offset: offset + 8,
                         target: ir::RelocTarget::Global(g),

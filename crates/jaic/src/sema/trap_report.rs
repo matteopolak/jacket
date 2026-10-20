@@ -4,6 +4,7 @@
 use super::Compiler;
 use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
+use crate::sema::SourceState;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 
 /// Call stack lines shown before the rest are summarized.
@@ -26,7 +27,7 @@ impl Compiler {
         // context's handler, Runtime_Support's report) are left out, down to the frame running
         // the line the assertion names.
         let asserting = trap.assertion.as_deref().and_then(|(path, line, _)| {
-            let file = self.file_by_path(path)?;
+            let file = self.src.file_by_path(path)?;
             trap.frames
                 .iter()
                 .position(|f| f.loc.is_some_and(|(id, l, _)| id == file.0 && l == *line))
@@ -66,22 +67,22 @@ impl Compiler {
             .or_else(|| frames.iter().position(|f| f.loc.is_some()));
         let primary_loc = primary.and_then(|i| frames[i].loc).or(trap.loc);
         let span = primary_loc
-            .map(|loc| self.statement_span(loc))
+            .map(|loc| self.src.statement_span(loc))
             .or(site)
             .unwrap_or(Span::NONE);
         // A metaprogram's own report: its message, at the place it named when it named one;
         // the line that reported it becomes a note.
         if let Some((path, line, col)) = trap.reported.as_deref() {
             let named = (!path.is_empty())
-                .then(|| self.file_by_path(path))
+                .then(|| self.src.file_by_path(path))
                 .flatten()
-                .map(|file| self.statement_span((file.0, *line, (*col).max(1))));
+                .map(|file| self.src.statement_span((file.0, *line, (*col).max(1))));
             // The line of the program's own code that made the report (not the stdlib's).
             let reporter = frames
                 .iter()
                 .find(|f| f.loc.is_some() && !is_library(f.loc))
                 .and_then(|f| f.loc)
-                .map(|loc| self.statement_span(loc))
+                .map(|loc| self.src.statement_span(loc))
                 .or(site)
                 .unwrap_or(span);
             let primary = named.unwrap_or(reporter);
@@ -130,7 +131,7 @@ impl Compiler {
                         "this call failed"
                     },
                     display_name(called),
-                    self.loc_suffix(innermost.loc),
+                    self.src.loc_suffix(innermost.loc),
                 ),
             );
         }
@@ -176,7 +177,7 @@ impl Compiler {
             text += &format!(
                 "\n    {}{}",
                 display_name(frame),
-                self.loc_suffix(frame.loc)
+                self.src.loc_suffix(frame.loc)
             );
             if repeats > 0 {
                 text += &format!(
@@ -200,7 +201,7 @@ impl Compiler {
     /// The condition of the `assert(...)` call at `path:line:col` (its `#caller_location`), as
     /// written, when it fits on one line.
     fn assert_condition(&self, path: &str, line: u32, col: u32) -> Option<String> {
-        let file = self.file_by_path(path)?;
+        let file = self.src.file_by_path(path)?;
         let span = *self.pr.first_arguments.get(&(file.0, line, col))?;
         let tokens = crate::lexer::lex(file, &self.src.sources.get(file).text).ok()?;
         let text = self
@@ -209,45 +210,6 @@ impl Compiler {
             .snippet(crate::lexer::balanced(&tokens, span))
             .trim();
         (!text.is_empty() && !text.contains('\n')).then(|| text.to_string())
-    }
-
-    /// ` at path:line` for a frame location, or nothing.
-    fn loc_suffix(&self, loc: Option<(u32, u32, u32)>) -> String {
-        match loc {
-            Some((file, line, _)) if (file as usize) < self.src.sources.len() => {
-                let path = self.src.sources.get(FileId(file)).path.to_path();
-                format!(" at {}:{line}", crate::display_path(&path))
-            }
-            _ => String::new(),
-        }
-    }
-
-    /// The loaded file at `path`, compared as given and as an absolute path.
-    fn file_by_path(&self, path: &str) -> Option<FileId> {
-        let wanted = std::path::absolute(path).ok();
-        (0..self.src.sources.len() as u32).map(FileId).find(|&id| {
-            let have = &self.src.sources.get(id).path;
-            have.to_string() == path || wanted.as_deref().is_some_and(|w| have.to_path() == w)
-        })
-    }
-
-    /// The statement at `loc`: from its column to the end of that line (without a trailing
-    /// `;` or whitespace), so the carets cover what ran.
-    fn statement_span(&self, (file, line, col): (u32, u32, u32)) -> Span {
-        if file as usize >= self.src.sources.len() {
-            return Span::NONE;
-        }
-        let source = self.src.sources.get(FileId(file));
-        let start = source.offset_of(line, col) as usize;
-        let text = source.line_text(line);
-        let rest = text.get(col.saturating_sub(1) as usize..).unwrap_or("");
-        let len = rest
-            .trim_end()
-            .trim_end_matches(';')
-            .trim_end()
-            .len()
-            .max(1);
-        Span::new(FileId(file), start, start + len)
     }
 
     /// Whether `file` belongs to the standard library, including bootstrap support,
@@ -260,8 +222,8 @@ impl Compiler {
             return known;
         }
         let known = self.options.stdlib_root().is_some_and(|stdlib| {
-            let path = self.canon(&self.src.sources.get(file).path.to_path());
-            path.starts_with(self.canon(stdlib))
+            let path = self.src.canon(&self.src.sources.get(file).path.to_path());
+            path.starts_with(self.src.canon(stdlib))
         });
         self.src.library_files.borrow_mut().insert(file.0, known);
         known
@@ -346,4 +308,45 @@ fn cast_help(code: u64) -> Option<String> {
     Some(format!(
         "`{target}` holds {range}; write `cast,trunc({target})` (or `xx,trunc`) to keep the low bits, or `cast,no_check({target})` to skip the check"
     ))
+}
+
+impl SourceState {
+    /// ` at path:line` for a frame location, or nothing.
+    fn loc_suffix(&self, loc: Option<(u32, u32, u32)>) -> String {
+        match loc {
+            Some((file, line, _)) if (file as usize) < self.sources.len() => {
+                let path = self.sources.get(FileId(file)).path.to_path();
+                format!(" at {}:{line}", crate::display_path(&path))
+            }
+            _ => String::new(),
+        }
+    }
+
+    /// The loaded file at `path`, compared as given and as an absolute path.
+    fn file_by_path(&self, path: &str) -> Option<FileId> {
+        let wanted = std::path::absolute(path).ok();
+        (0..self.sources.len() as u32).map(FileId).find(|&id| {
+            let have = &self.sources.get(id).path;
+            have.to_string() == path || wanted.as_deref().is_some_and(|w| have.to_path() == w)
+        })
+    }
+
+    /// The statement at `loc`: from its column to the end of that line (without a trailing
+    /// `;` or whitespace), so the carets cover what ran.
+    fn statement_span(&self, (file, line, col): (u32, u32, u32)) -> Span {
+        if file as usize >= self.sources.len() {
+            return Span::NONE;
+        }
+        let source = self.sources.get(FileId(file));
+        let start = source.offset_of(line, col) as usize;
+        let text = source.line_text(line);
+        let rest = text.get(col.saturating_sub(1) as usize..).unwrap_or("");
+        let len = rest
+            .trim_end()
+            .trim_end_matches(';')
+            .trim_end()
+            .len()
+            .max(1);
+        Span::new(FileId(file), start, start + len)
+    }
 }

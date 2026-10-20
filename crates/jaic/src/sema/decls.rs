@@ -18,9 +18,9 @@ pub struct LibraryInfo {
 impl Compiler {
     /// Resolve an entity to its value/storage, checking it on first use.
     pub fn resolve_entity(&mut self, id: EntityId) -> Result<Resolved> {
-        self.begin_runtime_storage_dependencies();
+        self.out.begin_runtime_storage_dependencies();
         let result = self.resolve_entity_with_runtime_dependencies(id);
-        let values = self.end_runtime_storage_dependencies()?;
+        let values = self.out.end_runtime_storage_dependencies()?;
         if result.is_ok() {
             self.finish_runtime_storage_entity(id, &values);
         }
@@ -163,7 +163,8 @@ impl Compiler {
             "CPU" => ("CPU_Tag", crate::target::cpu_member(self.options.cpu)),
             "BUILD_CPU" => ("CPU_Tag", crate::target::cpu_member(host_cpu)),
             "TEMPORARY_STORAGE_SIZE" => {
-                self.note_runtime_storage_dependencies(&[self.options.temporary_storage_size]);
+                self.out
+                    .note_runtime_storage_dependencies(&[self.options.temporary_storage_size]);
                 return Ok(Resolved::Const {
                     value: Value::Int(self.options.temporary_storage_size as i128),
                     ty: TypeId::S64,

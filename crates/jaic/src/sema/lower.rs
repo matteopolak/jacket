@@ -6,6 +6,7 @@ use super::{
     Span, Sym, TypeId, Value, ast, err, ir, procs,
 };
 use crate::ir::{Builder, Ty, Val};
+use crate::sema::Output;
 use crate::sema::TypeState;
 use crate::types::{ArrayKind, TypeKind};
 
@@ -594,7 +595,7 @@ impl Compiler {
                 let ptr = if bytes.is_empty() {
                     f.b.iconst(Ty::Ptr, 0)
                 } else {
-                    let data = self.string_global(bytes);
+                    let data = self.out.string_global(bytes);
                     f.b.global_addr(data)
                 };
                 let field = f.b.ptr_offset(addr, 8);
@@ -633,26 +634,6 @@ impl Compiler {
             Value::Code(c) => Ok(f.b.iconst(Ty::Ptr, c.0 as u64)),
             Value::Void => err(span, "void value used"),
         }
-    }
-
-    /// Read-only global holding the bytes of a string literal.
-    pub fn string_global(&mut self, bytes: &Rc<[u8]>) -> ir::GlobalId {
-        if let Some(&g) = self.out.strings.get(bytes) {
-            return g;
-        }
-        let mut init = bytes.to_vec();
-        init.push(0); // keep literals C-compatible
-        let g = self.out.program.add_global(ir::Global {
-            name: format!("str.{}", self.out.strings.len()),
-            size: init.len() as u64,
-            align: 1,
-            init,
-            relocs: Vec::new(),
-            read_only: true,
-            export: None,
-        });
-        self.out.strings.insert(bytes.clone(), g);
-        g
     }
 
     /// Store a runtime value of `ty` into memory at `addr`.
@@ -720,5 +701,27 @@ impl TypeState {
             Value::Int(_) => TypeId::S64,
             _ => ty,
         }
+    }
+}
+
+impl Output {
+    /// Read-only global holding the bytes of a string literal.
+    pub fn string_global(&mut self, bytes: &Rc<[u8]>) -> ir::GlobalId {
+        if let Some(&g) = self.strings.get(bytes) {
+            return g;
+        }
+        let mut init = bytes.to_vec();
+        init.push(0); // keep literals C-compatible
+        let g = self.program.add_global(ir::Global {
+            name: format!("str.{}", self.strings.len()),
+            size: init.len() as u64,
+            align: 1,
+            init,
+            relocs: Vec::new(),
+            read_only: true,
+            export: None,
+        });
+        self.strings.insert(bytes.clone(), g);
+        g
     }
 }

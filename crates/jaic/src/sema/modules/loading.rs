@@ -1,5 +1,7 @@
 //! Reading source files, loading modules and strings, and creating modules.
 use super::filesystem::find_module_in;
+use crate::sema::Namespaces;
+use crate::sema::SourceState;
 use crate::sema::scope::{PendingState, ScopeKind};
 use crate::sema::{
     BootstrapModule, Compiler, Diagnostic, FileId, FileInfo, HashSet, Module, ModuleId, PathBuf,
@@ -18,7 +20,7 @@ pub(in crate::sema) enum FileLoadState {
 impl Compiler {
     fn read_source(&mut self, path: &Path, span: Span) -> Result<FileId> {
         let Some(bytes) = self.src.fs.read(path) else {
-            return Err(Box::new(self.unreadable_file(path, span)));
+            return Err(Box::new(self.src.unreadable_file(path, span)));
         };
         let text: Rc<str> = String::from_utf8_lossy(&bytes).into();
         Ok(self.src.sources.add(path, text))
@@ -27,23 +29,24 @@ impl Compiler {
     /// Distribution boundary for library-owned helpers, checked before cache hits.
     /// Canonical paths cover relative traversal and native filesystem aliases alike.
     fn check_source_access(&self, path: &Path, span: Span) -> Result<()> {
-        if span == Span::NONE && self.ed.is_selected_entry(&self.canon(path)) {
+        if span == Span::NONE && self.ed.is_selected_entry(&self.src.canon(path)) {
             return Ok(());
         }
         let Some(stdlib) = self.options.stdlib_root() else {
             return Ok(());
         };
-        let internal = self.canon(&stdlib.join("internal"));
-        if !self.canon(path).starts_with(&internal) {
+        let internal = self.src.canon(&stdlib.join("internal"));
+        if !self.src.canon(path).starts_with(&internal) {
             return Ok(());
         }
         let from_library = self
             .src
             .sources
-            .try_get(self.source_origin(span.file))
+            .try_get(self.src.source_origin(span.file))
             .is_some_and(|source| {
-                self.canon(&source.path.to_path())
-                    .starts_with(self.canon(stdlib))
+                self.src
+                    .canon(&source.path.to_path())
+                    .starts_with(self.src.canon(stdlib))
             });
         if from_library {
             return Ok(());
@@ -57,7 +60,7 @@ impl Compiler {
     /// Load a file into `module`, declaring its top-level statements.
     pub fn load_file(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         self.check_source_access(path, span)?;
-        let path = self.canon(path);
+        let path = self.src.canon(path);
         let key = (path.clone(), module);
         if let Some(state) = self.src.file_by_path.get(&key) {
             return match state {
@@ -145,7 +148,7 @@ impl Compiler {
     /// a syntax error in code the target does not build is still reported.
     fn library_platform(&mut self, path: &Path) -> Option<crate::parser::PlatformTarget> {
         let stdlib = self.options.stdlib_root()?.to_path_buf();
-        if !path.starts_with(self.canon(&stdlib)) {
+        if !path.starts_with(self.src.canon(&stdlib)) {
             return None;
         }
         Some(crate::parser::PlatformTarget {
@@ -158,7 +161,7 @@ impl Compiler {
         let path = self
             .src
             .sources
-            .get(self.source_origin(file))
+            .get(self.src.source_origin(file))
             .path
             .to_path();
         path.parent().map(Path::to_path_buf).unwrap_or_default()
@@ -187,19 +190,19 @@ impl Compiler {
         // Jai identifies an instance by the argument list as written. Reordering
         // named arguments creates another instance, even when the effective values match.
         // Keep positional names and explicit/default argument differences in the key too.
-        let key = (self.canon(entry), params.clone());
+        let key = (self.src.canon(entry), params.clone());
         if let Some(&id) = self.ns.module_cache.get(&key) {
             if let Some(import) = import {
                 self.validate_or_queue_import_groups(id, import)?;
             }
-            return self.module_load_result(id);
+            return self.ns.module_load_result(id);
         }
         // Program parameters (`#import "Basic"()(MEMORY_DEBUGGER=true)`) configure the
         // one instance every importer shares.
         if !params.is_empty()
             && let Some(id) = self.program_instance(&key.0, &params, span, import)?
         {
-            return self.module_load_result(id);
+            return self.ns.module_load_result(id);
         }
         // A plain `#import "M"` joins an instance already configured elsewhere
         // (`#import "Basic"()(MEMORY_DEBUGGER=true)` in the program applies to all), but not
@@ -217,7 +220,7 @@ impl Compiler {
                 })
                 .min_by_key(|id| id.0)
         {
-            return self.module_load_result(id);
+            return self.ns.module_load_result(id);
         }
         let id = ModuleId(self.ns.modules.len() as u32);
         let scope = self.new_scope(ScopeKind::Module, Some(self.ns.root_scope), id, None);
@@ -309,13 +312,6 @@ impl Compiler {
         Ok(())
     }
 
-    pub(super) fn module_load_result(&self, id: ModuleId) -> Result<ModuleId> {
-        match self.ns.module_failures.get(&id) {
-            Some(error) => Err(error.clone()),
-            None => Ok(id),
-        }
-    }
-
     /// Find `Name.jai` or `Name/module.jai` on the import path (and next to `from_dir`).
     pub fn find_module(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
         // The public protocol name denotes the selected bootstrap even when a local
@@ -382,7 +378,9 @@ impl Compiler {
         let mut origin_scope = Some(target);
         while let Some(scope) = origin_scope {
             if let Some(origin) = self.scope(scope).file {
-                self.src.origins.insert(file, self.source_origin(origin));
+                self.src
+                    .origins
+                    .insert(file, self.src.source_origin(origin));
                 break;
             }
             origin_scope = self.scope(scope).parent;
@@ -400,8 +398,19 @@ impl Compiler {
         self.declare_stmts(target, file_scope, &ast.stmts, ast::ScopeKind::Export)?;
         Ok(())
     }
+}
 
+impl Namespaces {
+    pub(super) fn module_load_result(&self, id: ModuleId) -> Result<ModuleId> {
+        match self.module_failures.get(&id) {
+            Some(error) => Err(error.clone()),
+            None => Ok(id),
+        }
+    }
+}
+
+impl SourceState {
     fn source_origin(&self, file: FileId) -> FileId {
-        self.src.origins.get(&file).copied().unwrap_or(file)
+        self.origins.get(&file).copied().unwrap_or(file)
     }
 }

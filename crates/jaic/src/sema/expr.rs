@@ -181,7 +181,7 @@ impl Compiler {
                 }
             }
             E::Float(v) => Ok(Operand::Const {
-                ty: self.float_literal_type(*v, expr.span),
+                ty: self.src.float_literal_type(*v, expr.span),
                 value: Value::Float(
                     *v,
                     crate::lexer::float_literal_precision(self.src.sources.snippet(span), *v),

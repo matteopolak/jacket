@@ -55,7 +55,7 @@ impl Compiler {
                 self.expand_pending(sid)?;
             }
             if let Some(ids) = self.scope(sid).names.get(&name) {
-                let mut ids = self.bound_entities(ids);
+                let mut ids = self.diag.bound_entities(ids);
                 // A `#placeholder` gives way to the real declaration (possibly
                 // added later by a metaprogram).
                 let is_placeholder =

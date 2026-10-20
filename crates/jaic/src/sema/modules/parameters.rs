@@ -46,7 +46,7 @@ impl Compiler {
         let Some(entry) = self.find_module(name, &self.file_dir(file)) else {
             return;
         };
-        let path = self.canon(&entry);
+        let path = self.src.canon(&entry);
         for arg in arguments {
             if let Some(n) = arg.name {
                 self.ns.program_param_settings.push((
@@ -74,7 +74,7 @@ impl Compiler {
         let Some(path) = self.ns.modules[module.0 as usize].path.clone() else {
             return;
         };
-        let path = self.canon(&path);
+        let path = self.src.canon(&path);
         for (p, name, value, scope) in self.ns.program_param_settings.clone() {
             if p != path
                 || !self.ns.modules[module.0 as usize]
@@ -137,7 +137,7 @@ impl Compiler {
         if let Some(import) = import {
             self.validate_or_queue_import_groups(id, import)?;
         }
-        self.module_load_result(id)?;
+        self.ns.module_load_result(id)?;
         for (name, value, ty) in params {
             let entity = self.ns.modules[id.0 as usize]
                 .param_entities

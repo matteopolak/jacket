@@ -2,6 +2,7 @@
 use super::dispatch::SimdLocals;
 use super::helpers::{aes_tables, float_to_int, saturate};
 use super::{B2, Conv};
+use crate::sema::Output;
 use crate::sema::asm::vec::{load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, AsmSize, BinOp, CmpOp, Compiler, ConvOp, FnCtx, Result, Ty, Val, bin, bits, cmp, err,
@@ -184,26 +185,6 @@ impl Compiler {
         (f.b.load(Ty::I64, lo_s), f.b.load(Ty::I64, hi_s))
     }
 
-    /// Address of the S-box (256 bytes), then the inverse S-box and the field inverse.
-    pub(super) fn aes_table_ptr(&mut self, f: &mut FnCtx) -> Val {
-        let global = if let Some(g) = self.out.asm_aes_tables {
-            g
-        } else {
-            let g = self.out.program.add_global(crate::ir::Global {
-                name: crate::sema::private_names::ASM_AES_SBOX.into(),
-                size: 768,
-                align: 16,
-                init: aes_tables(),
-                relocs: Vec::new(),
-                read_only: true,
-                export: None,
-            });
-            self.out.asm_aes_tables = Some(g);
-            g
-        };
-        f.b.global_addr(global)
-    }
-
     /// Conversions (`Conv`).
     pub(super) fn simd_convert(
         &mut self,
@@ -316,5 +297,27 @@ impl Compiler {
                 self.vec_scalar_write(f, dst, to, r, span)
             }
         }
+    }
+}
+
+impl Output {
+    /// Address of the S-box (256 bytes), then the inverse S-box and the field inverse.
+    pub(super) fn aes_table_ptr(&mut self, f: &mut FnCtx) -> Val {
+        let global = if let Some(g) = self.asm_aes_tables {
+            g
+        } else {
+            let g = self.program.add_global(crate::ir::Global {
+                name: crate::sema::private_names::ASM_AES_SBOX.into(),
+                size: 768,
+                align: 16,
+                init: aes_tables(),
+                relocs: Vec::new(),
+                read_only: true,
+                export: None,
+            });
+            self.asm_aes_tables = Some(g);
+            g
+        };
+        f.b.global_addr(global)
     }
 }

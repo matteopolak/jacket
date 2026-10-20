@@ -13,7 +13,7 @@ use super::{FileInfo, ModuleId};
 
 pub struct SourceState {
     pub fs: Rc<dyn FileSystem>,
-    /// Real paths already worked out (see [`Compiler::canon`]).
+    /// Real paths already worked out (see [`SourceState::canon`]).
     pub(in crate::sema) canon_cache: CanonCache,
     /// Worker threads lexing and parsing the files this compile will load (`parse_ahead`).
     pub(in crate::sema) ahead: Option<ParseAhead>,

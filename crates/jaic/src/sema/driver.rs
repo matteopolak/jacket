@@ -6,6 +6,8 @@ use super::{
     BootstrapModule, Compiler, DeadCode, Diagnostic, DiagnosticKind, FileId, ModuleId, PathBuf,
     PreludeType, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs, value,
 };
+use crate::sema::Diagnostics;
+use crate::sema::Output;
 use crate::types::TypeKind;
 use std::path::Path;
 
@@ -101,22 +103,7 @@ impl Compiler {
     /// directive: the program is parsed and its compile-time code has run.
     pub fn begin_sources(&mut self, sources: &[ProgramSource]) -> Result<()> {
         let result = self.prepare_sources(sources).and_then(|()| self.settle());
-        self.with_deferred_errors(result)
-    }
-
-    /// A failure while top-level items still wait for a retry may be a consequence of
-    /// one of them (a missing import leaves a name undefined): show why they failed.
-    fn with_deferred_errors<T>(&mut self, result: Result<T>) -> Result<T> {
-        result.map_err(|mut e| {
-            for d in std::mem::take(&mut self.diag.deferred_errors) {
-                e.notes.push((
-                    d.span,
-                    format!("a top-level item failed earlier: {}", d.message),
-                ));
-                e.notes.extend(d.notes);
-            }
-            e
-        })
+        self.diag.with_deferred_errors(result)
     }
 
     /// Load bootstrap and program declarations without settling top-level code or
@@ -126,7 +113,7 @@ impl Compiler {
     pub fn prepare_sources(&mut self, sources: &[ProgramSource]) -> Result<()> {
         self.ed.selected_entry = if self.ed.is_live() {
             sources.iter().find_map(|source| match source {
-                ProgramSource::File(path) => Some(self.canon(path)),
+                ProgramSource::File(path) => Some(self.src.canon(path)),
                 _ => None,
             })
         } else {
@@ -216,7 +203,7 @@ impl Compiler {
     pub fn finish_program(&mut self) -> Result<()> {
         let result = self.finish_program_inner();
         super::body_probe::report();
-        self.with_deferred_errors(result)
+        self.diag.with_deferred_errors(result)
     }
 
     /// Lower the procedures reachable from the program's exports, without generating
@@ -502,105 +489,6 @@ impl Compiler {
         self.drain_bodies()
     }
 
-    /// Before writing output: what `check_unreferenced` lowered is not part of the program unless
-    /// code from before it reaches it. Such functions are dropped, such globals keep only their
-    /// size (they are zero-filled and point at nothing), and such foreign symbols no longer pull
-    /// in their libraries. Code from before the mark cannot name newer functions except through
-    /// globals, which compile-time code may have written since (`#no_reset`), so the walk
-    /// starts from all older functions and globals.
-    fn drop_unreferenced_code(&mut self) {
-        let Some(mark) = self.out.unreferenced_from.take() else {
-            return;
-        };
-        let program = &mut self.out.program;
-        let mut funcs: Vec<bool> = (0..program.funcs.len()).map(|i| i < mark.funcs).collect();
-        let mut globals: Vec<bool> = (0..program.globals.len())
-            .map(|i| i < mark.globals)
-            .collect();
-        let mut foreigns: Vec<bool> = (0..program.foreigns.len())
-            .map(|i| i < mark.foreigns)
-            .collect();
-        for (i, f) in program.funcs.iter().enumerate() {
-            if f.as_ref()
-                .is_some_and(|f| matches!(f.linkage, ir::Linkage::Export(_)))
-            {
-                funcs[i] = true;
-            }
-        }
-        for (i, g) in program.globals.iter().enumerate() {
-            globals[i] |= g.export.is_some();
-        }
-        // Native code calls the check reporter from its failure paths, not through an `Inst`.
-        if let Some(handler) = program.check_failed {
-            funcs[handler.0 as usize] = true;
-        }
-        let mut func_work: Vec<usize> = (0..funcs.len()).filter(|&i| funcs[i]).collect();
-        let mut global_work: Vec<usize> = (0..globals.len()).filter(|&i| globals[i]).collect();
-        let mark_live = |live: &mut Vec<bool>, work: &mut Vec<usize>, i: usize| {
-            if !live[i] {
-                live[i] = true;
-                work.push(i);
-            }
-        };
-        while !func_work.is_empty() || !global_work.is_empty() {
-            while let Some(g) = global_work.pop() {
-                for r in &program.globals[g].relocs {
-                    match r.target {
-                        ir::RelocTarget::Func(f) => {
-                            mark_live(&mut funcs, &mut func_work, f.0 as usize);
-                        }
-                        ir::RelocTarget::Global(h) => {
-                            mark_live(&mut globals, &mut global_work, h.0 as usize);
-                        }
-                        ir::RelocTarget::Foreign(x) => foreigns[x.0 as usize] = true,
-                    }
-                }
-            }
-            while let Some(f) = func_work.pop() {
-                let Some(func) = &program.funcs[f] else {
-                    continue;
-                };
-                for inst in func.blocks.iter().flat_map(|b| &b.insts) {
-                    match inst {
-                        ir::Inst::Call(call) => match call.callee {
-                            ir::Callee::Func(g) => {
-                                mark_live(&mut funcs, &mut func_work, g.0 as usize);
-                            }
-                            ir::Callee::Foreign(x) => foreigns[x.0 as usize] = true,
-                            ir::Callee::Indirect(..) => {}
-                        },
-                        ir::Inst::FuncAddr {
-                            func, ..
-                        } => mark_live(&mut funcs, &mut func_work, func.0 as usize),
-                        ir::Inst::GlobalAddr {
-                            global, ..
-                        } => mark_live(&mut globals, &mut global_work, global.0 as usize),
-                        ir::Inst::ForeignAddr {
-                            foreign, ..
-                        } => foreigns[foreign.0 as usize] = true,
-                        _ => {}
-                    }
-                }
-            }
-        }
-        for (f, live) in program.funcs.iter_mut().zip(funcs) {
-            if !live {
-                *f = None;
-            }
-        }
-        for (g, live) in program.globals.iter_mut().zip(globals) {
-            if !live {
-                g.init = Vec::new();
-                g.relocs = Vec::new();
-            }
-        }
-        for (x, live) in program.foreigns.iter_mut().zip(foreigns) {
-            if !live {
-                x.library = None;
-            }
-        }
-    }
-
     /// Lay out every top-level struct and union declaration, also those nothing uses.
     /// Jai type-checks all declarations (dead-code elimination only skips procedure
     /// bodies), so a member typed by an undefined name is an error even in a struct the
@@ -747,7 +635,7 @@ impl Compiler {
     pub fn prepare_compiled_output(&mut self) -> Result<()> {
         self.finalize_runtime_configuration()?;
         self.bake_no_reset_globals();
-        self.drop_unreferenced_code();
+        self.out.drop_unreferenced_code();
         self.enable_stack_traces(Span::NONE);
         if let Some(layout) = self.out.program.stack_trace {
             crate::stack_trace::instrument(&mut self.out.program, &layout);
@@ -846,6 +734,124 @@ impl Compiler {
             d.with_kind(DiagnosticKind::Runtime)
         } else {
             d
+        }
+    }
+}
+
+impl Diagnostics {
+    /// A failure while top-level items still wait for a retry may be a consequence of
+    /// one of them (a missing import leaves a name undefined): show why they failed.
+    fn with_deferred_errors<T>(&mut self, result: Result<T>) -> Result<T> {
+        result.map_err(|mut e| {
+            for d in std::mem::take(&mut self.deferred_errors) {
+                e.notes.push((
+                    d.span,
+                    format!("a top-level item failed earlier: {}", d.message),
+                ));
+                e.notes.extend(d.notes);
+            }
+            e
+        })
+    }
+}
+
+impl Output {
+    /// Before writing output: what `check_unreferenced` lowered is not part of the program unless
+    /// code from before it reaches it. Such functions are dropped, such globals keep only their
+    /// size (they are zero-filled and point at nothing), and such foreign symbols no longer pull
+    /// in their libraries. Code from before the mark cannot name newer functions except through
+    /// globals, which compile-time code may have written since (`#no_reset`), so the walk
+    /// starts from all older functions and globals.
+    fn drop_unreferenced_code(&mut self) {
+        let Some(mark) = self.unreferenced_from.take() else {
+            return;
+        };
+        let program = &mut self.program;
+        let mut funcs: Vec<bool> = (0..program.funcs.len()).map(|i| i < mark.funcs).collect();
+        let mut globals: Vec<bool> = (0..program.globals.len())
+            .map(|i| i < mark.globals)
+            .collect();
+        let mut foreigns: Vec<bool> = (0..program.foreigns.len())
+            .map(|i| i < mark.foreigns)
+            .collect();
+        for (i, f) in program.funcs.iter().enumerate() {
+            if f.as_ref()
+                .is_some_and(|f| matches!(f.linkage, ir::Linkage::Export(_)))
+            {
+                funcs[i] = true;
+            }
+        }
+        for (i, g) in program.globals.iter().enumerate() {
+            globals[i] |= g.export.is_some();
+        }
+        // Native code calls the check reporter from its failure paths, not through an `Inst`.
+        if let Some(handler) = program.check_failed {
+            funcs[handler.0 as usize] = true;
+        }
+        let mut func_work: Vec<usize> = (0..funcs.len()).filter(|&i| funcs[i]).collect();
+        let mut global_work: Vec<usize> = (0..globals.len()).filter(|&i| globals[i]).collect();
+        let mark_live = |live: &mut Vec<bool>, work: &mut Vec<usize>, i: usize| {
+            if !live[i] {
+                live[i] = true;
+                work.push(i);
+            }
+        };
+        while !func_work.is_empty() || !global_work.is_empty() {
+            while let Some(g) = global_work.pop() {
+                for r in &program.globals[g].relocs {
+                    match r.target {
+                        ir::RelocTarget::Func(f) => {
+                            mark_live(&mut funcs, &mut func_work, f.0 as usize);
+                        }
+                        ir::RelocTarget::Global(h) => {
+                            mark_live(&mut globals, &mut global_work, h.0 as usize);
+                        }
+                        ir::RelocTarget::Foreign(x) => foreigns[x.0 as usize] = true,
+                    }
+                }
+            }
+            while let Some(f) = func_work.pop() {
+                let Some(func) = &program.funcs[f] else {
+                    continue;
+                };
+                for inst in func.blocks.iter().flat_map(|b| &b.insts) {
+                    match inst {
+                        ir::Inst::Call(call) => match call.callee {
+                            ir::Callee::Func(g) => {
+                                mark_live(&mut funcs, &mut func_work, g.0 as usize);
+                            }
+                            ir::Callee::Foreign(x) => foreigns[x.0 as usize] = true,
+                            ir::Callee::Indirect(..) => {}
+                        },
+                        ir::Inst::FuncAddr {
+                            func, ..
+                        } => mark_live(&mut funcs, &mut func_work, func.0 as usize),
+                        ir::Inst::GlobalAddr {
+                            global, ..
+                        } => mark_live(&mut globals, &mut global_work, global.0 as usize),
+                        ir::Inst::ForeignAddr {
+                            foreign, ..
+                        } => foreigns[foreign.0 as usize] = true,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        for (f, live) in program.funcs.iter_mut().zip(funcs) {
+            if !live {
+                *f = None;
+            }
+        }
+        for (g, live) in program.globals.iter_mut().zip(globals) {
+            if !live {
+                g.init = Vec::new();
+                g.relocs = Vec::new();
+            }
+        }
+        for (x, live) in program.foreigns.iter_mut().zip(foreigns) {
+            if !live {
+                x.library = None;
+            }
         }
     }
 }

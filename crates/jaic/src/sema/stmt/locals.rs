@@ -341,7 +341,7 @@ impl Compiler {
         self.pr.last_call_must = None;
         let first_op = self.check_expr(f, scope, first, declared)?;
         if matches!(first.kind, E::Call { .. }) {
-            self.check_must_used(first.span, names)?;
+            self.pr.check_must_used(first.span, names)?;
             // `a, b := f(1);` with one result: the call has too few values to split.
             let count = match &first_op {
                 Operand::Multi(vals) => vals.len(),

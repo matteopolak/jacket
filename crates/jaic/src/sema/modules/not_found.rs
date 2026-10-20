@@ -1,5 +1,6 @@
 //! Diagnostics for modules and files that cannot be found or read.
 use super::filesystem::modules_in;
+use crate::sema::SourceState;
 use crate::sema::{Compiler, Diagnostic, DiagnosticKind, PathBuf, Span};
 use std::path::Path;
 
@@ -19,6 +20,7 @@ impl Compiler {
         };
         if name == folder {
             let mut modules: Vec<String> = self
+                .src
                 .stdlib_modules_under(stdlib, folder)
                 .into_iter()
                 .map(|(m, _)| format!("`{m}`"))
@@ -91,7 +93,8 @@ impl Compiler {
             && let Some(stdlib) = self.options.stdlib_root()
         {
             available.extend(
-                self.stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR)
+                self.src
+                    .stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR)
                     .into_iter()
                     .map(|(m, _)| m),
             );
@@ -116,7 +119,7 @@ impl Compiler {
         }
         let searched: Vec<String> = dirs
             .iter()
-            .map(|d| format!("    {}", self.canon(d).display()))
+            .map(|d| format!("    {}", self.src.canon(d).display()))
             .collect();
         d = d.with_note(
             Span::NONE,
@@ -152,7 +155,7 @@ impl Compiler {
             self.src.fs.is_file(&dir.join(format!("{name}.jai")))
                 || self.src.fs.is_file(&dir.join(name).join("module.jai"))
         };
-        let start = self.canon(from_dir);
+        let start = self.src.canon(from_dir);
         for ancestor in start.ancestors().take(4) {
             if holds(ancestor) {
                 return Some(ancestor.to_path_buf());
@@ -175,10 +178,12 @@ impl Compiler {
         }
         None
     }
+}
 
+impl SourceState {
     /// `#load` (or another read) of a file that is not there, with a close name if one is.
     pub(super) fn unreadable_file(&self, path: &Path, span: Span) -> Diagnostic {
-        let snippet = self.src.sources.snippet(span);
+        let snippet = self.sources.snippet(span);
         // An `#import,file` or `#import,dir` span covers the directive, not only its path.
         let import = snippet.starts_with("#import");
         let shown = match snippet.split_once('"') {
@@ -197,7 +202,7 @@ impl Compiler {
         };
         if import && snippet.contains(",dir") {
             let folder = path.parent().unwrap_or(Path::new("."));
-            let message = if self.src.fs.is_dir(folder) {
+            let message = if self.fs.is_dir(folder) {
                 format!("`{shown}` has no module.jai")
             } else {
                 format!("folder `{shown}` does not exist")
@@ -207,7 +212,7 @@ impl Compiler {
                 .with_note(Span::NONE, format!("looked for {}", path.display()))
                 .with_help(relative);
         }
-        if self.src.fs.is_dir(path) {
+        if self.fs.is_dir(path) {
             return Diagnostic::error(span, format!("`{shown}` is a directory, not a file"))
                 .with_help(
                     "`#load` takes a .jai file; `#import,dir` imports a directory's module.jai",
@@ -221,7 +226,6 @@ impl Compiler {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         let files: Vec<String> = self
-            .src
             .fs
             .list_dir(dir)
             .into_iter()

@@ -5,6 +5,7 @@ use super::{
     Compiler, DEFAULT_TEMPORARY_STORAGE_SIZE, Diagnostic, HashMap, HashSet, PreludeType, ProcId,
     Result, Span, Sym, TypeId, Value, err, ir, procs, scope,
 };
+use crate::sema::Output;
 use crate::types::StructId;
 
 
@@ -32,32 +33,6 @@ fn merge_values(target: &mut Vec<i64>, values: &[i64]) {
 }
 
 impl Compiler {
-    pub(super) fn begin_runtime_storage_dependencies(&mut self) {
-        self.out
-            .runtime_storage_dependencies
-            .captures
-            .push(Vec::new());
-    }
-
-    pub(super) fn end_runtime_storage_dependencies(&mut self) -> Result<Vec<i64>> {
-        self.out
-            .runtime_storage_dependencies
-            .captures
-            .pop()
-            .ok_or_else(|| {
-                Box::new(Diagnostic::error(
-                    Span::NONE,
-                    "unbalanced runtime configuration dependency capture",
-                ))
-            })
-    }
-
-    pub(super) fn note_runtime_storage_dependencies(&mut self, values: &[i64]) {
-        if let Some(capture) = self.out.runtime_storage_dependencies.captures.last_mut() {
-            merge_values(capture, values);
-        }
-    }
-
     pub(super) fn finish_runtime_storage_entity(&mut self, id: scope::EntityId, values: &[i64]) {
         let known = self
             .out
@@ -67,7 +42,7 @@ impl Compiler {
             .or_default();
         merge_values(known, values);
         let values = known.clone();
-        self.note_runtime_storage_dependencies(&values);
+        self.out.note_runtime_storage_dependencies(&values);
     }
 
     pub(super) fn finish_runtime_storage_layout(&mut self, id: StructId, values: &[i64]) {
@@ -79,13 +54,7 @@ impl Compiler {
             .or_default();
         merge_values(known, values);
         let values = known.clone();
-        self.note_runtime_storage_dependencies(&values);
-    }
-
-    pub(super) fn use_runtime_storage_entity(&self, f: &mut FnCtx, id: scope::EntityId) {
-        if let Some(values) = self.out.runtime_storage_dependencies.entities.get(&id) {
-            merge_values(&mut f.runtime_storage_constants, values);
-        }
+        self.out.note_runtime_storage_dependencies(&values);
     }
 
     /// Compiler-owned transport extensions live in the selected runtime's private
@@ -407,5 +376,35 @@ impl Compiler {
         // context allocation uses the same finalized workspace setting.
         self.options.temporary_storage_size = size;
         Ok(())
+    }
+}
+
+impl Output {
+    pub(super) fn begin_runtime_storage_dependencies(&mut self) {
+        self.runtime_storage_dependencies.captures.push(Vec::new());
+    }
+
+    pub(super) fn end_runtime_storage_dependencies(&mut self) -> Result<Vec<i64>> {
+        self.runtime_storage_dependencies
+            .captures
+            .pop()
+            .ok_or_else(|| {
+                Box::new(Diagnostic::error(
+                    Span::NONE,
+                    "unbalanced runtime configuration dependency capture",
+                ))
+            })
+    }
+
+    pub(super) fn note_runtime_storage_dependencies(&mut self, values: &[i64]) {
+        if let Some(capture) = self.runtime_storage_dependencies.captures.last_mut() {
+            merge_values(capture, values);
+        }
+    }
+
+    pub(super) fn use_runtime_storage_entity(&self, f: &mut FnCtx, id: scope::EntityId) {
+        if let Some(values) = self.runtime_storage_dependencies.entities.get(&id) {
+            merge_values(&mut f.runtime_storage_constants, values);
+        }
     }
 }

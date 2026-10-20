@@ -133,6 +133,7 @@ impl Compiler {
         errors.extend(self.drain_bodies_lenient().map(|e| *e));
         self.ide_note_bodiless();
         let mut failed: Vec<_> = self
+            .pr
             .lenient_failures_list()
             .into_iter()
             .filter(|e| self.ide_wants(e.span.file))

@@ -300,10 +300,11 @@ impl Compiler {
         };
         let entry = match provided.kind {
             ProvidedKind::ShortName => self.find_module(&provided.value, dir),
-            ProvidedKind::PathToFile => Some(self.canon(Path::new(&provided.value))),
-            ProvidedKind::PathToDirectory => {
-                Some(self.canon(&Path::new(&provided.value).join("module.jai")))
-            }
+            ProvidedKind::PathToFile => Some(self.src.canon(Path::new(&provided.value))),
+            ProvidedKind::PathToDirectory => Some(
+                self.src
+                    .canon(&Path::new(&provided.value).join("module.jai")),
+            ),
             ProvidedKind::FullText => {
                 if let Some(&id) = self.src.provided_texts.get(&provided.value) {
                     self.validate_or_queue_import_groups(id, import)?;

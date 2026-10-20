@@ -178,7 +178,7 @@ impl Compiler {
                 .get(&name)
                 .map_or(&[][..], Vec::as_slice);
             let mut already_bound = false;
-            for old in self.bound_entities(existing) {
+            for old in self.diag.bound_entities(existing) {
                 let new = self.entity(id);
                 let previous = self.entity(old);
                 let same_binding = id == old

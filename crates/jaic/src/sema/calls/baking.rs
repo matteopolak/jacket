@@ -193,8 +193,8 @@ impl Compiler {
             .interp
             .global_addr(&self.out.program, g)
             .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
-        let n = self.program_u64(addr, span)?;
-        let data = self.program_u64(addr + 8, span)?;
+        let n = self.ct.program_u64(addr, span)?;
+        let data = self.ct.program_u64(addr + 8, span)?;
         let esize = self.size_of(elem, span)?;
         let total = count
             .checked_add(n)

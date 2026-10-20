@@ -2,6 +2,7 @@
 use super::model::{
     BodyState, ParamInfo, ProcInfo, Signature, has_poly, validate_c_variadic_header,
 };
+use crate::sema::SourceState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
 use crate::sema::{
@@ -219,20 +220,6 @@ impl Compiler {
         Ok(sig)
     }
 
-    /// Does type `t` name one of the parameters (`-> type_of(asset)`, `p: cache.Proc`)?
-    fn mentions_param(&self, t: &ast::Expr, params: &[ParamInfo]) -> bool {
-        if (t.span.file.0 as usize) >= self.src.sources.len() {
-            return false;
-        }
-        let text = self.src.sources.snippet(t.span);
-        let word = |c: char| c.is_alphanumeric() || c == '_';
-        text.split(|c: char| !word(c)).any(|w| {
-            params
-                .iter()
-                .any(|p| p.name.is_some_and(|n| n.as_str() == w))
-        })
-    }
-
     /// A parameter or result type naming parameters: checked with the parameters in scope
     /// (only their types are known).
     fn type_from_params(
@@ -313,7 +300,7 @@ impl Compiler {
     ) -> Result<ParamInfo> {
         {
             let ty = match (&param.ty, &param.default) {
-                (Some(t), _) if self.mentions_param(t, params) => {
+                (Some(t), _) if self.src.mentions_param(t, params) => {
                     self.type_from_params(scope, t, params)?
                 }
                 (Some(t), _) => self.eval_type(scope, t)?,
@@ -372,7 +359,7 @@ impl Compiler {
         let mut return_names = Vec::new();
         for r in &header.returns {
             let ty = match (&r.ty, &r.default) {
-                (Some(t), _) if self.mentions_param(t, &params) => {
+                (Some(t), _) if self.src.mentions_param(t, &params) => {
                     self.type_from_params(scope, t, &params)?
                 }
                 (Some(t), _) => self.eval_type(scope, t)?,
@@ -517,5 +504,21 @@ impl Compiler {
             self.ns.overload_sets_checked.insert(ids.to_vec());
         }
         Ok(())
+    }
+}
+
+impl SourceState {
+    /// Does type `t` name one of the parameters (`-> type_of(asset)`, `p: cache.Proc`)?
+    fn mentions_param(&self, t: &ast::Expr, params: &[ParamInfo]) -> bool {
+        if (t.span.file.0 as usize) >= self.sources.len() {
+            return false;
+        }
+        let text = self.sources.snippet(t.span);
+        let word = |c: char| c.is_alphanumeric() || c == '_';
+        text.split(|c: char| !word(c)).any(|w| {
+            params
+                .iter()
+                .any(|p| p.name.is_some_and(|n| n.as_str() == w))
+        })
     }
 }

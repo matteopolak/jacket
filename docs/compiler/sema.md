@@ -23,7 +23,7 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 - `meta: MetaState` (`meta_state.rs`): the workspace being built, records exported to metaprograms, perf counts.
 - `ed: Editor` (`ide/editor.rs`): the editor analysis, if any.
 
-A new field goes into the group it belongs to, not onto `Compiler`. Keep groups disjoint so a method can borrow one group mutably while it reads another (`self.caches` while walking `self.ns`).
+A new field goes into the group it belongs to, not onto `Compiler`. Keep groups disjoint so a method can borrow one group mutably while it reads another (`self.caches` while walking `self.ns`). A helper that reads or writes only one group is a method on that group (`self.src.canon(..)`, `self.out.string_global(..)`, `self.pr.unpark_bodies()`), not on `Compiler`; the hot accessors `scope`, `entity` and `proc` stay on `Compiler` for brevity. `sema::state_groups` (a unit test in `mod.rs`) fails if any file other than `mod.rs` or a group's own file builds a group value.
 
 A new field goes in the group it belongs to; a field used only by one group's methods should not live on `Compiler` itself.
 

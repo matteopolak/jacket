@@ -6,6 +6,7 @@
 //! `code_export.rs`) turns the counts into the message's records when the workspace finishes.
 use super::procs::{BodyState, ProcTarget};
 use super::{Compiler, HashMap, HashSet, ProcId, Span, ir};
+use crate::sema::Output;
 use std::time::Duration;
 
 /// A point in time that reads as zero where the platform has no clock (the browser build).
@@ -165,11 +166,13 @@ impl Compiler {
         }
         dumps
     }
+}
 
+impl Output {
     /// The instructions and direct calls in the program lowered so far, for `Bytecode_Report`.
     pub fn instruction_counts(&self) -> (u64, u64) {
         let (mut calls, mut instructions) = (0, 0);
-        for func in self.out.program.funcs.iter().flatten() {
+        for func in self.program.funcs.iter().flatten() {
             for block in &func.blocks {
                 instructions += block.insts.len() as u64 + 1;
                 calls += block

@@ -538,7 +538,7 @@ impl Compiler {
             GfOp::Affine(invert) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
                 let inverses = if invert {
-                    let tables = self.aes_table_ptr(f);
+                    let tables = self.out.aes_table_ptr(f);
                     Some(f.b.ptr_offset(tables, 512))
                 } else {
                     None

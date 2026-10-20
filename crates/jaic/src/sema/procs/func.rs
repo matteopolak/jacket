@@ -30,7 +30,7 @@ impl Compiler {
         if lit_is_entry_point(&header) && self.proc(id).lit.body.is_none() {
             let func = self.entry_point_wrapper(id, span)?;
             let target = ProcTarget::Func(func);
-            self.set_proc_target(id, target);
+            self.pr.set_proc_target(id, target);
             return Ok(target);
         }
         let target = if let Some(foreign) = &header.foreign {
@@ -85,7 +85,7 @@ impl Compiler {
             self.pr.body_queue.push(id);
             ProcTarget::Func(func)
         };
-        self.set_proc_target(id, target);
+        self.pr.set_proc_target(id, target);
         if self.pr.runtime_interpreter_assertion == Some(id) {
             let ProcTarget::Func(func) = target else {
                 return err(
@@ -137,7 +137,7 @@ impl Compiler {
         let sig = self.signature(id, span)?;
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let func = self.out.program.reserve_func("__entry_point".into());
-        self.set_proc_target(id, ProcTarget::Func(func));
+        self.pr.set_proc_target(id, ProcTarget::Func(func));
         let main = match self.program_main(span) {
             Ok(main) => main,
             // The editor checks every body in the project's files, also a vendored

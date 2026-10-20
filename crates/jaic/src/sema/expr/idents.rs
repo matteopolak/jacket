@@ -388,7 +388,7 @@ impl Compiler {
             _ => {}
         }
         let resolved = self.resolve_entity(id)?;
-        self.use_runtime_storage_entity(f, id);
+        self.out.use_runtime_storage_entity(f, id);
         Ok(match resolved {
             Resolved::Const {
                 value: Value::Type(t),

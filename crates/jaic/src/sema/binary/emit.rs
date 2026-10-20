@@ -58,7 +58,7 @@ impl Compiler {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
         // Unify operand types.
-        let patterns = (self.bit_pattern(a.span), self.bit_pattern(b.span));
+        let patterns = (self.src.bit_pattern(a.span), self.src.bit_pattern(b.span));
         let ty = self.binary_operand_type(&lhs, &rhs, expected, is_shift, patterns, span)?;
         // A negative constant cannot meet a `u64`: nothing wider takes its place.
         if !is_shift {
@@ -320,7 +320,7 @@ impl Compiler {
         let (line, _) = file.line_col(span.start);
         let path: Rc<[u8]> = Rc::from(file.path.to_string().as_bytes());
         let line = f.b.iconst(Ty::I64, line as u64);
-        let global = self.string_global(&path);
+        let global = self.out.string_global(&path);
         let filename = f.b.global_addr(global);
         f.b.call(
             ir::Callee::Func(func),

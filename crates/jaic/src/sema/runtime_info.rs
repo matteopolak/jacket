@@ -11,6 +11,7 @@
 use super::{
     Compiler, Diagnostic, EntityId, HashSet, Rc, Result, Span, TypeId, Value, ast, ir, scope,
 };
+use crate::sema::Output;
 use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
 use scope::{EntityKind, Resolved, ScopeKind};
@@ -27,27 +28,11 @@ impl Compiler {
         if let Some(g) = self.out.runtime_info {
             return Ok(g);
         }
-        let g = self.data_global(RUNTIME_INFO, 24, Vec::new(), Vec::new());
+        let g = self
+            .out
+            .data_global(RUNTIME_INFO, 24, Vec::new(), Vec::new());
         self.out.runtime_info = Some(g);
         Ok(g)
-    }
-
-    fn data_global(
-        &mut self,
-        name: &str,
-        size: u64,
-        init: Vec<u8>,
-        relocs: Vec<ir::Reloc>,
-    ) -> ir::GlobalId {
-        self.out.program.add_global(ir::Global {
-            name: name.into(),
-            size,
-            align: 8,
-            init,
-            relocs,
-            read_only: false,
-            export: None,
-        })
     }
 
     /// `__jaic_build_directory: string #elsewhere;` in `Runtime_Support`: the directory the
@@ -61,7 +46,7 @@ impl Compiler {
             text.push(std::path::MAIN_SEPARATOR);
         }
         let bytes: Rc<[u8]> = Rc::from(text.as_bytes());
-        let data = self.string_global(&bytes);
+        let data = self.out.string_global(&bytes);
         let mut init = (text.len() as u64).to_le_bytes().to_vec();
         init.extend_from_slice(&[0; 8]);
         let reloc = ir::Reloc {
@@ -69,7 +54,8 @@ impl Compiler {
             target: ir::RelocTarget::Global(data),
             addend: 0,
         };
-        self.data_global(super::private_names::BUILD_DIRECTORY, 16, init, vec![reloc])
+        self.out
+            .data_global(super::private_names::BUILD_DIRECTORY, 16, init, vec![reloc])
     }
 
     /// Fill `__runtime_info` (if the program uses it) from the final program.
@@ -103,7 +89,7 @@ impl Compiler {
         let table_relocs = (0..types.len())
             .map(|i| reloc(i as u64 * 8, types[i].1))
             .collect();
-        let table = self.data_global(
+        let table = self.out.data_global(
             "__runtime_info.type_table",
             types.len() as u64 * 8,
             vec![0; types.len() * 8],
@@ -128,7 +114,7 @@ impl Compiler {
             segments[at + 8..at + 16].copy_from_slice(&size.to_le_bytes());
             segment_relocs.push(reloc(at as u64 + 16, global));
         }
-        let segments = self.data_global(
+        let segments = self.out.data_global(
             "__runtime_info.segments",
             segments.len() as u64,
             segments,
@@ -137,7 +123,7 @@ impl Compiler {
 
         let mut gdi = vec![0u8; 24];
         gdi[8..16].copy_from_slice(&(data_globals.len() as u64).to_le_bytes());
-        let gdi = self.data_global(
+        let gdi = self.out.data_global(
             "__runtime_info.global_data_info",
             24,
             gdi,
@@ -296,5 +282,25 @@ impl TypeState {
             | TypeKind::Code => false,
             _ => true,
         }
+    }
+}
+
+impl Output {
+    fn data_global(
+        &mut self,
+        name: &str,
+        size: u64,
+        init: Vec<u8>,
+        relocs: Vec<ir::Reloc>,
+    ) -> ir::GlobalId {
+        self.program.add_global(ir::Global {
+            name: name.into(),
+            size,
+            align: 8,
+            init,
+            relocs,
+            read_only: false,
+            export: None,
+        })
     }
 }

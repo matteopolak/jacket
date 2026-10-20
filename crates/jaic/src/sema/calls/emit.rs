@@ -5,6 +5,7 @@ use super::{
     ProcTypeParams, Rc, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
     c_vararg_promote, err, ir, procs,
 };
+use crate::sema::ProcState;
 use crate::sema::TypeState;
 
 impl Compiler {
@@ -49,25 +50,6 @@ impl Compiler {
         };
         self.pr.last_call_must = must.iter().any(|&m| m).then_some((span, name, must));
         result
-    }
-
-    /// Error when a call at `call_span` leaves one of its `#must` results unused; only the
-    /// first `used` results are taken (0 for a call statement). Checked when the call's code
-    /// is generated, so a violation inside never-expanded macro code is harmless.
-    pub(in crate::sema) fn check_must_used(&mut self, call_span: Span, used: usize) -> Result<()> {
-        let Some((span, name, must)) = self.pr.last_call_must.take() else {
-            return Ok(());
-        };
-        if span != call_span {
-            return Ok(());
-        }
-        if must.iter().skip(used).any(|&m| m) {
-            return err(
-                call_span,
-                format!("the result of `{name}` is marked #must and cannot be discarded"),
-            );
-        }
-        Ok(())
     }
 
     pub(super) fn emit_call_inner(
@@ -589,5 +571,26 @@ impl TypeState {
             } => Ok(elem),
             _ => err(span, "a Jai variadic pack requires an array-view parameter"),
         }
+    }
+}
+
+impl ProcState {
+    /// Error when a call at `call_span` leaves one of its `#must` results unused; only the
+    /// first `used` results are taken (0 for a call statement). Checked when the call's code
+    /// is generated, so a violation inside never-expanded macro code is harmless.
+    pub(in crate::sema) fn check_must_used(&mut self, call_span: Span, used: usize) -> Result<()> {
+        let Some((span, name, must)) = self.last_call_must.take() else {
+            return Ok(());
+        };
+        if span != call_span {
+            return Ok(());
+        }
+        if must.iter().skip(used).any(|&m| m) {
+            return err(
+                call_span,
+                format!("the result of `{name}` is marked #must and cannot be discarded"),
+            );
+        }
+        Ok(())
     }
 }
