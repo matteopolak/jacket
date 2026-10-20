@@ -1,7 +1,7 @@
 #import "Basic";
 G :: #import "developer-tools-macros-generated";
 
-#assert G.ORIGINAL_LONG_BYTES == (ifx OS == .WINDOWS then 4 else 8);
+#assert G.ORIGINAL_LONG_BYTES == (ifx OS == .WINDOWS then cast(u64) 4 else cast(u64) 8);
 
 main :: () {
     assert(G.ORIGINAL_INTEGER == 17 && G.ORIGINAL_NEGATIVE == -37);
