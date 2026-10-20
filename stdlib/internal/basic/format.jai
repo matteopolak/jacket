@@ -55,6 +55,15 @@ render_item :: (builder: *String_Builder, item: Any, inside: bool, may_be_uninit
         return;
     }
 
+    // Integers are the most common item, so they are dispatched first.
+    if info.type == .INTEGER {
+        format := style.default_format_int;
+        format.value = item;
+        print_integer(builder, format);
+
+        return;
+    }
+
     if !inside && info == type_info(FormatInt) {
         print_integer(builder, (cast(*FormatInt) item.value_pointer).*);
         return;
@@ -112,14 +121,6 @@ render_item :: (builder: *String_Builder, item: Any, inside: bool, may_be_uninit
     if info.type == .BOOL {
         if (cast(*bool) item.value_pointer).* append(builder, "true");
         else append(builder, "false");
-        return;
-    }
-
-    if info.type == .INTEGER {
-        format := style.default_format_int;
-        format.value = item;
-        print_integer(builder, format);
-
         return;
     }
 
@@ -208,6 +209,17 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
     style := formatter_style();
 
     while cursor < format_string.count {
+        // Literal text up to the next '%' (37) or escaped percent (31) is appended in one piece.
+        run_end := cursor;
+        while run_end < format_string.count && format_string[run_end] != 37 && format_string[run_end] != 31 run_end += 1;
+
+        if run_end > cursor {
+            append(builder, format_string.data + cursor, run_end - cursor);
+            cursor = run_end;
+            if builder.failed break;
+            continue;
+        }
+
         byte := format_string[cursor];
 
         cursor += 1;
@@ -237,7 +249,7 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
 
             render_item(builder, args[arg], false, false, style);
             arg += 1;
-        } else append(builder, byte);
+        }
 
         if builder.failed break;
     }

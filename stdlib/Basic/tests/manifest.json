@@ -254,6 +254,10 @@
     "stdout": "ok\n"
   },
   {
+    "name": "format-integers",
+    "stdout": "ok\n"
+  },
+  {
     "name": "format-null-any",
     "stdout": "continued\n"
   },

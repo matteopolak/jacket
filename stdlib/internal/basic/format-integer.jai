@@ -19,61 +19,132 @@ print_integer :: (builder: *String_Builder, format: FormatInt) #no_aoc {
         return;
     }
 
-    info = formatter_base_type(info);
+    if info.type != .INTEGER info = formatter_base_type(info);
+
     assert(info != null && info.type == .INTEGER, "FormatInt requires an integer value");
     integer := cast(*Type_Info_Integer) info;
-    value := get_u64_from_void_pointer(format.value.value_pointer, info.runtime_size);
+    pointer := format.value.value_pointer;
+    value: u64 = ---;
 
+    // One read of the value; signed base-10 values are sign-extended so the minus sign can be split off.
     if integer.signed && format.base == 10 {
-        signed := get_s64_from_void_pointer(format.value.value_pointer, info.runtime_size);
+        signed: s64 = ---;
+        if info.runtime_size == 1 signed = (cast(*s8) pointer).*;
+        else if info.runtime_size == 2 signed = (cast(*s16) pointer).*;
+        else if info.runtime_size == 4 signed = (cast(*s32) pointer).*;
+        else signed = get_s64_from_void_pointer(pointer, info.runtime_size);
+
+        value = cast,no_check(u64) signed;
+
         if signed < 0 {
             append(builder, cast(u8) 45);
-            value = 0 - cast(u64) signed;
+            value = 0 - value;
         }
+    } else {
+        value = get_u64_from_void_pointer(pointer, info.runtime_size);
     }
 
     print_u64_base_n(builder, value, format);
 }
 
-print_u64_base_n :: (builder: *String_Builder, v: u64, format: FormatInt) {
+print_u64_base_n :: (builder: *String_Builder, v: u64, format: FormatInt) #no_abc {
     assert(format.base >= 2 && format.base <= 64);
     assert(format.minimum_digits >= 0);
-    digits: [64] u8;
-    count: s64;
-    value := v;
-    base := cast(u64) format.base;
 
-    while true {
-        digit := value % base;
-
-        digits[count] = DIGITS[cast(s64) digit];
-        count += 1;
-        value /= base;
-        if value == 0 break;
-    }
-
+    // Digits are written from the end of the buffer towards the front, so they come out in order.
+    text: [64] u8;
+    start := write_digits(*text, v, cast(u64) format.base);
+    count := text.count - start;
     remaining := max(count, min(format.minimum_digits, 64));
 
     if format.digits_per_comma == 0 {
-        // No separators: lay the padding and the digits out in order and append them at once.
-        text: [64] u8;
-        padding := remaining - count;
+        // No separators: the padding goes in front of the digits and everything is appended at once.
+        while text.count - start < remaining {
+            start -= 1;
+            text[start] = format.padding;
+        }
 
-        for i: 0..padding - 1 text[i] = format.padding;
-        for i: 0..count - 1 text[padding + i] = digits[count - 1 - i];
-
-        append(builder, text.data, remaining);
+        append(builder, text.data + start, remaining);
 
         return;
     }
 
+    // Position `remaining - 1` is the most significant one; digit k from the right is text[63 - k].
     while remaining > 0 {
         remaining -= 1;
         if remaining >= count append(builder, format.padding);
-        else append(builder, digits[remaining]);
-        if remaining > 0 && format.digits_per_comma > 0 && remaining % cast(s64) format.digits_per_comma == 0 append(builder, format.comma_string);
+        else append(builder, text[text.count - 1 - remaining]);
+        if remaining > 0 && remaining % cast(s64) format.digits_per_comma == 0 append(builder, format.comma_string);
     }
 }
 
 #scope_file
 DIGITS :: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_.";
+
+// "00" to "99": one division by 100 gives two decimal digits.
+DECIMAL_PAIRS :: #run -> string {
+    pairs: [200] u8;
+
+    for i: 0..99 {
+        pairs[i * 2] = cast(u8) (#char "0" + i / 10);
+        pairs[i * 2 + 1] = cast(u8) (#char "0" + i % 10);
+    }
+
+    return copy_string(string.{ pairs.count, pairs.data });
+};
+
+// Writes the digits of `value` at the end of `text` and returns the index of the first one.
+write_digits :: (text: *[64] u8, value: u64, base: u64) -> s64 #no_abc {
+    position := text.count;
+    rest := value;
+
+    if base == 10 {
+        // Constant divisors become multiplications, and each one yields two digits.
+        while rest >= 100 {
+            pair := cast(s64) (rest % 100) * 2;
+
+            rest /= 100;
+            position -= 2;
+            text.*[position] = DECIMAL_PAIRS[pair];
+            text.*[position + 1] = DECIMAL_PAIRS[pair + 1];
+        }
+
+        if rest >= 10 {
+            pair := cast(s64) rest * 2;
+            position -= 2;
+            text.*[position] = DECIMAL_PAIRS[pair];
+            text.*[position + 1] = DECIMAL_PAIRS[pair + 1];
+        } else {
+            position -= 1;
+            text.*[position] = cast(u8) (#char "0" + rest);
+        }
+
+        return position;
+    }
+
+    if (base & (base - 1)) == 0 {
+        // Powers of two: each digit is a group of bits.
+        shift: u64;
+        while (cast(u64) 1 << shift) < base shift += 1;
+
+        mask := base - 1;
+
+        while true {
+            position -= 1;
+            text.*[position] = DIGITS[cast(s64) (rest & mask)];
+            rest >>= shift;
+            if rest == 0 break;
+        }
+
+        return position;
+    }
+
+    while true {
+        position -= 1;
+        text.*[position] = DIGITS[cast(s64) (rest % base)];
+        rest /= base;
+        if rest == 0 break;
+    }
+
+    return position;
+}
