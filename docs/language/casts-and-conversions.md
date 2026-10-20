@@ -27,6 +27,12 @@ bits := cast,force(u32) f;           // reinterprets float bits
 - With no target type, an untyped integer constant that does not fit the other arm's integer type makes the `ifx` an `s64` (`ifx c then 300 else a_u8`); one that fits keeps the arm's type (`ifx_overflow_widening`).
 - `ifx c then a else b` with no expected type takes the else type when only the then value converts to it, otherwise the then type. A call whose single result has exactly the base type of an `#type,isa` argument returns the variant (`emit_call`).
 
+### Types from context
+
+One rule gives a value its type when it has none of its own. An expression with no type of its own (`.NAME`, `.{...}`, `.[...]`, a bare `xx`, an `ifx` or arithmetic built from those, an untyped number) takes the type of its sibling: the other branch of an `ifx`, the other operand of a binary operator, or the parameter of the candidate overload it is passed to. The sibling is checked first and its type is the expected type of the other. The type the whole expression is later converted to is not a sibling, so `target = xx (xx a + n);` adds in `n`'s type and the outer `xx` converts the sum.
+
+Where candidates compete (call arguments, operands of an overloaded operator) each candidate is a possible sibling. Candidates are ranked by the conversion cost of the arguments, then by how well each untyped literal fits (`struct_lit_fit`), and a tie on an argument with no type of its own is an ambiguity error (`ambiguous_overloads`). One predicate says which expressions take a sibling's type (`takes_context_type` in `sema/expr.rs`); `check_ifx`, `binary_operands`, `is_deferred` and `cast_operand_needs_target` all use it.
+
 ### Reach of a prefix cast
 
 A prefix `cast(T)` or `xx` sits at `CAST_PREC` ([operators](operators.md)): its operand takes postfix and bitwise/shift operators; looser operators apply to the result.

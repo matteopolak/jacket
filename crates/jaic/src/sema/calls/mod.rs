@@ -10,6 +10,7 @@
 //! - `builtins`      built-in procedures (`size_of`, `type_of`, ...)
 //! - `macro_expand`  `#expand` macro calls
 //! - `operators`     operator overloading
+use super::expr::takes_context_type;
 use super::lower::{FnCtx, MacroFrame, Operand};
 use super::procs::{ProcTarget, Signature};
 use super::scope::{BuiltinProc, EntityKind, ScopeKind};
@@ -100,24 +101,16 @@ fn is_untyped_argument(arg: &CallArg) -> bool {
 }
 
 fn is_deferred(expr: &ast::Expr) -> bool {
-    matches!(
-        &expr.kind,
-        E::InferredMember(_)
-            | E::StructLit {
+    takes_context_type(expr)
+        || matches!(
+            &expr.kind,
+            E::Cast {
                 ty: None,
                 ..
-            }
-            | E::ArrayLit {
-                ty: None,
-                ..
-            }
-            | E::Cast {
-                ty: None,
-                ..
-            }
-            | E::Ifx { .. }
-            | E::Lambda { .. }
-    ) || inferred_flags(expr)
+            } | E::Ifx { .. }
+                | E::Lambda { .. }
+        )
+        || inferred_flags(expr)
         || autocast_arithmetic(expr)
         || literal_arithmetic(expr)
 }

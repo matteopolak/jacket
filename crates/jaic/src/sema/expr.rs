@@ -11,6 +11,24 @@ use crate::ast::{BinOp, ExprKind as E};
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};
 
+/// An expression with no type of its own, which takes the type of context: the other branch of an
+/// `ifx`, the other operand of an operator, the parameter of a candidate overload or the target of
+/// a cast. `.NAME`, `.{...}` and `.[...]` are these; everything else is typed from its own parts.
+pub(super) fn takes_context_type(e: &ast::Expr) -> bool {
+    matches!(
+        e.kind,
+        E::InferredMember(_)
+            | E::StructLit {
+                ty: None,
+                ..
+            }
+            | E::ArrayLit {
+                ty: None,
+                ..
+            }
+    )
+}
+
 /// `ifx cond else e` without a `then`: the interesting part of the condition is the value.
 /// `!x` and `!f(x)` give `x`, `x >= y` gives `x` and a call `f(x, ...)` gives `x`.
 fn implicit_then_expr(cond: &ast::Expr) -> Option<&ast::Expr> {
@@ -721,13 +739,7 @@ pub fn wrap_int(v: i128, bits: u8, signed: bool) -> i128 {
 /// Everything else is typed bottom-up before the cast converts it {#cast.29}.
 fn cast_operand_needs_target(e: &ast::Expr) -> bool {
     match &e.kind {
-        E::InferredMember(_)
-        | E::StructLit {
-            ty: None, ..
-        }
-        | E::ArrayLit {
-            ty: None, ..
-        } => true,
+        _ if takes_context_type(e) => true,
         E::Unary(_, x) => cast_operand_needs_target(x),
         E::Binary(_, a, b) => cast_operand_needs_target(a) && cast_operand_needs_target(b),
         E::Ifx {
