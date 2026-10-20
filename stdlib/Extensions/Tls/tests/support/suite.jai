@@ -271,7 +271,7 @@ send_pattern :: (job: *Transfer) {
 
     for 0..job.size - 1 data[it] = pattern(it + job.seed);
 
-    count, error := Tls.write(job.stream, .{ job.size, data });
+    count, error := Tls.write(job.stream, ([] u8).{ job.size, data });
 
     if error != .NONE || count != job.size job.errors += 1;
 
@@ -1089,7 +1089,7 @@ slow_echo :: (job: *Echo) {
 
     Io.sleep(job.delay);
 
-    Tls.write(job.stream, .{ count, buffer.data });
+    Tls.write(job.stream, ([] u8).{ count, buffer.data });
 
     job.done = true;
 }
@@ -1292,7 +1292,7 @@ crowd_serve :: (crowd: *Crowd) {
             count, read_error := Io.read_full(Tls.reader_of(stream), .{ 1500, buffer.data });
 
             if read_error != .NONE || count != 1500 job.crowd.failures += 1;
-            else Tls.write(stream, .{ count, buffer.data });
+            else Tls.write(stream, ([] u8).{ count, buffer.data });
 
             Tls.close(stream);
 

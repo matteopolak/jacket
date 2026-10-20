@@ -92,7 +92,7 @@ churn :: (job: Churn) {
 
         assert(error == .NONE, "connect: %", error);
 
-        Io.write(conn, .{ 1, *byte });
+        Io.write(conn, ([] u8).{ 1, *byte });
         Io.read_full(conn, reply);
         Io.close(conn);
 

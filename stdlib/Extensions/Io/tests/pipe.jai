@@ -21,7 +21,7 @@ shout :: (end: *Io.Pipe_Stream) {
             if buffer[it] >= #char "a" && buffer[it] <= #char "z" buffer[it] -= 32;
         }
 
-        Io.write(end, .{ count, buffer.data });
+        Io.write(end, ([] u8).{ count, buffer.data });
     }
 
     Io.close(end);
@@ -299,7 +299,7 @@ send_pattern :: (sender: *Sender) {
 
         for 0..size - 1 block[it] = pattern(position + it);
 
-        Io.write(sender.end, .{ size, block.data });
+        Io.write(sender.end, ([] u8).{ size, block.data });
         Io.yield();
 
         position += size;

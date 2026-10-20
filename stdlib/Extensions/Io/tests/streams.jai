@@ -16,7 +16,7 @@ copy_all :: (source: Io.Reader, sink: Io.Writer) -> s64, Io.Io_Error {
         if error != .NONE return total, error;
         if count == 0 break;
 
-        _, write_error := Io.write(sink, .{ count, buffer.data });
+        _, write_error := Io.write(sink, ([] u8).{ count, buffer.data });
         if write_error != .NONE return total, write_error;
 
         total += count;

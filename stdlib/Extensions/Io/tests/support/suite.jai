@@ -110,7 +110,7 @@ echo_connection :: (job: Echo_Job) {
         count, error := Io.read(job.conn, buffer);
         if error != .NONE || count == 0 return;
 
-        _, write_error := Io.write(job.conn, .{ count, buffer.data });
+        _, write_error := Io.write(job.conn, ([] u8).{ count, buffer.data });
         if write_error != .NONE return;
     }
 }
@@ -1066,7 +1066,7 @@ test_accept_backlog :: () {
         // so the order of the accepted sockets is not the order of the connects.
         name: u8 = cast(u8) (it & 255);
 
-        Io.write(clients[it], .{ 1, *name });
+        Io.write(clients[it], ([] u8).{ 1, *name });
     }
 
     // Everything is accepted once, each socket is connected to its client.
@@ -1418,7 +1418,7 @@ ping_connection :: (conn: Io.Tcp_Stream) {
 
     if error != .NONE || count != 1 return;
 
-    Io.write(conn, .{ 1, buffer.data });
+    Io.write(conn, ([] u8).{ 1, buffer.data });
 }
 
 shared_accept_loop :: (listener: Io.Tcp_Listener) {
@@ -1467,7 +1467,7 @@ thread_main :: () {
             byte: u8 = 7;
             buffer: [4] u8;
 
-            Io.write(conn, .{ 1, *byte });
+            Io.write(conn, ([] u8).{ 1, *byte });
 
             count, read_error := Io.read(conn, buffer);
             if read_error != .NONE || count != 1 || buffer[0] != 7 Atomics.atomic_add(*shared.failures, 1);
