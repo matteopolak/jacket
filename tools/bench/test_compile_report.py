@@ -25,7 +25,7 @@ class RenderTests(unittest.TestCase):
             'big/build/ref': Result.skipped('ref: exit 1: unknown directive'),
         }
         return Report('compile', {'repeat': 3, 'warmup': 1},
-                      {'jaic': {'dialect': 'jaic', 'path': '/j'}, 'ref': {'dialect': 'reference', 'path': '/r'}},
+                      {'jaic': {'dialect': 'jaic', 'path': '/j'}, 'ref': {'dialect': 'plain', 'path': '/r'}},
                       results, machine={'cpus': 10})
 
     def test_compilers_get_columns_and_a_ratio_to_the_first(self):

@@ -50,7 +50,7 @@ class Source(Protocol):
 
 def copy_in(directory: Path, scratch: Path, root: Path | None = None) -> Path:
     """A copy under `scratch` of `root` (default `directory`), made once, and where `directory` landed in
-    it: the sandboxed compilers may write only there (another compiler writes `.build/` next to what it
+    it: the sandboxed compilers may write only there (a compiler writes `.build/` next to what it
     compiles). A project subfolder copies its whole project, which it may import from (`../module.jai`),
     and links are copied as what they point to (a corpus project links its sibling projects as modules)."""
     root = root or directory

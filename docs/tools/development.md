@@ -60,7 +60,7 @@ Rust uses the pinned nightly `rustfmt` and `rustfmt.toml` (edition 2024, `max_wi
 
 ## Output directory
 
-Tools and test scripts write build products, downloads and scratch output under `target/` (ignored; shared with cargo). `tools/repo_output.py` (`output_dir`, `shared_output_dir`) and `tools/repo_output.mjs` (`outputDir`) are the single helpers; never hard-code a path. `JACKET_OUTPUT_DIR` relocates the whole tree (`jaic` honours it when looking for `native-libs/<platform>`). `shared_output_dir` resolves to the main checkout's directory so worktrees reuse native builds and downloads.
+Tools and test scripts write build products, downloads and scratch output under `target/` (ignored; shared with cargo). `playground/` at the repository root is also ignored: a place for local experiments, and where `tools/bench/main.py compare` writes its results (`playground/bench/<timestamp>/`); never commit its contents. `tools/repo_output.py` (`output_dir`, `shared_output_dir`) and `tools/repo_output.mjs` (`outputDir`) are the single helpers; never hard-code a path. `JACKET_OUTPUT_DIR` relocates the whole tree (`jaic` honours it when looking for `native-libs/<platform>`). `shared_output_dir` resolves to the main checkout's directory so worktrees reuse native builds and downloads.
 
 | Directory under the output dir | Contents |
 |---|---|

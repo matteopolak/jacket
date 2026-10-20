@@ -40,8 +40,8 @@ def render(report: Report) -> str:
            f"{report.settings['repeat']} timed runs per result after {report.settings['warmup']} untimed "
            '(wall time is the median, the range is min-max; CPU is user + system). Compilers run interleaved.', '']
     for name, info in report.subjects.items():
-        commit = f", `{info['commit'][:12]}`{' (dirty)' if info.get('dirty') else ''}" if info.get('commit') else ''
-        out.append(f"- `{name}`: {info['dialect']} dialect, `{info['path']}`{commit}")
+        sha = f", sha256 `{info['sha256'][:12]}`" if info.get('sha256') else ''
+        out.append(f"- `{name}`: {info['dialect']} dialect, `{info['path']}`{sha}")
     out.append('')
     groups = grouped(report)
     out += timing_tables(groups, compilers)
@@ -97,8 +97,8 @@ STAGE_NOTE = ('Every compiler builds the program through the same metaprogram, w
               '`codegen` includes writing the objects, and `link` is the system linker the metaprogram runs itself, '
               'identical work for every compiler. `total` is the wall time of that run, `other` what no phase accounts for '
               '(start-up, the metaprogram itself, exit).')
-DETAIL_NOTE = ('The compiler\'s own `-timings` report from the direct runs above. Only jaic prints one, so these '
-               'numbers are not comparable with another compiler\'s and the table has no ratios.')
+DETAIL_NOTE = ('The compiler\'s own `-timings` report from the direct runs above. Only binaries with the extra reporting '
+               'flags print one, so these numbers are not comparable with a plain binary\'s and the table has no ratios.')
 
 
 def stage_table(groups: dict[tuple[str, str], dict[str, Result]], compilers: list[str]) -> list[str]:

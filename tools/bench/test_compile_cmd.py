@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from cmd_compile import Attempt, Job, JobRunner, first_difference, normalized, plan_jobs, stage_stats
-from dialects import Compiler, JaicDialect, Mode, ReferenceDialect, Request, parse_compiler
+from dialects import Compiler, JaicDialect, Mode, PlainDialect, Request, detect_dialect, parse_compiler
 from measure import Run, run_measured
 from stages import Bucket
 from workloads import Category, Plan, RepoDirectory, Workload, all_workloads
@@ -103,26 +103,32 @@ class DialectTests(unittest.TestCase):
         self.assertEqual(command[command.index('-timings'):], ['-timings', '-', 'release'])
         self.assertNotIn('-exe', command)
 
-    def test_reference_check_goes_through_a_wrapper_that_writes_nothing(self):
+    def test_a_plain_binary_gets_only_the_portable_command_line(self):
         with tempfile.TemporaryDirectory() as scratch:
-            request = Request(Path('/w/main.jai'), Path('/w'), Mode.INTERP, (), Path(scratch))
-            invocation = ReferenceDialect().invocation(Path('/ref/jai'), request)
+            build = Request(Path('/w/main.jai'), Path('/w'), Mode.OPTIMIZED, (), Path(scratch), import_dirs=('/m',))
+            command = PlainDialect().invocation(Path('/old/jaic'), build).command
+            self.assertNotIn('-timings', command)
+            self.assertEqual(command[1:], ['main.jai', '-no_color', '-import_dir', '/m', '-o',
+                                           '-exe', 'program', '-output_path', scratch])
+            check = PlainDialect().invocation(Path('/old/jaic'), Request(Path('/w/main.jai'), Path('/w'), Mode.INTERP, (), Path(scratch)))
+            self.assertEqual(check.command, ['/old/jaic', 'wrapper.jai', '-no_color'])
             wrapper = (Path(scratch) / 'wrapper.jai').read_text()
-        self.assertEqual(invocation.command[1], 'wrapper.jai')
-        self.assertEqual(invocation.cwd, Path(scratch))
-        self.assertIn('do_output=false', wrapper)
-        self.assertIn('#load "/w/main.jai"', wrapper)
-        self.assertIn('#run main();', wrapper)
+            self.assertIn('do_output=false', wrapper)
+            self.assertIn('#run main();', wrapper)
+            self.assertNotIn('-check', check.command)
 
-    def test_reference_build_names_its_output(self):
-        invocation = ReferenceDialect().invocation(Path('/ref/jai'), self.request(Mode.OPTIMIZED))
-        self.assertEqual(invocation.command[:3], ['/ref/jai', 'main.jai', '-no_color'])
-        self.assertIn('-o', invocation.command)
-        self.assertEqual(invocation.executable, Path('/s/program'))
-
-    def test_dialect_comes_from_the_binary_name(self):
-        self.assertIsInstance(parse_compiler('a=/x/target/release/jaic').dialect, JaicDialect)
-        self.assertIsInstance(parse_compiler('ref=/x/bin/other-compiler').dialect, ReferenceDialect)
+    def test_dialect_comes_from_probing_the_binary_not_its_name(self):
+        with tempfile.TemporaryDirectory() as folder:
+            def fake(name, help_text):
+                path = Path(folder) / name
+                path.write_text(f'#!/bin/sh\necho "{help_text}"\n')
+                path.chmod(0o755)
+                return path
+            self.assertIsInstance(detect_dialect(fake('jaic', '  -timings  print phases')), JaicDialect)
+            self.assertIsInstance(detect_dialect(fake('jaic-old', '  -check  only check')), PlainDialect)
+            self.assertIsInstance(detect_dialect(fake('anything', '  -timings  print phases')), JaicDialect)
+            self.assertIsInstance(detect_dialect(Path(folder) / 'missing'), PlainDialect)
+            self.assertEqual(parse_compiler(f'a={fake("x", "-timings")}').dialect.name, 'jaic')
         with self.assertRaises(ValueError):
             parse_compiler('no-path')
 
@@ -136,19 +142,19 @@ class DialectTests(unittest.TestCase):
         dialect = JaicDialect()
         self.assertEqual(dialect.instruction_count(run(stderr='x\ninterpreter profile: 119840746 instructions\n')), 119840746)
         self.assertIsNone(dialect.instruction_count(run(stderr='nothing')))
-        self.assertIsNone(ReferenceDialect().instruction_count(run(stderr='interpreter profile: 5 instructions')))
+        self.assertIsNone(PlainDialect().instruction_count(run(stderr='interpreter profile: 5 instructions')))
 
-    def test_the_reference_prints_no_detail(self):
-        self.assertEqual(ReferenceDialect().detail(run(wall=0.7, stdout='hello\n')), {})
+    def test_a_plain_binary_prints_no_detail(self):
+        self.assertEqual(PlainDialect().detail(run(wall=0.7, stdout='hello\n')), {})
 
     def test_every_compiler_builds_the_phase_metaprogram_the_same_way(self):
         with tempfile.TemporaryDirectory() as scratch:
             request = Request(Path('/w/main.jai'), Path('/w'), Mode.INTERP, (), Path(scratch))
             jaic = JaicDialect().phase_invocation(Path('/bin/jaic'), request)
-            ref = ReferenceDialect().phase_invocation(Path('/ref/jai'), request)
+            ref = PlainDialect().phase_invocation(Path('/old/jaic'), request)
             source = (Path(scratch) / 'phases' / 'phase_timing.jai').read_text()
         self.assertEqual(jaic.command, ['/bin/jaic', 'phase_timing.jai'])
-        self.assertEqual(ref.command, ['/ref/jai', 'phase_timing.jai', '-no_color'])
+        self.assertEqual(ref.command, ['/old/jaic', 'phase_timing.jai', '-no_color'])
         self.assertEqual(jaic.cwd, ref.cwd)
         self.assertIn('ENTRY :: "/w/main.jai";', source)
         self.assertIn('WRITES_EXECUTABLE :: false;', source)

@@ -20,7 +20,8 @@ from common import Defaults
 from compile_report import render
 from dialects import Compiler, Invocation, Mode, Request, parse_compiler
 from measure import Run, run_measured, warm_file_cache
-from results import ROOT, Report, Result, checkout_info, sh
+from provenance import binary_facts
+from results import ROOT, Report, Result, sh
 from bench.sandbox import Sandbox, environment
 from sizes import facts_of
 from stages import Bucket, Stages, with_total
@@ -32,8 +33,9 @@ DEFAULTS = Defaults(repeat=5, warmup=1, threshold=0.10, min_seconds=0.10, timeou
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--compiler', action='append', metavar='NAME=PATH', default=[],
-                        help='a compiler to time (repeatable; default jaic=target/release/jaic). A binary called '
-                             'jaic* takes jaic options, any other the reference compiler\'s.')
+                        help='a compiler binary to time (repeatable; default jaic=target/release/jaic). All take '
+                             'jaic\'s command line; one whose -help lists -timings also gets jaic\'s extra '
+                             'reporting flags, a plain one is timed from outside only.')
     parser.add_argument('--modes', default=','.join(m.value for m in Mode),
                         help='comma-separated subset of ' + ', '.join(m.value for m in Mode))
     parser.add_argument('--phase-repeat', type=int, default=3, metavar='N',
@@ -123,8 +125,7 @@ class JobRunner:
 
     def driver(self, job: Job, compiler: Compiler, request: Request) -> Invocation:
         """How a compiler is run for the timed runs. Comparing compilers, an executable is built through the
-        phase-timing metaprogram for all of them, so they all link with the same system linker (a reference
-        compiler's bundled linker may not even run on a machine). A job with its own build metaprogram, or
+        phase-timing metaprogram for all of them, so they all link with the same system linker. A job with its own build metaprogram, or
         a single compiler, uses the compiler's native command line."""
         if len(self.compilers) > 1 and request.mode.writes_executable and not self.has_own_build(request):
             return compiler.dialect.phase_invocation(compiler.path, request)
@@ -290,12 +291,9 @@ def first_difference(a: list[str], b: list[str]) -> str:
 
 
 def install_reads(compiler: Compiler) -> list[Path]:
-    """What a compiler reads besides the workload: its own install. A jaic build reads the stdlib and
-    native libraries of the checkout it was built in (or `JAIC_STDLIB` / `JAIC_NATIVE_LIBS`); another
-    compiler, the folder its `bin/` sits in."""
-    if compiler.dialect.name != 'jaic':
-        folder = compiler.path.parent
-        return [folder.parent if folder.name == 'bin' else folder, *library_folders(compiler.path)]
+    """What a compiler reads besides the workload: its own install. A build reads the stdlib and
+    native libraries of the checkout it was built in (or `JAIC_STDLIB` / `JAIC_NATIVE_LIBS`), or the ones
+    unpacked next to it in a release."""
     reads = [compiler.path.parent, ROOT / 'stdlib', ROOT / 'target' / 'native-libs', *library_folders(compiler.path)]
     reads += [Path(os.environ[v]).resolve() for v in ('JAIC_STDLIB', 'JAIC_NATIVE_LIBS') if os.environ.get(v)]
     return [r for r in reads if r.exists()]
@@ -330,11 +328,7 @@ def linked_libraries(binary: Path) -> list[str]:
 # ----------------------------------------------------------------------------------------- command
 
 def compiler_info(compiler: Compiler) -> dict:
-    info = compiler.describe()
-    if compiler.dialect.name == 'jaic':
-        info.update(checkout_info())
-        info['rustc'] = sh('rustc', '--version')
-    return info
+    return {**compiler.describe(), **binary_facts(compiler.path)}
 
 
 def run(args: argparse.Namespace) -> int:

@@ -1,7 +1,7 @@
 """Runs every timed command without network access and with file access limited to what it needs.
 
-A compiler under test (ours or another) runs compile-time code from the workloads, and a reference
-compiler is a binary we did not build: neither gets the network, the home directory or the
+A compiler under test runs compile-time code from the workloads, and a downloaded build is a binary
+we did not just compile: neither gets the network, the home directory or the
 repository. Reads are allowed from the system, the developer tools, the compiler's own install and
 the paths given; writes only to the given paths (the run's scratch directory). Every compiler gets
 the same sandbox, so its small start-up cost is shared equally.

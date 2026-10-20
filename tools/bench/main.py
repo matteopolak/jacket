@@ -2,6 +2,7 @@
 """One benchmark harness for the compiler, the language server, the linter and the formatter.
 
     python3 tools/bench/main.py compile [--compiler NAME=PATH ...] [--only TEXT] [--repeat N]
+    python3 tools/bench/main.py compare --baseline OLD_BINARY --candidate NEW_BINARY [--sizes N,N] [--rounds N]
     python3 tools/bench/main.py lsp     [--server NAME=COMMAND ...]
     python3 tools/bench/main.py lint
     python3 tools/bench/main.py fmt
@@ -15,12 +16,13 @@ import argparse
 import sys
 
 # The modules here import each other by name: running this file puts its directory on sys.path.
+import cmd_compare
 import cmd_compile
 import cmd_fmt
 import cmd_lint
 import cmd_lsp
 
-COMMANDS = {'compile': cmd_compile, 'lsp': cmd_lsp, 'lint': cmd_lint, 'fmt': cmd_fmt}
+COMMANDS = {'compile': cmd_compile, 'compare': cmd_compare, 'lsp': cmd_lsp, 'lint': cmd_lint, 'fmt': cmd_fmt}
 
 
 def build_parser() -> argparse.ArgumentParser:

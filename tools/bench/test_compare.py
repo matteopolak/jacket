@@ -63,7 +63,7 @@ class RegressionTests(unittest.TestCase):
 
     def test_skipped_before_or_after_is_not_compared(self):
         self.assertEqual(self.regressions(Result.skipped('no'), result(5.0)), [])
-        self.assertEqual(self.regressions(result(1.0), Result.skipped('reference rejects it')), [])
+        self.assertEqual(self.regressions(result(1.0), Result.skipped('the other build rejects it')), [])
 
     def test_keys_in_only_one_report_are_ignored(self):
         old = report(a__b=result(1.0))
