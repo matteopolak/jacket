@@ -286,4 +286,52 @@ impl Compiler {
             UsingEntry::Module(..) => Ok(None),
         }
     }
+
+    /// Add the `using` entry of a variable to `scope`. Constants and procedures the block
+    /// already declared (they are declared before its statements run) may not share a name with
+    /// a member the entry brings in.
+    pub(in crate::sema) fn push_variable_using(
+        &mut self,
+        scope: ScopeId,
+        entry: UsingEntry,
+    ) -> Result<()> {
+        let mut declared: Vec<(Sym, Span)> = Vec::new();
+        for (name, ids) in &self.scope(scope).names {
+            for &id in ids {
+                if matches!(self.entity(id).kind, scope::EntityKind::Decl { .. }) {
+                    declared.push((*name, self.entity(id).span));
+                }
+            }
+        }
+        for (name, span) in declared {
+            if name.as_str() != "_" && self.aggregate_using_member(&entry, name)?.is_some() {
+                return err(span, format!("Redeclaration of '{name}'."));
+            }
+        }
+        self.push_using(scope, entry);
+        Ok(())
+    }
+
+    /// A declaration in the scope that holds a `using` of a variable may not reuse the name of
+    /// one of that variable's members: `using o; x := 1;` with `x` a member of `o`. A nested
+    /// scope shadows the member as it shadows any outer name.
+    pub(in crate::sema) fn reject_using_redeclaration(
+        &mut self,
+        scope: ScopeId,
+        name: Sym,
+        span: Span,
+    ) -> Result<()> {
+        if name.as_str() == "_" {
+            return Ok(());
+        }
+        for k in 0..self.scope(scope).usings.len() {
+            let entry = self.scope(scope).usings[k].clone();
+            if entry.place_entity().is_some()
+                && self.aggregate_using_member(&entry, name)?.is_some()
+            {
+                return err(span, format!("Redeclaration of '{name}'."));
+            }
+        }
+        Ok(())
+    }
 }

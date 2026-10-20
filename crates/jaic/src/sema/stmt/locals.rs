@@ -154,6 +154,9 @@ impl Compiler {
             if discard && !decl.using {
                 continue;
             }
+            if !discard {
+                self.reject_using_redeclaration(target, name.name, name.span)?;
+            }
             if !discard && self.declares_local(target, name.name) {
                 let mut d = Diagnostic::error(
                     name.span,
@@ -201,7 +204,7 @@ impl Compiler {
                     decl.using_filter().unwrap_or(&ast::UsingFilter::None),
                     name.span,
                 )?;
-                self.push_using(target, entry);
+                self.push_variable_using(target, entry)?;
             }
         }
         Ok(())
@@ -393,7 +396,7 @@ impl Compiler {
                             filter,
                             value.span,
                         )?;
-                        self.push_using(scope, entry);
+                        self.push_variable_using(scope, entry)?;
                         self.ide_note_entity_use(value.span, id, ty);
                         return Ok(());
                     }
@@ -411,7 +414,7 @@ impl Compiler {
                                 filter,
                                 value.span,
                             )?;
-                            self.push_using(scope, entry);
+                            self.push_variable_using(scope, entry)?;
                             self.ide_note_entity_use(value.span, id, ty);
                             return Ok(());
                         }
@@ -499,7 +502,7 @@ impl Compiler {
             }
         };
         let entry = self.filter_using_entry(scope, entry, filter, value.span)?;
-        self.push_using(scope, entry);
+        self.push_variable_using(scope, entry)?;
         Ok(())
     }
 }

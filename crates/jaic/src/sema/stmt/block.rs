@@ -235,6 +235,7 @@ impl Compiler {
         for (index, name) in decl.names.iter().enumerate() {
             if !decl.backtick {
                 self.check_redeclared(target, name.name, name.span, Some(decl))?;
+                self.reject_using_redeclaration(target, name.name, name.span)?;
             }
             for s in [target, scope] {
                 self.add_entity(
