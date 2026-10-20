@@ -22,11 +22,11 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Standard library
 
-[Extensions](extensions/README.md) (Io, Http, Tls, Json and the rest), [native layout](stdlib-native-layout.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md).
+[Extensions](extensions/README.md) (Io, Http, Tls, Json and the rest), [native layout](stdlib-native-layout.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md), [benchmarks](tools/stdlib-benchmarks.md).
 
 ## Building and testing
 
-[Development](tools/development.md) (Justfile, CI, hooks, dependency policy), [testing](tools/testing.md), [diagnostic coverage](tools/diagnostic-coverage.md), [determinism checks](tools/determinism.md), [coverage](tools/coverage.md), [Rust code coverage](tools/rust-coverage.md), [language server typing sessions](tools/lsp-fuzzing.md), [stdlib fuzzing](tools/stdlib-fuzzing.md), [sanitizers and Miri](tools/sanitizers.md), [mutation testing](tools/mutation-testing.md), [tools/ layout](tools/tools-layout.md), [upstream corpus](tools/upstream-corpus.md), [benchmarks and profiling](tools/benchmarks.md), [performance gate](tools/perf-gate.md), [LLVM setup](tools/llvm-setup.md), [releases](tools/releases.md), [release smoke tests](tools/release-smoke.md), [license](license.md).
+[Development](tools/development.md) (Justfile, CI, hooks, dependency policy), [testing](tools/testing.md), [diagnostic coverage](tools/diagnostic-coverage.md), [determinism checks](tools/determinism.md), [coverage](tools/coverage.md), [Rust code coverage](tools/rust-coverage.md), [language server typing sessions](tools/lsp-fuzzing.md), [stdlib fuzzing](tools/stdlib-fuzzing.md), [sanitizers and Miri](tools/sanitizers.md), [mutation testing](tools/mutation-testing.md), [tools/ layout](tools/tools-layout.md), [upstream corpus](tools/upstream-corpus.md), [benchmarks and profiling](tools/benchmarks.md), [stdlib benchmarks](tools/stdlib-benchmarks.md), [performance gate](tools/perf-gate.md), [LLVM setup](tools/llvm-setup.md), [releases](tools/releases.md), [release smoke tests](tools/release-smoke.md), [license](license.md).
 
 ## Specifications
 
