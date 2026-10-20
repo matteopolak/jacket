@@ -164,6 +164,17 @@ impl Compiler {
             }
             Some(Resolved::Library(_)) => format!("{name} :: #library"),
             Some(Resolved::PolyStruct(_)) => format!("{name} :: struct (polymorphic)"),
+            // A constant whose `#run` failed still has the type the run returns.
+            None if let EntityKind::Decl {
+                decl, ..
+            } = &self.entity(id).kind
+                && decl.kind == ast::DeclKind::Const
+                && let Some(value) = decl.value.clone()
+                && let home = self.entity(id).home
+                && let Some(t) = self.failed_run_type(home, &value, 8) =>
+            {
+                format!("{name} :: {}", self.types.name(t))
+            }
             None => format!(
                 "{name}: {}",
                 self.types.name(ty.unwrap_or(TypeId::COMPILE_TIME))

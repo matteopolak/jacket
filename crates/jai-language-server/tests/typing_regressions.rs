@@ -428,6 +428,18 @@ fn a_member_of_a_constant_whose_run_fails_is_still_a_field() {
             .find(|t| t.position.line == 5 && t.position.character == 30)
             .expect("a token for `data`");
         assert_eq!(token.kind, SemanticTokenKind::Property);
+        for line in [3, 4] {
+            let at = Position {
+                line,
+                character: 0,
+            };
+            let hover = session.hover(&uri(), at).unwrap().expect("a hover");
+            assert!(
+                hover.contents.value.contains(":: Pair"),
+                "{}",
+                hover.contents.value
+            );
+        }
     });
 }
 

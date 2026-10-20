@@ -230,7 +230,7 @@ impl Compiler {
 
     /// The type a constant named by `expr` would have if its `#run` had not failed, following
     /// constants that alias it (`alias :: registered;`) up to `depth` steps. Editor only.
-    pub(in crate::sema) fn failed_run_type(
+    pub(crate) fn failed_run_type(
         &mut self,
         scope: ScopeId,
         expr: &ast::Expr,
