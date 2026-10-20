@@ -27,7 +27,7 @@ decimal exponent `q`, so the value is `w * 10^q`, and tries in order:
    `numeric-conversion.jai`.
 
 Every step either returns the correctly rounded bits or declines, so adding or removing a step never
-changes a result, only its cost. Short decimals cost about 250 instructions per call against tens of
+changes a result, only its cost. Short decimals cost about 240 instructions per call against tens of
 thousands on the big-integer path.
 
 ## Formatting
@@ -54,12 +54,19 @@ When `fast_float_text` declines (precision past 27 fraction digits or 19 signifi
 large or very small magnitudes), `portable_float` builds the full exact decimal expansion.
 
 Shortest mode (`shortest_text`) bisects on the digit count for the smallest `g` precision whose text
-parses back to the same value; normal powers of two also try the rounded-up text, because their
-interval below is half the size of the one above. Candidates are formatted into stack buffers and
-checked with the fast parser; each costs roughly 1,300 instructions.
+reads back as the same value; normal powers of two also try the rounded-up text, because their
+interval below is half the size of the one above. `digits_read_back` answers each try without
+writing or parsing text: with the value as `m * 2^b`, it scales the candidate digits and the
+rounding interval (`4m - 2` to `4m + 2` in units of `2^(b-2)`, or from `4m - 1` for a normal power
+of two) to one integer scale, after dividing out the shared powers of two and five, and checks that the candidate lies inside (ends
+included when `m` is even). `float32` values use their own `float32` interval. When the scaled
+numbers would not fit in 128 bits the try falls back to formatting the text and parsing it.
+
+`emit_float` patches the decimal and exponent characters into the text in place and appends it in
+one or two calls; only thousands separators fall back to appending byte by byte.
 
 Rough costs per call at `-O2` (including `print_to_builder`): `formatFloat(x, trailing_width = 3)`
-about 1,050 instructions, default `print("%", x)` about 1,200, shortest mode about 6,600.
+about 800 instructions, default `print("%", x)` about 900, shortest mode about 3,100.
 
 ## How to change formatting
 
@@ -69,6 +76,8 @@ about 1,050 instructions, default `print("%", x)` about 1,200, shortest mode abo
   from -1 to 30 in each mode, for `float64` and `float32`.
 - Raising the limits needs wider arithmetic: `FIVE_POWERS` stops at `5^27` because `m * 5^27` must
   stay under 2^117, and the `10^significant` limit table stops at `10^19`.
+- `digits_read_back` must agree with what the parser returns for the candidate text, or answer
+  `known = false`. Check shortest output against format-then-parse on the same bit patterns.
 - `stdlib/Basic/tests/format-floats.jai` holds the edge cases.
 
 ## How to change parsing
