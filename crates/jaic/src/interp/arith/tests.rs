@@ -292,6 +292,10 @@ fn comparisons_ignore_bits_above_the_width() {
 }
 
 #[test]
+#[allow(
+    clippy::float_cmp,
+    reason = "the test compares the interpreter with the host's exact IEEE comparisons"
+)]
 fn float_comparisons_follow_ieee_including_nan() {
     let values = [0.0f64, -0.0, 1.0, -2.5, f64::INFINITY, f64::NAN];
     for &a in &values {
@@ -453,7 +457,7 @@ fn float_width_changes_round_to_the_target() {
         0.0f64,
         -0.0,
         1.5,
-        3.141592653589793,
+        std::f64::consts::PI,
         1e300,
         f64::NAN,
         f64::INFINITY,
