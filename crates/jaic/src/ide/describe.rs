@@ -49,10 +49,13 @@ impl Compiler {
         )
     }
 
-    pub(super) fn ide_type_hover(&self, name: &str, t: TypeId) -> String {
+    pub(super) fn ide_type_hover(&mut self, name: &str, t: TypeId) -> String {
         match self.types.kind(t) {
             TypeKind::Struct(s) => {
-                let info = self.types.struct_info(*s);
+                // A polymorphic instance may not have its fields yet when nothing has used it.
+                let s = *s;
+                self.ide_laid_out(t);
+                let info = self.types.struct_info(s);
                 let fields: Vec<String> = info
                     .fields
                     .iter()

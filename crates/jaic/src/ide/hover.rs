@@ -108,7 +108,8 @@ impl Compiler {
             )
             && let Some(&Some(t)) = self.ed.facts()?.instances.get(&r.span)
         {
-            let text = self.ide_type_hover(&self.types.name(t), t);
+            let name = self.types.name(t);
+            let text = self.ide_type_hover(&name, t);
             let layout = if same {
                 self.ide_type_layout(t)
             } else {
@@ -237,7 +238,7 @@ impl Compiler {
     }
 
     /// Lay out what a hover describes (the program may not have needed its layout).
-    fn ide_laid_out(&mut self, t: TypeId) -> bool {
+    pub(super) fn ide_laid_out(&mut self, t: TypeId) -> bool {
         let span = Span {
             file: FileId(0),
             start: 0,

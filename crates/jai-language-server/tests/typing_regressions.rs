@@ -458,3 +458,23 @@ fn the_branches_of_an_if_whose_condition_fails_keep_their_tokens() {
         }
     });
 }
+
+#[test]
+fn an_instance_nothing_else_uses_hovers_with_its_fields_the_first_time() {
+    on_big_stack(|| {
+        let source = "Box :: struct (T: Type) { item: T; extra: int; }\n#assert Box(u8) != Box(s8);\nmain :: () {}\n";
+        let session = open(source);
+        let at = Position {
+            line: 1,
+            character: 9,
+        };
+        let first = session.hover(&uri(), at).unwrap().expect("a hover");
+        let second = session.hover(&uri(), at).unwrap().expect("a hover");
+        assert!(
+            first.contents.value.contains("item: u8;"),
+            "{}",
+            first.contents.value
+        );
+        assert_eq!(first.contents.value, second.contents.value);
+    });
+}
