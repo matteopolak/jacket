@@ -48,7 +48,6 @@ fn module_parameters_are_rejected_in_a_loaded_program_file() {
         .compile_sources(&[ProgramSource::String(
             "#load \"/p/params.jai\";\nmain :: () {}\n".into(),
         )])
-        .map(|_| ())
         .map_err(|error| error.render(&compiler.sources))
         .unwrap_err();
     assert!(error.contains("top level of an imported module"), "{error}");

@@ -139,7 +139,7 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
             ("Always,", 1, SemanticTokenKind::EnumMember),
         ] {
             let offset = text.match_indices(name).nth(n).unwrap().0;
-            let at = |offset: usize| position(&text, offset);
+            let at = |offset: usize| position(text, offset);
             let position = at(offset);
             // Inside the name, not only on its first character.
             let found = s.definition(&uri, at(offset + 3)).unwrap();

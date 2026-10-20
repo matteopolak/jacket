@@ -64,24 +64,22 @@ impl Interp {
         let placed = size_align
             .filter(|_| global.read_only)
             .and_then(|(size, align)| self.read_only.place(size, align));
-        let mem = match placed {
-            Some(addr) => GlobalMem {
+        let mem = if let Some(addr) = placed {
+            GlobalMem {
                 _storage: None,
                 addr,
-            },
-            None => {
-                let Some(storage) =
-                    size_align.and_then(|(size, align)| ZeroedBlock::new(size, align))
-                else {
-                    return self.trap(format!(
-                        "cannot allocate {} bytes for a global variable",
-                        global.size
-                    ));
-                };
-                GlobalMem {
-                    addr: storage.addr(),
-                    _storage: Some(storage),
-                }
+            }
+        } else {
+            let Some(storage) = size_align.and_then(|(size, align)| ZeroedBlock::new(size, align))
+            else {
+                return self.trap(format!(
+                    "cannot allocate {} bytes for a global variable",
+                    global.size
+                ));
+            };
+            GlobalMem {
+                addr: storage.addr(),
+                _storage: Some(storage),
             }
         };
         let addr = mem.addr;

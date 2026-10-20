@@ -17,7 +17,7 @@ fn failure(source: &str) -> String {
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     match c.compile_sources(&[ProgramSource::String(source.into())]) {
-        Ok(_) => panic!("compiled: {source}"),
+        Ok(()) => panic!("compiled: {source}"),
         Err(error) => error.render(&c.sources),
     }
 }

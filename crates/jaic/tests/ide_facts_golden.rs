@@ -65,7 +65,7 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
             .find(|ch: char| !ch.is_ascii_digit())
             .unwrap_or(digits.len());
         if len == 0 || !digits[len..].starts_with(')') {
-            out.push_str(&rest[..at + kind.len() + 1]);
+            out.push_str(&rest[..=at + kind.len()]);
             rest = digits;
             continue;
         }

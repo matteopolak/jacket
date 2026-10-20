@@ -60,7 +60,7 @@ impl ReadOnlyData {
         }
         let start = self.used.checked_next_multiple_of(align)?;
         let end = start.checked_add(size.max(1))?;
-        if end > RESERVE || (self.base + start) % align != 0 {
+        if end > RESERVE || !(self.base + start).is_multiple_of(align) {
             return None;
         }
         if end > self.committed {
