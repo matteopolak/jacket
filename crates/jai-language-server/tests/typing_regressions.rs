@@ -478,3 +478,21 @@ fn an_instance_nothing_else_uses_hovers_with_its_fields_the_first_time() {
         assert_eq!(first.contents.value, second.contents.value);
     });
 }
+
+#[test]
+fn a_binder_keeps_its_layout_while_its_instance_body_is_half_typed() {
+    on_big_stack(|| {
+        let source = "Set :: struct { count: u32; items: [4] u64; }\nadd :: (fd: u64, set: *$T) {\n    x := 1;\n    _\n}\nmain :: () { s: Set; add(1, *s); }\n";
+        let session = open(source);
+        let at = Position {
+            line: 1,
+            character: 25,
+        };
+        let hover = session.hover(&uri(), at).unwrap().expect("a hover");
+        assert!(
+            hover.contents.value.contains("size 40, align 8"),
+            "{}",
+            hover.contents.value
+        );
+    });
+}

@@ -33,7 +33,13 @@ impl Compiler {
     /// The innermost recorded name at `offset` of `file`, and whether every record of that
     /// exact span agrees (a polymorphic body is checked once per instance).
     fn ide_hover_ref(&self, file: FileId, offset: u32) -> Option<(IdeRef, bool)> {
-        let here = self.ed.facts()?.refs_at(file, offset);
+        let facts = self.ed.facts()?;
+        let mut here = facts.refs_at(file, offset);
+        // A polymorph whose instances failed is also sketched with stand-in types: what an
+        // instance recorded is what the program means.
+        if here.iter().any(|r| !facts.sketched(r)) {
+            here.retain(|r| !facts.sketched(r));
+        }
         let r = here
             .iter()
             .copied()

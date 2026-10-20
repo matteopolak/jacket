@@ -245,6 +245,15 @@ pub struct IdeCast {
 }
 
 impl IdeFacts {
+    /// Whether `r` (one of `refs`) was recorded by a sketch, with stand-in types.
+    pub fn sketched(&self, r: &IdeRef) -> bool {
+        self.sketch_from.as_ref().is_some_and(|mark| {
+            self.refs
+                .get(mark.refs..)
+                .is_some_and(|tail| tail.as_ptr_range().contains(&std::ptr::from_ref(r)))
+        })
+    }
+
     /// The references whose span holds `offset` in `file`, in the order they were recorded.
     pub fn refs_at(&self, file: FileId, offset: u32) -> Vec<&IdeRef> {
         let mut index = self.by_position.borrow_mut();
