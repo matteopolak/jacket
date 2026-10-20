@@ -3645,6 +3645,19 @@
       "negative": {
         "check": "Can't assign to an immutable argument"
       }
+    },
+    {
+      "id": "complete-on-integer",
+      "source": "negative/complete-on-integer.jai",
+      "sha256": "c0e28d96e541a679d0df8415a04ae28ce00582819501966f250c0c3727276c58",
+      "suite": "negative",
+      "feature": "#complete only applies to an if-== on an enum",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#complete only applies to 'if' on enum types."
+      }
     }
   ]
 }

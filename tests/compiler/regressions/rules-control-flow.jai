@@ -252,7 +252,7 @@ main :: () {
 
     assert(name == "blue", "alias covers RED");
 
-    // flow.17: #complete on enum_flags or a non-enum is not checked.
+    // flow.17: #complete on enum_flags is not checked.
     fb := Bits.B;
     flag_hit := false;
 
@@ -261,12 +261,6 @@ main :: () {
     }
 
     assert(flag_hit, "#complete on enum_flags");
-    q := 3;
-    if #complete q == {
-        case 3; q = 4;
-    }
-
-    assert(q == 4, "#complete on an int");
 
     // flow.18: a constant switch value still needs every member.
     CONST_HUE :: Hue.RED;

@@ -3,7 +3,7 @@ use crate::ir::{CmpOp, Ty};
 use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, Result, ScopeId, Span, TypeId, Value, ast, ir,
+    Compiler, Diagnostic, DiagnosticKind, Result, ScopeId, Span, TypeId, Value, ast, err, ir,
 };
 use crate::types::TypeKind;
 
@@ -413,7 +413,7 @@ impl TypeState {
     /// not. Flag enums and non-enum values are not checked.
     fn check_switch_complete(&self, ty: TypeId, covered: &[i128], span: Span) -> Result<()> {
         let TypeKind::Enum(id) = *self.types.kind(ty) else {
-            return Ok(());
+            return err(span, "#complete only applies to 'if' on enum types.");
         };
         let info = &self.types.enums[id.0 as usize];
         if info.is_flags {
