@@ -34,7 +34,7 @@ main :: () {
 
     for address: 100..119 {
         mapping, ok := D.get_line_mapping_for_address(info, cast(u64) address);
-        expected: u32 = ifx address < 104 then 1 else ifx address < 110 then 3 else 4;
+        expected: u32 = xx ifx address < 104 then 1 else ifx address < 110 then 3 else 4;
         assert(ok && mapping.line == expected && !mapping.is_end && mapping.file_id == 1);
     }
 
