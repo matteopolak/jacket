@@ -3658,6 +3658,32 @@
       "negative": {
         "check": "#complete only applies to 'if' on enum types."
       }
+    },
+    {
+      "id": "if-case-struct-value",
+      "source": "negative/if-case-struct-value.jai",
+      "sha256": "0b475eaf08019616453e9cdaefe51a07cafb40407864006ee51fdc89a67f89b7",
+      "suite": "negative",
+      "feature": "An if-== cannot switch on a struct",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "'if ==' statements do not support struct or array types at this time."
+      }
+    },
+    {
+      "id": "if-case-array-value",
+      "source": "negative/if-case-array-value.jai",
+      "sha256": "6903d2f4ed8e524cb46a0ca0cf33273491ed508b96eb55e53621eddc816b822e",
+      "suite": "negative",
+      "feature": "An if-== cannot switch on an array",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "'if ==' statements do not support struct or array types at this time."
+      }
     }
   ]
 }

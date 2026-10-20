@@ -182,6 +182,12 @@ impl Compiler {
         }
         let v = self.settle_untyped(v, None);
         let vty = v.ty();
+        if vty != TypeId::STRING && self.is_memory_type(vty) {
+            return err(
+                value.span,
+                "'if ==' statements do not support struct or array types at this time.",
+            );
+        }
         let (_, val) = self.rvalue(f, v, value.span)?;
         let done = f.b.new_block();
         let bodies: Vec<ir::BlockId> = cases.iter().map(|_| f.b.new_block()).collect();
