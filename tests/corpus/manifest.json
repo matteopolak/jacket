@@ -3788,6 +3788,422 @@
       "negative": {
         "check": "Redeclaration: 'load-twice-support.jai' is already loaded into this module."
       }
+    },
+    {
+      "id": "complete-switch-missing-member",
+      "source": "negative/complete-switch-missing-member.jai",
+      "sha256": "49aa89bc894c73fedfc7743fa4894d8db4aa75aad3599f1e113d228f3949b482",
+      "suite": "negative",
+      "feature": "An if #complete over an enum must name every member",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "#complete switch on E has no case for .C"
+      }
+    },
+    {
+      "id": "narrow-integer-variable",
+      "source": "negative/narrow-integer-variable.jai",
+      "sha256": "af58eb9e5a517fda65ccdd2ffed5b5e1fd31531c2ddfa9c67ddf1a70c9068709",
+      "suite": "negative",
+      "feature": "A variable of a wider integer type does not convert to u8 without a cast",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type mismatch: expected `u8`, found `s64`"
+      }
+    },
+    {
+      "id": "local-procedure-outer-variable",
+      "source": "negative/local-procedure-outer-variable.jai",
+      "sha256": "55865445386d174803d817b5d90a4ad87fb47a2ee2086ffb44fb97630b726337",
+      "suite": "negative",
+      "feature": "A local procedure cannot read a variable of the procedure around it",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot access local `val` of an enclosing procedure"
+      }
+    },
+    {
+      "id": "local-procedure-out-of-scope",
+      "source": "negative/local-procedure-out-of-scope.jai",
+      "sha256": "766bcc6ca753da73146afdf35bc5121e4bde5a7234f7d8743b6afd84144f07ba",
+      "suite": "negative",
+      "feature": "A local procedure is invisible outside its enclosing procedure",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier `cube`"
+      }
+    },
+    {
+      "id": "call-missing-argument",
+      "source": "negative/call-missing-argument.jai",
+      "sha256": "67faa064a473e3b2f7c5201ad505985a0e4c53d21171ca590df3f63052a79bdf",
+      "suite": "negative",
+      "feature": "A call must supply every argument that has no default",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "in call to `f`: missing argument for parameter `b`"
+      }
+    },
+    {
+      "id": "float-parameter-from-integer",
+      "source": "negative/float-parameter-from-integer.jai",
+      "sha256": "395570d6fb993bc8f9181c350c8a886f059fdaf050b63acdad23dcadfc02e9ca",
+      "suite": "negative",
+      "feature": "An integer argument does not convert to a float parameter without xx or a cast",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "in call to `set_opacity`: argument of type `s64` does not match parameter type `float32`"
+      }
+    },
+    {
+      "id": "struct-literal-unknown-member",
+      "source": "negative/struct-literal-unknown-member.jai",
+      "sha256": "737f196981cfe27f46e251a57741cf89a421275fe96bf354a95a33491aa64029",
+      "suite": "negative",
+      "feature": "A named struct literal can only set members the struct has",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type `Color` has no member `x`"
+      }
+    },
+    {
+      "id": "polymorphic-literal-without-type",
+      "source": "negative/polymorphic-literal-without-type.jai",
+      "sha256": "f2a703f929901db9fffb96fee0734e97beca058f6ba512309966aa4672f27553",
+      "suite": "negative",
+      "feature": "An untyped struct literal cannot bind a polymorphic parameter",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "in call to `check`: could not infer polymorphic type `$T`"
+      }
+    },
+    {
+      "id": "struct-conversion-without-as",
+      "source": "negative/struct-conversion-without-as.jai",
+      "sha256": "bc902613e06a1bc91025664d00ab0b865a7955098ebde0e313f5bd918e14db1e",
+      "suite": "negative",
+      "feature": "A using field converts its outer struct implicitly only when marked #as",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type mismatch: expected `Vehicle`, found `Moto`"
+      }
+    },
+    {
+      "id": "redeclared-constant",
+      "source": "negative/redeclared-constant.jai",
+      "sha256": "91fda88ad4ab26692edb60e57c32ddf7c9ced5db95e28cf212afb724452e7d28",
+      "suite": "negative",
+      "feature": "A scope declares a name once",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`number` is already declared in this scope"
+      }
+    },
+    {
+      "id": "redeclared-local",
+      "source": "negative/redeclared-local.jai",
+      "sha256": "e1ca40664436681d774854edd25d576bd7c065f49b6bffa4939d54b990e3ffde",
+      "suite": "negative",
+      "feature": "A block declares a local once",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`x` is already declared in this scope"
+      }
+    },
+    {
+      "id": "remove-outside-loop",
+      "source": "negative/remove-outside-loop.jai",
+      "sha256": "bf4a2b667cbf58556b22891dd9cf3b039139d2fff8a1792b8fd0a45b5934c083",
+      "suite": "negative",
+      "feature": "remove belongs inside a for loop",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "remove outside of a for loop"
+      }
+    },
+    {
+      "id": "remove-in-while-loop",
+      "source": "negative/remove-in-while-loop.jai",
+      "sha256": "425de7739d68d77d7f0c67a5230a9c4c087cb9361eaf5092e4a8a651aec72531",
+      "suite": "negative",
+      "feature": "remove does not apply to a while loop",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "remove needs a for loop over an array, not a while loop"
+      }
+    },
+    {
+      "id": "remove-from-fixed-array",
+      "source": "negative/remove-from-fixed-array.jai",
+      "sha256": "48b18b75a892c7e173d480c244d2d713381ab98fb8cc60c7b4fd811d0ba4e5c8",
+      "suite": "negative",
+      "feature": "A fixed array cannot shrink, so remove over one is an error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "remove cannot shrink the fixed-size array `[3] s64`; loop over a resizable array (`[..] s64`) or an array view (`[] s64`) to remove elements"
+      }
+    },
+    {
+      "id": "remove-over-range",
+      "source": "negative/remove-over-range.jai",
+      "sha256": "bc682a665504fa25160f9c7eb5e176e615b23e5c114c3ca4ceab28fdc2f28ac7",
+      "suite": "negative",
+      "feature": "A numeric range has no elements to remove",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "remove needs a for loop over an array, not a range of numbers"
+      }
+    },
+    {
+      "id": "break-outside-loop",
+      "source": "negative/break-outside-loop.jai",
+      "sha256": "834e2c1c78b1335cd7711dc07653c54ece1accec60e6725f8f1ca09f1785a16c",
+      "suite": "negative",
+      "feature": "break needs an enclosing loop",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "break outside of a loop"
+      }
+    },
+    {
+      "id": "continue-unknown-loop-name",
+      "source": "negative/continue-unknown-loop-name.jai",
+      "sha256": "c84e20f08fb57a368bf70f05a0f6a20229bdbe3c9655d94b6a253e6f536eef70",
+      "suite": "negative",
+      "feature": "continue can only name an enclosing loop",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "continue: no enclosing loop named `nowhere`"
+      }
+    },
+    {
+      "id": "string-variable-to-c-string",
+      "source": "negative/string-variable-to-c-string.jai",
+      "sha256": "a0b7a779b8357d96ca77469b1dd92b1da91f12245a2675d9e84fa7d8c7af6e39",
+      "suite": "negative",
+      "feature": "Only a string constant converts to *u8; a variable needs to_c_string",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "in call to `strlen`: argument of type `string` does not match parameter type `*u8`"
+      }
+    },
+    {
+      "id": "polymorphic-struct-without-arguments",
+      "source": "negative/polymorphic-struct-without-arguments.jai",
+      "sha256": "153f54143b0dc3a61436d7d47d0a5983420205e56f228274f50a27d8930e2ec6",
+      "suite": "negative",
+      "feature": "A polymorphic struct is not a type until it is given its arguments",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "expected a type, found a polymorphic struct"
+      }
+    },
+    {
+      "id": "polymorphic-parameter-pattern-mismatch",
+      "source": "negative/polymorphic-parameter-pattern-mismatch.jai",
+      "sha256": "0e93ecc5aa7c7b0b8701b725abb9a5a9105640a6c1617ed19f6e5e4ad5797ce0",
+      "suite": "negative",
+      "feature": "A parameter pattern with a fixed argument rejects other instantiations",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "in call to `proc_pair`: argument of type `Box(s64, 5)` does not match parameter type `Box(s64, 2)`"
+      }
+    },
+    {
+      "id": "struct-parameter-type-mismatch",
+      "source": "negative/struct-parameter-type-mismatch.jai",
+      "sha256": "d3a92e39c429ff743892371da71d2e25c1f23040d637f497e3e911c9f3564047",
+      "suite": "negative",
+      "feature": "A concrete instantiation parameter rejects other instantiations",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "in call to `proc_exact`: argument of type `Box(float32, 2)` does not match parameter type `Box(s64, 2)`"
+      }
+    },
+    {
+      "id": "interface-restriction-missing-field",
+      "source": "negative/interface-restriction-missing-field.jai",
+      "sha256": "febbda33da41471682002e8198f46ab26446d01ba78b2ab4cee4e913f5f32079",
+      "suite": "negative",
+      "feature": "$T/interface S rejects a struct that lacks one of S's fields",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "in call to `greet`: Other does not satisfy interface Named: missing or incompatible field `name`"
+      }
+    },
+    {
+      "id": "import-name-with-extension",
+      "source": "negative/import-name-with-extension.jai",
+      "sha256": "666b32bee22a0613f3e25b26dd072ed5e34aa04fed6cfa82190f3a34618c1a67",
+      "suite": "negative",
+      "feature": "#import takes a module name, not a file name",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "module `Basic.jai` not found"
+      }
+    },
+    {
+      "id": "assign-to-literal-constant",
+      "source": "negative/assign-to-literal-constant.jai",
+      "sha256": "e40cf857f64ec4e466020364e006fad5817350a992c8af18b6e113c7623c848b",
+      "suite": "negative",
+      "feature": "A constant cannot be assigned",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot assign to constant 5 of type s64"
+      }
+    },
+    {
+      "id": "return-fewer-values-than-declared",
+      "source": "negative/return-fewer-values-than-declared.jai",
+      "sha256": "7ecf0ed51d3c7a86c30e2f5f1c9e971417ebe9856a50074dee1ffa1551235c16",
+      "suite": "negative",
+      "feature": "A return supplies every declared result",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "missing return value 2 of 2"
+      }
+    },
+    {
+      "id": "block-local-out-of-scope",
+      "source": "negative/block-local-out-of-scope.jai",
+      "sha256": "2907c34c1b9d5031c04ea50e68d1115ca7a9ac0c69737d2f9e9bff3c672b174b",
+      "suite": "negative",
+      "feature": "A local ends with the block that declares it",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unknown identifier `inner`"
+      }
+    },
+    {
+      "id": "array-negative-size",
+      "source": "negative/array-negative-size.jai",
+      "sha256": "64a9cc50c7dc7b27ca553916c9c107505d4a5ad5168bc76bf217b69016d7bd28",
+      "suite": "negative",
+      "feature": "A fixed array's size cannot be negative",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "array size must be a non-negative constant, found constant -1 of type s64"
+      }
+    },
+    {
+      "id": "union-unknown-member",
+      "source": "negative/union-unknown-member.jai",
+      "sha256": "a8748ffa275a0d86d27ba36aba06ca52c5ed3c02bbf0fbaa1c967b4121e4de94",
+      "suite": "negative",
+      "feature": "A union only has the members it declares",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type `U` has no member `c`"
+      }
+    },
+    {
+      "id": "dereference-non-pointer",
+      "source": "negative/dereference-non-pointer.jai",
+      "sha256": "84e588ffc8cfacfa64046b76b9813fb0622af41cdc5d32945b5b55ecde6e0b85",
+      "suite": "negative",
+      "feature": "Only a pointer can be dereferenced with .*",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot dereference a value of type s64"
+      }
+    },
+    {
+      "id": "context-unknown-member",
+      "source": "negative/context-unknown-member.jai",
+      "sha256": "6aab964e7c6253e8b388ab2178b70616a28882ad8ac3d46a1841f6b14060c82d",
+      "suite": "negative",
+      "feature": "The context has only its declared members",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "type `Context` has no member `not_a_field`"
+      }
+    },
+    {
+      "id": "c-call-without-context",
+      "source": "negative/c-call-without-context.jai",
+      "sha256": "81c8a3ef64494115c64c6f9a8bd8ce64365c1e4ffe0fd5192b8a9fc802c17596",
+      "suite": "negative",
+      "feature": "A #c_call procedure has no context, so it cannot call print",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot call `print` without a context (use push_context in #c_call code)"
+      }
+    },
+    {
+      "id": "lambda-captures-local",
+      "source": "negative/lambda-captures-local.jai",
+      "sha256": "8c3d038b887066edf0e143180fa9f2b33a3b65f6c549c0990d6053c2631f7e58",
+      "suite": "negative",
+      "feature": "A lambda cannot read a local of the procedure around it",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cannot access local `k` of an enclosing procedure"
+      }
     }
   ]
 }
