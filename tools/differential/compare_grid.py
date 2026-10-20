@@ -197,7 +197,7 @@ FORMS: tuple[Form, ...] = (
     Form('polymorphic_pair', 'f :: (x: $T, y: T) -> s32 { return 1; }', 'f(@ARG@, @ARG@)'),
     Form('polymorphic_default', 'f :: (x: $T = 5) -> s32 { return 1; }'),
     Form('two_polymorphic', 'f :: (x: $T) -> s32 { return 1; }\nf :: (x: $U) -> s32 { return 2; }'),
-    Form('constant_parameter', 'f :: ($N: s32) -> s32 { return N * 2; }', skip=('string',)),
+    Form('constant_parameter', 'f :: ($N: s32) -> s32 { return N * 2; }'),
 )
 
 ARGS: tuple[tuple[str, str], ...] = (

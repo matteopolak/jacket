@@ -25,6 +25,7 @@ with_b  :: #bake_arguments add3(b = 5);          // with_b(1, 2) == 152
 IntPair :: #bake_arguments Pair(T = int);        // Pair :: struct ($T: Type, $N: int)
 ```
 
+- A constant parameter with a declared bool, number or enum type (`$N: s32`) takes its argument as a runtime parameter does: the argument must convert to that type, so `f(true)` or `f("x")` is an error (`infer_baked_param`).
 - Struct parameters can bind variables inside their type (`struct (x: [$N] $T)`; `match_pattern` in `instantiate_struct`) and may be variadic (`struct(types: ..Type)`, as `Tagged_Union` is); the whole list keys the instance.
 - `$T/Entity` matches `Entity` or a struct with it as an `#as` base (`has_as_base`); a failed match lets other overloads win. A parameter typed with a bare polymorphic struct (`r: *Reflector`) is polymorphic and accepts any instance, including a struct holding one as an `#as` member.
 - `$$x` is baked when the argument (or default) is constant, else stays a runtime parameter, so `#if x` works in the body.

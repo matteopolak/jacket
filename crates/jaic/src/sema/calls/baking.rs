@@ -261,4 +261,14 @@ impl Compiler {
         view.bytes[..8].copy_from_slice(&count.to_le_bytes());
         Ok(Value::Bytes(Rc::new(view)))
     }
+
+    /// Whether a constant of `ty` is a bool, integer, float or enum value, which the argument
+    /// of a constant parameter must convert to.
+    pub(super) fn is_scalar_constant_type(&self, ty: TypeId) -> bool {
+        let repr = self.ty.types.repr(ty);
+        repr == TypeId::BOOL
+            || self.ty.types.is_integer(repr)
+            || self.ty.types.is_float(repr)
+            || matches!(self.ty.types.kind(repr), crate::types::TypeKind::Enum(_))
+    }
 }

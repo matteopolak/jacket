@@ -187,6 +187,34 @@ impl Compiler {
                 | Operand::Type(_) => op_ty,
                 _ => TypeId::VOID,
             };
+            // A number-typed constant parameter takes its argument as a normal parameter does:
+            // converted to the declared type, or rejected.
+            let scalar_declared = match &param.ty {
+                Some(t) if !procs::has_poly(t) => self
+                    .eval_type(def_scope, t)
+                    .ok()
+                    .filter(|&dt| self.is_scalar_constant_type(dt)),
+                _ => None,
+            };
+            let op = match (scalar_declared, &op) {
+                (
+                    Some(dt),
+                    Operand::Const {
+                        ..
+                    },
+                ) => {
+                    if arg.op.is_some() {
+                        self.arg_cost(arg, dt, false)?;
+                    }
+                    let value = self.const_value_of_operand(arg.scope, op.clone(), dt, arg.span)?;
+                    Operand::Const {
+                        ty: dt,
+                        value,
+                        untyped: false,
+                    }
+                }
+                _ => op,
+            };
             let value = match op {
                 Operand::Type(t) => Value::Type(t),
                 Operand::Const {
