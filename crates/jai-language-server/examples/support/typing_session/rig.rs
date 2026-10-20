@@ -2,9 +2,9 @@
 
 use super::{
     Choices, Clock, Config, Diagnostic, DocumentUri, History, Hover, Input, Limits, Location,
-    Position, Query, Range, Report, SemanticToken, Session, Snapshot, Step, TextChange, answer,
-    any_omits_literal, balanced, byte_of, identifier_starts, omits_literal, pos_of, probe_at,
-    sanity, snapshot_difference, sorted_debug, stale_damage, usage_lint,
+    Position, Probe, Query, Range, Report, SemanticToken, Session, Snapshot, Step, TextChange,
+    answer, any_omits_literal, balanced, byte_of, identifier_starts, omits_literal, pos_of,
+    probe_at, sanity, snapshot_difference, sorted_debug, stale_damage, usage_lint,
 };
 
 /// A byte range of the document that edits stay inside: `start` and `orig_end` in the original
@@ -528,7 +528,8 @@ impl<'a, C: Choices> Rig<'a, C> {
                 continue;
             };
             let now = probe_at(&mut self.clock, &self.session, &uri, &text, byte);
-            if now.definition.as_ref() != Ok(&expected) {
+            if now.definition.as_ref() != Ok(&expected) && !self.fresh_probe_agrees(doc, byte, &now)
+            {
                 found = Some(format!(
                     "definition at {:?} (was {:?}) changed:\n  baseline {:?}\n  now      {:?}",
                     now.position, probe.position, expected, now.definition
@@ -588,6 +589,7 @@ impl<'a, C: Choices> Rig<'a, C> {
             };
             if let Some(expected_hover) = comparable
                 && differs(&expected_hover, &now.hover)
+                && !self.fresh_probe_agrees(doc, byte, &now)
             {
                 found = Some(format!(
                     "hover at {:?} (was {:?}) changed:\n  baseline {:?}\n  now      {:?}",
@@ -708,6 +710,23 @@ impl<'a, C: Choices> Rig<'a, C> {
         }
         let _ = text;
         None
+    }
+
+    /// Whether a session opened on the current texts, asked what this one was, answers the
+    /// definition and hover at `byte` as `now`: the edit changed them legitimately (removing
+    /// the only call of a polymorph leaves only its sketch to describe it).
+    fn fresh_probe_agrees(&self, doc: usize, byte: usize, now: &Probe) -> bool {
+        let texts: Vec<String> = self.docs.iter().map(|d| d.text.clone()).collect();
+        let Ok(fresh) = Self::open_session(self.input, &texts) else {
+            return false;
+        };
+        for query in &self.clock.log {
+            query.execute(&fresh);
+        }
+        let (uri, text) = (&self.docs[doc].uri, &self.docs[doc].text);
+        let position = pos_of(text, byte);
+        answer(fresh.definition(uri, position)) == now.definition
+            && answer(fresh.hover(uri, position)) == now.hover
     }
 
     /// Whether a session opened on the current texts reports `actual` outside the region.

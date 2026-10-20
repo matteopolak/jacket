@@ -49,8 +49,8 @@ use clock::Clock;
 use rig::{Rig, here_strings};
 pub use snapshot::Query;
 use snapshot::{
-    Snapshot, answer, any_omits_literal, omits_literal, probe_at, sanity, snapshot_difference,
-    sorted_debug, stale_damage, usage_lint,
+    Probe, Snapshot, answer, any_omits_literal, omits_literal, probe_at, sanity,
+    snapshot_difference, sorted_debug, stale_damage, usage_lint,
 };
 use text::{balanced, byte_of, identifier_starts, pos_of};
 
