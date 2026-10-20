@@ -515,3 +515,19 @@ fn a_field_of_a_constant_whose_run_fails_keeps_its_layout_and_members() {
         );
     });
 }
+
+#[test]
+fn a_polymorph_parameter_hovers_with_every_instance_type_in_a_fixed_order() {
+    on_big_stack(|| {
+        for calls in ["f(cast(s8) 1); f(null);", "f(null); f(cast(s8) 1);"] {
+            let source = format!("f :: (value: $T) {{ x := value; }}\nmain :: () {{ {calls} }}\n");
+            let session = open(&source);
+            let at = Position {
+                line: 0,
+                character: 7,
+            };
+            let hover = session.hover(&uri(), at).unwrap().expect("a hover");
+            assert_eq!(hover.contents.value, "value: *void\nvalue: s8", "{source}");
+        }
+    });
+}

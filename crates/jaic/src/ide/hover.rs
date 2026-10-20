@@ -50,6 +50,23 @@ impl Compiler {
         Some((r.clone(), same))
     }
 
+    /// The names of the types the locals declared where `r` is (one per instance of a
+    /// polymorph) have, sorted and without repeats.
+    fn ide_local_types(&self, file: FileId, offset: u32, r: &IdeRef) -> Vec<String> {
+        let Some(facts) = self.ed.facts() else {
+            return Vec::new();
+        };
+        let mut names: Vec<String> = facts
+            .refs_at(file, offset)
+            .into_iter()
+            .filter(|o| o.span == r.span && !facts.sketched(o) && self.same_local(&o.what, &r.what))
+            .map(|o| self.types.name(o.ty))
+            .collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+
     /// Two locals for one declaration: a body checked again (after a statement in it failed)
     /// declares its parameters and locals afresh.
     fn same_local(&self, a: &IdeWhat, b: &IdeWhat) -> bool {
@@ -128,6 +145,20 @@ impl Compiler {
             });
         }
         let text = match &r.what {
+            // A polymorph's parameter has a type per instance: each, in an order that does not
+            // depend on which instance was checked first.
+            IdeWhat::Entity(e)
+                if !same
+                    && matches!(self.entity(*e).kind, EntityKind::Local { .. })
+                    && let types = self.ide_local_types(file, offset, &r)
+                    && types.len() > 1 =>
+            {
+                types
+                    .iter()
+                    .map(|t| format!("{name}: {t}"))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            }
             IdeWhat::Entity(e) => self.ide_entity_hover(*e, Some(r.ty)),
             IdeWhat::Member(_) => format!("{name}: {}", self.types.name(r.ty)),
             IdeWhat::Type(t) => self.ide_type_hover(&name, *t),
