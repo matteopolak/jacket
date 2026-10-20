@@ -6,7 +6,7 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
-from http.client import HTTPException
+from http.client import HTTPException, IncompleteRead
 from pathlib import Path
 
 # tools/, for folder-qualified imports
@@ -60,6 +60,11 @@ def fetch(
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 body = response.read() if max_bytes is None else response.read(max_bytes + 1)
+                # `read(amount)` does not notice a connection that closed early: compare with the header.
+                announced = response.headers.get("Content-Length", "")
+                wanted = int(announced) if announced.isdigit() else None
+                if wanted is not None and len(body) < min(wanted, (max_bytes or wanted) + 1):
+                    raise IncompleteRead(body, wanted - len(body))
             if max_bytes is not None and len(body) > max_bytes:
                 raise ValueError(f"{url}: more than {max_bytes} bytes")
             return body
