@@ -11,7 +11,7 @@ get_capabilities :: (b: Allocator) -> (caps: Allocator_Caps, name: string) {
 
 free :: (memory: *void) {
     allocator_call(context.allocator, .FREE, 0, 0, memory);
-} @Releases
+} @FreesArgument
 
 realloc :: (memory: *void, size: s64, old_size: s64) -> *void {
     assert(size >= 0 && old_size >= 0);
@@ -20,7 +20,7 @@ realloc :: (memory: *void, size: s64, old_size: s64) -> *void {
 
 free :: inline (s: string) {
     free(s.data);
-} @Releases
+} @FreesArgument
 
 alloc_string :: (count: int) -> string {
     memory := alloc(count);

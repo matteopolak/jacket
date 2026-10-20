@@ -235,7 +235,7 @@ router_free :: (router: *Router) {
     array_reset(*router.root.routes);
     array_reset(*router.root.statics);
     router.root = .{};
-} @Releases
+} @FreesArgument
 
 free_node_children :: (node: *Node) {
     for node.statics {
@@ -256,7 +256,7 @@ free_node_children :: (node: *Node) {
         array_reset(*node.rest.routes);
         free(node.rest);
     }
-} @Releases
+} @FreesArgument
 
 // The route of `node` for `method`. A HEAD request is served by the GET route when there is no
 // HEAD one.

@@ -1542,7 +1542,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `vtable :: (obj: *IUnknown) -> *IUnknown_VTable`
 - [OS == .WINDOWS] `IUnknown_UUID :: "00000000-0000-0000-C000-000000000046"`
 - [OS == .WINDOWS] `IUnknown :: struct`
-- [OS == .WINDOWS] `safe_release :: (obj: *IUnknown) @Releases`
+- [OS == .WINDOWS] `safe_release :: (obj: *IUnknown) @FreesArgument`
 - [OS == .WINDOWS] `safe_release_and_reset :: (b: **$T/interface IUnknown)`
 - [OS == .WINDOWS] `safe_release_and_reset :: (b: **IUnknown)`
 - [OS == .WINDOWS] `string_to_guid :: uid`

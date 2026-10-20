@@ -71,7 +71,7 @@ close_window :: (window: *A.NSWindow) {
     if !window return;
     void_message(window, "close");
     release(window);
-} @Releases
+} @FreesArgument
 
 attach_render_context :: (window: *A.NSWindow, native: *void) {
     Basic.assert(window != null && native != null);
@@ -193,7 +193,7 @@ autorelease_pool :: () -> *void {
 
 release :: (object: *void) {
     void_message(object, "release");
-} @Releases
+} @FreesArgument
 
 native_string :: (text: string) -> *void {
     result := O.NSString.getTempString(text);

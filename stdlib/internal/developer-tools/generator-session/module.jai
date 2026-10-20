@@ -247,7 +247,7 @@ session_close :: (session: *Session) {
     session.parse_input = null;
     session.lifecycle_owned = false;
     session.live = false;
-} @Releases
+} @FreesArgument
 
 #scope_file
 #import "Basic";

@@ -12,7 +12,7 @@
 //! ```
 //!
 //! Fires only when the deferred statement is a call of a procedure declared with the note
-//! `@Releases`: one that frees, closes or destroys what its argument holds (`free`,
+//! `@FreesArgument`: one that frees, closes or destroys what its argument holds (`free`,
 //! `array_free`, `array_reset` and the library's closers carry it; a program marks its own
 //! the same way). Other deferred statements (`level += 1`, `reset(*pool)`,
 //! `print(...)`) are deliberate per-iteration epilogues and stay quiet.
@@ -139,7 +139,7 @@ fn releases(cx: &Cx, s: &Stmt) -> bool {
         S::Expr(e) => match &e.kind {
             E::Call {
                 callee, ..
-            } => calls_noted(cx, callee, "Releases"),
+            } => calls_noted(cx, callee, "FreesArgument"),
             _ => false,
         },
         S::Block(b) => !b.stmts.is_empty() && b.stmts.iter().all(|s| releases(cx, s)),

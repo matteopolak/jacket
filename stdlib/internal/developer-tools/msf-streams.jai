@@ -213,7 +213,7 @@ msf_release :: (msf: *Msf) {
     array_free(msf.fpm.rgw);
     array_free(msf.fpm_freed.rgw);
     msf.* = .{};
-} @Releases
+} @FreesArgument
 
 #scope_file
 UPN :: u32;

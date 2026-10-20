@@ -176,7 +176,7 @@ open_clipboard :: () {
 
 close_clipboard :: () {
     assert(CloseClipboard() != .FALSE, "native clipboard close failed");
-} @Releases
+} @FreesArgument
 
 unlock_memory :: (handle: HGLOBAL) {
     set_last_error(0);
@@ -186,4 +186,4 @@ unlock_memory :: (handle: HGLOBAL) {
 
 release_memory :: (handle: HGLOBAL) {
     assert(global_free(handle) == null, "native clipboard memory release failed");
-} @Releases
+} @FreesArgument

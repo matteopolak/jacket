@@ -17,7 +17,7 @@ main :: () {
 
 drop_at :: (array: *[..] int, index: int) {
     array_unordered_remove_by_index(array, index);
-} @RemovesElements
+} @RemovesFromArray
 
 noted_remover :: () {
     values: [..] int;

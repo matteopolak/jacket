@@ -420,7 +420,7 @@ def generate_facade(module, spec):
             continue
         emitted.add(key)
         code = d.code.rstrip(';')
-        # Trailing declaration notes (`@Releases`) follow the body, not the signature.
+        # Trailing declaration notes (`@FreesArgument`) follow the body, not the signature.
         code, notes = split_notes(code)
         if module == 'GL' and d.name == 'gl':
             # Reviewed public using-import projects this live table. A using

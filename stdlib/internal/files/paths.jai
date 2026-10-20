@@ -109,7 +109,7 @@ free_permanent :: (using path: Path) {
     free(header_string);
     for word: words free(word);
     array_free(words);
-} @Releases
+} @FreesArgument
 
 #scope_file
 #import "Basic";

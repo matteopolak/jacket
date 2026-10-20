@@ -10,7 +10,7 @@ backtrace :: (skip := 0) -> [] string {
 
 free_backtrace :: (trace_symbols: [] string) {
     native_free_symbols(trace_symbols.data);
-} @Releases
+} @FreesArgument
 
 backtrace_symbols :: os_backtrace_symbols;
 

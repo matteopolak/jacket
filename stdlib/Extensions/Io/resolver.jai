@@ -487,7 +487,7 @@ helper_main :: (thread: *Thread.Thread) -> s64 {
 
     free_address_info :: (found: *Addrinfo) {
         c_freeaddrinfo(found);
-    } @Releases
+    } @FreesArgument
 } else {
     address_info :: (host: *u8, hints: *Addrinfo, found: **Addrinfo) -> s32 {
         return win_get_address_info(host, null, hints, found);
@@ -495,7 +495,7 @@ helper_main :: (thread: *Thread.Thread) -> s64 {
 
     free_address_info :: (found: *Addrinfo) {
         win_free_address_info(found);
-    } @Releases
+    } @FreesArgument
 }
 
 // Runs on a helper thread: no context is needed for plain C calls.

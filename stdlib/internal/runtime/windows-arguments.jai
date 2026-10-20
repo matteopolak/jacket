@@ -42,7 +42,7 @@ release :: (arguments: *Arguments) #no_context {
     }
 
     arguments.* = .{};
-} @Releases
+} @FreesArgument
 
 #scope_file
 #import "internal/libc";

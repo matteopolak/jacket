@@ -11,12 +11,12 @@ main :: () {
 smallest :: (a: int, b: int) -> int {
     if a < b return a;
     return b;
-} @Minimum
+} @ReturnsSmaller
 
 largest :: (a: int, b: int) -> int {
     if a > b return a;
     return b;
-} @Maximum
+} @ReturnsLarger
 
 noted_extrema :: (n: int) -> int {
     return smallest(0, largest(100, n));

@@ -5,7 +5,7 @@
 //!
 //! Fires on `min(a, max(b, x))` with literal bounds `a < b`, and `max(a, min(b, x))` with
 //! `a > b`, in either argument order, when the outer and inner calls are to procedures
-//! declared with the notes `@Minimum` and `@Maximum` (the library's `min` and `max` carry
+//! declared with the notes `@ReturnsSmaller` and `@ReturnsLarger` (the library's `min` and `max` carry
 //! them, whatever they are called where they are used).
 use super::{calls_noted, finding, int_literal};
 use crate::Finding;
@@ -71,7 +71,7 @@ fn literal(e: &Expr) -> Option<f64> {
     }
 }
 
-/// A call of a `@Minimum` or `@Maximum` procedure: `min` or `max`, and the two arguments.
+/// A call of a `@ReturnsSmaller` or `@ReturnsLarger` procedure: `min` or `max`, and the two arguments.
 fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&'e Expr; 2])> {
     let E::Call {
         callee,
@@ -87,7 +87,7 @@ fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&'e Expr; 2]
     if a.name.is_some() || b.name.is_some() || a.spread || b.spread {
         return None;
     }
-    let name = [("min", "Minimum"), ("max", "Maximum")]
+    let name = [("min", "ReturnsSmaller"), ("max", "ReturnsLarger")]
         .into_iter()
         .find(|(_, note)| calls_noted(cx, callee, note))?
         .0;

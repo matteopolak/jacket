@@ -179,7 +179,7 @@ free_buffers :: (using builder: *String_Builder) {
     current_buffer = null;
     initialized = false;
     failed = false;
-} @Releases
+} @FreesArgument
 
 reset :: (using builder: *String_Builder) {
     #if ENABLE_ASSERT {

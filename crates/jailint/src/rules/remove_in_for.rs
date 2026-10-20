@@ -5,7 +5,7 @@
 //! it: that element is never visited. `remove it;` removes the current element and keeps the
 //! iteration in step.
 //!
-//! Fires on a call to a procedure declared with the note `@RemovesElements` (`Basic`'s
+//! Fires on a call to a procedure declared with the note `@RemovesFromArray` (`Basic`'s
 //! `array_*_remove_*` procedures carry it) whose array argument is
 //! `*xs` (spelled the same) inside a forward `for xs` / `for *xs` over the same array, unless
 //! the call is directly followed by `break` or `return` (removing the one element searched
@@ -49,7 +49,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Unary(UnOp::Star, array) = &first.value.kind else {
                 return true;
             };
-            if !calls_noted(cx, callee, "RemovesElements") {
+            if !calls_noted(cx, callee, "RemovesFromArray") {
                 return true;
             }
             let walking = chain.iter().any(|a| match a {

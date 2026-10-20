@@ -79,7 +79,7 @@ destroy :: (font: *Loaded_Font) {
 
     allocator.proc(.FREE, 0, 0, font.name.data, allocator.data);
     font.name = "";
-} @Releases
+} @FreesArgument
 
 #scope_module
 font_library: FT_Library;

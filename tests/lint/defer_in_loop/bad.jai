@@ -20,7 +20,7 @@ main :: () {
 
 dispose :: (memory: *void) {
     free(memory);
-} @Releases
+} @FreesArgument
 
 noted_release :: () {
     buffer := alloc(8);

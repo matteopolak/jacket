@@ -45,10 +45,10 @@ Four rules decide what a call means from a note on the procedure's declaration, 
 | Note | Rule | Meaning |
 | --- | --- | --- |
 | `@UseResult` | `unused_result` | calling it as a statement is a mistake: it only computes its result and leaves its arguments alone |
-| `@Minimum` | `min_max` | returns the smaller of its two arguments (the library's `min`) |
-| `@Maximum` | `min_max` | returns the larger of its two arguments (the library's `max`) |
-| `@RemovesElements` | `remove_in_for` | removes elements from the array its first argument points to |
-| `@Releases` | `defer_in_loop` | frees, closes or destroys what its argument holds (`free`, `array_free`, `array_reset`, closers and `deinit`s) |
+| `@ReturnsSmaller` | `min_max` | returns the smaller of its two arguments (the library's `min`) |
+| `@ReturnsLarger` | `min_max` | returns the larger of its two arguments (the library's `max`) |
+| `@RemovesFromArray` | `remove_in_for` | removes elements from the array its first argument points to |
+| `@FreesArgument` | `defer_in_loop` | after the call the argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s) |
 
 ```jai
 shout :: (s: string) -> string {
@@ -119,7 +119,7 @@ Only comments directly above a declaration (or trailing a field or parameter) ar
 ### constant_condition
 Reads the compiler's reachability facts (`jaic::sema::reachability` and `jaic::ide::values`, the code the editor fades): reports the condition behind a branch that never runs, such as `if count < 5` inside `if count > 10`, or an `else` after a test that always holds. No analysis of its own, so it is as sure as the fading: unsure means silent. Compile-time constants (`if DEBUG`, `while true`), tests inside code that is dead anyway, and comparisons a type's range decides (left to `absurd_comparison`) are skipped.
 ### defer_in_loop
-The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@Releases` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
+The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@FreesArgument` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
 ### duplicate_condition
 Conditions must be side-effect-free; a call in between restarts the comparison.
 ### erasing_op
@@ -147,7 +147,7 @@ Target must be side-effect-free and the operation must keep its type.
 ### manual_index_counter
 `n := 0` right before a forward `for`, `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
 ### min_max
-Literal bounds only, with `@Minimum`/`@Maximum` procedures (the library's `min`/`max`). Use `clamp`.
+Literal bounds only, with `@ReturnsSmaller`/`@ReturnsLarger` procedures (the library's `min`/`max`). Use `clamp`.
 ### needless_bool
 A trailing `if c return true; return false;` is left alone when an earlier guard in the block also returns a literal. Comments inside the `if` withhold the fix.
 ### no_effect
@@ -159,7 +159,7 @@ Style rule, deliberately narrow so the fix never changes behaviour: the two stat
 ### redundant_cast
 Aliases like `c_long` differ per platform, so the value must be declared with the same type spelling. Polymorphic bodies and macros are skipped.
 ### remove_in_for
-The loop steps past the element moved into the removed slot. Use `remove it;`. Fires on `@RemovesElements` procedures (`Basic`'s `array_*_remove_*`). Quiet for backwards loops and when `break`/`return` follows.
+The loop steps past the element moved into the removed slot. Use `remove it;`. Fires on `@RemovesFromArray` procedures (`Basic`'s `array_*_remove_*`). Quiet for backwards loops and when `break`/`return` follows.
 ### reversed_range
 Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-only.
 ### self_assignment

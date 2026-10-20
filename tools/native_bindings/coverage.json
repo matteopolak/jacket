@@ -98912,7 +98912,7 @@
         },
         {
           "name": "release",
-          "signature": "release :: (self: *$instancetype) -> id #no_context @Releases",
+          "signature": "release :: (self: *$instancetype) -> id #no_context @FreesArgument",
           "condition": "",
           "spec_line": 24,
           "status": "implemented"
@@ -214734,7 +214734,7 @@
         },
         {
           "name": "safe_release",
-          "signature": "safe_release :: (obj: *IUnknown) @Releases",
+          "signature": "safe_release :: (obj: *IUnknown) @FreesArgument",
           "condition": "OS == .WINDOWS",
           "spec_line": 1545,
           "status": "implemented"

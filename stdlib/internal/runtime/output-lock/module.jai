@@ -7,7 +7,7 @@ acquire :: () #no_context {
 release :: () -> bool #no_context {
     released := compare_and_swap(*state, cast(s32) 1, cast(s32) 0);
     return released;
-} @Releases
+} @FreesArgument
 
 #scope_file
 state: s32;

@@ -7727,7 +7727,7 @@ winmm :: #library,system "winmm";
 #if OS == .WINDOWS {
     safe_release :: (obj: *IUnknown) {
         if obj != null obj.vtable.Release(obj);
-    } @Releases
+    } @FreesArgument
 }
 
 #if OS == .WINDOWS {

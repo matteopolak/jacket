@@ -188,7 +188,7 @@ fn call_rules_follow_declaration_notes_through_generic_aliases() {
     let root = fixture("call-alias");
     std::fs::create_dir_all(root.join("stdlib/Basic")).unwrap();
     std::fs::write(root.join("stdlib/Basic/module.jai"),"min :: Impl.smallest; max :: Impl.largest; #scope_file Impl :: #import \"internal/tools/extrema\";").unwrap();
-    std::fs::write(root.join("stdlib/internal/tools/extrema.jai"),"smallest :: (a:$T,b:T) -> T { if a<b return a; return b; } @Minimum largest :: (a:$T,b:T) -> T { if a>b return a; return b; } @Maximum").unwrap();
+    std::fs::write(root.join("stdlib/internal/tools/extrema.jai"),"smallest :: (a:$T,b:T) -> T { if a<b return a; return b; } @ReturnsSmaller largest :: (a:$T,b:T) -> T { if a>b return a; return b; } @ReturnsLarger").unwrap();
     let application = root.join("app/main.jai");
     std::fs::write(&application,"#import \"Basic\"; bad :: (n:int) -> int { return min(0,max(10,n)); } main :: () {} local :: (n:int) -> int { min :: (a:int,b:int) -> int { return a+b; } max :: (a:int,b:int) -> int { return a+b; } return min(0,max(10,n)); }").unwrap();
     let result = run(&options(&root, application));

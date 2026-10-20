@@ -371,7 +371,7 @@
         if win_close_handle(fd) == 0 return -win_error();
 
         return 0;
-    } @Releases
+    } @FreesArgument
 
     // Closes a socket or file. Operations still under way on it complete with the cancel error.
     sys_close_handle :: (handle: Handle) -> s64 {

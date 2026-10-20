@@ -38,12 +38,12 @@ is_integer_type :: ($T: Type) -> (is_integer: bool, is_signed: bool, bits: u8) {
 min :: (a: $T, b: T) -> T {
     if a < b return a;
     return b;
-} @UseResult @Minimum
+} @UseResult @ReturnsSmaller
 
 max :: (a: $T, b: T) -> T {
     if a > b return a;
     return b;
-} @UseResult @Maximum
+} @UseResult @ReturnsLarger
 
 min :: inline (a: $T, x: ..T) -> T #modify {
     return IsScalar(T), "min requires a scalar type";
@@ -51,7 +51,7 @@ min :: inline (a: $T, x: ..T) -> T #modify {
     result := a;
     for value: x if value < result result = value;
     return result;
-} @UseResult @Minimum
+} @UseResult @ReturnsSmaller
 
 max :: inline (a: $T, x: ..T) -> T #modify {
     return IsScalar(T), "max requires a scalar type";
@@ -59,7 +59,7 @@ max :: inline (a: $T, x: ..T) -> T #modify {
     result := a;
     for value: x if result < value result = value;
     return result;
-} @UseResult @Maximum
+} @UseResult @ReturnsLarger
 
 clamp :: (x: $T, a: T, b: T) -> T #modify {
     return IsScalar(T), "clamp requires a scalar type";

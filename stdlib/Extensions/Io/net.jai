@@ -423,7 +423,7 @@ close :: (stream: Tcp_Stream, now := false) -> Io_Error {
     }
 
     return close_handle(stream.handle);
-} @Releases
+} @FreesArgument
 
 close :: (listener: Tcp_Listener, now := false) -> Io_Error {
     if now {
@@ -433,7 +433,7 @@ close :: (listener: Tcp_Listener, now := false) -> Io_Error {
     }
 
     return close_handle(listener.handle);
-} @Releases
+} @FreesArgument
 
 // Names
 
@@ -732,7 +732,7 @@ close_handle :: (handle: Handle) -> Io_Error {
     end_op(op);
 
     return error;
-} @Releases
+} @FreesArgument
 
 // Closes `handle` at once, on the calling thread's scheduler, without parking the fiber (it may
 // run outside any fiber, in a `Local_Drop`).
@@ -744,7 +744,7 @@ close_without_waiting :: (handle: Handle) {
     else if engine.backend == .IO_URING && handle.kind == .SOCKET uring_listener_abandoned(scheduler, engine, handle.fd);
 
     sys_close_handle(handle);
-} @Releases
+} @FreesArgument
 
 // Closes a handle that never reached the engine, or whose operations all finished.
 discard_handle :: (handle: Handle) {

@@ -215,7 +215,7 @@ table_reset :: (using table: *Table) {
 
 deinit :: (table: *Table) {
     table_reset(table);
-} @Releases
+} @FreesArgument
 
 for_expansion :: (table: *$T/Table, body: Code, flags: For_Flags) #expand {
     #if (flags & .REVERSE) != 0 {

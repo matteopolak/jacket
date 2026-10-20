@@ -161,7 +161,7 @@ table_reset :: (table: *Table) {
 
 deinit :: (table: *Table) {
     table_reset(table);
-} @Releases
+} @FreesArgument
 
 // for it, key: table {...}: `it` is the value (a pointer to it under `for *`), `it_index` the
 // key, as with Hash_Table. `remove it` takes the current entry out. Anything else that changes
