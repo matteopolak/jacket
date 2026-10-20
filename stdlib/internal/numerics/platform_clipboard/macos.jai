@@ -31,49 +31,66 @@ read_text :: (_window: *void = null) -> (success: bool, text: string, message: s
     board, error := open_board();
     if board == null return false, "", error;
 
-    PasteboardSynchronize(board);
-    count: u64;
-    status := PasteboardGetItemCount(board, *count);
-
-    if status != 0 return false, "", sprint("PasteboardGetItemCount failed: %", status);
-    if count == 0 return true, "", "";
-
     flavor := make_cf_string("public.utf8-plain-text");
     if flavor == null return false, "", "Cannot allocate clipboard flavor string";
 
     defer CFRelease(flavor);
 
+    // Another process may change the pasteboard between synchronizing and reading, which the
+    // native calls report as badPasteboardSyncErr. Synchronize again and start over when that happens.
+    for 1..8 {
+        success, text, message, out_of_sync := read_synchronized(board, flavor);
+        if !out_of_sync return success, text, message;
+    }
+
+    return false, "", "The native clipboard kept changing while it was read";
+}
+
+#scope_file
+#import "Basic";
+
+PASTEBOARD_OUT_OF_SYNC :: -25130; // Native badPasteboardSyncErr.
+PASTEBOARD_NO_SUCH_FLAVOR :: -25133; // Native badPasteboardFlavorErr.
+
+read_synchronized :: (board: *void, flavor: *void) -> (success: bool, text: string, message: string, out_of_sync: bool) {
+    PasteboardSynchronize(board);
+    count: u64;
+    status := PasteboardGetItemCount(board, *count);
+
+    if status == PASTEBOARD_OUT_OF_SYNC return false, "", "", true;
+    if status != 0 return false, "", sprint("PasteboardGetItemCount failed: %", status), false;
+    if count == 0 return true, "", "", false;
+
     for index: 1..count {
         item: *void;
 
         status = PasteboardGetItemIdentifier(board, cast(s64) index, *item);
-        if status != 0 return false, "", sprint("PasteboardGetItemIdentifier failed: %", status);
+        if status == PASTEBOARD_OUT_OF_SYNC return false, "", "", true;
+        if status != 0 return false, "", sprint("PasteboardGetItemIdentifier failed: %", status), false;
 
         data: *void;
 
         status = PasteboardCopyItemFlavorData(board, item, flavor, *data);
-        if status == -25133 continue; // Native badPasteboardFlavorErr: this item is not UTF-8 text.
-        if status != 0 return false, "", sprint("PasteboardCopyItemFlavorData failed: %", status);
-        if data == null return false, "", "Pasteboard returned a null data reference";
+        if status == PASTEBOARD_NO_SUCH_FLAVOR continue; // This item is not UTF-8 text.
+        if status == PASTEBOARD_OUT_OF_SYNC return false, "", "", true;
+        if status != 0 return false, "", sprint("PasteboardCopyItemFlavorData failed: %", status), false;
+        if data == null return false, "", "Pasteboard returned a null data reference", false;
 
         length := CFDataGetLength(data);
         if length < 0 {
             CFRelease(data);
-            return false, "", "Pasteboard returned a negative data length";
+            return false, "", "Pasteboard returned a negative data length", false;
         }
 
         result := copy_string(string.{ length, CFDataGetBytePtr(data) });
 
         CFRelease(data);
 
-        return true, result, "";
+        return true, result, "", false;
     }
 
-    return false, "", "The native clipboard contains no UTF-8 text flavor";
+    return false, "", "The native clipboard contains no UTF-8 text flavor", false;
 }
-
-#scope_file
-#import "Basic";
 
 core_foundation :: #system_library "CoreFoundation";
 application_services :: #system_library "ApplicationServices";

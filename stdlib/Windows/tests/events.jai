@@ -59,13 +59,23 @@ main :: () {
         }
     }
 
-    // The original scroll-down encoding must survive repeated frame pumps.
+    // The original scroll-down encoding must survive repeated frame pumps. Real input may add
+    // other events to a frame, so count only this window's wheel events.
     for 0..255 {
         assert(post_message(win, W.WM_MOUSEWHEEL, 0xff880000, 0) != 0);
         I.update_window_events();
-        assert(I.events_this_frame.count == 1);
-        assert(I.events_this_frame[0].wheel_delta == -120);
-        assert(I.mouse_delta_z == -120);
+
+        ours := 0;
+        vertical_total := 0;
+
+        for event: I.events_this_frame {
+            if event.type != .MOUSE_WHEEL || event.window != win continue;
+            if event.key_code == .MOUSE_WHEEL_UP || event.key_code == .MOUSE_WHEEL_DOWN vertical_total += event.wheel_delta;
+            if event.wheel_delta == -120 ours += 1;
+        }
+
+        assert(ours >= 1);
+        assert(I.mouse_delta_z == vertical_total);
     }
 
     assert(post_message(win, W.WM_MOVE, 0, 0x123456788000ffff) != 0);
