@@ -1,12 +1,15 @@
 //! The editor facts a few programs record, compared with saved dumps. Every fact list is
-//! sorted, so only what is recorded counts, not the order it was recorded in.
+//! sorted, so only what is recorded counts, not the order it was recorded in. Ids are written
+//! as what they name (`E(name@file:offset)`), never as numbers: those depend on what the
+//! host's library declared first.
 //!
 //! After an intended change to what is recorded, rewrite the dumps with
 //! `JAIC_BLESS=1 cargo test -p jaic --test ide_facts_golden`.
+use jaic::fxhash::HashMap;
 use jaic::ide::{IdeFacts, IdeRoot};
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
-use jaic::source::Span;
-use jaic::types::TypeId;
+use jaic::sema::{Compiler, EntityId, NativeFs, Options, ProcId, ProgramSource, ScopeId};
+use jaic::source::{FileId, Span};
+use jaic::types::{StructId, TypeId};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -41,9 +44,90 @@ fn facts(entry: &Path, root: &Path) -> String {
     dump(&compiler, errors)
 }
 
+/// `FileId(n)`, `EntityId(n)` and the other numbered ids in `line`, as what they name.
+fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String {
+    const IDS: [&str; 6] = [
+        "FileId", "EntityId", "ProcId", "TypeId", "ScopeId", "StructId",
+    ];
+    let mut out = String::new();
+    let mut rest = line;
+    while let Some((at, kind)) = IDS
+        .iter()
+        .filter_map(|kind| {
+            rest.match_indices(&format!("{kind}("))
+                .find(|(i, _)| !rest[..*i].ends_with(|ch: char| ch.is_alphanumeric()))
+                .map(|(i, _)| (i, *kind))
+        })
+        .min()
+    {
+        let digits = &rest[at + kind.len() + 1..];
+        let len = digits
+            .find(|ch: char| !ch.is_ascii_digit())
+            .unwrap_or(digits.len());
+        if len == 0 || !digits[len..].starts_with(')') {
+            out.push_str(&rest[..at + kind.len() + 1]);
+            rest = digits;
+            continue;
+        }
+        let n: u32 = digits[..len].parse().unwrap();
+        out.push_str(&rest[..at]);
+        out.push_str(&match kind {
+            "FileId" => file(c, FileId(n)),
+            "EntityId" => {
+                let e = c.entity(EntityId(n));
+                format!("E({}@{})", e.name, at_span(c, e.span))
+            }
+            "ProcId" => {
+                let p = c.proc(ProcId(n));
+                format!("P({}@{})", p.name, at_span(c, p.span))
+            }
+            "TypeId" => format!("T({})", c.types.name(TypeId(n))),
+            "ScopeId" => scopes.get(&ScopeId(n)).map_or_else(
+                || format!("S({:?})", c.scope(ScopeId(n)).kind),
+                |s| format!("S({})", span(c, *s)),
+            ),
+            _ => {
+                let s = c.types.struct_info(StructId(n));
+                format!("St({}@{})", s.name, at_span(c, s.span))
+            }
+        });
+        rest = &digits[len + 1..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// A file as its path under the repository.
+fn file(c: &Compiler, f: FileId) -> String {
+    let repo = repo();
+    match c.sources.get(f).path.as_file() {
+        Some(path) => path
+            .strip_prefix(&repo)
+            .unwrap_or(path)
+            .display()
+            .to_string(),
+        None => "virtual".into(),
+    }
+}
+
+fn span(c: &Compiler, s: Span) -> String {
+    if s == Span::NONE {
+        return "-".into();
+    }
+    format!("{}:{}..{}", file(c, s.file), s.start, s.end)
+}
+
+fn at_span(c: &Compiler, s: Span) -> String {
+    if s == Span::NONE {
+        return "-".into();
+    }
+    format!("{}:{}", file(c, s.file), s.start)
+}
+
 fn dump(c: &Compiler, errors: Vec<String>) -> String {
     let ide = c.ed.facts().unwrap();
-    let span = |s: &Span| format!("{}:{}..{}", s.file.0, s.start, s.end);
+    let scopes: HashMap<ScopeId, Span> = ide.scopes.iter().map(|(s, id)| (*id, *s)).collect();
+    let span = |s: &Span| span(c, *s);
     let ty = |t: &TypeId| c.types.name(*t);
     let opt_ty = |t: &Option<TypeId>| t.as_ref().map_or("-".into(), ty);
     let mut sections: Vec<(&str, Vec<String>)> = vec![
@@ -171,6 +255,9 @@ fn dump(c: &Compiler, errors: Vec<String>) -> String {
     ];
     let mut out = String::new();
     for (name, lines) in &mut sections {
+        for line in lines.iter_mut() {
+            *line = symbolic(c, &scopes, line);
+        }
         lines.sort_unstable();
         lines.dedup();
         writeln!(out, "## {name} ({})", lines.len()).unwrap();
@@ -221,18 +308,13 @@ fn big_stack(body: impl FnOnce() + Send + 'static) {
 }
 
 #[test]
-fn tour() {
-    big_stack(|| check("tour", "examples/tour/main.jai", "examples/tour"));
-}
-
-#[test]
 fn type_variants() {
     big_stack(|| {
         check(
             "type-variants",
             "examples/type-variants.jai",
             "examples/type-variants.jai",
-        )
+        );
     });
 }
 

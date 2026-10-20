@@ -1,181 +1,179 @@
 ## errors (0)
 ## refs (60)
-13:114..117 Entity(EntityId(4786)) [] *s64 decl=true
-13:123..124 Entity(EntityId(4753)) Type decl=false
-13:123..124 Entity(EntityId(4753)) Type decl=true
-13:126..130 Entity(EntityId(4787)) *s64 decl=true
-13:132..133 Entity(EntityId(4753)) Type decl=false
-13:132..133 Type(TypeId(102)) Type decl=false
-13:136..143 Entity(EntityId(4754)) (*s64, *s64) -> bool decl=true
-13:146..147 Entity(EntityId(4753)) Type decl=false
-13:149..150 Entity(EntityId(4753)) Type decl=false
-13:155..159 Entity(EntityId(1)) Type decl=false
-13:183..186 Entity(EntityId(6)) Type decl=false
-13:183..186 Type(TypeId(5)) Type decl=false
-13:197..200 Entity(EntityId(4786)) [] *s64 decl=false
-13:204..211 Procs([ProcId(159)]) (compile-time entity) decl=false
-13:212..214 Entity(EntityId(4788)) *s64 decl=false
-13:216..220 Entity(EntityId(4787)) *s64 decl=false
-13:229..237 Entity(EntityId(4789)) s64 decl=false
-13:257..268 Entity(EntityId(176)) (compile-time entity) decl=true
-13:273..276 Entity(EntityId(4751)) *[..] *s64 decl=true
-13:285..286 Entity(EntityId(4749)) Type decl=false
-13:285..286 Entity(EntityId(4749)) Type decl=true
-13:288..292 Entity(EntityId(4752)) *s64 decl=true
-13:294..295 Entity(EntityId(4749)) Type decl=false
-13:294..295 Type(TypeId(102)) Type decl=false
-13:298..305 Entity(EntityId(4750)) (*s64, *s64) -> bool decl=true
-13:308..309 Entity(EntityId(4749)) Type decl=false
-13:308..309 Type(TypeId(102)) Type decl=false
-13:311..312 Entity(EntityId(4749)) Type decl=false
-13:311..312 Type(TypeId(102)) Type decl=false
-13:317..321 Entity(EntityId(1)) Type decl=false
-13:317..321 Type(TypeId(1)) Type decl=false
-13:325..326 Entity(EntityId(4746)) Type decl=false
-13:325..326 Entity(EntityId(4790)) *s64 decl=true
-13:328..329 Entity(EntityId(4747)) Type decl=false
-13:328..329 Entity(EntityId(4791)) *s64 decl=true
-13:334..335 Entity(EntityId(4790)) *s64 decl=false
-13:339..340 Entity(EntityId(4791)) *s64 decl=false
-13:345..349 Entity(EntityId(1)) Type decl=false
-13:345..349 Type(TypeId(1)) Type decl=false
-13:359..369 Procs([ProcId(161)]) (compile-time entity) decl=false
-13:370..373 Entity(EntityId(4751)) *[..] *s64 decl=false
-13:377..381 Entity(EntityId(4752)) *s64 decl=false
-13:383..390 Procs([ProcId(159)]) (compile-time entity) decl=false
-13:408..417 Procs([ProcId(163), ProcId(164), ProcId(165)]) (compile-time entity) decl=false
-13:418..421 Entity(EntityId(4751)) *[..] *s64 decl=false
-13:423..427 Entity(EntityId(4752)) *s64 decl=false
-13:479..483 Entity(EntityId(177)) (compile-time entity) decl=true
-13:493..496 Type(TypeId(5)) Type decl=false
-13:503..504 Entity(EntityId(4743)) [..] *s64 decl=true
-13:512..515 Type(TypeId(5)) Type decl=false
-13:521..522 Entity(EntityId(4744)) s64 decl=true
-13:534..545 Procs([ProcId(157)]) (compile-time entity) decl=false
-13:547..548 Entity(EntityId(4743)) [..] *s64 decl=false
-13:551..552 Entity(EntityId(4744)) s64 decl=false
-13:559..570 Procs([ProcId(157)]) (compile-time entity) decl=false
-13:572..573 Entity(EntityId(4743)) [..] *s64 decl=false
-13:576..577 Entity(EntityId(4744)) s64 decl=false
-13:596..597 Entity(EntityId(4743)) [..] *s64 decl=false
-13:598..603 Member(`count`) s64 decl=false
-13:99..109 Entity(EntityId(175)) (compile-time entity) decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:114..117 Entity(E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:114)) [] *s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:123..124 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:123..124 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:126..130 Entity(E(item@tests/compiler/regressions/baked-default-uses-poly.jai:126)) *s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:132..133 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:132..133 Type(T(*s64)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:136..143 Entity(E(compare@tests/compiler/regressions/baked-default-uses-poly.jai:136)) (*s64, *s64) -> bool decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:146..147 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:149..150 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:155..159 Entity(E(bool@-)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:183..186 Entity(E(int@-)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:183..186 Type(T(s64)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:197..200 Entity(E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:114)) [] *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:204..211 Procs([P(lambda@tests/compiler/regressions/baked-default-uses-poly.jai:324)]) (compile-time entity) decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:212..214 Entity(E(it@tests/compiler/regressions/baked-default-uses-poly.jai:193)) *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:216..220 Entity(E(item@tests/compiler/regressions/baked-default-uses-poly.jai:126)) *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:229..237 Entity(E(it_index@tests/compiler/regressions/baked-default-uses-poly.jai:193)) s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:257..268 Entity(E(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:257)) (compile-time entity) decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:273..276 Entity(E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:273)) *[..] *s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:285..286 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:285)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:285..286 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:285)) Type decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:288..292 Entity(E(item@tests/compiler/regressions/baked-default-uses-poly.jai:288)) *s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:294..295 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:285)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:294..295 Type(T(*s64)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:298..305 Entity(E(compare@tests/compiler/regressions/baked-default-uses-poly.jai:298)) (*s64, *s64) -> bool decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:308..309 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:285)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:308..309 Type(T(*s64)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:311..312 Entity(E(T@tests/compiler/regressions/baked-default-uses-poly.jai:285)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:311..312 Type(T(*s64)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:317..321 Entity(E(bool@-)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:317..321 Type(T(bool)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:325..326 Entity(E(__lambda_a@tests/compiler/regressions/baked-default-uses-poly.jai:325)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:325..326 Entity(E(a@tests/compiler/regressions/baked-default-uses-poly.jai:325)) *s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:328..329 Entity(E(__lambda_b@tests/compiler/regressions/baked-default-uses-poly.jai:328)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:328..329 Entity(E(b@tests/compiler/regressions/baked-default-uses-poly.jai:328)) *s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:334..335 Entity(E(a@tests/compiler/regressions/baked-default-uses-poly.jai:325)) *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:339..340 Entity(E(b@tests/compiler/regressions/baked-default-uses-poly.jai:328)) *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:345..349 Entity(E(bool@-)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:345..349 Type(T(bool)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:359..369 Procs([P(find_first@tests/compiler/regressions/baked-default-uses-poly.jai:113)]) (compile-time entity) decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:370..373 Entity(E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:273)) *[..] *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:377..381 Entity(E(item@tests/compiler/regressions/baked-default-uses-poly.jai:288)) *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:383..390 Procs([P(lambda@tests/compiler/regressions/baked-default-uses-poly.jai:324)]) (compile-time entity) decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:408..417 Procs([P(array_add@stdlib/internal/basic/arrays.jai:1061), P(array_add@stdlib/internal/basic/arrays.jai:1268), P(array_add@stdlib/internal/basic/arrays.jai:1437)]) (compile-time entity) decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:418..421 Entity(E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:273)) *[..] *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:423..427 Entity(E(item@tests/compiler/regressions/baked-default-uses-poly.jai:288)) *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:479..483 Entity(E(main@tests/compiler/regressions/baked-default-uses-poly.jai:479)) (compile-time entity) decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:493..496 Type(T(s64)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:503..504 Entity(E(a@tests/compiler/regressions/baked-default-uses-poly.jai:503)) [..] *s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:512..515 Type(T(s64)) Type decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:521..522 Entity(E(x@tests/compiler/regressions/baked-default-uses-poly.jai:521)) s64 decl=true
+tests/compiler/regressions/baked-default-uses-poly.jai:534..545 Procs([P(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:272)]) (compile-time entity) decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:547..548 Entity(E(a@tests/compiler/regressions/baked-default-uses-poly.jai:503)) [..] *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:551..552 Entity(E(x@tests/compiler/regressions/baked-default-uses-poly.jai:521)) s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:559..570 Procs([P(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:272)]) (compile-time entity) decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:572..573 Entity(E(a@tests/compiler/regressions/baked-default-uses-poly.jai:503)) [..] *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:576..577 Entity(E(x@tests/compiler/regressions/baked-default-uses-poly.jai:521)) s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:596..597 Entity(E(a@tests/compiler/regressions/baked-default-uses-poly.jai:503)) [..] *s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:598..603 Member(`count`) s64 decl=false
+tests/compiler/regressions/baked-default-uses-poly.jai:99..109 Entity(E(find_first@tests/compiler/regressions/baked-default-uses-poly.jai:99)) (compile-time entity) decl=true
 ## scopes (8)
-13:187..255 ScopeId(1345)
-13:193..238 ScopeId(1346)
-13:201..238 ScopeId(1347)
-13:222..238 ScopeId(1348)
-13:334..340 ScopeId(1350)
-13:350..477 ScopeId(1313)
-13:398..456 ScopeId(1316)
-13:497..625 ScopeId(1305)
+tests/compiler/regressions/baked-default-uses-poly.jai:187..255 S(tests/compiler/regressions/baked-default-uses-poly.jai:187..255)
+tests/compiler/regressions/baked-default-uses-poly.jai:193..238 S(tests/compiler/regressions/baked-default-uses-poly.jai:193..238)
+tests/compiler/regressions/baked-default-uses-poly.jai:201..238 S(tests/compiler/regressions/baked-default-uses-poly.jai:201..238)
+tests/compiler/regressions/baked-default-uses-poly.jai:222..238 S(tests/compiler/regressions/baked-default-uses-poly.jai:222..238)
+tests/compiler/regressions/baked-default-uses-poly.jai:334..340 S(tests/compiler/regressions/baked-default-uses-poly.jai:334..340)
+tests/compiler/regressions/baked-default-uses-poly.jai:350..477 S(tests/compiler/regressions/baked-default-uses-poly.jai:350..477)
+tests/compiler/regressions/baked-default-uses-poly.jai:398..456 S(tests/compiler/regressions/baked-default-uses-poly.jai:398..456)
+tests/compiler/regressions/baked-default-uses-poly.jai:497..625 S(tests/compiler/regressions/baked-default-uses-poly.jai:497..625)
 ## calls (5)
-IdeCall { span: Span { file: FileId(13), start: 204, end: 221 }, candidates: [ProcId(159)], chosen: ProcId(159), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 212, end: 214 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(102)) }, IdeArg { span: Span { file: FileId(13), start: 216, end: 220 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(102)) }] }
-IdeCall { span: Span { file: FileId(13), start: 359, end: 391 }, candidates: [ProcId(161)], chosen: ProcId(162), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 370, end: 375 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(251)) }, IdeArg { span: Span { file: FileId(13), start: 377, end: 381 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(102)) }, IdeArg { span: Span { file: FileId(13), start: 383, end: 390 }, param: 2, named: false, variadic: false, spread: false, ty: Some(TypeId(17)) }] }
-IdeCall { span: Span { file: FileId(13), start: 408, end: 428 }, candidates: [ProcId(163), ProcId(164), ProcId(165)], chosen: ProcId(166), ambiguous: true, args: [IdeArg { span: Span { file: FileId(13), start: 418, end: 421 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(252)) }, IdeArg { span: Span { file: FileId(13), start: 423, end: 427 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(102)) }] }
-IdeCall { span: Span { file: FileId(13), start: 534, end: 553 }, candidates: [ProcId(157)], chosen: ProcId(160), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 546, end: 548 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(252)) }, IdeArg { span: Span { file: FileId(13), start: 550, end: 552 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(102)) }] }
-IdeCall { span: Span { file: FileId(13), start: 559, end: 578 }, candidates: [ProcId(157)], chosen: ProcId(160), ambiguous: false, args: [IdeArg { span: Span { file: FileId(13), start: 571, end: 573 }, param: 0, named: false, variadic: false, spread: false, ty: Some(TypeId(252)) }, IdeArg { span: Span { file: FileId(13), start: 575, end: 577 }, param: 1, named: false, variadic: false, spread: false, ty: Some(TypeId(102)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 204, end: 221 }, candidates: [P(lambda@tests/compiler/regressions/baked-default-uses-poly.jai:324)], chosen: P(lambda@tests/compiler/regressions/baked-default-uses-poly.jai:324), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 212, end: 214 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(*s64)) }, IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 216, end: 220 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(*s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 359, end: 391 }, candidates: [P(find_first@tests/compiler/regressions/baked-default-uses-poly.jai:113)], chosen: P(find_first@tests/compiler/regressions/baked-default-uses-poly.jai:113), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 370, end: 375 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T([..] *s64)) }, IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 377, end: 381 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(*s64)) }, IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 383, end: 390 }, param: 2, named: false, variadic: false, spread: false, ty: Some(T((compile-time entity))) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 408, end: 428 }, candidates: [P(array_add@stdlib/internal/basic/arrays.jai:1061), P(array_add@stdlib/internal/basic/arrays.jai:1268), P(array_add@stdlib/internal/basic/arrays.jai:1437)], chosen: P(array_add@stdlib/internal/basic/arrays.jai:1268), ambiguous: true, args: [IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 418, end: 421 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(*[..] *s64)) }, IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 423, end: 427 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(*s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 534, end: 553 }, candidates: [P(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:272)], chosen: P(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:272), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 546, end: 548 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(*[..] *s64)) }, IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 550, end: 552 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(*s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 559, end: 578 }, candidates: [P(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:272)], chosen: P(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:272), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 571, end: 573 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(*[..] *s64)) }, IdeArg { span: Span { file: tests/compiler/regressions/baked-default-uses-poly.jai, start: 575, end: 577 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(*s64)) }] }
 ## expansions (0)
 ## skipped (0)
 ## static_branches (2)
-13:614..615 true
-13:621..622 true
+tests/compiler/regressions/baked-default-uses-poly.jai:614..615 true
+tests/compiler/regressions/baked-default-uses-poly.jai:621..622 true
 ## body_evals (4)
-13:187..255 1
-13:334..340 1
-13:350..477 1
-13:497..625 1
+tests/compiler/regressions/baked-default-uses-poly.jai:187..255 1
+tests/compiler/regressions/baked-default-uses-poly.jai:334..340 1
+tests/compiler/regressions/baked-default-uses-poly.jai:350..477 1
+tests/compiler/regressions/baked-default-uses-poly.jai:497..625 1
 ## dead_runs (0)
 ## exprs (66)
-13:119..124 Type false false
-13:122..124 Type false false
-13:132..133 Type false false
-13:183..186 Type false false
-13:197..200 [] *s64 false false
-13:204..211 (compile-time entity) false false
-13:204..221 bool false false
-13:212..214 *s64 false false
-13:216..220 *s64 false false
-13:229..237 s64 false false
-13:250..252 s64 true false
-13:251..252 s64 true false
-13:278..286 Type false false
-13:279..286 Type false false
-13:284..286 Type false false
-13:294..295 Type false false
-13:307..321 Type false false
-13:308..309 Type false false
-13:311..312 Type false false
-13:317..321 Type false false
-13:324..340 (compile-time entity) false false
-13:325..326 Type false false
-13:328..329 Type false false
-13:334..335 *s64 false false
-13:334..340 bool false false
-13:339..340 *s64 false false
-13:345..349 Type false false
-13:359..369 (compile-time entity) false false
-13:359..391 s64 false false
-13:359..397 bool false false
-13:370..373 *[..] *s64 false false
-13:370..375 [..] *s64 false false
-13:377..381 *s64 false false
-13:383..390 (compile-time entity) false false
-13:395..397 s64 true false
-13:396..397 s64 true false
-13:408..417 (compile-time entity) false false
-13:408..428 void false false
-13:418..421 *[..] *s64 false false
-13:423..427 *s64 false false
-13:445..449 bool true false
-13:469..474 bool true false
-13:493..496 Type false false
-13:506..515 Type false false
-13:511..515 Type false false
-13:512..515 Type false false
-13:526..527 s64 true false
-13:534..545 (compile-time entity) false false
-13:534..553 bool false false
-13:546..548 *[..] *s64 false false
-13:547..548 [..] *s64 false false
-13:550..552 *s64 false false
-13:551..552 s64 false false
-13:559..570 (compile-time entity) false false
-13:559..578 bool false false
-13:571..573 *[..] *s64 false false
-13:572..573 [..] *s64 false false
-13:575..577 *s64 false false
-13:576..577 s64 false false
-13:592..622 s64 false false
-13:596..597 [..] *s64 false false
-13:596..603 s64 false false
-13:596..608 bool false false
-13:607..608 s64 true false
-13:614..615 s64 true false
-13:621..622 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:119..124 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:122..124 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:132..133 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:183..186 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:197..200 [] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:204..211 (compile-time entity) false false
+tests/compiler/regressions/baked-default-uses-poly.jai:204..221 bool false false
+tests/compiler/regressions/baked-default-uses-poly.jai:212..214 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:216..220 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:229..237 s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:250..252 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:251..252 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:278..286 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:279..286 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:284..286 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:294..295 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:307..321 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:308..309 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:311..312 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:317..321 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:324..340 (compile-time entity) false false
+tests/compiler/regressions/baked-default-uses-poly.jai:325..326 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:328..329 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:334..335 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:334..340 bool false false
+tests/compiler/regressions/baked-default-uses-poly.jai:339..340 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:345..349 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:359..369 (compile-time entity) false false
+tests/compiler/regressions/baked-default-uses-poly.jai:359..391 s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:359..397 bool false false
+tests/compiler/regressions/baked-default-uses-poly.jai:370..373 *[..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:370..375 [..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:377..381 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:383..390 (compile-time entity) false false
+tests/compiler/regressions/baked-default-uses-poly.jai:395..397 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:396..397 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:408..417 (compile-time entity) false false
+tests/compiler/regressions/baked-default-uses-poly.jai:408..428 void false false
+tests/compiler/regressions/baked-default-uses-poly.jai:418..421 *[..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:423..427 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:445..449 bool true false
+tests/compiler/regressions/baked-default-uses-poly.jai:469..474 bool true false
+tests/compiler/regressions/baked-default-uses-poly.jai:493..496 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:506..515 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:511..515 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:512..515 Type false false
+tests/compiler/regressions/baked-default-uses-poly.jai:526..527 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:534..545 (compile-time entity) false false
+tests/compiler/regressions/baked-default-uses-poly.jai:534..553 bool false false
+tests/compiler/regressions/baked-default-uses-poly.jai:546..548 *[..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:547..548 [..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:550..552 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:551..552 s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:559..570 (compile-time entity) false false
+tests/compiler/regressions/baked-default-uses-poly.jai:559..578 bool false false
+tests/compiler/regressions/baked-default-uses-poly.jai:571..573 *[..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:572..573 [..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:575..577 *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:576..577 s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:592..622 s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:596..597 [..] *s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:596..603 s64 false false
+tests/compiler/regressions/baked-default-uses-poly.jai:596..608 bool false false
+tests/compiler/regressions/baked-default-uses-poly.jai:607..608 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:614..615 s64 true false
+tests/compiler/regressions/baked-default-uses-poly.jai:621..622 s64 true false
 ## casts (0)
 ## used (14)
-EntityId(175)
-EntityId(176)
-EntityId(4743)
-EntityId(4744)
-EntityId(4749)
-EntityId(4750)
-EntityId(4751)
-EntityId(4752)
-EntityId(4753)
-EntityId(4754)
-EntityId(4786)
-EntityId(4787)
-EntityId(4790)
-EntityId(4791)
-## used_imports (4)
-(ScopeId(13), 0)
-(ScopeId(24), 0)
-(ScopeId(93), 0)
-(ScopeId(93), 1)
+E(T@tests/compiler/regressions/baked-default-uses-poly.jai:123)
+E(T@tests/compiler/regressions/baked-default-uses-poly.jai:285)
+E(a@tests/compiler/regressions/baked-default-uses-poly.jai:325)
+E(a@tests/compiler/regressions/baked-default-uses-poly.jai:503)
+E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:114)
+E(arr@tests/compiler/regressions/baked-default-uses-poly.jai:273)
+E(b@tests/compiler/regressions/baked-default-uses-poly.jai:328)
+E(compare@tests/compiler/regressions/baked-default-uses-poly.jai:136)
+E(compare@tests/compiler/regressions/baked-default-uses-poly.jai:298)
+E(find_first@tests/compiler/regressions/baked-default-uses-poly.jai:99)
+E(item@tests/compiler/regressions/baked-default-uses-poly.jai:126)
+E(item@tests/compiler/regressions/baked-default-uses-poly.jai:288)
+E(push_unique@tests/compiler/regressions/baked-default-uses-poly.jai:257)
+E(x@tests/compiler/regressions/baked-default-uses-poly.jai:521)
+## used_imports (2)
+(S(Module), 0)
+(S(Module), 1)
 ## receivers (1)
-13:598..603 [..] *s64
+tests/compiler/regressions/baked-default-uses-poly.jai:598..603 [..] *s64
 ## instances (0)
 ## fields (0)
 ## member_uses (0)
