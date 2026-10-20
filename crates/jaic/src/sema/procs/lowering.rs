@@ -194,7 +194,15 @@ impl Compiler {
                     },
                     false,
                 );
-                if self.is_memory_type(param.ty) {
+                // `#compile_time` procedures run in the compiler, whose arguments are plain
+                // locals.
+                if self.is_memory_type(param.ty)
+                    && !header
+                        .flags
+                        .other
+                        .iter()
+                        .any(|flag| flag.name.as_str() == "compile_time")
+                {
                     f.immutable.push((addr, Immutable::Argument));
                 }
                 if let Some(info) = &param.callable {
