@@ -7,6 +7,8 @@ exclude_re = [
     "impl (Debug|Display) for",
     "impl fmt::(Debug|Display) for",
     "::fmt$",
+    # Rotation joins two shifted halves whose bits never overlap, so `|` and `^` give one result.
+    "replace \\| with \\^ in rotate_left",
 ]
 # A test run that takes longer than this multiple of the unmutated run is a hang the mutant caused.
 minimum_test_timeout = 60

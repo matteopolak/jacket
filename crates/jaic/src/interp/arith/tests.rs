@@ -389,6 +389,19 @@ fn float_to_integer_conversions_saturate_and_send_nan_to_zero() {
             assert_eq!(conv(ConvOp::FToU, from, Ty::I64, source), f as u64);
         }
     }
+    // Each width saturates at its own maximum, not at the 64-bit one cut down to it.
+    assert_eq!(
+        conv(ConvOp::FToU, Ty::F64, Ty::I16, 70_000.0f64.to_bits()),
+        0xffff
+    );
+    assert_eq!(
+        conv(ConvOp::FToU, Ty::F64, Ty::I32, 5e9f64.to_bits()),
+        0xffff_ffff
+    );
+    assert_eq!(
+        conv(ConvOp::FToU, Ty::F64, Ty::I8, 700.0f64.to_bits()),
+        0xff
+    );
     assert_eq!(
         conv(ConvOp::FToS, Ty::F64, Ty::I8, (-3.0f64).to_bits()),
         0xfd
@@ -423,6 +436,15 @@ fn integer_to_float_conversions_round_once_to_the_target() {
         (tie as f32).to_bits() as u64
     );
     assert_ne!((tie as f64) as f32, tie as f32);
+    // The same for a signed word, positive and negative.
+    let signed_tie = (1i64 << 62) + (1 << 38) + 1;
+    for value in [signed_tie, -signed_tie] {
+        assert_eq!(
+            conv(ConvOp::SToF, Ty::I64, Ty::F32, value as u64),
+            (value as f32).to_bits() as u64
+        );
+    }
+    assert_ne!((signed_tie as f64) as f32, signed_tie as f32);
 }
 
 #[test]

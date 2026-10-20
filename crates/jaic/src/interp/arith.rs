@@ -53,11 +53,7 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
             } else {
                 s
             };
-            if s == 0 {
-                x
-            } else {
-                mask(ty, (x << s) | (x >> (bits - s)))
-            }
+            rotate_left(ty, x, s)
         }
         BinOp::FAdd | BinOp::FSub | BinOp::FMul | BinOp::FDiv => {
             if ty == Ty::F32 {
@@ -81,6 +77,15 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
             }
         }
     }
+}
+
+/// `x` rotated left by `s` bits (`s` below the width of `ty`).
+fn rotate_left(ty: Ty, x: u64, s: u32) -> u64 {
+    if s == 0 {
+        return x;
+    }
+    // The two halves share no bits, so joining them with `|` or `^` is the same.
+    mask(ty, (x << s) | (x >> (ty.size() as u32 * 8 - s)))
 }
 
 #[inline]
