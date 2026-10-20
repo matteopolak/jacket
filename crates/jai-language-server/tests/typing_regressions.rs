@@ -375,3 +375,43 @@ fn a_field_default_has_the_same_color_whether_or_not_the_struct_is_used() {
     let unused = "Bad :: struct {\n    descriptor: Type = 3;\n}\nmain :: () {\n}\n";
     assert_eq!(messages(&open(unused)), Vec::<String>::new());
 }
+
+#[test]
+fn a_constant_whose_run_fails_is_still_a_constant_where_it_is_used() {
+    on_big_stack(|| {
+        for body in ["return 1;", "assert(false); return 1;"] {
+            let source = format!(
+                "#import \"Basic\";\nf :: () -> int {{ {body} }}\nregistered :: #run f();\nalias :: registered;\nmain :: () {{ print(\"%\", alias); }}\n"
+            );
+            let session = open(&source);
+            let token = session
+                .semantic_tokens(&uri())
+                .unwrap()
+                .into_iter()
+                .find(|t| t.position.line == 3 && t.position.character == 9)
+                .expect("a token for `registered`");
+            assert_eq!(
+                (token.kind, token.readonly),
+                (SemanticTokenKind::Variable, true),
+                "{source}"
+            );
+            let definition = session
+                .definition(
+                    &uri(),
+                    Position {
+                        line: 3,
+                        character: 9,
+                    },
+                )
+                .unwrap();
+            assert_eq!(
+                definition
+                    .iter()
+                    .map(|l| l.range.start.line)
+                    .collect::<Vec<_>>(),
+                [2],
+                "{source}"
+            );
+        }
+    });
+}

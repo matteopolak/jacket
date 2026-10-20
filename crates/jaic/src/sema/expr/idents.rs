@@ -179,6 +179,13 @@ impl Compiler {
                     ));
                 }
                 let op = self.entities_operand(f, scope, &ids, span);
+                // A name whose declaration failed (a `#run` that asserted) still names it, so it
+                // is colored and navigable as it is when the declaration succeeds.
+                if op.is_err()
+                    && let [id] = ids[..]
+                {
+                    self.ide_note_entity_use(span, id, TypeId::COMPILE_TIME);
+                }
                 if let Some(ide) = self.ed.facts_mut() {
                     ide.last_entity = Some((span, ids[0]));
                     if ide.lint {
