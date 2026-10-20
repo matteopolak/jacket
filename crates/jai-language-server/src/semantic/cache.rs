@@ -12,9 +12,6 @@ use std::rc::Rc;
 #[derive(Default)]
 pub struct Cache {
     entries: Vec<Analysis>,
-    /// The target that last answered about skipped code in each file: asked first next time,
-    /// so the one compile kept for another target keeps answering.
-    pub answered: BTreeMap<PathBuf, TargetOs>,
     /// Canonical forms of the paths compiled, so a request does not ask the file system again.
     canonical: jaic::paths::CanonCache,
     /// Programs compiled so far.
@@ -80,20 +77,6 @@ impl Cache {
     /// Programs compiled so far, and compiles alive now.
     pub fn counts(&self) -> (usize, usize) {
         (self.compiles, self.entries.len())
-    }
-
-    /// Whether these inputs, as the very buffers given, have a compile kept for `os`.
-    pub fn has(
-        &self,
-        root: &Path,
-        dirs: &[PathBuf],
-        files: &Buffers,
-        os: Option<TargetOs>,
-    ) -> bool {
-        let quick = quick_key(root, dirs, files, os);
-        self.entries
-            .iter()
-            .any(|a| a.quick.as_ref().is_some_and(|(k, _)| *k == quick))
     }
 
     /// Files appeared or went away: canonical paths are asked for again.

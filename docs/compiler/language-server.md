@@ -32,7 +32,7 @@ Compiles on demand and caches by source text:
 5. `ide_sketch_polymorphs` checks each uninstantiated polymorphic procedure and unexpanded macro, and each polymorphic struct with no instance, once with stand-in types so hover and completion work inside them. The sketch is then discarded; jailint ignores its facts.
 6. Compile-time code runs in `SandboxHost` with a block budget, so a looping `#run` traps instead of hanging and never writes to protocol stdout.
 
-Code in an `#if OS == ...` branch the target skipped is checked by compiling for the other targets (`OTHER_TARGETS`) until one takes it.
+Code in an `#if OS == ...` branch the target skipped is checked by compiling for the other targets until one takes it, always in `OTHER_TARGETS` order: code several targets check (the `else` of an `#if OS == .MACOS`) is then described the same way whatever was asked before.
 
 **Build metaprograms.** For a project built by a metaprogram (`first.jai` calling `add_build_file`), the metaprogram is run and each workspace compiler becomes a `Program` in `Analysis::others`; `Analysis::focus(path)` picks the one that compiled a file. Afterwards `release_build_state` and `release_lowered_code` free metaprogram state and lowered IR, since nothing runs again.
 

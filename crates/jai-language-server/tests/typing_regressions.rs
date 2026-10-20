@@ -587,3 +587,35 @@ fn a_type_in_a_rejected_overload_header_hovers_with_its_layout_whether_or_not_it
         }
     });
 }
+
+#[test]
+fn code_the_target_skips_is_described_by_the_same_other_target_whatever_was_asked_before() {
+    on_big_stack(|| {
+        // The other targets in the order they are asked, and the type each gives `T`.
+        let own = if cfg!(target_os = "macos") {
+            "MACOS"
+        } else if cfg!(windows) {
+            "WINDOWS"
+        } else {
+            "LINUX"
+        };
+        let others: Vec<(&str, &str)> = [("LINUX", "u8"), ("WINDOWS", "u16"), ("MACOS", "u32")]
+            .into_iter()
+            .filter(|(os, _)| *os != own)
+            .collect();
+        let (first, second) = (others[0], others[1]);
+        let source = format!(
+            "#if OS == .LINUX {{ T :: u8; }} else #if OS == .WINDOWS {{ T :: u16; }} else {{ T :: u32; }}\nmain :: () {{\n    x: T;\n    #if OS == .{own} {{ }} else {{ a := x; }}\n    #if OS == .{} {{ b := x; }}\n}}\n",
+            second.0
+        );
+        let session = open(&source);
+        let hover = |name: &str| {
+            let at = position(&source, source.find(name).unwrap() + name.len() - 1);
+            session.hover(&uri(), at).unwrap().map(|h| h.contents.value)
+        };
+        let shared = hover("a := x");
+        assert_eq!(shared, Some(format!("x: {}", first.1)));
+        assert_eq!(hover("b := x"), Some(format!("x: {}", second.1)));
+        assert_eq!(hover("a := x"), shared);
+    });
+}

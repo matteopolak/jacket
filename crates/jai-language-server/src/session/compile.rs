@@ -214,8 +214,8 @@ impl Session {
 
     /// Like `with_semantic` for a question about `byte` of `uri`. When the program's compile
     /// skipped that code (an `#if OS == ...` branch, or a file only another target loads) and
-    /// has no answer, compiles for the other targets are asked, the first that checked it
-    /// answering.
+    /// has no answer, compiles for the other targets are asked in `OTHER_TARGETS` order, the
+    /// first that checked it answering.
     pub(crate) fn with_semantic_at<T>(
         &self,
         uri: &DocumentUri,
@@ -243,9 +243,9 @@ impl Session {
         if unreached.0 != self.generation.get() {
             *unreached = (self.generation.get(), BTreeMap::default());
         }
-        // The target that answered last, then those compiled already, then the rest.
-        let last = cache.answered.get(path).copied();
-        let mut order: Vec<jaic::sema::TargetOs> = semantic::OTHER_TARGETS
+        // Always in the same order, so the answer does not depend on which target answered
+        // an earlier question: code several targets check is described as the first sees it.
+        let order: Vec<jaic::sema::TargetOs> = semantic::OTHER_TARGETS
             .into_iter()
             .filter(|&os| {
                 os != own
@@ -255,7 +255,6 @@ impl Session {
                         .is_some_and(|spans| spans.iter().any(|&(a, b)| a <= byte && byte <= b))
             })
             .collect();
-        order.sort_by_key(|&os| (Some(os) != last, !cache.has(&root, &dirs, &files, Some(os))));
         for os in order {
             let analysis = cache.analyze_for(environment, &root, &dirs, files.clone(), Some(os));
             analysis.focus(path);
@@ -266,9 +265,7 @@ impl Session {
                     .or_default()
                     .push(span);
             } else {
-                let found = query(analysis, path);
-                cache.answered.insert(path.to_path_buf(), os);
-                return found;
+                return query(analysis, path);
             }
         }
         None
