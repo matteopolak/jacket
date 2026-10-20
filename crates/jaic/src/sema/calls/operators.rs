@@ -7,7 +7,7 @@ use super::{
 use crate::ast::ExprKind as E;
 use crate::sema::TypeState;
 use crate::sema::binary::Binary;
-use crate::sema::expr::takes_sibling_type;
+use crate::sema::expr::{takes_context_type, takes_sibling_type};
 
 /// One way to call the `operator` overloads of a binary operator.
 struct OperatorAttempt {
@@ -108,9 +108,9 @@ impl Compiler {
             a,
             b,
         } = node;
-        let (literal_first, literal, other) = if takes_sibling_type(a, b) {
+        let (literal_first, literal, other) = if takes_context_type(a) && takes_sibling_type(a, b) {
             (true, a, b)
-        } else if takes_sibling_type(b, a) {
+        } else if takes_context_type(b) && takes_sibling_type(b, a) {
             (false, b, a)
         } else {
             return Ok(None);

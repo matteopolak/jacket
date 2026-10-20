@@ -29,10 +29,23 @@ pub(super) fn takes_context_type(e: &ast::Expr) -> bool {
     )
 }
 
-/// Whether `e` waits for its sibling: it takes the sibling's type from context while the sibling
-/// is typed on its own, so the sibling is checked first and `e` is checked with its type.
+/// A bare `xx`: it converts to whatever type its context gives it.
+fn is_bare_cast(e: &ast::Expr) -> bool {
+    matches!(
+        e.kind,
+        E::Cast {
+            ty: None,
+            ..
+        }
+    )
+}
+
+/// Whether `e` waits for its sibling: it takes its type from context (or is a bare `xx`) while
+/// the sibling is typed on its own, so the sibling is checked first and `e` is checked with its
+/// type as a hint.
 pub(super) fn takes_sibling_type(e: &ast::Expr, sibling: &ast::Expr) -> bool {
-    takes_context_type(e) && !takes_context_type(sibling)
+    let waits = |x: &ast::Expr| takes_context_type(x) || is_bare_cast(x);
+    waits(e) && !waits(sibling)
 }
 
 /// Where an expected type comes from. A target is the type the value is for (a declaration, a

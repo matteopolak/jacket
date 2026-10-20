@@ -1,8 +1,9 @@
 //! Checking the operands of a binary expression.
 use super::{is_comparison, is_complement_literal, is_number_literal, is_shift};
-use crate::ast::{BinOp, ExprKind as E};
+use crate::ast::BinOp;
 use crate::sema::TypeState;
 use crate::sema::calls::binop_text;
+use crate::sema::expr::takes_sibling_type;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
 use crate::types::TypeKind;
@@ -28,46 +29,14 @@ impl Compiler {
         } else {
             expected
         };
-        // `.FIRST == x`: an inferred member on the left takes the right operand's type, so
-        // the right side is checked first.
+        // `.FIRST == x`, `xx err == GL_FALSE`, `xx a + n`, `.FLAG & x.flags`: an operand with no
+        // type of its own takes its sibling's type, so the sibling is checked first. The
+        // expected type of the whole expression does not reach the waiting operand when the
+        // sibling has a type, and a comparison settles an untyped sibling to its default.
+        // Shifts type their operands apart.
         let mut early_rhs = None;
-        let is_xx = |e: &ast::Expr| {
-            matches!(
-                e.kind,
-                E::Cast {
-                    ty: None,
-                    ..
-                }
-            )
-        };
-        // `.FLAG & x.flags` too: the member takes the flags type, not an expected `int`.
-        // An expected enum type already names the member (`.A & ~.B` as a flags argument).
-        let bitwise = matches!(op, BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor)
-            && !lhs_expected.is_some_and(|t| {
-                matches!(
-                    self.ty.types.kind(self.ty.types.repr_struct(t)),
-                    TypeKind::Enum(_)
-                )
-            });
-        let mut lhs = if ((is_cmp
-            && (matches!(a.kind, E::InferredMember(_)) || (is_xx(a) && !is_xx(b))))
-            || (bitwise && matches!(a.kind, E::InferredMember(_)))
-            || (!is_cmp && !is_shift && is_xx(a) && !is_xx(b)))
-            && !matches!(b.kind, E::InferredMember(_))
-        {
-            // `xx err == GL_FALSE` casts to the other operand's type too, and so does `xx` in
-            // arithmetic next to an operand that has a type; the expected type of the whole
-            // expression does not reach it.
-            let r = self.check_expr(
-                f,
-                scope,
-                b,
-                if is_cmp {
-                    None
-                } else {
-                    expected
-                },
-            )?;
+        let mut lhs = if !is_shift && takes_sibling_type(a, b) {
+            let r = self.check_expr_hinted(f, scope, b, lhs_expected)?;
             let typed = !matches!(
                 r,
                 Operand::Const {
@@ -80,7 +49,7 @@ impl Compiler {
             } else {
                 lhs_expected
             };
-            let l = self.check_expr(f, scope, a, hint)?;
+            let l = self.check_expr_hinted(f, scope, a, hint)?;
             early_rhs = Some(r);
             l
         } else if lhs_expected.is_some() && is_number_literal(a) {
@@ -163,31 +132,6 @@ impl Compiler {
             } else if let Some(b) = byte_of(self, &lhs, &rhs) {
                 lhs = b;
             }
-        }
-        if matches!(
-            lhs,
-            Operand::Const {
-                untyped: true,
-                ..
-            }
-        ) && !matches!(
-            rhs,
-            Operand::Const {
-                untyped: true,
-                ..
-            }
-        ) && !is_shift
-        {
-            // Re-check the left side with the right side's type for inferred members.
-            if matches!(a.kind, E::InferredMember(_)) {
-                lhs = self.check_expr(f, scope, a, Some(rhs.ty()))?;
-            }
-        }
-        if matches!(a.kind, E::InferredMember(_)) && !matches!(b.kind, E::InferredMember(_)) {
-            lhs = self.check_expr(f, scope, a, Some(rhs.ty()))?;
-        }
-        if matches!(b.kind, E::InferredMember(_)) {
-            rhs = self.check_expr(f, scope, b, Some(lhs.ty()))?;
         }
         Ok((lhs, rhs))
     }
