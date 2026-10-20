@@ -233,7 +233,7 @@ array_copy :: (array: [] $T) -> [] T {
     assert(result.data != null || result.count == 0);
     memcpy(result.data, array.data, array.count * size_of(T));
     return result;
-} @UseResult
+} @UseResult @Allocates
 
 array_copy :: (dest: *[..] $T, source: [] T) {
     array_resize(dest, source.count, false);

@@ -214,7 +214,7 @@ builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_
     if do_reset reset(builder);
 
     return result;
-}
+} @Allocates
 
 write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_error := false) -> s64 {
     if failed return 0;

@@ -176,13 +176,13 @@ to_lower_copy :: (s: string) -> string {
     result := copy_string(s);
     to_lower_in_place(result);
     return result;
-} @UseResult
+} @UseResult @Allocates
 
 to_upper_copy :: (s: string) -> string {
     result := copy_string(s);
     to_upper_in_place(result);
     return result;
-} @UseResult
+} @UseResult @Allocates
 
 trim_left :: (s: string, chars := DEFAULT_SPACES) -> string {
     i: s64;
@@ -297,7 +297,7 @@ join :: (inputs: ..string, separator := "", before_first := false, after_last :=
     if after_last append(*builder, separator);
 
     return builder_to_string(*builder);
-} @UseResult
+} @UseResult @Allocates
 
 replace :: (s: string, old: string, new: string) -> string, ocurrences: int {
     builder: String_Builder;
@@ -318,4 +318,4 @@ replace :: (s: string, old: string, new: string) -> string, ocurrences: int {
     }
 
     return builder_to_string(*builder), count;
-} @UseResult
+} @UseResult @Allocates

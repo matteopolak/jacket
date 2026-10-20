@@ -27,6 +27,7 @@ mod identity_op;
 mod index_only_loop;
 mod infinite_loop;
 mod integer_division_in_float;
+mod leaked_allocation;
 mod lossy_xx;
 mod manual_assign_op;
 mod manual_index_counter;
@@ -177,6 +178,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "an integer division whose result is used as a float",
         check: integer_division_in_float::check,
+    },
+    RuleInfo {
+        name: "leaked_allocation",
+        default: Level::Allow,
+        summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
+        check: leaked_allocation::check,
     },
     RuleInfo {
         name: "lossy_xx",

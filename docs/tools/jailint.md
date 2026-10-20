@@ -86,6 +86,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `index_only_loop` | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
 | `infinite_loop` | warn | no | a `while` whose condition nothing in the loop changes |
 | `integer_division_in_float` | warn | no | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
+| `leaked_allocation` | allow | no | `p := New(T);` that is never freed, returned or handed on |
 | `lossy_xx` | allow | yes | `xx` that narrows a number to a smaller type |
 | `manual_assign_op` | warn | yes | `a = a + b` to `a += b` |
 | `manual_index_counter` | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
@@ -147,6 +148,8 @@ Becomes `for xs` (or `for *xs` when elements are written), other uses of `i` bec
 Condition reads only locals, parameters and literals; skipped for bodies with `break`, `return`, `#insert`, `#asm`, `using`, macro calls or taken addresses.
 ### integer_division_in_float
 Operands are typed before the cast, so the integers divide first. A variable divided by a power-of-two literal is taken as deliberate.
+### leaked_allocation
+Off by default: ownership conventions differ, and a program that allocates once for its whole run may leak on purpose. A local declared from a call of an `@Allocates` procedure (the library's `alloc`, `New`, `NewArray`, `copy_string`, `sprint`, `join`, `array_copy`, `to_upper_copy`, `read_entire_file`, ...; a cast around the call is fine) whose every later mention is harmless: reading or writing a number, bool or enum through it (`p.count`, `p.depth = 1`), comparing it, testing it in an `if`/`while`, or a bare statement. Passing it (or anything reached through it) to any call, freeing it (also by `defer`), returning it, assigning it elsewhere, taking its address, putting it in a literal or reassigning it all count as handling the memory and keep the rule silent. It also stays silent when it cannot tell which allocator is in force: a procedure that uses `push_context`, assigns `context`, calls a macro (`push_allocator` is one) or has `#insert`/`using`, an allocating call with `,, allocator = temp`, or a name mentioned where the walk cannot follow.
 ### lossy_xx
 Off by default: narrowing with `xx` is common Jai style. The fix spells out `cast(T)`.
 ### manual_assign_op

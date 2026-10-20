@@ -1,7 +1,7 @@
 alloc :: (size: s64) -> *void {
     assert(size >= 0);
     return allocator_call(context.allocator, .ALLOCATE, size, 0, null);
-}
+} @Allocates
 
 get_capabilities :: (b: Allocator) -> (caps: Allocator_Caps, name: string) {
     name: string;
@@ -26,13 +26,13 @@ alloc_string :: (count: int) -> string {
     memory := alloc(count);
     assert(memory != null || count == 0);
     return .{ count, cast(*u8) memory };
-}
+} @Allocates
 
 copy_string :: (s: string) -> string {
     result := alloc_string(s.count);
     memcpy(result.data, s.data, s.count);
     return result;
-} @UseResult
+} @UseResult @Allocates
 
 to_string :: inline (s: *u8, length: s64) -> string {
     return .{ length, s };
@@ -52,7 +52,7 @@ to_c_string :: (s: string) -> *u8 {
     result[s.count] = 0;
 
     return result;
-}
+} @Allocates
 
 Initialize :: (memory: *$T) {
     memory.* = T.{};
@@ -66,7 +66,7 @@ New :: ($T: Type, $initialized := true) -> *T {
     #if initialized Initialize(memory);
 
     return memory;
-}
+} @Allocates
 
 NewArray :: (count: s64, $T: Type, $initialized := true, alignment: s32 = -1) -> (result: [] T, unaligned_base: *void) {
     assert(count >= 0);
@@ -86,7 +86,7 @@ NewArray :: (count: s64, $T: Type, $initialized := true, alignment: s32 = -1) ->
     #if initialized for *value: result Initialize(value);
 
     return result, base;
-}
+} @Allocates
 
 align_forward :: (orig_size: s64, alignment: s64) -> s64 {
     assert(alignment > 0);

@@ -218,6 +218,16 @@
           "default": "warn",
           "markdownDescription": "an integer division whose result is used as a float (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#integer_division_in_float)"
         },
+        "leaked_allocation": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "a local holding memory from an `@Allocates` call that is never freed, returned or handed on (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#leaked_allocation)"
+        },
         "lossy_xx": {
           "type": "string",
           "enum": [

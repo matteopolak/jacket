@@ -71,14 +71,14 @@ read_entire_file :: (f: File, zero_terminated := false) -> string, bool {
     if zero_terminated result.data[result.count] = 0;
 
     return result, true;
-}
+} @Allocates
 
 read_entire_file :: (name: string, zero_terminated := false, log_errors := true) -> string, bool {
     file, ok := file_open(name, log_errors = log_errors);
     if !ok return "", false;
     defer file_close(*file);
     return read_entire_file(file, zero_terminated);
-}
+} @Allocates
 
 write_entire_file :: inline (name: string, data: string) -> bool {
     return write_entire_file(name, data.data, data.count);
