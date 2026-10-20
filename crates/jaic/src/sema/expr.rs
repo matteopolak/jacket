@@ -40,13 +40,13 @@ impl Compiler {
         let mut result = self.check_expr_kind(f, scope, expr, expected);
         self.ed.expr_checked(expr.span, result.is_ok());
         if result.is_err()
-            && (self.sketching() || self.ide_has_stand_ins())
+            && self.ed.recovers_exprs()
             && let Some(op) = self.ide_sketch_recover(f, scope, expr)
         {
             result = Ok(op);
         }
         if !f.type_only
-            && !self.sketching()
+            && !self.ed.sketching()
             && let Some(procedure) = f.proc
             && let Ok(op) = &result
             && op.ty() != TypeId::COMPILE_TIME
@@ -62,7 +62,7 @@ impl Compiler {
             && let Ok(op) = &result
         {
             self.ide_note_expr(expr, op);
-            if self.sketching() {
+            if self.ed.sketching() {
                 self.ide_note_sketch_type(expr.span, op);
             }
         }

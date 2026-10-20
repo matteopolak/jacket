@@ -163,7 +163,7 @@ impl Compiler {
 
     /// Note what the integer or bool expression `expr`, which checked to `op`, can be.
     pub(crate) fn ide_note_ainfo(&mut self, expr: &ast::Expr, op: &Operand) {
-        if self.sketching() || !self.ide_wants_pub(expr.span.file) {
+        if self.ed.sketching() || !self.ide_wants_pub(expr.span.file) {
             return;
         }
         let info = self.compute_ainfo(expr, op);
@@ -288,7 +288,7 @@ impl Compiler {
 
     /// An assignment statement at `span` wrote the variables `lhs` names.
     pub(super) fn ide_note_assign(&mut self, scope: ScopeId, lhs: &[ast::Expr], span: Span) {
-        if !self.ed.is_live() || self.sketching() {
+        if !self.ed.is_live() || self.ed.sketching() {
             return;
         }
         for target in lhs {
@@ -314,7 +314,7 @@ impl Compiler {
         then_value: Option<&ast::Expr>,
         else_value: Option<&ast::Expr>,
     ) {
-        if !self.ed.is_live() || self.sketching() {
+        if !self.ed.is_live() || self.ed.sketching() {
             return;
         }
         let truth = self
@@ -339,7 +339,7 @@ impl Compiler {
     pub(super) fn warn_unreachable(&mut self, f: &FnCtx, body: &ast::Block) -> bool {
         let mut walk = Walk::default();
         let completes = self.walk_stmts(f, &mut walk, &body.stmts, true);
-        if self.sketching() || !self.ide_wants_pub(body.span.file) {
+        if self.ed.sketching() || !self.ide_wants_pub(body.span.file) {
             return completes;
         }
         walk.dead.sort_by_key(|s| (s.start, s.end));

@@ -27,10 +27,7 @@ impl Compiler {
     /// Distribution boundary for library-owned helpers, checked before cache hits.
     /// Canonical paths cover relative traversal and native filesystem aliases alike.
     fn check_source_access(&self, path: &Path, span: Span) -> Result<()> {
-        if span == Span::NONE
-            && self.ed.is_live()
-            && self.ed.selected_entry.as_ref() == Some(&self.canon(path))
-        {
+        if span == Span::NONE && self.ed.is_selected_entry(&self.canon(path)) {
             return Ok(());
         }
         let Some(stdlib) = self.options.stdlib_root() else {
@@ -79,7 +76,7 @@ impl Compiler {
     }
 
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
-        if !self.ed.is_live()
+        if self.ed.allows_parse_ahead()
             && let Some(prepared) = self.ahead.as_ref().and_then(|a| a.claim(path))
         {
             let (text, line_starts, tree) = prepared.into_parts();

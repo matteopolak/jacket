@@ -2,10 +2,24 @@
 //! event method returns at once, so recording costs the checker one branch per site.
 use super::IdeFacts;
 use crate::parser::{ParseReuse, SharedParse};
-use crate::source::{FileId, Span};
+use crate::sema::Result;
+use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+/// What checking does after a statement of a block failed (`Editor::stmt_failed`).
+pub(crate) enum StmtRecovery {
+    /// Stop: the body fails with the error.
+    Propagate,
+    /// Record the error and go on with the next statement.
+    Continue,
+    /// Also declare the names the failed declaration did not.
+    Declare,
+    /// Also check what the statement did not get to and declare its names: compile-time
+    /// code it needed was refused, so its values are unknown, not wrong.
+    Salvage,
+}
 
 #[derive(Default)]
 pub struct Editor {
@@ -134,5 +148,127 @@ impl Editor {
             .extend(shared.diagnostics.iter().cloned());
         facts.errors.extend(shared.diagnostics.iter().cloned());
         Some(shared)
+    }
+
+    /// Errors reported along with the first: a batch compile stops at the first, an editor
+    /// shows them all.
+    pub(crate) fn errors<'a>(&mut self, errors: impl IntoIterator<Item = &'a Diagnostic>) {
+        if let Some(facts) = &mut self.facts {
+            facts.errors.extend(errors.into_iter().cloned());
+        }
+    }
+
+    // --- Policy: where an editor analysis checks differently from a build. A batch compile
+    // (not recording) always gets the build's answer.
+
+    /// A sketch (a body checked with stand-ins for what failed) is being checked.
+    #[inline]
+    pub(crate) fn sketching(&self) -> bool {
+        self.facts.as_ref().is_some_and(|facts| facts.sketching)
+    }
+
+    /// An expression that failed gets a stand-in value instead: inside a sketch, or once a
+    /// failed declaration left a stand-in type behind (expressions over its values are
+    /// unknown, not wrong).
+    #[inline]
+    pub(crate) fn recovers_exprs(&self) -> bool {
+        self.facts
+            .as_ref()
+            .is_some_and(|facts| facts.sketching || !facts.stand_ins.is_empty())
+    }
+
+    /// Checking goes on past a failed statement of a block, for the facts of the rest.
+    #[inline]
+    pub(crate) fn continues_past_errors(&self) -> bool {
+        self.is_live() && !self.sketching()
+    }
+
+    pub(crate) fn stmt_failed(&self, kind: DiagnosticKind, is_decl: bool) -> StmtRecovery {
+        if !self.continues_past_errors() {
+            StmtRecovery::Propagate
+        } else if kind == DiagnosticKind::Untrusted {
+            StmtRecovery::Salvage
+        } else if is_decl {
+            StmtRecovery::Declare
+        } else {
+            StmtRecovery::Continue
+        }
+    }
+
+    /// A declaration or import of a file failed: an editor records the error and declares the
+    /// rest of the file, so the names after it keep their types and definitions.
+    pub(crate) fn keep_going(&mut self, error: Box<Diagnostic>) -> Result<()> {
+        match &mut self.facts {
+            Some(facts) => {
+                facts.errors.push(*error);
+                Ok(())
+            }
+            None => Err(error),
+        }
+    }
+
+    /// `keep_going` for an error that may be reported again (an import retried from each
+    /// file that names it): recorded once.
+    pub(crate) fn keep_going_once(&mut self, error: Box<Diagnostic>) -> Result<()> {
+        match &mut self.facts {
+            Some(facts) => {
+                if !facts
+                    .errors
+                    .iter()
+                    .any(|known| known.span == error.span && known.message == error.message)
+                {
+                    facts.errors.push(*error);
+                }
+                Ok(())
+            }
+            None => Err(error),
+        }
+    }
+
+    /// Bodies no build reaches are checked too (an entry point in a program without `main`).
+    #[inline]
+    pub(crate) fn checks_every_body(&self) -> bool {
+        self.is_live()
+    }
+
+    /// Files may be parsed ahead on worker threads. An editor parses on its own thread, with
+    /// error recovery and shared parses (`Editor::parse`).
+    #[inline]
+    pub(crate) fn allows_parse_ahead(&self) -> bool {
+        !self.is_live()
+    }
+
+    /// `path` is the entry file the editor picked (canonical), so it may be inspected even
+    /// where loading it would otherwise be refused.
+    pub(crate) fn is_selected_entry(&self, path: &Path) -> bool {
+        self.selected_entry.as_deref() == Some(path)
+    }
+
+    /// The end of a body that walking it shows is never reached owes no result. A build keeps
+    /// the reference compiler's simpler rule.
+    #[inline]
+    pub(crate) fn trusts_reachability(&self) -> bool {
+        self.is_live()
+    }
+
+    /// Failed bodies are retried only after scopes changed: a change to what a scope holds is
+    /// progress for `Compiler::lower_epoch`.
+    #[inline]
+    pub(crate) fn counts_scope_changes(&self) -> bool {
+        self.is_live()
+    }
+
+    /// A sketch made only the signature of polymorph instance `inst` (`ide_sketch_refuses`).
+    pub(crate) fn signature_only(&mut self, inst: crate::sema::ProcId) {
+        if let Some(facts) = &mut self.facts {
+            facts.sketch_signatures.insert(inst);
+        }
+    }
+
+    /// `proc` has only a signature: its body is never lowered.
+    pub(crate) fn is_signature_only(&self, proc: crate::sema::ProcId) -> bool {
+        self.facts
+            .as_ref()
+            .is_some_and(|facts| facts.sketch_signatures.contains(&proc))
     }
 }

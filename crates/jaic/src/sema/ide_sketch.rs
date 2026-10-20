@@ -397,17 +397,6 @@ impl Compiler {
 }
 
 impl Compiler {
-    /// A declaration that failed left a stand-in type behind: expressions over its values are
-    /// unknown, not wrong.
-    pub(super) fn ide_has_stand_ins(&self) -> bool {
-        self.ed.facts().is_some_and(|ide| !ide.stand_ins.is_empty())
-    }
-
-    /// A sketch is being checked.
-    pub(crate) fn sketching(&self) -> bool {
-        self.ed.facts().is_some_and(|ide| ide.sketching)
-    }
-
     /// A call in a sketch would instantiate a polymorph with a stand-in. Only its signature is
     /// made (so the call has the caller's own `T` in its types): each member of a stand-in is a
     /// new stand-in, so checking bodies of polymorphs calling each other would not end.
@@ -523,7 +512,7 @@ impl Compiler {
         };
         // Outside a sketch nothing recorded the operands' types: check them here, once.
         let mut checked: HashMap<Span, TypeId> = HashMap::default();
-        let sketching = self.sketching();
+        let sketching = self.ed.sketching();
         for child in &children {
             let tried = sketching
                 && self

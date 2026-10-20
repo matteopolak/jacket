@@ -1,11 +1,10 @@
 //! Checking blocks and dispatching on the kind of statement.
 use crate::ast::{ExprKind as E, StmtKind as S};
+use crate::ide::StmtRecovery;
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, DeferEntry, FnCtx, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind};
-use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, Rc, Result, ScopeId, Span, ast, err, scope,
-};
+use crate::sema::{Compiler, Diagnostic, Rc, Result, ScopeId, Span, ast, err, scope};
 
 impl Compiler {
     /// Check statements in `scope` (no new scope is opened).
@@ -46,18 +45,19 @@ impl Compiler {
         failed: &mut Option<Box<Diagnostic>>,
     ) -> Result<()> {
         if let Err(error) = self.check_block_stmt(f, scope, stmt) {
-            // A statement that needs compile-time code that was not run (untrusted
-            // workspace) has unknown values, not wrong ones: its names stay declared (as
-            // stand-ins) so the statements after it check without cascading errors.
-            if error.kind == DiagnosticKind::Untrusted && !self.sketching() {
-                self.sketch_salvage(f, scope, stmt);
-            } else if !self.sketching()
-                && self.ed.is_live()
-                && let S::Decl(decl) = &stmt.kind
-            {
+            match (
+                self.ed
+                    .stmt_failed(error.kind, matches!(stmt.kind, S::Decl(_))),
+                &stmt.kind,
+            ) {
+                (StmtRecovery::Propagate, _) => return Err(error),
+                // Unknown values, not wrong ones: the statement's names stay declared (as
+                // stand-ins) so the statements after it check without cascading errors.
+                (StmtRecovery::Salvage, _) => self.sketch_salvage(f, scope, stmt),
                 // A declaration whose initializer failed still declares its names (as the
                 // declared type or a stand-in), so later uses do not report them unknown.
-                self.ide_sketch_declare(f, scope, decl);
+                (StmtRecovery::Declare, S::Decl(decl)) => self.ide_sketch_declare(f, scope, decl),
+                _ => {}
             }
             self.check_block_error_ide(f, failed, error)?;
         }
@@ -84,7 +84,7 @@ impl Compiler {
         failed: &mut Option<Box<Diagnostic>>,
         error: Box<Diagnostic>,
     ) -> Result<()> {
-        if !self.ed.is_live() || self.sketching() {
+        if !self.ed.continues_past_errors() {
             return Err(error);
         }
         self.ed.error(&error);
@@ -99,7 +99,7 @@ impl Compiler {
     /// facts of the rest.
     fn check_block_stmt(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) -> Result<()> {
         match self.check_stmt(f, scope, stmt) {
-            Err(_) if self.sketching() => {
+            Err(_) if self.ed.sketching() => {
                 self.sketch_reopen(f);
                 self.sketch_salvage(f, scope, stmt);
                 Ok(())
@@ -535,7 +535,7 @@ impl Compiler {
             then_branch,
             else_branch,
         } = boxed;
-        if self.sketching() {
+        if self.ed.sketching() {
             // Which branch a stand-in takes says nothing: a sketch checks both.
             let taken = self.body_static_condition(f, scope, cond).unwrap_or(true);
             let (first, second) = if taken {
@@ -579,7 +579,7 @@ impl Compiler {
         } = boxed;
         // A sketch's stand-ins meet no condition.
         let holds = self.eval_static_condition_as(scope, cond, None);
-        if self.sketching() {
+        if self.ed.sketching() {
             return Ok(());
         }
         if !holds? {

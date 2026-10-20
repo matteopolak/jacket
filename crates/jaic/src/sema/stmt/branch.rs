@@ -37,7 +37,7 @@ impl Compiler {
     /// and tokens work in it. It is lowered into a block nothing reaches, and its errors and
     /// warnings are dropped: the batch compiler never looks at it.
     fn check_dead_for_facts(&mut self, f: &mut FnCtx, scope: ScopeId, branch: &ast::Stmt) {
-        if !self.ed.is_live() || self.sketching() || !self.ide_wants_pub(branch.span.file) {
+        if !self.ed.is_live() || self.ed.sketching() || !self.ide_wants_pub(branch.span.file) {
             return;
         }
         let warned = self.warnings.len();

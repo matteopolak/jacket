@@ -27,7 +27,7 @@ impl Compiler {
         if probing {
             crate::sema::body_probe::begin(self, id.0);
         }
-        let error_mark = self.ed.facts().map(|ide| ide.errors.len());
+        let error_mark = self.ed.error_count();
         let executions = self.ct_executions;
         self.dependencies.begin_body(id);
         self.export.expression_types.remove(&id);
@@ -40,11 +40,10 @@ impl Compiler {
             && !self.placeholders_final
             && self.ct_executions == executions
             && !self.unresolved_body_placeholders(id).is_empty()
-            && let (Some(mark), Some(ide)) = (error_mark, self.ed.facts_mut())
         {
             // Diagnostics of an unfinished attempt are provisional. A complete
             // retry owns the final diagnostics, including independent errors.
-            ide.errors.truncate(mark);
+            self.ed.forget_errors(error_mark);
         }
         self.lowering_depth -= 1;
         if result.is_err() {
@@ -280,7 +279,7 @@ impl Compiler {
             && !f.named_results.iter().all(Option::is_some)
             && !f.macro_returned
             && !self.stmts_return(&f, &body.stmts)
-            && (!self.ed.is_live() || reaches_end);
+            && (!self.ed.trusts_reachability() || reaches_end);
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
@@ -461,8 +460,8 @@ impl Compiler {
             export: None,
         });
         self.procs[id.0 as usize].instances.insert(key, inst);
-        if signature_only && let Some(ide) = self.ed.facts_mut() {
-            ide.sketch_signatures.insert(inst);
+        if signature_only {
+            self.ed.signature_only(inst);
         }
         self.perf.poly_instance(id, inst, span);
         if let Some(notes) = self.proc_decl_notes.get(&id).cloned() {

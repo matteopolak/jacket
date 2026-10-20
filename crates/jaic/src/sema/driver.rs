@@ -69,7 +69,7 @@ impl Compiler {
 
     /// Starts the parse workers on the files this compile loads first.
     fn start_parse_ahead(&mut self, sources: &[ProgramSource]) {
-        if self.ed.is_live() || self.ahead.is_some() || !self.fs.is_native() {
+        if !self.ed.allows_parse_ahead() || self.ahead.is_some() || !self.fs.is_native() {
             return;
         }
         let mut roots: Vec<PathBuf> = Vec::new();

@@ -142,7 +142,7 @@ impl Compiler {
             // The editor checks every body in the project's files, also a vendored
             // `Runtime_Support` calling the entry point of a program that has no `main` (a
             // build metaprogram). No build reaches that call: it stops the program.
-            Err(_) if self.ed.is_live() => {
+            Err(_) if self.ed.checks_every_body() => {
                 let mut f = FnCtx::new("__entry_point".into(), ir_sig.clone(), FileId(0));
                 f.b.intrinsic(ir::Intrinsic::Trap, Vec::new(), &[]);
                 let rets = ir_sig.returns.iter().map(|&t| f.b.iconst(t, 0)).collect();

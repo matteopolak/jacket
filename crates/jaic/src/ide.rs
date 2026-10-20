@@ -14,6 +14,7 @@ pub mod meta;
 mod recording;
 
 pub use self::editor::Editor;
+pub(crate) use self::editor::StmtRecovery;
 pub use self::facts::{
     IdeCall, IdeCast, IdeExprFact, IdeFacts, IdeFieldSite, IdeHover, IdeKind, IdeLayout, IdeName,
     IdeReceiver, IdeRef, IdeRoot, IdeWhat, SketchMark,

@@ -145,7 +145,7 @@ impl Compiler {
 
     /// Remember which procedure the call at `span` named, whatever file it is in.
     fn ide_note_callee(&mut self, span: Span, chosen: ProcId) {
-        if self.sketching() {
+        if self.ed.sketching() {
             return;
         }
         let Some(ide) = self.ed.facts_mut() else {
@@ -165,7 +165,7 @@ impl Compiler {
     /// before expansion can fail. Call-summary deduplication and its display budget
     /// must not discard selections from other real instantiations of this loop.
     pub(crate) fn ide_note_for_keyword(&mut self, span: Span, chosen: ProcId, ambiguous: bool) {
-        if self.sketching() || !self.ide_wants_file(span.file) {
+        if self.ed.sketching() || !self.ide_wants_file(span.file) {
             return;
         }
         let keyword = Span {
@@ -199,7 +199,7 @@ impl Compiler {
         at: Span,
         types: [TypeId; 2],
     ) {
-        if self.sketching() || !self.ide_wants_file(at.file) {
+        if self.ed.sketching() || !self.ide_wants_file(at.file) {
             return;
         }
         let mut names = Vec::new();

@@ -207,7 +207,7 @@ impl Compiler {
     /// branch is faded only when none of them ran it.
     pub(crate) fn ide_note_ran(&mut self, span: Span, ran: bool) {
         if self.ed.is_live()
-            && !self.sketching()
+            && !self.ed.sketching()
             && self.ide_wants(span.file)
             && let Some(ide) = self.ed.facts_mut()
         {

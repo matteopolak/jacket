@@ -75,6 +75,13 @@ impl Compiler {
             .insert((scope, span), cached);
     }
 
+    /// The failure `id` had at `epoch` still stands, so lowering it again is not worth it.
+    /// A build trusts the epoch; an editor also needs the body's text unchanged (and no
+    /// sketch running).
+    pub(crate) fn failure_reusable(&self, id: ProcId, epoch: u64) -> bool {
+        !self.ed.is_live() || self.ide_cached_body_failure(id, epoch).is_some()
+    }
+
     pub(crate) fn ide_cached_body_failure(
         &self,
         id: ProcId,
@@ -234,7 +241,7 @@ impl Compiler {
     /// The name after `for :` names the `for_expansion` procedures the loop expands through,
     /// like any other use of a procedure name.
     pub(crate) fn ide_note_for_iterator(&mut self, name: &ast::Ident, procs: &[ProcId]) {
-        if self.sketching() || !self.ide_wants(name.span.file) {
+        if self.ed.sketching() || !self.ide_wants(name.span.file) {
             return;
         }
         if let Some(ide) = self.ed.facts_mut() {

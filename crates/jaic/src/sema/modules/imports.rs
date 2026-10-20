@@ -40,16 +40,7 @@ impl Compiler {
         index: usize,
     ) -> Result<Option<ModuleId>> {
         match self.import_module(scope, index) {
-            Err(error) if self.ed.is_live() => {
-                let errors = &mut self.ed.facts_mut().unwrap().errors;
-                if !errors
-                    .iter()
-                    .any(|known| known.span == error.span && known.message == error.message)
-                {
-                    errors.push(*error);
-                }
-                Ok(None)
-            }
+            Err(error) => self.ed.keep_going_once(error).map(|()| None),
             result => result,
         }
     }
