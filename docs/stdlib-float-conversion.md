@@ -30,7 +30,48 @@ Every step either returns the correctly rounded bits or declines, so adding or r
 changes a result, only its cost. Short decimals cost about 250 instructions per call against tens of
 thousands on the big-integer path.
 
-## How to change it
+## Formatting
+
+`emit_float` (`format-float.jai`) turns a `FormatFloat` into text. The digits come from
+`portable_float` semantics: printf-style `f`, `e` and `g` conversions of the exact binary value,
+rounded half to even on its exact decimal expansion (`round_up` rounds toward infinity instead,
+for shortest mode below). `fast_float_text` (`binary-to-decimal.jai`) produces the same text
+without big integers when the numbers fit:
+
+- The value is `m * 2^b` with `m < 2^53`. The digits wanted are `round(m * 2^b * 10^s)`: `s` is the
+  precision for `f`, and `significant - 1 - k` for `e`/`g`, where `k` is the decimal exponent.
+- `scaled_round` splits `10^s` into `5^s * 2^s`, multiplies or divides `m` by `5^|s|` (up to `5^27`,
+  one word) and shifts by the combined power of two. The quotient and the exact remainder, compared
+  with one half, give a correctly rounded integer. Anything that would not fit in 128 bits, or a
+  result of 2^64 or more, returns `ok = false`.
+- `leading_digits` estimates `k` as `floor(top * log10(2))` from the binary exponent and corrects it
+  by one when the scaled result shows the estimate was low. A result of exactly `10^significant` is
+  a carry out of the last digit and moves the exponent.
+- The digits are laid out into a 48-byte stack buffer exactly as `decimal_layout`,
+  `scientific_layout` and `trim_fraction` would, so `emit_float` allocates nothing on this path.
+
+When `fast_float_text` declines (precision past 27 fraction digits or 19 significant digits, very
+large or very small magnitudes), `portable_float` builds the full exact decimal expansion.
+
+Shortest mode (`shortest_text`) bisects on the digit count for the smallest `g` precision whose text
+parses back to the same value; normal powers of two also try the rounded-up text, because their
+interval below is half the size of the one above. Candidates are formatted into stack buffers and
+checked with the fast parser; each costs roughly 1,300 instructions.
+
+Rough costs per call at `-O2` (including `print_to_builder`): `formatFloat(x, trailing_width = 3)`
+about 1,050 instructions, default `print("%", x)` about 1,200, shortest mode about 6,600.
+
+## How to change formatting
+
+- `fast_float_text` must return exactly what `portable_float` returns for the same arguments, or
+  decline. Compare both over many bit patterns (uniform random bits, typical magnitudes, exact
+  ties such as `k / 2^j`, subnormals, values near `2^53` and `2^64`) and every `trailing_width`
+  from -1 to 30 in each mode, for `float64` and `float32`.
+- Raising the limits needs wider arithmetic: `FIVE_POWERS` stops at `5^27` because `m * 5^27` must
+  stay under 2^117, and the `10^significant` limit table stops at `10^19`.
+- `stdlib/Basic/tests/format-floats.jai` holds the edge cases.
+
+## How to change parsing
 
 - `powers-of-five.jai` is generated: edit `tools/generators/generate_float_powers.py` and rerun it.
   `tools/generators/check_generated.py` fails when the checked-in table is stale. The fast path
@@ -48,5 +89,5 @@ None. The `$T` parameter (`float64` or `float32`) selects the constants at compi
 
 ## Dependencies
 
-`multiply_64bits_with_overflow` (`integer128.jai`) for the 64x64 to 128-bit products. Nothing
-outside Basic.
+`multiply_64bits_with_overflow` (`integer128.jai`) for the 64x64 to 128-bit products in both
+directions. Nothing outside Basic.

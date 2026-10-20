@@ -68,6 +68,8 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     else if format.mode == .SHORTEST conversion = 103;
 
     raw: string;
+    text: string;
+    storage: [FLOAT_TEXT_STORAGE] u8;
     integer_limit: float64 = 9007199254740992.0;
 
     power_of_two := fraction == 0 && exponent > 1;
@@ -76,10 +78,15 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
         raw = shortest_text(value, wide, power_of_two);
     } else if format.mode == .DECIMAL && format.trailing_width < 0 && value >= integer_limit {
         raw = padded_integer(value);
-    } else raw = portable_float(value, conversion, precision);
+    } else {
+        fast: bool;
+        text, fast = fast_float_text(value, conversion, precision, *storage);
+        if !fast raw = portable_float(value, conversion, precision);
+    }
 
     defer free(raw);
-    text := raw;
+    if raw.data text = raw;
+
     point: s64 = -1;
     exponent_at := text.count;
 
@@ -137,7 +144,8 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
 
 // The fewest significant digits that read back as `value`, as printed by the `g` conversion.
 shortest_text :: (value: float64, wide: bool, power_of_two: bool) -> string {
-    raw: string;
+    best: [FLOAT_TEXT_STORAGE] u8;
+    best_count: s64 = -1;
     limit := ifx wide then 17 else 9;
     low := 1;
     high := limit;
@@ -147,37 +155,24 @@ shortest_text :: (value: float64, wide: bool, power_of_two: bool) -> string {
     // found by bisection instead of trying every count from one.
     while low < high {
         middle := (low + high) / 2;
-        candidate, matches := shortest_candidate(value, middle, wide, power_of_two);
 
-        if matches {
-            free(raw);
-            raw = candidate;
+        if shortest_candidate(value, middle, wide, power_of_two, *best, *best_count) {
             matched_digits = middle;
             high = middle;
-        } else {
-            free(candidate);
-            low = middle + 1;
-        }
+        } else low = middle + 1;
     }
 
-    if matched_digits != low {
-        free(raw);
+    if matched_digits != low && !shortest_candidate(value, low, wide, power_of_two, *best, *best_count) best_count = -1;
 
-        candidate, matches := shortest_candidate(value, low, wide, power_of_two);
+    assert(best_count >= 0, "shortest float conversion failed to round-trip");
 
-        if matches raw = candidate;
-        else free(candidate);
-    }
-
-    assert(raw.data != null, "shortest float conversion failed to round-trip");
-
-    return raw;
+    return copy_string(string.{ best_count, best.data });
 }
 
 // A value too large to hold fractional digits keeps its first 18 significant digits and the rest
 // are zeros, so the digits past that precision are not the exact integer the bits encode.
 padded_integer :: (value: float64) -> string {
-    scientific := portable_float(value, 101, 17);
+    scientific := float_text(value, 101, 17);
 
     defer free(scientific);
 
@@ -209,20 +204,45 @@ padded_integer :: (value: float64) -> string {
     return builder_to_string(*builder);
 }
 
-// The text of `value` with `digits` significant digits, and whether it reads back as `value`.
-// Normal powers of two have a smaller interval below than above: the nearest decimal can miss
-// below while its ceiling still fits.
-shortest_candidate :: (value: float64, digits: s64, wide: bool, power_of_two: bool) -> string, bool {
-    candidate := portable_float(value, 103, digits);
-    matches := candidate_matches(candidate, value, wide);
+// Whether the text of `value` with `digits` significant digits reads back as `value`; when it does,
+// the text is copied into `best`. Normal powers of two have a smaller interval below than above:
+// the nearest decimal can miss below while its ceiling still fits.
+shortest_candidate :: (value: float64, digits: s64, wide: bool, power_of_two: bool, best: *[FLOAT_TEXT_STORAGE] u8, best_count: *s64) -> bool {
+    storage: [FLOAT_TEXT_STORAGE] u8;
+    text, owned := candidate_text(value, digits, false, *storage);
+    matches := candidate_matches(text, value, wide);
 
     if !matches && power_of_two {
-        free(candidate);
-        candidate = portable_float(value, 103, digits, round_up = true);
-        matches = candidate_matches(candidate, value, wide);
+        if owned free(text);
+        text, owned = candidate_text(value, digits, true, *storage);
+        matches = candidate_matches(text, value, wide);
     }
 
-    return candidate, matches;
+    if matches {
+        assert(text.count <= FLOAT_TEXT_STORAGE);
+        memcpy(best.data, text.data, text.count);
+        best_count.* = text.count;
+    }
+
+    if owned free(text);
+
+    return matches;
+}
+
+// The `g` text with `digits` significant digits: in `storage`, or allocated (`owned`) when it
+// needs the big-integer path.
+candidate_text :: (value: float64, digits: s64, round_up: bool, storage: *[FLOAT_TEXT_STORAGE] u8) -> text: string, owned: bool {
+    text, fast := fast_float_text(value, 103, digits, storage, round_up);
+    if fast return text, false;
+    return portable_float(value, 103, digits, round_up), true;
+}
+
+// What `portable_float` returns, in a new allocation, without its big integers when possible.
+float_text :: (value: float64, conversion: u8, precision: s64) -> string {
+    storage: [FLOAT_TEXT_STORAGE] u8;
+    text, fast := fast_float_text(value, conversion, precision, *storage);
+    if fast return copy_string(text);
+    return portable_float(value, conversion, precision);
 }
 
 candidate_matches :: (text: string, value: float64, wide: bool) -> bool {

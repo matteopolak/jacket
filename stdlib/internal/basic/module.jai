@@ -22,6 +22,7 @@
 #load "format-support.jai";
 #load "numeric-conversion.jai";
 #load "decimal-to-binary.jai";
+#load "binary-to-decimal.jai";
 #load "powers-of-five.jai";
 #load "format-float.jai";
 #load "format-type-names.jai";

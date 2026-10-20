@@ -202,6 +202,7 @@ nearest_binary_bits :: (significand: u64, power: s64, $T: Type) -> bits: u64, ok
     return ((cast(u64) exponent) << stored) | (kept & (((cast(u64) 1) << stored) - 1)), true;
 }
 
+#scope_module
 leading_zero_bits :: (value: u64) -> s64 {
     count: s64;
     rest := value;
