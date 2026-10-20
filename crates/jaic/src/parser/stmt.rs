@@ -453,6 +453,18 @@ impl Parser<'_> {
         self.expect(P::LBrace, "to start the switch body")?;
         let mut cases = Vec::new();
         while !self.at(P::RBrace) {
+            // While typing, a statement that is not a `case` is reported where it is, like the
+            // compiler does with each one, and skipped, so what follows still reads as cases.
+            if !self.at_kw("case") && !self.at_eof() && self.recovery.is_some() {
+                let error = self.expected("`case`", "in switch body");
+                let start = self.span();
+                self.parse_stmt()?;
+                let span = start.to(self.prev_span());
+                if let Some(errors) = self.recovery.as_mut() {
+                    errors.push(crate::source::Diagnostic::error(span, error.message));
+                }
+                continue;
+            }
             cases.push(self.parse_case()?);
         }
         self.expect(P::RBrace, "to end the switch body")?;

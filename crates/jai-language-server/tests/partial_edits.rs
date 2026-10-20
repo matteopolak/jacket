@@ -709,3 +709,26 @@ fn missing_semicolon_keeps_the_statement_and_blames_its_line() {
     let defs = s.definition(&uri(), at(text, "player)")).unwrap();
     assert_eq!(defs[0].range.start, at(text, "player:"));
 }
+
+#[test]
+fn statements_before_the_first_case_are_each_reported_where_they_are() {
+    let text = "main :: () {\n    if which == {\n        x := 1;\n        x += 2;\n        case 0;\n            f();\n    }\n    g();\n}\n";
+    let parsed = jaic::parser::parse_file_ide(jaic::source::FileId(0), text);
+    let errors: Vec<_> = parsed
+        .diagnostics
+        .iter()
+        .map(|d| {
+            (
+                &text[d.span.start as usize..d.span.end as usize],
+                d.message.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        errors,
+        [
+            ("x := 1;", "expected `case` in switch body, found `x`"),
+            ("x += 2;", "expected `case` in switch body, found `x`"),
+        ]
+    );
+}
