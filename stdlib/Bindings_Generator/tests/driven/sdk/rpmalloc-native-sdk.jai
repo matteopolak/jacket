@@ -2,7 +2,7 @@
 // public rpmalloc facade and never casts its Jai callback/heap/config records.
 #import "internal/bindings/rpmalloc-sdk";
 #load "generated/rpmalloc-sdk-layout.jai";
-#load "../../../../internal/bindings/rpmalloc-checked/module.jai";
+#import "internal/bindings/rpmalloc-checked";
 
 probe :: #library,system "rpmalloc_sdk_probe";
 sdk_size :: (index: u32) -> u64 #foreign probe "binding_rpmalloc_size";
