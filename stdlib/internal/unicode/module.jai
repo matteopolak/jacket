@@ -16,7 +16,10 @@ trailingBytesForUTF8 :: #run trailing_table();
 character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32, s64, Unicode_Result #no_aoc {
     if source_length <= 0 return UNI_REPLACEMENT_CHAR, 0, .SOURCE_EXHAUSTED;
 
-    trailing := cast(s64) trailingBytesForUTF8[s[0]];
+    lead := s[0];
+    if lead < 0x80 return lead, 1, .CONVERSION_OK;
+
+    trailing := cast(s64) trailingBytesForUTF8[lead];
     length := trailing + 1;
 
     if source_length < length return UNI_REPLACEMENT_CHAR, source_length, .SOURCE_EXHAUSTED;
@@ -27,11 +30,21 @@ character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32
     }
 
     // Payload bits only: a malformed continuation byte still contributes its low six bits.
-    value := cast(u32) (s[0] & utf8_inital_byte_mask[trailing]);
-    for i: 1..trailing value = (value << 6) | cast(u32) (s[i] & 0x3f);
+    // The common lengths are spelled out so no loop runs for them.
+    value := cast(u32) (lead & utf8_inital_byte_mask[trailing]);
+
+    if trailing == 1 {
+        value = (value << 6) | continuation(s[1]);
+    } else if trailing == 2 {
+        value = (value << 12) | (continuation(s[1]) << 6) | continuation(s[2]);
+    } else if trailing == 3 {
+        value = (value << 18) | (continuation(s[1]) << 12) | (continuation(s[2]) << 6) | continuation(s[3]);
+    } else {
+        for i: 1..trailing value = (value << 6) | continuation(s[i]);
+    }
 
     #if strict {
-        minimum: [6] u32 = .[0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000];
+        minimum: [6] u32 : .[0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000];
         if value < minimum[trailing] || value > UNI_MAX_UTF16 || (value >= 0xd800 && value <= 0xdfff)
             return UNI_REPLACEMENT_CHAR, length, .SOURCE_ILLEGAL;
     }
@@ -43,7 +56,11 @@ character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32
 
 utf8_next_character :: (s: *string) -> code: u32, success: Unicode_Result {
     code, count, status := character_utf8_to_utf32(s.data, s.count);
-    advance(s, count);
+
+    // The decoder never reports more bytes than it was given.
+    s.data += count;
+    s.count -= count;
+
     return code, status;
 }
 
@@ -53,23 +70,36 @@ unicode_next_character :: (s: *u8) -> *u8 {
 
 character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string) {
     value := ch;
-    if value > UNI_MAX_UTF16 value = UNI_REPLACEMENT_CHAR;
+    data := preallocated_string.data;
 
-    count: s64 = 1;
-    if value >= 0x10000 count = 4;
-    else if value >= 0x800 count = 3;
-    else if value >= 0x80 count = 2;
-
-    assert(preallocated_string.count >= count);
-    i := count - 1;
-    while i > 0 {
-        preallocated_string.data[i] = cast(u8) ((value & 63) | 0x80);
-        value >>= 6;
-        i -= 1;
+    if value < 0x80 {
+        assert(preallocated_string.count >= 1);
+        data[0] = cast(u8) value;
+        preallocated_string.count = 1;
+        return;
     }
 
-    preallocated_string.data[0] = cast(u8) value | firstByteMark[count];
-    preallocated_string.count = count;
+    if value > UNI_MAX_UTF16 value = UNI_REPLACEMENT_CHAR;
+
+    if value < 0x800 {
+        assert(preallocated_string.count >= 2);
+        data[0] = cast(u8) (0xc0 | (value >> 6));
+        data[1] = cast(u8) (0x80 | (value & 0x3f));
+        preallocated_string.count = 2;
+    } else if value < 0x10000 {
+        assert(preallocated_string.count >= 3);
+        data[0] = cast(u8) (0xe0 | (value >> 12));
+        data[1] = cast(u8) (0x80 | ((value >> 6) & 0x3f));
+        data[2] = cast(u8) (0x80 | (value & 0x3f));
+        preallocated_string.count = 3;
+    } else {
+        assert(preallocated_string.count >= 4);
+        data[0] = cast(u8) (0xf0 | (value >> 18));
+        data[1] = cast(u8) (0x80 | ((value >> 12) & 0x3f));
+        data[2] = cast(u8) (0x80 | ((value >> 6) & 0x3f));
+        data[3] = cast(u8) (0x80 | (value & 0x3f));
+        preallocated_string.count = 4;
+    }
 }
 
 character_utf32_to_utf8 :: (ch: u32) -> string {
@@ -118,6 +148,10 @@ utf8_iter :: (s: *string, body: Code, flags: For_Flags) #expand {
 
 #scope_file
 #import "Basic";
+
+continuation :: inline (byte: u8) -> u32 {
+    return cast(u32) (byte & 0x3f);
+}
 
 report_invalid_utf8 :: () {
     context.logger("invalid UTF-8\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
