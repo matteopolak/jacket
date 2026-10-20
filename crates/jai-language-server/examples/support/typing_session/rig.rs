@@ -561,6 +561,20 @@ impl<'a, C: Choices> Rig<'a, C> {
                 {
                     return false;
                 }
+                // A macro call's hover shows the macro's body, which may be the edited region:
+                // the header stays, and each line it shows is one the document now has.
+                const EXPANDS: &str = "\n─── expands to ───\n";
+                if let (Some(a), Ok(Some(b))) = (expected, now)
+                    && a.range == b.range
+                    && let (Some((head_a, _)), Some((head_b, lines))) = (
+                        a.contents.value.split_once(EXPANDS),
+                        b.contents.value.split_once(EXPANDS),
+                    )
+                    && head_a == head_b
+                    && lines.lines().all(|line| text.contains(line.trim()))
+                {
+                    return false;
+                }
                 now.as_ref() != Ok(expected)
             };
             if let Some(expected_hover) = comparable
