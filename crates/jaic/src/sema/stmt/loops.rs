@@ -22,6 +22,17 @@ struct ForLoop<'a> {
 }
 
 impl Compiler {
+    /// Attribute a `for` loop's stepping code to the loop's own line. The step block follows the
+    /// body in the output, so without its own marker it would report the body's last statement
+    /// and a breakpoint on that statement would stop on the step instead of before the statement.
+    fn mark_loop_step(&mut self, f: &mut FnCtx, scope: ScopeId, span: Span) {
+        if span.file == f.file && !f.b.is_terminated() {
+            let (line, col) = self.src.sources.get(span.file).line_col(span.start);
+            let debug_scope = self.debug_scope(f, scope, line, col);
+            f.b.loc(span.file.0, line, col, debug_scope);
+        }
+    }
+
     pub(super) fn check_while(
         &mut self,
         f: &mut FnCtx,
@@ -411,6 +422,7 @@ impl Compiler {
         result?;
         f.b.jump(step);
         f.b.switch_to(step);
+        self.mark_loop_step(f, scope, lp.span);
         // Stop at (or past, if the body moved `it`) the bound, before stepping could wrap.
         // Otherwise the next value is still in range, so the step goes straight back to the
         // body and only the first iteration runs the test in `head`.
@@ -716,6 +728,7 @@ impl Compiler {
         result?;
         f.b.jump(step);
         f.b.switch_to(step);
+        self.mark_loop_step(f, scope, lp.span);
         let i = f.b.load(Ty::I64, idx);
         let one = f.b.iconst(Ty::I64, 1);
         let next = f.b.bin(
