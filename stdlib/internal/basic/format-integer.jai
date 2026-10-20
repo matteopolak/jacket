@@ -52,7 +52,7 @@ print_u64_base_n :: (builder: *String_Builder, v: u64, format: FormatInt) #no_ab
     assert(format.minimum_digits >= 0);
 
     // Digits are written from the end of the buffer towards the front, so they come out in order.
-    text: [64] u8;
+    text: [64] u8 = ---;
     start := write_digits(*text, v, cast(u64) format.base);
     count := text.count - start;
     remaining := max(count, min(format.minimum_digits, 64));
