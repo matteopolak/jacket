@@ -22,7 +22,6 @@ Preload does not define {}
 Preload's `Source_Code_Location` has no `{}`
 Preload's `{}` is not a type
 `#overlay` is only allowed in a struct body
-`${}` must be given a type
 `,,` context arguments need a context (not in #c_call code)
 `---` is only allowed as a declaration initializer
 `__arithmetic_overflow` is not a procedure
@@ -48,7 +47,6 @@ Preload's `{}` is not a type
 `{}` needs a mask: a vector or &k
 `{}` needs a vector register operand
 `{}` needs a vector-indexed memory operand ([base + vindex*scale])
-`{}` needs an 8-bit control constant
 `{}` needs an element size (.b/.w/.d/.q)
 `{}` needs float lanes
 `{}` needs mask register operands
@@ -68,8 +66,6 @@ Preload's `{}` is not a type
 `{}` takes dst, src, imm8
 `{}` takes dst, src, wk (the implicit xmm0 as an operand)
 `{}` takes the operands {}{}
-`{}` takes {} operand(s), found {}
-`{}` takes {} operands
 `{}` takes {} to {} operands, found {}
 `{}` was given an unknown memory order
 a C variadic parameter must be the last runtime parameter
@@ -104,7 +100,6 @@ argument `{}` is not a parameter of this module
 argument cannot be inferred as parameter type {}
 argument for `${}` must be a compile-time constant
 argument {} supplied more than once
-array kind mismatch with {}
 array size must be a non-negative constant, found {}
 array type {} is too large (the limit is {} bytes)
 assignment needs a value
@@ -123,7 +118,6 @@ cannot use `using` on {}
 cannot use a struct literal for type {}
 circular dependency while resolving `{}`
 compare-exchange failure ordering cannot be stronger than success ordering
-conflicting types for `${}`: {} and {}
 could not parse inserted enum members
 could not parse inserted expression
 cpuid operands must be 32- or 64-bit integer registers
@@ -141,7 +135,6 @@ expected a statement body before the next sibling declaration
 expected a vector register or memory operand
 expected an 8-bit immediate as the last operand
 expected an 8-bit immediate operand
-expected an array, found {}
 expected digits after numeric prefix
 expected hex digits in escape
 expected three decimal digits after \\d
