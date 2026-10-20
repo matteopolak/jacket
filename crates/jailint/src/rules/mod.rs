@@ -123,7 +123,7 @@ pub static RULES: &[RuleInfo] = &[
     RuleInfo {
         name: "duplicate_condition",
         default: Level::Warn,
-        summary: "an `else if` or `case` that repeats an earlier one",
+        summary: "an `else if` that repeats an earlier condition",
         check: duplicate_condition::check,
     },
     RuleInfo {

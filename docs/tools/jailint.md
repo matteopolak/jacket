@@ -76,7 +76,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `defer_in_loop` | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
 | `double_free` | warn | no | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
 | `dropped_result` | warn | no | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
-| `duplicate_condition` | warn | no | an `else if` or `case` that repeats an earlier one and can never run |
+| `duplicate_condition` | warn | no | an `else if` that repeats an earlier condition and can never run |
 | `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
 | `excessive_nesting` | allow | no | blocks nested deeper than `max_nesting` (default 6) |
 | `float_equality` | allow | no | `==` or `!=` between two computed floats |
@@ -130,7 +130,7 @@ The same walk as `use_after_free`: a statement-level `@FreesArgument` call on a 
 ### dropped_result
 A declaration or assignment whose right side is one call that returns more values than the left side names, where the first dropped value, the one right after the last kept, is a `bool`: `value := parse(text);` quietly turns a failed parse into `0`. Receive the flag (`value, ok := parse(text);`) or write `value, _ := parse(text);` to say it is ignored on purpose. A success or found flag sits right after the value it describes, so a `bool` that comes later, after other results (status extras of a wide API such as `pressed, state, released := button(...)`), and dropped values of other types (counts, remainders) are fine, as are `_ := f();`, calls used as statements, compound assignments and calls whose procedure type is not known. Calls through procedure values count. To make dropping a result a hard compile error, mark it `#must` where the procedure is declared (see [directives and notes](../language/directives-and-notes.md)).
 ### duplicate_condition
-Conditions must be side-effect-free; a call in between restarts the comparison.
+Conditions must be side-effect-free; a call in between restarts the comparison. A repeated `case` value is not checked here: the compiler rejects it.
 ### erasing_op
 Left alone inside an index or array literal, where a `0 *` lines up with other rows.
 ### excessive_nesting

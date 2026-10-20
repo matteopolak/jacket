@@ -163,7 +163,7 @@
                 "deny"
               ],
               "default": "warn",
-              "markdownDescription": "an `else if` or `case` that repeats an earlier one (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#duplicate_condition)"
+              "markdownDescription": "an `else if` that repeats an earlier condition (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#duplicate_condition)"
             },
             "erasing_op": {
               "type": "string",

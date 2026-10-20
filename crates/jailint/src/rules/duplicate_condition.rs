@@ -1,22 +1,16 @@
-//! `duplicate_condition`: an `else if` or a `case` that repeats an earlier one.
+//! `duplicate_condition`: an `else if` that repeats an earlier condition.
 //!
 //! ```jai
 //! if key == .LEFT       move(-1);
 //! else if key == .RIGHT move(1);
 //! else if key == .LEFT  jump();      // never runs
-//!
-//! if mode == {
-//!     case .READ;  open_read();
-//!     case .READ;  open_write();     // never runs: `.WRITE` was meant
-//! }
 //! ```
 //!
 //! The second branch can never be taken, so whatever it was written for does not happen.
 //!
 //! Fires when a condition in an `if`/`else if` chain is the same side-effect-free expression
 //! (names, member paths, literals, operators; no calls), spelled the same, as an earlier one
-//! in the chain; and when a value in an `if x == { case ...; }` (or `#if x == {}`) appears in
-//! an earlier `case`, spelled the same.
+//! in the chain. A repeated `case` value in a `switch` is not checked: the compiler rejects it.
 use super::{finding, same_pure};
 use crate::Finding;
 use crate::syntax::{Cx, Node, walk};
@@ -28,38 +22,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(s) = n.stmt() else {
                 return true;
             };
-            match &s.kind {
-                S::If {
-                    ..
-                } => {
-                    // The head of a chain only: links are handled from there.
-                    let link = matches!(chain.last(), Some(Node::Stmt(parent))
-                        if matches!(&parent.kind, S::If { else_branch: Some(e), .. } if e.span == s.span));
-                    if !link {
-                        chain_conditions(cx, s, out);
-                    }
+            if matches!(s.kind, S::If { .. }) {
+                // The head of a chain only: links are handled from there.
+                let link = matches!(chain.last(), Some(Node::Stmt(parent))
+                    if matches!(&parent.kind, S::If { else_branch: Some(e), .. } if e.span == s.span));
+                if !link {
+                    chain_conditions(cx, s, out);
                 }
-                S::Switch(boxed) | S::StaticSwitch(boxed) => {
-                    let jaic::ast::SwitchStmt {
-                        cases, ..
-                    } = &**boxed;
-                    let mut seen: Vec<jaic::source::Span> = Vec::new();
-                    for c in cases {
-                        for v in &c.values {
-                            if seen.iter().any(|&earlier| cx.same_tokens(earlier, v.span)) {
-                                let text = cx.whole_src(v.span).trim();
-                                out.push(finding(
-                                    v.span,
-                                    format!("`case {text}` repeats an earlier case"),
-                                    Some("only the first matching case runs: was another value meant?".into()),
-                                ));
-                            } else {
-                                seen.push(v.span);
-                            }
-                        }
-                    }
-                }
-                _ => {}
             }
             true
         });
