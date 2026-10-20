@@ -250,6 +250,8 @@ def build(target, output, readobj):
         archive = output / (
             ("lib" + item["name"] + ".a") if mingw else item["name"] + ".lib"
         )
+        # `ar rcs` adds to an existing archive, such as one build_native_libs.py left here.
+        archive.unlink(missing_ok=True)
         run([archiver, "rcs", archive, *objects])
         verify_machine(run([readobj, "--file-headers", archive]), target)
         receipt["assets"][archive.name] = sha256_bytes(archive.read_bytes())

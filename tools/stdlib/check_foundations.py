@@ -730,7 +730,7 @@ def main():
                     binary,
                 ],
                 "",
-                "memory debugger: unknown allocation marked as non-leak",
+                "memory debugger: unknown allocation marked as non-leak\n",
                 1,
             )
         print(

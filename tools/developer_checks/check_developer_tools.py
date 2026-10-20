@@ -286,7 +286,7 @@ def main(argv=None):
         run([JAIC, "target/developer-tools-model-generated.jai", "-check", "-os", os_name, "-cpu", "x64"])
     for case in cases:
         source = ROOT / "target/developer-tools-native-abi.jai" if case == "bindings-native-abi" else driven(f"{case}.jai")
-        error = "C header: C cannot project multiple return values" if case == "c-header-reject" else ""
+        error = "C header: C cannot project multiple return values\n" if case == "c-header-reject" else ""
         if case == "debug-native":
             error = "native debug output\n"
         expected = "x = 7 (s32)\nok\n" if case == "print-vars" else "ok\n"
