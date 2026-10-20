@@ -388,6 +388,16 @@
     "required_cpu": "x64"
   },
   {
+    "name": "run-result-frozen-values",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
     "name": "socket-select-canonical-timeval",
     "unsupported_modes": [
       "wasm-interp",

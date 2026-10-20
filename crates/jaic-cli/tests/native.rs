@@ -361,6 +361,7 @@ fn compiler_and_abi_regressions_run_natively() {
         "no-reset-globals-baked",
         "intrinsic-byte-lookup",
         "poly-inference-forms",
+        "run-result-frozen-values",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {
