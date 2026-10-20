@@ -125,8 +125,8 @@ impl Compiler {
         Ok(None)
     }
 
-    /// Offset and type of the member a struct-body override assigns: `name` (a member of a
-    /// `using` field) or a path into a field (`base.callback`).
+    /// Offset and type of the member a struct-body override assigns: `name` (a field, or a
+    /// member of a `using` field) or a path into a field (`base.callback`).
     pub(super) fn override_target(
         &mut self,
         s: StructId,
@@ -134,14 +134,12 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<(u64, TypeId)>> {
         match &lhs.kind {
-            E::Ident(name) => {
-                Ok(self
-                    .find_used_member(s, *name, span)?
-                    .map(|(offset, ty, decl)| {
-                        self.ide_note_named_field(lhs.span, *name, decl, ty);
-                        (offset, ty)
-                    }))
-            }
+            E::Ident(name) => Ok(self
+                .struct_member(s, *name, span)?
+                .map(|(offset, ty, decl)| {
+                    self.ide_note_named_field(lhs.span, *name, decl, ty);
+                    (offset, ty)
+                })),
             E::Member(base, name) => {
                 let Some((offset, ty)) = self.override_path(s, base, span)? else {
                     return Ok(None);

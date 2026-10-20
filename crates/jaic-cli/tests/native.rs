@@ -369,6 +369,7 @@ fn compiler_and_abi_regressions_run_natively() {
         "ifx-target-type",
         "struct-literal-positional-values",
         "using-local-members",
+        "struct-body-own-member-default",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {
