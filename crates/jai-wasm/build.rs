@@ -1,5 +1,7 @@
 //! Generates the table of bundled `stdlib/` files embedded into the wasm module.
 //!
+//! Only `.jai` sources are bundled: a compile in the browser reads nothing else from the
+//! stdlib, and the other files (binding metadata, C sources, notices) would only add size.
 //! `tests/` directories hold the stdlib's own tests and fixtures; they are not part of a
 //! module and are never bundled.
 use std::fmt::Write as _;
@@ -21,7 +23,7 @@ fn collect(dir: &Path, root: &Path, out: &mut Vec<PathBuf>) {
                 continue;
             }
             collect(&path, root, out);
-        } else if path.is_file() {
+        } else if path.is_file() && path.extension().is_some_and(|e| e == "jai") {
             out.push(path.strip_prefix(root).unwrap().to_path_buf());
         }
     }
