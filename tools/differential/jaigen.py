@@ -543,7 +543,7 @@ class Gen:
         if is_float(ty):
             return [f"mix_float(cast(float64) {path});"]
         if ty == "bool":
-            return [f"mix(ifx {path} then 0x9e37 else 0x79b9);"]
+            return [f"mix(ifx {path} then cast(u64) 0x9e37 else cast(u64) 0x79b9);"]
         if ty == "string":
             return [f"mix_string({path});"]
         if ty[0] == "enum":
