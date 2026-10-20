@@ -23,6 +23,7 @@ from pathlib import Path
 
 import common
 import pairing
+import module_swap
 import program_facts
 import provenance
 import quiet
@@ -84,6 +85,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help='counted runs of each built program that is safe to run (0 to skip counting)')
     parser.add_argument('--programs-only', action='store_true',
                         help='only measure the built programs (size, instructions, retired instructions); time nothing')
+    parser.add_argument('--baseline-modules', type=Path, default=None, metavar='DIR',
+                        help='build the baseline against the library modules in DIR (see module_swap.py); '
+                             "its diagnostics are left out of the results")
+    parser.add_argument('--candidate-modules', type=Path, default=None, metavar='DIR',
+                        help='the same for the candidate')
     parser.add_argument('--list', action='store_true', help='print what would run and exit')
     parser.add_argument('--out-dir', type=Path, default=None,
                         help='results folder (default: playground/bench/<timestamp>/, gitignored)')
@@ -136,19 +142,23 @@ class Observed:
     program: dict | None = None
 
 
-def compare_outputs(a: Observed, b: Observed, compare_compile_output: bool) -> str:
-    """'' when the two binaries built the job and agree, otherwise why the job is not timed."""
+def compare_outputs(a: Observed, b: Observed, compare_compile_output: bool, quote: bool = True) -> str:
+    """'' when the two binaries built the job and agree, otherwise why the job is not timed. Without
+    `quote` the reason says what differs but quotes no output."""
+    def difference(x: list[str], y: list[str]) -> str:
+        return first_difference(x, y) if quote else f'{len(x)} lines vs {len(y)} lines'
+
     for name, seen in zip(NAMES, (a, b)):
         if seen.error:
             return f'{name}: {seen.error}'
     if a.compile_exit != b.compile_exit:
         return f'compile exit codes differ ({a.compile_exit} vs {b.compile_exit})'
     if compare_compile_output and a.compile_stdout != b.compile_stdout:
-        return f'compiler output differs: {first_difference(a.compile_stdout, b.compile_stdout)}'
+        return f'compiler output differs: {difference(a.compile_stdout, b.compile_stdout)}'
     if a.program_exit != b.program_exit:
         return f'program exit codes differ ({a.program_exit} vs {b.program_exit})'
     if a.program_stdout != b.program_stdout:
-        return f'program output differs: {first_difference(a.program_stdout or [], b.program_stdout or [])}'
+        return f'program output differs: {difference(a.program_stdout or [], b.program_stdout or [])}'
     return ''
 
 
@@ -294,6 +304,15 @@ class Comparison:
         self.blocks: list[dict] = []
         self.programs: list[dict] = []
         self.launch_cost: dict[str, int] | None = None
+        # Per binary, a folder of another tree's library modules it builds against (`module_swap`).
+        self.module_dirs: dict[str, tuple[str, ...]] = {name: () for name in compilers}
+        for name, source in zip(NAMES, (args.baseline_modules, args.candidate_modules)):
+            if source:
+                folder = scratch / 'modules' / name
+                module_swap.module_folder(source.resolve(), folder)
+                self.module_dirs[name] = (str(folder),)
+        # A binary built against another tree's modules may report on that tree's code: quote none of it.
+        self.quote_output = not any(self.module_dirs.values())
 
     # one process --------------------------------------------------------------------------------
 
@@ -310,11 +329,12 @@ class Comparison:
         where.mkdir(parents=True, exist_ok=True)
         imports = tuple(str((workdir / d).resolve()) for d in plan.import_dirs)
         request = Request(workdir / plan.entry, workdir, job.mode, plan.metaprogram_args, where,
-                          plan.redirect_output, imports)
+                          plan.redirect_output, imports, self.module_dirs[name])
         compiler = self.compilers[name]
         # Executables are built through the phase-timing metaprogram, so both binaries link with the
-        # same system linker and the timed work is the same.
-        if job.mode.writes_executable and not JobRunner.has_own_build(request):
+        # same system linker and the timed work is the same; so is every build against swapped modules.
+        through_phases = job.mode.writes_executable or any(self.module_dirs.values())
+        if through_phases and not JobRunner.has_own_build(request):
             return compiler.dialect.phase_invocation(compiler.path, request)
         return compiler.dialect.invocation(compiler.path, request)
 
@@ -327,7 +347,7 @@ class Comparison:
     def observe(self, job: Job, name: str, workdir: Path) -> Observed:
         run, invocation = self.run_once(job, name, workdir, 'check')
         if not run.ok:
-            return Observed(run.returncode, [], error=run.failure())
+            return Observed(run.returncode, [], error=run.failure() if self.quote_output else f'exit {run.returncode}')
         seen = Observed(run.returncode, normalized(run.stdout))
         executable = invocation.executable
         if job.mode.writes_executable and job.workload.compare_output:
@@ -392,7 +412,7 @@ class Comparison:
                           'stages': stage_seconds(self.compilers[name], run) if self.report_steps else {}}
                 samples.append(sample)
                 if not run.ok:
-                    failure = f'{name}: {run.failure()}'
+                    failure = f'{name}: {run.failure() if self.quote_output else f"exit {run.returncode}"}'
                 if phase == 'cold':
                     shutil.rmtree(self.scratch / 'work' / tag, ignore_errors=True)
                     shutil.rmtree(self.scratch / 'state' / tag, ignore_errors=True)
@@ -421,7 +441,7 @@ class Comparison:
         warm_file_cache(*(c.path for c in self.compilers.values()))
         names = list(self.compilers)
         seen = {n: self.observe(job, n, workdir) for n in names}
-        reason = compare_outputs(seen[names[0]], seen[names[1]], workload.compare_output)
+        reason = compare_outputs(seen[names[0]], seen[names[1]], workload.compare_output, self.quote_output)
         if reason:
             self.blocks.append(skipped_block(job, 'both', 'skipped', reason, source))
             return
@@ -485,7 +505,8 @@ def run(args: argparse.Namespace) -> int:
         if why:
             sys.exit(f'cannot sandbox the compilers: {why}; install it or pass --no-sandbox')
     args.sandbox_read = [*args.sandbox_read, *(p for e in envs.values() for k, p in e.items()
-                                               if k in ('JAIC_STDLIB', 'JAIC_NATIVE_LIBS'))]
+                                               if k in ('JAIC_STDLIB', 'JAIC_NATIVE_LIBS')),
+                         *(str(p.resolve()) for p in (args.baseline_modules, args.candidate_modules) if p)]
 
     start = quiet.snapshot()
     max_load = args.max_load or quiet.default_max_load(os.cpu_count())
@@ -512,7 +533,9 @@ def run(args: argparse.Namespace) -> int:
                                 'order': args.order, 'seed': args.seed, 'modes': args.modes, 'sizes': args.sizes,
                                 'corpus': not args.no_corpus, 'only': args.only, 'sandbox': not args.no_sandbox,
                                 'max_load': max_load, 'forced': args.force, 'program_runs': args.program_runs,
-                                'programs_only': args.programs_only},
+                                'programs_only': args.programs_only,
+                                'modules': {name: str(p) for name, p in zip(NAMES, (args.baseline_modules,
+                                                                                    args.candidate_modules)) if p}},
                    'purge': 'OS file cache purged before each cold run' if comparison.purge_ok
                             else f'file cache not purged: {comparison.purge_note}',
                    'start': start, 'start_warnings': [*errors, *warnings], 'blocks': []}

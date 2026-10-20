@@ -11,6 +11,7 @@ import pairing
 import provenance
 import quiet
 from cmd_compare import Observed, compare_outputs, plan_jobs, summarize_samples
+from workloads import RUNTIME_PROGRAMS
 
 
 class InterleaveTests(unittest.TestCase):
@@ -243,6 +244,9 @@ class SummaryTests(unittest.TestCase):
             self.assertIn(expected, text)
 
 
+RUNTIME = sorted(path.stem for path in RUNTIME_PROGRAMS.glob('*.jai'))
+
+
 class PlanTests(unittest.TestCase):
     def args(self, **changes):
         base = dict(sizes='10000,100000', seed=4, no_corpus=True, modes='check,build,optimized', only='')
@@ -252,7 +256,7 @@ class PlanTests(unittest.TestCase):
         jobs = plan_jobs(self.args())
         self.assertEqual([j.key for j in jobs], ['gen-10k/check', 'gen-10k/build', 'gen-10k/optimized',
                                                  'gen-100k/check', 'gen-100k/build', 'gen-100k/optimized',
-                                                 'runtime-compute/build', 'runtime-compute/optimized'])
+                                                 *(f'{name}/{mode}' for name in RUNTIME for mode in ('build', 'optimized'))])
         self.assertEqual(jobs[0].workload.source.seed, 4)
 
     def test_modes_and_only_filter(self):

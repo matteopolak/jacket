@@ -49,6 +49,8 @@ class Request:
     redirect_output: bool = True
     # Module folders to search, absolute.
     import_dirs: tuple[str, ...] = ()
+    # Module folders searched before the compiler's own modules, absolute (phase-timing builds only).
+    module_dirs: tuple[str, ...] = ()
 
     @property
     def executable(self) -> Path:
@@ -94,7 +96,7 @@ class Dialect(ABC):
         where.mkdir(parents=True, exist_ok=True)
         source = phases.program(request.entry.resolve(), where, writes_executable=request.mode.writes_executable,
                                 optimized=request.mode is Mode.OPTIMIZED, run_main=request.mode is Mode.INTERP,
-                                import_dirs=request.import_dirs)
+                                import_dirs=request.import_dirs, module_dirs=request.module_dirs)
         (where / phases.WRAPPER_NAME).write_text(source)
         shutil.copy(phases.LINK_COMMAND, where / phases.LINK_COMMAND.name)
         executable = where / 'program' if request.mode.writes_executable else None

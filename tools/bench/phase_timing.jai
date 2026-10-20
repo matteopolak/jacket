@@ -19,6 +19,7 @@ WRITES_EXECUTABLE :: false;
 OPTIMIZED :: false;
 RUN_MAIN :: false;
 IMPORT_DIRS :: string.[];
+MODULE_DIRS :: string.[];
 // end settings
 
 started: Apollo_Time;
@@ -85,10 +86,13 @@ build :: () {
     if OPTIMIZED set_optimization(*options, .OPTIMIZED);
     else set_optimization(*options, .DEBUG);
 
-    if IMPORT_DIRS.count > 0 {
+    if IMPORT_DIRS.count > 0 || MODULE_DIRS.count > 0 {
         import_path: [..] string;
+        for MODULE_DIRS array_add(*import_path, it); // searched first, so these modules replace the compiler's own
+
         array_add(*import_path, ..options.import_path);
         for IMPORT_DIRS array_add(*import_path, it);
+
         options.import_path = import_path;
     }
 

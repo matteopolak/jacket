@@ -23,6 +23,7 @@ from results import ROOT
 CORPUS = main_checkout() / 'corpus' / 'upstream'
 COMPILE_PROGRAMS = ROOT / 'benchmarks' / 'compile'
 MICRO_PROGRAMS = ROOT / 'benchmarks'
+RUNTIME_PROGRAMS = ROOT / 'benchmarks' / 'runtime'
 
 
 class Category(str, Enum):
@@ -183,6 +184,12 @@ def interpreter_programs() -> list[Workload]:
     return [program(name, Category.INTERPRETER, MICRO_PROGRAMS, (Mode.INTERP,)) for name in names]
 
 
+def runtime_programs() -> list[Workload]:
+    """One program per kind of work, built and run: names starting with `stdlib-` time library code."""
+    return [program(path.stem, Category.GENERATED_CODE, RUNTIME_PROGRAMS, (Mode.BUILD, Mode.OPTIMIZED), runtime=True)
+            for path in sorted(RUNTIME_PROGRAMS.glob('*.jai'))]
+
+
 def own_output(entry: str, *metaprogram_args: str) -> Plan:
     """A build driven by the project's metaprogram, which decides where the executable goes."""
     return Plan(entry, metaprogram_args, redirect_output=False)
@@ -214,6 +221,5 @@ def all_workloads() -> list[Workload]:
         program('compile-time', Category.COMPILE_TIME, MICRO_PROGRAMS, CHECK_BUILD),
         program('stdlib-imports', Category.STDLIB, COMPILE_PROGRAMS),
         *interpreter_programs(),
-        program('runtime-compute', Category.GENERATED_CODE, COMPILE_PROGRAMS, (Mode.BUILD, Mode.OPTIMIZED),
-                runtime=True),
+        *runtime_programs(),
     ]
