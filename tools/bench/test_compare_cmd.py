@@ -244,7 +244,7 @@ class SummaryTests(unittest.TestCase):
             self.assertIn(expected, text)
 
 
-RUNTIME = sorted(path.stem for path in RUNTIME_PROGRAMS.glob('*.jai'))
+RUNTIME = [path.stem for path in sorted(RUNTIME_PROGRAMS.glob('*.jai'))]
 
 
 class PlanTests(unittest.TestCase):
