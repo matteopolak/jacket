@@ -126,17 +126,19 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     formatter_repeat(builder, 32, max(cast(s64) 0, format.width - count));
     if prefix != 0 append(builder, prefix);
 
-    for i: 0..fraction_end - 1 {
-        if i > 0 && i < integer_end && format.thousand_separators && (integer_end - i) % 3 == 0 append(builder, format.thousand_separator_character);
-        byte := text[i];
-        if byte == 46 byte = format.decimal_separator_character;
-        append(builder, byte);
-    }
+    // The text is ours (a stack buffer or an allocation), so the separators are patched in place.
+    if point >= 0 && point < fraction_end text[point] = format.decimal_separator_character;
 
-    for i: exponent_at..text.count - 1 {
-        byte := text[i];
-        if i == exponent_at byte = format.exponent_character;
-        append(builder, byte);
+    if format.thousand_separators {
+        for i: 0..fraction_end - 1 {
+            if i > 0 && i < integer_end && (integer_end - i) % 3 == 0 append(builder, format.thousand_separator_character);
+            append(builder, text[i]);
+        }
+    } else append(builder, text.data, fraction_end);
+
+    if exponent_at < text.count {
+        text[exponent_at] = format.exponent_character;
+        append(builder, text.data + exponent_at, text.count - exponent_at);
     }
 
     formatter_repeat(builder, 32, trailing_spaces);

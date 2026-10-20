@@ -4,6 +4,9 @@
 #scope_module
 FLOAT_TEXT_STORAGE :: 48;
 
+// "00" through "99", for writing decimal digits two at a time.
+DECIMAL_PAIRS :: "00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899";
+
 // The text `portable_float(value, conversion, precision, round_up)` returns, written into `storage`;
 // `ok` is false when the value or precision is too large for the integer arithmetic here.
 fast_float_text :: (value: float64, conversion: u8, precision: s64, storage: *[FLOAT_TEXT_STORAGE] u8, round_up := false) -> text: string, ok: bool {
@@ -205,17 +208,37 @@ leading_digits :: (mantissa: u64, binary: s64, significant: s64, rounding: Round
 
 // Writes `value` in decimal into `digits`, padded with leading zeros to at least `minimum` digits.
 write_digits :: (digits: *[20] u8, value: u64, minimum: s64) -> count: s64 {
-    scratch: [20] u8;
-    count: s64;
+    scratch: [20] u8 = ---;
+    at := scratch.count;
     rest := value;
 
-    while rest != 0 || count < minimum {
-        scratch[19 - count] = cast(u8) (48 + rest % 10);
-        rest /= 10;
-        count += 1;
+    while rest >= 100 {
+        pair := cast(s64) (rest % 100) * 2;
+
+        rest /= 100;
+        at -= 2;
+        scratch[at] = DECIMAL_PAIRS[pair];
+        scratch[at + 1] = DECIMAL_PAIRS[pair + 1];
     }
 
-    for i: 0..count - 1 digits.*[i] = scratch[20 - count + i];
+    if rest >= 10 {
+        pair := cast(s64) rest * 2;
+        at -= 2;
+        scratch[at] = DECIMAL_PAIRS[pair];
+        scratch[at + 1] = DECIMAL_PAIRS[pair + 1];
+    } else {
+        at -= 1;
+        scratch[at] = cast(u8) (48 + rest);
+    }
+
+    while scratch.count - at < minimum {
+        at -= 1;
+        scratch[at] = 48;
+    }
+
+    count := scratch.count - at;
+
+    memcpy(digits.data, scratch.data + at, count);
 
     return count;
 }
@@ -264,12 +287,8 @@ scientific_text :: (storage: *[FLOAT_TEXT_STORAGE] u8, digits: [20] u8, count: s
 
     if count > 1 {
         storage.*[1] = 46;
-        at = 2;
-
-        for i: 1..count - 1 {
-            storage.*[at] = digits[i];
-            at += 1;
-        }
+        memcpy(storage.data + 2, digits.data + 1, count - 1);
+        at = count + 1;
     }
 
     storage.*[at] = 101;

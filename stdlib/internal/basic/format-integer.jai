@@ -81,18 +81,6 @@ print_u64_base_n :: (builder: *String_Builder, v: u64, format: FormatInt) #no_ab
 #scope_file
 DIGITS :: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_.";
 
-// "00" to "99": one division by 100 gives two decimal digits.
-DECIMAL_PAIRS :: #run -> string {
-    pairs: [200] u8;
-
-    for i: 0..99 {
-        pairs[i * 2] = cast(u8) (#char "0" + i / 10);
-        pairs[i * 2 + 1] = cast(u8) (#char "0" + i % 10);
-    }
-
-    return copy_string(string.{ pairs.count, pairs.data });
-};
-
 // Writes the digits of `value` at the end of `text` and returns the index of the first one.
 write_digits :: (text: *[64] u8, value: u64, base: u64) -> s64 #no_abc {
     position := text.count;
