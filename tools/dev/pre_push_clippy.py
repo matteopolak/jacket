@@ -7,12 +7,17 @@ working tree, so uncommitted Rust changes are linted too (a warning says so).
 """
 
 import json
+import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ZERO = "0" * 40
+# Code gated to x86-64 is not compiled, so not linted, on an arm64 Mac.
+X86_TARGET = "x86_64-apple-darwin"
+X86_ONLY_TEST = re.compile(r'#!?\[cfg\(target_arch = "x86_64"\)\]')
 
 
 def git(*args: str) -> str:
@@ -60,6 +65,32 @@ def packages(files: set[str]) -> list[str]:
     return sorted(found)
 
 
+def x86_only_tests(package: str) -> list[str]:
+    """The integration tests of `package` with x86-64-gated code (whole-file or per item)."""
+    tests = ROOT / "crates" / package / "tests"
+    return sorted(f.stem for f in tests.glob("*.rs") if X86_ONLY_TEST.search(f.read_text()))
+
+
+def lint_x86_tests(selected: list[str]) -> int:
+    """Clippy the x86-64-only tests on an arm64 Mac, where the host lint never compiles them."""
+    if platform.system() != "Darwin" or platform.machine() != "arm64" or "jaic" not in selected:
+        return 0
+    tests = x86_only_tests("jaic")
+    if not tests:
+        return 0
+    installed = subprocess.run(["rustup", "target", "list", "--installed"], capture_output=True, text=True)
+    if X86_TARGET not in installed.stdout.split():
+        print(f"pre-push: skipping the x86-64 test lint: `rustup target add {X86_TARGET}` enables it", file=sys.stderr)
+        return 0
+    print(f"pre-push: clippy jaic x86-64 tests ({' '.join(tests)})", file=sys.stderr)
+    command = ["cargo", "clippy", "--locked", "--message-format", "short", "-p", "jaic", "--target", X86_TARGET]
+    command += [arg for name in tests for arg in ("--test", name)]
+    result = subprocess.run([*command, "--", "-D", "warnings"], cwd=ROOT)
+    if result.returncode:
+        print("pre-push: x86-64 clippy failed; fix it or push with --no-verify", file=sys.stderr)
+    return result.returncode
+
+
 def main() -> int:
     selected = packages(changed_files(sys.stdin.read().splitlines()))
     if not selected:
@@ -72,7 +103,8 @@ def main() -> int:
     result = subprocess.run([*command, "--", "-D", "warnings"], cwd=ROOT)
     if result.returncode:
         print("pre-push: clippy failed; fix it or push with --no-verify", file=sys.stderr)
-    return result.returncode
+        return result.returncode
+    return lint_x86_tests(selected)
 
 
 if __name__ == "__main__":

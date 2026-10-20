@@ -50,7 +50,7 @@ Tested by `tools/ci/test_pre_commit_hook.py` on a temporary repository with stan
 
 ## Pre-push hook
 
-`.githooks/pre-push` runs CI's clippy lint (`--all-targets --locked -- -D warnings`) on the workspace packages whose `.rs` or `Cargo.toml` files differ between the pushed commits and the remote (or `origin/main` for a new branch), via `tools/dev/pre_push_clippy.py`. Clippy is too slow for every commit but catches what CI's `compiler` jobs would reject. It lints the working tree, so it warns about uncommitted Rust changes. Skip once with `git push --no-verify`, or with `JAI_HOOK_SKIP=clippy`. Enabled by the same `just hooks`.
+`.githooks/pre-push` runs CI's clippy lint (`--all-targets --locked -- -D warnings`) on the workspace packages whose `.rs` or `Cargo.toml` files differ between the pushed commits and the remote (or `origin/main` for a new branch), via `tools/dev/pre_push_clippy.py`. Clippy is too slow for every commit but catches what CI's `compiler` jobs would reject. It lints the working tree, so it warns about uncommitted Rust changes. Skip once with `git push --no-verify`, or with `JAI_HOOK_SKIP=clippy`. On an arm64 Mac, when `jaic` changed, it also lints the integration tests that hold x86-64-gated code (`#[cfg(target_arch = "x86_64")]`, such as `machine_intrinsics.rs`) with `--target x86_64-apple-darwin`; the host lint never compiles them. It skips that step with a message when `rustup target add x86_64-apple-darwin` has not been run. Enabled by the same `just hooks`.
 
 ## Code formatting
 
