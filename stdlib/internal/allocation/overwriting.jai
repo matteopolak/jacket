@@ -124,4 +124,4 @@ release :: (wrapper: *Overwriting_Allocator, memory: *void, bytes: u64) {
     base := wrapper.base_allocator;
 
     base.proc(.FREE, 0, cast(s64) bytes, memory, base.data);
-} @FreesArgument
+}

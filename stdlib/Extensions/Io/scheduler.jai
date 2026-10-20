@@ -407,7 +407,7 @@ release_stack :: (scheduler: *Scheduler, fiber: *Fiber) {
         release_scratch(*fiber.temporary_storage, scheduler.allocator);
         fiber.temporary_ready = false;
     }
-} @FreesArgument
+}
 
 // Ready queue, parking and waking
 

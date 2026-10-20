@@ -246,4 +246,4 @@ free_block :: (pool: *Pool, block: *Memblock) {
     raw := cast(*u8) block - 8;
     size := (cast(*s64) raw).*;
     pool.block_allocator.proc(.FREE, 0, size, raw, pool.block_allocator.data);
-} @FreesArgument
+}

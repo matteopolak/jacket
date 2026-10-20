@@ -220,7 +220,7 @@ registry_acquire :: () {
 registry_release :: () {
     success := compare_and_swap(*registry_lock, cast(s32) 1, cast(s32) 0);
     assert(success);
-} @FreesArgument
+}
 
 close_inherited_process_descriptors :: () #no_context {
     // Another supervisor must not retain this parent's older process controls
@@ -238,7 +238,7 @@ close_inherited_process_descriptors :: () #no_context {
 
     registry = null;
     registry_lock = 0;
-} @FreesArgument
+}
 
 new_pipe :: (pair: *[2] s32) -> bool {
     if P.pipe(pair) != 0 return false;

@@ -25,7 +25,7 @@ _check_free :: inline (allocator: Allocator, memory: *void) {
         debug_release(allocator, memory, false);
         #if MEMORY_DEBUGGER && VISUALIZE_MEMORY_DEBUGGER && REPLACEMENT_INTERFACE == Memory_Debugger_Interface vis_update_if_it_has_been_long_enough();
     }
-} @FreesArgument
+}
 
 _check_create_heap :: (a: Allocator) {
     if Debug_Context.is_active() return;
@@ -279,4 +279,4 @@ debug_release :: (owner: Allocator, memory: *void, heap: bool) {
         metadata.proc(.FREE, 0, size_of(Allocation), released, metadata.data);
         released = next;
     }
-} @FreesArgument
+}

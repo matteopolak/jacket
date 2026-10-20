@@ -572,7 +572,7 @@ close_idle_connections :: () {
     pool := client_pool();
 
     while pool.idle.count drop_entry(pool, pool.idle.count - 1);
-} @FreesArgument
+}
 
 // What the running scheduler's pools hold right now, for tests and diagnostics (nothing here is
 // needed to use the module). Call it on a scheduler: inside `Io.io_run` or a test client call.
