@@ -1,11 +1,12 @@
 //! Assignments: indexed, operator and plain targets.
 use crate::ast::ExprKind as E;
 use crate::sema::calls::CallArg;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::EntityKind;
 use crate::sema::{
     Compiler, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err, ir, procs,
 };
+use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
     /// `x[i] = v` / `x[i] op= v` through `operator []=` (and `operator []` to
@@ -272,6 +273,20 @@ impl Compiler {
             if self.ty.types.is_pointer(operand.ty()) {
                 return Ok(());
             }
+            // An element of a view, a resizable array or a string lives behind its data
+            // pointer, so writing it does not change the value being indexed.
+            if matches!(container.kind, E::Index(..))
+                && (self.ty.types.repr(operand.ty()) == TypeId::STRING
+                    || matches!(
+                        self.ty.types.kind(self.ty.types.repr(operand.ty())),
+                        TypeKind::Array {
+                            kind: ArrayKind::View | ArrayKind::Resizable,
+                            ..
+                        }
+                    ))
+            {
+                return Ok(());
+            }
             if let Operand::Const {
                 value, ..
             } = operand
@@ -286,6 +301,27 @@ impl Compiler {
                 );
             }
             container = base;
+        }
+        if matches!(container.kind, E::Ident(_)) && !f.immutable.is_empty() {
+            let mut scratch = self.scratch_ctx(scope);
+            scratch.backtick_scope = f
+                .backtick_scope
+                .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
+            if let Ok(Operand::Place {
+                addr, ..
+            }) = self.check_expr(&mut scratch, scope, container, None)
+                && let Some(&(_, why)) = f.immutable.iter().find(|(a, _)| *a == addr)
+            {
+                return err(
+                    target.span,
+                    match why {
+                        Immutable::Argument => "Can't assign to an immutable argument.",
+                        Immutable::Iterator => {
+                            "Can't assign to a large-value iterator. Perhaps you want to iterate by pointer (for *)."
+                        }
+                    },
+                );
+            }
         }
         Ok(())
     }

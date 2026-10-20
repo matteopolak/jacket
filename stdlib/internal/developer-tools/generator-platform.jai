@@ -42,6 +42,7 @@ gp_symbols_file :: (full_path: string, diagnostic_path: string = "") -> bool, []
     defer free(lines.data);
 
     for line: lines {
+        line := line;
         if OS == .WINDOWS && line.count > 0 && line[line.count - 1] == #char "\r" line = GP_String.slice(line, 0, line.count - 1);
         if !line continue;
 
@@ -99,6 +100,9 @@ gp_has_symbol :: (lib: *Library_Info, name: string) -> bool {
 }
 
 gp_load :: (paths: [] string, identifier: string, library_path: string, system: bool, static_suffix: string, shared_suffix: string) -> *Library_Info {
+    shared_suffix := shared_suffix;
+    static_suffix := static_suffix;
+
     if !gp_valid_optional_text(identifier) || !gp_valid_text(library_path) {
         log_error("Bindings_Generator: invalid library identifier/path\n");
         return null;

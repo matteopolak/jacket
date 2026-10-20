@@ -2,6 +2,8 @@
 #import "Basic";
 
 gm_probe_type_supported :: (native: CXType, depth := 0) -> bool {
+    native := native;
+
     if depth >= 64 return false;
 
     native = clang_getCanonicalType(native);

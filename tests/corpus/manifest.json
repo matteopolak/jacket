@@ -3476,6 +3476,175 @@
       "negative": {
         "check": "cannot iterate over a value of type s64"
       }
+    },
+    {
+      "id": "iterator-assign-whole",
+      "source": "negative/iterator-assign-whole.jai",
+      "sha256": "071e03a21b2055c6f520e10fbcd8bd7061acbb3b9add3883ba606c7738b0623c",
+      "suite": "negative",
+      "feature": "A by-value iterator over structs cannot be assigned",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to a large-value iterator"
+      }
+    },
+    {
+      "id": "iterator-assign-member",
+      "source": "negative/iterator-assign-member.jai",
+      "sha256": "520a1eaeaa8c98f6d41689a148d1475758bf2d62f23e2744030ccf8fa0e15f9f",
+      "suite": "negative",
+      "feature": "A by-value iterator over structs has read-only members",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to a large-value iterator"
+      }
+    },
+    {
+      "id": "iterator-compound-member",
+      "source": "negative/iterator-compound-member.jai",
+      "sha256": "ba8381c1ff32db08b48ed90f7bf0dc1171ea5def56aa074d2d43b5728b351130",
+      "suite": "negative",
+      "feature": "A by-value iterator over structs has read-only members under compound assignment",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to a large-value iterator"
+      }
+    },
+    {
+      "id": "iterator-assign-index",
+      "source": "negative/iterator-assign-index.jai",
+      "sha256": "a93a4dfc5a992a617d424bf927394ad0bcc400b70d6b125cfff44fc395af2251",
+      "suite": "negative",
+      "feature": "A by-value iterator over fixed arrays cannot be indexed for writing",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to a large-value iterator"
+      }
+    },
+    {
+      "id": "iterator-assign-string",
+      "source": "negative/iterator-assign-string.jai",
+      "sha256": "20838d07ad1fadba5c9b405f5ea27c67a326e6981e30f26a98f3ee841c8fa1a7",
+      "suite": "negative",
+      "feature": "A by-value iterator over strings cannot be assigned",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to a large-value iterator"
+      }
+    },
+    {
+      "id": "argument-assign-member",
+      "source": "negative/argument-assign-member.jai",
+      "sha256": "143c6bf12149fe5031ab1b5c53a1e216f7ceabef79c3fed5a26f52d791300867",
+      "suite": "negative",
+      "feature": "An aggregate parameter has read-only members",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
+    },
+    {
+      "id": "argument-assign-nested-member",
+      "source": "negative/argument-assign-nested-member.jai",
+      "sha256": "cb3ada9a5af9fcc98d82448fb3acc0bea84ddfc5c66808ffe5754cdd8abdd930",
+      "suite": "negative",
+      "feature": "An aggregate parameter has read-only nested members",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
+    },
+    {
+      "id": "argument-assign-whole",
+      "source": "negative/argument-assign-whole.jai",
+      "sha256": "8363a69b09b6d0146a8cffe3f4faba31030c551b1158212b7417c37f2bb3386a",
+      "suite": "negative",
+      "feature": "An aggregate parameter cannot be reassigned",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
+    },
+    {
+      "id": "argument-assign-string",
+      "source": "negative/argument-assign-string.jai",
+      "sha256": "26ee75d55eada87b2b149e23a870a36775eea682fed1e94b74918259c9c7db36",
+      "suite": "negative",
+      "feature": "A string parameter cannot be reassigned",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
+    },
+    {
+      "id": "argument-assign-count",
+      "source": "negative/argument-assign-count.jai",
+      "sha256": "671a8f13e5abd8cde08e70b8ce04c760eaa08a1a7eac5db7a15406c35e754515",
+      "suite": "negative",
+      "feature": "A string parameter's count is read-only",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
+    },
+    {
+      "id": "argument-assign-fixed-element",
+      "source": "negative/argument-assign-fixed-element.jai",
+      "sha256": "c12b6d812501f3d53eda43138df4351c9353aab4a0313b7ac3b82657adc2f517",
+      "suite": "negative",
+      "feature": "A fixed array parameter has read-only elements",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
+    },
+    {
+      "id": "argument-compound-member",
+      "source": "negative/argument-compound-member.jai",
+      "sha256": "2e817fa07487cec30849b2867fc57d3ae39ca96e5278b38a1df63226d72a0557",
+      "suite": "negative",
+      "feature": "An aggregate parameter has read-only members under compound assignment",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
+    },
+    {
+      "id": "argument-assign-view-count",
+      "source": "negative/argument-assign-view-count.jai",
+      "sha256": "43b0ed8981de3cbcd42e694ac93e294dc1ebd4bc0a3a3e124eb901606bce7fea",
+      "suite": "negative",
+      "feature": "A view parameter's count is read-only",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Can't assign to an immutable argument"
+      }
     }
   ]
 }

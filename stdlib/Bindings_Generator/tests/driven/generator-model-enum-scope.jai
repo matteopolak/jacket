@@ -95,9 +95,12 @@ inspect :: (decl: *B.Declaration, parent: *B.Declaration) -> B.Declaration_Visit
 native_enum: B.CXCursor;
 
 capture_native_enum :: (cur: B.CXCursor, _parent: B.CXCursor, _data: B.CXClientData) -> B.CXChildVisitResult #c_call {
+    native_enum := native_enum;
     spelling := B.clang_getCursorSpelling(cur);
+
     defer B.clang_disposeString(spelling);
     if cur.kind == .EnumDecl && to_string(B.clang_getCString(spelling)) == "Mode" native_enum = cur;
+
     return .Continue;
 }
 

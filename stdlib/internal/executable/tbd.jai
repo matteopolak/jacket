@@ -314,6 +314,7 @@ tbd_line :: (reader: *Tbd_Reader) -> string {
 }
 
 tbd_trim :: (text: string) -> string {
+    text := text;
     while text.count > 0 && (text[0] == 32 || text[0] == 9 || text[0] == 13) {
         text.data += 1;
         text.count -= 1;

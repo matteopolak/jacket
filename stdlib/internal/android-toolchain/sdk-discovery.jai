@@ -52,6 +52,7 @@ select_sdk_directory :: (paths: [] string) -> bool, string {
 }
 
 tool_path_join :: (root: string, suffix: string) -> string {
+    root := root;
     while root.count > 1 && (root[root.count - 1] == 47 || root[root.count - 1] == 92) root.count -= 1;
 
     builder: String_Builder;

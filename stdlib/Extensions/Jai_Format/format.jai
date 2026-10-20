@@ -1270,6 +1270,7 @@ append_block_comment :: (f: *Formatter, i: int, delta: int) {
     }
 
     for line, index: lines {
+        line := line;
         // Every line of the comment ends with the file's newline: drop a `\r` of its own.
         line = trim_right(line);
 

@@ -248,6 +248,7 @@ profile_whiten :: (color: Vector4, amount: float) -> Vector4 {
 }
 
 profile_fit_name :: (name: string, available: float, config: *Config) -> string {
+    name := name;
     while name.count > 0 && config.text_width(name) > available {
         name.count -= 1;
         while name.count > 0 && (name.data[name.count] & 0xc0) == 0x80 name.count -= 1;

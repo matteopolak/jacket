@@ -88,6 +88,8 @@ native_cpp_array_qualifiers :: (type: *CType) -> CType.Flags, bool {
 }
 
 native_cpp_shape_matches :: (type: *CType, native: CXType, depth := 0, inherited_qualifiers: CType.Flags = 0) -> bool {
+    native := native;
+
     if !type || !BE_Traversal.enter(.CPP_MATCH, type) return false;
 
     defer BE_Traversal.leave();
@@ -366,6 +368,7 @@ append_native_cpp_type :: (builder: *String_Builder, type: CXType, policy: CXPri
 }
 
 append_native_cpp_name :: (builder: *String_Builder, cursor: CXCursor) -> bool {
+    cursor := cursor;
     names: [..] string;
 
     defer {

@@ -1,7 +1,7 @@
 //! Lowering a procedure body, intrinsic wrappers and instantiating polymorphic procedures.
 use super::model::{BodyState, ProcInfo, ProcTarget, Signature};
 use crate::ir::Ty;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind, UsingEntry};
 use crate::sema::{
     Compiler, Diagnostic, HashMap, InstanceKeyValue, ProcId, Rc, Result, Span, Sym, TypeId, Value,
@@ -194,6 +194,9 @@ impl Compiler {
                     },
                     false,
                 );
+                if self.is_memory_type(param.ty) {
+                    f.immutable.push((addr, Immutable::Argument));
+                }
                 if let Some(info) = &param.callable {
                     self.pr.callable_entities.insert(e, info.clone());
                 }

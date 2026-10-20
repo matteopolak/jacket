@@ -3,6 +3,7 @@ is_hex_digit :: (c: u32) -> bool {
 }
 
 is_valid_int_literal_suffix :: (suffix: string) -> bool {
+    suffix := suffix;
     if suffix.count > 0 && (suffix[0] == #char "u" || suffix[0] == #char "U") suffix = slice(suffix, 1, suffix.count - 1);
     return suffix == "" || suffix == "z" || suffix == "Z" || suffix == "l" || suffix == "L" || suffix == "ll" || suffix == "LL";
 }

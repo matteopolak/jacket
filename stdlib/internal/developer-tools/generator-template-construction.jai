@@ -94,7 +94,9 @@ gm_dependent_type :: (native: CXType, children: [] CXCursor, depth := 0) -> *CTy
 }
 
 gm_template_instance :: (native: CXType, cur: CXCursor, template_cur: CXCursor, location_cur: CXCursor, depth: int, supplied: [] CXCursor, use_supplied: bool) -> *CType {
+    template_cur := template_cur;
     definition := clang_getCursorDefinition(template_cur);
+
     if clang_Cursor_isNull(definition) == 0 template_cur = definition;
 
     // Supported instances must use the primary definition's source body.

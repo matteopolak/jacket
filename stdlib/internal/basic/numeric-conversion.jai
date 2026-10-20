@@ -457,6 +457,7 @@ scientific_layout :: (digits: string, exponent: s64) -> string {
 }
 
 trim_fraction :: (text: string) -> string {
+    text := text;
     end := text.count;
     point: s64 = -1;
 

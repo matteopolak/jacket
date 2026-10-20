@@ -138,6 +138,15 @@ impl Operand {
     }
 }
 
+/// Why a local cannot be assigned to.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Immutable {
+    /// An aggregate procedure argument.
+    Argument,
+    /// The iterator of a by-value `for` over aggregate elements.
+    Iterator,
+}
+
 #[derive(Clone)]
 pub struct LoopFrame {
     pub label: Option<Sym>,
@@ -219,6 +228,8 @@ pub struct FnCtx {
     cleanup_marks: Vec<(usize, std::rc::Weak<std::cell::Cell<usize>>)>,
     next_cleanup_mark: usize,
     pub loops: Vec<LoopFrame>,
+    /// Locals that cannot be assigned to, by storage address.
+    pub immutable: Vec<(Val, Immutable)>,
     pub file: FileId,
     /// Set when the body runs only at compile time.
     pub compile_time: bool,
@@ -382,6 +393,7 @@ impl FnCtx {
             _cleanup_root: root,
             next_cleanup_mark: 1,
             loops: Vec::new(),
+            immutable: Vec::new(),
             file,
             compile_time: false,
             constant_only: None,

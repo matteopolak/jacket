@@ -170,6 +170,8 @@ worst_ratio :: (sum: float64, smallest: float64, largest: float64, total: float6
 }
 
 layout_children :: (children: [] *Treemap_Node, display: *Treemap_Display, corner: Vector2, size: Vector2, weight: float64) {
+    corner := corner;
+    size := size;
     start: s64;
     right := corner.x + size.x;
     top := corner.y + size.y;

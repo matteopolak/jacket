@@ -1,5 +1,5 @@
-// A procedure changes its own copy of a struct or string parameter, never the caller's
-// variable (sjorsdonkers/toml-jai's `string_to_int_checked` advances its `s` parameter).
+// A procedure can change its own copy of a struct or string parameter, never the caller's
+// variable: it copies the parameter first, or passes its address on.
 // rules: proc.12
 #import "Basic";
 
@@ -19,10 +19,21 @@ poly_eat :: (s: string, $T := s64) -> T {
 }
 
 bump :: (p: Pair) -> int {
+    p := p;
     p.a += 10;
     q := *p;
     q.b = 99;
+
     return p.a + p.b;
+}
+
+scalar :: (n: int) -> int {
+    n += 1;
+    return n;
+}
+
+clear_first :: (view: [] int) {
+    view[0] = 0;
 }
 
 main :: () {
@@ -37,6 +48,14 @@ main :: () {
 
     assert(bump(pair) == 110);
     assert(pair.a == 1 && pair.b == 2);
+
+    assert(scalar(4) == 5);
+
+    // The elements of a view lie behind its data pointer.
+    numbers := int.[7, 8];
+
+    clear_first(numbers);
+    assert(numbers[0] == 0 && numbers[1] == 8);
 
     // At compile time too.
     #run {

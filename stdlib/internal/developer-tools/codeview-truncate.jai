@@ -98,8 +98,9 @@ cv_truncate_blocks :: (sequence: Codeview_Line_Info_Sequence, old_start: u32) ->
 
             if max(start, absolute) >= min(end, next) continue;
 
-            row.text_offset = cast(u32) (max(start, absolute) - start);
-            stored.lines[destination] = row;
+            line := row;
+            line.text_offset = cast(u32) (max(start, absolute) - start);
+            stored.lines[destination] = line;
 
             if columns {
                 for component: 0..column_stride - 1 stored.columns[destination * column_stride + component] = block.columns[index * column_stride + component];

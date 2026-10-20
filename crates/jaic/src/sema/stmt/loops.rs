@@ -2,7 +2,7 @@
 use crate::ast::ExprKind as E;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::CallArg;
-use crate::sema::lower::{FnCtx, ForBody, LoopFrame, LoopRemove, Operand};
+use crate::sema::lower::{FnCtx, ForBody, Immutable, LoopFrame, LoopRemove, Operand};
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{
     Compiler, PreludeType, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
@@ -657,7 +657,9 @@ impl Compiler {
             (pt, self.spill(f, pt, elem_addr, span)?)
         } else if self.is_memory_type(elem) {
             // A by-value `it` over aggregates names the element itself: `*it` is the
-            // element's address and stays valid after the loop.
+            // element's address and stays valid after the loop, but nothing can be written
+            // through `it`.
+            f.immutable.push((elem_addr, Immutable::Iterator));
             (elem, elem_addr)
         } else {
             // A scalar element is copied into `it`, which then outlives a `remove`.

@@ -105,6 +105,7 @@ get_default_system_include_paths :: (os := OS, cpu := CPU) -> [] string {
     active := false;
 
     for line: lines {
+        line := line;
         if line == "#include <...> search starts here:" {
             active = true;
             continue;

@@ -74,6 +74,7 @@ android_host_helper_compile :: (app_name: string, package_name: string, output_p
 }
 
 android_host_activity_valid :: (activity: string) -> bool {
+    activity := activity;
     if activity.count == 0 return false;
 
     if activity[0] == #char "." {

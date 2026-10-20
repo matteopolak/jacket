@@ -58,7 +58,9 @@ gm_opaque_block_type :: () -> *CType {
 }
 
 gm_function_output_name :: (name: string) -> string {
+    name := name;
     options := gm_active_options();
+
     if options for prefix: options.strip_prefixes {
         if prefix && begins_with(name, prefix) {
             name = slice(name, prefix.count, name.count - prefix.count);
@@ -362,6 +364,7 @@ gm_objc_parent :: (record: *Struct, type: *CType, name: string) {
 }
 
 gm_objc_interface :: (cur: CXCursor, type_only: bool) -> *Struct {
+    cur := cur;
     if cur.kind != .ObjCInterfaceDecl && cur.kind != .ObjCProtocolDecl && cur.kind != .ObjCCategoryDecl return null;
 
     generator := gm_active_generator();

@@ -668,7 +668,9 @@ gm_record_categories :: (record: *Struct, cur: CXCursor) {
 }
 
 gm_build_declaration :: (cur: CXCursor, parent: CXCursor, only_structs: bool, type_only := false) -> *Declaration {
+    cur := cur;
     session := gm_current_session();
+
     if !session return null;
 
     generator := gm_active_generator();

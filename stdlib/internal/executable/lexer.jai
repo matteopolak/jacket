@@ -1,4 +1,6 @@
 set_input_from_string :: (lexer: *Lexer, input: string) {
+    input := input;
+
     if !lexer return;
 
     owned := false;

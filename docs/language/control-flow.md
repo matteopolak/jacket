@@ -27,8 +27,8 @@ if c == {
 ```
 
 - Ranges are inclusive; both ends are evaluated once, left to right. Default names are `it` and `it_index`.
-- Over any array, a by-value `it` is the element itself, so `*it` stays valid after the loop (`for table if it.key == key return *it.value;`). Third-party code depends on this.
-- `remove it;` over a dynamic array is an unordered remove: the last element moves into the hole and is visited next.
+- Over any array, a by-value `it` over aggregate elements (structs, strings, arrays) is the element itself, so `*it` stays valid after the loop (`for table if it.key == key return *it.value;`), but nothing can be assigned through it. A scalar element (number, bool, pointer, enum) is copied into `it`.
+- `remove it;` over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. A scalar `it` keeps the removed value; an aggregate `it` shows the element that moved in.
 - `while name := cond` re-evaluates `cond`, binds it, and names the loop; `while :name cond` only names it.
 - `ifx c then x = 1 else x = 2;` whose branches assign is an `if` statement.
 - `if #complete c == {` on a non-flags enum must name every member (a default label does not count): `#complete switch on Color has no case for .BLUE` (`check_switch_complete`). A switch on a constant still type-checks every case. At run time, a `#complete` switch with no default stops the program when the value matches nothing (`unmatched_switch_check` sends the path to `Intrinsic::CheckFailed`, `ir::CheckReason::SwitchUnmatched`; native code reports via `runtime_support_check_failed`).
@@ -47,7 +47,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - Here `for <` visits `3` down to `1` {#flow.1}, `continue outer` leaves the inner loop and continues the outer one {#flow.2}, `for 5..3` runs zero times {#flow.3}, `for v, i` binds the value then the index {#flow.4}, `for *p` writes through `p` into the array {#flow.5}, and `while x := ...` names the loop {#flow.6}.
 - Ranges are inclusive {#flow.7}; both ends are evaluated once, left to right {#flow.8}. `for #v2 a..b` means the same {#flow.12}.
 - The default names are `it` and `it_index`; naming either replaces it {#flow.9}.
-- Over an array (fixed, view or dynamic), a by-value `it` is the element itself, not a copy: `*it` is the element's address and stays valid after the loop, so `for table if it.key == key return *it.value;` returns a pointer into the array {#flow.28}. Third-party code depends on this (toml-jai's `find_or_insert_key`, Photon's `for buffers reset(*it);`).
+- Over an array (fixed, view or dynamic), a by-value `it` over aggregate elements (structs, strings, fixed arrays, views) is the element itself, not a copy: `*it` is the element's address and stays valid after the loop, so `for table if it.key == key return *it.value;` returns a pointer into the array {#flow.28}. Any assignment through such an `it` (`it = x`, `it.f = x`, `it[0] = x`, `it.f += x`) is an error, `Can't assign to a large-value iterator. Perhaps you want to iterate by pointer (for *).`; writing through a pointer the element holds, and `for *`, are fine. A scalar element (number, bool, pointer, enum) is copied into `it`: changing `it` leaves the array alone, `*it` is the copy's address, and after `remove it` the copy still holds the removed value (`remove` of `1` from `[1, 2, 3]` leaves `[3, 2]`) {#flow.29}.
 - `while name := cond` binds `name` to the condition's value (re-evaluated each iteration) and names the loop for `break name` {#flow.24}. `while :name cond` only names it {#flow.25}.
 - `remove it;` (or `remove;`) over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]` {#flow.11}.
 - A case runs only its own body unless it ends with `#through` {#flow.13}; a bare `case;` is the default label {#flow.14}.
