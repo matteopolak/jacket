@@ -69,7 +69,8 @@ tour_files :: () {
 
     file_close(*file);
 
-    log_text := read_entire_file(path);
+    log_text, read_back := read_entire_file(path);
+    if !read_back return;
 
     print("Read back % bytes from %:\n%", log_text.count, path, log_text);
     free(log_text);
