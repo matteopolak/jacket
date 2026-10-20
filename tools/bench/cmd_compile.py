@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import common
+import phases
 from common import Defaults
 from compile_report import render
 from dialects import Compiler, Invocation, Mode, Request, parse_compiler
@@ -78,7 +79,8 @@ def default_compilers() -> list[Compiler]:
 
 
 def normalized(text: str) -> list[str]:
-    return [line.rstrip() for line in text.splitlines() if line.strip()]
+    """Output lines to compare, without blank lines and the phase-timing lines (timings, not output)."""
+    return [line.rstrip() for line in text.splitlines() if line.strip() and not phases.LINE.match(line)]
 
 
 # ----------------------------------------------------------------------------------- one workload
@@ -287,7 +289,8 @@ def first_difference(a: list[str], b: list[str]) -> str:
     for index, (x, y) in enumerate(zip(a, b)):
         if x != y:
             return f'line {index + 1}: {x[:60]!r} vs {y[:60]!r}'
-    return f'{len(a)} lines vs {len(b)} lines'
+    extra = (a if len(a) > len(b) else b)[min(len(a), len(b))]
+    return f'{len(a)} lines vs {len(b)} lines, the first extra one {extra[:60]!r}'
 
 
 def install_reads(compiler: Compiler) -> list[Path]:

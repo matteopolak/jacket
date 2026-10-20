@@ -79,6 +79,7 @@ build :: () {
     options.output_path = OUTPUT_PATH;
     options.output_executable_name = "program";
     options.intermediate_path = OUTPUT_PATH;
+    options.text_output_flags = 0; // no link line or workspace stats in the compared output
     if WRITES_EXECUTABLE options.use_custom_link_command = LINKER.count > 0;
 
     if OPTIMIZED set_optimization(*options, .OPTIMIZED);

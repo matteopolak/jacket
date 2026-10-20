@@ -25,7 +25,7 @@ import common
 import pairing
 import provenance
 import quiet
-from cmd_compile import JobRunner, normalized
+from cmd_compile import JobRunner, first_difference, normalized
 from dialects import Compiler, Mode, PlainDialect, Request, parse_compiler
 from measure import Run, warm_file_cache
 from bench.sandbox import Sandbox
@@ -142,13 +142,6 @@ def compare_outputs(a: Observed, b: Observed, compare_compile_output: bool) -> s
     if a.program_stdout != b.program_stdout:
         return f'program output differs: {first_difference(a.program_stdout or [], b.program_stdout or [])}'
     return ''
-
-
-def first_difference(a: list[str], b: list[str]) -> str:
-    for index, (x, y) in enumerate(zip(a, b)):
-        if x != y:
-            return f'line {index + 1}: {x[:60]!r} vs {y[:60]!r}'
-    return f'{len(a)} lines vs {len(b)} lines'
 
 
 # ----------------------------------------------------------------------------------------- summary
@@ -282,7 +275,12 @@ class Comparison:
         imports = tuple(str((workdir / d).resolve()) for d in plan.import_dirs)
         request = Request(workdir / plan.entry, workdir, job.mode, plan.metaprogram_args, where,
                           plan.redirect_output, imports)
-        return self.compilers[name].dialect.invocation(self.compilers[name].path, request)
+        compiler = self.compilers[name]
+        # Executables are built through the phase-timing metaprogram, so both binaries link with the
+        # same system linker and the timed work is the same.
+        if job.mode.writes_executable and not JobRunner.has_own_build(request):
+            return compiler.dialect.phase_invocation(compiler.path, request)
+        return compiler.dialect.invocation(compiler.path, request)
 
     def run_once(self, job: Job, name: str, workdir: Path, tag: str) -> tuple[Run, object]:
         invocation = self.invocation(job, name, workdir, tag)

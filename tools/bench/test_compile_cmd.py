@@ -49,7 +49,7 @@ class GateTests(unittest.TestCase):
 
     def test_helpers(self):
         self.assertEqual(normalized('a  \n\n b\n'), ['a', ' b'])
-        self.assertEqual(first_difference(['a'], ['a', 'b']), '1 lines vs 2 lines')
+        self.assertEqual(first_difference(['a'], ['a', 'b']), "1 lines vs 2 lines, the first extra one 'b'")
 
 
 class DriverTests(unittest.TestCase):
