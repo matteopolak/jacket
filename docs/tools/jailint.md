@@ -40,7 +40,7 @@ jacket lint --context app/main.jai path/to/parameterized-module
 
 ## Declaration notes
 
-Four rules decide what a call means from a note on the procedure's declaration, never from its name. Write the note after the body (`} @UseResult`) or, for a bodiless declaration, after the semicolon. A call counts only when every procedure the callee resolved to carries the note, so notes work the same on your own procedures as on the library's, and a procedure that merely shares a name with a library one is left alone. The library's `Basic`, `String` and `Math` procedures are annotated where they are declared (`stdlib/internal/`).
+Several rules decide what a call means from a note on the procedure's declaration, never from its name. Write the note after the body (`} @UseResult`) or, for a bodiless declaration, after the semicolon. A call counts only when every procedure the callee resolved to carries the note, so notes work the same on your own procedures as on the library's, and a procedure that merely shares a name with a library one is left alone. The library's `Basic`, `String` and `Math` procedures are annotated where they are declared (`stdlib/internal/`).
 
 | Note | Rule | Meaning |
 | --- | --- | --- |
@@ -48,7 +48,10 @@ Four rules decide what a call means from a note on the procedure's declaration, 
 | `@ReturnsSmaller` | `min_max` | returns the smaller of its two arguments (the library's `min`) |
 | `@ReturnsLarger` | `min_max` | returns the larger of its two arguments (the library's `max`) |
 | `@RemovesFromArray` | `remove_in_for` | removes elements from the array its first argument points to |
-| `@FreesArgument` | `defer_in_loop` | after the call the argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s) |
+| `@FreesArgument` | `defer_in_loop`, `use_after_free`, `double_free` | after the call the *first* argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s). Not for a procedure whose first argument is only an allocator, heap or owner |
+| `@Allocates` | `leaked_allocation` | the result is newly allocated and the caller owns it (`alloc`, `New`, `copy_string`, `sprint`, `join`, ...) |
+| `@Locks` | `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
+| `@Unlocks` | `unpaired_lock` | gives back the lock its first argument names |
 
 ```jai
 shout :: (s: string) -> string {
