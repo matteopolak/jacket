@@ -20,12 +20,12 @@ The same declarations in an imported module go unchecked until something calls t
 
 ## How it works
 
-The program's own files are those in the main module (`Scope::module == Compiler::main_module`): files given to the compiler, a workspace's `add_build_file`/`add_build_string`, and what they `#load`. Under `.MODULES_ONLY`, in those files every global, constant and non-polymorphic, non-macro procedure body is checked (including struct-body and nested procedures); struct constants are checked after layout. What those bodies call is checked as called code. Polymorphic procedures and macros are checked per instance or expansion. Inactive `#if` branches declare nothing. `#run` inside checked bodies runs, after the top-level `#run`s. Every non-polymorphic struct and union is laid out in every mode, so a member of an undefined type is always an error.
+The program's own files are those in the main module (`Scope::module == Compiler::ns.main_module`): files given to the compiler, a workspace's `add_build_file`/`add_build_string`, and what they `#load`. Under `.MODULES_ONLY`, in those files every global, constant and non-polymorphic, non-macro procedure body is checked (including struct-body and nested procedures); struct constants are checked after layout. What those bodies call is checked as called code. Polymorphic procedures and macros are checked per instance or expansion. Inactive `#if` branches declare nothing. `#run` inside checked bodies runs, after the top-level `#run`s. Every non-polymorphic struct and union is laid out in every mode, so a member of an undefined type is always an error.
 
 Implementation:
 
 1. `finish_program` (`sema/driver.rs`) lowers what is reachable, lays out structs and fills runtime info.
-2. `check_unreferenced` walks `Compiler::entities` and `Compiler::procs` in creation order until nothing new appears. `unreferenced_entity_wanted` picks unresolved declarations in checked modules (`checks_unreferenced_in`); `check_unreferenced_proc` picks procedures with no target (settling `refresh_implicit_poly`, skipping polymorphic ones; bodiless `#foreign`/`#compiler` procedures only get their signature checked). Anything inside an instance or expansion is skipped (`inside_instance`).
+2. `check_unreferenced` walks `Compiler::ns.entities` and `Compiler::procs` in creation order until nothing new appears. `unreferenced_entity_wanted` picks unresolved declarations in checked modules (`checks_unreferenced_in`); `check_unreferenced_proc` picks procedures with no target (settling `refresh_implicit_poly`, skipping polymorphic ones; bodiless `#foreign`/`#compiler` procedures only get their signature checked). Anything inside an instance or expansion is skipped (`inside_instance`).
 3. Before it lowers anything it records `Compiler::unreferenced_from`; `prepare_compiled_output` then calls `drop_unreferenced_code`, which walks from older functions and globals (plus exports) and drops newer unreached functions, initializers and foreign symbols. The interpreter keeps everything.
 
 Declarations are visited in creation order, so the reported error does not depend on hashing. The language server publishes the first error as a `jaic` diagnostic with code `check`.
@@ -49,7 +49,7 @@ Configuration: `set_build_options` in `stdlib/internal/compiler-api/workspaces.j
 
 Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
-- The program's own files are those in the main module: the files given to the compiler (`jaic file.jai`, a workspace's `add_build_file` and `add_build_string`) and every file they `#load`. A module's files are what `#import`, `#import,file` and `#import,dir` load (the program's `modules/` folder too), and every file such a module `#load`s {#dce.7}. Sema tells them apart by `Scope::module == Compiler::main_module`.
+- The program's own files are those in the main module: the files given to the compiler (`jaic file.jai`, a workspace's `add_build_file` and `add_build_string`) and every file they `#load`. A module's files are what `#import`, `#import,file` and `#import,dir` load (the program's `modules/` folder too), and every file such a module `#load`s {#dce.7}. Sema tells them apart by `Scope::module == Compiler::ns.main_module`.
 - Every global variable (its type and initializer) and every constant is checked {#dce.1}.
 - Every procedure body is checked unless the procedure is polymorphic or a macro, including procedures declared in a struct body or inside another procedure's body {#dce.2}.
 - A struct constant is checked after its struct is laid out, as a use of the struct would, so it may name the struct's members (`PAD :: size_of(type_of(info))`), also in a struct declared inside another struct {#dce.13}.

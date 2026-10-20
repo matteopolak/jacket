@@ -17,9 +17,9 @@ impl Compiler {
         module: ModuleId,
         file: Option<FileId>,
     ) -> ScopeId {
-        let proc_depth = parent.map_or(0, |p| self.scopes[p.0 as usize].proc_depth)
+        let proc_depth = parent.map_or(0, |p| self.ns.scopes[p.0 as usize].proc_depth)
             + u32::from(kind == ScopeKind::Proc);
-        self.scopes.push(Scope {
+        self.ns.scopes.push(Scope {
             kind,
             parent,
             inserted_into: None,
@@ -34,9 +34,9 @@ impl Compiler {
             proc: None,
             fallbacks: Vec::new(),
         });
-        let id = ScopeId(self.scopes.len() as u32 - 1);
+        let id = ScopeId(self.ns.scopes.len() as u32 - 1);
         if matches!(kind, ScopeKind::Module | ScopeKind::File) {
-            self.unsettled.insert(id);
+            self.ns.unsettled.insert(id);
         }
         id
     }
@@ -85,7 +85,7 @@ impl Compiler {
 
     fn unsettle(&mut self, scope: ScopeId) {
         if matches!(self.scope(scope).kind, ScopeKind::Module | ScopeKind::File) {
-            self.unsettled.insert(scope);
+            self.ns.unsettled.insert(scope);
         }
     }
 
@@ -100,11 +100,11 @@ impl Compiler {
     }
 
     pub fn scope(&self, id: ScopeId) -> &Scope {
-        &self.scopes[id.0 as usize]
+        &self.ns.scopes[id.0 as usize]
     }
 
     pub fn scope_mut(&mut self, id: ScopeId) -> &mut Scope {
-        &mut self.scopes[id.0 as usize]
+        &mut self.ns.scopes[id.0 as usize]
     }
 
     /// The declaration namespace, excluding synthetic Code lookup wrappers.
@@ -116,11 +116,11 @@ impl Compiler {
     }
 
     pub fn entity(&self, id: EntityId) -> &Entity {
-        &self.entities[id.0 as usize]
+        &self.ns.entities[id.0 as usize]
     }
 
     pub fn entity_mut(&mut self, id: EntityId) -> &mut Entity {
-        &mut self.entities[id.0 as usize]
+        &mut self.ns.entities[id.0 as usize]
     }
 
     pub fn add_entity(
@@ -154,8 +154,8 @@ impl Compiler {
         )
         .then(|| self.generated_placeholder(scope, name, span))
         .flatten();
-        let id = EntityId(self.entities.len() as u32);
-        self.entities.push(Entity {
+        let id = EntityId(self.ns.entities.len() as u32);
+        self.ns.entities.push(Entity {
             name,
             span,
             scope,

@@ -67,6 +67,7 @@ fn editor_diagnostics_from_deferred_attempts_do_not_survive_successful_binding()
         "#placeholder Body; delayed :: () -> int { #insert Body; } main :: () -> int { return delayed(); }".into()
     )]).unwrap();
     let entity = compiler
+        .ns
         .entities
         .iter()
         .position(|entity| entity.name.as_str() == "delayed")
@@ -107,6 +108,7 @@ fn scoped_placeholder_definitions_preserve_overload_sets_for_other_files() {
         .begin_sources(&[ProgramSource::File("/main.jai".into())])
         .unwrap();
     let entity = compiler
+        .ns
         .entities
         .iter()
         .position(|entity| entity.name.as_str() == "anchor")
@@ -173,6 +175,7 @@ fn module_insertion_generator_waits_in_its_canonical_module_scope() {
     }
     assert!(compiler.meta.perf.runs.is_empty());
     let module = compiler
+        .ns
         .modules
         .iter()
         .position(|m| m.name.as_str() == "Deferred")
@@ -200,6 +203,7 @@ fn a_parameter_naming_an_undefined_placeholder_is_decided_again_once_it_is_defin
         .unwrap();
     let procedure = |compiler: &mut Compiler| {
         let entity = compiler
+            .ns
             .entities
             .iter()
             .position(|entity| entity.name.as_str() == "takes")
@@ -241,6 +245,7 @@ fn an_overload_set_with_an_unresolved_member_is_compared_again_once_it_resolves(
         )])
         .unwrap();
     let set: Vec<_> = compiler
+        .ns
         .entities
         .iter()
         .enumerate()

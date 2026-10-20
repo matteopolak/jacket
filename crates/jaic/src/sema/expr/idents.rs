@@ -623,7 +623,7 @@ impl Compiler {
 
     pub fn preload_type(&mut self, ty: PreludeType, span: Span) -> Result<TypeId> {
         let name = ty.name();
-        let Some(preload) = self.preload else {
+        let Some(preload) = self.ns.preload else {
             return err(span, format!("`{name}` requires Preload"));
         };
         let ids = self.module_declarations(preload, Sym::intern(name))?;

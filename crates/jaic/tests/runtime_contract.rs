@@ -27,13 +27,13 @@ fn windows_arm64_entry_backtrace_uses_the_private_native_backend() {
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
-    assert!(compiler.modules.iter().any(|module| {
+    assert!(compiler.ns.modules.iter().any(|module| {
         module
             .path
             .as_ref()
             .is_some_and(|path| path.ends_with("internal/runtime/windows-arm64-crash/module.jai"))
     }));
-    assert!(!compiler.modules.iter().any(|module| {
+    assert!(!compiler.ns.modules.iter().any(|module| {
         module
             .path
             .as_ref()

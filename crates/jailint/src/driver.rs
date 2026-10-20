@@ -402,7 +402,7 @@ fn lint_root(
                 .collect();
             compiler.prepare_sources(&sources).and_then(|()| {
                 compiler.expand_all()?;
-                if !compiler.modules.iter().any(|module| {
+                if !compiler.ns.modules.iter().any(|module| {
                     module
                         .path
                         .as_ref()

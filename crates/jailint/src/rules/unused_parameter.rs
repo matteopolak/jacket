@@ -127,8 +127,8 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     let Some(file) = compiler.src.files.iter().find(|f| f.id == cx.file) else {
         return false;
     };
-    let module_scope = compiler.modules[file.module.0 as usize].scope;
-    let in_main = Some(file.module) == compiler.main_module;
+    let module_scope = compiler.ns.modules[file.module.0 as usize].scope;
+    let in_main = Some(file.module) == compiler.ns.main_module;
     for &id in ids {
         let info = compiler.proc(id);
         // The name as the file and its module see it (a `#scope_file` overload lives in the

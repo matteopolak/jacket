@@ -23,7 +23,7 @@ impl Compiler {
                         span,
                         format!(
                             "module `{}` has no exported member `{name}`",
-                            self.modules[m.0 as usize].name
+                            self.ns.modules[m.0 as usize].name
                         ),
                     ),
                     Found::Entities(ids) => {

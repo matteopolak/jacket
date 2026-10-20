@@ -100,6 +100,7 @@ impl Compiler {
                     && self.epochs.in_progress_misses != in_progress
                     && e.message.starts_with("circular dependency while resolving")
                     && self
+                        .ns
                         .entities
                         .iter()
                         .any(|e| matches!(e.state, EntityState::Resolving))
@@ -114,7 +115,7 @@ impl Compiler {
                     && let Err(e) = result
                 {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
-                    self.deferred_pending.push(scope);
+                    self.ns.deferred_pending.push(scope);
                     self.diag.deferred_errors.push(e);
                     return Ok(());
                 }

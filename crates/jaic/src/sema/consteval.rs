@@ -39,12 +39,12 @@ impl Compiler {
 
     /// A procedure-level child of `scope` so compile-time code cannot see runtime locals.
     pub fn thunk_scope(&mut self, scope: ScopeId) -> ScopeId {
-        if let Some(&s) = self.thunk_scopes.get(&scope) {
+        if let Some(&s) = self.ns.thunk_scopes.get(&scope) {
             return s;
         }
         let module = self.scope(scope).module;
         let s = self.new_scope(scope::ScopeKind::Proc, Some(scope), module, None);
-        self.thunk_scopes.insert(scope, s);
+        self.ns.thunk_scopes.insert(scope, s);
         s
     }
 
@@ -276,7 +276,7 @@ impl Compiler {
             export: None,
         });
         // Temporary storage backed by a static buffer.
-        if let Some(rs) = self.runtime_support
+        if let Some(rs) = self.ns.runtime_support
             && let Ok(ts_ty) = self.module_type(rs, "Temporary_Storage", span)
         {
             let ts_size = self.size_of(ts_ty, span)?;

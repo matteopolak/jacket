@@ -78,10 +78,10 @@ impl Compiler {
                 ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
             );
             let known_miss = stable
-                && self.scope_misses.get(&key) == Some(&generation)
-                && self.reexport_visiting.is_empty();
+                && self.caches.scope_misses.get(&key) == Some(&generation)
+                && self.ns.reexport_visiting.is_empty();
             let try_remember =
-                stable && !known_miss && found.is_empty() && self.reexport_visiting.is_empty();
+                stable && !known_miss && found.is_empty() && self.ns.reexport_visiting.is_empty();
             let mut cacheable = try_remember;
             if !known_miss {
                 // Entries added while these are searched are not seen by this lookup.
@@ -134,7 +134,10 @@ impl Compiler {
                 }
                 // Preload and Runtime_Support are implicitly visible to every module.
                 if self.scope(sid).kind == ScopeKind::Module {
-                    for implicit in [self.preload, self.runtime_support].into_iter().flatten() {
+                    for implicit in [self.ns.preload, self.ns.runtime_support]
+                        .into_iter()
+                        .flatten()
+                    {
                         if self.scope(sid).module == implicit {
                             continue;
                         }
@@ -146,7 +149,7 @@ impl Compiler {
                     }
                 }
                 if cacheable && found.is_empty() && self.epochs.namespace_generation == generation {
-                    self.scope_misses.insert(key, generation);
+                    self.caches.scope_misses.insert(key, generation);
                 }
             }
             current = self.scope(sid).parent;

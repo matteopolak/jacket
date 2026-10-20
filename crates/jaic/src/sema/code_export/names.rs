@@ -16,7 +16,7 @@ impl Exporter<'_> {
         }
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
-        c.meta.export.refresh_name_caches(c.entities.len());
+        c.meta.export.refresh_name_caches(c.ns.entities.len());
         let id = if let Some(&cached) = c.meta.export.name_lookups.get(&(scope, name)) {
             cached?
         } else {

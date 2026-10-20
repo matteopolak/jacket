@@ -257,7 +257,7 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
         )])
         .map_err(|e| e.render(&compiler.src.sources))
         .unwrap();
-    let scope = compiler.modules[compiler.main_module.unwrap().0 as usize].scope;
+    let scope = compiler.ns.modules[compiler.ns.main_module.unwrap().0 as usize].scope;
     let record = compiler.lookup(scope, Sym::intern("R")).unwrap()[0];
     let Resolved::Const {
         value: Value::Type(record),

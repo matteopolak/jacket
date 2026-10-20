@@ -38,8 +38,8 @@ impl Compiler {
         host.ct.interp.block_budget = self.ct.interp.block_budget;
         let result = (|| {
             host.begin_sources(&[])?;
-            let module = host.main_module.unwrap();
-            let module_scope = host.modules[module.0 as usize].scope;
+            let module = host.ns.main_module.unwrap();
+            let module_scope = host.ns.modules[module.0 as usize].scope;
             let scope = host.new_scope(
                 scope::ScopeKind::File,
                 Some(module_scope),

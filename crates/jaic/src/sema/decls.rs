@@ -183,7 +183,7 @@ impl Compiler {
             }
             _ => unreachable!(),
         };
-        let Some(preload) = self.preload else {
+        let Some(preload) = self.ns.preload else {
             return err(span, format!("`{sym}` requires Preload"));
         };
         let ids = self.module_declarations(preload, Sym::intern(enum_name))?;
@@ -898,11 +898,11 @@ impl Compiler {
             link_always,
             base_dir,
         });
-        self.libraries.push(LibraryInfo {
+        self.ns.libraries.push(LibraryInfo {
             name: lib_name,
             system,
             ir,
         });
-        Ok(LibraryId(self.libraries.len() as u32 - 1))
+        Ok(LibraryId(self.ns.libraries.len() as u32 - 1))
     }
 }

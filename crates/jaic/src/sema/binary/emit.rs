@@ -266,7 +266,7 @@ impl Compiler {
             (ir::BinOp::Mul, true) => (I::SMulOverflow, 3),
             _ => (I::UMulOverflow, 3),
         };
-        let Some(runtime) = self.runtime_support else {
+        let Some(runtime) = self.ns.runtime_support else {
             return Ok(());
         };
         let handler = self.module_declarations(runtime, Sym::intern("__arithmetic_overflow"))?;

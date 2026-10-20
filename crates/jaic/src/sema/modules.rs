@@ -42,7 +42,7 @@ impl Compiler {
         // Only unsettled module and file scopes are visited, in scope order (scopes made on the
         // way are visited too); a scope whose items and imports are all done has nothing to do.
         let mut next = 0;
-        while let Some(sid) = self.unsettled.range(ScopeId(next)..).next().copied() {
+        while let Some(sid) = self.ns.unsettled.range(ScopeId(next)..).next().copied() {
             next = sid.0 + 1;
             self.validate_parameter_contracts(self.scope(sid).module)?;
             self.expand_plain_ifs(sid)?;
@@ -52,7 +52,7 @@ impl Compiler {
         }
         let mut next = 0;
         loop {
-            while let Some(sid) = self.unsettled.range(ScopeId(next)..).next().copied() {
+            while let Some(sid) = self.ns.unsettled.range(ScopeId(next)..).next().copied() {
                 next = sid.0 + 1;
                 self.validate_parameter_contracts(self.scope(sid).module)?;
                 self.expand_pending(sid)?;
@@ -60,15 +60,15 @@ impl Compiler {
                     self.import_module(sid, i)?;
                 }
                 if self.settled(sid) {
-                    self.unsettled.remove(&sid);
+                    self.ns.unsettled.remove(&sid);
                 }
             }
             // Named imports (`X :: #import`) load eagerly too, so every module's
             // `#add_context` is known before the Context type is laid out. The mark moves past
             // an import only once it resolved: one that failed (in a nested call whose caller
             // went on) is tried, and reports its error, again.
-            let mut index = self.named_imports_done;
-            while index < self.entities.len() {
+            let mut index = self.ns.named_imports_done;
+            while index < self.ns.entities.len() {
                 let id = EntityId(index as u32);
                 let e = self.entity(id);
                 let required_library = match &e.kind {
@@ -94,15 +94,15 @@ impl Compiler {
                     self.resolve_entity(id)?;
                 }
                 index += 1;
-                self.named_imports_done = self.named_imports_done.max(index);
+                self.ns.named_imports_done = self.ns.named_imports_done.max(index);
             }
             // Deferred items wait until no body is mid-lowering (an outer `expand_all`).
             let lowering = self
                 .procs
                 .iter()
                 .any(|p| p.body_state == super::procs::BodyState::Lowering);
-            if !self.deferred_pending.is_empty() && !lowering {
-                let deferred = std::mem::take(&mut self.deferred_pending);
+            if !self.ns.deferred_pending.is_empty() && !lowering {
+                let deferred = std::mem::take(&mut self.ns.deferred_pending);
                 self.diag.deferred_errors.clear();
                 let retrying = std::mem::replace(&mut self.epochs.retrying_pending, true);
                 let result = deferred
@@ -113,10 +113,10 @@ impl Compiler {
                 continue;
             }
             // Resolving a named import may have loaded a module: its scopes come next.
-            if self.unsettled.range(ScopeId(next)..).next().is_none() {
+            if self.ns.unsettled.range(ScopeId(next)..).next().is_none() {
                 let mut index = 0;
-                while index < self.modules.len() {
-                    if !self.modules[index].loading {
+                while index < self.ns.modules.len() {
+                    if !self.ns.modules[index].loading {
                         self.validate_module_arguments(ModuleId(index as u32), Span::NONE)?;
                         self.validate_parameter_contracts(ModuleId(index as u32))?;
                     }
@@ -124,7 +124,7 @@ impl Compiler {
                 }
                 // A contract may import its declaring interface or a hook type.
                 // Newly registered scopes must participate in normal expansion.
-                if self.unsettled.range(ScopeId(next)..).next().is_some() {
+                if self.ns.unsettled.range(ScopeId(next)..).next().is_some() {
                     continue;
                 }
                 return Ok(());

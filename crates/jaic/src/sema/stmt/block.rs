@@ -644,7 +644,7 @@ impl Compiler {
                         // other files see it too. Paths and parameters still resolve from
                         // the file that wrote it.
                         let module = self.scope(file_scope).module;
-                        let target = self.modules[module.0 as usize].scope;
+                        let target = self.ns.modules[module.0 as usize].scope;
                         self.push_import(
                             target,
                             scope::ImportEntry {

@@ -163,7 +163,10 @@ impl Compiler {
                 ty, ..
             }) => format!("{name}: {}", self.ty.types.name(ty)),
             Some(Resolved::Module(m)) => {
-                format!("{name} :: #import \"{}\"", self.modules[m.0 as usize].name)
+                format!(
+                    "{name} :: #import \"{}\"",
+                    self.ns.modules[m.0 as usize].name
+                )
             }
             Some(Resolved::Library(_)) => format!("{name} :: #library"),
             Some(Resolved::PolyStruct(_)) => format!("{name} :: struct (polymorphic)"),

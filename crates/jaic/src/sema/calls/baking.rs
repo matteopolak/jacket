@@ -36,7 +36,7 @@ impl Compiler {
             // (`$compare := (a, b) => a == b`) is the same procedure on every
             // call and the instance is found again.
             let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
-            scope = if let Some(&s) = self.default_scopes.get(&key) {
+            scope = if let Some(&s) = self.ns.default_scopes.get(&key) {
                 s
             } else {
                 let module = self.scope(def_scope).module;
@@ -44,7 +44,7 @@ impl Compiler {
                 for (n, v, t) in bindings {
                     self.add_const(s, *n, span, v.clone(), *t);
                 }
-                self.default_scopes.insert(key, s);
+                self.ns.default_scopes.insert(key, s);
                 s
             };
         }

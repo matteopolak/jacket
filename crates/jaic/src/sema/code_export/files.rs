@@ -25,7 +25,7 @@ impl Compiler {
 
     /// One `Message_Failed_Import` record per import that found no module, once.
     pub fn export_failed_imports(&mut self, r: &mut Records) -> Vec<i64> {
-        std::mem::take(&mut self.failed_imports)
+        std::mem::take(&mut self.ns.failed_imports)
             .into_iter()
             .map(|(host, target)| {
                 let mut rec = Record::new(RecordTag::MessageFailedImport);
@@ -51,16 +51,16 @@ impl Compiler {
         if let Some(&id) = self.meta.export.modules.get(&m) {
             return id;
         }
-        let module_type = if Some(m) == self.preload {
+        let module_type = if Some(m) == self.ns.preload {
             1
-        } else if Some(m) == self.runtime_support {
+        } else if Some(m) == self.ns.runtime_support {
             2
-        } else if Some(m) == self.main_module {
+        } else if Some(m) == self.ns.main_module {
             3
         } else {
             4
         };
-        let module = &self.modules[m.0 as usize];
+        let module = &self.ns.modules[m.0 as usize];
         let entry = module
             .path
             .as_ref()
@@ -124,7 +124,7 @@ impl Compiler {
     }
 
     pub(in crate::sema) fn is_system_module(&mut self, m: ModuleId) -> bool {
-        if Some(m) == self.preload || Some(m) == self.runtime_support {
+        if Some(m) == self.ns.preload || Some(m) == self.ns.runtime_support {
             return true;
         }
         if self.meta.export.system_dir.is_none() {
@@ -143,7 +143,7 @@ impl Compiler {
         }
         let system = match (
             &self.meta.export.system_dir,
-            &self.modules[m.0 as usize].path,
+            &self.ns.modules[m.0 as usize].path,
         ) {
             (Some(Some(dir)), Some(path)) => self.canon(path).starts_with(dir),
             _ => false,

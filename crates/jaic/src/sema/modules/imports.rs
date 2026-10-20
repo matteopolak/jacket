@@ -96,13 +96,13 @@ impl Compiler {
         match &import.source {
             ast::ImportSource::Module(name)
                 if BootstrapModule::named(name) == Some(BootstrapModule::RuntimeSupport)
-                    && self.runtime_support.is_some() =>
+                    && self.ns.runtime_support.is_some() =>
             {
                 // One runtime per program; explicit arguments must describe that
                 // configured instance rather than silently changing or ignoring it.
-                let id = self.runtime_support.unwrap();
+                let id = self.ns.runtime_support.unwrap();
                 self.validate_or_queue_import_groups(id, import)?;
-                let entities = self.modules[id.0 as usize].param_entities.clone();
+                let entities = self.ns.modules[id.0 as usize].param_entities.clone();
                 for (name, value, _) in params {
                     let entity = if let Some(position) = name.as_str().strip_prefix('$') {
                         position
@@ -136,7 +136,7 @@ impl Compiler {
             }
             ast::ImportSource::Module(name) => {
                 let host = self.scope(from_scope).module;
-                let host = self.modules[host.0 as usize].name.clone();
+                let host = self.ns.modules[host.0 as usize].name.clone();
                 // `remap_import`: the latest rule for this importer (or any importer) wins.
                 let (remaps, provided) = self.import_rules();
                 let wanted: String = remaps
@@ -153,7 +153,7 @@ impl Compiler {
                     {
                         return Ok(id);
                     }
-                    self.failed_imports.push((host, name.to_string()));
+                    self.ns.failed_imports.push((host, name.to_string()));
                     return Err(error);
                 }
                 let Some(entry) = self.find_module(&wanted, &dir) else {
@@ -162,7 +162,7 @@ impl Compiler {
                     {
                         return Ok(id);
                     }
-                    self.failed_imports.push((host, name.to_string()));
+                    self.ns.failed_imports.push((host, name.to_string()));
                     let error = self.module_not_found(&wanted, &dir, import.span);
                     self.ide_record_missing_module(from_scope, import.span, &wanted, &dir, &error);
                     return Err(Box::new(error));
@@ -181,7 +181,7 @@ impl Compiler {
             }
             ast::ImportSource::String(source) => {
                 let id = self.new_module("string", None, params);
-                self.modules[id.0 as usize]
+                self.ns.modules[id.0 as usize]
                     .argument_imports
                     .push(Rc::new(import.clone()));
                 let label = format!("import string {}", self.src.sources.len());
@@ -203,7 +203,7 @@ impl Compiler {
         let supplies_program_arguments = import
             .program_params_start
             .is_some_and(|start| start < import.params.len());
-        if supplies_program_arguments && Some(self.scope(scope).module) != self.main_module {
+        if supplies_program_arguments && Some(self.scope(scope).module) != self.ns.main_module {
             return err(
                 import.span,
                 "PROGRAM parameters may only be supplied by the main program of this workspace",
@@ -217,14 +217,14 @@ impl Compiler {
         id: ModuleId,
         import: &ast::Import,
     ) -> Result<()> {
-        let module = &mut self.modules[id.0 as usize];
+        let module = &mut self.ns.modules[id.0 as usize];
         if !module.arguments_validated {
             // A recursive or deferred header has not registered its slots yet.
             // Retain each request for validation before that header binds values.
             module.argument_imports.push(Rc::new(import.clone()));
             return Ok(());
         }
-        let module = &self.modules[id.0 as usize];
+        let module = &self.ns.modules[id.0 as usize];
         let ordinary = module
             .param_entities
             .iter()
@@ -310,7 +310,7 @@ impl Compiler {
                     return Ok(Some(id));
                 }
                 let id = self.new_module(name, None, params.to_vec());
-                self.modules[id.0 as usize]
+                self.ns.modules[id.0 as usize]
                     .argument_imports
                     .push(Rc::new(import.clone()));
                 let label = format!("provided import {name}");

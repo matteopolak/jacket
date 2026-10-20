@@ -22,7 +22,7 @@ impl Compiler {
                 .map(|(_, id)| *id)
         });
         inner.or_else(|| {
-            (0..self.scopes.len())
+            (0..self.ns.scopes.len())
                 .map(|i| ScopeId(i as u32))
                 .find(|&s| {
                     self.scope(s).kind == ScopeKind::File && self.scope(s).file == Some(file)
@@ -104,7 +104,7 @@ impl Compiler {
                     text: format!(
                         "{} :: #import \"{}\"",
                         self.src.sources.snippet(span),
-                        self.modules[module.0 as usize].name
+                        self.ns.modules[module.0 as usize].name
                     ),
                     layout: None,
                 }),
@@ -170,7 +170,10 @@ impl Compiler {
                 .collect::<Vec<_>>()
                 .join("\n"),
             IdeWhat::Module(m) => {
-                format!("{name} :: #import \"{}\"", self.modules[m.0 as usize].name)
+                format!(
+                    "{name} :: #import \"{}\"",
+                    self.ns.modules[m.0 as usize].name
+                )
             }
         };
         let layout = if same {

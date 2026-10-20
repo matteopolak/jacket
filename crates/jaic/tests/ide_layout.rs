@@ -23,6 +23,7 @@ fn member_constants_see_field_types_before_unused_checking() {
     // Signatures and pointer types can introduce a record before its layout is
     // demanded. Resolve just that type, leaving its member constants unvisited.
     let index = compiler
+        .ns
         .entities
         .iter()
         .position(|entity| entity.name == Sym::intern("Record"))

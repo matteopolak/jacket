@@ -187,7 +187,7 @@ fn first_list_arguments_never_record_speculative_program_settings() {
     compiler
         .prepare_sources(&[ProgramSource::File("/app/main.jai".into())])
         .unwrap();
-    assert!(compiler.program_param_settings.is_empty());
+    assert!(compiler.ns.program_param_settings.is_empty());
     assert!(compiler.settle().is_err());
 }
 

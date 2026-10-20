@@ -127,7 +127,7 @@ impl Compiler {
         file: FileId,
         ast: &ast::File,
     ) -> Result<()> {
-        let module_scope = self.modules[module.0 as usize].scope;
+        let module_scope = self.ns.modules[module.0 as usize].scope;
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
         self.src.files.push(FileInfo {
             id: file,
@@ -135,7 +135,7 @@ impl Compiler {
             module,
             scope: file_scope,
         });
-        self.modules[module.0 as usize].files.push(file);
+        self.ns.modules[module.0 as usize].files.push(file);
         self.declare_stmts(module_scope, file_scope, &ast.stmts, ast::ScopeKind::Export)?;
         Ok(())
     }
@@ -188,7 +188,7 @@ impl Compiler {
         // named arguments creates another instance, even when the effective values match.
         // Keep positional names and explicit/default argument differences in the key too.
         let key = (self.canon(entry), params.clone());
-        if let Some(&id) = self.module_cache.get(&key) {
+        if let Some(&id) = self.ns.module_cache.get(&key) {
             if let Some(import) = import {
                 self.validate_or_queue_import_groups(id, import)?;
             }
@@ -206,22 +206,23 @@ impl Compiler {
         // one whose ordinary parameters were set: that is another instance of the module.
         if params.is_empty()
             && let Some(id) = self
+                .ns
                 .module_cache
                 .iter()
                 .filter(|((path, _), _)| *path == key.0)
                 .map(|(_, &id)| id)
                 .filter(|id| {
-                    let m = &self.modules[id.0 as usize];
+                    let m = &self.ns.modules[id.0 as usize];
                     m.params.iter().all(|(n, ..)| m.program_params.contains(n))
                 })
                 .min_by_key(|id| id.0)
         {
             return self.module_load_result(id);
         }
-        let id = ModuleId(self.modules.len() as u32);
-        let scope = self.new_scope(ScopeKind::Module, Some(self.root_scope), id, None);
+        let id = ModuleId(self.ns.modules.len() as u32);
+        let scope = self.new_scope(ScopeKind::Module, Some(self.ns.root_scope), id, None);
         crate::progress::module_created();
-        self.modules.push(Module {
+        self.ns.modules.push(Module {
             loading: true,
             argument_span: span,
             argument_imports: import.cloned().map(Rc::new).into_iter().collect(),
@@ -238,11 +239,11 @@ impl Compiler {
             using_modules: Vec::new(),
             files: Vec::new(),
         });
-        self.module_cache.insert(key, id);
+        self.ns.module_cache.insert(key, id);
         let loaded = self.load_file(entry, id, span);
-        self.modules[id.0 as usize].loading = false;
+        self.ns.modules[id.0 as usize].loading = false;
         if let Err(error) = loaded {
-            self.module_failures.insert(id, error.clone());
+            self.ns.module_failures.insert(id, error.clone());
             return Err(error);
         }
         self.apply_program_params(id);
@@ -253,7 +254,7 @@ impl Compiler {
             .all(|p| p.state == PendingState::Done)
             && let Err(error) = self.validate_module_arguments(id, span)
         {
-            self.module_failures.insert(id, error.clone());
+            self.ns.module_failures.insert(id, error.clone());
             return Err(error);
         }
         Ok(id)
@@ -266,7 +267,7 @@ impl Compiler {
         id: ModuleId,
         span: Span,
     ) -> Result<()> {
-        let module = &self.modules[id.0 as usize];
+        let module = &self.ns.modules[id.0 as usize];
         if module.arguments_validated {
             return Ok(());
         }
@@ -304,12 +305,12 @@ impl Compiler {
                 );
             }
         }
-        self.modules[id.0 as usize].arguments_validated = true;
+        self.ns.modules[id.0 as usize].arguments_validated = true;
         Ok(())
     }
 
     pub(super) fn module_load_result(&self, id: ModuleId) -> Result<ModuleId> {
-        match self.module_failures.get(&id) {
+        match self.ns.module_failures.get(&id) {
             Some(error) => Err(error.clone()),
             None => Ok(id),
         }
@@ -339,9 +340,9 @@ impl Compiler {
         path: Option<PathBuf>,
         params: Vec<(Sym, Value, TypeId)>,
     ) -> ModuleId {
-        let id = ModuleId(self.modules.len() as u32);
-        let scope = self.new_scope(ScopeKind::Module, Some(self.root_scope), id, None);
-        self.modules.push(Module {
+        let id = ModuleId(self.ns.modules.len() as u32);
+        let scope = self.new_scope(ScopeKind::Module, Some(self.ns.root_scope), id, None);
+        self.ns.modules.push(Module {
             loading: false,
             argument_span: Span::NONE,
             argument_imports: Vec::new(),
@@ -364,7 +365,7 @@ impl Compiler {
     /// Add source text (an `#import,string` or a workspace build string) as a
     /// file of `module`. `label` names it in diagnostics, written inside angle brackets.
     pub fn load_string(&mut self, label: &str, source: &str, module: ModuleId) -> Result<()> {
-        let scope = self.modules[module.0 as usize].scope;
+        let scope = self.ns.modules[module.0 as usize].scope;
         self.load_string_in_scope(label, source, scope)
     }
 
@@ -395,7 +396,7 @@ impl Compiler {
             module,
             scope: file_scope,
         });
-        self.modules[module.0 as usize].files.push(file);
+        self.ns.modules[module.0 as usize].files.push(file);
         self.declare_stmts(target, file_scope, &ast.stmts, ast::ScopeKind::Export)?;
         Ok(())
     }

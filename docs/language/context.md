@@ -6,7 +6,7 @@ Every ordinary procedure receives a hidden pointer to a `Context` record (alloca
 
 ## How it works
 
-The record starts from `Context_Base` in `stdlib/prelude/context.jai`, then each `#add_context` field (`Compiler::add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`).
+The record starts from `Context_Base` in `stdlib/prelude/context.jai`, then each `#add_context` field (`Compiler::ns.add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`).
 
 ```jai
 #add_context depth: int = 7;
@@ -34,7 +34,7 @@ Add context fields with `#add_context` in Jai, not in the compiler. The layout m
 Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Every ordinary procedure receives a hidden pointer to a `Context` record: allocator, logger, temporary storage, thread index, plus whatever `#add_context` declares {#ctx.1}. `push_context` swaps in a modified copy for a lexical scope {#ctx.2}.
-- The record starts from `Context_Base` in `stdlib/Runtime_Support.jai`. `stdlib/prelude/module.jai` splices that in first, then each `#add_context` field (collected in `Compiler::add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`) with its default {#ctx.3}.
+- The record starts from `Context_Base` in `stdlib/Runtime_Support.jai`. `stdlib/prelude/module.jai` splices that in first, then each `#add_context` field (collected in `Compiler::ns.add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`) with its default {#ctx.3}.
 - The example prints `depth=99` inside the `push_context` block and `depth=7` after it {#ctx.4}.
 - `context.depth += 1` writes through the active pointer, so callees see it {#ctx.5}.
 - `push_context` restores the previous context when the block exits by any path, including `return`, `break` and `continue` {#ctx.6}. `check_stmt` in `sema/stmt.rs` tracks the active address in `FnCtx::context`.

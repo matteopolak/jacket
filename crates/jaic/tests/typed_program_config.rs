@@ -71,6 +71,7 @@ fn interface_program_setting_can_use_a_plain_imports_independent_public_type() {
     }
     assert_eq!(
         compiler
+            .ns
             .modules
             .iter()
             .filter(|m| m.name == "Choice")
@@ -115,6 +116,7 @@ fn ordinary_interface_settings_keep_distinct_nominal_module_instances() {
     }
     assert_eq!(
         compiler
+            .ns
             .modules
             .iter()
             .filter(|m| m.name == "Choice")

@@ -10,7 +10,7 @@ impl Compiler {
     /// A TYPECHECKED message for eligible declarations and ready bodies, or `None`.
     pub fn export_typechecked(&mut self, r: &mut Records) -> Option<i64> {
         let mut decls = Vec::new();
-        while self.meta.export.next_entity < self.entities.len() {
+        while self.meta.export.next_entity < self.ns.entities.len() {
             let id = EntityId(self.meta.export.next_entity as u32);
             self.meta.export.next_entity += 1;
             let entity = self.entity(id);

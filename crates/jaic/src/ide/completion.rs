@@ -85,7 +85,7 @@ impl Compiler {
             }
             if self.scope(sid).kind == ScopeKind::Module {
                 modules.extend(
-                    [self.preload, self.runtime_support]
+                    [self.ns.preload, self.ns.runtime_support]
                         .into_iter()
                         .flatten()
                         .map(|m| (m, None)),
@@ -118,7 +118,7 @@ impl Compiler {
         if !visiting.insert(m) {
             return Vec::new();
         }
-        let scope = self.modules[m.0 as usize].scope;
+        let scope = self.ns.modules[m.0 as usize].scope;
         let _ = self.expand_pending(scope);
         let mut ids: Vec<EntityId> = self
             .scope(scope)
@@ -155,21 +155,21 @@ impl Compiler {
                 names.push(name);
             }
         }
-        for index in self.modules[m.0 as usize].exported_using_imports.clone() {
+        for index in self.ns.modules[m.0 as usize].exported_using_imports.clone() {
             if let Ok(Some(inner)) = self.import_module(scope, index) {
                 let mut inherited = self.ide_module_exports(inner, visiting);
                 Self::ide_filter_names(&mut inherited, &self.scope(scope).imports[index].filter);
                 names.extend(inherited);
             }
         }
-        for used in self.modules[m.0 as usize].using_modules.clone() {
+        for used in self.ns.modules[m.0 as usize].using_modules.clone() {
             let mut inherited = self.ide_module_exports(used.module, visiting);
             if let Some(filter) = &used.filter {
                 Self::ide_filter_names(&mut inherited, filter);
             }
             names.extend(inherited);
         }
-        for entry in self.modules[m.0 as usize].exported_usings.clone() {
+        for entry in self.ns.modules[m.0 as usize].exported_usings.clone() {
             names.extend(self.ide_using_members_inner(&entry, visiting));
         }
         visiting.remove(&m);
@@ -477,7 +477,7 @@ impl Compiler {
                     }
                 }
                 // Struct constants live in the struct's scope.
-                let scopes: Vec<ScopeId> = (0..self.scopes.len())
+                let scopes: Vec<ScopeId> = (0..self.ns.scopes.len())
                     .map(|i| ScopeId(i as u32))
                     .filter(|&s| self.scope(s).kind == ScopeKind::Struct(t))
                     .collect();

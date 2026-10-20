@@ -226,6 +226,7 @@ pub(super) fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(
 pub(super) fn output_path(settings: &BuildSettings, compiler: &Compiler) -> PathBuf {
     let name = if settings.output_executable_name.is_empty() {
         compiler
+            .ns
             .main_module
             .and_then(|m| compiler.src.files.iter().find(|f| f.module == m))
             .and_then(|f| f.path.as_file()?.file_stem())

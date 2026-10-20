@@ -137,7 +137,7 @@ fn bootstrap_runtime_passes_only_reviewed_parameters() {
     c.options.runtime_support = true;
     succeeds(&mut c);
     assert_eq!(
-        c.modules[c.runtime_support.unwrap().0 as usize]
+        c.ns.modules[c.ns.runtime_support.unwrap().0 as usize]
             .params
             .len(),
         3

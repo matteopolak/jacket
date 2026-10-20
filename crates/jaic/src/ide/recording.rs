@@ -21,7 +21,7 @@ impl Compiler {
         (
             self.src.added,
             self.src.files.len(),
-            self.modules.len(),
+            self.ns.modules.len(),
             self.ct.runs_done,
             self.ct.executions,
         )
@@ -393,7 +393,7 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
-        let parameters = self.modules[module.0 as usize].param_entities.clone();
+        let parameters = self.ns.modules[module.0 as usize].param_entities.clone();
         for arg in &import.params {
             let Some(name) = arg.name else {
                 continue;

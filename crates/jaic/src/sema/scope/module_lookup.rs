@@ -9,22 +9,23 @@ impl Compiler {
     /// module needs `module_lookup`, which also sees members of exported `using` globals.
     pub fn module_declarations(&mut self, module: ModuleId, name: Sym) -> Result<Vec<EntityId>> {
         // A search inside a re-export cycle skips modules, so only whole answers are kept.
-        if !self.reexport_visiting.is_empty() {
+        if !self.ns.reexport_visiting.is_empty() {
             let ids = self.module_declarations_unbound(module, name)?;
             return Ok(self.bound_entities(&ids));
         }
         let generation = self.epochs.namespace_generation;
-        if let Some((at, ids)) = self.module_names.get(&(module, name))
+        if let Some((at, ids)) = self.caches.module_names.get(&(module, name))
             && *at == generation
         {
             return Ok(self.bound_entities(ids));
         }
-        let outer = std::mem::replace(&mut self.module_names_unsettled, false);
+        let outer = std::mem::replace(&mut self.caches.module_names_unsettled, false);
         let ids = self.module_declarations_unbound(module, name);
-        let unsettled = std::mem::replace(&mut self.module_names_unsettled, outer);
+        let unsettled = std::mem::replace(&mut self.caches.module_names_unsettled, outer);
         let ids = ids?;
         if !unsettled && self.epochs.namespace_generation == generation {
-            self.module_names
+            self.caches
+                .module_names
                 .insert((module, name), (generation, ids.as_slice().into()));
         }
         Ok(self.bound_entities(&ids))
@@ -36,17 +37,17 @@ impl Compiler {
         module: ModuleId,
         name: Sym,
     ) -> Result<Vec<EntityId>> {
-        let scope = self.modules[module.0 as usize].scope;
+        let scope = self.ns.modules[module.0 as usize].scope;
         self.expand_pending(scope)?;
-        if !self.modules[module.0 as usize].loading {
+        if !self.ns.modules[module.0 as usize].loading {
             self.validate_module_arguments(module, Span::NONE)?;
         }
         let s = self.scope(scope);
         if s.pending_done < s.pending.len()
-            || self.modules[module.0 as usize].loading
-            || !self.modules[module.0 as usize].arguments_validated
+            || self.ns.modules[module.0 as usize].loading
+            || !self.ns.modules[module.0 as usize].arguments_validated
         {
-            self.module_names_unsettled = true;
+            self.caches.module_names_unsettled = true;
         }
         let own: Vec<EntityId> = self
             .scope(scope)
@@ -64,13 +65,16 @@ impl Compiler {
         }
         // Names of modules this one re-exports with `using M :: #import "M";` (each module
         // once per lookup, so re-export cycles end).
-        if self.reexport_visiting.contains(&module) {
+        if self.ns.reexport_visiting.contains(&module) {
             return Ok(own);
         }
-        self.reexport_visiting.push(module);
+        self.ns.reexport_visiting.push(module);
         let mut result = Ok(own);
-        for k in 0..self.modules[module.0 as usize].exported_using_imports.len() {
-            let Some(&index) = self.modules[module.0 as usize]
+        for k in 0..self.ns.modules[module.0 as usize]
+            .exported_using_imports
+            .len()
+        {
+            let Some(&index) = self.ns.modules[module.0 as usize]
                 .exported_using_imports
                 .get(k)
             else {
@@ -84,7 +88,7 @@ impl Compiler {
                     self.module_declarations_unbound(inner, name)
                 }
                 Ok(None) => {
-                    self.module_names_unsettled = true;
+                    self.caches.module_names_unsettled = true;
                     continue;
                 }
                 Err(e) => Err(e),
@@ -103,14 +107,14 @@ impl Compiler {
                 }
             }
         }
-        self.reexport_visiting.pop();
+        self.ns.reexport_visiting.pop();
         result
     }
 
     /// Modules `module` says `using M;` to whose filters let `name` through: only those at
     /// export scope when `exported_only`.
     fn using_modules(&self, module: ModuleId, name: Sym, exported_only: bool) -> Vec<ModuleId> {
-        self.modules[module.0 as usize]
+        self.ns.modules[module.0 as usize]
             .using_modules
             .iter()
             .filter(|used| used.exported || !exported_only)
@@ -133,8 +137,8 @@ impl Compiler {
         // Looking up a name a module lacks walks its re-exports and `using` globals, and a
         // scope asks every module it imports for every name it uses: remember the misses.
         let generation = self.epochs.namespace_generation;
-        if self.reexport_visiting.is_empty()
-            && self.module_misses.get(&(module, name)) == Some(&generation)
+        if self.ns.reexport_visiting.is_empty()
+            && self.caches.module_misses.get(&(module, name)) == Some(&generation)
         {
             return Ok(Found::Entities(Vec::new()));
         }
@@ -145,18 +149,18 @@ impl Compiler {
         if let Some((entry, member)) = self.module_using_member(module, name)? {
             return Ok(Found::Using(entry, member));
         }
-        let params: Vec<EntityId> = self.modules[module.0 as usize]
+        let params: Vec<EntityId> = self.ns.modules[module.0 as usize]
             .param_entities
             .iter()
             .copied()
             .filter(|&e| self.entity(e).name == name)
             .collect();
         if params.is_empty()
-            && self.reexport_visiting.is_empty()
+            && self.ns.reexport_visiting.is_empty()
             && self.epochs.namespace_generation == generation
-            && matches!(self.module_names.get(&(module, name)), Some((at, _)) if *at == generation)
+            && matches!(self.caches.module_names.get(&(module, name)), Some((at, _)) if *at == generation)
         {
-            self.module_misses.insert((module, name), generation);
+            self.caches.module_misses.insert((module, name), generation);
         }
         Ok(Found::Entities(params))
     }
@@ -167,12 +171,12 @@ impl Compiler {
     pub fn module_member_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
         let found = self.module_lookup(module, name)?;
         if !matches!(&found, Found::Entities(ids) if ids.is_empty())
-            || self.reexport_visiting.contains(&module)
+            || self.ns.reexport_visiting.contains(&module)
         {
             return Ok(found);
         }
         let used = self.using_modules(module, name, false);
-        self.reexport_visiting.push(module);
+        self.ns.reexport_visiting.push(module);
         let mut result = Ok(found);
         for used in used {
             match self.module_member_lookup(used, name) {
@@ -183,7 +187,7 @@ impl Compiler {
                 }
             }
         }
-        self.reexport_visiting.pop();
+        self.ns.reexport_visiting.pop();
         result
     }
 
@@ -192,14 +196,14 @@ impl Compiler {
     /// settled (a module still loading, an import not resolved) answers `true`.
     fn module_may_have_using_members(&mut self, module: ModuleId) -> bool {
         let generation = self.epochs.namespace_generation;
-        if self.using_member_free.get(&module) == Some(&generation) {
+        if self.caches.using_member_free.get(&module) == Some(&generation) {
             return false;
         }
         let mut visiting = Vec::new();
         let may = self.module_may_have_using_members_inner(module, &mut visiting);
         if !may && self.epochs.namespace_generation == generation {
             for m in visiting {
-                self.using_member_free.insert(m, generation);
+                self.caches.using_member_free.insert(m, generation);
             }
         }
         may
@@ -213,7 +217,7 @@ impl Compiler {
         if visiting.contains(&module) {
             return false;
         }
-        let data = &self.modules[module.0 as usize];
+        let data = &self.ns.modules[module.0 as usize];
         if data.loading || !data.exported_usings.is_empty() {
             return true;
         }
@@ -247,8 +251,8 @@ impl Compiler {
         if !self.module_may_have_using_members(module) {
             return Ok(None);
         }
-        for k in 0..self.modules[module.0 as usize].exported_usings.len() {
-            let Some(entry) = self.modules[module.0 as usize].exported_usings.get(k) else {
+        for k in 0..self.ns.modules[module.0 as usize].exported_usings.len() {
+            let Some(entry) = self.ns.modules[module.0 as usize].exported_usings.get(k) else {
                 break;
             };
             if let UsingEntry::Place {
@@ -259,7 +263,7 @@ impl Compiler {
                 // The common case, answered without copying the entry on a miss.
                 let ty = *ty;
                 if self.type_has_member(ty, name)? {
-                    let entry = self.modules[module.0 as usize].exported_usings[k].clone();
+                    let entry = self.ns.modules[module.0 as usize].exported_usings[k].clone();
                     return Ok(Some((entry, name)));
                 }
                 continue;
@@ -269,14 +273,17 @@ impl Compiler {
                 return Ok(Some(found));
             }
         }
-        if self.reexport_visiting.contains(&module) {
+        if self.ns.reexport_visiting.contains(&module) {
             return Ok(None);
         }
-        self.reexport_visiting.push(module);
-        let scope = self.modules[module.0 as usize].scope;
+        self.ns.reexport_visiting.push(module);
+        let scope = self.ns.modules[module.0 as usize].scope;
         let mut result = Ok(None);
-        for k in 0..self.modules[module.0 as usize].exported_using_imports.len() {
-            let Some(&index) = self.modules[module.0 as usize]
+        for k in 0..self.ns.modules[module.0 as usize]
+            .exported_using_imports
+            .len()
+        {
+            let Some(&index) = self.ns.modules[module.0 as usize]
                 .exported_using_imports
                 .get(k)
             else {
@@ -312,7 +319,7 @@ impl Compiler {
                 }
             }
         }
-        self.reexport_visiting.pop();
+        self.ns.reexport_visiting.pop();
         result
     }
 

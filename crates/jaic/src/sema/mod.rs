@@ -42,6 +42,8 @@ mod meta_state;
 mod modify;
 mod module_rank;
 mod modules;
+mod name_caches;
+mod namespaces;
 mod output;
 pub mod perf;
 mod private_names;
@@ -77,6 +79,8 @@ pub use expr::PreludeType;
 pub use meta_state::MetaState;
 pub use module_rank::{ModuleRanking, Rank, count_importers};
 pub use modules::{BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
+pub use name_caches::NameCaches;
+pub use namespaces::Namespaces;
 pub use output::Output;
 pub use scope::{EntityId, ScopeId};
 pub use source_state::SourceState;
@@ -406,40 +410,20 @@ pub enum ProvidedKind {
     FullText,
 }
 
-/// A cached `module_declarations` answer and the `namespace_generation` it holds for.
-type ModuleNames = (u64, Rc<[EntityId]>);
-
 pub struct Compiler {
     pub ct: CompileTime,
     pub options: Options,
     pub src: SourceState,
     pub ty: TypeState,
     pub out: Output,
-    pub modules: Vec<Module>,
-    module_cache: HashMap<(PathBuf, Vec<ConstArg>), ModuleId>,
-    module_failures: HashMap<ModuleId, Box<Diagnostic>>,
-    pub scopes: Vec<scope::Scope>,
-    pub entities: Vec<scope::Entity>,
+    pub ns: Namespaces,
     pub procs: Vec<procs::ProcInfo>,
     pub codes: Vec<Rc<ast::CodeBody>>,
-    pub libraries: Vec<decls::LibraryInfo>,
-    pub root_scope: ScopeId,
-    pub preload: Option<ModuleId>,
-    pub runtime_support: Option<ModuleId>,
     /// Runtime opt-in to compiler-host assertion faults, keyed by actual procedure identity.
     pub runtime_interpreter_assertion: Option<ProcId>,
-    /// `__jaic_check_failed` was looked up (`note_check_handler`).
-    pub check_handler_resolved: bool,
-    pub main_module: Option<ModuleId>,
-    /// `#add_context` declarations with their declaring scope, in load order.
-    pub add_contexts: Vec<(Rc<ast::Decl>, ScopeId)>,
-    /// `#poke_name Module name;` directives: (module expression, name, declaring file scope).
-    pub pokes: Vec<(ast::Expr, Sym, ScopeId)>,
     pub meta: MetaState,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
     pub(crate) lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
-    /// Scopes holding the bindings that a polymorphic parameter's default is evaluated in.
-    default_scopes: HashMap<(ScopeId, Vec<Value>), ScopeId>,
     /// `$$x` variants: (procedure, which auto-bake params are baked) -> procedure.
     auto_bake_variants: HashMap<(ProcId, Vec<calls::AutoBake>), ProcId>,
     /// Procedures that need their bodies lowered.
@@ -458,29 +442,11 @@ pub struct Compiler {
     /// The procedures targeting each IR function (`procs_of_func`).
     func_targets: HashMap<ir::FuncId, Vec<ProcId>>,
     pub epochs: Epochs,
-    /// `module_declarations` answers (before `bound_entities`) and the `namespace_generation`
-    /// they hold for. Only answers that no later expansion or import can change are kept.
-    module_names: HashMap<(ModuleId, Sym), ModuleNames>,
-    /// Set while computing a `module_declarations` answer that may still change.
-    module_names_unsettled: bool,
-    /// Names `module_lookup` found nothing for, with the `namespace_generation` that holds
-    /// for. Only names whose `module_names` entry is settled are kept.
-    module_misses: HashMap<(ModuleId, Sym), u64>,
-    /// Scopes whose `using`s, imports and implicit modules hold nothing under a name, with
-    /// the `namespace_generation` that holds for.
-    scope_misses: HashMap<(ScopeId, Sym), u64>,
-    /// Modules without any exported `using` member (here or re-exported), and the
-    /// `namespace_generation` that holds for.
-    using_member_free: HashMap<ModuleId, u64>,
+    pub caches: NameCaches,
     /// Debug builds check `namespace_generation` against a full count of scope contents.
     #[cfg(debug_assertions)]
     namespace_check: std::cell::Cell<(usize, u64)>,
     pub diag: Diagnostics,
-    /// Overload sets already checked for identical parameter lists.
-    pub overload_sets_checked: crate::fxhash::HashSet<Vec<EntityId>>,
-    /// Imports that found no module: (importing module, wanted module). Metaprograms that
-    /// intercept the workspace get a `FAILED_IMPORT` message for each.
-    pub failed_imports: Vec<(String, String)>,
     /// Procedures `compiler_make_procedure_live` asked to keep in the program though nothing
     /// calls them.
     pub live_procs: Vec<ProcId>,
@@ -503,8 +469,6 @@ pub struct Compiler {
     /// gives the constant (`#if n <= 1` in a recursive macro; `message.count` of a constant
     /// string fits a `u64` parameter).
     pub const_macro_params: HashMap<EntityId, (Value, TypeId)>,
-    /// Modules whose re-exports a `module_declarations` call is searching.
-    pub reexport_visiting: Vec<ModuleId>,
     /// Types of local variable declarations, by declaration (first name), once lowered.
     /// Types of local declarations, by declaration and name index (`a, b := f()`).
     pub local_decl_types: HashMap<(ast::AstId, usize), TypeId>,
@@ -521,31 +485,14 @@ pub struct Compiler {
     pub first_arguments: HashMap<(u32, u32, u32), Span>,
     /// Interpreted function -> source procedure (reading back procedure values).
     pub func_procs: HashMap<ir::FuncId, ProcId>,
-    pub thunk_scopes: HashMap<ScopeId, ScopeId>,
-    /// Declarations the driver resolves even when unreferenced: `#program_export`
-    /// procedures and `link_always` libraries.
-    pub export_entities: Vec<EntityId>,
     /// Locals declared by `#asm` register declarations (`x: gpr`).
     pub asm_regs: HashMap<EntityId, asm::AsmReg>,
     /// Pinned general-purpose registers of the `#asm` block being lowered: (register number in
     /// x86 encoding order, address of its slot). Later pins of a register win.
     pub asm_pins: Vec<(u8, ir::Val)>,
-    /// Scopes with top-level items put back to waiting because they failed while
-    /// procedure bodies were mid-lowering (retried by `expand_all`).
-    pub deferred_pending: Vec<ScopeId>,
-    /// Module and file scopes that may still have top-level items to expand or imports to load.
-    /// `expand_all` visits only these (in scope order) and drops the ones it finishes, so each
-    /// round a metaprogram drives costs what is new rather than everything declared so far.
-    pub unsettled: std::collections::BTreeSet<ScopeId>,
-    /// Entities below this index have had their named imports (`X :: #import`) resolved.
-    pub named_imports_done: usize,
     /// Callable metadata belongs to declarations, never structural `TypeIds`.
     pub(super) callable_entities: HashMap<EntityId, Rc<ProcTypeParams>>,
     pub(super) callable_fields: HashMap<(crate::types::StructId, usize), Rc<ProcTypeParams>>,
-    /// Program parameters set by imports (`#import "Basic"()(MEMORY_DEBUGGER = DEBUG)`), by
-    /// module entry path: (name, value expression, scope it is evaluated in). Applied to
-    /// the module's instance as soon as both exist, before anything reads the parameter.
-    pub program_param_settings: Vec<(PathBuf, Sym, ast::Expr, ScopeId)>,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: crate::ide::Editor,
 }
@@ -588,6 +535,8 @@ impl Compiler {
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
+            caches: NameCaches::default(),
+            ns: Namespaces::default(),
             ty: TypeState::default(),
             src: SourceState::new(fs),
             out: Output::new(cross_target),
@@ -595,24 +544,10 @@ impl Compiler {
             epochs: Epochs::default(),
             diag: Diagnostics::default(),
             options,
-            modules: Vec::new(),
-            module_cache: HashMap::default(),
-            module_failures: HashMap::default(),
-            scopes: Vec::new(),
-            entities: Vec::new(),
             procs: Vec::new(),
             codes: Vec::new(),
-            libraries: Vec::new(),
-            root_scope: ScopeId(0),
-            preload: None,
-            runtime_support: None,
-            check_handler_resolved: false,
             runtime_interpreter_assertion: None,
-            main_module: None,
-            add_contexts: Vec::new(),
-            pokes: Vec::new(),
             lenient_failures: HashMap::default(),
-            default_scopes: HashMap::default(),
             auto_bake_variants: HashMap::default(),
             body_queue: Vec::new(),
             parked_bodies: Vec::new(),
@@ -622,16 +557,9 @@ impl Compiler {
             parked_epoch: 0,
             func_targets: HashMap::default(),
             ed: crate::ide::Editor::default(),
-            module_names: HashMap::default(),
-            module_names_unsettled: false,
-            module_misses: HashMap::default(),
-            scope_misses: HashMap::default(),
-            using_member_free: HashMap::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0)),
             ct: CompileTime::default(),
-            overload_sets_checked: HashSet::default(),
-            failed_imports: Vec::new(),
             live_procs: Vec::new(),
             entry_point: None,
             exports: Vec::new(),
@@ -641,25 +569,18 @@ impl Compiler {
             discard_params: HashSet::default(),
             last_call_must: None,
             const_macro_params: HashMap::default(),
-            reexport_visiting: Vec::new(),
             local_decl_types: HashMap::default(),
             code_scopes: Vec::new(),
             unscoped_codes: HashMap::default(),
             proc_decl_notes: HashMap::default(),
             first_arguments: HashMap::default(),
             func_procs: HashMap::default(),
-            thunk_scopes: HashMap::default(),
-            export_entities: Vec::new(),
             asm_regs: HashMap::default(),
             asm_pins: Vec::new(),
-            deferred_pending: Vec::new(),
-            unsettled: std::collections::BTreeSet::new(),
-            named_imports_done: 0,
             callable_entities: HashMap::default(),
             callable_fields: HashMap::default(),
-            program_param_settings: Vec::new(),
         };
-        c.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
+        c.ns.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();
         c
     }
@@ -673,7 +594,7 @@ impl Compiler {
         // so generated declarations can bind that scope's placeholders.
         let mut scope = scope;
         while let Some(parent) = self.scope(scope).parent {
-            if self.thunk_scopes.get(&parent) != Some(&scope) {
+            if self.ns.thunk_scopes.get(&parent) != Some(&scope) {
                 break;
             }
             scope = parent;
@@ -721,7 +642,7 @@ impl Compiler {
             }
             let scope = from
                 .and_then(|f| self.code_scopes.get(f).copied())
-                .unwrap_or(self.root_scope);
+                .unwrap_or(self.ns.root_scope);
             let file = self.src.sources.add(
                 SourcePath::virtual_source(format!("compiler_get_code {id}")),
                 format!("__jaic_code :: #code {text};\n").into(),
@@ -744,7 +665,7 @@ impl Compiler {
                 let fallbacks = fallbacks.clone();
                 let module = self.scope(site).module;
                 let scope = self.new_scope(scope::ScopeKind::Block, Some(site), module, None);
-                self.scopes[scope.0 as usize].fallbacks = fallbacks;
+                self.ns.scopes[scope.0 as usize].fallbacks = fallbacks;
                 scope
             }
             None => self.code_scopes[code.0 as usize],

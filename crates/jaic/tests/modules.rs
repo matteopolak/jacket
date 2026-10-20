@@ -363,11 +363,11 @@ fn editor_completions_apply_import_and_transitive_reexport_filters() {
         false,
     );
     succeeds(&mut c);
-    let facade = c
-        .modules
-        .iter()
-        .position(|m| m.path.as_deref() == Some(Path::new("/lib/Facade/module.jai")))
-        .unwrap();
+    let facade =
+        c.ns.modules
+            .iter()
+            .position(|m| m.path.as_deref() == Some(Path::new("/lib/Facade/module.jai")))
+            .unwrap();
     let exported = c.ide_members(IdeReceiver::Module(ModuleId(facade as u32)));
     assert!(exported.iter().any(|n| n.name == "shown"));
     assert!(
@@ -381,7 +381,11 @@ fn editor_completions_apply_import_and_transitive_reexport_filters() {
             c.src.sources.get(f).path.as_file() == Some(std::path::Path::new("/app/main.jai"))
         })
         .unwrap();
-    let scope = c.scopes.iter().position(|s| s.file == Some(file)).unwrap();
+    let scope =
+        c.ns.scopes
+            .iter()
+            .position(|s| s.file == Some(file))
+            .unwrap();
     let visible = c.ide_visible(ScopeId(scope as u32), file, u32::MAX);
     assert!(visible.iter().any(|n| n.name == "shown"));
     assert!(
@@ -444,7 +448,7 @@ fn bootstrap_alias_preserves_types_and_storage() {
     );
     succeeds(&mut c);
     assert_eq!(
-        c.modules
+        c.ns.modules
             .iter()
             .filter(|m| m.path.as_deref() == Some(Path::new("/lib/prelude/module.jai")))
             .count(),

@@ -36,7 +36,7 @@ impl Compiler {
         let span = Span::NONE;
         if let Some(preload) = self.options.preload.clone() {
             let m = self.load_module("prelude", &preload, Vec::new(), span)?;
-            self.preload = Some(m);
+            self.ns.preload = Some(m);
         }
         if self.options.runtime_support {
             let Some(entry) = self.runtime_support_entry() else {
@@ -61,7 +61,7 @@ impl Compiler {
             ];
             let m =
                 self.load_module(BootstrapModule::RuntimeSupport.name(), &entry, params, span)?;
-            self.runtime_support = Some(m);
+            self.ns.runtime_support = Some(m);
             self.prepare_interpreter_assertion(span)?;
         }
         Ok(())
@@ -135,7 +135,7 @@ impl Compiler {
         self.start_parse_ahead(sources);
         self.load_bootstrap()?;
         let m = self.new_module("main", None, Vec::new());
-        self.main_module = Some(m);
+        self.ns.main_module = Some(m);
         for source in sources {
             self.add_source(source)?;
         }
@@ -144,7 +144,7 @@ impl Compiler {
 
     /// Load one more file or string into the main module; `settle` runs it.
     pub fn add_source(&mut self, source: &ProgramSource) -> Result<()> {
-        let Some(m) = self.main_module else {
+        let Some(m) = self.ns.main_module else {
             return err(Span::NONE, "no main module to add sources to");
         };
         self.src.added += 1;
@@ -231,10 +231,10 @@ impl Compiler {
     /// False when there is no program to lower.
     fn lower_reachable_inner(&mut self, lenient: bool) -> Result<bool> {
         // A program made only of `#run`/`#assert` directives has nothing to lower.
-        let Some(m) = self.main_module else {
+        let Some(m) = self.ns.main_module else {
             return Ok(false);
         };
-        let scope = self.modules[m.0 as usize].scope;
+        let scope = self.ns.modules[m.0 as usize].scope;
         if self
             .lookup(scope, Sym::intern(&self.options.entry_point))?
             .is_empty()
@@ -242,8 +242,8 @@ impl Compiler {
             return Ok(false);
         }
         let mut i = 0;
-        while i < self.export_entities.len() {
-            let e = self.export_entities[i];
+        while i < self.ns.export_entities.len() {
+            let e = self.ns.export_entities[i];
             self.resolve_entity(e)?;
             i += 1;
         }
@@ -276,7 +276,7 @@ impl Compiler {
             let noted: Vec<ProcId> = (self.meta.export.pending_procs())
                 .filter(|&p| {
                     let proc = self.proc(p);
-                    Some(self.scope(proc.scope).module) == self.main_module
+                    Some(self.scope(proc.scope).module) == self.ns.main_module
                         && (!proc.lit.header.notes.is_empty()
                             || self.proc_decl_notes.contains_key(&p))
                 })
@@ -293,11 +293,11 @@ impl Compiler {
 
     /// Overload sets of the program's own files are checked even when nothing calls them.
     fn check_declared_overloads(&mut self) -> Result<()> {
-        let Some(m) = self.main_module else {
+        let Some(m) = self.ns.main_module else {
             return Ok(());
         };
         let mut sets: Vec<Vec<EntityId>> = Vec::new();
-        for scope in &self.scopes {
+        for scope in &self.ns.scopes {
             if scope.module != m {
                 continue;
             }
@@ -330,7 +330,7 @@ impl Compiler {
         loop {
             self.settle()?;
             self.check_unreferenced()?;
-            if self.unsettled.is_empty() {
+            if self.ns.unsettled.is_empty() {
                 break;
             }
         }
@@ -364,8 +364,8 @@ impl Compiler {
         // Checking creates more of both (a body's nested procedures, the declarations of an
         // `#insert`): go on until a round finds nothing new.
         let (mut entity_index, mut proc_index) = (0, 0);
-        while entity_index < self.entities.len() || proc_index < self.procs.len() {
-            while entity_index < self.entities.len() {
+        while entity_index < self.ns.entities.len() || proc_index < self.procs.len() {
+            while entity_index < self.ns.entities.len() {
                 let id = EntityId(entity_index as u32);
                 entity_index += 1;
                 if self.unreferenced_entity_wanted(id) {
@@ -395,7 +395,7 @@ impl Compiler {
     fn checks_unreferenced_in(&self, module: ModuleId) -> bool {
         match self.options.dead_code {
             DeadCode::None => true,
-            DeadCode::ModulesOnly => Some(module) == self.main_module,
+            DeadCode::ModulesOnly => Some(module) == self.ns.main_module,
             DeadCode::All => false,
         }
     }
@@ -608,7 +608,7 @@ impl Compiler {
     /// Polymorphic structs are checked per instance, when one is made.
     fn check_declared_structs(&mut self) -> Result<()> {
         let mut index = 0;
-        while index < self.entities.len() {
+        while index < self.ns.entities.len() {
             let id = EntityId(index as u32);
             index += 1;
             let e = self.entity(id);
@@ -647,10 +647,10 @@ impl Compiler {
 
     /// The `main` procedure of the main module (or the one `entry_point_name` names).
     pub fn program_main(&mut self, span: Span) -> Result<ProcId> {
-        let Some(m) = self.main_module else {
+        let Some(m) = self.ns.main_module else {
             return err(span, "no main module");
         };
-        let scope = self.modules[m.0 as usize].scope;
+        let scope = self.ns.modules[m.0 as usize].scope;
         let name = self.options.entry_point.clone();
         let ids = self.lookup(scope, Sym::intern(&name))?;
         for id in ids {
@@ -803,9 +803,9 @@ impl Compiler {
         let Some(main) = self.exported_func("main") else {
             // Compile-time-only program: everything already ran. (`#program_export` procedures
             // alone do not make it a program to run.)
-            let declares_main = match self.main_module {
+            let declares_main = match self.ns.main_module {
                 Some(m) => {
-                    let scope = self.modules[m.0 as usize].scope;
+                    let scope = self.ns.modules[m.0 as usize].scope;
                     !self
                         .lookup(scope, Sym::intern(&self.options.entry_point))?
                         .is_empty()

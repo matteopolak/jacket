@@ -29,7 +29,7 @@ impl Compiler {
     /// Record the named parameters of an import so a program parameter among them reaches
     /// the module's shared instance before the import itself is resolved.
     pub(super) fn note_program_params(&mut self, file_scope: ScopeId, import: &ast::Import) {
-        if Some(self.scope(file_scope).module) != self.main_module {
+        if Some(self.scope(file_scope).module) != self.ns.main_module {
             return;
         }
         let Some(start) = import.program_params_start else {
@@ -49,7 +49,7 @@ impl Compiler {
         let path = self.canon(&entry);
         for arg in arguments {
             if let Some(n) = arg.name {
-                self.program_param_settings.push((
+                self.ns.program_param_settings.push((
                     path.clone(),
                     n.name,
                     arg.value.clone(),
@@ -58,6 +58,7 @@ impl Compiler {
             }
         }
         let loaded: Vec<ModuleId> = self
+            .ns
             .module_cache
             .iter()
             .filter(|((p, _), _)| *p == path)
@@ -70,19 +71,19 @@ impl Compiler {
 
     /// Give a module instance's not-yet-used program parameters the values imports set.
     pub(super) fn apply_program_params(&mut self, module: ModuleId) {
-        let Some(path) = self.modules[module.0 as usize].path.clone() else {
+        let Some(path) = self.ns.modules[module.0 as usize].path.clone() else {
             return;
         };
         let path = self.canon(&path);
-        for (p, name, value, scope) in self.program_param_settings.clone() {
+        for (p, name, value, scope) in self.ns.program_param_settings.clone() {
             if p != path
-                || !self.modules[module.0 as usize]
+                || !self.ns.modules[module.0 as usize]
                     .program_params
                     .contains(&name)
             {
                 continue;
             }
-            let entity = self.modules[module.0 as usize]
+            let entity = self.ns.modules[module.0 as usize]
                 .param_entities
                 .iter()
                 .copied()
@@ -117,6 +118,7 @@ impl Compiler {
         import: Option<&ast::Import>,
     ) -> Result<Option<ModuleId>> {
         let Some(id) = self
+            .ns
             .module_cache
             .iter()
             .filter(|((p, _), _)| p == path)
@@ -125,7 +127,7 @@ impl Compiler {
         else {
             return Ok(None);
         };
-        let module = &self.modules[id.0 as usize];
+        let module = &self.ns.modules[id.0 as usize];
         if !params
             .iter()
             .all(|(n, ..)| module.program_params.contains(n))
@@ -137,7 +139,7 @@ impl Compiler {
         }
         self.module_load_result(id)?;
         for (name, value, ty) in params {
-            let entity = self.modules[id.0 as usize]
+            let entity = self.ns.modules[id.0 as usize]
                 .param_entities
                 .iter()
                 .copied()
@@ -194,7 +196,7 @@ impl Compiler {
         let Some(name) = param.name else {
             return err(param.span, "module parameter needs a name");
         };
-        let provided = self.modules[module.0 as usize]
+        let provided = self.ns.modules[module.0 as usize]
             .params
             .iter()
             .find(|(n, ..)| *n == name.name || n.as_str() == format!("${position}"))
@@ -230,8 +232,8 @@ impl Compiler {
         // Parameter storage belongs to the module; its declaration expressions
         // retain the lexical file environment, just like ordinary declarations.
         self.entity_mut(id).home = eval_scope;
-        self.modules[module.0 as usize].param_entities.push(id);
-        self.modules[module.0 as usize].arguments_validated = false;
+        self.ns.modules[module.0 as usize].param_entities.push(id);
+        self.ns.modules[module.0 as usize].arguments_validated = false;
         if let Some((Value::String(text), _)) = &provided
             && let Some(member) = std::str::from_utf8(text)
                 .ok()
@@ -348,13 +350,13 @@ impl Compiler {
     /// program settings exist. A reentrant expansion does not restart the same
     /// contract; resolving a genuinely cyclic parameter still fails normally.
     pub(super) fn validate_parameter_contracts(&mut self, module: ModuleId) -> Result<()> {
-        if self.modules[module.0 as usize].loading {
+        if self.ns.modules[module.0 as usize].loading {
             return Ok(());
         }
         self.apply_program_params(module);
         let mut index = 0;
-        while index < self.modules[module.0 as usize].parameter_contracts.len() {
-            let contract = &self.modules[module.0 as usize].parameter_contracts[index];
+        while index < self.ns.modules[module.0 as usize].parameter_contracts.len() {
+            let contract = &self.ns.modules[module.0 as usize].parameter_contracts[index];
             match &contract.state {
                 ParameterContractState::Checked | ParameterContractState::Checking => {
                     index += 1;
@@ -365,7 +367,7 @@ impl Compiler {
             }
             let (entity, pattern, eval_scope) =
                 (contract.entity, contract.pattern.clone(), contract.scope);
-            self.modules[module.0 as usize].parameter_contracts[index].state =
+            self.ns.modules[module.0 as usize].parameter_contracts[index].state =
                 ParameterContractState::Checking;
             let result = (|| {
                 let scope::Resolved::Const {
@@ -387,13 +389,13 @@ impl Compiler {
                 };
                 let mut bindings = Vec::new();
                 self.match_pattern_value(&pattern, actual, &mut bindings, eval_scope, represented)?;
-                let scope = self.modules[module.0 as usize].scope;
+                let scope = self.ns.modules[module.0 as usize].scope;
                 for (name, value, ty) in bindings {
                     self.add_const(scope, name, pattern.span, value, ty);
                 }
                 Ok(())
             })();
-            let contract = &mut self.modules[module.0 as usize].parameter_contracts[index];
+            let contract = &mut self.ns.modules[module.0 as usize].parameter_contracts[index];
             match result {
                 // Resolving the parameter reached an import that forwards this very parameter as
                 // an argument: the import is being resolved, so check the contract again later.

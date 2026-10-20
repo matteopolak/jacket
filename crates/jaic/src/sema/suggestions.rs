@@ -311,14 +311,14 @@ impl Compiler {
     /// How often the program's own files import each module.
     fn project_import_counts(&self) -> HashMap<String, u32> {
         let mut counts: HashMap<String, u32> = HashMap::default();
-        let Some(main) = self.main_module else {
+        let Some(main) = self.ns.main_module else {
             return counts;
         };
         for file in self.src.files.iter().filter(|f| f.module == main) {
             for import in &self.scope(file.scope).imports {
                 if let Some(module) = import.module {
                     *counts
-                        .entry(self.modules[module.0 as usize].name.clone())
+                        .entry(self.ns.modules[module.0 as usize].name.clone())
                         .or_insert(0) += 1;
                 }
             }
@@ -382,18 +382,21 @@ impl Compiler {
             names.extend(s.names.keys().map(|n| n.as_str()));
             for entry in &s.usings {
                 if let UsingEntry::Module(m, _) = entry {
-                    module_scopes.push(self.modules[m.0 as usize].scope);
+                    module_scopes.push(self.ns.modules[m.0 as usize].scope);
                 }
             }
             for import in &s.imports {
                 if let Some(m) = import.module {
-                    module_scopes.push(self.modules[m.0 as usize].scope);
+                    module_scopes.push(self.ns.modules[m.0 as usize].scope);
                 }
             }
             current = s.parent;
         }
-        for m in [self.preload, self.runtime_support].into_iter().flatten() {
-            module_scopes.push(self.modules[m.0 as usize].scope);
+        for m in [self.ns.preload, self.ns.runtime_support]
+            .into_iter()
+            .flatten()
+        {
+            module_scopes.push(self.ns.modules[m.0 as usize].scope);
         }
         for sid in module_scopes {
             names.extend(self.scope(sid).names.keys().map(|n| n.as_str()));

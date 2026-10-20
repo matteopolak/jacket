@@ -27,7 +27,7 @@ impl Compiler {
         // placeholders. Use the compiler's existing finalization rule so a failed
         // generator cannot stay speculative and recreate nested procedures forever.
         self.epochs.placeholders_final = true;
-        for i in 0..self.entities.len() {
+        for i in 0..self.ns.entities.len() {
             let id = EntityId(i as u32);
             let e = self.entity(id);
             let (scope, span) = (e.scope, e.span);
@@ -57,7 +57,7 @@ impl Compiler {
         let mut laid_out = crate::fxhash::HashSet::default();
         let mut unused_defaults = Vec::new();
         let mut i = 0;
-        while i < self.entities.len() {
+        while i < self.ns.entities.len() {
             let id = EntityId(i as u32);
             i += 1;
             let e = self.entity(id);

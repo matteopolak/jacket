@@ -236,7 +236,7 @@ impl Compiler {
         }
         self.expand_all()?;
         let mut extra: Vec<(Rc<ast::Decl>, ScopeId)> = Vec::new();
-        if let Some(preload) = self.preload {
+        if let Some(preload) = self.ns.preload {
             let ids = self.module_declarations(preload, Sym::intern("FIRST_ADD_CONTEXT"))?;
             if let Some(&id) = ids.first()
                 && let Resolved::Const {
@@ -246,8 +246,8 @@ impl Compiler {
             {
                 let body = self.codes[code.0 as usize].clone();
                 // The base context struct lives in Runtime_Support.
-                let scope = match self.runtime_support {
-                    Some(m) => self.modules[m.0 as usize].scope,
+                let scope = match self.ns.runtime_support {
+                    Some(m) => self.ns.modules[m.0 as usize].scope,
                     None => self.code_scopes[code.0 as usize],
                 };
                 let statements = match &*body {
@@ -262,7 +262,7 @@ impl Compiler {
                 }
             }
         }
-        extra.extend(self.add_contexts.iter().cloned());
+        extra.extend(self.ns.add_contexts.iter().cloned());
         let lit = Rc::new(ast::StructLit {
             id: ast::AstId::fresh(),
             kind: ast::StructKind::Struct,
@@ -274,7 +274,7 @@ impl Compiler {
             notes: Vec::new(),
             span,
         });
-        let root = self.root_scope;
+        let root = self.ns.root_scope;
         let ty = self.new_struct_type(Sym::intern("Context"), lit, root, Vec::new(), None);
         let s = self.ty.types.as_struct(ty).unwrap();
         // `#add_context name :: value;` adds a constant member (`#Context._Iprof.Zone()`), not a

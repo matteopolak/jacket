@@ -235,7 +235,7 @@ impl Compiler {
             ));
         };
         match self.resolve_entity(e)? {
-            scope::Resolved::Library(l) => Ok(Some(self.libraries[l.0 as usize].ir)),
+            scope::Resolved::Library(l) => Ok(Some(self.ns.libraries[l.0 as usize].ir)),
             _ => Err(Box::new(
                 Diagnostic::error(ident.span, format!("`{}` is not a library", ident.name))
                     .with_help(

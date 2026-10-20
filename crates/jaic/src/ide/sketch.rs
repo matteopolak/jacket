@@ -26,7 +26,7 @@ impl Compiler {
     /// instance. Call after `ide_check_all`, only for an editor: the facts name stand-in types,
     /// which a linter should not see.
     pub fn ide_sketch_polymorphs(&mut self) {
-        let (entities, procs) = (self.entities.len(), self.procs.len());
+        let (entities, procs) = (self.ns.entities.len(), self.procs.len());
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
@@ -634,7 +634,7 @@ impl Compiler {
         } else {
             format!("{}.{}", self.ty.types.name(base), name.as_str())
         };
-        let scope = self.root_scope;
+        let scope = self.ns.root_scope;
         let t = self.ide_stand_in(Sym::intern(&full), span, scope);
         if let Some(ide) = self.ed.facts_mut() {
             ide.stand_in_members.insert((base, name), t);
@@ -659,7 +659,7 @@ impl Compiler {
         let ty = if let Some(Ok(ty)) = decl.ty.as_ref().map(|t| self.eval_type(scope, t)) {
             ty
         } else {
-            let root = self.root_scope;
+            let root = self.ns.root_scope;
             self.ide_stand_in(Sym::intern("?"), decl.span, root)
         };
         let depth = self.scope(scope).proc_depth;

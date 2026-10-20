@@ -57,18 +57,18 @@ fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usi
     options.import_paths = vec!["/discovery/modules".into()];
     let mut c = Compiler::new(options, fs.clone());
     assert!(c.compile_program(Path::new("/discovery/main.jai")).is_err());
-    let (scope, index) = c
-        .scopes
-        .iter()
-        .enumerate()
-        .find_map(|(s, scope)| {
-            scope.imports.iter().enumerate().find_map(|(i, entry)| {
-                matches!(&entry.import.source, jaic::ast::ImportSource::Module(name)
+    let (scope, index) =
+        c.ns.scopes
+            .iter()
+            .enumerate()
+            .find_map(|(s, scope)| {
+                scope.imports.iter().enumerate().find_map(|(i, entry)| {
+                    matches!(&entry.import.source, jaic::ast::ImportSource::Module(name)
                 if &**name == "Unavailable" || &**name == "Configured")
-                .then_some((jaic::sema::ScopeId(s as u32), i))
+                    .then_some((jaic::sema::ScopeId(s as u32), i))
+                })
             })
-        })
-        .unwrap();
+            .unwrap();
     c.ed.record(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
         "/discovery/",
     )]));
@@ -132,7 +132,7 @@ fn changed_import_directories_retry_real_discovery() {
     fs.insert("/alternate/Unavailable/module.jai", "new_binding :: 19;");
     c.options.import_paths.push(PathBuf::from("/alternate"));
     let module = c.import_module(scope, index).unwrap().unwrap();
-    assert_eq!(c.modules[module.0 as usize].files.len(), 1);
+    assert_eq!(c.ns.modules[module.0 as usize].files.len(), 1);
 }
 
 #[test]

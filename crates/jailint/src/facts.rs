@@ -52,7 +52,7 @@ impl Facts {
         // Sketches of polymorphic procedures nothing calls check them with stand-in types.
         let mark = ide.sketch_from.unwrap_or(jaic::ide::SketchMark {
             refs: ide.refs.len(),
-            entities: compiler.entities.len(),
+            entities: compiler.ns.entities.len(),
             procs: compiler.procs.len(),
         });
         let refs = &ide.refs[..mark.refs];
@@ -69,7 +69,7 @@ impl Facts {
             }
         }
         let mut locals: HashMap<Span, Vec<EntityId>> = HashMap::default();
-        for (i, e) in compiler.entities[..mark.entities].iter().enumerate() {
+        for (i, e) in compiler.ns.entities[..mark.entities].iter().enumerate() {
             if wanted.contains(&e.span.file) && matches!(e.kind, EntityKind::Local { .. }) {
                 locals.entry(e.span).or_default().push(EntityId(i as u32));
             }

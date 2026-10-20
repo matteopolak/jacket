@@ -370,10 +370,10 @@ impl Compiler {
     /// Resolve the compiler-private native error reporter from the runtime's own
     /// file scopes. This transport hook is not a public library export.
     pub(crate) fn note_check_handler(&mut self, span: Span) -> Result<()> {
-        if self.check_handler_resolved {
+        if self.ns.check_handler_resolved {
             return Ok(());
         }
-        self.check_handler_resolved = true;
+        self.ns.check_handler_resolved = true;
         let result = (|| {
             let Some(proc) =
                 self.private_runtime_procedure(crate::sema::private_names::CHECK_FAILED, span)?
@@ -412,7 +412,7 @@ impl Compiler {
             Ok(())
         })();
         if result.is_err() {
-            self.check_handler_resolved = false;
+            self.ns.check_handler_resolved = false;
         }
         result
     }

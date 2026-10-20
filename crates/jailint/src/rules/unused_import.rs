@@ -52,7 +52,7 @@ pub(crate) fn prepare(
         return out;
     };
     let (file_scope, module) = (info.scope, info.module);
-    let module_scope = compiler.modules[module.0 as usize].scope;
+    let module_scope = compiler.ns.modules[module.0 as usize].scope;
     let mut names: Option<Rc<HashMap<Sym, usize>>> = None;
     for s in &ast.stmts {
         let S::Import(imp) = &s.kind else {

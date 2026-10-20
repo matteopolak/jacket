@@ -363,7 +363,7 @@ impl Compiler {
         let module = self.scope(sig.scope).module;
         let mscope = self.new_scope(ScopeKind::Macro, Some(sig.scope), module, None);
         // Locals of the macro belong to the caller's procedure.
-        self.scopes[mscope.0 as usize].proc_depth = self.scope(caller).proc_depth;
+        self.ns.scopes[mscope.0 as usize].proc_depth = self.scope(caller).proc_depth;
         let call = MacroCall {
             caller,
             mscope,

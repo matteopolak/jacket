@@ -95,7 +95,7 @@ impl Compiler {
         name: &str,
         span: Span,
     ) -> Result<Option<ProcId>> {
-        let Some(runtime) = self.runtime_support else {
+        let Some(runtime) = self.ns.runtime_support else {
             return Ok(None);
         };
         let name = Sym::intern(name);
@@ -222,7 +222,7 @@ impl Compiler {
         // Keep declaration provenance separate from structurally interned array
         // types: an unrelated same-sized buffer must not inherit an opt-in.
         let mut global_constants: HashMap<ir::GlobalId, Vec<(i64, Span)>> = HashMap::default();
-        for (index, entity) in self.entities.iter().enumerate() {
+        for (index, entity) in self.ns.entities.iter().enumerate() {
             let scope::EntityState::Done(Resolved::Global {
                 storage: ir::Storage::Data(global),
                 ..

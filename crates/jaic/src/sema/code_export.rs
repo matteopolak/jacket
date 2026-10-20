@@ -119,13 +119,13 @@ impl Exporter<'_> {
         let ast::ExprKind::Ident(name) = &expr.kind else {
             return c.eval_type(scope, expr).ok();
         };
-        c.meta.export.refresh_name_caches(c.entities.len());
+        c.meta.export.refresh_name_caches(c.ns.entities.len());
         if let Some(&cached) = c.meta.export.type_names.get(&(scope, *name)) {
             return cached;
         }
         let found = c.eval_type(scope, expr).ok();
         // Evaluating may have added entities, which drops the caches; the result is still good.
-        c.meta.export.refresh_name_caches(c.entities.len());
+        c.meta.export.refresh_name_caches(c.ns.entities.len());
         c.meta.export.type_names.insert((scope, *name), found);
         found
     }

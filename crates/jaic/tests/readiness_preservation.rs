@@ -162,6 +162,7 @@ fn readiness_constant_run_failure_is_terminal() {
         .expect_err("executed constant failure must be retained");
     assert_eq!(compiler.ct.traps, 1);
     let flags = compiler
+        .ns
         .modules
         .iter()
         .find(|module| module.name == "Flags")

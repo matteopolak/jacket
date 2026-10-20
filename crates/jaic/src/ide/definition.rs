@@ -136,7 +136,7 @@ impl Compiler {
             // No fact was recorded here (a body that failed before reaching this name): a
             // module alias still names its module wherever it is used.
             return match self.ide_module_name_at(file, offset) {
-                Some(IdeModuleName::Alias(_, module)) => self.modules[module.0 as usize]
+                Some(IdeModuleName::Alias(_, module)) => self.ns.modules[module.0 as usize]
                     .files
                     .first()
                     .map(|&entry| Span {
@@ -173,7 +173,7 @@ impl Compiler {
         };
         // A module's name (`B` of `B.print`): the start of its entry file.
         if let IdeWhat::Module(m) = r.what {
-            return self.modules[m.0 as usize]
+            return self.ns.modules[m.0 as usize]
                 .files
                 .first()
                 .map(|&file| Span {
@@ -408,7 +408,7 @@ impl Compiler {
     /// per instance; they all declare the same names).
     pub(super) fn struct_scope_entities(&self, t: TypeId, name: Sym) -> Vec<EntityId> {
         let mut out: Vec<EntityId> = Vec::new();
-        for i in 0..self.scopes.len() {
+        for i in 0..self.ns.scopes.len() {
             let s = ScopeId(i as u32);
             if self.scope(s).kind != ScopeKind::Struct(t) {
                 continue;

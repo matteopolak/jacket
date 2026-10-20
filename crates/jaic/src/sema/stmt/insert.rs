@@ -94,15 +94,15 @@ impl Compiler {
             };
             // `Top :: #code()` is evaluated in its file's constant-thunk scope: that file.
             let code_scope = match self.scope(code_scope).parent {
-                Some(parent) if self.thunk_scopes.get(&parent) == Some(&code_scope) => parent,
+                Some(parent) if self.ns.thunk_scopes.get(&parent) == Some(&code_scope) => parent,
                 _ => code_scope,
             };
             let inner = self.new_block_scope(code_scope);
             let unbraced = string_payload || !matches!(&*body, ast::CodeBody::Block(_));
             if unbraced {
-                self.scopes[inner.0 as usize].inserted_into = Some(scope);
+                self.ns.scopes[inner.0 as usize].inserted_into = Some(scope);
             }
-            self.scopes[inner.0 as usize].proc_depth = self.scope(scope).proc_depth;
+            self.ns.scopes[inner.0 as usize].proc_depth = self.scope(scope).proc_depth;
             // Constants inserted into a file or module scope are declared there (and
             // reported to the metaprogram like any top-level declaration).
             if target.is_some()

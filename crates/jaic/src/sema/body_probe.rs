@@ -153,7 +153,7 @@ fn snapshot(c: &Compiler, bumps: [u64; 3], nested: u64) -> [u64; N] {
     v[C::AnonProcs as usize] = c.anonymous_procs.len() as u64;
     v[C::Globals as usize] = c.out.program.globals.len() as u64;
     v[C::Foreigns as usize] = c.out.program.foreigns.len() as u64;
-    v[C::Modules as usize] = c.modules.len() as u64;
+    v[C::Modules as usize] = c.ns.modules.len() as u64;
     v[C::Files as usize] = c.src.files.len() as u64;
     v[C::NamespaceGen as usize] = c.epochs.namespace_generation;
     v[C::CtExec as usize] = c.ct.executions;
@@ -161,8 +161,8 @@ fn snapshot(c: &Compiler, bumps: [u64; 3], nested: u64) -> [u64; N] {
     v[C::SigResolve as usize] = bumps[1];
     v[C::Layout as usize] = bumps[2];
     v[C::Nested as usize] = nested;
-    v[C::Entities as usize] = c.entities.len() as u64;
-    v[C::Scopes as usize] = c.scopes.len() as u64;
+    v[C::Entities as usize] = c.ns.entities.len() as u64;
+    v[C::Scopes as usize] = c.ns.scopes.len() as u64;
     v[C::Warnings as usize] = c.diag.warnings.len() as u64;
     v
 }

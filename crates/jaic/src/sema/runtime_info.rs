@@ -191,7 +191,7 @@ impl Compiler {
     /// for as long as it lives. Cheap when nothing changed since the last call.
     pub fn refresh_type_table(&mut self) {
         let key = (
-            self.entities.len(),
+            self.ns.entities.len(),
             self.ty.types.count(),
             self.ty.infos.len(),
         );
@@ -231,7 +231,7 @@ impl Compiler {
         let table = self.ct.interp.ct_type_tables.last().unwrap();
         self.ct.interp.ct_type_table = (table.as_ptr() as u64, table.len() as u64);
         self.ty.snapshot_key = (
-            self.entities.len(),
+            self.ns.entities.len(),
             self.ty.types.count(),
             self.ty.infos.len(),
         );
@@ -241,7 +241,7 @@ impl Compiler {
     /// types exist even when nothing named them yet.
     fn resolve_declared_types(&mut self) {
         let mut index = 0;
-        while index < self.entities.len() {
+        while index < self.ns.entities.len() {
             let id = EntityId(index as u32);
             index += 1;
             let e = self.entity(id);
