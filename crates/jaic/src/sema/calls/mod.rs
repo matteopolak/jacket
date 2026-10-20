@@ -396,11 +396,22 @@ impl Compiler {
         // Several equally good candidates: the editor keeps the whole overload set.
         let ambiguous = self.order_candidates(&mut best);
         if ambiguous && args.iter().any(is_untyped_argument) {
+            // Only overloads declared together are rivals: one in an inner scope is nearer, as
+            // an inner declaration is to a name of an outer one. Overloads with the same
+            // procedure type are copies of one declaration, not different readings.
+            let scope_of = |c: &Candidate| self.proc(c.proc).scope;
+            let rank = self.candidate_rank(&best[0]);
             let tied = best
                 .iter()
-                .take_while(|c| self.candidate_rank(c) == self.candidate_rank(&best[0]))
+                .take_while(|c| self.candidate_rank(c) == rank && scope_of(c) == scope_of(&best[0]))
                 .count();
-            return Err(self.ambiguous_overloads(&best[..tied], span));
+            let first = self.proc(best[0].proc).sig.as_ref().map(|sig| sig.ty);
+            if best[..tied]
+                .iter()
+                .any(|c| self.proc(c.proc).sig.as_ref().map(|sig| sig.ty) != first)
+            {
+                return Err(self.ambiguous_overloads(&best[..tied], span));
+            }
         }
         let chosen = best.swap_remove(0);
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;

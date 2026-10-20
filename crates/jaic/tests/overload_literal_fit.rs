@@ -87,6 +87,20 @@ fn values_beyond_the_positional_members_rule_a_candidate_out() {
 }
 
 #[test]
+fn overloads_of_an_outer_scope_do_not_rival_a_nearer_one() {
+    accepts(
+        "E :: enum { A; B; }
+        take :: (e: E) -> s32 { return 1; }
+        main :: () {
+            F :: enum { A; B; }
+            take :: (f: F) -> s32 { return 2; }
+            x := take(.A);
+            #assert(type_of(x) == s32);
+        }",
+    );
+}
+
+#[test]
 fn a_candidate_taking_the_argument_itself_beats_one_gathering_it_into_a_variadic() {
     accepts(
         "V :: struct { a: s32; }
