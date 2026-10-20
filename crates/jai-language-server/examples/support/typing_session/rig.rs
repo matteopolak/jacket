@@ -651,7 +651,11 @@ impl<'a, C: Choices> Rig<'a, C> {
                 .filter(|x| !mirrored(x))
                 .cloned()
                 .collect();
-            if sorted_debug(&expected) != sorted_debug(&actual) {
+            // The edit may legitimately change what is reported elsewhere: a first use of a
+            // procedure checks its header, a callee that stops returning makes its callers'
+            // rest unreachable. A fresh session on the same text then reports the same.
+            if sorted_debug(&expected) != sorted_debug(&actual) && !self.fresh_agrees(doc, &actual)
+            {
                 return Some(format!(
                     "diagnostics outside the edited region changed:\n  baseline {expected:?}\n  now      {actual:?}"
                 ));
@@ -704,6 +708,33 @@ impl<'a, C: Choices> Rig<'a, C> {
         }
         let _ = text;
         None
+    }
+
+    /// Whether a session opened on the current texts reports `actual` outside the region.
+    fn fresh_agrees(&self, doc: usize, actual: &[Diagnostic]) -> bool {
+        let texts: Vec<String> = self.docs.iter().map(|d| d.text.clone()).collect();
+        let Ok(fresh) = Self::open_session(self.input, &texts) else {
+            return false;
+        };
+        let Ok(list) = fresh.diagnostics(&self.docs[doc].uri) else {
+            return false;
+        };
+        let elsewhere: Vec<String> = (0..self.docs.len())
+            .filter(|&k| k != doc)
+            .filter_map(|k| fresh.diagnostics(&self.docs[k].uri).ok())
+            .flatten()
+            .map(|x| x.message)
+            .collect();
+        let reference: Vec<_> = list
+            .into_iter()
+            .filter(|x| !usage_lint(x) && !self.near_region(doc, x.range, false))
+            .filter(|x| {
+                !x.message.split_once('\n').is_some_and(|(first, _)| {
+                    elsewhere.iter().any(|m| m.lines().next() == Some(first))
+                })
+            })
+            .collect();
+        sorted_debug(&reference) == sorted_debug(actual)
     }
 
     /// Oracle c: the original text again must give the baseline back exactly.
