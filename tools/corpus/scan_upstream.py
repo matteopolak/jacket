@@ -34,7 +34,7 @@ from pathlib import Path
 # tools/, for fetch_upstreams and folder-qualified imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fetch_upstreams import BINARY_MAGIC, OFFICIAL_MODULE_NAMES, is_forbidden_file  # noqa: E402
+from fetch_upstreams import BINARY_MAGIC, OFFICIAL_MODULE_NAMES, cache_dir, is_forbidden_file, pinned_blobs  # noqa: E402
 from toolkit.repo import ROOT  # noqa: E402
 
 LEVEL = {"none": 0, "low": 1, "medium": 2, "high": 3}
@@ -472,7 +472,11 @@ def main() -> int:
     pins = {}
     if manifest.exists():
         for project in json.loads(manifest.read_text())["projects"]:
-            pins[project["repository"].replace("/", "--", 1)] = {f["path"] for f in project["files"]}
+            # The pinned paths come from the Git cache the fetch left; without it, read every file.
+            cache = cache_dir(project["repository"])
+            if cache.exists() and project.get("file_count"):
+                blobs = pinned_blobs(cache, project["repository"], project["revision"])
+                pins[project["repository"].replace("/", "--", 1)] = set(blobs)
     report = {}
     worst = "none"
     for name in names:

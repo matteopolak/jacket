@@ -41,10 +41,15 @@ class BinaryGuard(unittest.TestCase):
         self.assertTrue(fetch.is_forbidden_file("x.h", b"\xcf\xfa\xed\xfe"))
         self.assertFalse(fetch.is_forbidden_file("x.jai", b"main :: () {}"))
 
-    def test_no_pin_holds_a_binary(self):
-        for project in json.loads((ROOT / "corpus/upstreams.json").read_text())["projects"]:
-            for entry in project["files"]:
-                self.assertFalse(fetch.is_forbidden_file(entry["path"]), (project["repository"], entry["path"]))
+    def test_selection_takes_no_binary(self):
+        paths = ["a.jai", "lib/x.dll", "bin/tool.exe", "src/b.c", "README.md", "LICENSE", "data/c.png", "d.so.1"]
+        self.assertEqual(fetch.select_paths("someone/star", paths), ["LICENSE", "README.md", "a.jai", "src/b.c"])
+
+    def test_manifest_lists_no_files(self):
+        manifest = json.loads((ROOT / "corpus/upstreams.json").read_text())
+        self.assertEqual(manifest["format"], 2)
+        for project in manifest["projects"]:
+            self.assertNotIn("files", project, project["repository"])
 
     def test_star_repositories_take_no_resource_prefixes(self):
         self.assertFalse(set(fetch.STAR_REPOSITORIES) & set(fetch.RESOURCE_PREFIXES))

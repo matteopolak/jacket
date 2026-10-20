@@ -15,7 +15,6 @@ import urllib.parse
 
 from repo_output import main_checkout, shared_output_dir
 from toolkit.download import fetch as fetch_url
-from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 
 REPOSITORIES = (
@@ -339,9 +338,54 @@ def blob_id(data: bytes) -> str:
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
+def tree_blobs(cache: Path, revision: str) -> dict[str, str]:
+    """path -> Git object id of every file at `revision` (submodules excluded). Needs no file
+    contents, so it works on the blobless cache."""
+    blobs = {}
+    for entry in git(cache, "ls-tree", "-r", "-z", revision).split("\0"):
+        if entry:
+            meta, path = entry.split("\t", 1)
+            _mode, kind, oid = meta.split()
+            if kind == "blob":
+                blobs[path] = oid
+    return blobs
+
+
+def select_paths(repo: str, paths: list[str]) -> list[str]:
+    """The files of a repository that are pinned: Jai and C-family sources, READMEs, licences and
+    the repository's resource prefixes, never binaries or vendored official modules."""
+    if repo in SOURCE_PREFIXES:
+        paths = [p for p in paths if p.startswith(SOURCE_PREFIXES[repo]) or "/" not in p]
+    every_path = set(paths)
+    return sorted(
+        p
+        for p in paths
+        if not is_forbidden_file(p)
+        and not (repo in STAR_REPOSITORIES and vendored_official_module(p, every_path))
+        and (
+            p.endswith(".jai")
+            or p.endswith(NATIVE_SOURCE_SUFFIXES)
+            or PurePosixPath(p).name.lower() in {"copying", "readme.md"}
+            or PurePosixPath(p).name.lower().startswith("license")
+            or (p.startswith(RESOURCE_PREFIXES.get(repo, ())) and not p.endswith(".psd"))
+        )
+    )
+
+
+def pinned_blobs(cache: Path, repo: str, revision: str) -> dict[str, str]:
+    """The pinned files of `repo` at `revision` with their Git object ids. The manifest records only
+    the revision: the commit fixes every file's content, and this selection fixes which files."""
+    blobs = tree_blobs(cache, revision)
+    return {p: blobs[p] for p in select_paths(repo, list(blobs))}
+
+
+def cache_dir(repo: str) -> Path:
+    return shared_output_dir("cache", "upstream") / f"{repo.replace('/', '--')}.git"
+
+
 def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
     key = repo.replace("/", "--")
-    cache = shared_output_dir("cache", "upstream") / f"{key}.git"
+    cache = cache_dir(repo)
     cache.parent.mkdir(parents=True, exist_ok=True)
     if not cache.exists():
         subprocess.run(
@@ -396,62 +440,25 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
         "source_of_truth": f"https://github.com/{repo}/tree/{revision}",
     }
     if source_date < since and repo not in RECENCY_EXEMPT:
-        return record | {"selection": "stale-excluded", "files": []}
-    # path -> Git object id of every file (submodules excluded): each download must hash to it, so a
-    # truncated or substituted body is refused instead of pinned.
-    blobs = {}
-    for entry in git(cache, "ls-tree", "-r", "-z", revision).split("\0"):
-        if entry:
-            meta, path = entry.split("\t", 1)
-            _mode, kind, oid = meta.split()
-            if kind == "blob":
-                blobs[path] = oid
-    paths = list(blobs)
-    if repo in SOURCE_PREFIXES:
-        paths = [
-            p for p in paths if p.startswith(SOURCE_PREFIXES[repo]) or "/" not in p
-        ]
-    every_path = set(paths)
-    selected = [
-        p
-        for p in paths
-        if not is_forbidden_file(p)
-        and not (repo in STAR_REPOSITORIES and vendored_official_module(p, every_path))
-        and (p.endswith(".jai")
-        or p.endswith(NATIVE_SOURCE_SUFFIXES)
-        or PurePosixPath(p).name.lower() in {"copying", "readme.md"}
-        or PurePosixPath(p).name.lower().startswith("license")
-        or (p.startswith(RESOURCE_PREFIXES.get(repo, ())) and not p.endswith(".psd")))
-    ]
+        return record | {"selection": "stale-excluded", "file_count": 0}
+    blobs = pinned_blobs(cache, repo, revision)
     destination = DATA / "corpus/upstream" / key
 
-    def one(path: str) -> dict:
-        expected = (
-            next((f for f in pinned["files"] if f["path"] == path), None)
-            if pinned
-            else None
-        )
+    def one(path: str) -> None:
         target = destination.joinpath(*safe_path(path).parts)
-        if expected and target.exists() and sha256_file(target) == expected["sha256"]:
-            if blob_id(target.read_bytes()) != blobs[path]:
-                raise ValueError(f"pinned file differs from the Git object (truncated?): {repo}/{path}")
-            return expected
+        if target.is_file() and blob_id(target.read_bytes()) == blobs[path]:
+            return
         data = download(repo, revision, path)
         if is_forbidden_file(path, data):
             raise ValueError(f"binary content refused: {repo}/{path}")
         if blob_id(data) != blobs[path]:
             raise ValueError(f"download differs from the Git object (truncated?): {repo}/{path}")
-        if expected and sha256_bytes(data) != expected["sha256"]:
-            raise ValueError(
-                f"source hash changed at immutable revision: {repo}/{path}"
-            )
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-        return {"path": path, "bytes": len(data), "sha256": sha256_bytes(data)}
 
     with ThreadPoolExecutor(max_workers=8) as pool:
-        files = list(pool.map(one, sorted(selected)))
-    return record | {"selection": "recent-source", "files": files}
+        list(pool.map(one, sorted(blobs)))
+    return record | {"selection": "recent-source", "file_count": len(blobs)}
 
 
 def main() -> None:
@@ -493,7 +500,7 @@ def main() -> None:
         record = fetch(repo, since, pins.get(repo))
         projects.append(record)
         print(
-            f"{repo}: {record['selection']}, {len(record['files'])} text files at {record['revision']}",
+            f"{repo}: {record['selection']}, {record['file_count']} text files at {record['revision']}",
             flush=True,
         )
     upstream = DATA / "corpus/upstream"
@@ -516,7 +523,7 @@ def main() -> None:
     temporary.write_text(
         json.dumps(
             {
-                "format": 1,
+                "format": 2,
                 "minimum_source_date": since.isoformat(),
                 "projects": projects,
             },
