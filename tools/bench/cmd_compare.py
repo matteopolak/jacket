@@ -23,11 +23,12 @@ from pathlib import Path
 
 import common
 import pairing
+import program_facts
 import provenance
 import quiet
 from cmd_compile import JobRunner, first_difference, normalized
 from dialects import Compiler, Mode, PlainDialect, Request, parse_compiler
-from measure import Run, warm_file_cache
+from measure import Run, run_measured, warm_file_cache
 from bench.sandbox import Sandbox
 from results import ROOT
 from stats import Stat
@@ -79,6 +80,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--sandbox-read', action='append', metavar='PATH', default=[],
                         help='another path the sandboxed compilers may read (repeatable)')
     parser.add_argument('--no-sandbox', action='store_true', help='run without the sandbox (see sandbox.py)')
+    parser.add_argument('--program-runs', type=int, default=5,
+                        help='counted runs of each built program that is safe to run (0 to skip counting)')
+    parser.add_argument('--programs-only', action='store_true',
+                        help='only measure the built programs (size, instructions, retired instructions); time nothing')
     parser.add_argument('--list', action='store_true', help='print what would run and exit')
     parser.add_argument('--out-dir', type=Path, default=None,
                         help='results folder (default: playground/bench/<timestamp>/, gitignored)')
@@ -100,6 +105,7 @@ def workloads_for(args: argparse.Namespace) -> list[Workload]:
     sizes = [int(size) for size in args.sizes.split(',') if size.strip()]
     found = [Workload(f'gen-{n // 1000}k', Category.LOTS_OF_CODE, Generated(n, args.seed, max(1, n // 5000)),
                       single('main.jai', *ALL_BUILD_MODES), compare_output=True) for n in sizes]
+    found += [w for w in all_workloads() if w.category is Category.GENERATED_CODE]
     if not args.no_corpus:
         found += [w for w in all_workloads() if w.category is Category.REAL_PROJECT]
     return found
@@ -126,6 +132,8 @@ class Observed:
     program_exit: int | None = None
     program_stdout: list[str] | None = None
     error: str = ''
+    # What the build produced (`program_facts`): sizes, instructions, and counters from running it.
+    program: dict | None = None
 
 
 def compare_outputs(a: Observed, b: Observed, compare_compile_output: bool) -> str:
@@ -224,6 +232,7 @@ def render(results: dict) -> str:
                 ratio = f"{v['ratio']:.3f}" if v['ratio'] else '-'
                 out.append(f"| {b['workload']} | {b['mode']} | {step} | {v['baseline']:.3f} | {v['candidate']:.3f} | {ratio} |")
         out.append('')
+    out += render_programs(results.get('programs', []))
     if flagged:
         out += ['## Flagged blocks', '', *(f"- {b['workload']}/{b['mode']} ({b['phase']}): {'; '.join(b['flags'])}" for b in flagged), '']
     skipped = [b for b in results['blocks'] if b['status'] != 'ok']
@@ -232,6 +241,31 @@ def render(results: dict) -> str:
     out += ['## Provenance', '', 'See `results.json` (inputs, hashes, machine, quiet-machine snapshots) and `raw.csv` '
             '(every timed run) in this folder.', '']
     return '\n'.join(out)
+
+
+PROGRAM_COLUMNS = (('file_bytes', 'file bytes'), ('instructions', 'instructions in code'),
+                   ('retired_instructions', 'retired instructions'), ('cycles', 'cycles'))
+
+
+def render_programs(programs: list[dict]) -> list[str]:
+    """The table of what each binary built: per measure, baseline, candidate and candidate / baseline."""
+    if not programs:
+        return []
+    out = ['## Built programs', '',
+           'What each binary produced for the same program. Instructions in code are counted by the '
+           'disassembler over the whole executable (runtime and libraries included); retired instructions '
+           'and cycles are hardware counters of running it, less what starting a process that does nothing costs '
+           '(median of the counted runs; programs that are '
+           'not safe to run have none). Below 1 the candidate produced less.', '',
+           '| workload | mode | measure | baseline | candidate | ratio |', '|---|---|---|---:|---:|---:|']
+    for p in programs:
+        for key, label in PROGRAM_COLUMNS:
+            a, b = p[NAMES[0]].get(key), p[NAMES[1]].get(key)
+            if a is None or b is None:
+                continue
+            ratio = f'{b / a:.3f}' if a else '-'
+            out.append(f"| {p['workload']} | {p['mode']} | {label} | {a:,} | {b:,} | {ratio} |")
+    return [*out, '']
 
 
 # ------------------------------------------------------------------------------------------ runner
@@ -258,6 +292,8 @@ class Comparison:
         self.report_steps = all(c.dialect.name == 'jaic' for c in compilers.values())
         self.samples: list[dict] = []
         self.blocks: list[dict] = []
+        self.programs: list[dict] = []
+        self.launch_cost: dict[str, int] | None = None
 
     # one process --------------------------------------------------------------------------------
 
@@ -302,7 +338,32 @@ class Comparison:
             if program.timed_out:
                 seen.error = 'the program timed out'
             seen.program_exit, seen.program_stdout = program.returncode, normalized(program.stdout)
+        if job.mode.writes_executable and executable and executable.exists():
+            seen.program = program_facts.static_facts(executable)
+            if job.workload.compare_output and not seen.error:
+                seen.program.update(self.count(executable, invocation.cwd, self.environment(name, 'check')))
         return seen
+
+    def count(self, executable: Path, cwd: Path | None, env: dict[str, str]) -> dict[str, int]:
+        """Retired instructions and cycles of the built program, the median of `--program-runs` runs."""
+        if self.launch_cost is None:
+            # What starting any process through the same wrapper costs, so the counts are the program's own.
+            self.launch_cost = self.counters([program_facts.NOTHING], cwd, env)
+        return program_facts.subtract(self.counters([str(executable)], cwd, env), self.launch_cost)
+
+    def counters(self, command: list[str], cwd: Path | None, env: dict[str, str]) -> dict[str, int]:
+        if self.runner.sandbox:
+            command = self.runner.sandbox.wrap(command)
+        counted = program_facts.counter_command(command)
+        if not counted or self.args.program_runs < 1:
+            return {}
+        command, pattern = counted
+        runs = []
+        for _ in range(self.args.program_runs):
+            run = run_measured(command, cwd=cwd, env=env, timeout=self.args.timeout)
+            if run.ok:
+                runs.append(program_facts.parse_counters(run.stderr, pattern))
+        return program_facts.median_counters(runs)
 
     # one block ----------------------------------------------------------------------------------
 
@@ -364,6 +425,12 @@ class Comparison:
         if reason:
             self.blocks.append(skipped_block(job, 'both', 'skipped', reason, source))
             return
+        if all(seen[n].program for n in names):
+            self.programs.append({'workload': workload.name, 'mode': job.mode.value,
+                                  **{n: seen[n].program for n in names}})
+            self.save()
+        if self.args.programs_only:
+            return
         phases = [('warm', self.args.rounds)] + ([('cold', self.args.cold_rounds)] if self.args.cold_rounds else [])
         for phase, rounds in phases:
             block = self.block(job, phase, workdir, rounds, source)
@@ -372,9 +439,9 @@ class Comparison:
             common.print_progress(f'{job.key}/{phase}', block_progress(block))
 
     def save(self) -> None:
-        self.on_save(self.blocks, self.samples)
+        self.on_save(self.blocks, self.samples, self.programs)
 
-    on_save = staticmethod(lambda blocks, samples: None)
+    on_save = staticmethod(lambda blocks, samples, programs: None)
 
 
 def stage_seconds(compiler: Compiler, run: Run) -> dict[str, float]:
@@ -398,8 +465,8 @@ def block_progress(block: dict) -> str:
 # ----------------------------------------------------------------------------------------- command
 
 def run(args: argparse.Namespace) -> int:
-    if args.rounds < 1 or args.cold_rounds < 0:
-        sys.exit('--rounds must be at least 1 and --cold-rounds at least 0')
+    if args.rounds < 1 or args.cold_rounds < 0 or args.program_runs < 0:
+        sys.exit('--rounds must be at least 1, and --cold-rounds and --program-runs at least 0')
     jobs = plan_jobs(args)
     if args.list:
         for job in jobs:
@@ -444,23 +511,25 @@ def run(args: argparse.Namespace) -> int:
                    'settings': {'rounds': args.rounds, 'cold_rounds': args.cold_rounds, 'warmup': args.warmup,
                                 'order': args.order, 'seed': args.seed, 'modes': args.modes, 'sizes': args.sizes,
                                 'corpus': not args.no_corpus, 'only': args.only, 'sandbox': not args.no_sandbox,
-                                'max_load': max_load, 'forced': args.force},
+                                'max_load': max_load, 'forced': args.force, 'program_runs': args.program_runs,
+                                'programs_only': args.programs_only},
                    'purge': 'OS file cache purged before each cold run' if comparison.purge_ok
                             else f'file cache not purged: {comparison.purge_note}',
                    'start': start, 'start_warnings': [*errors, *warnings], 'blocks': []}
 
-        def save(blocks, samples):
+        def save(blocks, samples, programs):
             results['blocks'] = blocks
+            results['programs'] = programs
             (out_dir / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
             provenance.write_raw_csv(out_dir / 'raw.csv', samples)
 
         comparison.on_save = save
         for job in jobs:
             comparison.job(job)
-        save(comparison.blocks, comparison.samples)
+        save(comparison.blocks, comparison.samples, comparison.programs)
         results['inputs'] = {f"{b['workload']}": b['source'] for b in comparison.blocks if b.get('source')}
         (out_dir / 'inputs.json').write_text(json.dumps(results['inputs'], indent=2) + '\n')
-        save(comparison.blocks, comparison.samples)
+        save(comparison.blocks, comparison.samples, comparison.programs)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     markdown = render(results)

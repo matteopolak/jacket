@@ -251,7 +251,8 @@ class PlanTests(unittest.TestCase):
     def test_generated_workloads_carry_the_seed_and_all_modes(self):
         jobs = plan_jobs(self.args())
         self.assertEqual([j.key for j in jobs], ['gen-10k/check', 'gen-10k/build', 'gen-10k/optimized',
-                                                 'gen-100k/check', 'gen-100k/build', 'gen-100k/optimized'])
+                                                 'gen-100k/check', 'gen-100k/build', 'gen-100k/optimized',
+                                                 'runtime-compute/build', 'runtime-compute/optimized'])
         self.assertEqual(jobs[0].workload.source.seed, 4)
 
     def test_modes_and_only_filter(self):
