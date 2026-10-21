@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 from native import http_native
 from stdlib import test_http_conformance_coverage as coverage_tests
+from toolkit import fake_http
 from toolkit.hashing import sha256_bytes
 
 
@@ -276,7 +277,7 @@ class NativeArchiveTransportTests(unittest.TestCase):
                 patch.object(
                     http_native.native.urllib.request,
                     "urlopen",
-                    return_value=io.BytesIO(data),
+                    return_value=fake_http.response(data),
                 ),
                 patch.object(
                     http_native.native.shutil, "rmtree", side_effect=refuse_base
@@ -312,7 +313,7 @@ class NativeArchiveTransportTests(unittest.TestCase):
                 patch.object(
                     http_native.native.urllib.request,
                     "urlopen",
-                    return_value=io.BytesIO(data),
+                    return_value=fake_http.response(data),
                 ),
                 patch.object(
                     http_native.native.shutil,
