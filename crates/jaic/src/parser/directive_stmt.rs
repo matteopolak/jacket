@@ -143,12 +143,25 @@ impl Parser<'_> {
         } else {
             self.parse_static_branch()?
         };
+        let then_arm = start.to(self.prev_span());
+        let else_start = self.span();
+        let mut else_arm = None;
         let else_branch = if self.eat_kw("else") {
-            if known == Some(true) {
+            let chained = self.at_directive("if");
+            let mut branch = if known == Some(true) {
                 self.skip_static_branch()?
             } else {
                 self.parse_static_branch()?
+            };
+            // `else #if`: the `else` belongs with the inner `#if`'s first arm.
+            if chained
+                && let [inner] = branch.as_mut_slice()
+                && let StmtKind::StaticIf(inner) = &mut inner.kind
+            {
+                inner.then_arm = else_start.to(inner.then_arm);
             }
+            else_arm = Some(else_start.to(self.prev_span()));
+            branch
         } else {
             Vec::new()
         };
@@ -165,6 +178,8 @@ impl Parser<'_> {
                 cond: value,
                 then_branch,
                 else_branch,
+                then_arm,
+                else_arm,
             })),
             start.to(self.prev_span()),
         ))

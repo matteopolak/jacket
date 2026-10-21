@@ -1035,6 +1035,10 @@ pub struct StaticIfStmt {
     pub cond: Expr,
     pub then_branch: Vec<Stmt>,
     pub else_branch: Vec<Stmt>,
+    /// From `#if` (or the `else` of an `else #if` chain) to the end of the then branch.
+    pub then_arm: Span,
+    /// From `else` to the end of the statement, when there is an else branch.
+    pub else_arm: Option<Span>,
 }
 
 #[derive(Clone, Debug)]

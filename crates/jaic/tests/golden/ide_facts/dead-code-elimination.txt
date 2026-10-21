@@ -97,7 +97,7 @@ IdeExpansion { span: Span { file: tests/compiler/regressions/dead-code-eliminati
 IdeExpansion { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 948, end: 957 }, kind: If, texts: ["false"], detail: "", output: "", literal: None }
 ## skipped (0)
 ## static_branches (1)
-tests/compiler/regressions/dead-code-elimination.jai:964..1046 false
+tests/compiler/regressions/dead-code-elimination.jai:948..1048 false
 ## body_evals (2)
 tests/compiler/regressions/dead-code-elimination.jai:1387..1928 1
 tests/compiler/regressions/dead-code-elimination.jai:2122..2173 1

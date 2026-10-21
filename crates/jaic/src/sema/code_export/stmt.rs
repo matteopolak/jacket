@@ -166,6 +166,7 @@ impl Exporter<'_> {
                     cond,
                     then_branch,
                     else_branch,
+                    ..
                 } = &**boxed;
                 // Which branch the compiler took, where the condition is known here (it is in
                 // a procedure or a polymorph instance: `#if async` with `async` baked in).

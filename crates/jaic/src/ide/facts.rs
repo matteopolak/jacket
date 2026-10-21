@@ -135,8 +135,8 @@ pub struct IdeFacts {
     pub(crate) sketch_signatures: HashSet<ProcId>,
     /// The code an `#if` on `OS` or `CPU` did not take: another target's compile has its facts.
     pub skipped: Vec<Span>,
-    /// The branch of each `#if` and `ifx` of the recorded files, and whether any evaluation
-    /// ran it.
+    /// Each arm of the `#if`s (header included) and branch of the `ifx`s of the recorded files,
+    /// and whether any evaluation ran it.
     pub static_branches: HashMap<Span, bool>,
     /// What each checked integer or bool expression of the recorded files can evaluate to
     /// (see `reachability.rs`), for the last evaluation of it.

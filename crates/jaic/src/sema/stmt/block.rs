@@ -532,6 +532,7 @@ impl Compiler {
             cond,
             then_branch,
             else_branch,
+            ..
         } = boxed;
         if self.ed.sketching() {
             // Which branch a stand-in takes says nothing: a sketch checks both.
@@ -547,11 +548,7 @@ impl Compiler {
         }
         let taken = self.body_static_condition(f, scope, cond)?;
         f.static_taken.insert(span, taken);
-        if taken {
-            self.ide_note_branches(cond, then_branch, else_branch);
-        } else {
-            self.ide_note_branches(cond, else_branch, then_branch);
-        }
+        self.ide_note_branches(boxed, taken);
         self.check_block_stmts(
             f,
             scope,

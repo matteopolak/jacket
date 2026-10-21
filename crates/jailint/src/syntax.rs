@@ -460,6 +460,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 cond,
                 then_branch,
                 else_branch,
+                ..
             } = &**boxed;
             e(cond);
             stmts(then_branch, out);

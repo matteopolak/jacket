@@ -187,20 +187,21 @@ impl Compiler {
         }
     }
 
-    /// An `#if` took `taken` and skipped `skipped`: note whether each branch body ran, for the
-    /// editor to fade the ones no evaluation took, then `ide_note_skipped`.
-    pub(crate) fn ide_note_branches(
-        &mut self,
-        cond: &ast::Expr,
-        taken: &[ast::Stmt],
-        skipped: &[ast::Stmt],
-    ) {
-        for (branch, ran) in [(taken, true), (skipped, false)] {
-            if let (Some(first), Some(last)) = (branch.first(), branch.last()) {
-                self.ide_note_ran(first.span.to(last.span), ran);
+    /// An `#if` took its then branch (`taken`) or its else branch: note whether each arm ran,
+    /// for the editor to fade the ones no evaluation took, then `ide_note_skipped`. An arm
+    /// spans its header too (`#if cond`, `else`), so a faded arm fades as a whole.
+    pub(crate) fn ide_note_branches(&mut self, s: &ast::StaticIfStmt, taken: bool) {
+        let (ran, faded, skipped) = if taken {
+            (Some(s.then_arm), s.else_arm, &s.else_branch)
+        } else {
+            (s.else_arm, Some(s.then_arm), &s.then_branch)
+        };
+        for (arm, ran) in [(ran, true), (faded, false)] {
+            if let Some(arm) = arm {
+                self.ide_note_ran(arm, ran);
             }
         }
-        self.ide_note_skipped(cond, skipped);
+        self.ide_note_skipped(&s.cond, skipped);
     }
 
     /// The code at `span`, a branch of an `#if`, `if`, `ifx` or the body of a `while`, was

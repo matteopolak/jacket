@@ -101,10 +101,10 @@ IdeExpansion { span: Span { file: tests/compiler/regressions/auto-bake-omitted-d
 IdeExpansion { span: Span { file: tests/compiler/regressions/auto-bake-omitted-default.jai, start: 723, end: 742 }, kind: Macro, texts: ["if !(p.pos == 42) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
 ## skipped (0)
 ## static_branches (6)
-tests/compiler/regressions/auto-bake-omitted-default.jai:308..317 true
-tests/compiler/regressions/auto-bake-omitted-default.jai:327..336 true
-tests/compiler/regressions/auto-bake-omitted-default.jai:403..414 true
-tests/compiler/regressions/auto-bake-omitted-default.jai:437..448 true
+tests/compiler/regressions/auto-bake-omitted-default.jai:299..317 true
+tests/compiler/regressions/auto-bake-omitted-default.jai:322..336 true
+tests/compiler/regressions/auto-bake-omitted-default.jai:381..421 true
+tests/compiler/regressions/auto-bake-omitted-default.jai:422..455 true
 tests/compiler/regressions/auto-bake-omitted-default.jai:493..494 true
 tests/compiler/regressions/auto-bake-omitted-default.jai:500..501 false
 ## body_evals (3)

@@ -23,13 +23,10 @@ impl Compiler {
                         cond,
                         then_branch,
                         else_branch,
+                        ..
                     } = &**boxed;
                     let taken = self.eval_static_condition(scope, cond)?;
-                    if taken {
-                        self.ide_note_branches(cond, then_branch, else_branch);
-                    } else {
-                        self.ide_note_branches(cond, else_branch, then_branch);
-                    }
+                    self.ide_note_branches(boxed, taken);
                     self.collect_fields(
                         scope,
                         if taken {

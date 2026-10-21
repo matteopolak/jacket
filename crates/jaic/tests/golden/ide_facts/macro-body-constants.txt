@@ -91,10 +91,10 @@ IdeExpansion { span: Span { file: tests/compiler/regressions/macro-body-constant
 IdeExpansion { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 819, end: 836 }, kind: Macro, texts: ["if !(sum == 15) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
 ## skipped (0)
 ## static_branches (4)
-tests/compiler/regressions/macro-body-constants.jai:352..359 true
-tests/compiler/regressions/macro-body-constants.jai:382..388 true
-tests/compiler/regressions/macro-body-constants.jai:516..542 true
-tests/compiler/regressions/macro-body-constants.jai:573..598 true
+tests/compiler/regressions/macro-body-constants.jai:327..366 true
+tests/compiler/regressions/macro-body-constants.jai:367..395 true
+tests/compiler/regressions/macro-body-constants.jai:487..553 true
+tests/compiler/regressions/macro-body-constants.jai:554..609 true
 ## body_evals (1)
 tests/compiler/regressions/macro-body-constants.jai:653..839 1
 ## dead_runs (0)

@@ -216,14 +216,15 @@ impl Compiler {
                     cond,
                     then_branch,
                     else_branch,
+                    ..
                 } = &**boxed;
                 let taken = self.eval_static_condition(eval_scope, cond).ok()?;
-                let (branch, skipped) = if taken {
-                    (then_branch, else_branch)
+                let branch = if taken {
+                    then_branch
                 } else {
-                    (else_branch, then_branch)
+                    else_branch
                 };
-                self.ide_note_branches(cond, branch, skipped);
+                self.ide_note_branches(boxed, taken);
                 Some(branch.clone())
             }
             ast::StmtKind::StaticSwitch(boxed) => {

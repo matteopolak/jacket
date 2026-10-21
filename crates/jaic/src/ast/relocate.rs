@@ -542,6 +542,10 @@ impl Relocator {
                 self.expr(&mut s.cond);
                 self.stmts(&mut s.then_branch);
                 self.stmts(&mut s.else_branch);
+                self.span(&mut s.then_arm);
+                if let Some(arm) = &mut s.else_arm {
+                    self.span(arm);
+                }
             }
             StmtKind::Insert(insert) => {
                 self.expr(&mut insert.value);

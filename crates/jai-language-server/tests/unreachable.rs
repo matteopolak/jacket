@@ -1,11 +1,15 @@
 //! Code that can never run is reported as an `unreachable` hint, which editors fade.
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity};
 mod common;
-use common::{at_offset, lean_session, uri};
+use common::{at_offset, lean_session, session, uri};
 
 /// The text of every faded range of `source`, without its final `;`, in order.
 fn faded(source: &str) -> Vec<String> {
-    let mut s = lean_session();
+    faded_in(lean_session(), source)
+}
+
+/// `faded` in session `s`.
+fn faded_in(mut s: jai_language_server::Session, source: &str) -> Vec<String> {
     s.open(uri(), 1, source.into()).unwrap();
     let lines: Vec<&str> = source.split('\n').collect();
     let offset = |line: u32, character: u32| -> usize {
@@ -135,7 +139,7 @@ fn defer_bodies_are_not_after_the_return() {
 }
 
 #[test]
-fn static_if_fades_the_branch_that_was_not_taken() {
+fn static_if_fades_the_arm_that_was_not_taken_with_its_header() {
     let source = r"main :: () {
     #if false {
         off := 1;
@@ -144,11 +148,45 @@ fn static_if_fades_the_branch_that_was_not_taken() {
     }
     #if true {
         shown := 3;
+    } else {
+        hidden := 4;
     }
-    #if 1 == 2 { also_off := 4; } else #if true { chained := 5; } else { last := 6; }
+    #if 1 == 2 { a := 5; } else #if true { b := 6; } else { c := 7; }
+    #if true { d := 8; } else #if false { e := 9; } else { f := 10; }
+    #if false { g := 11; } else #if false { h := 12; } else { i := 13; }
 }
 ";
-    assert_eq!(faded(source), ["off := 1", "also_off := 4", "last := 6"]);
+    assert_eq!(
+        faded(source),
+        [
+            "#if false {\n        off := 1;\n    }",
+            "else {\n        hidden := 4;\n    }",
+            "#if 1 == 2 { a := 5; }",
+            "else { c := 7; }",
+            "else #if false { e := 9; } else { f := 10; }",
+            "#if false { g := 11; }",
+            "else #if false { h := 12; }",
+        ]
+    );
+}
+
+#[test]
+fn an_inactive_os_branch_fades_with_its_header() {
+    let other = if cfg!(windows) {
+        "LINUX"
+    } else {
+        "WINDOWS"
+    };
+    let source = format!(
+        "#if OS == .{other} {{\n    only_there :: 1;\n}}\nmain :: () {{\n    #if OS == .{other} {{\n        x := 1;\n    }}\n}}\n"
+    );
+    assert_eq!(
+        faded_in(session(), &source),
+        [
+            format!("#if OS == .{other} {{\n    only_there :: 1;\n}}"),
+            format!("#if OS == .{other} {{\n        x := 1;\n    }}"),
+        ]
+    );
 }
 
 #[test]
@@ -508,4 +546,12 @@ main :: () {{
 "
     );
     assert_eq!(faded(&source), ["dead := 2"]);
+}
+
+
+#[test]
+fn os_tests_without_a_prelude_do_not_crash() {
+    // Builtins are declared in no file; looking one up as a file must not crash.
+    let source = "#if OS == .WINDOWS {\n    only_there :: 1;\n}\nmain :: () {\n    #if OS == .WINDOWS {\n        x := 1;\n    }\n}\n";
+    assert_eq!(faded(source), Vec::<String>::new());
 }
