@@ -857,6 +857,614 @@
       "source_of_truth": "https://github.com/QuattroMusic/6502-Simulator/tree/1366abb87b3196cd1dceaf22d6cf96e2707f644f",
       "selection": "recent-source",
       "file_count": 23
+    },
+    {
+      "repository": "LuisThiamNye/ButteryTaskbar2",
+      "revision": "089dd77d4778cde387588ac16d88db339a3f1f76",
+      "latest_jai_change": "2024-05-01T13:57:39+01:00",
+      "source_of_truth": "https://github.com/LuisThiamNye/ButteryTaskbar2/tree/089dd77d4778cde387588ac16d88db339a3f1f76",
+      "selection": "recent-source",
+      "file_count": 8
+    },
+    {
+      "repository": "daafu/sokoban",
+      "revision": "a2a8b5c495f1b20e0e8407e44f20f0b71a9278f9",
+      "latest_jai_change": "2023-11-27T16:09:48-05:00",
+      "source_of_truth": "https://github.com/daafu/sokoban/tree/a2a8b5c495f1b20e0e8407e44f20f0b71a9278f9",
+      "selection": "recent-source",
+      "file_count": 20
+    },
+    {
+      "repository": "dlandahl/theos-2",
+      "revision": "1ac0a28cb0044964dcb6e2dd14199546d00022e4",
+      "latest_jai_change": "2026-04-21T11:41:43+01:00",
+      "source_of_truth": "https://github.com/dlandahl/theos-2/tree/1ac0a28cb0044964dcb6e2dd14199546d00022e4",
+      "selection": "recent-source",
+      "file_count": 143
+    },
+    {
+      "repository": "randyprime/resources",
+      "revision": "ed9abcabdf43af696d233907e38058f77f6ea66e",
+      "latest_jai_change": "2024-01-16T12:55:48+07:00",
+      "source_of_truth": "https://github.com/randyprime/resources/tree/ed9abcabdf43af696d233907e38058f77f6ea66e",
+      "selection": "recent-source",
+      "file_count": 2
+    },
+    {
+      "repository": "asbott/One-Std",
+      "revision": "82d83eb6c114162708bcd7b18797918185de23e4",
+      "latest_jai_change": "2025-03-11T22:26:23+01:00",
+      "source_of_truth": "https://github.com/asbott/One-Std/tree/82d83eb6c114162708bcd7b18797918185de23e4",
+      "selection": "recent-source",
+      "file_count": 103
+    },
+    {
+      "repository": "tsoding/jai-wasm",
+      "revision": "ee0f8859cd90e408ec53ae6014906c462c28d996",
+      "latest_jai_change": "2022-07-25T11:39:18+07:00",
+      "source_of_truth": "https://github.com/tsoding/jai-wasm/tree/ee0f8859cd90e408ec53ae6014906c462c28d996",
+      "selection": "recent-source",
+      "file_count": 6
+    },
+    {
+      "repository": "farzher/Jai-HTTP-Server",
+      "revision": "b0c87ec913685d10b8b6bfaf17d223b273488ed9",
+      "latest_jai_change": "2024-08-14T09:05:44-04:00",
+      "source_of_truth": "https://github.com/farzher/Jai-HTTP-Server/tree/b0c87ec913685d10b8b6bfaf17d223b273488ed9",
+      "selection": "recent-source",
+      "file_count": 20
+    },
+    {
+      "repository": "okmatija/Prizm",
+      "revision": "cc245464c401bf82c7a77cda2c3be76108d4f180",
+      "latest_jai_change": "2025-09-06T15:02:07+01:00",
+      "source_of_truth": "https://github.com/okmatija/Prizm/tree/cc245464c401bf82c7a77cda2c3be76108d4f180",
+      "selection": "recent-source",
+      "file_count": 88
+    },
+    {
+      "repository": "tsoding/voronoi-browser",
+      "revision": "2a686f67362e715ce865652c7cf2c2e3db267cec",
+      "latest_jai_change": "2025-02-18T22:48:56+07:00",
+      "source_of_truth": "https://github.com/tsoding/voronoi-browser/tree/2a686f67362e715ce865652c7cf2c2e3db267cec",
+      "selection": "recent-source",
+      "file_count": 5
+    },
+    {
+      "repository": "nafonso/netrix",
+      "revision": "8adddbafdbf9731479979a892c1eb296eb04813c",
+      "latest_jai_change": "2020-08-18T23:21:17+01:00",
+      "source_of_truth": "https://github.com/nafonso/netrix/tree/8adddbafdbf9731479979a892c1eb296eb04813c",
+      "selection": "recent-source",
+      "file_count": 25
+    },
+    {
+      "repository": "acoto87/war1-jai",
+      "revision": "18c1c8faa35e22154d70bc38ede7af7403cafea3",
+      "latest_jai_change": "2021-06-04T01:36:43-05:00",
+      "source_of_truth": "https://github.com/acoto87/war1-jai/tree/18c1c8faa35e22154d70bc38ede7af7403cafea3",
+      "selection": "recent-source",
+      "file_count": 27
+    },
+    {
+      "repository": "rluba/jai-ctags",
+      "revision": "ba97e53df74c47ccca14d83211b1dc2dacc57037",
+      "latest_jai_change": "2022-12-29T13:22:59-05:00",
+      "source_of_truth": "https://github.com/rluba/jai-ctags/tree/ba97e53df74c47ccca14d83211b1dc2dacc57037",
+      "selection": "recent-source",
+      "file_count": 3
+    },
+    {
+      "repository": "666rayen999/x-math",
+      "revision": "2ab6db8b1a4adf6c185b5c7ce91e1ab6b6314559",
+      "latest_jai_change": "2025-02-10T21:40:10+01:00",
+      "source_of_truth": "https://github.com/666rayen999/x-math/tree/2ab6db8b1a4adf6c185b5c7ce91e1ab6b6314559",
+      "selection": "recent-source",
+      "file_count": 4
+    },
+    {
+      "repository": "isomorphic-tech/jai-sdl3",
+      "revision": "af25158bbb41f07b944966b79ca43bb4ddc54152",
+      "latest_jai_change": "2026-09-29T05:17:48+04:00",
+      "source_of_truth": "https://github.com/isomorphic-tech/jai-sdl3/tree/af25158bbb41f07b944966b79ca43bb4ddc54152",
+      "selection": "recent-source",
+      "file_count": 187
+    },
+    {
+      "repository": "Chowdhury-DSP/wdf_compiler",
+      "revision": "1311cb8710696ae5f2acc5c93e2ccba7aaae3688",
+      "latest_jai_change": "2026-10-07T15:07:59-04:00",
+      "source_of_truth": "https://github.com/Chowdhury-DSP/wdf_compiler/tree/1311cb8710696ae5f2acc5c93e2ccba7aaae3688",
+      "selection": "recent-source",
+      "file_count": 219
+    },
+    {
+      "repository": "tsoding/rope-jai",
+      "revision": "6a709b3eaa76f0567f39e583b42f3a6f64bcca16",
+      "latest_jai_change": "2022-12-11T02:09:47+07:00",
+      "source_of_truth": "https://github.com/tsoding/rope-jai/tree/6a709b3eaa76f0567f39e583b42f3a6f64bcca16",
+      "selection": "recent-source",
+      "file_count": 3
+    },
+    {
+      "repository": "tsoding/tetris-jai",
+      "revision": "6fd371e38fcbefccdd9cf6d392aebefa6760d1bd",
+      "latest_jai_change": "2022-05-19T01:26:57+07:00",
+      "source_of_truth": "https://github.com/tsoding/tetris-jai/tree/6fd371e38fcbefccdd9cf6d392aebefa6760d1bd",
+      "selection": "recent-source",
+      "file_count": 3
+    },
+    {
+      "repository": "valignatev/jai-control-flow",
+      "revision": "62190a989bd10932de1dd31c0b03b639efd87b5b",
+      "latest_jai_change": "2025-01-20T11:47:00+01:00",
+      "source_of_truth": "https://github.com/valignatev/jai-control-flow/tree/62190a989bd10932de1dd31c0b03b639efd87b5b",
+      "selection": "recent-source",
+      "file_count": 6
+    },
+    {
+      "repository": "rluba/smash",
+      "revision": "e3d9a0f0f2f6e1b2f0cbb9a58e9709c356bbfeb0",
+      "latest_jai_change": "2022-03-17T16:38:04+01:00",
+      "source_of_truth": "https://github.com/rluba/smash/tree/e3d9a0f0f2f6e1b2f0cbb9a58e9709c356bbfeb0",
+      "selection": "recent-source",
+      "file_count": 21
+    },
+    {
+      "repository": "rexim/aoc-2023",
+      "revision": "9a8209fe9bd39db6c7e606ec1f10c43bf28c3f93",
+      "latest_jai_change": "2023-12-02T16:43:41+07:00",
+      "source_of_truth": "https://github.com/rexim/aoc-2023/tree/9a8209fe9bd39db6c7e606ec1f10c43bf28c3f93",
+      "selection": "recent-source",
+      "file_count": 2
+    },
+    {
+      "repository": "onelivesleft/the-language",
+      "revision": "94ff0e5021af41cfbf172b1ed195b823f2fb8c78",
+      "latest_jai_change": "2023-12-02T15:18:42Z",
+      "source_of_truth": "https://github.com/onelivesleft/the-language/tree/94ff0e5021af41cfbf172b1ed195b823f2fb8c78",
+      "selection": "recent-source",
+      "file_count": 11
+    },
+    {
+      "repository": "tsoding/ditch",
+      "revision": "6b85eea844250d2378ba34b9220328525727ab50",
+      "latest_jai_change": "2023-04-27T19:53:08+07:00",
+      "source_of_truth": "https://github.com/tsoding/ditch/tree/6b85eea844250d2378ba34b9220328525727ab50",
+      "selection": "recent-source",
+      "file_count": 6
+    },
+    {
+      "repository": "nick-celestin-zizic/clay-jai",
+      "revision": "48303592e1589a4533250a88fbdeac7cf2f39592",
+      "latest_jai_change": "2025-01-19T19:59:42-05:00",
+      "source_of_truth": "https://github.com/nick-celestin-zizic/clay-jai/tree/48303592e1589a4533250a88fbdeac7cf2f39592",
+      "selection": "recent-source",
+      "file_count": 10
+    },
+    {
+      "repository": "onelivesleft/jai-steam",
+      "revision": "26c03ac4f3aa8792602d6bcdbf048d9c9d38905e",
+      "latest_jai_change": "2023-12-06T00:08:09Z",
+      "source_of_truth": "https://github.com/onelivesleft/jai-steam/tree/26c03ac4f3aa8792602d6bcdbf048d9c9d38905e",
+      "selection": "recent-source",
+      "file_count": 205
+    },
+    {
+      "repository": "kooparse/gltf_parser",
+      "revision": "7c429d055e692e917033fb051d776a15e9103cf4",
+      "latest_jai_change": "2024-08-08T17:34:52-04:00",
+      "source_of_truth": "https://github.com/kooparse/gltf_parser/tree/7c429d055e692e917033fb051d776a15e9103cf4",
+      "selection": "recent-source",
+      "file_count": 10
+    },
+    {
+      "repository": "colinbellino/sokol-jai",
+      "revision": "4c7d7c8a5a9e4c49618a915c1b89da5c46cc1baf",
+      "latest_jai_change": "2026-10-12T11:16:58Z",
+      "source_of_truth": "https://github.com/colinbellino/sokol-jai/tree/4c7d7c8a5a9e4c49618a915c1b89da5c46cc1baf",
+      "selection": "recent-source",
+      "file_count": 71
+    },
+    {
+      "repository": "rexim/aoc-2022",
+      "revision": "fe5e65e0f035a1745099f5479c7a111f8ddb7297",
+      "latest_jai_change": "2022-12-15T18:55:09+07:00",
+      "source_of_truth": "https://github.com/rexim/aoc-2022/tree/fe5e65e0f035a1745099f5479c7a111f8ddb7297",
+      "selection": "recent-source",
+      "file_count": 17
+    },
+    {
+      "repository": "onelivesleft/jai-cookbook",
+      "revision": "f930091e363248807f594e1b8443e87e27cb9678",
+      "latest_jai_change": "2022-12-07T13:05:16Z",
+      "source_of_truth": "https://github.com/onelivesleft/jai-cookbook/tree/f930091e363248807f594e1b8443e87e27cb9678",
+      "selection": "recent-source",
+      "file_count": 20
+    },
+    {
+      "repository": "farzher/Bunnymark-Jai-D3D11",
+      "revision": "fcae2da20904baafc05d83ce916519e41a6adbcb",
+      "latest_jai_change": "2023-04-16T01:36:10-07:00",
+      "source_of_truth": "https://github.com/farzher/Bunnymark-Jai-D3D11/tree/fcae2da20904baafc05d83ce916519e41a6adbcb",
+      "selection": "recent-source",
+      "file_count": 5
+    },
+    {
+      "repository": "smari/jai-simplehttp",
+      "revision": "2f2b134615fe435eb6f2d0e1ba3ae3503efd7b6e",
+      "latest_jai_change": "2025-01-27T09:55:43Z",
+      "source_of_truth": "https://github.com/smari/jai-simplehttp/tree/2f2b134615fe435eb6f2d0e1ba3ae3503efd7b6e",
+      "selection": "recent-source",
+      "file_count": 5
+    },
+    {
+      "repository": "isomorphic-tech/jai-imgui",
+      "revision": "fe60631ef3875b3aa1ef4e330912dd65855ca3c5",
+      "latest_jai_change": "2026-05-16T09:51:18-04:00",
+      "source_of_truth": "https://github.com/isomorphic-tech/jai-imgui/tree/fe60631ef3875b3aa1ef4e330912dd65855ca3c5",
+      "selection": "recent-source",
+      "file_count": 313
+    },
+    {
+      "repository": "rytc/enet-jai",
+      "revision": "2c0c3be31828f2caf8e22ca180446d85b7794f4b",
+      "latest_jai_change": "2024-02-24T06:45:33-08:00",
+      "source_of_truth": "https://github.com/rytc/enet-jai/tree/2c0c3be31828f2caf8e22ca180446d85b7794f4b",
+      "selection": "recent-source",
+      "file_count": 4
+    },
+    {
+      "repository": "rezich/SQLite",
+      "revision": "28311b802c20d6e811bfb4d50af6898010f2704b",
+      "latest_jai_change": "2024-09-23T18:35:50-06:00",
+      "source_of_truth": "https://github.com/rezich/SQLite/tree/28311b802c20d6e811bfb4d50af6898010f2704b",
+      "selection": "recent-source",
+      "file_count": 9
+    },
+    {
+      "repository": "SogoCZE/jai_wasm",
+      "revision": "86b063f18c6f434a577b2c7522fd6f1915622c90",
+      "latest_jai_change": "2023-11-13T23:37:57+01:00",
+      "source_of_truth": "https://github.com/SogoCZE/jai_wasm/tree/86b063f18c6f434a577b2c7522fd6f1915622c90",
+      "selection": "recent-source",
+      "file_count": 6
+    },
+    {
+      "repository": "PAYLHORSE-Software/Jodot",
+      "revision": "20a397b0d6f3c948bcb36225d6073c05e769ade5",
+      "latest_jai_change": "2025-09-12T13:25:21+04:00",
+      "source_of_truth": "https://github.com/PAYLHORSE-Software/Jodot/tree/20a397b0d6f3c948bcb36225d6073c05e769ade5",
+      "selection": "recent-source",
+      "file_count": 22
+    },
+    {
+      "repository": "tsoding/infinite-pong-jai-wasm64",
+      "revision": "d3319ec39005da662610e5f66ca894afa04d5f04",
+      "latest_jai_change": "2024-12-11T05:55:08+07:00",
+      "source_of_truth": "https://github.com/tsoding/infinite-pong-jai-wasm64/tree/d3319ec39005da662610e5f66ca894afa04d5f04",
+      "selection": "recent-source",
+      "file_count": 5
+    },
+    {
+      "repository": "judah-caruso/jai-sokol",
+      "revision": "e7c79fafe213bd3b256038110d957ebd2b01dbe8",
+      "latest_jai_change": "2023-09-25T14:06:58+02:00",
+      "source_of_truth": "https://github.com/judah-caruso/jai-sokol/tree/e7c79fafe213bd3b256038110d957ebd2b01dbe8",
+      "selection": "recent-source",
+      "file_count": 20
+    },
+    {
+      "repository": "charlesastaylor/jai-ffmpeg",
+      "revision": "350611b6fca2f9586189a9a694d4fb4f60f5cde8",
+      "latest_jai_change": "2025-08-01T17:35:29+01:00",
+      "source_of_truth": "https://github.com/charlesastaylor/jai-ffmpeg/tree/350611b6fca2f9586189a9a694d4fb4f60f5cde8",
+      "selection": "recent-source",
+      "file_count": 151
+    },
+    {
+      "repository": "Cakez77/terraria_clone",
+      "revision": "7ccfb23770f73f94f905cd96578029e2610c34a9",
+      "latest_jai_change": "2024-01-05T11:05:37+01:00",
+      "source_of_truth": "https://github.com/Cakez77/terraria_clone/tree/7ccfb23770f73f94f905cd96578029e2610c34a9",
+      "selection": "recent-source",
+      "file_count": 4
+    },
+    {
+      "repository": "y3konline/bonk",
+      "revision": "b72c1162ac045075af48e3f23307008c60e5fcfc",
+      "latest_jai_change": "2025-01-24T23:48:37-05:00",
+      "source_of_truth": "https://github.com/y3konline/bonk/tree/b72c1162ac045075af48e3f23307008c60e5fcfc",
+      "selection": "recent-source",
+      "file_count": 161
+    },
+    {
+      "repository": "rluba/twitch_irc",
+      "revision": "4d781908ecfd481c3ba4d13d1ae8e210e2ec21ad",
+      "latest_jai_change": "2024-01-02T18:58:11+01:00",
+      "source_of_truth": "https://github.com/rluba/twitch_irc/tree/4d781908ecfd481c3ba4d13d1ae8e210e2ec21ad",
+      "selection": "recent-source",
+      "file_count": 3
+    },
+    {
+      "repository": "napina/jai_cgltf",
+      "revision": "76b34a54657110dffcc1ac95ae1459c81094f5a0",
+      "latest_jai_change": "2025-08-10T08:35:58+03:00",
+      "source_of_truth": "https://github.com/napina/jai_cgltf/tree/76b34a54657110dffcc1ac95ae1459c81094f5a0",
+      "selection": "recent-source",
+      "file_count": 8
+    },
+    {
+      "repository": "sivertjoe/Advent-of-Code",
+      "revision": "6f78a79307a6a633244cba7cead726918c1bd46f",
+      "latest_jai_change": "2025-12-22T14:42:39+01:00",
+      "source_of_truth": "https://github.com/sivertjoe/Advent-of-Code/tree/6f78a79307a6a633244cba7cead726918c1bd46f",
+      "selection": "recent-source",
+      "file_count": 29
+    },
+    {
+      "repository": "rluba/bureaucrat",
+      "revision": "46023047685a6e8839060d496e9422bb92bbc812",
+      "latest_jai_change": "2026-05-17T13:19:38+02:00",
+      "source_of_truth": "https://github.com/rluba/bureaucrat/tree/46023047685a6e8839060d496e9422bb92bbc812",
+      "selection": "recent-source",
+      "file_count": 74
+    },
+    {
+      "repository": "kujukuju/PlaydateJai",
+      "revision": "eaf3b460011e5fb23e28c1fc50ff62352861cc01",
+      "latest_jai_change": "2025-02-05T19:32:36-08:00",
+      "source_of_truth": "https://github.com/kujukuju/PlaydateJai/tree/eaf3b460011e5fb23e28c1fc50ff62352861cc01",
+      "selection": "recent-source",
+      "file_count": 17
+    },
+    {
+      "repository": "kevinw/jai-shooter",
+      "revision": "e5aa36d14f66feb7b6ce6fd5993d418ac961665b",
+      "latest_jai_change": "2020-11-05T01:06:12+01:00",
+      "source_of_truth": "https://github.com/kevinw/jai-shooter/tree/e5aa36d14f66feb7b6ce6fd5993d418ac961665b",
+      "selection": "recent-source",
+      "file_count": 13
+    },
+    {
+      "repository": "forrestthewoods/aoc2022",
+      "revision": "087bb6c109cc0b801112bf477e79539a5c31698e",
+      "latest_jai_change": "2023-01-05T22:05:33-08:00",
+      "source_of_truth": "https://github.com/forrestthewoods/aoc2022/tree/087bb6c109cc0b801112bf477e79539a5c31698e",
+      "selection": "recent-source",
+      "file_count": 2
+    },
+    {
+      "repository": "contextfreecode/jai-comparisons",
+      "revision": "46a6dc92407d00d9b9766eae2260cc4a20efe2c3",
+      "latest_jai_change": "2022-07-04T12:08:00-07:00",
+      "source_of_truth": "https://github.com/contextfreecode/jai-comparisons/tree/46a6dc92407d00d9b9766eae2260cc4a20efe2c3",
+      "selection": "recent-source",
+      "file_count": 4
+    },
+    {
+      "repository": "colinbellino/jai-code-hot-reloading-example",
+      "revision": "c118997364125672154d5411f58042c91ef5c5b7",
+      "latest_jai_change": "2025-02-04T21:32:41-05:00",
+      "source_of_truth": "https://github.com/colinbellino/jai-code-hot-reloading-example/tree/c118997364125672154d5411f58042c91ef5c5b7",
+      "selection": "recent-source",
+      "file_count": 7
+    },
+    {
+      "repository": "FinochioM/Makis_ECS",
+      "revision": "643de535dfc79d82735f7884284d5d2cfae37945",
+      "latest_jai_change": "2025-02-14T21:02:03-03:00",
+      "source_of_truth": "https://github.com/FinochioM/Makis_ECS/tree/643de535dfc79d82735f7884284d5d2cfae37945",
+      "selection": "recent-source",
+      "file_count": 11
+    },
+    {
+      "repository": "y3konline/jai-recastnavigation",
+      "revision": "5a6659dca2b7bfe984cad82e4accaf7186500a99",
+      "latest_jai_change": "2025-02-07T06:52:51-05:00",
+      "source_of_truth": "https://github.com/y3konline/jai-recastnavigation/tree/5a6659dca2b7bfe984cad82e4accaf7186500a99",
+      "selection": "recent-source",
+      "file_count": 119
+    },
+    {
+      "repository": "ryanneph/Jai-Code-Interop",
+      "revision": "4e328736da1d34c6695abde688611d8e55838a30",
+      "latest_jai_change": "2024-01-25T22:46:40-08:00",
+      "source_of_truth": "https://github.com/ryanneph/Jai-Code-Interop/tree/4e328736da1d34c6695abde688611d8e55838a30",
+      "selection": "recent-source",
+      "file_count": 7
+    },
+    {
+      "repository": "mathaou/jai-simpd",
+      "revision": "305a844deecde164d3827576183ec295f8da8e96",
+      "latest_jai_change": "2023-12-15T12:20:50-05:00",
+      "source_of_truth": "https://github.com/mathaou/jai-simpd/tree/305a844deecde164d3827576183ec295f8da8e96",
+      "selection": "recent-source",
+      "file_count": 22
+    },
+    {
+      "repository": "kujukuju/JaiBullet",
+      "revision": "c45fed1797962e2f7afdbd11c7ac798b518eb306",
+      "latest_jai_change": "2024-06-13T15:18:48-07:00",
+      "source_of_truth": "https://github.com/kujukuju/JaiBullet/tree/c45fed1797962e2f7afdbd11c7ac798b518eb306",
+      "selection": "recent-source",
+      "file_count": 400
+    },
+    {
+      "repository": "dbechrd/jai-assertive",
+      "revision": "543848bcbe5a98e9a0b234b218e00eae4bc83315",
+      "latest_jai_change": "2024-12-23T21:07:07-05:00",
+      "source_of_truth": "https://github.com/dbechrd/jai-assertive/tree/543848bcbe5a98e9a0b234b218e00eae4bc83315",
+      "selection": "recent-source",
+      "file_count": 3
+    },
+    {
+      "repository": "acoto87/jai-modules",
+      "revision": "473a627ef90e5024d966afb43f5abcbc41763bb4",
+      "latest_jai_change": "2021-11-03T01:48:59-06:00",
+      "source_of_truth": "https://github.com/acoto87/jai-modules/tree/473a627ef90e5024d966afb43f5abcbc41763bb4",
+      "selection": "recent-source",
+      "file_count": 116
+    },
+    {
+      "repository": "LainLayer/XChatger",
+      "revision": "8382c6fdf72c401b12d4d406e6f2935eb506e704",
+      "latest_jai_change": "2025-05-06T00:57:52+03:00",
+      "source_of_truth": "https://github.com/LainLayer/XChatger/tree/8382c6fdf72c401b12d4d406e6f2935eb506e704",
+      "selection": "recent-source",
+      "file_count": 414
+    },
+    {
+      "repository": "CyanMARgh/jaigl",
+      "revision": "667e33238924d4dcf00372c40850f29b9665b52b",
+      "latest_jai_change": "2023-12-23T03:07:02+03:00",
+      "source_of_truth": "https://github.com/CyanMARgh/jaigl/tree/667e33238924d4dcf00372c40850f29b9665b52b",
+      "selection": "recent-source",
+      "file_count": 33
+    },
+    {
+      "repository": "Breush/lava-jai-bindings",
+      "revision": "72097ee7e573288eb9cc339d7d5a9489c65ff0b6",
+      "latest_jai_change": "2023-10-21T12:00:30+02:00",
+      "source_of_truth": "https://github.com/Breush/lava-jai-bindings/tree/72097ee7e573288eb9cc339d7d5a9489c65ff0b6",
+      "selection": "recent-source",
+      "file_count": 8
+    },
+    {
+      "repository": "wijiler/Quartzz",
+      "revision": "bc335449d9ab1d914c6e0503e3f7cfc3f3a62f25",
+      "latest_jai_change": "2023-10-09T20:27:17-04:00",
+      "source_of_truth": "https://github.com/wijiler/Quartzz/tree/bc335449d9ab1d914c6e0503e3f7cfc3f3a62f25",
+      "selection": "recent-source",
+      "file_count": 8
+    },
+    {
+      "repository": "smari/Cavy",
+      "revision": "6116d6d5e852a840864e22cf7a66533b8e0a7592",
+      "latest_jai_change": "2021-02-10T09:24:31Z",
+      "source_of_truth": "https://github.com/smari/Cavy/tree/6116d6d5e852a840864e22cf7a66533b8e0a7592",
+      "selection": "recent-source",
+      "file_count": 8
+    },
+    {
+      "repository": "kujukuju/JaiPhysX",
+      "revision": "8a05c0c1465740cbd2c81902c2f5b411c57cefad",
+      "latest_jai_change": "2026-08-23T14:36:22+09:00",
+      "source_of_truth": "https://github.com/kujukuju/JaiPhysX/tree/8a05c0c1465740cbd2c81902c2f5b411c57cefad",
+      "selection": "recent-source",
+      "file_count": 1538
+    },
+    {
+      "repository": "filippocrocchini/Harfbuzz",
+      "revision": "fe303a7928a34fc48074997c435ad34696ac23c6",
+      "latest_jai_change": "2024-03-21T16:30:34+01:00",
+      "source_of_truth": "https://github.com/filippocrocchini/Harfbuzz/tree/fe303a7928a34fc48074997c435ad34696ac23c6",
+      "selection": "recent-source",
+      "file_count": 10
+    },
+    {
+      "repository": "666rayen999/recs",
+      "revision": "dd84782429063de5c9a729ed08bb623a2e5bfa89",
+      "latest_jai_change": "2025-01-09T10:41:48+01:00",
+      "source_of_truth": "https://github.com/666rayen999/recs/tree/dd84782429063de5c9a729ed08bb623a2e5bfa89",
+      "selection": "recent-source",
+      "file_count": 5
+    },
+    {
+      "repository": "rytc/slang-jai",
+      "revision": "14f1381c9584f619812fc1734cb4a842c6beaabf",
+      "latest_jai_change": "2026-03-16T06:15:10-07:00",
+      "source_of_truth": "https://github.com/rytc/slang-jai/tree/14f1381c9584f619812fc1734cb4a842c6beaabf",
+      "selection": "recent-source",
+      "file_count": 24
+    },
+    {
+      "repository": "rluba/jai-unicode",
+      "revision": "d65683a948dabb864a3dab44f203c8f586b538eb",
+      "latest_jai_change": "2021-12-20T16:48:54+01:00",
+      "source_of_truth": "https://github.com/rluba/jai-unicode/tree/d65683a948dabb864a3dab44f203c8f586b538eb",
+      "selection": "recent-source",
+      "file_count": 1
+    },
+    {
+      "repository": "mimhufford/jaidoku",
+      "revision": "94e3d7399fabe9708220e98b9864d66573be662e",
+      "latest_jai_change": "2020-09-02T12:15:10+01:00",
+      "source_of_truth": "https://github.com/mimhufford/jaidoku/tree/94e3d7399fabe9708220e98b9864d66573be662e",
+      "selection": "recent-source",
+      "file_count": 2
+    },
+    {
+      "repository": "kooparse/miniaudio-jai",
+      "revision": "ae583218563edacd3cc149de4303dbaae12f35eb",
+      "latest_jai_change": "2025-01-20T19:12:32+01:00",
+      "source_of_truth": "https://github.com/kooparse/miniaudio-jai/tree/ae583218563edacd3cc149de4303dbaae12f35eb",
+      "selection": "recent-source",
+      "file_count": 9
+    },
+    {
+      "repository": "kevinw/jaitro",
+      "revision": "60e610cb1a2c1825c582d72f6814c2159a23610b",
+      "latest_jai_change": "2025-03-12T18:17:41+01:00",
+      "source_of_truth": "https://github.com/kevinw/jaitro/tree/60e610cb1a2c1825c582d72f6814c2159a23610b",
+      "selection": "recent-source",
+      "file_count": 16
+    },
+    {
+      "repository": "jatinchowdhury18/clap-jai-example-plugin",
+      "revision": "528d32bbb064cb2444ff8d81d51d20de0771e6e2",
+      "latest_jai_change": "2025-03-10T10:06:59-07:00",
+      "source_of_truth": "https://github.com/jatinchowdhury18/clap-jai-example-plugin/tree/528d32bbb064cb2444ff8d81d51d20de0771e6e2",
+      "selection": "recent-source",
+      "file_count": 12
+    },
+    {
+      "repository": "colinbellino/jai-sokol-wasm-playground",
+      "revision": "d7f366f9c39c64eb1baa49124dc629d13c3ad4eb",
+      "latest_jai_change": "2024-10-16T18:10:25+02:00",
+      "source_of_truth": "https://github.com/colinbellino/jai-sokol-wasm-playground/tree/d7f366f9c39c64eb1baa49124dc629d13c3ad4eb",
+      "selection": "recent-source",
+      "file_count": 47
+    },
+    {
+      "repository": "baileysostek/Jai-Vulkan",
+      "revision": "c085d6e3dbed7a0ab73d3238a582b00486a505b4",
+      "latest_jai_change": "2023-05-21T00:02:44-04:00",
+      "source_of_truth": "https://github.com/baileysostek/Jai-Vulkan/tree/c085d6e3dbed7a0ab73d3238a582b00486a505b4",
+      "selection": "recent-source",
+      "file_count": 10
+    },
+    {
+      "repository": "asmvik/assimp-jai",
+      "revision": "bbe5d41d12888f54c75166b8f33968be638b5dd4",
+      "latest_jai_change": "2025-12-11T17:42:33+01:00",
+      "source_of_truth": "https://github.com/asmvik/assimp-jai/tree/bbe5d41d12888f54c75166b8f33968be638b5dd4",
+      "selection": "recent-source",
+      "file_count": 97
+    },
+    {
+      "repository": "arjenwitteveen/jai-midi",
+      "revision": "a042108aa1c6cd733168fb5dceccd5d36b01a6fb",
+      "latest_jai_change": "2026-10-19T21:54:36+02:00",
+      "source_of_truth": "https://github.com/arjenwitteveen/jai-midi/tree/a042108aa1c6cd733168fb5dceccd5d36b01a6fb",
+      "selection": "recent-source",
+      "file_count": 70
+    },
+    {
+      "repository": "Manquia/gns-jai",
+      "revision": "0d7e397b76220705be121995550a00f5b4a62cf0",
+      "latest_jai_change": "2021-06-22T14:53:05-07:00",
+      "source_of_truth": "https://github.com/Manquia/gns-jai/tree/0d7e397b76220705be121995550a00f5b4a62cf0",
+      "selection": "recent-source",
+      "file_count": 10
+    },
+    {
+      "repository": "CyanMARgh/raylib-jai-universal",
+      "revision": "21a7c56f5280a33a6219f0be33fac5d21cad8b57",
+      "latest_jai_change": "2023-12-31T01:46:05+03:00",
+      "source_of_truth": "https://github.com/CyanMARgh/raylib-jai-universal/tree/21a7c56f5280a33a6219f0be33fac5d21cad8b57",
+      "selection": "recent-source",
+      "file_count": 602
     }
   ]
 }
