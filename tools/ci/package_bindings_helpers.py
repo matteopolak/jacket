@@ -16,6 +16,7 @@ from pathlib import Path as _Path
 
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+# developer_checks/, whose modules import each other unqualified
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "developer_checks"))
 
 import argparse
@@ -23,9 +24,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import build_generator_platform
+from developer_checks import build_generator_platform
 from native.build_native_libs import static_name
-from dev_common import ROOT
+from toolkit.repo import ROOT
 
 
 def build_static(prefix: Path, platform: str, out: Path) -> Path:
