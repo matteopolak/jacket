@@ -204,3 +204,41 @@ unused :: () { unavailable_unused_body(); }
         .expect_err("interception must not change private member access");
     assert!(error.message.contains("hidden"), "{}", error.message);
 }
+
+#[test]
+fn skipped_typechecked_contents_keep_the_message_sequence() {
+    let program = r"
+Pair :: struct { a: int; b: int; }
+twice :: (x: int) -> int { return x * 2; }
+generic :: (x: $T) -> T { return x; }
+main :: () -> int { return twice(1) + generic(2); }
+";
+    let sequence = |full: bool| {
+        let mut fs = VirtualFs::default();
+        fs.insert("/lib/prelude/module.jai", "".as_bytes());
+        fs.insert("/app/main.jai", program.as_bytes());
+        let mut options = Options::host();
+        options.runtime_support = false;
+        options.preload = Some("/lib/prelude/module.jai".into());
+        let mut compiler = Compiler::new(options, Rc::new(fs));
+        compiler
+            .compile_program(Path::new("/app/main.jai"))
+            .unwrap();
+        let mut records = Records::default();
+        let mut sequence = Vec::new();
+        while let Some(message) = compiler.export_typechecked_with(&mut records, full) {
+            let count = |field| refs(&records, message, field).len();
+            sequence.push((count("declarations"), count("procedure_bodies")));
+            assert!(sequence.len() < 10);
+        }
+        sequence
+    };
+    let full = sequence(true);
+    let skipped = sequence(false);
+    assert!(
+        full.iter()
+            .any(|&(declarations, bodies)| declarations > 0 && bodies > 0)
+    );
+    assert_eq!(full.len(), skipped.len(), "the same messages are sent");
+    assert!(skipped.iter().all(|&counts| counts == (0, 0)));
+}

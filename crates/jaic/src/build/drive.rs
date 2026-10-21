@@ -116,7 +116,8 @@ pub(super) fn step(
         }
         // After the final lowering too: procedure bodies are reported once lowered.
         if matches!(result, Ok(Stage::Checked | Stage::Done))
-            && let Some(message) = compiler.export_typechecked(&mut records)
+            && let Some(message) =
+                compiler.export_typechecked_with(&mut records, crate::source::typechecked_named())
         {
             reported = true;
             // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
@@ -148,7 +149,9 @@ pub(super) fn step(
             // last TYPECHECKED message.
             if finished.is_ok() && intercepted {
                 let mut records = Records::lend(&mut shared.borrow_mut().records);
-                if let Some(message) = compiler.export_typechecked(&mut records) {
+                if let Some(message) = compiler
+                    .export_typechecked_with(&mut records, crate::source::typechecked_named())
+                {
                     events.push(record_event(EVENT_TYPECHECKED, message));
                 }
                 Records::give_back(&mut shared.borrow_mut().records, records);

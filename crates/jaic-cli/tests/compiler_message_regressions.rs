@@ -27,6 +27,8 @@ fn message_and_record_exports_run_interpreted() {
         "compiler-make-procedure-live",
         "compiler-typechecked-messages",
         "compiler-typechecked-names",
+        "compiler-typechecked-phase-only",
+        "compiler-typechecked-contents-read",
         "compiler-typechecked-notes",
         "compiler-typechecked-polymorph-static-if",
         "compiler-typechecked-unused-and-global-flags",

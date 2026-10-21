@@ -336,13 +336,45 @@ pub struct SourceMap {
     files: Vec<SourceFile>,
 }
 
+static TYPECHECKED_NAMED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Whether any source read so far names `Message_Typechecked` outside the files that define
+/// and deliver it. When none does, no code can look inside a TYPECHECKED message and the
+/// contents are not exported. It only ever turns on, and for the whole process, so a compiler
+/// that cannot be sure keeps the full export.
+pub fn typechecked_named() -> bool {
+    TYPECHECKED_NAMED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+fn note_typechecked_name(path: &SourcePath, text: &str) {
+    if typechecked_named() || !text.contains("Message_Typechecked") {
+        return;
+    }
+    // The record type itself and the delivery code of the `Compiler` module.
+    let own = path.to_string().replace('\\', "/");
+    if [
+        "Compiler/contract-records.jai",
+        "compiler-api/messages.jai",
+        "compiler-api/registry.jai",
+    ]
+    .iter()
+    .any(|file| own.ends_with(file))
+    {
+        return;
+    }
+    TYPECHECKED_NAMED.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
 impl SourceMap {
     pub fn add(&mut self, path: impl Into<SourcePath>, text: Rc<str>) -> FileId {
-        self.files.push(SourceFile::new(path.into(), text));
+        let path = path.into();
+        note_typechecked_name(&path, &text);
+        self.files.push(SourceFile::new(path, text));
         FileId(self.files.len() as u32 - 1)
     }
 
     pub fn add_file(&mut self, file: SourceFile) -> FileId {
+        note_typechecked_name(&file.path, &file.text);
         self.files.push(file);
         FileId(self.files.len() as u32 - 1)
     }

@@ -3,12 +3,20 @@ use super::constants::message_kind;
 use super::procs::export_code_in;
 use super::{Exporter, Typechecked};
 use crate::records::{Item, Record, RecordTag, Records};
-use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
+use crate::sema::scope::{EntityKind, Resolved, ScopeId, ScopeKind};
 use crate::sema::{Compiler, EntityId, ProcId, procs};
 
 impl Compiler {
     /// A TYPECHECKED message for eligible declarations and ready bodies, or `None`.
     pub fn export_typechecked(&mut self, r: &mut Records) -> Option<i64> {
+        self.export_typechecked_with(r, true)
+    }
+
+    /// Like `export_typechecked`; with `full` false the message has empty lists. The same
+    /// declarations are resolved and the same bodies are tracked, so a message is sent exactly
+    /// when it would be with contents, but no node record is built (see `crate::source::
+    /// typechecked_named`: nothing in the metaprogram can read them).
+    pub fn export_typechecked_with(&mut self, r: &mut Records, full: bool) -> Option<i64> {
         let mut decls = Vec::new();
         while self.meta.export.next_entity < self.ns.entities.len() {
             let id = EntityId(self.meta.export.next_entity as u32);
@@ -41,7 +49,7 @@ impl Compiler {
         }
         let mut out = Typechecked::default();
         // Bodies lowered since their header was reported.
-        let mut exported = self.export_ready_bodies(r, &mut out);
+        let mut exported = self.export_ready_bodies(r, &mut out, full);
         if decls.is_empty() && exported == 0 {
             return None;
         }
@@ -55,6 +63,12 @@ impl Compiler {
                 && !self.proc(p).is_poly
                 && self.signature(p, decl.span).is_err()
             {
+                continue;
+            }
+            if !full {
+                if let Resolved::Proc(p) = resolved {
+                    self.track_body(p, home);
+                }
                 continue;
             }
             let (rec, sub) = {
@@ -77,7 +91,7 @@ impl Compiler {
         // Newly reported calls can schedule ordinary callees or polymorph instances.
         // Drain ready bodies transitively even when the first pass exported none.
         loop {
-            exported = self.export_ready_bodies(r, &mut out);
+            exported = self.export_ready_bodies(r, &mut out, full);
             if exported == 0 {
                 break;
             }
@@ -231,7 +245,7 @@ impl Compiler {
 
     /// Export the bodies of reported headers that are lowered by now, into `out`. Returns how
     /// many it exported.
-    fn export_ready_bodies(&mut self, r: &mut Records, out: &mut Typechecked) -> usize {
+    fn export_ready_bodies(&mut self, r: &mut Records, out: &mut Typechecked, full: bool) -> usize {
         // A concrete procedure may be reached through a member or procedure value,
         // without the syntax exporter's call lookup finding it. Lowering is the
         // authority for these events, not whether its source has a global name.
@@ -255,6 +269,10 @@ impl Compiler {
             .collect();
         for p in completed {
             let scope = self.proc(p).bindings.unwrap_or(self.proc(p).scope);
+            if !full {
+                self.meta.export.schedule_body(p, 0, scope);
+                continue;
+            }
             let header = {
                 let mut exporter = Exporter {
                     c: Some(self),
@@ -277,6 +295,9 @@ impl Compiler {
             .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
         self.meta.export.pending_bodies = waiting;
         let count = ready.len();
+        if !full {
+            return count;
+        }
         for (p, _header_id, scope) in ready {
             let lit = self.proc(p).lit.clone();
             let span = self.proc(p).span;
@@ -296,6 +317,17 @@ impl Compiler {
             ex.proc(&lit, &notes, Some((p, sig)), span);
         }
         count
+    }
+
+    /// Remember that the body of `p`, declared in `home`, is yet to be reported (without a
+    /// header record: nothing is exported). Procedures a lowered body cannot be are left.
+    fn track_body(&mut self, p: ProcId, home: ScopeId) {
+        let proc = self.proc(p);
+        if proc.is_poly || proc.is_macro || proc.lit.body.is_none() {
+            return;
+        }
+        let scope = proc.bindings.unwrap_or(home);
+        self.meta.export.schedule_body(p, 0, scope);
     }
 
     /// Export `Code` value `code` with resolved names and types for `compiler_get_nodes`
