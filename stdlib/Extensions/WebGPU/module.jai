@@ -274,7 +274,9 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
             return webgpu_macos_drawable_size(window);
         } else {
             WC :: #import "Window_Creation";
-            _, _, w, h := WC.get_dimensions(window, false);
+            _, _, w, h, ok := WC.get_dimensions(window, false);
+            if !ok return 0, 0;
+
             return cast(s32) w, cast(s32) h;
         }
     }
