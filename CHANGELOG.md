@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.24.0] - 2026-10-21
+
+### New
+
+- `Math` has `Quaternion` arithmetic operators (#25).
+- Completion suggests the remaining fields inside struct literals, including `x: Foo = { }` (#24).
+- `for:` accepts a path to a `for_expansion`, like `Module.name` or `value.Walk` (#23).
+- `Bindings_Generator` binds C++ virtual methods on Linux and Windows, so headers like Slang's generate there too.
+
+### Improved
+
+- `jacket.toml` settings are checked: unknown keys are reported and ignored.
+- Completions that fit the expected type are listed first.
+- An untaken `#if` arm fades together with its header in editors.
+- Metaprograms that build large programs use much less time and memory.
+
+### Fixed
+
+- `Bindings_Generator` works from release installs, including on Windows, reads C++ headers as C++, and calls C++ methods from Windows DLLs (#26, #27).
+- Go to definition no longer causes "document is not open" errors in folders reached through a symlink.
+- Opening a module's `module.jai` in the editor no longer reports `#module_parameters` errors.
+- A closed window no longer breaks buffer swaps or GL context selection.
+
 ## [0.23.0] - 2026-10-20
 
 ### New
