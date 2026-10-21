@@ -98788,7 +98788,7 @@
     },
     "Objective_C": {
       "spec": "docs/specs/stdlib/modules/objective-c.md",
-      "spec_sha256": "1f4f5d92cb92c5f887661d6763384fe08973740917fb3a3a994a347c41c0c09f",
+      "spec_sha256": "2621d04064c9034c26ee4a7f8853a69c1431da86ef9b884d8ed6c920b5a90657",
       "counts": {
         "implemented": 28,
         "declared": 449,
@@ -203963,7 +203963,7 @@
     },
     "Windows": {
       "spec": "docs/specs/stdlib/modules/windows.md",
-      "spec_sha256": "2258af7c5f6578b75e5ad1cac8d920d1475b3c76afd79e952ea4e9312d59b89a",
+      "spec_sha256": "b5c3be5df546332dd88de1340e308b5fd7dc718ea5aca976a61f00423b17b7b2",
       "counts": {
         "declared": 1549,
         "implemented": 9,
