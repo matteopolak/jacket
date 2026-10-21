@@ -141,6 +141,19 @@ pub struct Expr {
     pub span: Span,
 }
 
+impl Expr {
+    /// The `a.b.c` spelling of a name path, or `None` when the expression is anything else.
+    pub fn path_string(&self) -> Option<String> {
+        match &self.kind {
+            ExprKind::Ident(name) => Some(name.as_str().to_string()),
+            ExprKind::Member(base, member) => {
+                Some(format!("{}.{}", base.path_string()?, member.name.as_str()))
+            }
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum BinOp {
     Add,
@@ -834,8 +847,8 @@ pub struct For {
     pub pointer_if: Option<Expr>,
     /// ``for <=cond ...``: iterate in reverse when `cond` holds.
     pub reverse_if: Option<Expr>,
-    /// `for:name ...` custom iterator modifier.
-    pub iterator: Option<Ident>,
+    /// `for: path ...` custom iterator modifier: a name or a `.`-chain of names.
+    pub iterator: Option<Expr>,
     /// ``for `it, `it_index: ...``: the names are declared in the macro caller's scope.
     pub backtick_names: bool,
     /// `for a..b` (range) or `for collection`.

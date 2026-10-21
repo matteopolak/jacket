@@ -510,7 +510,7 @@ impl Relocator {
                 self.opt_ident(&mut f.index);
                 self.opt_expr(&mut f.pointer_if);
                 self.opt_expr(&mut f.reverse_if);
-                self.opt_ident(&mut f.iterator);
+                self.opt_expr(&mut f.iterator);
                 match &mut f.over {
                     ForOver::Range(a, b) => {
                         self.expr(a);

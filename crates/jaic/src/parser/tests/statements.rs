@@ -221,6 +221,32 @@ fn equality_comparison_is_not_a_switch() {
 }
 
 #[test]
+fn for_expansion_takes_a_name_path() {
+    let stmts = body_of("for: tree.Walk root.range {}\nfor: Mod.Type.Walk xs {}\nfor: Walk xs {}");
+    let paths: Vec<Option<String>> = stmts
+        .iter()
+        .map(|s| match &s.kind {
+            StmtKind::For(f) => f.iterator.as_ref().and_then(crate::ast::Expr::path_string),
+            other => panic!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            Some("tree.Walk".to_string()),
+            Some("Mod.Type.Walk".to_string()),
+            Some("Walk".to_string())
+        ]
+    );
+    let StmtKind::For(f) = &stmts[0].kind else {
+        unreachable!()
+    };
+    assert!(
+        matches!(&f.over, ForOver::Collection(e) if e.path_string().as_deref() == Some("root.range"))
+    );
+}
+
+#[test]
 fn for_loop_forms() {
     let stmts = body_of(
         "for x, i: arr {}\nfor arr {}\nfor 0..n-1 {}\nfor < arr {}\nfor * p: arr {}\nfor :it_iter v: arr {}\nfor #v2 < a..b {}\nfor i: 1..10 print(i);\nfor #char \"a\"..#char \"e\" {}\nfor #v2 #run f() {}",

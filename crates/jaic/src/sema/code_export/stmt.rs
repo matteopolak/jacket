@@ -240,8 +240,8 @@ impl Exporter<'_> {
                     .ptr("want_reverse_expression", reverse)
                     .ptr("block", block)
                     .int("for_flags", flags);
-                if let Some(iterator) = f.iterator {
-                    rec.str(SyntaxKey::Iterator, iterator.name.as_str().as_bytes());
+                if let Some(path) = f.iterator.as_ref().and_then(ast::Expr::path_string) {
+                    rec.str(SyntaxKey::Iterator, path.as_bytes());
                 }
                 rec.str(
                     SyntaxKey::Flags,

@@ -757,25 +757,59 @@ impl Compiler {
         collection: &Operand,
         span: Span,
     ) -> Result<Vec<ProcId>> {
-        let macro_name = for_
-            .iterator
-            .map_or_else(|| Sym::intern("for_expansion"), |i| i.name);
-        let mut ids = self.lookup(scope, macro_name)?;
-        if ids.is_empty()
-            && for_.iterator.is_none()
-            && let Some(home) = self.ty.struct_home_scope(collection.ty())
-        {
-            ids = self.lookup(home, macro_name)?;
-        }
         let mut procs = Vec::new();
-        for id in ids {
-            if let Resolved::Proc(p) = self.resolve_entity(id)? {
-                procs.push(p);
+        let macro_name = match &for_.iterator {
+            // A dotted path resolves like a callee: `value.Constant`, `Module.name`, `Type.name`.
+            Some(path) if !matches!(path.kind, ast::ExprKind::Ident(_)) => {
+                match self.check_expr_no_emit(scope, path)? {
+                    Operand::Procs(found) => procs = found,
+                    _ => {
+                        return err(
+                            path.span,
+                            "`for :` needs the name of a `for_expansion` procedure",
+                        );
+                    }
+                }
+                if let ast::ExprKind::Member(_, last) = &path.kind {
+                    self.ide_note_for_iterator(last, &procs);
+                }
+                path.path_string()
+                    .map_or_else(|| Sym::intern("for_expansion"), |s| Sym::intern(&s))
             }
-        }
-        if let Some(iterator) = &for_.iterator {
-            self.ide_note_for_iterator(iterator, &procs);
-        }
+            _ => {
+                let macro_name = match &for_.iterator {
+                    Some(ast::Expr {
+                        kind: ast::ExprKind::Ident(name),
+                        ..
+                    }) => *name,
+                    _ => Sym::intern("for_expansion"),
+                };
+                let mut ids = self.lookup(scope, macro_name)?;
+                if ids.is_empty()
+                    && for_.iterator.is_none()
+                    && let Some(home) = self.ty.struct_home_scope(collection.ty())
+                {
+                    ids = self.lookup(home, macro_name)?;
+                }
+                for id in ids {
+                    if let Resolved::Proc(p) = self.resolve_entity(id)? {
+                        procs.push(p);
+                    }
+                }
+                if let Some(ast::Expr {
+                    kind: ast::ExprKind::Ident(name),
+                    span,
+                }) = &for_.iterator
+                {
+                    let ident = ast::Ident {
+                        name: *name,
+                        span: *span,
+                    };
+                    self.ide_note_for_iterator(&ident, &procs);
+                }
+                macro_name
+            }
+        };
         if procs.is_empty() {
             return err(
                 span,

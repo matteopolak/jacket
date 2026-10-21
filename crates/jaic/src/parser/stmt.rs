@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use super::{PResult, Parser};
 use crate::ast::{
-    AssignOp, BinOp, Block, Case, CheckBits, Expr, For, ForOver, Ident, Notes,
+    AssignOp, BinOp, Block, Case, CheckBits, Expr, ExprKind, For, ForOver, Ident, Notes,
     PushContextDeferStmt, PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter,
     UsingFilterKind, UsingStmt, WhileStmt,
 };
@@ -562,7 +562,7 @@ impl Parser<'_> {
                     if iterator.is_none() && matches!(self.tok_at(1), Tok::Ident(_)) =>
                 {
                     self.bump();
-                    iterator = Some(self.ident("as iterator name")?);
+                    iterator = Some(self.parse_for_expansion_path()?);
                     continue;
                 }
                 Tok::Directive(name) if !super::directive::directive_starts_expr(name.as_str()) => {
@@ -626,6 +626,25 @@ impl Parser<'_> {
             flags,
         };
         Ok(stmt(StmtKind::For(Box::new(node)), span))
+    }
+
+    /// The name after `for :`: `name`, `Module.name`, `value.Constant`, or a longer chain.
+    fn parse_for_expansion_path(&mut self) -> PResult<Expr> {
+        let first = self.ident("as iterator name")?;
+        let mut path = Expr {
+            kind: ExprKind::Ident(first.name),
+            span: first.span,
+        };
+        while self.at(P::Dot) && matches!(self.tok_at(1), Tok::Ident(_)) {
+            self.bump();
+            let member = self.ident("after `.`")?;
+            let span = path.span.to(member.span);
+            path = Expr {
+                kind: ExprKind::Member(Box::new(path), member),
+                span,
+            };
+        }
+        Ok(path)
     }
 
     /// At `name :` or `name, index :`.
