@@ -37,9 +37,9 @@ fn a_named_argument_ranks_by_its_parameter() {
         "f :: (text: string, on: bool) {{}}\nmain :: () {{ {LOCALS} f(\"x\", on = |); }}"
     ));
     assert!(before(&order, "z_flag", "a_name"), "{order:?}");
-    let order = sorted(&format!(
-        "f :: (text: string, on: bool) {{}}\nmain :: () {{ a_flag := true; z_name: string = \"\"; f(text = |); }}"
-    ));
+    let order = sorted(
+        "f :: (text: string, on: bool) {}\nmain :: () { a_flag := true; z_name: string = \"\"; f(text = |); }",
+    );
     assert!(before(&order, "z_name", "a_flag"), "{order:?}");
 }
 
