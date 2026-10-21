@@ -95,6 +95,26 @@ impl Session {
         Some((prefix, names, files))
     }
 
+    /// The visible names whose type fits the one the position expects (a parameter, a typed
+    /// declaration, a return value, a condition), or `None` when no type is expected there. The
+    /// word being typed is replaced by a placeholder `.NAME`, for which the compiler records
+    /// the type its context expected.
+    fn fitting_names(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        start: usize,
+    ) -> Option<BTreeSet<String>> {
+        const PLACEHOLDER: &str = "__jailsp_member";
+        let ident = jaic::lexicon::is_identifier_char;
+        let tail = start
+            + text[start..]
+                .find(|c: char| !ident(c))
+                .unwrap_or(text.len() - start);
+        let candidate = format!("{}.{PLACEHOLDER}{}", &text[..start], &text[tail..]);
+        self.with_semantic(uri, &candidate, |a, path| a.complete_fitting(path, start))
+    }
+
     pub fn completion(
         &self,
         uri: &DocumentUri,
@@ -219,6 +239,7 @@ impl Session {
                 call: crate::call_snippets::CALL_KEYWORDS
                     .contains(&k)
                     .then(IdeCall::unknown),
+                ty: None,
             });
             let member = {
                 let before = &doc.text.as_bytes()[..byte - prefix.len()];
@@ -235,6 +256,11 @@ impl Session {
                 .find(|(_, path)| path.as_str() == uri.path())
                 .map(|(id, _)| *id);
             let declaration_start = enclosing_declaration_start(&doc.text, byte);
+            let fitting = if member {
+                None
+            } else {
+                self.fitting_names(uri, &doc.text, byte - prefix.len())
+            };
             for (name, keyword) in all {
                 if !name.name.to_lowercase().starts_with(&lower) {
                     continue;
@@ -259,8 +285,15 @@ impl Session {
                     path: path.clone(),
                     offset: name.decl.start as usize,
                 });
+                // Names that fit the expected type come first; the order within each group is
+                // the usual one.
+                let fit = match &fitting {
+                    Some(set) if set.contains(&name.name) => "0",
+                    Some(_) => "1",
+                    None => "",
+                };
                 items.entry(name.name.clone()).or_insert(CompletionItem {
-                    sort_text: Some(format!("{rank}{}", name.name)),
+                    sort_text: Some(format!("{fit}{rank}{}", name.name)),
                     label: name.name,
                     kind,
                     detail: name.detail,

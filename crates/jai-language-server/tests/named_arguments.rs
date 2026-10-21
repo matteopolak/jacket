@@ -287,9 +287,11 @@ fn named_arguments_rank_before_locals_and_file_names() {
     };
     assert!(sort("to_standard_error") < sort("local"));
     assert!(sort("local") < sort("main"));
-    assert!(sort("local").starts_with('1') && sort("main").starts_with('2'));
+    // The first character says whether the name fits the expected type, the second its rank.
+    let rank = |label: &str| sort(label).chars().nth(1);
+    assert!(rank("local") == Some('1') && rank("main") == Some('2'));
     // A `__` name declared in this file is the user's own and ranks with the file's other names.
-    assert_eq!(sort("__hidden").chars().next(), sort("main").chars().next());
+    assert_eq!(rank("__hidden"), rank("main"));
 }
 
 #[test]

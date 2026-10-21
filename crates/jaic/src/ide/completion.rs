@@ -467,6 +467,7 @@ impl Compiler {
                             name: n.to_string(),
                             kind: IdeKind::EnumMember,
                             detail: format!("{} = {v}", info.name),
+                            ty: Some(t),
                             decl: self
                                 .ed
                                 .facts()
@@ -513,6 +514,7 @@ impl Compiler {
                                     detail: self.ty.types.name(f.ty),
                                     decl: f.span,
                                     call: None,
+                                    ty: Some(f.ty),
                                 });
                             }
                             if f.using {
@@ -557,6 +559,7 @@ pub(super) fn field(name: &str, detail: &str) -> IdeName {
         detail: detail.into(),
         decl: Span::NONE,
         call: None,
+        ty: None,
     }
 }
 

@@ -399,6 +399,8 @@ pub struct IdeName {
     pub decl: Span,
     /// How a procedure is called, for completion to insert the call.
     pub call: Option<IdeCall>,
+    /// The type of the value the name stands for, when it is a value whose type is known.
+    pub ty: Option<TypeId>,
 }
 
 /// The parameters of a procedure (every overload of a name) as far as inserting a call needs.

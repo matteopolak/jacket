@@ -216,20 +216,30 @@ impl Compiler {
             return None;
         }
         let mut call = None;
+        let mut ty = None;
         let (kind, detail) = match &e.kind {
             EntityKind::EnumMember {
-                ty, ..
-            } => (IdeKind::Constant, self.ty.types.name(*ty)),
+                ty: t, ..
+            } => {
+                ty = Some(*t);
+                (IdeKind::Constant, self.ty.types.name(*t))
+            }
             EntityKind::Local {
-                ty, ..
-            } => (IdeKind::Variable, self.ty.types.name(*ty)),
+                ty: t, ..
+            } => {
+                ty = Some(*t);
+                (IdeKind::Variable, self.ty.types.name(*t))
+            }
             EntityKind::Const {
                 value: value::Value::Type(_),
                 ..
             } => (IdeKind::Type, "Type".into()),
             EntityKind::Const {
-                ty, ..
-            } => (IdeKind::Constant, self.ty.types.name(*ty)),
+                ty: t, ..
+            } => {
+                ty = Some(*t);
+                (IdeKind::Constant, self.ty.types.name(*t))
+            }
             EntityKind::Placeholder | EntityKind::UnboundGenericParameter => return None,
             EntityKind::Import(_) => (IdeKind::Module, "module".into()),
             EntityKind::Builtin(b) => match b {
@@ -267,15 +277,21 @@ impl Compiler {
                     )
                 }
                 EntityState::Done(Resolved::Global {
-                    ty, ..
-                }) => (IdeKind::Variable, self.ty.types.name(*ty)),
+                    ty: t, ..
+                }) => {
+                    ty = Some(*t);
+                    (IdeKind::Variable, self.ty.types.name(*t))
+                }
                 EntityState::Done(Resolved::Const {
                     value: value::Value::Type(_),
                     ..
                 }) => (IdeKind::Type, "Type".into()),
                 EntityState::Done(Resolved::Const {
-                    ty, ..
-                }) => (IdeKind::Constant, self.ty.types.name(*ty)),
+                    ty: t, ..
+                }) => {
+                    ty = Some(*t);
+                    (IdeKind::Constant, self.ty.types.name(*t))
+                }
                 EntityState::Done(Resolved::Module(_)) => (IdeKind::Module, "module".into()),
                 _ => {
                     use crate::ast::ExprKind as E;
@@ -323,6 +339,7 @@ impl Compiler {
             detail,
             decl: e.span,
             call,
+            ty,
         })
     }
 }

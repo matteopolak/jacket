@@ -351,6 +351,36 @@ impl Compiler {
         out
     }
 
+    /// The names among `names` whose value converts implicitly to a type the placeholder
+    /// `.NAME` at `offset` was expected to have (see `ide_inferred_members`); `None` when no
+    /// expected type was recorded there.
+    pub fn ide_fitting_names(
+        &mut self,
+        file: FileId,
+        offset: u32,
+        names: &[IdeName],
+    ) -> Option<Vec<String>> {
+        let expected = self.ed.facts().and_then(|ide| {
+            ide.inferred_expected
+                .iter()
+                .find(|(s, _)| s.file == file && s.start == offset)
+                .map(|(_, t)| t.clone())
+        })?;
+        Some(
+            names
+                .iter()
+                .filter(|n| {
+                    n.ty.is_some_and(|ty| {
+                        expected
+                            .iter()
+                            .any(|&to| self.implicit_cost(ty, false, to).is_some())
+                    })
+                })
+                .map(|n| n.name.clone())
+                .collect(),
+        )
+    }
+
     /// A call nothing accepts (typically one being typed, with arguments missing): record the
     /// types its candidates take where an argument is an inferred `.NAME`, so completion can
     /// still list the enum's members.
