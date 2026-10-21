@@ -11,7 +11,7 @@ from unittest.mock import patch
 NATIVE_TOOLS = Path(__file__).resolve().parent.parent / "native_bindings"
 sys.path.insert(0, str(NATIVE_TOOLS))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from toolkit import fake_http
+from toolkit import fake_http  # noqa: E402
 from toolkit.hashing import sha256_bytes  # noqa: E402
 SPEC = importlib.util.spec_from_file_location("native_source_builder", NATIVE_TOOLS / "build_dependencies.py")
 builder = importlib.util.module_from_spec(SPEC)
