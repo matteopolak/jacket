@@ -36,12 +36,12 @@ def build_static(prefix: Path, platform: str, out: Path) -> Path:
     # Windows objects are position independent already, and clang rejects -fPIC for MSVC targets.
     pic = [] if platform.startswith("windows") else ["-fPIC"]
     subprocess.run(
-        [str(prefix / "bin/clang"), "-std=c11", "-O2", *pic, "-c", str(source), "-o", str(obj)],
+        [build_generator_platform.sdk_tool(prefix, "clang", "clang"), "-std=c11", "-O2", *pic, "-c", str(source), "-o", str(obj)],
         check=True,
     )
     archive = out / static_name("generator_platform", platform)
     archive.unlink(missing_ok=True)
-    subprocess.run([str(prefix / "bin/llvm-ar"), "rcs", str(archive), str(obj)], check=True)
+    subprocess.run([build_generator_platform.sdk_tool(prefix, "llvm-ar", "ar"), "rcs", str(archive), str(obj)], check=True)
     obj.unlink()
     return archive
 

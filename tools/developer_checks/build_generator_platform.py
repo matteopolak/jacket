@@ -4,9 +4,24 @@
 import argparse
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import build_developer_bindings
 from dev_common import ROOT
+
+
+def sdk_tool(prefix, name, fallback):
+    """`prefix/bin/name`, or `fallback` from PATH when the SDK has none.
+
+    macOS always uses Xcode's tools: the x64 SDK has no clang and its llvm-ar cannot load libLLVM.
+    """
+    tool = Path(prefix) / "bin" / name
+    if platform.system() != "Darwin" and (tool.exists() or tool.with_suffix(".exe").exists()):
+        return str(tool)
+    found = shutil.which(fallback)
+    if not found:
+        raise SystemExit(f"{prefix} has no bin/{name} and no {fallback} is on PATH")
+    return found
 
 
 def build(prefix=None, output_dir=None, record_nm=True):
@@ -30,7 +45,7 @@ def build(prefix=None, output_dir=None, record_nm=True):
         libraries += ["-ldl"]
     subprocess.run(
         [
-            str(prefix / "bin/clang"),
+            sdk_tool(prefix, "clang", "clang"),
             "-std=c11",
             "-O2",
             "-Wall",
