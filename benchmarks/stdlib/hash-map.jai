@@ -2,7 +2,7 @@
 // and full iteration, at three sizes. Each workload runs RUNS times on fresh tables; the table
 // printed is the median in nanoseconds per operation.
 //
-//     jaic benchmarks/hash-map.jai -O2 -exe hash-map-bench && ./hash-map-bench
+//     jaic benchmarks/stdlib/hash-map.jai -O2 -exe hash-map-bench && ./hash-map-bench
 #import "Basic";
 #import "String";
 Chained :: #import "Hash_Table";

@@ -378,6 +378,7 @@ def train(bins, args, env, native):
             ),
             ("sweep (native -O2)", sweep + ["--opt", "O2", "corpus", "examples"]),
         ]
+    # Only the top level: these are short interpreter programs. Longer benchmarks live in subfolders.
     for bench in sorted((ROOT / "benchmarks").glob("*.jai")):
         steps.append((f"run {bench.name}", [bins["jaic"], bench, "-interp"]))
     scratch = Path(tempfile.mkdtemp(prefix="jaic-pgo-"))

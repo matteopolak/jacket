@@ -82,7 +82,7 @@ Plain :: #import "Extensions/Hash_Map"(SCALAR_GROUPS = true);
 
 ## Measured against Hash_Table
 
-`benchmarks/hash-map.jai`, built with `-O2` on an Apple M-series Mac (arm64, NEON), median of seven runs of each workload, `s64` keys unless noted. Speedup is `Hash_Table` time over `Hash_Map` time, so above 1 means `Hash_Map` is faster. Numbers move by 10 to 20 percent from run to run on a busy machine.
+`benchmarks/stdlib/hash-map.jai`, built with `-O2` on an Apple M-series Mac (arm64, NEON), median of seven runs of each workload, `s64` keys unless noted. Speedup is `Hash_Table` time over `Hash_Map` time, so above 1 means `Hash_Map` is faster. Numbers move by 10 to 20 percent from run to run on a busy machine.
 
 | Workload (ns/op, Hash_Table / Hash_Map) | 1k entries | 100k entries | 1M entries |
 | --- | --- | --- | --- |
