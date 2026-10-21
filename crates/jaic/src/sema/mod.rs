@@ -444,6 +444,8 @@ pub struct ProcTypeParams {
 impl Compiler {
     /// Give compile-time code access to the `Compiler` module's workspaces.
     pub fn attach_workspaces(&mut self, workspaces: crate::build::SharedWorkspaces) {
+        let usage = workspaces.borrow().typechecked_use.clone();
+        self.src.sources.share_typechecked_use(usage);
         self.ct.interp.workspaces = Some(workspaces);
     }
 

@@ -45,6 +45,7 @@ impl Workspaces {
             records: Records::default(),
             builders: Vec::new(),
             data_segments: Vec::new(),
+            typechecked_use: Rc::default(),
         }))
     }
 

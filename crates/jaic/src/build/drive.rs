@@ -98,6 +98,9 @@ pub(super) fn step(
         Stage::Done => unreachable!(),
     });
     let intercepted = shared.borrow_mut().ws(id)?.intercepted;
+    let full = |shared: &SharedWorkspaces| {
+        shared.borrow().typechecked_use.get() & crate::source::TYPECHECKED_NAMED != 0
+    };
     let mut file_events = Vec::new();
     let mut reported = false;
     if intercepted {
@@ -116,8 +119,7 @@ pub(super) fn step(
         }
         // After the final lowering too: procedure bodies are reported once lowered.
         if matches!(result, Ok(Stage::Checked | Stage::Done))
-            && let Some(message) =
-                compiler.export_typechecked_with(&mut records, crate::source::typechecked_named())
+            && let Some(message) = compiler.export_typechecked_with(&mut records, full(shared))
         {
             reported = true;
             // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
@@ -149,8 +151,7 @@ pub(super) fn step(
             // last TYPECHECKED message.
             if finished.is_ok() && intercepted {
                 let mut records = Records::lend(&mut shared.borrow_mut().records);
-                if let Some(message) = compiler
-                    .export_typechecked_with(&mut records, crate::source::typechecked_named())
+                if let Some(message) = compiler.export_typechecked_with(&mut records, full(shared))
                 {
                     events.push(record_event(EVENT_TYPECHECKED, message));
                 }

@@ -43,6 +43,36 @@ THRESHOLDS = {"alloc_blocks": 2.0, "alloc_bytes": 3.0, "instructions": 4.0}
 IMPROVED = 5.0
 
 HELLO = '#import "Basic";\nmain :: () { print("hello\\n"); }\n'
+# A build metaprogram that reads every TYPECHECKED message: counts what it holds and walks the nodes, so the
+# export of the code trees shows up in the counts (a metaprogram that never names the message skips it).
+READER = '''#import "Basic";
+#import "Compiler";
+
+build :: () {
+    set_build_options_dc(.{ do_output = false });
+    w := compiler_create_workspace("gate");
+    options := get_build_options(w);
+    options.output_type = .NO_OUTPUT;
+    set_build_options(options, w);
+    compiler_begin_intercept(w);
+    add_build_file("%/main.jai", w);
+
+    declarations, nodes: s64;
+    while true {
+        message := compiler_wait_for_message();
+        if message.kind == .TYPECHECKED {
+            typechecked := cast(*Message_Typechecked) message;
+            declarations += typechecked.declarations.count;
+            for typechecked.all nodes += it.subexpressions.count;
+        }
+        if message.kind == .COMPLETE break;
+    }
+    compiler_end_intercept(w);
+    print("typechecked: % declarations, % nodes\\n", declarations, nodes);
+}
+
+#run build();
+'''
 ALLOC = re.compile(r"^jaic-alloc: total (\d+) (\d+)$", re.M)
 IREFS = re.compile(r"I\s+refs:\s+([\d,]+)")
 
@@ -63,12 +93,18 @@ def workloads(scratch: Path):
         for name, text in benchgen.generate(lines, 1, 1).items():
             (directory / name).write_text(text)
         gens[lines] = directory
+    meta = scratch / "gen-2k-meta"
+    (meta / "program").mkdir(parents=True)
+    for name, text in benchgen.generate(2000, 1, 1).items():
+        (meta / "program" / name).write_text(text)
+    (meta / "main.jai").write_text(READER.replace("%/main.jai", str(meta / "program") + "/main.jai"))
     return [
         ("hello/check", hello, ["-check"]),
         ("hello/build", hello, ["-exe", str(scratch / "hello-out")]),
         ("gen-2k/check", gens[2000], ["-check"]),
         ("gen-2k/build", gens[2000], ["-exe", str(scratch / "gen2-out")]),
         ("gen-10k/check", gens[10000], ["-check"]),
+        ("gen-2k/meta", meta, []),
     ]
 
 

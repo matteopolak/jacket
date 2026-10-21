@@ -14,8 +14,8 @@ impl Compiler {
 
     /// Like `export_typechecked`; with `full` false the message has empty lists. The same
     /// declarations are resolved and the same bodies are tracked, so a message is sent exactly
-    /// when it would be with contents, but no node record is built (see `crate::source::
-    /// typechecked_named`: nothing in the metaprogram can read them).
+    /// when it would be with contents, but no node record is built (see `TYPECHECKED_NAMED` in `crate::source`:
+    /// nothing in the metaprogram can read them).
     pub fn export_typechecked_with(&mut self, r: &mut Records, full: bool) -> Option<i64> {
         let mut decls = Vec::new();
         while self.meta.export.next_entity < self.ns.entities.len() {

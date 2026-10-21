@@ -6,7 +6,7 @@
 
 ## How it works
 
-Five fixed compiles run single-threaded (`-serial_parse -threads 1`): hello world and a `tools/benchgen.py` program of 2,000 lines (seed 1), each with `-check` and as a native build, and a 10,000-line program with `-check`. Per compile:
+Six fixed compiles run single-threaded (`-serial_parse -threads 1`): hello world and a `tools/benchgen.py` program of 2,000 lines (seed 1), each with `-check` and as a native build, a 10,000-line program with `-check`, and `gen-2k/meta`: a build metaprogram that creates a workspace for the 2,000-line program and reads every `Message_Typechecked` (declarations and the nodes of `all`). The last one guards the export of code trees to metaprograms (`docs/metaprogramming/compiler-module.md`); a metaprogram that never names the message skips that work, so a regression there would not show in a phase-only build. Per compile:
 
 | Metric | Source | Threshold |
 | --- | --- | --- |

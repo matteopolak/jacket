@@ -146,6 +146,8 @@ pub struct Workspaces {
     /// The structs each program built from the records (`__jaic_rec_builder` numbers them from 1).
     pub(super) builders: Vec<crate::record_build::Builder>,
     pub(super) data_segments: Vec<DataSegment>,
+    /// What the build's sources say about reading TYPECHECKED messages.
+    pub(crate) typechecked_use: crate::source::TypecheckedUse,
 }
 
 pub(super) struct DataSegment {

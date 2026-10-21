@@ -199,3 +199,29 @@ fn char_columns_agree_with_counting_from_the_line_start() {
         }
     }
 }
+
+#[test]
+fn naming_the_typechecked_message_is_tracked_per_build() {
+    let named = |usage: &TypecheckedUse| usage.get() & TYPECHECKED_NAMED != 0;
+    let (first, second) = (TypecheckedUse::default(), TypecheckedUse::default());
+    let mut a = SourceMap::default();
+    let mut b = SourceMap::default();
+    a.share_typechecked_use(first.clone());
+    b.share_typechecked_use(second.clone());
+    a.add("/app/main.jai", "m: *Message_Typechecked;".into());
+    assert!(named(&first));
+    assert!(!named(&second));
+    b.add("/app/other.jai", "x :: 1;".into());
+    assert!(!named(&second));
+    // The record definition and its delivery code do not count.
+    b.add(
+        "/lib/Compiler/contract-records.jai",
+        "Message_Typechecked :: struct {}".into(),
+    );
+    assert!(!named(&second));
+    // A map that named it before joining a build brings that along.
+    let mut c = SourceMap::default();
+    c.add("/app/late.jai", "Message_Typechecked".into());
+    c.share_typechecked_use(second.clone());
+    assert!(named(&second));
+}
