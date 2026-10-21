@@ -97,7 +97,9 @@ MACOS_THERM = 'Note: No thermal warning level has been recorded\nCPU_Scheduler_L
 MACOS_THROTTLED = 'CPU_Scheduler_Limit = 100\nCPU_Speed_Limit = 70\n'
 VM_STAT = ('Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:      1000.\n'
            'Pages inactive:  2000.\nPages speculative: 500.\nPages active: 99999.\n')
-PS = '  1 /sbin/launchd\n  42 /usr/bin/python3\n 100 /Users/me/.cargo/bin/cargo\n 101 /x/rustc\n 102 /System/mds\n 103 /usr/libexec/backupd\n 104 mdworker_shared\n'
+PS = ('  1 0.0 /sbin/launchd\n  42 1.0 /usr/bin/python3\n 100 0.0 /Users/me/.cargo/bin/cargo\n 101 50.0 /x/rustc\n'
+      ' 102 12.0 /System/mds\n 103 30.5 /usr/libexec/backupd\n 104 8.0 mdworker_shared\n 105 0.1 /System/mds_stores\n'
+      ' 106 0.0 /usr/libexec/backupd-helper\n')
 
 
 def snap(load=0.5, throttled=False, power='ac', free=8000.0, noisy=()):
@@ -115,10 +117,10 @@ class QuietTests(unittest.TestCase):
         self.assertEqual(quiet.parse_vm_stat(VM_STAT), 54.7)
         self.assertEqual(quiet.parse_meminfo('MemAvailable:    2048000 kB\n'), 2000.0)
 
-    def test_noisy_processes_match_by_name_and_ignore_own_pids(self):
+    def test_noisy_processes_match_by_name_daemons_only_when_busy(self):
         self.assertEqual(quiet.noisy_processes(PS), ['backupd', 'cargo', 'mds', 'mdworker_shared', 'rustc'])
         self.assertEqual(quiet.noisy_processes(PS, {100, 101}), ['backupd', 'mds', 'mdworker_shared'])
-        self.assertEqual(quiet.noisy_processes('  1 /usr/bin/python3\n'), [])
+        self.assertEqual(quiet.noisy_processes('  1 0.0 /usr/bin/python3\n'), [])
 
     def test_a_quiet_machine_passes(self):
         self.assertEqual(quiet.start_problems(snap(), 2.5), ([], []))

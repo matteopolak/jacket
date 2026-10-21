@@ -15,12 +15,14 @@ import time
 from pathlib import Path
 
 # Process names (basename of the command) that compete for CPU, memory or disk with a compiler: other
-# compilers and build tools, the indexer and the backup.
+# compilers and build tools count whenever they run.
 NOISY_NAMES = {
     'cargo', 'rustc', 'rustdoc', 'sccache', 'rust-analyzer', 'clang', 'clang++', 'cc', 'gcc', 'g++', 'cc1',
-    'ld', 'lld', 'ld64', 'swiftc', 'swift-frontend', 'jaic', 'jailsp', 'mds', 'mds_stores', 'mdworker',
-    'mdworker_shared', 'backupd', 'backupd-helper', 'tmutil',
+    'ld', 'lld', 'ld64', 'swiftc', 'swift-frontend', 'jaic', 'jailsp', 'tmutil',
 }
+# The indexer and the backup: macOS keeps these alive, so they count only while busy.
+BUSY_NAMES = {'mds', 'mds_stores', 'mdworker', 'mdworker_shared', 'backupd', 'backupd-helper'}
+BUSY_CPU_PERCENT = 5.0
 
 # A free-memory drop that counts as a state change: at least this fraction and this many MiB.
 MEMORY_DROP_FRACTION = 0.2
@@ -72,14 +74,20 @@ def parse_meminfo(text: str) -> float | None:
 
 
 def noisy_processes(ps_output: str, ignore_pids: set[int] | None = None) -> list[str]:
-    """Names of the known noisy processes in `ps -axo pid=,comm=` output (each name once, sorted)."""
+    """Names of the noisy processes in `ps -axo pid=,pcpu=,comm=` output (each name once, sorted)."""
     found = set()
     for line in ps_output.splitlines():
-        parts = line.strip().split(None, 1)
-        if len(parts) != 2 or not parts[0].isdigit() or int(parts[0]) in (ignore_pids or ()):
+        parts = line.strip().split(None, 2)
+        if len(parts) != 3 or not parts[0].isdigit() or int(parts[0]) in (ignore_pids or ()):
             continue
-        name = parts[1].rsplit('/', 1)[-1].strip()
-        if name in NOISY_NAMES or name.startswith(('rustc', 'mdworker')):
+        try:
+            cpu = float(parts[1])
+        except ValueError:
+            continue
+        name = parts[2].rsplit('/', 1)[-1].strip()
+        if name in NOISY_NAMES or name.startswith('rustc'):
+            found.add(name)
+        elif (name in BUSY_NAMES or name.startswith('mdworker')) and cpu >= BUSY_CPU_PERCENT:
             found.add(name)
     return sorted(found)
 
@@ -125,7 +133,7 @@ def snapshot() -> dict:
     load = os.getloadavg()
     return {'time': time.time(), 'cpus': os.cpu_count(), 'load': [round(v, 2) for v in load],
             'thermal': thermal_state(), 'power': power_source(), 'free_mib': free_memory_mib(),
-            'noisy': noisy_processes(sh('ps', '-axo', 'pid=,comm='), {os.getpid(), os.getppid()})}
+            'noisy': noisy_processes(sh('ps', '-axo', 'pid=,pcpu=,comm='), {os.getpid(), os.getppid()})}
 
 
 # --------------------------------------------------------------------------------------------- rules
