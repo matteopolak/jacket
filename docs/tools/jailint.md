@@ -217,7 +217,7 @@ Rules are comma-separated; `all` means every rule. A `_` prefix marks an unused 
 
 ## Configuration
 
-The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). A directory with only a legacy `jailint.toml` is read the same way (the same keys, without the `[lint]` header) and the tool suggests `jacket config migrate`. Unknown settings, rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file.
+The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). A directory with only a legacy `jailint.toml` is read the same way (the same keys, without the `[lint]` header) and the tool suggests `jacket config migrate`. Unknown settings are dropped with a warning (`unknown setting ... (ignored)`); unknown rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file.
 
 ```toml
 [lint]

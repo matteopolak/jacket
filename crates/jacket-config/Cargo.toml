@@ -8,6 +8,7 @@ description = "The jacket.toml schema, its lookup, and migration from the legacy
 
 [dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
+serde_ignored = "=0.1.14"
 toml = "=1.1.2"
 toml_edit = "=0.25.13"
 

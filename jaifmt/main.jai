@@ -425,6 +425,10 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
     config.* = parsed;
     config.root = copy_string(parent_directory(path));
 
+    for config.unknown_keys {
+        print_error("jaifmt: warning: %\n", format_unknown_setting_note(it, shown(path)));
+    }
+
     return config, true, "";
 }
 

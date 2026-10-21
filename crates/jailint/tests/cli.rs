@@ -80,10 +80,6 @@ fn config_mistakes_name_the_line_and_the_fix() {
             "[lint.rules]\nfloat_equality = \"loud\"\n",
             "unknown level \"loud\" for `float_equality`\nhelp: use \"allow\", \"warn\" or \"deny\"",
         ),
-        (
-            "[lint]\nverbose = true\n",
-            "unknown setting `verbose` in [lint]",
-        ),
         ("[lint]\nmax_nesting = \"deep\"\n", "invalid type: string"),
     ];
     for (config, expected) in cases {
@@ -93,6 +89,14 @@ fn config_mistakes_name_the_line_and_the_fix() {
         assert!(text.starts_with("error: in `"), "{config:?}: {text}");
         assert!(text.contains(expected), "{config:?}: {text}");
     }
+    // An unknown setting is a warning, with the near key named, and the run goes on.
+    std::fs::write(dir.join("jacket.toml"), "[lint]\nmax_nestng = 3\n").unwrap();
+    let (text, code) = jailint(&dir, &["game.jai"]);
+    assert_ne!(code, Some(2), "{text}");
+    assert!(
+        text.contains("unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?"),
+        "{text}"
+    );
     // The legacy file still works, with a hint to migrate.
     std::fs::remove_file(dir.join("jacket.toml")).unwrap();
     std::fs::write(

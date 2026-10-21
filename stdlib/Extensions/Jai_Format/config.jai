@@ -12,7 +12,9 @@ resolved_case_body_indent :: (config: Format_Config) -> int {
     return config.case_body_indent;
 }
 
-// Parses `text` into `config`; on failure returns false and a message naming the line. With
+// Parses `text` into `config`; on failure returns false and a message naming the line. Keys the
+// format settings do not have are dropped into `config.unknown_keys` (as `key`, or `format.key`
+// for a sub-table), not errors. With
 // `jacket`, `text` is a jacket.toml: only the keys under `[format]` count and every other table is
 // skipped; otherwise `text` is a jaifmt.toml, whose keys sit at the top.
 parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> bool, string {
@@ -61,7 +63,9 @@ parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> 
         if !line.count continue;
 
         if jacket && line[0] == #char "[" && line[line.count - 1] == #char "]" {
-            in_format = trim(slice(line, 1, line.count - 2)) == "format";
+            table := trim(slice(line, 1, line.count - 2));
+            in_format = table == "format";
+            if begins_with(table, "format.") array_add(*config.unknown_keys, copy_string(table));
             continue;
         }
 
@@ -169,10 +173,38 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
                 if items.count && items[0] == #char "," items = slice(items, 1, items.count - 1);
             }
         case;
-            return false, tprint("line %: unknown key `%`", line_number, key);
+            array_add(*config.unknown_keys, copy_string(key));
     }
 
     return true, "";
+}
+
+FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return", "ignore"];
+
+// The warning for an unknown `[format]` setting `key` found in the config file `file`: it is
+// ignored, and the nearest known key is named when there is one within a third of its length.
+unknown_setting_note :: (key: string, file: string) -> string {
+    path := key;
+    if !begins_with(key, "format.") path = tprint("format.%", key);
+
+    note := tprint("unknown setting `%` in % (ignored)", path, file);
+
+    limit := max(1, key.count / 3);
+    best := -1;
+    best_distance := limit + 1;
+
+    for FORMAT_KEYS {
+        distance := edit_distance(key, it);
+
+        if distance < best_distance {
+            best = it_index;
+            best_distance = distance;
+        }
+    }
+
+    if best >= 0 return tprint("%; did you mean `format.%`?", note, FORMAT_KEYS[best]);
+
+    return note;
 }
 
 // Is `path` (absolute) ignored by `config`? Globs are relative to the config's directory:
@@ -240,6 +272,31 @@ glob_match :: (pattern: string, text: string) -> bool {
 }
 
 #scope_file
+
+// Insertions, deletions and substitutions turning `a` into `b`; names past 63 bytes count as far.
+edit_distance :: (a: string, b: string) -> int {
+    if a.count > 63 || b.count > 63 return 1000;
+
+    previous: [64] int;
+    current: [64] int;
+
+    for 0..b.count previous[it] = it;
+
+    for i: 1..a.count {
+        current[0] = i;
+
+        for j: 1..b.count {
+            cost := 1;
+            if a[i - 1] == b[j - 1] cost = 0;
+
+            current[j] = min(previous[j] + 1, min(current[j - 1] + 1, previous[j - 1] + cost));
+        }
+
+        for 0..b.count previous[it] = current[it];
+    }
+
+    return previous[b.count];
+}
 
 strip_comment :: (line: string) -> string {
     in_string := false;

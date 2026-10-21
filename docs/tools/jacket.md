@@ -114,7 +114,7 @@ serial_parse = false            # -serial_parse
 codegen_units = 4               # -codegen_units
 ```
 
-Precedence: command-line flags, then `jacket.toml`, then legacy files, then defaults. Unknown sections and keys are kept and reported by `jacket config show`, not fatal, except where a tool has always been strict: `jailint` rejects unknown lint settings, rules and levels, and `jaifmt` unknown format keys. A file that is not valid TOML, or has a wrongly typed value, is an error naming the file and line.
+Precedence: command-line flags, then `jacket.toml`, then legacy files, then defaults. Unknown sections and keys are never fatal and never read: parsing drops them (`serde_ignored` collects their paths) and every tool prints the same warning, `unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?` (the suggestion appears when a known key is close). `jailint` still rejects unknown rule names and levels inside `[lint.rules]`, whose keys are rule names, not schema keys. A file that is not valid TOML, or has a wrongly typed value, is an error naming the file and line.
 
 `jacket config show` prints the effective settings annotated with the file each value came from.
 
@@ -132,7 +132,7 @@ A directory with both uses `jacket.toml` and ignores the legacy file, with a one
 
 ## Migration
 
-`jacket config migrate [--dry-run]` writes `jacket.toml` next to the legacy files, merging the ones in that directory. Comments and layout move with their keys (`toml_edit`), unknown keys are kept and reported, the header says where the file came from, and **the old files are never deleted**. It is idempotent: with a `jacket.toml` present it does nothing. `--dry-run` prints the file and where it would go.
+`jacket config migrate [--dry-run]` writes `jacket.toml` next to the legacy files, merging the ones in that directory. Comments and layout move with their keys (`toml_edit`), unknown keys are copied over and then warned about like any other file, the header says where the file came from, and **the old files are never deleted**. It is idempotent: with a `jacket.toml` present it does nothing. `--dry-run` prints the file and where it would go.
 
 | situation | what happens |
 | --- | --- |
@@ -148,7 +148,7 @@ The notices go to stderr, since stdout may be an LSP stream. The VS Code extensi
 ## How to change it
 
 - A new `jaic`-flag-backed setting: add the field to `Experimental` in `crates/jacket-config/src/schema.rs`, forward it in `defaults` in `crates/jacket/src/compile.rs`, and add a case to the `compile.rs` tests; extend `editors/vscode/scripts/build.ts` and run it.
-- A new section read by a tool: add the struct in `schema.rs` (with `extra` flattened so unknown keys survive), then read it from `Loaded`; give a legacy file a mapping in `migrate.rs` only if one existed.
+- A new section read by a tool: add a typed struct in `schema.rs` (no catch-all map: unknown keys are collected by `parse_noting`, and the `known_keys` list there feeds the did-you-mean, which a test keeps in step with the struct), then read it from `Loaded`; give a legacy file a mapping in `migrate.rs` only if one existed.
 - Entry inference is `jacket_config::first_entry` and `INFERRED_ENTRIES`; `jaic-cli` and `jailsp` both use it, so keep one order.
 - The compiler library (`crates/jaic`) never reads `jacket.toml` and stays dependency-free; `jaic` takes its settings as flags from `jacket`. Only the `jaic-cli` binary uses `jacket-config`, to suggest the project's entry when it is given a directory.
 - `jaifmt` is written in Jai and reads `[format]` itself (`Jai_Format`'s `parse_jacket_config`); a change to the format keys is made in `stdlib/Extensions/Jai_Format/config.jai`.

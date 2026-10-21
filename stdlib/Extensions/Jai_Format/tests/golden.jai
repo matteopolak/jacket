@@ -180,7 +180,7 @@ check_config_parsing :: () {
         fail("the code block blank line options were not parsed");
     }
 
-    for string.["indent_width = x\n", "unknown = 1\n", "brace_style = \"weird\"\n", "ignore = \"a\"\n", "blank_lines_between_items = 1\n", "blank_lines_around_blocks = yes\n"] {
+    for string.["indent_width = x\n", "brace_style = \"weird\"\n", "ignore = \"a\"\n", "blank_lines_between_items = 1\n", "blank_lines_around_blocks = yes\n"] {
         _, accepted := parse_config(it);
         if accepted fail("bad config accepted: %", it);
     }
@@ -195,10 +195,19 @@ check_config_parsing :: () {
     none, none_ok := parse_jacket_config("[lint]\nmax_nesting = 3\n");
     if !none_ok || none.indent_width != 4 fail("a jacket.toml without [format] should give the defaults");
 
-    for string.["[format]\nindent_width = x\n", "[format]\nunknown = 1\n", "[format]\nignore = [\"a\"\n", "[format]\nindent_width\n"] {
+    for string.["[format]\nindent_width = x\n", "[format]\nignore = [\"a\"\n", "[format]\nindent_width\n"] {
         _, accepted := parse_jacket_config(it);
         if accepted fail("bad jacket.toml accepted: %", it);
     }
+
+    unknown, unknown_ok := parse_jacket_config("[format]\nindent_widht = 2\ncolour = 1\n[format.extra]\nx = 1\n");
+    if !unknown_ok || unknown.unknown_keys.count != 3 || unknown.indent_width != 4 fail("unknown [format] keys should be dropped and listed");
+
+    note := format_unknown_setting_note(unknown.unknown_keys[0], "jacket.toml");
+    if note != "unknown setting `format.indent_widht` in jacket.toml (ignored); did you mean `format.indent_width`?" fail("unknown key note: %", note);
+
+    note = format_unknown_setting_note(unknown.unknown_keys[1], "jacket.toml");
+    if note != "unknown setting `format.colour` in jacket.toml (ignored)" fail("unknown key note: %", note);
 
     config.root = "/repo";
     if !format_is_ignored(config, "/repo/a/x/y.jai") fail("`a/**` should ignore /repo/a/x/y.jai");

@@ -84,11 +84,6 @@ impl Config {
 
     /// Settings from a `[lint]` section whose paths are relative to `root`.
     pub fn from_lint(lint: &Lint, root: &Path) -> Result<Config, String> {
-        if let Some(key) = lint.extra.keys().next() {
-            return Err(format!(
-                "unknown setting `{key}` in [lint]\nhelp: the settings are `exclude = [\"pattern\", ...]`, `max_nesting = 6` and the `[lint.rules]` table"
-            ));
-        }
         let mut config = Config {
             root: root.to_path_buf(),
             exclude: lint.exclude.clone(),
@@ -138,10 +133,15 @@ impl Config {
             .map_err(|e| e.to_string())?;
             Self::from_loaded(loaded)?
         } else {
-            let parsed =
-                jacket_config::parse(&text).map_err(|e| format!("in `{}`, {e}", path.display()))?;
-            Self::from_lint(&parsed.lint, dir)
-                .map_err(|e| format!("in `{}`, {e}", path.display()))?
+            let (parsed, unknown) = jacket_config::parse_noting(&text)
+                .map_err(|e| format!("in `{}`, {e}", path.display()))?;
+            let mut config = Self::from_lint(&parsed.lint, dir)
+                .map_err(|e| format!("in `{}`, {e}", path.display()))?;
+            config.notes = unknown
+                .iter()
+                .map(|key| jacket_config::unknown_note(key))
+                .collect();
+            config
         };
         config.source = Some(path.to_path_buf());
         Ok(config)
@@ -254,7 +254,7 @@ mod tests {
     fn rejects_unknown_rules_and_levels() {
         assert!(parse("[lint.rules]\nno_such_rule = \"warn\"").is_err());
         assert!(parse("[lint.rules]\nlossy_xx = \"loud\"").is_err());
-        assert!(parse("[lint]\nverbose = true\n").is_err());
+        assert!(parse("[lint]\nverbose = true\n").is_ok());
     }
 
     #[test]

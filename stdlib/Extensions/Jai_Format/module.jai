@@ -28,6 +28,7 @@ Format_Config :: struct {
     blank_line_after_guards := false; // in code blocks: a blank line after a one-line `if`, `for` or `while`
     blank_line_before_return := false; // in code blocks: a blank line above a `return`
     ignore: [..] string; // globs relative to `root`, for format_is_ignored
+    unknown_keys: [..] string; // keys the parser did not know and dropped; see format_unknown_setting_note
     root: string; // directory of the config file; set by whoever read it
 }
 
@@ -47,7 +48,8 @@ format_source :: (text: string, config: Format_Config = .{}) -> result: string, 
 
 // Parses jaifmt.toml text (`key = value` lines, `#` comments, arrays over several lines; see the
 // docs for the keys).
-// Unknown keys and bad values are errors, reported as `line N: ...`.
+// Bad values are errors, reported as `line N: ...`; unknown keys are dropped and listed in
+// `unknown_keys`.
 parse_config :: (text: string) -> config: Format_Config, ok: bool, error: string {
     config: Format_Config;
     ok, error := parse_config_into(text, *config);
@@ -60,6 +62,12 @@ parse_jacket_config :: (text: string) -> config: Format_Config, ok: bool, error:
     config: Format_Config;
     ok, error := parse_config_into(text, *config, jacket = true);
     return config, ok, error;
+}
+
+// The warning for an entry of `config.unknown_keys` found in the file `file`, with a suggestion
+// when a known key is close.
+format_unknown_setting_note :: (key: string, file: string) -> string {
+    return unknown_setting_note(key, file);
 }
 
 // Whether `before` and `after` are the same program as far as the compiler can tell: the same

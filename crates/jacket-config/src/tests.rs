@@ -75,18 +75,15 @@ fn all_three_merge() {
     assert_eq!(config.project.entry.0, ["first.jai"]);
     assert_eq!(config.lint.max_nesting, Some(4));
     assert_eq!(config.format.brace_style.as_deref(), Some("same_line"));
-    assert!(
-        config.unknown_keys().is_empty(),
-        "{:?}",
-        config.unknown_keys()
-    );
+    let (_, unknown) = parse_noting(&text).unwrap();
+    assert!(unknown.is_empty(), "{unknown:?}");
     assert!(text.starts_with(
         "# Written by `jacket config migrate` from jai.toml, jailint.toml, jaifmt.toml."
     ));
 }
 
 #[test]
-fn unknown_keys_are_kept_with_a_warning() {
+fn unknown_legacy_keys_are_migrated_and_then_dropped_with_a_warning() {
     let (text, config, warnings) = migrated(vec![
         (
             "/p/jai.toml",
@@ -99,7 +96,10 @@ fn unknown_keys_are_kept_with_a_warning() {
         "{text}"
     );
     assert_eq!(warnings.len(), 2, "{warnings:?}");
-    assert_eq!(config.unknown_keys(), ["project.flavour", "lint.colour"]);
+    assert_eq!(
+        parse_noting(&text).unwrap().1,
+        ["lint.colour", "project.flavour"]
+    );
     assert_eq!(config.project.entry.0, ["x.jai"]);
 }
 
@@ -233,4 +233,114 @@ fn experimental_and_toolchain_parse() {
     assert_eq!(config.experimental.codegen_units, Some(8));
     assert!(parse("[project]\nentry = 3\n").is_err());
     assert_eq!(line_of("a = 1\n[rules]\n  b = 2", "b"), Some(3));
+}
+
+#[test]
+fn unknown_keys_are_dropped_and_named_by_path() {
+    let (config, unknown) = parse_noting(
+        "[project]\nentry = \"a.jai\"\nflavour = 1\n[toolchain]\nversionn = \"1\"\n\
+         [lint]\nmax_nestng = 3\nexclude = [\"x\"]\n[format]\nindent = 2\n\
+         [experimental]\nturbo = true\n[extras]\nx = 1\n",
+    )
+    .unwrap();
+    assert_eq!(
+        unknown,
+        [
+            "experimental.turbo",
+            "extras",
+            "format.indent",
+            "lint.max_nestng",
+            "project.flavour",
+            "toolchain.versionn",
+        ]
+    );
+    assert_eq!(config.project.entry.0, ["a.jai"]);
+    assert_eq!(config.lint.exclude, ["x"]);
+    assert_eq!(config.lint.max_nesting, None);
+}
+
+#[test]
+fn a_nested_unknown_table_is_named_at_its_first_unknown_key() {
+    let (_, unknown) =
+        parse_noting("[lint.extra.deep]\nx = 1\n[lint.rules]\nfoo = \"warn\"\n").unwrap();
+    assert_eq!(unknown, ["lint.extra"]);
+}
+
+#[test]
+fn known_settings_load_without_warnings() {
+    let (config, unknown) = parse_noting(
+        "[project]\nentry = [\"a.jai\"]\nimport_path = \"v\"\n[toolchain]\nversion = \"1.2.3\"\n\
+         [lint]\nmax_nesting = 3\n[lint.rules]\nfloat_equality = \"deny\"\n\
+         [format]\nindent_width = 2\n[experimental]\nparse_threads = 4\n",
+    )
+    .unwrap();
+    assert!(unknown.is_empty(), "{unknown:?}");
+    assert_eq!(config.project.import_path.0, ["v"]);
+    assert_eq!(config.toolchain.version.as_deref(), Some("1.2.3"));
+    assert_eq!(config.lint.max_nesting, Some(3));
+    assert_eq!(config.lint.rules["float_equality"], "deny");
+    assert_eq!(config.format.indent_width, Some(2));
+    assert_eq!(config.experimental.parse_threads, Some(4));
+}
+
+#[test]
+fn the_warning_suggests_the_near_key() {
+    assert_eq!(
+        unknown_note("lint.max_nestng"),
+        "warning: unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?"
+    );
+    assert_eq!(
+        unknown_note("lint.colour"),
+        "warning: unknown setting `lint.colour` in jacket.toml (ignored)"
+    );
+    assert!(unknown_note("lnt").ends_with("did you mean `lint`?"));
+}
+
+#[test]
+fn load_reports_unknown_keys_as_notes() {
+    let fs = Mem(vec![("/p/jacket.toml", "[lint]\nmax_nestng = 3\n")]);
+    let loaded = load(&fs, Path::new("/p")).unwrap().unwrap();
+    assert_eq!(loaded.notes, [unknown_note("lint.max_nestng")]);
+}
+
+#[test]
+fn known_keys_match_the_structs() {
+    let full = toml::to_string(&toml::Value::try_from(Config::default()).unwrap()).unwrap();
+    assert!(full.is_empty());
+    let sections = [
+        ("project", "entry = [\"a\"]\nimport_path = [\"b\"]\n"),
+        ("toolchain", "version = \"1\"\n"),
+        (
+            "lint",
+            "exclude = [\"a\"]\nmax_nesting = 1\n[lint.rules]\na = \"b\"\n",
+        ),
+        (
+            "format",
+            "indent_width = 1\ncase_indent = 1\ncase_body_indent = 1\nmax_blank_lines = 1\nmax_width = 1\n\
+             brace_style = \"a\"\nblank_lines_between_items = true\nblank_line_after_declarations = true\n\
+             blank_lines_around_blocks = true\nblank_line_between_cases = true\n\
+             blank_line_before_comments = true\nblank_line_after_guards = true\n\
+             blank_line_before_return = true\nignore = [\"a\"]\n",
+        ),
+        (
+            "experimental",
+            "parse_threads = 1\nserial_parse = true\ncodegen_units = 1\n",
+        ),
+    ];
+    let mut tops: Vec<&str> = Vec::new();
+    for (name, body) in sections {
+        let config = parse(&format!("[{name}]\n{body}")).unwrap();
+        let value = toml::Value::try_from(&config).unwrap();
+        let table = value[name].as_table().unwrap();
+        let mut keys: Vec<&str> = table.keys().map(String::as_str).collect();
+        let mut known = schema::known_keys(name).to_vec();
+        keys.sort_unstable();
+        known.sort_unstable();
+        assert_eq!(keys, known, "[{name}]");
+        tops.push(name);
+    }
+    let mut known = schema::known_keys("").to_vec();
+    tops.sort_unstable();
+    known.sort_unstable();
+    assert_eq!(tops, known);
 }

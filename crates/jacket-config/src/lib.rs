@@ -147,11 +147,11 @@ pub fn load(fs: &dyn Files, start: &Path) -> Result<Option<Loaded>, ConfigError>
 /// The settings of a located directory.
 pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError> {
     let mut notes = Vec::new();
-    let (config, from_legacy) =
+    let (config, unknown, from_legacy) =
         if location.jacket {
             let path = location.file();
             let text = fs.read(&path).unwrap_or_default();
-            let config = parse(&text).map_err(|message| ConfigError {
+            let (config, unknown) = parse_noting(&text).map_err(|message| ConfigError {
                 path: path.clone(),
                 message,
             })?;
@@ -164,7 +164,7 @@ pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError
                     location.legacy.join(", ")
                 ));
             }
-            (config, Vec::new())
+            (config, unknown, Vec::new())
         } else {
             let plan = migrate::plan(fs, &location.dir)?;
             notes.push(format!(
@@ -174,7 +174,7 @@ pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError
             if location.legacy.len() == 1 { "is" } else { "are" }
         ));
             notes.extend(plan.warnings.iter().cloned());
-            let config = parse(&plan.text).map_err(|message| {
+            let (config, unknown) = parse_noting(&plan.text).map_err(|message| {
                 // The file whose keys alone already do not fit the schema.
                 let culprit = location.legacy.iter().find(|name| {
                     migrate::plan_only(fs, &location.dir, Some(name))
@@ -185,11 +185,9 @@ pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError
                     message,
                 }
             })?;
-            (config, plan.sources)
+            (config, unknown, plan.sources)
         };
-    for key in config.unknown_keys() {
-        notes.push(format!("warning: unknown key `{key}` in {FILE_NAME}"));
-    }
+    notes.extend(unknown.iter().map(|key| unknown_note(key)));
     Ok(Loaded {
         config,
         location,
@@ -200,7 +198,34 @@ pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError
 
 /// The settings in the text of a `jacket.toml`, or why it is invalid (with its line).
 pub fn parse(text: &str) -> Result<Config, String> {
-    toml::from_str(text).map_err(|e| e.to_string().trim_end().to_string())
+    parse_noting(text).map(|(config, _)| config)
+}
+
+/// Like [`parse`], also giving the dotted path of every key the schema does not know
+/// (`lint.max_nestng`). Those keys are dropped from the settings; [`unknown_note`] words the
+/// warning every tool prints for one.
+pub fn parse_noting(text: &str) -> Result<(Config, Vec<String>), String> {
+    let invalid = |e: toml::de::Error| e.to_string().trim_end().to_string();
+    let deserializer = toml::de::Deserializer::parse(text).map_err(invalid)?;
+    let mut unknown = Vec::new();
+    let config = serde_ignored::deserialize(deserializer, |path| unknown.push(path.to_string()))
+        .map_err(invalid)?;
+    Ok((config, unknown))
+}
+
+/// The warning for an unknown setting at `path`, naming the nearest known one when there is one.
+pub fn unknown_note(path: &str) -> String {
+    let mut note = format!("warning: unknown setting `{path}` in {FILE_NAME} (ignored)");
+    let (table, key) = path.rsplit_once('.').unwrap_or(("", path));
+    if let Some(near) = schema::closest(key, schema::known_keys(table)) {
+        let near = if table.is_empty() {
+            near.to_string()
+        } else {
+            format!("{table}.{near}")
+        };
+        note.push_str(&format!("; did you mean `{near}`?"));
+    }
+    note
 }
 
 /// The line (1-based) of `key = ...` in `text`, to point an error at.
