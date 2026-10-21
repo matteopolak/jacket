@@ -140,7 +140,11 @@ impl Compiler {
         if let Some(&w) = ide.wanted.get(&file) {
             return w;
         }
-        let w = match &self.src.sources.get(file).path {
+        // Builtins such as `OS` are declared in no file (`Span::NONE`).
+        let Some(source) = self.src.sources.try_get(file) else {
+            return false;
+        };
+        let w = match &source.path {
             SourcePath::Virtual(_) => ide.roots.contains(&IdeRoot::Virtual),
             SourcePath::File(path) => {
                 // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a
