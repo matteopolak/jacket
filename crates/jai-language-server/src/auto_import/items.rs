@@ -140,7 +140,7 @@ impl Session {
             };
             let text = String::from_utf8_lossy(&bytes);
             let lines = crate::position::LineIndex::new(&text);
-            let Ok(uri) = DocumentUri::from_path(&file) else {
+            let Some(uri) = self.client_uri(&file) else {
                 continue;
             };
             for symbol in hits {

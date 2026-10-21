@@ -172,3 +172,13 @@ fn alias_workspace_symbols_exclude_canonical_disk_copy() {
     assert_eq!(symbols.len(), 1, "{symbols:?}");
     assert_eq!(symbols[0].location.uri, stored.as_str());
 }
+
+#[test]
+fn locations_use_the_spelling_the_client_opened() {
+    let (s, stored, _) = fixture("answer :: 42;\nmain :: () { value := answer; }");
+    let found = s.definition(&stored, pos(&s, &stored, "answer;")).unwrap();
+    assert!(!found.is_empty());
+    for location in found {
+        assert_eq!(&*location.uri, stored.as_str());
+    }
+}

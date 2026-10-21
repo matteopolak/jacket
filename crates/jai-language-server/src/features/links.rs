@@ -37,7 +37,7 @@ impl Session {
             .environment
             .as_ref()
             .map_or(path.clone(), |e| crate::document::file_key(&*e.fs, &path));
-        DocumentUri::from_path(&path).ok()
+        self.client_uri(&path)
     }
 
     /// Each `#load` / `#import` string of the document with the file it brings in.

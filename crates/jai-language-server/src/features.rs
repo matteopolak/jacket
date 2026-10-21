@@ -93,7 +93,7 @@ impl Session {
         start: usize,
         end: usize,
     ) -> Option<Location> {
-        let target = DocumentUri::from_path(Path::new(path)).ok()?;
+        let target = self.client_uri(Path::new(path))?;
         let span = Span::new(start, end);
         let range = match self.documents.get(&target) {
             Some(open) if open.same_positions(text) => open.index.range(&open.text, span).ok()?,

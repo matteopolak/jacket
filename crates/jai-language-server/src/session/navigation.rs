@@ -31,7 +31,7 @@ impl Session {
             let locations: Vec<Location> = found
                 .into_iter()
                 .filter_map(|(path, text, start, end)| {
-                    let target = DocumentUri::from_path(Path::new(&path)).ok()?;
+                    let target = self.client_uri(Path::new(&path))?;
                     // An open document's own text and index, else the compiled file's.
                     let range = match self.documents.get(&target) {
                         Some(open) if open.same_positions(&text) => open

@@ -277,6 +277,14 @@ impl Session {
         self.open_file_uri(Path::new(uri.path()))
     }
 
+    /// The URI to report for `path`: an open document's own spelling when `path` is that file
+    /// under another name (a symlinked folder such as macOS `/var` -> `/private/var`), so the
+    /// client recognizes the document it opened rather than seeing a second, unopened one.
+    pub(crate) fn client_uri(&self, path: &Path) -> Option<DocumentUri> {
+        self.open_file_uri(path)
+            .or_else(|| DocumentUri::from_path(path).ok())
+    }
+
     pub(crate) fn open_file_uri(&self, path: &Path) -> Option<DocumentUri> {
         if let Ok(uri) = DocumentUri::from_path(path)
             && (self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri))
