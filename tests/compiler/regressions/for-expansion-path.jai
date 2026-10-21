@@ -1,6 +1,5 @@
 // `for: path x` picks a for_expansion named by a plain name, `Type.name`, or `value.name`.
 #import "Basic";
-#import "Math";
 
 Range :: struct {
     first: int;
