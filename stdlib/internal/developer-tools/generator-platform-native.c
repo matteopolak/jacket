@@ -1,5 +1,7 @@
 /* Independent host operations; no parser or canonical generator state. */
 #define _GNU_SOURCE
+/* The CRT marks fopen-family and getenv deprecated; their secure forms add nothing here. */
+#define _CRT_SECURE_NO_WARNINGS
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include <stdint.h>
@@ -11,6 +13,13 @@
 #else
 #include <dlfcn.h>
 #include <unistd.h>
+#endif
+
+/* A Windows DLL exports only what is marked; elsewhere every non-static function is visible. */
+#if defined(_WIN32)
+#define GP_EXPORT __declspec(dllexport)
+#else
+#define GP_EXPORT
 #endif
 
 #if defined(_WIN32)
@@ -27,7 +36,7 @@ static wchar_t *gp_wide_path(const char *path) {
 }
 #endif
 
-int gp_write_temp(const void *data, uint64_t size, char *path, uint64_t capacity) {
+GP_EXPORT int gp_write_temp(const void *data, uint64_t size, char *path, uint64_t capacity) {
     if (!path || capacity < 32 || (size && !data) || size > SIZE_MAX) return 0;
 #if defined(_WIN32)
     wchar_t directory[MAX_PATH], wide_path[MAX_PATH];
@@ -71,7 +80,7 @@ int gp_write_temp(const void *data, uint64_t size, char *path, uint64_t capacity
     return ok;
 }
 
-void *gp_library_open(const char *path) {
+GP_EXPORT void *gp_library_open(const char *path) {
 #if defined(_WIN32)
     wchar_t *wide = gp_wide_path(path);
     if (!wide) return NULL;
@@ -82,7 +91,7 @@ void *gp_library_open(const char *path) {
     return dlopen(path, RTLD_NOW | RTLD_LOCAL);
 #endif
 }
-int gp_library_symbol(void *handle, const char *name) {
+GP_EXPORT int gp_library_symbol(void *handle, const char *name) {
     if (!handle || !name) return 0;
 #if defined(_WIN32)
     return GetProcAddress((HMODULE)handle, name) != NULL;
@@ -92,7 +101,7 @@ int gp_library_symbol(void *handle, const char *name) {
     return dlerror() == NULL;
 #endif
 }
-void gp_library_close(void *handle) {
+GP_EXPORT void gp_library_close(void *handle) {
     if (!handle) return;
 #if defined(_WIN32)
     FreeLibrary((HMODULE)handle);
@@ -100,6 +109,6 @@ void gp_library_close(void *handle) {
     dlclose(handle);
 #endif
 }
-const char *gp_environment(const char *name) {
+GP_EXPORT const char *gp_environment(const char *name) {
     return getenv(name);
 }
