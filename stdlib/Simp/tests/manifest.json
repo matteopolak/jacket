@@ -20,6 +20,17 @@
     ]
   },
   {
+    "name": "closed-window-render",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  },
+  {
     "name": "depth-driver",
     "unsupported_modes": [
       "wasm-interp",

@@ -84,10 +84,12 @@ prepare :: (window: WT.Window_Type, wanted_msaa: s32) -> s32 {
 Closing_Proc :: #type (window: WT.Window_Type, native_identity: *void);
 on_closing: Closing_Proc;
 
-make_current :: (window: WT.Window_Type) {
+// Selects the window's context. Returns false, selecting nothing, when the window has no context
+// (never prepared, or already closed).
+make_current :: (window: WT.Window_Type) -> bool {
     found := find(window);
+    if found == null return false;
 
-    Basic.assert(found != null, "window has no renderer context");
     previous := current_native();
     desired := found.native;
 
@@ -116,16 +118,21 @@ make_current :: (window: WT.Window_Type) {
         GL.gl.glWaitSync(fence, 0, 0xffffffffffffffff);
         GL.gl.glDeleteSync(fence);
     }
+
+    return true;
 }
 
+// Does nothing for a window without a context.
 update :: (window: WT.Window_Type) {
     found := find(window);
-    Basic.assert(found != null);
+    if found == null return;
     #if OS == .MACOS Cocoa.void_message(found.native, "update");
 }
 
+// Presents the window's back buffer. Does nothing for a window without a context.
 swap :: (window: WT.Window_Type, vsync: bool) {
-    make_current(window);
+    if !make_current(window) return;
+
     found := find(window);
 
     #if OS == .MACOS {

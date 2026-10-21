@@ -562,6 +562,10 @@ On the OpenGL backend, `get_shader_program(shader_text)` treats its one string a
 
 `bitmap_build_mipmaps` supports `R8`, `RG8`, `RGB8`, and `RGBA8`; other formats assert. It repeatedly halves each dimension, rounding down but never below one, until reaching 1×1. Each generated level uses a row stride rounded up to a four-byte boundary in the backing mip-chain storage. RGBA resampling treats channel 3 as alpha. With `IS_SRGB`, generated levels use sRGB-aware resampling; otherwise they use ordinary 8-bit resampling. The operation replaces prior owned pixel storage, sets `mipmap_count` to the number of levels, and marks the resulting data owned. Texture load helpers default `srgb` and `build_mipmaps` to false. Loading a bitmap copies its dimensions, format, mip count, and sRGB flag into texture state and updates backend storage; a render-target texture always receives the `Render_Target` flag.
 
+### Closed windows
+
+With the OpenGL backend, a window's renderer context is released when the window closes. Presenting such a window with `swap_buffers` does nothing, so a frame already in progress when the close event arrives can finish without error. The window is no longer a render target: call `set_render_target` only for windows that are still open.
+
 ### Font effects and metrics
 
 `Font_Effects.SMALLCAPS` and `LINING_FIGURES` request substitutions only when the loaded font exposes the corresponding OpenType features. When both are enabled, ASCII digits skip small-cap substitution. `NO_KERNING` and `LEFT_JUSTIFIED` are declared flags but are not applied by the current text preparation or quad-generation path. `get_glyph_width_in_pixels`, `get_character_width_in_pixels`, and `prepare_text` report glyph advance widths, not bitmap bounding-box widths; drawing uses glyph bitmap width/height for quads and advances the pen by each glyph's advance. The current path does not apply pair kerning or general shaping/ligature processing.

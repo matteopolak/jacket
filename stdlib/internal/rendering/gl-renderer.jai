@@ -38,7 +38,7 @@ backend_init :: (info: *Window_Info) {
 set_render_target :: (window: Window_Type, coords := Simp_Coordinate_System.RIGHT_HANDED) {
     immediate_flush();
     prepare_window(window, 4);
-    Contexts.make_current(window);
+    if !Contexts.make_current(window) return;
 
     for info: window_infos if info.window == window {
         immediate_state.current_window_info = info;
@@ -61,7 +61,7 @@ set_render_target :: (texture: *Texture, coords := Simp_Coordinate_System.RIGHT_
 }
 
 backend_set_render_target :: (info: *Window_Info) {
-    Contexts.make_current(info.window);
+    if !Contexts.make_current(info.window) return;
     require_gl_texture_context();
     GL.gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0);
     GL.gl.glViewport(0, 0, cast(GL.GLsizei) info.window_width, cast(GL.GLsizei) info.window_height);
