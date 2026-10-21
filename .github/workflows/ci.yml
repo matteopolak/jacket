@@ -1109,6 +1109,10 @@ jobs:
       - uses: ./.github/actions/native-libs-cache
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
+      - name: Native C++ vtable generation and dispatch
+        run: |
+          python tools/developer_checks/build_generator_platform.py
+          python tools/developer_checks/check_developer_tools.py --only check_developer_vtables
       - name: Windows dynamic package tests
         run: TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 tools/run_tests.py -p test_windows_dynamic_package.py -v
       - uses: ./.github/actions/windows-provider

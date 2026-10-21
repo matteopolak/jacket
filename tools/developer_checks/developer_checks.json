@@ -15,6 +15,9 @@
       "module": "check_developer_cpp_custom"
     },
     {
+      "module": "check_developer_vtables"
+    },
+    {
       "module": "check_developer_type_emission"
     },
     {

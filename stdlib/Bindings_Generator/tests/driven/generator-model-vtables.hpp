@@ -18,3 +18,10 @@ struct OriginalVirtualAligned {
 };
 struct OriginalEmptyRecord { OriginalEmptyRecord() = default; };
 struct OriginalOpaqueForward;
+struct OriginalVirtualMultiple : OriginalVirtualBase, OriginalVirtualAligned {};
+struct OriginalVirtualShared : virtual OriginalVirtualBase {};
+struct OriginalVirtualVariadic { virtual int call(int x, ...) = 0; };
+#pragma pack(push, 1)
+struct OriginalPackedValue { char tag; int value; };
+#pragma pack(pop)
+struct OriginalVirtualPacked { virtual int call(OriginalPackedValue value) = 0; };

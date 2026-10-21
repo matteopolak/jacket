@@ -163,6 +163,9 @@ binding_ordinary_declaration :: (builder: *String_Builder, declaration: *Declara
 binding_function :: (builder: *String_Builder, function: *Function, scope: *Declaration, foreign_name: string) -> bool {
     if !looks_like_valid_identifier(function.output_name) return false;
 
+    // A virtual method with no library has no symbol to link; it is called through its vtable slot.
+    if function.flags & .VIRTUAL && !function.library return true;
+
     type := function.type.type_of_function;
     if type.flags & (.OBJC_METHOD | .OBJC_CLASS_METHOD) {
         return binding_objc_function(builder, function, scope);
@@ -551,7 +554,7 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
     alignment := record.type.alignment;
     extra_info: *Struct_Extra_Info;
 
-    generic := record.template_type_params.count > 0;
+    generic := record.template_type_params.count > 0 || (record.decl_flags & .TEMPLATE) != 0;
 
     if generic {
         // A generic declaration has no single native layout to pad or validate.

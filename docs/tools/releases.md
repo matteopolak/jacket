@@ -104,3 +104,5 @@ GitHub-hosted runners (`macos-15`, `macos-15-intel`, `ubuntu-24.04`, `ubuntu-24.
 ## Installer test vectors
 
 `tests/installers/vectors.json` holds the cases every installer must agree on: which archive each platform gets (or that it has none) and which `SHA256SUMS` line formats are accepted (two spaces, the `*` binary marker, upper-case hex) or refused. It is read by `tools/ci/test_install_sh.py` (install.sh, with a stub `uname`), `tools/ci/test_install_ps1.ps1` (install.ps1; runs in the `install-ps1` job), `editors/vscode/test/unit/toolchain.test.ts` and `editors/nvim/tests/install_spec.lua`. A new platform or checksum format goes into the file first, then into whichever installer fails.
+
+The C++ bindings release smoke also checks exported non-virtual methods using native MSVC names on Windows and Itanium names on Unix, with interpreter and native calls. Unsupported direct virtual implementation symbols are omitted while their generated vtable slots remain callable; see [C++ vtables](../native/cpp-vtables.md).

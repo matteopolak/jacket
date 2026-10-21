@@ -74,7 +74,7 @@ gm_append_unlinked_children :: (result: *[..] CXCursor, cur: CXCursor, depth: in
     defer array_free(children);
 
     for child: children {
-        if child.kind == .LinkageSpec && depth < 128 gm_append_unlinked_children(result, child, depth + 1);
+        if (child.kind == .LinkageSpec || child.kind == .UnexposedDecl) && depth < 128 gm_append_unlinked_children(result, child, depth + 1);
         else array_add(result, child);
     }
 }
@@ -88,10 +88,12 @@ gm_namespace_children :: (cur: CXCursor, depth := 0) -> [..] CXCursor {
     }
 
     parent := clang_getCursorSemanticParent(cur);
+    while parent.kind == .LinkageSpec || parent.kind == .UnexposedDecl parent = clang_getCursorSemanticParent(parent);
+
     siblings: [..] CXCursor;
 
     if parent.kind == .Namespace siblings = gm_namespace_children(parent, depth + 1);
-    else siblings = native_children(parent);
+    else gm_append_unlinked_children(*siblings, parent, 0);
 
     defer array_free(siblings);
     canonical := clang_getCanonicalCursor(cur);
@@ -332,6 +334,22 @@ gm_build_type :: (native: CXType, cur: CXCursor, accurate: bool, depth: int, sup
         if native.kind == .Int128 || native.kind == .UInt128 generator.int128_was_referenced = true;
 
         return gm_apply_qualifiers(slot.*, native);
+    }
+
+    if native.kind == .NullPtr {
+        if !generator.type_def_void {
+            generator.type_def_void = GM_Sessions.new_owned(session, CType);
+            generator.type_def_void.flags = .VOID | .SHARED;
+            generator.type_def_void.size = 0;
+            generator.type_def_void.alignment = 1;
+        }
+
+        result := GM_Sessions.new_owned(session, CType);
+        result.pointer_to = generator.type_def_void;
+        result.size = clang_Type_getSizeOf(native);
+        result.alignment = clang_Type_getAlignOf(native);
+
+        return gm_apply_qualifiers(result, native);
     }
 
     if native.kind == .ObjCId return gm_named_canonical_type(*generator.type_def_objc_id, "ID");
@@ -751,8 +769,10 @@ gm_build_declaration :: (cur: CXCursor, parent: CXCursor, only_structs: bool, ty
     if clang_Cursor_isNull(parent) == 0 && parent.kind != .TranslationUnit {
         parent_canonical := clang_getCanonicalCursor(parent);
         parent_found, parent_declaration := GM_Table.table_find(*generator.declarations_by_cursor, parent_canonical);
+
         if parent_found declaration.parent = parent_declaration;
         else declaration.parent = gm_build_declaration(parent, clang_getCursorSemanticParent(parent), false, true);
+        if kind == .STRUCT && declaration.parent && declaration.parent.decl_flags & .TEMPLATE declaration.decl_flags |= .TEMPLATE;
     }
 
     if kind == .ENUM && !declaration.type {
@@ -1086,6 +1106,7 @@ gm_build_expression :: (cur: CXCursor, parent: CXCursor) -> *Expression {
     session := gm_current_session();
     if !session return null;
     if cur.kind == .DeclRefExpr return cast(*Expression) gm_reference_expression(cur, .{});
+    if cur.kind == .UnaryExpr return cast(*Expression) gm_native_literal(cur, parent);
     if cur.kind == .IntegerLiteral || cur.kind == .FloatingLiteral || cur.kind == .CharacterLiteral || cur.kind == .StringLiteral || cur.kind == .CXXBoolLiteralExpr || cur.kind == .CXXNullPtrLiteralExpr || cur.kind == .GNUNullExpr return cast(*Expression) gm_native_literal(cur, parent);
 
     children := native_children(cur);

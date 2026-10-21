@@ -2,6 +2,7 @@
 #include <cstring>
 #include "generator-model-vtables.hpp"
 int main() {
+    OriginalVirtualDestructor destructor;
     OriginalVirtualBase base;
     OriginalVirtualDerived derived;
     const unsigned char *table = nullptr;

@@ -62,6 +62,9 @@ AREAS = {
     # Windows runs on pushes (main, staging) only for the paths its coverage is about, never on
     # pull requests, and always on manual runs.
     "windows": [
+        "stdlib/Bindings_Generator/**",
+        "stdlib/internal/developer-tools/**",
+        "tools/developer_checks/check_developer_vtables.py",
         "stdlib/Extensions/Io/**",
         "stdlib/Extensions/Io_Uring/**",
         "stdlib/Extensions/Http/**",

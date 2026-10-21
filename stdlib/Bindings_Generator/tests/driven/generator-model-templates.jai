@@ -290,28 +290,22 @@ main :: () {
     H.table_reset(*generator.declarations_by_cursor);
     S.close(*exact_defaults);
     H.table_reset(*generator.declarations_by_cursor);
-    missing_default := S.open(*generator, B.TARGET_OS);
+    lazy_default := S.open(*generator, B.TARGET_OS);
 
     push_context {
-        S.activate(*generator, null, *missing_default);
+        S.activate(*generator, null, *lazy_default);
         context.logger = log;
-        assert(B.create_struct(capture.children[22]) == null && !missing_default.failed && missing_default.model_errors > 0);
-        assert(B.create_struct(capture.children[22]) == null && errors == 13);
-        formal_children: Capture;
-        formal_children.saved = context;
-        B.clang_visitChildren(capture.children[22], visit, *formal_children);
-        defer array_free(formal_children.children);
-        assert(!H.table_contains(*generator.declarations_by_cursor, B.clang_getCanonicalCursor(formal_children.children[0])));
-        constant := B.create_declaration(capture.children[21], root);
         recovered := B.create_struct(capture.children[22]);
 
-        assert(constant && recovered && !missing_default.failed);
-        assert((cast(*B.Literal) recovered.template_type_params[0].expression).identifier == constant);
+        assert(recovered && !lazy_default.failed && lazy_default.model_errors == 0 && errors == 11);
+        assert(B.create_struct(capture.children[22]) == recovered);
+        constant := B.create_declaration(capture.children[21], root);
 
+        assert(constant && (cast(*B.Literal) recovered.template_type_params[0].expression).identifier == constant);
     }
 
     H.table_reset(*generator.declarations_by_cursor);
-    S.close(*missing_default);
+    S.close(*lazy_default);
     resolved_default := S.open(*generator, B.TARGET_OS);
 
     push_context {

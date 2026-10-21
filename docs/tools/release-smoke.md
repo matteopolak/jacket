@@ -39,3 +39,5 @@ The PowerShell installer's own tests (`tools/ci/test_install_ps1.ps1`: stub arch
 ## Dependencies
 
 The published release and its assets, `raw.githubusercontent.com` (installers), the Homebrew tap, `jacket.nvim` and Open VSX; `gh` on the runners.
+
+The bindings smoke test exports `Demo::add` explicitly from its Windows DLL and checks the MSVC symbol on both Windows architectures. It calls the generated method in the interpreter and a native O2 consumer; Unix hosts check the Itanium symbol and the same calls. See [C++ vtables](../native/cpp-vtables.md) for the separate virtual-dispatch tests.

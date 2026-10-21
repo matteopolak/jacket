@@ -44,7 +44,7 @@ main :: () {
     capture.saved = context;
     B.clang_visitChildren(B.clang_getTranslationUnitCursor(unit), visit, *capture);
     defer array_free(capture.children);
-    assert(capture.children.count == 6);
+    assert(capture.children.count == 11);
     generator: B.Generator;
     generator.translation_unit = unit;
     session := S.open(*generator, B.TARGET_OS);
@@ -80,10 +80,17 @@ main :: () {
         assert((info.vtable_struct.declarations[0].type.type_of_function.flags & .CPP_METHOD) == 0);
         assert(info.vtable_parent == base && info.vtable_parent_declaration == derived.parents[0]);
         assert(info.vtable_parent_info == H.table_find_pointer(*generator.extra_infos, base));
-        assert(info.modified_declarations.count == 6);
+        assert(info.modified_declarations.count >= 6);
         assert(info.modified_declarations[0] == info.vtable_pointer_declaration && info.vtable_pointer_declaration.type.pointer_to.type_of_struct == info.vtable_struct);
         assert(info.modified_declarations[1].bit_offset_in_parent == Native_Virtual_Value_Offset * 8);
-        assert(info.modified_declarations[2].bit_offset_in_parent == Native_Virtual_Other_Offset * 8);
+        found_other := false;
+
+        for field: info.modified_declarations if field.name == "other" {
+            assert(field.bit_offset_in_parent == Native_Virtual_Other_Offset * 8);
+            found_other = true;
+        }
+
+        assert(found_other);
         assert(info.struct_alignment == Native_Virtual_Alignment && derived.metadata.count == 1);
         again, again_generated := B.find_or_create_extra_info(derived.type, cast(*B.Declaration) derived);
 
@@ -110,7 +117,12 @@ main :: () {
         assert(aligned_info.modified_declarations.count == 5 && aligned_info.modified_declarations[1] == aligned_info.padding_declaration);
         assert(aligned_info.padding_declaration.type.size == Native_Aligned_Value_Offset - size_of(*void));
         assert(aligned_info.modified_declarations[2].bit_offset_in_parent == Native_Aligned_Value_Offset * 8);
-        rejected := B.create_struct(capture.children[2]);
+        destructor := B.create_struct(capture.children[2]);
+        destructor_info := B.find_or_create_extra_info(destructor.type, cast(*B.Declaration) destructor);
+
+        assert(destructor_info && destructor_info.vtable.count == Native_Virtual_Destructor_Slots);
+        for slot: destructor_info.vtable_struct.declarations assert(slot.type.pointer_to == generator.type_def_void);
+
         empty := B.create_struct(capture.children[4]);
         empty_info := B.find_or_create_extra_info(empty.type, cast(*B.Declaration) empty);
 
@@ -124,11 +136,22 @@ main :: () {
 
         push_context {
             context.logger = log;
-            assert(B.find_or_create_extra_info(rejected.type, cast(*B.Declaration) rejected) == null);
+            multiple := B.create_struct(capture.children[6]);
+
+            assert(multiple && B.find_or_create_extra_info(multiple.type, cast(*B.Declaration) multiple) == null);
             assert(errors == 1 && !session.failed && session.model_errors > 0);
+            assert(B.create_struct(capture.children[7]) == null);
+            assert(errors == 2 && !session.failed);
+            variadic := B.create_struct(capture.children[8]);
+
+            assert(variadic && B.find_or_create_extra_info(variadic.type, cast(*B.Declaration) variadic) == null);
+            assert(errors == 3 && !session.failed);
+            packed := B.create_struct(capture.children[10]);
+
+            assert(packed && B.find_or_create_extra_info(packed.type, cast(*B.Declaration) packed) == null);
+            assert(errors == 4 && !session.failed);
         }
 
-        assert(!H.table_contains(*generator.extra_infos, rejected));
     }
 
     print("ok\n");

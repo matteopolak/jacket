@@ -1,6 +1,7 @@
 #scope_module
 #import "Basic";
 #import "String";
+#load "generator-vtable-abi.jai";
 
 gm_generated_member :: (session: *GM_Sessions.Session, record: *Struct, name: string, type: *CType, offset: int) -> *Declaration {
     member := GM_Sessions.new_owned(session, Declaration);
@@ -74,19 +75,6 @@ gm_metadata_cache :: (record: *Struct, info: *Struct_Extra_Info) -> *Struct_Extr
     return result;
 }
 
-gm_metadata_native_abi :: () -> bool {
-    generator := gm_active_generator();
-    if TARGET_OS != .MACOS || !generator.translation_unit || gm_pointer_size() != 8 return false;
-
-    target := clang_getTranslationUnitTargetInfo(generator.translation_unit);
-    if !target return false;
-
-    defer clang_TargetInfo_dispose(target);
-    triple := gm_native_text(clang_TargetInfo_getTriple(target));
-
-    return contains(triple, "apple") && (begins_with(triple, "arm64-") || begins_with(triple, "aarch64-") || begins_with(triple, "x86_64-"));
-}
-
 gm_declaration_cursor :: (declaration: *Declaration) -> CXCursor {
     generator := gm_active_generator();
     for entry: generator.declarations_by_cursor.entries {
@@ -113,26 +101,6 @@ gm_native_override :: (function: *Function, inherited: *Function) -> bool {
     for i: 0..cast(s64) count - 1 if clang_equalCursors(clang_getCanonicalCursor(overridden[i]), clang_getCanonicalCursor(base)) != 0 return true;
 
     return false;
-}
-
-gm_vtable_value_type :: (type: *CType, depth := 0) -> bool {
-    if depth >= 64 return false;
-
-    type = gm_underlying(type);
-    if !type return false;
-    if type.pointer_to return true;
-    if type.type_of_enum return gm_vtable_value_type(type.type_of_enum.type, depth + 1);
-    if type.type_of_struct || type.type_of_function || type.type_of_declaration || type.array_element_type || type.hardcoded_jai_string return false;
-    if (type.flags & .VOID) != 0 return true;
-
-    return type.size > 0 && type.size <= 8 && (type.number_flags != 0 || (type.flags & .BOOL) != 0);
-}
-
-gm_vtable_signature :: (signature: *Function_Type) -> bool {
-    if !signature || (signature.flags & .VARIADIC) != 0 || !gm_vtable_value_type(signature.return_type) return false;
-    if signature.arguments.count < 0 || (signature.arguments.count > 0 && !signature.arguments.data) return false;
-    for argument: signature.arguments if !argument || !gm_vtable_value_type(argument.type) return false;
-    return true;
 }
 
 gm_polymorphic_field_layout :: (record: *Struct, info: *Struct_Extra_Info) -> bool {
@@ -313,17 +281,34 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info {
 
     inherited_slots := info.vtable.count;
 
+    // MSVC groups newly declared same-name methods in reverse declaration order.
+    // Overrides below still replace their inherited slots by native identity.
+    ordered: [..] *Function;
+
+    defer array_free(ordered);
+
     for function: record.virtual_functions {
+        if TARGET_OS != .WINDOWS {
+            array_add(*ordered, function);
+            continue;
+        }
+
+        if array_find(ordered, function) continue;
+
+        for reverse_index: 0..record.virtual_functions.count - 1 {
+            candidate := record.virtual_functions[record.virtual_functions.count - 1 - reverse_index];
+            if candidate && function && candidate.name == function.name array_add(*ordered, candidate);
+        }
+    }
+
+    for function: ordered {
         if !function || !function.type || !function.type.type_of_function {
             gm_construction_error("virtual metadata lacks a function signature");
             return null;
         }
 
         signature := function.type.type_of_function;
-        if (signature.flags & .DESTRUCTOR) != 0 {
-            gm_construction_error("virtual destructor slot ABI is unsupported");
-            return null;
-        }
+        destructor := (signature.flags & .DESTRUCTOR) != 0;
 
         replaced := false;
 
@@ -338,27 +323,30 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info {
                 continue;
             }
 
-            if !functions_are_equivalent(inherited, function, true) {
+            if !destructor && !functions_are_equivalent(inherited, function, true) {
                 gm_construction_error("native override signature exceeds public type-comparison support");
                 return null;
             }
 
-            if !is_same_type(inherited.type.type_of_function.return_type, signature.return_type) {
+            if !destructor && !is_same_type(inherited.type.type_of_function.return_type, signature.return_type) {
                 gm_construction_error("covariant virtual return adjustment is unsupported");
                 return null;
             }
 
             info.vtable[index] = function;
             replaced = true;
-            break;
+            if !destructor break;
         }
 
-        if !replaced GM_Sessions.append_movable_owned(session, *info.vtable, function);
+        if !replaced {
+            GM_Sessions.append_movable_owned(session, *info.vtable, function);
+            if destructor && TARGET_OS != .WINDOWS GM_Sessions.append_movable_owned(session, *info.vtable, function);
+        }
     }
 
     if info.vtable.count {
         if !gm_metadata_native_abi() {
-            gm_construction_error("vtable metadata requires the verified Mac64 native ABI");
+            gm_construction_error("vtable metadata requires a supported 64-bit macOS, Linux or MSVC Windows native ABI");
             return null;
         }
 
@@ -376,33 +364,11 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info {
         table.type.alignment = pointer_size;
         info.vtable_struct = table;
         for function, index: info.vtable {
-            type := GM_Sessions.new_owned(session, CType);
-            type.size = pointer_size;
-            type.alignment = pointer_size;
-
-            if (function.decl_flags & .OMIT_FROM_OUTPUT) != 0 {
-                if !generator.type_def_void {
-                    generator.type_def_void = GM_Sessions.new_owned(session, CType);
-                    generator.type_def_void.flags = .VOID | .SHARED;
-                    generator.type_def_void.size = 0;
-                    generator.type_def_void.alignment = 1;
-                }
-
-                type.pointer_to = generator.type_def_void;
-            } else {
-                native_signature := function.type.type_of_function;
-                if !gm_vtable_signature(native_signature) {
-                    gm_construction_error("virtual slot signature requires unverified aggregate/extended/variadic calling ABI");
-                    return null;
-                }
-
-                type.type_of_function = GM_Sessions.new_owned(session, Function_Type);
-                type.type_of_function.return_type = native_signature.return_type;
-                type.type_of_function.flags = native_signature.flags & ~(Function_Type.Flags.CPP_METHOD | .INLINE);
-                for argument: native_signature.arguments GM_Sessions.append_owned(session, *type.type_of_function.arguments, argument);
-            }
+            type := gm_vtable_slot_type(function);
+            if !type return null;
 
             field := gm_generated_member(session, table, tprint("slot_%", index), type, index * pointer_size * 8);
+            field.comment.text = GM_Sessions.copy_text(session, tprint("// C++ virtual: %", function.name));
 
             GM_Sessions.append_owned(session, *table.declarations, field);
         }

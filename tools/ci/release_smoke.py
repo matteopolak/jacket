@@ -201,9 +201,9 @@ def project(bin_dir: Path) -> None:
 
 
 C_HEADER = "int add(int a, int b);\n"
-C_SOURCE = '#include "add.h"\nint add(int a, int b) { return a + b; }\n'
+C_SOURCE = '#include "add.h"\n#if defined(_WIN32)\n__declspec(dllexport)\n#endif\nint add(int a, int b) { return a + b; }\n'
 # Issue 26's program: a C++ class, no language option.
-CPP_HEADER = "class Demo {\npublic:\n    int add(int a, int b);\n};\n"
+CPP_HEADER = "#if defined(_WIN32)\n#define DEMO_EXPORT __declspec(dllexport)\n#else\n#define DEMO_EXPORT\n#endif\nclass Demo {\npublic:\n    DEMO_EXPORT int add(int a, int b);\n};\n"
 CPP_SOURCE = '#include "add.h"\nint Demo::add(int a, int b) { return a + b; }\n'
 BUILD = """main :: () {
     options: B.Generate_Bindings_Options;
@@ -256,10 +256,17 @@ def bindings(bin_dir: Path) -> None:
         generated = (work / "add.jai").read_text()
         if "Demo :: struct" not in generated:
             raise SystemExit(f"add.jai has no Demo struct:\n{generated}")
-        # Methods are bound by their Itanium names; MSVC-mangled methods are not bound yet.
-        if platform.system() != "Windows" and "_ZN4Demo3addEii" not in generated:
+        symbol = "?add@Demo@@QEAAHHH@Z" if platform.system() == "Windows" else "_ZN4Demo3addEii"
+        if symbol not in generated:
             raise SystemExit(f"add.jai does not bind Demo::add:\n{generated}")
-        print("generate_bindings, C++ class: parsed as C++")
+        (work / "consumer.jai").write_text(
+            '#import "Basic";\n#load "add.jai";\n'
+            'main :: () { object: Demo; assert(Demo.add(*object, 18, 24) == 42); }\n')
+        need(run([jaic, "consumer.jai", "-interp"], cwd=work), "calling the bound C++ method in the interpreter")
+        consumer = work / exe("consumer")
+        need(run([jaic, "consumer.jai", "-O2", "-exe", consumer], cwd=work), "building the C++ method consumer")
+        need(run([consumer], cwd=work), "calling the bound C++ method natively")
+        print("generate_bindings, C++ class: native mangled symbol and interpreter/native calls: ok")
 
         result = generate(work, 'array_add(*options.extra_clang_arguments, "-x", "c");')
         text = result.stdout + result.stderr

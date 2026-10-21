@@ -1,0 +1,26 @@
+# C++ vtables
+
+`Bindings_Generator` emits C++ virtual dispatch tables for single-inheritance classes on 64-bit macOS, Linux and MSVC Windows, with x86-64 or arm64 targets. Each generated slot is a C-callable function pointer whose first argument is the instance pointer.
+
+## How it works
+
+`stdlib/internal/developer-tools/generator-record-metadata.jai` builds the table from canonical libclang declarations. It copies base slots, replaces overridden slots using Clang override identity, and appends new methods in declaration order on Itanium targets. MSVC groups new same-name overloads in reverse declaration order. The object points at the first callable slot, after the Itanium ABI offset-to-top and RTTI entries. Omitted methods retain opaque pointer slots so subsequent offsets remain correct. Slot comments identify the original C++ method for auditing.
+
+The native target triple and requested module `TARGET_OS` must agree. Scalar and pointer signatures are supported. `generator-vtable-abi.jai` also accepts nonempty trivial records up to 32 bytes with alignment at most eight, recursively containing supported fields at their natural offsets. Packed or omitted instance fields are refused. Union, bitfield, dependent, inherited, polymorphic and nontrivial record values remain refused. Destructors retain two opaque slots on Itanium and one on MSVC; they are never exposed as callable destructor helpers. Extended floating values, variadic methods, multiple inheritance and virtual bases remain rejected. Windows aggregate-return slots have a void return and an explicit result pointer immediately after `this`, including for small records; generated helpers expose that same signature. Itanium aggregate results use the platform C ABI.
+
+## How to change it
+
+Update metadata construction and its tests together. Declaration emission consumes the constructed table; optional helpers call the same slots. Add native C++ fixtures under `stdlib/Bindings_Generator/tests/driven/` and assertions that call the generated slots, rather than checking generation alone.
+
+## Configuration and dependencies
+
+The checker uses `JAIC` for the compiler, `DEVELOPER_TOOLS_LLVM_PREFIX` (or `LLVM_SYS_231_PREFIX`) for the LLVM SDK, and `JACKET_OUTPUT_DIR` for generated artifacts. Use a release `JAIC` on macOS. It requires libclang and the checkout binding helpers. On Windows it uses `llvm-readobj` and `llvm-dlltool` to generate an import archive in scratch from the configured `libclang.dll`. It stages a copy at the ignored private `clang-bindings/clang.lib` path named by the native library declaration; MSVC resolves that path beside the declaration. Build those with `tools/developer_checks/build_generator_platform.py` and `build_developer_bindings.py` first.
+
+Run `python3 tools/developer_checks/check_developer_tools.py --only check_developer_vtables`. The manifest includes it in the developer suite. It checks Linux and MSVC Windows x86-64/arm64 target generation on every host, and actual host C++/Jai dispatch at O0/O2 and in the interpreter with every helper option. The model fixture compares native object size, alignment and field offsets, exercises cache growth, and verifies unsupported inheritance/variadic diagnostics. The overload/inheritance/destructor/POD fixture compares model order against Clang’s actual vtable dump, then calls every ordinary slot. Cross-target generation does not exercise the ABI, so run the checker on each target host too.
+
+## Header generation and integration checks
+
+`generator-canonical-construction.jai` collects reopened namespaces across linkage blocks and preserves dependent nested record status. `generator-reference-helpers.jai` resolves enum/constant defaults on demand; value emission accepts typed numeric identifiers. Unused system declarations containing extended `long double`, such as Linux `max_align_t`, are omitted with a diagnostic. Supported omitted system declarations retain their canonical model and counters. Explicit extended types remain refused, while eight-byte `long double` maps to `float64` and `nullptr_t` maps to `*void`. Unresolved direct virtual symbols are omitted without discarding their callable table entries.
+
+The native checker also generates and type-checks a complete header with null, size, numeric and template defaults. It permits only the existing Windows include-discovery warning for this fixture; any other diagnostic fails the check. libclang still finds the SDK headers and the generated output must type-check. CI's Windows native jobs run it on both architectures; the developer manifest covers the Unix hosts. On macOS it prefers the release compiler in the configured cargo target directory. The same checker accepts an explicit `JAIC` path.
+

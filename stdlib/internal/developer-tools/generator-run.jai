@@ -1,4 +1,5 @@
 #scope_module
+#load "generator-native-type-policy.jai";
 #import "Basic";
 GR_String :: #import "String";
 GR_File :: #import "File";
@@ -602,7 +603,17 @@ gr_toplevel :: (cur: CXCursor, parent: CXCursor) -> CXChildVisitResult {
         effective_parent = clang_getCursorSemanticParent(effective_parent);
     }
 
-    declaration := create_declaration(cur, effective_parent, ignore_non_structs = gr_system_ignored(cur, options));
+    ignored_system := gr_system_ignored(cur, options);
+    // Retain the ordinary omitted-system model, but do not construct unused
+    // extended-floating declarations that this generator cannot represent.
+    if ignored_system && gm_ignored_extended_declaration(cur) {
+        name := gm_cursor_name(cur);
+        log("Bindings_Generator: omitted %: unsupported extended long double in ignored system declaration\n", ifx name then name else "<anonymous>");
+        generator.counts.ignored_system_declarations += 1;
+        return .Continue;
+    }
+
+    declaration := create_declaration(cur, effective_parent, ignore_non_structs = ignored_system);
     if !declaration return ifx owner.failed then .Break else .Continue;
 
     for existing, index: generator.global_scope.members {

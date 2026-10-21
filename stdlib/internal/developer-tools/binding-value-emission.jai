@@ -252,7 +252,12 @@ jai_literal_fragment :: (builder: *String_Builder, literal: *Literal, target: *C
         if base && base.pointer_to {
             if literal.literal_kind != .NULL return false;
         } else if base && (base.number_flags || binding_wide_integer_type(base)) {
-            if !numeric && literal.literal_kind != .ENUM return false;
+            if !numeric && literal.literal_kind != .ENUM {
+                if literal.literal_kind != .IDENTIFIER || !literal.identifier return false;
+                source := strip_type(literal.identifier.type, typedefs = true, enums = true);
+                if !source || (!source.number_flags && !(source.flags & .BOOL)) return false;
+            }
+
             if literal.literal_kind == .FLOAT && !(base.number_flags & .FLOAT) return false;
         } else if base && base.hardcoded_jai_string == "string" {
             if literal.literal_kind != .STRING return false;

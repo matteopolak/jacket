@@ -25,7 +25,12 @@ gm_reference_expression :: (cur: CXCursor, location: Location) -> *Literal {
 
     declaration := gm_referenced_declaration(cur);
     if !declaration {
-        return null;
+        referenced := clang_getCursorReferenced(cur);
+        if referenced.kind == .EnumConstantDecl || (referenced.kind == .VarDecl && clang_isConstQualifiedType(clang_getCursorType(referenced)) != 0) {
+            declaration = gm_build_declaration(referenced, clang_getCursorSemanticParent(referenced), false);
+        }
+
+        if !declaration return null;
     }
 
     is_const := (declaration.decl_flags & .IS_CONST) != 0 || (declaration.type && (declaration.type.flags & .CONST) != 0);
