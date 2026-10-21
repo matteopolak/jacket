@@ -122,6 +122,31 @@ fn known(
     errors
 }
 
+/// `root` as `<folder>/Name/module.jai` with `folder` one of `import_paths`: the module's name
+/// and that folder.
+fn module_entry(
+    fs: &dyn FileSystem,
+    root: &Path,
+    import_paths: &[PathBuf],
+) -> Option<(String, PathBuf)> {
+    if root.file_name()? != "module.jai" {
+        return None;
+    }
+    let module = root.parent()?;
+    let folder = module.parent()?;
+    let key = crate::document::file_key(fs, folder);
+    import_paths
+        .iter()
+        .any(|dir| crate::document::file_key(fs, dir) == key)
+        .then(|| {
+            Some((
+                module.file_name()?.to_str()?.to_owned(),
+                folder.to_path_buf(),
+            ))
+        })
+        .flatten()
+}
+
 /// The compiled program and its errors, and the programs its metaprogram built.
 pub(super) fn compile(
     env: &Environment,
@@ -139,12 +164,6 @@ pub(super) fn compile(
 ) {
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let open: Vec<PathBuf> = files.keys().cloned().collect();
-    let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
-        base: env.fs.clone(),
-        dir: dir.clone(),
-        files,
-        canonical: jaic::paths::CanonCache::new(),
-    });
     let options = || {
         let mut options = (env.options)(root);
         crate::modules::splice(&mut options.import_paths, dirs);
@@ -152,6 +171,24 @@ pub(super) fn compile(
         jaic::target::select_os_cpu(&mut options, os, None);
         options
     };
+    // A module's `module.jai` is checked as the module a program imports, not as a program:
+    // `#module_parameters` and the parameters' values only exist there.
+    let mut files = files;
+    let stub = module_entry(&*env.fs, root, &options().import_paths).map(|(name, folder)| {
+        let stub = folder.join(".jailsp-module-root.jai");
+        let text = format!("#import \"{name}\";\nmain :: () {{}}\n");
+        files.insert(
+            crate::document::file_key(&*env.fs, &stub),
+            Rc::from(text.into_bytes()),
+        );
+        stub
+    });
+    let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
+        base: env.fs.clone(),
+        dir: dir.clone(),
+        files,
+        canonical: jaic::paths::CanonCache::new(),
+    });
     let mut compiler = Compiler::new(options(), fs.clone());
     // Compile-time output goes nowhere: stdout may be the protocol channel.
     let host = Rc::new(RefCell::new(SandboxHost::with_files(
@@ -196,7 +233,7 @@ pub(super) fn compile(
     let number = parses.borrow_mut().begin();
     compiler.ed.parse_reuse = Some((parses.clone(), number));
     let errors = compiler
-        .compile_program(root)
+        .compile_program(stub.as_deref().unwrap_or(root))
         .err()
         .into_iter()
         .map(|e| *e)

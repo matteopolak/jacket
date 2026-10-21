@@ -155,3 +155,16 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+/// With no program importing it, an opened `module.jai` is still checked as a module, so
+/// `#module_parameters` and its values are known.
+fn an_opened_module_file_is_checked_as_an_imported_module() {
+    let module = "#module_parameters(VERBOSE := false);\n#if VERBOSE { LEVEL :: 2; } else { LEVEL :: 1; }\nlevel :: () -> int { return LEVEL; }\n";
+    let dir = project("module-entry", &[("modules/Config/module.jai", module)]);
+    assert_eq!(
+        errors(&dir, "modules/Config/module.jai"),
+        Vec::<String>::new()
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
