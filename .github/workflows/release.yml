@@ -358,6 +358,15 @@ jobs:
           test "$status" = 42
           # jailint finds the packaged stdlib next to itself.
           "$jailint" -D warnings main.jai
+          # Bindings_Generator runs from the archive alone: its helper library and libclang
+          # (the Xcode toolchain's on macOS) are found without a checkout (#26, #27).
+          printf 'typedef struct Pair { int a; float b; } Pair;\n' > bindings.h
+          printf '%s\n' '#import "Basic";' '#import "Bindings_Generator";' '#import "Compiler";' \
+            '#run {' '    set_build_options_dc(.{do_output = false});' '    options: Generate_Bindings_Options;' \
+            '    array_add(*options.source_files, "bindings.h");' '    options.generate_library_declarations = false;' \
+            '    assert(generate_bindings(options, "bindings.jai"));' '}' > generate.jai
+          "$jaic" generate.jai
+          grep -q 'Pair :: struct' bindings.jai
           if [ -n "${{ matrix.llvm }}" ]; then
             "$jaic" main.jai -exe main
             set +e
