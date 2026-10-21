@@ -175,13 +175,21 @@ def block_flags(before: dict, after: dict, max_load: float) -> list[str]:
 
 
 def purge_caches() -> tuple[bool, str]:
-    """Drop the OS file cache (`purge` on macOS). (done, note): the note says why not when it could not."""
+    """Drop the OS file cache (`purge` on macOS). (done, note): the note says why not when it could not.
+
+    `purge` needs root. Without it, `sudo -n` is tried, which works when a sudoers rule allows
+    `/usr/sbin/purge` without a password (see docs/tools/benchmarks.md); it never prompts.
+    """
     if sys.platform != 'darwin':
         return False, 'no purge command on this platform'
-    try:
-        done = subprocess.run(['purge'], capture_output=True, text=True, timeout=120)
-    except (OSError, subprocess.TimeoutExpired) as error:
-        return False, f'purge unavailable: {error}'
-    if done.returncode != 0:
-        return False, f'purge failed (exit {done.returncode}; it usually needs root): {done.stderr.strip()[:100]}'
-    return True, ''
+    failure = ''
+    for command in (['/usr/sbin/purge'], ['sudo', '-n', '/usr/sbin/purge']):
+        try:
+            done = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            failure = f'purge unavailable: {error}'
+            continue
+        if done.returncode == 0:
+            return True, ''
+        failure = f'purge failed (exit {done.returncode}; it needs root or a sudoers rule): {done.stderr.strip()[:100]}'
+    return False, failure
