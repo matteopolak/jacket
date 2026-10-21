@@ -3,29 +3,29 @@
   "platforms": {
     "linux-x86_64": {
       "gen-10k/check": {
-        "alloc_blocks": 647333,
-        "alloc_bytes": 119892165,
-        "instructions": 543073442
+        "alloc_blocks": 656872,
+        "alloc_bytes": 122271449,
+        "instructions": 557686955
       },
       "gen-2k/build": {
-        "alloc_blocks": 516224,
-        "alloc_bytes": 101315699,
-        "instructions": 1198732204
+        "alloc_blocks": 522890,
+        "alloc_bytes": 103263143,
+        "instructions": 1201930579
       },
       "gen-2k/check": {
-        "alloc_blocks": 434948,
-        "alloc_bytes": 95101218,
-        "instructions": 375285913
+        "alloc_blocks": 443812,
+        "alloc_bytes": 97206493,
+        "instructions": 386645245
       },
       "hello/build": {
-        "alloc_blocks": 413680,
-        "alloc_bytes": 89062432,
-        "instructions": 825150428
+        "alloc_blocks": 419959,
+        "alloc_bytes": 90913754,
+        "instructions": 826660390
       },
       "hello/check": {
-        "alloc_blocks": 359660,
-        "alloc_bytes": 85295125,
-        "instructions": 309052191
+        "alloc_blocks": 367992,
+        "alloc_bytes": 87299918,
+        "instructions": 320465434
       }
     }
   }
