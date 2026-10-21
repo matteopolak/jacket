@@ -482,8 +482,21 @@ pub(super) fn library_args(
         }
         // A path is never a system library name: report it instead of a confusing `-l`.
         if name.contains('/') {
+            let searched = jaic::interp::library_dirs();
+            let elsewhere = if searched.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    " and in {}",
+                    searched
+                        .iter()
+                        .map(|dir| dir.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            };
             return Err(format!(
-                "library '{name}' not found: looked for {} in {}",
+                "library '{name}' not found: looked for {} in {}{elsewhere}",
                 candidates.join(", "),
                 dir.display()
             ));

@@ -9,11 +9,16 @@ import build_developer_bindings
 from dev_common import ROOT
 
 
-def build(prefix=None, output_dir=None):
+def build(prefix=None, output_dir=None, record_nm=True):
+    """Build the helper library into `output_dir`.
+
+    `record_nm` also writes the path of the SDK's llvm-nm beside it, which a checkout uses; a
+    release archive does not (the build machine's paths mean nothing there, tools/ci/package_bindings_helpers.py).
+    """
     directory = ROOT / "stdlib/internal/developer-tools"
     output = Path(output_dir or directory).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    prefix = build_developer_bindings.llvm_prefix(prefix)
+    prefix = Path(prefix) if prefix and not record_nm else build_developer_bindings.llvm_prefix(prefix)
     system = platform.system()
     suffix = {"Darwin": "dylib", "Linux": "so", "Windows": "dll"}[system]
     flags = ["-dynamiclib"] if system == "Darwin" else ["-shared"]
@@ -40,7 +45,8 @@ def build(prefix=None, output_dir=None):
         check=True,
         cwd=ROOT,
     )
-    (output / "generator-platform-nm.txt").write_text(str(prefix / "bin/llvm-nm"))
+    if record_nm:
+        (output / "generator-platform-nm.txt").write_text(str(prefix / "bin/llvm-nm"))
     return output / f"libgenerator_platform.{suffix}"
 
 

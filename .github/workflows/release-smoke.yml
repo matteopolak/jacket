@@ -71,6 +71,9 @@ jobs:
       - name: New project, build, run and hover
         shell: bash
         run: python tools/ci/release_smoke.py project --bin "${{ steps.fetch.outputs.bin }}"
+      - name: Bindings_Generator
+        shell: bash
+        run: python tools/ci/release_smoke.py bindings --bin "${{ steps.fetch.outputs.bin }}"
   install-sh:
     needs: meta
     name: install.sh (${{ matrix.runner }})

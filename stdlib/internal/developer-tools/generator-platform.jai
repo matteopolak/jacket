@@ -17,12 +17,10 @@ gp_symbols_file :: (full_path: string, diagnostic_path: string = "") -> bool, []
         return false, .{};
     }
 
-    tool, tool_ok := read_entire_file(tprint("%generator-platform-nm.txt", #filepath));
+    tool := gp_nm_path();
 
-    defer free(tool);
-
-    if !tool_ok || !gp_valid_text(tool) {
-        log_error("Bindings_Generator: missing configured official llvm-nm\n");
+    if !tool {
+        log_error("Bindings_Generator: reading the symbols of % needs llvm-nm, which was not found.\nLooked for: %generator-platform-nm.txt, llvm-nm on PATH%\nInstall LLVM (or Xcode's command line tools on macOS: xcode-select --install) and put llvm-nm on PATH.\n", label, #filepath, ifx OS == .MACOS then ", xcrun --find llvm-nm" else "");
         return false, .{};
     }
 
@@ -57,6 +55,84 @@ gp_symbols_file :: (full_path: string, diagnostic_path: string = "") -> bool, []
     }
 
     return true, .{ names.count, names.data };
+}
+
+// llvm-nm for static libraries: the path recorded when the helpers were built from a checkout,
+// else one on PATH (macOS: the one in the selected Xcode toolchain).
+gp_nm_path :: () -> string {
+    configured, configured_ok := gp_configured_path(tprint("%generator-platform-nm.txt", #filepath));
+    if configured_ok return configured;
+
+    found := gp_find_program(.["llvm-nm"]);
+    if found return found;
+
+    if OS == .MACOS return gp_xcrun_find("llvm-nm");
+
+    return "";
+}
+
+// A C compiler to ask for its system include directories, and whether it is clang (only clang
+// takes --target): the path recorded when the helpers were built from a checkout, else clang or
+// cc on PATH.
+gp_compiler_path :: () -> string, bool {
+    configured, configured_ok := gp_configured_path(tprint("%clang-bindings/compiler-path.txt", #filepath));
+    if configured_ok return configured, true;
+
+    found := gp_find_program(.["clang"]);
+    if found return found, true;
+
+    if OS == .MACOS {
+        found = gp_xcrun_find("clang");
+        if found return found, true;
+    }
+
+    return gp_find_program(.["cc", "gcc"]), false;
+}
+
+// The path a checkout's build recorded in `file`, when there is one.
+gp_configured_path :: (file: string) -> string, bool {
+    if !GP_FS.file_exists(file) return "", false;
+
+    contents, ok := read_entire_file(file);
+
+    defer free(contents);
+
+    if !ok || !gp_valid_text(contents) return "", false;
+
+    return tprint("%", contents), true;
+}
+
+gp_xcrun_find :: (tool: string) -> string {
+    status, output, errors, timed_out := GP_Process.run_command("/usr/bin/xcrun", "--find", tool, capture_and_return_output = true, timeout_ms = 30000);
+
+    defer free(output);
+    defer free(errors);
+
+    if status.type != .EXITED || status.exit_code != 0 || timed_out return "";
+
+    while output.count > 0 && (output[output.count - 1] == #char "\n" || output[output.count - 1] == #char "\r") output = GP_String.slice(output, 0, output.count - 1);
+
+    return tprint("%", output);
+}
+
+// The first of `names` found in a PATH directory, as a temporary string; empty when none is.
+gp_find_program :: (names: [] string) -> string {
+    directories := GP_String.split(gp_env("PATH"), ifx OS == .WINDOWS then ";" else ":");
+
+    defer free(directories.data);
+
+    suffix := ifx OS == .WINDOWS then ".exe" else "";
+
+    for name: names {
+        for directory: directories {
+            if !directory continue;
+
+            candidate := tprint("%/%%", directory, name, suffix);
+            if GP_FS.file_exists(candidate) return candidate;
+        }
+    }
+
+    return "";
 }
 
 gp_symbols_content :: (content: string, diagnostic_path: string) -> bool, [] string {

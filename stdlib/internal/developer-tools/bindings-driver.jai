@@ -80,16 +80,14 @@ get_default_system_include_paths :: (os := OS, cpu := CPU) -> [] string {
         return .{};
     }
 
-    compiler_path, compiler_path_ok := read_entire_file(tprint("%clang-bindings/compiler-path.txt", #filepath));
+    compiler_path, compiler_is_clang := gp_compiler_path();
 
-    defer free(compiler_path);
-
-    if !compiler_path_ok || !compiler_path || S.contains(compiler_path, "\0") {
-        log_error("Bindings_Generator: missing or invalid source-built SDK compiler configuration\n");
+    if !compiler_path {
+        log_error("Bindings_Generator: no C compiler found to ask for the system include directories.\nLooked for: %clang-bindings/compiler-path.txt, clang and cc on PATH%\nInstall clang (macOS: xcode-select --install) or put one on PATH.\n", #filepath, ifx OS == .MACOS then ", xcrun --find clang" else "");
         return .{};
     }
 
-    status, output, errors, timed_out := P.run_command(compiler_path, "-E", "-x", "c", "-", "-v", tprint("--target=%", triple), capture_and_return_output = true);
+    status, output, errors, timed_out := P.run_command(compiler_path, "-E", "-x", "c", "-", "-v", ifx compiler_is_clang then tprint("--target=%", triple) else "-w", capture_and_return_output = true);
 
     defer free(output);
     defer free(errors);

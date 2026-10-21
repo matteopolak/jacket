@@ -12,7 +12,36 @@ pub(super) fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     let mut dirs = configured_native_lib_dirs(stdlib);
     // The crash runtime is built into jaic itself (docs/native/crash-runtime-build.md).
     dirs.extend(crash_runtime::dir());
+    dirs.extend(apple_toolchain_lib_dir());
     dirs
+}
+
+/// The Xcode (or Command Line Tools) toolchain's library folder on a Mac, when it holds
+/// `libclang.dylib`: the `Bindings_Generator` parses headers with it, and the release archive does
+/// not carry a second copy (the `Bindings_Generator` section of docs/tools/releases.md). Only a folder with
+/// that library is searched, so the toolchain's other libraries are never picked up by name.
+fn apple_toolchain_lib_dir() -> Option<PathBuf> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    let selected = std::env::var_os("DEVELOPER_DIR").map(PathBuf::from);
+    let candidates = selected
+        .iter()
+        .flat_map(|dir| {
+            [
+                dir.join("Toolchains/XcodeDefault.xctoolchain/usr/lib"),
+                dir.join("usr/lib"),
+            ]
+        })
+        .chain([
+            PathBuf::from("/Library/Developer/CommandLineTools/usr/lib"),
+            PathBuf::from(
+                "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib",
+            ),
+        ]);
+    candidates
+        .into_iter()
+        .find(|dir| dir.join("libclang.dylib").is_file())
 }
 
 fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {

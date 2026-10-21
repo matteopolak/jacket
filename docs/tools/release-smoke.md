@@ -9,6 +9,7 @@
 `tools/ci/release_smoke.py` has the shared pieces. Every install job ends with the same two checks on the installed `bin` folder:
 
 - `version`: `jacket version` lists jacket and each tool it fronts, and every line carries the release's version.
+- `bindings`: `B.generate_bindings` through `jaic -interp` on a C header (the binding for `add` must appear) and on the C++ class of issue 26 (libclang must report the C-only `class` error, not a missing helper). Run by `release.yml` on each archive and by the `archive` job on the published one.
 - `project`: `jacket new smoke`, `jacket build`, `jacket run` (prints `Hello from smoke!`), then `jailsp` is started, initialized, given the project's `main.jai` and asked for a hover on `main`; an empty answer fails.
 
 | Job | Runners | What it installs from |

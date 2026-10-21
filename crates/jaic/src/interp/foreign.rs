@@ -318,9 +318,19 @@ impl Interp {
                 .map(|l| &program.libraries[l])
                 .filter(|library| !library.system)
                 .map(|library| {
+                    let dirs = native::library_dirs()
+                        .iter()
+                        .map(|dir| dir.display().to_string())
+                        .collect::<Vec<_>>();
                     format!(
-                        " (library `{}` was not found or does not define it)",
-                        library.name
+                        " (library `{}` was not found or does not define it; looked beside `{}` and in {})",
+                        library.name,
+                        library.base_dir,
+                        if dirs.is_empty() {
+                            "no native library directory".to_string()
+                        } else {
+                            dirs.join(", ")
+                        }
                     )
                 })
                 .unwrap_or_default();

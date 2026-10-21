@@ -4345,6 +4345,12 @@ The three named boolean options are bit views, not additional aggregate fields: 
 - `Extension :: 13`
 - `Coawait   :: 14`
 
+## Runtime requirements
+
+`generate_bindings` calls into `libgenerator_platform` (library loading, symbols, environment), libclang and a C compiler. A release archive ships the first in `native-libs/<platform>/` and, on Linux and Windows, libclang; on macOS libclang comes from the Xcode toolchain. When one is missing the error names it and the places searched. Details and the reasons: [releases](../../../tools/releases.md#bindings_generator).
+
+C++ headers are not read by `generate_bindings` (the parser runs as C: a `class` is "unknown type name"); `generate_bridge` is the C++ entry.
+
 ## Behavioral contract and constraints
 
 This package generates Jai declarations/wrappers from C and C++ headers using libclang. Its public records and procedures describe generator inputs, parsing/configuration, and emitted binding output; errors arise from header parsing, unsupported constructs, or output generation and are reported by generator diagnostics/results. Generated declarations inherit the source ABI and native library's ownership rules. The generator itself depends on libclang; the precise accepted C++ language/version matrix is unspecified.

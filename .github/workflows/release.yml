@@ -236,7 +236,7 @@ jobs:
         # X11 and GL: Window_Creation, which the smoke test's WebGPU triangle links.
         timeout-minutes: 15
         run: |
-          bash tools/ci/apt_install.sh zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libdrm-dev libgbm-dev libegl-dev libudev-dev libusb-1.0-0-dev libdecor-0-dev
+          bash tools/ci/apt_install.sh zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libdrm-dev libgbm-dev libegl-dev libudev-dev libusb-1.0-0-dev libdecor-0-dev patchelf
       # Instrumented build, training run over this repository's tests and examples, then the
       # profile-guided build into target/pgo/dist. On Linux x86-64 the result is also rewritten by
       # the llvm-bolt that ships in the official LLVM release (elsewhere: PGO only).
@@ -294,6 +294,11 @@ jobs:
             export MACOSX_DEPLOYMENT_TARGET="${{ matrix.name == 'macos-x64' && '10.12' || '11.0' }}"
           fi
           python3 tools/native/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
+          # What Bindings_Generator's generate_bindings needs at run time: its helper library on every
+          # platform, and libclang from the pinned LLVM on Linux and Windows (macOS uses the Xcode
+          # toolchain's; docs/tools/releases.md, "Bindings_Generator"). Printed with its size.
+          python3 tools/ci/package_bindings_helpers.py --platform "${{ matrix.name }}" \
+            --llvm-prefix "${LLVM_SYS_231_PREFIX:-$RUNNER_TEMP/llvm}" --out "$dir/native-libs/${{ matrix.name }}"
           unset MACOSX_DEPLOYMENT_TARGET
           ls -l "$dir/native-libs/${{ matrix.name }}"
           # Every library the packaged stdlib binds is either in the archive, built into jaic, or
@@ -473,6 +478,11 @@ jobs:
       - name: Smoke test a new project with the packaged tools
         shell: bash
         run: python3 tools/ci/release_smoke.py project --bin "$PWD/$PACKAGE_DIR"
+      # generate_bindings on a C header and on the C++ class of issue 26, with the packaged tools
+      # outside the checkout: a helper library the archive lacks fails here.
+      - name: Smoke test Bindings_Generator with the packaged tools
+        shell: bash
+        run: python3 tools/ci/release_smoke.py bindings --bin "$PWD/$PACKAGE_DIR"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.name }}

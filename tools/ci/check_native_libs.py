@@ -82,7 +82,17 @@ def check(stdlib: Path, platform: str, native: Path | None) -> list[str]:
         elif name not in EMBEDDED | WINDOWS_CRASH | EXTERNAL:
             problems.append(f"{path}: `{name}` is bound but neither built by tools/native/native-libs.json "
                             "nor listed as external in tools/ci/check_native_libs.py")
+    if native is not None:
+        # Bindings_Generator's helper (tools/ci/package_bindings_helpers.py): the stdlib binds it by
+        # a bare name inside developer-tools, which the scan above does not see as shipped.
+        for name in (static_name("generator_platform", platform), shared_name("generator_platform", platform)):
+            if not (native / name).is_file():
+                problems.append(f"`generator_platform` is not in {native} ({name})")
     return problems
+
+
+def shared_name(name: str, platform: str) -> str:
+    return f"lib{name}." + {"macos": "dylib", "linux": "so", "windows": "dll"}[platform.split("-")[0]]
 
 
 def main() -> None:
