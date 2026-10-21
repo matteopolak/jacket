@@ -2666,6 +2666,19 @@
       }
     },
     {
+      "id": "for-iterator-path-not-procedure",
+      "source": "negative/for-iterator-path-not-procedure.jai",
+      "sha256": "d2530abedc01aa0af10af52e3f967455f251741236ca7257542a8016cdb97b4f",
+      "suite": "negative",
+      "feature": "a dotted for: iterator must name a procedure",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`for :` needs the name of a `for_expansion` procedure"
+      }
+    },
+    {
       "id": "address-of-number-constant",
       "source": "negative/address-of-number-constant.jai",
       "sha256": "5a4ab0fbae2ccf63247a8c900e3a57414dfa1026d6c2d8282f81bd27e3f12777",
