@@ -2,6 +2,28 @@ operator == :: (a: Quaternion, b: Quaternion) -> bool {
     return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
 }
 
+operator + :: (a: Quaternion, b: Quaternion) -> Quaternion {
+    return .{ a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w };
+}
+
+operator - :: (a: Quaternion, b: Quaternion) -> Quaternion {
+    return .{ a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w };
+}
+
+operator - :: (a: Quaternion) -> Quaternion {
+    return .{ -a.x, -a.y, -a.z, -a.w };
+}
+
+operator * :: (a: Quaternion, k: float) -> Quaternion #symmetric {
+    return .{ a.x * k, a.y * k, a.z * k, a.w * k };
+}
+
+// The Hamilton product: `a * b` applies `b`'s rotation first, then `a`'s.
+operator * :: (a: Quaternion, b: Quaternion) -> Quaternion {
+    vector := a.w * b.xyz + b.w * a.xyz + cross(a.xyz, b.xyz);
+    return .{ vector.x, vector.y, vector.z, a.w * b.w - dot_product(a.xyz, b.xyz) };
+}
+
 dot_product :: (a: Quaternion, b: Quaternion) -> float {
     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 } @UseResult

@@ -36,5 +36,9 @@
     "name": "matrix-operators/reverse-vector-negative",
     "mode": "check-fail",
     "diagnostic_contains": "no overload of"
+  },
+  {
+    "name": "quaternion-operators",
+    "stdout": "ok\n"
   }
 ]
