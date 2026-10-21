@@ -1,5 +1,5 @@
 //! Field names inside a struct literal are another completion source: `Foo.{ a = 1, | }` and
-//! `.{ | }` offer the fields of the literal's type that are not assigned yet.
+//! `.{ | }` (or `x: Foo = { | }`) offer the fields of the literal's type that are not assigned yet.
 use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
 use jaic::lexer::{Lexed, P, Tok};
 use std::collections::BTreeSet;
@@ -43,7 +43,10 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
     let before = tokens.partition_point(|t| t.span.end <= start as u32);
     let after = tokens.partition_point(|t| t.span.start < end as u32);
     let prev = before.checked_sub(1)?;
-    if !matches!(tokens[prev].tok, Tok::Punct(P::Comma | P::DotBrace)) {
+    if !matches!(
+        tokens[prev].tok,
+        Tok::Punct(P::Comma | P::DotBrace | P::LBrace)
+    ) {
         return None;
     }
     // The literal's opening token, and the arguments before the cursor.
@@ -54,6 +57,11 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
             Tok::Punct(p) if is_close(p) => depth += 1,
             Tok::Punct(p) if is_open(p) && depth > 0 => depth -= 1,
             Tok::Punct(P::DotBrace) => {
+                open = Some(k);
+                break;
+            }
+            // `x: Foo = { | }`: braces right after `=` are a literal typed by what is assigned.
+            Tok::Punct(P::LBrace) if k > 0 && tokens[k - 1].tok == Tok::Punct(P::Eq) => {
                 open = Some(k);
                 break;
             }

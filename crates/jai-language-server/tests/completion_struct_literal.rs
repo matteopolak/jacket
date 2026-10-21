@@ -124,3 +124,26 @@ fn a_value_still_ranks_by_the_expected_type() {
     let key = |n: &str| l.iter().find(|i| i.label == n).unwrap().sort_text.clone();
     assert!(key("z_n") < key("a_text"));
 }
+
+#[test]
+fn bare_braces_after_a_typed_declaration_are_a_literal() {
+    for body in [
+        "x: Foo = { | };",
+        "x: Foo = {\n    |\n};",
+        "x: Foo = { a1 = 1, | };",
+        "x: Foo; x = { | };",
+    ] {
+        let l = labels(&format!("{FOO}main :: () {{ {body} }}"));
+        assert!(has(&l, "b2") && has(&l, "c3"), "{body}: {l:?}");
+    }
+    let l = labels(&format!(
+        "{FOO}Bar :: struct {{ using foo: Foo; n: s32; }}\nmain :: () {{ x: Bar = {{\n    |\n}}; }}"
+    ));
+    assert!(has(&l, "a1") && has(&l, "n"), "{l:?}");
+}
+
+#[test]
+fn a_block_is_not_a_literal() {
+    let l = labels(&format!("{FOO}main :: () {{ f: Foo; if true {{ | }} }}"));
+    assert!(!has(&l, "a1") && has(&l, "f"), "{l:?}");
+}
