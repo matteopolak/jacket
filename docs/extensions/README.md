@@ -15,7 +15,7 @@
 | `Json` | `to_json`/`from_json` generated from your types and `@json` notes | [json](json.md) |
 | `Http` | sans-IO HTTP/1.x codec, plus a fiber server and client | [codec](http-codec.md), [server](http-server.md), [client](http-client.md) |
 | `SIMD` | portable fixed-width vectors | [simd](simd.md) |
-| `Swiss_Table` | opt-in SwissTable hash map: single-key, 16-slot SIMD group probing, `Hash_Table`-like API | [swiss-table](swiss-table.md) |
+| `Hash_Map` | opt-in SwissTable hash map: single-key, 16-slot SIMD group probing | [hash-map](hash-map.md) |
 | `Byte_Search` | vectorized `memchr`/`memmem` | [byte-search](byte-search.md) |
 | `Jai_Format` | the formatter behind `jaifmt` and the playground's Format button | [jaifmt](../tools/jaifmt.md) |
 | `WebGPU` | the standard `webgpu.h` API: wgpu-native natively, the page's WebGPU in the playground | [webgpu](webgpu.md) |

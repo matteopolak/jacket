@@ -1,12 +1,12 @@
-// Swiss_Table against Hash_Table: insert, lookup hits and misses, delete-heavy churn, string keys
+// Hash_Map against Hash_Table: insert, lookup hits and misses, delete-heavy churn, string keys
 // and full iteration, at three sizes. Each workload runs RUNS times on fresh tables; the table
 // printed is the median in nanoseconds per operation.
 //
-//     jaic benchmarks/swiss-table.jai -O2 -exe swiss-table-bench && ./swiss-table-bench
+//     jaic benchmarks/hash-map.jai -O2 -exe hash-map-bench && ./hash-map-bench
 #import "Basic";
 #import "String";
 Chained :: #import "Hash_Table";
-Swiss :: #import "Extensions/Swiss_Table";
+Fast :: #import "Extensions/Hash_Map";
 
 RUNS :: 7;
 OPERATIONS_PER_RUN :: 3_000_000;
@@ -16,32 +16,32 @@ set :: (table: *Chained.Table($K, $V), key: K, value: V) {
     Chained.table_set(table, key, value);
 }
 
-set :: (table: *Swiss.Table($K, $V), key: K, value: V) {
-    Swiss.table_set(table, key, value);
+set :: (table: *Fast.Map($K, $V), key: K, value: V) {
+    Fast.insert(table, key, value);
 }
 
 find :: (table: *Chained.Table($K, $V), key: K) -> *V {
     return Chained.table_find_pointer(table, key);
 }
 
-find :: (table: *Swiss.Table($K, $V), key: K) -> *V {
-    return Swiss.table_find_pointer(table, key);
+find :: (table: *Fast.Map($K, $V), key: K) -> *V {
+    return Fast.find(table, key);
 }
 
 remove_key :: (table: *Chained.Table($K, $V), key: K) {
     Chained.table_remove(table, key);
 }
 
-remove_key :: (table: *Swiss.Table($K, $V), key: K) {
-    Swiss.table_remove(table, key);
+remove_key :: (table: *Fast.Map($K, $V), key: K) {
+    Fast.delete(table, key);
 }
 
 release :: (table: *Chained.Table($K, $V)) {
     Chained.deinit(table);
 }
 
-release :: (table: *Swiss.Table($K, $V)) {
-    Swiss.deinit(table);
+release :: (table: *Fast.Map($K, $V)) {
+    Fast.deinit(table);
 }
 
 state: u64 = 0x9E3779B97F4A7C15;
@@ -230,9 +230,9 @@ lookup_string :: ($T: Type, keys: [] string, order: [] string) -> float64 {
     return elapsed * 1e9 / cast(float64) (repeats * keys.count);
 }
 
-report :: (name: string, size: s64, chained: [] float64, swiss: [] float64) {
+report :: (name: string, size: s64, chained: [] float64, fast: [] float64) {
     a := median(chained);
-    b := median(swiss);
+    b := median(fast);
     row(name, tprint("%", size), number(a), number(b), number(a / b));
 }
 
@@ -264,12 +264,12 @@ Int_Case :: enum {
 }
 
 main :: () {
-    row("workload", "entries", "Hash_Table ns/op", "Swiss_Table ns/op", "speedup");
+    row("workload", "entries", "Hash_Table ns/op", "Hash_Map ns/op", "speedup");
 
     ChainedInt :: Chained.Table(s64, s64);
-    SwissInt :: Swiss.Table(s64, s64);
+    FastInt :: Fast.Map(s64, s64);
     ChainedString :: Chained.Table(string, s64);
-    SwissString :: Swiss.Table(string, s64);
+    FastString :: Fast.Map(string, s64);
 
     sizes := s64.[1_000, 100_000, 1_000_000];
 
@@ -289,41 +289,41 @@ main :: () {
                     case .INSERT;
                         if run % 2 == 0 {
                             a[run] = insert_int(ChainedInt, keys);
-                            b[run] = insert_int(SwissInt, keys);
+                            b[run] = insert_int(FastInt, keys);
                         } else {
-                            b[run] = insert_int(SwissInt, keys);
+                            b[run] = insert_int(FastInt, keys);
                             a[run] = insert_int(ChainedInt, keys);
                         }
                     case .HIT;
                         if run % 2 == 0 {
                             a[run] = lookup_hit(ChainedInt, keys, order);
-                            b[run] = lookup_hit(SwissInt, keys, order);
+                            b[run] = lookup_hit(FastInt, keys, order);
                         } else {
-                            b[run] = lookup_hit(SwissInt, keys, order);
+                            b[run] = lookup_hit(FastInt, keys, order);
                             a[run] = lookup_hit(ChainedInt, keys, order);
                         }
                     case .MISS;
                         if run % 2 == 0 {
                             a[run] = lookup_miss(ChainedInt, keys, misses);
-                            b[run] = lookup_miss(SwissInt, keys, misses);
+                            b[run] = lookup_miss(FastInt, keys, misses);
                         } else {
-                            b[run] = lookup_miss(SwissInt, keys, misses);
+                            b[run] = lookup_miss(FastInt, keys, misses);
                             a[run] = lookup_miss(ChainedInt, keys, misses);
                         }
                     case .CHURN;
                         if run % 2 == 0 {
                             a[run] = churn(ChainedInt, keys, extra);
-                            b[run] = churn(SwissInt, keys, extra);
+                            b[run] = churn(FastInt, keys, extra);
                         } else {
-                            b[run] = churn(SwissInt, keys, extra);
+                            b[run] = churn(FastInt, keys, extra);
                             a[run] = churn(ChainedInt, keys, extra);
                         }
                     case .ITERATE;
                         if run % 2 == 0 {
                             a[run] = iterate(ChainedInt, keys);
-                            b[run] = iterate(SwissInt, keys);
+                            b[run] = iterate(FastInt, keys);
                         } else {
-                            b[run] = iterate(SwissInt, keys);
+                            b[run] = iterate(FastInt, keys);
                             a[run] = iterate(ChainedInt, keys);
                         }
                 }
@@ -363,9 +363,9 @@ main :: () {
         for run: 0..RUNS - 1 {
             if run % 2 == 0 {
                 a[run] = insert_string(ChainedString, strings);
-                b[run] = insert_string(SwissString, strings);
+                b[run] = insert_string(FastString, strings);
             } else {
-                b[run] = insert_string(SwissString, strings);
+                b[run] = insert_string(FastString, strings);
                 a[run] = insert_string(ChainedString, strings);
             }
         }
@@ -375,9 +375,9 @@ main :: () {
         for run: 0..RUNS - 1 {
             if run % 2 == 0 {
                 a[run] = lookup_string(ChainedString, strings, shuffled_strings);
-                b[run] = lookup_string(SwissString, strings, shuffled_strings);
+                b[run] = lookup_string(FastString, strings, shuffled_strings);
             } else {
-                b[run] = lookup_string(SwissString, strings, shuffled_strings);
+                b[run] = lookup_string(FastString, strings, shuffled_strings);
                 a[run] = lookup_string(ChainedString, strings, shuffled_strings);
             }
         }

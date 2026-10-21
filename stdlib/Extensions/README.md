@@ -15,6 +15,7 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Http";` | HTTP/1.1: a strict sans-IO codec (builds for wasm), plus on fibers a router-based server whose handlers declare typed extractors checked against the route at compile time, and a client with a connection pool, both over TLS for HTTPS |
 | `#import "Extensions/SIMD";` | Portable fixed-width vectors (`u8x16`, `f32x4`, ...) with masks, shuffles and table lookups, the same on every target |
 | `#import "Extensions/Byte_Search";` | Vectorized byte and substring search (`memchr`/`memmem`), linear time |
+| `#import "Extensions/Hash_Map";` | An opt-in hash map that stores each key once and probes sixteen slots per step (`Map.insert`, `find`, `get`, `entry`, `delete`) |
 | `#import "Extensions/Jai_Format";` | The Jai source formatter behind `jaifmt` (text in, text out) |
 | `#import "Extensions/WebGPU";` | The standard WebGPU C API (`webgpu.h`): wgpu-native natively, the page's WebGPU in the browser |
 | `#import "Extensions/Io";` | Cooperative fibers: a per-thread scheduler, `spawn`/`sleep`/`cancel`, bounded channels, wait groups (not on wasm) |
