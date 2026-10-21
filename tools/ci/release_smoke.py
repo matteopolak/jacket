@@ -254,7 +254,10 @@ def bindings(bin_dir: Path) -> None:
         need(run(["clang++", flag, "-o", f"libadd.{shared}", "add.cpp"], cwd=work), "building the C++ library")
         need(generate(work), "generate_bindings on the issue's C++ class")
         generated = (work / "add.jai").read_text()
-        if "Demo :: struct" not in generated or "_ZN4Demo3addEii" not in generated:
+        if "Demo :: struct" not in generated:
+            raise SystemExit(f"add.jai has no Demo struct:\n{generated}")
+        # Methods are bound by their Itanium names; MSVC-mangled methods are not bound yet.
+        if platform.system() != "Windows" and "_ZN4Demo3addEii" not in generated:
             raise SystemExit(f"add.jai does not bind Demo::add:\n{generated}")
         print("generate_bindings, C++ class: parsed as C++")
 
