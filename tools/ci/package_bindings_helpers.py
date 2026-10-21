@@ -33,8 +33,10 @@ def build_static(prefix: Path, platform: str, out: Path) -> Path:
     """The helper as a static archive, which a built program (`jaic build.jai`) links like the other native libraries."""
     source = ROOT / "stdlib/internal/developer-tools/generator-platform-native.c"
     obj = out / "generator_platform.o"
+    # Windows objects are position independent already, and clang rejects -fPIC for MSVC targets.
+    pic = [] if platform.startswith("windows") else ["-fPIC"]
     subprocess.run(
-        [str(prefix / "bin/clang"), "-std=c11", "-O2", "-fPIC", "-c", str(source), "-o", str(obj)],
+        [str(prefix / "bin/clang"), "-std=c11", "-O2", *pic, "-c", str(source), "-o", str(obj)],
         check=True,
     )
     archive = out / static_name("generator_platform", platform)
