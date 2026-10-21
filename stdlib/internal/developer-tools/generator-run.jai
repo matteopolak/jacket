@@ -437,7 +437,51 @@ gr_parse_input :: (owner: *GM_Sessions.Session, options: *Generate_Bindings_Opti
     return input;
 }
 
+// Parses as the arguments say; with no `-x`, a source that is not valid C but is valid C++ is
+// parsed as C++ (the primary file's extension decides first: `.hpp` and `.cpp` are C++ already).
+// An explicit `-x` is never overridden. The diagnostics shown are the C parse's.
 gr_parse :: (generator: *Generator, owner: *GM_Sessions.Session, input: *GM_Sessions.Parse_Input) -> bool {
+    explicit_language := false;
+
+    for argument: input.arguments {
+        if argument == "-x" || (argument.count > 2 && argument[0] == #char "-" && argument[1] == #char "x") explicit_language = true;
+    }
+
+    if explicit_language return gr_parse_once(generator, owner, input, true);
+    if gr_parse_once(generator, owner, input, false) return true;
+    if !gr_reset_parse(generator) return false;
+
+    original := input.arguments;
+    cpp: [..] string;
+
+    defer array_free(cpp);
+    array_add(*cpp, "-x");
+    array_add(*cpp, "c++");
+    array_add(*cpp, ..original);
+
+    input.arguments = GM_Sessions.copy_array(owner, cpp);
+    for *argument: input.arguments argument.* = GM_Sessions.copy_text(owner, argument.*);
+
+    if gr_parse_once(generator, owner, input, false) return true;
+    if !gr_reset_parse(generator) return false;
+
+    // Neither language accepts it: report the errors of the C parse, the default.
+    input.arguments = original;
+
+    return gr_parse_once(generator, owner, input, true);
+}
+
+gr_reset_parse :: (generator: *Generator) -> bool {
+    if generator.translation_unit clang_disposeTranslationUnit(generator.translation_unit);
+    if generator.clang_index clang_disposeIndex(generator.clang_index);
+
+    generator.translation_unit = null;
+    generator.clang_index = null;
+
+    return true;
+}
+
+gr_parse_once :: (generator: *Generator, owner: *GM_Sessions.Session, input: *GM_Sessions.Parse_Input, report: bool) -> bool {
     if generator.clang_index || generator.translation_unit {
         gm_input_error("generator parse cannot replace live native resources; deinitialize first");
         return false;
@@ -499,11 +543,11 @@ gr_parse :: (generator: *Generator, owner: *GM_Sessions.Session, input: *GM_Sess
         message := clang_formatDiagnostic(diagnostic, clang_defaultDiagnosticDisplayOptions());
 
         defer clang_disposeString(message);
-        log("Bindings_Generator: %\n", to_string(clang_getCString(message)));
+        if report log("Bindings_Generator: %\n", to_string(clang_getCString(message)));
     }
 
     if failed {
-        gm_input_error("generator source contains native errors");
+        if report gm_input_error("generator source contains native errors");
         return false;
     }
 

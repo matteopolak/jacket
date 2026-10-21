@@ -202,13 +202,15 @@ def project(bin_dir: Path) -> None:
 
 C_HEADER = "int add(int a, int b);\n"
 C_SOURCE = '#include "add.h"\nint add(int a, int b) { return a + b; }\n'
-# Issue 26's program: a C++ class through `generate_bindings`, which reads C.
+# Issue 26's program: a C++ class, no language option.
 CPP_HEADER = "class Demo {\npublic:\n    int add(int a, int b);\n};\n"
+CPP_SOURCE = '#include "add.h"\nint Demo::add(int a, int b) { return a + b; }\n'
 BUILD = """main :: () {
     options: B.Generate_Bindings_Options;
     array_add(*options.source_files, "add.h");
     array_add(*options.libraries, .{ filename = "libadd" });
     array_add(*options.library_search_paths, #filepath);
+    EXTRA
     ok := B.generate_bindings(options, "add.jai", log_results = true);
     if !ok exit(1);
 }
@@ -222,39 +224,45 @@ B :: #import "Bindings_Generator";
 def bindings(bin_dir: Path) -> None:
     """`generate_bindings` needs the helper library, libclang and a compiler, all found from the install.
 
-    The C header must produce bindings for `add` (so the helper library and libclang loaded and
-    parsed it). The C++ class is not C: it must reach libclang and fail on `class`, which is the
-    parser's own diagnostic, not a missing library.
+    A C header must produce a binding for `add` (the helper library and libclang loaded and
+    parsed it). Issue 26's C++ class, with no language option, must be parsed as C++ and bind
+    `Demo::add` by its mangled name. An explicit `-x c` keeps a header C: the same class then
+    fails with libclang's own error.
     """
     jaic = bin_dir / exe("jaic")
     shared = {"Darwin": "dylib", "Windows": "dll"}.get(platform.system(), "so")
+    flag = "-dynamiclib" if platform.system() == "Darwin" else "-shared"
+
+    def generate(work: Path, extra: str = "") -> subprocess.CompletedProcess:
+        (work / "build.jai").write_text(BUILD.replace("EXTRA", extra))
+        (work / "add.jai").unlink(missing_ok=True)
+        return run([jaic, "-interp", "build.jai"], cwd=work)
+
     with tempfile.TemporaryDirectory(prefix="bindings-") as work:
         work = Path(work)
-        (work / "build.jai").write_text(BUILD)
         (work / "add.c").write_text(C_SOURCE)
         (work / "add.h").write_text(C_HEADER)
-        cc = ["clang", "-shared", "-o", f"libadd.{shared}", "add.c"]
-        if platform.system() == "Darwin":
-            cc = ["clang", "-dynamiclib", "-o", "libadd.dylib", "add.c"]
-        need(run(cc, cwd=work), "building the library to bind")
-        out = need(run([jaic, "-interp", "build.jai"], cwd=work), "generate_bindings on a C header")
+        need(run(["clang", flag, "-o", f"libadd.{shared}", "add.c"], cwd=work), "building the C library")
+        need(generate(work), "generate_bindings on a C header")
         generated = (work / "add.jai").read_text()
-        if "add :: " not in generated:
-            raise SystemExit(f"add.jai has no binding for `add`:\n{generated}\n{out}")
+        if "add :: " not in generated or "#cpp_method" in generated:
+            raise SystemExit(f"add.jai is not the C binding of `add`:\n{generated}")
         print("generate_bindings, C header: ok")
+
+        (work / "add.cpp").write_text(CPP_SOURCE)
         (work / "add.h").write_text(CPP_HEADER)
-        (work / "add.jai").unlink()
-        result = run([jaic, "-interp", "build.jai"], cwd=work)
+        need(run(["clang++", flag, "-o", f"libadd.{shared}", "add.cpp"], cwd=work), "building the C++ library")
+        need(generate(work), "generate_bindings on the issue's C++ class")
+        generated = (work / "add.jai").read_text()
+        if "Demo :: struct" not in generated or "_ZN4Demo3addEii" not in generated:
+            raise SystemExit(f"add.jai does not bind Demo::add:\n{generated}")
+        print("generate_bindings, C++ class: parsed as C++")
+
+        result = generate(work, 'array_add(*options.extra_clang_arguments, "-x", "c");')
         text = result.stdout + result.stderr
-        # Both are diagnostics of a missing install, not of the C++ source.
-        for missing in ("generator_platform", "was not found", "not available here", "source-built"):
-            if missing in text:
-                raise SystemExit(f"generate_bindings on a C++ class hit a missing piece ({missing!r}):\n{text}")
         if result.returncode == 0 or "unknown type name 'class'" not in text:
-            raise SystemExit(
-                f"expected libclang's `class` diagnostic ({result.returncode}):\n{text}"
-            )
-        print("generate_bindings, C++ class: libclang parsed it and reported the C-only error")
+            raise SystemExit(f"an explicit -x c must keep the header C ({result.returncode}):\n{text}")
+        print("generate_bindings, explicit -x c: stays C")
 
 
 def hover(jailsp: Path, source: Path, env) -> None:

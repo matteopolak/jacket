@@ -4349,7 +4349,7 @@ The three named boolean options are bit views, not additional aggregate fields: 
 
 `generate_bindings` calls into `libgenerator_platform` (library loading, symbols, environment), libclang and a C compiler. A release archive ships the first in `native-libs/<platform>/` and, on Linux and Windows, libclang; on macOS libclang comes from the Xcode toolchain. When one is missing the error names it and the places searched. Details and the reasons: [releases](../../../tools/releases.md#bindings_generator).
 
-C++ headers are not read by `generate_bindings` (the parser runs as C: a `class` is "unknown type name"); `generate_bridge` is the C++ entry.
+Language: the first source's extension picks C or C++ (`.h` is C). With no `-x` in `extra_clang_arguments`, a header that fails to parse as C is parsed again as C++, and that parse is used when it succeeds (a class in a `.h` works); when both fail, the C errors are reported. An explicit `-x` in `extra_clang_arguments` is always used as given and never retried. The language is the one the macro and expression re-parses use too (`gr_parse` in `internal/developer-tools/generator-run.jai`).
 
 ## Behavioral contract and constraints
 
