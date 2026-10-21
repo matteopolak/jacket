@@ -281,8 +281,16 @@ impl Compiler {
 
     /// What still separates equally cheap candidates: a non-polymorphic one beats a polymorphic
     /// one, one that takes every argument as itself beats one that gathers some into a variadic
-    /// parameter, and a more specific header beats a looser one.
-    fn candidate_rank(&self, c: &Candidate) -> (bool, bool, std::cmp::Reverse<u32>) {
+    /// parameter, a more specific header beats a looser one, and one that does not hand an
+    /// argument to a constant parameter with a default (`$flag := true`) beats one that does.
+    fn candidate_rank(&self, c: &Candidate) -> (bool, bool, std::cmp::Reverse<u32>, u32) {
+        let params = &self.proc(c.proc).lit.header.params;
+        let constants_given = c
+            .slots
+            .iter()
+            .zip(params)
+            .filter(|(slot, p)| p.baked && p.default.is_some() && !matches!(slot, Slot::Default))
+            .count();
         let gathers = c
             .slots
             .iter()
@@ -291,6 +299,7 @@ impl Compiler {
             self.proc(c.proc).bindings.is_some(),
             gathers,
             std::cmp::Reverse(c.specificity),
+            u32::try_from(constants_given).unwrap_or(u32::MAX),
         )
     }
 

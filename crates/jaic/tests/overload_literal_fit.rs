@@ -200,3 +200,20 @@ fn a_named_literal_leaves_members_with_initializers_to_them() {
         "{FIELDS} one :: #run take(.{{ a = 1 }}); #assert(one == 1);"
     ));
 }
+
+#[test]
+fn an_element_parameter_beats_a_constant_parameter_with_a_default() {
+    accepts(
+        "push :: (arr: *[..] $T, $flag := true) -> s32 { return 1; }
+        push :: (arr: *[..] $T, elem: T) -> u8 { return 2; }
+        main :: () {
+            words: [..] string;
+            a := push(*words, \"text\");
+            #assert(type_of(a) == u8);
+            number: s32;
+            numbers: [..] s32;
+            b := push(*numbers, number);
+            #assert(type_of(b) == u8);
+        }",
+    );
+}
