@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased]
+
+### New
+
+- `Extensions/Hash_Map`: a faster hash map that never stores a key twice (#17).
+- Five new lints: `dropped_result`, `use_after_free`, `double_free`, `unpaired_lock` and `leaked_allocation` (off by default).
+- Many invalid programs are now compile errors, including:
+  - ambiguous overloaded calls;
+  - writing to a by-value aggregate argument or loop variable;
+  - duplicate or non-constant `case` values;
+  - `#complete` on a non-enum;
+  - loading one file twice;
+  - name clashes involving `using`.
+
+### Improved
+
+- Untyped values (`.{...}`, `.NAME`, `xx`, untyped `ifx` arms) take their type from the operand, branch or overload next to them (#20, #21).
+- Overload choice picks the closest match and reports ties as errors (#22).
+- The jailint declaration notes have clearer names: `@FreesArgument`, `@RemovesFromArray`, `@ReturnsSmaller`, `@ReturnsLarger`.
+- Much faster float parsing and printing, with identical results.
+- Faster integer printing, string hashing, UTF-8 decoding and hash table inserts.
+
+### Fixed
+
+- `remove` in a `for` over a hash table drops the entry and keeps the count right (#18).
+- OpenGL windows on Windows pick a usable pixel format (#19), and the GL renderer no longer aborts on GL errors.
+- A core dump when compile-time code aborts the compiler.
+- Bit-pattern constants and scalar elements in by-value `for` loops get the right values.
+- TLS reads from a fiber, and native cursor creation failures.
+- `Random`'s float helpers return correctly scaled values, and a reversed range returns its lower bound.
+- A breakpoint on the last statement of a `for` loop stops before that statement runs.
+- Several editor fixes.
+
 ## [0.22.1] - 2026-10-20
 
 ### Fixed
