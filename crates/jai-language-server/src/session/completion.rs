@@ -141,6 +141,18 @@ impl Session {
                 list.is_incomplete = true;
             }
         }
+        // Naming a field of a struct literal: its fields come first; once one is named the values
+        // are not expressions here, so only the fields remain.
+        if let Some((fields, positional)) = self.struct_literal_completions(uri, byte)
+            && !fields.is_empty()
+        {
+            if positional {
+                list.items.extend(fields);
+            } else {
+                list.items = fields;
+                list.is_incomplete = false;
+            }
+        }
         // Accepting an item replaces the whole word around the cursor, the letters after it
         // included, so confirming in the middle of a word does not leave its tail behind.
         let text = &doc.text;

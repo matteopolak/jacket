@@ -1,5 +1,5 @@
 //! Recording member uses, labels, named fields, polymorphic headers and inferred members.
-use super::facts::{IdeName, IdeReceiver, IdeRef, IdeWhat};
+use super::facts::{IdeKind, IdeName, IdeReceiver, IdeRef, IdeWhat};
 use crate::ast;
 use crate::intern::Sym;
 use crate::sema::Compiler;
@@ -351,6 +351,32 @@ impl Compiler {
         out
     }
 
+    /// The fields of the struct a field name at `offset` in a struct literal belongs to (see
+    /// `ide_inferred_members`), `using` fields included.
+    pub fn ide_literal_fields(&mut self, file: FileId, offset: u32) -> Vec<IdeName> {
+        let Some(types) = self.ed.facts().and_then(|ide| {
+            ide.inferred_expected
+                .iter()
+                .find(|(s, _)| s.file == file && s.start == offset)
+                .map(|(_, t)| t.clone())
+        }) else {
+            return Vec::new();
+        };
+        let mut out: Vec<IdeName> = Vec::new();
+        for t in types {
+            let t = self.ty.types.repr_struct(t);
+            if !matches!(self.ty.types.kind(t), TypeKind::Struct(_)) {
+                continue;
+            }
+            for n in self.ide_members(IdeReceiver::Value(t)) {
+                if n.kind == IdeKind::Field && !out.iter().any(|o| o.name == n.name) {
+                    out.push(n);
+                }
+            }
+        }
+        out
+    }
+
     /// The names among `names` whose value converts implicitly to a type the placeholder
     /// `.NAME` at `offset` was expected to have (see `ide_inferred_members`); `None` when no
     /// expected type was recorded there.
@@ -394,12 +420,17 @@ impl Compiler {
             return;
         }
         for (i, a) in args.iter().enumerate() {
-            let Some(ast::Expr {
-                kind: ast::ExprKind::InferredMember(name),
-                ..
-            }) = &a.expr
-            else {
-                continue;
+            // The names to record the expected type of: `.NAME`, or the field names of `.{...}`.
+            let names: Vec<Span> = match a.expr.as_ref().map(|e| &e.kind) {
+                Some(ast::ExprKind::InferredMember(name)) => vec![name.span],
+                Some(ast::ExprKind::StructLit {
+                    ty: None,
+                    fields,
+                }) => fields
+                    .iter()
+                    .filter_map(|f| f.name.map(|n| n.span))
+                    .collect(),
+                _ => continue,
             };
             for &p in procs {
                 if self.proc(p).is_poly {
@@ -427,9 +458,11 @@ impl Compiler {
                 };
                 let ty = param.ty;
                 if let Some(ide) = self.ed.facts_mut() {
-                    let seen = ide.inferred_expected.entry(name.span).or_default();
-                    if !seen.contains(&ty) {
-                        seen.push(ty);
+                    for &name in &names {
+                        let seen = ide.inferred_expected.entry(name).or_default();
+                        if !seen.contains(&ty) {
+                            seen.push(ty);
+                        }
                     }
                 }
             }

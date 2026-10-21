@@ -117,6 +117,8 @@ impl Compiler {
             args.iter().partition(|a| a.target.is_some());
         for arg in args {
             let (path, mty) = if let Some(n) = arg.name {
+                // The type a field name here belongs to, for completing it.
+                self.ed.inferred(n.span, ty);
                 match self.find_member(ty, n.name, n.span)? {
                     Some(m) => {
                         self.ide_note_member_use(n.span, ty, n.name);

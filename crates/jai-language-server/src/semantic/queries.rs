@@ -376,6 +376,12 @@ impl Analysis {
         Some(self.compiler.ide_inferred_members(file, offset as u32))
     }
 
+    /// The fields of the struct literal whose field name starts at `offset`.
+    pub fn complete_literal_fields(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
+        let file = self.file(path)?;
+        Some(self.compiler.ide_literal_fields(file, offset as u32))
+    }
+
     /// Of the names visible at `offset`, those whose type fits the one the placeholder `.NAME`
     /// at `offset + 1` was expected to have; `None` when that is not known.
     pub fn complete_fitting(&mut self, path: &Path, offset: usize) -> Option<BTreeSet<String>> {

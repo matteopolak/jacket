@@ -32,6 +32,7 @@ mod refactor;
 mod selection;
 mod semantic;
 mod session;
+mod struct_literal;
 
 pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};

@@ -1,0 +1,187 @@
+//! Field names inside a struct literal are another completion source: `Foo.{ a = 1, | }` and
+//! `.{ | }` offer the fields of the literal's type that are not assigned yet.
+use crate::{CompletionItem, CompletionKind, DocumentUri, Session, analysis::Span};
+use jaic::lexer::{Lexed, P, Tok};
+use std::collections::BTreeSet;
+
+/// The field-name position the cursor is at.
+struct Site {
+    /// The word at the cursor, empty when none is typed.
+    word: std::ops::Range<usize>,
+    /// The word is followed by `=` already.
+    has_equals: bool,
+    /// Field names the literal assigns elsewhere.
+    assigned: BTreeSet<String>,
+    /// Nothing comes before the cursor in the literal, so a positional value is possible too.
+    first: bool,
+}
+
+fn is_open(p: P) -> bool {
+    matches!(
+        p,
+        P::LParen | P::LBrace | P::LBracket | P::DotBrace | P::DotBracket
+    )
+}
+
+fn is_close(p: P) -> bool {
+    matches!(p, P::RParen | P::RBrace | P::RBracket)
+}
+
+/// Where the cursor at `byte` names a field of a struct literal, from the tokens alone.
+fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
+    let tokens = &lexed.tokens;
+    let ident = jaic::lexicon::is_identifier_char;
+    let start = text[..byte]
+        .char_indices()
+        .rfind(|&(_, c)| !ident(c))
+        .map_or(0, |(i, c)| i + c.len_utf8());
+    let end = byte
+        + text[byte..]
+            .find(|c: char| !ident(c))
+            .unwrap_or(text.len() - byte);
+    // The tokens before the word, and the first one after it.
+    let before = tokens.partition_point(|t| t.span.end <= start as u32);
+    let after = tokens.partition_point(|t| t.span.start < end as u32);
+    let prev = before.checked_sub(1)?;
+    if !matches!(tokens[prev].tok, Tok::Punct(P::Comma | P::DotBrace)) {
+        return None;
+    }
+    // The literal's opening token, and the arguments before the cursor.
+    let mut depth = 0usize;
+    let mut open = None;
+    for k in (0..before).rev() {
+        match tokens[k].tok {
+            Tok::Punct(p) if is_close(p) => depth += 1,
+            Tok::Punct(p) if is_open(p) && depth > 0 => depth -= 1,
+            Tok::Punct(P::DotBrace) => {
+                open = Some(k);
+                break;
+            }
+            Tok::Punct(p) if is_open(p) => return None,
+            _ => {}
+        }
+    }
+    let open = open?;
+    // The literal's arguments, as ranges of tokens.
+    let mut args: Vec<std::ops::Range<usize>> = Vec::new();
+    let mut depth = 0usize;
+    let mut from = open + 1;
+    for k in open + 1..=tokens.len() {
+        match tokens.get(k).map(|t| &t.tok) {
+            Some(Tok::Punct(p)) if is_open(*p) => depth += 1,
+            Some(Tok::Punct(p)) if is_close(*p) && depth > 0 => depth -= 1,
+            Some(Tok::Punct(P::Comma)) if depth == 0 => {
+                args.push(from..k);
+                from = k + 1;
+            }
+            Some(Tok::Punct(p)) if is_close(*p) => {
+                args.push(from..k);
+                break;
+            }
+            None => args.push(from..k),
+            _ => {}
+        }
+    }
+    let name_of = |range: &std::ops::Range<usize>| match tokens.get(range.start..range.start + 2) {
+        Some([a, b]) if range.len() >= 2 && b.tok == Tok::Punct(P::Eq) => match &a.tok {
+            Tok::Ident(n) => Some(n.as_str().to_owned()),
+            _ => None,
+        },
+        _ => None,
+    };
+    // The argument holding the cursor: one per comma between the opening token and the word.
+    let current = tokens[open + 1..before]
+        .iter()
+        .scan(0usize, |depth, t| {
+            Some(match t.tok {
+                Tok::Punct(p) if is_open(p) => {
+                    *depth += 1;
+                    false
+                }
+                Tok::Punct(p) if is_close(p) => {
+                    *depth -= 1;
+                    false
+                }
+                Tok::Punct(P::Comma) => *depth == 0,
+                _ => false,
+            })
+        })
+        .filter(|&comma| comma)
+        .count();
+    // A positional value before the cursor: the values here are expressions too.
+    if args[..current.min(args.len())]
+        .iter()
+        .any(|a| name_of(a).is_none())
+    {
+        return None;
+    }
+    let assigned = args
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| i != current)
+        .filter_map(|(_, a)| name_of(a))
+        .collect();
+    let has_equals = matches!(tokens.get(after), Some(t) if t.tok == Tok::Punct(P::Eq));
+    Some(Site {
+        word: start..end,
+        has_equals,
+        assigned,
+        first: current == 0,
+    })
+}
+
+const PLACEHOLDER: &str = "__jailsp_field";
+
+impl Session {
+    /// The unassigned fields of the struct literal around `byte`, matching the typed prefix, and
+    /// whether the cursor may also hold a positional value.
+    pub(crate) fn struct_literal_completions(
+        &self,
+        uri: &DocumentUri,
+        byte: usize,
+    ) -> Option<(Vec<CompletionItem>, bool)> {
+        let doc = self.document(uri).ok()?;
+        let lexed = Lexed::new(jaic::source::FileId(0), &doc.text);
+        let site = site(&doc.text, &lexed, byte)?;
+        let text = &doc.text;
+        let prefix = text[site.word.start..byte].to_lowercase();
+        let candidate = format!(
+            "{}{PLACEHOLDER}{}{}",
+            &text[..site.word.start],
+            if site.has_equals {
+                ""
+            } else {
+                " = 0"
+            },
+            &text[site.word.end..]
+        );
+        let fields = self.with_semantic(uri, &candidate, |a, path| {
+            a.complete_literal_fields(path, site.word.start)
+        })?;
+        let range = doc
+            .index
+            .range(text, Span::new(site.word.start, site.word.end))
+            .ok()?;
+        let items = fields
+            .into_iter()
+            .filter(|f| {
+                f.name.to_lowercase().starts_with(&prefix) && !site.assigned.contains(&f.name)
+            })
+            .map(|f| CompletionItem {
+                insert_text: Some(if site.has_equals {
+                    f.name.clone()
+                } else {
+                    format!("{} = ", f.name)
+                }),
+                sort_text: Some(format!("!{}", f.name)),
+                label: f.name,
+                kind: CompletionKind::Field,
+                detail: f.detail,
+                replace: Some(range),
+                ..CompletionItem::default()
+            })
+            .take(self.limits.symbols)
+            .collect::<Vec<_>>();
+        Some((items, site.first))
+    }
+}
