@@ -267,6 +267,11 @@ fn quiet_procedures_push_no_stack_trace_node() {
                     .is_some_and(|l| l.contains(&format!("@{name}.")))
             })
             .unwrap_or_else(|| panic!("{name} is compiled"))
+            // The body ends at its closing brace: what follows is the rest of the module, or
+            // the header of the next part when the procedure is the last one in its part.
+            .split("\n}\n")
+            .next()
+            .unwrap()
             .contains("@trace_info.")
     };
     assert!(!pushes_node("leaf_qz"));
