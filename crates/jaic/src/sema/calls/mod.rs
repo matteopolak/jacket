@@ -280,8 +280,7 @@ impl Compiler {
     }
 
     /// What still separates equally cheap candidates: a non-polymorphic one beats a polymorphic
-    /// one, one that takes every argument as itself beats one that gathers some into a variadic
-    /// parameter, a more specific header beats a looser one, and one that does not hand an
+    /// one, a fixed-arity header beats a variadic header even when its pack is empty, a more specific header beats a looser one, and one that does not hand an
     /// argument to a constant parameter with a default (`$flag := true`) beats one that does.
     fn candidate_rank(&self, c: &Candidate) -> (bool, bool, std::cmp::Reverse<u32>, u32) {
         let params = &self.proc(c.proc).lit.header.params;
@@ -291,13 +290,10 @@ impl Compiler {
             .zip(params)
             .filter(|(slot, p)| p.baked && p.default.is_some() && !matches!(slot, Slot::Default))
             .count();
-        let gathers = c
-            .slots
-            .iter()
-            .any(|slot| matches!(slot, Slot::Variadic(list) if !list.is_empty()));
+        let variadic = params.iter().any(|param| param.variadic);
         (
             self.proc(c.proc).bindings.is_some(),
-            gathers,
+            variadic,
             std::cmp::Reverse(c.specificity),
             u32::try_from(constants_given).unwrap_or(u32::MAX),
         )
@@ -347,24 +343,9 @@ impl Compiler {
         if ambiguous {
             let rank = self.candidate_rank(&best[0]);
             let home = self.proc(best[0].proc).scope;
-            // Candidates of another shape are not rivals: `f(array)` and `f(array, ..items)`
-            // called with one argument leave the variadic empty, and `(d: [] u8)` is closer to
-            // `[] u8` than `(d: [] $T)` is.
-            let shape = |c: &Candidate| {
-                let header = &self.proc(c.proc).lit.header;
-                (
-                    header.params.iter().any(|p| p.variadic),
-                    header_poly_names(header).len(),
-                )
-            };
-            let first = shape(&best[0]);
             let tied = best
                 .iter()
-                .take_while(|c| {
-                    self.candidate_rank(c) == rank
-                        && self.proc(c.proc).scope == home
-                        && shape(c) == first
-                })
+                .take_while(|c| self.candidate_rank(c) == rank && self.proc(c.proc).scope == home)
                 .count();
             let declared = self.proc(best[0].proc).span;
             let rivals = best[..tied]

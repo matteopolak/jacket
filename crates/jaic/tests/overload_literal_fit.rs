@@ -217,3 +217,17 @@ fn an_element_parameter_beats_a_constant_parameter_with_a_default() {
         }",
     );
 }
+
+#[test]
+fn concrete_elements_rank_above_binders_in_implicit_generic_headers() {
+    accepts(
+        "Reader :: struct (K:Type) {value:K;}
+        read :: (r:*Reader, data:[]u8) -> int {return 1;}
+        read :: (r:*Reader, data:[]$T) -> int {return 2;}
+        check :: () -> bool {
+            r:Reader(s64); bytes:[]u8; words:[]u32;
+            return read(*r,bytes)==1 && read(*r,words)==2;
+        }
+        #assert check();",
+    );
+}

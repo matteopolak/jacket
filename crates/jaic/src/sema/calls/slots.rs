@@ -72,22 +72,23 @@ pub(super) fn poly_names(expr: &ast::Expr) -> Vec<Sym> {
     out
 }
 
-/// Type constructors wrapped around the polymorphic variables of a parameter type.
-pub(super) fn pattern_specificity(expr: &ast::Expr) -> u32 {
+/// Concrete type names and constructors constrain a pattern; binder names do not.
+pub(super) fn pattern_specificity(expr: &ast::Expr, variables: &[Sym]) -> u32 {
     match &expr.kind {
+        E::Ident(name) if !variables.contains(name) => 1,
         E::PolyRestricted {
             ..
         } => 1,
-        E::Unary(_, x) => 1 + pattern_specificity(x),
+        E::Unary(_, x) => 1 + pattern_specificity(x, variables),
         E::ArrayType {
             elem, ..
-        } => 1 + pattern_specificity(elem),
+        } => 1 + pattern_specificity(elem, variables),
         E::Call {
             args, ..
         } => {
             1 + args
                 .iter()
-                .map(|a| pattern_specificity(&a.value))
+                .map(|a| pattern_specificity(&a.value, variables))
                 .sum::<u32>()
         }
         E::ProcType(_) => 1,

@@ -115,7 +115,7 @@ impl Compiler {
                 .params
                 .iter()
                 .filter_map(|p| p.ty.as_ref())
-                .map(pattern_specificity)
+                .map(|ty| pattern_specificity(ty, &poly_vars))
                 .sum();
             let bindings = self.infer_bindings(proc, &header, &slots, args, span)?;
             proc_id = self.instantiate(proc, bindings, span)?;

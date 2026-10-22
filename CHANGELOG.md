@@ -6,6 +6,34 @@
 
 - Expose `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` as compiler-defined constants.
 
+### Fixed
+
+- Preserve custom-link message layouts and reject unsupported target options with public diagnostics.
+
+- Keep compiler-owned command-line views intact in the default metaprogram.
+
+- Prefer concrete parameter elements when matching otherwise generic overloads.
+
+- Serialize VS Code settings updates and language-server restarts to avoid error popups on save.
+
+- Show real polymorphs across workspace programs, including closed callers and shared modules.
+
+- Use the freshly built toolchain in terminals opened by `just vscode-try`.
+
+- Apply project and legacy editor configuration on save, keeping unfinished edits quiet.
+
+- Resolve module-scope members through qualified names, including plugin factories.
+
+- Keep code after empty switch cases reachable in language-server diagnostics.
+
+- Execute public `#compiler` operations in the compiler; reserve Jai bodies for runtime calls.
+
+- Complete struct fields in generic call arguments, including `array_add` element literals.
+
+- Resolve nested promoted array fields without reporting false recursive storage.
+
+- Prefer an equally matching fixed-arity overload over an empty variadic overload.
+
 ### Changed
 
 - Move the jaic-specific `Fuzz` module to `Extensions/Fuzz`.
