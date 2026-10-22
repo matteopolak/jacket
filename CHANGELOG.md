@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.25.0] - 2026-10-21
 
 ### New
 
@@ -11,6 +11,7 @@
 
 - `#assert,stallable` parses.
 - `#asm` accepts a `?T` size before a memory operand, as in `mov?T [p], v;`.
+- `jailint` no longer reports `if flag && DEBUG` and similar target checks as constant conditions.
 
 ## [0.24.0] - 2026-10-21
 
