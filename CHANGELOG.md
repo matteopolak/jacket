@@ -7,6 +7,11 @@
 - The prelude file can be set with `JAIC_PRELUDE` or the `jai.stdlib.prelude` editor setting.
 - A standard library folder whose prelude is a root `Preload.jai` is found without settings.
 
+### Fixed
+
+- `#assert,stallable` parses.
+- `#asm` accepts a `?T` size before a memory operand, as in `mov?T [p], v;`.
+
 ## [0.24.0] - 2026-10-21
 
 ### New

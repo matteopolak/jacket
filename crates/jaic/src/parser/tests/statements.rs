@@ -155,6 +155,13 @@ fn file_level_directives() {
 }
 
 #[test]
+fn assert_takes_directive_flags() {
+    let stmts = parse("#assert,stallable(A == 1);\n#assert,stallable A == 1 \"msg\";");
+    assert!(matches!(&stmts[0].kind, StmtKind::Assert(a) if a.message.is_none()));
+    assert!(matches!(&stmts[1].kind, StmtKind::Assert(a) if a.message.is_some()));
+}
+
+#[test]
 fn static_if_at_file_scope() {
     let stmts = parse(
         "#if A { x :: 1; y :: 2; } else #if B z :: 3; else { w :: 4; }\n#if C print(\"hi\");\n#if OS == { case .A; #load \"a.jai\"; case; #load \"b.jai\"; }\n#if #complete N == { case 1; a :: 1; case 2; a :: 2; }",

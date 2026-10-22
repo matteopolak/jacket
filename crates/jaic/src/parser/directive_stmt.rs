@@ -354,6 +354,16 @@ impl Parser<'_> {
     /// `#assert cond ["message"]` without the terminator.
     pub(super) fn parse_assert_core(&mut self) -> PResult<Stmt> {
         let start = self.bump();
+        // `#assert,stallable(cond)`: checks run synchronously, so the flag changes nothing. Its
+        // name is taken alone: the parentheses after it are the condition, not a flag argument.
+        while self.at(P::Comma)
+            && self.span().start == self.prev_span().end
+            && matches!(self.tok_at(1), Tok::Ident(_))
+            && self.token_at(1).span.start == self.span().end
+        {
+            self.bump();
+            self.bump();
+        }
         // `#assert(cond, "message")`: the call-like form, told apart by the comma inside the
         // parentheses. Deciding up front (rather than trying it and rewinding) keeps nested
         // `#assert(` from being parsed twice per level, which is exponential.

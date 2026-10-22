@@ -6,7 +6,7 @@ Source markers that change how a declaration or statement is treated: directive 
 
 ## How it works
 
-`parser/directive.rs` parses suffixes generically as `,name` or `,name(expr)`. `#run,stallable` behaves like `#run`. `#assert cond "msg";` and `#assert(cond, "msg");` fail at the condition. `#program_export` keeps a procedure as a root and sets its native symbol (`export_entities` in `sema/modules.rs`). `;` alone is an empty statement.
+`parser/directive.rs` parses suffixes generically as `,name` or `,name(expr)`. `#run,stallable` behaves like `#run`, and `#assert,stallable` like `#assert`. `#assert cond "msg";` and `#assert(cond, "msg");` fail at the condition. `#program_export` keeps a procedure as a root and sets its native symbol (`export_entities` in `sema/modules.rs`). `;` alone is an empty statement.
 
 ### Notes
 
