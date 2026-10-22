@@ -12,8 +12,8 @@
 //! enclosing test narrowed, and from the width of each type. This rule reports the test behind
 //! such a branch. It adds no analysis of its own; where the compiler is unsure, so is the rule.
 //!
-//! Left alone: conditions that are compile-time constants (`if DEBUG`, `while true`: written on
-//! purpose), tests inside code that is dead anyway, and comparisons with a literal that
+//! Left alone: conditions that are compile-time constants or combine one with `&&`/`||` (`if DEBUG`,
+//! `while true`, `if flag && TARGET_OS != .WINDOWS`: written on purpose), tests inside code that is dead anyway, and comparisons with a literal that
 //! `absurd_comparison` already reports.
 use super::{finding, int_literal};
 use crate::Finding;
@@ -61,7 +61,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 S::While(w) => (&w.cond, &*w.body, None),
                 _ => return true,
             };
-            if cx.constant(cond) || matches!(cond.kind, E::Bool(_)) || decided_by_type(cx, cond) {
+            if constant_part(cx, cond) || decided_by_type(cx, cond) {
                 return true;
             }
             let never = |branch: &Stmt| dead.contains(&contents(branch));
@@ -81,6 +81,20 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             ));
             true
         });
+    }
+}
+
+/// `cond` is a compile-time constant, or a `&&`/`||` with one as an operand: the target or a
+/// build setting decides it, so it is constant only on some builds.
+fn constant_part(cx: &Cx, cond: &Expr) -> bool {
+    if cx.constant(cond) || matches!(cond.kind, E::Bool(_)) {
+        return true;
+    }
+    match &cond.kind {
+        E::Binary(jaic::ast::BinOp::And | jaic::ast::BinOp::Or, a, b) => {
+            constant_part(cx, a) || constant_part(cx, b)
+        }
+        _ => false,
     }
 }
 

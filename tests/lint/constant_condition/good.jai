@@ -8,6 +8,8 @@ fine :: (count: s64, flag: bool) {
     }
 
     if DEBUG print("debug\n");
+    if flag && DEBUG print("flagged debug\n");
+    if flag && OS != .WINDOWS print("not windows\n");
 
     while true {
         if flag break;
