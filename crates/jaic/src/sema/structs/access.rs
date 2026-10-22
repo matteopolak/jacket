@@ -215,6 +215,19 @@ impl Compiler {
         let ScopeKind::Struct(owner_ty) = self.scope(scope).kind else {
             return Ok(None);
         };
+        self.declared_promoted_field_type_inner(scope, name, span, &mut vec![(owner_ty, name)])
+    }
+
+    fn declared_promoted_field_type_inner(
+        &mut self,
+        scope: ScopeId,
+        name: Sym,
+        span: Span,
+        searched: &mut Vec<(TypeId, Sym)>,
+    ) -> Result<Option<TypeId>> {
+        let ScopeKind::Struct(owner_ty) = self.scope(scope).kind else {
+            return Ok(None);
+        };
         let owner = self.ty.types.as_struct(owner_ty).unwrap();
         let candidates = self
             .ty
@@ -251,14 +264,49 @@ impl Compiler {
             let Some(target) = crate::sema::using::filter_target(&filter, name) else {
                 continue;
             };
-            if let Some((_, member_ty, _)) =
-                self.find_promoted_member(vec![(ty, 0, target)], span, &mut vec![owner])?
-            {
+            if let Some(member_ty) = self.declared_member_type(ty, target, span, searched)? {
                 self.ide_note_member_use(span, self.ty.types.pointee(ty).unwrap_or(ty), target);
                 return Ok(Some(member_ty));
             }
         }
         Ok(None)
+    }
+
+    /// A member's declared type, without an offset or a storage-layout dependency.
+    pub(super) fn declared_member_type(
+        &mut self,
+        ty: TypeId,
+        name: Sym,
+        span: Span,
+        searched: &mut Vec<(TypeId, Sym)>,
+    ) -> Result<Option<TypeId>> {
+        let ty = self.ty.types.pointee(ty).unwrap_or(ty);
+        let ty = self.ty.types.repr_struct(ty);
+        if searched.contains(&(ty, name)) {
+            return Ok(None);
+        }
+        let Some(record) = self.ty.types.as_struct(ty) else {
+            return Ok(self
+                .builtin_members(ty, span)?
+                .into_iter()
+                .find(|(member, _, _)| *member == name)
+                .map(|(_, ty, _)| ty));
+        };
+        searched.push((ty, name));
+        let scope = self.ty.struct_asts[&record].scope;
+        let result = if let Some(decl) = self
+            .ty
+            .field_declarations
+            .get(&scope)
+            .and_then(|fields| fields.get(&name))
+            .cloned()
+        {
+            self.resolve_field_decl_type(scope, &decl).map(Some)
+        } else {
+            self.declared_promoted_field_type_inner(scope, name, span, searched)
+        };
+        searched.pop();
+        result
     }
 
     pub(in crate::sema) fn pending_struct_field_type(
