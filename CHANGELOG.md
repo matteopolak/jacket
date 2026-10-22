@@ -14,6 +14,8 @@
 
 ### Fixed
 
+- Complete componentwise multiplication and division for Vector3/Vector4 and provide the missing Vector4 scalar-multiply, squared-distance and unit-vector helpers (#34).
+
 - Initialize compile-time context after early bootstrap queries instead of reusing a cached null pointer.
 
 - Discover MSVC and the Windows SDK for BuildCpp, preserve MSVC compiler flags, and exercise sgpu's VMA binding generator on Windows.

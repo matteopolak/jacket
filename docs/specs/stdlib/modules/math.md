@@ -221,7 +221,9 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `slerp :: (start: Quaternion, end: Quaternion, t: float) -> Quaternion`
 - `multiply :: (v: Vector2, f: float) -> Vector2`
 - `multiply :: (v: Vector3, f: float) -> Vector3`
+- `multiply :: (v: Vector4, f: float) -> Vector4`
 - `distance :: (a: Vector4, b: Vector4) -> float`
+- `distance_squared :: inline (a: Vector4, b: Vector4) -> float`
 - `distance :: (a: Vector3, b: Vector3) -> float`
 - `distance_squared :: inline (a: Vector3, b: Vector3) -> float`
 - `distance :: (a: Vector2, b: Vector2) -> float`
@@ -229,6 +231,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `AnyVector2 :: struct`
 - `normalize :: (v: *$T/MyVectors, epsilon := 0.0, fallback := T.{}) -> float`
 - `normalize :: (v: $T/MyVectors, epsilon := 0.0, fallback := T.{}) -> T`
+- `unit_vector :: (v: Vector4) -> Vector4`
 - `unit_vector :: (v: Vector3) -> Vector3`
 - `unit_vector :: (v: Vector2) -> Vector2`
 - `rotate :: (v: *Vector2, theta: float)`
@@ -369,7 +372,11 @@ The typed initialized constants use Jai's `name : Type : initializer` declaratio
 
 Several transcendental routines delegate to host/compiler math operations, and the module does not provide one uniform domain-error policy. Callers should check domains and inverse success where those are relevant.
 
-`Vector2` additionally defines componentwise vector/vector `+`, `-`, `*`, and `/`, plus unary negation. Multiplication accepts a scalar on either side; division accepts either a scalar denominator or numerator. There are no scalar `+` or `-` overloads in this interface.
+`Vector2`, `Vector3`, and `Vector4` define componentwise vector/vector `+`, `-`, `*`, and `/`, plus unary negation. Multiplication accepts a scalar on either side; division accepts either a scalar denominator or numerator. There are no scalar `+` or `-` overloads in this interface.
+
+The three vector sizes also provide `multiply(vector, scalar)`, `distance_squared`, and `unit_vector`. For example, `Vector4.{1, 2, 3, 4} * Vector4.{5, 6, 7, 8}` returns `Vector4.{5, 12, 21, 32}`; use `dot_product` for a scalar dot product.
+
+Vector arithmetic lives in `stdlib/internal/numerics/math_vectors.jai` and depends on the vector types and scalar helpers loaded by `Math`, with no configuration flags. Keep the three vector overload families in step and extend `stdlib/Math/tests/vector-arithmetic.jai` when changing them. Quaternion multiplication has its own rotation-composition meaning and is implemented separately in `math_quaternion.jai`.
 
 ### Matrix operators
 

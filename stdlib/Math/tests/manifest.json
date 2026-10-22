@@ -1,5 +1,9 @@
 [
   {
+    "name": "vector-arithmetic",
+    "stdout": "ok\n"
+  },
+  {
     "name": "equality-operators",
     "stdout": "ok\n"
   },

@@ -146,6 +146,18 @@ operator / :: (a: Vector3, b: float) -> Vector3 {
     return .{ a.x / b, a.y / b, a.z / b };
 }
 
+operator * :: (a: Vector3, b: Vector3) -> Vector3 {
+    return .{ a.x * b.x, a.y * b.y, a.z * b.z };
+}
+
+operator / :: (a: Vector3, b: Vector3) -> Vector3 {
+    return .{ a.x / b.x, a.y / b.y, a.z / b.z };
+}
+
+operator / :: (k: float, a: Vector3) -> Vector3 {
+    return .{ k / a.x, k / a.y, k / a.z };
+}
+
 operator - :: (a: Vector3) -> Vector3 {
     return .{ -a.x, -a.y, -a.z };
 }
@@ -234,6 +246,18 @@ operator / :: (a: Vector4, b: float) -> Vector4 {
     return .{ a.x / b, a.y / b, a.z / b, a.w / b };
 }
 
+operator * :: (a: Vector4, b: Vector4) -> Vector4 {
+    return .{ a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w };
+}
+
+operator / :: (a: Vector4, b: Vector4) -> Vector4 {
+    return .{ a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w };
+}
+
+operator / :: (k: float, a: Vector4) -> Vector4 {
+    return .{ k / a.x, k / a.y, k / a.z, k / a.w };
+}
+
 operator - :: (a: Vector4) -> Vector4 {
     return .{ -a.x, -a.y, -a.z, -a.w };
 }
@@ -253,6 +277,18 @@ xyzw :: (x: float, y: float, z: float, w: float) -> Vector4 {
 xyzw :: (x: float) -> Vector4 {
     return make_vector4(x);
 }
+
+multiply :: (v: Vector4, f: float) -> Vector4 {
+    return v * f;
+}
+
+distance_squared :: inline (a: Vector4, b: Vector4) -> float {
+    return length_squared(a - b);
+}
+
+unit_vector :: (v: Vector4) -> Vector4 {
+    return unit_vector_wide(v);
+} @UseResult
 
 distance :: (a: Vector4, b: Vector4) -> float {
     return length(a - b);
