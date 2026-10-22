@@ -78,3 +78,10 @@ CI (`vscode-extension` job in `ci.yml`): dependency ages, `pnpm run lint`, `pnpm
 ## Dependencies
 
 VS Code 1.91+, `vscode-languageclient` (bundled), system `tar`, and the toolchain (`jailsp`, `jaic`, `jaifmt`). Development: pnpm, TypeScript, Rolldown, oxlint, `@vscode/test-electron`, `vscode-tmgrammar-test`, `@vscode/vsce`, `ovsx`, `@resvg/resvg-js`. Internal: the `jailsp` protocol (`crates/jai-language-server/src/protocol.rs`), jailint's rule table, jaifmt's `--stdin` contract and release archive names.
+
+
+## Trying the development toolchain
+
+`just vscode-try` builds `jacket`, `jaic`, `jailsp`, `jailint`, the formatter and this extension, then opens a throwaway VS Code profile. Its editor paths and new integrated terminals select the same local build; `jacket run +Foo` therefore uses the development compiler instead of an installed release. The profile also sets `JAIC_STDLIB` to this checkout’s stdlib. Existing terminals keep their old environment, so open a new terminal after switching profiles.
+
+The setup lives in `tools/dev/dev.py` (`vscode_settings`, `cmd_vscode_try`). Keep the terminal PATH, editor paths and build package list aligned when adding a tool. `CARGO_TARGET_DIR` or Cargo’s configured target directory chooses the build location; `--debug` selects the debug profile. Dependencies are Cargo, pnpm, the VS Code CLI and the local toolchain sources. Tests in `tools/dev/test_vscode_try.py` check that the generated profile and build agree.

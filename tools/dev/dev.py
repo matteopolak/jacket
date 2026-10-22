@@ -198,6 +198,28 @@ def cmd_nvim(args) -> int:
                           cwd=ROOT / "editors" / "nvim", env=env).returncode
 
 
+def vscode_settings(bin_dir: Path, formatter: Path, platform: str) -> dict:
+    """Editor commands and new terminals use the same development toolchain."""
+    suffix = ".exe" if platform == "win32" else ""
+    terminal_platform = {"darwin": "osx", "win32": "windows"}.get(platform, "linux")
+    separator = ";" if platform == "win32" else ":"
+    return {
+        "jai.server.path": str(bin_dir / ("jailsp" + suffix)),
+        "jai.compiler.path": str(bin_dir / ("jaic" + suffix)),
+        "jai.formatter.path": str(formatter),
+        "jai.stdlib.path": str(ROOT / "stdlib"),
+        f"terminal.integrated.env.{terminal_platform}": {
+            "PATH": separator.join([str(bin_dir), str(formatter.parent), "${env:PATH}"]),
+            "JAIC_STDLIB": str(ROOT / "stdlib"),
+        },
+        # The extension ignores the folder's own tool paths in Restricted Mode.
+        "security.workspace.trust.enabled": False,
+        "update.mode": "none",
+        "extensions.autoCheckUpdates": False,
+        "telemetry.telemetryLevel": "off",
+    }
+
+
 def cmd_vscode_try(args) -> int:
     """Build the tools and the VS Code extension, then open it alone in a throwaway VS Code profile.
 
@@ -212,7 +234,7 @@ def cmd_vscode_try(args) -> int:
         print("VS Code's `code` command not found (Command Palette: Shell Command: Install 'code' command in PATH)", file=sys.stderr)
         return 1
     profile = "debug" if args.debug else "release"
-    if cargo_build([*([] if args.debug else ["--release"]), "-p", "jaic-cli", "-p", "jai-language-server", "-p", "jailint"],
+    if cargo_build([*([] if args.debug else ["--release"]), "-p", "jacket", "-p", "jaic-cli", "-p", "jai-language-server", "-p", "jailint"],
                    args.jobs):
         return 1
     bin_dir = TARGET / profile
@@ -235,17 +257,7 @@ def cmd_vscode_try(args) -> int:
     else:
         workspace = scratch / "examples"
         shutil.copytree(ROOT / "examples", workspace)
-    settings = {
-        "jai.server.path": str(bin_dir / ("jailsp" + EXE)),
-        "jai.compiler.path": str(jaic),
-        "jai.formatter.path": str(jaifmt),
-        "jai.stdlib.path": str(ROOT / "stdlib"),
-        # The extension ignores the folder's own tool paths in Restricted Mode.
-        "security.workspace.trust.enabled": False,
-        "update.mode": "none",
-        "extensions.autoCheckUpdates": False,
-        "telemetry.telemetryLevel": "off",
-    }
+    settings = vscode_settings(bin_dir, jaifmt, sys.platform)
     user = scratch / "user" / "User"
     user.mkdir(parents=True)
     (user / "settings.json").write_text(json.dumps(settings, indent=2) + "\n")
