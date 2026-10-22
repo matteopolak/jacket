@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Move the jaic-specific `Fuzz` module to `Extensions/Fuzz`.
+
 ## [0.25.0] - 2026-10-21
 
 ### New

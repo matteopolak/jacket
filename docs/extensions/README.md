@@ -9,6 +9,7 @@
 
 | Module | What it is for | Docs |
 | --- | --- | --- |
+| `Fuzz` | deterministic argument generators and procedure fuzz runners | [stdlib fuzzing](../tools/stdlib-fuzzing.md) |
 | `Long_Double` | C's `long double` in the target's format, for calling C functions that take or return one | [Long_Double](../language/long-double.md) |
 | `Args` | typed, compile-time-generated command-line parser (clap-like); `jaifmt` uses it | [args](args.md) |
 | `Regex` | Rust-`regex` syntax and semantics, linear time; `Regex.Static` patterns give typed groups | [regex](regex.md) |

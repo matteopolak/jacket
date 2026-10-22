@@ -1,6 +1,6 @@
 // Fuzz generators are deterministic per seed, honour the length bound, and reach edge values.
 #import "Basic";
-#import "Fuzz";
+#import "Extensions/Fuzz";
 
 Color :: enum u8 {
     RED;

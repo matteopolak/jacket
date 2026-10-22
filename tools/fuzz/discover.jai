@@ -13,7 +13,7 @@
 // `HARNESS END`.
 #import "Basic";
 #import "Compiler";
-#import "Fuzz";
+#import "Extensions/Fuzz";
 
 lines_of :: (text: string) -> [] string {
     result: [..] string;
@@ -119,7 +119,7 @@ Target_Proc :: struct {
 
     source: String_Builder;
 
-    append(*source, "#import \"Basic\";\n#import \"Fuzz\";\n");
+    append(*source, "#import \"Basic\";\n#import \"Extensions/Fuzz\";\n");
     append(*source, tprint("Target :: #import \"%\";\n", MODULE));
     if HOOKS.count > 0 append(*source, tprint("#load \"%\";\n", HOOKS));
     for lines_of(NAMES) append(*source, tprint("probe_% :: Target.%;\n", it, it));
@@ -238,7 +238,7 @@ Target_Proc :: struct {
 
     out: String_Builder;
 
-    append(*out, "#import \"Basic\";\n#import \"Fuzz\";\n");
+    append(*out, "#import \"Basic\";\n#import \"Extensions/Fuzz\";\n");
     append(*out, tprint("Target :: #import \"%\";\n", MODULE));
     if HOOKS.count > 0 append(*out, tprint("#load \"%\";\n", HOOKS));
 

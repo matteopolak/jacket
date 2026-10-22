@@ -4,6 +4,8 @@
 
 A type-driven fuzzer for stdlib procedures. It reads a module's exported procedure signatures, generates arguments from the parameter types, calls each procedure many times with edge-biased values and reports crashes, failed asserts, bounds/cast/overflow check failures, hangs and violated properties. It complements the cargo-fuzz targets in `fuzz/` (which fuzz the compiler itself, see [testing](testing.md)); it finds bugs in *Jai code*, not in `jaic`.
 
+`#import "Extensions/Fuzz";` loads the jaic-specific fuzzing helpers. The former root import `Fuzz` is no longer available.
+
 Two modes share the generators: a seeded mode under `jaic -interp` (fast to start, deterministic, no native toolchain) and a coverage-guided mode (`--engine`) that builds the same harness natively with `-sanitize address,fuzzer` and lets libFuzzer mutate the input bytes the generators consume.
 
 ```sh
@@ -26,7 +28,7 @@ Fuzz module  ─┘   (metaprogram)                (generated)                  
 
 **Discovering targets.** `tools/fuzz/discover.jai` is a metaprogram. It opens a child workspace that imports the module, intercepts compiler messages with `compiler_begin_intercept` and `compiler_wait_for_message`, and reads the `TYPECHECKED` declarations that live in the module's own `module.jai`. A constant declaration whose `type` is a `Type_Info_Procedure` is an exported procedure; its `argument_types` drive everything. Polymorphic, foreign and compile-time-only procedures and overload sets are skipped (`SKIP <name> <reason>`). The driver passes the module's config as constants (`MODULE`, `DENY`, `ALLOW`, `POINTERS`, `NULLABLE`, `ARITY`, `HOOKS`) in a generated wrapper that `#load`s `discover.jai`.
 
-**Generating values.** `stdlib/Fuzz/values.jai`. `gen(r, T)` fills a `T` from `type_info(T)` with `fill`, one arm per `Type_Info` kind:
+**Generating values.** `stdlib/Extensions/Fuzz/values.jai`. `gen(r, T)` fills a `T` from `type_info(T)` with `fill`, one arm per `Type_Info` kind:
 
 | Kind | Values |
 |---|---|
@@ -43,7 +45,7 @@ Allocations live in `Rng.live` and are freed by `case_end` after each call. Not 
 
 **Input bytes.** `Rng` has two sources. Seeded (default): SplitMix64 from the case seed. Input (`from_input`): every choice reads bytes from the engine's input, like a `FuzzedDataProvider`: `take(r, n)` reads n bytes (zeros past the end, which select the first alternative: empty, zero, first member), and `below(r, n)` reads only as many bytes as `n` needs, so one-byte choices stay one byte and libFuzzer's byte mutations map onto generator decisions. The generators do not know which source they use. The first input byte picks the case.
 
-**Calling.** For each procedure the metaprogram emits a thunk (`thunk_N :: (r: *Rng) { a0 := gen(r, string); ...; Target.proc(a0, ...); }`) and a `Case` table; `run_cases` (`stdlib/Fuzz/runner.jai`) calls them. The argument types are spelled from the type info (`type_text` in `discover.jai`); struct and enum types are usable only when the module exports them under their own name. Where the type info cannot show the difference (variadic `..T` looks like `[] T`; a `$constant` parameter is not flagged polymorphic), the harness fails to compile; the driver reads the error line, denies that procedure and rebuilds, and lists it under `skip`.
+**Calling.** For each procedure the metaprogram emits a thunk (`thunk_N :: (r: *Rng) { a0 := gen(r, string); ...; Target.proc(a0, ...); }`) and a `Case` table; `run_cases` (`stdlib/Extensions/Fuzz/runner.jai`) calls them. The argument types are spelled from the type info (`type_text` in `discover.jai`); struct and enum types are usable only when the module exports them under their own name. Where the type info cannot show the difference (variadic `..T` looks like `[] T`; a `$constant` parameter is not flagged polymorphic), the harness fails to compile; the driver reads the error line, denies that procedure and rebuilds, and lists it under `skip`.
 
 **Oracles.**
 
@@ -81,7 +83,7 @@ The driver wraps every `jaic` run with `tools/bench/sandbox.py` (Seatbelt on mac
 ## How to change it
 
 - *New module:* add an entry to `targets.json`, run it, and sort the first findings into fix, `known` or `deny`. Prefer a property hook over a `known` entry when the surprise is a contract rather than a bug.
-- *New value kind or distribution:* `stdlib/Fuzz/values.jai`; keep `can_fill` and `has_pointer` in step with `fill`. `stdlib/Fuzz/tests/generators.jai` checks determinism, bounds and edge coverage.
+- *New value kind or distribution:* `stdlib/Extensions/Fuzz/values.jai`; keep `can_fill` and `has_pointer` in step with `fill`. `stdlib/Extensions/Fuzz/tests/generators.jai` checks determinism, bounds and edge coverage.
 - *New oracle:* add to `signature_of` / the property hooks. Output or `stderr` checks belong in the driver, value checks in a hook.
 - Fuzz hooks and the harness are plain Jai; run one by hand with `jaic -interp <scratch>/harness-<Module>.jai -import_dir stdlib -- --only <proc> --seed N --count 1`. Harness options: `--seed`, `--count` (seeds per case), `--only`, `--max-len`, `--list`.
 
@@ -100,4 +102,4 @@ Gotchas: casts check overflow, so generator code must use `cast,trunc`; `#no_abc
 
 ## Dependencies
 
-`jaic` (metaprogram message loop, `Type_Info_Procedure`, `-sanitize fuzzer`), LLVM compiler-rt's libFuzzer archive, `stdlib/Fuzz`, `Compiler` and `Basic`, `tools/bench/sandbox.py`, Python 3 standard library.
+`jaic` (metaprogram message loop, `Type_Info_Procedure`, `-sanitize fuzzer`), LLVM compiler-rt's libFuzzer archive, `stdlib/Extensions/Fuzz`, `Compiler` and `Basic`, `tools/bench/sandbox.py`, Python 3 standard library.
