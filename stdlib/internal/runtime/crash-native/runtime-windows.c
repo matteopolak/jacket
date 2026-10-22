@@ -11,13 +11,25 @@
 #include <string.h>
 #include "stack-iteration.h"
 
-#if !defined(_M_X64) && !defined(__x86_64__)
-#error The Windows crash handler supports x64 only
-#endif
+#if defined(_M_ARM64) || defined(__aarch64__)
+_Static_assert(sizeof(CONTEXT) == 912, "public ARM64 context ABI");
+_Static_assert(offsetof(CONTEXT, Fp) == 240, "public frame pointer offset");
+_Static_assert(offsetof(CONTEXT, Sp) == 256, "public stack pointer offset");
+_Static_assert(offsetof(CONTEXT, Pc) == 264, "public instruction pointer offset");
+typedef LONG (NTAPI *unwind_function)(DWORD, DWORD64, DWORD64, PRUNTIME_FUNCTION,
+    PCONTEXT, PBOOLEAN, PVOID *, PDWORD64, PKNONVOLATILE_CONTEXT_POINTERS,
+    PDWORD64, PDWORD64, PEXCEPTION_ROUTINE *, DWORD);
+static unwind_function unwind_frame;
+#define CRASH_ARM64 1
+#elif defined(_M_X64) || defined(__x86_64__)
+#define CRASH_ARM64 0
 _Static_assert(sizeof(CONTEXT) == 1232, "public x64 context ABI");
 _Static_assert(offsetof(CONTEXT, Rsp) == 152, "public stack pointer offset");
 _Static_assert(offsetof(CONTEXT, Rbp) == 160, "public frame pointer offset");
 _Static_assert(offsetof(CONTEXT, Rip) == 248, "public instruction pointer offset");
+#else
+#error The Windows crash handler requires x64 or ARM64
+#endif
 _Static_assert(sizeof(STACKFRAME64) == 264, "public stack frame ABI");
 _Static_assert(sizeof(EXCEPTION_RECORD) == 152, "public exception ABI");
 
@@ -83,14 +95,44 @@ typedef struct {
     STACKFRAME64 frame;
     HANDLE process;
     HANDLE thread;
+#if CRASH_ARM64
+    DWORD64 low, high;
+#endif
 } native_walk;
 
 static int advance_frame(void *data, platform_stack_frame *frame) {
     native_walk *walk = data;
+#if CRASH_ARM64
+    CONTEXT *context = &walk->context;
+    if (context->Sp < walk->low || context->Sp >= walk->high || (context->Sp & 15) != 0) {
+        WRITE_TEXT("invalid native stack bounds\n");
+        return 0;
+    }
+    DWORD64 image_base = 0, establisher = 0;
+    PRUNTIME_FUNCTION function = RtlLookupFunctionEntry(context->Pc, &image_base, NULL);
+    PVOID handler_data = NULL;
+    DWORD64 previous_sp = context->Sp;
+    LONG status = unwind_frame(UNW_FLAG_NHANDLER, image_base, context->Pc,
+        function, context, NULL, &handler_data, &establisher, NULL,
+        &walk->low, &walk->high, NULL, 0);
+    if (status != 0) {
+        WRITE_TEXT("native unwind failed: ");
+        write_hex((uint32_t)status);
+        WRITE_TEXT("\n");
+        return 0;
+    }
+    if (context->Sp < previous_sp) {
+        WRITE_TEXT("native unwind moved backwards\n");
+        return 0;
+    }
+    frame->pc = context->Pc;
+    frame->sp = context->Sp;
+#else
     if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, walk->process, walk->thread,
         &walk->frame, &walk->context, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL)) return 0;
     frame->pc = walk->frame.AddrPC.Offset;
     frame->sp = walk->frame.AddrStack.Offset;
+#endif
     return 1;
 }
 
@@ -105,13 +147,21 @@ static void walk_stack(const void *source, int skips, HANDLE process) {
     // Public byte-shaped contexts need not have the SDK's alignment. Copy into
     // aligned native storage; never modify or reinterpret a foreign record.
     memcpy(&walk.context, source, sizeof(walk.context));
+    walk.process = process;
+    walk.thread = GetCurrentThread();
+#if CRASH_ARM64
+    ULONG_PTR low, high;
+    GetCurrentThreadStackLimits(&low, &high);
+    walk.low = low;
+    walk.high = high;
+    platform_stack_frame first = {walk.context.Pc, walk.context.Sp};
+#else
     walk.frame.AddrPC.Offset = walk.context.Rip;
     walk.frame.AddrStack.Offset = walk.context.Rsp;
     walk.frame.AddrFrame.Offset = walk.context.Rbp;
     walk.frame.AddrPC.Mode = walk.frame.AddrStack.Mode = walk.frame.AddrFrame.Mode = AddrModeFlat;
-    walk.process = process;
-    walk.thread = GetCurrentThread();
     platform_stack_frame first = {walk.context.Rip, walk.context.Rsp};
+#endif
     enum platform_stack_result result = platform_stack_iterate(first, skips, &walk, advance_frame, emit_frame);
     if (result == PLATFORM_STACK_STALLED) WRITE_TEXT("native unwind made no progress\n");
     if (result == PLATFORM_STACK_LIMIT) WRITE_TEXT("native stack truncated at 64 frames\n");
@@ -156,6 +206,16 @@ __declspec(dllexport) DWORD platform_io_windows_crash_prepare(HANDLE process) {
         ReleaseSRWLockExclusive(&lifecycle_lock);
         return error;
     }
+#if CRASH_ARM64
+    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    FARPROC entry = ntdll == NULL ? NULL : GetProcAddress(ntdll, "RtlVirtualUnwind2");
+    if (entry == NULL) {
+        ReleaseSRWLockExclusive(&lifecycle_lock);
+        return ERROR_PROC_NOT_FOUND;
+    }
+    _Static_assert(sizeof(entry) == sizeof(unwind_frame), "native function pointer ABI");
+    memcpy(&unwind_frame, &entry, sizeof(entry));
+#endif
     HANDLE session = NULL;
     HANDLE caller = GetCurrentProcess();
     if (!DuplicateHandle(caller, process, caller, &session, 0, FALSE, DUPLICATE_SAME_ACCESS)) {

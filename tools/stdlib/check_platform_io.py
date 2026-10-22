@@ -373,7 +373,7 @@ def main():
             ],
             env,
         )
-    if os.name == "nt" or args.windows_build or (args.windows_crash and cpu == "x64"):
+    if os.name == "nt" or args.windows_build or args.windows_crash:
         subprocess.run(
             [
                 sys.executable,
@@ -391,7 +391,7 @@ def main():
             / "internal/runtime/crash-native/platform_io_windows_crash.dll",
             output / "platform_io_windows_crash.dll",
         )
-    if cpu == "x64" and (os.name == "nt" or args.windows_build or args.windows_crash):
+    if os.name == "nt" or args.windows_build or args.windows_crash:
         # This SDK oracle supplies real host-image probes for the test only.
         # It neither replaces nor links into the production crash backend.
         sdk_dll = output / "platform_io_section_sdk.dll"
@@ -404,11 +404,16 @@ def main():
         sdk_library.unlink(missing_ok=True)
         if os.name == "nt":
             c_compiler = "clang"
-            c_target = ["--target=x86_64-pc-windows-msvc"]
+            c_target = [
+                f"--target={'aarch64' if cpu == 'arm64' else 'x86_64'}-pc-windows-msvc"
+            ]
             c_linker = [f"-Wl,/IMPLIB:{sdk_library}"]
         else:
             c_compiler = (
-                shutil.which("x86_64-w64-mingw32-clang") or "x86_64-w64-mingw32-gcc"
+                shutil.which(
+                    f"{'aarch64' if cpu == 'arm64' else 'x86_64'}-w64-mingw32-clang"
+                )
+                or f"{'aarch64' if cpu == 'arm64' else 'x86_64'}-w64-mingw32-gcc"
             )
             c_target = []
             c_linker = [f"-Wl,--out-implib,{sdk_library}"]
@@ -657,25 +662,23 @@ def main():
         ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/windows-native-sections.jai"
     )
     if args.cross_check:
-        attempt(
-            [
-                compiler,
-                native_sections,
-                "-os",
-                "windows",
-                "-cpu",
-                "x64",
-                "-check",
-                "-no_dce",
-            ],
-            env,
-        )
-    if cpu == "x64" and (
-        (os.name == "nt" and (args.native or args.windows_crash))
-        or args.windows_build == "x64"
-    ):
+        for target_cpu in ["x64", "arm64"]:
+            attempt(
+                [
+                    compiler,
+                    native_sections,
+                    "-os",
+                    "windows",
+                    "-cpu",
+                    target_cpu,
+                    "-check",
+                    "-no_dce",
+                ],
+                env,
+            )
+    if (os.name == "nt" and (args.native or args.windows_crash)) or args.windows_build:
         before = len(failures)
-        target = [] if os.name == "nt" else ["-os", "windows", "-cpu", "x64"]
+        target = [] if os.name == "nt" else ["-os", "windows", "-cpu", cpu]
         for optimization in ["-O0", "-O2"]:
             executable = output / (
                 "windows-crash-native-sections" + optimization + ".exe"
@@ -712,7 +715,7 @@ def main():
                 triple = "aarch64" if cpu == "arm64" else "x86_64"
                 c_source = (
                     ROOT
-                    / f"stdlib/Runtime_Support_Crash_Handler/tests/native/windows-{cpu}-crash-lifecycle.c"
+                    / "stdlib/Runtime_Support_Crash_Handler/tests/native/windows-crash-lifecycle.c"
                 )
                 before = len(failures)
                 if attempt(
@@ -792,7 +795,7 @@ def main():
                 ],
                 env,
             )
-        diagnostic(
+        attempt(
             [
                 compiler,
                 ROOT
@@ -805,7 +808,6 @@ def main():
                 "-no_dce",
             ],
             env,
-            "the Windows crash handler supports x64 only",
         )
         for optimized in [False, True]:
             for policy in ["off", "on", "default"]:

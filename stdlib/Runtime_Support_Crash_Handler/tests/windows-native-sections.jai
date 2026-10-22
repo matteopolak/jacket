@@ -1,5 +1,5 @@
 // Native-executable assertions: compiled code/globals must really be PE sections.
-#assert OS == .WINDOWS && CPU == .X64;
+#assert OS == .WINDOWS;
 
 #import "Basic";
 C :: #import "Runtime_Support_Crash_Handler";

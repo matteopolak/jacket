@@ -49,7 +49,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 
 ## Public aggregate shapes and enum values
 
-The Windows declarations and behavior in this module are x64-specific: `CONTEXT` is the 1232-byte record shape described below, `backtrace` reads `Rsp`, `Rbp`, and `Rip`, and stack walking uses AMD64. There is no Windows ARM64 `CONTEXT` alternative in this module. The module's Linux and macOS branches are separately conditional. Enabling this module through `Runtime_Support.ENABLE_BACKTRACE_ON_CRASH` on another target is unsupported by the handler's target branches.
+The Windows facade supports x64 and arm64. x64 retains its 1232-byte context; arm64 wraps the SDK-shaped `Windows.CONTEXT` binding (912 bytes, alignment 16), including `Fp`, `Sp`, and `Pc`. Both use the same initialization, exception, backtrace, and executable-section API. The Linux and macOS branches remain separately conditional.
 
 Each block gives the exported type declaration with its member fields or enum values. Conditional declarations with distinct shapes are shown as separate variants; platform labels describe availability, not source organization.
 
@@ -63,6 +63,8 @@ ADDRESS64 :: struct {
     }
 ```
 ### `CONTEXT`
+
+x64:
 
 ```jai
 CONTEXT :: struct {
@@ -78,6 +80,14 @@ CONTEXT :: struct {
         padding: [1232 - size_of(type_of(members))] u8 = ---;
     }
 ```
+arm64:
+
+```jai
+CONTEXT :: struct #align 16 {
+    using members: Windows.CONTEXT;
+}
+```
+
 ### `EXCEPTION_POINTERS`
 
 ```jai
@@ -229,4 +239,6 @@ x64_thread_state64_t_STUB :: struct {
 ```
 ## Behavioral contract
 
-Installs platform crash/exception handlers and captures stack information for diagnostics. Initialization must occur before failures to prepare symbol/handler state. On Windows it uses DbgHelp and x64 context/frame layouts; POSIX uses signal/action APIs. macOS handling is not guaranteed to be correct and some handler state is global rather than thread-local, so crash-path safety is limited. This is best-effort diagnostic support, not recovery or a guarantee that symbols are available. Depends on runtime stack-trace records and platform debug/signal libraries.
+Installs native crash/exception handlers and captures stack information for diagnostics. Initialization prepares a private DbgHelp symbol session so it does not collide with another component's session. Windows x64 walks with `StackWalk64`; arm64 uses `RtlVirtualUnwind2`, resolved from `ntdll` (Windows 11/Server 2022 or later). The arm64 walker validates native stack bounds; both walkers cap traversal and detect repeated frames. Public context bytes are copied into aligned SDK storage before walking. Symbol lookup is serialized, and an exception uses a nonblocking lock attempt to avoid deadlocking on an interrupted symbol operation. Diagnostic support is best effort, not recovery.
+
+Both Windows CPUs share `stdlib/internal/runtime/crash-native/runtime-windows.c`. Edit CPU-specific traversal there and public records in `windows-crash-types.jai`; preserve the existing x64 layout. `tools/stdlib/build_platform_io_runtime.py --stdlib stdlib --cpu x64|arm64` builds the matching DLL and optionally its static archive. The native SDK fixture checks context sizes/offsets independently, and the platform-I/O suite exercises initialization, filter restoration, executable sections, and actual faults at O0/O2 on Windows. Dependencies are the Windows SDK, DbgHelp, kernel32 and (arm64) the native unwind API. `Runtime_Support.ENABLE_BACKTRACE_ON_CRASH` controls startup installation; normal shutdown uses the private cleanup module to restore prior process state.

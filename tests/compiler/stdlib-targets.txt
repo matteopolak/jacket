@@ -73,8 +73,7 @@ Process wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACO
 Project_Generator wasm: System/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 Project_Generator windows-arm64: internal/system/windows.jai: error during compile-time execution: foreign procedure `GetModuleFileNameW` is not available here
 Project_Generator windows-x64: internal/system/windows.jai: error during compile-time execution: foreign procedure `GetModuleFileNameW` is not available here
-Runtime_Support_Crash_Handler wasm: Runtime_Support_Crash_Handler/module.jai: #assert failed: native crash diagnostics support Windows x64, Linux and macOS
-Runtime_Support_Crash_Handler windows-arm64: Runtime_Support_Crash_Handler/module.jai: #assert failed: the Windows crash handler supports x64 only
+Runtime_Support_Crash_Handler wasm: Runtime_Support_Crash_Handler/module.jai: #assert failed: native crash diagnostics support Windows x64/arm64, Linux and macOS
 SDL wasm: SDL/module.jai: #assert failed: SDL requires its documented native platform
 Shared_Memory_Channel wasm: Shared_Memory_Channel/module.jai: #assert failed: Shared_Memory_Channel requires native shared-memory mappings
 Simp wasm: GL/module.jai: #assert failed: GL requires its documented native platform

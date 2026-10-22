@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <dbghelp.h>
 #include <stdint.h>
+#include <stddef.h>
 
 __declspec(dllexport) void *platform_io_sdk_image_probe(int writable) {
     unsigned char *base = (unsigned char *)GetModuleHandleW(NULL);
@@ -65,4 +66,18 @@ __declspec(dllexport) int platform_io_sdk_section(const void *pointer, int *read
     *name = (const char *)section->Name;
     while (*length < IMAGE_SIZEOF_SHORT_NAME && section->Name[*length] != 0) ++*length;
     return 1;
+}
+
+// Compare public Jai storage against independently compiled SDK field offsets.
+__declspec(dllexport) void platform_io_sdk_context_layout(uint64_t *size, uint64_t *pc, uint64_t *sp, uint64_t *fp) {
+    *size = sizeof(CONTEXT);
+#if defined(_M_ARM64) || defined(__aarch64__)
+    *pc = offsetof(CONTEXT, Pc);
+    *sp = offsetof(CONTEXT, Sp);
+    *fp = offsetof(CONTEXT, Fp);
+#else
+    *pc = offsetof(CONTEXT, Rip);
+    *sp = offsetof(CONTEXT, Rsp);
+    *fp = offsetof(CONTEXT, Rbp);
+#endif
 }

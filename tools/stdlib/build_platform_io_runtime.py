@@ -79,11 +79,7 @@ def main():
         )
     directory = stdlib / "internal/runtime/crash-native"
     directory.mkdir(parents=True, exist_ok=True)
-    source = (
-        ROOT
-        / "stdlib/internal/runtime/crash-native"
-        / ("runtime-windows-arm64.c" if args.cpu == "arm64" else "runtime-windows.c")
-    )
+    source = ROOT / "stdlib/internal/runtime/crash-native" / "runtime-windows.c"
     native = os.name == "nt"
     if native:
         compiler = args.compiler or "clang"

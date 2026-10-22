@@ -67,9 +67,8 @@ program_entry :: () -> s32 #entry_point;
 #if OS == .WINDOWS Windows_Arguments :: #import "internal/runtime/windows-arguments";
 
 #if DEFINE_SYSTEM_ENTRY_POINT && ENABLE_BACKTRACE_ON_CRASH {
-    #if OS == .WINDOWS && CPU == .ARM64 Crash :: #import "internal/runtime/windows-arm64-crash";
-    else Crash :: #import "Runtime_Support_Crash_Handler";
-    #if OS == .WINDOWS && CPU == .X64 Crash_Cleanup :: #import "internal/runtime/windows-crash-cleanup";
+    Crash :: #import "Runtime_Support_Crash_Handler";
+    #if OS == .WINDOWS Crash_Cleanup :: #import "internal/runtime/windows-crash-cleanup";
 }
 
 #if DEFINE_SYSTEM_ENTRY_POINT {
@@ -93,8 +92,7 @@ program_entry :: () -> s32 #entry_point;
 
             push_context ctx.* {
                 #if ENABLE_BACKTRACE_ON_CRASH Crash.init();
-                #if ENABLE_BACKTRACE_ON_CRASH && CPU == .ARM64 defer Crash.fini();
-                #if ENABLE_BACKTRACE_ON_CRASH && CPU == .X64 defer Crash_Cleanup.fini();
+                #if ENABLE_BACKTRACE_ON_CRASH defer Crash_Cleanup.fini();
                 __instrumentation_first();
                 __instrumentation_second();
 

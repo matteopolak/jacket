@@ -8,6 +8,8 @@
 
 - Support Autorun workspace execution on Windows.
 
+- Expose the Windows arm64 native crash handler through Runtime_Support_Crash_Handler.
+
 - Expose `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` as compiler-defined constants.
 
 ### Fixed

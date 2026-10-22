@@ -1,11 +1,34 @@
 #import "Basic";
-#if OS == .WINDOWS && CPU == .X64 C :: #import "Runtime_Support_Crash_Handler";
+#if OS == .WINDOWS C :: #import "Runtime_Support_Crash_Handler";
 
 main :: () {
-    #if OS == .WINDOWS && CPU == .X64 {
+    #if OS == .WINDOWS {
         assert(type_info(C.CONTEXT).name == "CONTEXT" && type_info(C.STACKFRAME64).name == "STACKFRAME64");
-        assert(size_of(C.CONTEXT) == 1232 && size_of(C.STACKFRAME64) == 264);
+        #if CPU == .ARM64 assert(size_of(C.CONTEXT) == 912);
+        else assert(size_of(C.CONTEXT) == 1232);
+        assert(size_of(C.STACKFRAME64) == 264);
         assert(size_of(C.ADDRESS64) == 16 && size_of(C.EXCEPTION_RECORD) == 152);
+        native_size: u64;
+        pc_offset: u64;
+        sp_offset: u64;
+        fp_offset: u64;
+
+        sdk_context_layout(*native_size, *pc_offset, *sp_offset, *fp_offset);
+        saved: C.CONTEXT;
+        base := cast(u64) *saved;
+
+        assert(native_size == size_of(C.CONTEXT));
+
+        #if CPU == .ARM64 {
+            assert(cast(u64) *saved.Pc - base == pc_offset);
+            assert(cast(u64) *saved.Sp - base == sp_offset);
+            assert(cast(u64) *saved.Fp - base == fp_offset);
+        } else {
+            assert(cast(u64) *saved.Rip - base == pc_offset);
+            assert(cast(u64) *saved.Rsp - base == sp_offset);
+            assert(cast(u64) *saved.Rbp - base == fp_offset);
+        }
+
         previous_filter := set_filter(null);
 
         defer set_filter(previous_filter);
@@ -54,7 +77,7 @@ main :: () {
 }
 
 #scope_file
-#if OS == .WINDOWS && CPU == .X64 {
+#if OS == .WINDOWS {
     check_symbol_mapping :: (pointer: *void) {
         expected_readonly: s32;
         expected := sdk_main_image_mapping(pointer, *expected_readonly);
@@ -74,3 +97,6 @@ main :: () {
     sdk_main_image_mapping :: (pointer: *void, readonly: *s32) -> s32 #foreign sdk "platform_io_sdk_main_image_mapping";
     sdk_section :: (pointer: *void, readonly: *s32, name: **u8, count: *u64) -> s32 #foreign sdk "platform_io_sdk_section";
 }
+
+#scope_file
+#if OS == .WINDOWS sdk_context_layout :: (size: *u64, pc: *u64, sp: *u64, fp: *u64) #foreign sdk "platform_io_sdk_context_layout";

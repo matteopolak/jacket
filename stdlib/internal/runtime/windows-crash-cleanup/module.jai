@@ -1,5 +1,5 @@
 // Private normal-runtime shutdown; the public crash facade has no fini export.
-#assert OS == .WINDOWS && CPU == .X64;
+#assert OS == .WINDOWS;
 
 fini :: () {
     error := native_finish();

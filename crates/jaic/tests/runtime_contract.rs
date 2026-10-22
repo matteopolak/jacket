@@ -22,7 +22,7 @@ fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
 }
 
 #[test]
-fn windows_arm64_entry_backtrace_uses_the_private_native_backend() {
+fn windows_arm64_entry_backtrace_uses_the_public_native_backend() {
     let (compiler, result) = compile(true, true);
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
@@ -31,32 +31,17 @@ fn windows_arm64_entry_backtrace_uses_the_private_native_backend() {
         module
             .path
             .as_ref()
-            .is_some_and(|path| path.ends_with("internal/runtime/windows-arm64-crash/module.jai"))
-    }));
-    assert!(!compiler.ns.modules.iter().any(|module| {
-        module
-            .path
-            .as_ref()
             .is_some_and(|path| path.ends_with("Runtime_Support_Crash_Handler/module.jai"))
     }));
 }
 
 #[test]
-fn public_x64_crash_record_facade_still_rejects_windows_arm64() {
+fn public_crash_record_facade_uses_windows_arm64_layout() {
     let (mut compiler, result) = compile(false, false);
     result.unwrap();
-    let error = compiler
-        .compile_sources(&[ProgramSource::String(
-            "C :: #import \"Runtime_Support_Crash_Handler\"; main :: () {}".into(),
-        )])
-        .expect_err("public x64 records cannot represent a native ARM64 context");
-    assert!(
-        error
-            .message
-            .contains("the Windows crash handler supports x64 only"),
-        "{}",
-        error.render(&compiler.src.sources)
-    );
+    compiler.compile_sources(&[ProgramSource::String(
+        "C :: #import \"Runtime_Support_Crash_Handler\"; #assert size_of(C.CONTEXT) == 912; #assert #exists(C.CONTEXT.Sp); main :: () {}".into(),
+    )]).unwrap();
 }
 
 #[test]
@@ -66,6 +51,12 @@ fn disabled_backtrace_or_embedding_does_not_import_a_native_handler() {
         if let Err(error) = result {
             panic!("{}", error.render(&compiler.src.sources));
         }
+        assert!(!compiler.ns.modules.iter().any(|module| {
+            module.path.as_ref().is_some_and(|path| {
+                path.ends_with("Runtime_Support_Crash_Handler/module.jai")
+                    || path.ends_with("internal/runtime/windows-crash-cleanup/module.jai")
+            })
+        }));
     }
 }
 
