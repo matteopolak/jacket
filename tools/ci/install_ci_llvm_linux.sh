@@ -16,6 +16,7 @@ esac
 
 # shellcheck source=tools/ci/apt_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/apt_lib.sh"
+apt_configure /etc/apt
 
 task_temp=$(mktemp -d)
 trap 'rm -rf "$task_temp"' EXIT
@@ -31,7 +32,7 @@ gpg --batch --dearmor --output "$task_temp/llvm.gpg" "$task_temp/key.asc"
 sudo install -m 0644 "$task_temp/llvm.gpg" /usr/share/keyrings/jai-ci-llvm.gpg
 printf '%s\n' \
   "deb [arch=$package_arch signed-by=/usr/share/keyrings/jai-ci-llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-23 main" \
-  | sudo tee /etc/apt/sources.list.d/jai-ci-llvm.list > /dev/null
+  | sudo tee /etc/apt/jai-ci-sources.list.d/jai-ci-llvm.list > /dev/null
 apt_get update
 # libclang-rt-23-dev: the sanitizer runtimes `jaic -sanitize` links; lld-23: wasm-ld, for
 # `jaic -os wasm`.

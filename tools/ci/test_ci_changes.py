@@ -4,6 +4,20 @@ import ci_changes
 
 
 class Matching(unittest.TestCase):
+    def test_shared_apt_setup_runs_windows_cross_builds(self):
+        for path in [
+            "apt_lib.sh",
+            "apt_install.sh",
+            "install_ci_llvm_linux.sh",
+            "test_apt_lib.py",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(
+                    ci_changes.matches(
+                        ci_changes.AREAS["windows"], ["tools/ci/" + path], False
+                    )
+                )
+
     def test_globs(self):
         self.assertTrue(
             ci_changes.matches(
