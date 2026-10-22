@@ -348,7 +348,10 @@ impl Parser<'_> {
                         start.to(end),
                     );
                 }
-                Tok::Punct(P::LBracket) if !self.continues_after_block() => {
+                Tok::Punct(P::LBracket)
+                    if !self.continues_after_block()
+                        && (!self.in_asm_size || self.span().start == self.prev_span().end) =>
+                {
                     self.bump();
                     let index = self.parse_expr()?;
                     let end = self.expect(P::RBracket, "after index expression")?;

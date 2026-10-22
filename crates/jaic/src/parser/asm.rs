@@ -137,7 +137,10 @@ impl Parser<'_> {
             })));
         }
         if self.eat(P::Question) {
-            return Ok(Some(AsmSize::Dynamic(Box::new(self.parse_unary()?))));
+            let outer = std::mem::replace(&mut self.in_asm_size, true);
+            let size = self.parse_unary();
+            self.in_asm_size = outer;
+            return Ok(Some(AsmSize::Dynamic(Box::new(size?))));
         }
         Ok(None)
     }

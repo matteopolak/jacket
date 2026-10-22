@@ -584,6 +584,11 @@ bit_count :: (value: $T) -> s32 {
     return result;
 }
 
+// `?T` ends at whitespace, so `[p]` is the memory operand, not an index into `T`.
+store_through :: (p: *$T, v: T) {
+    #asm { mov?T [p], v; }
+}
+
 do_some_work :: (a: int, b: int) -> int {
     #asm { add a, b; }
     return a;
@@ -595,6 +600,10 @@ test_misc :: () {
     assert(popbit(0xff) == 0xfe, "popbit macro");
     assert(bit_count(cast(u32) 0xff00ff) == 16, "?T size from a type");
     assert(bit_count(cast(u64) 0xffffffffffff) == 48, "?T size 64");
+    stored: u32;
+
+    store_through(*stored, 0xabcd);
+    assert(stored == 0xabcd, "?T size before a memory operand");
     assert(COMPILE_TIME == 23, "#asm at compile time");
 
     #asm {

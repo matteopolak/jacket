@@ -101,6 +101,9 @@ pub(crate) struct Parser<'a> {
     /// a literal, whatever follows it, because the `{` that follows belongs to the procedure
     /// being declared.
     in_return_type: bool,
+    /// True while parsing an `#asm` `?T` size: it ends at whitespace, so `mov?T [p], v` keeps `[p]`
+    /// as the operand instead of indexing `T`.
+    in_asm_size: bool,
     /// Operator text (`+`, `[]`, ...) for the procedure header parsed next.
     pending_operator: Option<std::rc::Rc<str>>,
     /// Token index just past a brace-terminated construct that ended with trailing flags
@@ -133,6 +136,7 @@ impl<'a> Parser<'a> {
             pos: 0,
             in_list: false,
             in_return_type: false,
+            in_asm_size: false,
             pending_operator: None,
             block_end: usize::MAX,
             pending_notes: Vec::new(),
