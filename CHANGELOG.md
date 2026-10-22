@@ -4,6 +4,8 @@
 
 ### New
 
+- Support Autorun workspace execution on Windows.
+
 - Expose `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` as compiler-defined constants.
 
 ### Fixed

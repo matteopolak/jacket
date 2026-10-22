@@ -1,5 +1,25 @@
 run_native :: (executable_path_without_extension: string, args: [] string) {
-    result, output, errors, timed := Process.run_command(executable_path_without_extension, ..args);
+    path := copy_string(executable_path_without_extension);
+
+    defer free(path);
+
+    #if OS == .WINDOWS {
+        if !Files.file_exists(path) && !Text.ends_with(path, ".exe") {
+            free(path);
+            path = sprint("%.exe", executable_path_without_extension);
+        }
+    }
+
+    absolute, resolved := File.get_absolute_path(path);
+
+    defer free(absolute);
+
+    if !resolved {
+        context.logger("Autorun executable path cannot be resolved\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
+        return;
+    }
+
+    result, output, errors, timed := Process.run_command(absolute, ..args);
 
     defer free(output);
     defer free(errors);
@@ -18,7 +38,9 @@ run_build_result_of_workspace :: (w: Workspace, args: [] string = .[]) {
         return;
     }
 
-    executable := sprint("%%", options.output_path, options.output_executable_name);
+    executable: string;
+    if Text.is_absolute_path(options.output_executable_name) executable = copy_string(options.output_executable_name);
+    else executable = sprint("%/%", #ifx options.output_path.count > 0 then options.output_path else ".", options.output_executable_name);
 
     defer free(executable);
     run_native(executable, args);
@@ -76,3 +98,7 @@ receive_message :: (p: *C.Metaprogram_Plugin, event: *C.Message) {
 shut_down_plugin :: (p: *C.Metaprogram_Plugin) {
     shutdown(cast(*Plugin) p);
 }
+
+File :: #import "File";
+Files :: #import "File_Utilities";
+Text :: #import "String";

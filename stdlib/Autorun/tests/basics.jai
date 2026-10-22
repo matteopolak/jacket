@@ -3,7 +3,14 @@ A :: #import "Autorun";
 C :: #import "Compiler";
 F :: #import "File";
 S :: #import "String";
-P :: #import "POSIX";
+#if OS == .WINDOWS P :: #import "Windows";
+else P :: #import "POSIX";
+
+process_id :: () -> u32 {
+    #if OS == .WINDOWS return P.GetCurrentProcessId();
+    else return cast(u32) P.getpid();
+}
+
 U :: #import "File_Utilities";
 
 errors: s64;
@@ -15,32 +22,39 @@ capture :: (text: string, data: *void, info: Log_Info) {
     else information += 1;
 }
 
+CHILD_NAME :: #run -> string {
+    return sprint("autorun-child-%%", process_id(), #ifx OS == .WINDOWS then ".exe" else "");
+};
+
 CHILD :: #string JAI
 #import "Basic";
 F :: #import "File";
-main :: () {
+main :: () -> s32 {
     args := get_command_line_arguments();
     defer array_free(args);
+    if args.count == 2 && args[1] == "--fail" return 7;
     assert(args.count == 3);
     assert(F.write_entire_file(args[1],args[2]));
+    return 0;
 }
 JAI
 
 #run {
-    output := sprint("%/../../../target/portable-tests/", S.path_strip_filename(#file));
+    output := sprint("%/../../../target/portable-tests/autorun build", S.path_strip_filename(#file));
 
     defer free(output);
+    assert(F.make_directory_if_it_does_not_exist(output, true));
     workspace := C.compiler_create_workspace("autorun contract");
     options := C.get_build_options(workspace);
     options.output_path = output;
-    executable_name := sprint("autorun-child-%", P.getpid());
+    executable_name := copy_string(CHILD_NAME);
 
     defer free(executable_name);
     options.output_executable_name = executable_name;
     C.set_build_options(options, workspace);
     C.compiler_begin_intercept(workspace);
     C.add_build_string(CHILD, workspace);
-    marker := sprint("%autorun-marker-%", output, P.getpid());
+    marker := sprint("%/autorun-marker-%", output, process_id());
 
     defer free(marker);
     plugin := A.get_plugin();
@@ -55,7 +69,7 @@ JAI
     while true {
         message := C.compiler_wait_for_message();
         if message.kind == .COMPLETE {
-            executable := sprint("%%", output, executable_name);
+            executable := sprint("%/%", output, executable_name);
             assert(U.file_exists(executable));
             free(executable);
         }
@@ -80,6 +94,18 @@ JAI
     assert(loaded && content == "forwarded bytes");
     free(content);
     assert(F.file_delete(marker));
+
+    #if OS == .WINDOWS {
+        executable := sprint("%/%", output, executable_name);
+
+        defer free(executable);
+        A.run_native(S.path_strip_extension(executable), arguments);
+        content, loaded = F.read_entire_file(marker);
+        assert(loaded && content == "forwarded bytes");
+        free(content);
+        assert(F.file_delete(marker));
+    }
+
     other := C.compiler_create_workspace("autorun non-executable");
     other_options := C.get_build_options(other);
     other_options.output_type = .NO_OUTPUT;
@@ -95,7 +121,10 @@ main :: () {
     scoped.logger = capture;
     push_context scoped {
         A.run_native("/does-not-exist-portable-autorun", .[]);
-        A.run_native("/bin/sh", string.["-c", "exit 7"]);
+
+        child := sprint("%/../../../target/portable-tests/autorun build/%", S.path_strip_filename(#file), CHILD_NAME);
+        defer free(child);
+        A.run_native(child, string.["--fail"]);
     }
 
     assert(errors == 2);

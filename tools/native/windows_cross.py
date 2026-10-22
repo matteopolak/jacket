@@ -58,6 +58,7 @@ WINDOWS_BUILD_HOST_CASES = frozenset(
         "compiler/rules-compile-time-execution",
         "Minimal_Metaprogram/tests/minimal-build",
         "Basic/tests/checked-narrow-cast",
+        "Autorun/tests/basics",
         "BuildCpp/tests/negative/compile",
         "BuildCpp/tests/negative/target",
         "BuildCpp/tests/negative/tool",

@@ -33,9 +33,7 @@ Android/EGL wasm: Android/EGL/module.jai: #assert failed: Android/EGL requires i
 Android/EGL windows-arm64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
 Android/EGL windows-x64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
 Android/Toolchain wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
-Autorun wasm: Autorun/module.jai: #assert failed: Autorun currently requires the Unix Process backend
-Autorun windows-arm64: Autorun/module.jai: #assert failed: Autorun currently requires the Unix Process backend
-Autorun windows-x64: Autorun/module.jai: #assert failed: Autorun currently requires the Unix Process backend
+Autorun wasm: Autorun/module.jai: #assert failed: Autorun requires a native Process backend
 Bindings_Generator wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 BuildCpp wasm: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
 BuildCpp windows-arm64: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
