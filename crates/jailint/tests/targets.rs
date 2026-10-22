@@ -355,18 +355,16 @@ fn parallel_roots_and_fix_passes_keep_the_selected_target() {
 #[test]
 fn real_child_workspace_inherits_target_and_records_its_body_check() {
     let root = fixture("workspace-target");
-    // These are our private, implemented compiler primitives, not facade stubs.
+    // Exercise the public compiler operations, independent of the real stdlib.
     std::fs::write(
         root.join("app/build.jai"),
         r#"
-        __jaic_workspace_create :: (name:string) -> int #compiler;
-        Option :: enum u16 { DO_OUTPUT :: 0; }
-        __jaic_workspace_set_flag :: (w:int,option:Option,value:bool) #compiler;
-        __jaic_workspace_add_file :: (w:int,filename:string) #compiler;
+        compiler_create_workspace :: (name:string) -> int #compiler;
+        Location :: struct { fully_pathed_filename:string; }
+        add_build_file :: (filename:string, w:int, loc:Location) #compiler;
         #run {
-            w := __jaic_workspace_create("lint target child");
-            __jaic_workspace_set_flag(w,.DO_OUTPUT,false);
-            __jaic_workspace_add_file(w,"child.jai");
+            w := compiler_create_workspace("lint target child");
+            add_build_file("child.jai", w, .{"build.jai"});
         }
         main :: () {}
     "#,

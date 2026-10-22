@@ -28,6 +28,7 @@ mod option_snapshot;
 mod output;
 mod plugin_program;
 mod program_data;
+pub(crate) mod public_api;
 mod records;
 mod registry;
 mod settings;

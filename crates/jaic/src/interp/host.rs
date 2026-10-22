@@ -5,6 +5,8 @@ use crate::ir::{self};
 /// Compiler-host operations for metaprograms and explicit private runtime transports.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hook {
+    PublicCompiler(usize),
+    UnsupportedCompiler(ir::FuncId),
     /// `write_string(s: string, to_standard_error: bool)`
     WriteString,
     /// `write_strings(strings: ..string, to_standard_error: bool)`
@@ -21,12 +23,20 @@ pub enum Hook {
         context: bool,
         location: LocationLayout,
     },
-    /// A `Compiler` module primitive (`__jaic_*`); the flag says whether the
+    /// A retained private syntax metadata query; the flag says whether the
     /// procedure takes a context pointer.
     Meta(crate::build::MetaOp, bool),
 }
 
 impl Hook {
+    pub(super) fn active(self, compile_time: bool) -> bool {
+        compile_time
+            || !matches!(
+                self,
+                Self::PublicCompiler(_) | Self::UnsupportedCompiler(_) | Self::Meta(..)
+            )
+    }
+
     /// The hook behind the `#compiler` procedure `name`, if the interpreter provides one.
     /// `takes_context` says whether the procedure takes the implicit context pointer.
     #[must_use]
@@ -36,7 +46,15 @@ impl Hook {
             "write_strings" => Some(Self::WriteStrings),
             "compile_time_debug_break" => Some(Self::DebugBreak),
             "compile_time_host_monotonic_nanoseconds" => Some(Self::HostMonotonicNanos),
-            other => crate::build::MetaOp::from_name(other).map(|op| Self::Meta(op, takes_context)),
+            "__jaic_syntax_int" => Some(Self::Meta(crate::build::MetaOp::SyntaxInt, takes_context)),
+            "__jaic_syntax_string" => Some(Self::Meta(
+                crate::build::MetaOp::SyntaxString,
+                takes_context,
+            )),
+            "__jaic_syntax_child" => {
+                Some(Self::Meta(crate::build::MetaOp::SyntaxChild, takes_context))
+            }
+            _ => None,
         }
     }
 }

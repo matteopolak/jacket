@@ -144,13 +144,13 @@ impl Compiler {
     /// Whether the compile-time function `root` can reach the `get_type_table` primitive
     /// through direct calls (bodies not lowered yet count as not reaching).
     pub(super) fn reaches_type_table(&self, root: ir::FuncId) -> bool {
-        let Some(target) = self.ty.table_func else {
+        if self.ty.table_funcs.is_empty() {
             return false;
-        };
+        }
         let mut seen = HashSet::default();
         let mut work = vec![root];
         while let Some(f) = work.pop() {
-            if f == target {
+            if self.ty.table_funcs.contains(&f) {
                 return true;
             }
             if !seen.insert(f) {

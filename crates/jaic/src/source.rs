@@ -353,13 +353,9 @@ fn note_typechecked_name(usage: &TypecheckedUse, path: &SourcePath, text: &str) 
     }
     // The record type itself and the delivery code of the `Compiler` module.
     let own = path.to_string().replace('\\', "/");
-    if [
-        "Compiler/contract-records.jai",
-        "compiler-api/messages.jai",
-        "compiler-api/registry.jai",
-    ]
-    .iter()
-    .any(|file| own.ends_with(file))
+    if ["Compiler/contract-records.jai"]
+        .iter()
+        .any(|file| own.ends_with(file))
     {
         return;
     }

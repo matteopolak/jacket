@@ -437,11 +437,12 @@ impl Compiler {
                 if let Some(ide) = self.ed.facts_mut() {
                     for &name in &names {
                         let seen = ide.inferred_expected.entry(name).or_default();
-                        for &ty in &types {
-                            if !seen.contains(&ty) {
-                                seen.push(ty);
-                            }
-                        }
+                        let additions: Vec<_> = types
+                            .iter()
+                            .copied()
+                            .filter(|ty| !seen.contains(ty))
+                            .collect();
+                        seen.extend(additions);
                     }
                 }
                 continue;

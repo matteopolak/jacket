@@ -131,6 +131,8 @@ pub struct Interp {
     libraries: HashMap<usize, Option<native::Library>>,
     /// `#compiler` procedures handled by the compiler, indexed by `FuncId` (checked on every call).
     pub hooks: Vec<Option<Hook>>,
+    pub(crate) public_bindings: Vec<crate::build::public_api::Binding>,
+    pub(crate) public_api_state: crate::build::public_api::State,
     pub host: Box<dyn Host>,
     depth: usize,
     /// The procedures running, outermost first, each with the location it was called from:
@@ -280,6 +282,8 @@ impl Interp {
             foreign_addrs: Vec::new(),
             libraries: HashMap::default(),
             hooks: Vec::new(),
+            public_bindings: Vec::new(),
+            public_api_state: crate::build::public_api::State::default(),
             host,
             depth: 0,
             calls: Vec::new(),

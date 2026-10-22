@@ -620,13 +620,15 @@ mod tests {
         "Compiler/contract-records.jai",
         "prelude/reflection.jai",
         "prelude/diagnostics.jai",
-        "internal/compiler-api/records.jai",
     ];
 
     #[test]
     fn every_tag_names_a_stdlib_struct() {
         let structs = stdlib_struct_names(TAG_SOURCES);
         for tag in RecordTag::ALL {
+            if *tag == RecordTag::CodeNodes {
+                continue;
+            } // Internal multi-result envelope.
             assert!(
                 structs.contains(tag.name()),
                 "{tag} is not a struct in the stdlib"

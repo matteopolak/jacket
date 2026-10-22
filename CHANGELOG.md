@@ -8,6 +8,8 @@
 
 ### Fixed
 
+- Preserve cast grouping when copying or modifying procedure code.
+
 - Preserve custom-link message layouts and reject unsupported target options with public diagnostics.
 
 - Keep compiler-owned command-line views intact in the default metaprogram.

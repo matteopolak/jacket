@@ -58,15 +58,6 @@ fn subset(rust: Vec<(&'static str, i64)>, source: &str, name: &str) {
 }
 
 #[test]
-fn workspace_option_enums_match_stdlib() {
-    let primitives = stdlib("internal/compiler-api/primitives.jai");
-    same(WorkspaceText::declared(), &primitives, "Workspace_Text");
-    same(WorkspaceFlag::declared(), &primitives, "Workspace_Flag");
-    same(WorkspaceNumber::declared(), &primitives, "Workspace_Number");
-    same(WorkspaceList::declared(), &primitives, "Workspace_List");
-}
-
-#[test]
 fn syntax_keys_match_stdlib() {
     let attributes = stdlib("internal/program-print/attributes.jai");
     same(SyntaxKey::declared(), &attributes, "Syntax_Key");

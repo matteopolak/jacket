@@ -1,9 +1,8 @@
-//! The `__jaic_*` primitives declared in the stdlib and the `MetaOp` table must agree.
-use jaic::build::MetaOp;
+//! Only the retained syntax extensions expose private compiler hooks to Jai.
+use jaic::{build::MetaOp, interp::Hook};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// Names of the `name :: (...) ... #compiler;` declarations whose name starts with `__jaic_`.
 fn declared_primitives() -> BTreeSet<String> {
     let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let files = jaic::paths::jai_files_under(&stdlib, &mut |_| false);
@@ -23,24 +22,24 @@ fn declared_primitives() -> BTreeSet<String> {
 }
 
 #[test]
-fn every_declared_primitive_is_a_meta_op() {
+fn only_syntax_metadata_extensions_are_declared_and_bindable() {
     let declared = declared_primitives();
-    assert!(declared.len() > 40, "found only {declared:?}");
-    for name in &declared {
-        assert!(
-            MetaOp::from_name(name).is_some(),
-            "`{name}` is declared #compiler in the stdlib but is not a MetaOp"
-        );
-    }
-}
-
-#[test]
-fn every_meta_op_is_declared_in_the_stdlib() {
-    let declared = declared_primitives();
+    assert_eq!(
+        declared,
+        [
+            "__jaic_syntax_child",
+            "__jaic_syntax_int",
+            "__jaic_syntax_string"
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+    );
     for op in MetaOp::ALL {
-        assert!(
-            declared.contains(op.name()) || op.name() == "__jaic_current_workspace",
-            "{op:?} (`{}`) is not declared in the stdlib",
+        assert_eq!(
+            Hook::for_compiler_proc(op.name(), false).is_some(),
+            declared.contains(op.name()),
+            "{}",
             op.name()
         );
     }

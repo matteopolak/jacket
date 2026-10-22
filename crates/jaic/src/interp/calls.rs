@@ -165,7 +165,13 @@ impl Interp {
     /// Call procedure `id` with `args`. This is the way in from outside the dispatch loop;
     /// calls by name in interpreted code use `call_by_name`.
     pub(super) fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Rets> {
-        if let Some(&Some(hook)) = self.hooks.get(id.0 as usize) {
+        if let Some(hook) = self
+            .hooks
+            .get(id.0 as usize)
+            .copied()
+            .flatten()
+            .filter(|hook| hook.active(self.compile_time))
+        {
             return self.run_hook(program, hook, args);
         }
         let func = self.body(program, id)?;
@@ -196,7 +202,13 @@ impl Interp {
         let id = FuncId(callee);
         let (args, rets) = pool.split_at(nargs);
         // SAFETY (register accesses): `code::build` checked every register named in `pool`.
-        if self.hooks.get(callee as usize).is_some_and(Option::is_some) {
+        if self
+            .hooks
+            .get(callee as usize)
+            .copied()
+            .flatten()
+            .is_some_and(|hook| hook.active(self.compile_time))
+        {
             let mut small = [0u64; 8];
             let argv: Vec<u64>;
             let argv = if nargs <= small.len() {
@@ -480,6 +492,16 @@ impl Interp {
 
     fn run_hook(&mut self, program: &Program, hook: Hook, args: &[u64]) -> Res<Rets> {
         match hook {
+            Hook::PublicCompiler(index) => {
+                let binding = self.public_bindings[index].clone();
+                return crate::build::public_api::call(&binding, args, program, self);
+            }
+            Hook::UnsupportedCompiler(function) => {
+                return self.trap(format!(
+                    "unsupported compiler operation `{}`",
+                    program.func_names[function.0 as usize]
+                ));
+            }
             Hook::WriteString => {
                 let s = args[0];
                 let count = self.fetch_u64(s)? as usize;

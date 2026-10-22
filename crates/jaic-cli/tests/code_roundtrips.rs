@@ -4,6 +4,7 @@ use common::success_with_stdout as success;
 use std::{path::PathBuf, process::Command};
 
 const CASES: &[(&str, &str)] = &[
+    ("../stdlib/Compiler/tests/code-copy-syntax.jai", "ok\n"),
     (
         "../stdlib/Compiler/tests/using-records-preserve-filters.jai",
         "ok\n",
@@ -29,6 +30,10 @@ const CASES: &[(&str, &str)] = &[
     (
         "fixtures/code-roundtrip/late-import-conditional-procedure.jai",
         "",
+    ),
+    (
+        "fixtures/code-roundtrip/postfix-cast-roundtrip.jai",
+        "postfix casts ok\n",
     ),
 ];
 
@@ -62,7 +67,7 @@ fn explicitly_reset_record_kind_is_rejected_without_shape_guessing() {
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr)
-            .contains("compiler_get_code cannot print this syntax node kind")
+            .contains("cannot serialize an uninitialized syntax node")
     );
 }
 
@@ -93,7 +98,7 @@ fn graph_roundtrips_execute_native_at_o0_and_o2() {
 fn edited_parameter_filters_and_named_literal_targets_execute_as_real_wasi_commands() {
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("code-roundtrip-wasi");
     std::fs::create_dir_all(&dir).unwrap();
-    for (i, (path, expected)) in [CASES[1], CASES[3], CASES[4], CASES[5], CASES[6]]
+    for (i, (path, expected)) in [CASES[1], CASES[3], CASES[4], CASES[5], CASES[6], CASES[9]]
         .into_iter()
         .enumerate()
     {

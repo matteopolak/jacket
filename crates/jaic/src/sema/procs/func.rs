@@ -106,26 +106,40 @@ impl Compiler {
         if let ProcTarget::Func(func) = target {
             self.pr.func_procs.insert(func, id);
             if header.flags.compiler() {
-                let hook = crate::interp::Hook::for_compiler_proc(
-                    name.as_str(),
-                    !header.flags.no_context(),
-                );
-                if let Some(hook) = hook {
+                let operation_name = header
+                    .flags
+                    .builtin_name
+                    .as_deref()
+                    .unwrap_or(name.as_str());
+                let hook = if let Some(operation) =
+                    crate::build::public_api::Operation::from_name(operation_name)
+                {
+                    let binding = crate::build::public_api::bind(self, id, operation, span)?;
+                    let index = self.ct.interp.public_bindings.len();
+                    self.ct.interp.public_bindings.push(binding);
                     if matches!(
-                        hook,
-                        crate::interp::Hook::Meta(crate::build::MetaOp::TypeTable, _)
+                        operation,
+                        crate::build::public_api::Operation::TypeTable
+                            | crate::build::public_api::Operation::RuntimeInfo
                     ) {
-                        self.ty.table_func = Some(func);
+                        self.ty.table_funcs.insert(func);
                         if let Some(workspaces) = &self.ct.interp.workspaces {
                             crate::build::Workspaces::note_type_table_used(workspaces);
                         }
                     }
-                    let i = func.0 as usize;
-                    if self.ct.interp.hooks.len() <= i {
-                        self.ct.interp.hooks.resize(i + 1, None);
-                    }
-                    self.ct.interp.hooks[i] = Some(hook);
+                    crate::interp::Hook::PublicCompiler(index)
+                } else {
+                    crate::interp::Hook::for_compiler_proc(
+                        operation_name,
+                        !header.flags.no_context(),
+                    )
+                    .unwrap_or(crate::interp::Hook::UnsupportedCompiler(func))
+                };
+                let i = func.0 as usize;
+                if self.ct.interp.hooks.len() <= i {
+                    self.ct.interp.hooks.resize(i + 1, None);
                 }
+                self.ct.interp.hooks[i] = Some(hook);
             }
         }
         Ok(target)

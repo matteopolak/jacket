@@ -16,11 +16,20 @@
 #library,system,link_always "objc";
 
 #scope_file
-Workspaces :: #import "internal/compiler-api";
+C :: #import "Compiler";
+Basic :: #import "Basic";
 
-// Append without replacing caller linker options.
+// Preserve all settings, including output controls set during compilation.
 #run {
-    w := Workspaces.__jaic_current_workspace();
-    Workspaces.append_linker_argument(w, "-Wl,-weak_framework,CoreHaptics");
-    Workspaces.append_linker_argument(w, "-Wl,-weak_framework,UniformTypeIdentifiers");
+    options := C.get_build_options();
+    arguments: [..] string;
+
+    defer Basic.array_free(arguments);
+
+    for arg: options.additional_linker_arguments Basic.array_add(*arguments, arg);
+
+    Basic.array_add(*arguments, "-Wl,-weak_framework,CoreHaptics");
+    Basic.array_add(*arguments, "-Wl,-weak_framework,UniformTypeIdentifiers");
+    options.additional_linker_arguments = arguments;
+    C.set_build_options(options);
 }

@@ -1,11 +1,8 @@
 //! Building a metaprogram's structs from compiler records, natively.
 //!
-//! `stdlib/Compiler/records.jai` describes each struct type it may build once, as a plan of
-//! members read from its `Type_Info_Struct` (`__jaic_rec_plan`), and names the types record
-//! tags stand for (`__jaic_rec_type`). From then on `__jaic_rec_build` turns a record and
-//! everything it reaches into structs in one call: a TYPECHECKED message of a large program
-//! is hundreds of thousands of records, and filling them member by member in interpreted
-//! code took most of a metaprogram's time.
+//! Public operation binding resolves declaration layouts into member plans. Building
+//! a record and everything it reaches uses a work list rather than interpreted
+//! per-member calls; large TYPECHECKED graphs contain hundreds of thousands of nodes.
 //!
 //! The structs and their arrays live in memory the registry owns, like the strings handed
 //! to Jai code, for the rest of the compilation. Each record is built once per program, so
@@ -15,7 +12,7 @@ use crate::interp::{Interp, Trap};
 use crate::records::{FieldRef, Item, List, Name, Records};
 use std::rc::Rc;
 
-/// Plan entry kinds shared with `Record_Plan_Entry` in `stdlib/Compiler/records.jai`.
+/// Internal member plan kinds used by public API layout binding.
 pub const PLAN_OTHER: u64 = 0;
 
 pub const PLAN_INT: u64 = 1;
@@ -27,6 +24,8 @@ pub const PLAN_STRUCT: u64 = 4;
 
 /// A view or resizable array.
 pub const PLAN_ARRAY: u64 = 5;
+
+pub const PLAN_FIXED_ARRAY: u64 = 6;
 
 /// Size of `Record_Plan_Entry`: offset, kind, size, name (16 bytes), type, `element_kind`,
 /// `element_size`, target, resizable.
@@ -56,11 +55,11 @@ struct Plan {
     constant_storage: Option<u64>,
 }
 
-/// One program's structs built from records (one per `__jaic_rec_builder`).
+/// One program's structs built from compiler-owned records.
 #[derive(Default)]
 pub struct Builder {
     plans: HashMap<u64, Rc<Plan>>,
-    /// The struct type a record tag stands for.
+    /// The struct type a record tag stands for; zero means the name is ambiguous.
     tags: HashMap<Box<str>, u64>,
     /// The program's descriptors of primitive types, by name (`__builtin` records).
     builtins: HashMap<Box<str>, u64>,
@@ -170,7 +169,14 @@ struct Fill<'a> {
 
 impl Builder {
     pub fn add_type(&mut self, name: String, info: u64) {
-        self.tags.insert(name.into(), info);
+        self.tags
+            .entry(name.into())
+            .and_modify(|existing| {
+                if *existing != info {
+                    *existing = 0;
+                }
+            })
+            .or_insert(info);
     }
 
     pub fn add_builtin(&mut self, name: String, info: u64) {
@@ -371,7 +377,12 @@ impl Builder {
                 return Ok(info);
             }
         }
-        let tagged = record.and_then(|r| self.tags.get(r.tag.name())).copied();
+        // Nested records may share an unqualified name. Their declared field type
+        // chooses the layout; only an unambiguous tag can select a subtype.
+        let tagged = record
+            .and_then(|r| self.tags.get(r.tag.name()))
+            .copied()
+            .filter(|&info| info != 0);
         let Some(info) = tagged.or_else(|| self.plans.contains_key(&expected).then_some(expected))
         else {
             return Err(Trap::new(format!("records: no type plan for record {id}")));
@@ -474,7 +485,9 @@ impl Builder {
             };
             let target = memory + entry.offset;
             match field {
-                FieldRef::List(items) if entry.kind == PLAN_ARRAY => {
+                FieldRef::List(items)
+                    if entry.kind == PLAN_ARRAY || entry.kind == PLAN_FIXED_ARRAY =>
+                {
                     if items.is_empty() {
                         continue;
                     }
@@ -483,7 +496,14 @@ impl Builder {
                         .checked_mul(size)
                         .filter(|&n| n <= crate::sema::value::MAX_IMAGE)
                         .ok_or_else(|| Trap::new("records: array size overflow"))?;
-                    let data = self.alloc(bytes as usize);
+                    if entry.kind == PLAN_FIXED_ARRAY && bytes > entry.size as u64 {
+                        return Err(Trap::new("records: fixed array has too many elements"));
+                    }
+                    let data = if entry.kind == PLAN_FIXED_ARRAY {
+                        target
+                    } else {
+                        self.alloc(bytes as usize)
+                    };
                     let mut elements = vec![0; bytes as usize];
                     let mut array = Image {
                         base: data,
@@ -504,8 +524,12 @@ impl Builder {
                             data + k as u64 * size,
                         )?;
                     }
-                    self.place(interp, data, &elements)?;
-                    image.put_pair(target, items.len() as u64, data)?;
+                    if entry.kind == PLAN_FIXED_ARRAY {
+                        image.put(target, &elements)?;
+                    } else {
+                        self.place(interp, data, &elements)?;
+                        image.put_pair(target, items.len() as u64, data)?;
+                    }
                     if entry.resizable {
                         image.put(target + 16, &(items.len() as u64).to_le_bytes())?;
                     }
@@ -766,6 +790,87 @@ mod tests {
         assert!(
             b.build(&records, &mut Vec::new(), &mut Interp::default(), id, 0)
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn ambiguous_nested_type_names_use_the_declared_field_type() {
+        let mut builder = Builder::default();
+        for (info, offset) in [(1, 0), (2, 8)] {
+            builder.add_type("Record".into(), info);
+            builder.plans.insert(
+                info,
+                Rc::new(Plan {
+                    size: 16,
+                    entries: vec![Entry {
+                        offset,
+                        kind: PLAN_INT,
+                        size: 8,
+                        name: Name::intern("value"),
+                        element_kind: 0,
+                        element_size: 0,
+                        target: 0,
+                        resizable: false,
+                    }],
+                    constant_storage: None,
+                }),
+            );
+        }
+        let mut records = Records::default();
+        let mut interp = Interp::default();
+        for (info, offset) in [(1, 0), (2, 8)] {
+            let mut record = Record::new(RecordTag::Record);
+            record.int("value", 42);
+            let id = records.add(record);
+            let at = builder
+                .build(&records, &mut Vec::new(), &mut interp, id, info)
+                .unwrap();
+            assert_eq!(interp.read_u64(at + offset), Some(42));
+            assert_eq!(interp.read_u64(at + (8 - offset)), Some(0));
+        }
+    }
+
+    #[test]
+    fn fixed_arrays_fill_inline_and_reject_overflow() {
+        let mut builder = Builder::default();
+        builder.add_type("Record".into(), 1);
+        builder.plans.insert(
+            1,
+            Rc::new(Plan {
+                size: 24,
+                entries: vec![Entry {
+                    offset: 8,
+                    kind: PLAN_FIXED_ARRAY,
+                    size: 16,
+                    name: Name::intern("values"),
+                    element_kind: PLAN_INT,
+                    element_size: 8,
+                    target: 0,
+                    resizable: false,
+                }],
+                constant_storage: None,
+            }),
+        );
+        let mut records = Records::default();
+        let mut record = Record::new(RecordTag::Record);
+        record.refs("values", [13, 29]);
+        let id = records.add(record);
+        let mut interp = Interp::default();
+        let at = builder
+            .build(&records, &mut Vec::new(), &mut interp, id, 1)
+            .unwrap();
+        assert_eq!(interp.read_u64(at), Some(0));
+        assert_eq!(interp.read_u64(at + 8), Some(13));
+        assert_eq!(interp.read_u64(at + 16), Some(29));
+        let mut overflow = Record::new(RecordTag::Record);
+        overflow.refs("values", [1, 2, 3]);
+        let id = records.add(overflow);
+        assert!(
+            builder
+                .build(&records, &mut Vec::new(), &mut interp, id, 1)
+                .unwrap_err()
+                .message
+                .contains("fixed array has too many elements")
         );
     }
 }

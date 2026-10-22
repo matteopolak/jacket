@@ -167,7 +167,7 @@ pub enum DeadCode {
 
 pub const DEFAULT_TEMPORARY_STORAGE_SIZE: i64 = 32768;
 
-/// Byte capacity reserved by Build_Options for target-specific machine settings.
+/// Byte capacity reserved by `Build_Options` for target-specific machine settings.
 pub const MACHINE_OPTIONS_SIZE: usize = 128;
 
 #[derive(Clone)]

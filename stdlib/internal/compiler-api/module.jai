@@ -1,11 +1,5 @@
 // Independent private helpers. Public ABI records live in Compiler.
 #load "helpers.jai";
-#load "primitives.jai";
-#load "workspaces.jai";
-#load "records.jai";
-#load "registry.jai";
-#load "messages.jai";
-#load "data.jai";
 
 has_base_type :: (info: *Type_Info, name: string) -> bool {
     current := info;

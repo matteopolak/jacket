@@ -8,6 +8,10 @@
     "name": "code-and-file-scoped-source/scoped-piece"
   },
   {
+    "name": "code-copy-syntax",
+    "stdout": "ok\n"
+  },
+  {
     "name": "code-records-and-copy",
     "stdout": "ok\n"
   },

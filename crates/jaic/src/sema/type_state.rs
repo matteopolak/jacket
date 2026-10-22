@@ -30,11 +30,11 @@ pub struct TypeState {
     pub(in crate::sema) failed_infos: HashMap<TypeId, ir::GlobalId>,
     /// Descriptors only a compile-time `get_type_table()` made (kept out of the runtime table
     /// until real code asks for them), the table's state when it was last built, and the
-    /// `__jaic_type_table` primitive once the program references it.
+    /// public type-table primitives once the program references them.
     pub(in crate::sema) snapshot_infos: HashSet<TypeId>,
     pub(in crate::sema) in_snapshot: bool,
     pub(in crate::sema) snapshot_key: (usize, usize, usize),
-    pub(in crate::sema) table_func: Option<ir::FuncId>,
+    pub(in crate::sema) table_funcs: HashSet<ir::FuncId>,
     /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
     pub info_flags: HashMap<TypeId, u32>,
     pub anonymous: HashMap<(ast::AstId, ScopeId), TypeId>,
@@ -68,7 +68,7 @@ impl Default for TypeState {
             snapshot_infos: HashSet::default(),
             in_snapshot: false,
             snapshot_key: (usize::MAX, 0, 0),
-            table_func: None,
+            table_funcs: HashSet::default(),
             info_flags: HashMap::default(),
             anonymous: HashMap::default(),
             enum_member_scopes: HashMap::default(),

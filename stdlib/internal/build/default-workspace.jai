@@ -15,7 +15,7 @@ execute_default_build :: () {
 
     arguments := C.get_toplevel_command_line();
 
-    defer array_free(arguments);
+    // Compiler queries return borrowed views that live for the compilation.
     request := parse_build_arguments(arguments, C.get_build_options(w));
 
     defer free_build_request(*request);
