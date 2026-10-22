@@ -1346,6 +1346,8 @@ jobs:
           triple: x86_64-pc-windows-msvc
       - name: Install Mesa's software OpenGL
         run: bash tools/ci/install_ci_mesa_windows.sh x64 "$RUNNER_TEMP/mesa"
+      - name: Prepare Bindings_Generator runtime
+        run: python tools/ci/package_bindings_helpers.py --platform windows-x64 --llvm-prefix "$LLVM_SYS_231_PREFIX" --out target/native-libs/windows-x64
       - name: Fetch the pinned projects
         run: |
           project_list="$(python tools/corpus/upstream_smoke.py --jaic x --projects)"

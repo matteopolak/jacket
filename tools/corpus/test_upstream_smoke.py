@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import upstream_smoke as smoke  # noqa: E402
 
-PLATFORMS = {"linux-x64", "linux-arm64", "macos-arm64", "macos-x64", "windows-x64"}
+PLATFORMS = {"linux-x64", "linux-arm64", "macos-arm64", "macos-x64", "windows-x64", "windows-arm64"}
 
 
 def checks():

@@ -56,3 +56,9 @@ Runtime (`stdlib/Runtime_Support/module.jai`): the CRT start-up calls the export
 ## Dependencies
 
 `jaic::abi`, `jaic-llvm` (`lib.rs`, `lower.rs`) and `jaic` (`msvc.rs`), `stdlib/Runtime_Support`, and the `OS == .WINDOWS` paths in `Basic`, `File`, `Thread`, `Process`, `Default_Allocator`. Tests: `tests/compiler/native/windows/runtime.jai`, `tests/compiler/native/c-structs-by-value`, `windows_runtime_program` in `crates/jaic-cli/tests/native.rs` (cross-builds when a MinGW compiler is installed and checks the PE machine), `tools/native/windows_cross.py`. CI: the `windows-cross`, `windows-run-cross` and `windows-native` jobs of `.github/workflows/ci.yml` cross-build on Linux and runs on `windows-2025` and `windows-11-arm`, and separately builds `jaic` on those runners.
+
+## Native build helpers and crash diagnostics
+
+[BuildCpp](../specs/stdlib/modules/buildcpp.md) supports Windows x64/arm64 through MSVC `cl`/`lib` and the Windows SDK, with `clang-cl`/`llvm-lib` as a compatible fallback. [Autorun](../specs/stdlib/modules/autorun.md) uses native `Process` execution and resolves workspace paths and `.exe` suffixes. These helpers execute during the build and require a Windows host; a non-Windows cross build does not emulate Win32 filesystem/process calls.
+
+[Runtime_Support_Crash_Handler](../specs/stdlib/modules/runtime-support-crash-handler.md) now exposes both Windows CPUs. The native backend and SDK lifecycle tests are shared; x64 uses `StackWalk64`, while arm64 uses the existing native `RtlVirtualUnwind2` mechanism. `tools/stdlib/check_platform_io.py --windows-crash --native` exercises each host CPU with independent SDK layout/section checks and faulting children. ARM64 requires Windows 11/Server 2022 or later for the unwind entry point.

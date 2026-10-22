@@ -35,9 +35,7 @@ Android/EGL windows-x64: Android/EGL/module.jai: #assert failed: Android/EGL req
 Android/Toolchain wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 Autorun wasm: Autorun/module.jai: #assert failed: Autorun requires a native Process backend
 Bindings_Generator wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
-BuildCpp wasm: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
-BuildCpp windows-arm64: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
-BuildCpp windows-x64: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
+BuildCpp wasm: BuildCpp/module.jai: #assert failed: BuildCpp currently supports native host toolchains
 Clipboard wasm: Clipboard/module.jai: #assert failed: Clipboard requires macOS, Windows or Linux/X11
 Deep_Copy wasm: internal/memory/deep-copy.jai: #assert failed: Deep_Copy timer backend is unavailable on this target
 File_Watcher wasm: File_Watcher/module.jai: #assert failed: File_Watcher backend is unavailable for this target

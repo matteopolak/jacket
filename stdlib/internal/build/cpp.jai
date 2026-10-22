@@ -25,16 +25,12 @@ perform_build :: (output_basename: string, files: ..string, type: Build_Type, de
     output := sprint("%%", basename, output_suffix(type));
 
     defer free(output);
-    template := sprint("%.build-XXXXXX", basename);
+    intermediates, created := create_intermediate_directory(basename);
+    if !created return remember_failure("BuildCpp intermediate directory creation failed", failure);
 
-    defer free(template);
-    native_template := to_c_string(template);
-
-    defer free(native_template);
-    if !Native.mkdtemp(native_template) return remember_failure("BuildCpp intermediate directory creation failed", failure);
-
-    intermediates := to_string(native_template);
-    staged := sprint("%/result%", intermediates, output_suffix(type));
+    defer free(intermediates);
+    // Preserve the final filename: Windows import libraries record the DLL name.
+    staged := sprint("%/%", intermediates, S.path_filename(output));
 
     defer free(staged);
     objects: [..] string;
@@ -55,11 +51,11 @@ perform_build :: (output_basename: string, files: ..string, type: Build_Type, de
         use_cpp = use_cpp || cpp;
         compiler := compiler_executable_path;
         if compiler.count == 0 {
-            if cpp compiler = environment_tool("CXX", "c++");
-            else compiler = environment_tool("CC", "cc");
+            if cpp compiler = environment_tool("CXX", default_compiler(true));
+            else compiler = environment_tool("CC", default_compiler(false));
         }
 
-        object := sprint("%/%.o", intermediates, index);
+        object := sprint("%/%%", intermediates, index, output_suffix(.OBJ_FILE));
 
         array_add(*objects, object);
         args: [..] string;
@@ -67,18 +63,8 @@ perform_build :: (output_basename: string, files: ..string, type: Build_Type, de
         defer array_free(args);
         array_add(*args, compiler);
 
-        if debug {
-            array_add(*args, "-O0");
-            array_add(*args, "-g");
-        } else array_add(*args, "-O2");
-
-        if type == .DYNAMIC_LIBRARY array_add(*args, "-fPIC");
-        for arg: extra array_add(*args, arg);
-
-        array_add(*args, "-c");
-        array_add(*args, file);
-        array_add(*args, "-o");
-        array_add(*args, object);
+        if !append_compile_arguments(*args, compiler, file, object, type, debug, extra)
+            return remember_failure("BuildCpp Windows SDK discovery failed", failure);
         if !execute(args, directory, failure) return false;
         if !matches_target_object(object, target) return remember_failure("BuildCpp object target validation failed", failure);
     }
@@ -86,7 +72,7 @@ perform_build :: (output_basename: string, files: ..string, type: Build_Type, de
     success := true;
 
     if type == .OBJ_FILE {
-        success = F.file_move(objects[0], output);
+        success = U.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist(objects[0], output);
         if !success remember_failure("BuildCpp object output move failed", failure);
     } else {
         args: [..] string;
@@ -95,38 +81,66 @@ perform_build :: (output_basename: string, files: ..string, type: Build_Type, de
 
         if type == .STATIC_LIBRARY {
             archiver := ar_executable_path;
-            if archiver.count == 0 archiver = environment_tool("AR", "ar");
+            if archiver.count == 0 archiver = environment_tool("AR", default_archiver());
 
             array_add(*args, archiver);
-            array_add(*args, "rcs");
-            array_add(*args, staged);
+
+            #if OS == .WINDOWS array_add(*args, tprint("/OUT:%", staged));
+            else {
+                array_add(*args, "rcs");
+                array_add(*args, staged);
+            }
         } else {
             compiler := compiler_executable_path;
             if compiler.count == 0 {
-                if use_cpp compiler = environment_tool("CXX", "c++");
-                else compiler = environment_tool("CC", "cc");
+                if use_cpp compiler = environment_tool("CXX", default_compiler(true));
+                else compiler = environment_tool("CC", default_compiler(false));
             }
 
             array_add(*args, compiler);
 
-            if type == .DYNAMIC_LIBRARY {
-                #if OS == .MACOS array_add(*args, "-dynamiclib");
-                else array_add(*args, "-shared");
-            }
+            if !append_link_arguments(*args, compiler, staged, intermediates, type, debug, extra, objects, library_files)
+                return remember_failure("BuildCpp Windows SDK discovery failed", failure);
 
-            for arg: extra array_add(*args, arg);
-
-            array_add(*args, "-o");
-            array_add(*args, staged);
         }
 
-        for object: objects array_add(*args, object);
-        for library: library_files array_add(*args, library);
+        if type == .STATIC_LIBRARY {
+            for object: objects array_add(*args, object);
+            for library: library_files array_add(*args, library);
+        }
 
         success = execute(args, directory, failure);
         if success {
-            success = F.file_move(staged, output);
+            success = U.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist(staged, output);
             if !success remember_failure("BuildCpp linked output move failed", failure);
+
+            #if OS == .WINDOWS {
+                if success && debug {
+                    symbols := sprint("%.pdb", S.path_strip_extension(staged));
+
+                    defer free(symbols);
+
+                    if U.file_exists(symbols) {
+                        destination := sprint("%.pdb", basename);
+                        defer free(destination);
+                        success = U.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist(symbols, destination);
+                        if !success remember_failure("BuildCpp debug symbols output move failed", failure);
+                    }
+                }
+
+                if success && type == .DYNAMIC_LIBRARY {
+                    import_library := sprint("%/import.lib", intermediates);
+
+                    defer free(import_library);
+
+                    if U.file_exists(import_library) {
+                        destination := sprint("%.lib", basename);
+                        defer free(destination);
+                        success = U.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist(import_library, destination);
+                        if !success remember_failure("BuildCpp import library output move failed", failure);
+                    }
+                }
+            }
         }
     }
 
@@ -224,7 +238,7 @@ perform_universal :: (lib_path: string, files: ..string, type: Build_Type, debug
 
         args := string.["lipo", "-create", arm_output, x64_output, "-output", staged];
         if !execute(args, "", failure) return false;
-        if !F.file_move(staged, lib_path) return remember_failure("BuildCpp universal output move failed", failure);
+        if !U.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist(staged, lib_path) return remember_failure("BuildCpp universal output move failed", failure);
 
         return true;
     }
@@ -237,8 +251,16 @@ F :: #import "File";
 U :: #import "File_Utilities";
 S :: #import "String";
 Process :: #import "Process";
-Native :: #import "POSIX";
 
+#if OS == .WINDOWS {
+    Native :: #import "Windows";
+    #load "cpp-windows.jai";
+} else {
+    Native :: #import "POSIX";
+    #load "cpp-unix.jai";
+}
+
+#scope_file
 absolute_path :: (directory: string, path: string) -> string {
     if S.is_absolute_path(path) return copy_string(path);
     return sprint("%/%", directory, path);
@@ -249,11 +271,21 @@ matches_target_object :: (path: string, target: Operating_System_Tag) -> bool {
     if !opened return false;
 
     defer F.file_close(*file);
-    header: [4] u8;
-    read, count := F.file_read(file, header.data, 4);
+    header: [20] u8;
+    read, count := F.file_read(file, header.data, header.count);
 
-    if !read || count != 4 return false;
+    if !read || count != header.count return false;
     if target == .LINUX return header[0] == 0x7f && header[1] == 69 && header[2] == 76 && header[3] == 70;
+
+    if target == .WINDOWS {
+        // COFF object headers, not PE images: reject wrong-machine objects before linking.
+        #if CPU == .ARM64 machine :: 0xaa64;
+        else machine :: 0x8664;
+
+        return ((cast(u32) header[0]) | ((cast(u32) header[1]) << 8)) == machine &&
+               (header[2] != 0 || header[3] != 0) && header[16] == 0 && header[17] == 0;
+    }
+
     if target != .MACOS return false;
 
     return ((header[0] == 0xcf || header[0] == 0xce) && header[1] == 0xfa && header[2] == 0xed && header[3] == 0xfe) ||
@@ -267,6 +299,13 @@ native_text :: (value: string) -> bool {
 }
 
 output_suffix :: (type: Build_Type) -> string {
+    #if OS == .WINDOWS {
+        if type == .STATIC_LIBRARY return ".lib";
+        if type == .OBJ_FILE return ".obj";
+        if type == .EXECUTABLE return ".exe";
+        return ".dll";
+    }
+
     if type == .STATIC_LIBRARY return ".a";
     if type == .OBJ_FILE return ".o";
     if type == .EXECUTABLE return "";
@@ -275,21 +314,13 @@ output_suffix :: (type: Build_Type) -> string {
     else return ".so";
 }
 
+#scope_module
 is_cpp :: (file: string) -> bool {
     return S.ends_with(file, ".cpp") || S.ends_with(file, ".cc") ||
            S.ends_with(file, ".cxx") || S.ends_with(file, ".c++") || S.ends_with(file, ".C");
 }
 
-environment_tool :: (name: string, fallback: string) -> string {
-    key := to_c_string(name);
-
-    defer free(key);
-    found := Native.getenv(key);
-    if !found || found[0] == 0 return fallback;
-
-    return to_string(found);
-}
-
+#scope_module
 remember_failure :: (message: string, failure: *string) -> bool {
     next: string;
     if failure.count > 0 next = sprint("%\n%", failure.*, message);
@@ -301,6 +332,7 @@ remember_failure :: (message: string, failure: *string) -> bool {
     return false;
 }
 
+#scope_file
 publish_failure :: (success: bool, failure: string, loc: Source_Code_Location) {
     if success {
         free(failure);
@@ -332,17 +364,18 @@ execute :: (args: [] string, directory: string, failure: *string) -> bool {
     return remember_failure(diagnostic, failure);
 }
 
-cleanup_file :: (path: string, failure: *string) -> bool {
-    native := to_c_string(path);
-    defer free(native);
-    if Native.unlink(native) == 0 || cast(s32) Native.errno() == Native.ENOENT return true;
-    return remember_failure("BuildCpp intermediate file cleanup failed", failure);
-}
-
 cleanup_intermediates :: (directory: string, objects: [] string, staged: string, failure: *string) -> bool {
     success := true;
     for object: objects if !cleanup_file(object, failure) success = false;
     if !cleanup_file(staged, failure) success = false;
+
+    #if OS == .WINDOWS {
+        for name: string.["import.lib", "import.exp"] {
+            path := sprint("%/%", directory, name);
+            defer free(path);
+            if !cleanup_file(path, failure) success = false;
+        }
+    }
 
     if !F.delete_directory(directory) {
         remember_failure("BuildCpp intermediate directory cleanup failed", failure);

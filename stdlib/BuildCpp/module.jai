@@ -1,4 +1,4 @@
-#assert OS == .MACOS || OS == .LINUX, "BuildCpp currently supports Unix host toolchains";
+#assert OS == .MACOS || OS == .LINUX || OS == .WINDOWS, "BuildCpp currently supports native host toolchains";
 
 Build_Type :: enum {
     STATIC_LIBRARY;

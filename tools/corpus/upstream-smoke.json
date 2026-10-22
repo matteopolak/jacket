@@ -646,6 +646,55 @@
       ]
     },
     {
+      "id": "sgpu-vma-bindings",
+      "project": "roeyb1--sgpu",
+      "only": [
+        "windows-x64",
+        "windows-arm64"
+      ],
+      "only_reason": "BuildCpp MSVC and Windows bindings-generation regression; full sgpu rendering still needs Slang and a Vulkan GPU",
+      "files": {
+        "roeyb1--sgpu/.smoke-vma-check.jai": "tools/corpus/upstream-drivers/sgpu-vma-check.jai"
+      },
+      "steps": [
+        {
+          "name": "prepare source-only output directory",
+          "argv": [
+            "{python}",
+            "-c",
+            "from pathlib import Path; Path(\"win\").mkdir(exist_ok=True); Path(\"generated_windows.jai\").unlink(missing_ok=True)"
+          ],
+          "cwd": "modules/Vulkan_With_VMA"
+        },
+        {
+          "name": "generate Vulkan and VMA bindings with the upstream entry point",
+          "kind": "jaic",
+          "argv": [
+            "generate.jai"
+          ],
+          "cwd": "modules/Vulkan_With_VMA",
+          "outputs": [
+            "win/VkMemAlloc_DEBUG.lib",
+            "win/VkMemAlloc.lib",
+            "generated_windows.jai"
+          ],
+          "timeout": 900
+        },
+        {
+          "name": "check the generated public Vulkan/VMA module",
+          "kind": "jaic",
+          "argv": [
+            ".smoke-vma-check.jai",
+            "-I",
+            "modules",
+            "-check",
+            "-no_dce"
+          ],
+          "timeout": 600
+        }
+      ]
+    },
+    {
       "id": "sgpu",
       "project": "roeyb1--sgpu",
       "skip": {

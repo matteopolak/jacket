@@ -27,7 +27,8 @@
     ],
     "required_os": [
       "linux",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -43,7 +44,8 @@
     ],
     "required_os": [
       "linux",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -59,7 +61,32 @@
     ],
     "required_os": [
       "linux",
-      "macos"
+      "macos",
+      "windows"
+    ]
+  },
+  {
+    "name": "windows",
+    "required_os": "windows",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "Windows Clang, Visual Studio C++ Build Tools and Windows SDK"
+    ]
+  },
+  {
+    "name": "negative/windows-machine",
+    "mode": "check-fail",
+    "diagnostic_contains": "BuildCpp object target validation failed",
+    "required_os": "windows",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "Windows Clang C/C++ compiler"
     ]
   }
 ]
