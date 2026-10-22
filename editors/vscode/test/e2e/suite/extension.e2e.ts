@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import * as path from "node:path";
 import * as vscode from "vscode";
+import type { LanguageClient } from "vscode-languageclient/node";
 
 const workspace = () => vscode.workspace.workspaceFolders![0].uri.fsPath;
 
@@ -40,7 +41,7 @@ async function retrying<T>(name: string, ...args: unknown[]): Promise<T> {
 const labelOf = (item: vscode.CompletionItem) => (typeof item.label === "string" ? item.label : item.label.label);
 
 describe("Jai extension", () => {
-  let api: { client(): { isRunning(): boolean } | undefined };
+  let api: { client(): LanguageClient | undefined };
 
   before(async () => {
     const extension = vscode.extensions.getExtension("matteopolak.jacket");
@@ -203,8 +204,59 @@ describe("Jai extension", () => {
     assert.equal(document.getText(selection.parent!.range), "leaf(n)");
   });
 
-  it("restarts the language server", async () => {
-    await vscode.commands.executeCommand("jai.restartServer");
+  it("applies live settings without restarting the server", async () => {
+    const document = await open("refactor.jai");
+    const config = vscode.workspace.getConfiguration("jai");
+    const previous = config.inspect<number>("inlayHints.closingBraceMinLines")?.workspaceValue;
+    const current = api.client()!;
+    try {
+      for (const lines of [1, 0]) {
+        await config.update("inlayHints.closingBraceMinLines", lines, vscode.ConfigurationTarget.Workspace);
+        const deadline = Date.now() + 10_000;
+        for (;;) {
+          const hints = await current.sendRequest<Array<{ label: string }>>("textDocument/inlayHint", {
+            textDocument: { uri: document.uri.toString() },
+            range: { start: { line: 0, character: 0 }, end: document.positionAt(document.getText().length) },
+          });
+          if (hints.some((hint) => hint.label === "// middle") === (lines === 1)) break;
+          if (Date.now() > deadline) assert.fail("live settings were not applied");
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        assert.equal(api.client(), current);
+      }
+    } finally {
+      await config.update("inlayHints.closingBraceMinLines", previous, vscode.ConfigurationTarget.Workspace);
+    }
+  });
+
+  it("changes server settings without notifying a stopped client", async () => {
+    const config = vscode.workspace.getConfiguration("jai");
+    const previous = config.inspect<string>("stdlib.prelude")?.workspaceValue;
+    const old = api.client()!;
+    const errors: string[] = [];
+    const report = old.error.bind(old);
+    old.error = (message, ...args) => {
+      errors.push(message);
+      report(message, ...args);
+    };
+    try {
+      await config.update("stdlib.prelude", "prelude/module.jai", vscode.ConfigurationTarget.Workspace);
+      const deadline = Date.now() + 30_000;
+      while (api.client() === old || !api.client()?.isRunning()) {
+        if (Date.now() > deadline) assert.fail("settings change did not restart jailsp");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      assert.deepEqual(errors.filter((message) => message.startsWith("Sending notification workspace/didChangeConfiguration failed")), [], "the outgoing client must not receive configuration notifications");
+      const document = await open("broken.jai");
+      await diagnostics(document, (d) => d.length > 0);
+    } finally {
+      await config.update("stdlib.prelude", previous, vscode.ConfigurationTarget.Workspace);
+      await vscode.commands.executeCommand("jai.restartServer");
+    }
+  });
+
+  it("serializes overlapping language server restarts", async () => {
+    await Promise.all(Array.from({ length: 3 }, () => vscode.commands.executeCommand("jai.restartServer")));
     assert.ok(api.client()?.isRunning());
     const document = await open("broken.jai");
     await diagnostics(document, (d) => d.length > 0);

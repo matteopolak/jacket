@@ -19,7 +19,7 @@ let log: vscode.LogOutputChannel;
 let serverOutput: vscode.LogOutputChannel;
 let toolchain: ToolchainManager;
 let installed: Installed | undefined;
-let starting: Promise<void> | undefined;
+let lifecycle: Promise<void> = Promise.resolve();
 
 function settings(): Settings {
   const config = vscode.workspace.getConfiguration("jai");
@@ -92,8 +92,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     ),
     vscode.languages.registerDocumentFormattingEditProvider({ language: "jai" }, { provideDocumentFormattingEdits: formatDocument }),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (["jai.server.path", "jai.compiler.path", "jai.stdlib.path", "jai.stdlib.prelude", "jai.trace.server"].some((s) => event.affectsConfiguration(s))) {
+      if (["jai.server.path", "jai.compiler.path", "jai.stdlib.path", "jai.stdlib.prelude"].some((s) => event.affectsConfiguration(s))) {
         void restart(expansions);
+      } else if (event.affectsConfiguration("jai")) {
+        void schedule(async () => {
+          await runningClient()?.sendNotification("workspace/didChangeConfiguration", { settings: { jai: serverSettings() } });
+        });
       }
     }),
     // Granting trust makes the workspace's settings (tool paths) count and lets jailsp run
@@ -104,7 +108,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
   );
 
   installed = await toolchain.installed();
-  void start(expansions);
+  void restart(expansions);
   return { client: () => client };
 }
 
@@ -126,12 +130,26 @@ async function offerToUninstallOldExtensions(ids: string[]): Promise<void> {
 }
 
 export async function deactivate(): Promise<void> {
-  await client?.stop();
-  client = undefined;
+  await schedule(async () => {
+    await client?.stop();
+    client = undefined;
+  });
 }
 
-async function restart(expansions: ExpansionDocuments): Promise<void> {
-  await starting;
+// Configuration sends and replacements share one queue: a send must finish before
+// its client stops, and overlapping restarts must never create competing clients.
+function schedule(action: () => Promise<void>): Promise<void> {
+  lifecycle = lifecycle.then(action).catch((error: unknown) => {
+    log.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  });
+  return lifecycle;
+}
+
+function restart(expansions: ExpansionDocuments): Promise<void> {
+  return schedule(() => replaceServer(expansions));
+}
+
+async function replaceServer(expansions: ExpansionDocuments): Promise<void> {
   const old = client;
   client = undefined;
   if (old) {
@@ -142,12 +160,7 @@ async function restart(expansions: ExpansionDocuments): Promise<void> {
     }
     await old.dispose();
   }
-  await start(expansions);
-}
-
-function start(expansions: ExpansionDocuments): Promise<void> {
-  starting = startServer(expansions).finally(() => (starting = undefined));
-  return starting;
+  await startServer(expansions);
 }
 
 async function startServer(expansions: ExpansionDocuments): Promise<void> {
@@ -197,7 +210,6 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     // `workspace/didChangeConfiguration` with the whole `jai` section.
     initializationOptions: () => serverSettings(),
     synchronize: {
-      configurationSection: "jai",
       // Auto-import completion indexes the project's files: tell jailsp when they change.
       fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jacket.toml,jai.toml,jailint.toml,jaifmt.toml}"),
     },
@@ -211,7 +223,7 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     await next.start();
     openSettingsFiles(next);
   } catch (error) {
-    log.error(`jailsp did not start: ${String(error)}`);
+    log.error(`jailsp did not start: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
     void vscode.window.showErrorMessage(`Jai: the language server (${server.path}) did not start: ${String(error)}`, "Show Output").then((choice) => {
       if (choice) serverOutput.show();
     });
@@ -220,8 +232,8 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
 
 // --- jacket.toml (and the legacy jailint.toml and jai.toml) -------------------------------
 // jailsp reads lint and project settings from the nearest jacket.toml (else the legacy files)
-// on disk, and also accepts them as open documents, so unsaved edits apply at once. Only the text is synchronised: the document selector stays Jai-only, so no
-// other request is sent for the TOML files.
+// on disk. Open TOML buffers are synchronised separately and applied on save;
+// the document selector stays Jai-only, so other requests are not sent for TOML.
 
 function isSettingsFile(document: vscode.TextDocument): boolean {
   return document.uri.scheme === "file" && SETTINGS_FILES.includes(path.basename(document.uri.fsPath));
@@ -280,8 +292,16 @@ function openSettingsFiles(target: LanguageClient): void {
   for (const document of vscode.workspace.textDocuments) if (isSettingsFile(document)) didOpen(target, document);
 }
 
+// A replacement opens the current buffers itself; queued events from its predecessor
+// are already represented in that snapshot and must not be sent to either client.
+function notifySettings(target: LanguageClient, method: string, params: unknown): void {
+  void schedule(async () => {
+    if (target === runningClient()) await target.sendNotification(method, params);
+  });
+}
+
 function didOpen(target: LanguageClient, document: vscode.TextDocument): void {
-  void target.sendNotification("textDocument/didOpen", {
+  notifySettings(target, "textDocument/didOpen", {
     textDocument: { uri: document.uri.toString(), languageId: "toml", version: document.version, text: document.getText() },
   });
 }
@@ -299,7 +319,7 @@ function syncSettingsFiles(): vscode.Disposable[] {
     vscode.workspace.onDidChangeTextDocument((event) => {
       const target = runningClient();
       if (!target || !isSettingsFile(event.document) || event.contentChanges.length === 0) return;
-      void target.sendNotification("textDocument/didChange", {
+      notifySettings(target, "textDocument/didChange", {
         textDocument: { uri: event.document.uri.toString(), version: event.document.version },
         contentChanges: [{ text: event.document.getText() }],
       });
@@ -307,13 +327,13 @@ function syncSettingsFiles(): vscode.Disposable[] {
     vscode.workspace.onDidSaveTextDocument((document) => {
       const target = runningClient();
       if (target && isSettingsFile(document)) {
-        void target.sendNotification("textDocument/didSave", { textDocument: { uri: document.uri.toString() } });
+        notifySettings(target, "textDocument/didSave", { textDocument: { uri: document.uri.toString() } });
       }
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       const target = runningClient();
       if (target && isSettingsFile(document)) {
-        void target.sendNotification("textDocument/didClose", { textDocument: { uri: document.uri.toString() } });
+        notifySettings(target, "textDocument/didClose", { textDocument: { uri: document.uri.toString() } });
       }
     }),
   ];
