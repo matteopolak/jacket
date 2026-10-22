@@ -1,5 +1,5 @@
 #import "Basic";
-W :: #import "File_Watcher";
+using W :: #import "File_Watcher";
 
 changed :: (_watcher: *W.File_Watcher(void), _change: *W.File_Change, _data: *void) {}
 
@@ -10,7 +10,8 @@ main :: () {
         assert(watcher.directories.count == 0);
         #assert(!#exists(watcher.event_streams));
         #assert(!#exists(watcher.inotify_instance));
-        #assert(!#exists(W.Directory_Info));
+        #assert(#exists(W.Directory_Info));
+        #assert(!#exists(Directory_Info));
     } else #if OS == .LINUX {
         assert(watcher.inotify_instance == -1 && watcher.inotify_data == null);
         assert(watcher.inotify_bytes_read == 0 && watcher.inotify_cursor == 0);

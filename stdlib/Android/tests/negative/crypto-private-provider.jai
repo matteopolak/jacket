@@ -1,6 +1,6 @@
 // Reviewed EVP declarations remain implementation-scoped.
-A :: #import "Android/Toolchain";
+#import "Android/Toolchain";
 
 main :: () {
-    A.EVP_PKEY_free(null);
+    EVP_PKEY_free(null);
 }

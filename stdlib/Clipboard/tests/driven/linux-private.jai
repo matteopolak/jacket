@@ -1,5 +1,5 @@
-C :: #import "Clipboard";
+#import "Clipboard";
 
 main :: () {
-    C.native_read(0, null, null);
+    native_read(0, null, null);
 }

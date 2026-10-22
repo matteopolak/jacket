@@ -1,4 +1,4 @@
-B :: #import "Basic";
+using B :: #import "Basic";
 
 Parcel :: struct {
     value: int;
@@ -41,7 +41,7 @@ check :: () -> bool {
 
     found, index = B.array_find(unrelated, Other.{ 2 }, compare = other_compare);
 
-    return found && index == 1 && !#exists(B.copy_array_elements) && !#exists(B.allocator_call) && !#exists(B.Impl);
+    return found && index == 1 && !#exists(copy_array_elements) && !#exists(allocator_call) && !#exists(Impl);
 }
 
 #assert check();

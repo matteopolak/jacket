@@ -88,3 +88,29 @@ fn runtime_storage_options_distinguish_metadata_from_target_initialization() {
         // by runtime_config; the core suite still rejects old consumers.
     }
 }
+
+#[test]
+fn module_scope_factories_support_default_and_explicit_parameters() {
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("cli-scoped-plugins");
+    std::fs::create_dir_all(dir.join("modules/Scoped")).unwrap();
+    let plugin=format!("#module_parameters (XYZ := true);\n#scope_module;\n{}\n#scope_export;\n",PLUGIN.replace("C.add_build_string(\"generated :: 42;\", p.workspace);","if XYZ C.add_build_string(\"generated :: 42;\", p.workspace); else C.add_build_string(\"generated :: 43;\", p.workspace);"));
+    std::fs::write(dir.join("modules/Scoped/module.jai"), plugin).unwrap();
+    let source = dir.join("program.jai");
+    for (import, expected) in [("+Scoped", 42), ("+Scoped(XYZ=false)", 43)] {
+        std::fs::write(
+            &source,
+            format!("#import \"Basic\"; main :: () {{ assert(generated=={expected}); }}"),
+        )
+        .unwrap();
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(&source)
+            .args(["-check", import, "accept"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}

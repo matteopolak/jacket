@@ -383,7 +383,7 @@
   {
     "name": "negative/private-formatter",
     "mode": "check-fail",
-    "diagnostic_contains": "module `internal/basic` has no exported member `portable_float`"
+    "diagnostic_contains": "unknown identifier `portable_float`"
   },
   {
     "name": "negative/program-parameter-nominal",

@@ -269,12 +269,14 @@ impl Compiler {
                     if let Some(filter) = &import.using {
                         // `using Name :: #import "M"` also brings the module's names into scope;
                         // at module level (exported) they become the module's members too.
-                        if exported && self.scope(target).kind == ScopeKind::Module {
+                        if self.scope(target).kind == ScopeKind::Module {
                             let index = self.scope(target).imports.len();
-                            let module = self.scope(target).module;
-                            self.ns.modules[module.0 as usize]
-                                .exported_using_imports
-                                .push(index);
+                            let module_id = self.scope(target).module;
+                            let module = &mut self.ns.modules[module_id.0 as usize];
+                            module.member_using_imports.push(index);
+                            if exported {
+                                module.exported_using_imports.push(index);
+                            }
                         }
                         self.push_import(
                             target,
@@ -302,14 +304,16 @@ impl Compiler {
                     // selected original declarations just like its named form,
                     // without introducing a public namespace alias.
                     if import.using.is_some()
-                        && exported
+                        && vis != ast::ScopeKind::File
                         && self.scope(target).kind == ScopeKind::Module
                     {
                         let index = self.scope(target).imports.len();
-                        let module = self.scope(target).module;
-                        self.ns.modules[module.0 as usize]
-                            .exported_using_imports
-                            .push(index);
+                        let module_id = self.scope(target).module;
+                        let module = &mut self.ns.modules[module_id.0 as usize];
+                        module.member_using_imports.push(index);
+                        if exported {
+                            module.exported_using_imports.push(index);
+                        }
                     }
                     self.push_import(
                         target,

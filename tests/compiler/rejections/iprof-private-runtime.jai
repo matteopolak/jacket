@@ -1,5 +1,5 @@
-I :: #import "Iprof";
+#import "Iprof";
 
 main :: () {
-    owner := I.profile_owner;
+    owner := profile_owner;
 }

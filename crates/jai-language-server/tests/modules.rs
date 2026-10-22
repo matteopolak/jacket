@@ -168,3 +168,28 @@ fn an_opened_module_file_is_checked_as_an_imported_module() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn qualified_module_scope_members_complete_and_navigate_without_becoming_imports() {
+    let text = "M :: #import \"Values\";\nmain :: () { x:=M.hidden; }\n";
+    let module =
+        "#scope_module; hidden :: 42; #scope_file; file_only :: 13; #scope_export; public :: 7;\n";
+    let mut s = common::virtual_session(
+        &[("/app/main.jai", text), ("/lib/Values/module.jai", module)],
+        &["/lib"],
+        None,
+    );
+    let uri = uri_of(Path::new("/app/main.jai"));
+    s.open(uri.clone(), 1, text.into()).unwrap();
+    let at = position(text, text.find("M.hidden").unwrap() + 2);
+    let definitions = s.definition(&uri, at).unwrap();
+    assert_eq!(definitions.len(), 1);
+    assert!(definitions[0].uri.ends_with("/Values/module.jai"));
+    let items = s.completion(&uri, at).unwrap();
+    assert!(items.items.iter().any(|i| i.label == "hidden"));
+    assert!(!items.items.iter().any(|i| i.label == "file_only"));
+    let items = s
+        .completion(&uri, position(text, text.find("x:=").unwrap()))
+        .unwrap();
+    assert!(!items.items.iter().any(|i| i.label == "hidden"));
+}

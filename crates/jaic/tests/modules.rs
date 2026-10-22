@@ -492,7 +492,7 @@ fn bootstrap_discovery_uses_only_canonical_entry() {
 }
 
 #[test]
-fn module_private_declarations_are_not_qualified_exports() {
+fn module_scope_declarations_are_qualified_members() {
     let mut c = compiler(
         &[
             (
@@ -506,7 +506,7 @@ fn module_private_declarations_are_not_qualified_exports() {
         ],
         false,
     );
-    rejects(&mut c, "hidden");
+    succeeds(&mut c);
 }
 
 #[test]
@@ -825,3 +825,54 @@ mod loaded_files;
 mod namespace_source;
 #[path = "modules/reexports.rs"]
 mod reexports;
+
+#[test]
+fn qualified_members_do_not_flatten_private_names_through_using() {
+    let files = [
+        (
+            "/lib/Inner/module.jai",
+            "public :: 1; #scope_module hidden :: 2; #scope_file local :: 3;",
+        ),
+        (
+            "/lib/M/module.jai",
+            "#scope_module using I :: #import \"Inner\"; R :: struct { x: int; } using r:R;",
+        ),
+        (
+            "/app/main.jai",
+            "M :: #import \"M\"; #assert M.I.hidden==2; #assert M.public==1; #assert type_of(M.x)==int; main :: () {}",
+        ),
+    ];
+    succeeds(&mut compiler(&files, false));
+    for source in [
+        "M :: #import \"M\"; #assert M.hidden==2;",
+        "M :: #import \"M\"; #assert M.I.local==3;",
+        "#import \"M\"; #assert public==1;",
+    ] {
+        let mut invalid = files;
+        invalid[2].1 = source;
+        assert!(
+            compiler(&invalid, false)
+                .compile_program(Path::new("/app/main.jai"))
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn context_additions_from_separate_modules_share_one_field_namespace() {
+    for second in ["u32 = 0", "u32 = 9", "u64 = 0"] {
+        let bar = format!("#add_context hello_world: {second};");
+        let files = [
+            ("/lib/Foo/module.jai", "#add_context hello_world:u32=0;"),
+            ("/lib/Bar/module.jai", bar.as_str()),
+            (
+                "/app/main.jai",
+                "F :: #import \"Foo\"; B :: #import \"Bar\"; #assert size_of(#Context)>0; main :: () {}",
+            ),
+        ];
+        rejects(
+            &mut compiler(&files, false),
+            "member `hello_world` is declared more than once",
+        );
+    }
+}

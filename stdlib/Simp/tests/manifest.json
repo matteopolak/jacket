@@ -133,7 +133,7 @@
   {
     "name": "negative/private-atlas",
     "mode": "check-fail",
-    "diagnostic_contains": "module `Simp` has no exported member `atlas_create_page`",
+    "diagnostic_contains": "unknown identifier `atlas_create_page`",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"
@@ -145,7 +145,7 @@
   {
     "name": "negative/private-helper",
     "mode": "check-fail",
-    "diagnostic_contains": "module `Simp` has no exported member `pack_bitmap`",
+    "diagnostic_contains": "unknown identifier `pack_bitmap`",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"

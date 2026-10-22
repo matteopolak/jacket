@@ -32,7 +32,7 @@
     "main": "cases/private-module-member/main.jai",
     "mode": "check_error",
     "expected_stderr_contains": "module_private",
-    "expected_error_reason": "A #scope_module declaration is visible inside its module but is not importer-visible."
+    "expected_error_reason": "A #scope_module declaration is not exposed by an anonymous import; qualified access is allowed."
   },
   {
     "name": "import-only",

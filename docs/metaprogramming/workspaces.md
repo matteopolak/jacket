@@ -61,7 +61,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 ## Plugins
 
-`jaic file.jai +Name` compiles `file.jai` with the plugin module `Name` hooked into the compilation {#plugin.1}. Profilers use this to instrument every procedure, and lint plugins to inspect typechecked code. A plugin is a module with `get_plugin :: () -> *Metaprogram_Plugin` {#plugin.2}; the struct (`stdlib/Compiler/workspace.jai`) holds the hooks `init`, `handle_one_option`, `before_intercept`, `add_source`, `message`, `finish`, `shutdown` and `log_help`.
+`jaic file.jai +Name` compiles `file.jai` with the plugin module `Name` hooked into the compilation {#plugin.1}. Profilers use this to instrument every procedure, and lint plugins to inspect typechecked code. A plugin is a module with `get_plugin :: () -> *Metaprogram_Plugin` (exported or under `#scope_module`; file-scope factories are inaccessible) {#plugin.2}; the struct (`stdlib/Compiler/workspace.jai`) holds the hooks `init`, `handle_one_option`, `before_intercept`, `add_source`, `message`, `finish`, `shutdown` and `log_help`.
 
 `build_with_plugins` (`stdlib/Metaprogram_Plugins.jai`) creates the "Target Program" workspace, delivers each plugin its options, calls `before_intercept`, starts intercepting, calls `add_source`, adds the file, forwards every compiler message to each plugin's `message` until `COMPLETE`, then calls `finish` and `shutdown` {#plugin.3}. A failed compilation, or an option no plugin accepts, makes jaic exit non-zero {#plugin.4}.
 

@@ -245,6 +245,7 @@ impl Compiler {
             parameter_contracts: Vec::new(),
             exported_usings: Vec::new(),
             exported_using_imports: Vec::new(),
+            member_using_imports: Vec::new(),
             using_modules: Vec::new(),
             files: Vec::new(),
         });
@@ -358,6 +359,7 @@ impl Compiler {
             parameter_contracts: Vec::new(),
             exported_usings: Vec::new(),
             exported_using_imports: Vec::new(),
+            member_using_imports: Vec::new(),
             using_modules: Vec::new(),
             files: Vec::new(),
         });

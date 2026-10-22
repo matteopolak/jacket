@@ -79,7 +79,7 @@ impl Compiler {
                 // `using module.global_var;`
                 if let E::Member(base, member) = &value.kind
                     && let Operand::Module(m) = self.eval_const(scope, base, None)?
-                    && let Found::Entities(ids) = self.module_lookup(m, member.name)?
+                    && let Found::Entities(ids) = self.module_member_lookup(m, member.name)?
                     && let Some(&id) = ids.first()
                     && let Resolved::Global {
                         ty, ..

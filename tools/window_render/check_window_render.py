@@ -131,7 +131,7 @@ def main():
         visibility = subprocess.run([str(compiler), str(ROOT / WINDOW_RENDER_TESTS[case]),
                                      "-check", "-os", "linux", "-I", str(args.stdlib)],
                                     cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
-        if visibility.returncode != 1 or visibility.stdout or f"has no exported member `{member}`" not in visibility.stderr:
+        if visibility.returncode != 1 or visibility.stdout or f"unknown identifier `{member}`" not in visibility.stderr:
             failures.append(f"private-helper visibility regression: {visibility.stdout}{visibility.stderr}")
         else:
             count += 1

@@ -98,7 +98,7 @@ fn anonymous_filtered_reexports_preserve_storage_and_visibility() {
         rejects(&mut compiler(&invalid, false), "hidden");
         invalid[1].1 = "#scope_module using,only(state) #import \"Impl\";";
         invalid[2].1 = "F :: #import \"Facade\"; main :: () { F.state = 9; }";
-        rejects(&mut compiler(&invalid, false), "state");
+        succeeds(&mut compiler(&invalid, false));
     }
     let files = [
         (

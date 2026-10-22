@@ -195,7 +195,7 @@
   {
     "name": "negative/crypto-private-provider",
     "mode": "check-fail",
-    "diagnostic_contains": "module `Android/Toolchain` has no exported member `EVP_PKEY_free`",
+    "diagnostic_contains": "unknown identifier `EVP_PKEY_free`",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"

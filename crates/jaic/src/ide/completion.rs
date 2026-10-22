@@ -115,6 +115,15 @@ impl Compiler {
         m: ModuleId,
         visiting: &mut HashSet<ModuleId>,
     ) -> Vec<IdeName> {
+        self.ide_module_names(m, visiting, false)
+    }
+
+    fn ide_module_names(
+        &mut self,
+        m: ModuleId,
+        visiting: &mut HashSet<ModuleId>,
+        qualified: bool,
+    ) -> Vec<IdeName> {
         if !visiting.insert(m) {
             return Vec::new();
         }
@@ -125,7 +134,11 @@ impl Compiler {
             .names
             .values()
             .filter_map(|ids| {
-                self.ide_pick(ids.iter().copied().filter(|&e| self.entity(e).exported))
+                self.ide_pick(
+                    ids.iter()
+                        .copied()
+                        .filter(|&e| self.entity(e).exported || qualified),
+                )
             })
             .collect();
         ids.sort_by_key(|&e| self.entity(e).name.as_str());
@@ -155,7 +168,13 @@ impl Compiler {
                 names.push(name);
             }
         }
-        for index in self.ns.modules[m.0 as usize].exported_using_imports.clone() {
+        let imports = if qualified {
+            &self.ns.modules[m.0 as usize].member_using_imports
+        } else {
+            &self.ns.modules[m.0 as usize].exported_using_imports
+        }
+        .clone();
+        for index in imports {
             if let Ok(Some(inner)) = self.import_module(scope, index) {
                 let mut inherited = self.ide_module_exports(inner, visiting);
                 Self::ide_filter_names(&mut inherited, &self.scope(scope).imports[index].filter);
@@ -163,13 +182,21 @@ impl Compiler {
             }
         }
         for used in self.ns.modules[m.0 as usize].using_modules.clone() {
+            if !qualified && !used.exported {
+                continue;
+            }
             let mut inherited = self.ide_module_exports(used.module, visiting);
             if let Some(filter) = &used.filter {
                 Self::ide_filter_names(&mut inherited, filter);
             }
             names.extend(inherited);
         }
-        for entry in self.ns.modules[m.0 as usize].exported_usings.clone() {
+        let usings = if qualified {
+            self.scope(scope).usings.clone()
+        } else {
+            self.ns.modules[m.0 as usize].exported_usings.clone()
+        };
+        for entry in usings {
             names.extend(self.ide_using_members_inner(&entry, visiting));
         }
         visiting.remove(&m);
@@ -454,7 +481,9 @@ impl Compiler {
     pub fn ide_members(&mut self, recv: IdeReceiver) -> Vec<IdeName> {
         let mut out = Vec::new();
         match recv {
-            IdeReceiver::Module(m) => return self.ide_module_exports(m, &mut HashSet::default()),
+            IdeReceiver::Module(m) => {
+                return self.ide_module_names(m, &mut HashSet::default(), true);
+            }
             IdeReceiver::Type(t) => {
                 if let TypeKind::Enum(e) = self.ty.types.kind(t) {
                     let info = self.ty.types.enum_info(*e);

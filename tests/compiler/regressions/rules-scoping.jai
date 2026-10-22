@@ -53,9 +53,9 @@ main :: () {
     // scope.1: exported by default, both qualified and through using.
     assert(RS.exported_answer == 42 && exported_answer == 42, "scope.1");
 
-    // Reviewed module scope is shared by its files, but private to importers.
+    // Module scope is shared by its files and available through qualification.
     assert(second_reads_module_value() == 101, "scope.2");
-    assert(!#exists(RS.module_only_value), "scope.2: private module name is not exported");
+    assert(RS.module_only_value == 100 && !#exists(module_only_value), "scope.2: module names require qualification");
 
     // scope.3: each file has its own file-scope names; no clash.
     assert(first_total() == 100 + 101 + 3, "scope.3 first");

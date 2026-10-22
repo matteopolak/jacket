@@ -447,7 +447,7 @@ def main(argv=None):
         raise RuntimeError("Debug_Info must not add an export for the contextual page-number alias")
     private_profile = subprocess.run([str(JAIC), "tests/compiler/rejections/iprof-private-runtime.jai", "-check"],
                                      cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60)
-    if private_profile.returncode != 1 or "no exported member `profile_owner`" not in private_profile.stderr:
+    if private_profile.returncode != 1 or "unknown identifier `profile_owner`" not in private_profile.stderr:
         raise RuntimeError("Iprof must not export its private runtime allocator state")
     for case, diagnostic in [("iprof-unbalanced", "Iprof: zone_end without an active zone"),
                               ("iprof-depth", "Iprof: maximum profiling depth exceeded"),

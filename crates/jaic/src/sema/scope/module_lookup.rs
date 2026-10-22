@@ -154,30 +154,55 @@ impl Compiler {
         Ok(Found::Entities(params))
     }
 
-    /// Qualified lookup observes the same export boundary as an anonymous import.
-    /// Also sees the names of modules M says `#scope_module using X;` to, which importers
-    /// of M do not get (`String.tprint` works, `tprint` after `#import "String"` does not).
+    /// A qualified name sees this module's declarations and using members. Following a
+    /// using edge still imports only the other module's exports, not its private names.
     pub fn module_member_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
+        // Settle declarations and arguments before examining the module's own scope.
+        self.module_declarations(module, name)?;
+        let scope = self.ns.modules[module.0 as usize].scope;
+        let own: Vec<_> = self
+            .scope(scope)
+            .names
+            .get(&name)
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(|&id| !self.entity(id).file_private)
+            .collect();
+        if !own.is_empty() {
+            return Ok(Found::Entities(self.diag.bound_entities(&own)));
+        }
         let found = self.module_lookup(module, name)?;
-        if !matches!(&found, Found::Entities(ids) if ids.is_empty())
-            || self.ns.reexport_visiting.contains(&module)
-        {
+        if !matches!(&found, Found::Entities(ids) if ids.is_empty()) {
             return Ok(found);
         }
-        let used = self.ns.using_modules(module, name, false);
-        self.ns.reexport_visiting.push(module);
-        let mut result = Ok(found);
-        for used in used {
-            match self.module_member_lookup(used, name) {
-                Ok(Found::Entities(ids)) if ids.is_empty() => {}
-                other => {
-                    result = other;
-                    break;
+        for entry in self.scope(scope).usings.clone() {
+            if let UsingEntry::Module(inner, filter) = &entry {
+                if !filter.as_ref().is_some_and(|f| filter_hides(f, name)) {
+                    let found = self.module_lookup(*inner, name)?;
+                    if !matches!(&found, Found::Entities(ids) if ids.is_empty()) {
+                        return Ok(found);
+                    }
+                }
+            } else if let Some((entry, member)) = self.aggregate_using_member(&entry, name)? {
+                return Ok(Found::Using(entry, member));
+            }
+        }
+        for index in self.ns.modules[module.0 as usize]
+            .member_using_imports
+            .clone()
+        {
+            if filter_hides(&self.scope(scope).imports[index].filter, name) {
+                continue;
+            }
+            if let Some(inner) = self.lookup_import(scope, index)? {
+                let found = self.module_lookup(inner, name)?;
+                if !matches!(&found, Found::Entities(ids) if ids.is_empty()) {
+                    return Ok(found);
                 }
             }
         }
-        self.ns.reexport_visiting.pop();
-        result
+        Ok(found)
     }
 
     /// Can `module` or a module it re-exports hold an exported `using` of a value? A

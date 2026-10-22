@@ -1,5 +1,5 @@
-M :: #import "Metaprogram_Plugins";
+#import "Metaprogram_Plugins";
 
 main :: () {
-    value := M.initialization_requested;
+    value := initialization_requested;
 }

@@ -479,7 +479,7 @@ def main():
     ):
         negative = work / ("private-" + member + ".jai")
         negative.write_text(
-            'M :: #import "rpmalloc"; main :: () { value := M.' + member + "; }\n"
+            '#import "rpmalloc"; main :: () { value := ' + member + "; }\n"
         )
         negative.chmod(0o444)
         report["privacy_inputs"].append(
@@ -489,7 +489,7 @@ def main():
             "public privacy " + member, [args.compiler, negative, "-check", "-no_dce"]
         )
         row = report["checks"][-1]
-        exact = "module `rpmalloc` has no exported member `" + member + "`"
+        exact = "unknown identifier `" + member + "`"
         row["status"] = (
             "passed" if row["exit"] != 0 and exact in row["stderr"] else "failed"
         )

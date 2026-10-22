@@ -340,6 +340,8 @@ pub struct Module {
     /// Import entries (indexes into the module scope's `imports`) of exported
     /// `using Name :: #import "M";` declarations: M's names are members of this module too.
     pub exported_using_imports: Vec<usize>,
+    /// Module-scope using imports, also reachable through qualified access.
+    pub member_using_imports: Vec<usize>,
     /// Top-level `using M;` naming a module (`I :: #import "I"; using I;`): M's names are
     /// members of this module (`This.name`), filtered as written. Exported ones (at export
     /// scope) also reach importers of this module; `#scope_module` ones only `This.name`.
@@ -478,6 +480,7 @@ impl Compiler {
     /// answers from its facts once it is checked, and these are tens of MB for a large
     /// program. Code checked later may still lower, but no compile-time code runs again.
     pub fn release_lowered_code(&mut self) {
+        // Specialization identities may include constant images that are about to go away.
         self.out.release_lowered();
         self.ct.interp.release_code();
     }

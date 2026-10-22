@@ -21,7 +21,7 @@ inner :: () {
 
 - `context.depth += 1` writes through the active pointer, so callees see it. `push_context` restores on any exit (`return`, `break`, `continue`); `check_stmt` tracks it in `FnCtx::context`.
 - `push_context,defer_pop ctx;` lasts to the end of the block. With no ctx the bare forms push a copy of the current context, or a default `#Context` inside `#c_call` and `#no_context` procedures.
-- `#add_context` is legal only at file scope. All additions share one program `#Context`, so field names must be unique; duplicates through differently parameterised imports are rejected.
+- `#add_context` is legal only at file scope. All additions share one program `#Context`, so field names must be unique; duplicates through differently parameterised imports or distinct modules are rejected even when the type and initializer match. A shared context extension should be declared once in a common imported module.
 - `#add_context name :: value;` is a constant reachable as `context.name`, resolved in the declaring file (`context_type`, `sema/structs.rs`) and listed in `type_info(type_of(context)).members` with `CONSTANT`.
 - `has_context` (`sema/procs.rs`) decides per signature whether the hidden parameter exists: not for `#c_call`, `#no_context`, `#intrinsic`. Using `context` there is an error; a `#c_call` body can do `new_context: #Context; push_context new_context { ... }`.
 

@@ -1,6 +1,6 @@
 // Reviewed ZIP version/EOCD constants and standard ZIP CRC32 wire behavior.
 #import "Basic";
-A :: #import "Android/Toolchain";
+using A :: #import "Android/Toolchain";
 
 calls: s64;
 
@@ -10,7 +10,7 @@ once :: () -> int {
 }
 
 main :: () {
-    #assert !#exists(A.zip_wire_u32) && !#exists(A.zip_eocd_valid) && !#exists(A.zip_wire_failure);
+    #assert !#exists(zip_wire_u32) && !#exists(zip_eocd_valid) && !#exists(zip_wire_failure);
     assert(type_info(A.Zip_Version).name == "Zip_Version" && size_of(A.Zip_Version) == 3);
     assert(A.ZIP_END_OF_CENTRAL_DIRECTORY_RECORD_SIZE == 22 && A.ZIP_EOCD_OFFSET_FIELD_OFFSET == 16);
     assert(type_of(A.ZIP_CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE) == u32);

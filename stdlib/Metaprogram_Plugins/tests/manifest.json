@@ -1,5 +1,10 @@
 [
   {
+    "name": "basics/private-name",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `initialization_requested`"
+  },
+  {
     "name": "plugin-initialization",
     "required_os": [
       "windows"

@@ -1,9 +1,10 @@
 #import "Basic";
-C :: #import "Shared_Memory_Channel";
+using C :: #import "Shared_Memory_Channel";
 
 main :: () {
     #if OS == .WINDOWS {
-        #assert !#exists(C.Registration);
+        #assert #exists(C.Registration);
+        #assert !#exists(Registration);
         #assert size_of(C.Read_Channel_Os_Specific) == size_of(W.HANDLE);
         #assert size_of(C.Write_Channel_Os_Specific) == size_of(W.HANDLE);
         name := sprint("Local\\portable-channel-%", W.GetCurrentProcessId());

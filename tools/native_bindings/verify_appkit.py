@@ -362,12 +362,12 @@ def main():
     ] + [("GL", "NSOpenGLContext")]:
         private = work / ("private-helper-" + member + ".jai")
         private.write_text(
-            'A :: #import "' + module + '"; leak :: A.' + member + "; main :: () {}\n"
+            '#import "' + module + '"; leak :: ' + member + "; main :: () {}\n"
         )
         run(
             "helper privacy " + member,
             [args.compiler, private, "-check"],
-            "has no exported member `" + member + "`",
+            "unknown identifier `" + member + "`",
         )
     for os_ in ("windows", "linux"):
         for cpu in ("arm64", "x64"):

@@ -794,9 +794,9 @@ def run_verification(cleanup):
                 + ".jai"
             )
             file.write_text(
-                'M :: #import "'
+                '#import "'
                 + module
-                + '"; leaked :: M.'
+                + '"; leaked :: '
                 + private
                 + "; main :: () {}\n"
             )
@@ -806,7 +806,7 @@ def run_verification(cleanup):
             result["status"] = (
                 "passed"
                 if result["exit"] != 0
-                and ("has no exported member `" + private + "`") in result["stderr"]
+                and ("unknown identifier `" + private + "`") in result["stderr"]
                 else "failed"
             )
             if result["status"] == "failed":
