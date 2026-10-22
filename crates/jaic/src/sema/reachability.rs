@@ -280,10 +280,7 @@ impl Compiler {
         let mut completes = !exhaustive;
         let mut falls_in = false;
         for case in cases {
-            let Some(body) = stmts_span(&case.body) else {
-                falls_in = case.through && falls_in;
-                continue;
-            };
+            let body = stmts_span(&case.body);
             let excluded = !case.values.is_empty()
                 && subject.is_some()
                 && case
@@ -291,14 +288,19 @@ impl Compiler {
                     .iter()
                     .all(|v| self.ed.compare(&walk.env, BinOp::Eq, value, v) == Some(false));
             if excluded && !falls_in {
-                walk.dead.push(body);
+                if let Some(body) = body {
+                    walk.dead.push(body);
+                }
                 falls_in = false;
                 continue;
             }
             let mark = walk.env.mark();
             if !falls_in {
-                self.ed.narrow_case(&mut walk.env, value, case, body);
+                self.ed
+                    .narrow_case(&mut walk.env, value, case, body.unwrap_or(case.span));
             }
+            // An empty selected case still exits normally, or enters the next
+            // case when marked #through; only its diagnostic span is absent.
             let ends_normally = self.walk_stmts(f, walk, &case.body, false);
             walk.env.truncate(mark);
             falls_in = case.through && ends_normally;

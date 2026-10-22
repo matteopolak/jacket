@@ -555,3 +555,81 @@ fn os_tests_without_a_prelude_do_not_crash() {
     let source = "#if OS == .WINDOWS {\n    only_there :: 1;\n}\nmain :: () {\n    #if OS == .WINDOWS {\n        x := 1;\n    }\n}\n";
     assert_eq!(faded(source), Vec::<String>::new());
 }
+
+#[test]
+fn empty_switch_cases_leave_following_code_reachable() {
+    let source = r"Mode :: enum { A; B; }
+other_stuff_here :: () {}
+default_only :: (mode: Mode) {
+    if mode == { case; }
+    other_stuff_here();
+    after_default := 1;
+}
+exhaustive :: (mode: Mode) {
+    if #complete mode == {
+        case .A;
+        case .B; return;
+    }
+    after_empty_case := 2;
+}
+main :: () {
+    default_only(.A);
+    exhaustive(.A);
+    after_calls := 3;
+}
+";
+    assert_eq!(faded(source), Vec::<String>::new());
+}
+
+#[test]
+fn an_empty_through_case_can_enter_an_otherwise_excluded_case() {
+    let source = r"main :: (x: s64) {
+    if x > 10 {
+        if x == {
+            case 20; #through;
+            case 3; reached_by_falling := 1;
+            case;
+        }
+        after_switch := 2;
+    }
+}
+";
+    assert_eq!(faded(source), Vec::<String>::new());
+}
+
+#[test]
+fn excluded_empty_cases_do_not_make_terminating_switches_fall_through() {
+    let source = r"main :: (x: s64) {
+    if x > 10 {
+        if x == {
+            case 3;
+            case; return;
+        }
+        after_terminating_switch := 1;
+    }
+}
+";
+    assert_eq!(faded(source), ["after_terminating_switch := 1"]);
+}
+
+#[test]
+fn an_empty_exhaustive_case_does_not_suppress_a_missing_return_warning() {
+    let source = r"Mode :: enum { A; B; }
+pick :: (mode: Mode) -> int {
+    if #complete mode == {
+        case .A;
+        case .B; return 2;
+    }
+}
+main :: () { pick(.A); }
+";
+    let mut session = lean_session();
+    session.open(uri(), 1, source.into()).unwrap();
+    assert!(
+        session
+            .diagnostics(&uri())
+            .unwrap()
+            .iter()
+            .any(|d| d.message.contains("not all control paths return a value"))
+    );
+}
