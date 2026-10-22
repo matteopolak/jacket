@@ -13,6 +13,8 @@ use super::{ScopeId, structs, value};
 
 pub struct TypeState {
     pub types: Types,
+    /// Source and lexical context of nominal enums and distinct types.
+    pub nominal_origins: HashMap<TypeId, (crate::source::Span, super::ScopeId)>,
     pub poly_structs: Vec<structs::PolyStruct>,
     /// Struct declaration AST per struct (for layout).
     pub struct_asts: HashMap<StructId, structs::StructSource>,
@@ -54,6 +56,7 @@ impl Default for TypeState {
     fn default() -> Self {
         Self {
             types: Types::new(),
+            nominal_origins: HashMap::default(),
             poly_structs: Vec::new(),
             struct_asts: HashMap::default(),
             field_types: HashMap::default(),

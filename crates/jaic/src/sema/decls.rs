@@ -333,6 +333,7 @@ impl Compiler {
                     base,
                     isa,
                 });
+                self.ty.nominal_origins.insert(ty, (value.span, scope));
                 return Ok(Resolved::Const {
                     value: Value::Type(ty),
                     ty: TypeId::TYPE,

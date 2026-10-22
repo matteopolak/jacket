@@ -119,16 +119,14 @@ impl Session {
     }
 
     /// Each polymorphic procedure of the document: its name's range and its instances.
-    fn polymorph_rows(&self, uri: &DocumentUri) -> Vec<(Range, Vec<String>)> {
+    fn polymorph_rows(&self, uri: &DocumentUri) -> Vec<(Range, Vec<String>, bool)> {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
         let text = &doc.text;
-        let polys = self
-            .checked(uri, |a, f| a.compiler.ide_polymorphs(f))
-            .unwrap_or_default();
+        let polys = self.workspace_polymorphs(uri);
         let mut out = Vec::new();
-        for (span, name, instances) in polys {
+        for (span, name, instances, complete) in polys {
             let start = (span.start as usize).min(text.len());
             // The name is earlier on the line: `name :: (x: $T)`.
             let line_start = jaic::source::line_start(text, start);
@@ -136,7 +134,7 @@ impl Session {
                 .find(name.as_str())
                 .map_or(start, |i| line_start + i);
             if let Some(range) = self.range_of(uri, Span::new(at, at + name.len())) {
-                out.push((range, instances));
+                out.push((range, instances, complete));
             }
         }
         out
@@ -148,11 +146,18 @@ impl Session {
         Ok(self
             .polymorph_rows(uri)
             .into_iter()
-            .map(|(range, instances)| {
+            .map(|(range, instances, complete)| {
                 let title = match instances.len() {
                     0 => "no polymorphs yet".to_string(),
                     1 => format!("1 polymorph: {}", clip(&instances[0], 60)),
                     n => format!("{n} polymorphs: {}", clip(&instances.join("; "), 80)),
+                };
+                let title = if complete {
+                    title
+                } else if instances.is_empty() {
+                    "polymorphs unavailable: analysis incomplete".into()
+                } else {
+                    format!("{title} (analysis incomplete)")
                 };
                 CodeLens {
                     range,
@@ -170,8 +175,8 @@ impl Session {
     pub fn polymorphs(&self, uri: &DocumentUri, position: Position) -> Vec<String> {
         self.polymorph_rows(uri)
             .into_iter()
-            .find(|(range, _)| range.start <= position && position <= range.end)
-            .map(|(_, i)| i)
+            .find(|(range, _, _)| range.start <= position && position <= range.end)
+            .map(|(_, i, _)| i)
             .unwrap_or_default()
     }
 

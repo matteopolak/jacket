@@ -49,6 +49,7 @@ impl Compiler {
             loose_of: None,
             span: lit.span,
         });
+        self.ty.nominal_origins.insert(ty, (lit.span, scope));
         let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };

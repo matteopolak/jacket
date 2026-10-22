@@ -10,6 +10,7 @@ use crate::sema::{
 impl Compiler {
     /// The callable target of a procedure, reserving it (and queueing its body) on first use.
     pub fn proc_func(&mut self, id: ProcId, span: Span) -> Result<ProcTarget> {
+        self.ide_note_polymorph(id);
         if let Some(t) = self.proc(id).target {
             return Ok(t);
         }

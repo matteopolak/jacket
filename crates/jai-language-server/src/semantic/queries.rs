@@ -10,6 +10,13 @@ use std::path::Path;
 use std::rc::Rc;
 
 impl Analysis {
+    pub(crate) fn polymorph_compilers(
+        &self,
+    ) -> impl Iterator<Item = (&jaic::sema::Compiler, bool)> {
+        std::iter::once((&self.compiler, self.complete))
+            .chain(self.others.iter().map(|p| (&p.compiler, p.complete)))
+    }
+
     /// Answer from the program that compiled `path`: the compiled root's own, or one a
     /// metaprogram built. The answering program stays when it compiled `path` too (a module
     /// both import).

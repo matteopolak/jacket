@@ -112,16 +112,10 @@ impl Compiler {
         result
     }
 
-    /// What `name` means as a member of `module`: `M.name` through a named import, `name`
-    /// in a scope that imports M or says `using M;`, and the names M re-exports. In order:
-    /// M's exported declarations (and those of modules it re-exports), members of globals
-    /// it exports with `using` (GL's `using gl;` makes `GL.glViewport` work), then module
-    /// parameters (`Basic.MEMORY_DEBUGGER`).
-    ///
-    /// Every path that resolves a name through a module must use this (or
-    /// `merge_module_lookup`), never `module_declarations` alone: separate copies of these
-    /// rules drifted apart once (`GL.glViewport` failed while `glViewport` worked).
-    /// `tests/compiler/regressions/module-member-resolution.jai` checks that all paths agree.
+    /// What an anonymous import or `using M` exposes: exported declarations and
+    /// re-exports, exported using members, then module parameters. Qualified `M.name`
+    /// uses `module_member_lookup` to include M's own module-scope declarations too.
+    /// Keep imported-name lookup here so export filters and its caches agree.
     pub fn module_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
         // Looking up a name a module lacks walks its re-exports and `using` globals, and a
         // scope asks every module it imports for every name it uses: remember the misses.

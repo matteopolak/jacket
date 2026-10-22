@@ -222,6 +222,11 @@ impl Compiler {
             let mut instances: Vec<String> = p
                 .instances
                 .values()
+                .filter(|inst| {
+                    self.ed
+                        .facts()
+                        .is_some_and(|f| f.selected_polymorphs.contains(inst))
+                })
                 .map(|&inst| self.ide_bindings_text(inst))
                 .collect();
             instances.sort();
@@ -230,7 +235,7 @@ impl Compiler {
         out
     }
 
-    fn ide_bindings_text(&self, inst: ProcId) -> String {
+    pub(in crate::ide) fn ide_bindings_text(&self, inst: ProcId) -> String {
         let Some(scope) = self.proc(inst).bindings else {
             return String::new();
         };

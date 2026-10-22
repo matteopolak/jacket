@@ -120,6 +120,49 @@ impl Sources<'_> {
         }
     }
 
+    pub(crate) fn workspace_entries(
+        &self,
+        index: &mut Index,
+        folders: &[PathBuf],
+        open: &[PathBuf],
+    ) -> BTreeSet<PathBuf> {
+        let mut entries = BTreeSet::new();
+        for folder in folders {
+            let config = self.config(index, &folder.join("main.jai"));
+            let base = config
+                .as_ref()
+                .map_or(folder.as_path(), |(dir, _)| dir.as_path());
+            let found = project::entry_files(base, config.as_ref().map(|(_, c)| c));
+            entries.extend(
+                found
+                    .paths
+                    .into_iter()
+                    .filter(|p| self.is_file(p))
+                    .map(|p| self.key(&p)),
+            );
+        }
+        let mut fallback = BTreeSet::new();
+        for path in open {
+            let program = self.program(index, path, folders);
+            if let Some((dir, config)) = self.config(index, path) {
+                entries.extend(
+                    project::entry_files(&dir, Some(&config))
+                        .paths
+                        .into_iter()
+                        .filter(|p| self.is_file(p))
+                        .map(|p| self.key(&p)),
+                );
+            }
+            if program.root.file_name().is_none_or(|n| n != "module.jai") {
+                fallback.insert(program.root);
+            }
+        }
+        if entries.is_empty() {
+            entries = fallback;
+        }
+        entries
+    }
+
     pub(super) fn program(&self, index: &mut Index, file: &Path, folders: &[PathBuf]) -> Program {
         let key = self.key(file);
         let file = key.as_path();

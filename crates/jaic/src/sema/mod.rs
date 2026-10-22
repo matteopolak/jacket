@@ -481,6 +481,7 @@ impl Compiler {
     /// program. Code checked later may still lower, but no compile-time code runs again.
     pub fn release_lowered_code(&mut self) {
         // Specialization identities may include constant images that are about to go away.
+        self.ide_freeze_polymorphs();
         self.out.release_lowered();
         self.ct.interp.release_code();
     }

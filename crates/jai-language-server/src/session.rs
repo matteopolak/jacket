@@ -63,6 +63,7 @@ pub struct Session {
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
     pub(crate) semantic: RefCell<semantic::Cache>,
+    pub(crate) polymorph_index: RefCell<crate::polymorphs::Index>,
     /// `Cache::recorded_version` as of the last time discovery was given the recorded builds.
     synced_builds: std::cell::Cell<u64>,
     /// Open `jailint.toml` files: settings for the lints of documents under their directory.
@@ -119,6 +120,7 @@ impl Session {
             parsed: BTreeMap::new(),
             environment: None,
             semantic: RefCell::default(),
+            polymorph_index: RefCell::default(),
             synced_builds: std::cell::Cell::new(0),
             lint_configs: BTreeMap::new(),
             saved_configs: BTreeMap::new(),

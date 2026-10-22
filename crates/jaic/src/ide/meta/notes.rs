@@ -101,6 +101,7 @@ impl Compiler {
         args: &[CallArg],
         ambiguous: bool,
     ) {
+        self.ide_note_polymorph(chosen);
         self.ide_note_callee(span, chosen);
         if !self.ide_wants_file(span.file) {
             return;

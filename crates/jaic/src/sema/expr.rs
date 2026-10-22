@@ -584,6 +584,7 @@ impl Compiler {
                         base,
                         isa,
                     });
+                    self.ty.nominal_origins.insert(t, (span, scope));
                     Ok(Operand::Type(t))
                 }
             }

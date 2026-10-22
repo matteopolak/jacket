@@ -13,6 +13,8 @@ pub mod interval;
 mod member_notes;
 pub mod meta;
 mod never_returns;
+mod polymorphs;
+pub use self::polymorphs::{IdePolymorph, IdeSpecialization};
 mod recording;
 mod sketch;
 mod values;

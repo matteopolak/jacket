@@ -25,6 +25,7 @@ mod model;
 mod modules;
 mod named_arguments;
 mod path_completion;
+mod polymorphs;
 mod position;
 mod project;
 mod protocol;

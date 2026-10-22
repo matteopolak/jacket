@@ -86,6 +86,9 @@ pub struct IdeFacts {
     /// The procedure each direct call expression resolved to, in any file (`None`: checks of it
     /// disagreed, as instances of a polymorphic procedure can). See `never_returns.rs`.
     pub(crate) callees: HashMap<Span, Option<ProcId>>,
+    /// Actual selections, before per-site merging or display limits discard instances.
+    pub(crate) selected_polymorphs: HashSet<ProcId>,
+    pub(crate) polymorph_summaries: Option<Vec<super::IdePolymorph>>,
     /// Procedures whose body expanded a macro that returns from its caller.
     pub(crate) macro_returners: HashSet<ProcId>,
     /// Actual custom-iteration selections per keyword, across real instantiations.

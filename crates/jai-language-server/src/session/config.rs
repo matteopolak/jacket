@@ -67,6 +67,7 @@ impl Session {
 
     /// Drop everything cached (compiles, scans) after a failure: it is rebuilt on demand.
     pub fn reset_caches(&self) {
+        self.polymorph_index.borrow_mut().clear();
         // What the metaprograms did is not lost with the compiles that recorded it.
         let trusted = self.semantic.borrow().trusted();
         let recorded = std::mem::take(&mut self.semantic.borrow_mut().recorded);
@@ -88,6 +89,7 @@ impl Session {
     /// under the other setting; the caller republishes diagnostics.
     pub fn set_trusted(&mut self, trusted: bool) {
         if self.semantic.borrow().trusted() != trusted {
+            self.polymorph_index.borrow_mut().clear();
             self.semantic.borrow_mut().set_trusted(trusted);
             // Without trust nothing runs, so discovery falls back to the static scan; what
             // earlier runs recorded goes with the cache.
@@ -104,6 +106,10 @@ impl Session {
         self.semantic.borrow().trusted()
     }
 
+    pub(crate) fn semantic_revision(&self) -> u64 {
+        self.generation.get()
+    }
+
     /// The inputs of a compile may have changed.
     fn touch(&self) {
         self.generation.set(self.generation.get() + 1);
@@ -112,6 +118,7 @@ impl Session {
     }
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
+        self.polymorph_index.borrow_mut().clear();
         self.workspace_folders = folders
             .iter()
             .map(|p| crate::document::path_key(p))
@@ -132,6 +139,9 @@ impl Session {
             |env| crate::auto_import::canonical_key(env, path),
         );
         let path = path.as_path();
+        self.polymorph_index
+            .borrow_mut()
+            .invalidate(path, created_or_deleted);
         let mut index = self.index.borrow_mut();
         if created_or_deleted {
             index.created_or_deleted(path);

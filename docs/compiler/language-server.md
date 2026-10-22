@@ -15,7 +15,7 @@ Not supported: formatting (use `jaifmt --stdin` as an external formatter), type 
 
 ### Documents
 
-Configuration files keep separate saved snapshots: changes apply on `textDocument/didSave`, not while typing. See [saved configuration](saved-configuration.md).
+Configuration files keep separate saved snapshots: changes apply on `textDocument/didSave`, not while typing. See [saved configuration](saved-configuration.md). Generic lenses aggregate real instances across workspace entry programs; see [polymorph reporting](polymorph-reporting.md).
 
 `Session` holds versioned open documents. Each version is lexed and parsed once (`analysis.rs`; the symbol tree in `analysis/symbols.rs`) into declaration rows; `Analysis` keeps the token stream (`syntax_tokens`) so features never lex the text again. Positions are UTF-16. A stale version or invalid edit keeps the previous text. If a version does not parse, completion falls back to the last version that did.
 
