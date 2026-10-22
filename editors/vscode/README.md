@@ -50,6 +50,7 @@ The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next
   "jai.compiler.path": "",          // jaic (Run/Build/Check)
   "jai.formatter.path": "",         // jaifmt
   "jai.stdlib.path": "",            // passed as JAIC_STDLIB
+  "jai.stdlib.prelude": "",         // JAIC_PRELUDE; relative to stdlib, or absolute
   "jai.toolchain.autoDownload": "prompt",
   "jai.run.arguments": [],          // extra jaic arguments, such as "-O2"
   "jai.completion.autoImport": true, // offer names from modules and files not imported yet
@@ -63,3 +64,5 @@ The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next
 ```
 
 See [the extension's documentation](https://github.com/matteopolak/jacket/blob/main/docs/tools/vscode-extension.md) for how it works and how to change it.
+
+The prelude initializes built-in types and context before each program. `jai.stdlib.prelude` overrides detection (`prelude/module.jai` by default); `~` expands to the home folder. Empty settings inherit `JAIC_PRELUDE`. See [prelude selection](../../docs/compiler/prelude-selection.md).

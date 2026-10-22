@@ -6,7 +6,7 @@ local M = {}
 ---@field server { path: string }  Path to `jailsp`; empty looks it up.
 ---@field compiler { path: string }  Path to `jaic` (the Run/Build/Check commands).
 ---@field formatter { path: string }  Path to `jaifmt`.
----@field stdlib { path: string }  Standard library directory, passed as `JAIC_STDLIB`.
+---@field stdlib { path: string, prelude: string }  Library directory and prelude file, passed as `JAIC_STDLIB` and `JAIC_PRELUDE`.
 ---@field toolchain { auto_download: 'prompt'|'always'|'never', version: string }
 ---@field completion { auto_import: boolean, call_snippets: 'addParentheses'|'fillArguments'|'none' }  Offer names the file cannot see yet; what accepting a procedure inserts.
 ---@field inlay_hints { closing_brace_min_lines: integer }  Name the closing brace of procedures, structs and enums this many lines long (0: never).
@@ -18,7 +18,7 @@ local defaults = {
   server = { path = '' },
   compiler = { path = '' },
   formatter = { path = '' },
-  stdlib = { path = '' },
+  stdlib = { path = '', prelude = '' },
   toolchain = { auto_download = 'prompt', version = '' },
   completion = { auto_import = true, call_snippets = 'addParentheses' },
   inlay_hints = { closing_brace_min_lines = 25 },
@@ -56,14 +56,18 @@ function M.server_settings()
   }
 end
 
----Environment for `jailsp` and `jaic`: `JAIC_STDLIB` from `stdlib.path`.
+---Environment overrides for `jailsp` and `jaic`; empty settings inherit the process environment.
 ---@return table<string, string>
 function M.tool_env()
-  local stdlib = M.get().stdlib.path
-  if stdlib == '' then
-    return {}
+  local stdlib = M.get().stdlib
+  local env = {}
+  for setting, variable in pairs({ path = 'JAIC_STDLIB', prelude = 'JAIC_PRELUDE' }) do
+    local value = vim.trim(stdlib[setting])
+    if value ~= '' then
+      env[variable] = vim.fs.normalize(value)
+    end
   end
-  return { JAIC_STDLIB = vim.fs.normalize(stdlib) }
+  return env
 end
 
 return M

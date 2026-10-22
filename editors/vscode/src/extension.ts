@@ -5,6 +5,7 @@ import { LanguageClient, type LanguageClientOptions, type ServerOptions, Transpo
 import { type JaicCommand, runJaic } from "./commands";
 import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findServer, nodeEnvironment } from "./discovery";
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
+import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
 import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
@@ -29,13 +30,10 @@ function settings(): Settings {
   };
 }
 
-/** Environment for jailsp and jaic: `JAIC_STDLIB` from `jai.stdlib.path`. */
+/** Environment shared by the language server and compiler commands. */
 function toolEnvironment(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
-  const stdlib = vscode.workspace.getConfiguration("jai").get<string>("stdlib.path")?.trim();
-  if (stdlib) env.JAIC_STDLIB = stdlib.replace(/^~(?=$|[\\/])/, os.homedir());
-  return env;
+  const config = vscode.workspace.getConfiguration("jai");
+  return configuredEnvironment((setting) => config.get<string>(setting), process.env, os.homedir());
 }
 
 function locate<T>(find: () => T): T | undefined {
@@ -94,7 +92,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     ),
     vscode.languages.registerDocumentFormattingEditProvider({ language: "jai" }, { provideDocumentFormattingEdits: formatDocument }),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (["jai.server.path", "jai.compiler.path", "jai.stdlib.path", "jai.trace.server"].some((s) => event.affectsConfiguration(s))) {
+      if (["jai.server.path", "jai.compiler.path", "jai.stdlib.path", "jai.stdlib.prelude", "jai.trace.server"].some((s) => event.affectsConfiguration(s))) {
         void restart(expansions);
       }
     }),

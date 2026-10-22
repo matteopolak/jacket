@@ -77,6 +77,7 @@ All optional. Either `require('jai').setup({ ... })` or a `vim.g.jai = { ... }` 
 | `compiler.path` | `''` | Path to `jaic` (for `:Jai run`, `build`, `check`) |
 | `formatter.path` | `''` | Path to `jaifmt` |
 | `stdlib.path` | `''` | Standard library folder, passed as `JAIC_STDLIB` |
+| `stdlib.prelude` | `''` | Prelude file, passed as `JAIC_PRELUDE`; relative to stdlib or absolute |
 | `toolchain.auto_download` | `'prompt'` | `'prompt'`, `'always'` or `'never'` |
 | `toolchain.version` | `''` | Toolchain version to download; empty is the plugin's version |
 | `completion.auto_import` | `true` | Complete names the file cannot see yet and add the `#import` |

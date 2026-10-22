@@ -7,7 +7,7 @@
 ## How it works
 
 - `lsp/jailsp.lua` sets `cmd` to a function so the binary is looked up when a Jai buffer needs it. `plugin/jai.lua` adds `:Jai` and calls `vim.lsp.enable('jailsp')` unless `lsp.enable = false`. `ftdetect/` and `ftplugin/` handle `*.jai` and format on save; `syntax/jai.vim` is the fallback under semantic tokens.
-- `lua/jai/`: `config.lua` (defaults < `vim.g.jai` < `setup()`; `JAIC_STDLIB` comes from `stdlib.path`), `toolchain.lua` (find tools: setting, `PATH`, next to `jaic`, `stdpath('data')/jai/<version>`), `install.lua` (archive per platform, SHA-256, `curl` download, `tar` unpack, rename into place, older versions removed; nothing left behind on failure; Windows uses `System32\tar.exe`), `format.lua` (`jaifmt --stdin` in the file's folder, `jaifmt --is-ignored` for the ignore list, line-wise edits via `vim.text.diff`), `commands.lua` (`:Jai` subcommands), `health.lua`, `version.lua` (stamped by the release) and `toolchain-manifest.json` at the plugin root (the release's [toolchain manifest](releases.md#toolchain-manifest), stamped in by the release, so checksums come from the tag; absent in a development checkout, which fetches the release's own).
+- `lua/jai/`: `config.lua` (defaults < `vim.g.jai` < `setup()`; `JAIC_STDLIB` comes from `stdlib.path` and `JAIC_PRELUDE` from `stdlib.prelude`), `toolchain.lua` (find tools: setting, `PATH`, next to `jaic`, `stdpath('data')/jai/<version>`), `install.lua` (archive per platform, SHA-256, `curl` download, `tar` unpack, rename into place, older versions removed; nothing left behind on failure; Windows uses `System32\tar.exe`), `format.lua` (`jaifmt --stdin` in the file's folder, `jaifmt --is-ignored` for the ignore list, line-wise edits via `vim.text.diff`), `commands.lua` (`:Jai` subcommands), `health.lua`, `version.lua` (stamped by the release) and `toolchain-manifest.json` at the plugin root (the release's [toolchain manifest](releases.md#toolchain-manifest), stamped in by the release, so checksums come from the tag; absent in a development checkout, which fetches the release's own).
 - Subcommands: `fix` asks for `source.fixAll.jailint`; `lint` runs `jailint --color never` and fills quickfix; `expand` sends `jai/expansion`; `polymorphs` runs `jai.showPolymorphs` with a `{uri, position}` argument.
 
 ## How to change it
@@ -34,3 +34,6 @@ Plugin managers need a repository whose root is the plugin, so the `neovim` job 
 ## Dependencies
 
 Neovim 0.11+ (`vim.lsp.config`, `vim.lsp.enable`, `vim.text.diff`, `vim.fs.relpath`), `curl` and `tar` for `:Jai install`, `sha256sum`/`shasum`/`openssl` on Unix, the toolchain binaries. No Lua dependencies.
+
+
+Set `stdlib = { path = '/path/to/stdlib', prelude = 'Base.jai' }` in `require('jai').setup()`. An empty prelude setting inherits `JAIC_PRELUDE`; `~` expands to the home folder. See [prelude selection](../compiler/prelude-selection.md) for detection and extending supported layouts.

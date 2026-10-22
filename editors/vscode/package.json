@@ -56,6 +56,7 @@
         "jai.compiler.path",
         "jai.formatter.path",
         "jai.stdlib.path",
+        "jai.stdlib.prelude",
         "jai.toolchain.autoDownload",
         "jai.run.arguments"
       ]
@@ -276,6 +277,12 @@
           "default": "",
           "scope": "machine-overridable",
           "markdownDescription": "Standard library directory, passed to `jailsp` and `jaic` as `JAIC_STDLIB`. Empty: the `stdlib` folder next to the executable."
+        },
+        "jai.stdlib.prelude": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Prelude file, passed to `jailsp` and `jaic` as `JAIC_PRELUDE`. Relative paths are relative to the standard library directory; `~` expands to your home directory. Empty: inherit `JAIC_PRELUDE` or detect the prelude."
         },
         "jai.toolchain.autoDownload": {
           "type": "string",

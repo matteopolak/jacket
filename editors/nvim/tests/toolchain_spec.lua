@@ -144,7 +144,7 @@ T['the server command starts the resolved binary'] = function()
   isolated(function()
     local bin = h.tmpdir()
     make_tools(bin, { 'jailsp' })
-    config.set({ server = { path = bin .. '/jailsp' }, stdlib = { path = '/stdlib/here' } })
+    config.set({ server = { path = bin .. '/jailsp' }, stdlib = { path = '/stdlib/here', prelude = '~/Base.jai' } })
     local started
     local real = vim.lsp.rpc.start
     ---@diagnostic disable-next-line: duplicate-set-field
@@ -157,6 +157,7 @@ T['the server command starts the resolved binary'] = function()
     config.set(nil)
     assert(started.cmd[1] == vim.fs.normalize(bin .. '/jailsp'), vim.inspect(started))
     assert(started.env.JAIC_STDLIB == '/stdlib/here')
+    assert(started.env.JAIC_PRELUDE == vim.fs.joinpath(vim.uv.os_homedir(), 'Base.jai'))
   end)
 end
 
