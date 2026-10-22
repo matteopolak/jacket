@@ -69,6 +69,8 @@ impl Compiler {
             "CPU",
             "BUILD_OS",
             "BUILD_CPU",
+            "IS_CROSS_COMPILING",
+            "MACHINE_OPTIONS_SIZE",
             "TEMPORARY_STORAGE_SIZE",
             "LANGUAGE_VERSION_MAJOR",
             "LANGUAGE_VERSION_MINOR",

@@ -58,3 +58,9 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - `minimum_os_version` (`major.minor`) is the deployment version in a macOS target's triple, and the link adds `-mmacosx-version-min` {#bo.11}.
 - `get_build_options()` of the program's own workspace already reports where the output goes: `output_executable_name` is the main file's stem, `output_path` its absolute directory with a trailing `/`, and `intermediate_path` is `<output_path>.build` {#bo.16}. Metaprograms build paths from these (`tprint("%/%", options.output_path, options.output_executable_name)`). `forward_options` does not send the derived `intermediate_path` back, so a round trip through `set_build_options` leaves intermediates where they were. A workspace made with `compiler_create_workspace` starts with empty names and paths.
 - | `FAILED_IMPORT` | sent to an intercepting metaprogram when an import finds no module (`status = .NOT_FOUND`, `host_module_name`, `target_module_name`; `import_code` is null), right before `ERROR`. The import is still a compile error unless the metaprogram answers with `provide_import`, which reloads the workspace's sources. Test: `tests/corpus/negative/message-failed-import-and-error.jai` {#bo.13} |
+
+## Target constants and machine settings
+
+`IS_CROSS_COMPILING` is a boolean comparing this workspace’s target OS and CPU with the compiler host (`BUILD_OS` and `BUILD_CPU`). It is resolved independently in child workspaces; an isolated host run uses its host target.
+
+`MACHINE_OPTIONS_SIZE` is the compiler-defined byte capacity of `Build_Options.machine_options`, currently 128. Architecture-specific option records must satisfy `size_of(Options_Record) <= MACHINE_OPTIONS_SIZE`; the capacity is not the record size. Change the shared constant in `sema/mod.rs` and keep the build-options declaration and machine-option checks expressed in terms of it. No configuration flag changes this capacity.

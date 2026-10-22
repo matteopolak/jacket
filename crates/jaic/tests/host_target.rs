@@ -46,6 +46,9 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
                 #assert type_of(OS) == type_of(BUILD_OS);
                 #assert type_of(CPU) == type_of(BUILD_CPU);
                 #assert (OS != BUILD_OS || CPU != BUILD_CPU) == {cross};
+                #assert IS_CROSS_COMPILING == {cross};
+                #assert type_of(IS_CROSS_COMPILING) == bool;
+                #assert MACHINE_OPTIONS_SIZE == 128;
                 main :: () {{}}
                 ",
                 target_os = os_name(os),

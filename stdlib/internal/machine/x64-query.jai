@@ -16,7 +16,7 @@ get_machine_options_x86 :: (build_options: *$T) -> *Machine_Options_X86 #modify 
     #assert type_info(type_of(build_options.machine_options)).type == .ARRAY;
     #assert type_of(build_options.machine_options.data) == *u8;
     #assert size_of(type_of(build_options.machine_options)) >= size_of(Machine_Options_X86);
-    #assert size_of(Machine_Options_X86) <= 128;
+    #assert size_of(Machine_Options_X86) <= MACHINE_OPTIONS_SIZE;
     assert(build_options != null, "machine options require a live build-options pointer");
     memory := build_options.machine_options.data;
 

@@ -258,7 +258,7 @@ Build_Options :: struct {
         os_target  := OS;
         cpu_target := CPU;
         backend: enum u32 { X64; LLVM; } = .LLVM;
-        machine_options: [128] u8;
+        machine_options: [MACHINE_OPTIONS_SIZE] u8;
         emit_debug_info: enum u32 {
             NONE       :: 0;
             DWARF      :: 1;

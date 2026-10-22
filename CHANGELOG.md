@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### New
+
+- Expose `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` as compiler-defined constants.
+
 ### Changed
 
 - Move the jaic-specific `Fuzz` module to `Extensions/Fuzz`.

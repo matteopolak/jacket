@@ -162,6 +162,18 @@ impl Compiler {
             "BUILD_OS" => ("Operating_System_Tag", crate::target::os_member(host_os)),
             "CPU" => ("CPU_Tag", crate::target::cpu_member(self.options.cpu)),
             "BUILD_CPU" => ("CPU_Tag", crate::target::cpu_member(host_cpu)),
+            "IS_CROSS_COMPILING" => {
+                return Ok(Resolved::Const {
+                    value: Value::Bool((self.options.os, self.options.cpu) != (host_os, host_cpu)),
+                    ty: TypeId::BOOL,
+                });
+            }
+            "MACHINE_OPTIONS_SIZE" => {
+                return Ok(Resolved::Const {
+                    value: Value::Int(super::MACHINE_OPTIONS_SIZE as i128),
+                    ty: TypeId::S64,
+                });
+            }
             "TEMPORARY_STORAGE_SIZE" => {
                 self.out
                     .note_runtime_storage_dependencies(&[self.options.temporary_storage_size]);
