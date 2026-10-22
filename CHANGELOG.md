@@ -14,6 +14,8 @@
 
 ### Fixed
 
+- Show hover help for contextual `using,only`, `using,except`, and `using,map` modifiers.
+
 - Complete componentwise multiplication and division for Vector3/Vector4 and provide the missing Vector4 scalar-multiply, squared-distance and unit-vector helpers (#34).
 
 - Initialize compile-time context after early bootstrap queries instead of reusing a cached null pointer.

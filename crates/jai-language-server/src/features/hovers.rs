@@ -1,4 +1,4 @@
-//! Hovers over expansions, links, directives and casts.
+//! Hovers over expansions, links, directives, casts and contextual using filters.
 use super::directive_at;
 use crate::DocumentUri;
 use crate::analysis::TokenKind;
@@ -197,6 +197,40 @@ impl Session {
             HoverText::new(vec![
                 Block::Code(format!("cast,{flag}")),
                 Block::Para(vec![Inline::Text(format!("Cast flag: {about}."))]),
+            ]),
+        ))
+    }
+
+    /// Filter names are contextual modifiers, not reserved words. Use lexer tokens so
+    /// comments and whitespace are allowed without treating string contents as syntax.
+    pub(crate) fn using_filter_hover(
+        &self,
+        uri: &DocumentUri,
+        byte: usize,
+    ) -> Option<(usize, usize, HoverText)> {
+        let analysis = self.analysis_for(uri)?;
+        let doc = self.document(uri).ok()?;
+        let (index, token) = crate::session::tokens_at(&analysis.tokens, byte)
+            .find(|(_, t)| t.kind == TokenKind::Ident)?;
+        let [using, comma] = analysis.tokens.get(index.checked_sub(2)?..index)? else {
+            return None;
+        };
+        if using.spelling(&doc.text) != "using" || comma.spelling(&doc.text) != "," {
+            return None;
+        }
+        let name = token.spelling(&doc.text);
+        let about = match name {
+            "only" => "exposes only the selected names",
+            "except" => "exposes all names except the selected names",
+            "map" => "exposes selected members under new names",
+            _ => return None,
+        };
+        Some((
+            token.span.start,
+            token.span.end,
+            HoverText::new(vec![
+                Block::Code(format!("using,{name}")),
+                Block::Para(vec![Inline::Text(format!("Using filter: {about}."))]),
             ]),
         ))
     }

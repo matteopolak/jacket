@@ -135,6 +135,9 @@ impl Session {
         if let Some((start, end, text)) = self.cast_flag_hover(&doc.text, byte) {
             return found(start, end, text);
         }
+        if let Some((start, end, text)) = self.using_filter_hover(uri, byte) {
+            return found(start, end, text);
+        }
         if doc.has_asm()
             && let Some((start, end, text)) = self.asm_hover(&doc.text, byte)
         {
