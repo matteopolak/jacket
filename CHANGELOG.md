@@ -8,6 +8,16 @@
 
 ### Fixed
 
+- Initialize compile-time context after early bootstrap queries instead of reusing a cached null pointer.
+
+- Discover MSVC and the Windows SDK for BuildCpp, preserve MSVC compiler flags, and exercise sgpu's VMA binding generator on Windows.
+
+- Align the Windows shared-memory channel regression with qualified module access rules.
+
+- Pass the CI APT configuration root explicitly for compatibility with runner ShellCheck versions.
+
+- Keep optional runner package feeds from blocking Linux CI dependency setup.
+
 - Preserve cast grouping when copying or modifying procedure code.
 
 - Preserve custom-link message layouts and reject unsupported target options with public diagnostics.

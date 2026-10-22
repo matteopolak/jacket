@@ -266,8 +266,9 @@ impl Compiler {
             return Ok(addr);
         }
         let Ok(ty) = self.context_type(span) else {
-            // No runtime support loaded: compile-time code without a context.
-            self.ct.context = Some(0);
+            // Early bootstrap queries can run before the context declarations
+            // are ready. Zero is valid for those queries, but is not a reusable
+            // context once later runs load the runtime support.
             return Ok(0);
         };
         let size = self.size_of(ty, span)?;

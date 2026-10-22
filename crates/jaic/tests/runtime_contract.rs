@@ -68,3 +68,30 @@ fn disabled_backtrace_or_embedding_does_not_import_a_native_handler() {
         }
     }
 }
+
+#[test]
+fn early_host_query_does_not_poison_later_compile_time_context() {
+    let library = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../stdlib")
+        .canonicalize()
+        .unwrap();
+    let mut options = Options::host();
+    options.set_stdlib(&NativeFs, &library);
+    options.import_paths = vec![library];
+    let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+    let result = compiler.compile_sources(&[ProgramSource::String(
+        r#"HOST :: #run,host -> bool { return true; };
+#if HOST #run contract();
+contract :: () {
+    value := sprint("hello %", 42);
+    defer free(value);
+    assert(value == "hello 42");
+}
+#import "Basic";
+main :: () {}"#
+            .into(),
+    )]);
+    if let Err(error) = result {
+        panic!("{}", error.render(&compiler.src.sources));
+    }
+}
