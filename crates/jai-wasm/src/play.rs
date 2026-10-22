@@ -146,8 +146,7 @@ fn options(main: &str, fs: &dyn FileSystem, stdlib: &Path) -> Options {
         .parent()
         .map_or_else(|| PathBuf::from(WORKSPACE_ROOT), PathBuf::from);
     options.import_paths = vec![main_dir.join("modules"), stdlib.to_path_buf()];
-    options.preload =
-        Some(jaic::find_preload(fs, stdlib).unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)));
+    options.set_stdlib(fs, stdlib);
     options
 }
 

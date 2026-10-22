@@ -205,7 +205,17 @@ impl Compiler {
                 self.src
                     .stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR),
             )
-            .filter(|(m, _)| !COMPILER_INTERNAL_MODULES.contains(&m.as_str()))
+            .filter(|(m, is_dir)| {
+                let entry = if *is_dir {
+                    stdlib.join(m).join("module.jai")
+                } else {
+                    stdlib.join(format!("{m}.jai"))
+                };
+                !COMPILER_INTERNAL_MODULES.contains(&m.as_str())
+                    && self.options.preload.as_ref().is_none_or(|preload| {
+                        self.src.fs.canonical(preload) != self.src.fs.canonical(&entry)
+                    })
+            })
             .collect();
         let ranking = ModuleRanking::clone(&self.stdlib_importers(stdlib, &modules))
             .with_project(self.project_import_counts());

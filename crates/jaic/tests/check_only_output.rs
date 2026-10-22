@@ -24,7 +24,7 @@ fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Comp
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
     options.import_paths = vec![stdlib.clone()];
-    options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+    options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
     let fs = Rc::new(NativeFs);
     let captured = Rc::new(RefCell::new(Vec::new()));
     let workspaces = Workspaces::new(BuildEnv {

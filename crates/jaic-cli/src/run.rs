@@ -245,9 +245,7 @@ fn compiler_options(cli: &Cli, stdlib: &Path, main_dir: &Path) -> Result<Options
     options.import_paths = vec![main_dir.join("modules")];
     options.import_paths.extend(cli.imports.iter().cloned());
     options.import_paths.push(stdlib.to_path_buf());
-    options.preload = Some(
-        jaic::find_preload(&NativeFs, stdlib).unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)),
-    );
+    options.set_stdlib(&NativeFs, stdlib);
     Ok(options)
 }
 

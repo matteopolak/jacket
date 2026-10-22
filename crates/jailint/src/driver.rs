@@ -324,9 +324,9 @@ fn lint_root(
     for path in &mut copts.import_paths {
         *path = canon.get_or_insert_with(path, canonical);
     }
-    copts
-        .preload
-        .get_or_insert_with(|| options.stdlib.join(jaic::PRELOAD_ENTRY));
+    if copts.preload.is_none() {
+        copts.set_stdlib(&jaic::sema::NativeFs, &options.stdlib);
+    }
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
         resolved: CanonCache::new(),
         base: main_dir.clone(),

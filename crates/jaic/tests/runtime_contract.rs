@@ -12,7 +12,7 @@ fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
     options.cpu = TargetCpu::Arm64;
     options.runtime_entry_point = entry;
     options.backtrace_on_crash = backtrace;
-    options.preload = Some(library.join(jaic::PRELOAD_ENTRY));
+    options.set_stdlib(&jaic::sema::NativeFs, &library);
     options.import_paths = vec![library];
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let result = compiler.compile_sources(&[ProgramSource::String(

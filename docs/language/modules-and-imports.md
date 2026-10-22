@@ -27,7 +27,7 @@ Str :: #import,string "str_val :: 11;";       // fresh module each time, no cach
 
 `resolve_import`, `load_module`, `load_file` and `declare_stmt` in `sema/modules.rs`. File access goes through the `FileSystem` trait (`NativeFs`, `VirtualFs` for browser and tests); use `self.fs`, never `std::fs`. `module_lookup` in `sema/scope/module_lookup.rs` follows re-exports and is the one lookup path; keep its cycle guard. `module_member_lookup` (the `M.name` path) adds the `#scope_module` usings in `Module::using_modules`.
 
-Configuration: `-I dir` / `-import_dir dir`, `JAIC_STDLIB`, and `import_path` in build options (`crates/jaic/src/build.rs`). Expansion order: [sema: module loading](../compiler/sema.md).
+Configuration: `-I dir` / `-import_dir dir`, `JAIC_STDLIB`, `JAIC_PRELUDE` ([prelude selection](../compiler/prelude-selection.md)), and `import_path` in build options (`crates/jaic/src/build.rs`). Expansion order: [sema: module loading](../compiler/sema.md).
 
 ## Rules
 

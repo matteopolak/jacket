@@ -40,7 +40,7 @@ pub fn environment_at(stdlib: PathBuf, os: Option<TargetOs>) -> Environment {
                 options.os = os;
             }
             options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
         }),
     }
@@ -59,7 +59,7 @@ pub fn modules_environment(os: Option<TargetOs>) -> Environment {
             }
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
             options.import_paths = vec![dir.join("modules"), stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
         }),
     }

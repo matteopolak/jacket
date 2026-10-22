@@ -76,7 +76,7 @@ fn environment(stdlib: Option<PathBuf>) -> Environment {
             options.stack_trace = false;
             if let Some(dir) = &stdlib {
                 options.import_paths = vec![dir.clone()];
-                options.preload = Some(dir.join("prelude/module.jai"));
+                options.set_stdlib(&jaic::sema::NativeFs, dir);
             }
             options
         }),

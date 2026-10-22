@@ -92,10 +92,7 @@ pub fn lsp_environment() -> Environment {
             options.cpu = TargetCpu::Wasm;
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
             options.import_paths = vec![dir.join("modules"), PathBuf::from(STDLIB_ROOT)];
-            options.preload = Some(
-                jaic::find_preload(&*option_fs, std::path::Path::new(STDLIB_ROOT))
-                    .unwrap_or_else(|| PathBuf::from(STDLIB_ROOT).join(jaic::PRELOAD_ENTRY)),
-            );
+            options.set_stdlib(&*option_fs, std::path::Path::new(STDLIB_ROOT));
             options
         }),
     }

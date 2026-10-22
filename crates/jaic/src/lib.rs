@@ -54,41 +54,106 @@ pub mod wide_float;
 /// path, as `#import "Extensions/Long_Double";`, so the import itself says it is jaic-only.
 pub const STDLIB_EXTENSIONS_DIR: &str = "Extensions";
 
-/// The sole bootstrap entry, relative to the standard-library root.
-pub const PRELOAD_ENTRY: &str = "prelude/module.jai";
+/// Ordered prelude candidates, relative to the standard-library root.
+/// Add new layouts here and cover their order and root recovery in the tests below.
+pub const PRELUDE_ENTRIES: &[&str] = &["prelude/module.jai"];
 
-/// Find a bootstrap entry through the same filesystem used to compile the program.
-/// Native tools and the browser therefore accept the same standard-library layouts.
+fn prelude_override() -> Option<std::path::PathBuf> {
+    std::env::var_os("JAIC_PRELUDE")
+        .filter(|value| !value.is_empty())
+        .map(Into::into)
+}
+
+fn prelude_paths(
+    stdlib: &std::path::Path,
+    entries: &[&str],
+    explicit: Option<&std::path::Path>,
+) -> Vec<std::path::PathBuf> {
+    if let Some(path) = explicit {
+        vec![stdlib.join(path)]
+    } else {
+        entries.iter().map(|entry| stdlib.join(entry)).collect()
+    }
+}
+
+fn find_preload_with(
+    fs: &dyn sema::FileSystem,
+    stdlib: &std::path::Path,
+    entries: &[&str],
+    explicit: Option<&std::path::Path>,
+) -> Option<std::path::PathBuf> {
+    prelude_paths(stdlib, entries, explicit)
+        .into_iter()
+        .find(|path| fs.is_file(path))
+}
+
+/// Resolve the prelude through the compiler's filesystem, including browser files.
+/// An explicit setting wins even when it names a missing file.
 pub fn find_preload(
     fs: &dyn sema::FileSystem,
     stdlib: &std::path::Path,
 ) -> Option<std::path::PathBuf> {
-    let entry = stdlib.join(PRELOAD_ENTRY);
-    fs.is_file(&entry).then_some(entry)
+    find_preload_with(fs, stdlib, PRELUDE_ENTRIES, prelude_override().as_deref())
 }
 
-/// The nearest folder at or above `path` that is itself a standard library (it holds the
-/// bootstrap entry). A file inside one is library code and resolves against that library,
-/// whichever library the tool would otherwise use.
+/// Select the prelude, retaining the requested path when missing for diagnostics.
+pub fn preload_path(fs: &dyn sema::FileSystem, stdlib: &std::path::Path) -> std::path::PathBuf {
+    let explicit = prelude_override();
+    find_preload_with(fs, stdlib, PRELUDE_ENTRIES, explicit.as_deref())
+        .unwrap_or_else(|| prelude_paths(stdlib, PRELUDE_ENTRIES, explicit.as_deref()).remove(0))
+}
+
+fn enclosing_stdlib_with(
+    fs: &dyn sema::FileSystem,
+    path: &std::path::Path,
+    entries: &[&str],
+    explicit: Option<&std::path::Path>,
+    configured: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    // An explicit file does not redefine the configured module root.
+    if explicit.is_some() {
+        return (fs.canonical(path).starts_with(fs.canonical(configured))
+            && find_preload_with(fs, configured, entries, explicit).is_some())
+        .then(|| configured.to_path_buf());
+    }
+    path.ancestors()
+        .skip(1)
+        .find(|dir| find_preload_with(fs, dir, entries, explicit).is_some())
+        .map(std::path::Path::to_path_buf)
+}
+
+/// The nearest enclosing library, using the same prelude selection as compilation.
 pub fn enclosing_stdlib(
     fs: &dyn sema::FileSystem,
     path: &std::path::Path,
 ) -> Option<std::path::PathBuf> {
-    path.ancestors()
-        .skip(1)
-        .find(|dir| find_preload(fs, dir).is_some())
-        .map(std::path::Path::to_path_buf)
+    enclosing_stdlib_with(
+        fs,
+        path,
+        PRELUDE_ENTRIES,
+        prelude_override().as_deref(),
+        &default_stdlib_dir(),
+    )
 }
 
-/// Recover the library root from a selected bootstrap entry. Explicit custom preload
-/// files retain the established convention that their parent is the library root.
-pub fn stdlib_root_from_preload(preload: &std::path::Path) -> Option<&std::path::Path> {
-    let parent = preload.parent()?;
-    if preload.ends_with(PRELOAD_ENTRY) {
-        parent.parent()
-    } else {
-        Some(parent)
+fn stdlib_root_with<'a>(
+    preload: &'a std::path::Path,
+    entries: &[&str],
+) -> Option<&'a std::path::Path> {
+    for entry in entries {
+        if preload.ends_with(entry) {
+            return preload
+                .ancestors()
+                .nth(std::path::Path::new(entry).components().count());
+        }
     }
+    preload.parent()
+}
+
+/// Recover the root of a detected prelude. Explicit selections keep their configured
+/// library root in `Options`, since an external file cannot identify that root.
+pub fn stdlib_root_from_preload(preload: &std::path::Path) -> Option<&std::path::Path> {
+    stdlib_root_with(preload, PRELUDE_ENTRIES)
 }
 
 /// The directory the user started the tool in, for showing paths in messages (jaic itself
@@ -144,17 +209,156 @@ pub fn missing_stdlib(dir: &std::path::Path) -> Option<String> {
     if find_preload(&sema::NativeFs, dir).is_some() {
         return None;
     }
-    Some(format!(
-        "cannot find the standard library (looked for bootstrap {}).\n\
-         Keep the `stdlib` folder from the release archive next to the executable (a symlink to \
-         the executable is fine), or set JAIC_STDLIB to its path.",
-        dir.join(PRELOAD_ENTRY).display()
+    Some(missing_stdlib_message(
+        dir,
+        PRELUDE_ENTRIES,
+        prelude_override().as_deref(),
     ))
+}
+
+fn missing_stdlib_message(
+    dir: &std::path::Path,
+    entries: &[&str],
+    explicit: Option<&std::path::Path>,
+) -> String {
+    let mut paths = prelude_paths(dir, entries, None);
+    if let Some(explicit) = explicit {
+        paths.insert(0, dir.join(explicit));
+    }
+    format!(
+        "cannot find the standard library (looked for prelude {}).\n\
+         Keep the `stdlib` folder from the release archive next to the executable (a symlink to \
+         the executable is fine), or set JAIC_STDLIB to its path. \
+         JAIC_PRELUDE selects a file instead of automatic detection.",
+        paths
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::enclosing_stdlib;
+    use super::{PRELUDE_ENTRIES, enclosing_stdlib};
+
+    use super::{
+        enclosing_stdlib_with, find_preload_with, missing_stdlib_message, stdlib_root_with,
+    };
+    use crate::sema::VirtualFs;
+    use std::path::Path;
+
+    #[test]
+    fn candidate_order_and_both_layouts_share_root_detection() {
+        let mut fs = VirtualFs::default();
+        fs.insert("/lib/Base.jai", b"".as_slice());
+        fs.insert("/lib/prelude/module.jai", b"".as_slice());
+        for entries in [
+            vec!["Base.jai", "prelude/module.jai"],
+            vec!["prelude/module.jai", "Base.jai"],
+        ] {
+            let selected = find_preload_with(&fs, Path::new("/lib"), &entries, None).unwrap();
+            assert_eq!(selected, Path::new("/lib").join(entries[0]));
+            assert_eq!(
+                stdlib_root_with(&selected, &entries),
+                Some(Path::new("/lib"))
+            );
+            assert_eq!(
+                enclosing_stdlib_with(
+                    &fs,
+                    Path::new("/lib/internal/file.jai"),
+                    &entries,
+                    None,
+                    Path::new("/other")
+                ),
+                Some("/lib".into())
+            );
+        }
+        assert_eq!(
+            find_preload_with(&fs, Path::new("/lib"), &["absent.jai", "Base.jai"], None),
+            Some("/lib/Base.jai".into())
+        );
+        assert_eq!(
+            find_preload_with(
+                &fs,
+                Path::new("/lib"),
+                &["Base.jai"],
+                Some(Path::new("missing.jai"))
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn relative_override_finds_an_enclosing_root_file() {
+        let mut fs = VirtualFs::default();
+        fs.insert("/lib/Base.jai", b"".as_slice());
+        assert_eq!(
+            enclosing_stdlib_with(
+                &fs,
+                Path::new("/lib/internal/file.jai"),
+                PRELUDE_ENTRIES,
+                Some(Path::new("Base.jai")),
+                Path::new("/lib")
+            ),
+            Some("/lib".into())
+        );
+    }
+
+    #[test]
+    fn external_prelude_keeps_the_configured_library_root() {
+        let mut fs = VirtualFs::default();
+        fs.insert("/external/Base.jai", b"".as_slice());
+        let entries = ["prelude/module.jai"];
+        let explicit = Some(Path::new("/external/Base.jai"));
+        assert_eq!(
+            enclosing_stdlib_with(
+                &fs,
+                Path::new("/lib/internal/file.jai"),
+                &entries,
+                explicit,
+                Path::new("/lib")
+            ),
+            Some("/lib".into())
+        );
+        assert_eq!(
+            enclosing_stdlib_with(
+                &fs,
+                Path::new("/app/main.jai"),
+                &entries,
+                explicit,
+                Path::new("/lib")
+            ),
+            None
+        );
+        assert_eq!(
+            enclosing_stdlib_with(
+                &fs,
+                Path::new("/external/Base.jai"),
+                &entries,
+                explicit,
+                Path::new("/lib")
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn missing_message_lists_candidates_and_explicit_path() {
+        let message = missing_stdlib_message(
+            Path::new("/lib"),
+            &["prelude/module.jai", "Base.jai"],
+            Some(Path::new("missing.jai")),
+        );
+        for path in [
+            "/lib/prelude/module.jai",
+            "/lib/Base.jai",
+            "/lib/missing.jai",
+            "JAIC_PRELUDE",
+        ] {
+            assert!(message.contains(path), "{message}");
+        }
+    }
 
     #[test]
     fn a_file_inside_a_stdlib_finds_that_stdlib() {

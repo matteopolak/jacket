@@ -173,10 +173,18 @@ impl Sources<'_> {
             ));
             return modules;
         }
+        let preload = (self.env.options)(&dir.join(".prelude-index.jai"))
+            .preload
+            .map(|path| self.key(&path));
         let mut modules: Vec<Rc<Module>> = self
             .modules_in(index, dir, "")
             .into_iter()
-            .filter(|m| !jaic::sema::COMPILER_INTERNAL_MODULES.contains(&m.name.as_str()))
+            .filter(|m| {
+                !jaic::sema::COMPILER_INTERNAL_MODULES.contains(&m.name.as_str())
+                    && preload
+                        .as_ref()
+                        .is_none_or(|preload| *preload != self.key(&m.file))
+            })
             .collect();
         let extensions = jaic::STDLIB_EXTENSIONS_DIR;
         modules.extend(self.modules_in(index, &dir.join(extensions), &format!("{extensions}/")));

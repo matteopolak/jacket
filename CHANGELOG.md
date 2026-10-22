@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### New
+
+- The prelude file can be set with `JAIC_PRELUDE` or the `jai.stdlib.prelude` editor setting.
+
 ## [0.24.0] - 2026-10-21
 
 ### New

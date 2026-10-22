@@ -30,7 +30,7 @@ Why macOS ships no libclang: Homebrew's `libclang.dylib` is 41 MB plus `libLLVM`
 
 The failures when one is missing now say what and where: a foreign call into a missing library names the library and every directory searched, the link error lists them, and the include and `llvm-nm` lookups say what they tried. A checkout still builds the developer copies with `tools/native/ci_native_deps.sh developer`.
 
-A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (checked both at the started path and behind symlinks), else the build-time repository path. If none has `prelude/module.jai`, `jaic` and `jailint` stop with an error naming the directory. `jailsp` is the exception for a file inside a folder that holds `prelude/module.jai` (`jaic::enclosing_stdlib`, for example the checkout's own `stdlib/`): that file is analysed against that library, so its internal imports are allowed.
+A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (checked both at the started path and behind symlinks), else the build-time repository path. Prelude selection uses the ordered `jaic::PRELUDE_ENTRIES` list (currently `prelude/module.jai`), or `JAIC_PRELUDE` when set. If the selection is missing, `jaic` and `jailint` stop with an error listing the checked paths. `jailsp` is the exception for a file inside a folder with a selected prelude (`jaic::enclosing_stdlib`, for example the checkout's own `stdlib/`): that file is analysed against that library, so its internal imports are allowed. See [prelude selection](../compiler/prelude-selection.md) for custom files, editor settings and adding detection candidates.
 
 ### PGO and BOLT
 

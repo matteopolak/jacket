@@ -66,7 +66,7 @@ fn production_layout_fixture_finishes_strict_ide_checking() {
     let library = root.join("stdlib");
     let source = root.join("tests/compiler/semantics/record-layout.jai");
     let mut options = Options::host();
-    options.preload = Some(library.join(jaic::PRELOAD_ENTRY));
+    options.set_stdlib(&jaic::sema::NativeFs, &library);
     options.import_paths = vec![library];
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![jaic::ide::IdeRoot::under(source.clone())]);

@@ -30,7 +30,7 @@ fn environment(stdlib: PathBuf, runtime_support: bool) -> Environment {
         options: Box::new(move |_| {
             let mut options = jaic::sema::Options::host();
             options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options.runtime_support = runtime_support;
             options.stack_trace = runtime_support;
             options

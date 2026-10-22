@@ -226,10 +226,7 @@ fn native_environment() -> jai_language_server::Environment {
             let stdlib = jaic::enclosing_stdlib(&jaic::sema::NativeFs, main)
                 .unwrap_or_else(|| stdlib.clone());
             options.import_paths = vec![dir.join("modules"), stdlib.clone()];
-            options.preload = Some(
-                jaic::find_preload(&jaic::sema::NativeFs, &stdlib)
-                    .unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)),
-            );
+            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
         }),
     }

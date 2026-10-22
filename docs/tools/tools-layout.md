@@ -85,3 +85,5 @@ Every generator of a checked-in file takes `--check` (exit 1 if the file differs
 ## Configuration and dependencies
 
 `JACKET_OUTPUT_DIR` relocates `target/` (see `repo_output.py`). Python 3.11+ and Node 24 are the only requirements beyond the toolchains each subsystem drives.
+
+`toolkit.repo.stdlib_env()` preserves `JAIC_PRELUDE` from the caller while setting the module folder. [Prelude selection](../compiler/prelude-selection.md) describes `PRELUDE_ENTRIES`, custom root files and how to extend detection.

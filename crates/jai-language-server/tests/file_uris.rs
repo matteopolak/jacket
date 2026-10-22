@@ -182,7 +182,7 @@ fn native_windows_drive_uri_resolves_production_print() {
             options: Box::new(move |_| {
                 let mut o = jaic::sema::Options::host();
                 o.import_paths = vec![configured.clone()];
-                o.preload = Some(configured.join(jaic::PRELOAD_ENTRY));
+                o.set_stdlib(&jaic::sema::NativeFs, &configured);
                 o
             }),
         },

@@ -27,7 +27,7 @@ fn facts(entry: &Path, root: &Path) -> String {
     let stdlib = repo().join("stdlib");
     let mut options = Options::host();
     options.import_paths = vec![stdlib.clone()];
-    options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+    options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let mut ide = IdeFacts::new(vec![IdeRoot::under(root)]);
     ide.lint = true;

@@ -152,7 +152,7 @@ pub fn stdlib_dir(fallback: PathBuf) -> PathBuf {
         .into_iter()
         .flatten()
         .filter_map(|exe| Some(exe.parent()?.join("stdlib")))
-        .find(|dir| crate::find_preload(&crate::sema::NativeFs, dir).is_some())
+        .find(|dir| dir.is_dir() && crate::find_preload(&crate::sema::NativeFs, dir).is_some())
         .unwrap_or(fallback)
 }
 

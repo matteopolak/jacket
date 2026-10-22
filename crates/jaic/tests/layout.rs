@@ -9,7 +9,7 @@ fn reflected_struct_alignment_matches_completed_layout() {
     let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
     options.import_paths = vec![stdlib.clone()];
-    options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+    options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(jaic::sema::NativeFs));
     let source = r"
         Record :: struct { value: u64; }
@@ -32,7 +32,7 @@ fn hidden_procedure_members_keep_their_reflected_marker_and_storage() {
     let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
     options.import_paths = vec![stdlib.clone()];
-    options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+    options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(jaic::sema::NativeFs));
     let source = r#"
         Callback :: #type (value: u32) -> u32 #c_call;

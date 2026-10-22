@@ -56,7 +56,7 @@ fn code_parsed_on_a_started_thread_keeps_its_names() {
         .canonicalize()
         .unwrap();
     let mut options = Options::host();
-    options.preload = Some(library.join(jaic::PRELOAD_ENTRY));
+    options.set_stdlib(&jaic::sema::NativeFs, &library);
     options.import_paths = vec![library];
     let fs = Rc::new(NativeFs);
     let workspaces = Workspaces::new(BuildEnv {

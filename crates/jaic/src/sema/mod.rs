@@ -173,8 +173,10 @@ pub struct Options {
     pub cpu: TargetCpu,
     /// Directories searched by `#import "Name"`, in order.
     pub import_paths: Vec<PathBuf>,
-    /// Bootstrap entry loaded into every program (see `crate::PRELOAD_ENTRY`).
+    /// Bootstrap entry loaded into every program (see `crate::PRELUDE_ENTRIES`).
     pub preload: Option<PathBuf>,
+    /// Configured module root, independent of an explicitly selected prelude file.
+    pub preload_stdlib: Option<PathBuf>,
     /// Load `Runtime_Support` (entry point, context initialization) for programs.
     pub runtime_support: bool,
     pub temporary_storage_size: i64,
@@ -256,9 +258,17 @@ mod long_double_tests {
 impl Options {
     /// Standard-library root for bootstrap layouts and explicitly supplied preload files.
     pub fn stdlib_root(&self) -> Option<&std::path::Path> {
-        self.preload
-            .as_deref()
-            .and_then(crate::stdlib_root_from_preload)
+        self.preload_stdlib.as_deref().or_else(|| {
+            self.preload
+                .as_deref()
+                .and_then(crate::stdlib_root_from_preload)
+        })
+    }
+
+    /// Configure bootstrap selection without deriving module paths from a custom file.
+    pub fn set_stdlib(&mut self, fs: &dyn FileSystem, stdlib: &std::path::Path) {
+        self.preload = Some(crate::preload_path(fs, stdlib));
+        self.preload_stdlib = Some(stdlib.to_path_buf());
     }
 
     pub fn host() -> Self {
@@ -268,6 +278,7 @@ impl Options {
             cpu,
             import_paths: Vec::new(),
             preload: None,
+            preload_stdlib: None,
             runtime_support: true,
             temporary_storage_size: DEFAULT_TEMPORARY_STORAGE_SIZE,
             array_bounds_check: true,
