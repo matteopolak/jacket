@@ -56,7 +56,8 @@ pub const STDLIB_EXTENSIONS_DIR: &str = "Extensions";
 
 /// Ordered prelude candidates, relative to the standard-library root.
 /// Add new layouts here and cover their order and root recovery in the tests below.
-pub const PRELUDE_ENTRIES: &[&str] = &["prelude/module.jai"];
+/// `Preload.jai` is a single file at the root, for libraries laid out that way.
+pub const PRELUDE_ENTRIES: &[&str] = &["prelude/module.jai", "Preload.jai"];
 
 fn prelude_override() -> Option<std::path::PathBuf> {
     std::env::var_os("JAIC_PRELUDE")
@@ -286,6 +287,33 @@ mod tests {
                 Some(Path::new("missing.jai"))
             ),
             None
+        );
+    }
+
+    #[test]
+    fn a_root_preload_file_is_detected_after_the_prelude_folder() {
+        let mut fs = VirtualFs::default();
+        fs.insert("/lib/Preload.jai", b"".as_slice());
+        let selected = find_preload_with(&fs, Path::new("/lib"), PRELUDE_ENTRIES, None).unwrap();
+        assert_eq!(selected, Path::new("/lib/Preload.jai"));
+        assert_eq!(
+            stdlib_root_with(&selected, PRELUDE_ENTRIES),
+            Some(Path::new("/lib"))
+        );
+        assert_eq!(
+            enclosing_stdlib_with(
+                &fs,
+                Path::new("/lib/Basic/module.jai"),
+                PRELUDE_ENTRIES,
+                None,
+                Path::new("/other")
+            ),
+            Some("/lib".into())
+        );
+        fs.insert("/lib/prelude/module.jai", b"".as_slice());
+        assert_eq!(
+            find_preload_with(&fs, Path::new("/lib"), PRELUDE_ENTRIES, None),
+            Some("/lib/prelude/module.jai".into())
         );
     }
 

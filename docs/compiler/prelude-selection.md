@@ -4,7 +4,7 @@ The prelude supplies the built-in types, `Context` and allocators loaded before 
 
 ## How it works
 
-The stdlib folder comes from `JAIC_STDLIB`, then `stdlib/` beside the executable (including its symlink target), then the build-time repository fallback. `jaic::PRELUDE_ENTRIES` in `crates/jaic/src/lib.rs` lists candidate files relative to that folder, in priority order. It currently contains only `prelude/module.jai`. Selection uses the compiler's `FileSystem`, so virtual browser files follow the same detection rules.
+The stdlib folder comes from `JAIC_STDLIB`, then `stdlib/` beside the executable (including its symlink target), then the build-time repository fallback. `jaic::PRELUDE_ENTRIES` in `crates/jaic/src/lib.rs` lists candidate files relative to that folder, in priority order. It holds `prelude/module.jai`, then `Preload.jai` (a single file at the folder's root). Selection uses the compiler's `FileSystem`, so virtual browser files follow the same detection rules.
 
 `JAIC_PRELUDE` overrides detection. An absolute path can live outside the stdlib; a relative path resolves from the stdlib folder. An empty value enables detection. A missing explicit file is an error and does not fall back to a detected entry. Missing-library diagnostics list the explicit path and all detection candidates.
 
