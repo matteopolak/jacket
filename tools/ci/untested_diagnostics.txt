@@ -137,7 +137,6 @@ expected hex digits in escape
 expected three decimal digits after \\d
 expected {} values, found {}
 field needs a type
-fixed array has no member `{}`
 generic declaration metadata is unavailable
 generic parameter `{}` has no concrete binding
 global needs a type or initializer
@@ -212,7 +211,6 @@ unknown polymorphic struct parameter
 unknown vector size suffix `.{}`
 unreadable using filter count
 unreadable using filter data
-unsupported constant in an #asm operand
 unterminated `#asm` block
 using filter address overflow
 using filter array is too large

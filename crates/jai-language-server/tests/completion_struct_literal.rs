@@ -147,3 +147,106 @@ fn a_block_is_not_a_literal() {
     let l = labels(&format!("{FOO}main :: () {{ f: Foo; if true {{ | }} }}"));
     assert!(!has(&l, "a1") && has(&l, "f"), "{l:?}");
 }
+
+#[test]
+fn generic_arguments_supply_literal_fields_from_other_arguments() {
+    for parameters in ["array: *[..] $T, item: T", "array: *[..] $T, items: ..T"] {
+        for arguments in ["*array, .{ | }", "array = *array, .{ | }"] {
+            let source = format!(
+                "{FOO}take :: ({parameters}) {{}}\nmain :: () {{ array: [..] Foo; take({arguments}); }}"
+            );
+            let l = labels(&source);
+            assert!(has(&l, "a1") && has(&l, "b2"), "{source}: {l:?}");
+        }
+    }
+}
+
+#[test]
+fn generic_literal_can_precede_the_binding_argument() {
+    let l = labels(&format!(
+        "{FOO}take :: (item: T, array: *[..] $T) {{}}\nmain :: () {{ array: [..] Foo; take(.{{ | }}, *array); }}"
+    ));
+    assert!(has(&l, "a1") && has(&l, "b2"), "{l:?}");
+}
+
+#[test]
+fn array_add_offers_element_fields() {
+    let (text, at) = cursor(&format!(
+        "#import \"Basic\";\n{FOO}main :: () {{ array: [..] Foo; array_add(*array, .{{ | }}); }}"
+    ));
+    let mut session = jai_language_server::Session::with_environment(
+        jai_language_server::Limits::default(),
+        common::environment(),
+    );
+    let uri = file_uri("/struct-literal/array-add.jai");
+    session.open(uri.clone(), 1, text).unwrap();
+    let items = session.completion(&uri, at).unwrap().items;
+    assert!(
+        items
+            .iter()
+            .any(|item| item.label == "a1" && item.detail == "s32")
+    );
+}
+
+#[test]
+fn inline_and_multiline_fields_have_equivalent_sort_priority() {
+    for literal in ["Foo.{|}", "Foo.{ | }", "Foo.{\n |\n}"] {
+        let list = items(&format!("{FOO}main :: () {{ value := {literal}; }}"));
+        for name in ["a1", "b2", "c3"] {
+            let item = list.iter().find(|item| item.label == name).unwrap();
+            assert_eq!(item.sort_text.as_deref(), Some(format!("!{name}").as_str()));
+        }
+    }
+}
+
+#[test]
+fn unresolved_generic_bindings_do_not_invent_literal_fields() {
+    let l = labels(&format!(
+        "{FOO}take :: (item: $T) {{}}\nmain :: () {{ take(.{{ | }}); }}"
+    ));
+    assert!(!has(&l, "a1"), "{l:?}");
+}
+
+#[test]
+fn inline_and_multiline_wire_sort_keys_survive_edits() {
+    use serde_json::json;
+    let mut session = jai_language_server::JsonSession::with_environment(
+        jai_language_server::Limits::default(),
+        common::lean_environment(),
+    );
+    session
+        .handle_json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}).to_string())
+        .unwrap();
+    session
+        .handle_json(&json!({"jsonrpc":"2.0","method":"initialized","params":{}}).to_string())
+        .unwrap();
+    let uri = file_uri("/struct-literal/edits.jai");
+    for (version, literal) in ["Foo.{|}", "Foo.{\n |\n}", "Foo.{ | }"].iter().enumerate() {
+        let (text, at) = cursor(&format!("{FOO}main :: () {{ value := {literal}; }}"));
+        let method = if version == 0 {
+            "textDocument/didOpen"
+        } else {
+            "textDocument/didChange"
+        };
+        let params = if version == 0 {
+            json!({"textDocument":{"uri":uri.as_str(),"languageId":"jai","version":1,"text":text}})
+        } else {
+            json!({"textDocument":{"uri":uri.as_str(),"version":version+1},"contentChanges":[{"text":text}]})
+        };
+        session
+            .handle_json(&json!({"jsonrpc":"2.0","method":method,"params":params}).to_string())
+            .unwrap();
+        let responses = session.handle_json(&json!({"jsonrpc":"2.0","id":version+10,"method":"textDocument/completion","params":{"textDocument":{"uri":uri.as_str()},"position":at,"context":{"triggerKind":1}}}).to_string()).unwrap();
+        let responses: Vec<serde_json::Value> = responses
+            .iter()
+            .map(|text| serde_json::from_str(text).unwrap())
+            .collect();
+        let items = responses
+            .iter()
+            .find_map(|response| response.get("result")?.get("items")?.as_array())
+            .unwrap();
+        let item = items.iter().find(|item| item["label"] == "a1").unwrap();
+        assert_eq!(item["sortText"], "!a1");
+        assert_eq!(item["textEdit"]["newText"], "a1 = ");
+    }
+}

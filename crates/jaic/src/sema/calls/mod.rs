@@ -358,6 +358,43 @@ impl Compiler {
         Ok((best.swap_remove(0), ambiguous))
     }
 
+    /// Contextual types for an unfinished argument. The hole contributes no value or shape;
+    /// other arguments still infer type variables and reject incompatible candidates.
+    pub(crate) fn inferred_argument_types(
+        &mut self,
+        procs: &[ProcId],
+        args: &[CallArg],
+        argument: usize,
+        span: Span,
+    ) -> Vec<TypeId> {
+        let mut args = args.to_vec();
+        args[argument].op = None;
+        args[argument].expr = None;
+        let previous = std::mem::replace(&mut self.ed.type_probe, true);
+        let result = (|| {
+            let (mut best, _) = self.rank_candidates(procs, &args, span);
+            self.order_candidates(&mut best);
+            let Some(first) = best.first() else {
+                return Vec::new();
+            };
+            let rank = self.candidate_rank(first);
+            let mut types = Vec::new();
+            for candidate in &best {
+                if self.candidate_rank(candidate) != rank {
+                    break;
+                }
+                if let Ok(Some(ty)) = self.argument_param_type(candidate, argument, span)
+                    && !types.contains(&ty)
+                {
+                    types.push(ty);
+                }
+            }
+            types
+        })();
+        self.ed.type_probe = previous;
+        result
+    }
+
     /// Resolve and emit a call to one of `procs`.
     pub fn call_procs(
         &mut self,

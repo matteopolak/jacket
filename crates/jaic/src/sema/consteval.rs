@@ -117,6 +117,12 @@ impl Compiler {
 
     /// Finish the compile-time function `f` and run it; returns its scalar results.
     pub fn call_thunk(&mut self, f: FnCtx, span: Span) -> Result<Vec<u64>> {
+        if self.ed.type_probe {
+            return err(
+                span,
+                "contextual type inference requires compile-time execution",
+            );
+        }
         // The one place compile-time code starts running (`#run`, computed `#insert`,
         // `#modify`, build metaprograms): an untrusted workspace's code never does.
         if self.ed.refuse_untrusted(span) {
@@ -1186,3 +1192,7 @@ impl SourceState {
         Ok(file)
     }
 }
+
+#[cfg(test)]
+#[path = "consteval_tests.rs"]
+mod tests;

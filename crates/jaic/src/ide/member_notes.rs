@@ -432,6 +432,20 @@ impl Compiler {
                     .collect(),
                 _ => continue,
             };
+            let types = self.inferred_argument_types(procs, args, i, span);
+            if !types.is_empty() {
+                if let Some(ide) = self.ed.facts_mut() {
+                    for &name in &names {
+                        let seen = ide.inferred_expected.entry(name).or_default();
+                        for &ty in &types {
+                            if !seen.contains(&ty) {
+                                seen.push(ty);
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
             for &p in procs {
                 if self.proc(p).is_poly {
                     continue;

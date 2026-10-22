@@ -27,6 +27,8 @@ pub(crate) enum StmtRecovery {
 pub struct Editor {
     /// What the analysis has recorded so far; `None` outside the language server and linter.
     facts: Option<Box<IdeFacts>>,
+    /// Contextual type probes may inspect signatures but must never execute code.
+    pub(crate) type_probe: bool,
     /// Parses shared with other compiles, and this compile's number in it (see
     /// `ParseReuse::begin`). Only read while recording.
     pub parse_reuse: Option<(Rc<RefCell<ParseReuse>>, u64)>,
