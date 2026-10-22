@@ -15,6 +15,8 @@ Not supported: formatting (use `jaifmt --stdin` as an external formatter), type 
 
 ### Documents
 
+Configuration files keep separate saved snapshots: changes apply on `textDocument/didSave`, not while typing. See [saved configuration](saved-configuration.md).
+
 `Session` holds versioned open documents. Each version is lexed and parsed once (`analysis.rs`; the symbol tree in `analysis/symbols.rs`) into declaration rows; `Analysis` keeps the token stream (`syntax_tokens`) so features never lex the text again. Positions are UTF-16. A stale version or invalid edit keeps the previous text. If a version does not parse, completion falls back to the last version that did.
 
 Facts that come straight from syntax are the compiler's, not re-derived here: `jaic::parser::ide_facts` gives top-level items with their visibility and `#if` nesting (`top_level`), each procedure with its notes (`procedures`, for `@PrintLike`), a header's type parameters (`type_parameters`: baked parameters and `$T`) the call around a position with the active argument (`call_at`, for named-argument completion), the cursor's context (`cursor_context`) and declaration name spans (`decl_name_spans`, `inferred_name_spans`). `analysis.rs`, `exports.rs` and `named_arguments.rs` read these; extend `ide_facts` rather than matching tokens in the server.

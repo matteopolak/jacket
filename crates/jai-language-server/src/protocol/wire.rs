@@ -291,7 +291,7 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
     let commands: Vec<&str> = ServerCommand::NAMES.iter().map(|(name, _)| *name).collect();
     let mut capabilities = json!({
         "positionEncoding": "utf-16",
-        "textDocumentSync": { "openClose": true, "change": 2 },
+        "textDocumentSync": { "openClose": true, "change": 2, "save": true },
         "hoverProvider": true,
         "completionProvider": {
             "resolveProvider": true,

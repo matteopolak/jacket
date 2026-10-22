@@ -88,18 +88,24 @@ describe("Jai extension", () => {
     await vscode.commands.executeCommand("workbench.action.files.revert");
   });
 
-  it("applies unsaved jailint.toml edits", async () => {
+  it("applies jailint.toml edits on save", async () => {
     const lint = await open("lint.jai");
     await diagnostics(lint, (d) => d.some((x) => x.source === "jailint"));
     const settings = await open("jailint.toml");
+    const original = settings.getText();
     assert.equal(settings.languageId, "toml");
     const edit = new vscode.WorkspaceEdit();
     edit.insert(settings.uri, new vscode.Position(1, 0), 'bool_comparison = "allow"\n');
     assert.ok(await vscode.workspace.applyEdit(edit));
+    assert.ok(vscode.languages.getDiagnostics(lint.uri).some((x) => x.source === "jailint"));
+    assert.ok(await settings.save());
     await open("lint.jai");
     await diagnostics(lint, (d) => !d.some((x) => x.source === "jailint"));
     await open("jailint.toml");
-    await vscode.commands.executeCommand("workbench.action.files.revert");
+    const restore = new vscode.WorkspaceEdit();
+    restore.replace(settings.uri, new vscode.Range(settings.positionAt(0), settings.positionAt(settings.getText().length)), original);
+    assert.ok(await vscode.workspace.applyEdit(restore));
+    assert.ok(await settings.save());
     await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
   });
 

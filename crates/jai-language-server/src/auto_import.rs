@@ -253,8 +253,13 @@ impl Session {
         let open = self
             .documents
             .iter()
-            .chain(&self.lint_configs)
-            .map(|(u, d)| (memo_key(&keys, env, Path::new(u.path())), d.text.as_str()))
+            .map(|(u, d)| (u, d.text.as_str()))
+            .chain(
+                self.saved_configs
+                    .iter()
+                    .map(|(u, text)| (u, text.as_str())),
+            )
+            .map(|(u, text)| (memo_key(&keys, env, Path::new(u.path())), text))
             .collect();
         Sources {
             env,

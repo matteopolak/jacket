@@ -1,5 +1,5 @@
-//! The nearest `jacket.toml` of a path, read through the session's open buffers (the client sends
-//! a settings file it has open with `didOpen`, which is also how the browser build gets one).
+//! The nearest `jacket.toml` of a path, read through the session's saved snapshots (the client sends
+//! initial settings with `didOpen` and commits edits with `didSave`, also in the browser).
 //!
 //! `[lint]` is checked here too, so a rule typo is one problem reported once, whichever feature
 //! reads the file first. A legacy file beside a `jacket.toml` is ignored, and the server logs a
@@ -65,25 +65,30 @@ fn read(files: &dyn Files, index: &mut Index, location: jacket_config::Location)
     Some(loaded)
 }
 
-/// The open buffers over the disk.
+/// Saved configuration snapshots and source buffers over the disk.
 pub(crate) struct SessionFiles<'a>(pub &'a Session);
 
 impl Files for SessionFiles<'_> {
     fn is_file(&self, path: &Path) -> bool {
-        self.0.open_file_uri(path).is_some() || path.is_file()
+        self.0.open_file_uri(path).is_some_and(|u| {
+            self.0.saved_configs.contains_key(&u) || self.0.documents.contains_key(&u)
+        }) || self
+            .0
+            .environment
+            .as_ref()
+            .map_or_else(|| path.is_file(), |env| env.fs.is_file(path))
     }
 
     fn read(&self, path: &Path) -> Option<String> {
-        if let Some(uri) = self.0.open_file_uri(path)
-            && let Some(doc) = self
-                .0
-                .documents
-                .get(&uri)
-                .or_else(|| self.0.lint_configs.get(&uri))
-        {
-            return Some(doc.text.clone());
+        if let Some(uri) = self.0.open_file_uri(path) {
+            if let Some(text) = self.0.saved_configs.get(&uri) {
+                return Some(text.clone());
+            }
+            if let Some(doc) = self.0.documents.get(&uri) {
+                return Some(doc.text.clone());
+            }
         }
-        std::fs::read_to_string(path).ok()
+        self.0.config_on_disk(path)
     }
 }
 

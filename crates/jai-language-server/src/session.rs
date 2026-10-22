@@ -68,6 +68,8 @@ pub struct Session {
     /// Open `jailint.toml` files: settings for the lints of documents under their directory.
     /// They are not Jai documents, so they get no analysis or diagnostics of their own.
     pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
+    /// Configuration snapshots committed by opening or saving, separate from edits.
+    pub(crate) saved_configs: BTreeMap<DocumentUri, String>,
     /// Auto-import completion is on (`jai.completion.autoImport`).
     pub(crate) auto_import: bool,
     /// What accepting a procedure completion inserts (`jai.completion.callSnippets`).
@@ -119,6 +121,7 @@ impl Session {
             semantic: RefCell::default(),
             synced_builds: std::cell::Cell::new(0),
             lint_configs: BTreeMap::new(),
+            saved_configs: BTreeMap::new(),
             auto_import: true,
             call_snippets: crate::call_snippets::CallSnippets::default(),
             snippet_support: false,

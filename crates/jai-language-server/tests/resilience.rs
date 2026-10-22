@@ -28,10 +28,14 @@ fn open(session: &mut JsonSession, uri: &str, version: i32, text: &str) -> Vec<V
             "contentChanges": [{ "text": text }],
         })
     };
-    send(
+    let mut out = send(
         session,
         json!({ "jsonrpc": "2.0", "method": method, "params": params }),
-    )
+    );
+    if version > 1 && uri.ends_with(".toml") {
+        out.extend(send(session, json!({ "jsonrpc":"2.0", "method":"textDocument/didSave", "params":{"textDocument":{"uri":uri}} })));
+    }
+    out
 }
 
 #[cfg(debug_assertions)]
@@ -250,4 +254,58 @@ fn completion_items_replace_the_whole_word_in_utf16() {
     let import = items.iter().find(|i| i["label"] == "#import").unwrap();
     assert_eq!(import["textEdit"]["range"]["start"]["character"], 0);
     assert_eq!(import["textEdit"]["range"]["end"]["character"], 4);
+}
+
+#[test]
+fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
+    let mut s = with_environment();
+    send(
+        &mut s,
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}),
+    );
+    let config = "file:///saved-config/jacket.toml";
+    let main = "file:///saved-config/main.jai";
+    open(
+        &mut s,
+        config,
+        1,
+        "[lint.rules]\nunused_variable=\"deny\"\n",
+    );
+    open(&mut s, main, 1, "main :: () { x:=1; }\n");
+    for (version, text) in [
+        (2, "import_path ="),
+        (3, "import_path = a"),
+        (4, "import_path = ab"),
+    ] {
+        let out = send(
+            &mut s,
+            json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":config,"version":version},"contentChanges":[{"text":text}]}}),
+        );
+        assert!(messages(&out).is_empty(), "{out:?}");
+        let out = open(&mut s, main, version, "main :: () { x:=1; }\n");
+        assert!(messages(&out).is_empty(), "{out:?}");
+        assert!(
+            out.iter().any(
+                |m| m["params"]["diagnostics"].as_array().is_some_and(|ds| ds
+                    .iter()
+                    .any(|d| d["source"] == "jailint" && d["severity"] == 1))
+            ),
+            "{out:?}"
+        );
+    }
+    let save = json!({"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":config}}});
+    assert_eq!(messages(&send(&mut s, save.clone())).len(), 1);
+    assert!(messages(&send(&mut s, save.clone())).is_empty());
+    let out = open(
+        &mut s,
+        config,
+        5,
+        "[lint.rules]\nunused_variable=\"allow\"\n",
+    );
+    assert!(messages(&out).is_empty());
+    assert!(!out.iter().any(|m| {
+        m["params"]["diagnostics"]
+            .as_array()
+            .is_some_and(|ds| ds.iter().any(|d| d["source"] == "jailint"))
+    }));
 }

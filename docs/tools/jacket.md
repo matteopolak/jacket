@@ -89,6 +89,8 @@ To change it: the platform-to-archive mapping is `asset_name` in `upgrade/mod.rs
 
 The nearest directory above the working directory (or the open file, for `jailsp`) that holds a `jacket.toml` or any legacy file is the project. Every section and key is optional.
 
+In the editor, config changes apply on save. Incomplete edits do not trigger parse warnings; see [saved editor configuration](../compiler/saved-configuration.md).
+
 ```toml
 [project]
 entry = ["src/main.jai"]        # string or array; relative to this file

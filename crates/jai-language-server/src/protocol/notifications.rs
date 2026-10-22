@@ -24,6 +24,11 @@ impl JsonSession {
             Notification::Initialized | Notification::Cancel | Notification::Exit => Ok(vec![]),
             Notification::DidOpen => self.did_open(params),
             Notification::DidChange => self.did_change(params),
+            Notification::DidSave => {
+                let target = document(params)?;
+                self.session.save(&target).map_err(domain)?;
+                Ok(self.edited(crate::lints::is_config(&target)))
+            }
             Notification::DidClose => self.did_close(params),
             Notification::DidChangeConfiguration => Ok(self.did_change_configuration(&params)),
             Notification::SetTrusted => {
@@ -45,7 +50,7 @@ impl JsonSession {
                 for change in params["changes"].as_array().into_iter().flatten() {
                     if let Some(path) = folder_path(&change["uri"]) {
                         let changed = change["type"].as_u64() == Some(2);
-                        self.session.file_changed(&path, !changed);
+                        self.session.saved_file_changed(&path, !changed);
                     }
                 }
                 Ok(self.refresh())
@@ -107,7 +112,10 @@ impl JsonSession {
             }
             return Err(domain(error));
         }
-        Ok(self.edited(settings))
+        if settings {
+            return Ok(vec![]);
+        }
+        Ok(self.edited(false))
     }
 
     fn did_close(&mut self, params: Value) -> Result<Vec<Value>, Failure> {

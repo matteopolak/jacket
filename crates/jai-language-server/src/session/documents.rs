@@ -20,6 +20,10 @@ impl Session {
         self.admit(&uri, text.len(), 0)?;
         self.file_changed(Path::new(uri.path()), true);
         let map = if crate::lints::is_config(&uri) {
+            let saved = self
+                .config_on_disk(Path::new(uri.path()))
+                .unwrap_or_else(|| text.clone());
+            self.saved_configs.insert(uri.clone(), saved);
             // Lints computed with the old settings are stale.
             self.semantic.borrow_mut().forget_lints();
             &mut self.lint_configs
@@ -95,10 +99,9 @@ impl Session {
         }
         let lexical_damage =
             crate::lexical_recovery::update(&document.text, &text, &document.lexical_damage);
-        self.file_changed(Path::new(uri.path()), false);
         let config = self.lint_configs.contains_key(uri);
-        if config {
-            self.semantic.borrow_mut().forget_lints();
+        if !config {
+            self.file_changed(Path::new(uri.path()), false);
         }
         let map = if config {
             &mut self.lint_configs
@@ -114,8 +117,44 @@ impl Session {
             sites: OnceCell::new(),
             lexical_damage,
         };
-        self.rebuild();
+        if !config {
+            self.rebuild();
+        }
         Ok(())
+    }
+
+    /// Commit an open settings buffer; ordinary source saves need no additional analysis.
+    pub fn save(&mut self, uri: &DocumentUri) -> Result<(), Error> {
+        let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
+        if let Some(config) = self.lint_configs.get(&key) {
+            self.saved_configs.insert(key.clone(), config.text.clone());
+            self.file_changed(Path::new(key.path()), false);
+            self.semantic.borrow_mut().forget_lints();
+            self.rebuild();
+        }
+        Ok(())
+    }
+
+    pub(crate) fn config_on_disk(&self, path: &Path) -> Option<String> {
+        match &self.environment {
+            Some(env) => env.fs.read(path).and_then(|b| String::from_utf8(b).ok()),
+            None => std::fs::read_to_string(path).ok(),
+        }
+    }
+
+    /// Watch notifications describe disk state, never the unfinished editor buffer.
+    pub(crate) fn saved_file_changed(&mut self, path: &Path, created_or_deleted: bool) {
+        if let Some(uri) = self.open_file_uri(path)
+            && self.saved_configs.contains_key(&uri)
+        {
+            if let Some(text) = self.config_on_disk(path) {
+                self.saved_configs.insert(uri, text);
+            } else {
+                self.saved_configs.remove(&uri);
+            }
+            self.semantic.borrow_mut().forget_lints();
+        }
+        self.file_changed(path, created_or_deleted);
     }
 
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
@@ -123,6 +162,7 @@ impl Session {
         let uri = &key;
         self.file_changed(Path::new(uri.path()), true);
         if self.lint_configs.remove(uri).is_some() {
+            self.saved_configs.remove(uri);
             self.semantic.borrow_mut().forget_lints();
             self.rebuild();
             return Ok(());

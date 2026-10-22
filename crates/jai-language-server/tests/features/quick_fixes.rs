@@ -121,6 +121,12 @@ fn an_open_jailint_toml_configures_the_lints() {
         serde_json::json!({"textDocument": {"uri": settings, "version": 2},
             "contentChanges": [{"text": "[rules]\nbool_comparison = \"deny\"\n"}]}),
     );
+    assert!(published.is_empty(), "typing must not apply settings");
+    let published = notify(
+        &mut json,
+        "textDocument/didSave",
+        serde_json::json!({"textDocument":{"uri":settings}}),
+    );
     assert_eq!(lint_count(&published), 2);
     let published = notify(
         &mut json,

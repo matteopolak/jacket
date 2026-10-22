@@ -4,7 +4,7 @@
 //! `#load` or `#import` would bring in.
 //!
 //! Where it comes from, first match wins:
-//! 1. `jacket.toml`, the nearest config directory at or above the document (an open file before
+//! 1. `jacket.toml`, the nearest config directory at or above the document (a saved session snapshot before
 //!    the one on disk; a legacy `jai.toml` counts when no `jacket.toml` is there): `[project]
 //!    entry` names the entry files, `import_path` adds module folders; paths are relative to its
 //!    folder.

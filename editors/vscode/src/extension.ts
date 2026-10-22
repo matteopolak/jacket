@@ -9,8 +9,8 @@ import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
 import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
-/** Settings files jailsp reads as open documents, so unsaved edits apply at once. */
-const SETTINGS_FILES = ["jacket.toml", "jailint.toml", "jai.toml"];
+/** Editable config buffers; jailsp applies their contents on save. */
+const SETTINGS_FILES = ["jacket.toml", "jailint.toml", "jai.toml", "jaifmt.toml"];
 /** Earlier IDs of this extension: `matteopolak.jai` up to 0.4.1, then `matteopolak.jai-toolchain`. */
 export const OLD_EXTENSION_IDS = ["matteopolak.jai", "matteopolak.jai-toolchain"];
 
@@ -199,7 +199,7 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     synchronize: {
       configurationSection: "jai",
       // Auto-import completion indexes the project's files: tell jailsp when they change.
-      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jacket.toml,jai.toml}"),
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jacket.toml,jai.toml,jailint.toml,jaifmt.toml}"),
     },
     middleware: {
       executeCommand: async (command, args, next) => expansions.handle(command, await next(command, args)),
@@ -303,6 +303,12 @@ function syncSettingsFiles(): vscode.Disposable[] {
         textDocument: { uri: event.document.uri.toString(), version: event.document.version },
         contentChanges: [{ text: event.document.getText() }],
       });
+    }),
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      const target = runningClient();
+      if (target && isSettingsFile(document)) {
+        void target.sendNotification("textDocument/didSave", { textDocument: { uri: document.uri.toString() } });
+      }
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       const target = runningClient();

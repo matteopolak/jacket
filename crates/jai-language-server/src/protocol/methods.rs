@@ -123,6 +123,7 @@ pub(super) enum Notification {
     Cancel,
     DidOpen,
     DidChange,
+    DidSave,
     DidClose,
     DidChangeConfiguration,
     DidChangeWorkspaceFolders,
@@ -139,6 +140,7 @@ impl Notification {
         ("$/cancelRequest", Self::Cancel),
         ("textDocument/didOpen", Self::DidOpen),
         ("textDocument/didChange", Self::DidChange),
+        ("textDocument/didSave", Self::DidSave),
         ("textDocument/didClose", Self::DidClose),
         (
             "workspace/didChangeConfiguration",
