@@ -159,6 +159,7 @@ fn assert_takes_directive_flags() {
     let stmts = parse("#assert,stallable(A == 1);\n#assert,stallable A == 1 \"msg\";");
     assert!(matches!(&stmts[0].kind, StmtKind::Assert(a) if a.message.is_none()));
     assert!(matches!(&stmts[1].kind, StmtKind::Assert(a) if a.message.is_some()));
+    error("#assert,stalable(A);");
 }
 
 #[test]

@@ -356,9 +356,9 @@ impl Parser<'_> {
         let start = self.bump();
         // `#assert,stallable(cond)`: checks run synchronously, so the flag changes nothing. Its
         // name is taken alone: the parentheses after it are the condition, not a flag argument.
-        while self.at(P::Comma)
+        if self.at(P::Comma)
             && self.span().start == self.prev_span().end
-            && matches!(self.tok_at(1), Tok::Ident(_))
+            && self.kw_at(1) == Some("stallable")
             && self.token_at(1).span.start == self.span().end
         {
             self.bump();
