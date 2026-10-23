@@ -169,7 +169,7 @@ Accept_Wait :: struct {
 
         fd := cast(s32) op.handle.fd;
         length := cast(u32) min(op.length, MAX_TRANSFER);
-        position: u64 = cast(u64) op.offset;
+        position: u64 = cast,no_check(u64) op.offset; // -1 means the current file position
 
         if op.kind == {
             case .ACCEPT;
