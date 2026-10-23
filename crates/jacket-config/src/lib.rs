@@ -136,6 +136,15 @@ impl Loaded {
     }
 }
 
+/// The text of a config file that exists; one that cannot be read (permissions, not UTF-8) is an
+/// error rather than empty settings.
+pub(crate) fn read(fs: &dyn Files, path: &Path) -> Result<String, ConfigError> {
+    fs.read(path).ok_or_else(|| ConfigError {
+        path: path.to_path_buf(),
+        message: "the file could not be read as UTF-8 text".into(),
+    })
+}
+
 /// The settings of the nearest config directory above `start`; `Ok(None)` when there is none.
 pub fn load(fs: &dyn Files, start: &Path) -> Result<Option<Loaded>, ConfigError> {
     match locate(fs, start) {
@@ -150,7 +159,7 @@ pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError
     let (config, unknown, from_legacy) =
         if location.jacket {
             let path = location.file();
-            let text = fs.read(&path).unwrap_or_default();
+            let text = read(fs, &path)?;
             let (config, unknown) = parse_noting(&text).map_err(|message| ConfigError {
                 path: path.clone(),
                 message,

@@ -110,6 +110,27 @@ fn an_invalid_legacy_file_is_an_error_naming_it() {
     assert_eq!(error.path, Path::new("/p/jai.toml"));
 }
 
+/// Exists, but reading it fails.
+struct Unreadable;
+
+impl Files for Unreadable {
+    fn is_file(&self, path: &Path) -> bool {
+        path.ends_with(FILE_NAME) || path.ends_with("jai.toml")
+    }
+
+    fn read(&self, _: &Path) -> Option<String> {
+        None
+    }
+}
+
+#[test]
+fn an_unreadable_file_is_an_error_not_defaults() {
+    let error = load(&Unreadable, Path::new("/p")).unwrap_err();
+    assert_eq!(error.path, Path::new("/p").join(FILE_NAME));
+    let error = plan(&Unreadable, Path::new("/p")).unwrap_err();
+    assert_eq!(error.path, Path::new("/p/jai.toml"));
+}
+
 #[test]
 fn a_migrated_file_next_to_the_old_ones_is_not_noted() {
     let fs = Mem(vec![

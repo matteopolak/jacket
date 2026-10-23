@@ -76,7 +76,7 @@ pub fn plan_only(fs: &dyn Files, dir: &Path, only: Option<&str>) -> Result<Plan,
         if !fs.is_file(&path) || only.is_some_and(|o| o != name) {
             continue;
         }
-        let text = fs.read(&path).unwrap_or_default();
+        let text = crate::read(fs, &path)?;
         let doc: DocumentMut = text
             .parse()
             .map_err(|e: toml_edit::TomlError| ConfigError {
