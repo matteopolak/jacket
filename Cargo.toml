@@ -102,6 +102,14 @@ incremental = false
 debug = 0
 incremental = false
 
+# mimalloc replaces the C allocator on macOS, and its unoptimized build recurses into itself while
+# starting up (the first test thread overflows its stack), so build it optimized in every profile.
+[profile.dev.package.libmimalloc-sys]
+opt-level = 3
+
+[profile.test.package.libmimalloc-sys]
+opt-level = 3
+
 # Release speed with line tables, for profilers (`samply`); see docs/tools/benchmarks.md.
 [profile.profiling]
 inherits = "release"
