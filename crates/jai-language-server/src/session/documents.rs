@@ -72,21 +72,9 @@ impl Session {
                     return Err(Error::InvalidEdit("edit range is reversed"));
                 }
                 let start = index.byte(&text, range.start)?;
-                let end = index.byte(&text, range.end)?;
-                if let Some(length) = change.range_length
-                    && jaic::source::utf16_len(&text[start..end]) != length
-                {
-                    return Err(Error::InvalidEdit(
-                        "rangeLength disagrees with UTF-16 range",
-                    ));
-                }
-                (start, end)
+                // `rangeLength` is deprecated and clients count it differently: the range decides.
+                (start, index.byte(&text, range.end)?)
             } else {
-                if change.range_length.is_some() {
-                    return Err(Error::InvalidEdit(
-                        "full replacement cannot have rangeLength",
-                    ));
-                }
                 (0, text.len())
             };
             let bytes = text
