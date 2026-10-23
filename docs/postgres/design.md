@@ -387,10 +387,20 @@ This is more than "allow sockets":
   #run Compiler.serve(handle);      // the worker's loop: framed requests on stdin, responses on stdout
   ```
 
-- **The worker.** The host runs the service as a child process, `jaic -interp <service_file>`, using the normal native interpreter host. So the service gets real fibers, sockets, TLS, environment variables and a real clock, which is everything the build already has, and the Jai client runs unchanged. The worker stays alive and keeps its connections and template databases warm. It is restarted when the service file or anything it loads changes, and killed when the session ends or after 10 minutes idle.
+- **The worker.** The host runs the service as a child process, `jaic -interp <service_file>`, using the normal native interpreter host. So the service gets real fibers, sockets, TLS, environment variables and a real clock, which is everything the build already has, and the Jai client runs unchanged. The worker stays alive and keeps its connections and template databases warm. Its lifecycle:
+
+  - **One worker per service file.** It is restarted when that file or anything it loads changes. It is killed when the workspace closes or after 10 minutes idle.
+  - **Each request has a timeout:** 30 s in builds, with the editor's shorter wait described next.
+  - **A memory cap.** An `RLIMIT_AS`/job-object limit, default 1 GiB, kills a runaway service.
+  - **Crash backoff.** A crashed worker restarts after 1 s, doubling to 60 s. While it is down, calls return `.UNAVAILABLE`.
+
+  It is a separate process, not a thread in `jailsp` with the native host, so a crash or hang in a service can never take the language server down.
+- **Generic.** `jaic` and `jailsp` know nothing about Postgres. They move opaque request and response strings for whatever service file a call names. GraphQL or OpenAPI schema typing, or a protobuf registry, can use the same mechanism later.
+- **Finding `jaic`.** `jailsp` looks next to its own executable first (release archives ship both), then on `PATH`, then at a path set in `jacket.toml`. If none is found, calls return `.UNAVAILABLE` and the workspace gets one clear diagnostic, once.
 - **Pending results in the editor.** `jailsp` memoises responses by `(service, request bytes)`. On a miss it sends the request and waits a short time (default 50 ms); a warm describe of a local database is about 2-5 ms, so most answers arrive in that window. If the reply is late, the call returns `.PENDING`. The macro then reports the result as unknown, which suppresses follow-on errors the same way a refused `#run` does today ([workspace trust](../tools/workspace-trust.md): `semantic::known`). When the response lands, `jailsp` invalidates the compiles that asked and republishes, so typing never blocks on the database.
-- **In the build.** `jaic` uses the same worker for the length of a build, so a build keeps one connection, not one per query. Running the handler in-process is a later optimisation.
-- **Scoped policy.** Ordinary `#run` code keeps the sandbox in every workspace. Only code that goes through a declared service file gets host access, in a separate process, and the contract that a request may be memoised makes repetition safe. Untrusted workspaces refuse `compile_time_service` like any other `#run`.
+- **In the build.** `jaic` uses the same worker for the length of a build, so a build keeps one connection, not one per query. Builds always run services, in any workspace, as they run `#run` today. Running the handler in-process is a later optimisation.
+- **Same answers, different persistence.** The build and the editor send identical requests to the identical service, so they get the same answers. Only the build writes results to disk, as the committed offline cache (`db/queries/`). The editor keeps answers in memory, keyed by request bytes, and never writes the cache.
+- **Scoped policy.** Ordinary `#run` code keeps the sandbox in every workspace. Only code that goes through a declared service file gets host access, in a separate process, and the contract that a request may be memoised makes repetition safe. In untrusted workspaces the call returns `.UNAVAILABLE` ("services are not run in untrusted workspaces"). The caller turns that into an unknown type plus at most one diagnostic, never a cascade of errors. Unlike a refused `#run`, the macro itself still runs, so cache hits from the committed files still give types.
 - **One general thing in the sandbox:** in trusted workspaces, `getenv` reads the real environment. It is read-only and idempotent, and it lets the macro hash `DATABASE_URL` into its request so a changed URL re-describes. `.env` files need no compiler support: the Postgres module reads them through the overlay file system like any other file.
 
 | | A. capabilities in the sandbox | B. Rust service in `jailsp` | **C. compile-time service worker** |
@@ -656,7 +666,8 @@ No reusable cross-language protocol conformance suite exists. Drivers test again
 | --- | --- | --- |
 | `JACKET_DATABASE_URL`, then `DATABASE_URL` (also read from `.env`) | environment | compile-time server for describing queries (`postgres://user:pass@host:port/db?sslmode=…`); also the pg tool's default. Needs `CREATEDB` for template databases |
 | `JACKET_PG_OFFLINE=1` | environment | never connect at compile time; cache misses are errors (CI) |
-| service timeouts | Compiler module constants | editor wait before `.PENDING` (50 ms), build request timeout (30 s), worker idle exit (10 min), reconnect backoff (1-30 s) |
+| service limits | Compiler module constants | editor wait before `.PENDING` (50 ms), build request timeout (30 s), worker idle exit (10 min), memory cap (1 GiB), crash backoff (1-60 s), database reconnect backoff (1-30 s) |
+| `jaic` location for `jailsp` | `jacket.toml` | used only when `jaic` is neither next to `jailsp` nor on `PATH` |
 | module parameters | `Pg :: #import "Extensions/Postgres"(MIGRATIONS = "db/migrations", SCHEMA = "db/schema.jai", QUERY_CACHE = "db/queries", MIN_SERVER_VERSION = 15);` | paths and modes for the compile-time path and the pg tool |
 | connection options | `Pg.Config` / URL | `sslmode` (`disable`, `prefer`, `require`, `verify-ca`, `verify-full`), `sslnegotiation`, `channel_binding`, `application_name`, `connect_timeout`, `statement_timeout`, `statement_cache` (size or `.OFF`), `verify_statements` |
 | pool options | `Pg.Pool_Config` | `max_size`, `min_idle`, `idle_timeout`, `max_lifetime`, `health_check_after` |
@@ -711,9 +722,10 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 0. **Editor feedback groundwork** (compiler and language server), tested with a toy service, such as one that upper-cases its request or sleeps:
    1. `compile_time_service`/`serve`, with the worker in `jaic` builds and in `jailsp` (trusted only): framed pipe protocol, restart on source change, idle exit, memoised responses.
    2. Pending results: the call returns `.PENDING` after the editor's wait, the result counts as unknown (no cascading errors), and the arrival invalidates and republishes.
-   3. A Compiler API for the source location of byte `n` of a string literal, for exact error spans.
-   4. Real `getenv` in trusted sandboxes.
-   5. Spikes:
+   3. `.UNAVAILABLE` (untrusted workspace, no `jaic`, worker down) handled the same way, with one diagnostic; worker memory cap, request timeout and crash backoff.
+   4. A Compiler API for the source location of byte `n` of a string literal, for exact error spans.
+   5. Real `getenv` in trusted sandboxes.
+   6. Spikes:
       1. a `Row($id)` struct with `#insert #run` fields, plus `#caller_code` argument types read in a macro;
       2. `jailsp` completion and hover on those generated fields;
       3. `for_expansion` body `Code` walking that finds `it.<field>`.
@@ -742,8 +754,8 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 8. **Tooling:** all userspace (`Extensions/Postgres/Tool`, run with `jaic -interp`); nothing Postgres-specific in jacket. Generic `[commands]` in `jacket.toml` is a possible separate jacket feature.
 9. **Placement:** `stdlib/Extensions/Postgres`.
 10. **Template databases** on the `DATABASE_URL` server; requiring `CREATEDB` is fine.
+11. **Editor feedback through compile-time services** (option C in [Editor feedback](#editor-feedback-phase-0)), not networking inside the sandbox. C gives instant feedback in trusted workspaces without letting every trusted metaprogram reach the network on every keystroke. It keeps one protocol implementation, and isolates crashes in a separate process. The mechanism is generic, with no Postgres knowledge in `jaic` or `jailsp`.
 
 ## Open questions
 
-1. **Compile-time services** (worker started by `jailsp`, option C in [Editor feedback](#editor-feedback-phase-0)) versus networking inside the sandbox: being decided with the maintainer.
-2. **Live migration edits:** build templates from unsaved migration buffers, or only from saved files? Decide after benchmarking template builds on a realistic migration set.
+1. **Live migration edits:** build templates from unsaved migration buffers, or only from saved files? Decide after benchmarking template builds on a realistic migration set.
