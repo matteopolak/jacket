@@ -4,7 +4,7 @@ use super::scope::{Builtin, EntityKind, EntityState, Resolved};
 use super::value::LibraryId;
 use super::{
     Compiler, Diagnostic, EntityId, FileId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
-    compiler_host, err, ir, lambda,
+    compiler_host, err, ir, lambda, procs,
 };
 use crate::types::{DistinctInfo, TypeKind};
 
@@ -286,6 +286,20 @@ impl Compiler {
             } => {
                 let lit = lambda::lambda_lit(header, body);
                 return Ok(Resolved::Proc(self.new_proc(name, lit, scope, value.span)));
+            }
+            // `Iter :: #type (value: *$T, body: Code);` names a shape: `$` stands for the variable.
+            ast::ExprKind::TypeDirective {
+                modifier: ast::TypeModifier::Plain,
+                ty: inner,
+            } if matches!(inner.kind, ast::ExprKind::ProcType(_)) && procs::has_poly(inner) => {
+                let ast::ExprKind::ProcType(header) = &inner.kind else {
+                    return err(value.span, "expected a procedure type");
+                };
+                let ty = self.poly_header_type(scope, header);
+                return Ok(Resolved::Const {
+                    value: Value::Type(ty),
+                    ty: TypeId::TYPE,
+                });
             }
             ast::ExprKind::ProcType(header)
                 if header
@@ -756,10 +770,23 @@ impl Compiler {
                 value: Value::Int(i),
                 ..
             } => Ok(i != 0),
+            // Nonzero is true, as for an integer.
+            Operand::Const {
+                value: Value::Float(x, _),
+                ..
+            } => Ok(x != 0.0),
             Operand::Const {
                 value: Value::Null,
                 ..
             } => Ok(false),
+            // `#code,null` is the empty code; any other code holds.
+            Operand::Const {
+                value: Value::Code(code),
+                ..
+            } => Ok(!matches!(
+                &*self.pr.codes[code.0 as usize],
+                ast::CodeBody::Expr(e) if matches!(e.kind, ast::ExprKind::Null)
+            )),
             Operand::Const {
                 value: Value::Proc(_) | Value::Type(_) | Value::String(_),
                 ..

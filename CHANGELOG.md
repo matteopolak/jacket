@@ -68,6 +68,15 @@
 - Unsupported target options set by a build program are reported as errors.
 - A `jacket.toml` key written outside its section, such as `import_path` or `build_files`, now says where it belongs.
 - The build status line no longer shares a line with output from compile-time code that runs a shell or other native code.
+- `#type` aliases can use type variables, as in `#type (value: *$T, body: Code)`.
+- `#bake_arguments` keeps `$T` of a baked parameter, including a procedure passed for a parameter that names `T`.
+- `#if` accepts float and `Code` constants, including an omitted `$children := #code,null`.
+- `for a..b` accepts ends of different integer types.
+- `a, b += 3, 4` works on lists of targets.
+- Parameters written as a bare polymorphic struct, such as `(a: Table, b: Table)`, each take their own instance.
+- `x, y = xx a, xx b` converts each value to its own target's type.
+- `a, b:, _ = f()` discards the value of `_`.
+- A `#modify` block can assign a `$x := value` parameter.
 
 ## [0.25.0] - 2026-10-21
 

@@ -329,6 +329,15 @@ impl Compiler {
                 },
                 other,
             ) => other.ty(),
+            // `for a..b` with `a: u32` and `b: s64` counts in the type both fit into.
+            (lo, hi)
+                if lo.ty() != hi.ty()
+                    && self.ty.types.is_integer(lo.ty())
+                    && self.ty.types.is_integer(hi.ty())
+                    && self.implicit_cost(lo.ty(), false, hi.ty()).is_some() =>
+            {
+                hi.ty()
+            }
             (other, _) => other.ty(),
         };
         let ty = if self.ty.types.is_integer(ty) {

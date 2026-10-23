@@ -46,6 +46,10 @@ impl Compiler {
                 let Some(value) = value else {
                     return err(name.span, "assignment needs a value");
                 };
+                // `a, b:, _ = f()` discards the value of `_`, as `a, _ = f()` does.
+                if name.name.as_str() == "_" && decl.targets().get(i).is_none_or(Option::is_none) {
+                    continue;
+                }
                 // `ok:, t.str = f()` assigns to a member, index or dereference.
                 let place = if let Some(Some(e)) = decl.targets().get(i) {
                     self.reject_constant_target(f, scope, e)?;

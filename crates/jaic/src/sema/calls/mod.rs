@@ -36,6 +36,7 @@ mod operators;
 mod precheck;
 mod slots;
 
+pub(super) use self::infer::own_instance_key;
 pub(super) use self::slots::header_poly_names;
 use self::slots::{c_vararg_promote, is_poly_var_arg, poly_names};
 pub use operators::binop_text;

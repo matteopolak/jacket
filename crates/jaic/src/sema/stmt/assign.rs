@@ -352,6 +352,59 @@ impl Compiler {
         }
     }
 
+    /// `a, b += 3, 4;` pairs the targets with the values; every value is read before any target
+    /// changes, as in `a, b = b, a`.
+    fn check_assign_pairs(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        op: ast::AssignOp,
+        lhs: &[ast::Expr],
+        rhs: &[ast::Expr],
+        span: Span,
+    ) -> Result<()> {
+        let inner = self.new_block_scope(scope);
+        let depth = self.scope(inner).proc_depth;
+        let mut values = Vec::new();
+        for (i, value) in rhs.iter().enumerate() {
+            let operand = self.check_expr(f, scope, value, None)?;
+            if matches!(operand, Operand::Const { .. }) {
+                values.push(value.clone());
+                continue;
+            }
+            let ty = operand.ty();
+            let (_, v) = self.rvalue(f, operand, value.span)?;
+            let addr = self.spill(f, ty, v, value.span)?;
+            let tmp = Sym::intern(&format!("\u{0}rhs{i}"));
+            self.add_entity(
+                inner,
+                tmp,
+                value.span,
+                EntityKind::Local {
+                    ty,
+                    addr,
+                    depth,
+                },
+                false,
+            );
+            values.push(ast::Expr {
+                kind: E::Ident(tmp),
+                span: value.span,
+            });
+        }
+        for (target, value) in lhs.iter().zip(&values) {
+            self.check_assign(
+                f,
+                inner,
+                op,
+                std::slice::from_ref(target),
+                std::slice::from_ref(value),
+                span,
+            )?;
+        }
+        Ok(())
+    }
+
     pub(super) fn check_assign(
         &mut self,
         f: &mut FnCtx,
@@ -377,6 +430,9 @@ impl Compiler {
                     self.check_assign(f, scope, op, std::slice::from_ref(target), rhs, span)?;
                 }
                 return Ok(());
+            }
+            if lhs.len() > 1 && lhs.len() == rhs.len() {
+                return self.check_assign_pairs(f, scope, op, lhs, rhs, span);
             }
             if lhs.len() != 1 || rhs.len() != 1 {
                 return err(span, "compound assignment takes one target and one value");
@@ -521,8 +577,8 @@ impl Compiler {
             }
         } else {
             for (r, l) in rhs.iter().zip(lhs) {
-                let op = self.check_expr(f, scope, r, None)?;
-                // Untyped constants take the type of their own target (`v.x, v.y = 42, 108;`).
+                // The value is checked against its own target's type, so untyped constants,
+                // `xx` and inferred members follow it (`v.x, v.y = 42, 108;`, `= xx a, xx b;`).
                 let target = match &l.kind {
                     E::Ident(name) if name.as_str() == "_" => None,
                     _ => match self.check_expr(f, scope, l, None)? {
@@ -532,6 +588,7 @@ impl Compiler {
                         _ => None,
                     },
                 };
+                let op = self.check_expr(f, scope, r, target)?;
                 let op = match (&op, target) {
                     (
                         Operand::Const {

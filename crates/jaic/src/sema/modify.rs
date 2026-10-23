@@ -124,8 +124,15 @@ impl Compiler {
         let mut constants = Vec::new();
         let mut type_vars: Vec<Sym> = super::calls::header_poly_names(header);
         for (name, value, ty) in &bindings {
+            // A `$x := false` parameter is a variable of the block like a type is.
+            let baked_param = header
+                .params
+                .iter()
+                .any(|p| p.baked && p.name.is_some_and(|n| n.name == *name));
             if *ty == TypeId::TYPE {
                 type_vars.push(*name);
+            } else if baked_param {
+                variables.push((*name, value.clone(), *ty));
             } else {
                 constants.push((*name, value.clone(), *ty));
             }

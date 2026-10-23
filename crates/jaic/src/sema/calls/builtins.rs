@@ -405,6 +405,16 @@ impl Compiler {
     pub(in crate::sema) fn poly_proc_type(&mut self, proc: ProcId) -> TypeId {
         let header = self.proc(proc).lit.header.clone();
         let scope = self.proc(proc).scope;
+        self.poly_header_type(scope, &header)
+    }
+
+    /// The type of a header that has type variables (`type_of(poly)`, or a `#type` alias with
+    /// `$T` in it), with the parts that depend on them shown as `$`.
+    pub(in crate::sema) fn poly_header_type(
+        &mut self,
+        scope: ScopeId,
+        header: &ast::ProcHeader,
+    ) -> TypeId {
         let mut params = Vec::new();
         let mut variadic = false;
         for p in &header.params {

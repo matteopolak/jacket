@@ -413,6 +413,9 @@ impl Compiler {
                 }
             }
             self.match_pattern_value(pattern, ty, &mut st.bindings, def_scope, represented)?;
+            if implicit && !param.variadic {
+                self.bind_own_instance(st, param, pattern, ty)?;
+            }
             // Later parameter types may use this one's instance (`item: array.type`).
             if implicit
                 && k == 0
@@ -421,6 +424,56 @@ impl Compiler {
             {
                 st.bindings.push((n.name, Value::Type(ty), TypeId::TYPE));
             }
+        }
+        Ok(())
+    }
+
+    /// A bare polymorphic struct parameter named `Table` is its own instance, even when an
+    /// earlier parameter already bound `Table` to another one: the instance is kept under the
+    /// parameter's name for its signature.
+    fn bind_own_instance(
+        &mut self,
+        st: &mut Inference<'_>,
+        param: &ast::Param,
+        pattern: &ast::Expr,
+        arg_ty: TypeId,
+    ) -> Result<()> {
+        let (Some(param_name), Some((name, ps, ty))) = (param.name, {
+            let (mut pattern, mut ty) = (pattern, arg_ty);
+            while let E::Unary(ast::UnOp::Star, inner) = &pattern.kind
+                && let Some(p) = self.ty.types.pointee(ty)
+            {
+                pattern = inner;
+                ty = p;
+            }
+            match &pattern.kind {
+                E::Ident(name) => self
+                    .ident_poly_struct(st.def_scope, *name)?
+                    .map(|ps| (*name, ps, ty)),
+                _ => None,
+            }
+        }) else {
+            return Ok(());
+        };
+        let matched = if self.instance_or_as_base(ps, ty).is_some() {
+            Some(ty)
+        } else {
+            self.ty
+                .types
+                .pointee(ty)
+                .filter(|&p| self.instance_or_as_base(ps, p).is_some())
+        };
+        if let Some(t) = matched
+            && st
+                .bindings
+                .iter()
+                .any(|(n, v, _)| *n == name && *v != Value::Type(t))
+        {
+            st.bindings.push((
+                own_instance_key(param_name.name),
+                Value::Type(t),
+                TypeId::TYPE,
+            ));
         }
         Ok(())
     }
@@ -836,6 +889,9 @@ impl Compiler {
                             .filter(|&p| self.instance_or_as_base(ps, p).is_some())
                     };
                     match matched {
+                        // Each bare `Table` parameter is its own instance: the name stays
+                        // bound to the first.
+                        Some(_) if bindings.iter().any(|b| b.0 == *name) => Ok(()),
                         Some(t) => bind_pattern(
                             span,
                             &self.ty.types,
@@ -997,6 +1053,11 @@ impl Compiler {
             _ => Ok(()),
         }
     }
+}
+
+/// The binding that holds the instance a bare polymorphic struct parameter was given.
+pub(in crate::sema) fn own_instance_key(param: Sym) -> Sym {
+    Sym::intern(&format!("\u{0}own:{param}"))
 }
 
 /// Binds `$name` to `value` while matching a polymorphic pattern; a second binding must agree.

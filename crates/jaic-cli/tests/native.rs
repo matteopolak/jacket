@@ -389,6 +389,14 @@ fn compiler_and_abi_regressions_run_natively() {
         "ifx-untyped-then-arm",
         "ifx-overflowing-constant",
         "xx-binary-operand",
+        "poly-procedure-type-alias",
+        "bake-arguments-type-variables",
+        "static-if-value-conditions",
+        "for-range-mixed-integer-types",
+        "compound-assignment-lists",
+        "bare-poly-struct-parameters",
+        "multiple-assignment-targets",
+        "modify-assigns-baked-value",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {

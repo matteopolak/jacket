@@ -166,6 +166,12 @@ impl Compiler {
         }
         let mut kept = Vec::new();
         let mut consts = Vec::new();
+        // A name some parameter declares as `$T`; baked parameters may mention it as plain `T`.
+        let mut binders = Vec::new();
+        for ty in params.iter().filter_map(|p| p.ty.as_ref()) {
+            procs::for_poly_binders(ty, &mut |n| binders.push(n));
+        }
+        let mut inferred = Vec::new();
         for (param, arg) in params.iter().zip(baked) {
             let Some(arg) = arg else {
                 kept.push(param.clone());
@@ -174,8 +180,13 @@ impl Compiler {
             let Some(name) = param.name else {
                 return err(span, "cannot bake an unnamed parameter");
             };
-            let declared = match &param.ty {
-                Some(t) if !procs::has_poly(t) => Some(self.eval_type(def_scope, t)?),
+            let pattern = param.ty.as_ref().and_then(|t| {
+                let mut t = t.clone();
+                polyfy(&mut t, &binders);
+                procs::has_poly(&t).then_some(t)
+            });
+            let declared = match (&param.ty, &pattern) {
+                (Some(t), None) => Some(self.eval_type(def_scope, t)?),
                 _ => None,
             };
             let (value, ty) = match declared {
@@ -207,7 +218,26 @@ impl Compiler {
                 },
                 Some(t) => (self.const_value_of_type(scope, &arg.value, t)?, t),
             };
+            // `($v: $T)` baked with `v = 3`: `T` is what the value's type says, and the body and
+            // the other parameter types still name it.
+            if let Some(pattern) = &pattern {
+                let mut found = Vec::new();
+                self.match_pattern(pattern, ty, &mut found, def_scope)?;
+                for bound in found {
+                    if !consts.iter().any(|c: &ConstArg| c.0 == bound.0) {
+                        inferred.push(bound.0);
+                        consts.push(bound);
+                    }
+                }
+            }
             consts.push((name.name, value, ty));
+        }
+        // What a baked value fixed is no longer a variable of the parameters left open.
+        for ty in kept
+            .iter_mut()
+            .filter_map(|p: &mut ast::Param| p.ty.as_mut())
+        {
+            unbind_poly(ty, &inferred);
         }
         Ok((kept, consts))
     }
@@ -294,6 +324,54 @@ impl Compiler {
     }
 }
 
+/// Plain `T` in a type expression becomes `$T` for the given names.
+fn polyfy(expr: &mut ast::Expr, names: &[Sym]) {
+    use ast::ExprKind as E;
+    match &mut expr.kind {
+        E::Ident(name) if names.contains(name) => {
+            expr.kind = E::PolyVar {
+                name: *name,
+                baked: false,
+            };
+        }
+        E::Unary(_, e)
+        | E::TypeDirective {
+            ty: e, ..
+        } => polyfy(e, names),
+        E::ArrayType {
+            size,
+            elem,
+        } => {
+            if let ast::ArraySize::Fixed(n) = size {
+                polyfy(n, names);
+            }
+            polyfy(elem, names);
+        }
+        E::Call {
+            callee,
+            args,
+            ..
+        } => {
+            polyfy(callee, names);
+            for a in args {
+                polyfy(&mut a.value, names);
+            }
+        }
+        E::ProcType(header) => {
+            let header = Rc::make_mut(header);
+            for t in header
+                .params
+                .iter_mut()
+                .filter_map(|p| p.ty.as_mut())
+                .chain(header.returns.iter_mut().filter_map(|r| r.ty.as_mut()))
+            {
+                polyfy(t, names);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// `$T` (and `$T/R`) in a type expression become plain `T`: `T` is bound elsewhere.
 fn unbind_poly(expr: &mut ast::Expr, names: &[Sym]) {
     use ast::ExprKind as E;
@@ -325,6 +403,17 @@ fn unbind_poly(expr: &mut ast::Expr, names: &[Sym]) {
             unbind_poly(callee, names);
             for a in args {
                 unbind_poly(&mut a.value, names);
+            }
+        }
+        E::ProcType(header) => {
+            let header = Rc::make_mut(header);
+            for t in header
+                .params
+                .iter_mut()
+                .filter_map(|p| p.ty.as_mut())
+                .chain(header.returns.iter_mut().filter_map(|r| r.ty.as_mut()))
+            {
+                unbind_poly(t, names);
             }
         }
         _ => {}

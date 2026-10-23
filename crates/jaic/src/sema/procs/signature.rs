@@ -299,7 +299,9 @@ impl Compiler {
         params: &[ParamInfo],
     ) -> Result<ParamInfo> {
         {
+            let own = self.own_struct_instance(scope, param);
             let ty = match (&param.ty, &param.default) {
+                _ if let Some(ty) = own => ty,
                 (Some(t), _) if self.src.mentions_param(t, params) => {
                     self.type_from_params(scope, t, params)?
                 }
@@ -345,6 +347,26 @@ impl Compiler {
                 span: param.span,
             })
         }
+    }
+
+    /// The instance of a bare polymorphic struct a parameter was given when another parameter
+    /// bound the same name to a different one (`(a: Table, b: Table)`).
+    fn own_struct_instance(&mut self, scope: ScopeId, param: &ast::Param) -> Option<TypeId> {
+        let key = super::super::calls::own_instance_key(param.name?.name);
+        let id = *self.scope(scope).names.get(&key)?.first()?;
+        let Resolved::Const {
+            value: Value::Type(mut ty),
+            ..
+        } = self.resolve_entity(id).ok()?
+        else {
+            return None;
+        };
+        let mut shape = param.ty.as_ref()?;
+        while let ast::ExprKind::Unary(ast::UnOp::Star, inner) = &shape.kind {
+            ty = self.ty.types.pointer(ty);
+            shape = inner;
+        }
+        Some(ty)
     }
 
     fn finish_signature(
