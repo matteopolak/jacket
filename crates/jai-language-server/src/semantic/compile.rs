@@ -122,29 +122,44 @@ fn known(
     errors
 }
 
-/// `root` as `<folder>/Name/module.jai` with `folder` one of `import_paths`: the module's name
-/// and that folder.
+/// `root` as a module file: what a program would `#import` to reach it, and the folder to put
+/// that program in. A module file is `<dir>/Name/module.jai` or `<dir>/Name.jai` with `dir`
+/// at or above it on `import_paths` (`Extensions/SIMD` for a nested one), or any root that
+/// declares `#module_parameters`, imported by path.
 fn module_entry(
     fs: &dyn FileSystem,
     root: &Path,
     import_paths: &[PathBuf],
+    declares_parameters: bool,
 ) -> Option<(String, PathBuf)> {
-    if root.file_name()? != "module.jai" {
-        return None;
+    let nested = root.file_name()? == "module.jai";
+    let module = if nested {
+        root.parent()?.to_path_buf()
+    } else {
+        root.with_extension("")
+    };
+    let key = crate::document::file_key(fs, &module);
+    for dir in import_paths {
+        let dir_key = crate::document::file_key(fs, dir);
+        if let Ok(rest) = key.strip_prefix(&dir_key)
+            && !rest.as_os_str().is_empty()
+            && (nested || rest.components().count() == 1)
+        {
+            let name = rest
+                .components()
+                .map(|c| c.as_os_str().to_str())
+                .collect::<Option<Vec<_>>>()?
+                .join("/");
+            return Some((format!("#import \"{name}\";"), dir.clone()));
+        }
     }
-    let module = root.parent()?;
-    let folder = module.parent()?;
-    let key = crate::document::file_key(fs, folder);
-    import_paths
-        .iter()
-        .any(|dir| crate::document::file_key(fs, dir) == key)
-        .then(|| {
-            Some((
-                module.file_name()?.to_str()?.to_owned(),
-                folder.to_path_buf(),
-            ))
-        })
-        .flatten()
+    declares_parameters.then(|| {
+        let path = root.to_str()?;
+        Some((
+            format!("#import,file \"{path}\";"),
+            root.parent()?.to_path_buf(),
+        ))
+    })?
 }
 
 /// What one compile produced.
@@ -181,15 +196,21 @@ pub(super) fn compile(
     // A module's `module.jai` is checked as the module a program imports, not as a program:
     // `#module_parameters` and the parameters' values only exist there.
     let mut files = files;
-    let stub = module_entry(&*env.fs, root, &options().import_paths).map(|(name, folder)| {
-        let stub = folder.join(".jailsp-module-root.jai");
-        let text = format!("#import \"{name}\";\nmain :: () {{}}\n");
-        files.insert(
-            crate::document::file_key(&*env.fs, &stub),
-            Rc::from(text.into_bytes()),
-        );
-        stub
-    });
+    let declares_parameters = files
+        .iter()
+        .find(|(path, _)| path.as_path() == crate::document::file_key(&*env.fs, root))
+        .is_some_and(|(_, text)| String::from_utf8_lossy(text).contains("#module_parameters"));
+    let stub = module_entry(&*env.fs, root, &options().import_paths, declares_parameters).map(
+        |(import, folder)| {
+            let stub = folder.join(".jailsp-module-root.jai");
+            let text = format!("{import}\nmain :: () {{}}\n");
+            files.insert(
+                crate::document::file_key(&*env.fs, &stub),
+                Rc::from(text.into_bytes()),
+            );
+            stub
+        },
+    );
     let reads = Rc::new(RefCell::new(Reads::default()));
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
         base: env.fs.clone(),

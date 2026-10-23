@@ -30,6 +30,7 @@
 
 ### Fixed
 
+- Opening a module file on its own (such as `Extensions/SIMD/module.jai`) no longer reports `#module_parameters` as misplaced.
 - `BuildCpp` on Windows accepts `/bigobj` objects and finds Visual Studio's `clang-cl` for the host when targeting another CPU.
 - Hovers explain `using,only`, `using,except` and `using,map`.
 - `Vector3` and `Vector4` support componentwise `*` and `/`, and `Vector4` gains `multiply`, `distance_squared` and `unit_vector` (#34).
