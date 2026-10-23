@@ -71,7 +71,7 @@ line_wire_decode :: (data: [] u8, offset: s64, address_size: s64) -> Line_Wire_T
     result.header.default_is_stmt = line_wire_uint(*input, 1) != 0;
     encoded_line_base := cast(u8) line_wire_uint(*input, 1);
 
-    result.header.line_base = cast(s8) encoded_line_base;
+    result.header.line_base = cast,no_check(s8) encoded_line_base;
     result.header.line_range = cast(u8) line_wire_uint(*input, 1);
     result.header.opcode_base = cast(u8) line_wire_uint(*input, 1);
     if input.failed || !result.header.minimum_instruction_length || !result.header.maximum_operations_per_instruction ||
