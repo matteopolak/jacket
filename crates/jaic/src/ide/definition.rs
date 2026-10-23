@@ -196,6 +196,14 @@ impl Compiler {
                     .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
                     .collect(),
             },
+            // A sketch's stand-in for `$T` is declared at the parameter of whichever polymorph
+            // was sketched; a name that refers to its own parameter goes there.
+            IdeWhat::Type(t)
+                if self.is_stand_in(*t)
+                    && let Some(&e) = self.ed.facts().and_then(|i| i.type_names.get(&r.span)) =>
+            {
+                vec![(self.entity(e).span, name)]
+            }
             IdeWhat::Type(t) => match self.ty.types.kind(*t) {
                 TypeKind::Struct(s) => vec![(self.ty.types.struct_info(*s).span, name)],
                 TypeKind::Enum(e) => vec![(self.ty.types.enum_info(*e).span, name)],
