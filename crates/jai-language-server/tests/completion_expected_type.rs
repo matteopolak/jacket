@@ -84,3 +84,12 @@ fn nothing_is_hidden() {
     ));
     assert!(order.contains(&"a_name".to_string()));
 }
+
+#[test]
+fn an_enum_value_for_a_baked_parameter_lists_the_enum() {
+    let order = sorted(
+        "Mode :: enum { slow; fast; }\nspeed :: ($mode: Mode = .fast) -> int { return 1; }\nmain :: () { x := speed(.|slow) == 1; }",
+    );
+    assert!(order.contains(&"slow".to_string()), "{order:?}");
+    assert!(order.contains(&"fast".to_string()), "{order:?}");
+}

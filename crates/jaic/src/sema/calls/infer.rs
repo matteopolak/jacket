@@ -160,7 +160,10 @@ impl Compiler {
                     (None, Some(d)) => Some(self.eval_const(def_scope, d, None)?.ty()),
                     _ => None,
                 };
-                let expr = arg.expr.clone().unwrap();
+                // An unfinished argument (the one completion asks about) binds nothing.
+                let Some(expr) = arg.expr.clone() else {
+                    return Ok(());
+                };
                 let op = self.eval_const(arg.scope, &expr, declared)?;
                 match declared {
                     Some(t) => {
