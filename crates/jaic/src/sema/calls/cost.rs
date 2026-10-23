@@ -295,10 +295,9 @@ impl Compiler {
                 Some(E::ArrayLit {
                     ..
                 }) => !scalar,
-                Some(_) if arg.expr.as_ref().is_some_and(inferred_flags) => matches!(
-                    self.ty.types.kind(param),
-                    TypeKind::Enum(_) | TypeKind::Struct(_)
-                ),
+                Some(_) if arg.expr.as_ref().is_some_and(inferred_flags) => {
+                    matches!(self.ty.types.kind(param), TypeKind::Enum(_))
+                }
                 _ => true,
             };
             if !fits {
