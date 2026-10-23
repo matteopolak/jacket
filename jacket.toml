@@ -21,6 +21,10 @@ exclude = [
     "fuzz/**",
 ]
 
+# Off-by-default rules this repository holds itself to.
+[lint.rules]
+excessive_nesting = "warn"
+
 [format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.
 indent_width = 4
