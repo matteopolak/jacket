@@ -13,6 +13,36 @@ native_dir() {
   python3 -c 'import sys;sys.path.insert(0,"tools/native");import build_native_libs;print(build_native_libs.output_dir())'
 }
 
+# stamped NAME OUTPUT_DIR INPUT_PATH... -- COMMAND...: run COMMAND unless an earlier run (restored from
+# the CI cache) already built OUTPUT_DIR from identical inputs. The stamp is a hash of the tracked
+# files under the INPUT_PATHs (their blob ids), the OS, the C compiler and LLVM; a changed or missing
+# stamp or output rebuilds, so a stale cache can only cost time.
+stamped() {
+  local name=$1 output=$2 inputs=() stamp fingerprint
+  shift 2
+  while [[ $1 != -- ]]; do
+    inputs+=("$1")
+    shift
+  done
+  shift
+  stamp="target/native-stamps/$name"
+  fingerprint=$({
+    git ls-files -s -- "${inputs[@]}"
+    echo "$os $(uname -m) llvm=${LLVM_VERSION:-}"
+    cc --version 2> /dev/null | head -n 1
+  } | shasum -a 256 | cut -d' ' -f1) || fingerprint=
+  if [[ -n "$fingerprint" && -d "$output" && -f "$stamp" && "$(cat "$stamp")" == "$fingerprint" ]]; then
+    echo "$name: unchanged inputs, reusing $output"
+    return 0
+  fi
+  rm -f "$stamp"
+  "$@"
+  if [[ -n "$fingerprint" ]]; then
+    mkdir -p target/native-stamps
+    echo "$fingerprint" > "$stamp"
+  fi
+}
+
 developer() {
   TMPDIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}" PYTHONDONTWRITEBYTECODE=1 python3 tools/run_tests.py -p test_conda_sdk_notices.py -v
   python3 tools/developer_checks/build_developer_bindings.py
@@ -27,18 +57,23 @@ clipboard() {
     python3 tools/native/build_native_libs.py --missing
     libs=$(native_dir)
   fi
-  python3 tools/portable/build_portable.py clipboard --output target/clipboard-native
+  stamped clipboard-provider target/clipboard-native tools/portable tools/native tools/toolkit stdlib/Clipboard stdlib/internal \
+    -- python3 tools/portable/build_portable.py clipboard --output target/clipboard-native
   echo "JAIC_NATIVE_LIBS=$libs:$PWD/target/clipboard-native" >> "$env_file"
 }
 
 full() {
-  python3 tools/window_render/window_render_native.py
+  stamped window-native target/window-native tools/window_render tools/native tools/toolkit \
+    stdlib/Clipboard/tests/native stdlib/GL/tests/native stdlib/Unmapping_Allocator/tests/native stdlib/Thread/tests/sdk-identity.c \
+    -- python3 tools/window_render/window_render_native.py
   python3 tools/native/build_native_libs.py --missing
   developer
   local audio=(--test-runtime)
   [[ "$os" == Linux ]] && audio+=(--require-device)
   python3 tools/native/audio_build_native.py "${audio[@]}"
-  python3 tools/native/build_ci_native_bindings.py --output target/production-bindings/native
+  stamped production-bindings target/production-bindings/native tools/native tools/native_bindings tools/toolkit \
+    stdlib/Bindings_Generator/tests/driven/sdk stdlib/internal/bindings \
+    -- python3 tools/native/build_ci_native_bindings.py --output target/production-bindings/native
   local libs native
   native=$(native_dir)
   libs="$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$native"

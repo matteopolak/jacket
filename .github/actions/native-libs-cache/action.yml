@@ -2,27 +2,47 @@ name: Cache the native libraries
 description: >-
   Restores target/native-libs (tools/native/build_native_libs.py) for this runner; on main a new key is
   also saved when the job succeeds. tools/native/build_native_libs.py builds only the libraries missing there.
+  With `helpers`, the helper libraries tools/native/ci_native_deps.sh full builds are kept too, each with a
+  stamp of its inputs that the script checks before reusing it.
 inputs:
   variant:
     description: Tells apart jobs that build other platforms' libraries here (the MinGW cross-builds)
     default: host
+  helpers:
+    description: Also keep the helper libraries of `ci_native_deps.sh full` ('true' for the jobs that run it)
+    default: 'false'
 runs:
   using: composite
   steps:
     # The key covers everything that decides the libraries' contents: the manifest (hash-pinned
     # sources, compile flags), the local sources and the scripts that build them. There are no
     # restore-keys: the build script only looks for missing libraries, so an older set would be
-    # reused as it is.
+    # reused as it is. The helper libraries are separate entries (`-helpers`) so a job that does not
+    # build them never saves an incomplete one; their stamps, not this key, decide whether each is
+    # reused, so the key only has to change when their inputs do.
     - id: key
       shell: bash
-      run: echo "key=native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$LLVM_VERSION-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/native/fetch_url.py', 'tools/repo_output.py') }}" >> "$GITHUB_OUTPUT"
+      run: |
+        key="native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$LLVM_VERSION-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/native/fetch_url.py', 'tools/repo_output.py') }}"
+        if [ "${{ inputs.helpers }}" = true ]; then
+          key="$key-helpers-${{ hashFiles('tools/window_render/**', 'tools/native_bindings/**', 'tools/portable/**', 'tools/toolkit/**', 'stdlib/Clipboard/**', 'stdlib/GL/tests/native/**', 'stdlib/Unmapping_Allocator/tests/native/**', 'stdlib/Thread/tests/sdk-identity.c', 'stdlib/Bindings_Generator/tests/driven/sdk/**', 'stdlib/internal/**') }}"
+        fi
+        echo "key=$key" >> "$GITHUB_OUTPUT"
+        {
+          echo 'paths<<EOF'
+          echo target/native-libs
+          if [ "${{ inputs.helpers }}" = true ]; then
+            printf '%s\n' target/window-native target/production-bindings/native target/clipboard-native target/native-stamps
+          fi
+          echo EOF
+        } >> "$GITHUB_OUTPUT"
     - if: github.ref == 'refs/heads/main'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: target/native-libs
+        path: ${{ steps.key.outputs.paths }}
         key: ${{ steps.key.outputs.key }}
     - if: github.ref != 'refs/heads/main'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: target/native-libs
+        path: ${{ steps.key.outputs.paths }}
         key: ${{ steps.key.outputs.key }}

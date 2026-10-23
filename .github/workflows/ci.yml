@@ -457,6 +457,8 @@ jobs:
           cargo build --locked --release -p jaic-cli
           target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
       - uses: ./.github/actions/native-libs-cache
+        with:
+          helpers: 'true'
       - name: Build private native dependencies from source
         run: bash tools/native/ci_native_deps.sh full
       - name: Run reviewed contracts and retained regressions
@@ -654,6 +656,8 @@ jobs:
           brew: sdl2 freetype
           alsa: 'true'
       - uses: ./.github/actions/native-libs-cache
+        with:
+          helpers: 'true'
       - name: Build the native helper libraries
         run: bash tools/native/ci_native_deps.sh full
       - name: Build jaic
