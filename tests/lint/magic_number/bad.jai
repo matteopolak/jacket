@@ -18,7 +18,12 @@ wait :: (elapsed: int, angle: float) -> int, float {
     return hours, turned;
 }
 
+starts_lower :: (text: string) -> bool {
+    return text.count > 0 && text[0] >= 97;
+}
+
 main :: () {
     a, b := wait(40, 1.5);
     print("% %\n", a, b);
+    print("%\n", starts_lower("x"));
 }

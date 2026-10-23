@@ -62,3 +62,14 @@ warning[magic_number]: magic number `47` in a comparison
    |
    = help: if this is a character, write `#char "/"`
 
+warning[magic_number]: magic number `97` in a comparison
+  --> tests/lint/magic_number/bad.jai:22:41
+   |
+22 |     return text.count > 0 && text[0] >= 97;
+   |                                         ^^
+   |
+help: write the character: `#char "a"`
+   |
+22 ~     return text.count > 0 && text[0] >= #char "a";
+   |
+

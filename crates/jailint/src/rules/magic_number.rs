@@ -23,13 +23,16 @@
 //!   `1.5`);
 //! - `10`, `100`, `1000` and anything listed in `magic_number_allow`.
 //!
+//! A printable character code compared with a `u8` (`text[i] >= 97`) is fixed to `#char "a"`.
+//!
 //! Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set: test
 //! data is full of expected values. Generated files are skipped. Off by default.
-use super::finding;
+use super::{finding, replacing};
 use crate::Finding;
 use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S, UnOp};
 use jaic::ast::{DeclKind, Expr};
+use jaic::types::TypeKind;
 
 /// Numbers allowed whatever the configuration says.
 const ALWAYS: &[f64] = &[10.0, 100.0, 1000.0];
@@ -52,7 +55,22 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(place) = ancestors.last().and_then(|parent| place(*parent, e)) else {
                 return false;
             };
-            if !allowed(cx, value) {
+            if allowed(cx, value) {
+                return false;
+            }
+            // Compared with a byte: almost always a character code, and `#char` says which.
+            if let Some(c) = byte_character(cx, ancestors.last().copied(), e, value) {
+                out.push(replacing(
+                    e.span,
+                    format!("magic number `{}` in {place}", cx.src(e.span)),
+                    format!("write the character: `#char \"{c}\"`"),
+                    (e.span.start as usize, e.span.end as usize),
+                    format!("#char \"{c}\""),
+                    true,
+                ));
+                return false;
+            }
+            {
                 let help = match ascii(value) {
                     Some(c) if equality(ancestors.last().copied()) => {
                         format!("if this is a character, write `#char \"{c}\"`")
@@ -178,6 +196,36 @@ fn allowed(cx: &Cx, value: f64) -> bool {
 
 fn power_of_two(v: f64) -> bool {
     v >= 1.0 && v < 2f64.powi(64) && (v as u64).is_power_of_two()
+}
+
+/// `e` is compared with a `u8` and `value` is a printable character other than a quote or
+/// backslash: that character.
+fn byte_character(cx: &Cx, parent: Option<Node>, e: &Expr, value: f64) -> Option<char> {
+    let Some(Node::Expr(p)) = parent else {
+        return None;
+    };
+    let E::Binary(BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge, a, b) =
+        &p.kind
+    else {
+        return None;
+    };
+    let other = if a.span == e.span {
+        b
+    } else {
+        a
+    };
+    let ty = cx.ty(other)?;
+    let types = &cx.compiler.ty.types;
+    let byte = matches!(
+        types.kind(types.repr_struct(ty)),
+        TypeKind::Int {
+            bits: 8,
+            signed: false
+        }
+    );
+    let c = (byte && value.fract() == 0.0 && (32.0..127.0).contains(&value))
+        .then_some(value as u8 as char)?;
+    (c != '"' && c != '\\').then_some(c)
 }
 
 /// The printable character with code `value`, other than a quote or backslash.
