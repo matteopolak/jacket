@@ -344,6 +344,14 @@ impl Exporter<'_> {
                     rec.ptr("expression", value);
                     self.add(rec)
                 }
+                ast::EnumItem::Using(value) => {
+                    let value = self.expr(value);
+                    let mut rec = self.node(RecordTag::CodeUsing, node::USING, span);
+                    rec.ptr("expression", value)
+                        .int("filter_type", 0)
+                        .ptr("filter_expression", 0);
+                    self.add(rec)
+                }
                 ast::EnumItem::If {
                     cond,
                     then_items,

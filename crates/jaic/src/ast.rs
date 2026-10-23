@@ -658,6 +658,8 @@ pub enum EnumItem {
     Member(EnumMember),
     /// `#insert` inside an enum body generating members.
     Insert(Expr),
+    /// `using Other;` inside an enum body: the members of another enum, in order.
+    Using(Expr),
     /// `#if` inside an enum body.
     If {
         cond: Expr,

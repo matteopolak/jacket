@@ -161,6 +161,11 @@ impl Parser<'_> {
             let item = if self.at_directive("insert") {
                 self.bump();
                 self.parse_expr().map(EnumItem::Insert)
+            } else if self.at_kw("using") {
+                self.bump();
+                let value = self.parse_expr();
+                self.eat(P::Semi);
+                value.map(EnumItem::Using)
             } else if self.at_directive("if") {
                 self.parse_enum_if()
             } else {

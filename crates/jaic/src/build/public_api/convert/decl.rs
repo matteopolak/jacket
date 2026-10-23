@@ -658,9 +658,13 @@ impl Convert<'_, '_> {
                         c.word("#insert");
                         EnumItem::Insert(c.child(member, ty, "expression")?)
                     }
+                    "USING" => {
+                        c.word("using");
+                        EnumItem::Using(c.child(member, ty, "expression")?)
+                    }
                     _ => {
                         return Err(Trap::new(format!(
-                            "an enum body holds only members, #if and #insert, got {name}"
+                            "an enum body holds only members, using, #if and #insert, got {name}"
                         )));
                     }
                 })

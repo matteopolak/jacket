@@ -12,13 +12,15 @@ pub enum Initializer {
         previous: Option<EntityId>,
         flags: bool,
     },
+    /// A member copied by `using` from another enum.
+    Constant(i128),
     /// Selection/insertion must establish the preceding declaration before this value exists.
     PendingOrder,
 }
 
 fn may_declare_members(items: &[ast::EnumItem]) -> bool {
     items.iter().any(|item| match item {
-        ast::EnumItem::Member(_) | ast::EnumItem::Insert(_) => true,
+        ast::EnumItem::Member(_) | ast::EnumItem::Insert(_) | ast::EnumItem::Using(_) => true,
         ast::EnumItem::If {
             then_items,
             else_items,
@@ -188,11 +190,58 @@ impl Compiler {
                         out,
                     )?;
                 }
+                ast::EnumItem::Using(value) => {
+                    self.collect_enum_using(value, scope, ty, previous, out)?;
+                }
                 ast::EnumItem::Insert(value) => {
                     let inserted = self.eval_insert_enum_items(scope, value)?;
                     self.collect_enum_items(&inserted, scope, ty, flags, previous, out)?;
                 }
             }
+        }
+        Ok(())
+    }
+
+    /// `using Other;` in an enum body declares `Other`'s members here, with the same values.
+    fn collect_enum_using(
+        &mut self,
+        value: &ast::Expr,
+        scope: ScopeId,
+        ty: TypeId,
+        previous: &mut Option<EntityId>,
+        out: &mut Vec<EntityId>,
+    ) -> Result<()> {
+        let source = self.eval_type(scope, value)?;
+        let TypeKind::Enum(source_id) = *self.ty.types.kind(source) else {
+            return err(value.span, "`using` in an enum body needs an enum type");
+        };
+        let members = self.ty.types.enums[source_id.0 as usize].members.clone();
+        let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
+            unreachable!()
+        };
+        for (name, member_value) in members {
+            if self.scope(scope).names.get(&name).is_some_and(|ids| {
+                ids.iter()
+                    .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
+            }) {
+                return err(
+                    value.span,
+                    format!("enum member `{name}` is declared more than once"),
+                );
+            }
+            let id = self.add_entity(
+                scope,
+                name,
+                value.span,
+                EntityKind::EnumMember {
+                    ty,
+                    initializer: Initializer::Constant(member_value),
+                },
+                true,
+            );
+            self.ide_note_enum_member(enum_id, name, value.span);
+            out.push(id);
+            *previous = Some(id);
         }
         Ok(())
     }
@@ -249,6 +298,7 @@ impl Compiler {
                 };
                 (value, span)
             }
+            Initializer::Constant(value) => (*value, span),
             Initializer::PendingOrder => {
                 return err(
                     span,
