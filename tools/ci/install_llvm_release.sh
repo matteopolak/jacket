@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download (cached by archive name under $RUNNER_TEMP/llvm-download), unpack and register the official
+# Download (to $RUNNER_TEMP/llvm-download, with retries; nothing caches it between runs), unpack and register the official
 # LLVM release archive for ci.yml's Windows setup and release.yml's static builds.
 #
 #   LLVM_VERSION=23.1.2 install_llvm_release.sh LLVM-23.1.2-Linux-X64.tar.xz
@@ -23,7 +23,7 @@ download=$temp/llvm-download
 llvm=$temp/llvm
 if [[ ! -f "$download/$archive" ]]; then
   mkdir -p "$download"
-  curl -fsSL -o "$download/$archive" "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/$archive"
+  curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$download/$archive" "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/$archive"
 fi
 mkdir -p "$llvm"
 tar -xJf "$download/$archive" -C "$llvm" --strip-components=1

@@ -175,12 +175,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/ci/check_dependency_age.py
-      # The download is cached by archive name; ci.yml's Windows setup uses the same key and path.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
-        with:
-          path: ${{ runner.temp }}/llvm-download
-          key: llvm-${{ matrix.llvm }}
+      # Downloaded from the LLVM release each run: the archives are 0.8-2 GB, and cached copies would fill the repository's cache budget for no saving.
       - name: Install the official LLVM release (static libraries)
         if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
         env:
