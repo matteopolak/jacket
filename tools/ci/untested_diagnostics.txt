@@ -144,8 +144,6 @@ internal: signature/parameter mismatch
 invalid operand sizes in `{}`
 invalid unicode escape
 invalid using target
-lambda has the wrong number of parameters
-lambda takes {} parameters, but {} expects {}
 library directive needs a name
 library name must be a string literal
 macro `{}` cannot be used as a procedure value
@@ -180,6 +178,7 @@ retained runtime configuration dependency has no target image
 return value has no name to assign
 runtime defines multiple private extensions `{}`
 signature of `{}` depends on itself
+signedness mismatch: the constant {} does not fit in `{}`
 strings can only be compared with == and !=
 struct `{}` contains itself (use a pointer)
 target TEMPORARY_STORAGE_SIZE was bound to {}, but the final workspace temporary_storage_size is {}
@@ -191,7 +190,6 @@ the scale of a memory operand must be a constant
 the size after `?` must be a type or a number of bits
 this expression has no value, so it cannot be a constant's value
 this field target cannot be assigned
-too many values for {}
 two procedures with this name have identical parameter types
 type {} has no constant member `{}`
 types can only be compared with == and !=

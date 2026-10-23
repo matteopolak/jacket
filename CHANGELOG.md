@@ -45,6 +45,7 @@
 - Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.
 - Struct literal completion lists fields in declaration order and selects the first one left (#29).
 - Operators on a struct from a namespaced import, such as `u + v` on `Math.Vector2`, work without `using`, with a warning and quick fix that write the call as `Math.operator +(u, v)`; an operator that nothing reaches suggests the import or alias that has it.
+- Errors in calls, declarations and assignments say more: a call with the wrong number of arguments shows the callee's signature and can drop the extra ones, a repeated name points at the first, assigning to a constant or an argument says how to declare or copy it, and enum values, struct literals, lambdas and name counts that don't fit get a note or a fix.
 
 ### Changed
 

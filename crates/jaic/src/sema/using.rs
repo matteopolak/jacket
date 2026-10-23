@@ -3,8 +3,8 @@
 use super::scope::UsingEntry;
 use super::value::Aggregate;
 use super::{
-    Compiler, Diagnostic, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast, err, ir,
-    scope,
+    Compiler, Diagnostic, EntityId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast,
+    err, ir, scope,
 };
 use crate::types::{ArrayKind, TypeKind};
 
@@ -40,6 +40,10 @@ fn public_filter_name(name: Sym) -> Sym {
     }
 }
 
+#[expect(
+    clippy::unnecessary_box_returns,
+    reason = "the diagnostics are boxed because the error type carries them boxed; callers pass them through `Err`"
+)]
 impl Compiler {
     /// Resolve a computed only/except list once. Mapper calls require an aggregate.
     pub(super) fn resolve_name_filter(
@@ -305,7 +309,7 @@ impl Compiler {
         }
         for (name, span) in declared {
             if name.as_str() != "_" && self.aggregate_using_member(&entry, name)?.is_some() {
-                return err(span, format!("Redeclaration of '{name}'."));
+                return Err(self.using_member_clash(name, span, &entry));
             }
         }
         self.push_using(scope, entry);
@@ -329,9 +333,57 @@ impl Compiler {
             if entry.place_entity().is_some()
                 && self.aggregate_using_member(&entry, name)?.is_some()
             {
-                return err(span, format!("Redeclaration of '{name}'."));
+                return Err(self.using_member_clash(name, span, &entry));
             }
         }
         Ok(())
+    }
+
+    /// The error for declaring `name` at `span` in a scope where `using` already brings in a
+    /// member of that name through the variable of `entry`.
+    fn using_member_clash(&self, name: Sym, span: Span, entry: &UsingEntry) -> Box<Diagnostic> {
+        let mut d = Diagnostic::error(span, format!("`{name}` is already declared in this scope"))
+            .with_label("declared again here");
+        let Some(owner) = entry.place_entity().map(|id| self.entity(id)) else {
+            return Box::new(d);
+        };
+        let owner_name = owner.name;
+        if owner.span != Span::NONE {
+            d = d.with_note(
+                owner.span,
+                format!("`{name}` is a member of `{owner_name}`, which `using` brings into scope"),
+            );
+        }
+        Box::new(d.with_help(format!(
+            "use another name, or write `{owner_name}.{name}` for the member"
+        )))
+    }
+
+    /// The error for using `name` where the `using` variables `providers` all have a member of
+    /// that name.
+    pub(in crate::sema) fn ambiguous_using_member(
+        &self,
+        name: Sym,
+        span: Span,
+        providers: &[EntityId],
+    ) -> Box<Diagnostic> {
+        let mut d = Diagnostic::error(
+            span,
+            format!(
+                "`{name}` is ambiguous: more than one `using` variable has a member of that name"
+            ),
+        );
+        let mut spelled = Vec::new();
+        for &id in providers {
+            let owner = self.entity(id);
+            if owner.span != Span::NONE {
+                d = d.with_note(
+                    owner.span,
+                    format!("`{}` has a member `{name}`", owner.name),
+                );
+            }
+            spelled.push(format!("`{}.{name}`", owner.name));
+        }
+        Box::new(d.with_help(format!("say which one you mean: {}", spelled.join(" or "))))
     }
 }

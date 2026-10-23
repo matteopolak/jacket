@@ -334,10 +334,15 @@ impl Compiler {
                 let module = self.scope(scope).module;
                 let full = self.file_dir(file).join(&**path);
                 if self.file_is_loaded(&full, module) {
-                    return err(
-                        *span,
-                        format!("Redeclaration: '{path}' is already loaded into this module."),
-                    );
+                    return Err(Box::new(
+                        crate::sema::Diagnostic::error(
+                            *span,
+                            format!("`{path}` is already loaded into this module"),
+                        )
+                        .with_help(
+                            "remove this `#load`; the file's declarations are already there",
+                        ),
+                    ));
                 }
                 self.load_file(&full, module, *span)?;
             }

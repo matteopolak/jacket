@@ -171,30 +171,36 @@ impl Compiler {
         Ok(Found::Entities(found))
     }
 
-    /// Whether two `using` values declared in the scope that provides `name` both bring it
-    /// into scope, so the name cannot say which one it means.
-    pub(in crate::sema) fn using_name_is_ambiguous(
+    /// The `using` variables of the scope that provides `name` when two or more of them bring
+    /// it into scope, so the name cannot say which one it means; empty otherwise.
+    pub(in crate::sema) fn ambiguous_using_providers(
         &mut self,
         scope: ScopeId,
         name: Sym,
-    ) -> Result<bool> {
+    ) -> Result<Vec<EntityId>> {
         let mut current = Some(scope);
         while let Some(sid) = current {
-            let mut providers = 0;
+            let mut providers = Vec::new();
             for k in 0..self.scope(sid).usings.len() {
                 let entry = self.scope(sid).usings[k].clone();
-                if matches!(entry, UsingEntry::Place { .. })
+                if let UsingEntry::Place {
+                    entity, ..
+                } = entry
                     && self.aggregate_using_member(&entry, name)?.is_some()
                 {
-                    providers += 1;
+                    providers.push(entity);
                 }
             }
-            if providers > 0 {
-                return Ok(providers > 1);
+            if !providers.is_empty() {
+                return Ok(if providers.len() > 1 {
+                    providers
+                } else {
+                    Vec::new()
+                });
             }
             current = self.scope(sid).parent;
         }
-        Ok(false)
+        Ok(Vec::new())
     }
 
     /// Merge `ids` into `found`; returns true when the lookup must stop

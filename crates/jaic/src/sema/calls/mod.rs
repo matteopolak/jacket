@@ -29,6 +29,7 @@ mod baking;
 mod builtins;
 mod constants;
 mod cost;
+mod count_hints;
 mod emit;
 mod infer;
 mod intrinsics;

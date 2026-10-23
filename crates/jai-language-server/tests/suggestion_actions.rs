@@ -203,3 +203,21 @@ fn a_conversion_error_offers_the_cast_as_a_quick_fix() {
     assert_eq!(edits[0].new_text, "cast(s32) a");
     assert_eq!(edits[0].range.start, at_nth(text, "a;", 0, 0));
 }
+
+#[test]
+fn an_enum_value_out_of_range_offers_to_widen_the_enum() {
+    let text = "E :: enum u8 { A :: 300; }\nmain :: () {}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let fixes = quick_fixes(&s, text, "300");
+    assert_eq!(fixes.len(), 1, "{fixes:?}");
+    assert_eq!(fixes[0].title, "Widen the enum to `u16`");
+    // The widened type is a guess about what the author wants.
+    assert!(!fixes[0].is_preferred);
+    let (target, edits) = fixes[0].edit.as_ref().unwrap();
+    assert_eq!(target, uri().as_str());
+    assert_eq!(edits.len(), 1);
+    assert_eq!(edits[0].new_text, "u16");
+    assert_eq!(edits[0].range.start, at_nth(text, "u8", 0, 0));
+    assert_eq!(edits[0].range.end, at_nth(text, "u8", 0, 2));
+}

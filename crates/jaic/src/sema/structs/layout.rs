@@ -211,6 +211,7 @@ impl Compiler {
         let mut sizes = Vec::new();
         let mut layout = Vec::new();
         let mut names = HashMap::default();
+        let mut declared_at: HashMap<Sym, Span> = HashMap::default();
         for item in items {
             match item {
                 FieldItem::Declaration(..) => unreachable!("field declarations were resolved"),
@@ -229,12 +230,19 @@ impl Compiler {
                     // `_` is a placeholder: it can repeat and is not a name to anchor `#place` on.
                     if let Some(name) = d.name
                         && name.as_str() != "_"
-                        && names.insert(name, index).is_some()
                     {
-                        return err(
-                            d.span,
-                            format!("member `{name}` is declared more than once"),
-                        );
+                        if names.insert(name, index).is_some() {
+                            let mut e = Diagnostic::error(
+                                d.span,
+                                format!("member `{name}` is declared more than once"),
+                            )
+                            .with_label("declared again here");
+                            if let Some(&first) = declared_at.get(&name) {
+                                e = e.with_note(first, format!("`{name}` is first declared here"));
+                            }
+                            return Err(Box::new(e));
+                        }
+                        declared_at.insert(name, d.span);
                     }
                     if d.using
                         && let Some(filter) = d.filter.clone()

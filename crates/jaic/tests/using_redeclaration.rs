@@ -22,7 +22,10 @@ fn a_declaration_reusing_a_used_member_is_rejected() {
         "using o; y := 1;",
     ] {
         let message = outcome(body).expect_err(body);
-        assert!(message.contains("Redeclaration of '"), "{body}: {message}");
+        assert!(
+            message.contains("is already declared in this scope"),
+            "{body}: {message}"
+        );
     }
 }
 

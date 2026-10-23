@@ -115,7 +115,7 @@ impl Compiler {
         // `.{a.b = v, xs[1] = w}`: assigned after the ordinary fields.
         let (targeted, args): (Vec<&ast::Arg>, Vec<&ast::Arg>) =
             args.iter().partition(|a| a.target.is_some());
-        for arg in args {
+        for (k, arg) in args.iter().enumerate() {
             let (path, mty) = if let Some(n) = arg.name {
                 // The type a field name here belongs to, for completing it.
                 self.ed.inferred(n.span, ty);
@@ -131,10 +131,7 @@ impl Compiler {
                 }
             } else {
                 let Some(&(_, mty, off)) = members.get(positional) else {
-                    return err(
-                        arg.value.span,
-                        format!("too many values for {}", self.ty.types.name(ty)),
-                    );
+                    return Err(self.too_many_values(ty, &members, &args, k));
                 };
                 positional += 1;
                 (vec![PathStep::Offset(off)], mty)
@@ -147,7 +144,7 @@ impl Compiler {
         // one may be left out, and an overlay shares another field's storage.
         let needed = self.positional_values_needed(ty);
         if positional > 0 && positional < needed && values.len() == positional {
-            return err(span, "Not enough values provided in this struct literal.");
+            return Err(self.too_few_values(ty, &members, (positional, needed), span));
         }
         let all_const = values.iter().all(|(path, _, op, _)| {
             path.iter().all(|s| matches!(s, PathStep::Offset(_)))

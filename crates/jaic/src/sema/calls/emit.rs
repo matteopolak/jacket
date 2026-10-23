@@ -1,12 +1,14 @@
 //! Emitting a resolved call: argument operands, variadics, defaults and indirect calls.
 
+use super::count_hints::remove_extra_arguments;
 use super::{
     ArrayKind, CallArg, Candidate, Compiler, Diagnostic, E, FnCtx, Operand, ProcTarget,
     ProcTypeParams, Rc, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
     c_vararg_promote, err, ir, procs,
 };
-use crate::sema::ProcState;
+use crate::sema::DiagnosticKind;
 use crate::sema::TypeState;
+use crate::source::{Applicability, Suggestion};
 
 impl Compiler {
     /// Emit a resolved call, recording which of its results are `#must`.
@@ -416,7 +418,8 @@ impl Compiler {
         let mut slots: Vec<Option<CallArg>> = vec![None; n];
         let mut extra = Vec::new();
         let mut next = 0;
-        for arg in args {
+        let all_args = args.clone();
+        for (position, arg) in args.into_iter().enumerate() {
             let i = if let Some(name) = arg.name {
                 info.names
                     .iter()
@@ -438,10 +441,16 @@ impl Compiler {
                     extra.push(arg);
                     continue;
                 }
-                return err(
+                let mut d = Diagnostic::error(
                     arg.span,
-                    format!("too many arguments (expected at most {n})"),
-                );
+                    format!("too many arguments: it takes at most {n}"),
+                )
+                .with_kind(DiagnosticKind::ArgumentCount)
+                .with_label("this argument has no parameter");
+                if let Some(remove) = remove_extra_arguments(&all_args, position) {
+                    d = d.with_suggestion(remove);
+                }
+                return Err(Box::new(d));
             }
             if slots[i].is_some() {
                 return err(
@@ -467,7 +476,14 @@ impl Compiler {
                     span: default.span,
                     scope: info.scope,
                 }),
-                (None, None) => err(span, format!("missing argument {}", i + 1)),
+                (None, None) => {
+                    let mut d = Diagnostic::error(span, format!("missing argument {}", i + 1))
+                        .with_kind(DiagnosticKind::ArgumentCount);
+                    if let Some(name) = info.names[i] {
+                        d = d.with_label(format!("no value for parameter `{name}`"));
+                    }
+                    Err(Box::new(d))
+                }
             })
             .collect::<Result<Vec<_>>>()?;
         ordered.extend(extra);
@@ -494,21 +510,25 @@ impl Compiler {
             .map(|info| info.returns.clone())
             .unwrap_or_default();
         if let Some(info) = parameters {
-            args = self.order_indirect_args(&info, args, pt.c_varargs, span)?;
+            args = self
+                .order_indirect_args(&info, args, pt.c_varargs, span)
+                .map_err(|d| self.with_type_note(*d, ty))?;
         } else if args.iter().any(|arg| arg.name.is_some()) {
             return err(span, "named arguments require a known callable declaration");
         }
         if args.len() < pt.params.len()
             || (!pt.c_varargs && !pt.variadic && args.len() > pt.params.len())
         {
-            return err(
+            let d = Diagnostic::error(
                 span,
                 format!(
                     "expected {} arguments, found {}",
                     pt.params.len(),
                     args.len()
                 ),
-            );
+            )
+            .with_kind(DiagnosticKind::ArgumentCount);
+            return Err(self.with_type_note(d, ty));
         }
         let mut values = Vec::new();
         if !pt.no_context {
@@ -574,23 +594,53 @@ impl TypeState {
     }
 }
 
-impl ProcState {
+impl Compiler {
     /// Error when a call at `call_span` leaves one of its `#must` results unused; only the
     /// first `used` results are taken (0 for a call statement). Checked when the call's code
     /// is generated, so a violation inside never-expanded macro code is harmless.
     pub(in crate::sema) fn check_must_used(&mut self, call_span: Span, used: usize) -> Result<()> {
-        let Some((span, name, must)) = self.last_call_must.take() else {
+        let Some((span, name, must)) = self.pr.last_call_must.take() else {
             return Ok(());
         };
         if span != call_span {
             return Ok(());
         }
-        if must.iter().skip(used).any(|&m| m) {
-            return err(
-                call_span,
-                format!("the result of `{name}` is marked #must and cannot be discarded"),
+        if !must.iter().skip(used).any(|&m| m) {
+            return Ok(());
+        }
+        let mut d = Diagnostic::error(
+            call_span,
+            format!("the result of `{name}` is marked #must and cannot be discarded"),
+        );
+        if used > 0 {
+            return Err(Box::new(d.with_help(format!(
+                "`{name}` returns {} results: take all of them, using `_` for the ones you do not need",
+                must.len()
+            ))));
+        }
+        d = d.with_help(format!("or use the result: `result := {name}(...);`"));
+        // `_ := f();` (`_, _ :=` for several results) is the way to drop a result on purpose,
+        // written in front of a call that starts its statement.
+        let text = &self.src.sources.get(call_span.file).text;
+        let line_start = text
+            .get(..call_span.start as usize)
+            .and_then(|head| head.rfind('\n'))
+            .map_or(0, |n| n + 1);
+        let before = text
+            .get(line_start..call_span.start as usize)
+            .unwrap_or("x");
+        if before.trim().is_empty() && !self.src.sources.snippet(call_span).is_empty() {
+            let discard = vec!["_"; must.len()].join(", ");
+            d = d.with_suggestion(
+                Suggestion::insert(
+                    format!("discard the result on purpose with `{discard} := ...`"),
+                    call_span,
+                    format!("{discard} := "),
+                    Applicability::MaybeIncorrect,
+                )
+                .with_action("Discard the result with `_`"),
             );
         }
-        Ok(())
+        Err(Box::new(d))
     }
 }

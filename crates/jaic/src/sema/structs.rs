@@ -4,6 +4,7 @@ mod access;
 mod defaults;
 mod fields;
 mod layout;
+mod literal_hints;
 mod literals;
 mod members;
 mod model;

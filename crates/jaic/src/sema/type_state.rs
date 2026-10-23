@@ -43,6 +43,8 @@ pub struct TypeState {
     /// The shapes `#type (value: *$T)` aliases name: patterns that match types, not values.
     pub(in crate::sema) poly_aliases: HashSet<TypeId>,
     pub(in crate::sema) enum_member_scopes: HashMap<TypeId, ScopeId>,
+    /// Where an enum writes its backing type (`enum u8 { ... }`), for the fix that widens it.
+    pub(in crate::sema) enum_base_spans: HashMap<TypeId, crate::source::Span>,
     /// Names an enum reaches through `using Other;` in its body, with their values. They are
     /// not members of the enum.
     pub(in crate::sema) enum_borrowed: HashMap<TypeId, Vec<(Sym, i128)>>,
@@ -81,6 +83,7 @@ impl Default for TypeState {
             anonymous: HashMap::default(),
             poly_aliases: HashSet::default(),
             enum_member_scopes: HashMap::default(),
+            enum_base_spans: HashMap::default(),
             enum_borrowed: HashMap::default(),
             member_aliases: HashMap::default(),
             using_filters: HashMap::default(),

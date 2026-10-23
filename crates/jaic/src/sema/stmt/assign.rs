@@ -4,7 +4,8 @@ use crate::sema::calls::CallArg;
 use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::{EntityKind, Found};
 use crate::sema::{
-    Compiler, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err, ir, procs,
+    Compiler, Diagnostic, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err, ir,
+    procs,
 };
 use crate::types::{ArrayKind, TypeKind};
 
@@ -231,12 +232,13 @@ impl Compiler {
         if let Some(used) = lenient {
             self.warn_lenient_operator(scope, span, &text, used, None);
         }
+        let place = self.check_expr(f, scope, target, None)?;
         let Operand::Place {
             ty,
             addr,
-        } = self.check_expr(f, scope, target, None)?
+        } = place
         else {
-            return err(target.span, "cannot assign to this expression");
+            return Err(self.not_assignable(scope, target, &place));
         };
         let value = self.check_expr(f, scope, rhs, None)?;
         let arg = |op: Operand| CallArg {
@@ -301,13 +303,17 @@ impl Compiler {
             } = operand
                 && !matches!(value, Value::Type(_) | Value::Null)
             {
-                return err(
+                let d = Diagnostic::error(
                     target.span,
                     format!(
                         "cannot assign into the constant `{}`",
                         self.src.sources.snippet(base.span).trim()
                     ),
                 );
+                return Err(Box::new(match base.kind {
+                    E::Ident(name) => self.constant_declaration_hints(d, scope, name),
+                    _ => d,
+                }));
             }
             container = base;
         }
@@ -328,15 +334,13 @@ impl Compiler {
                 } = self.entity(entity).kind
                 && let Some(&(_, why)) = f.immutable.iter().find(|(a, _)| *a == addr)
             {
-                return err(
-                    target.span,
-                    match why {
-                        Immutable::Argument => "Can't assign to an immutable argument.",
-                        Immutable::Iterator => {
-                            "Can't assign to a large-value iterator. Perhaps you want to iterate by pointer (for *)."
-                        }
-                    },
-                );
+                return Err(match why {
+                    Immutable::Argument => self.immutable_argument(f, entity, *name, target.span),
+                    Immutable::Iterator => Box::new(Diagnostic::error(
+                        target.span,
+                        "Can't assign to a large-value iterator. Perhaps you want to iterate by pointer (for *).",
+                    )),
+                });
             }
         }
         Ok(())
@@ -456,7 +460,7 @@ impl Compiler {
                 addr,
             } = place
             else {
-                return err(lhs[0].span, "cannot assign to this expression");
+                return Err(self.not_assignable(scope, &lhs[0], &place));
             };
             if self.is_plain_variable_target(scope, &lhs[0]) {
                 // A variable (or a field of one) has the same address every time it is named,
@@ -517,10 +521,7 @@ impl Compiler {
                 addr,
             } = place
             else {
-                return err(
-                    lhs[0].span,
-                    format!("cannot assign to {}", self.describe(&place)),
-                );
+                return Err(self.not_assignable(scope, &lhs[0], &place));
             };
             let value = self.check_expr(f, scope, &rhs[0], Some(ty))?;
             let value = self.convert(f, value, ty, rhs[0].span)?;
@@ -566,7 +567,7 @@ impl Compiler {
                                 addr,
                             } = place
                             else {
-                                return err(l.span, "cannot assign to this expression");
+                                return Err(self.not_assignable(scope, l, &place));
                             };
                             let op = self.convert(f, other.clone(), ty, rhs[0].span)?;
                             let (_, v) = self.rvalue(f, op, l.span)?;
@@ -618,10 +619,7 @@ impl Compiler {
             }
         }
         if values.len() < lhs.len() {
-            return err(
-                span,
-                format!("expected {} values, found {}", lhs.len(), values.len()),
-            );
+            return Err(self.count_mismatch(span, (lhs.len(), "targets"), values.len(), &[]));
         }
         for (l, (vty, v)) in lhs.iter().zip(values) {
             if let E::Ident(name) = &l.kind
@@ -635,7 +633,7 @@ impl Compiler {
                 addr,
             } = place
             else {
-                return err(l.span, "cannot assign to this expression");
+                return Err(self.not_assignable(scope, l, &place));
             };
             let op = self.convert(
                 f,

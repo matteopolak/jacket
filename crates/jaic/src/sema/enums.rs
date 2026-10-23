@@ -52,6 +52,9 @@ impl Compiler {
             span: lit.span,
         });
         self.ty.nominal_origins.insert(ty, (lit.span, scope));
+        if let Some(base) = &lit.base {
+            self.ty.enum_base_spans.insert(ty, base.span);
+        }
         let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };
@@ -120,13 +123,7 @@ impl Compiler {
                         .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
                 })
             {
-                return err(
-                    member.name.span,
-                    format!(
-                        "enum member `{}` is declared more than once",
-                        member.name.name
-                    ),
-                );
+                return Err(self.duplicate_enum_member(scope, member.name.name, member.name.span));
             }
             let initializer = match &member.value {
                 Some(value) => Initializer::Explicit(value.clone()),
@@ -231,10 +228,7 @@ impl Compiler {
                 ids.iter()
                     .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
             }) {
-                return err(
-                    value.span,
-                    format!("enum member `{name}` is declared more than once"),
-                );
+                return Err(self.duplicate_enum_member(scope, name, value.span));
             }
             self.add_entity(
                 scope,
@@ -320,17 +314,7 @@ impl Compiler {
         if let Some((bits, signed)) = self.ty.types.int_info(ty)
             && !super::convert::int_constant_fits(value, bits, signed, true)
         {
-            return err(
-                at,
-                format!(
-                    "enum value {value} is out of range for the enum's type {}{bits}",
-                    if signed {
-                        "s"
-                    } else {
-                        "u"
-                    }
-                ),
-            );
+            return Err(self.enum_value_out_of_range(ty, value, (u32::from(bits), signed), at));
         }
         Ok(Resolved::Const {
             value: Value::Int(value),

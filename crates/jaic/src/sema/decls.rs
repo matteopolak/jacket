@@ -261,10 +261,14 @@ impl Compiler {
         let value = match index {
             _ if listed == 1 => value,
             _ if listed != decl.names.len() => {
-                return err(
+                let written: Vec<&ast::Expr> =
+                    std::iter::once(value).chain(decl.extra_values()).collect();
+                return Err(self.count_mismatch(
                     decl.span,
-                    format!("{} names but {listed} values", decl.names.len()),
-                );
+                    (decl.names.len(), "names"),
+                    listed,
+                    &written,
+                ));
             }
             0 => value,
             i => &decl.extra_values()[i - 1],
@@ -391,10 +395,12 @@ impl Compiler {
             match values.get(index) {
                 Some(op) => op.clone(),
                 None => {
-                    return err(
+                    return Err(self.count_mismatch(
                         decl.span,
-                        format!("{} names but {} values", decl.names.len(), values.len()),
-                    );
+                        (decl.names.len(), "names"),
+                        values.len(),
+                        &[],
+                    ));
                 }
             }
         } else {

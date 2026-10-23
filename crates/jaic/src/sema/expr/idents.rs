@@ -148,8 +148,11 @@ impl Compiler {
                     }
                     _ => None,
                 };
-                if place.is_some() && self.using_name_is_ambiguous(scope, member)? {
-                    return err(span, format!("Redeclaration of '{member}'."));
+                if place.is_some() {
+                    let providers = self.ambiguous_using_providers(scope, member)?;
+                    if !providers.is_empty() {
+                        return Err(self.ambiguous_using_member(member, span, &providers));
+                    }
                 }
                 let op = self.using_member(f, entry, member, span)?;
                 // `name` stands for `value.name`: hover and go to definition treat it as the field.
@@ -304,10 +307,16 @@ impl Compiler {
                         if ids.len() == 1 {
                             return self.entity_operand(f, scope, id, span);
                         }
-                        return err(
-                            span,
-                            format!("`{}` is declared more than once", self.entity(id).name),
-                        );
+                        let name = self.entity(id).name;
+                        let mut d =
+                            Diagnostic::error(span, format!("`{name}` is declared more than once"));
+                        for &other in ids {
+                            let at = self.entity(other).span;
+                            if at != Span::NONE {
+                                d = d.with_note(at, format!("`{name}` is declared here"));
+                            }
+                        }
+                        return Err(Box::new(d));
                     }
                 }
             }

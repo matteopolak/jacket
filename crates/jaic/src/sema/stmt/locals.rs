@@ -71,10 +71,11 @@ impl Compiler {
                     addr,
                 } = place
                 else {
-                    return err(
-                        name.span,
-                        format!("cannot assign to {}", self.describe(&place)),
-                    );
+                    let target = ast::Expr {
+                        kind: ast::ExprKind::Ident(name.name),
+                        span: name.span,
+                    };
+                    return Err(self.not_assignable(scope, &target, &place));
                 };
                 let value = self.convert(f, value, ty, name.span)?;
                 let (_, v) = self.rvalue(f, value, name.span)?;
@@ -348,10 +349,7 @@ impl Compiler {
             let exprs: Vec<&ast::Expr> =
                 std::iter::once(first).chain(decl.extra_values()).collect();
             if exprs.len() != names {
-                return err(
-                    decl.span,
-                    format!("expected {names} values, found {}", exprs.len()),
-                );
+                return Err(self.count_mismatch(decl.span, (names, "names"), exprs.len(), &exprs));
             }
             let mut values = Vec::new();
             for e in exprs {
@@ -384,17 +382,14 @@ impl Compiler {
         {
             let ops = self.eval_const_all(scope, first)?;
             if ops.len() < names {
-                return err(
-                    first.span,
-                    format!("{names} names but {} values", ops.len()),
-                );
+                return Err(self.count_mismatch(first.span, (names, "names"), ops.len(), &[]));
             }
             return Ok(ops.into_iter().take(names).map(Some).collect());
         }
         self.pr.last_call_must = None;
         let first_op = self.check_expr(f, scope, first, declared)?;
         if matches!(first.kind, E::Call { .. }) {
-            self.pr.check_must_used(first.span, names)?;
+            self.check_must_used(first.span, names)?;
             // `a, b := f(1);` with one result: the call has too few values to split.
             let count = match &first_op {
                 Operand::Multi(vals) => vals.len(),
@@ -402,17 +397,27 @@ impl Compiler {
                 _ => 1,
             };
             if names > 1 && count < names {
-                return err(
-                    first.span,
-                    format!(
-                        "{names} names but the call returns {count} value{}",
+                return Err(Box::new(
+                    Diagnostic::error(
+                        first.span,
+                        format!(
+                            "{names} names but the call returns {count} value{}",
+                            if count == 1 {
+                                ""
+                            } else {
+                                "s"
+                            }
+                        ),
+                    )
+                    .with_help(format!(
+                        "name only the {count} value{} the call returns, or call something that returns {names}",
                         if count == 1 {
                             ""
                         } else {
                             "s"
                         }
-                    ),
-                );
+                    )),
+                ));
             }
         }
         Ok(match first_op {

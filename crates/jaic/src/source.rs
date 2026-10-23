@@ -535,6 +535,9 @@ pub enum DiagnosticKind {
     /// An operator overload that is not in scope, accepted because the operand type's own
     /// module declares it.
     OperatorOutOfScope,
+    /// A call passes more arguments than the callee takes, or leaves out one it needs. A
+    /// call's mismatch note shows the callee's parameters for it.
+    ArgumentCount,
     /// Compile-time code was not run because the workspace is untrusted (editor trust mode):
     /// the value is unknown, not wrong, so editors do not report it.
     Untrusted,
@@ -563,6 +566,7 @@ impl DiagnosticKind {
             DiagnosticKind::ModifyWithoutPolymorphs => Some("modify-without-polymorphs"),
             DiagnosticKind::Runtime => Some("runtime-error"),
             DiagnosticKind::OperatorOutOfScope => Some("operator-out-of-scope"),
+            DiagnosticKind::ArgumentCount => Some("argument-count"),
             DiagnosticKind::Untrusted => Some("untrusted"),
         }
     }

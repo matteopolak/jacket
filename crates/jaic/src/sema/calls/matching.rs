@@ -41,7 +41,10 @@ impl Compiler {
             },
             message: format!("in call to `{name}`: {}", error.message),
             // Structural binding failures retain their machine-readable contract kind.
-            kind: if error.kind == DiagnosticKind::InterfaceConstraint {
+            kind: if matches!(
+                error.kind,
+                DiagnosticKind::InterfaceConstraint | DiagnosticKind::ArgumentCount
+            ) {
                 error.kind
             } else {
                 DiagnosticKind::Other
@@ -52,6 +55,9 @@ impl Compiler {
             header.file == span.file && header.start < span.end && span.start < header.end;
         if header != Span::NONE && !overlaps {
             d.notes.push((header, format!("`{name}` is declared here")));
+        }
+        if d.kind == DiagnosticKind::ArgumentCount {
+            d = self.with_signature_note(d, name, header);
         }
         d
     }
@@ -156,6 +162,7 @@ impl Compiler {
                                 span,
                                 format!("missing argument for parameter `{name}`"),
                             )
+                            .with_kind(DiagnosticKind::ArgumentCount)
                             .with_help(format!(
                                 "pass a value for `{name}`, or give the parameter a default value (`{name} := ...`)"
                             )),

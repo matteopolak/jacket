@@ -1,5 +1,6 @@
 //! Statement checking and lowering.
 mod assign;
+mod assign_hints;
 mod block;
 mod branch;
 mod insert;

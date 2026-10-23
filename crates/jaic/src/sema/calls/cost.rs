@@ -218,16 +218,8 @@ impl Compiler {
             {
                 match self.ty.types.kind(param) {
                     TypeKind::Proc(pt) if pt.params.len() == header.params.len() => {}
-                    TypeKind::Proc(pt) => {
-                        return err(
-                            arg.span,
-                            format!(
-                                "lambda takes {} parameters, but {} expects {}",
-                                header.params.len(),
-                                self.ty.types.name(param),
-                                pt.params.len()
-                            ),
-                        );
+                    TypeKind::Proc(_) => {
+                        return Err(self.lambda_arity_error(header.params.len(), param, arg.span));
                     }
                     _ => {
                         return err(

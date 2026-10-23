@@ -411,7 +411,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "parse": "cannot assign to constant"
+        "parse": "cannot assign to the result of an operator"
       }
     },
     {
@@ -1651,7 +1651,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot assign to constant 3 of type s64"
+        "check": "cannot assign to constant `N`"
       }
     },
     {
@@ -2753,7 +2753,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "enum value 256 is out of range for the enum's type u8"
+        "check": "enum value 256 is out of range for the enum's type `u8`"
       }
     },
     {
@@ -3773,7 +3773,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Not enough values provided in this struct literal."
+        "check": "not enough values in this struct literal"
       }
     },
     {
@@ -3786,7 +3786,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Redeclaration of 'model'."
+        "check": "`model` is ambiguous"
       }
     },
     {
@@ -3799,7 +3799,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Redeclaration: 'load-twice-support.jai' is already loaded into this module."
+        "check": "`load-twice-support.jai` is already loaded into this module"
       }
     },
     {
@@ -4111,7 +4111,7 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot assign to constant 5 of type s64"
+        "check": "cannot assign to constant `LIMIT`"
       }
     },
     {

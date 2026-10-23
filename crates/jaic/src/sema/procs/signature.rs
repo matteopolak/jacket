@@ -198,18 +198,22 @@ impl Compiler {
                 format!("signature of `{}` depends on itself", self.proc(id).name),
             );
         }
-        let mut seen: Vec<Sym> = Vec::new();
+        let mut seen: Vec<(Sym, Span)> = Vec::new();
         for param in &self.proc(id).lit.header.params {
             if let Some(name) = param.name
                 && name.name.as_str() != "_"
             {
-                if seen.contains(&name.name) {
-                    return err(
-                        name.span,
-                        format!("`{}` is already declared in this scope", name.name),
-                    );
+                if let Some(&(_, first)) = seen.iter().find(|(n, _)| *n == name.name) {
+                    return Err(Box::new(
+                        Diagnostic::error(
+                            name.span,
+                            format!("`{}` is already declared in this scope", name.name),
+                        )
+                        .with_label("declared again here")
+                        .with_note(first, format!("`{}` is first declared here", name.name)),
+                    ));
                 }
-                seen.push(name.name);
+                seen.push((name.name, name.span));
             }
         }
         self.pr.procs[id.0 as usize].sig_resolving = true;

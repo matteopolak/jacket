@@ -7,7 +7,9 @@
 use super::lower::{FnCtx, Operand};
 use super::procs::ParamInfo;
 use super::scope::{EntityKind, Resolved, ScopeKind};
-use super::{Compiler, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir};
+use super::{
+    Compiler, Diagnostic, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
+};
 use crate::ast::ExprKind as E;
 use crate::types::TypeKind;
 
@@ -99,15 +101,7 @@ impl Compiler {
             return Ok(Operand::Procs(vec![proc]));
         };
         if pt.params.len() != header.params.len() {
-            return err(
-                span,
-                format!(
-                    "lambda takes {} parameters, but {} expects {}",
-                    header.params.len(),
-                    self.ty.types.name(expected),
-                    pt.params.len()
-                ),
-            );
+            return Err(self.lambda_arity_error(header.params.len(), expected, span));
         }
         let ret = pt.returns.first().copied().unwrap_or(TypeId::VOID);
         let inst = self.lambda_instance(proc, &pt.params, Some(ret), span)?;
@@ -244,7 +238,23 @@ impl Compiler {
             return Ok(());
         };
         if pattern_header.params.len() != header.params.len() {
-            return err(span, "lambda has the wrong number of parameters");
+            return Err(Box::new(
+                Diagnostic::error(
+                    span,
+                    format!(
+                        "lambda takes {}, but the parameter type expects {}",
+                        plural(header.params.len(), "parameter"),
+                        pattern_header.params.len()
+                    ),
+                )
+                .with_note(
+                    Span::NONE,
+                    format!(
+                        "the expected parameter type is `{}`",
+                        self.src.sources.snippet(pattern.span).trim()
+                    ),
+                ),
+            ));
         }
         let known = self.const_scope(def_scope, bindings.clone(), span);
         let mut params = Vec::new();
@@ -263,5 +273,49 @@ impl Compiler {
         let inst = self.lambda_instance(proc, &params, ret, span)?;
         let ty = self.proc_type(inst, span)?;
         self.match_pattern(pattern, ty, bindings, def_scope)
+    }
+}
+
+/// `1 parameter`, `2 parameters`.
+fn plural(count: usize, noun: &str) -> String {
+    format!(
+        "{count} {noun}{}",
+        if count == 1 {
+            ""
+        } else {
+            "s"
+        }
+    )
+}
+
+#[expect(
+    clippy::unnecessary_box_returns,
+    reason = "the diagnostics are boxed because the error type carries them boxed; callers pass them through `Err`"
+)]
+impl Compiler {
+    /// A lambda with `got` parameters where the procedure type `expected` takes another number:
+    /// the signature it has to fit.
+    pub(in crate::sema) fn lambda_arity_error(
+        &self,
+        got: usize,
+        expected: TypeId,
+        span: Span,
+    ) -> Box<Diagnostic> {
+        let wanted = match self.ty.types.kind(expected) {
+            TypeKind::Proc(pt) => pt.params.len(),
+            _ => 0,
+        };
+        let name = self.ty.types.name(expected);
+        Box::new(
+            Diagnostic::error(
+                span,
+                format!(
+                    "lambda takes {}, but `{name}` expects {wanted}",
+                    plural(got, "parameter")
+                ),
+            )
+            .with_label(format!("takes {got}, expected {wanted}"))
+            .with_note(Span::NONE, format!("the expected signature is `{name}`")),
+        )
     }
 }
