@@ -20,7 +20,7 @@ The recommendation is in [Recommendation and plan](#recommendation-and-plan). Th
 These facts about jaic decide most of the trade-offs below:
 
 - **Compile-time code has full host access.** `#run` and macros can open sockets, run processes and call foreign code ([compile-time execution](../metaprogramming/compile-time-execution.md)). Io fibers and Tls already run under the interpreter, since their tests run with `-interp`. So the runtime client can also be the compile-time client, with no second implementation.
-- **The language server can never reach a database.** Even trusted, `jailsp` runs compile-time code in `SandboxHost`, which has no network or process access and a block budget ([workspace trust](../tools/workspace-trust.md)). Editor support therefore needs everything on disk: a committed query cache and committed generated structs. A sqlx-style "connect at compile time" design alone would leave every query unknown in the editor.
+- **The language server cannot reach a database today.** Even trusted, `jailsp` runs compile-time code in `SandboxHost`, which has no network or process access and a block budget ([workspace trust](../tools/workspace-trust.md)). Instant editor feedback on raw queries is a goal, so phase 0 adds **compile-time services**: a narrow call that a trusted workspace serves from a long-lived `jaic -interp` worker (see [Editor feedback](#editor-feedback-phase-0)). The committed cache remains the offline and CI fallback.
 - **No wasm engine exists.** `Extensions/Wasi_Runtime` is the guest side: the libc a `jaic -os wasm` program links. It cannot load or run someone else's `.wasm`. PGlite would need a wasm runtime inside the compiler first, through upstream PGlite or a third-party WASI build (see [How types are learned](#how-types-are-learned-at-compile-time)).
 - **Available building blocks:**
   - SHA-1 and SHA-256 in `stdlib/internal/crypto/sha.jai`, and MD5 in `stdlib/md5`.
@@ -283,7 +283,9 @@ So PGlite is possible, but the cost and maturity are not worth it for typing alo
 2. **On a miss,** connect to the server named by `JACKET_DATABASE_URL`, falling back to `DATABASE_URL`, then write the entry.
    - With no URL and **managed mode on** (later phase), start the managed server instead (next paragraph).
    - With neither, the miss is a compile error that names the query and says how to fix it: `set DATABASE_URL or run jacket pg prepare`.
-3. **`JACKET_PG_OFFLINE=1`** (CI, editor) turns misses into errors and never connects.
+3. **`JACKET_PG_OFFLINE=1`** (CI) turns misses into errors and never connects.
+
+Steps 1 and 2 run inside the Postgres describe service ([Editor feedback](#editor-feedback-phase-0)), in the build and in the editor alike. The macro only builds a request and reads a response.
 
 **Migrated-schema cache.** Neither a dev database nor the managed server is trusted to have the right schema. The compile-time path:
 
@@ -294,6 +296,119 @@ So PGlite is possible, but the cost and maturity are not worth it for typing alo
 2. **Describe queries in a clone of it.** A clone is cheap, because `CREATE DATABASE ... TEMPLATE` is a file copy; one clone per build is enough, since describes don't write. The user's dev database is never touched.
 
 Old `jacket_*` templates beyond the newest N are dropped. This is the "cache the migrated schema by a hash of the migration files" idea from the TODO, and it works the same against any server.
+
+### Editor feedback (phase 0)
+
+Goal: in a trusted workspace, editing a raw query gives feedback on the next analysis, with no build and no command:
+
+- Postgres errors underline the exact span in the SQL string;
+- `it.` completes the columns;
+- hover shows each column's type and origin.
+
+Untrusted workspaces keep today's behaviour: compile-time code is refused and its results are unknown.
+
+#### Why today's sandbox can't do it
+
+`jailsp` runs compile-time code in `SandboxHost` even when trusted ([workspace trust](../tools/workspace-trust.md)). That host has:
+
+- an overlay file system (unsaved buffers, writes kept in memory);
+- no processes and no network;
+- a virtual clock, and cooperative "inline" threads that suspend by unwinding the interpreter;
+- a `BLOCK_BUDGET` per analysis.
+
+Fibers are refused there by one host check (`native_linking()` in `interp/fibers.rs`).
+
+The sandbox is not only a security boundary. **The language server re-runs every `#run` on every analysis**, many times a minute while typing. A metaprogram that writes a file, starts `cmake` or POSTs to a server must not do that on each keystroke, even when trusted. Any new capability has to be safe to repeat.
+
+#### Options
+
+**A. Grant capabilities inside the sandbox, and run the Jai client in the language server's interpreter.** Ordinary `#run` code in a trusted workspace would get:
+
+- network to localhost and the configured database host;
+- real environment variables;
+- fibers;
+- native foreign calls (for mbedTLS);
+- a real clock while waiting on the network;
+- a larger budget;
+- connections kept across analyses.
+
+This is more than "allow sockets":
+
+- **Io's OS surface.** Io talks to kqueue, epoll/io_uring or IOCP and runs resolver and file-pool threads. The sandbox would need to virtualise those per OS, mapping its descriptor numbers onto real sockets inside `kevent`/`epoll_event` structs, or Io would need a host-backed engine for compile time.
+- **Fibers and inline threads.** Lifting the fiber check is one line, but the sandbox's inline threads suspend only in the outermost interpreter call. A thread that blocks inside a fiber, which runs on its own native stack, cannot suspend. Io's resolver and file-pool threads would hit that. Fixing it means suspending through fiber stacks, which is real interpreter work. A spike that lifts the check needs explicit approval, since it changes the interpreter's sandbox; it has not been run.
+- **Clock.** The virtual clock jumps forward when nothing can run, so every network deadline would fire at once. Waits must use real time.
+- **TLS** needs native foreign calls into mbedTLS, which is arbitrary native code inside the language server process.
+- **Keeping connections across analyses** needs host-owned handles that outlive each fresh interpreter, plus reaping when an analysis is abandoned mid-query (budget, newer edit).
+- **SCRAM** costs about 8k interpreted SHA-256 compressions per connect, unless the connection or the salted password survives across analyses.
+- **Repetition.** If the policy is general, every trusted metaprogram can reach the network on every keystroke. If it is scoped, the sandbox needs a way to tell "the Postgres module's describe" from any other code, which per-symbol policies cannot do.
+
+**B. A host-side describe service written in Rust inside `jailsp`.** It is fast, with persistent connections, and has a narrow API (`describe(url, sql) -> columns`). But:
+
+- it is a second implementation of the protocol, auth and TLS, in Rust, next to the Jai client;
+- it puts Postgres-specific code (and probably a crate) in the language server;
+- the build (`jaic` CLI) would either duplicate it or diverge from the editor.
+
+**C. Trusted compile-time services: one narrow, general call, served by a long-lived `jaic -interp` worker.** Recommended.
+
+- **The call.** The Compiler module gains `compile_time_service(service_file: string, request: string) -> (response: string, status: Service_Status)`. A service is an ordinary Jai program with a handler:
+
+  ```jai
+  // Extensions/Postgres/describe_service.jai
+  #import "Extensions/Postgres";
+  handle :: (request: string) -> string { /* connect (kept open), describe, return the JSON cache entry */ }
+  #run Compiler.serve(handle);      // the worker's loop: framed requests on stdin, responses on stdout
+  ```
+
+- **The worker.** The host runs the service as a child process, `jaic -interp <service_file>`, using the normal native interpreter host. So the service gets real fibers, sockets, TLS, environment variables and a real clock, which is everything the build already has, and the Jai client runs unchanged. The worker stays alive and keeps its connections and template databases warm. It is restarted when the service file or anything it loads changes, and killed when the session ends or after 10 minutes idle.
+- **Pending results in the editor.** `jailsp` memoises responses by `(service, request bytes)`. On a miss it sends the request and waits a short time (default 50 ms); a warm describe of a local database is about 2-5 ms, so most answers arrive in that window. If the reply is late, the call returns `.PENDING`. The macro then reports the result as unknown, which suppresses follow-on errors the same way a refused `#run` does today ([workspace trust](../tools/workspace-trust.md): `semantic::known`). When the response lands, `jailsp` invalidates the compiles that asked and republishes, so typing never blocks on the database.
+- **In the build.** `jaic` uses the same worker for the length of a build, so a build keeps one connection, not one per query. Running the handler in-process is a later optimisation.
+- **Scoped policy.** Ordinary `#run` code keeps the sandbox in every workspace. Only code that goes through a declared service file gets host access, in a separate process, and the contract that a request may be memoised makes repetition safe. Untrusted workspaces refuse `compile_time_service` like any other `#run`.
+- **One general thing in the sandbox:** in trusted workspaces, `getenv` reads the real environment. It is read-only and idempotent, and it lets the macro hash `DATABASE_URL` into its request so a changed URL re-describes. `.env` files need no compiler support: the Postgres module reads them through the overlay file system like any other file.
+
+| | A. capabilities in the sandbox | B. Rust service in `jailsp` | **C. compile-time service worker** |
+| --- | --- | --- | --- |
+| Warm latency per changed query | a few ms, plus interpreted auth unless handles persist | ~1 ms | ~2-5 ms (pipe plus describe) |
+| Cold start | connect and auth on each miss | connect once | worker start ~0.5 s, then connect once |
+| Protocol implementations | one (Jai) | **two** (Rust and Jai) | one (Jai) |
+| Compiler and language-server changes | large: socket and readiness emulation per OS, fibers through inline threads, real clock, native calls, persistent handles | Postgres code and a dependency in `jailsp` | one Compiler call, a worker manager, pending results |
+| TLS to a remote dev database | native mbedTLS inside the language server | needs a Rust TLS dependency | works as in the build |
+| Side effects on every keystroke | any trusted metaprogram, if the policy is general | none | only declared, memoised services |
+| A crash in the database path | inside the language server | inside the language server | the worker dies; `jailsp` restarts it |
+| Useful beyond Postgres | yes | no | yes (GraphQL or OpenAPI schemas, protobuf registries, anything a macro wants typed from a live system) |
+
+C keeps the Jai client as the one source of truth, gives the editor exactly what the build sees, and adds one general mechanism instead of a growing list of sandbox exceptions. B is ruled out by the duplicate protocol code. A is the right long-term direction only if the playground or ordinary metaprograms ever need networking, and it can be added later without changing the Postgres module's code, which only calls `compile_time_service`.
+
+#### Schema changes while editing
+
+- The macro reads the migration files through the overlay file system. They therefore land in the compile's `Reads`, and editing one, even unsaved, re-runs the queries that depend on it. The schema hash is part of every describe request.
+- The worker builds a template database per schema hash. It builds at most one at a time and debounces them (500 ms after the last migration change). Older pending builds are dropped, and the newest 3 templates are kept.
+- While a template is building, a describe answers from the previous template, marked `stale_schema`, and the editor shows a hint: "checked against the schema before migration 0007; updating".
+- **A migration that fails to apply** is reported on the `load_migrations` call and on the queries that need that schema: "migration 0007_add_teams.sql failed at line 3: relation "team" does not exist". `jailsp` can also publish that diagnostic on the `.sql` file's own URI, so it shows in the migration file when it is open.
+
+#### What the feedback looks like
+
+- **Errors with exact spans.** `ErrorResponse` carries `P`, a 1-based *character* position in the SQL as sent, and `p`/`q` for errors inside internal queries. The macro maps it back in four steps:
+  1. character index to byte offset in the rewritten SQL;
+  2. through the `%`-to-`$n` rewrite map to an offset in the source string;
+  3. through the literal's escapes, which are trivial for `#string` blocks;
+  4. to a file, line and column, reported with `compiler_report`.
+
+  The message includes the SQLSTATE, `M`, `D` and `H`. Undefined columns (`42703`) and relations (`42P01`) also suggest the nearest name from the catalog. Step 3 needs a small Compiler API: the source location of byte `n` of a string-literal node. That is phase 0 work.
+- **Argument errors** (`parameter 2 is int8 (users.id) but the argument is string`) are reported on the argument, from the typed caller nodes.
+- **Completions** on `it.` come from the generated row struct. Phase 0 must verify that `jailsp` completes fields of a polymorphic struct whose members come from `#insert #run`.
+- **Hover.** Generated fields carry doc comments (`/// users.email: text, not null`), so hover on `it.email` shows the column, its Postgres type and its nullability. Hover on the query call shows the parameter list.
+
+#### Offline and degraded behaviour
+
+| Situation | Editor | Build |
+| --- | --- | --- |
+| Database reachable | full checking | full checking; writes cache entries |
+| Unreachable, committed entry matches the schema hash | types from the cache; an information-level note on the query: "not re-checked: no database at localhost:5432 (connection refused)" | uses the cache, silently |
+| Unreachable, no entry or a stale one | row is unknown (no cascading errors); a warning on the query naming the reason and the fix | error, unless `JACKET_PG_OFFLINE` is unset and a database becomes reachable |
+| Response still pending | row is unknown, without a warning until 2 s pass; republished on arrival | waits (per-request timeout 30 s) |
+| Untrusted workspace | today's behaviour: `#run` refused, results unknown | n/a |
+
+The worker backs off on reconnects (1 s doubling to 30 s), so a stopped database does not slow every analysis. A connect error is memoised for the backoff period.
 
 #### Cache keys and invalidation
 
@@ -469,6 +584,13 @@ The intended layout, so this section also guides the first implementation:
   - `orm.jai`.
 - `stdlib/internal/crypto/`: HMAC-SHA-256, PBKDF2, OS random bytes.
 - `stdlib/Extensions/Io`: Unix-domain sockets.
+- `Extensions/Postgres/describe_service.jai`: the compile-time service; the only code that talks to the compile-time server.
+- Compiler and language server (phase 0):
+  - `compile_time_service` and `serve` in the `Compiler` module;
+  - the worker manager in `jaic` and `jailsp`;
+  - pending results treated as unknown;
+  - string-literal sub-span locations;
+  - real `getenv` in trusted sandboxes.
 - `jacket pg ...` subcommands, which are thin: each one compiles and runs a Jai tool program from `Extensions/Postgres/tools/`, so all the logic lives in Jai and runs the same in `#run`.
 - Adding a type: one row in `codecs.jai`, with the binary and text codecs and the Jai type, plus round-trip cases in the conformance suite. If it has no stable binary form, register it text-only.
 - Adding an ORM operator: one case in the `Code` to SQL walker in `orm.jai`, plus a test that compiles a query with it and compares the generated SQL text.
@@ -505,7 +627,8 @@ No reusable cross-language protocol conformance suite exists. Drivers test again
 | Setting | Where | Meaning |
 | --- | --- | --- |
 | `JACKET_DATABASE_URL`, then `DATABASE_URL` | environment | compile-time server for describing queries (`postgres://user:pass@host:port/db?sslmode=…`); also the default for `jacket pg` |
-| `JACKET_PG_OFFLINE=1` | environment | never connect at compile time; cache misses are errors (CI, editor) |
+| `JACKET_PG_OFFLINE=1` | environment | never connect at compile time; cache misses are errors (CI) |
+| service timeouts | Compiler module constants | editor wait before `.PENDING` (50 ms), build request timeout (30 s), worker idle exit (10 min), reconnect backoff (1-30 s) |
 | `[postgres]` in `jacket.toml` | `migrations = "db/migrations"`, `schema = "db/schema.jai"`, `cache = ".jacket/queries"`, `server_version = 17`, `managed = false` | paths and modes for `jacket pg` and the compile-time path |
 | connection options | `Pg.Config` / URL | `sslmode` (`disable`, `prefer`, `require`, `verify-ca`, `verify-full`), `sslnegotiation`, `channel_binding`, `application_name`, `connect_timeout`, `statement_timeout`, `statement_cache` (size or `.OFF`), `verify_statements` |
 | pool options | `Pg.Pool_Config` | `max_size`, `min_idle`, `idle_timeout`, `max_lifetime`, `health_check_after` |
@@ -519,7 +642,7 @@ The `jacket.toml` section needs a schema entry in `crates/jacket-config`. Compil
   - Tls (with peer certificate DER for channel binding);
   - `internal/crypto` (SHA-256, plus the new HMAC/PBKDF2/random);
   - `md5`, Base64, [Json](../extensions/json.md) (for `json`/`jsonb` values and cache files);
-  - the `Compiler` module (`compiler_get_nodes`, `#caller_code`, typed nodes).
+  - the `Compiler` module (`compiler_get_nodes`, `#caller_code`, typed nodes, and `compile_time_service` once phase 0 lands).
 - External at runtime: none (no libpq).
 - External at compile time: a Postgres server only on cache misses.
 - CI: Postgres server images and binaries, and `psql`.
@@ -553,14 +676,20 @@ Common lessons:
 - **Schema:** SQL migrations as the single source of truth, with Jai table structs generated from the migrated schema and committed (option C).
 - **ORM:** `Code`-based selects that prune columns from the loop body and join instead of N+1, compiled down to the same typed raw-query path.
 - **Compile-time server:** a dev database at first, then managed downloaded binaries for zero setup. Not PGlite, unless jaic gains a wasm host anyway.
+- **Editor:** compile-time services (option C in [Editor feedback](#editor-feedback-phase-0)). A trusted workspace runs the Postgres describe service in a long-lived `jaic -interp` worker, so raw queries are checked on the next analysis with no build. Ordinary `#run` code keeps the sandbox.
 
 Phases (each lands on this branch, then goes to `main` when it is useful on its own; none blocks a release):
 
-1. **Spikes**, small throwaway programs, to settle the risky parts first:
-   1. A `Row($id)` struct with `#insert #run` fields plus `#caller_code` argument types read in a macro, in jaic today.
-   2. `for_expansion` body `Code` walking that finds `it.<field>`.
-   3. A Parse/Describe round trip from `#run` under the interpreter against a local server.
-   4. The temp-view and `pg_depend` dependency trick.
+0. **Editor feedback groundwork** (compiler and language server), tested with a toy service, such as one that upper-cases its request or sleeps:
+   1. `compile_time_service`/`serve`, with the worker in `jaic` builds and in `jailsp` (trusted only): framed pipe protocol, restart on source change, idle exit, memoised responses.
+   2. Pending results: the call returns `.PENDING` after the editor's wait, the result counts as unknown (no cascading errors), and the arrival invalidates and republishes.
+   3. A Compiler API for the source location of byte `n` of a string literal, for exact error spans.
+   4. Real `getenv` in trusted sandboxes.
+   5. Spikes:
+      1. a `Row($id)` struct with `#insert #run` fields, plus `#caller_code` argument types read in a macro;
+      2. `jailsp` completion and hover on those generated fields;
+      3. `for_expansion` body `Code` walking that finds `it.<field>`.
+1. **Spike on the client side:** the temp-view and `pg_depend` dependency trick.
 2. **Client:**
    1. Unix sockets in Io; HMAC, PBKDF2 and random in `internal/crypto`.
    2. Startup with TLS, MD5 and SCRAM (including `-PLUS`), simple and extended protocols, errors, core binary codecs.
@@ -568,14 +697,14 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
    4. The `pg-conformance` workflow.
 
    Then pipelining, COPY, LISTEN/NOTIFY and protocol 3.2.
-3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, describe from `DATABASE_URL`, nullability, overrides, the offline cache, `jacket pg prepare`/`check`.
+3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, the describe service (template databases, nullability, overrides), the offline cache, `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
 4. **Migrations and schema:** the runner, embedded migrations, the template-database cache, `jacket pg generate`, the `db/schema.jai` staleness check, row type identity.
 5. **ORM:** `select` with `Code` filters, column pruning, to-one joins, to-many batched loading, insert/update/delete.
 6. **Zero setup:** managed per-platform Postgres for compile-time typing; `jacket pg diff` migration proposals.
 
 ## Open questions
 
-1. **Source of truth.** SQL migrations, with Jai structs generated and committed (recommended)? Or do you want structs-first authoring badly enough to build the diff engine (option B)?
+1. ~~Source of truth~~ Decided: SQL migrations, with Jai structs generated and committed.
 2. **Compile-time server.** Start with `DATABASE_URL` plus the offline cache and add managed binaries later? Or is zero setup from day one a requirement? And is setting PGlite aside acceptable, given that it needs Wasmtime (or our own wasm runtime) in jaic and its WASI builds are young?
 3. **Parameter syntax.** Positional `%` with trailing arguments (like `print`, recommended)? Or inline `%name`/`%(expr)` that captures caller variables, which reads better in long queries but hides arguments inside the string?
 4. **Null representation.** `Nullable(T)` struct (recommended), `*T`, or something else?
@@ -584,3 +713,6 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 7. **Oldest server.** 14 (the oldest pgx tests, and in support until November 2026) or 15+? A newer minimum simplifies nothing in the protocol, but it shrinks the CI matrix.
 8. **Tooling home.** `jacket pg ...` subcommands that run Jai tool programs (recommended), or a standalone Jai program the user builds?
 9. **Placement.** `Extensions/Postgres` in this repo, or a separate repo like the other "later" extensions?
+10. **Compile-time services.** Is a long-lived `jaic -interp` worker, started by `jailsp` in trusted workspaces, acceptable? It needs `jaic` installed next to `jailsp`, which is how releases ship it. Or do you want networking inside the sandbox itself (option A), despite the per-OS readiness emulation and fibers-through-inline-threads work?
+11. **Template databases on the dev server.** The describe service creates `jacket_<hash>` databases on the `DATABASE_URL` server, which needs `CREATEDB`. Is that fine, or should it take a separate scratch server URL (`JACKET_SHADOW_DATABASE_URL`, like Prisma's shadow database) and never touch the dev server?
+12. **Live migration edits.** Build templates from unsaved migration buffers (instant feedback, more churn on the server), or only from saved files?
