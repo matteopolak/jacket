@@ -6,29 +6,8 @@
 
 - `Objective_C/AppKit` adds `NSWindow.close`, `NSCursor`, `NSSavePanel`, `NSOpenPanel` and `NSPasteboardTypeFileURL`.
 - The `Codex` module takes the `USAGE_MODE` parameter, `#import "Codex"(USAGE_MODE = .READ)`.
-- `jailint` rule levels can be set per path with `[[lint.overrides]]` in `jacket.toml`.
-- `jailint` has an opt-in `cognitive_complexity` lint for procedures with too much nested branching, with the limit set by `[lint] max_complexity`.
 - `jailint` warns about a `// jailint: allow(...)` comment that names a rule that does not exist (`unknown_allow`), and suggests the closest rule name.
-- `jailint` reports reading a variable declared `= ---` before anything is written to it.
-- `jailint` reports changing a variable that bounds a `for` range inside the loop, which does not change how often it runs.
-- `jailint` suggests `PI`, `TAU` and the other `Math` constants over hand-typed approximations such as `3.14159`.
-- `jailint` reports passing an array's element count to `memcpy`, `memset` or `memcmp`, which take bytes.
-- `jailint` reports returning the address of a local variable.
-- `jailint` reports returning a value that a `defer` above frees on the way out.
-- `jailint` reports integer comparisons that can never pass together or always pass, such as `x > 5 && x < 3` and `x != 1 || x != 2`.
-- `jailint` has an opt-in `magic_number` lint for unexplained numbers in arithmetic, comparisons and assignments, tuned in `[lint]`.
-- The VS Code extension warns when `PATH` has an older toolchain than it expects, and can switch to its downloaded one.
-- `BuildCpp` builds C and C++ on Windows x64 and arm64, with MSVC or `clang-cl`.
-- `Autorun` runs workspaces on Windows.
-- `Deep_Copy` and `Overwriting_Allocator` work on wasm.
-- `Vulkan` works on macOS.
-- `Extensions/SIMD` detects CPU features at run time, `#target_features` compiles a procedure for extra ones, and `Extensions/Byte_Search` uses 32-byte versions where available.
-- The crash handler reports crashes on Windows arm64.
-- The crash handler reports stack overflows, including on threads made with `Thread`.
-- `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` are available as compiler constants.
 - In a cross build (`-os`, `-cpu`), `#run` code runs against the machine doing the compiling: `OS` and `CPU` there name that machine, the standard library takes its host branches, and the results come back to the program as constants.
-- `Module.name` reaches a module's `#scope_module` declarations.
-- Polymorphic procedure lenses count instances from every program in the workspace.
 
 ### Improved
 
@@ -40,22 +19,10 @@
 - Conversion and cast errors suggest the fix as an edit: a `cast`, `.*`, `*` or `!= 0` around the expression for a mismatched assignment, argument or operand, a range for `for n`, `cast,trunc` or `cast,force` where a cast needs it, and the result types for a wrong `return`.
 - Name errors suggest the fix: a name that a namespaced import such as `M :: #import "Math"` provides gets `M.` (or `using M;`), a missing module member gets the closest export, and a misspelled type member or named argument is fixed in place.
 - `jailint` suggests a fix, as an editor quick fix, for far more findings: `almost_swapped`, `approx_constant`, `defer_frees_returned`, `double_free`, `dropped_result`, `duplicate_condition`, `erasing_op`, `identical_branches`, `impossible_comparison`, `integer_division_in_float`, `leaked_allocation`, `min_max`, `no_effect`, `remove_in_for`, `string_literal_write`, `unknown_allow`, `unpaired_lock`, `uninit_read`, `unused_parameter` and `unused_result`; `--fix` also removes `banner_comment` lines.
-- `String` searches and `compare` on long text, and `array_find` on integer arrays, are several times faster.
-- The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.
 - Cross builds whose `#run` code starts processes, queries files or detects the CPU, such as a `Build.jai` using `run_command`, work.
-- A `#compiler` declaration whose records don't fit its operation is reported where it is declared, and `get_build_options` fills a record of any name with that record's own defaults.
-- Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
-- Typing in one program no longer makes the language server recheck other open programs that don't use the file.
-- Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.
-- Struct literal completion lists fields in declaration order and selects the first one left (#29).
 - Operators on a struct from a namespaced import, such as `u + v` on `Math.Vector2`, work without `using`, with a warning and quick fix that write the call as `Math.operator +(u, v)`; `operator *[]` and a `.{...}` operand work the same way, and an operator that nothing reaches suggests the import or alias that has it, and only a module that has an overload for those types.
 - Errors in calls, declarations and assignments say more: a call with the wrong number of arguments shows the callee's signature and can drop the extra ones, a repeated name points at the first, assigning to a constant or an argument says how to declare or copy it, and enum values, struct literals, lambdas and name counts that don't fit get a note or a fix.
 - The language server completes more members (struct constants and parameters through a value, `using` paths, `context` aliases, enum `loose`), follows definitions into `#insert` text, and no longer reports names that a later `#insert,scope` declares.
-
-### Changed
-
-- `jailint` rules belong to categories (`correctness`, `suspicious`, `complexity`, `style`, `perf`, `pedantic`, `restriction`) that set their default level and can be set as a group in `[lint.rules]`, with `-A`/`-W`/`-D` and in `allow(...)` comments. `correctness` rules, such as `double_free` and `use_after_free`, are now `deny` by default, so they fail the run.
-- The `Fuzz` module moved to `Extensions/Fuzz`.
 
 ### Fixed
 
@@ -92,6 +59,63 @@
 - A file imported while compile-time code is running can declare `#add_context`, instead of failing because the Context was already laid out.
 - An overloaded procedure passed to a polymorphic parameter, `$f: (int, int) -> int` or `$F`, is accepted: the member with the declared type is used, or the first member for `$F`.
 - An enum literal such as `.A` passed to overloads that include a struct parameter is no longer reported as ambiguous.
+- `operator* :: #procedure_of_call f(...)` can sit next to ordinary `operator*` overloads.
+- A struct can have several `_` members.
+- A global declared as `f := (x: int) -> int { ... };` can be called.
+- `#load` works in code that a procedure body inserts.
+- An anonymous `union { ... }` or `struct { ... }` statement in a procedure brings its members into scope.
+- `#bake_arguments f(,, allocator = a)` bakes a context field into the procedure.
+- Using a polymorphic `#type` alias such as `#type (value: *$T)` as a value is a compile error, not a crash when the program runs.
+- Compile-time code can use a declaration from an `#if` in a file added later with `add_build_file`.
+- `using,only(...)` and `using,except(...)` work inside an enum body.
+- A `#ifx` with a constant condition leaves the other arm out, so its type and contents do not matter.
+- Procedures that a file-scope `#insert` declares are checked when something calls them, so a generated overload nothing uses can name things that do not exist.
+- `Subtitles` HTML output groups lines into speaker turns with a paragraph per run of dialogue or directions, and a speaker whose turns are split only by an instant with no speaker gets one CSV row instead of two.
+
+## [0.26.0] - 2026-10-23
+
+### New
+
+- `jailint` rule levels can be set per path with `[[lint.overrides]]` in `jacket.toml`.
+- `jailint` has an opt-in `cognitive_complexity` lint for procedures with too much nested branching, with the limit set by `[lint] max_complexity`.
+- `jailint` reports reading a variable declared `= ---` before anything is written to it.
+- `jailint` reports changing a variable that bounds a `for` range inside the loop, which does not change how often it runs.
+- `jailint` suggests `PI`, `TAU` and the other `Math` constants over hand-typed approximations such as `3.14159`.
+- `jailint` reports passing an array's element count to `memcpy`, `memset` or `memcmp`, which take bytes.
+- `jailint` reports returning the address of a local variable.
+- `jailint` reports returning a value that a `defer` above frees on the way out.
+- `jailint` reports integer comparisons that can never pass together or always pass, such as `x > 5 && x < 3` and `x != 1 || x != 2`.
+- `jailint` has an opt-in `magic_number` lint for unexplained numbers in arithmetic, comparisons and assignments, tuned in `[lint]`.
+- The VS Code extension warns when `PATH` has an older toolchain than it expects, and can switch to its downloaded one.
+- `BuildCpp` builds C and C++ on Windows x64 and arm64, with MSVC or `clang-cl`.
+- `Autorun` runs workspaces on Windows.
+- `Deep_Copy` and `Overwriting_Allocator` work on wasm.
+- `Vulkan` works on macOS.
+- `Extensions/SIMD` detects CPU features at run time, `#target_features` compiles a procedure for extra ones, and `Extensions/Byte_Search` uses 32-byte versions where available.
+- The crash handler reports crashes on Windows arm64.
+- The crash handler reports stack overflows, including on threads made with `Thread`.
+- `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` are available as compiler constants.
+- `Module.name` reaches a module's `#scope_module` declarations.
+- Polymorphic procedure lenses count instances from every program in the workspace.
+
+### Improved
+
+- `String` searches and `compare` on long text, and `array_find` on integer arrays, are several times faster.
+- The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.
+- A `#compiler` declaration whose records don't fit its operation is reported where it is declared, and `get_build_options` fills a record of any name with that record's own defaults.
+- Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
+- Typing in one program no longer makes the language server recheck other open programs that don't use the file.
+- Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.
+- Struct literal completion lists fields in declaration order and selects the first one left (#29).
+
+### Changed
+
+- `jailint` rules belong to categories (`correctness`, `suspicious`, `complexity`, `style`, `perf`, `pedantic`, `restriction`) that set their default level and can be set as a group in `[lint.rules]`, with `-A`/`-W`/`-D` and in `allow(...)` comments. `correctness` rules, such as `double_free` and `use_after_free`, are now `deny` by default, so they fail the run.
+- The `Fuzz` module moved to `Extensions/Fuzz`.
+
+### Fixed
+
+- A constant `#ifx` of untyped numbers can be assigned to an unsigned type (#35).
 - The language server and `jailint --fix` no longer run out of memory on a polymorphic procedure that instantiates itself with ever deeper pointer types.
 - An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.
 - `GetRect` and `GetRect_LeftHanded` take `Type_Indicator` as a program parameter, `#import "GetRect"()(Type_Indicator = T)`, shared by every import in the program.
@@ -128,18 +152,6 @@
 - `x, y = xx a, xx b` converts each value to its own target's type.
 - `a, b:, _ = f()` discards the value of `_`.
 - A `#modify` block can assign a `$x := value` parameter.
-- `operator* :: #procedure_of_call f(...)` can sit next to ordinary `operator*` overloads.
-- A struct can have several `_` members.
-- A global declared as `f := (x: int) -> int { ... };` can be called.
-- `#load` works in code that a procedure body inserts.
-- An anonymous `union { ... }` or `struct { ... }` statement in a procedure brings its members into scope.
-- `#bake_arguments f(,, allocator = a)` bakes a context field into the procedure.
-- Using a polymorphic `#type` alias such as `#type (value: *$T)` as a value is a compile error, not a crash when the program runs.
-- Compile-time code can use a declaration from an `#if` in a file added later with `add_build_file`.
-- `using,only(...)` and `using,except(...)` work inside an enum body.
-- A `#ifx` with a constant condition leaves the other arm out, so its type and contents do not matter.
-- Procedures that a file-scope `#insert` declares are checked when something calls them, so a generated overload nothing uses can name things that do not exist.
-- `Subtitles` HTML output groups lines into speaker turns with a paragraph per run of dialogue or directions, and a speaker whose turns are split only by an instant with no speaker gets one CSV row instead of two.
 
 ## [0.25.0] - 2026-10-21
 
