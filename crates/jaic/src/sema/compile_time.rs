@@ -17,6 +17,9 @@ pub struct CompileTime {
     pub context: Option<u64>,
     /// The global behind `context`, which has room for `#add_context`s met after it was made.
     pub context_global: Option<ir::GlobalId>,
+    /// The global behind compile-time temporary storage. It starts empty in the program, so a
+    /// pointer into it is frozen by copying what it points at, not by relocating to the global.
+    pub(crate) temporary_buffer: Option<ir::GlobalId>,
     /// Compile-time code run so far, of any kind.
     pub(crate) executions: u64,
     /// Compile-time runs that ended in a trap so far.

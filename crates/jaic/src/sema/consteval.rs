@@ -217,7 +217,6 @@ impl Compiler {
         self.ct.interp.export_request = None;
         self.ct.interp.missing_func = None;
         self.ct.interp.run_effects = outer;
-        self.flush_interp_output();
         for data in std::mem::take(&mut self.ct.interp.pending_data_globals) {
             let init = self
                 .ct
@@ -255,9 +254,6 @@ impl Compiler {
                 Err(Box::new(d))
             }
         }
-    }
-
-    fn flush_interp_output(&mut self) {
     }
 
     /// Context pointer used by compile-time code (allocated and initialized once).
@@ -301,6 +297,7 @@ impl Compiler {
                 read_only: false,
                 export: None,
             });
+            self.ct.temporary_buffer = Some(buf);
             let mut agg = Aggregate {
                 bytes: vec![0; ts_size as usize],
                 relocs: Vec::new(),
@@ -1018,7 +1015,9 @@ impl Compiler {
         if p == 0 {
             return Ok(());
         }
-        if let Some((g, off)) = self.ct.interp.global_at(p) {
+        if let Some((g, off)) = self.ct.interp.global_at(p)
+            && self.ct.temporary_buffer != Some(g)
+        {
             agg.relocs.push(ir::Reloc {
                 offset,
                 target: ir::RelocTarget::Global(g),
