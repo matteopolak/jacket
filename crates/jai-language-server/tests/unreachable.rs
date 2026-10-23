@@ -414,6 +414,23 @@ fn an_early_exit_narrows_the_rest_of_the_block() {
 }
 
 #[test]
+fn a_mixed_declaration_assigns_like_an_assignment() {
+    let source = r"pair :: () -> s64, s64 { return 1, 2; }
+main :: (z: s64) {
+    if z < 0 { return; }
+    ok:, z = true, -1;
+    if z < 0 { reassigned_live := 1; }
+    q: s64;
+    if q != 0 { return; }
+    a, q=, b := 1, 5, 2;
+    if q == 0 { return; }
+    x, y := pair();
+}
+";
+    assert_eq!(faded(source), Vec::<String>::new());
+}
+
+#[test]
 fn an_if_else_where_one_side_exits_narrows_too() {
     let source = r"main :: (x: s64) {
     if x > 3 { } else { return; }

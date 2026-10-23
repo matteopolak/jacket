@@ -75,6 +75,16 @@ impl Compiler {
                 let value = self.convert(f, value, ty, name.span)?;
                 let (_, v) = self.rvalue(f, value, name.span)?;
                 self.store_value(f, ty, addr, v, name.span)?;
+                // As an assignment statement: what the editor knew of the variable's value
+                // before no longer holds.
+                let written = match decl.targets().get(i) {
+                    Some(Some(e)) => e.clone(),
+                    _ => ast::Expr {
+                        kind: ast::ExprKind::Ident(name.name),
+                        span: name.span,
+                    },
+                };
+                self.ide_note_assign(scope, &[written], span);
                 continue;
             }
             let ty = match (declared, &value) {
