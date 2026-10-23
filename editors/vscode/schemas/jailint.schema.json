@@ -268,6 +268,16 @@
           "default": "warn",
           "markdownDescription": "an operation that changes nothing (`x + 0`, `x * 1`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#identity_op)"
         },
+        "impossible_comparison": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "deny",
+          "markdownDescription": "comparisons of one integer that never pass together (`x > 5 && x < 3`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#impossible_comparison)"
+        },
         "index_only_loop": {
           "type": "string",
           "enum": [

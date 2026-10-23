@@ -26,6 +26,7 @@ mod frees;
 mod identical_branches;
 mod identical_operands;
 mod identity_op;
+mod impossible_comparison;
 mod index_only_loop;
 mod infinite_loop;
 mod integer_division_in_float;
@@ -178,6 +179,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "an operation that changes nothing (`x + 0`, `x * 1`)",
         check: identity_op::check,
+    },
+    RuleInfo {
+        name: "impossible_comparison",
+        category: Category::Correctness,
+        summary: "comparisons of one integer that never pass together (`x > 5 && x < 3`)",
+        check: impossible_comparison::check,
     },
     RuleInfo {
         name: "index_only_loop",

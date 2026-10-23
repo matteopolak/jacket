@@ -101,6 +101,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `identical_branches` | suspicious | warn | no | `if c { A } else { A }`, `ifx c then a else a` |
 | `identical_operands` | suspicious | warn | no | `a == a`, `x - x`, `ok && ok` |
 | `identity_op` | complexity | warn | yes | `x + 0`, `x * 1`, `x / 1` |
+| `impossible_comparison` | correctness | deny | no | `x > 5 && x < 3`, `x != 1 \|\| x != 2`: comparisons of one integer that never pass together, or always pass between them |
 | `index_only_loop` | complexity | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
 | `infinite_loop` | suspicious | warn | no | a `while` whose condition nothing in the loop changes |
 | `integer_division_in_float` | suspicious | warn | no | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
@@ -164,6 +165,8 @@ Compared by tokens. Empty branches, `#if`, and the last link of an `else if` cha
 Float `==`, `!=` and `-` are left alone (NaN tests), as are operator procedures.
 ### identity_op
 `0 + x`, operations inside indexes/array literals and shifts by `0` are left alone (they line up with neighbours).
+### impossible_comparison
+Only integer expressions compared with integer literals, within one run of `&&` or `||`. Floats are left alone (`x > 1 && x < 2` holds for `1.5`). Redundant pairs such as `x < 3 && x < 5` are not reported.
 ### index_only_loop
 Becomes `for xs` (or `for *xs` when elements are written), other uses of `i` become `it_index`. Quiet when the loop may change `xs`, walks a grid, indexes other arrays or `xs[i + 1]`, or when `xs` is a constant. When the rewrite would make `it` name an inner loop's element, the fix is withheld and a named iterator is suggested.
 ### infinite_loop
