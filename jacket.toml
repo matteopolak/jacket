@@ -25,11 +25,55 @@ exclude = [
 # line; lower it as they are split.
 max_complexity = 100
 
+# Time units read as themselves (`seconds * 60`, `ns / 1_000_000_000`).
+magic_number_allow = [60, 24, 1_000_000, 1_000_000_000]
+
 # Off-by-default rules this repository holds itself to.
 [lint.rules]
 excessive_nesting = "warn"
 leaked_allocation = "warn"
 cognitive_complexity = "warn"
+magic_number = "warn"
+
+# Exact float comparisons in library code are checked; tests compare exact results on purpose.
+[[lint.overrides]]
+paths = ["stdlib/**"]
+rules = { float_equality = "warn" }
+
+[[lint.overrides]]
+paths = ["stdlib/**/tests/**"]
+rules = { float_equality = "allow" }
+
+# Numbers that are the content rather than a choice: binary file formats, float and checksum
+# algorithms, OS bindings, and benchmark or demo workloads.
+[[lint.overrides]]
+paths = [
+    "benchmarks/**",
+    "examples/**",
+    "stdlib/**/bench/**",
+    "stdlib/internal/executable/**",
+    "stdlib/internal/archive/**",
+    "stdlib/internal/media/**",
+    "stdlib/internal/audio/**",
+    "stdlib/internal/resource-wire/**",
+    "stdlib/internal/android-toolchain/**",
+    "stdlib/internal/developer-tools/**",
+    "stdlib/Extensions/Wasi_Runtime/**",
+    "stdlib/internal/numerics/**",
+    "stdlib/internal/rendering/**",
+    "stdlib/internal/hash/**",
+    "stdlib/internal/crypto/**",
+    "stdlib/internal/random/**",
+    "stdlib/internal/basic/binary-to-decimal.jai",
+    "stdlib/internal/basic/decimal-to-binary.jai",
+    "stdlib/internal/basic/numeric-conversion.jai",
+    "stdlib/internal/basic/format-float.jai",
+    "stdlib/Extensions/Json/number.jai",
+    "stdlib/X11/**",
+    "stdlib/Windows/**",
+    "stdlib/POSIX/**",
+]
+rules = { magic_number = "allow" }
 
 [format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.
