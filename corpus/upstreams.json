@@ -683,14 +683,6 @@
       "file_count": 4
     },
     {
-      "repository": "rytc/vulkan-jai",
-      "revision": "8d30fad22b97fb343296988ddd01b033bebaa1de",
-      "latest_jai_change": "2025-12-04T05:48:44-08:00",
-      "source_of_truth": "https://github.com/rytc/vulkan-jai/tree/8d30fad22b97fb343296988ddd01b033bebaa1de",
-      "selection": "recent-source",
-      "file_count": 15
-    },
-    {
       "repository": "shiMusa/MathExtensions",
       "revision": "35ff62972e8d088a83723d6d37f8c9c157f42254",
       "latest_jai_change": "2026-03-26T11:26:28+01:00",

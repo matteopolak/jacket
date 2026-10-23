@@ -74,21 +74,17 @@ class ReviewGate(unittest.TestCase):
         ]
         self.assertEqual([c["id"] for c in sel.select(cases, "windows-x64")], ["b"])
 
-    def test_every_case_of_a_star_repository_is_pending_and_unrestricted(self):
-        star = {directory(r) for r in fetch.STAR_REPOSITORIES}
-        seen = 0
-        for case in self.cases():
-            if case["path"].split("/")[0] in star:
-                seen += 1
-                self.assertEqual(case.get("review"), "pending", case["id"])
-                self.assertNotIn("only", case, case["id"])
-        self.assertGreater(seen, 0)
+    def test_pending_cases_are_unrestricted(self):
+        pending = [c for c in self.cases() if sel.pending(c)]
+        self.assertGreater(len(pending), 0)
+        for case in pending:
+            self.assertNotIn("only", case, case["id"])
 
-    def test_no_case_that_borrows_a_star_repository_is_selectable_unreviewed(self):
-        star = {directory(r) for r in fetch.STAR_REPOSITORIES}
+    def test_no_reviewed_case_borrows_a_pending_repository(self):
+        pending = {d for c in self.cases() if sel.pending(c) for d in sel.directories(c)}
         for case in self.cases():
-            if star & set(sel.directories(case)) and case.get("review") != "pending":
-                self.assertNotIn("only", case, case["id"])
+            if not sel.pending(case):
+                self.assertFalse(pending & set(sel.directories(case)), case["id"])
 
     def test_the_smoke_checks_use_no_star_repository(self):
         star = {directory(r) for r in fetch.STAR_REPOSITORIES}

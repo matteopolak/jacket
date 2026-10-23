@@ -44,6 +44,8 @@ WORKDIRS = {}
 CASE_METADATA = {}
 # Upstream cases that name the platforms they can run on (`only`, with `only_reason`), by id.
 UPSTREAM_PLATFORMS = {}
+# The upstream case list; `JAIC_UPSTREAM_CASES` points a run at another copy (for trying entry points).
+UPSTREAM_CASES = Path(os.environ.get("JAIC_UPSTREAM_CASES") or ROOT / "tools/upstream-cases.json")
 # Upstream cases with `"review": "pending"`: unreviewed code that only runs inside a sandbox.
 UPSTREAM_PENDING = set()
 
@@ -185,7 +187,7 @@ def cases(name):
                 c.get("args", []),
             )
     elif name == "upstream":
-        for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
+        for c in json.loads(UPSTREAM_CASES.read_text()):
             UPSTREAM_IDS.add(c["id"])
             if "only" in c:
                 UPSTREAM_PLATFORMS[c["id"]] = c
@@ -595,12 +597,12 @@ def main():
             # Absolute: the default lookup goes through `crates/jaic/..`, which a sandbox does not mount.
             os.environ.setdefault("JAIC_STDLIB", str(ROOT / "stdlib"))
             SANDBOX = {"reads": usb.jaic_reads(a.jaic, ROOT / "stdlib", UPSTREAM) + [Path(tempfile.gettempdir())]}
-        for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
+        for c in json.loads(UPSTREAM_CASES.read_text()):
             UPSTREAM_IDS.add(c["id"])
     # Upstream cases may name setup commands (building a C library the program loads); they run
     # once, serially, in the case's directory before any case starts.
     if "upstream" in a.sets:
-        for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
+        for c in json.loads(UPSTREAM_CASES.read_text()):
             if a.filter in c["id"] and wanted(c["id"]) and not (select_upstream_cases.pending(c) and not SANDBOX):
                 if "copy" in c or (SANDBOX and (c["mode"] == "build" or c.get("run_after") or c.get("setup"))):
                     WORKDIRS[c["id"]] = make_workdir(c)
