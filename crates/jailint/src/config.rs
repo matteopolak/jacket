@@ -115,6 +115,8 @@ pub struct Config {
     pub exclude: Vec<String>,
     /// How many blocks deep code may nest before `excessive_nesting` fires.
     pub max_nesting: Option<usize>,
+    /// The score above which `cognitive_complexity` fires.
+    pub max_complexity: Option<usize>,
     /// Numbers `magic_number` lets through, besides its built-in ones.
     pub magic_number_allow: Vec<f64>,
     /// Whole numbers below this magnitude are not magic.
@@ -131,6 +133,9 @@ pub struct Config {
 
 /// The nesting depth `excessive_nesting` allows when nothing sets it.
 pub const DEFAULT_MAX_NESTING: usize = 6;
+
+/// The cognitive complexity `cognitive_complexity` allows when nothing sets it.
+pub const DEFAULT_MAX_COMPLEXITY: usize = 25;
 
 /// Whole numbers below this magnitude are not magic when nothing sets `magic_number_min`.
 pub const DEFAULT_MAGIC_NUMBER_MIN: f64 = 3.0;
@@ -192,6 +197,7 @@ impl Config {
             root: root.to_path_buf(),
             exclude: lint.exclude.clone(),
             max_nesting: lint.max_nesting,
+            max_complexity: lint.max_complexity,
             magic_number_allow: lint.magic_number_allow.clone(),
             magic_number_min: lint.magic_number_min,
             magic_number_in_tests: lint.magic_number_in_tests,

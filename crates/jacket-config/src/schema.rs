@@ -61,6 +61,9 @@ pub struct Lint {
     /// How many blocks deep code may nest before `excessive_nesting` fires.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_nesting: Option<usize>,
+    /// The score above which `cognitive_complexity` reports a procedure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_complexity: Option<usize>,
     /// Numbers `magic_number` never reports, besides its built-in ones.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub magic_number_allow: Vec<f64>,
@@ -142,6 +145,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         "lint" => &[
             "exclude",
             "max_nesting",
+            "max_complexity",
             "magic_number_allow",
             "magic_number_min",
             "magic_number_in_tests",

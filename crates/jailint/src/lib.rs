@@ -111,6 +111,9 @@ pub fn lint_files(
         cx.complete = complete;
         cx.max_nesting = config.max_nesting();
         cx.magic_numbers = config.magic_numbers();
+        cx.max_complexity = config
+            .max_complexity
+            .unwrap_or(config::DEFAULT_MAX_COMPLEXITY);
         cx.doc_links = doc_links;
         for rule in wanted {
             let mut found = Vec::new();

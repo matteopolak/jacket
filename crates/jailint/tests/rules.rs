@@ -302,3 +302,22 @@ fn magic_number_settings() {
     });
     assert_eq!(tuned, ["8640", "0.3"]);
 }
+
+#[test]
+fn cognitive_complexity_limit_comes_from_the_settings() {
+    let file = repo().join("tests/lint/cognitive_complexity/good.jai");
+    let levels = [("cognitive_complexity", Level::Warn)];
+    let config = |limit| Config {
+        max_complexity: Some(limit),
+        ..Config::default()
+    };
+    let (lints, _) = lint_with(&file, &levels, config(20));
+    assert_eq!(lints.len(), 1, "{lints:?}");
+    assert!(
+        lints[0]
+            .message
+            .contains("complexity of 21, past the limit of 20")
+    );
+    let (lints, _) = lint_with(&file, &levels, config(21));
+    assert!(lints.is_empty(), "{lints:?}");
+}

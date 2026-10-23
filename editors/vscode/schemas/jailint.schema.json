@@ -148,6 +148,16 @@
           "default": "warn",
           "markdownDescription": "a link in a doc comment (`[name]`) that names no declaration (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#broken_doc_link)"
         },
+        "cognitive_complexity": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "a procedure whose branching scores above `max_complexity` (default 25) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#cognitive_complexity)"
+        },
         "constant_condition": {
           "type": "string",
           "enum": [

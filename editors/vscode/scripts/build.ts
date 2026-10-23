@@ -244,6 +244,7 @@ const jacket = {
       properties: {
         ...jailint.properties,
         max_nesting: { type: "integer", minimum: 1, markdownDescription: "How many blocks deep code may nest before `excessive_nesting` fires." },
+        max_complexity: { type: "integer", minimum: 0, default: 25, markdownDescription: "The cognitive complexity above which `cognitive_complexity` reports a procedure." },
         magic_number_allow: { type: "array", items: { type: "number" }, markdownDescription: "Numbers `magic_number` never reports, besides `10`, `100`, `1000`, powers of two and all-ones masks, such as `[60, 24, 3.14159]`." },
         magic_number_min: { type: "number", minimum: 0, default: 3, markdownDescription: "Whole numbers smaller than this in magnitude are not reported by `magic_number`." },
         magic_number_in_tests: { type: "boolean", default: false, markdownDescription: "`magic_number` also checks files in `tests` and `test` folders." },

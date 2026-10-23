@@ -89,6 +89,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `bitwise_precedence` | suspicious | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | complexity | warn | yes | `x == true`, `x != false`, `false == x` |
 | `broken_doc_link` | style | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
+| `cognitive_complexity` | pedantic | allow | no | a procedure whose branching, weighted by how deeply it nests, scores above `max_complexity` (default 25) |
 | `constant_condition` | suspicious | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
 | `defer_in_loop` | suspicious | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
 | `double_free` | correctness | deny | no | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
@@ -139,6 +140,8 @@ Jai gives all bitwise and shift operators one level above `*`, grouped left to r
 Only when the other side is a non-constant `bool`.
 ### broken_doc_link
 Only comments directly above a declaration (or trailing a field or parameter) are read, and links resolve like the language server's. Whether bracketed text counts as a link is decided by `jaic::docs` (see [doc comments](../compiler/doc-comments.md)): `[x]`, `[TODO]`, `a[i]`, plain lowercase words and URL targets are not. A single close misspelling is offered as a quick fix. `// jailint: allow(broken_doc_link)` inside the comment silences it.
+### cognitive_complexity
+Off by default. Scores how hard a procedure is to follow. Each `if`, `while`, `for`, `switch` and `ifx` adds 1, plus 1 for every one of those it sits inside, so nested branching costs more than the same branching in sequence. Each `else if` and `else` adds 1 with no nesting cost, each run of `&&` or `||` adds 1 (`a && b && c` is one, `a && b || c` two), and each labelled `break` or `continue` adds 1. `#if` and `#run` add nothing, and a procedure written inside a body is scored on its own. A procedure scoring above `[lint] max_complexity` (default 25) is reported on its name, with its score. On the standard library, 342 procedures score above 25 (the median of those is 39). Fix by splitting it into smaller procedures, returning early, or naming parts of long conditions. Generated files are skipped.
 ### constant_condition
 Reads the compiler's reachability facts (`jaic::sema::reachability` and `jaic::ide::values`, the code the editor fades): reports the condition behind a branch that never runs, such as `if count < 5` inside `if count > 10`, or an `else` after a test that always holds. No analysis of its own, so it is as sure as the fading: unsure means silent. Compile-time constants (`if DEBUG`, `while true`) and `&&`/`||` with one as an operand (`if flag && TARGET_OS != .WINDOWS`, constant only on some targets), tests inside code that is dead anyway, and comparisons a type's range decides (left to `absurd_comparison`) are skipped.
 ### defer_in_loop
@@ -252,6 +255,7 @@ The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up f
 [lint]
 exclude = ["tests/corpus/negative/**", "generated/**"]   # globs relative to this file
 max_nesting = 6                                          # blocks `excessive_nesting` allows
+max_complexity = 25                                      # score `cognitive_complexity` allows
 magic_number_allow = [60, 24]                            # numbers `magic_number` accepts
 magic_number_min = 3                                     # whole numbers below this are fine
 

@@ -1,0 +1,8 @@
+warning[cognitive_complexity]: `process` has a cognitive complexity of 26, past the limit of 25
+  --> tests/lint/cognitive_complexity/bad.jai:4:1
+   |
+ 4 | process :: (items: [] int, limit: int) -> int {
+   | ^^^^^^^
+   |
+   = help: split it into smaller procedures, return early, or name parts of long conditions
+

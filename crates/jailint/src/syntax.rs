@@ -29,6 +29,8 @@ pub(crate) struct Cx<'a> {
     pub complete: bool,
     /// The configured nesting limit (`excessive_nesting`).
     pub max_nesting: usize,
+    /// The configured complexity limit (`cognitive_complexity`).
+    pub max_complexity: usize,
     /// Which numbers `magic_number` lets through.
     pub magic_numbers: crate::config::MagicNumbers,
     /// What rules remember across the files of this run.
@@ -88,6 +90,7 @@ impl<'a> Cx<'a> {
             doc_links: Vec::new(),
             complete: true,
             max_nesting: crate::config::DEFAULT_MAX_NESTING,
+            max_complexity: crate::config::DEFAULT_MAX_COMPLEXITY,
             magic_numbers: crate::config::MagicNumbers::default(),
             run,
         }

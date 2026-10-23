@@ -13,6 +13,7 @@ mod banner_comment;
 mod bitwise_precedence;
 mod bool_comparison;
 pub(crate) mod broken_doc_link;
+mod cognitive_complexity;
 mod constant_condition;
 mod defer_in_loop;
 mod double_free;
@@ -105,6 +106,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Style,
         summary: "a link in a doc comment (`[name]`) that names no declaration",
         check: broken_doc_link::check,
+    },
+    RuleInfo {
+        name: "cognitive_complexity",
+        category: Category::Pedantic,
+        summary: "a procedure whose branching scores above `max_complexity` (default 25)",
+        check: cognitive_complexity::check,
     },
     RuleInfo {
         name: "constant_condition",
