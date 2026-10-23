@@ -205,6 +205,9 @@ jobs:
           bash tools/native/ci_native_deps.sh developer
       # Each check runs even when an earlier one failed (once setup has
       # succeeded), so every failure shows as its own red step and fails the job.
+      # `just fmt`, `just lint` and the jailint they run use every core instead of the local default of 3.
+      - name: Use every core for fmt and lint
+        run: echo "JAI_JOBS=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
       - name: Format check
         id: format
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
