@@ -105,6 +105,21 @@ impl JsonSession {
         self.encode(messages, None)
     }
 
+    /// A compile-time service answer is pending: poll `service_arrivals` now and then.
+    pub fn services_waiting(&self) -> bool {
+        self.session.services_waiting()
+    }
+
+    /// Checks the open files again when pending service answers came in (publishing, or asking
+    /// a pulling client to pull).
+    pub fn service_arrivals(&mut self) -> Result<Vec<String>, ProtocolError> {
+        if !self.session.take_service_arrivals() {
+            return Ok(Vec::new());
+        }
+        let messages = self.edited(true);
+        self.encode(messages, None)
+    }
+
     /// An edit is waiting for `flush_publications`.
     pub fn publications_pending(&self) -> bool {
         self.publications_pending

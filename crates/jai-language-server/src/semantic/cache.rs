@@ -104,6 +104,12 @@ impl Cache {
         self.canonical.clear();
     }
 
+    /// Drop every compile (answers they were made without have arrived); recorded build runs
+    /// stay.
+    pub fn forget_compiles(&mut self) {
+        self.entries.clear();
+    }
+
     /// Drop the lints found so far (their settings changed); the compiles stay.
     pub fn forget_lints(&mut self) {
         for entry in &mut self.entries {

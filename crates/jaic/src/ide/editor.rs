@@ -304,10 +304,7 @@ impl Editor {
     pub(crate) fn stmt_failed(&self, kind: DiagnosticKind, is_decl: bool) -> StmtRecovery {
         if !self.continues_past_errors() {
             StmtRecovery::Propagate
-        } else if matches!(
-            kind,
-            DiagnosticKind::Untrusted | DiagnosticKind::Unavailable
-        ) {
+        } else if kind.is_unknown_result() {
             StmtRecovery::Salvage
         } else if is_decl {
             StmtRecovery::Declare

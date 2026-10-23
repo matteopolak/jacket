@@ -11,6 +11,18 @@ use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 const MAX_STACK_LINES: usize = 12;
 
 impl Compiler {
+    /// An unknown result is like refused code: what it would have declared is unknown, not
+    /// missing, so the editor records the span.
+    pub(crate) fn note_unknown(&mut self, d: &Diagnostic, span: Span) {
+        if d.kind == DiagnosticKind::Unavailable {
+            self.ed.refuse_unavailable(span);
+        } else if d.kind == DiagnosticKind::Unknown
+            && let Some(facts) = self.ed.facts_mut()
+        {
+            facts.refused.push(span);
+        }
+    }
+
     /// The diagnostic for `trap`. `prefix` says what was running ("runtime error" or "error
     /// during compile-time execution"); `site` is the directive that started compile-time code.
     ///
@@ -70,6 +82,18 @@ impl Compiler {
             .map(|loc| self.src.statement_span(loc))
             .or(site)
             .unwrap_or(Span::NONE);
+        // Not a failure: the code could not know its result here (a pending or unavailable
+        // service). Reported where the compile-time code started.
+        if trap.kind == Some(TrapKind::Unknown) {
+            let mut d =
+                Diagnostic::error(site.unwrap_or(span), message).with_kind(DiagnosticKind::Unknown);
+            if let Some(site) = site
+                && site != span
+            {
+                d = d.with_note(span, "the result became unknown here");
+            }
+            return d;
+        }
         // A metaprogram's own report: its message, at the place it named when it named one;
         // the line that reported it becomes a note.
         if let Some((path, line, col)) = trap.reported.as_deref() {
@@ -287,6 +311,7 @@ fn help_for(kind: TrapKind) -> Option<String> {
         TrapKind::StackOverflow => "check that the recursion has a base case it reaches",
         TrapKind::BareAssertion
         | TrapKind::Unavailable
+        | TrapKind::Unknown
         | TrapKind::Suspended
         | TrapKind::CompileDependency(_)
         | TrapKind::Exit(_)

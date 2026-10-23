@@ -24,6 +24,9 @@ use std::rc::Rc;
 pub struct Environment {
     pub fs: Rc<dyn FileSystem>,
     pub options: Box<dyn Fn(&Path) -> Options>,
+    /// Compile-time services for trusted workspaces (`services::EditorServices`); `None`
+    /// answers every call as unavailable.
+    pub services: Option<Rc<dyn jaic::service::ServiceProvider>>,
 }
 
 /// Observed semantic analysis coverage, without source text or diagnostic payloads.

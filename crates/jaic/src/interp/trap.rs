@@ -111,6 +111,9 @@ pub enum TrapKind {
     BareAssertion,
     /// A foreign procedure neither the host nor a loaded library provides.
     Unavailable,
+    /// Compile-time code called `compile_time_unknown`: its result cannot be known here (a
+    /// compile-time service was pending or unavailable).
+    Unknown,
     /// Not a failure: the program called `exit` where the sandbox ends it itself instead of
     /// the process. Carries the exit code.
     Exit(i32),

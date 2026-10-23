@@ -8,6 +8,10 @@
 const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
     std::time::Duration::from_millis(15)..=std::time::Duration::from_millis(200);
 
+/// How often an idle server looks for compile-time service answers it is waiting for.
+#[cfg(not(target_arch = "wasm32"))]
+const SERVICE_POLL: std::time::Duration = std::time::Duration::from_millis(25);
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> std::process::ExitCode {
     use std::io::{Read, Write};
@@ -56,6 +60,14 @@ fn main() -> std::process::ExitCode {
                     jai_language_server::large_alloc::release_free_memory();
                 }
             }
+            // Compile-time service answers that compiles read as pending: once one is in, the
+            // open files are checked again (published after the usual debounce).
+            if session.services_waiting() {
+                for message in session.service_arrivals()? {
+                    output.write_all(&jai_language_server::framing::encode(&message))?;
+                }
+                output.flush()?;
+            }
             // Diagnostics for edits wait until no input has come for `DIAGNOSTICS_DEBOUNCE`, so
             // requests that are queued (completion, hover) are answered first and a burst of
             // keystrokes costs one compile.
@@ -95,6 +107,12 @@ fn main() -> std::process::ExitCode {
                         continue;
                     }
                     Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
+                }
+            } else if session.services_waiting() {
+                match input.recv_timeout(SERVICE_POLL) {
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
+                    Ok(received) => received,
                 }
             } else {
                 input.recv().unwrap_or(Ok(Vec::new()))
@@ -217,7 +235,8 @@ static ALLOCATOR: jai_language_server::large_alloc::LargeBlocksToOs =
     jai_language_server::large_alloc::LargeBlocksToOs;
 
 /// Modules come from disk: the `modules` folder next to the main file, then the stdlib
-/// (`JAIC_STDLIB`, else `stdlib/` next to the executable, else the repository's).
+/// (`JAIC_STDLIB`, else `stdlib/` next to the executable, else the repository's). Compile-time
+/// services run with the `jaic` next to this executable, else the first on `PATH`.
 #[cfg(not(target_arch = "wasm32"))]
 fn native_environment() -> jai_language_server::Environment {
     use std::path::PathBuf;
@@ -225,7 +244,12 @@ fn native_environment() -> jai_language_server::Environment {
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         eprintln!("warning: {message}");
     }
+    // Compile-time services run as separate `jaic` processes; only trusted compiles ask them.
+    let services = jaic::service::Services::new(jaic::service::ServiceConfig::default());
     jai_language_server::Environment {
+        services: Some(std::rc::Rc::new(
+            jai_language_server::services::EditorServices::new(services),
+        )),
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();

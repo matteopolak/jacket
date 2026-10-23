@@ -11,6 +11,7 @@ pub struct FileInput {
 /// The environment `jailsp` itself runs with: modules next to the main file, then `stdlib`.
 pub fn native_environment(stdlib: PathBuf) -> Environment {
     Environment {
+        services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();

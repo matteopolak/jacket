@@ -14,6 +14,7 @@ fn errors(files: &[(&str, &str)], import_paths: &[&str], main: &str, text: &str)
             Environment {
                 fs: Rc::new(jaic::sema::NativeFs),
                 options: Box::new(|_| jaic::sema::Options::host()),
+                services: None,
             },
         )
     } else if files.is_empty() {

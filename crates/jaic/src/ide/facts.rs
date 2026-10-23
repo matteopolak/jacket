@@ -161,7 +161,8 @@ pub struct IdeFacts {
     /// `DiagnosticKind::Untrusted`), so `#run` results, computed `#insert`s and build
     /// metaprograms stay unknown.
     pub untrusted: bool,
-    /// Where compile-time code was refused for that reason.
+    /// Where compile-time code was refused for that reason, or ended with an unknown result
+    /// (`DiagnosticKind::Unknown`).
     pub refused: Vec<Span>,
     /// Type of each checked expression of the recorded files, by span.
     pub exprs: HashMap<Span, IdeExprFact>,

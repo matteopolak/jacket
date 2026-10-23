@@ -33,7 +33,7 @@ impl SandboxHost {
             | LibcFn::PthreadMutexInit
             | LibcFn::PthreadMutexDestroy => 0,
             LibcFn::Isatty => 0,
-            LibcFn::Getenv => 0,
+            LibcFn::Getenv => self.getenv(arg(0)),
             // Whether the embedding page offers a host procedure (stdlib/Extensions/WebGPU): not here. The
             // browser playground's host (jai-wasm `host_bridge`) asks its page instead.
             LibcFn::JaiHostProvides => 0,
@@ -62,5 +62,29 @@ impl SandboxHost {
             LibcFn::ShmOpen | LibcFn::ShmUnlink => self.set_errno(EPERM),
             _ => return None,
         }))
+    }
+}
+
+impl SandboxHost {
+    /// `getenv`: unset unless the embedder allows the real environment (read-only, so asking
+    /// twice gives the same answer while the variable is unchanged).
+    fn getenv(&mut self, name: u64) -> u64 {
+        if !self.real_environment {
+            return 0;
+        }
+        let name = super::cstr(name);
+        let Ok(value) = std::env::var(&name) else {
+            return 0;
+        };
+        let key = (name, value);
+        if let Some(&text) = self.environment_texts.get(&key) {
+            return text;
+        }
+        let text = self.alloc(key.1.len() + 1);
+        if text != 0 {
+            super::write_bytes(text, key.1.as_bytes());
+            self.environment_texts.insert(key, text);
+        }
+        text
     }
 }

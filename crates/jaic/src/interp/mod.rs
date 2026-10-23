@@ -220,6 +220,9 @@ pub struct Interp {
     /// Stack trace node data per procedure (`Stack_Trace_Procedure_Info`), built on first call.
     /// `Stack_Trace_Procedure_Info` addresses by `FuncId` (0 = not made yet).
     trace_infos: Vec<u64>,
+    /// Answers `compile_time_service` handed to the program; they live as long as the
+    /// interpreter, like string literals.
+    service_replies: Vec<Box<[u8]>>,
     /// Threads of the running program and the gate C callbacks enter through: made by the
     /// first thread, lock or thunk (`threads::Shared`).
     #[cfg(not(target_arch = "wasm32"))]
@@ -335,6 +338,7 @@ impl Interp {
             code_export_cursor: HashMap::default(),
             forked_child: false,
             trace_infos: Vec::new(),
+            service_replies: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             shared: None,
             #[cfg(not(target_arch = "wasm32"))]

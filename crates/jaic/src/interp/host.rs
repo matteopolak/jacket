@@ -12,6 +12,17 @@ pub enum Hook {
     /// `write_strings(strings: ..string, to_standard_error: bool)`
     WriteStrings,
     DebugBreak,
+    /// `() -> s64`: nanoseconds on the compiler host's monotonic clock. Compile-time code runs on
+    /// the host whatever target is selected, so the clock identifiers of the target's C library
+    /// (`clock_gettime`'s differ between Linux and macOS) cannot be passed to the host's.
+    HostMonotonicNanos,
+    /// `compile_time_service(service: string, request: string, response: *string) -> s64`: asks
+    /// a compile-time service (`crate::service`) through `Host::service`.
+    Service,
+    /// `compile_time_unknown(message: string)`: ends the compile-time call with a result that is
+    /// not known here (a service was unavailable or pending). An error in a build; the language
+    /// server drops it, as it does code an untrusted workspace may not run.
+    Unknown,
     /// A runtime-opted-in assertion callback: a failed
     /// `assert`, reported by the compiler as a runtime error (`Trap::assertion`) rather than
     /// printed by the runtime. `context` says whether it takes a context pointer.
@@ -29,7 +40,11 @@ impl Hook {
         compile_time
             || !matches!(
                 self,
-                Self::PublicCompiler(_) | Self::UnsupportedCompiler(_) | Self::Meta(..)
+                Self::PublicCompiler(_)
+                    | Self::UnsupportedCompiler(_)
+                    | Self::Meta(..)
+                    | Self::Service
+                    | Self::Unknown
             )
     }
 
@@ -41,6 +56,9 @@ impl Hook {
             "write_string" => Some(Self::WriteString),
             "write_strings" => Some(Self::WriteStrings),
             "compile_time_debug_break" => Some(Self::DebugBreak),
+            "compile_time_host_monotonic_nanoseconds" => Some(Self::HostMonotonicNanos),
+            "compile_time_service" => Some(Self::Service),
+            "compile_time_unknown" => Some(Self::Unknown),
             "__jaic_syntax_int" => Some(Self::Meta(crate::build::MetaOp::SyntaxInt, takes_context)),
             "__jaic_syntax_string" => Some(Self::Meta(
                 crate::build::MetaOp::SyntaxString,
@@ -118,6 +136,12 @@ pub trait Host {
     fn working_directory(&self) -> Option<String> {
         None
     }
+
+    /// Asks the compile-time service `service` (a path; relative ones start at the working
+    /// directory). Hosts without services say it is unavailable.
+    fn service(&mut self, _service: &str, _request: &[u8]) -> crate::service::ServiceReply {
+        crate::service::ServiceReply::unavailable("compile-time services are not available here")
+    }
 }
 
 /// Writes to the process's stdout/stderr and links natively.
@@ -163,6 +187,12 @@ impl Host for NativeHost {
         _sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
         None
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn service(&mut self, service: &str, request: &[u8]) -> crate::service::ServiceReply {
+        let path = crate::service::resolve(service, None);
+        crate::service::Services::global().call(&path, request.to_vec())
     }
 
     fn native_linking(&self) -> bool {

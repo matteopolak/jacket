@@ -251,9 +251,7 @@ impl Compiler {
                 self.ct.traps += 1;
                 let d =
                     self.trap_diagnostic(&trap, "error during compile-time execution", Some(span));
-                if d.kind == DiagnosticKind::Unavailable {
-                    self.ed.refuse_unavailable(span);
-                }
+                self.note_unknown(&d, span);
                 Err(Box::new(d))
             }
         }

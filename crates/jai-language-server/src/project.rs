@@ -97,6 +97,7 @@ mod tests {
         let mut session = Session::with_environment(
             Limits::default(),
             Environment {
+                services: None,
                 fs: std::rc::Rc::new(jaic::sema::NativeFs),
                 options: Box::new(|_| jaic::sema::Options::host()),
             },
