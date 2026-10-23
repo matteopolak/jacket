@@ -275,6 +275,14 @@ jobs:
         id: jai-lint
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just lint --lang jai --release
+      # One runner lints every target's modules: the host lint skips what only compiles for
+      # another OS, so a Windows-only finding would otherwise never surface.
+      - name: Jai lint for the other targets
+        id: jai-lint-targets
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        run: |
+          just lint --lang jai --release --os windows
+          just lint --lang jai --release --os macos
       - name: Backend agreement
         id: backends
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}

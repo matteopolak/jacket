@@ -3,7 +3,7 @@
 
     python3 tools/dev/dev.py build [--release] [-j N]
     python3 tools/dev/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
-    python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--staged] [-j N] [paths...]
+    python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--os linux|windows|macos|wasm] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py editor
     python3 tools/dev/dev.py nvim [--unit] [-j N]
     python3 tools/dev/dev.py vscode-try [--debug] [-j N] [folder]
@@ -141,6 +141,7 @@ def cmd_lint(args) -> int:
         # A platform's modules (Windows, X11, Android) cannot compile on another host: each CI
         # host lints what it can, and a finding in what does compile still fails the run.
         failed |= bool(run([str(jailint), "-D", "warnings", "-j", "2", "--allow-incomplete",
+                            *(["-os", args.os] if args.os else []),
                             *(["--fix"] if args.fix else []), *(jai or JAI_LINT_DIRS)]))
     if wants(args.lang, "rust") and (whole or rust):
         # Clippy works on whole crates; the file list only decides whether it runs at all.
@@ -306,6 +307,8 @@ def main() -> int:
         if name in ("fmt", "lint"):
             p.add_argument("--lang", choices=["jai", "rust", "all"], default="all")
             p.add_argument("--staged", action="store_true")
+            if name == "lint":
+                p.add_argument("--os", choices=["linux", "windows", "macos", "wasm"], default="")
             p.add_argument("paths", nargs="*")
             p.add_argument("--check" if name == "fmt" else "--fix", action="store_true")
         if name == "nvim":
