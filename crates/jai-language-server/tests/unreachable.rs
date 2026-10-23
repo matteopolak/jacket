@@ -390,7 +390,8 @@ fn faded_branches_keep_hover_and_definition() {
         .diagnostics(&uri())
         .unwrap()
         .into_iter()
-        .filter(|d| d.severity == DiagnosticSeverity::Error)
+        // `u >= 0` is the always-true condition under test, so its lint is expected.
+        .filter(|d| d.severity == DiagnosticSeverity::Error && d.code == DiagnosticCode::Check)
         .collect();
     assert!(errors.is_empty(), "{errors:?}");
 }
