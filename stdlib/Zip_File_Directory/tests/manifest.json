@@ -1,33 +1,5 @@
 [
   {
-    "name": "faults/zip-descriptor",
-    "mode": "fault",
-    "error_contains": "ZIP data descriptors are unsupported",
-    "exit_code": 1,
-    "stdout": "",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
-    "name": "faults/zip-signature",
-    "mode": "fault",
-    "error_contains": "unexpected ZIP directory signature",
-    "exit_code": 1,
-    "stdout": "",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
     "name": "zip-directory",
     "stdout": "ok\n",
     "unsupported_modes": [

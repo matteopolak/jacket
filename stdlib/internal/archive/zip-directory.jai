@@ -78,13 +78,15 @@ load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bo
 
         bytes := result.memory_block.data + cursor;
 
-        assert(read_u32(bytes) == 0x02014b50, "unexpected ZIP directory signature");
+        if read_u32(bytes) != 0x02014b50 return false, .{};
+
         entry: Zip_Entry;
         entry.position_in_file = directory_start + cursor;
         entry.version_made_by = read_u16(bytes + 4);
         entry.version_needed_to_extract = read_u16(bytes + 6);
         entry.bit_flag = read_u16(bytes + 8);
-        assert((entry.bit_flag & 8) == 0, "ZIP data descriptors are unsupported");
+        if entry.bit_flag & 8 != 0 return false, .{};
+
         entry.crc = read_u32(bytes + 16);
         entry.compressed_len = read_u32(bytes + 20);
         entry.chunk_len = read_u32(bytes + 24);

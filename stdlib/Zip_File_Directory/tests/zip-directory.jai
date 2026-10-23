@@ -69,7 +69,7 @@ run_cases :: () {
     assert(ok && directory.entries.count == 0);
     Z.deinit(*directory);
 
-    for path: string.["truncated", "bounds", "zip64", "multidisk", "count", "late-name"] {
+    for path: string.["truncated", "bounds", "zip64", "multidisk", "count", "late-name", "descriptor", "signature"] {
         name := sprint("%%.zip", fixture_root, path);
         defer free(name);
         ok, directory = Z.load_zip_directory(name);
