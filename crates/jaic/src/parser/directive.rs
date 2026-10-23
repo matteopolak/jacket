@@ -216,6 +216,25 @@ impl Parser<'_> {
                     span,
                     notes: Notes::default(),
                 }
+            } else if let Some(make) = self.kw().and_then(|word| match word {
+                "break" => Some(StmtKind::Break as fn(Option<Ident>) -> StmtKind),
+                "continue" => Some(StmtKind::Continue),
+                "remove" => Some(StmtKind::Remove),
+                _ => None,
+            }) {
+                // `#code continue` is the jump itself; a following `;` belongs to the
+                // enclosing statement, as with `return` below.
+                let start = self.bump();
+                let label = if matches!(self.tok(), Tok::Ident(_)) {
+                    Some(self.ident("as label")?)
+                } else {
+                    None
+                };
+                Stmt {
+                    kind: make(label),
+                    span: start.to(self.prev_span()),
+                    notes: Notes::default(),
+                }
             } else if ["if", "while", "for", "return", "defer", "using"]
                 .iter()
                 .any(|k| self.at_kw(k))
