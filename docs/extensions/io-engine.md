@@ -57,6 +57,8 @@ Io.with_deadline(2000, #code { count, error = Io.read(source, buffer); });   // 
 
 `with_deadline` limits every IO call and `sleep` in the block; the earlier deadline wins when nested; an expired deadline fails a call before it starts, even with data waiting (pipes too). jaic has no trailing-block call syntax, so the body is a `#code` argument: assign to variables declared before it and do not `return` inside. Channel and lock operations ignore deadlines. `cancel(fiber)` ends the fiber's current IO with `.CANCELED` and all later IO fails the same way; the buffer is never written after the call returns.
 
+Unix-domain sockets: `connect_unix(path)` returns the same `Tcp_Stream` as `connect`, and `unix_listen(path, backlog, replace)` the same `Tcp_Listener` (so `accept`, `read`, `reader_of`, `wait_readable`, deadlines and cancel work as for TCP, on every backend). A path must be non-empty, free of zero bytes and shorter than `sun_path` (at most 103 bytes on macOS, 107 elsewhere), else `.INVALID`; nothing is truncated. `unix_listen` fails with `.ADDRESS_IN_USE` if the file exists unless `replace = true`, which `unlink`s whatever is at `path` first; the socket file is never removed on `close`. Abstract (Linux) names are not supported. Windows returns `.UNSUPPORTED` from both: `ConnectEx` and the port path are only written for IP sockets. `local_address`/`peer_address` give an empty `Address` for these sockets.
+
 `connect(string)` takes `"host:port"`, an address literal or `"[::1]:80"` and resolves names. `resolve` runs `getaddrinfo` on helper threads (1 to `RESOLVER_MAX_THREADS` = 8, joined when `io_run` ends); lookups of the same name share one job; a cancel or deadline only takes the fiber off the job.
 
 Files: io_uring and Windows do the IO in the kernel; epoll and kqueue cannot report a regular file as not ready, so reads/writes over 32 KiB go to a file thread pool and shorter ones run inline. `.APPEND` always writes at the end.
@@ -99,6 +101,6 @@ Introspection: `backend()`, `backend_name()`, `backend_reason()`, `capabilities(
 
 ## Dependencies
 
-libc, [Io_Uring](io-uring.md) on Linux, kernel32/ws2_32/KernelBase on Windows, `Atomics`, `Thread` (resolver, file pool, `io_run_threads`), [Json](json.md) (only `read_json`). Tests: `stdlib/Extensions/Io/tests/` (`tcp`, `streams`, `timeouts`, `files`, `pipe`, and `backends.jai`, which runs every check on each backend the system offers); benchmarks in `bench/` (`jaic -O2 stdlib/Extensions/Io/bench/bench.jai`).
+libc, [Io_Uring](io-uring.md) on Linux, kernel32/ws2_32/KernelBase on Windows, `Atomics`, `Thread` (resolver, file pool, `io_run_threads`), [Json](json.md) (only `read_json`). Tests: `stdlib/Extensions/Io/tests/` (`tcp` (including `test_unix_sockets`), `streams`, `timeouts`, `files`, `pipe`, and `backends.jai`, which runs every check on each backend the system offers); benchmarks in `bench/` (`jaic -O2 stdlib/Extensions/Io/bench/bench.jai`).
 
 Not done: UDP, provided buffers, multishot receive, zero-copy send, DNS timeout, IoRing cancel, registered files.
