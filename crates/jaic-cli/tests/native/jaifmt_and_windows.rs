@@ -30,13 +30,24 @@ fn jaifmt_builds_and_formats() {
 
     // Built for baseline x86-64, not this machine's CPU: release archives are built on one CI
     // runner and run on others (the 0.4.1 jaifmt used AVX-512 and died with SIGILL elsewhere).
+    // The one wide code the stdlib carries is the `*_wide` byte searches, each compiled for AVX2
+    // and reached only through a table that picks it when the CPU has AVX2 (Extensions/Byte_Search).
     if cfg!(all(target_os = "linux", target_arch = "x86_64"))
         && let Ok(dump) = Command::new("objdump").arg("-d").arg(&exe).output()
     {
         let dump = String::from_utf8_lossy(&dump.stdout);
-        let beyond = dump
-            .lines()
-            .find(|l| l.contains("%ymm") || l.contains("%zmm") || l.contains("{%k"));
+        let mut symbol = "";
+        let mut beyond = None;
+        for line in dump.lines() {
+            if line.ends_with(">:") {
+                symbol = line;
+            } else if !symbol.contains("_wide")
+                && (line.contains("%ymm") || line.contains("%zmm") || line.contains("{%k"))
+            {
+                beyond = Some((symbol, line));
+                break;
+            }
+        }
         assert!(beyond.is_none(), "beyond baseline x86-64: {beyond:?}");
     }
 
