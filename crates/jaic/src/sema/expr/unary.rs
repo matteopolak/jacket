@@ -67,7 +67,7 @@ impl Compiler {
                 // getter is available. Reuse its place normalization, and evaluate
                 // each operand only once if builtin indexing is the fallback.
                 let inner = if let E::Index(base, index) = &a.kind
-                    && !self.operator_candidates(scope, "*[]")?.is_empty()
+                    && self.pointer_index_reachable_from(scope, base)?
                 {
                     let base_op = self.check_expr(f, scope, base, None)?;
                     let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;

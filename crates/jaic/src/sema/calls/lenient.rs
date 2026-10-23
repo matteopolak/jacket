@@ -195,7 +195,8 @@ impl Compiler {
                     )
                     .with_action(format!("Call `{q}.operator {text}` explicitly")),
                 );
-            } else {
+            } else if text != "*[]" {
+                // `Alias.operator *[](..)` does not parse: only `using` reaches that one.
                 d = d.with_help(format!("call it as `{q}.operator {text}(..)`"));
             }
             d = d.with_help(format!("or add `using {q};` to this scope"));

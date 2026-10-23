@@ -15,6 +15,13 @@ operator + :: (a: Vec2, b: Vec2) -> Vec2 { return .{a.x + b.x, a.y + b.y}; }
 operator - :: (a: Vec2) -> Vec2 { return .{-a.x, -a.y}; }
 operator == :: (a: Vec2, b: Vec2) -> bool { return a.x == b.x && a.y == b.y; }
 operator [] :: (a: Vec2, i: int) -> int { return ifx i == 0 then a.x else a.y; }
+
+Scale :: struct { k: int; }
+operator * :: (a: Vec2, s: int) -> Vec2 { return .{a.x * s, a.y * s}; }
+operator * :: (a: Vec2, s: Scale) -> Vec2 { return .{a.x * s.k, a.y * s.k}; }
+
+Grid :: struct { cells: [4] int; }
+operator *[] :: (g: *Grid, i: int) -> *int { return *g.cells[i]; }
 ";
 
 /// A `Thing` whose module has no operators, and a module with the operator for it.
@@ -268,4 +275,68 @@ fn a_unary_operator_no_module_overloads_gets_no_import_suggestion() {
     );
     let error = result.expect_err("no `operator -` for Thing");
     assert!(import_suggestions(&error).is_empty(), "{error:?}");
+}
+
+#[test]
+fn a_literal_operand_takes_its_type_from_the_overload_of_the_type_module() {
+    let warnings = warnings_of(
+        "V :: #import \"Vec\";
+        main :: () {
+            a: V.Vec2;
+            b := a * 2;
+            c := a * .{3};
+            d := a * V.Scale.{4};
+        }",
+    );
+    // `.{3}` is a `Scale` (as in scope), not the `Vec2` of the other operand.
+    assert_eq!(warnings.len(), 3, "{warnings:?}");
+    assert_eq!(
+        replacement(&warnings[0]),
+        (
+            "V.operator *(a, 2)",
+            Applicability::MachineApplicable,
+            false
+        )
+    );
+    assert_eq!(
+        replacement(&warnings[1]),
+        (
+            "V.operator *(a, .{3})",
+            Applicability::MachineApplicable,
+            false
+        )
+    );
+}
+
+#[test]
+fn the_pointer_index_operator_is_found_through_the_type_module() {
+    let warnings = warnings_of(
+        "V :: #import \"Vec\";
+        main :: () {
+            g: V.Grid;
+            g[1] = 5;
+            x := g[1];
+            p := *g[2];
+            q := *g;
+            q[3] += 1;
+        }",
+    );
+    assert_eq!(warnings.len(), 4, "{warnings:?}");
+    for w in &warnings {
+        assert_eq!(
+            w.message,
+            "`operator *[]` is not in scope here: using the one declared with `Grid`"
+        );
+        // `V.operator *[](..)` does not parse, so only `using` is offered.
+        assert_eq!(w.help, ["or add `using V;` to this scope"]);
+    }
+}
+
+#[test]
+fn the_pointer_index_operator_in_scope_is_not_a_warning() {
+    let warnings = warnings_of(
+        "V :: #import \"Vec\"; using V;
+        main :: () { g: Grid; g[1] = 5; x := g[1]; }",
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
 }

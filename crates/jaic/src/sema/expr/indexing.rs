@@ -15,7 +15,7 @@ impl Compiler {
         index: &Operand,
         span: Span,
     ) -> Result<Option<Operand>> {
-        if self.operator_candidates(scope, "*[]")?.is_empty() {
+        if !self.pointer_index_reachable(scope, base.ty())? {
             return Ok(None);
         }
         let base = match base.clone().without_callable() {
@@ -65,6 +65,42 @@ impl Compiler {
         }))
     }
 
+    /// Is there an `operator *[]` for a base of type `ty`: in scope, or declared with its
+    /// struct (the lenient lookup of `try_index_operator_overload`)?
+    fn pointer_index_reachable(&mut self, scope: ScopeId, ty: TypeId) -> Result<bool> {
+        if !self.operator_candidates(scope, "*[]")?.is_empty() {
+            return Ok(true);
+        }
+        let target = self.ty.types.pointee(ty).unwrap_or(ty);
+        if !matches!(self.ty.types.kind(target), TypeKind::Struct(_)) {
+            return Ok(false);
+        }
+        Ok(self
+            .operator_candidates_for(scope, "*[]", target)?
+            .1
+            .is_some())
+    }
+
+    /// [`Self::pointer_index_reachable`] for the base expression of an indexed assignment target
+    /// or address-of, whose type is not known yet. The overloads of the struct's own module are
+    /// only looked for when the base names a variable, which costs nothing to check twice.
+    pub(super) fn pointer_index_reachable_from(
+        &mut self,
+        scope: ScopeId,
+        base: &ast::Expr,
+    ) -> Result<bool> {
+        if !self.operator_candidates(scope, "*[]")?.is_empty() {
+            return Ok(true);
+        }
+        if !super::names_variable_path(base) {
+            return Ok(false);
+        }
+        let Ok(probe) = self.check_expr_no_emit(scope, base) else {
+            return Ok(false);
+        };
+        self.pointer_index_reachable(scope, probe.ty())
+    }
+
     /// Does an `operator` named `text` take a pointer to `ty` as its first parameter?
     fn has_pointer_receiver(&mut self, scope: ScopeId, text: &str, ty: TypeId) -> Result<bool> {
         let mut procs = self.operator_candidates(scope, text)?;
@@ -88,7 +124,7 @@ impl Compiler {
         target: &ast::Expr,
     ) -> Result<Operand> {
         if let ast::ExprKind::Index(base, index) = &target.kind
-            && !self.operator_candidates(scope, "*[]")?.is_empty()
+            && self.pointer_index_reachable_from(scope, base)?
         {
             let base_op = self.check_expr(f, scope, base, None)?;
             let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;

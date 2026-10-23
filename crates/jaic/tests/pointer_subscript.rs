@@ -227,7 +227,7 @@ fn index_argument_keeps_ordinary_binding_diagnostics() {
 }
 
 #[test]
-fn filtered_module_reexports_preserve_operator_visibility() {
+fn filtered_module_reexports_keep_operators_out_of_scope() {
     for expose in [true, false] {
         let mut options = Options::host();
         options.runtime_support = false;
@@ -264,12 +264,19 @@ fn filtered_module_reexports_preserve_operator_visibility() {
                 .map_err(|error| error.render(&compiler.src.sources))
                 .unwrap();
         } else {
-            let error =
-                result.expect_err("a type-only reexport must not leak its defining operators");
+            // The overload is not in scope through the facade; it is found with the type's own
+            // module instead, and that is a warning.
+            result
+                .map_err(|error| error.render(&compiler.src.sources))
+                .unwrap();
             assert!(
-                error.message.contains("index"),
-                "{}",
-                error.render(&compiler.src.sources)
+                compiler
+                    .diag
+                    .warnings
+                    .iter()
+                    .any(|w| w.message.contains("`operator *[]` is not in scope here")),
+                "{:?}",
+                compiler.diag.warnings
             );
         }
     }

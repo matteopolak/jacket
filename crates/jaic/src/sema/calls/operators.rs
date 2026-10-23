@@ -190,16 +190,17 @@ impl Compiler {
         } else {
             return Ok(None);
         };
-        if self.operator_candidates(scope, binop_text(op))?.is_empty()
-            && (op != ast::BinOp::Ne || self.operator_candidates(scope, "==")?.is_empty())
-        {
-            return Ok(None);
-        }
+        let in_scope = !self.operator_candidates(scope, binop_text(op))?.is_empty()
+            || (op == ast::BinOp::Ne && !self.operator_candidates(scope, "==")?.is_empty());
         let mut scratch = self.scratch_ctx(scope);
         // An operand that fails here fails again, with its own message, as a builtin operand.
         let Ok(probe) = self.check_expr(&mut scratch, scope, other, None) else {
             return Ok(None);
         };
+        // Without an overload in scope, those of the checked operand's own module apply.
+        if !in_scope && self.struct_home_operators(op, probe.ty())?.is_empty() {
+            return Ok(None);
+        }
         let deferred = CallArg {
             name: None,
             spread: false,
@@ -261,6 +262,15 @@ impl Compiler {
         } else {
             (other, literal)
         }))
+    }
+
+    /// The overloads of `op` (or of `==` for `!=`) declared in the module of struct type `ty`.
+    fn struct_home_operators(&mut self, op: ast::BinOp, ty: TypeId) -> Result<Vec<ProcId>> {
+        let mut found = self.home_operator_candidates(binop_text(op), &[ty], &[])?.0;
+        if op == ast::BinOp::Ne {
+            found.extend(self.home_operator_candidates("==", &[ty], &[])?.0);
+        }
+        Ok(found)
     }
 
     /// The ways to call the `operator` overloads of `op` on `args`, best first: a plain match,

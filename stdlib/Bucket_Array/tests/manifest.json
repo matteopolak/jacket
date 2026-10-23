@@ -50,18 +50,18 @@
     "stdout": "ok\n"
   },
   {
-    "name": "bucket-pointer/private-negative",
-    "mode": "check-fail",
-    "diagnostic_contains": "cannot index a value of type Bucket_Array"
+    "name": "bucket-pointer/private-facade-operator",
+    "stdout": "",
+    "warning_contains": "`operator *[]` is not in scope here"
   },
   {
     "name": "bucket-pointer/reexport",
     "stdout": "ok\n"
   },
   {
-    "name": "bucket-pointer/type-only-negative",
-    "mode": "check-fail",
-    "diagnostic_contains": "cannot index a value of type Bucket_Array"
+    "name": "bucket-pointer/type-only-operator",
+    "stdout": "",
+    "warning_contains": "`operator *[]` is not in scope here"
   },
   {
     "name": "bucket-pointer/type-privacy",
