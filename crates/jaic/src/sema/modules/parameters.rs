@@ -270,13 +270,24 @@ impl Compiler {
                     span,
                 });
             }
-            decl.value = Some(ast::Expr {
+            let span = param.span;
+            let member_expr = |name: &str| ast::Expr {
                 kind: ast::ExprKind::InferredMember(ast::Ident {
-                    name: Sym::intern(member),
-                    span: param.span,
+                    name: Sym::intern(name),
+                    span,
                 }),
-                span: param.span,
-            });
+                span,
+            };
+            let mut names = member.split('|');
+            let first = member_expr(names.next().unwrap_or_default());
+            decl.value = Some(names.fold(first, |left, name| ast::Expr {
+                kind: ast::ExprKind::Binary(
+                    ast::BinOp::BitOr,
+                    Box::new(left),
+                    Box::new(member_expr(name)),
+                ),
+                span,
+            }));
             return Ok(());
         }
         if let Some((value, _)) = &provided

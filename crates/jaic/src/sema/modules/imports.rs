@@ -65,10 +65,11 @@ impl Compiler {
         let dir = self.file_dir(file);
         let mut params = Vec::new();
         for (position, arg) in import.params.iter().enumerate() {
-            // `.Member` needs the parameter's type, known only once the module is read.
-            let (value, ty) = if let ast::ExprKind::InferredMember(member) = &arg.value.kind {
+            // `.Member` (or `.A | .B`) needs the parameter's type, known only once the module is
+            // read.
+            let (value, ty) = if let Some(members) = inferred_members(&arg.value) {
                 (
-                    Value::String(format!("{INFERRED_PARAM}{}", member.name).as_bytes().into()),
+                    Value::String(format!("{INFERRED_PARAM}{members}").as_bytes().into()),
                     TypeId::VOID,
                 )
             } else {
@@ -339,5 +340,16 @@ impl Compiler {
             Some(w) => crate::build::import_rules(w, self.meta.workspace),
             None => (Vec::new(), Vec::new()),
         }
+    }
+}
+
+/// The member names of `.A` or `.A | .B | ...`, joined with `|`.
+fn inferred_members(expr: &ast::Expr) -> Option<String> {
+    match &expr.kind {
+        ast::ExprKind::InferredMember(member) => Some(member.name.to_string()),
+        ast::ExprKind::Binary(ast::BinOp::BitOr, a, b) => {
+            Some(format!("{}|{}", inferred_members(a)?, inferred_members(b)?))
+        }
+        _ => None,
     }
 }
