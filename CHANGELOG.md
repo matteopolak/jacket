@@ -43,6 +43,7 @@
 
 ### Fixed
 
+- A procedure with a bare polymorphic struct parameter such as `pairs: Table` can still write `Table(string, s64)` in its body.
 - A build program with `do_output = false` that reaches `init_plugins` on a branch that does not run no longer fails for the initialization that was never generated.
 - A struct with a scalar `#as` member compares as that member when no `operator` takes it, so `a.socket == b.socket` works on a wrapped handle.
 - A module's procedures and the same-named procedures of a module it re-exports with `using` form one overload set for its importers.

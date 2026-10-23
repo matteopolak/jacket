@@ -221,23 +221,7 @@ impl Compiler {
         let callee_op = self.check_expr(f, scope, callee, None)?;
         match callee_op {
             Operand::Builtin(b) => self.check_builtin(f, scope, b, args, expected, span),
-            Operand::PolyStruct(ps) => {
-                let mut values = Vec::new();
-                for (i, a) in args.iter().enumerate() {
-                    let expected = if matches!(a.value.kind, E::InferredMember(_)) {
-                        self.poly_struct_param_type(ps, i, a.name.map(|n| n.name))
-                    } else {
-                        None
-                    };
-                    values.push((
-                        a.name.map(|n| n.name),
-                        self.eval_const_or_run(scope, &a.value, expected)?,
-                    ));
-                }
-                let ty = self.instantiate_struct(ps, values, span)?;
-                self.ide_note_struct_arguments(ty, args);
-                Ok(Operand::Type(ty))
-            }
+            Operand::PolyStruct(ps) => self.instantiate_poly_call(scope, ps, args, span),
             Operand::Procs(procs) => {
                 let as_code = self.macro_code_args(&procs, args);
                 let discarded = self.discarded_args(&procs, args);
@@ -268,6 +252,13 @@ impl Compiler {
                 result
             }
             Operand::Type(t) => {
+                // A bare `Table` parameter binds the name to the instance it was given, yet
+                // `Table(string, s64)` in the body still names the polymorphic struct.
+                if let E::Ident(name) = &callee.kind
+                    && let Some(ps) = self.poly_struct_of_instance(*name, t)
+                {
+                    return self.instantiate_poly_call(scope, ps, args, span);
+                }
                 // `Type(x)` is not Jai; but `T.{}` etc are handled elsewhere.
                 err(span, format!("cannot call type {}", self.ty.types.name(t)))
             }
@@ -278,6 +269,44 @@ impl Compiler {
                 self.call_indirect(f, ty, v, parameters, call_args, span)
             }
         }
+    }
+
+    /// `Name(arguments)` for the polymorphic struct `ps`: the instance type.
+    fn instantiate_poly_call(
+        &mut self,
+        scope: ScopeId,
+        ps: value::PolyStructId,
+        args: &[ast::Arg],
+        span: Span,
+    ) -> Result<Operand> {
+        let mut values = Vec::new();
+        for (i, a) in args.iter().enumerate() {
+            let expected = if matches!(a.value.kind, E::InferredMember(_)) {
+                self.poly_struct_param_type(ps, i, a.name.map(|n| n.name))
+            } else {
+                None
+            };
+            values.push((
+                a.name.map(|n| n.name),
+                self.eval_const_or_run(scope, &a.value, expected)?,
+            ));
+        }
+        let ty = self.instantiate_struct(ps, values, span)?;
+        self.ide_note_struct_arguments(ty, args);
+        Ok(Operand::Type(ty))
+    }
+
+    /// The polymorphic struct called `name` that `ty` is an instance of.
+    fn poly_struct_of_instance(&self, name: Sym, ty: TypeId) -> Option<value::PolyStructId> {
+        self.ty
+            .poly_structs
+            .iter()
+            .position(|poly| {
+                poly.name == name
+                    && poly.origin.is_none()
+                    && poly.instances.values().any(|&t| t == ty)
+            })
+            .map(|i| value::PolyStructId(i as u32))
     }
 
     /// What still separates equally cheap candidates: a non-polymorphic one beats a polymorphic
