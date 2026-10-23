@@ -233,7 +233,9 @@ impl Compiler {
             ast::ExprKind::InferredMember(name) => (name.span, IdeWhat::Member(name.name)),
             _ => return,
         };
-        if !self.ide_wants(span.file) {
+        // An empty span names nothing in the source: the hidden locals the checker makes (the
+        // pointer behind `p.x += 1`) get one at the target's start, where the user's name is.
+        if span.start == span.end || !self.ide_wants(span.file) {
             return;
         }
         let ty = op.ty();
