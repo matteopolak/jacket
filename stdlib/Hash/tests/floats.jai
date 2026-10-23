@@ -12,11 +12,16 @@ main :: () {
     negative := (cast(*float32) *bits).*;
 
     assert(H.get_hash(positive) == H.sdbm_hash(*positive, 4));
-    assert(H.get_hash(negative) == H.sdbm_hash(*negative, 4));
-    assert(H.get_hash(positive) != H.get_hash(negative));
+    assert(H.get_hash(negative) == H.get_hash(positive));
     assert(H.sdbm_float_hash(*positive, 1) == H.sdbm_float_hash(*negative, 1));
     wide: float64 = 1.25;
 
+    one: float32 = 1.5;
+
+    assert(H.get_hash(one) == H.sdbm_hash(*one, 4));
+    wide_negative := -wide;
+
+    assert(H.get_hash(wide_negative) == H.sdbm_hash(*wide_negative, 8));
     assert(H.get_hash(wide, 7) == H.sdbm_hash(*wide, 8, 7));
     print("ok\n");
 }

@@ -88,8 +88,13 @@ get_hash :: (x: $T, h := HASH_INIT) -> u32 #modify {
     info := hash_scalar_base_info(type_info(T));
     return info.type == .FLOAT || info.type == .INTEGER || info.type == .BOOL || info.type == .ENUM || info.type == .POINTER, "get_hash requires an integer, boolean, enum, pointer, or float";
 } {
-    #if hash_scalar_base_info(type_info(T)).type == .FLOAT return sdbm_hash(*x, size_of(T), h);
-    else return cast(u32) (knuth_hash((cast,no_check(u64) x) ^ cast(u64) h) >> 32);
+    #if hash_scalar_base_info(type_info(T)).type == .FLOAT {
+        // Equal keys hash alike: negative zero is folded into zero.
+        key := x;
+        if key == 0 key = 0;
+
+        return sdbm_hash(*key, size_of(T), h);
+    } else return cast(u32) (knuth_hash((cast,no_check(u64) x) ^ cast(u64) h) >> 32);
 }
 
 #scope_file
