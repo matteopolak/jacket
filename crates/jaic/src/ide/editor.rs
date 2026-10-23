@@ -229,6 +229,20 @@ impl Editor {
         }
     }
 
+    /// Compile-time code at `span` called something the editor's sandbox does not provide (a
+    /// foreign procedure it does not emulate): what it would have produced is unknown, not
+    /// wrong, so it is recorded like a refusal. `true` when recording.
+    #[inline]
+    pub(crate) fn refuse_unavailable(&mut self, span: Span) -> bool {
+        match self.facts.as_mut() {
+            Some(facts) => {
+                facts.refused.push(span);
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Parses `text` (file `file`, read from `path`) the editor's way, with every syntax
     /// error recovered from and recorded: `None` when not recording, and the batch parser
     /// applies.
@@ -290,7 +304,10 @@ impl Editor {
     pub(crate) fn stmt_failed(&self, kind: DiagnosticKind, is_decl: bool) -> StmtRecovery {
         if !self.continues_past_errors() {
             StmtRecovery::Propagate
-        } else if kind == DiagnosticKind::Untrusted {
+        } else if matches!(
+            kind,
+            DiagnosticKind::Untrusted | DiagnosticKind::Unavailable
+        ) {
             StmtRecovery::Salvage
         } else if is_decl {
             StmtRecovery::Declare

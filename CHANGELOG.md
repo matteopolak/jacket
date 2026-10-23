@@ -58,6 +58,7 @@
 
 ### Fixed
 
+- The language server no longer reports an error for compile-time code that calls something only a real build can run, such as `BuildCpp`'s `mkdtemp` (#37).
 - `a, b = 1, 2, 3;` reports that it has too many values instead of ignoring the extra one.
 - `Bit_Array.deinit` empties the array, so a later loop or bit access no longer reaches freed storage.
 - `Subtitles` HTML output escapes `&`, `<`, `>` and `"` in titles, speaker names and lines, so text containing them no longer breaks the page.

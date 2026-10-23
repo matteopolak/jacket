@@ -100,8 +100,9 @@ fn check_rest(
     errors
 }
 
-/// Without the errors that only say compile-time code was not run (an untrusted workspace):
-/// what it would have produced is unknown, not wrong. Code a `#insert` would have generated
+/// Without the errors that only say compile-time code was not run (an untrusted workspace,
+/// or a foreign procedure the editor's sandbox does not provide, which a build runs for
+/// real): what it would have produced is unknown, not wrong. Code a `#insert` would have generated
 /// may declare any name, so a file that has one refused cannot report names as unknown.
 fn known(
     compiler: &Compiler,
@@ -115,9 +116,12 @@ fn known(
             .is_some_and(|ide| ide.refused.iter().any(|s| s.file == file))
             && compiler.src.sources.get(file).text.contains("#insert")
     };
-    errors.retain(|e| {
-        e.kind != DiagnosticKind::Untrusted
-            && !(matches!(e.kind, DiagnosticKind::UnknownIdentifier { .. }) && refused(e.span.file))
+    errors.retain(|e| match e.kind {
+        DiagnosticKind::Untrusted | DiagnosticKind::Unavailable => false,
+        DiagnosticKind::UnknownIdentifier {
+            ..
+        } => !refused(e.span.file),
+        _ => true,
     });
     errors
 }
