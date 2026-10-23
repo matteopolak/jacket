@@ -45,6 +45,12 @@
 - An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.
 - `GetRect` and `GetRect_LeftHanded` take `Type_Indicator` as a program parameter, `#import "GetRect"()(Type_Indicator = T)`, shared by every import in the program.
 - The `macOS` module declares `OSStatus` and `OSType`.
+- `cast(float).5` parses the `.5` as the operand.
+- `#overlay(a) b: s64;` works as the single statement of an `#if ... then` in a struct.
+- `(#import "Basic").print(...)` works: `#import` can be used inside an expression.
+- `#code a.b."c"` accepts a string literal as a member name.
+- `#code` ends at a trailing comma, so `.[ #code 2 + 4, ]` parses, and `#code return 5` ends at the call's `)`.
+- `using Other;` inside an enum body brings in the members of another enum.
 - Debug builds check integer casts that change sign, such as `cast(u64)` of a negative number, not only narrowing ones.
 - Opening a module file on its own (such as `Extensions/SIMD/module.jai`) no longer reports `#module_parameters` as misplaced.
 - `BuildCpp` on Windows accepts `/bigobj` objects and finds Visual Studio's `clang-cl` for the host when targeting another CPU.
