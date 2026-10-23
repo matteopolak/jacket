@@ -13,6 +13,7 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
+import concurrent.futures
 import os
 from pathlib import Path
 import subprocess
@@ -32,6 +33,17 @@ SUITES = (
     "tooling",
 )
 
+# Suites that share scratch directories, the X display or the audio device run one after the other
+# inside a group; the groups are independent and run concurrently under --jobs. The slowest group
+# comes first so it starts at once.
+GROUPS = (
+    ("tooling",),
+    ("bindings",),
+    ("foundations",),
+    ("portable", "platform"),
+    ("audio", "window", "numerics", "numerics-native"),
+)
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -40,6 +52,19 @@ def main():
     parser.add_argument("--jailint", required=True, type=Path)
     parser.add_argument("--jaifmt", required=True, type=Path)
     parser.add_argument("--suite", action="append", choices=SUITES)
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        choices=SUITES,
+        default=[],
+        help="leave this suite out of the selection (repeatable)",
+    )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="independent suite groups to run at once (default 1: one suite at a time)",
+    )
     parser.add_argument("--native-libs", required=True, type=Path)
     parser.add_argument(
         "--bindings-native-libs",
@@ -55,7 +80,9 @@ def main():
         help="Caller owns an ephemeral X11 display for Linux clipboard tests",
     )
     args = parser.parse_args()
-    selected = args.suite or list(SUITES)
+    if args.jobs < 1:
+        parser.error("--jobs must be at least 1")
+    selected = [s for s in (args.suite or SUITES) if s not in args.exclude]
     compiler, library = args.jaic.resolve(strict=True), args.stdlib.resolve(strict=True)
     lint, fmt = args.jailint.resolve(strict=True), args.jaifmt.resolve(strict=True)
     native = args.native_libs.resolve(strict=True)
@@ -169,14 +196,40 @@ def main():
     if args.private_x11_display:
         commands["numerics-native"].append("--private-x11-display")
     failures = []
-    for suite in selected:
+
+    def run_suite(suite, capture):
         print("RUN suite:", suite, flush=True)
         result = subprocess.run(
-            [sys.executable, *map(str, commands[suite])], cwd=ROOT, env=env
+            [sys.executable, *map(str, commands[suite])],
+            cwd=ROOT,
+            env=env,
+            **(
+                dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                if capture
+                else {}
+            ),
         )
+        # A concurrent suite's output is printed whole when it ends, so lines never interleave.
+        if capture:
+            sys.stdout.write(result.stdout)
         print("RESULT suite:", suite, "exit", result.returncode, flush=True)
-        if result.returncode:
-            failures.append(suite)
+        return result.returncode
+
+    def run_group(group):
+        return [
+            suite
+            for suite in group
+            if run_suite(suite, args.jobs > 1)
+        ]
+
+    groups = [g for g in ([s for s in group if s in selected] for group in GROUPS) if g]
+    if args.jobs == 1:
+        # Keep the requested order when running serially.
+        failures = [suite for suite in selected if run_suite(suite, False)]
+    else:
+        with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+            for failed in pool.map(run_group, groups):
+                failures.extend(failed)
     print(
         "Suites:",
         len(selected) - len(failures),

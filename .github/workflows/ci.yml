@@ -408,9 +408,14 @@ jobs:
         # macos-x64 only on nightly and manual runs, as in `test`
         platform: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["macos-arm64","linux-x64","linux-arm64","macos-x64"]' || '["macos-arm64","linux-x64","linux-arm64"]') }}
         # Each shard runs every other stdlib test (tools/stdlib/stdlib_runtime.py --shard); the first
-        # also runs the producer suites and the WebGPU checks. Two, not more: with `test`,
-        # `upstream-smoke` and `sanitizers` that is the five macOS jobs GitHub runs at once.
+        # also runs the producer suites (concurrently) and the WebGPU checks. Two, not more: with
+        # `test`, `upstream-smoke` and `sanitizers` that is the five macOS jobs GitHub runs at once.
+        # The `tooling` suite (developer tools, ~16 minutes by itself) has its own leg on Linux; on
+        # macOS, where an extra job would queue, it runs after the runtime tests of shard 2/2.
         shard: ['1/2', '2/2']
+        include:
+          - {platform: linux-x64, shard: tooling}
+          - {platform: linux-arm64, shard: tooling}
     concurrency:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}-${{ matrix.shard }}
       cancel-in-progress: true
@@ -442,6 +447,7 @@ jobs:
       - name: Build private native dependencies from source
         run: bash tools/native/ci_native_deps.sh full
       - name: Run reviewed contracts and retained regressions
+        if: ${{ matrix.shard != 'tooling' }}
         run: |
           ulimit -c 0
           run=()
@@ -449,7 +455,7 @@ jobs:
           "${run[@]}" python3 -u tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
             --modes interp,native,wasm-interp,wasm-native --strict --timeout 600 --coverage target/stdlib-coverage.txt
       - name: Stdlib tests, native O2
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && matrix.shard != 'tooling' }}
         run: |
           ulimit -c 0
           run=()
@@ -465,8 +471,12 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
       - name: NEW producer behavior suites against production
-        if: ${{ always() && !cancelled() && matrix.shard == '1/2' }}
+        # Shard 1/2 runs every suite but `tooling`, two groups at a time; the independent
+        # suites share no scratch directory across groups (GROUPS in check_stdlib_suites.py).
+        if: ${{ always() && !cancelled() && (matrix.shard == '1/2' || matrix.shard == 'tooling' || (matrix.shard == '2/2' && startsWith(matrix.platform, 'macos'))) }}
         run: |
+          suites=(--exclude tooling --jobs 2)
+          [[ "${{ matrix.shard }}" == 1/2 ]] || suites=(--suite tooling)
           run=()
           if [[ "$RUNNER_OS" == Linux ]]; then
             run=(xvfb-run -a -s "-screen 0 1280x1024x24")
@@ -478,7 +488,7 @@ jobs:
           [[ "$RUNNER_OS" == Linux ]] && display=(--private-x11-display)
           native="$(python3 -c 'import sys;sys.path.insert(0,"tools");from native import build_native_libs;print(build_native_libs.output_dir())')"
           "${run[@]}" python3 -u tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib \
-            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${display[@]}"
+            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${display[@]}" "${suites[@]}"
       - name: WebGPU without a window (wgpu-native, interpreted and built)
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
         # an error scope (stdlib/Extensions/WebGPU/tests/headless.jai). Linux has Mesa's lavapipe; the macOS
