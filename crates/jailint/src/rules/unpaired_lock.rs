@@ -23,9 +23,9 @@
 //! procedure that is itself `@Locks` is a wrapper and is not checked, and so is a lock taken
 //! inside a nested block.
 use super::frees::opaque;
-use super::{calls_noted, finding, has_note};
-use crate::Finding;
+use super::{calls_noted, finding, has_note, statement_range, suggesting};
 use crate::syntax::{Cx, Node, walk_node};
+use crate::{Edit, Finding};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::source::Span;
 
@@ -68,28 +68,70 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 continue;
             }
             let shown = cx.whole_src(arg.span).trim();
-            match flow_list(cx, arg, &list[k + 1..]) {
-                Flow::Locked => out.push(finding(
-                    call,
+            // Deferring the unlock is offered when nothing below unlocks by hand (a second
+            // unlock would then run twice) and the call is spelled `lock(...)`.
+            let defer = (!list[k + 1..].iter().any(|t| releases(cx, t, arg)))
+                .then(|| deferred_unlock(cx, s))
+                .flatten();
+            let (message, help, at) = match flow_list(cx, arg, &list[k + 1..]) {
+                Flow::Locked => (
                     format!(
                         "`{shown}` is locked here but the procedure can end without unlocking it"
                     ),
-                    Some(
-                        "unlock it on every path, or `defer` the unlock right after locking".into(),
-                    ),
-                )),
-                Flow::Leak(at) => out.push(finding(
-                    at,
+                    "unlock it on every path, or `defer` the unlock right after locking",
+                    call,
+                ),
+                Flow::Leak(at) => (
                     format!("this `return` leaves `{shown}` locked"),
-                    Some(
-                        "unlock it before returning, or `defer` the unlock right after locking"
-                            .into(),
-                    ),
-                )),
-                Flow::Unlocked | Flow::Exited | Flow::Unsure => {}
-            }
+                    "unlock it before returning, or `defer` the unlock right after locking",
+                    at,
+                ),
+                Flow::Unlocked | Flow::Exited | Flow::Unsure => continue,
+            };
+            out.push(match defer {
+                Some(text) => {
+                    let end = statement_range(cx, s.span).1;
+                    let (_, indent) = cx.line_start(s.span.start as usize);
+                    suggesting(
+                        at,
+                        message,
+                        help.into(),
+                        "unlock when the procedure ends",
+                        vec![Edit {
+                            start: end,
+                            end,
+                            text: format!("\n{indent}{text}"),
+                        }],
+                    )
+                }
+                None => finding(at, message, Some(help.into())),
+            });
         }
     }
+}
+
+/// `defer unlock(...);` for a statement `lock(...);`: the same arguments, with the callee's
+/// last word `lock` turned into `unlock`. `None` for any other spelling.
+fn deferred_unlock(cx: &Cx, s: &Stmt) -> Option<String> {
+    let S::Expr(e) = &s.kind else {
+        return None;
+    };
+    let E::Call {
+        callee, ..
+    } = &e.kind
+    else {
+        return None;
+    };
+    let name = cx.whole_src(callee.span).trim();
+    let stem = name.strip_suffix("lock")?;
+    if stem.ends_with("un") || stem.ends_with(|c: char| c.is_alphanumeric()) {
+        return None;
+    }
+    let args = cx
+        .text
+        .get(cx.whole(callee.span).1..e.span.end as usize)?
+        .trim();
+    Some(format!("defer {stem}unlock{args};"))
 }
 
 /// The statement is only a call of a `@Locks` procedure with an argument: the first argument

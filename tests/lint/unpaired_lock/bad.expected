@@ -13,6 +13,11 @@ warning[unpaired_lock]: `*state.mutex` is locked here but the procedure can end 
 23 |     lock(*state.mutex);
    |     ^^^^^^^^^^^^^^^^^^
    |
-   = help: unlock it on every path, or `defer` the unlock right after locking
+help: unlock it on every path, or `defer` the unlock right after locking
+   |
+23 -     lock(*state.mutex);
+23 +     lock(*state.mutex);
+24 +     defer unlock(*state.mutex);
+   |
    = note: `unpaired_lock` is `warn` by default
 
