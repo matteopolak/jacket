@@ -399,6 +399,7 @@ fn compiler_and_abi_regressions_run_natively() {
         "modify-assigns-baked-value",
         "operator-procedure-of-call",
         "placeholder-struct-members",
+        "global-procedure-variable",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {

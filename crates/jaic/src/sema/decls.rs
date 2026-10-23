@@ -508,6 +508,8 @@ impl Compiler {
                         }
                     }
                     Operand::Type(_) => TypeId::TYPE,
+                    // `f := (x: int) -> int { ... };` holds a pointer to that procedure.
+                    Operand::Procs(procs) if procs.len() == 1 => self.proc_type(procs[0], span)?,
                     other => other.ty(),
                 }
             }
