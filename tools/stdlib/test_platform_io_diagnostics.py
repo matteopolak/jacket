@@ -79,6 +79,19 @@ class FaultDiagnosticTests(unittest.TestCase):
             ),
         )
 
+    def test_overflow_stack_may_be_truncated_but_other_faults_may_not(self):
+        text = (
+            b"stack overflow\nnative stack:\n  0x0000000000000001\n  0x0000000000000002\n"
+            b"native stack truncated at 64 frames\n"
+        )
+        result = self.result(text, 0xC00000FD)
+        self.assertEqual(fault_failures(result, True, overflow=True), [])
+        self.assertIn("unwind failed", fault_failures(
+            self.result(text.replace(b"truncated at 64 frames", b"unwind failed"), 0xC00000FD),
+            True,
+            overflow=True,
+        ))
+
 
 if __name__ == "__main__":
     unittest.main()

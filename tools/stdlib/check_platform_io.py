@@ -69,12 +69,14 @@ def fault_failures(result, enabled, symbols=(), overflow=False):
     frames = [line for line in result.stderr.splitlines() if line.startswith(b"  0x")]
     if len(frames) < 2:
         failed.append(f"frame_count={len(frames)}")
+    # Runaway recursion is far deeper than the 64 frames the handler prints, so an overflow's
+    # stack is truncated by design; any other fault must unwind completely.
     for text in [
         b"unwind failed",
         b"invalid native stack",
         b"no progress",
         b"stack unavailable",
-        b"stack truncated",
+        *([] if overflow else [b"stack truncated"]),
     ]:
         if text in result.stderr:
             failed.append(text.decode())
