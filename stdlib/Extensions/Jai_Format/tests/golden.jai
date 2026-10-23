@@ -216,6 +216,36 @@ check_config_parsing :: () {
     if format_is_ignored(config, "/repo/c/b.jai") fail("`b.jai` should not ignore /repo/c/b.jai");
     if !format_glob_match("**/gen_*.jai", "x/y/gen_a.jai") || !format_glob_match("**/gen_*.jai", "gen_b.jai") fail("`**/` glob");
     if format_glob_match("*.jai", "dir/a.jai") fail("`*` must not cross directories");
+
+    check_shared_globs();
+}
+
+// The cases jailint's Rust tests run too: `pattern<TAB>path<TAB>match|nomatch`.
+check_shared_globs :: () {
+    text, ok := read_entire_file("../../../../tests/glob/cases.txt");
+    if !ok {
+        fail("cannot read the shared glob cases");
+        return;
+    }
+
+    count := 0;
+
+    for line: split(text, "\n") {
+        if !line.count || line[0] == #char "#" continue;
+
+        parts := split(line, "\t");
+        if parts.count != 3 {
+            fail("bad glob case: %", line);
+            continue;
+        }
+
+        got := format_glob_match(parts[0], parts[1]);
+        if got != (parts[2] == "match") fail("glob(%, %) = %, want %", parts[0], parts[1], got, parts[2]);
+
+        count += 1;
+    }
+
+    if count < 30 fail("expected the shared glob cases, found %", count);
 }
 
 // The TOML forms a config may use besides `key = value` under `[format]`.

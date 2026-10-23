@@ -543,4 +543,26 @@ mod tests {
         assert!(!glob("a/**/b", "a/xb"));
         assert!(!glob("tests/**", "stdlib/a.jai"));
     }
+
+    /// The cases in `tests/glob/cases.txt` are shared with jaifmt's tests.
+    #[test]
+    fn golden_globs() {
+        let cases = include_str!("../../../tests/glob/cases.txt");
+        let mut count = 0;
+        for line in cases
+            .lines()
+            .filter(|l| !l.starts_with('#') && !l.is_empty())
+        {
+            let [pattern, path, expected] = line.split('\t').collect::<Vec<_>>()[..] else {
+                panic!("bad glob case: {line:?}");
+            };
+            assert_eq!(
+                glob(pattern, path),
+                expected == "match",
+                "glob({pattern:?}, {path:?})"
+            );
+            count += 1;
+        }
+        assert!(count > 30);
+    }
 }

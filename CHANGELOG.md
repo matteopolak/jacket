@@ -11,6 +11,7 @@
 
 ### Improved
 
+- A trailing `/` on a `jaifmt` `ignore` glob, as in `generated/`, now ignores that directory, as it does for `jailint`'s `exclude`.
 - `just build` also builds the native libraries and `Bindings_Generator` helpers a release ships, and a missing one in a source checkout says to run it (#36).
 - A format string that disagrees with its arguments suggests the fix as an edit: remove the extra arguments, or write a `%` that has no argument as `\%`. A procedure that can end without a `return` points at its closing `}`.
 - Syntax errors suggest the fix as an edit and as an editor quick fix: a missing `;`, an unclosed `}` (with a note at the `{`), an unknown escape such as `\q`, and an unterminated comment or here-string.

@@ -55,6 +55,8 @@ blank_line_after_declarations = false   # plus the five other opt-in options abo
 ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file; `**` crosses directories
 ```
 
+Both tools match globs the same way: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `glob` in `crates/jailint/src/config.rs` and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
+
 The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/compiler/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`.
 
 ## Module API

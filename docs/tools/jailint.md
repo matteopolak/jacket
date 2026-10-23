@@ -294,6 +294,8 @@ paths = ["tests/**"]
 rules = { float_equality = "allow", magic_number = "allow" }
 ```
 
+Both tools match globs the same way: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `glob` in `crates/jailint/src/config.rs` and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
+
 `[[lint.overrides]]` entries set rule or category levels for the files their `paths` globs match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `magic_number_*`) are not per path.
 
 The formatter is written in Jai and reads the `[format]` table itself; both tables live in one file. The repository's `jacket.toml` excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `jailint -D warnings -j <cores> prelude stdlib examples tools jaifmt tests benchmarks`; deliberate findings in tests carry an `allow` with the reason. It also holds the repository to `magic_number` (time units allowed) and, under `stdlib/`, to `float_equality`; `[[lint.overrides]]` turn `magic_number` off for benchmarks, examples and binary-format, numeric and OS-binding code, and `float_equality` off in stdlib tests.

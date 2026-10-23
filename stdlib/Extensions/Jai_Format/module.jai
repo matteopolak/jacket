@@ -85,7 +85,7 @@ format_is_ignored :: (config: Format_Config, path: string) -> bool {
 }
 
 format_glob_match :: (pattern: string, text: string) -> bool {
-    return glob_match(pattern, text);
+    return glob_path_match(pattern, text);
 }
 
 // Lines in `text` longer than `max_width` code points.

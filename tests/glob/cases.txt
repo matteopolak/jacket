@@ -1,0 +1,44 @@
+# Golden cases for jacket.toml path globs, run by jailint (Rust) and jaifmt (Jai).
+# Format: pattern<TAB>path<TAB>match|nomatch. Paths are relative with `/` separators.
+# `*` and `?` stay inside one path component, `**` crosses components, and a pattern
+# matching a directory also matches everything inside it. A trailing `/` on the pattern is
+# ignored, and an empty pattern matches nothing.
+tests/**	tests/corpus/a.jai	match
+tests/**	stdlib/a.jai	nomatch
+tests/**	tests/a.jai	match
+tests/corpus	tests/corpus/a.jai	match
+tests/corpus	tests/corpus	match
+tests/corpus	tests/corpus2/a.jai	nomatch
+tests/corpus/	tests/corpus/a.jai	match
+tests/corpus//	tests/corpus/a.jai	match
+*.jai	a.jai	match
+*.jai	dir/a.jai	nomatch
+*.jai	.jai	match
+*	a.jai	match
+*	dir/a.jai	match
+dir/*	dir/a.jai	match
+dir/*	dir/sub/a.jai	match
+dir/*.jai	dir/sub/a.jai	nomatch
+**	a/b/c.jai	match
+**/gen_*.jai	x/y/gen_a.jai	match
+**/gen_*.jai	gen_a.jai	match
+**/gen_*.jai	x/my_gen_a.jai	nomatch
+**/test.jai	latest.jai	nomatch
+**/test.jai	a/test.jai	match
+a/**/b	a/x/y/b	match
+a/**/b	a/b	match
+a/**/b	a/xb	nomatch
+a/**/b	a/x/b/c.jai	match
+a?c	abc	match
+a?c	a/c	nomatch
+a?c	ac	nomatch
+?	a	match
+?	ab	nomatch
+x.jai	x.jai	match
+x.jai	xjai	nomatch
+x.jai	dir/x.jai	nomatch
+	a/b.jai	nomatch
+	/abs/b.jai	nomatch
+/	a/b.jai	nomatch
+a*b*c	aXbYc	match
+a*b*c	aXbY	nomatch

@@ -366,12 +366,24 @@ is_ignored :: (config: Format_Config, path: string) -> bool {
     while relative.count && relative[0] == #char "/" relative = slice(relative, 1, relative.count - 1);
 
     for glob: config.ignore {
-        if glob_match(glob, relative) return true;
+        if glob_path_match(glob, relative) return true;
+    }
 
-        // Directory prefixes: `tests/corpus` ignores `tests/corpus/a.jai`.
-        for *relative {
-            if it.* == #char "/" && glob_match(glob, slice(relative, 0, it_index)) return true;
-        }
+    return false;
+}
+
+// `glob` against a relative path: a trailing `/` on the pattern is dropped, an empty pattern
+// matches nothing, and a pattern that matches a directory prefix (`tests/corpus` for
+// `tests/corpus/a.jai`) matches the path too.
+glob_path_match :: (glob: string, relative: string) -> bool {
+    pattern := glob;
+    while pattern.count && pattern[pattern.count - 1] == #char "/" pattern.count -= 1;
+
+    if !pattern.count return false;
+    if glob_match(pattern, relative) return true;
+
+    for *relative {
+        if it.* == #char "/" && glob_match(pattern, slice(relative, 0, it_index)) return true;
     }
 
     return false;
