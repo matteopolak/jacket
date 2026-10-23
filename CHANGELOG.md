@@ -51,6 +51,7 @@
 - A module's procedures and the same-named procedures of a module it re-exports with `using` form one overload set for its importers.
 - Overloads that take constant parameters of different distinct types, such as `($c: Position)` and `($c: Velocity)`, are told apart by the argument's type.
 - A global initializer can hold the `data` of a global fixed array, as in `view : [] T = .{0, buffer.data}`.
+- `jaifmt` reads the same `jacket.toml` forms as the other tools: single-quoted strings, quoted and dotted keys, and `format = { ... }` inline tables.
 - `jacket lint` prints each configuration warning once, not once from `jacket` and again from `jailint`.
 - `exclude = [""]` in `[lint]` is reported as an error instead of excluding every file.
 - `jailint --fix` keeps a trailing comment when it removes an unused variable or import.

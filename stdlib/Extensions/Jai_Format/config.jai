@@ -15,18 +15,23 @@ resolved_case_body_indent :: (config: Format_Config) -> int {
 // Parses `text` into `config`; on failure returns false and a message naming the line. Keys the
 // format settings do not have are dropped into `config.unknown_keys` (as `key`, or `format.key`
 // for a sub-table), not errors. With
-// `jacket`, `text` is a jacket.toml: only the keys under `[format]` count and every other table is
-// skipped; otherwise `text` is a jaifmt.toml, whose keys sit at the top.
+// `jacket`, `text` is a jacket.toml: only the settings under `format` count and everything else
+// is skipped; otherwise `text` is a jaifmt.toml, whose keys sit at the top.
+//
+// The TOML read is the part a config uses: `key = value` pairs, `[table]` headers, bare and quoted
+// keys, dotted keys (`format.indent_width = 2`), inline tables (`format = { indent_width = 2 }`),
+// basic and literal strings, and arrays or inline tables that continue over several lines.
 parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> bool, string {
     line_number := 0;
     rest := text;
-    in_format := !jacket;
 
-    // An array may continue over several lines: `pending_key` is set from its first line until its
-    // `]`, and `depth` counts the brackets still open.
-    pending_key: string;
-    pending_value: string;
-    pending_line := 0;
+    // The keys of the `[table]` header in force.
+    table: [..] string;
+
+    // A value may continue over several lines: `statement` collects the lines from the first one
+    // until its brackets close, and `depth` counts the brackets still open.
+    statement: string;
+    statement_line := 0;
     depth := 0;
 
     while rest.count {
@@ -44,59 +49,200 @@ parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> 
         line_number += 1;
         line = trim(strip_comment(line));
 
-        if pending_key.count {
-            pending_value = tprint("% %", pending_value, line);
-            depth += bracket_delta(line);
-
-            if depth <= 0 {
-                if in_format {
-                    ok, message := apply_key(config, pending_key, trim(pending_value), pending_line);
-                    if !ok return false, message;
-                }
-
-                pending_key = "";
-            }
-
-            continue;
-        }
-
-        if !line.count continue;
-
-        if jacket && line[0] == #char "[" && line[line.count - 1] == #char "]" {
-            table := trim(slice(line, 1, line.count - 2));
-            in_format = table == "format";
-            if begins_with(table, "format.") array_add(*config.unknown_keys, copy_string(table));
-            continue;
-        }
-
-        equals := find_index_from_left(line, #char "=");
-
-        if equals < 0 {
-            if in_format return false, tprint("line %: expected `key = value`", line_number);
-            continue;
-        }
-
-        key := trim(slice(line, 0, equals));
-        value := trim(slice(line, equals + 1, line.count - equals - 1));
-
-        depth = bracket_delta(value);
-
         if depth > 0 {
-            pending_key = key;
-            pending_value = value;
-            pending_line = line_number;
-            continue;
+            statement = tprint("% %", statement, line);
+            depth += bracket_delta(line);
+        } else {
+            if !line.count continue;
+
+            statement = line;
+            statement_line = line_number;
+            depth = bracket_delta(line);
         }
 
-        if in_format {
-            ok, message := apply_key(config, key, value, line_number);
+        if depth > 0 continue;
+
+        depth = 0;
+
+        if statement[0] == #char "[" {
+            // Only a jacket.toml has tables.
+            if !jacket return false, tprint("line %: expected `key = value`", statement_line);
+
+            header, ok := parse_table_header(statement);
+            if !ok return false, tprint("line %: malformed table header", statement_line);
+
+            table = header;
+
+            if table[0] == "format" && table.count > 1 array_add(*config.unknown_keys, dotted(table, 0));
+        } else {
+            ok, message := apply_pair(config, table, statement, statement_line, jacket);
             if !ok return false, message;
         }
     }
 
-    if pending_key.count return false, tprint("line %: this array is never closed", pending_line);
+    if depth > 0 return false, tprint("line %: this array or table is never closed", statement_line);
 
     return true, "";
+}
+
+// The keys of a `[a.b]` (or `[[a.b]]`) header line.
+parse_table_header :: (header: string) -> [..] string, bool {
+    none: [..] string;
+    open := 1;
+
+    if begins_with(header, "[[") open = 2;
+
+    if header.count < 2 * open + 1 return none, false;
+
+    for 1..open if header[header.count - it] != #char "]" return none, false;
+
+    path, ok, after := parse_key_path(slice(header, open, header.count - 2 * open));
+    if !ok || trim(after).count return none, false;
+
+    return path, true;
+}
+
+// One `key = value` statement (its arrays and inline tables are closed) found under the `[table]`
+// header whose keys are `table`.
+apply_pair :: (config: *Format_Config, table: [] string, statement: string, line_number: int, jacket: bool) -> bool, string {
+    in_format := !jacket || (table.count && table[0] == "format");
+
+    path, ok, after := parse_key_path(statement);
+    after = trim(after);
+
+    if !ok || !after.count || after[0] != #char "=" {
+        if in_format return false, tprint("line %: expected `key = value`", line_number);
+        return true, "";
+    }
+
+    value := trim(slice(after, 1, after.count - 1));
+
+    keys: [..] string;
+
+    for table array_add(*keys, it);
+    for path array_add(*keys, it);
+
+    // In a jacket.toml the format settings are the keys under `format`, however they are written:
+    // in a `[format]` table, as `format.name = ...`, or in `format = { ... }`.
+    first := 0;
+
+    if jacket {
+        if keys[0] != "format" return true, "";
+
+        // A `[format.sub]` table was reported when its header was read.
+        if table.count > 1 return true, "";
+
+        first = 1;
+    }
+
+    if keys.count == first return apply_inline_table(config, value, line_number);
+
+    return apply_setting(config, keys, first, value, line_number);
+}
+
+// The settings in `{ key = value, ... }`, the value of `format` itself.
+apply_inline_table :: (config: *Format_Config, value: string, line_number: int) -> bool, string {
+    if value.count < 2 || value[0] != #char "{" || value[value.count - 1] != #char "}" {
+        return false, tprint("line %: format must be a table", line_number);
+    }
+
+    items := slice(value, 1, value.count - 2);
+
+    while true {
+        items = trim(items);
+        if !items.count break;
+
+        item, after := split_first_item(items);
+
+        items = after;
+
+        path, ok, rest := parse_key_path(item);
+        rest = trim(rest);
+
+        if !ok || !rest.count || rest[0] != #char "=" return false, tprint("line %: expected `key = value`", line_number);
+
+        applied, message := apply_setting(config, path, 0, trim(slice(rest, 1, rest.count - 1)), line_number);
+        if !applied return false, message;
+    }
+
+    return true, "";
+}
+
+// Applies `keys` from `first` on as the path of one format setting: a single name is a setting, a
+// dotted path names something the formatter does not have.
+apply_setting :: (config: *Format_Config, keys: [] string, first: int, value: string, line_number: int) -> bool, string {
+    if keys.count - first == 1 return apply_key(config, keys[first], value, line_number);
+
+    array_add(*config.unknown_keys, dotted(keys, first));
+
+    return true, "";
+}
+
+// `keys` from `first` on, joined by dots.
+dotted :: (keys: [] string, first: int) -> string {
+    out: String_Builder;
+
+    for first..keys.count - 1 {
+        if it > first append(*out, ".");
+        append(*out, keys[it]);
+    }
+
+    return builder_to_string(*out);
+}
+
+// The text before the first comma that is outside strings and brackets, and the text after it.
+split_first_item :: (text: string) -> item: string, rest: string {
+    scan: Quote_Scan;
+    depth := 0;
+
+    for text {
+        if in_string(*scan, it) continue;
+
+        if it == #char "[" || it == #char "{" depth += 1;
+        if it == #char "]" || it == #char "}" depth -= 1;
+
+        if it == #char "," && depth == 0 return slice(text, 0, it_index), slice(text, it_index + 1, text.count - it_index - 1);
+    }
+
+    return text, "";
+}
+
+// The dotted key `a."b c".d` at the start of `text`: its parts, and the text after it.
+parse_key_path :: (text: string) -> [..] string, bool, string {
+    keys: [..] string;
+    rest := trim(text);
+
+    while true {
+        rest = trim(rest);
+        if !rest.count return keys, false, rest;
+
+        if rest[0] == #char "\"" || rest[0] == #char "'" {
+            key, ok, after := parse_quoted_prefix(rest);
+            if !ok return keys, false, rest;
+
+            array_add(*keys, key);
+            rest = after;
+        } else {
+            length := 0;
+            while length < rest.count && is_bare_key_character(rest[length]) length += 1;
+            if !length return keys, false, rest;
+
+            array_add(*keys, copy_string(slice(rest, 0, length)));
+            rest = slice(rest, length, rest.count - length);
+        }
+
+        rest = trim(rest);
+
+        if !rest.count || rest[0] != #char "." return keys, true, rest;
+
+        rest = slice(rest, 1, rest.count - 1);
+    }
+
+    return keys, false, rest;
+}
+
+is_bare_key_character :: (c: u8) -> bool {
+    return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || (c >= #char "0" && c <= #char "9") || c == #char "_" || c == #char "-";
 }
 
 // Sets one `key = value` pair; on failure returns false and a message naming the line.
@@ -298,28 +444,55 @@ edit_distance :: (a: string, b: string) -> int {
     return previous[b.count];
 }
 
+// Where a scan along a line of TOML is: inside a basic ("...", with escapes) or a literal ('...')
+// string, or not.
+Quote_Scan :: struct {
+    quote: u8;
+    escaped: bool;
+}
+
+// Feeds the next character to `scan`; true when it belongs to a string, quotes included.
+in_string :: (scan: *Quote_Scan, c: u8) -> bool {
+    if scan.quote {
+        if scan.escaped {
+            scan.escaped = false;
+        } else if c == #char "\\" && scan.quote == #char "\"" {
+            scan.escaped = true;
+        } else if c == scan.quote {
+            scan.quote = 0;
+        }
+
+        return true;
+    }
+
+    if c == #char "\"" || c == #char "'" {
+        scan.quote = c;
+        return true;
+    }
+
+    return false;
+}
+
 strip_comment :: (line: string) -> string {
-    in_string := false;
+    scan: Quote_Scan;
 
     for *line {
-        c := it.*;
-        if c == #char "\"" in_string = !in_string;
-        if c == #char "#" && !in_string return slice(line, 0, it_index);
+        if in_string(*scan, it.*) continue;
+        if it.* == #char "#" return slice(line, 0, it_index);
     }
 
     return line;
 }
 
-// Brackets opened minus closed in `text`, not counting those inside quotes.
+// Brackets and braces opened minus closed in `text`, not counting those inside strings.
 bracket_delta :: (text: string) -> int {
-    in_string := false;
+    scan: Quote_Scan;
     delta := 0;
 
     for text {
-        if it == #char "\"" in_string = !in_string;
-        if in_string continue;
-        if it == #char "[" delta += 1;
-        if it == #char "]" delta -= 1;
+        if in_string(*scan, it) continue;
+        if it == #char "[" || it == #char "{" delta += 1;
+        if it == #char "]" || it == #char "}" delta -= 1;
     }
 
     return delta;
@@ -364,13 +537,49 @@ parse_quoted :: (text: string) -> string, bool {
     return value, true;
 }
 
+// The string at the start of `text`: basic ("..." with the escapes \" \\ \n \t \r) or literal
+// ('...', verbatim). `value` is newly allocated.
 parse_quoted_prefix :: (text: string) -> value: string, ok: bool, rest: string {
-    if text.count < 2 || text[0] != #char "\"" return "", false, text;
+    if text.count < 2 return "", false, text;
 
-    close := find_index_from_left(slice(text, 1, text.count - 1), #char "\"");
-    if close < 0 return "", false, text;
+    if text[0] == #char "'" {
+        close := find_index_from_left(slice(text, 1, text.count - 1), #char "'");
+        if close < 0 return "", false, text;
 
-    value := copy_string(slice(text, 1, close));
+        return copy_string(slice(text, 1, close)), true, slice(text, close + 2, text.count - close - 2);
+    }
 
-    return value, true, slice(text, close + 2, text.count - close - 2);
+    if text[0] != #char "\"" return "", false, text;
+
+    out: String_Builder;
+    i := 1;
+
+    while i < text.count {
+        c := text[i];
+
+        if c == #char "\"" return builder_to_string(*out), true, slice(text, i + 1, text.count - i - 1);
+
+        if c == #char "\\" {
+            i += 1;
+            if i >= text.count break;
+
+            if text[i] == #char "n" {
+                append(*out, "\n");
+            } else if text[i] == #char "t" {
+                append(*out, "\t");
+            } else if text[i] == #char "r" {
+                append(*out, "\r");
+            } else if text[i] == #char "\"" || text[i] == #char "\\" {
+                append(*out, slice(text, i, 1));
+            } else {
+                return "", false, text;
+            }
+        } else {
+            append(*out, slice(text, i, 1));
+        }
+
+        i += 1;
+    }
+
+    return "", false, text;
 }

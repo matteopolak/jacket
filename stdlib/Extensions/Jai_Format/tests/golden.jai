@@ -86,6 +86,7 @@ main :: () {
     check_refusals();
     check_equivalence_guard();
     check_config_parsing();
+    check_toml_forms();
     check_self_formatted();
 
     if failures {
@@ -215,6 +216,50 @@ check_config_parsing :: () {
     if format_is_ignored(config, "/repo/c/b.jai") fail("`b.jai` should not ignore /repo/c/b.jai");
     if !format_glob_match("**/gen_*.jai", "x/y/gen_a.jai") || !format_glob_match("**/gen_*.jai", "gen_b.jai") fail("`**/` glob");
     if format_glob_match("*.jai", "dir/a.jai") fail("`*` must not cross directories");
+}
+
+// The TOML forms a config may use besides `key = value` under `[format]`.
+check_toml_forms :: () {
+    literal, literal_ok, literal_message := parse_config("brace_style = 'preserve'\nignore = ['a#b/**', \"c\\\"d\"] # 'x'\n");
+    if !literal_ok fail("literal strings rejected: %", literal_message);
+
+    if literal.brace_style != .PRESERVE || literal.ignore.count != 2 || literal.ignore[0] != "a#b/**" || literal.ignore[1] != "c\"d" {
+        fail("strings parsed wrong: %", literal);
+    }
+
+    quoted, quoted_ok, quoted_message := parse_config("\"indent_width\" = 3\n'max_width' = 90\n");
+    if !quoted_ok || quoted.indent_width != 3 || quoted.max_width != 90 fail("quoted keys: % %", quoted_message, quoted);
+
+    // Every way of writing `[format] indent_width = 2` in a jacket.toml.
+    for string.["[format]\nindent_width = 2\n", "[ \"format\" ]\n\"indent_width\" = 2\n", "format.indent_width = 2\n", "format . 'indent_width' = 2\n", "[format]\nindent_width = 2\n\n[lint]\nmax_nesting = 3\n", "format = { indent_width = 2 }\n", "format = {\n  max_width = 80, # wide\n  indent_width = 2,\n}\n", "[project]\nentry = \"a.jai\"\n\n[format.sub]\nx = 1\n\n[other]\nformat.indent_width = 9\n[format]\nindent_width = 2\n"] {
+        parsed, ok, message := parse_jacket_config(it);
+        if !ok fail("jacket.toml rejected: % in %", message, it);
+        if ok && parsed.indent_width != 2 fail("jacket.toml form not read: %", it);
+    }
+
+    table_form, table_ok, table_message := parse_jacket_config("format = { ignore = ['a/**', \"b.jai\"], brace_style = 'preserve', colour = 1, extra.deep = { x = 1 } }\n");
+    if !table_ok fail("inline table rejected: %", table_message);
+
+    if table_form.brace_style != .PRESERVE || table_form.ignore.count != 2 || table_form.unknown_keys.count != 2 || table_form.unknown_keys[0] != "colour" || table_form.unknown_keys[1] != "extra.deep" {
+        fail("inline table parsed wrong: %", table_form);
+    }
+
+    dotted_unknown, dotted_ok := parse_jacket_config("format.extra.deep = 1\nother.format = 1\n");
+    if !dotted_ok || dotted_unknown.unknown_keys.count != 1 || dotted_unknown.unknown_keys[0] != "extra.deep" fail("dotted unknown key: %", dotted_unknown);
+
+    // Other tables are skipped, whatever they hold.
+    others, others_ok := parse_jacket_config("[project]\nname = 'a = b'\n[lint]\nexclude = [\"x\"]\nrules = { format = 1 }\n");
+    if !others_ok || others.indent_width != 4 || others.unknown_keys.count fail("other tables should be skipped");
+
+    for string.["format = 3\n", "format = { indent_width = x }\n", "format = { indent_width = 2\n", "format.indent_width = 'two'\n", "[format\nindent_width = 2\n", "[format]\nindent_width = 2 3\n", "[format]\nbrace_style = 'weird'\n", "[format]\nignore = [ 'a\n"] {
+        _, accepted := parse_jacket_config(it);
+        if accepted fail("bad jacket.toml accepted: %", it);
+    }
+
+    for string.["[format]\nindent_width = 2\n", "brace_style = 'a\n"] {
+        _, accepted := parse_config(it);
+        if accepted fail("bad jaifmt.toml accepted: %", it);
+    }
 }
 
 // The formatter is written in the style it enforces.
