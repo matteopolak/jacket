@@ -65,7 +65,7 @@ main :: () {
     defer free(html);
     assert(Strings.contains(html, "<b>raw</b>") && Strings.contains(html, "Alice \"A\""));
     assert(!Strings.contains(html, "silence") && !Strings.contains(html, "intro"));
-    assert(Strings.contains(html, "font-weight: bold") && Strings.contains(html, "font-style: italic"));
+    assert(Strings.contains(html, "speaker-bold") && Strings.contains(html, "class=\"direction\""));
     reset(*builder);
     S.format_sections_as_csv(*builder, chosen, *names);
     csv := builder_to_string(*builder);

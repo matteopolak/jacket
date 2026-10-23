@@ -11,6 +11,10 @@
     "input": "scratch-directory"
   },
   {
+    "name": "turns-layout",
+    "stdout": "ok\n"
+  },
+  {
     "name": "untimed-event-round-trip",
     "stdout": "ok\n"
   }

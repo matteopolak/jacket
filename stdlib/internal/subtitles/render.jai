@@ -1,31 +1,40 @@
 format_sections_as_html :: (builder: *String_Builder, sections: [] *Subtitles_Section, character_to_emphasize := "", name_map: *H.Table(string, string) = null) {
-    append(builder, "<html><head><meta charset=\"UTF-8\"><style>.section{break-inside:avoid}.emphasized{font-weight: bold}.direction{font-style: italic}</style></head><body>\n");
+    append(builder, HTML_HEAD);
+    append(builder, "<body>\n");
     for section: sections format_section_as_html(builder, section, character_to_emphasize, name_map);
-    append(builder, "</body></html>\n");
+    append(builder, "\n</body>\n");
 }
 
 format_section_as_html :: (builder: *String_Builder, section: *Subtitles_Section, character_to_emphasize := "", name_map: *H.Table(string, string) = null) {
-    print(builder, "<div class=\"section\" style=\"break-inside:avoid\"><h2>%</h2>\n", section.name);
+    append(builder, "<br><p></p><br>\n<div class=\"keep-together\">\n\n");
+    print(builder, "<p class=\"title\">%</p>\n", section.name);
 
-    for instant: section.instants {
-        if instant.speaker.count == 0 continue;
+    first := 0;
 
-        display := displayed_name(instant.speaker, name_map);
+    while first < section.instants.count {
+        speaker := section.instants[first].speaker;
 
-        if instant.speaker == character_to_emphasize append(builder, "<div class=\"emphasized\" style=\"font-weight: bold\">");
-        else append(builder, "<div>");
-
-        print(builder, "<span>%</span><br>\n", display);
-
-        for line: instant.lines {
-            if line.type == .DIRECTION print(builder, "<span class=\"direction\" style=\"font-style: italic\">%</span><br>\n", line.text);
-            else print(builder, "%<br>\n", line.text);
+        if speaker.count == 0 {
+            first += 1;
+            continue;
         }
 
-        append(builder, "</div>\n");
+        // A turn takes every instant of one speaker up to the next speaker's; instants without a
+        // speaker belong to no turn and do not end one.
+        next := first + 1;
+
+        while next < section.instants.count {
+            other := section.instants[next].speaker;
+
+            if other.count > 0 && other != speaker break;
+            next += 1;
+        }
+
+        append_turn_html(builder, array_view(section.instants, first, next - first), speaker == character_to_emphasize, displayed_name(speaker, name_map));
+        first = next;
     }
 
-    append(builder, "</div>\n");
+    append(builder, "</div>");
 }
 
 csv_quote :: (s: string) -> string {
@@ -60,14 +69,14 @@ format_section_as_csv :: (builder: *String_Builder, section: *Subtitles_Section,
     defer array_free(directions);
 
     for instant: section.instants {
+        if instant.speaker.count == 0 continue;
+
         if instant.speaker != speaker {
             if speaker.count > 0 flush_csv_lines(builder, section.name, name_map, speaker, lines, directions, row_number, row_index);
             lines.count = 0;
             directions.count = 0;
             speaker = instant.speaker;
         }
-
-        if speaker.count == 0 continue;
 
         for line: instant.lines {
             if line.type == .DIRECTION array_add(*directions, line.text);
@@ -110,6 +119,52 @@ flush_csv_lines :: (builder: *String_Builder, section_name: string, name_map: *H
 #scope_file
 
 ROW_NUMBER_BASE :: 262;
+
+HTML_HEAD :: #string END
+<head><style>.title          {text-align:left; margin-inline: 15vw; font-weight:800;    font-size:24px; }</style>
+<style>.speaker-bold   {text-align:left; margin-inline: 35vw; font-weight:750;    font-size:16px;}</style>
+<style>.speaker-nonbold{text-align:left; margin-inline: 35vw; font-weight:400;    font-size:16px;}</style>
+<style>.dialog-bold    {text-align:left; margin-inline: 25vw; font-weight:400;    font-size:16px;}</style>
+<style>.dialog-nonbold {text-align:left; margin-inline: 25vw; font-weight:100;    font-size:16px;}</style>
+<style>.direction      {text-align:left; margin-inline: 15vw; font-style:italic;}</style>
+<style>.keep-together  {break-inside:avoid;}</style>
+</head>
+END
+
+// One speaker's turn: the name, then each run of spoken lines or of directions as a paragraph,
+// lines in a run joined by line breaks.
+append_turn_html :: (builder: *String_Builder, instants: [] Subtitles_Instant, emphasized: bool, display: string) {
+    weight := ifx emphasized then "bold" else "nonbold";
+
+    print(builder, "\n<p class=\"speaker-%\"><b>%</b></p>\n", weight, display);
+
+    run := Subtitles_Line.type.UNINITIALIZED;
+    wrote := false;
+
+    for instant: instants {
+        if instant.speaker.count == 0 continue;
+
+        for line: instant.lines {
+            if line.type == .UNINITIALIZED continue;
+
+            if line.type == run {
+                append(builder, "<br>");
+            } else {
+                if run != .UNINITIALIZED append(builder, "</p>");
+                if line.type == .DIRECTION append(builder, "<p class=\"direction\">");
+                else print(builder, "<p class=\"dialog-%\">", weight);
+
+                run = line.type;
+            }
+
+            append(builder, line.text);
+            wrote = true;
+        }
+    }
+
+    if run != .UNINITIALIZED append(builder, "</p>");
+    if wrote append(builder, "\n");
+}
 
 Basic :: #import "Basic";
 

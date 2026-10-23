@@ -119,6 +119,7 @@
 - `using,only(...)` and `using,except(...)` work inside an enum body.
 - A `#ifx` with a constant condition leaves the other arm out, so its type and contents do not matter.
 - Procedures that a file-scope `#insert` declares are checked when something calls them, so a generated overload nothing uses can name things that do not exist.
+- `Subtitles` HTML output groups lines into speaker turns with a paragraph per run of dialogue or directions, and a speaker whose turns are split only by an instant with no speaker gets one CSV row instead of two.
 
 ## [0.25.0] - 2026-10-21
 
