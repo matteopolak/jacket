@@ -68,4 +68,4 @@ The table starts at the stub, the first call fills it, and later calls are one i
 
 ## Configuration and dependencies
 
-`#module_parameters(VECTOR_BYTES := 16)` is the width code should prefer (set 32 for AVX2 builds). Wasm builds have no `+simd128` by default, so they run scalar code. Depends on `Basic`, `Math`, the `byte_lookup`/`sign_mask` intrinsics and LLVM's vectorizers. Used by [Byte_Search](byte-search.md), [Json](json.md) and the [HTTP codec](http-codec.md).
+`#module_parameters(VECTOR_BYTES := 16)` is the width code should prefer (set 32 for AVX2 builds). Wasm builds have no `+simd128` by default, so they run scalar code. Depends on `Basic`, the `byte_lookup`/`sign_mask` intrinsics and LLVM's vectorizers. Used by [Byte_Search](byte-search.md), [Json](json.md) and the [HTTP codec](http-codec.md).

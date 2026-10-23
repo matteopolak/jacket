@@ -697,7 +697,11 @@ pick_target :: Cpu.pick_target;
 
 Cpu :: #import "internal/cpu";
 #import "Basic";
-#import "Math";
+
+// The square root instruction, for the lanes of sqrt. Declared here so that importing SIMD does not
+// load all of Math.
+sqrt :: (x: float32) -> float32 #intrinsic;
+sqrt :: (x: float64) -> float64 #intrinsic;
 
 // Compiler intrinsics: a 16-byte table lookup per 16-byte block (indices of 16 and up give 0), and
 // the top bit of each byte packed into an integer. See docs/language/intrinsics.md.
