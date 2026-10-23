@@ -407,7 +407,7 @@ OFFICIAL_MODULE_NAMES = frozenset(
     Default_Metaprogram Minimal_Metaprogram Metaprogram_Plugins Bindings_Generator Generate_C_Header
     Project_Generator Windows_Registry Windows_Resources Windows_Utf8 Autorun BuildCpp Icon Ico_File
     Mail File_Watcher Debug_Info Overwriting_Allocator Unmapping_Allocator Performance_Report
-    Print_Vars Rewrite Sloppy_Math d3d11 d3d12 dxgi d3d_compiler dxc_compiler rpmalloc meshoptimizer
+    Print_Vars Rewrite Sloppy_Math Codex d3d11 d3d12 dxgi d3d_compiler dxc_compiler rpmalloc meshoptimizer
     nvtt pl_mpeg MojoShader Android iOS macOS""".split()
 )
 
@@ -420,20 +420,47 @@ def is_forbidden_file(path: str, data: bytes | None = None) -> bool:
     return data is not None and data.startswith(BINARY_MAGIC)
 
 
+# The same names compared without case: a vendored copy is often renamed to lower case
+# (`modules/autorun.jai`, `curl/module.jai`).
+OFFICIAL_MODULE_KEYS = frozenset(name.lower() for name in OFFICIAL_MODULE_NAMES)
+
+
 def vendored_official_module(path: str, paths: list[str]) -> bool:
-    """Whether `path` sits in a directory named after an official module that holds its own
-    `module.jai` (a vendored copy), or is such a module's single-file form (`modules/Basic.jai`)."""
+    """Whether `path` is, by its location alone, part of a copy of an official module. Only the
+    names of files and directories are looked at, compared without case:
+
+    - a directory named after an official module that holds its own `module.jai` (a vendored
+      copy), and everything below it;
+    - a directory named after one that sits directly inside a `modules` directory, with or
+      without a `module.jai` (copies often keep the module's own file names instead);
+    - the single-file form of one, directly inside a `modules` directory (`modules/Basic.jai`)."""
     parts = PurePosixPath(path).parts
     for i, part in enumerate(parts[:-1]):
-        if part in OFFICIAL_MODULE_NAMES and "/".join(parts[: i + 1] + ("module.jai",)) in paths:
+        if part.lower() not in OFFICIAL_MODULE_KEYS:
+            continue
+        if "/".join(parts[: i + 1] + ("module.jai",)) in paths:
+            return True
+        if i > 0 and parts[i - 1].lower() == "modules":
             return True
     stem = PurePosixPath(path).stem
     return (
         len(parts) > 1
         and parts[-2].lower() == "modules"
-        and stem in OFFICIAL_MODULE_NAMES
+        and stem.lower() in OFFICIAL_MODULE_KEYS
         and path.endswith(".jai")
     )
+
+
+# Directories whose names match an official module (without case) but that are the repository's
+# own work: bindings for third-party C libraries, or a project's own parser. Reviewed by their
+# place in the repository (a sokol binding next to the other sokol bindings, a module inside an
+# operating system project's own `modules` directory), never by comparing with official sources.
+OWN_MODULE_PREFIXES = {
+    "colinbellino/jai-sokol-wasm-playground": ("src/modules/sokol-jai/sokol/gl/",),
+    "colinbellino/sokol-jai": ("sokol/gl/", "sokol/imgui/"),
+    "dlandahl/theos-2": ("kernel/modules/debug_info/",),
+    "okmatija/Prizm": ("modules/tracy/",),
+}
 
 
 def blob_id(data: bytes) -> str:
@@ -464,7 +491,11 @@ def select_paths(repo: str, paths: list[str]) -> list[str]:
         p
         for p in paths
         if not is_forbidden_file(p)
-        and not (repo in STAR_REPOSITORIES and vendored_official_module(p, every_path))
+        and not (
+            repo in STAR_REPOSITORIES
+            and vendored_official_module(p, every_path)
+            and not p.startswith(OWN_MODULE_PREFIXES.get(repo, ()))
+        )
         and (
             p.endswith(".jai")
             or p.endswith(NATIVE_SOURCE_SUFFIXES)

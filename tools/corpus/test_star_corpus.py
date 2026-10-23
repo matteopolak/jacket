@@ -62,6 +62,37 @@ class BinaryGuard(unittest.TestCase):
         self.assertFalse(fetch.vendored_official_module("modules/Mine/module.jai", paths))
         self.assertFalse(fetch.vendored_official_module("src/Basic.jai", paths))
 
+    def test_renamed_and_unlisted_copies_are_left_out(self):
+        # By path alone: lower-cased directory and file names, a module missing from the first
+        # version of the list, and a directory in `modules` that has no `module.jai`.
+        paths = {
+            "src/modules/curl/module.jai",
+            "jai/modules/autorun.jai",
+            "codex_view/modules/Codex/module.jai",
+            "codex_view/modules/Codex/read.jai",
+            "vendor/modules/Windows/windows.jai",
+            "src/curl/module.jai",
+            "src/modules/colors/module.jai",
+            "src/modules/mybasic.jai",
+            "src/mine/curl.jai",
+        }
+        for path in (
+            "src/modules/curl/module.jai",
+            "jai/modules/autorun.jai",
+            "codex_view/modules/Codex/module.jai",
+            "codex_view/modules/Codex/read.jai",
+            "vendor/modules/Windows/windows.jai",
+            "src/curl/module.jai",
+        ):
+            self.assertTrue(fetch.vendored_official_module(path, paths), path)
+        for path in ("src/modules/colors/module.jai", "src/modules/mybasic.jai", "src/mine/curl.jai"):
+            self.assertFalse(fetch.vendored_official_module(path, paths), path)
+
+    def test_a_repositorys_own_bindings_are_kept(self):
+        paths = ["sokol/gl/module.jai", "sokol/gfx/module.jai"]
+        self.assertEqual(fetch.select_paths("colinbellino/sokol-jai", paths), ["sokol/gfx/module.jai", "sokol/gl/module.jai"])
+        self.assertEqual(fetch.select_paths("farzher/clipman", ["src/modules/curl/module.jai", "src/main.jai"]), ["src/main.jai"])
+
 
 class ReviewGate(unittest.TestCase):
     def cases(self):
