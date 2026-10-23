@@ -531,7 +531,7 @@ heap_limit: u64;
 
 class_for :: (bytes: u64) -> s64 #no_context {
     class := SMALLEST_CLASS;
-    while (cast(u64) 1 << cast(u64) class) < bytes class += 1;
+    while ((cast(u64) 1) << cast(u64) class) < bytes class += 1;
     return class;
 }
 
@@ -570,7 +570,7 @@ wasi_malloc :: (size: u64) -> *void #c_call {
     if block {
         free_by_class[class] = (cast(*Free_Block) block).next;
     } else {
-        block = heap_take(cast(u64) 1 << cast(u64) class);
+        block = heap_take((cast(u64) 1) << cast(u64) class);
         if !block return null;
     }
 
@@ -600,7 +600,7 @@ wasi_realloc :: (memory: *void, size: u64) -> *void #c_call {
     }
 
     class := (cast(*s64) (cast(*u8) memory - TAG_BYTES)).*;
-    room := (cast(u64) 1 << cast(u64) class) - TAG_BYTES;
+    room := ((cast(u64) 1) << cast(u64) class) - TAG_BYTES;
 
     if size <= room return memory;
 

@@ -88,7 +88,7 @@ integer_bits :: (r: *Rng, size: s64, signed: bool) -> u64 {
     bits := cast(u64) width;
     all_ones: u64 = 0xFFFF_FFFF_FFFF_FFFF;
 
-    if bits < 64 all_ones = (cast(u64) 1 << bits) - 1;
+    if bits < 64 all_ones = ((cast(u64) 1) << bits) - 1;
 
     sign_bit: u64 = (cast(u64) 1) << (bits - 1);
 
@@ -102,8 +102,8 @@ integer_bits :: (r: *Rng, size: s64, signed: bool) -> u64 {
         case 4; return sign_bit - 1; // signed maximum
         case 5; return (cast(u64) below(r, 17)) & all_ones; // small
         case 6; return (0 - (cast(u64) below(r, 17))) & all_ones; // small negative
-        case 7; return (cast(u64) 1 << cast(u64) below(r, width)) & all_ones;
-        case 8; return ((cast(u64) 1 << cast(u64) below(r, width)) - 1) & all_ones;
+        case 7; return ((cast(u64) 1) << cast(u64) below(r, width)) & all_ones;
+        case 8; return (((cast(u64) 1) << cast(u64) below(r, width)) - 1) & all_ones;
         case 9; return 0x7F;
         case 10; return 0x80;
     }

@@ -113,7 +113,7 @@ write_digits :: (text: *[64] u8, value: u64, base: u64) -> s64 #no_abc {
     if (base & (base - 1)) == 0 {
         // Powers of two: each digit is a group of bits.
         shift: u64;
-        while (cast(u64) 1 << shift) < base shift += 1;
+        while ((cast(u64) 1) << shift) < base shift += 1;
 
         mask := base - 1;
 

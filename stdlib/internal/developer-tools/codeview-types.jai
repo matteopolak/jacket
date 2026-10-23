@@ -236,7 +236,7 @@ cv_numeric :: (input: *Line_Wire_Input, allow_negative := false) -> u64 {
     }
 
     value := line_wire_uint(input, size);
-    if signed && (value & (cast(u64) 1 << (size * 8 - 1))) {
+    if signed && (value & ((cast(u64) 1) << (size * 8 - 1))) {
         if !allow_negative input.failed = true;
         if size < 8 value |= 0xffffffffffffffff << (size * 8);
     }

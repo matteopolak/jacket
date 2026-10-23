@@ -175,7 +175,7 @@ nearest_binary_bits :: (significand: u64, power: s64, $T: Type) -> bits: u64, ok
         // Below the normal range the unit stays at the smallest exponent, so more bits round away.
         extra := 1 - exponent;
         if extra >= 64 return 0, true;
-        if (kept & ((cast(u64) 1 << extra) - 1)) != 0 sticky = true;
+        if (kept & (((cast(u64) 1) << extra) - 1)) != 0 sticky = true;
 
         kept >>= extra;
         round := kept & 1;

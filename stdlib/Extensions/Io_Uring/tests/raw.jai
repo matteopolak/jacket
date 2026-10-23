@@ -125,7 +125,7 @@ main :: () {
         for 1..4 {
             assert(Io_Uring.wait_cqe(*ring, *cqe) == 0);
             assert(cqe.res == 0 && cqe.user_data >= 1 && cqe.user_data <= 4);
-            seen_mask |= cast(u64) 1 << cqe.user_data;
+            seen_mask |= (cast(u64) 1) << cqe.user_data;
             Io_Uring.cqe_seen(*ring, cqe);
         }
 

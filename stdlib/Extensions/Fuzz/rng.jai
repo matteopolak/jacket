@@ -41,7 +41,7 @@ take :: (r: *Rng, bytes: s64) -> u64 {
     if !r.from_input {
         value := next(r);
         if bytes >= 8 return value;
-        return value & ((cast(u64) 1 << cast(u64) (8 * bytes)) - 1);
+        return value & (((cast(u64) 1) << cast(u64) (8 * bytes)) - 1);
     }
 
     value: u64 = 0;

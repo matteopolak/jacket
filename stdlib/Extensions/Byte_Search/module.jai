@@ -474,7 +474,7 @@ backward_search :: (test: string, scalar: string) -> string {
             chunk := load(Bytes, text.data);
             m := %1;
             // Only lanes below i are left to check.
-            bits := to_bits(m) & ((cast(u64) 1 << i) - 1);
+            bits := to_bits(m) & (((cast(u64) 1) << i) - 1);
             if bits return 63 - leading_zeros(bits);
         }
         return -1;

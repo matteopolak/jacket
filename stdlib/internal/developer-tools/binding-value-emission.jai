@@ -165,10 +165,10 @@ integer_emission_bytes :: (target: *CType) -> s64 {
 
 emit_integer_bits :: (builder: *String_Builder, value: u64, bytes: s64, signed: bool, hexadecimal: bool) {
     mask: u64 = 0xffffffffffffffff;
-    if bytes < 8 mask = (cast(u64) 1 << (bytes * 8)) - 1;
+    if bytes < 8 mask = ((cast(u64) 1) << (bytes * 8)) - 1;
 
     bits := value & mask;
-    if signed && (bits & (cast(u64) 1 << (bytes * 8 - 1))) != 0 {
+    if signed && (bits & ((cast(u64) 1) << (bytes * 8 - 1))) != 0 {
         append(builder, "-");
         magnitude := (~bits & mask) + 1;
         cpp_unsigned(builder, magnitude, hexadecimal);

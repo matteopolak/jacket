@@ -596,11 +596,11 @@ parse_integer :: (piece: string, $T: Type) -> T, bool {
 
     #if #run type_info(T).signed {
         BITS :: size_of(T) * 8;
-        MAX_POSITIVE :: (cast(u64) 1 << (BITS - 1)) - 1;
+        MAX_POSITIVE :: ((cast(u64) 1) << (BITS - 1)) - 1;
 
         if negative {
             if magnitude > MAX_POSITIVE + 1 return 0, false;
-            if magnitude == MAX_POSITIVE + 1 return cast,no_check(T) (cast(u64) 1 << (BITS - 1)), true;
+            if magnitude == MAX_POSITIVE + 1 return cast,no_check(T) ((cast(u64) 1) << (BITS - 1)), true;
             return cast(T) -cast(s64) magnitude, true;
         }
 
@@ -611,7 +611,7 @@ parse_integer :: (piece: string, $T: Type) -> T, bool {
         if negative && magnitude != 0 return 0, false;
 
         #if size_of(T) < 8 {
-            if magnitude > (cast(u64) 1 << (size_of(T) * 8)) - 1 return 0, false;
+            if magnitude > ((cast(u64) 1) << (size_of(T) * 8)) - 1 return 0, false;
         }
 
         return cast(T) magnitude, true;

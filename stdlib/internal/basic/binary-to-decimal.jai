@@ -111,7 +111,7 @@ scaled_round :: (mantissa: u64, binary: s64, decimal: s64, rounding: Rounding) -
             quotient = high >> part;
 
             if part == 0 remainder = compare_with_half(0, low, 0, cast(u64) 1 << 63);
-            else remainder = compare_with_half(high & ((cast(u64) 1 << part) - 1), low, cast(u64) 1 << (part - 1), 0);
+            else remainder = compare_with_half(high & (((cast(u64) 1) << part) - 1), low, (cast(u64) 1) << (part - 1), 0);
         } else {
             // mantissa * 5^27 < 2^116, so the value is far below one half.
             remainder = ifx high == 0 && low == 0 then Remainder.NONE else .BELOW_HALF;

@@ -752,7 +752,7 @@ is_mask :: (M: Type) -> bool, string {
 }
 
 signed_max :: inline ($T: Type) -> T {
-    return cast,no_check(T) ((cast(u64) 1 << (size_of(T) * 8 - 1)) - 1);
+    return cast,no_check(T) (((cast(u64) 1) << (size_of(T) * 8 - 1)) - 1);
 }
 
 is_float :: (T: Type) -> bool {
