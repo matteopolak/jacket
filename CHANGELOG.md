@@ -42,6 +42,8 @@
 
 ### Fixed
 
+- `GetRect` and `GetRect_LeftHanded` take `Type_Indicator` as a program parameter, `#import "GetRect"()(Type_Indicator = T)`, shared by every import in the program.
+- The `macOS` module declares `OSStatus` and `OSType`.
 - Debug builds check integer casts that change sign, such as `cast(u64)` of a negative number, not only narrowing ones.
 - Opening a module file on its own (such as `Extensions/SIMD/module.jai`) no longer reports `#module_parameters` as misplaced.
 - `BuildCpp` on Windows accepts `/bigobj` objects and finds Visual Studio's `clang-cl` for the host when targeting another CPU.

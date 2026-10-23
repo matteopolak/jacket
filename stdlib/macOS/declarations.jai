@@ -6804,6 +6804,14 @@ libc :: #library,system "c";
 }
 
 #if OS == .MACOS {
+    OSStatus :: s32;
+}
+
+#if OS == .MACOS {
+    OSType :: u32;
+}
+
+#if OS == .MACOS {
     pointer_t :: vm_offset_t;
 }
 

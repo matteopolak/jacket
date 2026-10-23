@@ -784,6 +784,8 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `CFBundleCopyAuxiliaryExecutableURL :: (bundle: CFBundleRef, executableName: CFStringRef) -> CFURLRef #foreign corefoundation`
 - `CFBundleGetPlugIn :: (bundle: CFBundleRef) -> CFPlugInRef #foreign corefoundation`
 - `CFBundleRefNum :: s32`
+- `OSStatus :: s32`
+- `OSType :: u32`
 - `CFBundleOpenBundleResourceMap :: (bundle: CFBundleRef) -> CFBundleRefNum #foreign corefoundation`
 - `CFBundleOpenBundleResourceFiles :: (bundle: CFBundleRef, refNum: *CFBundleRefNum, localizedRefNum: *CFBundleRefNum) -> s32 #foreign corefoundation`
 - `CFBundleCloseBundleResourceMap :: (bundle: CFBundleRef, refNum: CFBundleRefNum) -> void #foreign corefoundation`
