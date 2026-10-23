@@ -51,6 +51,7 @@
 - A module's procedures and the same-named procedures of a module it re-exports with `using` form one overload set for its importers.
 - Overloads that take constant parameters of different distinct types, such as `($c: Position)` and `($c: Velocity)`, are told apart by the argument's type.
 - A global initializer can hold the `data` of a global fixed array, as in `view : [] T = .{0, buffer.data}`.
+- `exclude = [""]` in `[lint]` is reported as an error instead of excluding every file.
 - `jailint --fix` keeps a trailing comment when it removes an unused variable or import.
 - `jailint`'s `manual_assign_op` no longer turns `a = f() + a` into `a += f()`, which reads `a` before the call instead of after.
 - `jailint`'s `needless_bool` no longer rewrites `!(a == b)` to `a != b` for a type that only defines `operator ==`.

@@ -238,6 +238,16 @@ impl Config {
 
     /// Settings from a `[lint]` section whose paths are relative to `root`.
     pub fn from_lint(lint: &Lint, root: &Path) -> Result<Config, String> {
+        if let Some(i) = lint
+            .exclude
+            .iter()
+            .position(|p| p.trim_matches('/').is_empty())
+        {
+            return Err(format!(
+                "`exclude` entry {} is empty and would match nothing\nhelp: write a path or glob such as \"tests/**\", or remove the entry",
+                i + 1
+            ));
+        }
         let mut config = Config {
             root: root.to_path_buf(),
             exclude: lint.exclude.clone(),
@@ -423,6 +433,10 @@ pub fn glob(pattern: &str, path: &str) -> bool {
         }
     }
     let pattern = pattern.trim_end_matches('/');
+    // An empty pattern names nothing; without this it would match the root every path is under.
+    if pattern.is_empty() {
+        return false;
+    }
     go(pattern.as_bytes(), path.as_bytes())
         || path
             .char_indices()
@@ -499,6 +513,17 @@ mod tests {
         assert!(parse("[lint.rules]\nno_such_rule = \"warn\"").is_err());
         assert!(parse("[lint.rules]\nlossy_xx = \"loud\"").is_err());
         assert!(parse("[lint]\nverbose = true\n").is_ok());
+    }
+
+    #[test]
+    fn rejects_empty_excludes() {
+        assert!(
+            parse("[lint]\nexclude = [\"a.jai\", \"\"]\n").is_err_and(|e| e.contains("entry 2"))
+        );
+        assert!(parse("[lint]\nexclude = [\"/\"]\n").is_err());
+        assert!(!glob("", "a/b.jai"));
+        assert!(!glob("", "/abs/b.jai"));
+        assert!(!glob("/", "a/b.jai"));
     }
 
     #[test]
