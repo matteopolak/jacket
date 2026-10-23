@@ -1076,7 +1076,9 @@ recvmsg :: (unknown0: s32, unknown1: *msghdr, unknown2: MSG) -> s64 #foreign lib
     select :: (nfds: s32, readfds: *fd_set, writefds: *fd_set, exceptfds: *fd_set, timeout: *TIMEVAL) -> s32 #foreign libc "select$1050";
 }
 
-select :: (nfds: s32, readfds: *fd_set, writefds: *fd_set, exceptfds: *fd_set, timeout: *TIMEVAL) -> s32 #foreign libc;
+#if CPU != .X64 {
+    select :: (nfds: s32, readfds: *fd_set, writefds: *fd_set, exceptfds: *fd_set, timeout: *TIMEVAL) -> s32 #foreign libc;
+}
 
 send :: (unknown0: s32, unknown1: *void, unknown2: u64, unknown3: MSG) -> s64 #foreign libc;
 

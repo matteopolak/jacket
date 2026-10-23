@@ -43,7 +43,8 @@ def route(guard):
     if guard == "CPU == .X64 && OS == .MACOS":
         return "macos", "CPU == .X64"
     if guard == "OS != .WINDOWS && OS == .MACOS":
-        return "macos", ""
+        # The only such entry is the other half of the x64-only `select$1050` spelling.
+        return "macos", "CPU != .X64"
     raise RuntimeError(f"no target file for condition {guard!r}")
 
 
