@@ -23,10 +23,10 @@
 //!   `1.5`);
 //! - `10`, `100`, `1000` and anything listed in `magic_number_allow`.
 //!
-//! A printable character code compared with a byte of a `string` (`text[i] >= 97`, `c == 92`
-//! with `c := text[i]`, or `it` in `for text`) is fixed to `#char "a"` or `#char "\\"`. In `<`,
-//! `<=`, `>` and `>=` only digits, `a z A Z f F`, space and `~` are rewritten: the usual ends of
-//! a character range.
+//! A printable character, tab, newline or carriage return code compared with a byte of a
+//! `string` (`text[i] >= 97`, `c == 92` with `c := text[i]`, or `it` in `for text`) is fixed to
+//! `#char "a"` or `#char "\\"`. In `<`, `<=`, `>` and `>=` only digits, `a z A Z f F`, space and
+//! `~` are rewritten: the usual ends of a character range.
 //!
 //! Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set: test
 //! data is full of expected values. Generated files are skipped. Off by default.
@@ -76,9 +76,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return false;
             }
             {
-                let help = match ascii(value) {
+                let help = match char_literal(value) {
                     Some(c) if equality(ancestors.last().copied()) => {
-                        format!("if this is a character, write `#char \"{c}\"`")
+                        format!("if this is a character, write `{c}`")
                     }
                     _ => "name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`".into(),
                 };
@@ -203,8 +203,8 @@ fn power_of_two(v: f64) -> bool {
     v >= 1.0 && v < 2f64.powi(64) && (v as u64).is_power_of_two()
 }
 
-/// `e` is compared with a byte read from a `string` and `value` is a printable character: how
-/// to write that character (`#char "a"`, `#char "\\"`).
+/// `e` is compared with a byte read from a `string` and `value` is a character `#char` can
+/// spell: how to write it (`#char "a"`, `#char "\\"`, `#char "\t"`).
 fn byte_character(
     cx: &Cx,
     ancestors: &[Node],
@@ -223,9 +223,7 @@ fn byte_character(
     } else {
         a
     };
-    if !(value.fract() == 0.0 && (32.0..127.0).contains(&value)) {
-        return None;
-    }
+    let literal = char_literal(value)?;
     let c = value as u8 as char;
     // An ordering is a character range only at the ends of one (`c >= #char "a"`); elsewhere
     // (`byte > 88`) it is more likely a binary field.
@@ -239,10 +237,7 @@ fn byte_character(
     if !from_text(cx, ancestors, text_bytes, other) {
         return None;
     }
-    Some(match c {
-        '"' | '\\' => format!("#char \"\\{c}\""),
-        _ => format!("#char \"{c}\""),
-    })
+    Some(literal)
 }
 
 /// `e` is a byte of a `string`: `text[i]`, `text.data[i]`, a local set from one, or the
@@ -315,11 +310,21 @@ fn uncast(e: &Expr) -> &Expr {
     }
 }
 
-/// The printable character with code `value`, other than a quote or backslash.
-fn ascii(value: f64) -> Option<char> {
-    let c =
-        (value.fract() == 0.0 && (33.0..127.0).contains(&value)).then_some(value as u8 as char)?;
-    (c != '"' && c != '\\').then_some(c)
+/// `#char` spelling of `value`: a printable character, a tab, a newline or a carriage return.
+fn char_literal(value: f64) -> Option<String> {
+    if value.fract() != 0.0 || !(0.0..127.0).contains(&value) {
+        return None;
+    }
+    let c = value as u8 as char;
+    let text = match c {
+        '\t' => "\\t".to_string(),
+        '\n' => "\\n".to_string(),
+        '\r' => "\\r".to_string(),
+        '"' | '\\' => format!("\\{c}"),
+        ' '..='~' => c.to_string(),
+        _ => return None,
+    };
+    Some(format!("#char \"{text}\""))
 }
 
 /// The file sits in a `tests` or `test` folder.

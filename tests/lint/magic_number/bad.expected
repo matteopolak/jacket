@@ -95,18 +95,29 @@ help: write the character: `#char "\\"`
 31 ~         if last == #char "\\" quotes += 1;
    |
 
-warning[magic_number]: magic number `65` in a comparison
-  --> tests/lint/magic_number/bad.jai:39:43
+warning[magic_number]: magic number `9` in a comparison
+  --> tests/lint/magic_number/bad.jai:39:23
    |
-39 |     return table.count > 0 && table[0] == 65;
+39 |     for text if it == 9 tabs += 1;
+   |                       ^
+   |
+help: write the character: `#char "\t"`
+   |
+39 ~     for text if it == #char "\t" tabs += 1;
+   |
+
+warning[magic_number]: magic number `65` in a comparison
+  --> tests/lint/magic_number/bad.jai:45:43
+   |
+45 |     return table.count > 0 && table[0] == 65;
    |                                           ^^
    |
    = help: if this is a character, write `#char "A"`
 
 warning[magic_number]: magic number `88` in a comparison
-  --> tests/lint/magic_number/bad.jai:54:42
+  --> tests/lint/magic_number/bad.jai:61:42
    |
-54 |     return input.count > 2 && input[2] > 88;
+61 |     return input.count > 2 && input[2] > 88;
    |                                          ^^
    |
    = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`

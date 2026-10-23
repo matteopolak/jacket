@@ -34,6 +34,12 @@ count_quotes :: (text: string) -> int {
     return quotes;
 }
 
+count_tabs :: (text: string) -> int {
+    tabs := 0;
+    for text if it == 9 tabs += 1;
+    return tabs;
+}
+
 // A table entry, not a character: reported but not rewritten.
 padding :: (table: [] u8) -> bool {
     return table.count > 0 && table[0] == 65;
@@ -47,6 +53,7 @@ main :: () {
     print("%\n", count_quotes("a\"b\\"));
     print("%\n", padding(.[]));
     print("%\n", too_large("abc"));
+    print("%\n", count_tabs("a\tb"));
 }
 
 // A binary field held in a string: an ordering against a non-range character stays a number.
