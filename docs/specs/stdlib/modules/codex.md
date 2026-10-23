@@ -1,5 +1,9 @@
 # Codex
 
+## Module parameters
+
+`#import "Codex"(USAGE_MODE = ...)` takes an `enum_flags u32` with the members `READ` and `WRITE`; it defaults to `.WRITE`, and `.READ | .WRITE` asks for both. The value says whether the importer records a build or reads one back. All declarations are present in every mode.
+
 ## Public declaration inventory
 
 Visible public declarations and module-conditional variants are listed below. Procedure bodies and aggregate initializers are omitted; complete public type members are listed separately.

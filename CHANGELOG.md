@@ -4,6 +4,7 @@
 
 ### New
 
+- The `Codex` module takes the `USAGE_MODE` parameter, `#import "Codex"(USAGE_MODE = .READ)`.
 - `jailint` rule levels can be set per path with `[[lint.overrides]]` in `jacket.toml`.
 - `jailint` has an opt-in `cognitive_complexity` lint for procedures with too much nested branching, with the limit set by `[lint] max_complexity`.
 - `jailint` reports reading a variable declared `= ---` before anything is written to it.
