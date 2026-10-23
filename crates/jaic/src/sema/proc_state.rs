@@ -20,6 +20,10 @@ pub struct ProcState {
     pub runtime_interpreter_assertion: Option<ProcId>,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
     pub(crate) lenient_failures: HashMap<ProcId, (u64, Box<Diagnostic>)>,
+    /// Errors an editor analysis recorded while a body failed to lower, until the body is
+    /// lowered again: when a later attempt succeeds (what it waited for was declared since),
+    /// they were provisional and are forgotten.
+    pub(in crate::sema) provisional_errors: HashMap<ProcId, Vec<Diagnostic>>,
     /// `$$x` variants: (procedure, which auto-bake params are baked) -> procedure.
     pub(in crate::sema) auto_bake_variants: HashMap<(ProcId, Vec<calls::AutoBake>), ProcId>,
     /// Procedures that need their bodies lowered.

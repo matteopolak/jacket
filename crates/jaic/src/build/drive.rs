@@ -236,8 +236,9 @@ pub(super) fn step(
     {
         let mut reg = shared.borrow_mut();
         // A metaprogram that asks for type tables may ask after `COMPLETE`: a finished
-        // workspace keeps its compiler then, unless an observer takes it.
-        let keep = reg.type_table_used && reg.env.observer.is_none();
+        // workspace keeps its compiler then; an observer gets it when the metaprogram is done
+        // (`hand_over_kept`).
+        let keep = reg.type_table_used;
         let ws = reg.ws(id)?;
         ws.events.extend(file_events);
         ws.failed |= failed;

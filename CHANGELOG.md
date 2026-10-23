@@ -49,6 +49,7 @@
 - Struct literal completion lists fields in declaration order and selects the first one left (#29).
 - Operators on a struct from a namespaced import, such as `u + v` on `Math.Vector2`, work without `using`, with a warning and quick fix that write the call as `Math.operator +(u, v)`; `operator *[]` and a `.{...}` operand work the same way, and an operator that nothing reaches suggests the import or alias that has it, and only a module that has an overload for those types.
 - Errors in calls, declarations and assignments say more: a call with the wrong number of arguments shows the callee's signature and can drop the extra ones, a repeated name points at the first, assigning to a constant or an argument says how to declare or copy it, and enum values, struct literals, lambdas and name counts that don't fit get a note or a fix.
+- The language server completes more members (struct constants and parameters through a value, `using` paths, `context` aliases, enum `loose`), follows definitions into `#insert` text, and no longer reports names that a later `#insert,scope` declares.
 
 ### Changed
 

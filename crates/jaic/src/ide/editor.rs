@@ -178,6 +178,29 @@ impl Editor {
         self.facts.as_ref().map_or(0, |facts| facts.errors.len())
     }
 
+    /// The errors recorded since `count` of them were.
+    pub(crate) fn errors_since(&self, count: usize) -> Vec<Diagnostic> {
+        self.facts.as_ref().map_or_else(Vec::new, |facts| {
+            facts.errors.get(count..).unwrap_or(&[]).to_vec()
+        })
+    }
+
+    /// Drop one recorded copy of each of `errors`.
+    pub(crate) fn forget_matching(&mut self, errors: &[Diagnostic]) {
+        let Some(facts) = &mut self.facts else {
+            return;
+        };
+        for error in errors {
+            if let Some(at) = facts
+                .errors
+                .iter()
+                .position(|e| e.span == error.span && e.message == error.message)
+            {
+                facts.errors.remove(at);
+            }
+        }
+    }
+
     #[inline]
     pub(crate) fn forget_errors(&mut self, count: usize) {
         if let Some(facts) = &mut self.facts {

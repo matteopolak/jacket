@@ -31,7 +31,7 @@ pub use self::calls::call;
 use self::drive::step;
 pub use self::meta_op::{LANGUAGE_VERSION, MetaOp, TOP_LEVEL_WORKSPACE, compiler_version};
 use self::option_snapshot::Snapshot;
-pub use self::output::{finish_all, report_executable};
+pub use self::output::{finish_all, hand_over_kept, report_executable};
 pub use self::registry::{
     WASI_RUNTIME_IMPORT, dead_code_setting, import_rules, take_live_requests, take_own_sources,
     wants_wasi_runtime,

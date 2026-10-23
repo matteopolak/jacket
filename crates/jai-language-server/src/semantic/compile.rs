@@ -162,6 +162,17 @@ fn module_entry(
     })?
 }
 
+/// Whether `text` uses the directive `#module_parameters` (a mention in a comment or string
+/// does not make a file a module).
+fn writes_module_parameters(text: &str) -> bool {
+    if !text.contains("#module_parameters") {
+        return false;
+    }
+    jaic::lexer::Lexed::new(FileId(0), text).tokens.iter().any(
+        |t| matches!(&t.tok, jaic::lexer::Tok::Directive(d) if d.as_str() == "module_parameters"),
+    )
+}
+
 /// What one compile produced.
 pub(super) struct Compiled {
     pub(super) compiler: Compiler,
@@ -199,7 +210,7 @@ pub(super) fn compile(
     let declares_parameters = files
         .iter()
         .find(|(path, _)| path.as_path() == crate::document::file_key(&*env.fs, root))
-        .is_some_and(|(_, text)| String::from_utf8_lossy(text).contains("#module_parameters"));
+        .is_some_and(|(_, text)| writes_module_parameters(&String::from_utf8_lossy(text)));
     let stub = module_entry(&*env.fs, root, &options().import_paths, declares_parameters).map(
         |(import, folder)| {
             let stub = folder.join(".jailsp-module-root.jai");
@@ -277,6 +288,10 @@ pub(super) fn compile(
         && let Some(workspaces) = compiler.ct.interp.workspaces.clone()
     {
         let _ = jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget);
+    }
+    // Workspaces kept for `get_type_table` after they completed go to the observer now.
+    if let Some(workspaces) = compiler.ct.interp.workspaces.clone() {
+        jaic::build::hand_over_kept(&workspaces);
     }
     let errors = check_rest(&mut compiler, errors);
     let errors = known(&compiler, errors);

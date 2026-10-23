@@ -237,6 +237,32 @@ pub(super) fn output_path(settings: &BuildSettings, compiler: &Compiler) -> Path
     PathBuf::from(&settings.output_path).join(name)
 }
 
+/// Give the observer the compilers of finished workspaces that were kept for
+/// `get_type_table` after `COMPLETE`.
+pub fn hand_over_kept(shared: &SharedWorkspaces) {
+    let mut id = TOP_LEVEL_WORKSPACE + 1;
+    while id < shared.borrow().list.len() as i64 {
+        let kept = {
+            let mut reg = shared.borrow_mut();
+            let ws = &mut reg.list[id as usize];
+            if ws.stage == Stage::Done {
+                let failed = ws.failed;
+                ws.compiler.take().map(|c| (c, failed))
+            } else {
+                None
+            }
+        };
+        if let Some((compiler, failed)) = kept {
+            let observer = shared.borrow_mut().env.observer.take();
+            if let Some(mut o) = observer {
+                o.finished(compiler, failed);
+                shared.borrow_mut().env.observer = Some(o);
+            }
+        }
+        id += 1;
+    }
+}
+
 /// Compile every workspace created but never driven by a message loop
 /// (Jai compiles them after the metaprogram's `#run` returns). Their compile-time code draws
 /// from `budget`, the top-level compiler's interpreter budget.
@@ -258,5 +284,6 @@ pub fn finish_all(shared: &SharedWorkspaces, budget: &mut Option<u64>) -> Result
         shared.borrow_mut().list[id as usize].events.clear();
         id += 1;
     }
+    hand_over_kept(shared);
     Ok(())
 }

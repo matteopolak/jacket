@@ -53,6 +53,15 @@ impl Compiler {
         if result.is_err() {
             self.meta.export.expression_types.remove(&id);
         }
+        if self.ed.is_live() {
+            if result.is_err() {
+                let recorded = self.ed.errors_since(error_mark);
+                self.pr.provisional_errors.insert(id, recorded);
+            } else if let Some(earlier) = self.pr.provisional_errors.remove(&id) {
+                // The body had failed before, waiting for a declaration made since.
+                self.ed.forget_matching(&earlier);
+            }
+        }
         if let Some(mark) = outermost {
             self.meta.perf.finish_lowering(mark);
         }

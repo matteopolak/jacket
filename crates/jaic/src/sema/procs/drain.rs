@@ -46,7 +46,7 @@ impl Compiler {
     /// struct whose constant is being evaluated); it stays queued, so the final `drain_bodies`
     /// reports its error. Returns the first such error.
     pub fn drain_bodies_lenient(&mut self) -> Option<Box<Diagnostic>> {
-        let mut first = None;
+        let mut first: Option<Box<Diagnostic>>;
         let mut retry = Vec::new();
         if self.lower_epoch() != self.pr.parked_epoch
             || self
@@ -57,51 +57,63 @@ impl Compiler {
         {
             self.pr.unpark_bodies();
         }
-        while let Some(id) = self.pr.body_queue.pop() {
-            if self.proc(id).body_state != BodyState::Queued {
-                continue;
-            }
-            // A body that failed is only worth another attempt once something it could be
-            // waiting for happened (code added, a compile-time run finished). Otherwise every
-            // compile-time call redoes the failing work, which compounds when that work itself
-            // runs compile-time code (a body using a module that did not load). Such bodies are
-            // parked, so later calls in the same epoch skip them without looking.
-            let epoch = self.lower_epoch();
-            if let Some((at, err)) = self.pr.lenient_failures.get(&id)
-                && *at == epoch
-                && self.failure_reusable(id, epoch)
-            {
-                first.get_or_insert_with(|| err.clone());
-                if epoch != self.pr.parked_epoch {
-                    retry.append(&mut self.pr.parked_bodies);
-                    self.pr.parked_epoch = epoch;
+        // A body that fails is tried again while others still lower: one lowered later may
+        // declare what it needs (`#insert,scope(...)` into a file), as `drain_bodies` does.
+        loop {
+            let existing = self.pr.procs.len();
+            let mut progress = false;
+            first = None;
+            while let Some(id) = self.pr.body_queue.pop() {
+                if self.proc(id).body_state != BodyState::Queued {
+                    continue;
                 }
-                self.pr.parked_bodies.push(id);
-                continue;
-            }
-            let misses = (
-                self.epochs.placeholder_misses,
-                self.epochs.in_progress_misses,
-            );
-            match self.lower_body(id) {
-                Ok(()) => {
-                    self.pr.lenient_failures.remove(&id);
-                }
-                Err(e) => {
-                    // Waiting for a `#placeholder` is settled by the metaprogram, at any time;
-                    // something in progress (a signature, a layout) by the caller finishing.
-                    if (
-                        self.epochs.placeholder_misses,
-                        self.epochs.in_progress_misses,
-                    ) == misses
-                    {
-                        let epoch = self.lower_epoch();
-                        self.pr.lenient_failures.insert(id, (epoch, e.clone()));
+                // A body that failed is only worth another attempt once something it could be
+                // waiting for happened (code added, a compile-time run finished). Otherwise every
+                // compile-time call redoes the failing work, which compounds when that work itself
+                // runs compile-time code (a body using a module that did not load). Such bodies are
+                // parked, so later calls in the same epoch skip them without looking.
+                let epoch = self.lower_epoch();
+                if let Some((at, err)) = self.pr.lenient_failures.get(&id)
+                    && *at == epoch
+                    && self.failure_reusable(id, epoch)
+                {
+                    first.get_or_insert_with(|| err.clone());
+                    if epoch != self.pr.parked_epoch {
+                        retry.append(&mut self.pr.parked_bodies);
+                        self.pr.parked_epoch = epoch;
                     }
-                    first.get_or_insert(e);
-                    retry.push(id);
+                    self.pr.parked_bodies.push(id);
+                    continue;
+                }
+                let misses = (
+                    self.epochs.placeholder_misses,
+                    self.epochs.in_progress_misses,
+                );
+                match self.lower_body(id) {
+                    Ok(()) => {
+                        progress |= (id.0 as usize) < existing;
+                        self.pr.lenient_failures.remove(&id);
+                    }
+                    Err(e) => {
+                        // Waiting for a `#placeholder` is settled by the metaprogram, at any time;
+                        // something in progress (a signature, a layout) by the caller finishing.
+                        if (
+                            self.epochs.placeholder_misses,
+                            self.epochs.in_progress_misses,
+                        ) == misses
+                        {
+                            let epoch = self.lower_epoch();
+                            self.pr.lenient_failures.insert(id, (epoch, e.clone()));
+                        }
+                        first.get_or_insert(e);
+                        retry.push(id);
+                    }
                 }
             }
+            if retry.is_empty() || !progress {
+                break;
+            }
+            self.pr.body_queue.append(&mut retry);
         }
         self.pr.body_queue.extend(retry);
         if first.is_none()
