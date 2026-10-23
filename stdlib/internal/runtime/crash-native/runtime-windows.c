@@ -181,10 +181,14 @@ __declspec(dllexport) LONG platform_io_windows_crash_handle(EXCEPTION_POINTERS *
         return EXCEPTION_CONTINUE_SEARCH;
     if (InterlockedCompareExchange(&reporting, 1, 0) != 0) return EXCEPTION_CONTINUE_SEARCH;
     if (snapshot != NULL) memcpy(snapshot, exception->ContextRecord, sizeof(CONTEXT));
-    WRITE_TEXT("Windows exception ");
-    write_hex(exception->ExceptionRecord->ExceptionCode);
-    WRITE_TEXT(" at ");
-    write_hex((uintptr_t)exception->ExceptionRecord->ExceptionAddress);
+    if (exception->ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW) {
+        WRITE_TEXT("stack overflow");
+    } else {
+        WRITE_TEXT("Windows exception ");
+        write_hex(exception->ExceptionRecord->ExceptionCode);
+        WRITE_TEXT(" at ");
+        write_hex((uintptr_t)exception->ExceptionRecord->ExceptionAddress);
+    }
     WRITE_TEXT("\nnative stack:\n");
     if (TryAcquireSRWLockExclusive(&symbol_lock)) {
         if (initialization == 2 && process == requested_process)
@@ -197,6 +201,18 @@ __declspec(dllexport) LONG platform_io_windows_crash_handle(EXCEPTION_POINTERS *
     }
     InterlockedExchange(&reporting, 0);
     return EXCEPTION_EXECUTE_HANDLER;
+}
+
+// The handler runs on the faulting thread, so each thread keeps this much stack in reserve for it.
+#define HANDLER_STACK_GUARANTEE (128 * 1024)
+
+static void reserve_handler_stack(void) {
+    ULONG guarantee = HANDLER_STACK_GUARANTEE;
+    SetThreadStackGuarantee(&guarantee);
+}
+
+__declspec(dllexport) void platform_io_windows_crash_attach_thread(void) {
+    if (initialization == 2) reserve_handler_stack();
 }
 
 __declspec(dllexport) DWORD platform_io_windows_crash_prepare(HANDLE process) {
@@ -235,6 +251,7 @@ __declspec(dllexport) DWORD platform_io_windows_crash_prepare(HANDLE process) {
         symbol_process = session;
         previous_error_mode = SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
         initialization = 2;
+        reserve_handler_stack();
     }
     ReleaseSRWLockExclusive(&symbol_lock);
     ReleaseSRWLockExclusive(&lifecycle_lock);

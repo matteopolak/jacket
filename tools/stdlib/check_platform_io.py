@@ -49,10 +49,11 @@ def wasm_contract_reason(source):
     return unavailable_reason(case, "wasm-interp")
 
 
-def fault_failures(result, enabled, symbols=()):
+def fault_failures(result, enabled, symbols=(), overflow=False):
     """Check real child results; symbols add application-frame quality coverage."""
     failed = []
-    if (result.returncode & 0xFFFFFFFF) != 0xC0000005:
+    status = 0xC00000FD if overflow else 0xC0000005
+    if (result.returncode & 0xFFFFFFFF) != status:
         failed.append("exception_status")
     if result.stdout:
         failed.append("unexpected_stdout")
@@ -60,7 +61,8 @@ def fault_failures(result, enabled, symbols=()):
         if result.stderr:
             failed.append("disabled_handler_stderr")
         return failed
-    if b"Windows exception 0x00000000c0000005" not in result.stderr:
+    header = b"stack overflow" if overflow else b"Windows exception 0x00000000c0000005"
+    if header not in result.stderr:
         failed.append("exception_header")
     if b"native stack:" not in result.stderr:
         failed.append("stack_header")
@@ -815,6 +817,7 @@ def main():
                     "Runtime_Support/tests/startup-arguments",
                     "Runtime_Support_Crash_Handler/tests/driven/windows-fault",
                     "Runtime_Support_Crash_Handler/tests/driven/windows-symbol-fault",
+                    "Runtime_Support_Crash_Handler/tests/driven/windows-stack-overflow",
                 ]
                 if not optimized:
                     children.append(
@@ -921,7 +924,12 @@ def main():
                         failed = (
                             nullguard_failures(result)
                             if child_name.endswith("windows-nullguard")
-                            else fault_failures(result, enabled, symbols)
+                            else fault_failures(
+                                result,
+                                enabled,
+                                symbols,
+                                child_name.endswith("windows-stack-overflow"),
+                            )
                         )
                         save_result(crash_output / "actual-result", result, failed)
                         if failed:

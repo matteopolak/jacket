@@ -295,6 +295,8 @@ release_thread_state :: (state: *Thread_State) {
     state := cast(*Thread_State) data;
     thread := state.thread;
 
+    Crash.attach_thread();
+
     push_context thread.starting_context {
         status := wait_for(*thread.suspended_semaphore, -1);
         if status == .SUCCESS {

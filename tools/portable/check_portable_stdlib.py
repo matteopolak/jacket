@@ -38,6 +38,14 @@ CRASH_FAULTS = {
         "crash signal ",
         "native stack:",
     ),
+    "stdlib/Runtime_Support_Crash_Handler/tests/driven/faults/stack-overflow.jai": (
+        "stack overflow",
+        "native stack:",
+    ),
+    "stdlib/Runtime_Support_Crash_Handler/tests/driven/faults/stack-overflow-thread.jai": (
+        "stack overflow",
+        "native stack:",
+    ),
 }
 
 

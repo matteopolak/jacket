@@ -10,6 +10,7 @@
 - `Deep_Copy` and `Overwriting_Allocator` work on wasm.
 - `Vulkan` works on macOS.
 - The crash handler reports crashes on Windows arm64.
+- The crash handler reports stack overflows, including on threads made with `Thread`.
 - `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` are available as compiler constants.
 - `Module.name` reaches a module's `#scope_module` declarations.
 - Polymorphic procedure lenses count instances from every program in the workspace.

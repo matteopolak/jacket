@@ -5,6 +5,11 @@ init :: () {
     native_install(cast(*void) handle_exception);
 }
 
+// Reserves stack for the handler on the calling thread. Does nothing until `init` has run.
+attach_thread :: () #c_call {
+    native_attach();
+}
+
 backtrace :: (ctx: *CONTEXT, skips: s32) #no_context {
     native_backtrace(ctx, skips, CurrentProcess);
 }
@@ -29,5 +34,6 @@ native_runtime :: #library "crash-native/platform_io_windows_crash";
 native_prepare :: (process: *void) -> u32 #foreign native_runtime "platform_io_windows_crash_prepare";
 native_install :: (handler: *void) #foreign native_runtime "platform_io_windows_crash_install";
 native_backtrace :: (ctx: *void, skips: s32, process: *void) #foreign native_runtime "platform_io_windows_crash_backtrace";
+native_attach :: () #foreign native_runtime "platform_io_windows_crash_attach_thread";
 native_handle :: (info: *void, snapshot: *void, process: *void) -> s32 #foreign native_runtime "platform_io_windows_crash_handle";
 native_section :: (pointer: *void, readonly: *s32, name: **u8, count: *u64) -> s32 #foreign native_runtime "platform_io_windows_crash_section";

@@ -17,12 +17,16 @@
 struct alternate_stack {
     void *buffer;
     size_t size;
+    // Extent of the thread's own stack, recorded outside the handler.
+    uintptr_t stack_low;
+    uintptr_t stack_high;
 };
 
 static pthread_once_t initialization = PTHREAD_ONCE_INIT;
 static pthread_key_t stack_key;
 static int initialization_error;
 static void *lifetime_pin;
+static atomic_int installed;
 static atomic_flag handling = ATOMIC_FLAG_INIT;
 static void initialize_global(void);
 
@@ -54,12 +58,54 @@ static int emit_number(unsigned value) {
     return emit(buffer + sizeof(buffer) - count, count);
 }
 
+// A fault this close to either end of the thread's stack is an overflow: the
+// guard region lies just below the lowest usable address.
+#define OVERFLOW_WINDOW ((uintptr_t)(256 * 1024))
+
+static int is_stack_overflow(int sig, siginfo_t *info) {
+    if (sig != SIGSEGV && sig != SIGBUS) return 0;
+    if (info == NULL) return 0;
+    struct alternate_stack *owned = pthread_getspecific(stack_key);
+    if (owned == NULL || owned->stack_high == 0) return 0;
+    uintptr_t address = (uintptr_t)info->si_addr;
+    return address + OVERFLOW_WINDOW >= owned->stack_low && address < owned->stack_low + OVERFLOW_WINDOW / 4;
+}
+
+static int record_stack_extent(struct alternate_stack *owned) {
+    pthread_t self = pthread_self();
+#if defined(__APPLE__)
+    uintptr_t high = (uintptr_t)pthread_get_stackaddr_np(self);
+    owned->stack_high = high;
+    owned->stack_low = high - pthread_get_stacksize_np(self);
+    return 0;
+#elif defined(__linux__)
+    pthread_attr_t attributes;
+    int error = pthread_getattr_np(self, &attributes);
+    if (error) return error;
+    void *low = NULL;
+    size_t size = 0;
+    error = pthread_attr_getstack(&attributes, &low, &size);
+    pthread_attr_destroy(&attributes);
+    if (error) return error;
+    owned->stack_low = (uintptr_t)low;
+    owned->stack_high = (uintptr_t)low + size;
+    return 0;
+#else
+    (void)owned;
+    return 0;
+#endif
+}
+
 static void handle_fatal(int sig, siginfo_t *info, void *secret) {
-    (void)info;
     (void)secret;
     if (atomic_flag_test_and_set_explicit(&handling, memory_order_relaxed)) _exit(128 + sig);
-    if (!EMIT_LITERAL("crash signal ") || !emit_number((unsigned)sig) ||
-        !EMIT_LITERAL("\nnative stack:\n")) _exit(128 + sig);
+    int overflow = is_stack_overflow(sig, info);
+    if (overflow) {
+        if (!EMIT_LITERAL("stack overflow")) _exit(128 + sig);
+    } else if (!EMIT_LITERAL("crash signal ") || !emit_number((unsigned)sig)) {
+        _exit(128 + sig);
+    }
+    if (!EMIT_LITERAL("\nnative stack:\n")) _exit(128 + sig);
     void *frames[64];
     int count = backtrace(frames, (int)(sizeof(frames) / sizeof(frames[0])));
     if (count > 0) backtrace_symbols_fd(frames, count, STDERR_FILENO);
@@ -152,6 +198,7 @@ static void initialize_global(void) {
             return;
         }
     }
+    atomic_store(&installed, 1);
 }
 
 __attribute__((visibility("default"))) int portable_crash_init(void) {
@@ -168,6 +215,8 @@ __attribute__((visibility("default"))) int portable_crash_init(void) {
     if (!owned) return ENOMEM;
     owned->buffer = (void *)(((uintptr_t)(owned + 1) + 15) & ~(uintptr_t)15);
     owned->size = size;
+    owned->stack_low = owned->stack_high = 0;
+    if (record_stack_extent(owned)) owned->stack_low = owned->stack_high = 0;
     stack_t stack = {0};
     stack.ss_sp = owned->buffer;
     stack.ss_size = size;
@@ -183,6 +232,13 @@ __attribute__((visibility("default"))) int portable_crash_init(void) {
         free(owned);
     }
     return error;
+}
+
+// Gives a thread created after init its own alternate stack. Does nothing when
+// the handler was never installed.
+__attribute__((visibility("default"))) int portable_crash_attach_thread(void) {
+    if (!atomic_load(&installed)) return 0;
+    return portable_crash_init();
 }
 
 __attribute__((visibility("default"))) void portable_crash_handle(int sig, void *info, void *secret) {

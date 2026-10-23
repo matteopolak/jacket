@@ -12,5 +12,7 @@ else #load "synchronization.jai";
 else P :: #import "POSIX";
 #if OS == .MACOS M :: #import "internal/thread/native-macos";
 
+Crash :: #import "Runtime_Support_Crash_Handler";
+
 THREAD_DEBUG :: #exists(DEBUG) && DEBUG;
 #assert !THREAD_DEBUG;

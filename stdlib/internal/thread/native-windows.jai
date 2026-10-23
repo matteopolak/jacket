@@ -123,6 +123,8 @@ windows_thread_entry :: (data: *void) -> u32 #c_call {
     state := cast(*Thread_State) data;
     thread := state.thread;
 
+    Crash.attach_thread();
+
     push_context thread.starting_context {
         if state.handler_address && state.handler_address.* state.handler_address.*(thread);
         result := thread.proc(thread);

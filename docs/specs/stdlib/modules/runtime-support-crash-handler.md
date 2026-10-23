@@ -14,6 +14,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `EXCEPTION_RECORD :: struct`
 - [OS == .WINDOWS] `EXCEPTION_POINTERS :: struct`
 - [OS == .WINDOWS] `init :: ()`
+- [OS == .WINDOWS] `attach_thread :: () #c_call`
 - [OS == .WINDOWS] `backtrace :: (ctx: *CONTEXT, skips: s32) #no_context`
 - [OS == .WINDOWS] `is_ptr_in_program_section :: (ptr: *void) -> in_program_section: bool, read_only: bool, section_name: string #no_context`
 - [OS == .WINDOWS] `handle_exception :: (using pExceptionInfo: *EXCEPTION_POINTERS) -> s32 #c_call`
@@ -44,8 +45,18 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX || OS == .MACOS] `clock_t :: s64`
 - [OS == .LINUX || OS == .MACOS] `sigaction_t :: struct`
 - [OS == .LINUX || OS == .MACOS] `init :: ()`
+- [OS == .LINUX || OS == .MACOS] `attach_thread :: () #c_call`
 - [OS == .LINUX || OS == .MACOS] `handle_signal :: (sig: s32, info: *siginfo_t, secret: *void) #c_call`
 
+
+## Stack overflow reporting
+
+A stack overflow prints `stack overflow` in place of the usual reason line (`crash signal N` on Linux and macOS, `Windows exception 0x... at 0x...` on Windows), followed by the same `native stack:` trace. Exit status is unchanged.
+
+- Linux and macOS: signal handlers run on a per-thread alternate stack (`sigaltstack`, `SA_ONSTACK`). `init` sets it up for the calling thread and `Thread` calls `attach_thread` for each thread it creates. A `SIGSEGV`/`SIGBUS` whose fault address lies within 256 KiB below, or 64 KiB above, the thread's recorded stack limit counts as an overflow; the extent is read when the thread is attached, not in the handler. Change `OVERFLOW_WINDOW` in `crash-native/runtime.c` to widen it.
+- Windows: `EXCEPTION_STACK_OVERFLOW` is reported the same way. `init` and `attach_thread` call `SetThreadStackGuarantee` for 128 KiB so the filter has room to walk the stack.
+
+`attach_thread` does nothing until `init` has run, so programs built with `ENABLE_BACKTRACE_ON_CRASH` off are unaffected. Tests: `tests/driven/faults/stack-overflow*.jai`, run by `tools/portable/check_portable_stdlib.py`.
 
 ## Public aggregate shapes and enum values
 
