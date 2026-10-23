@@ -4,7 +4,10 @@ error[defer_frees_returned]: `name` is returned, but the `defer` above frees it
  7 |     return name;
    |            ^^^^
    |
-   = help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+   |
+ 6 -     defer free(name);
+   |
    = note: `defer_frees_returned` is `deny` by default
 
 error[defer_frees_returned]: `buffer` is returned, but the `defer` above frees it
@@ -13,7 +16,10 @@ error[defer_frees_returned]: `buffer` is returned, but the `defer` above frees i
 17 |         return buffer;
    |                ^^^^^^
    |
-   = help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+   |
+13 -     defer free(buffer);
+   |
    = note: `defer_frees_returned` is `deny` by default
 
 error[defer_frees_returned]: `buffer` is returned, but the `defer` above frees it
@@ -22,6 +28,9 @@ error[defer_frees_returned]: `buffer` is returned, but the `defer` above frees i
 20 |     return xx buffer;
    |               ^^^^^^
    |
-   = help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+help: the deferred call runs after the value is returned: drop the `defer`, or return a copy
+   |
+13 -     defer free(buffer);
+   |
    = note: `defer_frees_returned` is `deny` by default
 

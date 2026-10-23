@@ -17,9 +17,9 @@
 //! takes its address (`v = null;` hands ownership on), when the `defer` holds more than the one
 //! call (`defer if failed free(v);`), and in macros.
 use super::frees::local_of;
-use super::{PlaceUse, calls_noted, finding, place_use, statement_lists};
-use crate::Finding;
+use super::{PlaceUse, calls_noted, place_use, statement_lists, suggesting};
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 
@@ -50,14 +50,19 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         if matches!(value.kind, E::Ident(_))
                             && cx.entities(value.span).contains(&var)
                         {
-                            out.push(finding(
+                            let (start, end) = cx.statement_removal(s.span);
+                            out.push(suggesting(
                                 value.span,
                                 format!("`{name}` is returned, but the `defer` above frees it"),
-                                Some(
-                                    "the deferred call runs after the value is returned: drop the \
-                                     `defer`, or return a copy"
-                                        .into(),
-                                ),
+                                "the deferred call runs after the value is returned: drop the \
+                                 `defer`, or return a copy"
+                                    .into(),
+                                "remove the `defer` that frees the returned value",
+                                vec![Edit {
+                                    start,
+                                    end,
+                                    text: String::new(),
+                                }],
                             ));
                         }
                     }
