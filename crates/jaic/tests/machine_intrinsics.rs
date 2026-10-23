@@ -27,7 +27,8 @@ mod cpuid {
         } else {
             let error = result.expect_err("non-x64 host must not report fake features");
             assert!(
-                error.message.contains("x86-64 interpreter host"),
+                error.message.contains("x86-64 interpreter host")
+                    || error.message.contains("requires an x86-64 target"),
                 "{}",
                 error.render(&compiler.src.sources)
             );
@@ -239,7 +240,8 @@ mod xgetbv {
         );
         let error = result.expect_err("non-x64 host must reject architectural execution");
         assert!(
-            error.message.contains("x86-64 interpreter host"),
+            error.message.contains("x86-64 interpreter host")
+                || error.message.contains("requires an x86-64 target"),
             "{}",
             error.render(&c.src.sources)
         );
@@ -489,7 +491,8 @@ mod x86_machine {
             );
             let error = result.expect_err("host cannot execute x86 without actual translation");
             assert!(
-                error.message.contains("x86-64 interpreter host"),
+                error.message.contains("x86-64 interpreter host")
+                    || error.message.contains("requires an x86-64 target"),
                 "{}",
                 error.render(&c.src.sources)
             );

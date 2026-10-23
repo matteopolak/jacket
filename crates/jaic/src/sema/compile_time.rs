@@ -29,6 +29,8 @@ pub struct CompileTime {
     /// Interpreter blocks already copied into globals while freezing one compile-time value,
     /// by `(address, bytes)`: pointer cycles (`n.next = n`) refer back instead of recursing.
     pub(crate) frozen: HashMap<(u64, u64), ir::GlobalId>,
+    /// The compiler plain `#run` executes in when this one cross-compiles (`sema::host_twin`).
+    pub(crate) twin: super::host_twin::TwinSlot,
 }
 
 impl Drop for Compiler {

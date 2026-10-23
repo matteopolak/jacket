@@ -34,6 +34,12 @@ pub struct SourceState {
     /// How deeply each `#insert`ed string file is nested in other inserted strings (absent: a
     /// real file). Bounds code that inserts itself (`X :: "#insert X;"`).
     pub(in crate::sema) insert_depth: HashMap<FileId, u32>,
+    /// The files and strings the program was given, kept in a cross build so the host twin loads
+    /// the same program (`sema::host_twin`). Empty otherwise.
+    pub(in crate::sema) program_sources: Vec<super::ProgramSource>,
+    /// In a host twin: sources its compile-time code added, with the scope a `Code` value named,
+    /// waiting for the target compiler to load them too (`sema::host_twin`).
+    pub(in crate::sema) twin_outbox: Vec<(super::ProgramSource, Option<super::ScopeId>)>,
 }
 
 impl SourceState {
@@ -51,6 +57,8 @@ impl SourceState {
             hoisted_imports: HashSet::default(),
             provided_texts: HashMap::default(),
             insert_depth: HashMap::default(),
+            program_sources: Vec::new(),
+            twin_outbox: Vec::new(),
         }
     }
 }

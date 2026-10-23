@@ -26,6 +26,10 @@ pub struct Output {
     pub asm_pair_lock: Option<ir::GlobalId>,
     /// The AES S-boxes used by `aesenc` & co. in `#asm` blocks.
     pub asm_aes_tables: Option<ir::GlobalId>,
+    /// The declaration of each global variable of a host twin, so a pointer to one that a run
+    /// returns can be matched with the target's own (`host_import`). Empty elsewhere.
+    pub(in crate::sema) declared_globals:
+        HashMap<ir::GlobalId, (crate::intern::Sym, crate::source::Span)>,
     /// `#no_reset` globals with their types: compiled output starts from the values that
     /// compile-time code left in them (`prepare_compiled_output`).
     pub no_reset_globals: Vec<(ir::GlobalId, TypeId)>,

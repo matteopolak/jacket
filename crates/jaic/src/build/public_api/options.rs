@@ -243,7 +243,32 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
     let address = interp.global_addr(cx.program, defaults)?;
     let initial = bytes(interp, address, cx.schema().get(ty)?.size as usize)?;
     write(interp, at, &initial)?;
-    if !snapshot(cx, interp, ws, at, ty, false)? && ws == cx.shared.borrow().current_id() {
+    let saved = snapshot(cx, interp, ws, at, ty, false)?;
+    if !saved {
+        // The record's defaults name the machine the code runs on, which is the host in a host
+        // twin; the program's options describe the target.
+        let (os, cpu) = {
+            let mut registry = cx.shared.borrow_mut();
+            let settings = registry.workspace_settings(ws).map_err(Trap::new)?;
+            let (os, cpu) = (settings.os, settings.cpu);
+            let options = &registry.env.options;
+            (os.unwrap_or(options.os), cpu.unwrap_or(options.cpu))
+        };
+        let os = match os {
+            crate::sema::TargetOs::Windows => crate::builtin_keys::OsTag::Windows as u64,
+            crate::sema::TargetOs::Linux => crate::builtin_keys::OsTag::Linux as u64,
+            crate::sema::TargetOs::MacOS => crate::builtin_keys::OsTag::MacOS as u64,
+            crate::sema::TargetOs::Wasm => crate::builtin_keys::OsTag::Wasm as u64,
+        };
+        let cpu = match cpu {
+            crate::sema::TargetCpu::X64 => crate::builtin_keys::CpuTag::X64 as u64,
+            crate::sema::TargetCpu::Arm64 => crate::builtin_keys::CpuTag::Arm64 as u64,
+            crate::sema::TargetCpu::Wasm => crate::builtin_keys::CpuTag::Custom as u64,
+        };
+        cx.set_number(interp, ty, at, "os_target", os)?;
+        cx.set_number(interp, ty, at, "cpu_target", cpu)?;
+    }
+    if !saved && ws == cx.shared.borrow().current_id() {
         let arguments = cx.shared.borrow().env.command_line.clone();
         put_strings(
             interp,

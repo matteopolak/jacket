@@ -537,6 +537,9 @@ impl Compiler {
             export: None,
         });
         self.debug_global(global, name, ty, span);
+        if self.meta.twin {
+            self.out.declared_globals.insert(global, (name, span));
+        }
         if decl.flags().iter().any(|f| f.name.as_str() == "no_reset") {
             self.out.no_reset_globals.push((global, ty));
         } else {
@@ -881,6 +884,14 @@ impl Compiler {
             && (self.options.os, self.options.cpu) != compiler_host()
         {
             return self.check_isolated_host_run_all(body, expr.span);
+        }
+        if let ast::ExprKind::Run {
+            body,
+            flags,
+        } = &expr.kind
+            && let Some(results) = self.run_on_host_twin(scope, body, flags, expr.span)?
+        {
+            return Ok(results);
         }
         // `#run f()` keeps all of f's results, not only the first.
         let expr = match &expr.kind {

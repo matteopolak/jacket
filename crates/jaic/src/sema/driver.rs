@@ -131,6 +131,12 @@ impl Compiler {
 
     /// Load one more file or string into the main module; `settle` runs it.
     pub fn add_source(&mut self, source: &ProgramSource) -> Result<()> {
+        self.share_source_with_twin(source);
+        self.add_source_local(source)
+    }
+
+    /// `add_source` without telling the host twin.
+    pub(super) fn add_source_local(&mut self, source: &ProgramSource) -> Result<()> {
         let Some(m) = self.ns.main_module else {
             return err(Span::NONE, "no main module to add sources to");
         };
@@ -185,6 +191,9 @@ impl Compiler {
     /// Load sources that compile-time code added to this compiler's own
     /// workspace (`add_build_string(s)` from inside a `#run`).
     pub(super) fn pull_workspace_sources(&mut self) -> Result<bool> {
+        if self.meta.twin {
+            return self.pull_sources_for_twin();
+        }
         let Some(workspaces) = self.ct.interp.workspaces.clone() else {
             return Ok(false);
         };

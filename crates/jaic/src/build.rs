@@ -36,7 +36,9 @@ pub use self::registry::{
     WASI_RUNTIME_IMPORT, dead_code_setting, import_rules, take_live_requests, take_own_sources,
     wants_wasi_runtime,
 };
-pub(crate) use self::registry::{isolated_host_environment, runtime_storage_setting};
+pub(crate) use self::registry::{
+    host_provider, isolated_host_environment, runtime_storage_setting,
+};
 pub use self::settings::{
     BuildEnv, BuildSettings, LinkObjects, OutputBackend, ReportSeverity, ReportSink,
     UnwrittenOutputHint, WorkspaceObserver,

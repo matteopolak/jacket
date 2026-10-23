@@ -406,6 +406,9 @@ impl Compiler {
             let results = self.check_isolated_host_run_all(body, span)?;
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }
+        if let Some(results) = self.run_on_host_twin(scope, body, flags, span)? {
+            return Ok(results.into_iter().next().unwrap_or(Operand::Void));
+        }
         if !self.ed.is_live() {
             return self.check_run_inner(scope, body, expected, span);
         }
@@ -475,7 +478,7 @@ impl Compiler {
     /// enclosing generator/body controller still owns a suspended continuation.
     /// Sources a run adds to this workspace are loaded immediately after it.
     pub(super) fn service_top_level_runs(&mut self) -> Result<()> {
-        let mut progress = true;
+        let mut progress = !self.meta.twin;
         while progress {
             progress = false;
             let mut index = 0;
@@ -1131,9 +1134,6 @@ impl Compiler {
         }
         Ok(out)
     }
-}
-
-impl Compiler {
 }
 
 /// A `#run` result points at memory that cannot be read (an integer made into a string's or an

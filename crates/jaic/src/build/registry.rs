@@ -81,7 +81,7 @@ impl Workspaces {
         *self.current.last().unwrap_or(&TOP_LEVEL_WORKSPACE)
     }
 
-    fn workspace_settings(&mut self, id: i64) -> Result<&mut BuildSettings, String> {
+    pub(super) fn workspace_settings(&mut self, id: i64) -> Result<&mut BuildSettings, String> {
         Ok(&mut self.ws(id)?.settings)
     }
 
@@ -284,6 +284,12 @@ impl Workspaces {
 /// stdlib calls, an allocator); see `docs/native/wasm-target.md`.
 pub const WASI_RUNTIME_IMPORT: &str =
     "#import \"Extensions/Wasi_Runtime\"; #import \"Wasi_Numeric_Runtime\";";
+
+/// The embedder's host provider for the machine running the compiler, for the host twin
+/// (`sema::host_twin`), which shares `parent`'s workspaces instead of owning a registry.
+pub(crate) fn host_provider(parent: &SharedWorkspaces, os: TargetOs) -> Box<dyn Host> {
+    (parent.borrow().env.make_host)(os)
+}
 
 /// A host evaluation owns a fresh registry, preserving the embedder's real host
 /// provider and reporting without inheriting the target workspace's settings.
