@@ -100,6 +100,10 @@ pub struct Config {
     pub outside: bool,
     /// Stop after this many failures.
     pub max_failures: usize,
+    /// Stop editing once the session has run this long, ending it without further checks. A
+    /// document that loads a large library costs several milliseconds per version, so a long
+    /// run of edits could otherwise outlast whatever limit the caller runs under.
+    pub deadline: Option<Duration>,
 }
 
 impl Default for Config {
@@ -113,6 +117,7 @@ impl Default for Config {
             hang: Some(Duration::from_secs(120)),
             outside: true,
             max_failures: 1,
+            deadline: None,
         }
     }
 }

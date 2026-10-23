@@ -196,7 +196,7 @@ impl<'a, C: Choices> Rig<'a, C> {
     }
 
     pub(super) fn failed(&self) -> bool {
-        self.hard_failures >= self.config.max_failures
+        self.hard_failures >= self.config.max_failures || self.clock.past(self.config.deadline)
     }
 
     pub(super) fn fail(&mut self, oracle: &str, doc: usize, detail: String) {

@@ -49,6 +49,11 @@ impl Clock {
         clock
     }
 
+    /// Whether the session has run for `limit` (`Config::deadline`).
+    pub(super) fn past(&self, limit: Option<Duration>) -> bool {
+        limit.is_some_and(|limit| self.epoch.elapsed() >= limit)
+    }
+
     pub(super) fn run<R>(&mut self, query: Query, f: impl FnOnce() -> R) -> R {
         if let Ok(mut l) = self.label.lock() {
             *l = format!("{query:?}");

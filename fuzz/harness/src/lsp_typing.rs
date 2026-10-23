@@ -69,6 +69,9 @@ pub fn lsp_typing(data: &[u8]) {
             hang: None,
             outside: false,
             max_failures: 1,
+            // Well inside the target's timeout (fuzz/targets.json), which an instrumented build
+            // on a busy runner takes several times as long to reach as a release build does.
+            deadline: Some(Duration::from_secs(40)),
         };
         let report = typing_session::run(&input, config.clone(), Bytes(Unstructured::new(&script)));
         let mut failures = report.failures;
