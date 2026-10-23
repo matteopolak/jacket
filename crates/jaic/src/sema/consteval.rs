@@ -428,49 +428,6 @@ impl Compiler {
         Ok(results.into_iter().next().unwrap_or(Operand::Void))
     }
 
-    pub(super) fn check_run_inner_all(
-        &mut self,
-        scope: ScopeId,
-        body: &ast::RunBody,
-        expected: Option<TypeId>,
-        span: Span,
-    ) -> Result<Vec<Operand>> {
-        let tscope = self.thunk_scope(scope);
-        let file = self.scope_file(scope);
-        match body {
-            ast::RunBody::Expr(e) => {
-                let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
-                let op = self.check_expr(&mut f, tscope, e, expected)?;
-                match op {
-                    Operand::Const {
-                        ..
-                    }
-                    | Operand::Type(_)
-                    | Operand::Procs(_) => Ok(vec![op]),
-                    other => {
-                        let ty = other.ty();
-                        let result = self.run_thunk_all(f, other, span);
-                        if result.is_err() {
-                            self.ed.run_failed(span, ty);
-                        }
-                        result
-                    }
-                }
-            }
-            ast::RunBody::Block(block) => {
-                let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
-                let module = self.scope(tscope).module;
-                let inner = self.new_scope(scope::ScopeKind::Block, Some(tscope), module, None);
-                self.check_block_stmts(&mut f, inner, &block.stmts)?;
-                self.ide_require_parsed_body(block.span)?;
-                if !f.b.is_terminated() {
-                    self.emit_defers(&mut f, 0, span)?;
-                }
-                self.run_thunk_all(f, Operand::Void, span)
-            }
-        }
-    }
-
     /// Service the runs that are ready without evaluating final assertions while an
     /// enclosing generator/body controller still owns a suspended continuation.
     /// Sources a run adds to this workspace are loaded immediately after it.

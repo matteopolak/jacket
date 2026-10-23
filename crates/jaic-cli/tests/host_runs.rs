@@ -111,6 +111,16 @@ fn build_programs_start_processes_and_drive_workspaces_when_cross_compiling() {
 }
 
 #[test]
+fn a_run_that_returns_code_stays_on_the_target_compiler() {
+    check_for_foreign_targets(&host_run_fixture("cross-target-code-result.jai"));
+}
+
+#[test]
+fn a_run_that_returns_a_nested_enum_stays_on_the_target_compiler() {
+    check_for_foreign_targets(&host_run_fixture("cross-target-local-enum-result.jai"));
+}
+
+#[test]
 fn a_result_with_a_host_dependent_layout_is_rejected() {
     // Windows is the target whose `Odd` layout differs; a Windows host checks for Linux instead,
     // where the layouts agree, so the test only applies elsewhere.

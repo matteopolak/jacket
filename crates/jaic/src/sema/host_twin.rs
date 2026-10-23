@@ -4,7 +4,7 @@ use super::lower::Operand;
 use super::scope::ScopeKind;
 use super::{
     Compiler, Diagnostic, FileInfo, HashSet, ModuleId, Options, ProgramSource, Result, ScopeId,
-    Span, TypeId, ast, compiler_host,
+    Span, TypeId, ast, compiler_host, ir,
 };
 use crate::source::SourcePath;
 
@@ -16,6 +16,9 @@ pub(crate) struct TwinSlot {
     /// then executes on the target compiler.
     unavailable: bool,
 }
+
+/// Decides from the type of a run expression whether it runs; see `check_run_gated`.
+pub(super) type RunGate<'a> = dyn FnMut(&mut Compiler, TypeId) -> bool + 'a;
 
 /// `JAIC_NO_HOST_TWIN=1` turns the twin off, for timing and bisecting.
 fn disabled_by_environment() -> bool {
@@ -31,6 +34,67 @@ fn words(text: &str) -> HashSet<&str> {
 }
 
 impl Compiler {
+    pub(super) fn check_run_inner_all(
+        &mut self,
+        scope: ScopeId,
+        body: &ast::RunBody,
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<Vec<Operand>> {
+        self.check_run_gated(scope, body, expected, span, None)
+    }
+
+    /// Like `check_run_inner_all`; `gate` sees the type of a run expression before it runs, and
+    /// declining it (`false`) skips the run, returning no operands.
+    pub(super) fn check_run_gated(
+        &mut self,
+        scope: ScopeId,
+        body: &ast::RunBody,
+        expected: Option<TypeId>,
+        span: Span,
+        gate: Option<&mut RunGate>,
+    ) -> Result<Vec<Operand>> {
+        let tscope = self.thunk_scope(scope);
+        let file = self.scope_file(scope);
+        match body {
+            ast::RunBody::Expr(e) => {
+                let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
+                let op = self.check_expr(&mut f, tscope, e, expected)?;
+                match op {
+                    Operand::Const {
+                        ..
+                    }
+                    | Operand::Type(_)
+                    | Operand::Procs(_) => Ok(vec![op]),
+                    other => {
+                        let ty = other.ty();
+                        if let Some(gate) = gate
+                            && !gate(self, ty)
+                        {
+                            return Ok(Vec::new());
+                        }
+                        let result = self.run_thunk_all(f, other, span);
+                        if result.is_err() {
+                            self.ed.run_failed(span, ty);
+                        }
+                        result
+                    }
+                }
+            }
+            ast::RunBody::Block(block) => {
+                let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
+                let module = self.scope(tscope).module;
+                let inner = self.new_scope(ScopeKind::Block, Some(tscope), module, None);
+                self.check_block_stmts(&mut f, inner, &block.stmts)?;
+                self.ide_require_parsed_body(block.span)?;
+                if !f.b.is_terminated() {
+                    self.emit_defers(&mut f, 0, span)?;
+                }
+                self.run_thunk_all(f, Operand::Void, span)
+            }
+        }
+    }
+
     fn is_cross_build(&self) -> bool {
         (self.options.os, self.options.cpu) != compiler_host()
     }
@@ -147,7 +211,19 @@ impl Compiler {
             twin.ct.traps,
             twin.epochs.placeholder_misses,
         );
-        let result = twin.check_run_inner_all(twin_scope, body, None, span);
+        let mut declined = false;
+        let result = {
+            let mut gate = |twin: &mut Compiler, ty: TypeId| {
+                let importable = self.can_import_host_type(twin, ty, span);
+                declined = !importable;
+                importable
+            };
+            twin.check_run_gated(twin_scope, body, None, span, Some(&mut gate))
+        };
+        if declined {
+            // Nothing ran: the target compiler runs it.
+            return Ok(None);
+        }
         self.ct.interp.block_budget = twin.ct.interp.block_budget;
         // A retry decision must see that code ran, and what it was waiting for.
         self.ct.executions += twin.ct.executions - before.0;
@@ -241,6 +317,10 @@ impl Compiler {
         span: Span,
     ) -> Option<ScopeId> {
         let text = self.src.sources.snippet(span).to_owned();
+        // A `#code` literal in the run names a scope of the target program.
+        if text.contains("#code") {
+            return None;
+        }
         let used = words(&text);
         let mut current = scope;
         loop {

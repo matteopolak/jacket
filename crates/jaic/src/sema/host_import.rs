@@ -9,6 +9,29 @@ use crate::source::SourcePath;
 use crate::types::{EnumId, ProcType, StructId, TypeKind};
 
 impl Compiler {
+    /// Whether a result of the host type `ty` has a counterpart in this compiler: it is checked
+    /// before the run, so that a run whose result cannot cross (Code, a distinct type, a type
+    /// local to a procedure) stays on this compiler. A layout that differs is still an error.
+    pub(super) fn can_import_host_type(
+        &mut self,
+        twin: &mut Compiler,
+        ty: TypeId,
+        span: Span,
+    ) -> bool {
+        if matches!(twin.ty.types.kind(ty), TypeKind::Code) {
+            return false;
+        }
+        let mut importer = Importer {
+            target: self,
+            host: twin,
+            span,
+            types: HashMap::default(),
+            globals: HashMap::default(),
+            checked: HashSet::default(),
+        };
+        importer.ty(ty).is_ok()
+    }
+
     /// Convert `operands`, the results of a run in `twin`, to this compiler's types and data.
     pub(super) fn import_host_results(
         &mut self,
