@@ -7,9 +7,9 @@
 //! of it: `x * 0`, `0 * x`, `x & 0`, `0 & x`, `x % 1`, `0 % x`, `0 / x`, `0 << x`, `0 >> x`.
 //! Inside an index or an array literal (`m[0 * 4 + 1]`, lining up with neighbouring rows) it
 //! is left alone.
-use super::{finding, int_literal, op_text};
-use crate::Finding;
+use super::{finding, int_literal, op_text, pure, suggesting};
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -48,15 +48,27 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             let written = cx.whole_src(e.span).trim();
-            out.push(finding(
-                e.span,
-                format!("`{written}` is always `0`"),
-                Some(format!(
-                    "`{}` with this literal erases `{}`: was another value meant?",
-                    op_text(*op),
-                    cx.whole_src(erased.span).trim()
-                )),
-            ));
+            let message = format!("`{written}` is always `0`");
+            let help = format!(
+                "`{}` with this literal erases `{}`: was another value meant?",
+                op_text(*op),
+                cx.whole_src(erased.span).trim()
+            );
+            out.push(if pure(erased) {
+                suggesting(
+                    e.span,
+                    message,
+                    help,
+                    "write the `0` it always is",
+                    vec![Edit {
+                        start: e.span.start as usize,
+                        end: e.span.end as usize,
+                        text: "0".into(),
+                    }],
+                )
+            } else {
+                finding(e.span, message, Some(help))
+            });
             true
         });
     }
