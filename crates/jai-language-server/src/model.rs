@@ -135,6 +135,8 @@ pub struct CompletionItem {
     /// Accepting the item asks the client to show signature help (the cursor is inside the
     /// parentheses it inserted).
     pub trigger_signature_help: bool,
+    /// The client selects this item when the list opens (`preselect`), whatever it remembers.
+    pub preselect: bool,
 }
 
 /// The declaration a completion item stands for.

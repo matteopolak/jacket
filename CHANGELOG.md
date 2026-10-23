@@ -23,6 +23,7 @@
 - Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
 - Typing in one program no longer makes the language server recheck other open programs that don't use the file.
 - Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.
+- Struct literal completion lists fields in declaration order and selects the first one left (#29).
 
 ### Changed
 

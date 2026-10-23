@@ -192,9 +192,10 @@ fn array_add_offers_element_fields() {
 fn inline_and_multiline_fields_have_equivalent_sort_priority() {
     for literal in ["Foo.{|}", "Foo.{ | }", "Foo.{\n |\n}"] {
         let list = items(&format!("{FOO}main :: () {{ value := {literal}; }}"));
-        for name in ["a1", "b2", "c3"] {
+        for (index, name) in ["a1", "b2", "c3"].into_iter().enumerate() {
             let item = list.iter().find(|item| item.label == name).unwrap();
-            assert_eq!(item.sort_text.as_deref(), Some(format!("!{name}").as_str()));
+            assert_eq!(item.sort_text, Some(format!("!{index:05}")), "{literal}");
+            assert_eq!(item.preselect, index == 0, "{literal}");
         }
     }
 }
@@ -246,7 +247,33 @@ fn inline_and_multiline_wire_sort_keys_survive_edits() {
             .find_map(|response| response.get("result")?.get("items")?.as_array())
             .unwrap();
         let item = items.iter().find(|item| item["label"] == "a1").unwrap();
-        assert_eq!(item["sortText"], "!a1");
+        assert_eq!(item["sortText"], "!00000");
+        assert_eq!(item["preselect"], true);
         assert_eq!(item["textEdit"]["newText"], "a1 = ");
     }
+}
+
+/// The fields' order and selection, as the client sorts them (`sortText`, then the label).
+fn sorted_fields(source: &str) -> Vec<(String, bool)> {
+    let mut items: Vec<_> = items(source)
+        .into_iter()
+        .filter(|i| i.kind == jai_language_server::CompletionKind::Field)
+        .collect();
+    items.sort_by(|a, b| {
+        let key = |i: &CompletionItem| i.sort_text.clone().unwrap_or_else(|| i.label.clone());
+        key(a).cmp(&key(b)).then(a.label.cmp(&b.label))
+    });
+    items.into_iter().map(|i| (i.label, i.preselect)).collect()
+}
+
+#[test]
+fn fields_keep_declaration_order_and_the_first_left_is_preselected() {
+    let zyx = "Zyx :: struct { z: int; y: int; x: int; }\n";
+    let order = sorted_fields(&format!("{zyx}main :: () {{ v := Zyx.{{|}}; }}"));
+    assert_eq!(
+        order,
+        [("z".into(), true), ("y".into(), false), ("x".into(), false)]
+    );
+    let order = sorted_fields(&format!("{zyx}main :: () {{ v := Zyx.{{ z = 1, | }}; }}"));
+    assert_eq!(order, [("y".into(), true), ("x".into(), false)]);
 }

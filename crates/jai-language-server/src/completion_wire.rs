@@ -49,6 +49,9 @@ pub(crate) fn completion_wire(completion: &CompletionList) -> Value {
             if let Some(sort) = &item.sort_text {
                 wire["sortText"] = json!(sort);
             }
+            if item.preselect {
+                wire["preselect"] = json!(true);
+            }
             if !item.additional_edits.is_empty() {
                 wire["additionalTextEdits"] = item
                     .additional_edits

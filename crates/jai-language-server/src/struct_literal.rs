@@ -170,18 +170,20 @@ impl Session {
             .index
             .range(text, Span::new(site.word.start, site.word.end))
             .ok()?;
-        let items = fields
+        // Fields keep their declaration order, and the first one left is selected.
+        let mut items = fields
             .into_iter()
-            .filter(|f| {
+            .enumerate()
+            .filter(|(_, f)| {
                 f.name.to_lowercase().starts_with(&prefix) && !site.assigned.contains(&f.name)
             })
-            .map(|f| CompletionItem {
+            .map(|(index, f)| CompletionItem {
                 insert_text: Some(if site.has_equals {
                     f.name.clone()
                 } else {
                     format!("{} = ", f.name)
                 }),
-                sort_text: Some(format!("!{}", f.name)),
+                sort_text: Some(format!("!{index:05}")),
                 label: f.name,
                 kind: CompletionKind::Field,
                 detail: f.detail,
@@ -190,6 +192,9 @@ impl Session {
             })
             .take(self.limits.symbols)
             .collect::<Vec<_>>();
+        if let Some(first) = items.first_mut() {
+            first.preselect = true;
+        }
         Some((items, site.first))
     }
 }
