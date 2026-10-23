@@ -37,10 +37,13 @@ impl Session {
         let (at, chain) = match member {
             // `.Member` with an inferred type: the enum its context expects.
             Some(m) if m.receiver.is_none() => {
-                return self.complete_member_at(uri, text, byte, m.dot as usize, prefix);
+                return self.complete_member_at(uri, text, byte, m.dot as usize, prefix, false);
             }
-            // `f().x`, a number: nothing to offer.
-            Some(m) if m.chain.is_empty() => return Some((prefix, Vec::new(), BTreeMap::new())),
+            // `f().x`, `a[i].x`: no names lead to the receiver; its type is what the check
+            // records for it.
+            Some(m) if m.chain.is_empty() => {
+                return self.complete_member_at(uri, text, byte, m.dot as usize, prefix, true);
+            }
             Some(m) => (
                 m.chain[0].start as usize,
                 m.chain
@@ -62,14 +65,20 @@ impl Session {
         if let Some((names, files)) = self.with_compiled_before(uri, text, at, ask) {
             return Some((prefix, names, files));
         }
-        let (names, files) = self.with_semantic(uri, text, ask)?;
-        Some((prefix, names, files))
+        if let Some((names, files)) = self.with_semantic(uri, text, ask) {
+            return Some((prefix, names, files));
+        }
+        // Names a lookup from the scope cannot follow: a macro's parameter (checked where the
+        // macro expands), `context`, a member reached through `using`.
+        let m = member?;
+        self.complete_member_at(uri, text, byte, m.dot as usize, prefix, true)
     }
 
     /// Members for `.NAME` typed with `dot` the offset of the `.`: the text asked about holds a
     /// placeholder name in place of the word, so the compiler records the type its context
-    /// expects. The editor parser recovers from whatever is left open on the line, so the one
-    /// text serves wherever the dot is.
+    /// expects or, with `recorded`, the type of the receiver before the dot. The editor parser
+    /// recovers from whatever is left open on the line, so the one text serves wherever the dot
+    /// is.
     fn complete_member_at(
         &self,
         uri: &DocumentUri,
@@ -77,6 +86,7 @@ impl Session {
         byte: usize,
         dot: usize,
         prefix: String,
+        recorded: bool,
     ) -> Option<Completions> {
         const PLACEHOLDER: &str = "__jailsp_member";
         let ident = jaic::lexicon::is_identifier_char;
@@ -86,7 +96,11 @@ impl Session {
                 .unwrap_or(text.len() - byte);
         let candidate = format!("{}{PLACEHOLDER}{}", &text[..=dot], &text[tail..]);
         let found = self.with_semantic(uri, &candidate, |a, path| {
-            let mut names = a.complete_inferred(path, dot + 1)?;
+            let mut names = if recorded {
+                a.complete_recorded(path, dot + 1)?
+            } else {
+                a.complete_inferred(path, dot + 1)?
+            };
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))

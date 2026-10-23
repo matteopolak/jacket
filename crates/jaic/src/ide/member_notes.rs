@@ -12,6 +12,19 @@ use crate::types::TypeId;
 use crate::types::{StructId, TypeKind};
 
 impl Compiler {
+    /// The members of the value whose member name starts at `offset`, by the type the check
+    /// recorded for it; `None` when it recorded none or several.
+    pub fn ide_recorded_members(&mut self, file: FileId, offset: u32) -> Option<Vec<IdeName>> {
+        let ty = self
+            .ed
+            .facts()?
+            .receivers
+            .iter()
+            .find(|(span, _)| span.file == file && span.start == offset)
+            .and_then(|(_, ty)| *ty)?;
+        Some(self.ide_members(IdeReceiver::Value(ty)))
+    }
+
     /// `b` of `a.b` was checked with `a` being `base`.
     pub(crate) fn ide_note_receiver(&mut self, span: Span, base: &Operand) {
         if matches!(

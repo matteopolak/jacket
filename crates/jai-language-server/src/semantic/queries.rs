@@ -413,6 +413,13 @@ impl Analysis {
         Some(fitting.into_iter().collect())
     }
 
+    /// The members of the value whose member name starts at `offset`, by the type the compile
+    /// recorded for it.
+    pub fn complete_recorded(&mut self, path: &Path, offset: usize) -> Option<Vec<IdeName>> {
+        let file = self.file(path)?;
+        self.compiler.ide_recorded_members(file, offset as u32)
+    }
+
     /// Completion candidates at `offset`, members of `chain` when it is not empty.
     pub fn complete(&mut self, path: &Path, offset: usize, chain: &[&str]) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;
