@@ -238,6 +238,7 @@ impl Compiler {
             scope,
             d,
             text,
+            &[lhs.ty(), rhs.ty()],
             Some(rewrite),
         )))
     }
@@ -249,6 +250,7 @@ impl Compiler {
         scope: ScopeId,
         mut d: Diagnostic,
         text: &str,
+        tys: &[TypeId],
         rewrite: Option<Rewrite>,
     ) -> Diagnostic {
         let name = Sym::intern(&format!("operator{text}"));
@@ -285,7 +287,7 @@ impl Compiler {
             ));
             return d;
         }
-        let imports = self.imports_declaring_operator(text);
+        let imports = self.imports_declaring_operator(text, tys);
         for (i, import) in imports.iter().enumerate() {
             let title = format!(
                 "`operator {text}` is declared in the `{}` module: add `{}` to this file",

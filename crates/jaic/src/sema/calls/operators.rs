@@ -441,10 +441,15 @@ impl Compiler {
                 d = d.with_note(header, format!("`operator {text}` is declared here"));
             }
             let rewrite = self.operator_rewrite(node, span, false, false);
+            let tys: Vec<TypeId> = args
+                .iter()
+                .filter_map(|a| a.op.as_ref().map(Operand::ty))
+                .collect();
             return Err(Box::new(self.with_missing_operator_help(
                 scope,
                 d,
                 text,
+                &tys,
                 Some(rewrite),
             )));
         }
@@ -524,6 +529,7 @@ impl Compiler {
                 scope,
                 d,
                 text,
+                &[operand.ty()],
                 Some(rewrite),
             )));
         }

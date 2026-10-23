@@ -32,6 +32,8 @@ fn compile(main: &str) -> (Result<(), Box<Diagnostic>>, Vec<Diagnostic>, Compile
     let mut options = Options::host();
     options.runtime_support = false;
     options.import_paths = vec![PathBuf::from("/modules")];
+    // The modules above are also the standard library that imports are suggested from.
+    options.preload_stdlib = Some(PathBuf::from("/modules"));
     let mut compiler = Compiler::new(options, Rc::new(fs));
     let result = compiler.compile_program(Path::new("/main.jai"));
     let warnings = compiler.diag.warnings.clone();
@@ -219,4 +221,51 @@ fn a_mismatch_names_the_operands_and_lists_the_overloads_as_notes() {
     );
     assert!(!text.contains("in call to"), "{text}");
     assert!(text.contains("`operator +` is declared here"), "{text}");
+}
+
+fn import_suggestions(d: &Diagnostic) -> Vec<String> {
+    d.suggestions()
+        .iter()
+        .flat_map(jaic::source::Suggestion::imports)
+        .map(|i| i.module.clone())
+        .collect()
+}
+
+#[test]
+fn an_unrelated_struct_gets_no_import_suggestion() {
+    // `Vec` and `Ops` declare `operator +`, for other types.
+    let (result, _, compiler) = compile(
+        "Mine :: struct { n: int; }
+        main :: () { a, b: Mine; c := a + b; }",
+    );
+    let error = result.expect_err("no overload");
+    assert!(import_suggestions(&error).is_empty(), "{error:?}");
+    let text = error.render(&compiler.src.sources);
+    assert!(!text.contains("is declared in the"), "{text}");
+}
+
+#[test]
+fn a_module_with_an_overload_for_the_operands_is_suggested() {
+    let (result, _, compiler) = compile(
+        "T :: #import \"Other\";
+        main :: () { a, b: T.Thing; c := a + b; }",
+    );
+    let error = result.expect_err("Ops is not imported");
+    // `Ops` takes `Thing`; `Vec` declares `operator +` for another type.
+    assert_eq!(import_suggestions(&error), ["Ops"]);
+    let text = error.render(&compiler.src.sources);
+    assert!(
+        text.contains("`operator +` is declared in the `Ops` module"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_unary_operator_no_module_overloads_gets_no_import_suggestion() {
+    let (result, _, _) = compile(
+        "T :: #import \"Other\";
+        main :: () { a: T.Thing; c := -a; }",
+    );
+    let error = result.expect_err("no `operator -` for Thing");
+    assert!(import_suggestions(&error).is_empty(), "{error:?}");
 }

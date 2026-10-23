@@ -3,7 +3,7 @@
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
 use super::module_rank::{ModuleRanking, count_importers};
 use super::scope::{ScopeId, UsingEntry};
-use super::{Compiler, ModuleId, Sym};
+use super::{Compiler, ModuleId, Sym, TypeId};
 use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
 use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
@@ -39,6 +39,46 @@ fn exports_operator(text: &str, op: &str) -> bool {
                 .is_some_and(|rest| rest.trim_start().starts_with("::"))
         {
             return true;
+        }
+    }
+    false
+}
+
+/// Whether an `operator <op>` declaration in `text` names every one of `names` among its
+/// parameters (a line-based test, like [`exports_operator`]).
+fn operator_takes(text: &str, op: &str, names: &[String]) -> bool {
+    let mut file_scope = false;
+    let mut lines = text.lines();
+    while let Some(line) = lines.next() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("#scope_file") {
+            file_scope = true;
+        } else if trimmed.starts_with("#scope_export") || trimmed.starts_with("#scope_module") {
+            file_scope = trimmed.starts_with("#scope_module");
+        } else if !file_scope
+            && line.len() - trimmed.len() <= 4
+            && trimmed
+                .strip_prefix("operator")
+                .and_then(|rest| rest.trim_start().strip_prefix(op))
+                .is_some_and(|rest| rest.trim_start().starts_with("::"))
+        {
+            let mut head = trimmed.to_string();
+            while !head.contains('{') && !head.contains("->") && head.len() < 400 {
+                match lines.next() {
+                    Some(next) => head.push_str(next),
+                    None => break,
+                }
+            }
+            let end = head
+                .find("->")
+                .or_else(|| head.find('{'))
+                .unwrap_or(head.len());
+            let words: Vec<&str> = head[..end]
+                .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .collect();
+            if names.iter().all(|n| words.contains(&n.as_str())) {
+                return true;
+            }
         }
     }
     false
@@ -274,21 +314,52 @@ impl Compiler {
     /// level (outside `#scope_file`), best ranked first (`ModuleRanking`) and jaic's `Extensions/` modules
     /// (named by that path) last. At most [`MAX_IMPORTS`].
     fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
-        self.imports_declaring_by(name, &|text| exports_name(text, name))
+        self.imports_declaring_by(name, &|_, text| exports_name(text, name))
     }
 
-    /// The modules whose source declares `operator <text>` (as [`Self::imports_declaring`]
-    /// ranks and limits them).
-    pub(super) fn imports_declaring_operator(&self, text: &str) -> Vec<ImportSuggestion> {
-        self.imports_declaring_by(&format!("operator {text}"), &|source| {
+    /// The modules whose source declares `operator <text>` for operands of types `tys` (as
+    /// [`Self::imports_declaring`] ranks and limits them). A module qualifies when it declares
+    /// the struct of an operand or an overload whose parameters name every struct operand; with
+    /// no struct operand any module that declares the operator does.
+    pub(super) fn imports_declaring_operator(
+        &self,
+        text: &str,
+        tys: &[TypeId],
+    ) -> Vec<ImportSuggestion> {
+        let mut names = Vec::new();
+        let mut homes = Vec::new();
+        for &ty in tys {
+            let Some(home) = self.ty.struct_home_scope(ty) else {
+                continue;
+            };
+            let pointee = self.ty.types.pointee(ty).unwrap_or(ty);
+            let full = self.ty.types.name(pointee);
+            let base = full.rsplit('.').next().unwrap_or(&full);
+            let base: String = base
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            names.push(base);
+            // Prelude scopes belong to no module.
+            homes.extend(
+                self.ns
+                    .modules
+                    .get(self.scope(home).module.0 as usize)
+                    .map(|m| m.name.clone()),
+            );
+        }
+        self.imports_declaring_by(&format!("operator {text}"), &|module, source| {
             exports_operator(source, text)
+                && (names.is_empty()
+                    || homes.iter().any(|h| h == module)
+                    || operator_takes(source, text, &names))
         })
     }
 
     fn imports_declaring_by(
         &self,
         name: &str,
-        declares_in: &dyn Fn(&str) -> bool,
+        declares_in: &dyn Fn(&str, &str) -> bool,
     ) -> Vec<ImportSuggestion> {
         let mut found = Vec::new();
         if name.len() < 2 || name.starts_with("__") {
@@ -341,7 +412,7 @@ impl Compiler {
                 self.src
                     .fs
                     .read(path)
-                    .is_some_and(|bytes| declares_in(&String::from_utf8_lossy(&bytes)))
+                    .is_some_and(|bytes| declares_in(&module, &String::from_utf8_lossy(&bytes)))
             });
             if declares {
                 found.push(ImportSuggestion {
