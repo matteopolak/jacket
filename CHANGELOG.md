@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- `BuildCpp` on Windows accepts `/bigobj` objects and finds Visual Studio's `clang-cl` for the host when targeting another CPU.
 - Hovers explain `using,only`, `using,except` and `using,map`.
 - `Vector3` and `Vector4` support componentwise `*` and `/`, and `Vector4` gains `multiply`, `distance_squared` and `unit_vector` (#34).
 - Copying or changing procedure code keeps the parentheses around casts.

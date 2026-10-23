@@ -88,5 +88,21 @@
     "required_capabilities": [
       "Windows Clang C/C++ compiler"
     ]
+  },
+  {
+    "name": "coff-headers",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "BuildCpp imports native host services; wasm cannot load it"
+    ],
+    "required_os": [
+      "linux",
+      "macos",
+      "windows"
+    ]
   }
 ]

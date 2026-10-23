@@ -271,10 +271,10 @@ matches_target_object :: (path: string, target: Operating_System_Tag) -> bool {
     if !opened return false;
 
     defer F.file_close(*file);
-    header: [20] u8;
+    header: [32] u8;
     read, count := F.file_read(file, header.data, header.count);
 
-    if !read || count != header.count return false;
+    if !read || count < 20 return false;
     if target == .LINUX return header[0] == 0x7f && header[1] == 69 && header[2] == 76 && header[3] == 70;
 
     if target == .WINDOWS {
@@ -282,8 +282,11 @@ matches_target_object :: (path: string, target: Operating_System_Tag) -> bool {
         #if CPU == .ARM64 machine :: 0xaa64;
         else machine :: 0x8664;
 
-        return ((cast(u32) header[0]) | ((cast(u32) header[1]) << 8)) == machine &&
-               (header[2] != 0 || header[3] != 0) && header[16] == 0 && header[17] == 0;
+        view: [] u8;
+        view.data = header.data;
+        view.count = count;
+
+        return coff_object_matches(view, machine);
     }
 
     if target != .MACOS return false;
@@ -312,6 +315,27 @@ output_suffix :: (type: Build_Type) -> string {
 
     #if OS == .MACOS return ".dylib";
     else return ".so";
+}
+
+#scope_module
+// Whether `header` (the first bytes of an object file) is a COFF object for `machine`. Handles ordinary
+// headers and the `/bigobj` form, an anonymous object header that carries the machine at offset 6.
+coff_object_matches :: (header: [] u8, machine: u32) -> bool {
+    word :: (bytes: [] u8, offset: s64) -> u32 {
+        return (cast(u32) bytes[offset]) | ((cast(u32) bytes[offset + 1]) << 8);
+    }
+
+    // ANON_OBJECT_HEADER_BIGOBJ class id {D1BAA1C7-BAEE-4BA9-AF20-FAF66AA4DCB8}, little-endian.
+    bigobj_class :: u8.[0xc7, 0xa1, 0xba, 0xd1, 0xee, 0xba, 0xa9, 0x4b, 0xaf, 0x20, 0xfa, 0xf6, 0x6a, 0xa4, 0xdc, 0xb8];
+
+    if header.count >= 32 && word(header, 0) == 0 && word(header, 2) == 0xffff && word(header, 4) >= 2 {
+        for bigobj_class if header[12 + it_index] != it return false;
+        return word(header, 6) == machine;
+    }
+
+    if header.count < 20 return false;
+
+    return word(header, 0) == machine && (header[2] != 0 || header[3] != 0) && header[16] == 0 && header[17] == 0;
 }
 
 #scope_module

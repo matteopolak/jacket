@@ -40,8 +40,9 @@ default_clang_compiler :: (_cpp: bool) -> string {
         if result.type == .EXITED && result.exit_code == 0 && !timed {
             root := S.trim(output);
 
-            #if CPU == .ARM64 candidate := tprint("%/VC/Tools/Llvm/ARM64/bin/%", root, name);
-            else candidate := tprint("%/VC/Tools/Llvm/x64/bin/%", root, name);
+            // The directory holds a compiler that runs on this host; --target selects the output CPU.
+            candidate := tprint("%/VC/Tools/Llvm/%/bin/%", root, ifx HOST_ARM64 then "ARM64" else "x64", name);
+
             if U.file_exists(candidate) return candidate;
 
             candidate = tprint("%/VC/Tools/Llvm/bin/%", root, name);
