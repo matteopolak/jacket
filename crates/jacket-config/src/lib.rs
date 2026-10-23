@@ -217,6 +217,16 @@ pub fn parse_noting(text: &str) -> Result<(Config, Vec<String>), String> {
 pub fn unknown_note(path: &str) -> String {
     let mut note = format!("warning: unknown setting `{path}` in {FILE_NAME} (ignored)");
     let (table, key) = path.rsplit_once('.').unwrap_or(("", path));
+    if table.is_empty() {
+        if let Some((home, meant)) = schema::misplaced_home(key) {
+            if meant == key {
+                note.push_str(&format!("; it belongs under `[{home}]`"));
+            } else {
+                note.push_str(&format!("; use `{meant}` under `[{home}]`"));
+            }
+            return note;
+        }
+    }
     if let Some(near) = schema::closest(key, schema::known_keys(table)) {
         let near = if table.is_empty() {
             near.to_string()

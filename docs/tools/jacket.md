@@ -116,7 +116,7 @@ serial_parse = false            # -serial_parse
 codegen_units = 4               # -codegen_units
 ```
 
-Precedence: command-line flags, then `jacket.toml`, then legacy files, then defaults. Unknown sections and keys are never fatal and never read: parsing drops them (`serde_ignored` collects their paths) and every tool prints the same warning, `unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?` (the suggestion appears when a known key is close). `jailint` still rejects unknown rule names and levels inside `[lint.rules]`, whose keys are rule names, not schema keys. A file that is not valid TOML, or has a wrongly typed value, is an error naming the file and line.
+Precedence: command-line flags, then `jacket.toml`, then legacy files, then defaults. Unknown sections and keys are never fatal and never read: parsing drops them (`serde_ignored` collects their paths) and every tool prints the same warning, `unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?` (the suggestion appears when a known key is close). A top-level key that belongs in a section gets that instead: `unknown setting `import_path` in jacket.toml (ignored); it belongs under `[project]``, and likely spellings point at the real key (`build_files` → ``use `entry` under `[project]` ``); the aliases live in `schema::ALIASES`. `jailint` still rejects unknown rule names and levels inside `[lint.rules]`, whose keys are rule names, not schema keys. A file that is not valid TOML, or has a wrongly typed value, is an error naming the file and line.
 
 `jacket config show` prints the effective settings annotated with the file each value came from.
 

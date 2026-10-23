@@ -297,6 +297,28 @@ fn the_warning_suggests_the_near_key() {
 }
 
 #[test]
+fn a_top_level_key_of_a_section_points_at_it() {
+    assert_eq!(
+        unknown_note("import_path"),
+        "warning: unknown setting `import_path` in jacket.toml (ignored); it belongs under `[project]`"
+    );
+    assert!(unknown_note("max_nesting").ends_with("it belongs under `[lint]`"));
+    assert_eq!(
+        unknown_note("build_files"),
+        "warning: unknown setting `build_files` in jacket.toml (ignored); use `entry` under `[project]`"
+    );
+    // Only the top level is misplaced; a section's own typo keeps the did-you-mean.
+    assert!(!unknown_note("lint.entry").contains("belongs"));
+}
+
+#[test]
+fn aliases_name_real_keys() {
+    for (alias, table, key) in schema::ALIASES {
+        assert!(schema::known_keys(table).contains(key), "{alias}");
+    }
+}
+
+#[test]
 fn load_reports_unknown_keys_as_notes() {
     let fs = Mem(vec![("/p/jacket.toml", "[lint]\nmax_nestng = 3\n")]);
     let loaded = load(&fs, Path::new("/p")).unwrap().unwrap();

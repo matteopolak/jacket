@@ -152,6 +152,36 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
     }
 }
 
+/// Likely spellings of a section's key, written at the top level of the file: the spelling, the
+/// section and the key it means.
+pub(crate) const ALIASES: &[(&str, &str, &str)] = &[
+    ("build_files", "project", "entry"),
+    ("build_file", "project", "entry"),
+    ("entries", "project", "entry"),
+    ("entry_files", "project", "entry"),
+    ("import_dir", "project", "import_path"),
+    ("import_dirs", "project", "import_path"),
+    ("import_paths", "project", "import_path"),
+];
+
+/// Where a top-level key was meant: the section and key, found by exact name or by alias.
+pub(crate) fn misplaced_home(key: &str) -> Option<(&'static str, &'static str)> {
+    let section = ["project", "toolchain", "lint", "format", "experimental"]
+        .into_iter()
+        .find_map(|table| {
+            known_keys(table)
+                .iter()
+                .find(|k| **k == key)
+                .map(|k| (table, *k))
+        });
+    section.or_else(|| {
+        ALIASES
+            .iter()
+            .find(|(a, ..)| *a == key)
+            .map(|(_, table, key)| (*table, *key))
+    })
+}
+
 /// The known name nearest to a misspelled `wanted`: a case-only difference first, then the
 /// fewest edits (a swap of neighbours counts one), within a third of the name's length.
 pub(crate) fn closest<'a>(wanted: &str, known: &[&'a str]) -> Option<&'a str> {
