@@ -17,7 +17,22 @@ impl Compiler {
     /// A procedure's header as written, less the parameters `#bake_arguments` fixed.
     pub(crate) fn ide_header_text(&self, p: ProcId) -> String {
         let header = &self.proc(p).lit.header;
-        let text = self.ide_snippet(header.span);
+        let mut text = self.ide_snippet(header.span).to_string();
+        // A `#modify` block is code, not signature: the header names it without its body.
+        if let Some(modify) = &header.modify {
+            let start = (modify.span.start.saturating_sub(header.span.start)) as usize;
+            let end = (modify.span.end.saturating_sub(header.span.start)) as usize;
+            if start < end
+                && end <= text.len()
+                && text.is_char_boundary(start)
+                && text.is_char_boundary(end)
+            {
+                let rest = text[end..].to_string();
+                text.truncate(start);
+                text = format!("{}{rest}", text.trim_end());
+            }
+        }
+        let text = text.as_str();
         if !header.baked {
             return text.to_string();
         }
