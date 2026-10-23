@@ -5,6 +5,7 @@
 ### New
 
 - `jailint` has an opt-in `cognitive_complexity` lint for procedures with too much nested branching, with the limit set by `[lint] max_complexity`.
+- `jailint` reports returning a value that a `defer` above frees on the way out.
 - `jailint` reports integer comparisons that can never pass together or always pass, such as `x > 5 && x < 3` and `x != 1 || x != 2`.
 - `jailint` has an opt-in `magic_number` lint for unexplained numbers in arithmetic, comparisons and assignments, tuned in `[lint]`.
 - The VS Code extension warns when `PATH` has an older toolchain than it expects, and can switch to its downloaded one.

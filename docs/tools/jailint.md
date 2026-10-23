@@ -91,6 +91,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `broken_doc_link` | style | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
 | `cognitive_complexity` | pedantic | allow | no | a procedure whose branching, weighted by how deeply it nests, scores above `max_complexity` (default 25) |
 | `constant_condition` | suspicious | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
+| `defer_frees_returned` | correctness | deny | no | `defer free(p);` then `return p;`: the caller gets memory the `defer` already released |
 | `defer_in_loop` | suspicious | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
 | `double_free` | correctness | deny | no | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
 | `dropped_result` | suspicious | warn | no | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
@@ -145,6 +146,8 @@ Only comments directly above a declaration (or trailing a field or parameter) ar
 Off by default. Scores how hard a procedure is to follow. Each `if`, `while`, `for`, `switch` and `ifx` adds 1, plus 1 for every one of those it sits inside, so nested branching costs more than the same branching in sequence. Each `else if` and `else` adds 1 with no nesting cost, each run of `&&` or `||` adds 1 (`a && b && c` is one, `a && b || c` two), and each labelled `break` or `continue` adds 1. `#if` and `#run` add nothing, and a procedure written inside a body is scored on its own. A procedure scoring above `[lint] max_complexity` (default 25) is reported on its name, with its score. On the standard library, 342 procedures score above 25 (the median of those is 39). Fix by splitting it into smaller procedures, returning early, or naming parts of long conditions. Generated files are skipped.
 ### constant_condition
 Reads the compiler's reachability facts (`jaic::sema::reachability` and `jaic::ide::values`, the code the editor fades): reports the condition behind a branch that never runs, such as `if count < 5` inside `if count > 10`, or an `else` after a test that always holds. No analysis of its own, so it is as sure as the fading: unsure means silent. Compile-time constants (`if DEBUG`, `while true`) and `&&`/`||` with one as an operand (`if flag && TARGET_OS != .WINDOWS`, constant only on some targets), tests inside code that is dead anyway, and comparisons a type's range decides (left to `absurd_comparison`) are skipped.
+### defer_frees_returned
+The `defer` must be a single `@FreesArgument` call on a local. Quiet when anything after it assigns the variable or takes its address (`p = null;` hands ownership on), and in macros. Returning a field (`return name.count;`) is fine: it is read before the `defer` runs.
 ### defer_in_loop
 The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@FreesArgument` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
 ### double_free

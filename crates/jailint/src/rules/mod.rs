@@ -15,6 +15,7 @@ mod bool_comparison;
 pub(crate) mod broken_doc_link;
 mod cognitive_complexity;
 mod constant_condition;
+mod defer_frees_returned;
 mod defer_in_loop;
 mod double_free;
 mod dropped_result;
@@ -119,6 +120,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "an `if` or `while` whose condition the compiler shows is always true or false",
         check: constant_condition::check,
+    },
+    RuleInfo {
+        name: "defer_frees_returned",
+        category: Category::Correctness,
+        summary: "`defer free(p);` followed by `return p;`, which hands back freed memory",
+        check: defer_frees_returned::check,
     },
     RuleInfo {
         name: "defer_in_loop",

@@ -205,6 +205,16 @@
               "default": "warn",
               "markdownDescription": "an `if` or `while` whose condition the compiler shows is always true or false (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#constant_condition)"
             },
+            "defer_frees_returned": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "deny",
+              "markdownDescription": "`defer free(p);` followed by `return p;`, which hands back freed memory (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#defer_frees_returned)"
+            },
             "defer_in_loop": {
               "type": "string",
               "enum": [
