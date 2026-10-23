@@ -189,15 +189,16 @@ impl Interp {
                             _ if addr < 4096 => {
                                 return self.null_trap("call through a null procedure pointer");
                             }
-                            _ => match self.thunk_funcs.get(&addr) {
-                                // A thunk this interpreter made: no need to go through C.
-                                Some(&f) => self.exec(program, f, argv)?,
-                                None => {
+                            _ => {
+                                // A thunk this interpreter made needs no trip through C.
+                                if let Some(&f) = self.thunk_funcs.get(&addr) {
+                                    self.exec(program, f, argv)?
+                                } else {
                                     // Native code of unknown purpose may print.
                                     crate::progress::before_output();
                                     self.call_native(program, addr, argv, sig, None, true)?
                                 }
-                            },
+                            }
                         }
                     }
                 };
