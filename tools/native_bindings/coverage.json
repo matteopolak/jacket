@@ -102233,7 +102233,7 @@
         {
           "module": "Objective_C/AppKit",
           "artifact": "stdlib/Objective_C/AppKit/module.jai",
-          "artifact_sha256": "1f1394f9390c22f7fd3c46b813adcca63a5d873a8b7a26c01b8575507383249f",
+          "artifact_sha256": "97e1a70424fcdf1d9c17dad4fda958d55a486461a2f45f79cc7049353f8c54fc",
           "public_types": [
             "NSBackingStoreType",
             "NSResponder",
@@ -102247,12 +102247,52 @@
           ],
           "members": [
             {
+              "signature": "IBeamCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "URL::(self:*NSSavePanel)->*O.NSURL",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "arrowCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
               "signature": "center::(self:*NSWindow)",
               "status": "implemented",
               "verification": "Source presence only; native tests are recorded separately."
             },
             {
+              "signature": "close::(self:*NSWindow)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "closedHandCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
               "signature": "contentView::(self:*NSWindow)->*NSView",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "crosshairCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "directoryURL::(self:*NSSavePanel)->*O.NSURL",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "hide::()",
               "status": "implemented",
               "verification": "Source presence only; native tests are recorded separately."
             },
@@ -102277,6 +102317,81 @@
               "verification": "Source presence only; native tests are recorded separately."
             },
             {
+              "signature": "openHandCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "openPanel::()->*NSOpenPanel",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "operationNotAllowedCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "pointingHandCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "pop::()",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "push::(self:*NSCursor)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "resizeLeftRightCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "resizeUpDownCursor::()->*NSCursor",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "runModal::(self:*NSSavePanel)->NSModalResponse",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "savePanel::()->*NSSavePanel",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "set::(self:*NSCursor)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "setAllowsMultipleSelection::(self:*NSOpenPanel,value:O.BOOL)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "setAllowsOtherFileTypes::(self:*NSSavePanel,value:O.BOOL)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "setCanChooseDirectories::(self:*NSOpenPanel,value:O.BOOL)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "setCanChooseFiles::(self:*NSOpenPanel,value:O.BOOL)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
               "signature": "setCollectionBehavior::(self:*NSWindow,behavior:NSWindowCollectionBehavior)",
               "status": "implemented",
               "verification": "Source presence only; native tests are recorded separately."
@@ -102288,6 +102403,16 @@
             },
             {
               "signature": "setDelegate::(self:*NSWindow,dg:O.id)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "setDirectoryURL::(self:*NSSavePanel,url:*O.NSURL)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "setNameFieldStringValue::(self:*NSSavePanel,name:string)",
               "status": "implemented",
               "verification": "Source presence only; native tests are recorded separately."
             },
@@ -102308,6 +102433,11 @@
             },
             {
               "signature": "toggleFullScreen::(self:*NSWindow,sender:O.id)",
+              "status": "implemented",
+              "verification": "Source presence only; native tests are recorded separately."
+            },
+            {
+              "signature": "unhide::()",
               "status": "implemented",
               "verification": "Source presence only; native tests are recorded separately."
             }

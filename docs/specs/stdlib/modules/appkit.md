@@ -392,6 +392,43 @@ declares these as class properties. Do not dispatch these three selectors to
 the passed event instance. This preserves the binding's API while matching the
 receiver declarations of the platform SDK.
 
+### Windows, panels, cursors and pasteboard types
+
+`NSWindow` also has `close :: (self: *NSWindow)`.
+
+`NSPanel` embeds `NSWindow` as `using #as window`. `NSSavePanel` embeds
+`NSPanel`, and `NSOpenPanel` embeds `NSSavePanel`:
+
+```jai
+NSModalResponse :: NSInteger
+NSModalResponseOK :: 1
+NSModalResponseCancel :: 0
+
+NSSavePanel.savePanel :: () -> *NSSavePanel
+NSSavePanel.runModal :: (self: *NSSavePanel) -> NSModalResponse
+NSSavePanel.URL :: (self: *NSSavePanel) -> *NSURL
+NSSavePanel.directoryURL :: (self: *NSSavePanel) -> *NSURL
+NSSavePanel.setDirectoryURL :: (self: *NSSavePanel, url: *NSURL)
+NSSavePanel.setNameFieldStringValue :: (self: *NSSavePanel, name: string)
+NSSavePanel.setAllowsOtherFileTypes :: (self: *NSSavePanel, value: BOOL)
+NSOpenPanel.openPanel :: () -> *NSOpenPanel
+NSOpenPanel.setCanChooseFiles :: (self: *NSOpenPanel, value: BOOL)
+NSOpenPanel.setCanChooseDirectories :: (self: *NSOpenPanel, value: BOOL)
+NSOpenPanel.setAllowsMultipleSelection :: (self: *NSOpenPanel, value: BOOL)
+```
+
+A panel title is set with the inherited `NSWindow.setTitle`.
+
+`NSCursor` embeds `NSObject`. Its class getters return `*NSCursor`:
+`arrowCursor`, `IBeamCursor`, `pointingHandCursor`, `openHandCursor`,
+`closedHandCursor`, `crosshairCursor`, `operationNotAllowedCursor`,
+`resizeLeftRightCursor` and `resizeUpDownCursor`. `set` and `push` take the
+cursor; `pop`, `hide` and `unhide` are class methods. Without a window server
+the getters can return null.
+
+`NSPasteboardTypeFileURL: *NSString #elsewhere AppKit` is the pasteboard type
+for file URLs.
+
 ## Contracts
 
 `sharedApplication()` obtains the process-wide application object and stores that pointer in the exported `NSApp` variable. The class uses Objective-C message dispatch; these members are methods, not stored Jai data fields. `NSOpenGLPixelFormat.initWithAttributes` accepts the attribute/value sequence terminated by a zero attribute, as required by the system API. The returned context and pixel-format objects follow Objective-C ownership rules; this binding does not add automatic retain/release management.

@@ -13,6 +13,17 @@
     ]
   },
   {
+    "name": "appkit-cursor-panels",
+    "required_os": "macos",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  },
+  {
     "name": "window-levels",
     "required_os": "macos",
     "unsupported_modes": [

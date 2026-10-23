@@ -101,6 +101,10 @@ NSWindow :: struct {
         return send_result(self, "styleMask", NSWindowStyleMask);
     }
 
+    close :: (self: *NSWindow) {
+        send_nothing(self, "close");
+    }
+
     toggleFullScreen :: (self: *NSWindow, sender: O.id) {
         send_argument(self, "toggleFullScreen:", sender);
     }
@@ -108,6 +112,120 @@ NSWindow :: struct {
     frame :: NSView.frame;
     backingScaleFactor :: NSView.backingScaleFactor;
 }
+
+NSPanel :: struct {
+    using #as window: NSWindow;
+}
+
+NSModalResponse :: O.NSInteger;
+NSModalResponseOK :: cast(NSModalResponse) 1;
+NSModalResponseCancel :: cast(NSModalResponse) 0;
+
+NSSavePanel :: struct {
+    using #as panel: NSPanel;
+
+    savePanel :: () -> *NSSavePanel {
+        return send_result(class_named("NSSavePanel"), "savePanel", *NSSavePanel);
+    }
+
+    runModal :: (self: *NSSavePanel) -> NSModalResponse {
+        return send_result(self, "runModal", NSModalResponse);
+    }
+
+    URL :: (self: *NSSavePanel) -> *O.NSURL {
+        return send_result(self, "URL", *O.NSURL);
+    }
+
+    directoryURL :: (self: *NSSavePanel) -> *O.NSURL {
+        return send_result(self, "directoryURL", *O.NSURL);
+    }
+
+    setDirectoryURL :: (self: *NSSavePanel, url: *O.NSURL) {
+        send_argument(self, "setDirectoryURL:", url);
+    }
+
+    setNameFieldStringValue :: (self: *NSSavePanel, name: string) {
+        send_argument(self, "setNameFieldStringValue:", O.NSString.getTempString(name));
+    }
+
+    setAllowsOtherFileTypes :: (self: *NSSavePanel, value: O.BOOL) {
+        send_argument(self, "setAllowsOtherFileTypes:", value);
+    }
+}
+
+NSOpenPanel :: struct {
+    using #as panel: NSSavePanel;
+
+    openPanel :: () -> *NSOpenPanel {
+        return send_result(class_named("NSOpenPanel"), "openPanel", *NSOpenPanel);
+    }
+
+    setCanChooseFiles :: (self: *NSOpenPanel, value: O.BOOL) {
+        send_argument(self, "setCanChooseFiles:", value);
+    }
+
+    setCanChooseDirectories :: (self: *NSOpenPanel, value: O.BOOL) {
+        send_argument(self, "setCanChooseDirectories:", value);
+    }
+
+    setAllowsMultipleSelection :: (self: *NSOpenPanel, value: O.BOOL) {
+        send_argument(self, "setAllowsMultipleSelection:", value);
+    }
+}
+
+NSCursor :: struct {
+    using #as super: O.NSObject;
+
+    arrowCursor :: () -> *NSCursor {
+        return current_cursor("arrowCursor");
+    }
+    IBeamCursor :: () -> *NSCursor {
+        return current_cursor("IBeamCursor");
+    }
+    pointingHandCursor :: () -> *NSCursor {
+        return current_cursor("pointingHandCursor");
+    }
+    openHandCursor :: () -> *NSCursor {
+        return current_cursor("openHandCursor");
+    }
+    closedHandCursor :: () -> *NSCursor {
+        return current_cursor("closedHandCursor");
+    }
+    crosshairCursor :: () -> *NSCursor {
+        return current_cursor("crosshairCursor");
+    }
+    operationNotAllowedCursor :: () -> *NSCursor {
+        return current_cursor("operationNotAllowedCursor");
+    }
+    resizeLeftRightCursor :: () -> *NSCursor {
+        return current_cursor("resizeLeftRightCursor");
+    }
+    resizeUpDownCursor :: () -> *NSCursor {
+        return current_cursor("resizeUpDownCursor");
+    }
+
+    set :: (self: *NSCursor) {
+        send_nothing(self, "set");
+    }
+
+    push :: (self: *NSCursor) {
+        send_nothing(self, "push");
+    }
+
+    pop :: () {
+        send_nothing(class_named("NSCursor"), "pop");
+    }
+
+    hide :: () {
+        send_nothing(class_named("NSCursor"), "hide");
+    }
+
+    unhide :: () {
+        send_nothing(class_named("NSCursor"), "unhide");
+    }
+}
+
+NSPasteboardTypeFileURL: *O.NSString #elsewhere AppKit;
 
 #load "generated.jai";
 
@@ -130,6 +248,18 @@ send_argument :: (receiver: *void, selector: string, value: $T) {
     Send :: #type (receiver: *void, selector: O.Selector, value: T) #c_call;
     send := cast(Send) binding_send;
     send(receiver, O.selector(selector), value);
+}
+
+send_nothing :: (receiver: *void, selector: string) {
+    Send :: #type (receiver: *void, selector: O.Selector) #c_call;
+    send := cast(Send) binding_send;
+    send(receiver, O.selector(selector));
+}
+
+class_named :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
+
+current_cursor :: (selector: string) -> *NSCursor {
+    return send_result(class_named("NSCursor"), selector, *NSCursor);
 }
 
 send_result :: (receiver: *void, selector: string, $Result: Type) -> Result {
