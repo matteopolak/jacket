@@ -158,6 +158,91 @@ cipher_suite :: (stream: *Tls_Stream) -> string {
     return c_text(mbedtls_ssl_get_ciphersuite(stream.ssl));
 }
 
+// The DER of the certificate the peer proved itself with (the first of its chain): the server's
+// on a client stream, the client's on a server stream that asked for one. The bytes belong to the
+// stream and stay valid until `close`. Empty before the handshake or when the peer sent none.
+peer_certificate_der :: (stream: *Tls_Stream) -> [] u8 {
+    certificate := mbedtls_ssl_get_peer_cert(stream.ssl);
+    if !certificate return .[];
+
+    length: u64;
+    der := jai_tls_crt_der(certificate, *length);
+
+    return .{ cast(s64) length, der };
+}
+
+// The hash the peer certificate's signature uses, by lower-case name: "md5", "sha1", "sha224",
+// "sha256", "sha384" or "sha512". "" when there is no certificate or the algorithm names no hash
+// (Ed25519, unknown OIDs). It reads the certificate's own DER, not the library's view of it.
+peer_certificate_signature_hash :: (stream: *Tls_Stream) -> string {
+    der := peer_certificate_der(stream);
+
+    // Certificate ::= SEQUENCE { tbsCertificate SEQUENCE, signatureAlgorithm SEQUENCE, ... }
+    outer, ok := der_next(der, 0x30);
+
+    if !ok return "";
+
+    content, _ := der_content(outer);
+    tbs, rest: [] u8;
+    tbs, ok = der_next(content, 0x30);
+    if !ok return "";
+
+    rest = .{ content.count - tbs.count, content.data + tbs.count };
+
+    algorithm: [] u8;
+    algorithm, ok = der_next(rest, 0x30);
+    if !ok return "";
+
+    body, _ := der_content(algorithm);
+    oid, oid_ok := der_next(body, 0x06);
+
+    if !oid_ok return "";
+
+    oid_bytes, _ := der_content(oid);
+
+    // RSASSA-PSS names its hash in the parameters.
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0a]) {
+        parameters: [] u8 = .{ body.count - oid.count, body.data + oid.count };
+        sequence, parameters_ok := der_next(parameters, 0x30);
+
+        if !parameters_ok return "sha1";
+
+        inner, _ := der_content(sequence);
+        tagged, tagged_ok := der_next(inner, 0xa0);
+
+        if !tagged_ok return "sha1";
+
+        tagged_content, _ := der_content(tagged);
+        hash_algorithm, hash_ok := der_next(tagged_content, 0x30);
+
+        if !hash_ok return "";
+
+        hash_body, _ := der_content(hash_algorithm);
+        hash_oid, hash_oid_ok := der_next(hash_body, 0x06);
+
+        if !hash_oid_ok return "";
+
+        hash_bytes, _ := der_content(hash_oid);
+
+        return hash_name(hash_bytes);
+    }
+
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x04]) return "md5";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05]) return "sha1";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0e]) return "sha224";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b]) return "sha256";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0c]) return "sha384";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0d]) return "sha512";
+
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x01]) return "sha1";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x01]) return "sha224";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02]) return "sha256";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x03]) return "sha384";
+    if oid_matches(oid_bytes, .[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x04]) return "sha512";
+
+    return "";
+}
+
 // The name a client asked for in its SNI extension, on a stream from `tls_accept` ("" if it sent
 // none). It points into the stream.
 server_name :: (stream: *Tls_Stream) -> string {
@@ -382,6 +467,56 @@ writer_of :: (stream: *Tls_Stream) -> Io.Writer {
 }
 
 #scope_module
+
+hash_name :: (oid: [] u8) -> string {
+    if oid_matches(oid, .[0x2b, 0x0e, 0x03, 0x02, 0x1a]) return "sha1";
+    if oid_matches(oid, .[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x02, 0x05]) return "md5";
+    if oid_matches(oid, .[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04]) return "sha224";
+    if oid_matches(oid, .[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01]) return "sha256";
+    if oid_matches(oid, .[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02]) return "sha384";
+    if oid_matches(oid, .[0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03]) return "sha512";
+
+    return "";
+}
+
+oid_matches :: (oid: [] u8, expected: [] u8) -> bool {
+    if oid.count != expected.count return false;
+
+    for expected if oid[it_index] != it return false;
+
+    return true;
+}
+
+// The whole element (tag, length, content) at the start of `data` if its tag is `tag` and it fits.
+der_next :: (data: [] u8, tag: u8) -> [] u8, bool {
+    if data.count < 2 || data[0] != tag return .[], false;
+
+    header := 2;
+    length := cast(s64) data[1];
+
+    if length >= 0x80 {
+        bytes := length & 0x7f;
+        if bytes == 0 || bytes > 3 || data.count < 2 + bytes return .[], false;
+
+        length = 0;
+        for 0..bytes - 1 length = length * 256 + cast(s64) data[2 + it];
+
+        header = 2 + bytes;
+    }
+
+    if data.count < header + length return .[], false;
+
+    return .{ header + length, data.data }, true;
+}
+
+// The content of an element `der_next` returned.
+der_content :: (element: [] u8) -> [] u8, bool {
+    header := 2;
+
+    if element[1] >= 0x80 header += cast(s64) (element[1] & 0x7f);
+
+    return .{ element.count - header, element.data + header }, true;
+}
 
 read_proc :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
     return read(cast(*Tls_Stream) data, buffer);

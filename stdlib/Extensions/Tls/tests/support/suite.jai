@@ -4,6 +4,7 @@
 // there). Run the programs from their own directory.
 #import "Basic";
 #import "String";
+Base64 :: #import "Base64";
 Io :: #import "Extensions/Io";
 Tls :: #import "Extensions/Tls";
 
@@ -190,6 +191,78 @@ test_handshakes :: () {
             Tls.tls_config_free(*client_config);
         }
     }
+}
+
+// The DER of the certificate in a test PEM file.
+pem_der :: (pem: string) -> string {
+    lines := split(pem, "\n");
+    joined: String_Builder;
+    inside := false;
+
+    for lines {
+        line := trim(it);
+
+        if starts_with(line, "-----BEGIN") {
+            inside = true;
+        } else if starts_with(line, "-----END") {
+            break;
+        } else if inside {
+            append(*joined, line);
+        }
+    }
+
+    der, ok := Base64.base64_decode(builder_to_string(*joined));
+
+    assert(ok);
+
+    return der;
+}
+
+test_peer_certificate :: () {
+    server_config := make_config("server", "");
+    client_config := make_config("", "ca");
+
+    init(*server_config);
+    init(*client_config);
+
+    pair := connect_pair(*server_config, *client_config);
+
+    expect_connected(pair);
+
+    expected := pem_der(load("server.pem"));
+    seen := Tls.peer_certificate_der(pair.client.stream);
+
+    assert(seen.count == expected.count && seen.count > 0, "leaf length % vs %", seen.count, expected.count);
+    assert(string.{ seen.count, seen.data } == expected, "the DER differs from the server certificate");
+
+    // No client certificate was requested, so the server sees none.
+    assert(Tls.peer_certificate_der(pair.server.stream).count == 0);
+
+    hash := Tls.peer_certificate_signature_hash(pair.client.stream);
+
+    assert(hash == "sha256" || hash == "sha384" || hash == "sha512", "signature hash '%'", hash);
+    assert(Tls.peer_certificate_signature_hash(pair.server.stream) == "");
+
+    close_pair(*pair);
+
+    // An RSA certificate signed by the test CA.
+    rsa_config := make_config("rsa", "");
+
+    init(*rsa_config);
+
+    pair = connect_pair(*rsa_config, *client_config);
+
+    expect_connected(pair);
+
+    expected = pem_der(load("rsa.pem"));
+    seen = Tls.peer_certificate_der(pair.client.stream);
+    assert(string.{ seen.count, seen.data } == expected, "RSA leaf differs");
+
+    close_pair(*pair);
+
+    Tls.tls_config_free(*rsa_config);
+    Tls.tls_config_free(*server_config);
+    Tls.tls_config_free(*client_config);
 }
 
 test_version_mismatch :: () {
@@ -1502,6 +1575,8 @@ progress :: (name: string) {
 run_all :: () {
     progress("test_handshakes");
     test_handshakes();
+    progress("test_peer_certificate");
+    test_peer_certificate();
     progress("test_version_mismatch");
     test_version_mismatch();
     progress("test_alpn");
