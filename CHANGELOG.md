@@ -48,6 +48,7 @@
 
 ### Fixed
 
+- `Subtitles` HTML output escapes `&`, `<`, `>` and `"` in titles, speaker names and lines, so text containing them no longer breaks the page.
 - `Zip_File_Directory.load_zip_directory` returns `false` for an archive with a bad central-directory signature or a data-descriptor entry, instead of stopping the program with an assertion.
 - `PCG.random_get_within_range` never returns a value outside an ordered range.
 - A `jacket.toml` or legacy settings file that cannot be read now says why (permissions, not UTF-8, and so on).

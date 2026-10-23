@@ -1,5 +1,9 @@
 [
   {
+    "name": "html-escape",
+    "stdout": "ok\n"
+  },
+  {
     "name": "parsing",
     "unsupported_modes": [
       "wasm-interp",

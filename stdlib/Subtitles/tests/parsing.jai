@@ -63,7 +63,7 @@ main :: () {
     html := builder_to_string(*builder);
 
     defer free(html);
-    assert(Strings.contains(html, "<b>raw</b>") && Strings.contains(html, "Alice \"A\""));
+    assert(Strings.contains(html, "&lt;b&gt;raw&lt;/b&gt;") && Strings.contains(html, "Alice &quot;A&quot;"));
     assert(!Strings.contains(html, "silence") && !Strings.contains(html, "intro"));
     assert(Strings.contains(html, "speaker-bold") && Strings.contains(html, "class=\"direction\""));
     reset(*builder);

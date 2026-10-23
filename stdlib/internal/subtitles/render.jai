@@ -7,7 +7,9 @@ format_sections_as_html :: (builder: *String_Builder, sections: [] *Subtitles_Se
 
 format_section_as_html :: (builder: *String_Builder, section: *Subtitles_Section, character_to_emphasize := "", name_map: *H.Table(string, string) = null) {
     append(builder, "<br><p></p><br>\n<div class=\"keep-together\">\n\n");
-    print(builder, "<p class=\"title\">%</p>\n", section.name);
+    append(builder, "<p class=\"title\">");
+    append_html_text(builder, section.name);
+    append(builder, "</p>\n");
 
     first := 0;
 
@@ -136,7 +138,9 @@ END
 append_turn_html :: (builder: *String_Builder, instants: [] Subtitles_Instant, emphasized: bool, display: string) {
     weight := ifx emphasized then "bold" else "nonbold";
 
-    print(builder, "\n<p class=\"speaker-%\"><b>%</b></p>\n", weight, display);
+    print(builder, "\n<p class=\"speaker-%\"><b>", weight);
+    append_html_text(builder, display);
+    append(builder, "</b></p>\n");
 
     run := Subtitles_Line.type.UNINITIALIZED;
     wrote := false;
@@ -157,7 +161,7 @@ append_turn_html :: (builder: *String_Builder, instants: [] Subtitles_Instant, e
                 run = line.type;
             }
 
-            append(builder, line.text);
+            append_html_text(builder, line.text);
             wrote = true;
         }
     }
@@ -188,4 +192,17 @@ join_lines :: (lines: [] string) -> string {
     }
 
     return builder_to_string(*builder);
+}
+
+// Subtitle text is plain text: characters that HTML reads as markup are written as entities.
+append_html_text :: (builder: *String_Builder, text: string) {
+    for byte: text {
+        if byte == {
+            case #char "&"; append(builder, "&amp;");
+            case #char "<"; append(builder, "&lt;");
+            case #char ">"; append(builder, "&gt;");
+            case #char "\""; append(builder, "&quot;");
+            case; append(builder, byte);
+        }
+    }
 }
