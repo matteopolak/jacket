@@ -110,7 +110,12 @@ impl Config {
 
     /// Settings of a `jacket.toml` or legacy `jailint.toml` at `path`.
     pub fn load(path: &Path) -> Result<Config, String> {
-        let dir = path.parent().unwrap_or(Path::new("."));
+        // Paths checked against `exclude` are canonical, so the root must be too.
+        let dir = match path.parent() {
+            Some(dir) if !dir.as_os_str().is_empty() => dir,
+            _ => Path::new("."),
+        };
+        let dir = &dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
         let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         let text = std::fs::read_to_string(path).map_err(|e| {
             format!(
@@ -125,7 +130,7 @@ impl Config {
             let loaded = jacket_config::load_at(
                 &fs,
                 jacket_config::Location {
-                    dir: dir.to_path_buf(),
+                    dir: dir.clone(),
                     jacket: false,
                     legacy: vec![jacket_config::LEGACY_LINT],
                 },
@@ -205,8 +210,10 @@ pub fn glob(pattern: &str, path: &str) -> bool {
         match p.first() {
             None => s.is_empty(),
             Some(b'*') if p.get(1) == Some(&b'*') => {
-                let rest = p[2..].strip_prefix(b"/").unwrap_or(&p[2..]);
-                (0..=s.len()).any(|i| go(rest, &s[i..]))
+                // `**/x` matches `x` at the top or after any `/`, never mid-name.
+                let rest = &p[2..];
+                rest.strip_prefix(b"/").is_some_and(|top| go(top, s))
+                    || (0..=s.len()).any(|i| go(rest, &s[i..]))
             }
             Some(b'*') => {
                 let mut i = 0;
@@ -264,6 +271,12 @@ mod tests {
         assert!(glob("*.jai", "a.jai"));
         assert!(!glob("*.jai", "dir/a.jai"));
         assert!(glob("**/gen_*.jai", "x/y/gen_a.jai"));
+        assert!(glob("**/gen_*.jai", "gen_a.jai"));
+        assert!(!glob("**/gen_*.jai", "x/my_gen_a.jai"));
+        assert!(!glob("**/test.jai", "latest.jai"));
+        assert!(glob("a/**/b", "a/x/y/b"));
+        assert!(glob("a/**/b", "a/b"));
+        assert!(!glob("a/**/b", "a/xb"));
         assert!(!glob("tests/**", "stdlib/a.jai"));
     }
 }

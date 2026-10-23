@@ -239,3 +239,18 @@ fn a_program_that_does_not_compile_fails_the_run_unless_incomplete_is_allowed() 
     assert!(err.contains("did not compile completely"), "{err}");
     assert_eq!(code, Some(0), "{err}");
 }
+
+#[test]
+fn exclude_applies_with_a_relative_config_path() {
+    let dir = scratch("relative-config");
+    std::fs::create_dir_all(dir.join("skip")).unwrap();
+    std::fs::write(dir.join("skip/bad.jai"), "main :: () { x := 1; }\n").unwrap();
+    std::fs::write(dir.join("jacket.toml"), "[lint]\nexclude = [\"skip/**\"]\n").unwrap();
+    let (text, _) = jailint(&dir, &["skip/bad.jai"]);
+    assert!(!text.contains("1 warning"), "{text}");
+    let (text, _) = jailint(&dir, &["--config", "jacket.toml", "skip/bad.jai"]);
+    assert!(!text.contains("1 warning"), "{text}");
+    std::fs::remove_file(dir.join("jacket.toml")).unwrap();
+    let (text, _) = jailint(&dir, &["skip/bad.jai"]);
+    assert!(text.contains("1 warning"), "{text}");
+}
