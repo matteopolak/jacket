@@ -4,7 +4,10 @@ error[double_free]: `node` is freed a second time
 11 |     free(node);
    |     ^^^^^^^^^^
    |
-   = help: remove one of the calls, or assign `node` a new value in between
+help: remove the second call, or assign `node` a new value in between
+   |
+11 -     free(node);
+   |
    = note: `double_free` is `deny` by default
 
 error[double_free]: `text` is freed a second time
@@ -13,7 +16,10 @@ error[double_free]: `text` is freed a second time
 17 |     free(text);
    |     ^^^^^^^^^^
    |
-   = help: remove one of the calls, or assign `text` a new value in between
+help: remove the second call, or assign `text` a new value in between
+   |
+17 -     free(text);
+   |
    = note: `double_free` is `deny` by default
 
 error[double_free]: `items` is freed a second time
@@ -22,6 +28,9 @@ error[double_free]: `items` is freed a second time
 22 |     array_free(items);
    |     ^^^^^^^^^^^^^^^^^
    |
-   = help: remove one of the calls, or assign `items` a new value in between
+help: remove the second call, or assign `items` a new value in between
+   |
+22 -     array_free(items);
+   |
    = note: `double_free` is `deny` by default
 

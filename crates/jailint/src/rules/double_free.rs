@@ -13,21 +13,28 @@
 //! - the second free is a `defer` or nested in a branch;
 //! - the variable's address is taken anywhere in the procedure, the procedure uses `using`, or
 //!   the code in between holds `#insert`, `#asm` or a macro call.
-use super::finding;
 use super::frees::{After, scan};
-use crate::Finding;
+use super::suggesting;
 use crate::syntax::Cx;
+use crate::{Edit, Finding};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     scan(cx, &mut |freed| {
         if let After::Free(span) = freed.after {
-            out.push(finding(
+            let (start, end) = cx.statement_removal(span);
+            out.push(suggesting(
                 span,
                 format!("`{}` is freed a second time", freed.name),
-                Some(format!(
-                    "remove one of the calls, or assign `{}` a new value in between",
+                format!(
+                    "remove the second call, or assign `{}` a new value in between",
                     freed.name
-                )),
+                ),
+                "remove the second free",
+                vec![Edit {
+                    start,
+                    end,
+                    text: String::new(),
+                }],
             ));
         }
     });
