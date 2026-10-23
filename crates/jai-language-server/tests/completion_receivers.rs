@@ -36,3 +36,13 @@ fn an_indexed_element() {
     ));
     assert!(labels.contains(&"step".to_string()), "{labels:?}");
 }
+
+/// A local declared further down the block does not yet hide the global it shadows.
+#[test]
+fn a_name_shadowed_only_below_the_cursor() {
+    let labels = labels(&format!(
+        "{COUNTER}Other :: struct {{ a: int; b: int; }}\nc: Counter;\nmain :: () {{ x := c.|from; c: Other; y := c.a; }}"
+    ));
+    assert!(labels.contains(&"step".to_string()), "{labels:?}");
+    assert!(!labels.contains(&"b".to_string()), "{labels:?}");
+}

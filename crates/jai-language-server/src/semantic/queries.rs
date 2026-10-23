@@ -428,7 +428,9 @@ impl Analysis {
             return Some(self.compiler.ide_visible(scope, file, offset as u32));
         }
         let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
-        let receiver = self.compiler.ide_receiver(scope, &names)?;
+        let receiver = self
+            .compiler
+            .ide_receiver_at(scope, Some((file, offset as u32)), &names)?;
         Some(self.compiler.ide_members(receiver))
     }
 }

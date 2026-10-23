@@ -357,8 +357,34 @@ impl Compiler {
 
     /// What `names[0].names[1]...` is, looked up from `scope`.
     pub fn ide_receiver(&mut self, scope: ScopeId, names: &[Sym]) -> Option<IdeReceiver> {
+        self.ide_receiver_at(scope, None, names)
+    }
+
+    /// [`Compiler::ide_receiver`] as seen from `at` (file, offset): a local declared further down
+    /// its block does not hide the name it shadows until then.
+    pub fn ide_receiver_at(
+        &mut self,
+        scope: ScopeId,
+        at: Option<(FileId, u32)>,
+        names: &[Sym],
+    ) -> Option<IdeReceiver> {
         let (first, rest) = names.split_first()?;
-        let mut recv = match self.lookup_full(scope, *first).ok()? {
+        let mut from = scope;
+        if let Some((file, offset)) = at {
+            while self.scope(from).names.get(first).is_some_and(|ids| {
+                !ids.is_empty()
+                    && ids.iter().all(|&e| {
+                        let e = self.entity(e);
+                        matches!(e.kind, EntityKind::Local { .. })
+                            && e.span.file == file
+                            && e.span.start > offset
+                    })
+            }) && let Some(parent) = self.scope(from).parent
+            {
+                from = parent;
+            }
+        }
+        let mut recv = match self.lookup_full(from, *first).ok()? {
             Found::Entities(ids) => self.ide_entity_receiver(*ids.first()?)?,
             Found::Using(entry, member) => {
                 let ty = entry.member_type()?;
