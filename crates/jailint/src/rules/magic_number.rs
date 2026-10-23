@@ -23,7 +23,10 @@
 //!   `1.5`);
 //! - `10`, `100`, `1000` and anything listed in `magic_number_allow`.
 //!
-//! A printable character code compared with a `u8` (`text[i] >= 97`) is fixed to `#char "a"`.
+//! A printable character code compared with a byte of a `string` (`text[i] >= 97`, `c == 92`
+//! with `c := text[i]`, or `it` in `for text`) is fixed to `#char "a"` or `#char "\\"`. In `<`,
+//! `<=`, `>` and `>=` only digits, `a z A Z f F`, space and `~` are rewritten: the usual ends of
+//! a character range.
 //!
 //! Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set: test
 //! data is full of expected values. Generated files are skipped. Off by default.
@@ -31,7 +34,8 @@ use super::{finding, replacing};
 use crate::Finding;
 use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S, UnOp};
-use jaic::ast::{DeclKind, Expr};
+use jaic::ast::{DeclKind, Expr, ForOver, Stmt};
+use jaic::sema::EntityId;
 use jaic::types::TypeKind;
 
 /// Numbers allowed whatever the configuration says.
@@ -42,6 +46,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         return;
     }
     for p in &cx.procs {
+        let text_bytes = text_bytes(cx, &p.body.stmts);
         walk(&p.body.stmts, &mut |n, ancestors| {
             if skipped(n, ancestors.last().copied()) {
                 return false;
@@ -59,13 +64,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return false;
             }
             // Compared with a byte: almost always a character code, and `#char` says which.
-            if let Some(c) = byte_character(cx, ancestors.last().copied(), e, value) {
+            if let Some(c) = byte_character(cx, ancestors, &text_bytes, e, value) {
                 out.push(replacing(
                     e.span,
                     format!("magic number `{}` in {place}", cx.src(e.span)),
-                    format!("write the character: `#char \"{c}\"`"),
+                    format!("write the character: `{c}`"),
                     (e.span.start as usize, e.span.end as usize),
-                    format!("#char \"{c}\""),
+                    c,
                     true,
                 ));
                 return false;
@@ -198,15 +203,19 @@ fn power_of_two(v: f64) -> bool {
     v >= 1.0 && v < 2f64.powi(64) && (v as u64).is_power_of_two()
 }
 
-/// `e` is compared with a `u8` and `value` is a printable character other than a quote or
-/// backslash: that character.
-fn byte_character(cx: &Cx, parent: Option<Node>, e: &Expr, value: f64) -> Option<char> {
-    let Some(Node::Expr(p)) = parent else {
+/// `e` is compared with a byte read from a `string` and `value` is a printable character: how
+/// to write that character (`#char "a"`, `#char "\\"`).
+fn byte_character(
+    cx: &Cx,
+    ancestors: &[Node],
+    text_bytes: &[EntityId],
+    e: &Expr,
+    value: f64,
+) -> Option<String> {
+    let Some(Node::Expr(p)) = ancestors.last() else {
         return None;
     };
-    let E::Binary(BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge, a, b) =
-        &p.kind
-    else {
+    let E::Binary(op, a, b) = &p.kind else {
         return None;
     };
     let other = if a.span == e.span {
@@ -214,18 +223,96 @@ fn byte_character(cx: &Cx, parent: Option<Node>, e: &Expr, value: f64) -> Option
     } else {
         a
     };
-    let ty = cx.ty(other)?;
-    let types = &cx.compiler.ty.types;
-    let byte = matches!(
-        types.kind(types.repr_struct(ty)),
-        TypeKind::Int {
-            bits: 8,
-            signed: false
+    if !(value.fract() == 0.0 && (32.0..127.0).contains(&value)) {
+        return None;
+    }
+    let c = value as u8 as char;
+    // An ordering is a character range only at the ends of one (`c >= #char "a"`); elsewhere
+    // (`byte > 88`) it is more likely a binary field.
+    let range_end =
+        c.is_ascii_digit() || matches!(c, 'a' | 'z' | 'A' | 'Z' | 'f' | 'F' | ' ' | '~');
+    match op {
+        BinOp::Eq | BinOp::Ne => {}
+        BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge if range_end => {}
+        _ => return None,
+    }
+    if !from_text(cx, ancestors, text_bytes, other) {
+        return None;
+    }
+    Some(match c {
+        '"' | '\\' => format!("#char \"\\{c}\""),
+        _ => format!("#char \"{c}\""),
+    })
+}
+
+/// `e` is a byte of a `string`: `text[i]`, `text.data[i]`, a local set from one, or the
+/// iteration variable of a `for` over a string. Other bytes may be table entries or binary
+/// fields, where a character would mislead.
+fn from_text(cx: &Cx, ancestors: &[Node], text_bytes: &[EntityId], e: &Expr) -> bool {
+    let e = uncast(e);
+    match &e.kind {
+        E::Index(..) => string_index(cx, e),
+        E::Ident(name) => {
+            if cx.entities(e.span).iter().any(|v| text_bytes.contains(v)) {
+                return true;
+            }
+            ancestors.iter().rev().any(|n| {
+                matches!(n, Node::Stmt(s) if matches!(&s.kind, S::For(f)
+                    if !f.by_pointer
+                        && f.it.as_ref().map_or("it", |i| i.name.as_str()) == name.as_str()
+                        && matches!(&f.over, ForOver::Collection(c) if is_string(cx, c))))
+            })
         }
-    );
-    let c = (byte && value.fract() == 0.0 && (32.0..127.0).contains(&value))
-        .then_some(value as u8 as char)?;
-    (c != '"' && c != '\\').then_some(c)
+        _ => false,
+    }
+}
+
+/// `text[i]` or `text.data[i]` with `text` a `string`.
+fn string_index(cx: &Cx, e: &Expr) -> bool {
+    let E::Index(base, _) = &e.kind else {
+        return false;
+    };
+    match &base.kind {
+        E::Member(inner, m) if m.name.as_str() == "data" => is_string(cx, inner),
+        _ => is_string(cx, base),
+    }
+}
+
+fn is_string(cx: &Cx, e: &Expr) -> bool {
+    let Some(ty) = cx.ty(e) else {
+        return false;
+    };
+    let types = &cx.compiler.ty.types;
+    matches!(types.kind(types.repr_struct(ty)), TypeKind::String)
+}
+
+/// Locals declared `c := text[i];` (under casts) in the procedure.
+fn text_bytes(cx: &Cx, stmts: &[Stmt]) -> Vec<EntityId> {
+    let mut out = Vec::new();
+    walk(stmts, &mut |n, _| {
+        if let Some(S::Decl(d)) = n.stmt().map(|s| &s.kind)
+            && d.kind == DeclKind::Var
+            && let [name] = d.names.as_slice()
+            && d.value
+                .as_ref()
+                .is_some_and(|v| string_index(cx, uncast(v)))
+            && let Some(ents) = cx.facts.locals.get(&name.span)
+        {
+            out.extend_from_slice(ents);
+        }
+        true
+    });
+    out
+}
+
+/// The value under any casts.
+fn uncast(e: &Expr) -> &Expr {
+    match &e.kind {
+        E::Cast {
+            value, ..
+        } => uncast(value),
+        _ => e,
+    }
 }
 
 /// The printable character with code `value`, other than a quote or backslash.

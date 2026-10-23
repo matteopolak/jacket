@@ -291,7 +291,9 @@ fn magic_number_settings() {
     });
     assert_eq!(
         all,
-        ["37", "8640", "45", "1.37", "-13", "3600", "0.3", "47", "97"]
+        [
+            "37", "8640", "45", "1.37", "-13", "3600", "0.3", "47", "97", "34", "92", "65", "88"
+        ]
     );
     // An allowed number is allowed negated too; whole numbers below the minimum pass.
     let tuned = found(Config {
@@ -300,7 +302,7 @@ fn magic_number_settings() {
         magic_number_min: Some(50.0),
         ..Config::default()
     });
-    assert_eq!(tuned, ["8640", "0.3", "97"]);
+    assert_eq!(tuned, ["8640", "0.3", "97", "92", "65", "88"]);
 }
 
 #[test]

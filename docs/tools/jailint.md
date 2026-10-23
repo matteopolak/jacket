@@ -203,7 +203,7 @@ magic_number_in_tests = true             # also check files in `tests`/`test` fo
 magic_number = "warn"
 ```
 
-Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set, since test data is full of expected values. A printable character code compared with a `u8` (`text[i] >= 97`) gets a `--fix` to `#char "a"`; in other `==` and `!=` the help suggests `#char` without applying it. Generated files are skipped. On the standard library outside its tests, the defaults report about 1,400 numbers: mostly character codes, calendar arithmetic and file-format offsets. Fix by naming the number: `RETRY_AFTER :: 8640;`.
+Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set, since test data is full of expected values. A printable character code compared with a byte of a `string` (`text[i]`, a local set from one, or `it` in `for text`) gets a `--fix` to `#char "a"`. In `<`, `<=`, `>` and `>=` only range ends are rewritten (digits, `a z A Z f F`, space, `~`), so `header[2] > 88` in a binary buffer stays a number. Other bytes may be table entries, so in their `==` and `!=` the help only suggests `#char`. Generated files are skipped. On the standard library outside its tests, the defaults report about 1,400 numbers: mostly character codes, calendar arithmetic and file-format offsets. Fix by naming the number: `RETRY_AFTER :: 8640;`.
 ### manual_assign_op
 Target must be side-effect-free and the operation must keep its type.
 ### manual_index_counter

@@ -22,8 +22,34 @@ starts_lower :: (text: string) -> bool {
     return text.count > 0 && text[0] >= 97;
 }
 
+count_quotes :: (text: string) -> int {
+    quotes := 0;
+    for text if it == 34 quotes += 1;
+
+    if text.count > 0 {
+        last := text[text.count - 1];
+        if last == 92 quotes += 1;
+    }
+
+    return quotes;
+}
+
+// A table entry, not a character: reported but not rewritten.
+padding :: (table: [] u8) -> bool {
+    return table.count > 0 && table[0] == 65;
+}
+
 main :: () {
     a, b := wait(40, 1.5);
+
     print("% %\n", a, b);
     print("%\n", starts_lower("x"));
+    print("%\n", count_quotes("a\"b\\"));
+    print("%\n", padding(.[]));
+    print("%\n", too_large("abc"));
+}
+
+// A binary field held in a string: an ordering against a non-range character stays a number.
+too_large :: (input: string) -> bool {
+    return input.count > 2 && input[2] > 88;
 }
