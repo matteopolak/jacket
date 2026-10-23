@@ -1,12 +1,22 @@
 //! Bind an operation to the actual declaration and its aggregate layouts.
 use super::{Binding, Field, Kind, Layout, Operation, Schema};
 use crate::{
+    intern::Sym,
     ir,
-    sema::{Compiler, ProcId, Result, Value, err, scope::Resolved},
+    sema::{Compiler, ModuleId, ProcId, Result, Value, err, scope::Resolved},
     source::Span,
     types::{ArrayKind, TypeId, TypeKind},
 };
 use std::rc::Rc;
+
+/// A schema shared by every declaration that reads the same modules' records. `entities`
+/// counts the declarations the modules held when it was built, so a module that grew since
+/// gets a fresh one.
+pub(crate) struct Shared {
+    modules: Option<Vec<ModuleId>>,
+    entities: usize,
+    schema: Rc<Schema>,
+}
 
 pub(crate) fn bind(
     compiler: &mut Compiler,
@@ -26,14 +36,16 @@ pub(crate) fn bind(
         .iter()
         .map(|&ty| (ty, compiler.is_memory_type(ty)))
         .collect();
-    let mut roots: Vec<_> = parameters
-        .iter()
-        .chain(signature.returns.iter())
-        .copied()
-        .collect();
-    let mut modules = Vec::new();
-    for &ty in &roots {
-        let ty = compiler.ty.types.pointee(ty).unwrap_or(ty);
+    let mut owners = Vec::new();
+    for &ty in parameters.iter().chain(&signature.returns) {
+        let mut ty = ty;
+        while let TypeKind::Pointer(inner)
+        | TypeKind::Array {
+            elem: inner, ..
+        } = compiler.ty.types.kind(ty)
+        {
+            ty = *inner;
+        }
         if let Some(record) = compiler
             .ty
             .types
@@ -41,15 +53,92 @@ pub(crate) fn bind(
         {
             let scope = compiler.ty.struct_asts[&record].scope;
             let module = compiler.scope(scope).module;
-            if !modules.contains(&module) {
-                modules.push(module);
+            if !owners.contains(&module) {
+                owners.push(module);
             }
         }
     }
-    if operation.records() {
+    let options = match operation {
+        Operation::GetOptions => Some(signature.returns[0]),
+        Operation::SetOptionsDuringCompile => {
+            Some(owned(compiler, &owners, "Build_Options", span)?)
+        }
+        _ => None,
+    };
+    let modules = operation.records().then(|| {
+        owners.sort_unstable();
+        owners.extend(
+            compiler
+                .ns
+                .preload
+                .filter(|prelude| !owners.contains(prelude)),
+        );
+        owners
+    });
+    let mut schema = shared(compiler, modules.as_deref(), span)?;
+    let missing: Vec<_> = parameters
+        .iter()
+        .chain(&signature.returns)
+        .chain(&options)
+        .copied()
+        .filter(|ty| !schema.types.contains_key(ty))
+        .collect();
+    if !missing.is_empty() {
+        let extended = Rc::make_mut(&mut schema);
+        for ty in missing {
+            collect(compiler, extended, ty, modules.is_some(), span)?;
+        }
+        let entry = compiler
+            .ct
+            .interp
+            .public_api_state
+            .schemas
+            .iter_mut()
+            .find(|entry| entry.modules == modules)
+            .unwrap();
+        entry.schema = schema.clone();
+    }
+    let options = options
+        .map(|ty| defaults(compiler, schema.get(ty), ty, span).map(|global| (ty, global)))
+        .transpose()?;
+    Ok(Binding {
+        operation,
+        parameters,
+        returns,
+        context: signature.has_context,
+        schema,
+        options,
+    })
+}
+
+/// The schema for declarations reading `modules`' records, or for those that read none.
+fn shared(compiler: &mut Compiler, modules: Option<&[ModuleId]>, span: Span) -> Result<Rc<Schema>> {
+    let entities = modules.map_or(0, |modules| {
+        modules
+            .iter()
+            .map(|module| {
+                let scope = compiler.ns.modules[module.0 as usize].scope;
+                compiler
+                    .scope(scope)
+                    .names
+                    .values()
+                    .map(Vec::len)
+                    .sum::<usize>()
+            })
+            .sum()
+    });
+    let schemas = &compiler.ct.interp.public_api_state.schemas;
+    if let Some(entry) = schemas
+        .iter()
+        .find(|entry| entry.modules.as_deref() == modules && entry.entities == entities)
+    {
+        return Ok(entry.schema.clone());
+    }
+    let mut schema = Schema::default();
+    if let Some(modules) = modules {
         // Primitive descriptors preserve identity across workspace record graphs even
         // when no public record happens to contain a field of that primitive type.
-        roots.extend([
+        let mut roots = vec![
             TypeId::VOID,
             TypeId::BOOL,
             TypeId::S8,
@@ -66,74 +155,98 @@ pub(crate) fn bind(
             TypeId::TYPE,
             TypeId::ANY,
             TypeId::CODE,
-        ]);
-        if let Some(prelude) = compiler.ns.preload {
-            modules.push(prelude);
-        }
-        for module in modules.clone() {
+        ];
+        for &module in modules {
             let scope = compiler.ns.modules[module.0 as usize].scope;
-            let entities: Vec<_> = compiler
+            let names: Vec<_> = compiler
                 .scope(scope)
                 .names
-                .values()
-                .flatten()
-                .copied()
+                .iter()
+                .map(|(name, entities)| (*name, entities.clone()))
                 .collect();
-            for entity in entities {
-                if let Ok(Resolved::Const {
-                    value: Value::Type(ty),
-                    ..
-                }) = compiler.resolve_entity(entity)
-                {
-                    roots.push(ty);
+            for (name, entities) in names {
+                for entity in entities {
+                    let Ok(Resolved::Const {
+                        value: Value::Type(ty),
+                        ..
+                    }) = compiler.resolve_entity(entity)
+                    else {
+                        continue;
+                    };
+                    match schema.names.insert(name.to_string(), ty) {
+                        Some(other) if other != ty => return ambiguous(span, name.as_str()),
+                        _ => roots.push(ty),
+                    }
                 }
             }
         }
+        for ty in roots {
+            collect(compiler, &mut schema, ty, true, span)?;
+        }
     }
-    if operation == Operation::SetOptionsDuringCompile {
-        for module in modules {
-            if let Ok(ty) = compiler.module_type(module, "Build_Options", span) {
-                roots.push(ty);
-                break;
+    let schema = Rc::new(schema);
+    let schemas = &mut compiler.ct.interp.public_api_state.schemas;
+    schemas.retain(|entry| entry.modules.as_deref() != modules);
+    schemas.push(Shared {
+        modules: modules.map(<[_]>::to_vec),
+        entities,
+        schema: schema.clone(),
+    });
+    Ok(schema)
+}
+
+/// The type `name` declares in the modules that own the declaration's records.
+fn owned(compiler: &mut Compiler, owners: &[ModuleId], name: &str, span: Span) -> Result<TypeId> {
+    let mut found = None;
+    for &module in owners {
+        for entity in compiler.module_declarations(module, Sym::intern(name))? {
+            if let Resolved::Const {
+                value: Value::Type(ty),
+                ..
+            } = compiler.resolve_entity(entity)?
+            {
+                if found.is_some_and(|other| other != ty) {
+                    return ambiguous(span, name);
+                }
+                found = Some(ty);
             }
         }
     }
-    let mut schema = Schema::default();
-    for ty in roots {
-        collect(compiler, &mut schema, ty, operation.records(), span)?;
-    }
-    if matches!(
-        operation,
-        Operation::GetOptions | Operation::SetOptionsDuringCompile
-    ) && let Some((&ty, _)) = schema
-        .types
-        .iter()
-        .find(|(_, layout)| layout.name == "Build_Options")
-    {
-        let image = compiler.default_initializer(ty, span)?;
-        let layout = schema.types.get_mut(&ty).unwrap();
-        let (init, relocs) = image.map_or_else(
-            || (Vec::new(), Vec::new()),
-            |image| (image.bytes.clone(), image.relocs.clone()),
-        );
-        let global = compiler.out.program.add_global(ir::Global {
-            name: "compiler.options.defaults".into(),
-            size: layout.size,
-            align: layout.align,
-            init,
-            relocs,
-            read_only: true,
-            export: None,
-        });
-        layout.default = Some(global);
-    }
-    Ok(Binding {
-        operation,
-        parameters,
-        returns,
-        context: signature.has_context,
-        schema: Rc::new(schema),
-    })
+    found.map_or_else(
+        || err(span, format!("compiler operation needs a `{name}` record")),
+        Ok,
+    )
+}
+
+fn ambiguous<T>(span: Span, name: &str) -> Result<T> {
+    err(
+        span,
+        format!("compiler operation finds more than one `{name}` record"),
+    )
+}
+
+/// A read-only copy of `ty`'s default value, where options start before a workspace's are read.
+fn defaults(
+    compiler: &mut Compiler,
+    layout: &Layout,
+    ty: TypeId,
+    span: Span,
+) -> Result<ir::GlobalId> {
+    let (size, align) = (layout.size, layout.align);
+    let image = compiler.default_initializer(ty, span)?;
+    let (init, relocs) = image.map_or_else(
+        || (Vec::new(), Vec::new()),
+        |image| (image.bytes.clone(), image.relocs.clone()),
+    );
+    Ok(compiler.out.program.add_global(ir::Global {
+        name: "compiler.options.defaults".into(),
+        size,
+        align,
+        init,
+        relocs,
+        read_only: true,
+        export: None,
+    }))
 }
 
 fn collect(
@@ -171,7 +284,6 @@ fn collect(
             name,
             kind: Kind::Scalar,
             descriptor: None,
-            default: None,
         },
     );
     if let TypeKind::Enum(id) = kind {

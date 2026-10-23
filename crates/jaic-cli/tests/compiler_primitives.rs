@@ -207,3 +207,59 @@ main :: () {}
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("unsupported compiler operation"));
 }
+
+#[test]
+fn build_option_defaults_come_from_the_declared_return_record() {
+    let (_, source) = fixture(
+        "renamed-options",
+        r#"
+#import "Basic";
+C :: #import "Compiler";
+My_Options :: struct {
+    using base: C.Build_Options;
+    sentinel: s64 = 41;
+}
+get_options :: (w: Workspace = -1) -> My_Options #compiler "get_build_options";
+#run,stallable {
+    workspace := C.compiler_create_workspace("renamed options");
+    options := get_options(workspace);
+    expected := C.get_build_options(workspace);
+    assert(options.sentinel == 41);
+    assert(options.output_type == expected.output_type);
+    assert(options.output_executable_name == expected.output_executable_name);
+    C.compiler_destroy_workspace(workspace);
+}
+main :: () {}
+"#,
+    );
+    success(
+        Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(source)
+            .arg("-interp"),
+    );
+}
+
+#[test]
+fn records_with_one_name_in_two_modules_are_rejected_when_bound() {
+    let (_, source) = fixture(
+        "duplicate-record",
+        r#"
+C :: #import "Compiler";
+Code_Node :: struct { kind: s64; }
+get_nodes :: (code: Code) -> *C.Code_Node, [] *Code_Node #compiler "compiler_get_nodes";
+#run { value := get_nodes; }
+main :: () {}
+"#,
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .arg(source)
+        .arg("-interp")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let diagnostic = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        diagnostic.contains("more than one `Code_Node`"),
+        "{diagnostic}"
+    );
+}

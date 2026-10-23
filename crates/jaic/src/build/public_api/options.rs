@@ -9,6 +9,7 @@ use crate::{
         WorkspaceText as Text,
     },
     interp::{Interp, Rets, Trap},
+    ir,
     types::TypeId,
 };
 
@@ -104,19 +105,18 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
     let ws = cx.workspace(usize::from(cx.binding.operation != Operation::GetOptions))?;
     match cx.binding.operation {
         Operation::GetOptions => {
-            let (at, ty) = cx.result(0)?;
-            get(cx, interp, ws, at, ty)?;
+            get(cx, interp, ws, cx.result(0)?.0)?;
         }
         Operation::SetOptions => set(cx, interp, ws, cx.arg(0), cx.binding.parameters[0])?,
         Operation::SetOptionsDuringCompile => {
-            let ty = cx.schema().named("Build_Options")?;
+            let layout = cx.schema().get(options_record(cx)?.0);
             let options = interp.register_data_global(
-                &vec![0; cx.schema().get(ty).size as usize],
-                cx.schema().get(ty).align,
+                &vec![0; layout.size as usize],
+                layout.align,
                 false,
                 1,
             )?;
-            get(cx, interp, ws, options, ty)?;
+            let ty = get(cx, interp, ws, options)?;
             let dc = cx.binding.parameters[0];
             let input = cx.arg(0);
             if cx.number(interp, dc, input, "interactive_bytecode_debugger")? != 0 {
@@ -183,14 +183,17 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
     Ok(Rets::default())
 }
 
-fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(), Trap> {
-    let layout = cx.schema().get(ty);
-    let initial = if let Some(global) = layout.default {
-        let address = interp.global_addr(cx.program, global)?;
-        bytes(interp, address, layout.size as usize)?
-    } else {
-        vec![0; layout.size as usize]
-    };
+fn options_record(cx: &Call) -> Result<(TypeId, ir::GlobalId), Trap> {
+    cx.binding
+        .options
+        .ok_or_else(|| Trap::new("compiler operation has no build options record"))
+}
+
+/// Fill the options record at `at` with the workspace's options, returning its type.
+fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap> {
+    let (ty, defaults) = options_record(cx)?;
+    let address = interp.global_addr(cx.program, defaults)?;
+    let initial = bytes(interp, address, cx.schema().get(ty).size as usize)?;
     write(interp, at, &initial)?;
     if !snapshot(cx, interp, ws, at, ty, false)? && ws == cx.shared.borrow().current_id() {
         let arguments = cx.shared.borrow().env.command_line.clone();
@@ -200,7 +203,7 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
             &arguments,
         )?;
     }
-    Ok(())
+    Ok(ty)
 }
 
 fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(), Trap> {

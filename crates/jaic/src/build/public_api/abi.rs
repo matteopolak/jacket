@@ -36,13 +36,14 @@ pub(crate) struct Layout {
     pub name: String,
     pub kind: Kind,
     pub descriptor: Option<ir::GlobalId>,
-    pub default: Option<ir::GlobalId>,
 }
 
 #[derive(Clone, Default)]
 pub(crate) struct Schema {
     pub types: HashMap<TypeId, Layout>,
     pub enums: HashMap<TypeId, Vec<(String, i64)>>,
+    /// The records the owning modules declare, by name.
+    pub names: HashMap<String, TypeId>,
 }
 
 #[derive(Clone)]
@@ -52,6 +53,8 @@ pub(crate) struct Binding {
     pub returns: Vec<(TypeId, bool)>,
     pub context: bool,
     pub schema: Rc<Schema>,
+    /// The build options record and its defaults, for the operations that fill one.
+    pub options: Option<(TypeId, ir::GlobalId)>,
 }
 
 impl Schema {
@@ -81,9 +84,9 @@ impl Schema {
     }
 
     pub fn named(&self, name: &str) -> Result<TypeId, Trap> {
-        self.types
-            .iter()
-            .find_map(|(&ty, layout)| (layout.name == name).then_some(ty))
+        self.names
+            .get(name)
+            .copied()
             .ok_or_else(|| Trap::new(format!("compiler API needs the {name} record")))
     }
 

@@ -19,6 +19,7 @@ pub(crate) struct State {
     pub finished: Vec<i64>,
     pub last_complete: u64,
     pub link_phases: HashMap<i64, (u64, TypeId, Rc<Schema>)>,
+    pub schemas: Vec<super::binding::Shared>,
 }
 
 pub(super) struct Call<'a> {
