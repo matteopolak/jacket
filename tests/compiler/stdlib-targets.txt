@@ -37,7 +37,6 @@ Autorun wasm: Autorun/module.jai: #assert failed: Autorun requires a native Proc
 Bindings_Generator wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 BuildCpp wasm: BuildCpp/module.jai: #assert failed: BuildCpp currently supports native host toolchains
 Clipboard wasm: Clipboard/module.jai: #assert failed: Clipboard requires macOS, Windows or Linux/X11
-Deep_Copy wasm: internal/memory/deep-copy.jai: #assert failed: Deep_Copy timer backend is unavailable on this target
 File_Watcher wasm: File_Watcher/module.jai: #assert failed: File_Watcher backend is unavailable for this target
 GL wasm: GL/module.jai: #assert failed: GL requires its documented native platform
 Gamepad wasm: SDL/module.jai: #assert failed: SDL requires its documented native platform
@@ -65,7 +64,6 @@ Objective_C/AppKit linux-x64: Objective_C/AppKit/module.jai: #assert failed: Obj
 Objective_C/AppKit wasm: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
 Objective_C/AppKit windows-arm64: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
 Objective_C/AppKit windows-x64: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
-Overwriting_Allocator wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 POSIX wasm: POSIX/module.jai: #assert failed: POSIX requires its documented native platform
 POSIX windows-arm64: POSIX/module.jai: #assert failed: POSIX requires its documented native platform
 POSIX windows-x64: POSIX/module.jai: #assert failed: POSIX requires its documented native platform
@@ -82,8 +80,6 @@ Sound_Player wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .
 System wasm: System/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 Thread wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: `OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS` is false
-Vulkan macos-arm64: Vulkan/module.jai: #assert failed: Vulkan requires its documented native platform
-Vulkan macos-x64: Vulkan/module.jai: #assert failed: Vulkan requires its documented native platform
 Vulkan wasm: Vulkan/module.jai: #assert failed: Vulkan requires its documented native platform
 Wasi_Numeric_Runtime linux-arm64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets
 Wasi_Numeric_Runtime linux-x64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets

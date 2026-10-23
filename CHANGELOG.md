@@ -6,6 +6,8 @@
 
 - `BuildCpp` builds C and C++ on Windows x64 and arm64, with MSVC or `clang-cl`.
 - `Autorun` runs workspaces on Windows.
+- `Deep_Copy` and `Overwriting_Allocator` work on wasm.
+- `Vulkan` works on macOS.
 - The crash handler reports crashes on Windows arm64.
 - `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` are available as compiler constants.
 - `Module.name` reaches a module's `#scope_module` declarations.
