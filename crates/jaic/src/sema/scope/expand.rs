@@ -6,13 +6,22 @@ use crate::sema::{Compiler, Result, ast};
 /// A procedure-valued declaration can join an overload set.
 /// A constant that can join an overload set: a procedure, or an alias of one (`print :: f;`).
 pub(in crate::sema) fn may_overload(decl: &ast::Decl) -> bool {
-    decl_is_proc(decl)
-        || decl.kind == ast::DeclKind::Const
-            && decl.ty.is_none()
-            && matches!(
-                decl.value.as_ref().map(|v| &v.kind),
-                Some(ast::ExprKind::Ident(_) | ast::ExprKind::Member(..))
+    decl_is_proc(decl) || is_alias_decl(decl)
+}
+
+/// `name :: other;`, `name :: module.other;` or `name :: #procedure_of_call f(args);`: a constant
+/// naming another entity, which joins an overload set when that entity is a procedure.
+pub(super) fn is_alias_decl(decl: &ast::Decl) -> bool {
+    decl.kind == ast::DeclKind::Const
+        && decl.ty.is_none()
+        && matches!(
+            decl.value.as_ref().map(|v| &v.kind),
+            Some(
+                ast::ExprKind::Ident(_)
+                    | ast::ExprKind::Member(..)
+                    | ast::ExprKind::ProcedureOfCall(_)
             )
+        )
 }
 
 pub(super) fn decl_is_proc(decl: &ast::Decl) -> bool {

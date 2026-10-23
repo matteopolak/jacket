@@ -80,6 +80,7 @@
 - `x, y = xx a, xx b` converts each value to its own target's type.
 - `a, b:, _ = f()` discards the value of `_`.
 - A `#modify` block can assign a `$x := value` parameter.
+- `operator* :: #procedure_of_call f(...)` can sit next to ordinary `operator*` overloads.
 
 ## [0.25.0] - 2026-10-21
 

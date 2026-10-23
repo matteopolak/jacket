@@ -397,6 +397,7 @@ fn compiler_and_abi_regressions_run_natively() {
         "bare-poly-struct-parameters",
         "multiple-assignment-targets",
         "modify-assigns-baked-value",
+        "operator-procedure-of-call",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {

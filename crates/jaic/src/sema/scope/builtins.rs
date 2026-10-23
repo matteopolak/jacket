@@ -1,7 +1,7 @@
 //! Builtin declarations and overloadability.
-use super::expand::decl_is_proc;
+use super::expand::{decl_is_proc, is_alias_decl};
 use super::model::{Builtin, BuiltinProc, EntityId, EntityKind, Resolved};
-use crate::sema::{Compiler, Span, Sym, Value, ast};
+use crate::sema::{Compiler, Span, Sym, Value};
 use crate::types::TypeId;
 
 impl Compiler {
@@ -110,13 +110,7 @@ impl Compiler {
         else {
             return false;
         };
-        let alias = decl.kind == ast::DeclKind::Const
-            && decl.ty.is_none()
-            && matches!(
-                decl.value.as_ref().map(|v| &v.kind),
-                Some(ast::ExprKind::Ident(_) | ast::ExprKind::Member(..))
-            );
-        alias
+        is_alias_decl(decl)
             && matches!(
                 self.resolve_entity(id),
                 Ok(Resolved::Proc(_)
