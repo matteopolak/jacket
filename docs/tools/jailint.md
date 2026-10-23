@@ -51,8 +51,7 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@FreesArgument` | `defer_in_loop`, `use_after_free`, `double_free` | after the call the *first* argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s). Not for a procedure whose first argument is only an allocator, heap or owner |
 | `@Allocates` | `leaked_allocation` | the result is newly allocated and the caller owns it (`alloc`, `New`, `copy_string`, `sprint`, `join`, ...) |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a number of bytes in the memory the pointer arguments point at (`memcpy`, `memset`, `memcmp`) |
-| `@Locks` | `uninit_read` | correctness | deny | no | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
-| `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
+| `@Locks` | `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
 | `@Unlocks` | `unpaired_lock` | gives back the lock its first argument names |
 
 ```jai
@@ -128,6 +127,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `self_assignment` | suspicious | warn | editor | `x = x;` |
 | `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
 | `string_literal_write` | correctness | deny | no | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
+| `uninit_read` | correctness | deny | no | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
 | `unpaired_lock` | suspicious | warn | no | `lock(*m);` with a `return`, or the end of the procedure, reached before the matching unlock |
 | `unused_import` | style | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | style | warn | no | a parameter the procedure never uses |
