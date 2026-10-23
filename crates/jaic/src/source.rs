@@ -331,10 +331,72 @@ impl SourceFile {
     }
 }
 
-#[derive(Clone, Default)]
+/// The files of a map, in id order. Append-only and shared by every map made with
+/// `SourceMap::share`: a cross build's two compilers number their files from one table, so a
+/// span means the same file to both.
+#[derive(Default)]
+struct FileTable {
+    /// Only `push` writes, and it never moves or drops a file once added (a `SourceFile` is
+    /// reached through its `Rc` allocation, not through this vector), so references handed out
+    /// by `get` stay valid while the table grows.
+    files: std::cell::UnsafeCell<Vec<Rc<SourceFile>>>,
+}
+
+impl FileTable {
+    fn push(&self, file: SourceFile) -> FileId {
+        // SAFETY: the compiler is single-threaded, no reference into the vector outlives this
+        // call (`get` copies a pointer to the file, not to the vector's storage), and `push`
+        // only appends.
+        #[allow(unsafe_code)]
+        let files = unsafe { &mut *self.files.get() };
+        files.push(Rc::new(file));
+        FileId(files.len() as u32 - 1)
+    }
+
+    fn get(&self, id: FileId) -> Option<&SourceFile> {
+        // SAFETY: see `push`. The returned reference points into the file's `Rc` allocation,
+        // which the table keeps alive for its own lifetime.
+        #[allow(unsafe_code)]
+        let files = unsafe { &*self.files.get() };
+        let file = files.get(id.0 as usize)?;
+        // SAFETY: files are never removed, so the `Rc` outlives `&self`.
+        #[allow(unsafe_code)]
+        Some(unsafe { &*Rc::as_ptr(file) })
+    }
+
+    fn len(&self) -> usize {
+        // SAFETY: see `push`.
+        #[allow(unsafe_code)]
+        unsafe {
+            (*self.files.get()).len()
+        }
+    }
+}
+
+#[derive(Default)]
 pub struct SourceMap {
-    files: Vec<SourceFile>,
+    table: Rc<FileTable>,
     typechecked_use: TypecheckedUse,
+}
+
+impl Clone for SourceMap {
+    /// A snapshot: later additions to either map are not seen by the other (`share` is the map
+    /// that follows).
+    fn clone(&self) -> Self {
+        let copy = FileTable::default();
+        // SAFETY: see `FileTable::push`.
+        #[allow(unsafe_code)]
+        let files = unsafe { &*self.table.files.get() };
+        // SAFETY: `copy` is not shared yet.
+        #[allow(unsafe_code)]
+        unsafe {
+            (*copy.files.get()).extend(files.iter().cloned());
+        }
+        Self {
+            table: Rc::new(copy),
+            typechecked_use: self.typechecked_use.clone(),
+        }
+    }
 }
 
 /// What the sources of one build say about reading `Message_Typechecked`, shared by every
@@ -372,33 +434,42 @@ impl SourceMap {
     pub fn add(&mut self, path: impl Into<SourcePath>, text: Rc<str>) -> FileId {
         let path = path.into();
         note_typechecked_name(&self.typechecked_use, &path, &text);
-        self.files.push(SourceFile::new(path, text));
-        FileId(self.files.len() as u32 - 1)
+        self.table.push(SourceFile::new(path, text))
     }
 
     pub fn add_file(&mut self, file: SourceFile) -> FileId {
         note_typechecked_name(&self.typechecked_use, &file.path, &file.text);
-        self.files.push(file);
-        FileId(self.files.len() as u32 - 1)
+        self.table.push(file)
+    }
+
+    /// A map over the same files: what either adds, both see, under the same ids.
+    #[must_use]
+    pub fn share(&self) -> Self {
+        Self {
+            table: self.table.clone(),
+            typechecked_use: self.typechecked_use.clone(),
+        }
     }
 
     /// The file `id` names. Only for ids of files known to exist; a span's file may be
     /// `Span::NONE`'s (builtins such as `OS` are declared nowhere), so take it with `try_get`.
     pub fn get(&self, id: FileId) -> &SourceFile {
-        &self.files[id.0 as usize]
+        self.table
+            .get(id)
+            .expect("invariant: a span names a file of its map")
     }
 
     /// The file `id` names, or `None` for an id with no file (`Span::NONE`).
     pub fn try_get(&self, id: FileId) -> Option<&SourceFile> {
-        self.files.get(id.0 as usize)
+        self.table.get(id)
     }
 
     pub fn len(&self) -> usize {
-        self.files.len()
+        self.table.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.files.is_empty()
+        self.table.len() == 0
     }
 
     /// The text of `span`, or "" for a span without a place: no file (`Span::NONE`), or a

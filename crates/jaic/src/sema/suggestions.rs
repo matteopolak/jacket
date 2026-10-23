@@ -482,10 +482,7 @@ impl SourceState {
     /// The metaprogram next to the file of `span` (in its directory or the one above) that
     /// adds a declaration of `name` with `add_build_string`, as a path shown to the user.
     fn metaprogram_defining(&self, name: &str, span: Span) -> Option<String> {
-        if span.file.0 as usize >= self.sources.len() {
-            return None;
-        }
-        let file = self.sources.get(span.file).path.as_file()?;
+        let file = self.sources.try_get(span.file)?.path.as_file()?;
         let dir = file.parent()?;
         for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
             let mut entries = self.fs.list_dir(candidate_dir);

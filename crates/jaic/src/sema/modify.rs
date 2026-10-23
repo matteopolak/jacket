@@ -316,10 +316,10 @@ impl SourceState {
     /// The `#modify` directive in front of `block`, or the block when it cannot be found.
     fn modify_directive_span(&self, block: &ast::Block) -> Span {
         let span = block.span;
-        if (span.file.0 as usize) >= self.sources.len() {
+        let Some(file) = self.sources.try_get(span.file) else {
             return span;
-        }
-        let text = &self.sources.get(span.file).text;
+        };
+        let text = &file.text;
         match text
             .get(..span.start as usize)
             .and_then(|t| t.rfind("#modify"))

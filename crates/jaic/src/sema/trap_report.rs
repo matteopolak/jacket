@@ -215,7 +215,7 @@ impl Compiler {
     /// Whether `file` belongs to the standard library, including bootstrap support,
     /// canonical through the compiler's file system (the browser's is virtual).
     fn is_library_file(&self, file: FileId) -> bool {
-        if file.0 as usize >= self.src.sources.len() {
+        if self.src.sources.try_get(file).is_none() {
             return true;
         }
         if let Some(&known) = self.src.library_files.borrow().get(&file.0) {
@@ -314,11 +314,13 @@ impl SourceState {
     /// ` at path:line` for a frame location, or nothing.
     fn loc_suffix(&self, loc: Option<(u32, u32, u32)>) -> String {
         match loc {
-            Some((file, line, _)) if (file as usize) < self.sources.len() => {
-                let path = self.sources.get(FileId(file)).path.to_path();
-                format!(" at {}:{line}", crate::display_path(&path))
-            }
-            _ => String::new(),
+            Some((file, line, _)) => match self.sources.try_get(FileId(file)) {
+                Some(source) => {
+                    format!(" at {}:{line}", crate::display_path(&source.path.to_path()))
+                }
+                None => String::new(),
+            },
+            None => String::new(),
         }
     }
 
@@ -334,10 +336,9 @@ impl SourceState {
     /// The statement at `loc`: from its column to the end of that line (without a trailing
     /// `;` or whitespace), so the carets cover what ran.
     fn statement_span(&self, (file, line, col): (u32, u32, u32)) -> Span {
-        if file as usize >= self.sources.len() {
+        let Some(source) = self.sources.try_get(FileId(file)) else {
             return Span::NONE;
-        }
-        let source = self.sources.get(FileId(file));
+        };
         let start = source.offset_of(line, col) as usize;
         let text = source.line_text(line);
         let rest = text.get(col.saturating_sub(1) as usize..).unwrap_or("");
