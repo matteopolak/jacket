@@ -86,6 +86,7 @@
 - `#load` works in code that a procedure body inserts.
 - An anonymous `union { ... }` or `struct { ... }` statement in a procedure brings its members into scope.
 - `#bake_arguments f(,, allocator = a)` bakes a context field into the procedure.
+- Using a polymorphic `#type` alias such as `#type (value: *$T)` as a value is a compile error, not a crash when the program runs.
 
 ## [0.25.0] - 2026-10-21
 

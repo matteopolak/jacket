@@ -26,6 +26,7 @@ impl Compiler {
         }
         let (ty, addr) = match op {
             Operand::Type(t) => {
+                self.require_value_type(t, span)?;
                 let v = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
                 (TypeId::TYPE, self.spill(f, TypeId::TYPE, v, span)?)
             }

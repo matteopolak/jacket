@@ -40,6 +40,8 @@ pub struct TypeState {
     /// `compiler_set_type_info_flags` bits per struct (`Type_Info_Flags`).
     pub info_flags: HashMap<TypeId, u32>,
     pub anonymous: HashMap<(ast::AstId, ScopeId), TypeId>,
+    /// The shapes `#type (value: *$T)` aliases name: patterns that match types, not values.
+    pub(in crate::sema) poly_aliases: HashSet<TypeId>,
     pub(in crate::sema) enum_member_scopes: HashMap<TypeId, ScopeId>,
     /// Names an enum reaches through `using Other;` in its body, with their values. They are
     /// not members of the enum.
@@ -77,6 +79,7 @@ impl Default for TypeState {
             table_funcs: HashSet::default(),
             info_flags: HashMap::default(),
             anonymous: HashMap::default(),
+            poly_aliases: HashSet::default(),
             enum_member_scopes: HashMap::default(),
             enum_borrowed: HashMap::default(),
             member_aliases: HashMap::default(),

@@ -538,6 +538,7 @@ impl Compiler {
                 Ok((ty, val))
             }
             Operand::Type(t) => {
+                self.require_value_type(t, span)?;
                 let val = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
                 Ok((TypeId::TYPE, val))
             }
@@ -561,6 +562,20 @@ impl Compiler {
             Operand::Builtin(_) => err(span, "builtin procedure is not a value"),
             Operand::Library(_) => err(span, "a library is not a value"),
         }
+    }
+
+    /// `#type (value: *$T)` names a shape that matches types: it is not itself a value.
+    pub(in crate::sema) fn require_value_type(&self, ty: TypeId, span: Span) -> Result<()> {
+        if self.ty.poly_aliases.contains(&ty) {
+            return err(
+                span,
+                format!(
+                    "the polymorphic type `{}` is a pattern, not a value: its type variables stand for any type",
+                    self.ty.types.name(ty)
+                ),
+            );
+        }
+        Ok(())
     }
 
     /// Emit IR producing `value` of type `ty`.

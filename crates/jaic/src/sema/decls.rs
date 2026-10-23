@@ -296,6 +296,7 @@ impl Compiler {
                     return err(value.span, "expected a procedure type");
                 };
                 let ty = self.poly_header_type(scope, header);
+                self.ty.poly_aliases.insert(ty);
                 return Ok(Resolved::Const {
                     value: Value::Type(ty),
                     ty: TypeId::TYPE,
