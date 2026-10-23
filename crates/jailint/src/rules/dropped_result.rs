@@ -18,9 +18,9 @@
 //!   procedure type the compiler did not record (overload sets, unchecked code).
 //!
 //! Calls through procedure values count when their type is known.
-use super::{callee_procs, finding};
-use crate::Finding;
+use super::{callee_procs, suggesting};
 use crate::syntax::{Cx, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{AssignOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 
@@ -41,7 +41,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     {
                         let discard = d.names.len() == 1 && d.names[0].name.as_str() == "_";
                         if !discard {
-                            examine(cx, value, d.names.len(), out);
+                            let last = d.names.last().map(|n| n.span.end as usize);
+                            // `x: T = f();` stays: where the `_` goes there is not settled.
+                            examine(
+                                cx,
+                                value,
+                                d.names.len(),
+                                last.filter(|_| d.ty.is_none()),
+                                out,
+                            );
                         }
                     }
                 }
@@ -55,7 +63,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     if let [value] = rhs.as_slice()
                         && !discard
                     {
-                        examine(cx, value, lhs.len(), out);
+                        examine(
+                            cx,
+                            value,
+                            lhs.len(),
+                            Some(lhs[lhs.len() - 1].span.end as usize),
+                            out,
+                        );
                     }
                 }
                 _ => {}
@@ -67,7 +81,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 
 /// `value` is a call whose procedure returns more than `kept` values, with a `bool` among the
 /// ones dropped.
-fn examine(cx: &Cx, value: &Expr, kept: usize, out: &mut Vec<Finding>) {
+fn examine(cx: &Cx, value: &Expr, kept: usize, after: Option<usize>, out: &mut Vec<Finding>) {
     let E::Call {
         callee, ..
     } = &value.kind
@@ -102,12 +116,23 @@ fn examine(cx: &Cx, value: &Expr, kept: usize, out: &mut Vec<Finding>) {
         return;
     }
     let name = cx.whole_src(callee.span).trim();
-    out.push(finding(
-        value.span,
-        format!(
-            "`{name}` returns {} values but this keeps {kept}; the next value is a `bool`, which usually says whether the call worked",
-            lists[0].len()
+    let message = format!(
+        "`{name}` returns {} values but this keeps {kept}; the next value is a `bool`, which usually says whether the call worked",
+        lists[0].len()
+    );
+    let help = "receive the flag, or write `, _` to show it is ignored on purpose".to_string();
+    out.push(match after {
+        Some(at) => suggesting(
+            value.span,
+            message,
+            help,
+            "ignore the `bool` on purpose with `, _`",
+            vec![Edit {
+                start: at,
+                end: at,
+                text: ", _".into(),
+            }],
         ),
-        Some("receive the flag, or write `, _` to show it is ignored on purpose".into()),
-    ));
+        None => super::finding(value.span, message, Some(help)),
+    });
 }
