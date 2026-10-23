@@ -529,7 +529,8 @@ jobs:
     # (tools/stdlib/stdlib_coverage.py).
     name: stdlib interpreter reachability
     needs: [stdlib-runtime, windows-stdlib]
-    if: ${{ always() && !cancelled() && needs.stdlib-runtime.result != 'skipped' }}
+    # Not on pushes: it only reports, and waiting for it adds a minute to the run.
+    if: ${{ always() && !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.stdlib-runtime.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
