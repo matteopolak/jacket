@@ -172,10 +172,10 @@ since := Pg.now() - Pg.days(7);
 
 rows, err := Pg.query(db, #string SQL
     select u.id, u.email, u.display_name, count(p.id) as posts
-    from users u left join posts p on p.author_id = u.id and p.created_at > %
-    where u.id = %
+    from users u left join posts p on p.author_id = u.id and p.created_at > %since
+    where u.id = %user_id and u.email like '%@example.com'
     group by u.id
-SQL, since, user_id);
+SQL);
 if err { log_error("%", err); return; }
 
 for rows print("% <%> wrote %\n", it.display_name, it.email, it.posts);
@@ -184,24 +184,26 @@ for rows print("% <%> wrote %\n", it.display_name, it.email, it.posts);
 
 Other forms:
 
-- `Pg.query_one(db, sql, ..)` returns the row or `Pg_Error.NOT_FOUND`.
+Parameters are written inline: `%name`, `%name.field`, `%array[i]`, or `%(any expression)`. `%%` is a literal `%`. Inside SQL string literals, quoted identifiers and comments, `%` is plain text, so `like '%@example.com'` needs no escaping.
+
+- `Pg.query_one(db, sql)` returns the row or `Pg_Error.NOT_FOUND`.
 - `Pg.query_opt` returns `(row, found)`.
-- `Pg.execute(db, sql, ..)` returns the affected row count.
+- `Pg.execute(db, sql)` returns the affected row count.
 - `Pg.query_scalar(db, "select count(*) from users")` returns the value.
-- `Pg.query_as(User_Summary, db, sql, ..)` checks **your** struct against the described columns: names match fields, types are assignable, and nullable columns go into `Nullable` fields. This is how a hand-written type stays connected to SQL.
+- `Pg.query_as(User_Summary, db, sql)` checks **your** struct against the described columns: names match fields, types are assignable, and nullable columns go into `Nullable` fields. This is how a hand-written type stays connected to SQL.
 
 #### What happens at compile time
 
-`query` is an `#expand` macro with `$sql: string`, `args: ..Any` and `call := #caller_code`.
+`query` is an `#expand` macro with `$sql: string`, `args: ..Any` and `call := #caller_code`, marked with an `@Interpolates("sql")` note ([Inline parameters](#inline-parameters)).
 
-1. **Rewrite placeholders.** `%` becomes `$1..$n`, and `%%` becomes a literal `%`, the same rule as `print`. `%` was chosen because Jai users already read it as a slot. The scanner skips SQL string literals, dollar-quoted strings, quoted identifiers and comments, so `'100%'` is not a parameter. Postgres' own `$n` is rejected in the source, to keep one style.
+1. **Rewrite placeholders.** The compiler has already turned each `%name` hole into a positional `%` plus a trailing argument. The macro rewrites `%` to `$1..$n`, using the same SQL-aware scanner. Postgres' own `$n` is rejected in the source, to keep one style. The statement id hashes the *rewritten* SQL, so renaming a variable doesn't invalidate the cache.
 2. **Read argument types.** `compiler_get_nodes(call)` gives the typed argument nodes, the same path Check's `@PrintLike` uses.
 3. **Describe.** Look up the cache key (next section). On a miss, `Parse` plus `Describe(statement)` against the compile-time database gives `ParameterDescription` (OIDs) and `RowDescription`, which has the following for each column:
    - name;
    - type OID and modifier;
    - **table OID and attribute number**, which are 0 for computed columns.
 4. **Infer nullability** (below).
-5. **Type-check arguments.** Each argument's Jai type must encode to its parameter OID. `s32` widens to `int8`. `string` goes to `text`/`varchar`/`citext`, and also to `json`. `Nullable(T)` and `null` (a typed `Pg.NULL`) are allowed for any parameter. A mismatch reports at the argument's location: `parameter 2 is int8 (users.id) but the argument is string`.
+5. **Type-check arguments.** Each argument's Jai type must encode to its parameter OID. `s32` widens to `int8`. `string` goes to `text`/`varchar`/`citext`, and also to `json`. `Nullable(T)` and `null` (a typed `Pg.NULL`) are allowed for any parameter. A mismatch reports at the hole inside the string: `%user_id is string, but parameter 2 is int8 (users.id)`.
 6. **Emit code.** The macro inserts:
    - binding code with a static format code per parameter;
    - the statement id, a 64-bit hash of the rewritten SQL;
@@ -214,6 +216,32 @@ Row :: struct ($id: u64) { #insert #run row_fields(id); }
 ```
 
 `query` returns `Pg.Rows(Row(id))`, a `for_expansion`-able result.
+
+#### Inline parameters
+
+Inline holes read better in long queries, but they hide expressions inside a string literal. To keep the editor fully aware of them, the compiler does the work once, rather than every macro scanning strings itself:
+
+- **A note on the procedure.** `@Interpolates("sql")` marks the procedure's `$string` parameter as holding holes. The argument must be a literal or a `#string` block.
+- **Desugaring at the call site.** Before type checking, the compiler parses each hole as an expression in the caller's scope, with source spans pointing *into the string*. It rewrites the call to positional form:
+
+  ```jai
+  Pg.query(db, "... %user_id ...")   // becomes
+  Pg.query(db, "... % ...", user_id)
+  ```
+
+  The arguments are real expressions with real locations. So type errors, go to definition, find references, rename and hover on `user_id` inside the string all work through the normal paths. Rename edits the string.
+- **Scanner modes.** The note's argument picks the skip grammar, so `%` inside quoted text stays literal:
+  - `"plain"`: skip nothing;
+  - `"sql"`: skip `'...'` (with `''`), `E'...'`, `$tag$...$tag$`, `"..."`, `--` and nested `/* */`.
+
+  The grammar is fixed and small, inside the compiler. A module cannot plug in its own. A `%` that is followed by a space, or that is not followed by an identifier or `(`, stays a plain `%`, so SQL's modulo `a % b` works. `a %b` would be read as a hole and must be written `a %% b`, or with the space.
+- **Language server support beyond `@PrintLike`.** `@PrintLike` only checks argument counts and types against a format string. Inline holes also need:
+  - completion after `%` inside a marked string (locals and fields in the caller's scope);
+  - semantic highlighting of holes as code;
+  - diagnostics at the hole's span.
+
+  The desugaring gives the last two most of the way. Completion is new `jailsp` work: it must know, from the note alone, that the cursor is in a hole. This works without running any compile-time code, so it works in untrusted workspaces too.
+- **Outside Postgres.** Any procedure can use the note, for example a `print` variant with `%name` holes. That is a jaic extension; official Jai has no such note.
 
 #### Nullability
 
@@ -282,7 +310,7 @@ So PGlite is possible, but the cost and maturity are not worth it for typing alo
 1. **Offline cache first.** At compile time, if a cache entry matches the key, use it, with no server needed.
 2. **On a miss,** connect to the server named by `JACKET_DATABASE_URL`, falling back to `DATABASE_URL`, then write the entry.
    - With no URL and **managed mode on** (later phase), start the managed server instead (next paragraph).
-   - With neither, the miss is a compile error that names the query and says how to fix it: `set DATABASE_URL or run jacket pg prepare`.
+   - With neither, the miss is a compile error that names the query and says how to fix it: `set DATABASE_URL, or run the pg tool's prepare`.
 3. **`JACKET_PG_OFFLINE=1`** (CI) turns misses into errors and never connects.
 
 Steps 1 and 2 run inside the Postgres describe service ([Editor feedback](#editor-feedback-phase-0)), in the build and in the editor alike. The macro only builds a request and reads a response.
@@ -389,7 +417,7 @@ C keeps the Jai client as the one source of truth, gives the editor exactly what
 
 - **Errors with exact spans.** `ErrorResponse` carries `P`, a 1-based *character* position in the SQL as sent, and `p`/`q` for errors inside internal queries. The macro maps it back in four steps:
   1. character index to byte offset in the rewritten SQL;
-  2. through the `%`-to-`$n` rewrite map to an offset in the source string;
+  2. through the `$n`-to-hole rewrite map to an offset in the source string;
   3. through the literal's escapes, which are trivial for `#string` blocks;
   4. to a file, line and column, reported with `compiler_report`.
 
@@ -413,7 +441,7 @@ The worker backs off on reconnects (1 s doubling to 30 s), so a stopped database
 #### Cache keys and invalidation
 
 ```
-.jacket/queries/<statement-id>.json        (committed)
+db/queries/<statement-id>.json        (committed)
 {
   "sql": "select ... where u.id = $2",          // after % rewriting, exactly what is sent
   "schema_hash": "9f2c…",                         // migrations that produced the description
@@ -436,15 +464,15 @@ The worker backs off on reconnects (1 s doubling to 30 s), so a stopped database
 
 #### Staleness check
 
-`jacket pg check` (CI) runs in five steps:
+`check` (CI) runs in five steps:
 
 1. Migrate a fresh server.
 2. Re-describe every cache entry.
 3. Fail if any entry differs.
-4. Fail if an entry is unused. That needs the list of statement ids actually compiled, which the build writes as `.jacket/queries/used.txt` in check mode.
+4. Fail if an entry is unused. That needs the list of statement ids actually compiled, which the build writes as `db/queries/used.txt` in check mode.
 5. Fail if a compiled query has no entry.
 
-`jacket pg prepare` rewrites the entries. This is `cargo sqlx prepare --check` with dependency-aware invalidation.
+`prepare` rewrites the entries. This is `cargo sqlx prepare --check` with dependency-aware invalidation.
 
 ### Layer 3: schema, migrations and table structs
 
@@ -482,12 +510,12 @@ User :: struct @pg_table("users") {
 
 **C. Hybrid: SQL is the truth, and generated structs are committed.**
 
-- `jacket pg generate` writes `db/schema.jai`, a committed and formatted file. It is generated from the migrated template database, like `diesel print-schema` or `sqlc generate`, and contains:
+- The `generate` command writes `db/schema.jai`, a committed and formatted file. It is generated from the migrated template database, like `diesel print-schema` or `sqlc generate`, and contains:
   - a struct per table and view;
   - an enum per Postgres enum;
   - the notes the ORM needs (`@pg_table`, `@pg_primary_key`, foreign keys).
-- A compile-time check (`#run Pg.check_schema(#file)`) compares the file's hash with the schema hash recorded in it. A stale file is a compile error saying "run `jacket pg generate`". Like the query cache, this check needs no server.
-- Optionally, **struct-first authoring as scaffolding only.** `jacket pg diff` compares hand-edited structs in `db/schema.jai` with the template database and *writes a proposed migration file* for you to review and edit. It never applies anything. This gives B's authoring feel for the easy 80% (add a table or a column) without making the diff engine a source of truth. It is a later phase and can stay simple, because it is only a starting point.
+- A compile-time check (`#run Pg.check_schema(#file)`) compares the file's hash with the schema hash recorded in it. A stale file is a compile error saying "run the pg tool's `generate`". Like the query cache, this check needs no server.
+- Optionally, **struct-first authoring as scaffolding only.** A `diff` command compares hand-edited structs in `db/schema.jai` with the template database and *writes a proposed migration file* for you to review and edit. It never applies anything. This gives B's authoring feel for the easy 80% (add a table or a column) without making the diff engine a source of truth. It is a later phase and can stay simple, because it is only a starting point.
 
 #### The "disconnected" concern
 
@@ -513,7 +541,7 @@ Under B, by contrast, connecting them means adding a check of the structs agains
   2. Create the table `jacket_migrations(version, name, sha256, applied_at, duration_ms)` if it is missing.
   3. Apply each pending migration in its own transaction, using the simple protocol so multi-statement files work.
   4. **Refuse** if an applied migration's checksum changed or a migration is missing from the embedded list. Override with `allow_modified`.
-- **Commands.** `jacket pg migrate`, `new <name>` and `status` wrap the same code.
+- **Commands.** `migrate`, `new <name>` and `status` in the pg tool wrap the same code.
 
 ### Layer 4: the ORM
 
@@ -537,7 +565,7 @@ How it compiles:
 - **Filters as Code.** `select` is a macro with `where: Code` and `order_by: Code`. `compiler_get_nodes` walks the expression:
   - field accesses on `it` become columns;
   - literals stay literals;
-  - any other identifier or expression from the caller (`min_posts`) becomes a `%` parameter, carried in through a backtick and typed by the compiler;
+  - any other identifier or expression from the caller (`min_posts`) becomes a parameter, carried in through a backtick and typed by the compiler;
   - `&&`, `||`, `!`, comparisons, `== null` and arithmetic map to SQL.
 
   The ORM also provides `Pg.like`, `Pg.in(it.id, ids)` (`= any($n)`) and `Pg.lower`. A construct it cannot translate is a compile error pointing at that node. It never silently falls back to runtime filtering. This is Ecto's `^pinned` model with Jai's own syntax.
@@ -552,8 +580,8 @@ How it compiles:
 
     Both strategies come from the loop body. The user never writes `include`.
 - **Mixing in raw SQL:**
-  - `where = #code it.active && Pg.sql("lower(%) = lower(%)", it.email, email)` mixes a raw fragment with ORM conditions, with the same `%` rule.
-  - `Pg.select(db, User, from_sql = "select * from users_visible_to(%)", viewer)` takes a raw `from` source.
+  - `where = #code it.active && Pg.sql("lower(%(it.email)) = lower(%email)")` mixes a raw fragment with ORM conditions, with the same inline holes.
+  - `Pg.select(db, User, from_sql = "select * from users_visible_to(%viewer)")` takes a raw `from` source.
   - Anything bigger is a raw `Pg.query`, which still returns `User` when the columns match (row type identity).
 - **Writes:**
   - `Pg.insert(db, user)` and `Pg.insert_many(db, users)` use `insert ... returning *`, or COPY above a threshold.
@@ -591,11 +619,11 @@ The intended layout, so this section also guides the first implementation:
   - pending results treated as unknown;
   - string-literal sub-span locations;
   - real `getenv` in trusted sandboxes.
-- `jacket pg ...` subcommands, which are thin: each one compiles and runs a Jai tool program from `Extensions/Postgres/tools/`, so all the logic lives in Jai and runs the same in `#run`.
+- **The pg tool is userspace.** `Extensions/Postgres/Tool` provides `run_tool(args)`, with `prepare`, `check`, `generate`, `diff`, `migrate`, `new` and `status`. A project adds a three-line `pg_tool.jai` that loads its `db/postgres.jai` (below) and calls it, and runs it with `jaic -interp pg_tool.jai -- prepare`. Nothing in the jacket CLI knows about Postgres. A general `[commands]` table in `jacket.toml` (`pg = "jaic -interp pg_tool.jai --"`, giving `jacket pg prepare`) would be a separate, Postgres-agnostic jacket feature.
 - Adding a type: one row in `codecs.jai`, with the binary and text codecs and the Jai type, plus round-trip cases in the conformance suite. If it has no stable binary form, register it text-only.
 - Adding an ORM operator: one case in the `Code` to SQL walker in `orm.jai`, plus a test that compiles a query with it and compares the generated SQL text.
 - Gotchas:
-  - Changing the `%` rewrite, the override syntax or the description format changes every statement id and invalidates every committed cache. Bump a format version in the key.
+  - Changing the hole syntax, the `%`-to-`$n` rewrite, the override syntax or the description format changes every statement id and invalidates every committed cache. Bump a format version in the key.
   - Everything the compile-time path does must also work under `SandboxHost` when it reads from the cache. That means no network or process calls on the cache-hit path.
 
 ## Testing against real behaviour
@@ -618,7 +646,7 @@ No reusable cross-language protocol conformance suite exists. Drivers test again
 
 **Pick:** real servers plus libpq differential as the conformance suite, recorded traces and fuzzing as the fast and robustness layers. A new `pg_conformance.py` harness, next to `http_conformance.py` in tools/stdlib, runs them from a path-filtered workflow, `pg-conformance.yml` on the same model as `http-conformance.yml`.
 
-- **Linux (every relevant push):** GitHub `services:` containers, one job per major (`postgres:14` … `postgres:18`, plus the newest beta as allowed-to-fail). The job writes `pg_hba.conf` and `postgresql.conf` and restarts the server, to enable md5 and scram users, TLS with the Tls test CA from `stdlib/Extensions/Tls/tests/data`, client-certificate auth and `sslnegotiation=direct`. `psql` from the same image is the libpq oracle.
+- **Linux (every relevant push):** GitHub `services:` containers, one job per major (`postgres:15` … `postgres:18`, plus the newest beta as allowed-to-fail). The job writes `pg_hba.conf` and `postgresql.conf` and restarts the server, to enable md5 and scram users, TLS with the Tls test CA from `stdlib/Extensions/Tls/tests/data`, client-certificate auth and `sslnegotiation=direct`. `psql` from the same image is the libpq oracle.
 - **macOS and Windows (manual dispatch and nightly):** no service containers. `ikalnytskyi/action-setup-postgres` (Linux, macOS, Windows; 15-18) installs a server, as pgx's Windows job does. Once managed mode exists, also run it from the downloaded binaries (`theseus-rs/postgresql-binaries`: x64 and arm64 for Linux, macOS and Windows, with Windows arm64 from PostgreSQL 16), so that path is tested too. Unix sockets are covered on macOS/Linux; Windows uses TCP.
 - **Every push, all OSes:** trace replay, codec unit tests and SCRAM vectors, inside the normal stdlib runtime tests (natively and under `-interp`, since the client must also work at compile time).
 
@@ -626,14 +654,14 @@ No reusable cross-language protocol conformance suite exists. Drivers test again
 
 | Setting | Where | Meaning |
 | --- | --- | --- |
-| `JACKET_DATABASE_URL`, then `DATABASE_URL` | environment | compile-time server for describing queries (`postgres://user:pass@host:port/db?sslmode=…`); also the default for `jacket pg` |
+| `JACKET_DATABASE_URL`, then `DATABASE_URL` (also read from `.env`) | environment | compile-time server for describing queries (`postgres://user:pass@host:port/db?sslmode=…`); also the pg tool's default. Needs `CREATEDB` for template databases |
 | `JACKET_PG_OFFLINE=1` | environment | never connect at compile time; cache misses are errors (CI) |
 | service timeouts | Compiler module constants | editor wait before `.PENDING` (50 ms), build request timeout (30 s), worker idle exit (10 min), reconnect backoff (1-30 s) |
-| `[postgres]` in `jacket.toml` | `migrations = "db/migrations"`, `schema = "db/schema.jai"`, `cache = ".jacket/queries"`, `server_version = 17`, `managed = false` | paths and modes for `jacket pg` and the compile-time path |
+| module parameters | `Pg :: #import "Extensions/Postgres"(MIGRATIONS = "db/migrations", SCHEMA = "db/schema.jai", QUERY_CACHE = "db/queries", MIN_SERVER_VERSION = 15);` | paths and modes for the compile-time path and the pg tool |
 | connection options | `Pg.Config` / URL | `sslmode` (`disable`, `prefer`, `require`, `verify-ca`, `verify-full`), `sslnegotiation`, `channel_binding`, `application_name`, `connect_timeout`, `statement_timeout`, `statement_cache` (size or `.OFF`), `verify_statements` |
 | pool options | `Pg.Pool_Config` | `max_size`, `min_idle`, `idle_timeout`, `max_lifetime`, `health_check_after` |
 
-The `jacket.toml` section needs a schema entry in `crates/jacket-config`. Compile-time code also reads it (the `[project]` import paths already set a precedent).
+Put that import in one file (`db/postgres.jai`) that both the program and `pg_tool.jai` load, so the two always agree. There is no `jacket.toml` section.
 
 ## Dependencies
 
@@ -697,22 +725,25 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
    4. The `pg-conformance` workflow.
 
    Then pipelining, COPY, LISTEN/NOTIFY and protocol 3.2.
-3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, the describe service (template databases, nullability, overrides), the offline cache, `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
-4. **Migrations and schema:** the runner, embedded migrations, the template-database cache, `jacket pg generate`, the `db/schema.jai` staleness check, row type identity.
+3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, the describe service (template databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
+4. **Migrations and schema:** the runner, embedded migrations, the template-database cache, `generate`, the `db/schema.jai` staleness check, row type identity.
 5. **ORM:** `select` with `Code` filters, column pruning, to-one joins, to-many batched loading, insert/update/delete.
-6. **Zero setup:** managed per-platform Postgres for compile-time typing; `jacket pg diff` migration proposals.
+6. **Zero setup:** managed per-platform Postgres for compile-time typing; `diff` migration proposals.
+
+## Decisions
+
+1. **Source of truth:** SQL migrations, with Jai structs generated from the migrated schema and committed.
+2. **Compile-time server:** `DATABASE_URL` plus the offline cache first; managed binaries later; PGlite set aside.
+3. **Parameters:** inline `%name`/`%(expr)` holes, through an `@Interpolates("sql")` note that the compiler desugars and the language server understands ([Inline parameters](#inline-parameters)).
+4. **Nulls:** `Nullable(T)`.
+5. **Rows:** zero copy, valid for one iteration; `fetch_all` copies.
+6. **Dynamic queries:** static SQL plus `if_some` optional filters, otherwise raw SQL; no runtime builder in v1.
+7. **Oldest server:** PostgreSQL 15.
+8. **Tooling:** all userspace (`Extensions/Postgres/Tool`, run with `jaic -interp`); nothing Postgres-specific in jacket. Generic `[commands]` in `jacket.toml` is a possible separate jacket feature.
+9. **Placement:** `stdlib/Extensions/Postgres`.
+10. **Template databases** on the `DATABASE_URL` server; requiring `CREATEDB` is fine.
 
 ## Open questions
 
-1. ~~Source of truth~~ Decided: SQL migrations, with Jai structs generated and committed.
-2. **Compile-time server.** Start with `DATABASE_URL` plus the offline cache and add managed binaries later? Or is zero setup from day one a requirement? And is setting PGlite aside acceptable, given that it needs Wasmtime (or our own wasm runtime) in jaic and its WASI builds are young?
-3. **Parameter syntax.** Positional `%` with trailing arguments (like `print`, recommended)? Or inline `%name`/`%(expr)` that captures caller variables, which reads better in long queries but hides arguments inside the string?
-4. **Null representation.** `Nullable(T)` struct (recommended), `*T`, or something else?
-5. **Row memory.** Zero-copy rows valid per iteration, with `fetch_all` copying (recommended)? Or always copy, which is simpler and slower?
-6. **Dynamic queries.** Is "static SQL plus `if_some` optional filters, else raw SQL" enough for v1, or is a runtime builder (typed columns, runtime-assembled SQL, no cache) needed early?
-7. **Oldest server.** 14 (the oldest pgx tests, and in support until November 2026) or 15+? A newer minimum simplifies nothing in the protocol, but it shrinks the CI matrix.
-8. **Tooling home.** `jacket pg ...` subcommands that run Jai tool programs (recommended), or a standalone Jai program the user builds?
-9. **Placement.** `Extensions/Postgres` in this repo, or a separate repo like the other "later" extensions?
-10. **Compile-time services.** Is a long-lived `jaic -interp` worker, started by `jailsp` in trusted workspaces, acceptable? It needs `jaic` installed next to `jailsp`, which is how releases ship it. Or do you want networking inside the sandbox itself (option A), despite the per-OS readiness emulation and fibers-through-inline-threads work?
-11. **Template databases on the dev server.** The describe service creates `jacket_<hash>` databases on the `DATABASE_URL` server, which needs `CREATEDB`. Is that fine, or should it take a separate scratch server URL (`JACKET_SHADOW_DATABASE_URL`, like Prisma's shadow database) and never touch the dev server?
-12. **Live migration edits.** Build templates from unsaved migration buffers (instant feedback, more churn on the server), or only from saved files?
+1. **Compile-time services** (worker started by `jailsp`, option C in [Editor feedback](#editor-feedback-phase-0)) versus networking inside the sandbox: being decided with the maintainer.
+2. **Live migration edits:** build templates from unsaved migration buffers, or only from saved files? Decide after benchmarking template builds on a realistic migration set.
