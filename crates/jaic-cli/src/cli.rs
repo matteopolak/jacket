@@ -9,9 +9,11 @@ use std::path::{Path, PathBuf};
 /// Where `tools/native/build_native_libs.py` (or a release package) puts third-party libraries for this
 /// host, or the `JAIC_NATIVE_LIBS` path list.
 pub(super) fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
-    let mut dirs = configured_native_lib_dirs(stdlib);
-    // The crash runtime is built into jaic itself (docs/native/crash-runtime-build.md).
-    dirs.extend(crash_runtime::dir());
+    // The crash runtime is built into jaic itself (docs/native/crash-runtime-build.md). It comes
+    // first so an older copy left in a configured folder never shadows the one this stdlib needs;
+    // the folder holds only those runtimes, so no other library is affected.
+    let mut dirs: Vec<PathBuf> = crash_runtime::dir().into_iter().collect();
+    dirs.extend(configured_native_lib_dirs(stdlib));
     dirs.extend(apple_toolchain_lib_dir());
     dirs
 }

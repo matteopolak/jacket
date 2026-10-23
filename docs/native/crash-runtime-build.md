@@ -17,8 +17,9 @@ source tree. Windows has its own DLL path ([Windows](windows.md)) and embeds not
 - It generates `crash_runtime.rs` (the files via `include_bytes!` and a content digest).
   `crates/jaic-cli/src/crash_runtime.rs` unpacks them on first use to
   `<cache>/crash-runtime/<digest>/` (`JAIC_CACHE_DIR`, else `$XDG_CACHE_HOME/jaic`, else
-  `~/Library/Caches/jaic` or `~/.cache/jaic`, else the temp directory) and appends that directory to the
-  native library directories. Files are written then renamed, so concurrent runs are safe.
+  `~/Library/Caches/jaic` or `~/.cache/jaic`, else the temp directory) and puts that directory first
+  among the native library directories, so a stale `libportable_crash` left in a `JAIC_NATIVE_LIBS`
+  folder never shadows the one matching this stdlib. Files are written then renamed, so concurrent runs are safe.
 - A relative `#library "dir/name"` is looked for beside the source first; if absent, the interpreter
   (`interp/native.rs`) and the Unix linker (`jaic-llvm` `library_args`) fall back to the library
   directories by file name. Static `.a` wins when linking, so executables carry the runtime and
