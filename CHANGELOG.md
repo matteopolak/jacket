@@ -42,6 +42,7 @@
 
 ### Fixed
 
+- An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.
 - `GetRect` and `GetRect_LeftHanded` take `Type_Indicator` as a program parameter, `#import "GetRect"()(Type_Indicator = T)`, shared by every import in the program.
 - The `macOS` module declares `OSStatus` and `OSType`.
 - Debug builds check integer casts that change sign, such as `cast(u64)` of a negative number, not only narrowing ones.

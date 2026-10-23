@@ -19,9 +19,7 @@ render_enum :: (builder: *String_Builder, item: Any, info: *Type_Info_Enum, styl
             return;
         }
 
-        append(builder, "(");
-        append(builder, info.name);
-        append(builder, " out of range: ");
+        append(builder, "(enum out of range: ");
         format := style.default_format_int;
         format.value = Any.{ info.internal_type, item.value_pointer };
         print_integer(builder, format);
