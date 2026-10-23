@@ -11,10 +11,11 @@
 //! rounded or cut off where the literal stops: π (`PI`, `PI64`), 2π (`TAU`, `TAU64`), π/2
 //! (`PI / 2`), π/4 (`PI / 4`), √2 (`SQRT2`) and √½ (`SQRTH`). Constant declarations are left
 //! alone: they are where such names come from.
-use super::finding;
-use crate::Finding;
+use super::suggesting;
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{DeclKind, ExprKind as E, StmtKind as S};
+use jaic::types::TypeKind;
 use std::f64::consts;
 
 /// The values, and how to write them with `Math` as `float32` and as `float64`.
@@ -43,10 +44,36 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         } else {
                             format!("write `{name}` from `Math` (`{wide}` for `float64`)")
                         };
-                        out.push(finding(
+                        let types = &cx.compiler.ty.types;
+                        let wide_type = cx.ty(e).is_some_and(|t| {
+                            matches!(
+                                types.kind(t),
+                                TypeKind::Float {
+                                    bits: 64
+                                }
+                            )
+                        });
+                        let written = if wide_type {
+                            wide
+                        } else {
+                            name
+                        };
+                        // A quotient is parenthesized so the neighbouring operators keep their grouping.
+                        let replacement = if written.contains('/') {
+                            format!("({written})")
+                        } else {
+                            written.to_string()
+                        };
+                        out.push(suggesting(
                             e.span,
                             format!("`{text}` is an approximation of `{name}`"),
-                            Some(help),
+                            help,
+                            format!("write `{written}` from `Math`"),
+                            vec![Edit {
+                                start: e.span.start as usize,
+                                end: e.span.end as usize,
+                                text: replacement,
+                            }],
                         ));
                     }
                 }

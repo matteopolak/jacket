@@ -4,7 +4,10 @@ warning[approx_constant]: `3.14159` is an approximation of `PI`
  4 |     return 3.14159 * r * r;
    |            ^^^^^^^
    |
-   = help: write `PI` from `Math` (`PI64` for `float64`)
+help: write `PI` from `Math` (`PI64` for `float64`)
+   |
+ 4 ~     return PI * r * r;
+   |
    = note: `approx_constant` is `warn` by default
 
 warning[approx_constant]: `6.2832` is an approximation of `TAU`
@@ -13,7 +16,10 @@ warning[approx_constant]: `6.2832` is an approximation of `TAU`
  8 |     return angle / 6.2832;
    |                    ^^^^^^
    |
-   = help: write `TAU` from `Math` (`TAU64` for `float64`)
+help: write `TAU` from `Math` (`TAU64` for `float64`)
+   |
+ 8 ~     return angle / TAU;
+   |
    = note: `approx_constant` is `warn` by default
 
 warning[approx_constant]: `1.4142` is an approximation of `SQRT2`
@@ -22,7 +28,10 @@ warning[approx_constant]: `1.4142` is an approximation of `SQRT2`
 14 |     diagonal := 1.4142;
    |                 ^^^^^^
    |
-   = help: write `SQRT2` from `Math`
+help: write `SQRT2` from `Math`
+   |
+14 ~     diagonal := SQRT2;
+   |
    = note: `approx_constant` is `warn` by default
 
 warning[approx_constant]: `0.7854` is an approximation of `PI / 4`
@@ -31,6 +40,9 @@ warning[approx_constant]: `0.7854` is an approximation of `PI / 4`
 15 |     quarter := 0.7854;
    |                ^^^^^^
    |
-   = help: write `PI / 4` from `Math` (`PI64 / 4` for `float64`)
+help: write `PI / 4` from `Math` (`PI64 / 4` for `float64`)
+   |
+15 ~     quarter := (PI / 4);
+   |
    = note: `approx_constant` is `warn` by default
 
