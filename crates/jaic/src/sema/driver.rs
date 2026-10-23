@@ -278,6 +278,15 @@ impl Compiler {
         Ok(true)
     }
 
+    /// Whether the top-level program turned its output off (`do_output = false`).
+    fn writes_no_program(&self) -> bool {
+        let Some(workspaces) = &self.ct.interp.workspaces else {
+            return false;
+        };
+        let settings = workspaces.borrow().top_level_settings();
+        !settings.do_output || settings.output_type == crate::builtin_keys::OutputType::NoOutput
+    }
+
     /// Overload sets of the program's own files are checked even when nothing calls them.
     fn check_declared_overloads(&mut self) -> Result<()> {
         let Some(m) = self.ns.main_module else {
@@ -304,7 +313,15 @@ impl Compiler {
         // No more code is coming: items still waiting for a `#placeholder` fail now.
         self.epochs.placeholders_final = true;
         self.settle()?;
-        let lowered = self.lower_reachable_inner(false)?;
+        let lowered = match self.lower_reachable_inner(false) {
+            Ok(lowered) => lowered,
+            // A program its own metaprogram never writes can reach code that waits on a
+            // `#placeholder` only the metaprogram's unrun branch would define.
+            Err(error) if self.writes_no_program() && error.message.contains("#placeholder") => {
+                false
+            }
+            Err(error) => return Err(error),
+        };
         self.check_declared_structs()?;
         self.check_declared_overloads()?;
         if lowered {
