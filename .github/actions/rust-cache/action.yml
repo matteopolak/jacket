@@ -2,6 +2,10 @@ name: Cache the Rust dependencies
 description: >-
   Restores cargo's registry and the dependencies' build output (Swatinem/rust-cache), saved from
   main, without touching the rest of target/.
+inputs:
+  workspaces:
+    description: rust-cache `workspaces` (a cargo workspace outside the repository root, e.g. `fuzz`)
+    default: '.'
 runs:
   using: composite
   steps:
@@ -23,6 +27,7 @@ runs:
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
+        workspaces: ${{ inputs.workspaces }}
     - shell: bash
       run: |
         shopt -s nullglob dotglob

@@ -87,6 +87,9 @@ jobs:
           persist-credentials: false
       - name: Install the pinned toolchain
         run: bash tools/ci/install_rust_toolchain.sh
+      - uses: ./.github/actions/rust-cache
+        with:
+          workspaces: fuzz
       - uses: ./.github/actions/dependency-age-cache
       - name: Validate fuzz dependency ages
         run: python3 tools/ci/check_dependency_age.py --lockfile fuzz/Cargo.lock
