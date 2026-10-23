@@ -3,7 +3,9 @@ name: fuzzing
 # replayed on every push and pull request by the `fuzz-regressions` job of ci.yml.
 on:
   schedule:
-    - cron: '23 3 * * *'
+    - cron: '23 3 * * 1-6'
+    # Sundays also minimize each corpus (`cmin` replays it and takes 6 to 10 minutes per target).
+    - cron: '23 3 * * 0'
   workflow_dispatch:
     inputs:
       seconds:
@@ -59,7 +61,7 @@ jobs:
         timeout-minutes: 25
         run: fuzz/run.sh ${{ matrix.target }} "$SECONDS_PER_TARGET" "$(nproc)"
       - name: Minimize the corpus
-        if: always()
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event.schedule == '23 3 * * 0') }}
         # cargo fuzz cmin replaces the corpus only once it has finished, so a cut-off keeps it.
         timeout-minutes: 10
         continue-on-error: true
