@@ -302,6 +302,89 @@ connect :: (address: Address) -> Tcp_Stream, Io_Error {
     return stream, .NONE;
 }
 
+// Unix-domain sockets. The streams and listeners are the same types as TCP's, so everything
+// else (`read`, `write`, `close`, `reader_of`, deadlines) works on them unchanged. A path is
+// a file system path of at most `UNIX_PATH_MAX - 1` bytes (103 on macOS, 107 elsewhere) with no
+// zero byte; a longer one is `.INVALID`. Not available on Windows (`.UNSUPPORTED`).
+
+// Listens on the socket file `path`. The file must not exist yet; with `replace` an existing
+// file at `path` is removed first (whatever it is, so use it only for a path you own). The
+// socket file stays after `close`: remove it when the server is done.
+unix_listen :: (path: string, backlog := 128, replace := false) -> Tcp_Listener, Io_Error {
+    current_fiber();
+
+    #if OS == .WINDOWS {
+        return .{}, .UNSUPPORTED;
+    } else {
+        storage: Sock_Storage;
+
+        length := unix_sockaddr(path, *storage);
+
+        if length == 0 return .{}, .INVALID;
+
+        fd := sys_socket(AF_UNIX, sockets_nonblocking());
+        if fd < 0 return .{}, error_from_result(fd);
+
+        handle := Handle.{ fd, .SOCKET };
+
+        if replace c_unlink(temp_c_string(path));
+
+        result := sys_bind(fd, *storage, length);
+        if result >= 0 result = sys_listen(fd, cast(s32) backlog);
+
+        if result < 0 {
+            error := error_from_result(result);
+            discard_handle(handle);
+
+            return .{}, error;
+        }
+
+        listener: Tcp_Listener;
+        listener.handle = handle;
+
+        return listener, .NONE;
+    }
+}
+
+// Connects to the Unix-domain socket at `path`.
+connect_unix :: (path: string) -> Tcp_Stream, Io_Error {
+    current_fiber();
+
+    #if OS == .WINDOWS {
+        return .{}, .UNSUPPORTED;
+    } else {
+        stream: Tcp_Stream;
+        storage: Sock_Storage;
+
+        length := unix_sockaddr(path, *storage);
+
+        if length == 0 return stream, .INVALID;
+
+        fd := sys_socket(AF_UNIX, sockets_nonblocking());
+        if fd < 0 return stream, error_from_result(fd);
+
+        handle := Handle.{ fd, .SOCKET };
+
+        op := begin_op(.CONNECT, handle);
+        op.address = storage;
+        op.address_length = length;
+
+        error := await_op(op);
+
+        end_op(op);
+
+        if error != .NONE {
+            discard_handle(handle);
+
+            return stream, error;
+        }
+
+        stream.handle = handle;
+
+        return stream, .NONE;
+    }
+}
+
 // Connects to `"host:port"`, `"1.2.3.4:80"` or `"[::1]:80"`, looking `host` up if it is a name.
 connect :: (target: string) -> Tcp_Stream, Io_Error {
     split := -1;
@@ -460,6 +543,33 @@ resolve :: (host: string, port: u16) -> Address, Io_Error {
 }
 
 #scope_module
+
+#if OS == .MACOS UNIX_PATH_MAX :: 104;
+else UNIX_PATH_MAX :: 108;
+
+// Writes a `sockaddr_un` for `path` into `storage` and returns its length, 0 if the path is
+// empty, has a zero byte, or does not fit with its terminator.
+unix_sockaddr :: (path: string, storage: *Sock_Storage) -> u32 {
+    if path.count == 0 || path.count >= UNIX_PATH_MAX return 0;
+
+    for path if it == 0 return 0;
+
+    storage.* = .{};
+    bytes := cast(*u8) storage;
+
+    length := cast(u32) (2 + path.count + 1);
+
+    #if OS == .MACOS {
+        bytes[0] = cast(u8) length;
+        bytes[1] = AF_UNIX;
+    } else {
+        bytes[0] = AF_UNIX;
+    }
+
+    for path bytes[2 + it_index] = it;
+
+    return length;
+}
 
 SOCKADDR_IN_SIZE :: 16;
 SOCKADDR_IN6_SIZE :: 28;

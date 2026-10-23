@@ -2213,6 +2213,91 @@ run_wait_readable :: () {
 
 last_backend: string;
 
+// Unix-domain sockets
+
+#if OS != .WINDOWS {
+    test_libc :: #system_library "libc";
+    unlink_test_socket :: (path: *u8) -> s32 #foreign test_libc "unlink";
+    getpid_test :: () -> s32 #foreign test_libc "getpid";
+}
+
+test_unix_sockets :: () {
+    #if OS == .WINDOWS {
+        client, error := Io.connect_unix("x");
+        assert(error == .UNSUPPORTED);
+    } else {
+        path := tprint("/tmp/jai-io-%-%.sock", getpid_test(), Io.backend_name());
+
+        listener, error := Io.unix_listen(path, replace = true);
+
+        assert(error == .NONE, "unix_listen: %", error);
+
+        client: Io.Tcp_Stream;
+        client, error = Io.connect_unix(path);
+        assert(error == .NONE, "connect_unix: %", error);
+
+        server: Io.Tcp_Stream;
+        server, error = Io.accept(listener);
+        assert(error == .NONE, "accept: %", error);
+
+        Io.write(client, "ping");
+        buffer: [16] u8;
+        count, read_error := Io.read(server, buffer);
+
+        assert(read_error == .NONE && count == 4 && buffer[0] == #char "p", "server read % %", count, read_error);
+
+        Io.write(server, "pong!");
+        count, read_error = Io.read(client, buffer);
+        assert(read_error == .NONE && count == 5 && buffer[4] == #char "!", "client read % %", count, read_error);
+
+        // A deadline on a quiet connection.
+        started := now_ms();
+
+        Io.with_deadline(60, #code {
+            count, read_error = Io.read(client, buffer);
+        });
+        assert(read_error == .TIMED_OUT && count == 0, "deadline read % %", count, read_error);
+        assert(now_ms() - started < 1500);
+
+        // Closing one end is the end of stream for the other.
+        Io.close(server);
+        count, read_error = Io.read(client, buffer);
+        assert(read_error == .NONE && count == 0, "end of stream % %", count, read_error);
+
+        Io.close(client);
+        Io.close(listener);
+
+        // No listener any more: the file is still there but refuses.
+        refused, refused_error := Io.connect_unix(path);
+
+        assert(refused_error == .CONNECTION_REFUSED, "stale socket: %", refused_error);
+
+        // Without `replace` an existing file blocks the bind.
+        stale, stale_error := Io.unix_listen(path);
+
+        assert(stale_error == .ADDRESS_IN_USE, "listen over a file: %", stale_error);
+
+        unlink_test_socket(temp_c_string(path));
+
+        missing, missing_error := Io.connect_unix(path);
+
+        assert(missing_error == .NOT_FOUND, "missing socket: %", missing_error);
+
+        // Paths that cannot be a socket address fail instead of being cut short.
+        long: [200] u8;
+        for 0..long.count - 1 long[it] = #char "a";
+
+        too_long, long_error := Io.connect_unix(string.{ 200, long.data });
+
+        assert(long_error == .INVALID, "long path: %", long_error);
+        too_long, long_error = Io.connect_unix(string.{ 104, long.data });
+        assert(long_error == .INVALID, "104-byte path: %", long_error);
+        empty, empty_error := Io.unix_listen("");
+
+        assert(empty_error == .INVALID, "empty path: %", empty_error);
+    }
+}
+
 run_tcp :: () {
     last_backend = Io.backend_name();
 
@@ -2230,6 +2315,7 @@ run_tcp :: () {
     test_accept_two_acceptors();
     test_close_with_queued_connections();
     test_close_now_releases_the_port();
+    test_unix_sockets();
     test_resolve();
     test_resolve_coalesces();
     test_resolver_helpers_bounded();
