@@ -12,10 +12,6 @@ pub enum Hook {
     /// `write_strings(strings: ..string, to_standard_error: bool)`
     WriteStrings,
     DebugBreak,
-    /// `() -> s64`: nanoseconds on the compiler host's monotonic clock. Compile-time code runs on
-    /// the host whatever target is selected, so the clock identifiers of the target's C library
-    /// (`clock_gettime`'s differ between Linux and macOS) cannot be passed to the host's.
-    HostMonotonicNanos,
     /// A runtime-opted-in assertion callback: a failed
     /// `assert`, reported by the compiler as a runtime error (`Trap::assertion`) rather than
     /// printed by the runtime. `context` says whether it takes a context pointer.
@@ -45,7 +41,6 @@ impl Hook {
             "write_string" => Some(Self::WriteString),
             "write_strings" => Some(Self::WriteStrings),
             "compile_time_debug_break" => Some(Self::DebugBreak),
-            "compile_time_host_monotonic_nanoseconds" => Some(Self::HostMonotonicNanos),
             "__jaic_syntax_int" => Some(Self::Meta(crate::build::MetaOp::SyntaxInt, takes_context)),
             "__jaic_syntax_string" => Some(Self::Meta(
                 crate::build::MetaOp::SyntaxString,

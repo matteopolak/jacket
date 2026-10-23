@@ -526,15 +526,6 @@ impl Interp {
                 }
             }
             Hook::DebugBreak => return self.trap("debug_break() was called"),
-            Hook::HostMonotonicNanos => {
-                static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-                // Start above zero so a reading is never mistaken for an unset value.
-                let nanos = ORIGIN
-                    .get_or_init(std::time::Instant::now)
-                    .elapsed()
-                    .as_nanos();
-                return Ok(Rets::one((nanos as u64).saturating_add(1_000_000_000)));
-            }
             Hook::AssertionFailed {
                 context,
                 location,

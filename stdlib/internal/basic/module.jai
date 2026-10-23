@@ -38,7 +38,6 @@
 #load "apollo.jai";
 #load "time-errors.jai";
 #load "clock-calendar.jai";
-#load "host-clock.jai";
 #load "calendar-text.jai";
 #load "filetime.jai";
 #load "windows-clock.jai";
