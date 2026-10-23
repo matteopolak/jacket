@@ -23,6 +23,16 @@ Summaries come from the editor's own compile when it matches the open texts (`Ca
 
 Compiler selection hooks and portable keys live in `jaic::ide::polymorphs`; aggregate before per-site facts discard repeated selections. Keep nominal identity separate from display text. Server aggregation and dependency snapshots live in `jai-language-server::polymorphs` (`Session::polymorph_need` decides what a request compiles). Do not increase the full-compiler cache to retain counts, and do not compile programs that cannot contribute to the requested file on the request path. Regression coverage (`tests/polymorph_instances.rs`) includes more programs than that cache holds, and counts compiles to check that an edit recompiles only the programs that read it.
 
+## Inference failure notes
+
+When a call cannot infer `$T`, `sema/calls/poly_hints.rs` adds located notes to the error (`could not infer`, `conflicting types`, or a pattern mismatch such as `expected an array`). The message text is unchanged.
+
+- Unbound: a note at the `$T` that declares it, a note at each argument passed for that parameter that gave nothing, and help `T = s64` unless `$T` is only an array count or a parameter has that name. The `name = type` spelling was compiled against `..$T`, `[$N] $T` and `[] $T` parameters.
+- Conflict: `infer_pattern_param` records the first argument that bound each variable (`Inference::binders`); the error gets a note at both arguments with their types, and help to `cast` one. An explicit `T = ...` does not convert a conflicting argument, so it is not suggested there.
+- Pattern mismatch: a note at the argument with its type and the pattern as written.
+
+No edits are offered; the right type is the author's choice.
+
 ## Configuration
 
 Workspace folders and saved `[project] entry` / `import_path` determine the programs searched. The current program targets, workspace trust and existing compile-time execution budget apply. No filesystem-wide search or speculative execution of other target branches is added.

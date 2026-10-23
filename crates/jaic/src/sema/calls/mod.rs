@@ -37,6 +37,7 @@ mod lenient;
 mod macro_expand;
 mod matching;
 mod operators;
+mod poly_hints;
 mod precheck;
 mod slots;
 

@@ -3,6 +3,7 @@
 
 use crate::types::Types;
 
+use super::poly_hints::{Binders, CONFLICT};
 use super::{
     ArrayKind, CallArg, Compiler, Diagnostic, DiagnosticKind, E, Operand, ProcId, Result, ScopeId,
     Slot, Span, Sym, TypeId, TypeKind, Value, ast, err, header_poly_names, is_deferred,
@@ -21,6 +22,8 @@ struct Inference<'a> {
     deferred_procs: Vec<(ast::Expr, Vec<ProcId>, Span)>,
     null_patterns: Vec<ast::Expr>,
     deferred_defaults: Vec<(Sym, &'a ast::Param, &'a ast::Expr)>,
+    /// The first argument to bind each variable, for the notes of a failure.
+    binders: Binders,
 }
 
 impl Compiler {
@@ -44,6 +47,7 @@ impl Compiler {
             deferred_procs: Vec::new(),
             null_patterns: Vec::new(),
             deferred_defaults: Vec::new(),
+            binders: Vec::new(),
         };
         self.bind_explicit_poly_args(&mut st)?;
         for (i, param) in header.params.iter().enumerate() {
@@ -433,7 +437,21 @@ impl Compiler {
                     continue;
                 }
             }
-            self.match_pattern_value(pattern, ty, &mut st.bindings, def_scope, represented)?;
+            let before = st.bindings.len();
+            if let Err(error) =
+                self.match_pattern_value(pattern, ty, &mut st.bindings, def_scope, represented)
+            {
+                return Err(Box::new(self.with_pattern_notes(
+                    *error,
+                    pattern,
+                    arg,
+                    ty,
+                    &st.binders,
+                )));
+            }
+            for (name, _, _) in &st.bindings[before..] {
+                st.binders.push((*name, arg.span, ty));
+            }
             if implicit && !param.variadic {
                 self.bind_own_instance(st, param, pattern, ty)?;
             }
@@ -721,10 +739,13 @@ impl Compiler {
                 if let Some(t) = &param.ty {
                     for name in poly_names(t) {
                         if !st.bindings.iter().any(|(n, _, _)| *n == name) {
-                            return err(
+                            let d = Diagnostic::error(
                                 span,
                                 format!("could not infer polymorphic type `${name}`"),
                             );
+                            return Err(Box::new(
+                                self.with_unbound_notes(d, header, st.slots, st.args, name),
+                            ));
                         }
                     }
                 }
@@ -1126,7 +1147,7 @@ fn bind_pattern(
             return err(
                 span,
                 format!(
-                    "conflicting types for `${name}`: {} and {}",
+                    "{CONFLICT}{name}`: {} and {}",
                     existing.render(types),
                     value.render(types)
                 ),
