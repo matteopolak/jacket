@@ -12,7 +12,7 @@ use crate::ide::Narrowing;
 use crate::intern::Sym;
 use crate::sema::Compiler;
 use crate::sema::lower::FnCtx;
-use crate::source::{Diagnostic, Span};
+use crate::source::{Applicability, Diagnostic, Span, Suggestion};
 
 /// How the walk got to where it is.
 #[derive(Default)]
@@ -142,14 +142,27 @@ impl Compiler {
                 _ => None,
             };
             if warn && let Some(word) = word {
-                self.warn(
-                    Diagnostic::warning(
-                        next.span,
-                        format!("statements in block after `{word}` are never reached"),
-                    )
-                    .with_label("this statement can not run")
-                    .with_help(format!("remove it, or the `{word}` before it")),
-                );
+                let mut warning = Diagnostic::warning(
+                    next.span,
+                    format!("statements in block after `{word}` are never reached"),
+                )
+                .with_label("this statement can not run")
+                .with_help(format!("remove it, or the `{word}` before it"));
+                if let Some(last) = stmts.last() {
+                    // The span of a statement leaves out its `;`.
+                    let mut dead = next.span.to(last.span);
+                    let after = Span::new(dead.file, dead.end as usize, dead.end as usize + 1);
+                    if self.src.sources.snippet(after) == ";" {
+                        dead = dead.to(after);
+                    }
+                    warning = warning.with_suggestion(Suggestion::replace(
+                        "remove the statements that can not run",
+                        dead,
+                        "",
+                        Applicability::MaybeIncorrect,
+                    ));
+                }
+                self.warn(warning);
             }
             if let Some(last) = stmts.last() {
                 walk.dead.push(next.span.to(last.span));

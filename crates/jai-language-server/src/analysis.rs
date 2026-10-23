@@ -285,6 +285,7 @@ impl Analysis {
                 severity,
                 code,
                 message: message[..end].into(),
+                related: Vec::new(),
             });
         }
     }

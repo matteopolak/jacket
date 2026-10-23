@@ -9,7 +9,9 @@ use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
 use crate::sema::SourceState;
 use crate::sema::TypeState;
-use crate::source::{Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span};
+use crate::source::{
+    Applicability, Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span, Suggestion,
+};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
@@ -158,29 +160,45 @@ impl Compiler {
             )));
         }
         if let Some(found) = crate::suggest::closest(wanted, names.iter().copied()) {
-            d = d.with_fix(format!("a similar name exists: `{found}`"), span, found);
+            d = d.with_replacement(format!("a similar name exists: `{found}`"), span, found);
         }
         let imports = self.imports_declaring(wanted);
-        if let Some((first, rest)) = imports.split_first() {
-            let module = &first.module;
-            d = d.with_help(match &first.name {
+        for (i, import) in imports.iter().enumerate() {
+            let module = &import.module;
+            let title = match &import.name {
                 Some(name) => format!(
                     "`{name}` is the name of a module: import it under that name with `{}`",
-                    first.statement()
+                    import.statement()
                 ),
                 None => format!(
                     "`{wanted}` is declared in the `{module}` module: add `{}` to this file",
-                    first.statement()
+                    import.statement()
                 ),
+            };
+            // The first is the help line; the others are named together in one line below.
+            let suggestion = Suggestion::import(title, import.clone())
+                .with_action(format!("Add `{}`", import.statement()));
+            // The only module that declares the name is the one to import.
+            let suggestion = if imports.len() == 1 {
+                suggestion.with_applicability(Applicability::MachineApplicable)
+            } else {
+                suggestion
+            };
+            d = d.with_suggestion(if i == 0 {
+                suggestion
+            } else {
+                suggestion.unlisted()
             });
-            if !rest.is_empty() {
-                let others: Vec<String> = rest.iter().map(|i| format!("`{}`", i.module)).collect();
-                d = d.with_help(format!(
-                    "other modules that declare `{wanted}`: {}",
-                    others.join(", ")
-                ));
-            }
-            d.fixes.get_or_insert_default().imports = imports;
+        }
+        if imports.len() > 1 {
+            let others: Vec<String> = imports[1..]
+                .iter()
+                .map(|i| format!("`{}`", i.module))
+                .collect();
+            d = d.with_help(format!(
+                "other modules that declare `{wanted}`: {}",
+                others.join(", ")
+            ));
         }
         Some(d)
     }
@@ -455,7 +473,7 @@ impl TypeState {
             crate::suggest::closest(name.as_str(), members.iter().map(String::as_str))
         {
             let near = near.to_string();
-            d = d.with_fix(
+            d = d.with_replacement(
                 format!("a member with a similar name exists: `{near}`"),
                 span,
                 near,

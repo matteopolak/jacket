@@ -16,7 +16,6 @@ pub(crate) mod format;
 pub mod framing;
 mod hierarchy;
 pub(crate) mod hover;
-mod imports;
 #[cfg(unix)]
 pub mod large_alloc;
 mod lexical_recovery;
@@ -34,6 +33,7 @@ mod selection;
 mod semantic;
 mod session;
 mod struct_literal;
+mod suggestion_fixes;
 
 pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};
@@ -41,8 +41,9 @@ pub use model::{
     CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionData,
     CompletionItem, CompletionKind, CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity,
     DocumentSymbol, Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Location,
-    MarkupContent, MarkupKind, SelectionRange, SemanticToken, SemanticTokenKind, SignatureHelp,
-    SignatureInformation, SymbolInformation, SymbolKind, TextEdit,
+    MarkupContent, MarkupKind, RelatedInformation, SelectionRange, SemanticToken,
+    SemanticTokenKind, SignatureHelp, SignatureInformation, SymbolInformation, SymbolKind,
+    TextEdit,
 };
 pub use position::{Position, Range};
 pub use protocol::{JsonSession, ProtocolError, RequestId, message_too_large};

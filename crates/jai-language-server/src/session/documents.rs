@@ -2,12 +2,20 @@
 use super::{Document, Session};
 use crate::analysis::Span;
 use crate::{
-    Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, TextChange,
-    analysis::Analysis, position::LineIndex,
+    Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, RelatedInformation,
+    TextChange, analysis::Analysis, position::LineIndex,
 };
 use std::cell::OnceCell;
 use std::path::Path;
 use std::rc::Rc;
+
+/// A compile diagnostic with where it is (bytes) and what can fix it.
+pub(crate) struct Finding {
+    pub diagnostic: Diagnostic,
+    pub start: usize,
+    pub end: usize,
+    pub suggestions: Vec<jaic::source::Suggestion>,
+}
 
 impl Session {
     pub fn open(&mut self, uri: DocumentUri, version: i32, text: String) -> Result<(), Error> {
@@ -194,47 +202,70 @@ impl Session {
             .collect()
     }
 
-    /// The type checker's errors, when the program `uri` belongs to fails to compile and the
-    /// error (or one of its notes) is in `uri`. Syntax errors already reported by the
-    /// syntax layer are deduplicated; independent semantic errors remain visible.
+    /// The type checker's errors and warnings, when the program `uri` belongs to fails to
+    /// compile (or warns) and the diagnostic (or one of its notes) is in `uri`. Syntax errors
+    /// already reported by the syntax layer are deduplicated; independent semantic errors
+    /// remain visible. Notes with a place are related information; the rest, and the help,
+    /// are appended to the message.
     pub(crate) fn check_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
+        self.check_findings(uri)
+            .into_iter()
+            .map(|f| f.diagnostic)
+            .collect()
+    }
+
+    /// `check_diagnostics` with the byte range of each and what can fix it.
+    pub(crate) fn check_findings(&self, uri: &DocumentUri) -> Vec<Finding> {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        let (errors, warnings) = self
+        let found = self
             .with_semantic(uri, &doc.text, |analysis, path| {
-                Some((analysis.check_errors(path), analysis.check_warnings(path)))
+                Some(analysis.check_findings(path))
             })
             .unwrap_or_default();
-        let tagged = |found: Vec<(usize, usize, String)>, severity| {
-            found
-                .into_iter()
-                .map(move |(start, end, message)| (start, end, message, severity))
-                .collect::<Vec<_>>()
-        };
-        let mut all = tagged(errors, DiagnosticSeverity::Error);
-        all.extend(tagged(warnings, DiagnosticSeverity::Warning));
-        all.into_iter()
-            .filter_map(|(start, end, message, severity)| {
-                let range = self.range_of(uri, Span::new(start, end))?;
-                if self
-                    .analysis_for(uri)
-                    .expect("opened document has analysis")
-                    .diagnostics
-                    .iter()
-                    .any(|d| {
-                        matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
-                            && d.range.start == range.start
-                            && d.message == message
-                    })
-                {
+        let syntax = &self
+            .analysis_for(uri)
+            .expect("opened document has analysis")
+            .diagnostics;
+        found
+            .into_iter()
+            .filter_map(|f| {
+                let range = self.range_of(uri, Span::new(f.start, f.end))?;
+                if syntax.iter().any(|d| {
+                    matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
+                        && d.range.start == range.start
+                        && d.message == f.message
+                }) {
                     return None;
                 }
-                Some(Diagnostic {
-                    range,
-                    severity,
-                    code: DiagnosticCode::Check,
-                    message,
+                let related = f
+                    .related
+                    .iter()
+                    .filter_map(|r| {
+                        let at = self.location_in(&r.path, &r.text, r.start, r.end)?;
+                        Some(RelatedInformation {
+                            uri: at.uri,
+                            range: at.range,
+                            message: r.message.clone(),
+                        })
+                    })
+                    .collect();
+                Some(Finding {
+                    diagnostic: Diagnostic {
+                        range,
+                        severity: if f.warning {
+                            DiagnosticSeverity::Warning
+                        } else {
+                            DiagnosticSeverity::Error
+                        },
+                        code: DiagnosticCode::Check,
+                        message: f.display,
+                        related,
+                    },
+                    start: f.start,
+                    end: f.end,
+                    suggestions: f.suggestions,
                 })
             })
             .collect()
@@ -258,6 +289,7 @@ impl Session {
                     severity: DiagnosticSeverity::Hint,
                     code: DiagnosticCode::Unreachable,
                     message: "unreachable code".into(),
+                    related: Vec::new(),
                 })
             })
             .collect()

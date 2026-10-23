@@ -107,6 +107,7 @@ impl Session {
             },
             code: DiagnosticCode::Lint(l.rule),
             message,
+            related: Vec::new(),
         })
     }
 

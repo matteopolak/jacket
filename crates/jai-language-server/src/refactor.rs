@@ -73,7 +73,7 @@ impl Session {
                 continue;
             };
             let named = context.diagnostics.iter().any(|(code, range)| {
-                code == crate::imports::CHECK_CODE && *range == diagnostic.range
+                code == crate::suggestion_fixes::CHECK_CODE && *range == diagnostic.range
             });
             if !named && (a > end || start > b) {
                 continue;

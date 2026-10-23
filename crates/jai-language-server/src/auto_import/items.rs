@@ -362,7 +362,7 @@ impl Session {
                     ),
                 };
                 let (offset, new_text) =
-                    crate::imports::insertion(text, after, current.first_code, &statement);
+                    crate::suggestion_fixes::insertion(text, after, current.first_code, &statement);
                 let range = self.range_of(uri, Span::new(offset, offset))?;
                 Some(CompletionItem {
                     label: decl.name.clone(),

@@ -13,7 +13,7 @@ pub(crate) use self::parses::text_key;
 pub use self::parses::{note_parse, parse_error};
 use jaic::ide::IdeLayout;
 use jaic::sema::{Compiler, FileSystem, Options, TargetOs};
-use jaic::source::{FileId, ImportSuggestion};
+use jaic::source::FileId;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -176,9 +176,9 @@ pub struct Analysis {
     errors: Vec<jaic::source::Diagnostic>,
     /// Lints found so far, by file.
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
-    /// The imports that would declare the error's unknown name (worked out on first use: it
-    /// reads the standard library).
-    imports: Option<Vec<ImportSuggestion>>,
+    /// `errors` with the help worked out when they are rendered (the imports that declare an
+    /// unknown name read the standard library, so it waits for the first use).
+    enriched: Option<Vec<jaic::source::Diagnostic>>,
     /// `file`'s answers by the path asked for: canonicalizing every compiled file's path for
     /// each request was a quarter of a hover.
     found: RefCell<BTreeMap<PathBuf, Option<FileId>>>,
@@ -195,7 +195,7 @@ struct Program {
     complete: bool,
     errors: Vec<jaic::source::Diagnostic>,
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
-    imports: Option<Vec<ImportSuggestion>>,
+    enriched: Option<Vec<jaic::source::Diagnostic>>,
 }
 
 

@@ -414,7 +414,7 @@ impl Cache {
             complete: errors.is_empty(),
             errors,
             lints: BTreeMap::new(),
-            imports: None,
+            enriched: None,
             found: RefCell::default(),
             others,
         }

@@ -1,30 +1,29 @@
-//! The "add `#import`" quick fix for a compile error's unknown name.
+//! Quick fixes from the suggestions of compile errors and warnings.
 //!
-//! When the type checker's error (code `check`) is an unknown identifier that a standard-library
-//! module declares, the compiler lists the imports that would declare it, best first
-//! (`jaic::source::ImportSuggestion`, worked out with the error's "did you mean" help). Each one
-//! becomes a `quickfix` that inserts the import into the document the error is in: after its
-//! last top-level `#import`, else above its first line of code (below leading comments) with a
-//! blank line after it. An import the document already has is not offered again. The first
-//! action is preferred only when it is the only one.
+//! Every type checker diagnostic can carry `jaic::source::Suggestion`s (a title, edits, how far
+//! to trust it). Each one becomes a `quickfix` that applies its edits to the document the
+//! diagnostic is in. The edits are replacements and inserts at spans, and `#import`s: an import
+//! goes after the document's last top-level `#import`, else above its first line of code (below
+//! leading comments) with a blank line after it. A suggestion whose import the document already
+//! has is not offered. Only machine-applicable suggestions are `isPreferred`.
 //!
 //! These fixes are not part of `source.fixAll.jailint`: that action applies jailint's
-//! machine-applicable fixes, while an import is a choice about the program (several modules
-//! may declare the name), made one error at a time.
+//! machine-applicable fixes, while a suggestion of the compiler is a choice about the program,
+//! made one diagnostic at a time.
 use crate::analysis::Span;
 use crate::document::DocumentUri;
 use crate::lints::ActionContext;
 use crate::model::{CodeAction, TextEdit};
 use crate::session::Session;
-use jaic::source::ImportSuggestion;
+use jaic::source::{Applicability, Edit, ImportSuggestion};
 
 /// The code of the type checker's diagnostic on the wire.
 pub const CHECK_CODE: &str = "check";
 
 impl Session {
-    /// One `quickfix` per import that would declare the unknown name of the compile error in
-    /// `uri`, when the error touches `start..end` (byte offsets) or the client named it.
-    pub(crate) fn import_actions(
+    /// One `quickfix` per suggestion of each compile error and warning in `uri` that touches
+    /// `start..end` (byte offsets) or that the client named.
+    pub(crate) fn suggestion_actions(
         &self,
         uri: &DocumentUri,
         start: usize,
@@ -37,66 +36,63 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        let Some(diagnostic) = self.check_diagnostics(uri).into_iter().next() else {
-            return Vec::new();
-        };
-        let replacement = self.with_semantic(uri, &doc.text, |analysis, path| {
-            analysis.suggested_replacement(path)
-        });
-        let Some((at, to, imports)) = self.with_semantic(uri, &doc.text, |analysis, path| {
-            analysis.missing_imports(path)
-        }) else {
-            return Vec::new();
-        };
-        let named = context
-            .diagnostics
-            .iter()
-            .any(|(code, range)| code == CHECK_CODE && *range == diagnostic.range);
-        if !named && (at > end || start > to) {
-            return Vec::new();
-        }
-        // Preferred only when the compiler knows of one module that declares the name.
-        let unambiguous = imports.len() == 1;
-        // A misspelled module or name: the closest one the compiler found.
-        let spelled = replacement.and_then(|(from, to, text)| {
-            let range = self.range_of(uri, Span::new(from, to))?;
-            Some(CodeAction {
-                title: format!("Replace with `{text}`"),
-                kind: Some("quickfix"),
-                edit: Some((
-                    uri.as_str().into(),
-                    vec![TextEdit {
+        let mut actions = Vec::new();
+        for finding in self.check_findings(uri) {
+            if finding.suggestions.is_empty() {
+                continue;
+            }
+            let named = context
+                .diagnostics
+                .iter()
+                .any(|(code, range)| code == CHECK_CODE && *range == finding.diagnostic.range);
+            if !named && (finding.start > end || start > finding.end) {
+                continue;
+            }
+            for suggestion in &finding.suggestions {
+                let mut edits = Vec::new();
+                let mut applies = true;
+                for edit in &suggestion.edits {
+                    let (at, new_text) = match edit {
+                        Edit::Replace {
+                            span,
+                            text,
+                        } => (
+                            Span::new(span.start as usize, span.end as usize),
+                            text.clone(),
+                        ),
+                        Edit::Import(import) => {
+                            let placed = planned(&doc.text, std::slice::from_ref(import));
+                            // Nothing to add when the document has the import already.
+                            let Some((_, offset, new_text)) = placed.into_iter().next() else {
+                                applies = false;
+                                break;
+                            };
+                            (Span::new(offset, offset), new_text)
+                        }
+                    };
+                    let Some(range) = self.range_of(uri, at) else {
+                        applies = false;
+                        break;
+                    };
+                    edits.push(TextEdit {
                         range,
-                        new_text: text,
-                    }],
-                )),
-                diagnostics: vec![diagnostic.clone()],
-                is_preferred: imports.is_empty(),
-                ..CodeAction::default()
-            })
-        });
-        spelled
-            .into_iter()
-            .chain(planned(&doc.text, &imports).into_iter().filter_map(
-                |(statement, offset, new_text)| {
-                    let range = self.range_of(uri, Span::new(offset, offset))?;
-                    Some(CodeAction {
-                        title: format!("Add `{statement}`"),
-                        kind: Some("quickfix"),
-                        edit: Some((
-                            uri.as_str().into(),
-                            vec![TextEdit {
-                                range,
-                                new_text,
-                            }],
-                        )),
-                        diagnostics: vec![diagnostic.clone()],
-                        is_preferred: unambiguous,
-                        ..CodeAction::default()
-                    })
-                },
-            ))
-            .collect()
+                        new_text,
+                    });
+                }
+                if !applies || edits.is_empty() {
+                    continue;
+                }
+                actions.push(CodeAction {
+                    title: suggestion.action_title(),
+                    kind: Some("quickfix"),
+                    edit: Some((uri.as_str().into(), edits)),
+                    diagnostics: vec![finding.diagnostic.clone()],
+                    is_preferred: suggestion.applicability == Applicability::MachineApplicable,
+                    ..CodeAction::default()
+                });
+            }
+        }
+        actions
     }
 }
 

@@ -64,6 +64,16 @@ pub struct Diagnostic {
     pub severity: DiagnosticSeverity,
     pub code: DiagnosticCode,
     pub message: String,
+    /// Places the message refers to (`relatedInformation`).
+    pub related: Vec<RelatedInformation>,
+}
+
+/// A note of a diagnostic that has a place: another location and what it says.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RelatedInformation {
+    pub uri: String,
+    pub range: Range,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

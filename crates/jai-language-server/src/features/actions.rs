@@ -38,7 +38,7 @@ impl Session {
         let start = doc.index.byte(&doc.text, range.start)?;
         let end = doc.index.byte(&doc.text, range.end)?;
         let text = &doc.text;
-        let mut fixes = self.import_actions(uri, start, end, context);
+        let mut fixes = self.suggestion_actions(uri, start, end, context);
         fixes.extend(self.lint_actions(uri, start, end, context));
         let switch_fixes = self.complete_switch_actions(uri, start, end, context);
         let fixed_switch = !switch_fixes.is_empty();

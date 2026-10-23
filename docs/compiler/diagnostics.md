@@ -11,7 +11,7 @@ Each diagnostic says what the problem is in the user's terms, points at the user
 - rustc's layout: `error:` / `warning:`, location, snippet, then `note:` and `help:`.
 - Messages start in lowercase with no trailing period. Several sentences go in separate `note:`/`help:` lines.
 - Names, types, tokens and code are quoted with backticks, not single quotes: `` unknown identifier `countr` ``.
-- Types are shown as jaic names them (`s64`); a help that is a code change uses `with_fix`, advice uses `with_help`.
+- Types are shown as jaic names them (`s64`); a help that is a code change is a `Suggestion` (`with_suggestion`, or `with_replacement` for one replaced span), advice uses `with_help`.
 - Prefer things the user can type: `jaic file.jai -check`, `-import_dir ../libs`, `#import "Basic";`.
 - Keep internal names out: `__` procedures, `name#N` polymorphic suffixes, interpreter thunks (`#run`/`#const` code is described by `ir::FuncOrigin`).
 
@@ -19,17 +19,44 @@ Each diagnostic says what the problem is in the user's terms, points at the user
 
 ### `Diagnostic` (compiler)
 
-`source::Diagnostic` holds severity, primary `span`, `message`, optional `label`, `notes` (with a span, or `Span::NONE` for text only), `help` lines and an optional `fix`.
+`source::Diagnostic` holds severity, primary `span`, `message`, optional `label`, `notes` (with a span, or `Span::NONE` for text only), `help` lines and `suggestions`.
 
 ```rust
-Diagnostic::error(span, msg).with_label(..).with_note(span, ..).with_help(..).with_fix(help, span, text)
+Diagnostic::error(span, msg).with_label(..).with_note(span, ..).with_help(..).with_replacement(title, span, text)
 ```
 
-Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form. Extra suggestions are computed at render time, not creation, because failed lookups are routine during overload and `#if` checks (`sema/suggestions.rs`): unknown identifiers (a build metaprogram that adds the name, close names, stdlib modules declaring it, exposed as `Diagnostic::fixes.imports` for the language server), missing modules and `#load` files (searched directories, close names), unknown members, call mismatches (`call_mismatch` moves the error to the argument and notes the declaration), and type mismatches (`conversion_help` suggests `cast`, `.data`, `tprint`, ...).
+### Suggestions
+
+A `Suggestion` (`source/suggestion.rs`) is one way to fix the diagnostic, in a form the CLI prints and editors apply. It has a `title` (the `help:` line), `edits`, an `Applicability` and optionally an editor `action` title. The CLI, `jailsp` quick fixes and the playground all read the same list, so a hint is written once.
+
+- `Edit::Replace { span, text }` replaces the text of `span`. An empty span inserts (`Suggestion::insert`), an empty `text` deletes. A suggestion may hold several edits (all in the diagnostic's file), applied together.
+- `Edit::Import(ImportSuggestion)` adds an `#import` to the diagnostic's file. The editor picks the place (after the last import, else above the first code) and skips it when the file already has it.
+- `Applicability::MachineApplicable` means the result still means what the author wrote; editors mark it preferred. `MaybeIncorrect` is a guess the author should check (a similar name, a cast), never preferred.
+- `listed: false` (`Suggestion::unlisted`) keeps the CLI from printing the title, for alternatives an earlier help line names together (the other modules that declare a name).
+
+```rust
+use crate::source::{Applicability, Suggestion};
+
+// One replaced span (a `MaybeIncorrect` guess, editor action "Replace with `count`"):
+d.with_replacement("a similar name exists: `count`", name_span, "count")
+
+// Several edits, or machine-applicable:
+d.with_suggestion(Suggestion::with_edits(
+    "write `M.operator +(u, v)`",
+    vec![Edit::Replace { span: whole_expr, text: format!("M.operator +({a}, {b})") }],
+    Applicability::MaybeIncorrect,
+))
+// Offer the same fix as an insert, e.g. a missing `;`:
+d.with_suggestion(Suggestion::insert("add `;`", end_of_previous, ";", Applicability::MachineApplicable))
+```
+
+Gotchas: take edit spans and the text between them from `self.src.sources.snippet(span)`, and parenthesise an operand when the new text changes precedence. A suggestion never goes with a span from another file than the diagnostic's (editors drop it). Order: suggestions print before plain `help:` lines, in the order added. Add several suggestions for alternatives rather than one with a choice in the title.
+
+Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form. Extra suggestions are computed at render time, not creation, because failed lookups are routine during overload and `#if` checks (`sema/suggestions.rs`): unknown identifiers (a build metaprogram that adds the name, close names, stdlib modules declaring it, one `Edit::Import` suggestion each, the first listed and machine-applicable when it is the only module), missing modules and `#load` files (searched directories, close names), unknown members, call mismatches (`call_mismatch` moves the error to the argument and notes the declaration), and type mismatches (`conversion_help` suggests `cast`, `.data`, `tprint`, ...).
 
 ### Rendering (`crates/jaic/src/render.rs`)
 
-Line and column numbers come from `jaic::source::LineIndex` (see [source positions](source-positions.md)); a `Label` or `Fix` carries the caller's index so rendering stays linear. One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors. `Report` is its input; `Diagnostic::report` converts a compiler diagnostic and `Report::from_text` converts text with `help:`/`note:` lines. Layouts, picked once per process (`render::detect`, then `set_style`):
+Line and column numbers come from `jaic::source::LineIndex` (see [source positions](source-positions.md)); a `Label` or `Fix` carries the caller's index so rendering stays linear. One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors. `Report` is its input; `Diagnostic::report` converts a compiler diagnostic (each listed suggestion is a `help:` line; one whose edits are replacements in one file shows the changed code under it, as `~`, or `-` for removed lines) and `Report::from_text` converts text with `help:`/`note:` lines. Layouts, picked once per process (`render::detect`, then `set_style`):
 
 | Layout | When |
 |---|---|

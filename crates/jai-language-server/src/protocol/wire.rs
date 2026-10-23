@@ -59,6 +59,13 @@ pub(super) fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         "source": source,
         "message": diagnostic.message,
     });
+    if !diagnostic.related.is_empty() {
+        value["relatedInformation"] = diagnostic
+            .related
+            .iter()
+            .map(|r| json!({"location": {"uri": r.uri, "range": r.range}, "message": r.message}))
+            .collect();
+    }
     if diagnostic.code == DiagnosticCode::Unreachable {
         // `DiagnosticTag.Unnecessary`
         value["tags"] = json!([1]);

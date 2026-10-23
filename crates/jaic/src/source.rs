@@ -4,6 +4,9 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+mod suggestion;
+pub use suggestion::{Applicability, Edit, ImportSuggestion, Suggestion, Suggestions};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct FileId(pub u32);
 
@@ -569,40 +572,9 @@ pub struct Diagnostic {
     pub notes: Vec<(Span, String)>,
     /// `help:` lines printed last: how to fix the problem, when that is clear.
     pub help: Vec<String>,
-    /// What the help lines suggest, in a form tools can apply.
-    pub fixes: Option<Box<Fixes>>,
-}
-
-/// The changes a diagnostic's help suggests. Boxed in the diagnostic, as its label is.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Fixes {
-    /// The fix the first help line describes: replace this span with this text. Shown as the
-    /// changed line under the help, outside the plain layout.
-    pub replace: Option<(Span, String)>,
-    /// The `#import`s that would declare an unknown name, best first (worked out with the "did
-    /// you mean" help when the error is rendered): the help names the first, an editor offers
-    /// each.
-    pub imports: Vec<ImportSuggestion>,
-}
-
-/// An `#import` that would bring an unknown name into scope.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ImportSuggestion {
-    /// The module to import, as written in `#import "module"`.
-    pub module: String,
-    /// The name to bind the module to (`name :: #import "module";`) when the unknown name is
-    /// the module itself, used as a namespace (`Math.sqrt`); `None` imports its names.
-    pub name: Option<String>,
-}
-
-impl ImportSuggestion {
-    /// The import statement, as it would be written: `#import "Basic";`.
-    pub fn statement(&self) -> String {
-        match &self.name {
-            Some(name) => format!("{name} :: #import \"{}\";", self.module),
-            None => format!("#import \"{}\";", self.module),
-        }
-    }
+    /// Changes that fix the problem, in a form tools can apply. Each prints as a `help:` line
+    /// before the plain ones in `help`; editors offer each as a quick fix.
+    pub(crate) suggestions: Option<Box<Suggestions>>,
 }
 
 impl Diagnostic {
@@ -623,7 +595,7 @@ impl Diagnostic {
             label: None,
             notes: Vec::new(),
             help: Vec::new(),
-            fixes: None,
+            suggestions: None,
         }
     }
 
@@ -651,17 +623,33 @@ impl Diagnostic {
         self
     }
 
-    /// A help line with the replacement it suggests.
+    /// The changes that fix the problem, in the order they were added.
+    pub fn suggestions(&self) -> &[Suggestion] {
+        self.suggestions.as_deref().map_or(&[], |s| &s.0)
+    }
+
+    /// A change that fixes the problem (see [`Suggestion`]).
     #[must_use]
-    pub fn with_fix(
-        mut self,
-        message: impl Into<String>,
-        span: Span,
-        replacement: impl Into<String>,
-    ) -> Self {
-        self.help.insert(0, message.into());
-        self.fixes.get_or_insert_default().replace = Some((span, replacement.into()));
+    pub fn with_suggestion(mut self, suggestion: Suggestion) -> Self {
+        self.suggestions.get_or_insert_default().0.push(suggestion);
         self
+    }
+
+    /// A suggestion to replace `span` with `text`, titled for the `help:` line. A guess the
+    /// author should check ([`Applicability::MaybeIncorrect`]).
+    #[must_use]
+    pub fn with_replacement(
+        self,
+        title: impl Into<String>,
+        span: Span,
+        text: impl Into<String>,
+    ) -> Self {
+        let text = text.into();
+        let action = format!("Replace with `{text}`");
+        self.with_suggestion(
+            Suggestion::replace(title, span, text, Applicability::MaybeIncorrect)
+                .with_action(action),
+        )
     }
 
     /// The diagnostic as text, in the process-wide style (`crate::render::style`).
@@ -700,22 +688,34 @@ impl Diagnostic {
                 None => report.notes.push(note.clone()),
             }
         }
-        for (i, help) in self.help.iter().enumerate() {
-            let fix = self
-                .fixes
-                .as_deref()
-                .and_then(|f| f.replace.as_ref())
-                .filter(|_| i == 0)
-                .and_then(|(span, text)| {
-                    has_location(sources, *span).then(|| Fix {
-                        text: &sources.get(span.file).text,
-                        edits: vec![(span.start as usize, span.end as usize, text.clone())],
-                        lines: Some(sources.get(span.file).lines()),
-                    })
+        for suggestion in self.suggestions().iter().filter(|s| s.listed) {
+            let edits: Vec<(usize, usize, String)> = suggestion
+                .replacements()
+                .map(|(span, text)| (span.start as usize, span.end as usize, text.to_string()))
+                .collect();
+            // The changed line is shown for edits in one file, none of them an import.
+            let file = suggestion.replacements().next().map(|(span, _)| span.file);
+            let fix = file
+                .filter(|&f| {
+                    suggestion.imports().next().is_none()
+                        && suggestion
+                            .replacements()
+                            .all(|(span, _)| span.file == f && has_location(sources, span))
+                })
+                .map(|f| Fix {
+                    text: &sources.get(f).text,
+                    edits,
+                    lines: Some(sources.get(f).lines()),
                 });
             report.help.push(Help {
-                message: help.clone(),
+                message: suggestion.title.clone(),
                 fix,
+            });
+        }
+        for help in &self.help {
+            report.help.push(Help {
+                message: help.clone(),
+                fix: None,
             });
         }
         report

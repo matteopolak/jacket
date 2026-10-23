@@ -60,7 +60,7 @@ impl Compiler {
             match self.src.sources.snippet(span).find(&format!("\"{name}\"")) {
                 Some(at) => {
                     let start = span.start as usize + at + 1;
-                    d.with_fix(
+                    d.with_replacement(
                         message,
                         Span::new(span.file, start, start + name.len()),
                         path,
@@ -108,7 +108,7 @@ impl Compiler {
                 Some(at) => {
                     let start = span.start as usize + at + 1;
                     let at = Span::new(span.file, start, start + name.len());
-                    d.with_fix(
+                    d.with_replacement(
                         format!("a module with a similar name exists: `{near}`"),
                         at,
                         near,

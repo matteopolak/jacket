@@ -318,7 +318,7 @@ pub(super) fn compile(
                 complete: errors.is_empty(),
                 errors,
                 lints: BTreeMap::new(),
-                imports: None,
+                enriched: None,
             }
         })
         .collect();

@@ -61,7 +61,7 @@ impl Compiler {
                 let ty = self.src.sources.snippet(ty.span).to_string();
                 let pname = param.name;
                 d = d
-                    .with_fix(
+                    .with_replacement(
                         format!(
                             "if `{pname}` should be known at compile time, bake it: `${pname}: {ty}`"
                         ),

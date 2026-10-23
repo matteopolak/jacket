@@ -4,10 +4,39 @@ use super::{Analysis, Decl, HoverFacts, SemanticAnalysisContext, SemanticCoverag
 use jaic::fxhash::HashSet;
 use jaic::ide::IdeName;
 use jaic::intern::Sym;
-use jaic::source::{FileId, ImportSuggestion};
+use jaic::source::{FileId, Suggestion};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+
+/// How many of a program's first errors get their render-time help (see
+/// `Analysis::check_findings`) for the editor.
+const ENRICHED_ERRORS: usize = 50;
+
+/// A compile error or warning placed in one file.
+pub struct CheckFinding {
+    /// The byte range it is shown at.
+    pub start: usize,
+    pub end: usize,
+    /// The message alone: what the syntax layer's duplicate is compared with.
+    pub message: String,
+    /// The message with its unlocated notes and help lines, as the editor shows it.
+    pub display: String,
+    pub warning: bool,
+    /// Notes that have a location.
+    pub related: Vec<Related>,
+    /// What can fix it, for the quick fixes.
+    pub suggestions: Vec<Suggestion>,
+}
+
+/// A located note of a finding: a place in any compiled file.
+pub struct Related {
+    pub path: String,
+    pub text: Rc<str>,
+    pub start: usize,
+    pub end: usize,
+    pub message: String,
+}
 
 impl Analysis {
     /// The paths the compile asked about so far, and a hash of each open text among them.
@@ -49,7 +78,7 @@ impl Analysis {
         std::mem::swap(&mut self.complete, &mut other.complete);
         std::mem::swap(&mut self.errors, &mut other.errors);
         std::mem::swap(&mut self.lints, &mut other.lints);
-        std::mem::swap(&mut self.imports, &mut other.imports);
+        std::mem::swap(&mut self.enriched, &mut other.enriched);
         self.found.borrow_mut().clear();
     }
 
@@ -68,13 +97,6 @@ impl Analysis {
         Some(found)
     }
 
-    /// The compile errors as (start, end, message) in `path`: each at its own span when that
-    /// is in the file, else at the first of its notes that is (a module procedure the file
-    /// called).
-    pub fn check_errors(&self, path: &Path) -> Vec<(usize, usize, String)> {
-        self.located(path, &self.errors)
-    }
-
     /// The spans (start, end) in `path` of the compile errors of `kind`.
     pub fn check_error_spans(
         &self,
@@ -91,86 +113,119 @@ impl Analysis {
             .collect()
     }
 
-    /// The compiler's warnings (a print format with the wrong argument count, a body that can
-    /// fall off its end), placed like the errors.
-    pub fn check_warnings(&self, path: &Path) -> Vec<(usize, usize, String)> {
-        self.located(path, &self.compiler.diag.warnings)
-    }
-
-    fn located(
-        &self,
-        path: &Path,
-        diagnostics: &[jaic::source::Diagnostic],
-    ) -> Vec<(usize, usize, String)> {
+    /// The compile errors and warnings located in `path`, each at its own span when that is in
+    /// the file, else at the first of its notes that is (a module procedure the file called).
+    /// Errors come first, then warnings.
+    pub fn check_findings(&mut self, path: &Path) -> Vec<CheckFinding> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
-        let mut out: Vec<(usize, usize, String)> = Vec::new();
+        if self.enriched.is_none() {
+            // The render-time help (similar names, the imports that declare a name) of the
+            // first errors: working out each one reads the standard library.
+            let enriched = self
+                .errors
+                .iter()
+                .enumerate()
+                .map(|(i, e)| {
+                    let wanted = i < ENRICHED_ERRORS;
+                    wanted
+                        .then(|| self.compiler.with_name_suggestion(e))
+                        .flatten()
+                        .unwrap_or_else(|| e.clone())
+                })
+                .collect();
+            self.enriched = Some(enriched);
+        }
+        let warnings: Vec<_> = self
+            .compiler
+            .diag
+            .warnings
+            .iter()
+            .map(|w| {
+                self.compiler
+                    .with_name_suggestion(w)
+                    .unwrap_or_else(|| w.clone())
+            })
+            .collect();
+        let errors = self.enriched.as_deref().unwrap_or_default();
+        let mut out: Vec<CheckFinding> = Vec::new();
         let mut seen = HashSet::default();
-        for error in diagnostics {
-            let found = if error.span.file == file {
-                let span = error.span;
-                Some((
-                    span.start as usize,
-                    span.end as usize,
-                    error.message.clone(),
-                ))
-            } else {
-                error
-                    .notes
-                    .iter()
-                    .find(|(span, _)| span.file == file)
-                    .map(|(span, note)| {
-                        (
-                            span.start as usize,
-                            span.end as usize,
-                            format!("{}\n{note}", error.message),
-                        )
-                    })
+        let tagged = errors
+            .iter()
+            .map(|d| (d, false))
+            .chain(warnings.iter().map(|d| (d, true)));
+        for (d, warning) in tagged {
+            let Some(finding) = self.finding(file, d, warning) else {
+                continue;
             };
-            if let Some(found) = found
-                && seen.insert(found.clone())
-            {
-                out.push(found);
+            if seen.insert((finding.start, finding.end, finding.display.clone())) {
+                out.push(finding);
             }
         }
         out
     }
 
-    /// The replacement the compile error in `path` suggests (a misspelled module or name): the
-    /// span as (start, end) and the text for it.
-    pub fn suggested_replacement(&mut self, path: &Path) -> Option<(usize, usize, String)> {
-        let file = self.file(path)?;
-        let error = self.errors.first()?;
-        if error.span.file != file {
-            return None;
+    fn finding(
+        &self,
+        file: FileId,
+        d: &jaic::source::Diagnostic,
+        warning: bool,
+    ) -> Option<CheckFinding> {
+        let files = &self.compiler.src.sources;
+        let here = d.span.file == file;
+        // A diagnostic elsewhere shows at its first note in this file, with that note's text.
+        let at_note = (!here)
+            .then(|| d.notes.iter().find(|(span, _)| span.file == file))
+            .flatten();
+        let (span, base) = match at_note {
+            Some((span, note)) => (*span, format!("{}\n{note}", d.message)),
+            None if here => (d.span, d.message.clone()),
+            None => return None,
+        };
+        let mut display = base.clone();
+        let mut related = Vec::new();
+        for (span, note) in &d.notes {
+            if at_note.is_some_and(|(at, _)| at == span) {
+                continue;
+            }
+            match files.try_get(span.file) {
+                Some(found) => related.push(Related {
+                    path: found.path.to_string(),
+                    text: found.text.clone(),
+                    start: span.start as usize,
+                    end: span.end as usize,
+                    message: note.clone(),
+                }),
+                None => display.push_str(&format!("\nnote: {note}")),
+            }
         }
-        let suggested = self.compiler.with_name_suggestion(error);
-        let fixes = suggested.as_ref().unwrap_or(error).fixes.as_ref()?;
-        let (span, text) = fixes.replace.clone()?;
-        (span.file == file).then_some((span.start as usize, span.end as usize, text))
-    }
-
-    /// The `#import`s that would declare the unknown name the compile error in `path` reports,
-    /// best first, with the error's span as (start, end).
-    pub fn missing_imports(
-        &mut self,
-        path: &Path,
-    ) -> Option<(usize, usize, Vec<ImportSuggestion>)> {
-        let file = self.file(path)?;
-        let error = self.errors.first()?;
-        if error.span.file != file {
-            return None;
+        for suggestion in d.suggestions().iter().filter(|s| s.listed) {
+            display.push_str(&format!("\nhelp: {}", suggestion.title));
         }
-        let span = error.span;
-        let imports = self.imports.get_or_insert_with(|| {
-            self.compiler
-                .with_name_suggestion(error)
-                .and_then(|d| d.fixes)
-                .map(|fixes| fixes.imports)
-                .unwrap_or_default()
-        });
-        Some((span.start as usize, span.end as usize, imports.clone()))
+        for help in &d.help {
+            display.push_str(&format!("\nhelp: {help}"));
+        }
+        // Edits in another file cannot be applied to this one, and an import goes to the file
+        // the diagnostic is in.
+        let suggestions = d
+            .suggestions()
+            .iter()
+            .filter(|s| {
+                s.replacements().all(|(span, _)| span.file == file)
+                    && (here || s.imports().next().is_none())
+            })
+            .cloned()
+            .collect();
+        Some(CheckFinding {
+            start: span.start as usize,
+            end: span.end as usize,
+            message: base,
+            display,
+            warning,
+            related,
+            suggestions,
+        })
     }
 
     /// `offset` of `path` is code this compile skipped for its target: the file is not part of
