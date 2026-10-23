@@ -139,13 +139,13 @@ const jailint = {
       description: "Levels for rules and categories.",
       additionalProperties: false,
       properties: Object.fromEntries([
-        ...Object.entries(CATEGORIES).map(([name, [level, summary]]) => [
+        ...Object.entries(CATEGORIES).map(([name, [categoryLevel, summary]]) => [
           name,
           {
             type: "string",
             enum: ["allow", "warn", "deny"],
-            default: level,
-            markdownDescription: `Every ${name} rule: ${summary} (default \`${level}\`). A rule's own entry wins. [Docs](${DOCS}/jailint.md#rules)`,
+            default: categoryLevel,
+            markdownDescription: `Every ${name} rule: ${summary} (default \`${categoryLevel}\`). A rule's own entry wins. [Docs](${DOCS}/jailint.md#rules)`,
           },
         ]),
         ...rules.map((rule) => [rule.name, level(rule)]),
