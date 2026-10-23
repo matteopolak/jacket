@@ -406,8 +406,9 @@ impl Compiler {
                 values,
                 backtick,
             } => {
-                f.macro_returned |= *backtick;
-                self.check_return(f, scope, values, *backtick, span)
+                let backtick = *backtick || f.caller_code_macros == Some(f.macros.len());
+                f.macro_returned |= backtick;
+                self.check_return(f, scope, values, backtick, span)
             }
             S::Defer {
                 body,

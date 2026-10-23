@@ -259,6 +259,9 @@ pub struct FnCtx {
     /// A macro expanded in the body returned from it (a backtick `return`): the shape of the
     /// body no longer says whether every path returns.
     pub macro_returned: bool,
+    /// The macro depth at which code written in the macro's caller is being inserted: a
+    /// `return` there leaves the caller, like a backtick `return`.
+    pub caller_code_macros: Option<usize>,
     pub static_taken: crate::fxhash::HashMap<Span, bool>,
 }
 
@@ -406,6 +409,7 @@ impl FnCtx {
             checks_off: ast::CheckBits::NONE,
             debug_scopes: HashMap::default(),
             macro_returned: false,
+            caller_code_macros: None,
             static_taken: HashMap::default(),
         }
     }

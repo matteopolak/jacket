@@ -126,6 +126,13 @@ impl Compiler {
                     }
                 }
             }
+            // Code written in a macro's caller returns from the caller, not from the macro.
+            let saved_caller_code = f.caller_code_macros;
+            if let Some(frame) = f.macros.last()
+                && self.scope_within(self.pr.code_scopes[code.0 as usize], frame.caller_scope)
+            {
+                f.caller_code_macros = Some(f.macros.len());
+            }
             let result = match &*body {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
                 ast::CodeBody::Stmt(stmt) => self
@@ -146,6 +153,7 @@ impl Compiler {
                     )
                     .and_then(|()| self.ide_require_parsed_body(b.span)),
             };
+            f.caller_code_macros = saved_caller_code;
             // Only a brace-less payload declares in the receiving lexical block.
             // Its wrapper supplies captured lookup without adding a lexical boundary.
             result?;
@@ -156,6 +164,19 @@ impl Compiler {
         }
         let stmts = self.insert_stmts_from(op, value.span)?;
         self.check_block_stmts(f, scope, &stmts)
+    }
+
+    /// Whether `scope` is `outer` or lexically inside it.
+    fn scope_within(&self, mut scope: ScopeId, outer: ScopeId) -> bool {
+        loop {
+            if scope == outer {
+                return true;
+            }
+            match self.scope(scope).parent {
+                Some(parent) => scope = parent,
+                None => return false,
+            }
+        }
     }
 
     /// Keep inserted declarations' canonical entities and captured lookup scope,
