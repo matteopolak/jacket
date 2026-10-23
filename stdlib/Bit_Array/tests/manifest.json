@@ -1,5 +1,9 @@
 [
   {
+    "name": "deinit",
+    "stdout": "ok\n"
+  },
+  {
     "name": "padding",
     "stdout": "ok\n"
   }
