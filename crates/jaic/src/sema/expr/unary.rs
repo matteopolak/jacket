@@ -5,9 +5,34 @@ use crate::ir::{CmpOp, Ty};
 use crate::sema::SourceState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
+use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
+    /// `x.*` of a value that is not a pointer: the value as it is would do.
+    fn cannot_dereference(&self, ty: TypeId, inner: Span, span: Span) -> Diagnostic {
+        let d = Diagnostic::error(
+            span,
+            format!(
+                "cannot dereference a value of type {}",
+                self.ty.types.name(ty)
+            ),
+        );
+        let text = self.src.sources.snippet(inner).trim();
+        if text.is_empty() {
+            return d;
+        }
+        d.with_suggestion(
+            Suggestion::replace(
+                format!("`{text}` is not a pointer: remove the dereference"),
+                span,
+                text,
+                Applicability::MaybeIncorrect,
+            )
+            .with_action("Remove the dereference"),
+        )
+    }
+
     pub(super) fn check_unary(
         &mut self,
         f: &mut FnCtx,
@@ -144,13 +169,7 @@ impl Compiler {
                 let inner = self.check_expr(f, scope, a, None)?;
                 let (ty, v) = self.rvalue(f, inner, span)?;
                 let Some(pointee) = self.ty.types.pointee(ty) else {
-                    return err(
-                        span,
-                        format!(
-                            "cannot dereference a value of type {}",
-                            self.ty.types.name(ty)
-                        ),
-                    );
+                    return Err(Box::new(self.cannot_dereference(ty, a.span, span)));
                 };
                 // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
                 Ok(Operand::Place {
@@ -344,13 +363,18 @@ impl Compiler {
                 let zero = f.b.iconst(Ty::I64, 0);
                 return Ok(f.b.cmp(CmpOp::Ne, Ty::I64, count, zero));
             }
-            return err(
-                span,
-                format!(
-                    "a value of type {} cannot be used as a condition",
-                    self.ty.types.name(ty)
+            return Err(Box::new(
+                Diagnostic::error(
+                    span,
+                    format!(
+                        "a value of type {} cannot be used as a condition",
+                        self.ty.types.name(ty)
+                    ),
+                )
+                .with_help(
+                    "a condition is a bool, a number, a pointer, a string or an array: test or compare a member instead",
                 ),
-            );
+            ));
         };
         if ty == TypeId::BOOL {
             return Ok(v);

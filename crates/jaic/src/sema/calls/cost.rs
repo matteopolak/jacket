@@ -435,7 +435,7 @@ impl Compiler {
             return Ok(convert::LITERAL);
         }
         self.implicit_cost(from, untyped, param).ok_or_else(|| {
-            let mut d = Diagnostic::error(
+            let d = Diagnostic::error(
                 arg.span,
                 format!(
                     "argument of type `{}` does not match parameter type `{}`",
@@ -443,10 +443,8 @@ impl Compiler {
                     self.ty.types.name(param)
                 ),
             );
-            if let Some(help) = self.ty.conversion_help(from, param) {
-                d = d.with_help(help);
-            }
-            Box::new(d)
+            let at = arg.expr.as_ref().map_or(arg.span, |e| e.span);
+            Box::new(self.with_conversion_hint(d, from, param, at))
         })
     }
 }

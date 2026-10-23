@@ -3,7 +3,8 @@ use super::{int_constant_fits, int_to_float};
 use crate::ir::{ConvOp, Ty};
 use crate::sema::SourceState;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{Compiler, Result, Span, TypeId, Value, ast, err, expr, ir};
+use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value, ast, expr, ir};
+use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
@@ -113,7 +114,12 @@ impl Compiler {
 
     /// `cast(T) k` of an integer constant `k` checks the range at compile time, as a runtime
     /// cast would at run time: `cast(u8) -1` is an error, `cast(s8) 0xff` is `-1`.
-    pub(crate) fn check_constant_cast(&self, op: &Operand, to: TypeId, span: Span) -> Result<()> {
+    pub(crate) fn check_constant_cast(
+        &self,
+        op: &Operand,
+        to: TypeId,
+        (span, cast): (Span, Span),
+    ) -> Result<()> {
         let Operand::Const {
             value: Value::Int(v),
             ..
@@ -136,12 +142,75 @@ impl Compiler {
             return Ok(());
         }
         let name = self.ty.types.name(to);
-        err(
+        let mut d = Diagnostic::error(
             span,
             format!(
                 "constant {v} is out of range for {name}; write `cast,trunc({name})` to keep the low bits"
             ),
+        );
+        if let Some(suggestion) = self.cast_flag_suggestion(
+            cast,
+            ",trunc",
+            format!("to keep the low bits, write `cast,trunc({name})`"),
+        ) {
+            d = d.with_suggestion(suggestion);
+        }
+        Err(Box::new(d))
+    }
+
+    /// A suggestion that adds `flag` (`,trunc`, `,force`) to the `cast(T)` written at `cast`.
+    /// `None` for any other spelling of a cast (`xx x`).
+    fn cast_flag_suggestion(&self, cast: Span, flag: &str, title: String) -> Option<Suggestion> {
+        if !self.src.sources.snippet(cast).starts_with("cast(") {
+            return None;
+        }
+        let at = Span {
+            start: cast.start + 4,
+            end: cast.start + 4,
+            ..cast
+        };
+        Some(
+            Suggestion::replace(title, at, flag, Applicability::MaybeIncorrect)
+                .with_action(format!("Write `cast{flag}`")),
         )
+    }
+
+    /// Advice for a cast between types that have no conversion.
+    fn cannot_cast_help(&self, from: TypeId, to: TypeId) -> Option<String> {
+        let types = &self.ty.types;
+        let (from_name, to_name) = (types.name(from), types.name(to));
+        let single = |t| {
+            matches!(
+                types.kind(types.repr(t)),
+                TypeKind::Bool
+                    | TypeKind::Int { .. }
+                    | TypeKind::Float { .. }
+                    | TypeKind::Enum(_)
+                    | TypeKind::Pointer(_)
+            )
+        };
+        let aggregate = |t| {
+            matches!(
+                types.kind(types.repr(t)),
+                TypeKind::Struct(_) | TypeKind::Array { .. } | TypeKind::String
+            )
+        };
+        if aggregate(from) && single(to) {
+            return Some(format!(
+                "{from_name} holds several values: cast one of its members to {to_name} instead"
+            ));
+        }
+        if single(from) && matches!(types.kind(types.repr(to)), TypeKind::Struct(_)) {
+            return Some(format!(
+                "build a {to_name} from its members with a struct literal instead: `{to_name}.{{...}}`"
+            ));
+        }
+        if single(from) && to == TypeId::STRING {
+            return Some(
+                "to turn a number into text, format it: `tprint(\"%\", value)` (from Basic)".into(),
+            );
+        }
+        None
     }
 
     /// `cast(T) x` / `xx x`.
@@ -451,14 +520,33 @@ impl Compiler {
                 addr,
             });
         }
-        err(
+        let mut d = Diagnostic::error(
             span,
             format!(
                 "cannot cast {} to {}",
                 self.ty.types.name(from),
                 self.ty.types.name(to)
             ),
-        )
+        );
+        // Aggregates of one size can be reinterpreted when the author asks for it.
+        let same_size = self.ir_ty(fr).is_none()
+            && self.ir_ty(tr).is_none()
+            && matches!(
+                (self.size_of(from, span), self.size_of(to, span)),
+                (Ok(a), Ok(b)) if a == b
+            );
+        if same_size
+            && let Some(suggestion) = self.cast_flag_suggestion(
+                span,
+                ",force",
+                "both have the same size: `cast,force` reinterprets the bytes".into(),
+            )
+        {
+            d = d.with_suggestion(suggestion);
+        } else if let Some(help) = self.cannot_cast_help(from, to) {
+            d = d.with_help(help);
+        }
+        Err(Box::new(d))
     }
 }
 

@@ -187,3 +187,19 @@ fn assert_in_order(text: &str, needles: &[&str]) {
         }
     }
 }
+
+#[test]
+fn a_conversion_error_offers_the_cast_as_a_quick_fix() {
+    let text = "main :: () {\n    a: s64 = 3;\n    b: s32 = a;\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let fixes = quick_fixes(&s, text, "a;");
+    assert_eq!(fixes.len(), 1, "{fixes:?}");
+    assert_eq!(fixes[0].title, "Convert with `cast(s32)`");
+    // A cast can drop bits: the editor does not apply it by itself.
+    assert!(!fixes[0].is_preferred);
+    let (_, edits) = fixes[0].edit.as_ref().unwrap();
+    assert_eq!(edits.len(), 1);
+    assert_eq!(edits[0].new_text, "cast(s32) a");
+    assert_eq!(edits[0].range.start, at_nth(text, "a;", 0, 0));
+}

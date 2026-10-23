@@ -1,5 +1,6 @@
 //! Literal fitting and the type a binary expression takes.
 use crate::sema::TypeState;
+use crate::sema::convert::{Wrap, wrap_suggestion};
 use crate::sema::expr::wrap_int;
 use crate::sema::lower::Operand;
 use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value};
@@ -12,7 +13,7 @@ impl Compiler {
         rhs: &Operand,
         expected: Option<TypeId>,
         is_shift: bool,
-        patterns: (bool, bool),
+        operands: (Span, Span),
         span: Span,
     ) -> Result<TypeId> {
         let lu = matches!(
@@ -30,6 +31,10 @@ impl Compiler {
             }
         );
         let (lt, rt) = (lhs.ty(), rhs.ty());
+        let patterns = (
+            self.src.bit_pattern(operands.0),
+            self.src.bit_pattern(operands.1),
+        );
         if is_shift {
             if lu {
                 return Ok(expected
@@ -140,18 +145,50 @@ impl Compiler {
                     d = d.with_help(format!(
                         "`\"{c}\"` is a string; for the character's code write `#char \"{c}\"`"
                     ));
-                } else if self.ty.types.is_integer(lt) && self.ty.types.is_float(rt)
-                    || self.ty.types.is_float(lt) && self.ty.types.is_integer(rt)
-                {
-                    d = d.with_help("convert one side with `cast(float)` or `cast(int)` first");
-                } else if self.ty.types.is_integer(lt) && self.ty.types.is_integer(rt) {
-                    d = d.with_help(
-                        "integers of different sizes or signedness need a `cast` to one type",
+                } else if let Some((side, to)) = self.binary_cast_side(lt, rt) {
+                    let at = [operands.0, operands.1][side];
+                    let to_name = self.ty.types.name(to);
+                    let title = format!(
+                        "convert the {} operand with `cast({to_name})`",
+                        ["left", "right"][side]
                     );
+                    let wrap = Wrap::cast(to_name);
+                    d = match wrap_suggestion(&self.src.sources, title.clone(), at, &wrap) {
+                        Some(suggestion) => d.with_suggestion(suggestion),
+                        None => d.with_help(title),
+                    };
                 }
                 Err(Box::new(d))
             }
         }
+    }
+}
+
+impl Compiler {
+    /// Which operand of a number-like pair (integer, float, bool or enum) converts to the
+    /// other's type: the side to cast (0 left, 1 right) and the type to cast it to. A float
+    /// wins over an integer, a wider integer over a narrower, an integer over a `bool`.
+    fn binary_cast_side(&self, lt: TypeId, rt: TypeId) -> Option<(usize, TypeId)> {
+        let types = &self.ty.types;
+        let number = |t| types.is_integer(t) || types.is_float(t) || types.repr(t) == TypeId::BOOL;
+        if !number(lt) || !number(rt) {
+            return None;
+        }
+        let rank = |t| {
+            if types.is_float(t) {
+                (3, 0)
+            } else if types.repr(t) == TypeId::BOOL {
+                (0, 0)
+            } else {
+                (2, types.int_info(t).map_or(0, |(bits, _)| bits))
+            }
+        };
+        // The side with the lower rank is converted; the left one when equal.
+        Some(if rank(rt) > rank(lt) {
+            (0, rt)
+        } else {
+            (1, lt)
+        })
     }
 }
 

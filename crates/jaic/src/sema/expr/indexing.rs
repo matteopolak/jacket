@@ -1,7 +1,7 @@
 //! Index expressions and pointer-index operators.
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{Compiler, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
@@ -293,10 +293,13 @@ impl Compiler {
                 (elem, p)
             }
             _ => {
-                return err(
-                    span,
-                    format!("cannot index a value of type {}", self.ty.types.name(bty)),
-                );
+                return Err(Box::new(
+                    Diagnostic::error(
+                        span,
+                        format!("cannot index a value of type {}", self.ty.types.name(bty)),
+                    )
+                    .with_help("only arrays, strings and pointers can be indexed"),
+                ));
             }
         };
         let size = self.size_of(elem, span)?;

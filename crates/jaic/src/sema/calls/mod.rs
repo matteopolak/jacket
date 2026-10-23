@@ -10,6 +10,7 @@
 //! - `builtins`      built-in procedures (`size_of`, `type_of`, ...)
 //! - `macro_expand`  `#expand` macro calls
 //! - `operators`     operator overloading
+use super::convert;
 use super::expr::takes_context_type;
 use super::lower::{FnCtx, MacroFrame, Operand};
 use super::procs::{ProcTarget, Signature};
@@ -21,6 +22,7 @@ use super::{
 use crate::ast::ExprKind as E;
 use crate::ir::Ty;
 use crate::macros::raw_enum;
+use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
 
 mod baking;
@@ -261,7 +263,32 @@ impl Compiler {
                     return self.instantiate_poly_call(scope, ps, args, span);
                 }
                 // `Type(x)` is not Jai; but `T.{}` etc are handled elsewhere.
-                err(span, format!("cannot call type {}", self.ty.types.name(t)))
+                let name = self.ty.types.name(t);
+                let mut d = Diagnostic::error(span, format!("cannot call type {name}"));
+                // `s32(x)`: a conversion is written `cast(s32) x`.
+                if let [arg] = args
+                    && arg.name.is_none()
+                    && arg.target.is_none()
+                    && !arg.spread
+                    && !arg.context
+                    && (self.ty.types.is_integer(t) || self.ty.types.is_float(t))
+                    && let Some(text) = convert::wrapped_text(
+                        &self.src.sources,
+                        arg.value.span,
+                        &convert::Wrap::cast(name.clone()),
+                    )
+                {
+                    d = d.with_suggestion(
+                        Suggestion::replace(
+                            format!("to convert a value to `{name}`, write `{text}`"),
+                            span,
+                            text,
+                            Applicability::MaybeIncorrect,
+                        )
+                        .with_action(format!("Convert with `cast({name})`")),
+                    );
+                }
+                Err(Box::new(d))
             }
             other => {
                 let parameters = self.callable_operand_parameters(&other)?;

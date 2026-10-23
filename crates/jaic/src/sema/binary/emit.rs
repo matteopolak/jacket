@@ -58,8 +58,8 @@ impl Compiler {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
         // Unify operand types.
-        let patterns = (self.src.bit_pattern(a.span), self.src.bit_pattern(b.span));
-        let ty = self.binary_operand_type(&lhs, &rhs, expected, is_shift, patterns, span)?;
+        let ty =
+            self.binary_operand_type(&lhs, &rhs, expected, is_shift, (a.span, b.span), span)?;
         // A negative constant cannot meet a `u64`: nothing wider takes its place.
         if !is_shift {
             for (constant, other) in [(&rhs, &lhs), (&lhs, &rhs)] {
@@ -125,8 +125,8 @@ impl Compiler {
         if ty == TypeId::VOID_PTR && matches!(self.ty.types.kind(rhs.ty()), TypeKind::Proc(_)) {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
-        let lhs = self.convert(f, lhs, ty, span)?;
-        let rhs = self.convert(f, rhs, rhs_ty, span)?;
+        let lhs = self.convert(f, lhs, ty, a.span)?;
+        let rhs = self.convert(f, rhs, rhs_ty, b.span)?;
         let (_, x) = self.rvalue(f, lhs, span)?;
         let (_, y) = self.rvalue(f, rhs, span)?;
         Ok(Unified {

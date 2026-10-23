@@ -2,12 +2,14 @@
 use crate::ast::ExprKind as E;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::CallArg;
+use crate::sema::convert::is_primary;
 use crate::sema::lower::{FnCtx, ForBody, Immutable, LoopFrame, LoopRemove, Operand};
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{
-    Compiler, PreludeType, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
-    procs,
+    Compiler, Diagnostic, PreludeType, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    err, ir, procs,
 };
+use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
 
 /// What the two forms of a `for` loop share once its names and scope are set up.
@@ -599,15 +601,7 @@ impl Compiler {
                 elem, ..
             } => (elem, None),
             TypeKind::String => (TypeId::U8, None),
-            _ => {
-                return err(
-                    c.span,
-                    format!(
-                        "cannot iterate over a value of type {}",
-                        self.ty.types.name(cty)
-                    ),
-                );
-            }
+            _ => return Err(Box::new(self.cannot_iterate(cty, c.span))),
         };
         let container = match op {
             p @ Operand::Place {
@@ -820,15 +814,50 @@ impl Compiler {
             }
         };
         if procs.is_empty() {
-            return err(
-                span,
-                format!(
-                    "no `{macro_name}` is visible for iterating over {}",
-                    self.ty.types.name(collection.ty())
-                ),
-            );
+            let ty = self.ty.types.name(collection.ty());
+            return Err(Box::new(
+                Diagnostic::error(
+                    span,
+                    format!("no `{macro_name}` is visible for iterating over {ty}"),
+                )
+                .with_help(format!(
+                    "define `{macro_name}` for `{ty}` in a visible scope, or iterate over one of its array members"
+                )),
+            ));
         }
         Ok(procs)
+    }
+
+    /// `for x` over a value that is not a collection. A number counts: the help writes the range.
+    fn cannot_iterate(&self, ty: TypeId, container: Span) -> Diagnostic {
+        let d = Diagnostic::error(
+            container,
+            format!(
+                "cannot iterate over a value of type {}",
+                self.ty.types.name(ty)
+            ),
+        );
+        let text = self.src.sources.snippet(container).trim();
+        if !self.ty.types.is_integer(self.ty.types.repr(ty))
+            || matches!(self.ty.types.kind(ty), TypeKind::Enum(_))
+            || text.is_empty()
+        {
+            return d;
+        }
+        let range = if is_primary(text) {
+            format!("0..{text} - 1")
+        } else {
+            format!("0..({text}) - 1")
+        };
+        d.with_suggestion(
+            Suggestion::replace(
+                format!("to repeat {text} times, loop over a range: `for {range}`"),
+                container,
+                range,
+                Applicability::MaybeIncorrect,
+            )
+            .with_action("Loop over a range"),
+        )
     }
 
     /// A macro whose second parameter is the loop body (`(x, body: Code, flags)`).

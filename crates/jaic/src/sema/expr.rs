@@ -461,7 +461,7 @@ impl Compiler {
                 let op = if flags.no_check || flags.truncate || flags.force {
                     op
                 } else {
-                    self.check_constant_cast(&op, target, value.span)?;
+                    self.check_constant_cast(&op, target, (value.span, span))?;
                     self.emit_cast_check(f, op, target, span)?
                 };
                 let result = self.explicit_cast(f, op, target, *flags, span)?;

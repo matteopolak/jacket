@@ -143,8 +143,8 @@ impl Compiler {
                     "only a one-character string converts to a `u8`, and this one has {} bytes",
                     s.len()
                 ));
-            } else if let Some(help) = self.ty.conversion_help(from, to) {
-                d = d.with_help(help);
+            } else {
+                d = self.with_conversion_hint(d, from, to, span);
             }
             return Err(Box::new(d));
         }
@@ -250,37 +250,6 @@ impl Compiler {
 }
 
 impl TypeState {
-    /// How to get a `to` from a `from`, for the common mismatches with an obvious fix.
-    pub(in crate::sema) fn conversion_help(&self, from: TypeId, to: TypeId) -> Option<String> {
-        let to_name = self.types.name(to);
-        let kind = |t| self.types.kind(t).clone();
-        Some(match (kind(from), kind(to)) {
-            (TypeKind::Float { .. }, TypeKind::Int { .. }) => {
-                format!("convert with `cast({to_name})`, which drops the fraction")
-            }
-            (TypeKind::Int { .. }, TypeKind::Int { .. }) => {
-                format!("convert with `cast({to_name})` if every value fits")
-            }
-            (TypeKind::Int { .. } | TypeKind::Float { .. }, TypeKind::String) => {
-                "to turn a number into text, format it: `tprint(\"%\", value)` (from Basic)".into()
-            }
-            (TypeKind::String, TypeKind::Pointer(p)) if self.types.is_integer(p) => {
-                "pass `value.data` for the bytes, or `to_c_string(value)` (from Basic) for a zero-terminated copy".into()
-            }
-            (TypeKind::Int { .. }, TypeKind::Bool) => "compare instead: `value != 0`".into(),
-            (TypeKind::Int { .. }, TypeKind::Enum(_)) | (TypeKind::Enum(_), TypeKind::Int { .. }) => {
-                format!("convert with `cast({to_name})`")
-            }
-            (TypeKind::Pointer(p), _) if p == to => {
-                "this is a pointer to the value: dereference it with `value.*`".into()
-            }
-            (_, TypeKind::Pointer(p)) if p == from => {
-                "this is the value itself: take its address with `*value`".into()
-            }
-            _ => return None,
-        })
-    }
-
     /// Structurally identical procedure types (ignoring parameter names).
     pub(in crate::sema) fn proc_types_compatible(&self, a: TypeId, b: TypeId) -> bool {
         match (self.types.kind(a), self.types.kind(b)) {

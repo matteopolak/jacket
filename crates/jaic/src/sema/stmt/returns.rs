@@ -1,7 +1,8 @@
 //! `return` statements and emitting deferred code.
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, FnCtx, Operand};
-use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, ast, err};
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, ast, err};
+use crate::source::{Applicability, Suggestion};
 
 impl Compiler {
     pub(super) fn check_return(
@@ -94,6 +95,58 @@ impl Compiler {
         self.emit_fallthrough_return(f, span)
     }
 
+    /// What the procedure returns, for the help of a `return` with the wrong values.
+    fn returns_help(&self, types: &[TypeId]) -> String {
+        if types.is_empty() {
+            return "the procedure returns nothing".into();
+        }
+        let names: Vec<String> = types
+            .iter()
+            .map(|&t| format!("`{}`", self.ty.types.name(t)))
+            .collect();
+        format!("the procedure returns {}", names.join(", "))
+    }
+
+    /// `return a, b, c;` in a procedure with fewer results: what it returns, and the
+    /// statement without the values past the last result.
+    fn too_many_returns(&self, types: &[TypeId], values: &[ast::Arg], span: Span) -> Diagnostic {
+        let mut d = Diagnostic::error(
+            span,
+            format!("too many return values (procedure returns {})", types.len()),
+        );
+        d = d.with_help(self.returns_help(types));
+        let keep = types.len();
+        let Some(last) = values.last().filter(|_| values.len() > keep) else {
+            return d;
+        };
+        let from = match keep.checked_sub(1) {
+            Some(i) => values[i].value.span.end,
+            None if self.src.sources.snippet(span).starts_with("return") => span.start + 6,
+            None => return d,
+        };
+        let drop = Span {
+            start: from,
+            end: last.value.span.end,
+            ..span
+        };
+        let title = if keep == 0 {
+            "return without a value".to_string()
+        } else {
+            format!(
+                "return only the first {keep} value{}",
+                if keep == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            )
+        };
+        d.with_suggestion(
+            Suggestion::replace(title, drop, "", Applicability::MaybeIncorrect)
+                .with_action("Remove the extra return values"),
+        )
+    }
+
     fn check_proc_return(
         &mut self,
         f: &mut FnCtx,
@@ -126,21 +179,24 @@ impl Compiler {
             return Ok(());
         }
         if ops.len() > types.len() {
-            return err(
-                span,
-                format!("too many return values (procedure returns {})", types.len()),
-            );
+            return Err(Box::new(self.too_many_returns(&types, values, span)));
         }
         if ops.len() < types.len() && !ops.is_empty() {
             // Remaining results take their named defaults.
             if let Some(i) = (ops.len()..types.len()).find(|&i| f.named_results[i].is_none()) {
-                return err(
-                    span,
-                    format!("missing return value {} of {}", i + 1, types.len()),
-                );
+                return Err(Box::new(
+                    Diagnostic::error(
+                        span,
+                        format!("missing return value {} of {}", i + 1, types.len()),
+                    )
+                    .with_help(self.returns_help(&types)),
+                ));
             }
         } else if ops.is_empty() && !types.is_empty() {
-            return err(span, "missing return value");
+            return Err(Box::new(
+                Diagnostic::error(span, "missing return value")
+                    .with_help(self.returns_help(&types)),
+            ));
         }
         let mut scalars = Vec::new();
         for (i, &ty) in types.iter().enumerate() {

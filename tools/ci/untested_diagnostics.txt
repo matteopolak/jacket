@@ -106,8 +106,6 @@ bootstrap __reg must be a type
 builtin needs an argument
 builtin procedure is not a value
 cannot bake an unnamed parameter
-cannot call type {}
-cannot cast {} to {}
 cannot convert {} to {}
 cannot infer `.{}` for type {}
 cannot use `using` on {}
@@ -158,7 +156,6 @@ missing value
 multiple placeholder definitions must form a procedure overload set
 named return values need a procedure
 no #asm instruction form with a {}-bit operand
-no `{}` is visible for iterating over {}
 no field named `{}` in this struct
 no main module
 no main module to add sources to
@@ -194,8 +191,6 @@ the scale of a memory operand must be a constant
 the size after `?` must be a type or a number of bits
 this expression has no value, so it cannot be a constant's value
 this field target cannot be assigned
-too many return values
-too many return values (procedure returns {})
 too many values for {}
 two procedures with this name have identical parameter types
 type {} has no constant member `{}`
