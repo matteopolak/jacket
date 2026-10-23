@@ -64,6 +64,14 @@ array_add :: (array: *[..] $T, to_append: ..T) {
 }
 
 array_find :: (array: [] $T, item: T, $compare: (T, T) -> bool = null) -> bool, s64 {
+    // A long array of integers, enums or pointers is searched a vector at a time.
+    #if !compare && ArrayScan.is_scannable(T) {
+        if array.count >= ARRAY_SCAN_MIN {
+            index := ArrayScan.find(array.data, array.count, item);
+            return index >= 0, index;
+        }
+    }
+
     for value, i: array {
         #if compare {
             if compare(value, item) return true, i;
@@ -241,6 +249,11 @@ array_copy :: (dest: *[..] $T, source: [] T) {
 }
 
 #scope_file
+ArrayScan :: #import "internal/array-scan";
+
+// Arrays shorter than this are searched one item at a time: the vector search costs more to start.
+ARRAY_SCAN_MIN :: 32;
+
 copy_array_elements :: (destination: *$T, source: [] T) {
     if source.count == 0 || destination == source.data return;
 
