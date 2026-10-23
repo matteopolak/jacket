@@ -172,7 +172,7 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
 /// `jaifmt` takes paths and has no default: the project is the default.
 fn fmt_args(args: &[OsString], ctx: &compile::Context) -> Vec<OsString> {
     let mut out = args.to_vec();
-    let value_flags: [&OsStr; 1] = [OsStr::new("--config")];
+    let value_flags = ["--config", "--color", "--is-ignored"].map(OsStr::new);
     let mut skip = false;
     let mut positional = false;
     let mut informational = false;
@@ -180,6 +180,8 @@ fn fmt_args(args: &[OsString], ctx: &compile::Context) -> Vec<OsString> {
         if skip {
             skip = false;
         } else if value_flags.contains(&arg.as_os_str()) {
+            // `--is-ignored FILE` asks about one file and takes no paths.
+            informational |= arg == "--is-ignored";
             skip = true;
         } else if matches!(
             arg.to_str(),
@@ -199,4 +201,45 @@ fn fmt_args(args: &[OsString], ctx: &compile::Context) -> Vec<OsString> {
         });
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct NoFiles;
+
+    impl jacket_config::Files for NoFiles {
+        fn is_file(&self, _: &Path) -> bool {
+            false
+        }
+
+        fn read(&self, _: &Path) -> Option<String> {
+            None
+        }
+    }
+
+    fn fmt(args: &[&str]) -> Vec<String> {
+        let args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        let ctx = compile::Context {
+            loaded: None,
+            cwd: Path::new("/w"),
+            fs: &NoFiles,
+        };
+        fmt_args(&args, &ctx)
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn flag_values_are_not_paths() {
+        assert_eq!(
+            fmt(&["--color", "never", "--check"]),
+            ["--color", "never", "--check", "."]
+        );
+        assert_eq!(fmt(&["--config", "a.toml"]), ["--config", "a.toml", "."]);
+        assert_eq!(fmt(&["src"]), ["src"]);
+        assert_eq!(fmt(&["--is-ignored", "a.jai"]), ["--is-ignored", "a.jai"]);
+    }
 }
