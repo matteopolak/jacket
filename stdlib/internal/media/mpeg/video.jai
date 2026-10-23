@@ -177,6 +177,7 @@ video_decode_sequence_header :: (video: *Video) -> bool {
     }
 
     if video.has_sequence_header {
+        // jailint: allow(float_equality): both sides come from the same table entry
         B.assert(video.width == width && video.height == height && video.framerate == cast(float64) PICTURE_RATE[rate],
             "MPEG sequence dimension/rate changes are unsupported");
         video.intra_quant_matrix = intra;

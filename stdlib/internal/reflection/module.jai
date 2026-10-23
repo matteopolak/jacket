@@ -78,15 +78,15 @@ set_value_from_string :: (any: Any, text: *string) -> bool {
     pointer := any.value_pointer;
 
     if info.type == .BOOL {
-        if text.count >= 4 && S.begins_with(text.*, "true") {
+        if text.count >= TRUE_TEXT.count && S.begins_with(text.*, TRUE_TEXT) {
             (cast(*bool) pointer).* = true;
-            advance(text, 4);
+            advance(text, TRUE_TEXT.count);
             return true;
         }
 
-        if text.count >= 5 && S.begins_with(text.*, "false") {
+        if text.count >= FALSE_TEXT.count && S.begins_with(text.*, FALSE_TEXT) {
             (cast(*bool) pointer).* = false;
-            advance(text, 5);
+            advance(text, FALSE_TEXT.count);
             return true;
         }
 
@@ -161,6 +161,10 @@ set_value_from_string :: (any: Any, text: *string) -> bool {
 S :: #import "String";
 
 #scope_file
+
+TRUE_TEXT :: "true";
+FALSE_TEXT :: "false";
+
 store_integer :: (pointer: *void, size: s64, value: u64) {
     if size == 1 {
         (cast(*u8) pointer).* = cast,trunc(u8) value;

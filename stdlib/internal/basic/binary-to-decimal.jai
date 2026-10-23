@@ -20,7 +20,7 @@ fast_float_text :: (value: float64, conversion: u8, precision: s64, storage: *[F
     rounding := ifx round_up then Rounding.UP else .NEAREST;
     digits: [20] u8;
 
-    if conversion == 102 {
+    if conversion == #char "f" {
         if precision < 0 || precision >= FIVE_POWERS.count return "", false;
 
         scaled, ok := scaled_round(mantissa, binary, precision, rounding);
@@ -31,7 +31,7 @@ fast_float_text :: (value: float64, conversion: u8, precision: s64, storage: *[F
         return fixed_text(storage, digits, count, precision), true;
     }
 
-    significant := ifx conversion == 103 then max(precision, 1) else precision + 1;
+    significant := ifx conversion == #char "g" then max(precision, 1) else precision + 1;
     if significant < 1 || significant > 19 return "", false;
 
     scaled: u64;
@@ -45,7 +45,7 @@ fast_float_text :: (value: float64, conversion: u8, precision: s64, storage: *[F
 
     count := write_digits(*digits, scaled, significant);
 
-    if conversion == 103 {
+    if conversion == #char "g" {
         text: string;
         if power < -4 || power >= significant text = scientific_text(storage, digits, count, power);
         else text = fixed_text(storage, digits, count, significant - power - 1);
@@ -377,7 +377,7 @@ text_reads_back :: (text: string, value: float64, wide: bool, power_of_two: bool
             continue;
         }
 
-        digits = digits * 10 + cast(u64) (byte - 48);
+        digits = digits * 10 + cast(u64) (byte - #char "0");
         if seen_point decimal -= 1;
     }
 
@@ -385,7 +385,7 @@ text_reads_back :: (text: string, value: float64, wide: bool, power_of_two: bool
         negative := text[at + 1] == #char "-";
         written: s64;
 
-        for i: at + 2..text.count - 1 written = written * 10 + cast(s64) (text[i] - 48);
+        for i: at + 2..text.count - 1 written = written * 10 + cast(s64) (text[i] - #char "0");
 
         decimal += ifx negative then -written else written;
     }

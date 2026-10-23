@@ -132,7 +132,7 @@ thread_is_done :: (thread: *Thread, milliseconds: s32 = 0) -> bool {
     #if OS == .WINDOWS {
         status := W.WaitForSingleObject(thread.windows_thread, cast,no_check(u32) milliseconds);
         if status == 0 return true;
-        if status == 258 return false;
+        if status == W.WAIT_TIMEOUT return false;
 
         context.logger("thread completion wait failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
 

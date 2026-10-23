@@ -62,13 +62,13 @@ exit :: (status: s32) #foreign libc;
 // Neither host has time zones, so local time is UTC and `mktime` is `timegm`. Out-of-range
 // fields carry into the larger ones, as in C.
 timegm :: (broken: *tm) -> time_t {
-    year := cast(s64) broken.tm_year + 1900;
+    year := cast(s64) broken.tm_year + TM_YEAR_BASE;
     month := cast(s64) broken.tm_mon;
 
-    year += month / 12;
-    month %= 12;
+    year += month / MONTHS_PER_YEAR;
+    month %= MONTHS_PER_YEAR;
     if month < 0 {
-        month += 12;
+        month += MONTHS_PER_YEAR;
         year -= 1;
     }
 
@@ -76,14 +76,14 @@ timegm :: (broken: *tm) -> time_t {
     // leap day ends each year.
     if month < 2 year -= 1;
 
-    era := ifx year >= 0 then year / 400 else (year - 399) / 400;
-    year_of_era := year - era * 400;
+    era := ifx year >= 0 then year / YEARS_PER_ERA else (year - YEARS_PER_ERA - 1) / YEARS_PER_ERA;
+    year_of_era := year - era * YEARS_PER_ERA;
     month_from_march := ifx month >= 2 then month - 2 else month + 10;
-    day_of_year := (153 * month_from_march + 2) / 5;
-    day_of_era := year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    days := era * 146097 + day_of_era - 719468 + cast(s64) broken.tm_mday - 1;
+    day_of_year := (DAYS_PER_MARCH_CYCLE * month_from_march + 2) / MONTHS_PER_MARCH_CYCLE;
+    day_of_era := year_of_era * DAYS_PER_YEAR + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    days := era * DAYS_PER_ERA + day_of_era - DAYS_FROM_YEAR_ZERO_TO_EPOCH + cast(s64) broken.tm_mday - 1;
 
-    return days * 86400 + cast(s64) broken.tm_hour * 3600 + cast(s64) broken.tm_min * 60 + broken.tm_sec;
+    return days * SECONDS_PER_DAY + cast(s64) broken.tm_hour * SECONDS_PER_HOUR + cast(s64) broken.tm_min * 60 + broken.tm_sec;
 }
 
 mktime :: (broken: *tm) -> time_t {
@@ -91,4 +91,16 @@ mktime :: (broken: *tm) -> time_t {
 }
 
 #scope_file
+
+TM_YEAR_BASE :: 1900;
+MONTHS_PER_YEAR :: 12;
+YEARS_PER_ERA :: 400;
+DAYS_PER_ERA :: 146097;
+DAYS_PER_YEAR :: 365;
+DAYS_PER_MARCH_CYCLE :: 153;
+MONTHS_PER_MARCH_CYCLE :: 5;
+DAYS_FROM_YEAR_ZERO_TO_EPOCH :: 719468;
+SECONDS_PER_DAY :: 86400;
+SECONDS_PER_HOUR :: 3600;
+
 libc :: #system_library "libc";

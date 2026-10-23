@@ -7,6 +7,8 @@
 // rounds once at the end, so results are within an ulp; sin, cos and tan reduce their argument
 // with 2/pi to 1344 bits, so huge arguments are exact too. The float32 forms compute in float64.
 
+// jailint: allow-file(float_equality): special cases test for exact values
+
 #scope_module
 
 // A float64 pair: head + tail, |tail| at most half an ulp of head.

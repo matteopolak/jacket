@@ -359,8 +359,8 @@ finish_message :: (p: *Parser) -> Event {
     switches := false;
 
     if p.kind == .RESPONSE {
-        if p.head.status == 101 switches = true;
-        if p.response_to == .CONNECT && p.head.status >= 200 && p.head.status < 300 switches = true;
+        if p.head.status == HTTP_SWITCHING_PROTOCOLS switches = true;
+        if p.response_to == .CONNECT && p.head.status >= HTTP_OK && p.head.status < HTTP_MULTIPLE_CHOICES switches = true;
     }
 
     p.started = false;
@@ -752,7 +752,7 @@ check_target_form :: (p: *Parser) -> bool {
 
         port := target.count - colon - 1;
 
-        if form == .AUTHORITY && (colon < 1 || port < 1 || port > 5) form = .NONE;
+        if form == .AUTHORITY && (colon < 1 || port < 1 || port > MAX_PORT_DIGITS) form = .NONE;
 
         if form == .AUTHORITY {
             for slice(target, colon + 1, port) {
@@ -793,13 +793,18 @@ check_target_form :: (p: *Parser) -> bool {
     return true;
 }
 
+// "HTTP/1.1 200": the version, a space and three status digits.
+STATUS_LINE_MIN_SIZE :: 12;
+STATUS_DIGITS_AT :: 9;
+MAX_PORT_DIGITS :: 5;
+
 parse_status_line :: (p: *Parser, start: int, end: int) -> bool {
     base := p.bytes.data;
 
-    if end - start < 12 || base[start + 8] != #char " " {
+    if end - start < STATUS_LINE_MIN_SIZE || base[start + 8] != #char " " {
         // "HTTP/1.1 200": at least the version, SP and three digits
-        if end - start < 12 {
-            if end - start >= 5 && !begins_with(view(base, start, end), "HTTP/") {
+        if end - start < STATUS_LINE_MIN_SIZE {
+            if end - start >= "HTTP/".count && !begins_with(view(base, start, end), "HTTP/") {
                 fail(p, .BAD_START_LINE, "not an HTTP response");
 
                 return false;
@@ -817,9 +822,9 @@ parse_status_line :: (p: *Parser, start: int, end: int) -> bool {
 
     if !parse_version(p, view(base, start, start + 8)) return false;
 
-    c0 := base[start + 9];
-    c1 := base[start + 10];
-    c2 := base[start + 11];
+    c0 := base[start + STATUS_DIGITS_AT];
+    c1 := base[start + STATUS_DIGITS_AT + 1];
+    c2 := base[start + STATUS_DIGITS_AT + 2];
 
     if !is_digit(c0) || !is_digit(c1) || !is_digit(c2) || c0 < #char "1" || c0 > #char "5" {
         fail(p, .BAD_STATUS, "the status must be three digits from 100 to 599");
@@ -829,17 +834,17 @@ parse_status_line :: (p: *Parser, start: int, end: int) -> bool {
 
     p.status = (cast(int) c0 - #char "0") * 100 + (cast(int) c1 - #char "0") * 10 + (cast(int) c2 - #char "0");
 
-    reason_start := start + 12;
+    reason_start := start + STATUS_LINE_MIN_SIZE;
     reason_end := end;
 
-    if end > start + 12 {
-        if base[start + 12] != #char " " {
+    if end > start + STATUS_LINE_MIN_SIZE {
+        if base[start + STATUS_LINE_MIN_SIZE] != #char " " {
             fail(p, .BAD_STATUS, "the status must be followed by a space");
 
             return false;
         }
 
-        reason_start = start + 13;
+        reason_start = start + STATUS_LINE_MIN_SIZE + 1;
 
         if find_bad_value_byte(base, reason_start, reason_end) >= 0 {
             fail(p, .BAD_STATUS, "the reason phrase holds a control byte");
@@ -902,7 +907,7 @@ finish_head :: (p: *Parser) -> int {
     } else {
         head.status = p.status;
         head.reason = view(base, p.reason_start, p.reason_end);
-        head.informational = p.status < 200 && p.status != 101;
+        head.informational = p.status < HTTP_OK && p.status != HTTP_SWITCHING_PROTOCOLS;
     }
 
     content_length_seen := p.content_length_seen;
@@ -964,9 +969,9 @@ finish_head :: (p: *Parser) -> int {
     if p.kind == .RESPONSE {
         status := p.status;
 
-        if status < 200 || status == 204 || status == 304 no_body = true;
+        if status < HTTP_OK || status == HTTP_NO_CONTENT || status == HTTP_NOT_MODIFIED no_body = true;
         if p.response_to == .HEAD no_body = true;
-        if p.response_to == .CONNECT && status >= 200 && status < 300 no_body = true;
+        if p.response_to == .CONNECT && status >= HTTP_OK && status < HTTP_MULTIPLE_CHOICES no_body = true;
     }
 
     if content_length_seen head.content_length = content_length;
@@ -1131,7 +1136,7 @@ scan_transfer_encoding :: (value: string, chunked: *bool, other: *bool) -> bool 
 // A Host value may not hold blanks, userinfo or path separators.
 host_value_ok :: (value: string) -> bool {
     for c: value {
-        if c == #char " " || c == 9 || c == #char "@" || c == #char "/" || c == #char "\\" || c == #char "," return false;
+        if c == #char " " || c == #char "\t" || c == #char "@" || c == #char "/" || c == #char "\\" || c == #char "," return false;
     }
 
     return true;

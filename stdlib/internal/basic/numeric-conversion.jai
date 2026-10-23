@@ -32,13 +32,13 @@ portable_float :: (value: float64, conversion: u8, precision: s64, round_up := f
     assert(precision >= 0 && precision < 0x7fffffffffffffff - exact.count - 4, "float output length exceeds addressable storage");
     p := precision;
 
-    if conversion == 102 {
+    if conversion == #char "f" {
         rounded := round_decimal(exact, exact.count - decimal_scale + p, round_up);
         defer free(rounded);
         return decimal_layout(rounded, p);
     }
 
-    significant := ifx conversion == 103 then max(p, cast(s64) 1) else p + 1;
+    significant := ifx conversion == #char "g" then max(p, cast(s64) 1) else p + 1;
     rounded := round_decimal(exact, significant, round_up);
 
     defer free(rounded);
@@ -49,7 +49,7 @@ portable_float :: (value: float64, conversion: u8, precision: s64, round_up := f
         rounded.count -= 1;
     }
 
-    if conversion == 103 {
+    if conversion == #char "g" {
         result: string;
         if decimal_exponent < -4 || decimal_exponent >= significant result = scientific_layout(rounded, decimal_exponent);
         else result = decimal_layout(rounded, significant - decimal_exponent - 1);
@@ -79,13 +79,13 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
 
     first := ifx cursor < text.count then to_lower(text[cursor]) else 0;
 
-    if first == 105 && word_at(text, cursor, "inf") {
+    if first == #char "i" && word_at(text, cursor, "inf") {
         cursor += 3;
         if word_at(text, cursor, "inity") cursor += 5;
         return float_bits(sign | infinity, T), true, advance(text, cursor);
     }
 
-    if first == 110 && word_at(text, cursor, "nan") {
+    if first == #char "n" && word_at(text, cursor, "nan") {
         cursor += 3;
         end := cursor;
         if end < text.count && text[end] == #char "(" {
@@ -99,7 +99,7 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
 
     base: u32 = 10;
 
-    if cursor + 2 < text.count && text[cursor] == #char "0" && to_lower(text[cursor + 1]) == 120 {
+    if cursor + 2 < text.count && text[cursor] == #char "0" && to_lower(text[cursor + 1]) == #char "x" {
         after := cursor + 2;
         if text[after] == #char "." after += 1;
 
@@ -160,7 +160,7 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
         start := end;
 
         while end < text.count && is_digit(text[end]) {
-            digit := cast(s64) (text[end] - 48);
+            digit := cast(s64) (text[end] - #char "0");
             if exponent <= (0x7fffffffffffffff - digit) / 10 exponent = exponent * 10 + digit;
             else exponent = 0x7fffffffffffffff;
             end += 1;
@@ -496,9 +496,9 @@ trim_fraction :: (text: string) -> string {
 }
 
 digit_value :: (byte: u8) -> u32 {
-    if byte >= 48 && byte <= 57 return cast(u32) (byte - 48);
+    if byte >= #char "0" && byte <= #char "9" return cast(u32) (byte - #char "0");
     lower := to_lower(byte);
-    if lower >= 97 && lower <= 102 return cast(u32) (lower - 97 + 10);
+    if lower >= #char "a" && lower <= #char "f" return cast(u32) (lower - #char "a" + 10);
     return 255;
 }
 

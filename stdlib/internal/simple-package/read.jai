@@ -78,7 +78,7 @@ load_table_of_contents :: (package: *Load_Package, data: [] u8, base_file_data_i
     for *value, index: toc.reserved value.* = Wire.load_u64(bytes, 16 + 8 * index);
 
     count := toc.number_of_entries;
-    if count < 0 || count > (bytes.count - 64) / 21 || count > 0x7fffffffffffffff / size_of(Entry_Info) return fail(name_for_debugging, offset_for_debugging, "invalid entry count");
+    if count < 0 || count > (bytes.count - 64) / TABLE_ENTRY_FIXED_SIZE || count > 0x7fffffffffffffff / size_of(Entry_Info) return fail(name_for_debugging, offset_for_debugging, "invalid entry count");
 
     entries := ([] Entry_Info).{ count, cast(*Entry_Info) B.alloc(count * size_of(Entry_Info)) };
     if count > 0 && !entries.data return fail(name_for_debugging, offset_for_debugging, "entry allocation failed");
@@ -127,6 +127,8 @@ load_table_of_contents :: (package: *Load_Package, data: [] u8, base_file_data_i
 }
 
 #scope_module
+TABLE_ENTRY_FIXED_SIZE :: 21;
+
 release_metadata :: (package: *Load_Package) {
     HT.deinit(*package.lookup);
     B.array_free(package.entries);

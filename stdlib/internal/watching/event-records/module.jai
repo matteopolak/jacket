@@ -9,7 +9,7 @@ Record :: struct {
 inotify_record :: (data: [] u8, cursor: s64) -> Record, next: s64, valid: bool {
     if !range_valid(data, cursor, 16) return .{}, cursor, false;
 
-    length := read_u32(data, cursor + 12);
+    length := read_u32(data, cursor + INOTIFY_NAME_LENGTH_OFFSET);
     if cast(s64) length > data.count - cursor - 16 return .{}, cursor, false;
 
     result := Record.{ descriptor = cast,trunc(s32) read_u32(data, cursor), flags = read_u32(data, cursor + 4), cookie = read_u32(data, cursor + 8) };
@@ -30,15 +30,19 @@ windows_record :: (data: [] u8, cursor: s64) -> Record, next: s64, valid: bool {
     offset := read_u32(data, cursor);
     length := read_u32(data, cursor + 8);
 
-    if length % 2 != 0 || cast(s64) length > data.count - cursor - 12 return .{}, cursor, false;
-    if offset != 0 && (offset % 4 != 0 || cast(s64) offset < 12 + cast(s64) length || cast(s64) offset > data.count - cursor - 12) return .{}, cursor, false;
+    if length % 2 != 0 || cast(s64) length > data.count - cursor - WINDOWS_RECORD_HEADER_SIZE return .{}, cursor, false;
+    if offset != 0 && (offset % 4 != 0 || cast(s64) offset < WINDOWS_RECORD_HEADER_SIZE + cast(s64) length || cast(s64) offset > data.count - cursor - WINDOWS_RECORD_HEADER_SIZE) return .{}, cursor, false;
 
-    result := Record.{ flags = read_u32(data, cursor + 4), name = .{ cast(s64) length, data.data + cursor + 12 } };
+    result := Record.{ flags = read_u32(data, cursor + 4), name = .{ cast(s64) length, data.data + cursor + WINDOWS_RECORD_HEADER_SIZE } };
 
     return result, ifx offset then cursor + offset else data.count, true;
 }
 
 #scope_file
+
+INOTIFY_NAME_LENGTH_OFFSET :: 12;
+WINDOWS_RECORD_HEADER_SIZE :: 12;
+
 range_valid :: (data: [] u8, cursor: s64, bytes: s64) -> bool {
     return data.count >= 0 && cursor >= 0 && cursor <= data.count && bytes <= data.count - cursor && (data.count == 0 || data.data != null);
 }

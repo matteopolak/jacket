@@ -23,7 +23,7 @@ create :: (major: s32, minor: s32, compatibility: bool, debug: bool,
             profiles[1] = PROFILE_3_2;
             count = 2;
         }
-    } else if (major == 1 && minor <= 5) || (major == 2 && minor <= 1) {
+    } else if (major == 1 && minor <= GL_1_LAST_MINOR_VERSION) || (major == 2 && minor <= 1) {
         profiles[0] = PROFILE_LEGACY;
     } else if !compatibility && major == 3 && (minor == 1 || minor == 2) {
         profiles[0] = PROFILE_3_2;
@@ -165,4 +165,7 @@ format_value :: (format: *void, attribute: u32) -> s32 {
 }
 
 #scope_file
+
+GL_1_LAST_MINOR_VERSION :: 5;
+
 AppKit :: #import "Objective_C/AppKit";

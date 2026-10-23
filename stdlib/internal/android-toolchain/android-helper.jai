@@ -6,8 +6,8 @@ android_host_literal :: (builder: *String_Builder, value: string) {
         if byte == #char "\"" append(builder, "\\\"");
         else if byte == #char "\\" append(builder, "\\\\");
         else if byte == 10 append(builder, "\\n");
-        else if byte == 13 append(builder, "\\r");
-        else if byte == 9 append(builder, "\\t");
+        else if byte == #char "\r" append(builder, "\\r");
+        else if byte == #char "\t" append(builder, "\\t");
         else if byte == 0 append(builder, "\\0");
         else append(builder, byte);
     }

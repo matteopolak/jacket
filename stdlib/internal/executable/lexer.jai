@@ -80,7 +80,7 @@ starts_number :: (c: s32) -> bool {
 }
 
 is_non_newline_whitespace :: (c: s16) -> bool {
-    return c == 32 || c == 9 || c == 13 || c == 11 || c == 12;
+    return c == #char " " || c == #char "\t" || c == #char "\r" || c == 11 || c == 12;
 }
 
 get_decimal_digit :: (lexer: *Lexer) -> s32 {
@@ -228,20 +228,20 @@ make_string_constant :: (lexer: *Lexer, end_char: s16) -> *Token {
     token := get_unused_token(lexer);
     if !token || token == *lexer.eof_token return token;
 
-    if peek_next_character(lexer) != end_char || (end_char != 34 && end_char != 39) {
+    if peek_next_character(lexer) != end_char || (end_char != #char "\"" && end_char != #char "'") {
         report_parse_error(lexer, token, "expected string delimiter");
         return token;
     }
 
     eat_character(lexer);
 
-    if end_char == 34 && lex_at(lexer, 0) == 34 && lex_at(lexer, 1) == 34 {
+    if end_char == #char "\"" && lex_at(lexer, 0) == #char "\"" && lex_at(lexer, 1) == #char "\"" {
         eat_character(lexer);
         eat_character(lexer);
         start := lexer.input_cursor;
 
         while peek_next_character(lexer) >= 0 {
-            if lex_at(lexer, 0) == 34 && lex_at(lexer, 1) == 34 && lex_at(lexer, 2) == 34 {
+            if lex_at(lexer, 0) == #char "\"" && lex_at(lexer, 1) == #char "\"" && lex_at(lexer, 2) == #char "\"" {
                 token.string_value = .{ lexer.input_cursor - start, lexer.input.data + start };
                 for 0..2 eat_character(lexer);
 
@@ -271,7 +271,7 @@ make_string_constant :: (lexer: *Lexer, end_char: s16) -> *Token {
         eat_character(lexer);
 
         if c == end_char {
-            if end_char == 39 && peek_next_character(lexer) == 39 {
+            if end_char == #char "'" && peek_next_character(lexer) == #char "'" {
                 eat_character(lexer);
                 B.array_add(*bytes, cast(u8) 39);
                 continue;
@@ -284,23 +284,23 @@ make_string_constant :: (lexer: *Lexer, end_char: s16) -> *Token {
             return token;
         }
 
-        if c == 10 || c == 13 {
+        if c == #char "\n" || c == #char "\r" {
             report_parse_error(lexer, token, "newline in quoted string");
             set_end_of_token(lexer, token);
             return token;
         }
 
-        if c == 92 && end_char == 34 {
+        if c == #char "\\" && end_char == #char "\"" {
             escape := peek_next_character(lexer);
             if escape < 0 break;
 
             eat_character(lexer);
 
-            if escape == #char "n" c = 10;
-            else if escape == #char "r" c = 13;
-            else if escape == #char "t" c = 9;
+            if escape == #char "n" c = #char "\n";
+            else if escape == #char "r" c = #char "\r";
+            else if escape == #char "t" c = #char "\t";
             else if escape == #char "0" c = 0;
-            else if escape == 34 || escape == 92 c = escape;
+            else if escape == #char "\"" || escape == #char "\\" c = escape;
             else if escape == #char "x" || escape == #char "u" || escape == #char "U" {
                 digits: s64 = 2;
                 if escape == #char "u" digits = 4;
@@ -351,18 +351,18 @@ count_herestring_lines :: (lexer: *Lexer, token: *Token) -> s64 {
 }
 
 eat_input_due_to_block_comment :: (lexer: *Lexer) {
-    if lex_at(lexer, 0) != 47 || lex_at(lexer, 1) != 42 return;
+    if lex_at(lexer, 0) != #char "/" || lex_at(lexer, 1) != #char "*" return;
 
     eat_character(lexer);
     eat_character(lexer);
     depth: s64 = 1;
 
     while peek_next_character(lexer) >= 0 {
-        if lex_at(lexer, 0) == 47 && lex_at(lexer, 1) == 42 {
+        if lex_at(lexer, 0) == #char "/" && lex_at(lexer, 1) == #char "*" {
             depth += 1;
             eat_character(lexer);
             eat_character(lexer);
-        } else if lex_at(lexer, 0) == 42 && lex_at(lexer, 1) == 47 {
+        } else if lex_at(lexer, 0) == #char "*" && lex_at(lexer, 1) == #char "/" {
             depth -= 1;
             eat_character(lexer);
             eat_character(lexer);
@@ -382,8 +382,8 @@ compose_new_token :: (lexer: *Lexer) -> *Token {
     while true {
         c := peek_next_character(lexer);
         if is_non_newline_whitespace(c) || c == 10 eat_character(lexer);
-        else if c == 47 && lex_at(lexer, 1) == 47 eat_until_newline(lexer);
-        else if c == 47 && lex_at(lexer, 1) == 42 eat_input_due_to_block_comment(lexer);
+        else if c == #char "/" && lex_at(lexer, 1) == #char "/" eat_until_newline(lexer);
+        else if c == #char "/" && lex_at(lexer, 1) == #char "*" eat_input_due_to_block_comment(lexer);
         else break;
     }
 
@@ -407,14 +407,14 @@ compose_new_token :: (lexer: *Lexer) -> *Token {
         return token;
     }
 
-    if c == 34 || c == 39 return make_string_constant(lexer, c);
-    if starts_number(c) || (c == 46 && starts_number(lex_at(lexer, 1))) return lex_number(lexer);
+    if c == #char "\"" || c == #char "'" return make_string_constant(lexer, c);
+    if starts_number(c) || (c == #char "." && starts_number(lex_at(lexer, 1))) return lex_number(lexer);
     if starts_identifier(cast(u8) c) return make_ident_or_keyword(lexer);
 
-    if (c == 45 || c == 46) && lex_at(lexer, 1) == c && lex_at(lexer, 2) == c {
+    if (c == #char "-" || c == #char ".") && lex_at(lexer, 1) == c && lex_at(lexer, 2) == c {
         token := get_unused_token(lexer);
         token.type = .TRIPLE_MINUS;
-        if c == 46 token.type = .TRIPLE_DOT;
+        if c == #char "." token.type = .TRIPLE_DOT;
 
         token.string_value = .{ 3, lexer.input.data + lexer.input_cursor };
         for 0..2 eat_character(lexer);
@@ -515,9 +515,9 @@ lex_at :: (lexer: *Lexer, ahead: s64) -> s16 {
 }
 
 lex_digit :: (c: s16) -> s32 {
-    if c >= 48 && c <= 57 return c - 48;
-    if c >= 65 && c <= 70 return c - 65 + 10;
-    if c >= 97 && c <= 102 return c - 97 + 10;
+    if c >= #char "0" && c <= #char "9" return c - #char "0";
+    if c >= #char "A" && c <= #char "F" return c - #char "A" + 10;
+    if c >= #char "a" && c <= #char "f" return c - #char "a" + 10;
     return -1;
 }
 
@@ -552,12 +552,12 @@ lex_number :: (lexer: *Lexer) -> *Token {
     start := lexer.input_cursor;
     base: u64 = 10;
 
-    if lex_at(lexer, 0) == 48 && (lex_at(lexer, 1) == #char "x" || lex_at(lexer, 1) == #char "X") {
+    if lex_at(lexer, 0) == #char "0" && (lex_at(lexer, 1) == #char "x" || lex_at(lexer, 1) == #char "X") {
         base = 16;
         token.value_flags |= .HEX;
         eat_character(lexer);
         eat_character(lexer);
-    } else if lex_at(lexer, 0) == 48 && (lex_at(lexer, 1) == #char "b" || lex_at(lexer, 1) == #char "B") {
+    } else if lex_at(lexer, 0) == #char "0" && (lex_at(lexer, 1) == #char "b" || lex_at(lexer, 1) == #char "B") {
         base = 2;
         token.value_flags |= .BINARY;
         eat_character(lexer);
@@ -589,7 +589,7 @@ lex_number :: (lexer: *Lexer) -> *Token {
         } else break;
     }
 
-    if base == 10 && peek_next_character(lexer) == 46 && starts_number(lex_at(lexer, 1)) {
+    if base == 10 && peek_next_character(lexer) == #char "." && starts_number(lex_at(lexer, 1)) {
         token.value_flags |= .FLOAT;
         eat_character(lexer);
 
@@ -602,7 +602,7 @@ lex_number :: (lexer: *Lexer) -> *Token {
     if base == 10 && (peek_next_character(lexer) == #char "e" || peek_next_character(lexer) == #char "E") {
         token.value_flags |= .FLOAT;
         eat_character(lexer);
-        if peek_next_character(lexer) == 43 || peek_next_character(lexer) == 45 eat_character(lexer);
+        if peek_next_character(lexer) == #char "+" || peek_next_character(lexer) == #char "-" eat_character(lexer);
 
         exponent_digits: s64;
 

@@ -170,9 +170,9 @@ gme_unsupported :: (name: string, reason: string) {
 
 gme_comment :: (builder: *String_Builder, text: string) {
     for byte, index: text {
-        if byte == 13 {
+        if byte == #char "\r" {
             append(builder, "\n");
-        } else if byte != 10 || index == 0 || text[index - 1] != 13 {
+        } else if byte != 10 || index == 0 || text[index - 1] != #char "\r" {
             append(builder, *byte, 1);
         }
     }
@@ -299,7 +299,7 @@ gme_macro_text :: (value: Macro_Value, enumeration: *Enum, name: string, ignore_
 
 gme_continuation :: (text: string) -> bool {
     for byte, index: text if byte == #char "\\" && index + 1 < text.count {
-        if text[index + 1] == 10 || text[index + 1] == 13 return true;
+        if text[index + 1] == 10 || text[index + 1] == #char "\r" return true;
     }
 
     return false;

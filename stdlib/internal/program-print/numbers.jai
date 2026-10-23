@@ -39,6 +39,7 @@ floating :: (builder: *Basic.String_Builder, literal: *C.Code_Literal) -> bool {
     // Nonfinite decimal values come from overflow, rather than a fabricated result.
     if value != value return false;
 
+    // jailint: allow(float_equality): only infinity doubles to itself
     if value != 0 && value == value * 2 {
         if value < 0 Basic.append(builder, "-");
         if literal.value_flags & .REQUIRES_FLOAT64 Basic.append(builder, "1.000000001e999");
@@ -98,8 +99,8 @@ floating :: (builder: *Basic.String_Builder, literal: *C.Code_Literal) -> bool {
     }
 
     wanted: int;
-    if literal.value_flags & .REQUIRES_FLOAT64 wanted = 9;
-    else if literal.value_flags & .DEFAULTS_TO_FLOAT64 wanted = 8;
+    if literal.value_flags & .REQUIRES_FLOAT64 wanted = WANTED_DIGITS_REQUIRES_FLOAT64;
+    else if literal.value_flags & .DEFAULTS_TO_FLOAT64 wanted = WANTED_DIGITS_DEFAULTS_TO_FLOAT64;
 
     if value == 0 && wanted > 0 {
         // Underflow provides the same zero bits with the requested precision flags.
@@ -133,5 +134,9 @@ floating :: (builder: *Basic.String_Builder, literal: *C.Code_Literal) -> bool {
 }
 
 #scope_file
+
+WANTED_DIGITS_REQUIRES_FLOAT64 :: 9;
+WANTED_DIGITS_DEFAULTS_TO_FLOAT64 :: 8;
+
 C :: #import "Compiler";
 Basic :: #import "Basic";

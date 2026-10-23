@@ -5,7 +5,7 @@ parse_plugin_arguments :: (args: [] string, starting_index := 0) -> (success: bo
     while first < args.count {
         word := args[first];
         if word == "-" return true, .{}, args;
-        if word.count > 0 && word[0] == 43 break;
+        if word.count > 0 && word[0] == #char "+" break;
         first += 1;
     }
 
@@ -31,7 +31,7 @@ parse_plugin_arguments :: (args: [] string, starting_index := 0) -> (success: bo
             break;
         }
 
-        if word.count > 0 && word[0] == 43 {
+        if word.count > 0 && word[0] == #char "+" {
             plugin: Plugin_To_Create;
             plugin.name = .{ count = word.count - 1, data = word.data + 1 };
             array_add(*created, plugin);

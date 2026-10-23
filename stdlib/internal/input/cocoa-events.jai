@@ -195,28 +195,28 @@ translate_mac_event :: (native: *void) {
     window := Cocoa.result_message(native, "window", Window_Type);
     flags := mac_modifiers(native);
 
-    if type == 10 || type == 11 {
+    if type == NS_EVENT_KEY_DOWN || type == NS_EVENT_KEY_UP {
         code := mac_key_code(native);
         repeat := Cocoa.result_message(native, "isARepeat", s8) != 0;
 
         text := Cocoa.result_message(native, "characters", *void);
 
         if code != .UNKNOWN {
-            emit_mac_button(window, code, type == 10, repeat, flags);
+            emit_mac_button(window, code, type == NS_EVENT_KEY_DOWN, repeat, flags);
             events_this_frame[events_this_frame.count - 1].text_input_count = cast(u16) mac_character_count(text);
         }
 
-        if type == 10 emit_mac_characters(window, text, repeat, flags);
-    } else if type == 12 {
+        if type == NS_EVENT_KEY_DOWN emit_mac_characters(window, text, repeat, flags);
+    } else if type == NS_EVENT_FLAGS_CHANGED {
         sync_mac_modifier(window, .SHIFT, flags.shift_pressed, flags);
         sync_mac_modifier(window, .CTRL, flags.ctrl_pressed, flags);
         sync_mac_modifier(window, .ALT, flags.alt_pressed, flags);
         sync_mac_modifier(window, .CMD, flags.cmd_meta_pressed, flags);
-    } else if type == 1 || type == 2 || type == 3 || type == 4 || type == 25 || type == 26 {
+    } else if type == NS_EVENT_LEFT_MOUSE_DOWN || type == NS_EVENT_LEFT_MOUSE_UP || type == NS_EVENT_RIGHT_MOUSE_DOWN || type == NS_EVENT_RIGHT_MOUSE_UP || type == NS_EVENT_OTHER_MOUSE_DOWN || type == NS_EVENT_OTHER_MOUSE_UP {
         code := Key_Code.MOUSE_BUTTON_LEFT;
-        if type == 3 || type == 4 code = .MOUSE_BUTTON_RIGHT;
+        if type == NS_EVENT_RIGHT_MOUSE_DOWN || type == NS_EVENT_RIGHT_MOUSE_UP code = .MOUSE_BUTTON_RIGHT;
 
-        if type == 25 || type == 26 {
+        if type == NS_EVENT_OTHER_MOUSE_DOWN || type == NS_EVENT_OTHER_MOUSE_UP {
             button := Cocoa.result_message(native, "buttonNumber", s64);
             if button == 2 code = .MOUSE_BUTTON_MIDDLE;
             else if button == 3 code = .MOUSE_BUTTON_EXTRA_1;
@@ -224,8 +224,8 @@ translate_mac_event :: (native: *void) {
             else return;
         }
 
-        emit_mac_button(window, code, type == 1 || type == 3 || type == 25, false, flags);
-    } else if type == 5 || type == 6 || type == 7 || type == 27 {
+        emit_mac_button(window, code, type == NS_EVENT_LEFT_MOUSE_DOWN || type == NS_EVENT_RIGHT_MOUSE_DOWN || type == NS_EVENT_OTHER_MOUSE_DOWN, false, flags);
+    } else if type == NS_EVENT_MOUSE_MOVED || type == NS_EVENT_LEFT_MOUSE_DRAGGED || type == NS_EVENT_RIGHT_MOUSE_DRAGGED || type == NS_EVENT_OTHER_MOUSE_DRAGGED {
         // Carry fractional native motion across events, never invent integer steps.
         mac_motion_x += Cocoa.result_message(native, "deltaX", float64);
         mac_motion_y += Cocoa.result_message(native, "deltaY", float64);
@@ -236,7 +236,7 @@ translate_mac_event :: (native: *void) {
         mouse_delta_y += dy;
         mac_motion_x -= cast(float64) dx;
         mac_motion_y -= cast(float64) dy;
-    } else if type == 22 {
+    } else if type == NS_EVENT_SCROLL_WHEEL {
         mac_scroll_y += Cocoa.result_message(native, "scrollingDeltaY", float64);
         mac_scroll_x += Cocoa.result_message(native, "scrollingDeltaX", float64);
         dy := cast(s32) mac_scroll_y;
@@ -367,7 +367,7 @@ mac_key_code :: (native: *void) -> Key_Code {
 
     unit := cast(u32) Cocoa.argument_result_message(characters, "characterAtIndex:", cast(u64) 0, u16);
     if unit >= #char "a" && unit <= #char "z" unit -= 32;
-    if unit >= 32 && unit <= 126 return cast(Key_Code) unit;
+    if unit >= #char " " && unit <= #char "~" return cast(Key_Code) unit;
 
     return .UNKNOWN;
 }
@@ -388,3 +388,19 @@ mac_special_keys := Mac_Special_Key.[
     .{ 0x6d, .F10 }, .{ 0x67, .F11 }, .{ 0x6f, .F12 }, .{ 0x69, .F13 }, .{ 0x6b, .F14 }, .{ 0x71, .F15 },
     .{ 0x6a, .F16 }, .{ 0x40, .F17 }, .{ 0x4f, .F18 }, .{ 0x50, .F19 }, .{ 0x5a, .F20 }
 ];
+
+#scope_file
+NS_EVENT_LEFT_MOUSE_DOWN :: 1;
+NS_EVENT_LEFT_MOUSE_UP :: 2;
+NS_EVENT_RIGHT_MOUSE_DOWN :: 3;
+NS_EVENT_RIGHT_MOUSE_UP :: 4;
+NS_EVENT_MOUSE_MOVED :: 5;
+NS_EVENT_LEFT_MOUSE_DRAGGED :: 6;
+NS_EVENT_RIGHT_MOUSE_DRAGGED :: 7;
+NS_EVENT_KEY_DOWN :: 10;
+NS_EVENT_KEY_UP :: 11;
+NS_EVENT_FLAGS_CHANGED :: 12;
+NS_EVENT_SCROLL_WHEEL :: 22;
+NS_EVENT_OTHER_MOUSE_DOWN :: 25;
+NS_EVENT_OTHER_MOUSE_UP :: 26;
+NS_EVENT_OTHER_MOUSE_DRAGGED :: 27;

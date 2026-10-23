@@ -13,6 +13,8 @@
 //     degrades (io_uring falls back to epoll as a whole when the ring cannot be had).
 //   - Results are a byte count or the negative platform errno; `error_from_code` makes them portable.
 
+NANOSECONDS_PER_MILLISECOND :: 1_000_000;
+
 Handle_Kind :: enum u8 {
     NONE;
     SOCKET;
@@ -321,7 +323,7 @@ engine_wait :: (scheduler: *Scheduler, timeout: s64) {
         case .KQUEUE; kqueue_wait_events(scheduler, engine, timeout);
         case .IOCP; #through;
         case .IORING; iocp_wait(scheduler, engine, timeout);
-        case; if timeout > 0 sleep_milliseconds(cast(s32) min((timeout + 999_999) / 1_000_000, 0x7fff_ffff));
+        case; if timeout > 0 sleep_milliseconds(cast(s32) min((timeout + NANOSECONDS_PER_MILLISECOND - 1) / NANOSECONDS_PER_MILLISECOND, 0x7fff_ffff));
     }
 }
 

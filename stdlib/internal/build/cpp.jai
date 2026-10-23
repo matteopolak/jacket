@@ -274,8 +274,8 @@ matches_target_object :: (path: string, target: Operating_System_Tag) -> bool {
     header: [32] u8;
     read, count := F.file_read(file, header.data, header.count);
 
-    if !read || count < 20 return false;
-    if target == .LINUX return header[0] == 0x7f && header[1] == 69 && header[2] == 76 && header[3] == 70;
+    if !read || count < COFF_HEADER_SIZE return false;
+    if target == .LINUX return header[0] == 0x7f && header[1] == #char "E" && header[2] == #char "L" && header[3] == #char "F";
 
     if target == .WINDOWS {
         // COFF object headers, not PE images: reject wrong-machine objects before linking.
@@ -329,11 +329,11 @@ coff_object_matches :: (header: [] u8, machine: u32) -> bool {
     bigobj_class :: u8.[0xc7, 0xa1, 0xba, 0xd1, 0xee, 0xba, 0xa9, 0x4b, 0xaf, 0x20, 0xfa, 0xf6, 0x6a, 0xa4, 0xdc, 0xb8];
 
     if header.count >= 32 && word(header, 0) == 0 && word(header, 2) == 0xffff && word(header, 4) >= 2 {
-        for bigobj_class if header[12 + it_index] != it return false;
+        for bigobj_class if header[BIGOBJ_CLASS_OFFSET + it_index] != it return false;
         return word(header, 6) == machine;
     }
 
-    if header.count < 20 return false;
+    if header.count < COFF_HEADER_SIZE return false;
 
     return word(header, 0) == machine && (header[2] != 0 || header[3] != 0) && header[16] == 0 && header[17] == 0;
 }
@@ -357,6 +357,10 @@ remember_failure :: (message: string, failure: *string) -> bool {
 }
 
 #scope_file
+
+COFF_HEADER_SIZE :: 20;
+BIGOBJ_CLASS_OFFSET :: 12;
+
 publish_failure :: (success: bool, failure: string, loc: Source_Code_Location) {
     if success {
         free(failure);

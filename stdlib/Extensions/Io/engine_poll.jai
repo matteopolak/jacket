@@ -543,7 +543,7 @@ KQ_WRITE :: -2;
 
         milliseconds: s32 = -1;
 
-        if timeout >= 0 milliseconds = cast(s32) min((timeout + 999_999) / 1_000_000, 0x7fff_ffff);
+        if timeout >= 0 milliseconds = cast(s32) min((timeout + NANOSECONDS_PER_MILLISECOND - 1) / NANOSECONDS_PER_MILLISECOND, 0x7fff_ffff);
 
         count: s32;
 

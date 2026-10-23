@@ -74,13 +74,13 @@ get_cpu_info :: () -> Cpu_X86 {
         }
     }
 
-    if maximum >= 13 {
-        eax, _b, _c, _d := query(13, 1);
+    if maximum >= 0xd {
+        eax, _b, _c, _d := query(0xd, 1);
         result.feature_leaves[Leaf._0DH_01H_EAX] = eax;
     }
 
-    if maximum >= 25 {
-        _a, ebx, _c, _d := query(25, 0);
+    if maximum >= 0x19 {
+        _a, ebx, _c, _d := query(0x19, 0);
         result.feature_leaves[Leaf._19H_EBX] = ebx;
     }
 

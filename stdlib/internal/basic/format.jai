@@ -258,7 +258,7 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
 } @PrintLike
 
 my_is_digit :: (c: s64) -> bool {
-    return c >= 48 && c <= 57;
+    return c >= #char "0" && c <= #char "9";
 }
 
 parse_number :: (s: string, cursor: s64) -> (end_cursor: s64, sum: s64) {
@@ -267,7 +267,7 @@ parse_number :: (s: string, cursor: s64) -> (end_cursor: s64, sum: s64) {
     value: s64;
 
     while index < s.count && my_is_digit(s[index]) {
-        digit := cast(s64) (s[index] - 48);
+        digit := cast(s64) (s[index] - #char "0");
         if value > (0x7fffffffffffffff - digit) / 10 value = 0x7fffffffffffffff;
         else value = value * 10 + digit;
         index += 1;

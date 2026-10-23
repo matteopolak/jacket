@@ -55,7 +55,7 @@ Statistics_Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENA
                 sizes := Statistics_Bridge.snapshot_counters(snapshot, cast(u64) heap, 1);
 
                 for index: 0..126 {
-                    row := sizes + index * 11;
+                    row := sizes + index * SIZE_CLASS_COUNTER_COUNT;
                     occupied: bool;
 
                     for field: 0..10 if row[field] != 0 occupied = true;
@@ -73,3 +73,6 @@ Statistics_Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENA
         dump_statistics :: (builder: *void) #expand {}
     }
 }
+
+#scope_file
+SIZE_CLASS_COUNTER_COUNT :: 11;

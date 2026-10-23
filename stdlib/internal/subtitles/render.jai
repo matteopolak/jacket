@@ -102,12 +102,15 @@ flush_csv_lines :: (builder: *String_Builder, section_name: string, name_map: *H
     defer Basic.free(who);
     defer Basic.free(what);
     defer Basic.free(how);
-    print(builder, "%,%,%,%,%,%_%.wav,%.wav\n", row_number.* + 262, section_name, who, what, how, section_name, formatInt(row_index.* + 1, minimum_digits = 2), section_name);
+    print(builder, "%,%,%,%,%,%_%.wav,%.wav\n", row_number.* + ROW_NUMBER_BASE, section_name, who, what, how, section_name, formatInt(row_index.* + 1, minimum_digits = 2), section_name);
     row_number.* += 1;
     row_index.* += 1;
 }
 
 #scope_file
+
+ROW_NUMBER_BASE :: 262;
+
 Basic :: #import "Basic";
 
 displayed_name :: (name: string, name_map: *H.Table(string, string)) -> string {

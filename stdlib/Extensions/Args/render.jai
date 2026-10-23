@@ -177,10 +177,12 @@ value_label :: (option: Option_Spec) -> string {
     return to_upper_copy(option.long,, temp);
 }
 
+NEGATION_MARKER :: "[no-]";
+
 // The visible width of an option's label, without colour codes.
 label_width :: (option: Option_Spec) -> s64 {
     width := 4 + 2 + option.long.count; // "-c, " or 4 spaces, then "--long"
-    if option.negatable width += 5; // "[no-]"
+    if option.negatable width += NEGATION_MARKER.count;
     if option.kind == .VALUE || option.kind == .LIST width += 3 + value_label(option).count; // " <NAME>"
     return width;
 }

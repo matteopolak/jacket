@@ -39,11 +39,13 @@ example :: () {
     values: Soa(Example_Item, 2);
     values[0] = Example_Item.{ 17, 34 };
     item := values[0];
-    assert(item.x + item.y == 51);
+    assert(item.x + item.y == EXPECTED_ITEM_SUM);
 }
 
 #scope_file
 #import "Basic";
+
+EXPECTED_ITEM_SUM :: 51;
 
 Example_Item :: struct {
     x: int;

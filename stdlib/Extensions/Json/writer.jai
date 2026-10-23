@@ -4,6 +4,9 @@
 #scope_module
 
 HEX_DIGITS :: "0123456789abcdef";
+DIGIT_GROUP :: 10000;
+GROUP_DIGITS :: 4;
+MAX_U64_DIGITS :: 20;
 
 // How many bytes of `text` starting at `at` form one well-formed UTF-8 sequence (RFC 3629: no
 // overlong forms, no surrogates, nothing above U+10FFFF), or 0.
@@ -230,7 +233,7 @@ append_json_string :: (builder: *String_Builder, text: string) #no_abc {
             append(builder, "\\t");
         } else if c == 8 {
             append(builder, "\\b");
-        } else if c == 12 {
+        } else if c == FORM_FEED {
             append(builder, "\\f");
         } else {
             append(builder, "\\u00");
@@ -316,9 +319,9 @@ count_digits :: inline (value: u64) -> s64 {
     digits := 1;
     rest := value;
 
-    while rest >= 10000 {
-        rest /= 10000;
-        digits += 4;
+    while rest >= DIGIT_GROUP {
+        rest /= DIGIT_GROUP;
+        digits += GROUP_DIGITS;
     }
 
     if rest >= 1000 return digits + 3;
@@ -339,13 +342,13 @@ json_write_bool :: inline (w: *Json_Writer, value: bool) {
 }
 
 json_write_uint :: (w: *Json_Writer, value: u64) {
-    out := builder_reserve(w.builder, 20);
+    out := builder_reserve(w.builder, MAX_U64_DIGITS);
 
     if !out {
-        buffer: [20] u8 = ---;
-        start := write_digits_backward(buffer.data + 20, value);
+        buffer: [MAX_U64_DIGITS] u8 = ---;
+        start := write_digits_backward(buffer.data + MAX_U64_DIGITS, value);
 
-        append(w.builder, start, buffer.data + 20 - start);
+        append(w.builder, start, buffer.data + MAX_U64_DIGITS - start);
 
         return;
     }

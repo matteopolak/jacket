@@ -101,7 +101,7 @@ xml_text_valid :: (text: string) -> bool {
     while cursor < text.count {
         code, consumed, status := U.character_utf8_to_utf32(text.data + cursor, text.count - cursor, true);
         if status != .CONVERSION_OK || consumed <= 0 return false;
-        if code < 0x20 && code != 9 && code != 10 && code != 13 return false;
+        if code < 0x20 && code != #char "\t" && code != #char "\n" && code != #char "\r" return false;
         if code == 0xfffe || code == 0xffff return false;
 
         cursor += consumed;
@@ -117,7 +117,7 @@ escaped :: (builder: *B.String_Builder, text: string) {
         else if byte == #char ">" checked_append(builder, "&gt;");
         else if byte == #char "\"" checked_append(builder, "&quot;");
         else if byte == #char "'" checked_append(builder, "&apos;");
-        else if byte == 13 checked_append(builder, "&#13;");
+        else if byte == #char "\r" checked_append(builder, "&#13;");
         else {
             B.append(builder, byte);
             B.assert(!builder.failed, "property-list builder allocation failed");

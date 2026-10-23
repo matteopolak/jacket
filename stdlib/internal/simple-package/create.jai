@@ -47,9 +47,9 @@ write :: (package: *Create_Package, filename: string, sort_contents := true) -> 
         if entry.data.count > 0x7fffffffffffffff - total return false;
 
         total += entry.data.count;
-        if entry.name.count > 0x7fffffffffffffff - total - 21 return false;
+        if entry.name.count > 0x7fffffffffffffff - total - TABLE_ENTRY_FIXED_SIZE return false;
 
-        total += 21 + entry.name.count;
+        total += TABLE_ENTRY_FIXED_SIZE + entry.name.count;
     }
 
     B.reset(*package.data);

@@ -1,7 +1,8 @@
 string_to_int :: (t: string, base := 10, $T := int) -> result: T, success: bool, remainder: string #no_aoc {
+    MAX_BASE :: 36;
     info := cast(*Type_Info_Integer) type_info(T);
 
-    assert(info.type == .INTEGER && base >= 2 && base <= 36);
+    assert(info.type == .INTEGER && base >= 2 && base <= MAX_BASE);
     cursor: s64;
     while cursor < t.count && is_space(t[cursor]) cursor += 1;
 
@@ -29,8 +30,8 @@ string_to_int :: (t: string, base := 10, $T := int) -> result: T, success: bool,
         byte := to_lower(t[cursor]);
         digit: u64;
 
-        if byte >= 48 && byte <= 57 digit = byte - 48;
-        else if byte >= 97 && byte <= 122 digit = byte - 97 + 10;
+        if byte >= #char "0" && byte <= #char "9" digit = byte - #char "0";
+        else if byte >= #char "a" && byte <= #char "z" digit = byte - #char "a" + 10;
         else break;
         if digit >= cast(u64) base break;
         if value > (limit - digit) / cast(u64) base return 0, false, t;

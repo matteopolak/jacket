@@ -701,12 +701,18 @@ BYTE_SHARE :: #run -> [256] float64 {
     share: [256] float64;
 
     for b: 0..255 {
+        NON_ASCII_SHARE :: 0.004;
+        UPPER_AND_DIGIT_SHARE :: 0.003;
+        PUNCTUATION_SHARE :: 0.01;
+        SPACE_SHARE :: 0.15;
+
         weight: float64 = 0.0005;
-        if b >= 0x80 weight = 0.004;
-        if b >= #char "A" && b <= #char "Z" weight = 0.003;
-        if b >= #char "0" && b <= #char "9" weight = 0.003;
-        if b == #char "," || b == #char "." || b == #char "\n" weight = 0.01;
-        if b == #char " " weight = 0.15;
+
+        if b >= 0x80 weight = NON_ASCII_SHARE;
+        if b >= #char "A" && b <= #char "Z" weight = UPPER_AND_DIGIT_SHARE;
+        if b >= #char "0" && b <= #char "9" weight = UPPER_AND_DIGIT_SHARE;
+        if b == #char "," || b == #char "." || b == #char "\n" weight = PUNCTUATION_SHARE;
+        if b == #char " " weight = SPACE_SHARE;
 
         share[b] = weight;
     }

@@ -2,11 +2,11 @@ has_a_big_exponent :: inline (value: float64) -> bool {
     encoded := ((cast,force(u64) value) >> 52) & 0x7ff;
     if encoded == 0 || encoded == 0x7ff return false;
     exponent := (cast(s64) encoded) - 1023;
-    return exponent > 127 || exponent < -126;
+    return exponent > FLOAT32_MAX_EXPONENT || exponent < FLOAT32_MIN_EXPONENT;
 }
 
 make_hexfloat :: (lexer: *J.Lexer, result: *J.Token) -> *J.Token #no_aoc {
-    if look(lexer, 0) == 48 && (look(lexer, 1) == 104 || look(lexer, 1) == 72) {
+    if look(lexer, 0) == #char "0" && (look(lexer, 1) == #char "h" || look(lexer, 1) == #char "H") {
         eat_character(lexer);
         eat_character(lexer);
     }
@@ -16,7 +16,7 @@ make_hexfloat :: (lexer: *J.Lexer, result: *J.Token) -> *J.Token #no_aoc {
 
     while true {
         c := look(lexer, 0);
-        if c == 95 {
+        if c == #char "_" {
             eat_character(lexer);
             continue;
         }
@@ -50,16 +50,16 @@ make_number :: (lexer: *J.Lexer) -> *J.Token #no_aoc {
     result.value_flags = .NUMBER;
     start := lexer.input_cursor;
 
-    if look(lexer, 0) == 48 && (look(lexer, 1) == 104 || look(lexer, 1) == 72) return make_hexfloat(lexer, result);
+    if look(lexer, 0) == #char "0" && (look(lexer, 1) == #char "h" || look(lexer, 1) == #char "H") return make_hexfloat(lexer, result);
 
     base: u64 = 10;
 
-    if look(lexer, 0) == 48 && (look(lexer, 1) == 120 || look(lexer, 1) == 88) {
+    if look(lexer, 0) == #char "0" && (look(lexer, 1) == #char "x" || look(lexer, 1) == #char "X") {
         base = 16;
         result.value_flags |= .HEX;
         eat_character(lexer);
         eat_character(lexer);
-    } else if look(lexer, 0) == 48 && (look(lexer, 1) == 98 || look(lexer, 1) == 66) {
+    } else if look(lexer, 0) == #char "0" && (look(lexer, 1) == #char "b" || look(lexer, 1) == #char "B") {
         base = 2;
         result.value_flags |= .BINARY;
         eat_character(lexer);
@@ -73,7 +73,7 @@ make_number :: (lexer: *J.Lexer) -> *J.Token #no_aoc {
 
         while true {
             c := look(lexer, 0);
-            if c == 95 {
+            if c == #char "_" {
                 eat_character(lexer);
                 continue;
             }
@@ -109,37 +109,37 @@ make_number :: (lexer: *J.Lexer) -> *J.Token #no_aoc {
     fraction_last_nonzero: s64 = -1;
     fraction_count: s64 = 0;
 
-    while starts_number(look(lexer, 0)) || look(lexer, 0) == 95 eat_character(lexer);
+    while starts_number(look(lexer, 0)) || look(lexer, 0) == #char "_" eat_character(lexer);
 
-    if look(lexer, 0) == 46 && look(lexer, 1) != 46 {
+    if look(lexer, 0) == #char "." && look(lexer, 1) != #char "." {
         floating = true;
         eat_character(lexer);
         fraction_start = lexer.input_cursor;
 
-        while starts_number(look(lexer, 0)) || look(lexer, 0) == 95 {
-            if look(lexer, 0) != 95 {
+        while starts_number(look(lexer, 0)) || look(lexer, 0) == #char "_" {
+            if look(lexer, 0) != #char "_" {
                 fraction_count += 1;
-                if look(lexer, 0) != 48 fraction_last_nonzero = fraction_count;
+                if look(lexer, 0) != #char "0" fraction_last_nonzero = fraction_count;
             }
 
             eat_character(lexer);
         }
 
-        if look(lexer, 0) == 46 && look(lexer, 1) != 46 {
+        if look(lexer, 0) == #char "." && look(lexer, 1) != #char "." {
             eat_character(lexer);
             report_parse_error(lexer, "number has a second decimal point");
         }
     }
 
-    if look(lexer, 0) == 101 || look(lexer, 0) == 69 {
+    if look(lexer, 0) == #char "e" || look(lexer, 0) == #char "E" {
         floating = true;
         eat_character(lexer);
-        if look(lexer, 0) == 43 || look(lexer, 0) == 45 eat_character(lexer);
+        if look(lexer, 0) == #char "+" || look(lexer, 0) == #char "-" eat_character(lexer);
 
         count: s64 = 0;
 
-        while starts_number(look(lexer, 0)) || look(lexer, 0) == 95 {
-            if look(lexer, 0) != 95 count += 1;
+        while starts_number(look(lexer, 0)) || look(lexer, 0) == #char "_" {
+            if look(lexer, 0) != #char "_" count += 1;
             eat_character(lexer);
         }
 
@@ -171,7 +171,7 @@ make_number :: (lexer: *J.Lexer) -> *J.Token #no_aoc {
         overflow := false;
 
         for c: spelling {
-            digit := cast(u64) (c - 48);
+            digit := cast(u64) (c - #char "0");
             if value > (0xffffffffffffffff - digit) / 10 overflow = true;
             value = value * 10 + digit;
         }
@@ -191,12 +191,16 @@ make_number :: (lexer: *J.Lexer) -> *J.Token #no_aoc {
 
 #scope_module
 hex_value :: (c: s32) -> s32 {
-    if c >= 48 && c <= 57 return c - 48;
-    if c >= 65 && c <= 70 return c - 65 + 10;
-    if c >= 97 && c <= 102 return c - 97 + 10;
+    if c >= #char "0" && c <= #char "9" return c - #char "0";
+    if c >= #char "A" && c <= #char "F" return c - #char "A" + 10;
+    if c >= #char "a" && c <= #char "f" return c - #char "a" + 10;
     return -1;
 }
 
 #scope_file
+
+FLOAT32_MAX_EXPONENT :: 127;
+FLOAT32_MIN_EXPONENT :: -126;
+
 J :: #import "Jai_Lexer";
 Basic :: #import "Basic";

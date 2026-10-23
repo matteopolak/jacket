@@ -114,7 +114,7 @@ check_for_equals :: (lexer: *J.Lexer, c: J.Token_Type, augmented: J.Token_Type, 
     result.type = c;
     if eat eat_character(lexer);
 
-    if look(lexer, 0) == 61 {
+    if look(lexer, 0) == #char "=" {
         eat_character(lexer);
         result.type = augmented;
     }
@@ -133,12 +133,12 @@ compose_new_token :: (lexer: *J.Lexer) -> *J.Token {
             continue;
         }
 
-        if c == 47 && look(lexer, 1) == 47 {
+        if c == #char "/" && look(lexer, 1) == #char "/" {
             eat_until_newline(lexer);
             continue;
         }
 
-        if c == 47 && look(lexer, 1) == 42 {
+        if c == #char "/" && look(lexer, 1) == #char "*" {
             eat_character(lexer);
             eat_character(lexer);
             eat_input_due_to_block_comment(lexer);
@@ -164,11 +164,11 @@ compose_new_token :: (lexer: *J.Lexer) -> *J.Token {
     }
 
     if starts_identifier(cast(u8) c) return make_ident_or_keyword(lexer);
-    if starts_number(c) || (c == 46 && starts_number(look(lexer, 1))) return make_number(lexer);
-    if c == 34 return make_string_constant(lexer);
+    if starts_number(c) || (c == #char "." && starts_number(look(lexer, 1))) return make_number(lexer);
+    if c == #char "\"" return make_string_constant(lexer);
     if c == 64 return make_note(lexer);
 
-    if c == 96 {
+    if c == #char "`" {
         line := lexer.current_line_number;
         column := lexer.current_character_index;
 
@@ -186,7 +186,7 @@ compose_new_token :: (lexer: *J.Lexer) -> *J.Token {
         report_parse_error(lexer, "backtick requires an identifier");
     }
 
-    if c == 35 && matches_text(lexer, "#string") && !continues_identifier(look(lexer, 7)) {
+    if c == #char "#" && matches_text(lexer, "#string") && !continues_identifier(look(lexer, 7)) {
         line := lexer.current_line_number;
         column := lexer.current_character_index;
 

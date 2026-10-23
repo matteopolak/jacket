@@ -90,14 +90,14 @@ temporary_value :: (value: $T) -> Any {
 }
 
 scan_value :: (directive: u8, text: *string, wide_float := false) -> Any, bool {
-    if directive == 100 || directive == 105 {
+    if directive == 100 || directive == #char "i" {
         value, ok, rest := string_to_int(text.*);
         if !ok return .{}, false;
         text.* = rest;
         return temporary_value(value), true;
     }
 
-    if directive == 102 {
+    if directive == #char "f" {
         if wide_float {
             value, ok, rest := string_to_float64(text.*);
             if !ok return .{}, false;
@@ -113,16 +113,16 @@ scan_value :: (directive: u8, text: *string, wide_float := false) -> Any, bool {
         return temporary_value(value), true;
     }
 
-    if directive == 98 {
+    if directive == #char "b" {
         value, ok := parse_bool(text);
         if !ok return .{}, false;
         return temporary_value(value), true;
     }
 
-    if directive == 115 {
-        if text.count == 0 || text.data[0] != 34 return .{}, false;
+    if directive == #char "s" {
+        if text.count == 0 || text.data[0] != #char "\"" return .{}, false;
 
-        end := find_index_from_left(text.*, cast(u8) 34, 1);
+        end := find_index_from_left(text.*, cast(u8) #char "\"", 1);
         if end < 0 return .{}, false;
 
         value := slice(text.*, 1, end - 1);

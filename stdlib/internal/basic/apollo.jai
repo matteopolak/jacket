@@ -112,7 +112,8 @@ to_apollo :: (seconds: float64) -> Apollo_Time #no_aoc {
 
     significand := (bits & 0xfffffffffffff) | 0x10000000000000;
     high, low := multiply_64bits_with_overflow(significand, FEMTOSECONDS);
-    shift := cast(s64) encoded_exponent - 1023 - 52;
+    MANTISSA_BITS :: 52;
+    shift := cast(s64) encoded_exponent - 1023 - MANTISSA_BITS;
 
     while shift > 0 {
         if (high & 0x4000000000000000) != 0 return APOLLO_TIME_INVALID;

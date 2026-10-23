@@ -55,7 +55,7 @@ path_ensure_extension :: (path: string, extension: string) -> string {
 
 #if OS != .NN_SWITCH2 {
     is_absolute_path :: (path: string) -> bool {
-        #if OS == .WINDOWS return path.count >= 3 && is_alpha(path[0]) && path[1] == 58 && is_any(path[2], "/\\");
+        #if OS == .WINDOWS return path.count >= 3 && is_alpha(path[0]) && path[1] == #char ":" && is_any(path[2], "/\\");
         else return path.count > 0 && path[0] == #char "/";
     }
 }

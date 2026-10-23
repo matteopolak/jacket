@@ -125,8 +125,9 @@ parameter_equal :: (a: Any, b: Any) -> bool {
     if kind == .STRING return (cast(*string) a.value_pointer).* == (cast(*string) b.value_pointer).*;
 
     if kind == .FLOAT {
+        // jailint: allow(float_equality): values are equal only when they match exactly
         if a.type.runtime_size == 4 return (cast(*float32) a.value_pointer).* == (cast(*float32) b.value_pointer).*;
-        return (cast(*float64) a.value_pointer).* == (cast(*float64) b.value_pointer).*;
+        return (cast(*float64) a.value_pointer).* == (cast(*float64) b.value_pointer).*; // jailint: allow(float_equality)
     }
 
     if kind == .STRUCT {

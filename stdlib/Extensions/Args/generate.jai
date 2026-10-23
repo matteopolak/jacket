@@ -177,14 +177,17 @@ read_field :: (analysis: *Analysis, member: *Type_Info_Struct_Member) -> Field {
                 complain(analysis, name, "`@subcommand` goes on a struct field (one per subcommand) and on the enum field that selects it");
             }
         } else if begins_with(note, "short=") {
-            value := slice(note, 6, note.count - 6);
+            prefix :: "short=";
+            value := slice(note, prefix.count, note.count - prefix.count);
+
             if value.count != 1 || !is_alnum_byte(value[0]) {
                 complain(analysis, name, tprint("`@%` needs a single letter or digit, as in `@short=c`", note));
             } else {
                 field.short = value[0];
             }
         } else if begins_with(note, "long=") {
-            value := slice(note, 5, note.count - 5);
+            prefix :: "long=";
+            value := slice(note, prefix.count, note.count - prefix.count);
             if !value.count || !is_name_text(value) complain(analysis, name, tprint("`@%` needs a name of letters, digits, `-` and `_`, as in `@long=output-file`", note));
             else field.long = copy_string(value,, temp);
         } else if begins_with(note, "env=") {
@@ -192,13 +195,14 @@ read_field :: (analysis: *Analysis, member: *Type_Info_Struct_Member) -> Field {
             if !value.count || !is_name_text(value) complain(analysis, name, tprint("`@%` needs an environment variable name, as in `@env=MY_TOOL_JOBS`", note));
             else field.env = copy_string(value,, temp);
         } else if begins_with(note, "value=") {
-            value := slice(note, 6, note.count - 6);
+            prefix :: "value=";
+            value := slice(note, prefix.count, note.count - prefix.count);
             if !value.count complain(analysis, name, "`@value=` needs a name to show in help, as in `@value=FILE`");
             else field.value_name = copy_string(value,, temp);
         } else if begins_with(note, "conflicts=") {
             array_add(*field.conflicts, copy_string(slice(note, 10, note.count - 10),, temp));
         } else if begins_with(note, "requires=") {
-            array_add(*field.requires, copy_string(slice(note, 9, note.count - 9),, temp));
+            array_add(*field.requires, copy_string(slice(note, "requires=".count, note.count - "requires=".count),, temp));
         } else if begins_with(note, "range(") && ends_with(note, ")") {
             body := slice(note, 6, note.count - 7);
             found, low, high := split_from_left(body, #char ",");

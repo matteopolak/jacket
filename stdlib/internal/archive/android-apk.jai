@@ -85,15 +85,15 @@ Apk_Zip :: #import "Zip_File_Directory";
 
 apk_partition :: (apk: *Android_Apk) -> bool {
     data := apk.data;
-    if data.count < 22 return false;
+    if data.count < ZIP_END_OF_CENTRAL_DIRECTORY_RECORD_SIZE return false;
 
-    end := data.count - 22;
-    minimum := max(cast(s64) 0, data.count - 65557);
+    end := data.count - ZIP_END_OF_CENTRAL_DIRECTORY_RECORD_SIZE;
+    minimum := max(cast(s64) 0, data.count - (ZIP_END_OF_CENTRAL_DIRECTORY_RECORD_SIZE + 0xffff));
     found := false;
 
     while end >= minimum {
         if zip_wire_u32(data.data + end) == ZIP_END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE &&
-            end + 22 + apk_u16(data.data + end + 20) == data.count {
+            end + ZIP_END_OF_CENTRAL_DIRECTORY_RECORD_SIZE + apk_u16(data.data + end + 20) == data.count {
             found = true;
             break;
         }

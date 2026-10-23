@@ -136,7 +136,7 @@ has_nul :: (value: string) -> bool {
 }
 
 header_value :: (value: string) -> bool {
-    for byte: value if byte == 0 || byte == 10 || byte == 13 return false;
+    for byte: value if byte == 0 || byte == 10 || byte == #char "\r" return false;
     return true;
 }
 

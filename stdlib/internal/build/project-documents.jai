@@ -29,16 +29,16 @@ pg_identifier :: (name: string) -> string {
     digest[6] = (digest[6] & 15) | 128;
     digest[8] = (digest[8] & 63) | 128;
     result := alloc_string(38);
-    result[0] = 123;
-    result[37] = 125;
+    result[0] = #char "{";
+    result[37] = #char "}";
     digits := "0123456789ABCDEF";
     at: s64 = 1;
 
     for byte, index: digest {
         if index == 16 break;
 
-        if index == 4 || index == 6 || index == 8 || index == 10 {
-            result[at] = 45;
+        if index == 4 || index == 6 || index == 8 || index == 10 { // jailint: allow(magic_number): byte offsets of the GUID group boundaries
+            result[at] = #char "-";
             at += 1;
         }
 
@@ -182,7 +182,7 @@ pg_emit_filters :: () {
     for path: Project_Generator.project_files {
         if pg_has_parent_segment(path) continue;
 
-        for byte, index: path if byte == 92 && index > 0 {
+        for byte, index: path if byte == #char "\\" && index > 0 {
             folder := PG_String.slice(path, 0, index);
             present := false;
 
@@ -240,7 +240,7 @@ pg_emit_user :: () {
     append(*b, "  <PropertyGroup Condition=\"'$(Configuration)|$(Platform)'=='Release|x64'\">\n");
     pg_property(*b, "LocalDebuggerCommand", Project_Generator.debug_command);
     path := pg_windows_path(Project_Generator.working_directory);
-    relative := path.count == 0 || (path[0] != 92 && !(path.count >= 3 && path[1] == 58));
+    relative := path.count == 0 || (path[0] != #char "\\" && !(path.count >= 3 && path[1] == #char ":"));
     working := path;
 
     if relative working = PG_String.join("$(SolutionDir)", path);

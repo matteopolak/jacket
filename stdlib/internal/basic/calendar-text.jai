@@ -59,20 +59,20 @@ calendar_number :: (out: *u8, count: *s64, number: s64, width: s64) {
     used: s64;
 
     while true {
-        digits[used] = cast(u8) (48 + magnitude % 10);
+        digits[used] = cast(u8) (#char "0" + magnitude % 10);
         used += 1;
         magnitude /= 10;
         if magnitude == 0 break;
     }
 
     if number < 0 {
-        out[count.*] = 45;
+        out[count.*] = #char "-";
         count.* += 1;
         width -= 1;
     }
 
     while width > used {
-        out[count.*] = 48;
+        out[count.*] = #char "0";
         count.* += 1;
         width -= 1;
     }

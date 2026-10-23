@@ -12,7 +12,7 @@ c_text :: (text: *u8) -> string #no_context {
 }
 
 space :: (c: u8) -> bool #no_context {
-    return c == 32 || (c >= 9 && c <= 13);
+    return c == #char " " || (c >= #char "\t" && c <= #char "\r");
 }
 
 nonzero_significand :: (text: string) -> bool #no_context {
@@ -22,17 +22,17 @@ nonzero_significand :: (text: string) -> bool #no_context {
     if at == text.count return false;
 
     first := text[at] | 32;
-    if first == 105 || first == 110 return false; // inf/nan, not range errors.
+    if first == #char "i" || first == #char "n" return false; // inf/nan, not range errors.
 
-    hex := at + 2 < text.count && text[at] == #char "0" && (text[at + 1] | 32) == 120;
+    hex := at + 2 < text.count && text[at] == #char "0" && (text[at + 1] | 32) == #char "x";
     if hex at += 2;
 
     while at < text.count {
         c := text[at];
         lower := c | 32;
 
-        if (!hex && lower == 101) || (hex && lower == 112) break;
-        if (c >= #char "1" && c <= #char "9") || (hex && lower >= 97 && lower <= 102) return true;
+        if (!hex && lower == #char "e") || (hex && lower == #char "p") break;
+        if (c >= #char "1" && c <= #char "9") || (hex && lower >= #char "a" && lower <= #char "f") return true;
 
         at += 1;
     }
@@ -69,7 +69,7 @@ wasi_strtod :: (text: *u8, end: **u8) -> float64 #c_call {
     consumed := ifx success then original.count - rest.count else 0;
 
     if end end.* = text + consumed;
-    if success && range_error(original, consumed, value) errno_location().* = 34;
+    if success && range_error(original, consumed, value) errno_location().* = ERANGE;
 
     return value;
 }
@@ -84,7 +84,7 @@ wasi_strtof :: (text: *u8, end: **u8) -> float32 #c_call {
     consumed := ifx success then original.count - rest.count else 0;
 
     if end end.* = text + consumed;
-    if success && range_error(original, consumed, value) errno_location().* = 34;
+    if success && range_error(original, consumed, value) errno_location().* = ERANGE;
 
     return value;
 }
@@ -98,7 +98,7 @@ c_locale: [2] u8 = .[67, 0];
 
 #program_export "setlocale"
 wasi_setlocale :: (category: s32, name: *u8) -> *u8 #c_call {
-    if category < 0 || category > 6 return null;
+    if category < 0 || category > LAST_LOCALE_CATEGORY return null;
     if !name return c_locale.data;
 
     text := c_text(name);
@@ -106,3 +106,7 @@ wasi_setlocale :: (category: s32, name: *u8) -> *u8 #c_call {
 
     return null; // No unimplemented locale is reported as installed.
 }
+
+#scope_file
+ERANGE :: 34;
+LAST_LOCALE_CATEGORY :: 6;

@@ -263,7 +263,7 @@ normalize_line_endings :: (s: *string) {
     write: s64;
 
     for read: 0..s.count - 1 {
-        if s.data[read] == 13 && read + 1 < s.count && s.data[read + 1] == 10 continue;
+        if s.data[read] == #char "\r" && read + 1 < s.count && s.data[read + 1] == #char "\n" continue;
         s.data[write] = s.data[read];
         write += 1;
     }

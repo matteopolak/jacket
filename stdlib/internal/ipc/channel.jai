@@ -202,7 +202,7 @@ allocate_registration :: (name: string) -> *Registration {
     record.* = .{};
     record.allocator = allocator;
     record.name = .{ count, cast(*u8) record + size_of(Registration) };
-    if extra != 0 record.name.data[0] = 47;
+    if extra != 0 record.name.data[0] = #char "/";
 
     memcpy(record.name.data + extra, name.data, name.count);
     record.name.data[count] = 0;

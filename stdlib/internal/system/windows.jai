@@ -14,7 +14,7 @@ get_username :: () -> string, success: bool {
         defer free(buffer);
         count := capacity;
         if W.GetUserNameW(buffer, *count) != 0 return temporary_text(buffer, cast(s64) count - 1);
-        if W.GetLastError() != 122 || count <= capacity return "", false;
+        if W.GetLastError() != ERROR_INSUFFICIENT_BUFFER || count <= capacity return "", false;
 
         capacity = count;
     }
@@ -32,7 +32,7 @@ get_home_directory :: (username := "") -> string, success: bool {
     capacity: u32;
     queried := GetUserProfileDirectoryW(token, null, *capacity);
 
-    if queried == 0 && W.GetLastError() != 122 return "", false;
+    if queried == 0 && W.GetLastError() != ERROR_INSUFFICIENT_BUFFER return "", false;
 
     while capacity > 0 {
         buffer := cast(*u16) alloc(cast(s64) capacity * 2);
@@ -46,7 +46,7 @@ get_home_directory :: (username := "") -> string, success: bool {
             return temporary_text(buffer, length);
         }
 
-        if W.GetLastError() != 122 || count <= capacity return "", false;
+        if W.GetLastError() != ERROR_INSUFFICIENT_BUFFER || count <= capacity return "", false;
 
         capacity = count;
     }
@@ -68,7 +68,7 @@ get_machinename :: () -> string {
             return result;
         }
 
-        assert(W.GetLastError() == 111 && count > capacity, "computer name lookup failed");
+        assert(W.GetLastError() == ERROR_BUFFER_OVERFLOW && count > capacity, "computer name lookup failed");
         capacity = count;
     }
 
@@ -130,7 +130,7 @@ get_number_of_processors :: ($type: Processor_Query_Type = .PERFORMANCE_LOGICAL)
     bytes: u32;
     queried := W.GetLogicalProcessorInformationEx(.RelationProcessorCore, null, *bytes);
 
-    assert(queried != 0 || W.GetLastError() == 122, "processor topology query failed");
+    assert(queried != 0 || W.GetLastError() == ERROR_INSUFFICIENT_BUFFER, "processor topology query failed");
 
     while bytes > 0 {
         memory := cast(*u8) alloc(bytes);
@@ -138,7 +138,7 @@ get_number_of_processors :: ($type: Processor_Query_Type = .PERFORMANCE_LOGICAL)
         defer free(memory);
         supplied := bytes;
         if W.GetLogicalProcessorInformationEx(.RelationProcessorCore, cast(*W.SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX) memory, *supplied) == 0 {
-            assert(W.GetLastError() == 122 && supplied > bytes, "processor topology query failed");
+            assert(W.GetLastError() == ERROR_INSUFFICIENT_BUFFER && supplied > bytes, "processor topology query failed");
             bytes = supplied;
             continue;
         }
@@ -200,6 +200,10 @@ get_number_of_processors :: ($type: Processor_Query_Type = .PERFORMANCE_LOGICAL)
 
 #scope_file
 #import "Basic";
+
+ERROR_INSUFFICIENT_BUFFER :: 122;
+ERROR_BUFFER_OVERFLOW :: 111;
+
 W :: #import "Windows";
 Text :: #import "internal/files/windows-text";
 
@@ -243,7 +247,7 @@ account_profile :: (username: string) -> string, bool {
     use: s32;
     queried := LookupAccountNameW(null, name, null, *sid_size, null, *domain_size, *use);
 
-    if queried == 0 && W.GetLastError() != 122 return "", false;
+    if queried == 0 && W.GetLastError() != ERROR_INSUFFICIENT_BUFFER return "", false;
 
     sid := alloc(sid_size);
 

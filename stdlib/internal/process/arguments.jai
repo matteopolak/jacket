@@ -26,7 +26,7 @@ break_command_into_strings :: (input: string) -> [..] string {
 
 append_quoted :: (builder: *String_Builder, s: string) {
     quoted := s.count == 0;
-    for byte: s if byte == 32 || byte == 9 || byte == #char "\"" quoted = true;
+    for byte: s if byte == 32 || byte == #char "\t" || byte == #char "\"" quoted = true;
 
     if !quoted {
         append(builder, s);

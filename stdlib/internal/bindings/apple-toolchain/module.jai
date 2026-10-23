@@ -84,8 +84,8 @@ sdk_lookup :: (command: *u8) -> string {
     }
 
     start: s64 = 0;
-    while start < n && (buffer[start] == 32 || buffer[start] == 9 || buffer[start] == 10 || buffer[start] == 13) start += 1;
-    while n > start && (buffer[n - 1] == 32 || buffer[n - 1] == 9 || buffer[n - 1] == 10 || buffer[n - 1] == 13) n -= 1;
+    while start < n && (buffer[start] == #char " " || buffer[start] == #char "\t" || buffer[start] == #char "\n" || buffer[start] == #char "\r") start += 1;
+    while n > start && (buffer[n - 1] == #char " " || buffer[n - 1] == #char "\t" || buffer[n - 1] == #char "\n" || buffer[n - 1] == #char "\r") n -= 1;
 
     if n == start {
         sdk_log_failure("iOS SDK lookup: xcrun returned an empty path\n");

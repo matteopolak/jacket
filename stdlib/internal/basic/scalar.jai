@@ -74,34 +74,34 @@ swap :: inline (a: *$T, b: *T) {
 }
 
 to_upper :: (c: u8) -> u8 {
-    if c >= 97 && c <= 122 return c - 32;
+    if c >= #char "a" && c <= #char "z" return c - 32;
     return c;
 } @UseResult
 
 to_lower :: (c: u8) -> u8 {
-    if c >= 65 && c <= 90 return c + 32;
+    if c >= #char "A" && c <= #char "Z" return c + 32;
     return c;
 } @UseResult
 
 is_alpha :: (c: u8) -> bool {
     x := to_lower(c);
-    return x >= 97 && x <= 122;
+    return x >= #char "a" && x <= #char "z";
 } @UseResult
 
 is_digit :: (c: u8) -> bool {
-    return c >= 48 && c <= 57;
+    return c >= #char "0" && c <= #char "9";
 } @UseResult
 
 is_alnum :: (c: u8) -> bool {
-    return is_alpha(c) || is_digit(c) || c == 95;
+    return is_alpha(c) || is_digit(c) || c == #char "_";
 } @UseResult
 
 is_space :: (c: u8) -> bool {
-    return c == 32 || (c >= 9 && c <= 13);
+    return c == #char " " || (c >= #char "\t" && c <= #char "\r");
 } @UseResult
 
 is_print :: (c: u8) -> bool {
-    return c >= 32 && c <= 126;
+    return c >= 32 && c <= #char "~";
 }
 
 advance :: inline (s: *string, amount: s64 = 1) {

@@ -28,6 +28,7 @@ is_same_literal :: (a: *Literal, b: *Literal) -> bool {
     if a.literal_kind == .NULL return true;
     if a.literal_kind == .INTEGER return a.int_value == b.int_value;
     if a.literal_kind == .UNSIGNED_INTEGER return a.uint_value == b.uint_value;
+    // jailint: allow(float_equality): literals are equal only when they match exactly
     if a.literal_kind == .FLOAT return a.float_value == b.float_value;
     if a.literal_kind == .STRING return a.string_value == b.string_value;
 

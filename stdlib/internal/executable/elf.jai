@@ -13,15 +13,15 @@ parse_elf_file :: (path: string) -> success: bool, elf: Elf {
 }
 
 parse_elf_header_and_program_header_table :: (data: string, path := "(unspecified file)") -> bool, *Elf_Header_64, [] Elf_Program_Header_64 {
-    if !is_elf(data) || data.count < 64 return false, null, .{};
+    if !is_elf(data) || data.count < size_of(Elf_Header(u64)) return false, null, .{};
     if data[4] != 2 || data[5] != 1 || data[6] != 1 || cast(u64) data.data % 8 != 0 return false, null, .{};
 
     header := cast(*Elf_Header_64) data.data;
-    if header.version != 1 || header.ehsize != 64 return false, null, .{};
+    if header.version != 1 || header.ehsize != size_of(Elf_Header(u64)) return false, null, .{};
 
     count := cast(u64) header.phnum;
     if count == 0xffff {
-        if header.section_header_entry_size != 64 || header.section_header_offset % 8 != 0 || !elf_range(data.count, header.section_header_offset, 64) return false, null, .{};
+        if header.section_header_entry_size != size_of(Elf_Section_Header) || header.section_header_offset % 8 != 0 || !elf_range(data.count, header.section_header_offset, size_of(Elf_Section_Header)) return false, null, .{};
         first := cast(*Elf_Section_Header) (data.data + header.section_header_offset);
         count = first.info;
     }
@@ -29,8 +29,8 @@ parse_elf_header_and_program_header_table :: (data: string, path := "(unspecifie
     table: [] Elf_Program_Header_64;
 
     if count != 0 {
-        if header.phentsize != 56 || header.program_header_offset % 8 != 0 || count > cast(u64) data.count / 56 return false, null, .{};
-        if !elf_range(data.count, header.program_header_offset, count * 56) return false, null, .{};
+        if header.phentsize != size_of(Elf_Program_Header(u64)) || header.program_header_offset % 8 != 0 || count > cast(u64) data.count / size_of(Elf_Program_Header(u64)) return false, null, .{};
+        if !elf_range(data.count, header.program_header_offset, count * size_of(Elf_Program_Header(u64))) return false, null, .{};
 
         table = .{ cast(s64) count, cast(*Elf_Program_Header_64) (data.data + header.program_header_offset) };
         for entry: table {
@@ -61,13 +61,13 @@ parse_elf :: (file_content: string, path := "(unspecified file)") -> success: bo
         return true, result;
     }
 
-    if header.section_header_entry_size != 64 || header.section_header_offset % 8 != 0 || !elf_range(file_content.count, header.section_header_offset, 64) return false, .{};
+    if header.section_header_entry_size != size_of(Elf_Section_Header) || header.section_header_offset % 8 != 0 || !elf_range(file_content.count, header.section_header_offset, size_of(Elf_Section_Header)) return false, .{};
 
     first := cast(*Elf_Section_Header) (file_content.data + header.section_header_offset);
     count := cast(u64) header.num_section_headers;
 
     if count == 0 count = first.size;
-    if count == 0 || count > cast(u64) file_content.count / 64 || !elf_range(file_content.count, header.section_header_offset, count * 64) return false, .{};
+    if count == 0 || count > cast(u64) file_content.count / size_of(Elf_Section_Header) || !elf_range(file_content.count, header.section_header_offset, count * size_of(Elf_Section_Header)) return false, .{};
 
     result.sections = .{ cast(s64) count, first };
     name_index := cast(u64) header.section_names_section_index;
@@ -88,12 +88,12 @@ parse_elf :: (file_content: string, path := "(unspecified file)") -> success: bo
         if section.type == .REL return false, .{};
 
         if section.type == .SYMTAB || section.type == .DYNSYM {
-            if section.entsize != 24 || section.size % 24 != 0 || section.offset % 8 != 0 || section.link >= count return false, .{};
+            if section.entsize != size_of(Elf_Symbol) || section.size % size_of(Elf_Symbol) != 0 || section.offset % 8 != 0 || section.link >= count return false, .{};
 
             strings := *result.sections[section.link];
             if strings.type != .STRTAB || !validate_section_header(strings, file_content.count) return false, .{};
 
-            symbols: [] Elf_Symbol = .{ cast(s64) (section.size / 24), cast(*Elf_Symbol) (file_content.data + section.offset) };
+            symbols: [] Elf_Symbol = .{ cast(s64) (section.size / size_of(Elf_Symbol)), cast(*Elf_Symbol) (file_content.data + section.offset) };
             table: string = .{ cast(s64) strings.size, file_content.data + strings.offset };
 
             if section.info > symbols.count return false, .{};
@@ -116,14 +116,14 @@ parse_elf :: (file_content: string, path := "(unspecified file)") -> success: bo
         }
 
         if section.type == .RELA {
-            if section.entsize != 24 || section.size % 24 != 0 || section.offset % 8 != 0 || section.link >= count || section.info >= count return false, .{};
+            if section.entsize != size_of(Elf_Relocation) || section.size % size_of(Elf_Relocation) != 0 || section.offset % 8 != 0 || section.link >= count || section.info >= count return false, .{};
 
             linked := result.sections[section.link];
             if linked.type != .SYMTAB && linked.type != .DYNSYM return false, .{};
-            if linked.entsize != 24 return false, .{};
+            if linked.entsize != size_of(Elf_Symbol) return false, .{};
 
-            relocs: [] Elf_Relocation = .{ cast(s64) (section.size / 24), cast(*Elf_Relocation) (file_content.data + section.offset) };
-            for relocation: relocs if cast(u32) relocation.symbol_id >= linked.size / 24 return false, .{};
+            relocs: [] Elf_Relocation = .{ cast(s64) (section.size / size_of(Elf_Relocation)), cast(*Elf_Relocation) (file_content.data + section.offset) };
+            for relocation: relocs if cast(u32) relocation.symbol_id >= linked.size / size_of(Elf_Symbol) return false, .{};
         }
 
         if name_index != 0 {
@@ -172,8 +172,8 @@ get_relocations :: (elf: Elf, section_index: int) -> [] Elf_Relocation, bool {
 
     for section: elf.sections {
         if section.type != .RELA || section.info != section_index continue;
-        if section.entsize != 24 || section.size % 24 != 0 || section.offset % 8 != 0 || !validate_section_header(*section, elf.content.count) return .{}, false;
-        return .{ cast(s64) (section.size / 24), cast(*Elf_Relocation) (elf.content.data + section.offset) }, true;
+        if section.entsize != size_of(Elf_Relocation) || section.size % size_of(Elf_Relocation) != 0 || section.offset % 8 != 0 || !validate_section_header(*section, elf.content.count) return .{}, false;
+        return .{ cast(s64) (section.size / size_of(Elf_Relocation)), cast(*Elf_Relocation) (elf.content.data + section.offset) }, true;
     }
 
     return .{}, true;

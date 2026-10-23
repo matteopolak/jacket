@@ -42,7 +42,7 @@ ONEPASS_STATIC_STATE_LIMIT :: 256;
 // is not one-pass or needs more than `state_limit` states.
 onepass_build :: (program: *Program, state_limit: int) -> OnePass {
     out: OnePass;
-    if program.insts.count > 100_000 return out;
+    if program.insts.count > MAX_PROGRAM_INSTS return out;
 
     b: Builder;
     b.program = program;
@@ -132,6 +132,8 @@ onepass_search :: (t: *OnePass, text: string, s: int, e: int, slots: [] int) -> 
 }
 
 #scope_file
+
+MAX_PROGRAM_INSTS :: 100_000;
 
 Builder :: struct {
     program: *Program;

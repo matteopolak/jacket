@@ -24,7 +24,7 @@ Coff_Optional_Header :: struct {
 }
 
 is_coff :: (file_content: string) -> bool {
-    if file_content.count < 20 return false;
+    if file_content.count < size_of(Coff_Header) return false;
     machine := coff_word(file_content.data, 2);
     // A COFF machine tag has no independent signature. Recognize supported tags.
     return machine == 0x8664 || machine == 0x14c || machine == 0xaa64;
@@ -54,11 +54,11 @@ parse_coff :: (file_content: string, path := "(unspecified file)", verbose := fa
 
     if !is_coff(signature) return false, .{};
 
-    optional := cast(u64) start_offset + 20;
+    optional := cast(u64) start_offset + size_of(Coff_Header);
     section_offset := optional + header.optional_header_size;
 
     if !coff_range(file_content.count, optional, header.optional_header_size) return false, .{};
-    if !coff_range(file_content.count, section_offset, (cast(u64) header.num_sections) * 40) return false, .{};
+    if !coff_range(file_content.count, section_offset, (cast(u64) header.num_sections) * size_of(Coff_Section_Header)) return false, .{};
     if section_offset % 4 != 0 return false, .{};
 
     result.header = header;
@@ -72,20 +72,24 @@ parse_coff :: (file_content: string, path := "(unspecified file)", verbose := fa
         directory_offset: u64;
         directory_count: u64;
 
+        // The data directories follow the standard and the Windows-specific fields.
+        PE32_PLUS_HEADERS_SIZE :: size_of(Coff_Optional_Header_Pe32_Plus) + size_of(Coff_Optional_Header_Windows_Specific_Pe32_Plus);
+        PE32_HEADERS_SIZE :: size_of(Coff_Optional_Header_Pe32) + size_of(Coff_Optional_Header_Windows_Specific_Pe32);
+
         if magic == 0x20b {
-            if header.optional_header_size < 112 || cast(u64) (file_content.data + optional) % 8 != 0 return false, .{};
+            if header.optional_header_size < PE32_PLUS_HEADERS_SIZE || cast(u64) (file_content.data + optional) % 8 != 0 return false, .{};
 
             result.optional_header.pe32plus.base = cast(*Coff_Optional_Header_Pe32_Plus) (file_content.data + optional);
-            result.optional_header.pe32plus.windows = cast(*Coff_Optional_Header_Windows_Specific_Pe32_Plus) (file_content.data + optional + 24);
+            result.optional_header.pe32plus.windows = cast(*Coff_Optional_Header_Windows_Specific_Pe32_Plus) (file_content.data + optional + size_of(Coff_Optional_Header_Pe32_Plus));
             directory_count = result.optional_header.pe32plus.windows.number_of_rva_and_sizes;
-            directory_offset = 112;
+            directory_offset = PE32_PLUS_HEADERS_SIZE;
         } else if magic == 0x10b {
-            if header.optional_header_size < 96 return false, .{};
+            if header.optional_header_size < PE32_HEADERS_SIZE return false, .{};
 
             result.optional_header.pe32.base = cast(*Coff_Optional_Header_Pe32) (file_content.data + optional);
-            result.optional_header.pe32.windows = cast(*Coff_Optional_Header_Windows_Specific_Pe32) (file_content.data + optional + 28);
+            result.optional_header.pe32.windows = cast(*Coff_Optional_Header_Windows_Specific_Pe32) (file_content.data + optional + size_of(Coff_Optional_Header_Pe32));
             directory_count = result.optional_header.pe32.windows.number_of_rva_and_sizes;
-            directory_offset = 96;
+            directory_offset = PE32_HEADERS_SIZE;
         } else return false, .{};
 
         if directory_count > (header.optional_header_size - directory_offset) / 8 return false, .{};
@@ -95,7 +99,7 @@ parse_coff :: (file_content: string, path := "(unspecified file)", verbose := fa
 
     if header.symbol_table_offset != 0 {
         symbol_bytes := cast(u64) header.num_symbols;
-        symbol_bytes *= 18;
+        symbol_bytes *= size_of(Coff_Symbol);
         if !coff_range(file_content.count, header.symbol_table_offset, symbol_bytes + 4) return false, .{};
 
         string_offset := header.symbol_table_offset + symbol_bytes;
@@ -134,13 +138,13 @@ parse_coff :: (file_content: string, path := "(unspecified file)", verbose := fa
         B.array_add(*relocations, table);
     }
 
-    if result.optional_header.data_directories.count > 6 {
-        debug := result.optional_header.data_directories[6];
+    if result.optional_header.data_directories.count > cast(int) Coff_Data_Directory_Index.Debug {
+        debug := result.optional_header.data_directories[cast(int) Coff_Data_Directory_Index.Debug];
         if debug.size != 0 {
             valid, offset := coff_rva(result, debug.virtual_address, debug.size);
-            if !valid || debug.size % 28 != 0 || offset % 4 != 0 return false, .{};
+            if !valid || debug.size % size_of(Coff_Debug_Directory_Entry) != 0 || offset % 4 != 0 return false, .{};
 
-            result.optional_header.debug_directory_entries = .{ debug.size / 28, cast(*Coff_Debug_Directory_Entry) (file_content.data + offset) };
+            result.optional_header.debug_directory_entries = .{ debug.size / size_of(Coff_Debug_Directory_Entry), cast(*Coff_Debug_Directory_Entry) (file_content.data + offset) };
             for entry: result.optional_header.debug_directory_entries {
                 if !coff_range(file_content.count, entry.pointer_to_raw_data, entry.size_of_data) return false, .{};
             }
@@ -190,12 +194,12 @@ parse_pe :: (file_content: string, path := "(unspecified file)", verbose := fals
 
 get_pdata :: (using coff: Coff, section_index: int) -> [] Pdata_Entry {
     data := get_section_data(coff, section_index);
-    if data.count % 12 != 0 return .{};
+    if data.count % size_of(Pdata_Entry) != 0 return .{};
 
     entries: [..] Pdata_Entry;
 
-    for 0..data.count / 12 - 1 {
-        raw := data.data + it * 12;
+    for 0..data.count / size_of(Pdata_Entry) - 1 {
+        raw := data.data + it * size_of(Pdata_Entry);
         entry: Pdata_Entry;
         entry.begin_address = cast(u32) coff_word(raw, 4);
         entry.end_address = cast(u32) coff_word(raw + 4, 4);

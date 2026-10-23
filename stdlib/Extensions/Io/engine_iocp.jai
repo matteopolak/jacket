@@ -215,8 +215,8 @@ Iocp_State :: struct {
 
         (cast(*u8) *wildcard)[0] = family;
 
-        length: u32 = 16;
-        if family == AF_INET6 length = 28;
+        length: u32 = SOCKADDR_IN_SIZE;
+        if family == AF_INET6 length = SOCKADDR_IN6_SIZE;
 
         result := sys_bind(op.handle.fd, *wildcard, length);
         if result < 0 return iocp_fail(op, -result);
@@ -278,7 +278,7 @@ Iocp_State :: struct {
         }
 
         milliseconds: u32 = INFINITE;
-        if timeout >= 0 milliseconds = cast(u32) min((timeout + 999_999) / 1_000_000, 0x7fff_fff0);
+        if timeout >= 0 milliseconds = cast(u32) min((timeout + NANOSECONDS_PER_MILLISECOND - 1) / NANOSECONDS_PER_MILLISECOND, 0x7fff_fff0);
 
         // A lost event must never hang a fiber: while the ring owns operations, look at it now and then.
         if state.ring_inflight > 0 && milliseconds > RING_POLL_MILLISECONDS milliseconds = RING_POLL_MILLISECONDS;

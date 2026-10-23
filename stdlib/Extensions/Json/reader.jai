@@ -3,6 +3,10 @@
 
 #scope_module
 
+FORM_FEED :: 12;
+UNICODE_ESCAPE_LENGTH :: 6;
+MAX_DIGITS_WITHOUT_OVERFLOW :: 19;
+
 Path_Segment :: struct {
     key: string;
     index: int;
@@ -404,21 +408,21 @@ scan_string :: (r: *Json_Reader) -> string, bool, bool #no_abc {
                     return "", false, false;
                 }
 
-                i += 6;
+                i += UNICODE_ESCAPE_LENGTH;
 
                 if code >= 0xd800 && code <= 0xdbff {
                     low := -1;
                     if i + 1 < text.count && text[i] == #char "\\" && text[i + 1] == #char "u" low = hex4(text, i + 2);
 
                     if low < 0xdc00 || low > 0xdfff {
-                        json_fail_at(r, .SYNTAX, "unpaired surrogate in \\u escape", i - 6);
+                        json_fail_at(r, .SYNTAX, "unpaired surrogate in \\u escape", i - UNICODE_ESCAPE_LENGTH);
 
                         return "", false, false;
                     }
 
-                    i += 6;
+                    i += UNICODE_ESCAPE_LENGTH;
                 } else if code >= 0xdc00 && code <= 0xdfff {
-                    json_fail_at(r, .SYNTAX, "unpaired surrogate in \\u escape", i - 6);
+                    json_fail_at(r, .SYNTAX, "unpaired surrogate in \\u escape", i - UNICODE_ESCAPE_LENGTH);
 
                     return "", false, false;
                 }
@@ -561,7 +565,7 @@ unescape_into :: (raw: string, dest: *u8) -> int {
 
             if code >= 0xd800 && code <= 0xdbff {
                 low := hex4(raw, i + 2);
-                i += 6;
+                i += UNICODE_ESCAPE_LENGTH;
                 code = 0x10000 + ((code - 0xd800) << 10) + (low - 0xdc00);
             }
 
@@ -574,7 +578,7 @@ unescape_into :: (raw: string, dest: *u8) -> int {
         else if e == #char "t" dest[out] = #char "\t";
         else if e == #char "r" dest[out] = #char "\r";
         else if e == #char "b" dest[out] = 8;
-        else if e == #char "f" dest[out] = 12;
+        else if e == #char "f" dest[out] = FORM_FEED;
         else dest[out] = e; // " \ /
 
         out += 1;
@@ -747,9 +751,9 @@ parse_integer_token :: (token: string) -> bool, u64, bool #no_aoc {
     magnitude: u64;
 
     // Up to 19 digits cannot overflow a u64, so the common case needs no check per digit.
-    if token.count - i <= 19 {
+    if token.count - i <= MAX_DIGITS_WITHOUT_OVERFLOW {
         while i < token.count {
-            digit := cast(u64) token.data[i] - 48;
+            digit := cast(u64) token.data[i] - #char "0";
 
             if digit >= 10 return false, 0, false;
 

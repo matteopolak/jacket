@@ -14,15 +14,15 @@ apply_relocations :: (elf: Elf, section_index: int, data: [] u8) -> bool { // ja
 
     for table: elf.sections {
         if table.type != .RELA || table.info != section_index continue;
-        if table.entsize != 24 || table.size % 24 != 0 || table.offset % 8 != 0 || !rel_range(elf.content.count, table.offset, table.size) return false;
+        if table.entsize != size_of(Elf_Relocation) || table.size % size_of(Elf_Relocation) != 0 || table.offset % 8 != 0 || !rel_range(elf.content.count, table.offset, table.size) return false;
         if table.link >= elf.sections.count return false;
 
         symbols := elf.sections[table.link];
-        if (symbols.type != .SYMTAB && symbols.type != .DYNSYM) || symbols.entsize != 24 || symbols.size % 24 != 0 || symbols.offset % 8 != 0 return false;
+        if (symbols.type != .SYMTAB && symbols.type != .DYNSYM) || symbols.entsize != size_of(Elf_Symbol) || symbols.size % size_of(Elf_Symbol) != 0 || symbols.offset % 8 != 0 return false;
         if !rel_range(elf.content.count, symbols.offset, symbols.size) return false;
 
-        for 0..cast(s64) (table.size / 24) - 1 {
-            relocation := cast(*Elf_Relocation) (elf.content.data + table.offset + it * 24);
+        for 0..cast(s64) (table.size / size_of(Elf_Relocation)) - 1 {
+            relocation := cast(*Elf_Relocation) (elf.content.data + table.offset + it * size_of(Elf_Relocation));
             kind := cast(u32) relocation.type;
 
             if kind == 0 || (elf.header.machine == .ARM_v8 && kind == 256) continue;
@@ -76,9 +76,9 @@ apply_relocations :: (elf: Elf, section_index: int, data: [] u8) -> bool { // ja
             if !rel_range(cast(s64) target.size, offset, cast(u64) width) return false;
 
             symbol_index := cast(u32) relocation.symbol_id;
-            if symbol_index >= symbols.size / 24 return false;
+            if symbol_index >= symbols.size / size_of(Elf_Symbol) return false;
 
-            symbol := cast(*Elf_Symbol) (elf.content.data + symbols.offset + (cast(u64) symbol_index) * 24);
+            symbol := cast(*Elf_Symbol) (elf.content.data + symbols.offset + (cast(u64) symbol_index) * size_of(Elf_Symbol));
             address := symbol.value;
 
             if symbol.section_index == 0 || symbol.section_index == 0xfff2 return false;

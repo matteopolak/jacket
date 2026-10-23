@@ -67,7 +67,7 @@ find_span :: (engine: *Engine, text: string, start: int, earliest := false) -> s
 
 // The length every match has, or -1 if they differ (or the program is too big to tell).
 fixed_length :: (program: *Program) -> int {
-    if program.insts.count > 10_000 return -1;
+    if program.insts.count > MAX_FIXED_LENGTH_INSTS return -1;
     lengths := NewArray(program.insts.count, int,, temp);
     for *lengths it.* = UNSEEN;
     return length_from(program, lengths, program.start);
@@ -212,7 +212,7 @@ expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: st
 }
 
 parse_group_number :: (name: string) -> int, bool {
-    if name.count == 0 || name.count > 9 return 0, false;
+    if name.count == 0 || name.count > MAX_GROUP_NUMBER_DIGITS return 0, false;
 
     value := 0;
 
@@ -226,6 +226,9 @@ parse_group_number :: (name: string) -> int, bool {
 }
 
 #scope_file
+
+MAX_FIXED_LENGTH_INSTS :: 10_000;
+MAX_GROUP_NUMBER_DIGITS :: 9;
 
 UNSEEN :: -2;
 VISITING :: -3;

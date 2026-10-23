@@ -40,6 +40,7 @@ init_treemap_display :: (treemap: *Treemap) -> Treemap_Display {
 recompute_if_dirty :: (display: *Treemap_Display, outer_size: Vector2, border_proc: Border_Proc = null, force := false) {
     assert(display != null && display.treemap != null && !display.treemap.dirty, "Treemap display requires clean weights");
     assert(outer_size.x >= 0 && outer_size.y >= 0 && Math.is_finite(outer_size.x) && Math.is_finite(outer_size.y));
+    // jailint: allow(float_equality): unchanged size: nothing to lay out again
     if !force && !display.dirty && display.outer_size.x == outer_size.x && display.outer_size.y == outer_size.y && display.nodes.count == display.treemap.nodes.count return;
 
     array_resize(*display.nodes, display.treemap.nodes.count);

@@ -193,11 +193,14 @@ slice :: (text: string, start: int, count: int) -> string {
 
 // ---- reading the encoded tables
 
+LETTER_COUNT :: 26;
+DIGIT_PAYLOAD_BITS :: 5;
+
 // Value of one table digit: 0..31 ends a number, 32..63 means more digits follow.
 digit_value :: (c: u8) -> u32 {
     if c >= #char "A" && c <= #char "Z" return c - #char "A";
-    if c >= #char "a" && c <= #char "z" return c - #char "a" + 26;
-    if c >= #char "0" && c <= #char "9" return c - #char "0" + 52;
+    if c >= #char "a" && c <= #char "z" return c - #char "a" + LETTER_COUNT;
+    if c >= #char "0" && c <= #char "9" return c - #char "0" + 2 * LETTER_COUNT;
     if c == #char "-" return 62;
 
     return 63;
@@ -216,7 +219,7 @@ read_number :: (position: *int) -> u32 {
         digit := digit_value(c);
 
         result |= (digit & 31) << shift;
-        shift += 5;
+        shift += DIGIT_PAYLOAD_BITS;
         if digit < 32 break;
     }
 

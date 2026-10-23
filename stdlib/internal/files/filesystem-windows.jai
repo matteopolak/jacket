@@ -141,6 +141,11 @@ how_much_of_path_exists_on_the_local_filesystem :: (path: Paths.Path) -> (fully_
 
 #scope_file
 #import "Basic";
+
+FILETIME_TICKS_PER_SECOND :: 10000000;
+FILETIME_EPOCH_TO_UNIX_SECONDS :: 11644473600;
+NANOSECONDS_PER_FILETIME_TICK :: 100;
+
 W :: #import "Windows";
 Text :: #import "internal/files/windows-text";
 Visit :: #import "internal/files/visit-info";
@@ -347,8 +352,8 @@ copy_tree :: (source: string, dest: string, ancestors: *[..] ABI.File_Identity) 
 
 filetime_to_apollo :: (time: W.FILETIME) -> Apollo_Time #no_aoc {
     ticks := ((cast(u64) time.dwHighDateTime) << 32) | cast(u64) time.dwLowDateTime;
-    seconds := seconds_to_apollo(cast(s64) (ticks / 10000000) - 11644473600);
-    fraction := nanoseconds_to_apollo(cast(s64) (ticks % 10000000) * 100);
+    seconds := seconds_to_apollo(cast(s64) (ticks / FILETIME_TICKS_PER_SECOND) - FILETIME_EPOCH_TO_UNIX_SECONDS);
+    fraction := nanoseconds_to_apollo(cast(s64) (ticks % FILETIME_TICKS_PER_SECOND) * NANOSECONDS_PER_FILETIME_TICK);
     low := seconds.low + fraction.low;
     high := seconds.high + fraction.high;
 

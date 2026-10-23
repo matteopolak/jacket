@@ -295,10 +295,10 @@ extension_step :: (p: *Parser, c: u8) -> bool {
                 return true;
             }
 
-            if c == 9 || (c >= 0x20 && c != 0x7f) return true;
+            if c == #char "\t" || (c >= 0x20 && c != 0x7f) return true;
 
         case .QUOTED_PAIR;
-            if c == 9 || (c >= 0x20 && c != 0x7f) {
+            if c == #char "\t" || (c >= 0x20 && c != 0x7f) {
                 p.ext = .QUOTED;
 
                 return true;

@@ -112,7 +112,7 @@ normalize_root :: (input: string) -> string {
     while end > 0 && (input[end - 1] == #char "/" || input[end - 1] == #char "\\") end -= 1;
 
     result := copy_string(S.slice(input, 0, end));
-    for *byte: result if byte.* == 92 byte.* = 47;
+    for *byte: result if byte.* == #char "\\" byte.* = #char "/";
 
     return result;
 }

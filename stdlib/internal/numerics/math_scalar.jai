@@ -270,6 +270,7 @@ pow :: (x: float64, y: float64) -> float64 {
         return 0;
     }
 
+    // jailint: allow(float_equality): testing for a whole number
     if floor(y) == y && abs(y) < 2147483648.0 {
         n := cast(u32) abs(y);
         base := x;
@@ -291,6 +292,7 @@ pow :: (x: float64, y: float64) -> float64 {
     odd := false;
 
     if neg {
+        // jailint: allow(float_equality): testing for a whole number
         if floor(y) != y && x != 0 && !isinf(x) return FLOAT64_NAN;
         odd = abs(y) < 9007199254740992.0 && fmod_cycling(abs(y), 2.0) == 1;
     }

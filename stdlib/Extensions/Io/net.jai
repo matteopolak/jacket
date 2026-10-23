@@ -449,7 +449,7 @@ resolve :: (host: string, port: u16) -> Address, Io_Error {
         return address, .NONE;
     }
 
-    if host.count == 0 || host.count > 253 return .{}, .INVALID;
+    if host.count == 0 || host.count > MAX_HOST_NAME_LENGTH return .{}, .INVALID;
 
     found, error := resolve_with_helper(host, port);
 
@@ -460,6 +460,10 @@ resolve :: (host: string, port: u16) -> Address, Io_Error {
 }
 
 #scope_module
+
+SOCKADDR_IN_SIZE :: 16;
+SOCKADDR_IN6_SIZE :: 28;
+MAX_HOST_NAME_LENGTH :: 253;
 
 // Whether this scheduler's backend wants non-blocking sockets.
 sockets_nonblocking :: () -> bool {
@@ -637,7 +641,7 @@ to_sockaddr :: (address: Address, storage: *Sock_Storage) -> u32 {
 
     if address.family == .IPV4 {
         #if OS == .MACOS {
-            bytes[0] = 16;
+            bytes[0] = SOCKADDR_IN_SIZE;
             bytes[1] = AF_INET;
         } else {
             bytes[0] = AF_INET;
@@ -647,12 +651,12 @@ to_sockaddr :: (address: Address, storage: *Sock_Storage) -> u32 {
         bytes[3] = cast(u8) (address.port & 0xff);
         for 0..3 bytes[4 + it] = address.bytes[it];
 
-        return 16;
+        return SOCKADDR_IN_SIZE;
     }
 
     if address.family == .IPV6 {
         #if OS == .MACOS {
-            bytes[0] = 28;
+            bytes[0] = SOCKADDR_IN6_SIZE;
             bytes[1] = AF_INET6;
         } else {
             bytes[0] = AF_INET6;
@@ -665,7 +669,7 @@ to_sockaddr :: (address: Address, storage: *Sock_Storage) -> u32 {
         scope := address.scope;
         for 0..3 bytes[24 + it] = cast(u8) (scope >> (8 * cast(u32) it));
 
-        return 28;
+        return SOCKADDR_IN6_SIZE;
     }
 
     return 0;

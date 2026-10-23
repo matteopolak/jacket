@@ -22,7 +22,7 @@ get_plugin :: () -> *C.Metaprogram_Plugin {
 
 init :: (p: *C.Metaprogram_Plugin, options: [] string) -> bool {
     example := cast(*My_Plugin) p;
-    example.some_state = 33;
+    example.some_state = INITIAL_STATE;
     index: s64;
     while index < options.count {
         if options[index] != "-option" {
@@ -75,7 +75,7 @@ message :: (p: *C.Metaprogram_Plugin, message: *C.Message) {
 
 finish :: (p: *C.Metaprogram_Plugin) {
     example := cast(*My_Plugin) p;
-    print("Example_Plugin: observed % messages.\n", example.some_state - 33);
+    print("Example_Plugin: observed % messages.\n", example.some_state - INITIAL_STATE);
 }
 
 shutdown :: (p: *C.Metaprogram_Plugin) {
@@ -88,5 +88,8 @@ log_help :: (p: *C.Metaprogram_Plugin) {
 }
 
 #scope_file
+
+INITIAL_STATE :: 33;
+
 using #import "Basic";
 C :: #import "Compiler";

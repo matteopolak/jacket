@@ -46,7 +46,7 @@ is_digit :: inline (c: u8) -> bool {
 }
 
 is_ows :: inline (c: u8) -> bool {
-    return c == #char " " || c == 9;
+    return c == #char " " || c == #char "\t";
 }
 
 hex_value :: inline (c: u8) -> int {
@@ -106,7 +106,7 @@ find_bad_value_byte :: (data: *u8, start: int, end: int) -> int {
     while i < end {
         c := data[i];
 
-        if (c < 0x20 && c != 9) || c == 0x7f return i;
+        if (c < 0x20 && c != #char "\t") || c == 0x7f return i;
 
         i += 1;
     }

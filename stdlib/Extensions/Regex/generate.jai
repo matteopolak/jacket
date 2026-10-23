@@ -5,6 +5,9 @@
 // Bigger than this and the DFA is built lazily at run time instead of stored in the program.
 STATIC_STATE_LIMIT :: 256;
 
+FULL_MATCH_PREFIX :: "\\A(?:";
+MAX_DIGITS_32_BIT :: 9;
+
 // The engine for a constant pattern, built at compile time. A bad pattern is a compile error.
 static_engine :: (pattern: string, full: bool) -> Engine {
     engine: Engine;
@@ -14,7 +17,7 @@ static_engine :: (pattern: string, full: bool) -> Engine {
 
     parsed := parse_pattern(source, .{});
     if !parsed.ok {
-        offset := ifx full then max(parsed.offset - 5, 0) else parsed.offset;
+        offset := ifx full then max(parsed.offset - FULL_MATCH_PREFIX.count, 0) else parsed.offset;
         report_pattern_error(pattern, parsed.error, offset);
         return engine;
     }
@@ -194,9 +197,9 @@ infer_kind :: (node: *Node, plan: *Field_Plan) {
     plan.kind = .INTEGER;
 
     if signed {
-        plan.type_name = ifx digits >= 0 && digits <= 2 then "s8" else ifx digits >= 0 && digits <= 4 then "s16" else ifx digits >= 0 && digits <= 9 then "s32" else "s64";
+        plan.type_name = ifx digits >= 0 && digits <= 2 then "s8" else ifx digits >= 0 && digits <= 4 then "s16" else ifx digits >= 0 && digits <= MAX_DIGITS_32_BIT then "s32" else "s64";
     } else {
-        plan.type_name = ifx digits >= 0 && digits <= 2 then "u8" else ifx digits >= 0 && digits <= 4 then "u16" else ifx digits >= 0 && digits <= 9 then "u32" else "u64";
+        plan.type_name = ifx digits >= 0 && digits <= 2 then "u8" else ifx digits >= 0 && digits <= 4 then "u16" else ifx digits >= 0 && digits <= MAX_DIGITS_32_BIT then "u32" else "u64";
     }
 }
 

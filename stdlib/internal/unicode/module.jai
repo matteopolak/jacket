@@ -163,7 +163,7 @@ trailing_table :: () -> [256] u8 {
     for i: 0xe0..0xef result[i] = 2;
     for i: 0xf0..0xf7 result[i] = 3;
     for i: 0xf8..0xfb result[i] = 4;
-    for i: 0xfc..0xff result[i] = 5;
+    for i: 0xfc..0xff result[i] = 5; // jailint: allow(magic_number): trailing byte count of the last lead-byte row, like the rows above
 
     return result;
 }

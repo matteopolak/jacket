@@ -10,7 +10,7 @@ parse_path :: (_s: string, reduce := true) -> Path {
     rest := _s;
 
     #if OS == .WINDOWS {
-        if rest.count >= 2 && rest[1] == 58 {
+        if rest.count >= 2 && rest[1] == #char ":" {
             path.header_string = S.slice(rest, 0, 2);
             rest = S.slice(rest, 2, rest.count);
         }

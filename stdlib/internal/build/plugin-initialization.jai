@@ -86,7 +86,7 @@ quote_source_string :: (value: string) -> string {
     for byte: value {
         if byte == #char "\"" || byte == #char "\\" append(*builder, "\\");
         if byte == 10 append(*builder, "\\n");
-        else if byte == 13 append(*builder, "\\r");
+        else if byte == #char "\r" append(*builder, "\\r");
         else append(*builder, byte);
     }
 

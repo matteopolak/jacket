@@ -195,7 +195,7 @@ add_hook :: (w: Workspace, iprof_hook_name: string, iprof_hook_args: string, use
     defer free_buffers(*builder);
     print_to_builder(*builder, "% :: ", iprof_hook_name);
     start: s64;
-    while start < iprof_hook_args.count && (iprof_hook_args[start] == 32 || iprof_hook_args[start] == 9 || iprof_hook_args[start] == 10 || iprof_hook_args[start] == 13) start += 1;
+    while start < iprof_hook_args.count && (iprof_hook_args[start] == 32 || iprof_hook_args[start] == #char "\t" || iprof_hook_args[start] == 10 || iprof_hook_args[start] == #char "\r") start += 1;
 
     if start < iprof_hook_args.count && iprof_hook_args[start] == #char "(" append(*builder, iprof_hook_args);
     else {
@@ -279,7 +279,7 @@ profile_helper :: (name: string) -> bool {
 
 profile_parse_size :: (text: string) -> s64, bool {
     i: s64;
-    while i < text.count && (text[i] == 32 || text[i] == 9) i += 1;
+    while i < text.count && (text[i] == 32 || text[i] == #char "\t") i += 1;
 
     negative := false;
 
@@ -300,7 +300,7 @@ profile_parse_size :: (text: string) -> s64, bool {
     }
 
     if i == start return 0, false;
-    while i < text.count && (text[i] == 32 || text[i] == 9 || text[i] == 10 || text[i] == 13) i += 1;
+    while i < text.count && (text[i] == 32 || text[i] == #char "\t" || text[i] == 10 || text[i] == #char "\r") i += 1;
     if i != text.count return 0, false;
 
     if negative {
@@ -350,8 +350,8 @@ profile_source_string :: (builder: *String_Builder, value: string) {
             append(builder, cast(u8) #char "\\");
             append(builder, byte);
         } else if byte == 10 append(builder, "\\n");
-        else if byte == 13 append(builder, "\\r");
-        else if byte == 9 append(builder, "\\t");
+        else if byte == #char "\r" append(builder, "\\r");
+        else if byte == #char "\t" append(builder, "\\t");
         else append(builder, byte);
     }
 

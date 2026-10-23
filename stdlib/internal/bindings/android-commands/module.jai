@@ -2,7 +2,7 @@
 read_command :: (app: *$T) -> s8 {
     cmd: s8;
     if P.read(app.msgread, *cmd, 1) != 1 return -1;
-    if cmd == 12 release_saved_state(app);
+    if cmd == COMMAND_SAVE_STATE release_saved_state(app);
     return cmd;
 }
 
@@ -18,32 +18,32 @@ release_saved_state :: (app: *$T) {
 } @FreesArgument
 
 pre_state :: (app: *$T, cmd: s8) {
-    if cmd == 1 {
+    if cmd == COMMAND_INIT_WINDOW {
         lock(app);
         app.window = app.pendingWindow;
         signal(app);
         unlock(app);
-    } else if cmd == 2 {
+    } else if cmd == COMMAND_TERM_WINDOW {
         signal(app);
-    } else if cmd == 10 || cmd == 11 || cmd == 13 || cmd == 14 {
+    } else if cmd == COMMAND_START || cmd == COMMAND_RESUME || cmd == COMMAND_PAUSE || cmd == COMMAND_STOP {
         lock(app);
         app.activityState = cmd;
         signal(app);
         unlock(app);
-    } else if cmd == 15 {
+    } else if cmd == COMMAND_DESTROY {
         app.destroyRequested = 1;
     }
 }
 
 post_state :: (app: *$T, cmd: s8) {
-    if cmd == 2 || cmd == 12 {
+    if cmd == COMMAND_TERM_WINDOW || cmd == COMMAND_SAVE_STATE {
         lock(app);
-        if cmd == 2 app.window = null;
+        if cmd == COMMAND_TERM_WINDOW app.window = null;
         else app.stateSaved = 1;
 
         signal(app);
         unlock(app);
-    } else if cmd == 11 {
+    } else if cmd == COMMAND_RESUME {
         release_saved_state(app);
     }
 }
@@ -61,6 +61,16 @@ signal :: (app: *$T) {
 }
 
 #scope_file
+
+COMMAND_INIT_WINDOW :: 1;
+COMMAND_TERM_WINDOW :: 2;
+COMMAND_START :: 10;
+COMMAND_RESUME :: 11;
+COMMAND_SAVE_STATE :: 12;
+COMMAND_PAUSE :: 13;
+COMMAND_STOP :: 14;
+COMMAND_DESTROY :: 15;
+
 P :: #import "POSIX";
 Native :: #import "internal/bindings/native";
 

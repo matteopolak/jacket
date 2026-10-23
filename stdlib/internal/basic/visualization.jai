@@ -48,7 +48,7 @@ vis_update_if_it_has_been_long_enough :: () {
         }
 
         if !visualization_connect_locked(now) return;
-        if visualization_has_update && now - visualization_last_update < 250000000 return;
+        if visualization_has_update && now - visualization_last_update < UPDATE_INTERVAL return;
 
         visualization_last_update = now;
         visualization_has_update = true;
@@ -100,6 +100,8 @@ vis_fini :: () {
 }
 
 #scope_module
+UPDATE_INTERVAL :: 250_000_000;
+RETRY_INTERVAL :: 500_000_000;
 VISUALIZATION_NATIVE :: OS == .MACOS || OS == .LINUX;
 VISUALIZATION_ENABLED :: MEMORY_DEBUGGER && VISUALIZE_MEMORY_DEBUGGER && REPLACEMENT_INTERFACE == Memory_Debugger_Interface;
 
@@ -241,7 +243,7 @@ visualization_connect_locked :: (now: u64) -> bool {
         }
 
         if atomic_load(*visualization_connected) == 0 {
-            if visualization_has_attempt && now - visualization_last_attempt < 500000000 return false;
+            if visualization_has_attempt && now - visualization_last_attempt < RETRY_INTERVAL return false;
 
             visualization_has_attempt = true;
             visualization_last_attempt = now;

@@ -25,9 +25,9 @@ load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bo
     }
 
     length, sized := file_length(file);
-    if !sized || length < 22 return false, .{};
+    if !sized || length < END_RECORD_SIZE return false, .{};
 
-    tail_length := min(length, cast(s64) 65557);
+    tail_length := min(length, cast(s64) (END_RECORD_SIZE + LONGEST_COMMENT));
     if !file_set_position(file, length - tail_length) return false, .{};
 
     tail := alloc_string(tail_length);
@@ -37,11 +37,11 @@ load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bo
     if !read_ok || received != tail.count return false, .{};
 
     end_offset: s64 = -1;
-    candidate := tail.count - 22;
+    candidate := tail.count - END_RECORD_SIZE;
 
     while candidate >= 0 {
         bytes := tail.data + candidate;
-        if read_u32(bytes) == 0x06054b50 && candidate + 22 + read_u16(bytes + 20) == tail.count {
+        if read_u32(bytes) == 0x06054b50 && candidate + END_RECORD_SIZE + read_u16(bytes + 20) == tail.count {
             end_offset = candidate;
             break;
         }
@@ -61,7 +61,7 @@ load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bo
 
     end_position := length - tail_length + end_offset;
     if directory_start > end_position || directory_size > end_position - directory_start return false, .{};
-    if entry_count > directory_size / 46 return false, .{};
+    if entry_count > directory_size / CENTRAL_HEADER_SIZE return false, .{};
     if !file_set_position(file, directory_start) return false, .{};
 
     result.memory_block = alloc_string(directory_size);
@@ -74,7 +74,7 @@ load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bo
     cursor: s64;
 
     for 0..entry_count - 1 {
-        if cursor > directory_size - 46 return false, .{};
+        if cursor > directory_size - CENTRAL_HEADER_SIZE return false, .{};
 
         bytes := result.memory_block.data + cursor;
 
@@ -98,11 +98,11 @@ load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bo
         entry.chunk_offset = read_u32(bytes + 42);
         if entry.compressed_len == 0xffffffff || entry.chunk_len == 0xffffffff || entry.chunk_offset == 0xffffffff return false, .{};
 
-        record_size := cast(s64) 46 + entry.name_len + entry.extra_field_len + entry.file_comment_len;
+        record_size := cast(s64) CENTRAL_HEADER_SIZE + entry.name_len + entry.extra_field_len + entry.file_comment_len;
         if record_size > directory_size - cursor return false, .{};
 
-        entry.filename = .{ entry.name_len, bytes + 46 };
-        extra: string = .{ entry.extra_field_len, bytes + 46 + entry.name_len };
+        entry.filename = .{ entry.name_len, bytes + CENTRAL_HEADER_SIZE };
+        extra: string = .{ entry.extra_field_len, bytes + CENTRAL_HEADER_SIZE + entry.name_len };
         if !classic_extra_fields(extra) return false, .{};
 
         array_add(*result.entries, entry);
@@ -124,6 +124,11 @@ load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bo
 #scope_file
 #import "Basic";
 #import "File";
+
+// Fixed parts of the end-of-central-directory record and of a central directory entry.
+END_RECORD_SIZE :: 22;
+CENTRAL_HEADER_SIZE :: 46;
+LONGEST_COMMENT :: 0xffff;
 
 classic_extra_fields :: (extra: string) -> bool {
     cursor: s64;

@@ -78,7 +78,7 @@ launch :: (child: *Child, arguments: [] string, working_directory := "", capture
         bytes: u64;
         sized := InitializeProcThreadAttributeList(null, 1, 0, *bytes);
 
-        if sized == 0 && W.GetLastError() != 122 return false;
+        if sized == 0 && W.GetLastError() != ERROR_INSUFFICIENT_BUFFER return false;
         if bytes == 0 || bytes > 0x7fffffffffffffff return false;
 
         attribute_memory = alloc(cast(s64) bytes);
@@ -133,7 +133,7 @@ wait :: (child: *Child, timeout_ms: s64 = -1) -> success: bool, done: bool, exit
     handles := W.HANDLE.[child.info.hProcess];
     status := wait_handles(1, handles.data, timeout_ms);
 
-    if status == 258 return true, false, 0;
+    if status == W.WAIT_TIMEOUT return true, false, 0;
     if status != 0 return false, false, 0;
 
     code: u32;
@@ -198,7 +198,7 @@ write_input :: (child: *Child, data: [] u8) -> bool, s64 {
         ok := W.WriteFile(stream.handle, data.data + total, chunk, null, stream.overlapped);
 
         if ok == 0 {
-            if W.GetLastError() != 997 return false, total;
+            if W.GetLastError() != W.ERROR_IO_PENDING return false, total;
 
             operation_state(stream).pending = true;
 
@@ -237,7 +237,7 @@ read_pair :: (child: *Child, output: [] u8, error: [] u8, timeout_ms: s64 = -1) 
 
     if count > 0 && out_count == 0 && err_count == 0 && out_ok && err_ok {
         status := wait_handles(count, handles.data, timeout_ms);
-        waited = status < count || status == 258;
+        waited = status < count || status == W.WAIT_TIMEOUT;
     }
 
     out_finished, out_extra := finish_read(*child.output);
@@ -311,7 +311,7 @@ wait_handles :: (count: u32, handles: *W.HANDLE, milliseconds: s64) -> u32 {
         chunk := cast(u32) min(remaining, cast(s64) 0xfffffffe);
         status := W.WaitForMultipleObjects(count, handles, 0, chunk);
 
-        if status != 258 return status;
+        if status != W.WAIT_TIMEOUT return status;
 
         remaining -= chunk;
     }
@@ -375,10 +375,10 @@ pipe_pair :: (stream: *Stream, is_input: bool) -> bool, W.HANDLE {
     connected := W.ConnectNamedPipe(stream.handle, stream.overlapped);
     if connected == 0 {
         code := W.GetLastError();
-        if code == 997 {
+        if code == W.ERROR_IO_PENDING {
             transferred: u32;
             connected = GetOverlappedResult(stream.handle, stream.overlapped, *transferred, 1);
-        } else if code == 535 connected = 1;
+        } else if code == W.ERROR_PIPE_CONNECTED connected = 1;
 
         if connected == 0 {
             checked_close(client);
@@ -429,12 +429,12 @@ begin_read :: (stream: *Stream, buffer: [] u8) -> bool, s64 {
     }
 
     code := W.GetLastError();
-    if code == 109 {
+    if code == W.ERROR_BROKEN_PIPE {
         stream.eof = true;
         return true, 0;
     }
 
-    if code != 997 return false, 0;
+    if code != W.ERROR_IO_PENDING return false, 0;
 
     operation_state(stream).pending = true;
 
@@ -448,10 +448,10 @@ finish_read :: (stream: *Stream) -> bool, s64 {
     ok := GetOverlappedResult(stream.handle, stream.overlapped, *received, 0);
     code := W.GetLastError();
 
-    if ok == 0 && code == 996 {
+    if ok == 0 && code == ERROR_IO_INCOMPLETE {
         canceled := CancelIoEx(stream.handle, stream.overlapped);
 
-        assert(canceled != 0 || W.GetLastError() == 1168, "pipe cancellation failed");
+        assert(canceled != 0 || W.GetLastError() == ERROR_NOT_FOUND, "pipe cancellation failed");
         // Cancellation is asynchronous: drain completion before returning the
         // caller's buffer, even when timeout wins the race with arriving bytes.
         ok = GetOverlappedResult(stream.handle, stream.overlapped, *received, 1);
@@ -462,8 +462,14 @@ finish_read :: (stream: *Stream) -> bool, s64 {
 
     if ok != 0 return true, received;
 
-    if code == 109 stream.eof = true;
-    if code == 109 || code == 995 return true, 0;
+    if code == W.ERROR_BROKEN_PIPE stream.eof = true;
+    if code == W.ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED return true, 0;
 
     return false, 0;
 }
+
+#scope_file
+ERROR_INSUFFICIENT_BUFFER :: 122;
+ERROR_OPERATION_ABORTED :: 995;
+ERROR_IO_INCOMPLETE :: 996;
+ERROR_NOT_FOUND :: 1168;

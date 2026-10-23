@@ -20,12 +20,21 @@
     }
 
     calendar_to_apollo :: (ct: Calendar_Time) -> Apollo_Time {
-        if ct.year < 1601 || ct.year > 30827 return windows_calendar_input_failure();
-        if ct.month_starting_at_0 < 0 || ct.month_starting_at_0 > 11 return windows_calendar_input_failure();
-        if ct.day_of_month_starting_at_0 < 0 || ct.day_of_month_starting_at_0 > 30 return windows_calendar_input_failure();
+        FIRST_SYSTEMTIME_YEAR :: 1601;
+        LAST_SYSTEMTIME_YEAR :: 30827;
+        MAX_MONTH_INDEX :: 11;
+        MAX_DAY_INDEX :: 30;
+        MAX_HOUR :: 23;
+        MAX_MINUTE :: 59;
+        MAX_SECOND :: 59;
+        MAX_MILLISECOND :: 999;
+
+        if ct.year < FIRST_SYSTEMTIME_YEAR || ct.year > LAST_SYSTEMTIME_YEAR return windows_calendar_input_failure();
+        if ct.month_starting_at_0 < 0 || ct.month_starting_at_0 > MAX_MONTH_INDEX return windows_calendar_input_failure();
+        if ct.day_of_month_starting_at_0 < 0 || ct.day_of_month_starting_at_0 > MAX_DAY_INDEX return windows_calendar_input_failure();
         if !Calendar_Date.valid_date(ct.year, ct.month_starting_at_0, ct.day_of_month_starting_at_0) return windows_calendar_input_failure();
-        if ct.hour < 0 || ct.hour > 23 || ct.minute < 0 || ct.minute > 59 return windows_calendar_input_failure();
-        if ct.second < 0 || ct.second > 59 || ct.millisecond < 0 || ct.millisecond > 999 return windows_calendar_input_failure();
+        if ct.hour < 0 || ct.hour > MAX_HOUR || ct.minute < 0 || ct.minute > MAX_MINUTE return windows_calendar_input_failure();
+        if ct.second < 0 || ct.second > MAX_SECOND || ct.millisecond < 0 || ct.millisecond > MAX_MILLISECOND return windows_calendar_input_failure();
         if ct.time_zone != .UTC && ct.time_zone != .LOCAL return windows_calendar_input_failure();
 
         native: Calendar_Windows.SYSTEMTIME;

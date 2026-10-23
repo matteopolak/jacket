@@ -35,6 +35,7 @@ report_expand_compare :: (a: Report_Row, b: Report_Row) -> s64 {
 
     if a_group < b_group return -1;
     if a_group > b_group return 1;
+    // jailint: allow(float_equality): a sort comparator: ties are exact
     if a.hier_time == b.hier_time return 0;
     if a_group == 0 return ifx a.hier_time < b.hier_time then -1 else 1;
 

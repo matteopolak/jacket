@@ -173,11 +173,15 @@
     // Reads the first two bytes of the running executable through `ring` and waits for the event,
     // then checks that the ring accepts a write entry.
     ring_self_test :: (api: Ring_Api, ring: s64, event: s64) -> bool {
-        name: [520] u16;
+        PATH_BUFFER_UNITS :: 520;
+        READ_TAG :: 77;
+        WRITE_TAG :: 78;
 
-        length := win_module_file_name(0, name.data, 520);
+        name: [PATH_BUFFER_UNITS] u16;
 
-        if length == 0 || length >= 520 return false;
+        length := win_module_file_name(0, name.data, PATH_BUFFER_UNITS);
+
+        if length == 0 || length >= PATH_BUFFER_UNITS return false;
 
         file := win_create_file(name.data, GENERIC_READ, FILE_SHARE_ALL, null, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, 0);
         if file == -1 return false;
@@ -190,7 +194,7 @@
 
         buffer: [2] u8;
 
-        if read(ring, Io_Ring_Ref.{ 0, cast(u64) file }, Io_Ring_Ref.{ 0, cast(u64) buffer.data }, 2, 0, 77, 0) < 0 return false;
+        if read(ring, Io_Ring_Ref.{ 0, cast(u64) file }, Io_Ring_Ref.{ 0, cast(u64) buffer.data }, 2, 0, READ_TAG, 0) < 0 return false;
 
         submitted: u32;
 
@@ -202,12 +206,12 @@
         if pop(ring, *cqe) != 0 return false;
 
         // "MZ", the first bytes of every executable.
-        if !(cqe.user_data == 77 && cqe.result >= 0 && cqe.information == 2 && buffer[0] == 77 && buffer[1] == 90) return false;
+        if !(cqe.user_data == READ_TAG && cqe.result >= 0 && cqe.information == 2 && buffer[0] == #char "M" && buffer[1] == #char "Z") return false;
 
         // Only built, never submitted: an old ring version refuses the entry.
         write := cast(Ring_Write) api.write;
 
-        return write(ring, Io_Ring_Ref.{ 0, cast(u64) file }, Io_Ring_Ref.{ 0, cast(u64) buffer.data }, 1, 0, 0, 78, 0) >= 0;
+        return write(ring, Io_Ring_Ref.{ 0, cast(u64) file }, Io_Ring_Ref.{ 0, cast(u64) buffer.data }, 1, 0, 0, WRITE_TAG, 0) >= 0;
     }
 
     // Makes this engine's ring. Returns why it cannot, or "" if files now use it.

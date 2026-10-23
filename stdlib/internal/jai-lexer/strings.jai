@@ -12,12 +12,12 @@ make_string_constant :: (lexer: *J.Lexer) -> *J.Token {
 
         eat_character(lexer);
 
-        if c == 34 {
+        if c == #char "\"" {
             closed = true;
             break;
         }
 
-        if c != 92 {
+        if c != #char "\\" {
             Basic.append(*builder, cast(u8) c);
             continue;
         }
@@ -27,21 +27,21 @@ make_string_constant :: (lexer: *J.Lexer) -> *J.Token {
 
         eat_character(lexer);
 
-        if c == 110 Basic.append(*builder, cast(u8) 10);
-        else if c == 114 Basic.append(*builder, cast(u8) 13);
-        else if c == 116 Basic.append(*builder, cast(u8) 9);
-        else if c == 48 Basic.append(*builder, cast(u8) 0);
-        else if c == 92 || c == 34 Basic.append(*builder, cast(u8) c);
-        else if c == 120 || c == 117 || c == 85 {
+        if c == #char "n" Basic.append(*builder, cast(u8) 10);
+        else if c == #char "r" Basic.append(*builder, cast(u8) 13);
+        else if c == #char "t" Basic.append(*builder, cast(u8) 9);
+        else if c == #char "0" Basic.append(*builder, cast(u8) 0);
+        else if c == #char "\\" || c == #char "\"" Basic.append(*builder, cast(u8) c);
+        else if c == #char "x" || c == #char "u" || c == #char "U" {
             digits: s64 = 2;
             kind := J.Hex_Digit_Type.ASCII_8_BIT;
 
-            if c == 117 {
+            if c == #char "u" {
                 digits = 4;
                 kind = .UNICODE_16;
             }
 
-            if c == 85 {
+            if c == #char "U" {
                 digits = 8;
                 kind = .UNICODE_32;
             }
@@ -60,7 +60,7 @@ make_string_constant :: (lexer: *J.Lexer) -> *J.Token {
             }
 
             if valid {
-                if c == 120 Basic.append(*builder, cast(u8) value);
+                if c == #char "x" Basic.append(*builder, cast(u8) value);
                 else append_unicode(lexer, *builder, value);
             }
         } else if c == 100 {
@@ -99,13 +99,13 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
     line := lexer.current_line_number;
     column := lexer.current_character_index;
 
-    while look(lexer, 0) == 32 || look(lexer, 0) == 9 eat_character(lexer);
+    while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" eat_character(lexer);
 
     cr := false;
 
-    if look(lexer, 0) == 44 {
+    if look(lexer, 0) == #char "," {
         eat_character(lexer);
-        while look(lexer, 0) == 32 || look(lexer, 0) == 9 eat_character(lexer);
+        while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" eat_character(lexer);
 
         if !matches_text(lexer, "cr") || continues_identifier(look(lexer, 2)) {
             report_parse_error(lexer, "unknown here-string modifier");
@@ -115,7 +115,7 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
         eat_character(lexer);
         eat_character(lexer);
         cr = true;
-        while look(lexer, 0) == 32 || look(lexer, 0) == 9 eat_character(lexer);
+        while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" eat_character(lexer);
     }
 
     if look(lexer, 0) < 0 || !starts_identifier(cast(u8) look(lexer, 0)) {
@@ -129,7 +129,7 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
 
     delimiter := string.{ lexer.input_cursor - ident_start, lexer.input.data + ident_start };
 
-    while look(lexer, 0) == 32 || look(lexer, 0) == 9 || look(lexer, 0) == 13 eat_character(lexer);
+    while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" || look(lexer, 0) == #char "\r" eat_character(lexer);
 
     if look(lexer, 0) != 10 {
         report_parse_error(lexer, "here-string header has non-whitespace or no content line");
@@ -142,7 +142,7 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
     while look(lexer, 0) >= 0 {
         line_start := lexer.input_cursor;
 
-        while look(lexer, 0) == 32 || look(lexer, 0) == 9 eat_character(lexer);
+        while look(lexer, 0) == #char " " || look(lexer, 0) == #char "\t" eat_character(lexer);
 
         if matches_text(lexer, delimiter) && !continues_identifier(look(lexer, delimiter.count)) {
             content := string.{ line_start - start, lexer.input.data + start };
@@ -155,8 +155,8 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
             Basic.init_string_builder(*builder);
 
             for c, i: content {
-                if c == 13 && !cr && i + 1 < content.count && content[i + 1] == 10 continue;
-                if c == 10 && cr && (i == 0 || content[i - 1] != 13) Basic.append(*builder, cast(u8) 13);
+                if c == #char "\r" && !cr && i + 1 < content.count && content[i + 1] == 10 continue;
+                if c == 10 && cr && (i == 0 || content[i - 1] != #char "\r") Basic.append(*builder, cast(u8) 13);
                 Basic.append(*builder, c);
             }
 

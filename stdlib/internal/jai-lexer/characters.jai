@@ -31,15 +31,15 @@ unwind_one_character :: (lexer: *J.Lexer) {
 }
 
 starts_identifier :: inline (c: u8) -> bool {
-    return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95;
+    return (c >= #char "A" && c <= #char "Z") || (c >= #char "a" && c <= #char "z") || c == #char "_";
 }
 
 continues_identifier :: (c: s32) -> bool {
-    return c >= 0 && c <= 255 && (starts_identifier(cast(u8) c) || (c >= 48 && c <= 57));
+    return c >= 0 && c <= 255 && (starts_identifier(cast(u8) c) || (c >= #char "0" && c <= #char "9"));
 }
 
 starts_number :: (c: s32) -> bool {
-    return c >= 48 && c <= 57;
+    return c >= #char "0" && c <= #char "9";
 }
 
 set_end_of_token :: (lexer: *J.Lexer, token: *J.Token) {
@@ -69,9 +69,9 @@ get_hex_digit :: (lexer: *J.Lexer, type: J.Hex_Digit_Type) -> (value: u8, succes
     c := peek_next_character(lexer);
     value: s16 = -1;
 
-    if c >= 48 && c <= 57 value = c - 48;
-    else if c >= 65 && c <= 70 value = c - 65 + 10;
-    else if c >= 97 && c <= 102 value = c - 97 + 10;
+    if c >= #char "0" && c <= #char "9" value = c - #char "0";
+    else if c >= #char "A" && c <= #char "F" value = c - #char "A" + 10;
+    else if c >= #char "a" && c <= #char "f" value = c - #char "a" + 10;
 
     if value < 0 {
         if type == .ASCII_8_BIT report_parse_error(lexer, "\\x escape requires two hexadecimal digits");
@@ -87,14 +87,14 @@ get_hex_digit :: (lexer: *J.Lexer, type: J.Hex_Digit_Type) -> (value: u8, succes
 
 get_decimal_digit :: (lexer: *J.Lexer) -> s32 {
     c := peek_next_character(lexer);
-    if c < 48 || c > 57 {
+    if c < #char "0" || c > #char "9" {
         report_parse_error(lexer, "\\d escape requires three decimal digits");
         return -1;
     }
 
     eat_character(lexer);
 
-    return cast(s32) (c - 48);
+    return cast(s32) (c - #char "0");
 }
 
 report_parse_error :: (lexer: *J.Lexer, format: string, arguments: ..Any) {
@@ -121,11 +121,11 @@ eat_input_due_to_block_comment :: (lexer: *J.Lexer) {
     depth: s64 = 1;
 
     while lexer.input_cursor < lexer.input.count {
-        if look(lexer, 0) == 47 && look(lexer, 1) == 42 {
+        if look(lexer, 0) == #char "/" && look(lexer, 1) == #char "*" {
             eat_character(lexer);
             eat_character(lexer);
             depth += 1;
-        } else if look(lexer, 0) == 42 && look(lexer, 1) == 47 {
+        } else if look(lexer, 0) == #char "*" && look(lexer, 1) == #char "/" {
             eat_character(lexer);
             eat_character(lexer);
             depth -= 1;

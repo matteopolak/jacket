@@ -83,11 +83,11 @@ console_color_depth :: (to_standard_error := false) -> s64 {
 console_attributes_for :: (current: u16, color: Console_Color, style: Console_Style = .NORMAL) -> u16 {
     result := current;
     code := cast(s64) color;
-    foreground := code >= 30 && code <= 37 || code >= 90 && code <= 97;
-    background := code >= 40 && code <= 47 || code >= 100 && code <= 107;
+    foreground := code >= ANSI_FOREGROUND_FIRST && code <= ANSI_FOREGROUND_LAST || code >= ANSI_BRIGHT_FOREGROUND_FIRST && code <= ANSI_BRIGHT_FOREGROUND_LAST;
+    background := code >= ANSI_BACKGROUND_FIRST && code <= ANSI_BACKGROUND_LAST || code >= ANSI_BRIGHT_BACKGROUND_FIRST && code <= ANSI_BRIGHT_BACKGROUND_LAST;
 
     if foreground || background {
-        index := (code - 30) % 10;
+        index := (code - ANSI_FOREGROUND_FIRST) % 10;
         bits: u16;
 
         if index & 1 bits |= 0x4;
@@ -95,7 +95,7 @@ console_attributes_for :: (current: u16, color: Console_Color, style: Console_St
         if index & 4 bits |= 0x1;
 
         if foreground {
-            if code >= 90 bits |= CONSOLE_FOREGROUND_BRIGHT;
+            if code >= ANSI_BRIGHT_FOREGROUND_FIRST bits |= CONSOLE_FOREGROUND_BRIGHT;
             result = (result & ~cast(u16) CONSOLE_FOREGROUND_MASK) | bits;
         } else {
             bits <<= 4;
@@ -210,6 +210,17 @@ print_color :: (format_string: string, args: ..Any, color: Console_Color, style:
 } @PrintLike
 
 #scope_file
+
+ANSI_FOREGROUND_FIRST :: 30;
+
+ANSI_FOREGROUND_LAST :: 37;
+ANSI_BRIGHT_FOREGROUND_FIRST :: 90;
+ANSI_BRIGHT_FOREGROUND_LAST :: 97;
+ANSI_BACKGROUND_FIRST :: 40;
+ANSI_BACKGROUND_LAST :: 47;
+ANSI_BRIGHT_BACKGROUND_FIRST :: 100;
+ANSI_BRIGHT_BACKGROUND_LAST :: 107;
+
 B :: #import "Basic";
 
 NATIVE_MAX_DEPTH :: 32;

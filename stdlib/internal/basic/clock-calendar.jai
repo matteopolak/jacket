@@ -61,6 +61,8 @@
     }
 
     to_calendar :: (at: Apollo_Time, time_zone := Time_Zone.UTC) -> Calendar_Time {
+        TM_YEAR_BASE :: 1900;
+
         ts, valid := to_timespec(at);
 
         if !valid return calendar_failure("Apollo timestamp is outside native calendar range", time_zone);
@@ -75,7 +77,7 @@
 
         if !converted return calendar_failure("native calendar conversion failed", time_zone);
 
-        year := cast(s64) broken.tm_year + 1900;
+        year := cast(s64) broken.tm_year + TM_YEAR_BASE;
 
         if year < -2147483648 || year > 2147483647 return calendar_failure("calendar year overflows s32", time_zone);
 
@@ -85,7 +87,10 @@
     }
 
     calendar_to_apollo :: (ct: Calendar_Time) -> Apollo_Time {
-        year := cast(s64) ct.year - 1900;
+        TM_YEAR_BASE :: 1900;
+
+        year := cast(s64) ct.year - TM_YEAR_BASE;
+
         if year < -2147483648 || year > 2147483647 {
             context.logger("calendar year exceeds native tm range\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
             return .{};

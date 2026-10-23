@@ -82,7 +82,7 @@ expect_status :: (response: Client_Response, status: int, loc := #caller_locatio
 expect_success :: (response: Client_Response, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
-    if response.status >= 200 && response.status < 300 return true;
+    if response.status >= HTTP_OK && response.status < HTTP_MULTIPLE_CHOICES return true;
 
     fail_response(loc, tprint("expected a 2xx status, got %", status_label(response.status)), response);
 
@@ -165,7 +165,7 @@ expect_redirect :: (response: Client_Response, location: string, status := 0, lo
 
     actual, found := find_header(response.headers, "Location");
 
-    status_ok := ifx status > 0 then response.status == status else (response.status >= 300 && response.status < 400);
+    status_ok := ifx status > 0 then response.status == status else (response.status >= HTTP_MULTIPLE_CHOICES && response.status < HTTP_BAD_REQUEST);
 
     if status_ok && found && actual == location return true;
 
@@ -194,7 +194,7 @@ expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller
 
             return result;
         }
-    } else if response.status < 200 || response.status >= 300 {
+    } else if response.status < HTTP_OK || response.status >= HTTP_MULTIPLE_CHOICES {
         fail_response(loc, tprint("expected a 2xx status, got %", status_label(response.status)), response);
 
         return result;
@@ -503,7 +503,7 @@ SHOWN_BODY :: 400;
 // `text` is only the start.
 append_shown :: (builder: *String_Builder, text: string, size: int) {
     for text {
-        if it < 9 || (it > 13 && it < 32) {
+        if it < #char "\t" || (it > #char "\r" && it < 32) {
             print(builder, "<% bytes of binary data>", size);
 
             return;

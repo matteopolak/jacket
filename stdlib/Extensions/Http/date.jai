@@ -6,22 +6,39 @@
 DAY_NAMES :: string.["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 MONTH_NAMES :: string.["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+HTTP_DATE_SIZE :: 29;
+SECONDS_PER_HOUR :: 3600;
+SECONDS_PER_DAY :: 86400;
+MONTHS_PER_YEAR :: 12;
+MAX_HOUR :: 23;
+MAX_MINUTE :: 59;
+
+// Calendar maths on a year that starts in March, so the leap day is the last day of the year.
+YEARS_PER_ERA :: 400;
+DAYS_PER_YEAR :: 365;
+DAYS_PER_4_YEARS :: 1460;
+DAYS_PER_100_YEARS :: 36524;
+DAYS_PER_ERA :: 146097;
+DAYS_FROM_YEAR_0_TO_1970 :: 719468;
+MONTH_CYCLE_MONTHS :: 5;
+MONTH_CYCLE_DAYS :: 153;
+
 #scope_export
 
 // The date text for the current second, formatted again only when the second changes. One
 // cache per thread (it is not synchronized).
 Date_Cache :: struct {
     second: s64 = -1;
-    text: [29] u8;
+    text: [HTTP_DATE_SIZE] u8;
 }
 
 // Writes `seconds` since 1970-01-01 UTC as an IMF-fixdate (always 29 bytes).
-format_http_date :: (seconds: s64, out: *[29] u8) {
-    days := seconds / 86400;
-    rest := seconds % 86400;
+format_http_date :: (seconds: s64, out: *[HTTP_DATE_SIZE] u8) {
+    days := seconds / SECONDS_PER_DAY;
+    rest := seconds % SECONDS_PER_DAY;
 
     if rest < 0 {
-        rest += 86400;
+        rest += SECONDS_PER_DAY;
         days -= 1;
     }
 
@@ -30,24 +47,24 @@ format_http_date :: (seconds: s64, out: *[29] u8) {
     if weekday < 0 weekday += 7;
 
     // Days since 1970-01-01 to a civil date (proleptic Gregorian).
-    z := days + 719468;
-    era := z / 146097;
+    z := days + DAYS_FROM_YEAR_0_TO_1970;
+    era := z / DAYS_PER_ERA;
 
-    if z < 0 era = (z - 146096) / 146097;
+    if z < 0 era = (z - (DAYS_PER_ERA - 1)) / DAYS_PER_ERA;
 
-    day_of_era := z - era * 146097;
-    year_of_era := (day_of_era - day_of_era / 1460 + day_of_era / 36524 - day_of_era / 146096) / 365;
-    year := year_of_era + era * 400;
-    day_of_year := day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    mp := (5 * day_of_year + 2) / 153;
-    day := day_of_year - (153 * mp + 2) / 5 + 1;
+    day_of_era := z - era * DAYS_PER_ERA;
+    year_of_era := (day_of_era - day_of_era / DAYS_PER_4_YEARS + day_of_era / DAYS_PER_100_YEARS - day_of_era / (DAYS_PER_ERA - 1)) / DAYS_PER_YEAR;
+    year := year_of_era + era * YEARS_PER_ERA;
+    day_of_year := day_of_era - (DAYS_PER_YEAR * year_of_era + year_of_era / 4 - year_of_era / 100);
+    mp := (MONTH_CYCLE_MONTHS * day_of_year + 2) / MONTH_CYCLE_DAYS;
+    day := day_of_year - (MONTH_CYCLE_DAYS * mp + 2) / MONTH_CYCLE_MONTHS + 1;
     month := mp + 3;
 
-    if month > 12 month -= 12;
+    if month > MONTHS_PER_YEAR month -= MONTHS_PER_YEAR;
     if month <= 2 year += 1;
 
-    hour := rest / 3600;
-    minute := (rest % 3600) / 60;
+    hour := rest / SECONDS_PER_HOUR;
+    minute := (rest % SECONDS_PER_HOUR) / 60;
     second := rest % 60;
 
     // "Sun, 06 Nov 1994 08:49:37 GMT"
@@ -91,7 +108,7 @@ http_date :: (cache: *Date_Cache, seconds: s64) -> string {
 
     result: string;
     result.data = cache.text.data;
-    result.count = 29;
+    result.count = HTTP_DATE_SIZE;
 
     return result;
 }
@@ -99,7 +116,7 @@ http_date :: (cache: *Date_Cache, seconds: s64) -> string {
 // Reads an IMF-fixdate into seconds since 1970-01-01 UTC. The obsolete RFC 850 and asctime forms
 // are not accepted.
 parse_http_date :: (text: string) -> s64, bool {
-    if text.count != 29 || text[3] != #char "," || text[4] != #char " " || text[7] != #char " " || text[11] != #char " " || text[16] != #char " " || text[19] != #char ":" || text[22] != #char ":" || !equal_nocase(slice(text, 25, 4), " GMT") {
+    if text.count != HTTP_DATE_SIZE || text[3] != #char "," || text[4] != #char " " || text[7] != #char " " || text[11] != #char " " || text[16] != #char " " || text[19] != #char ":" || text[22] != #char ":" || !equal_nocase(slice(text, 25, 4), " GMT") {
         return 0, false;
     }
 
@@ -124,21 +141,21 @@ parse_http_date :: (text: string) -> s64, bool {
     second, ok5 := read_digits(text, 23, 2);
 
     if !ok1 || !ok2 || !ok3 || !ok4 || !ok5 return 0, false;
-    if day < 1 || day > 31 || hour > 23 || minute > 59 || second > 60 return 0, false;
+    if day < 1 || day > 31 || hour > MAX_HOUR || minute > MAX_MINUTE || second > 60 return 0, false;
 
     // Civil date to days since 1970-01-01.
     y := year;
     if month <= 2 y -= 1;
 
-    era := y / 400;
-    year_of_era := y - era * 400;
+    era := y / YEARS_PER_ERA;
+    year_of_era := y - era * YEARS_PER_ERA;
     shifted := month - 3;
 
-    if month <= 2 shifted = month + 9;
+    if month <= 2 shifted = month + MONTHS_PER_YEAR - 3;
 
-    day_of_year := (153 * shifted + 2) / 5 + day - 1;
-    day_of_era := year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    days := era * 146097 + day_of_era - 719468;
+    day_of_year := (MONTH_CYCLE_DAYS * shifted + 2) / MONTH_CYCLE_MONTHS + day - 1;
+    day_of_era := year_of_era * DAYS_PER_YEAR + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    days := era * DAYS_PER_ERA + day_of_era - DAYS_FROM_YEAR_0_TO_1970;
 
     // The weekday must agree with the date.
     expected := (days + 3) % 7;
@@ -147,12 +164,12 @@ parse_http_date :: (text: string) -> s64, bool {
 
     if expected != weekday return 0, false;
 
-    return days * 86400 + hour * 3600 + minute * 60 + second, true;
+    return days * SECONDS_PER_DAY + hour * SECONDS_PER_HOUR + minute * 60 + second, true;
 }
 
 #scope_module
 
-two_digits :: (text: *[29] u8, at: int, value: int) {
+two_digits :: (text: *[HTTP_DATE_SIZE] u8, at: int, value: int) {
     text.*[at] = cast(u8) (#char "0" + value / 10 % 10);
     text.*[at + 1] = cast(u8) (#char "0" + value % 10);
 }

@@ -210,7 +210,7 @@ take_line :: (remaining: *string) -> string {
 
     remaining.data += consumed;
     remaining.count -= consumed;
-    if result.count > 0 && result[result.count - 1] == 13 result.count -= 1;
+    if result.count > 0 && result[result.count - 1] == #char "\r" result.count -= 1;
 
     return result;
 }

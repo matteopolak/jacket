@@ -27,7 +27,7 @@ base64_encode :: (input: string, table: string = BASE64_ENCODER_TABLE, pad := tr
             result.data[count] = table[((b & 15) << 2) | (c >> 6)];
             count += 1;
         } else if pad {
-            result.data[count] = 61;
+            result.data[count] = #char "=";
             count += 1;
         }
 
@@ -35,7 +35,7 @@ base64_encode :: (input: string, table: string = BASE64_ENCODER_TABLE, pad := tr
             result.data[count] = table[c & 63];
             count += 1;
         } else if pad {
-            result.data[count] = 61;
+            result.data[count] = #char "=";
             count += 1;
         }
 
@@ -56,16 +56,16 @@ base64_decode :: (input: string, table: [256] u8 = BASE64_DECODER_TABLE) -> stri
 
     for byte: input {
         symbol := table[byte];
-        if symbol == 64 continue;
-        if symbol == 65 break;
+        if symbol == SKIPPED_SYMBOL continue;
+        if symbol == PADDING_SYMBOL break;
 
-        if symbol > 65 {
+        if symbol > PADDING_SYMBOL {
             valid = false;
             break;
         }
 
         accumulator = (accumulator << 6) | cast(u32) symbol;
-        bits += 6;
+        bits += BITS_PER_SYMBOL;
         if bits >= 8 {
             bits -= 8;
             result.data[count] = cast,trunc(u8) (accumulator >> bits);
@@ -117,13 +117,18 @@ test_base64_module :: () {
 #scope_file
 #import "Basic";
 
+BITS_PER_SYMBOL :: 6;
+SKIPPED_SYMBOL :: 64;
+PADDING_SYMBOL :: 65;
+INVALID_SYMBOL :: 66;
+
 decoder_table :: (alphabet: string) -> [256] u8 {
     result: [256] u8;
-    for *byte: result byte.* = 66;
+    for *byte: result byte.* = INVALID_SYMBOL;
     for byte, i: alphabet result[byte] = cast(u8) i;
 
-    result[10] = 64;
-    result[61] = 65;
+    result[#char "\n"] = SKIPPED_SYMBOL;
+    result[#char "="] = PADDING_SYMBOL;
 
     return result;
 }

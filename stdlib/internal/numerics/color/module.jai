@@ -70,8 +70,9 @@ rgb_to_hsv :: (r: float, g: float, b: float) -> (h: float, s: float, v: float) {
     s = 0;
     if v != 0 s = d / v;
     if d == 0 return h, s, v;
+    // jailint: allow(float_equality): `v` is one of `r`, `g` and `b`
     if v == r h = 60 * fmod_cycling((g - b) / d, 6.0);
-    else if v == g h = 60 * ((b - r) / d + 2);
+    else if v == g h = 60 * ((b - r) / d + 2); // jailint: allow(float_equality)
     else h = 60 * ((r - g) / d + 4);
 
     return h, s, v;

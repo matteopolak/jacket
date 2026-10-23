@@ -163,7 +163,7 @@ read_options :: (notes: [] string) -> [..] Option {
 
         if !begins_with(note, "json(") || !ends_with(note, ")") continue;
 
-        rest := slice(note, 5, note.count - 6);
+        rest := slice(note, "json(".count, note.count - "json(".count - ")".count);
 
         while rest.count {
             found, piece, after := split_from_left(rest, #char ",");

@@ -53,14 +53,14 @@ consume_next_line :: (sp: *string) -> string, bool {
     if sp.count <= 0 return "", false;
 
     count: s64;
-    while count < sp.count && sp.*[count] != 10 && sp.*[count] != 13 count += 1;
+    while count < sp.count && sp.*[count] != 10 && sp.*[count] != #char "\r" count += 1;
 
     line: string = .{ count, sp.data };
     advance := count;
 
     if advance < sp.count {
         advance += 1;
-        if sp.*[count] == 13 && advance < sp.count && sp.*[advance] == 10 advance += 1;
+        if sp.*[count] == #char "\r" && advance < sp.count && sp.*[advance] == 10 advance += 1;
     }
 
     sp.* = .{ sp.count - advance, sp.data + advance };
@@ -137,7 +137,7 @@ F :: #import "File";
 T :: #import "Hash_Table";
 
 space :: (byte: u8) -> bool {
-    return byte == 32 || byte == 9 || byte == 10 || byte == 13;
+    return byte == #char " " || byte == #char "\t" || byte == #char "\n" || byte == #char "\r";
 }
 
 processed_line :: (handler: *Text_File_Handler, trim: bool) -> string, bool {

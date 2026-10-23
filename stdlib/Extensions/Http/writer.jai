@@ -135,7 +135,7 @@ write_request_head :: (out: *[..] u8, method: string, target: string, headers: [
 write_response_head :: (out: *[..] u8, status: int, headers: [] Header_Field, body_length: s64, options := Response_Options.{}) -> Body_Kind, bool {
     mark := out.count;
 
-    if status < 100 || status > 599 || !fields_ok(headers) {
+    if status < 100 || status > HTTP_LAST_STATUS || !fields_ok(headers) {
         out.count = mark;
 
         return .NONE, false;
@@ -175,20 +175,20 @@ write_response_head :: (out: *[..] u8, status: int, headers: [] Header_Field, bo
     framing_headers := true;
     keep_alive := options.keep_alive;
 
-    if status < 200 || status == 204 framing_headers = false;
-    if options.request_method == .CONNECT && status >= 200 && status < 300 framing_headers = false;
+    if status < HTTP_OK || status == HTTP_NO_CONTENT framing_headers = false;
+    if options.request_method == .CONNECT && status >= HTTP_OK && status < HTTP_MULTIPLE_CHOICES framing_headers = false;
 
     if framing_headers {
         if body_length >= 0 {
             // A 304 describes the body a GET would have had; the caller names its length itself.
-            if status != 304 {
+            if status != HTTP_NOT_MODIFIED {
                 put(out, "Content-Length: ");
                 put_decimal(out, body_length);
                 put(out, "\r\n");
             }
 
             if body_length > 0 kind = .LENGTH;
-        } else if options.request_method == .HEAD || status == 304 {
+        } else if options.request_method == .HEAD || status == HTTP_NOT_MODIFIED {
             // Nothing is sent, and the length is unknown: say nothing.
         } else if options.version == .HTTP_1_1 {
             put(out, "Transfer-Encoding: chunked\r\n");
@@ -200,7 +200,7 @@ write_response_head :: (out: *[..] u8, status: int, headers: [] Header_Field, bo
         }
     }
 
-    if options.request_method == .HEAD || status == 304 kind = .NONE;
+    if options.request_method == .HEAD || status == HTTP_NOT_MODIFIED kind = .NONE;
 
     if options.version == .HTTP_1_1 {
         if !keep_alive put(out, "Connection: close\r\n");

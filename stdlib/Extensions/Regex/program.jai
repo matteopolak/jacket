@@ -154,6 +154,8 @@ can_match_empty :: (node: *Node) -> bool {
 
 #scope_file
 
+CONTINUATION_BITS :: 6;
+
 Compiler :: struct {
     reverse: bool;
     insts: [..] Inst;
@@ -418,7 +420,7 @@ for_utf8_sequences :: (lo: u32, hi: u32, root: *Trie_Node, reverse: bool) {
     // Where lo and hi differ above the low 6*i bits, the low bits must cover everything, or
     // the run is split so that they do.
     for i: 1..count - 1 {
-        mask := (cast(u32) 1 << cast(u32) (6 * i)) - 1;
+        mask := (cast(u32) 1 << cast(u32) (CONTINUATION_BITS * i)) - 1;
         if (lo & ~mask) != (hi & ~mask) {
             if (lo & mask) != 0 {
                 for_utf8_sequences(lo, lo | mask, root, reverse);

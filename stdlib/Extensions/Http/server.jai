@@ -678,7 +678,7 @@ give_buffer :: (pool: *Read_Buffers, buffer: [] u8) {
 }
 
 body_allowed :: (status: int) -> bool {
-    return status >= 200 && status != 204 && status != 304;
+    return status >= HTTP_OK && status != HTTP_NO_CONTENT && status != HTTP_NOT_MODIFIED;
 }
 
 // Puts the head and body of `response` into `out`. A large body is left for the caller to send

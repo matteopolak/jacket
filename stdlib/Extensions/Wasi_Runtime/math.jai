@@ -9,6 +9,8 @@
 // Every result is the exact one rounded once: `fma` and `fmod` through a wide accumulator that
 // quad.jai's binary128 helpers share.
 
+// jailint: allow-file(float_equality): special cases test for exact values
+
 #scope_module
 
 truncate :: (x: float64) -> float64 #intrinsic "llvm.trunc.f64";

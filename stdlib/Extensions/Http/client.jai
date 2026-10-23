@@ -525,7 +525,7 @@ read_some :: (response: *Client_Response, buffer: [] u8) -> int, Client_Error {
 //     defer close(*response);
 //     error = error_for_status(*response);
 error_for_status :: (response: *Client_Response) -> Client_Error {
-    if response.status >= 200 && response.status < 300 return .{};
+    if response.status >= HTTP_OK && response.status < HTTP_MULTIPLE_CHOICES return .{};
 
     error: Client_Error;
 
@@ -738,7 +738,7 @@ send_following :: (client: *Client, request: Client_Request, note: Request_Note)
 
         if error.kind != .NONE return .{}, error;
 
-        redirect := limit > 0 && (response.status == 301 || response.status == 302 || response.status == 303 || response.status == 307 || response.status == 308);
+        redirect := limit > 0 && (response.status == HTTP_MOVED_PERMANENTLY || response.status == HTTP_FOUND || response.status == HTTP_SEE_OTHER || response.status == HTTP_TEMPORARY_REDIRECT || response.status == HTTP_PERMANENT_REDIRECT);
 
         location, has_location := header(*response, "Location");
 
@@ -756,7 +756,7 @@ send_following :: (client: *Client, request: Client_Request, note: Request_Note)
 
         next := resolve_location(url_text, location);
 
-        if response.status == 303 || ((response.status == 301 || response.status == 302) && method == .POST) {
+        if response.status == HTTP_SEE_OTHER || ((response.status == HTTP_MOVED_PERMANENTLY || response.status == HTTP_FOUND) && method == .POST) {
             if method != .HEAD method = .GET;
 
             body = .{};

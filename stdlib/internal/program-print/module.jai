@@ -67,7 +67,7 @@ literal_target :: (builder: *Basic.String_Builder, node: *C.Code_Node, bodies: b
         return literal_target(builder, n.right, bodies, depth + 1);
     }
 
-    if cast(s32) n.operator_type == 500 {
+    if n.operator_type == .ARRAY_SUBSCRIPT {
         if !literal_target(builder, n.left, bodies, depth + 1) return false;
 
         Basic.append(builder, "[");
@@ -214,7 +214,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             return false;
         case .BINARY_OPERATOR;
             n := cast(*C.Code_Binary_Operator) node;
-            if cast(s32) n.operator_type == 500 {
+            if n.operator_type == .ARRAY_SUBSCRIPT {
                 if !expression(builder, n.left, false, bodies, next) return false;
 
                 Basic.append(builder, "[");
@@ -249,7 +249,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             return true;
         case .UNARY_OPERATOR;
             n := cast(*C.Code_Unary_Operator) node;
-            if cast(s32) n.operator_type == 169 {
+            if n.operator_type == .POSTFIX_DEREFERENCE {
                 if !expression(builder, n.subexpression, false, bodies, next) return false;
                 Basic.append(builder, ".*");
                 return true;

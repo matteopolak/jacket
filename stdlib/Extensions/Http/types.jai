@@ -237,12 +237,26 @@ header_name_string :: (id: Header_Name) -> string {
 #scope_module
 
 HEADER_TABLE_SIZE :: 256;
+FNV_PRIME :: 16777619;
+
+HTTP_SWITCHING_PROTOCOLS :: 101;
+HTTP_OK :: 200;
+HTTP_NO_CONTENT :: 204;
+HTTP_MULTIPLE_CHOICES :: 300;
+HTTP_MOVED_PERMANENTLY :: 301;
+HTTP_FOUND :: 302;
+HTTP_SEE_OTHER :: 303;
+HTTP_NOT_MODIFIED :: 304;
+HTTP_TEMPORARY_REDIRECT :: 307;
+HTTP_PERMANENT_REDIRECT :: 308;
+HTTP_BAD_REQUEST :: 400;
+HTTP_LAST_STATUS :: 599;
 
 header_hash :: inline (name: string) -> int {
     hash: u32 = 2166136261;
 
     for name {
-        hash = (hash ^ lower(it)) * 16777619;
+        hash = (hash ^ lower(it)) * FNV_PRIME;
     }
 
     return cast(int) (hash & (HEADER_TABLE_SIZE - 1));

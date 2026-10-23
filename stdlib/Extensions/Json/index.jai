@@ -28,6 +28,8 @@
 CLOSE_FLAG :: 0x4000_0000;
 BACKSLASH_FLAG :: 0x8000_0000;
 POSITION_MASK :: 0x3fff_ffff;
+LAST_CHUNK_AT :: 48;
+MIN_BYTES_PER_ENTRY :: 48;
 
 Block_State :: struct {
     prev_escaped: u64; // the last byte of the previous block was a backslash that escapes the next byte
@@ -97,7 +99,7 @@ index_block :: (state: *Block_State, block: *u8, base: int, text: string, index:
     classify_chunk(load(u8x16, block), *bits, 0);
     classify_chunk(load(u8x16, block + 16), *bits, 16);
     classify_chunk(load(u8x16, block + 32), *bits, 32);
-    classify_chunk(load(u8x16, block + 48), *bits, 48);
+    classify_chunk(load(u8x16, block + LAST_CHUNK_AT), *bits, LAST_CHUNK_AT);
 
     escaped := find_escaped(state, bits.backslash);
     real_quotes := bits.quote & ~escaped;
@@ -175,7 +177,7 @@ build_index :: (text: string, index: *[..] u32) -> bool {
         // reader scans them as fast as the index can be read. Neither does a text with hardly
         // any strings, such as an array of numbers. Judged on the first 32 KB: it pays between
         // one entry per 48 bytes and one per 2 KB.
-        if at == 32768 && (index.count * 48 > at || index.count * 2048 < at) {
+        if at == 32768 && (index.count * MIN_BYTES_PER_ENTRY > at || index.count * 2048 < at) {
             json_index_stats.sparse += 1;
 
             return false;

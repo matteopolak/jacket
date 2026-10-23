@@ -44,15 +44,15 @@ parse_macho :: (file_content: string, path := "(unspecified file)") -> success: 
         if command.cmdsize < 8 || command.cmdsize % 8 != 0 || !range_ok(command_end, cast(u64) cursor, command.cmdsize) return false, .{};
 
         if command.cmd == .SEGMENT_64 {
-            if command.cmdsize < 72 return false, .{};
+            if command.cmdsize < size_of(Segment_Command_64) return false, .{};
 
             segment := cast(*Segment_Command_64) command;
-            if segment.nsects > (command.cmdsize - 72) / 80 return false, .{};
-            if command.cmdsize != 72 + (cast(u64) segment.nsects) * 80 return false, .{};
+            if segment.nsects > (command.cmdsize - size_of(Segment_Command_64)) / size_of(Section_64) return false, .{};
+            if command.cmdsize != size_of(Segment_Command_64) + (cast(u64) segment.nsects) * size_of(Section_64) return false, .{};
             if !range_ok(file_content.count, segment.fileoff, segment.filesize) return false, .{};
 
             for index: 0..cast(s64) segment.nsects - 1 {
-                section := cast(*Section_64) (file_content.data + cursor + 72 + index * 80);
+                section := cast(*Section_64) (file_content.data + cursor + size_of(Segment_Command_64) + index * size_of(Section_64));
                 if !zero_fill(section.flags) && !range_ok(file_content.count, section.offset, section.size) return false, .{};
                 if !range_ok(file_content.count, section.reloff, (cast(u64) section.nreloc) * 8) return false, .{};
                 if section.align > 63 return false, .{};
@@ -60,16 +60,16 @@ parse_macho :: (file_content: string, path := "(unspecified file)") -> success: 
                 B.array_add(*result.sections, section);
             }
         } else if command.cmd == .SYMTAB {
-            if command.cmdsize != 24 || symtab return false, .{};
+            if command.cmdsize != size_of(Symtab_Command) || symtab return false, .{};
             symtab = cast(*Symtab_Command) command;
-            if !range_ok(file_content.count, symtab.symoff, (cast(u64) symtab.nsyms) * 16) return false, .{};
+            if !range_ok(file_content.count, symtab.symoff, (cast(u64) symtab.nsyms) * size_of(nlist_64)) return false, .{};
             if !range_ok(file_content.count, symtab.stroff, symtab.strsize) return false, .{};
         } else if command.cmd == .UUID {
-            if command.cmdsize != 24 return false, .{};
+            if command.cmdsize != size_of(Uuid_Command) return false, .{};
         } else if command.cmd == .BUILD_VERSION {
-            if command.cmdsize < 24 return false, .{};
+            if command.cmdsize < size_of(Build_Version_Command) return false, .{};
             build := cast(*Build_Version_Command) command;
-            if build.ntools > (command.cmdsize - 24) / 8 return false, .{};
+            if build.ntools > (command.cmdsize - size_of(Build_Version_Command)) / 8 return false, .{};
         }
 
         B.array_add(*commands, command);

@@ -17,7 +17,7 @@ android_project_escape :: (text: string, xml := true) -> string {
             if c == #char "\\" append(*b, "\\\\");
             else if c == #char "'" append(*b, "\\'");
             else if c == 10 append(*b, "\\n");
-            else if c == 13 append(*b, "\\r");
+            else if c == #char "\r" append(*b, "\\r");
             else append(*b, c);
         }
     }

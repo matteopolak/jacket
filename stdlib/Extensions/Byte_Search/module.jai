@@ -578,6 +578,26 @@ rarity :: (byte: u8) -> u8 {
     return RARITY[byte];
 }
 
+RARITY_UTF8_LEAD :: 40;
+RARITY_NUL :: 30;
+RARITY_SYMBOL_LOW :: 50;
+RARITY_SYMBOL_MID :: 45;
+RARITY_SYMBOL_HIGH :: 40;
+RARITY_SENTENCE_MARK :: 120;
+RARITY_JOINER :: 90;
+RARITY_PAREN :: 85;
+RARITY_STATEMENT_MARK :: 80;
+RARITY_DIGIT :: 110;
+RARITY_ZERO :: 140;
+RARITY_ONE :: 135;
+RARITY_NEWLINE :: 150;
+RARITY_TAB :: 110;
+RARITY_CARRIAGE_RETURN :: 70;
+RARITY_LOWER_BASE :: 250;
+RARITY_LOWER_STEP :: 6;
+RARITY_UPPER_BASE :: 130;
+RARITY_UPPER_STEP :: 3;
+
 RARITY :: #run make_rarity();
 
 make_rarity :: () -> [256] u8 {
@@ -585,42 +605,42 @@ make_rarity :: () -> [256] u8 {
     // Control bytes other than whitespace, and bytes 0x80 and up, are rare in text; UTF-8 lead
     // bytes of common scripts less so than the rest.
     for 0..255 table[it] = 10;
-    for 0xC2..0xF4 table[it] = 40;
+    for 0xC2..0xF4 table[it] = RARITY_UTF8_LEAD;
     for 0x80..0xBF table[it] = 60;
 
-    table[0] = 30;
+    table[0] = RARITY_NUL;
     // Punctuation and symbols.
-    for #char "!"..#char "/" table[it] = 50;
-    for #char ":"..#char "@" table[it] = 50;
-    for #char "["..#char "`" table[it] = 45;
-    for #char "{"..#char "~" table[it] = 40;
+    for #char "!"..#char "/" table[it] = RARITY_SYMBOL_LOW;
+    for #char ":"..#char "@" table[it] = RARITY_SYMBOL_LOW;
+    for #char "["..#char "`" table[it] = RARITY_SYMBOL_MID;
+    for #char "{"..#char "~" table[it] = RARITY_SYMBOL_HIGH;
 
-    table[#char "."] = 120;
-    table[#char ","] = 120;
-    table[#char "_"] = 90;
+    table[#char "."] = RARITY_SENTENCE_MARK;
+    table[#char ","] = RARITY_SENTENCE_MARK;
+    table[#char "_"] = RARITY_JOINER;
     table[#char "-"] = 100;
-    table[#char "/"] = 90;
-    table[#char "\""] = 90;
-    table[#char "("] = 85;
-    table[#char ")"] = 85;
-    table[#char ";"] = 80;
-    table[#char "="] = 80;
+    table[#char "/"] = RARITY_JOINER;
+    table[#char "\""] = RARITY_JOINER;
+    table[#char "("] = RARITY_PAREN;
+    table[#char ")"] = RARITY_PAREN;
+    table[#char ";"] = RARITY_STATEMENT_MARK;
+    table[#char "="] = RARITY_STATEMENT_MARK;
     // Digits, 0 and 1 most of all.
-    for #char "0"..#char "9" table[it] = 110;
+    for #char "0"..#char "9" table[it] = RARITY_DIGIT;
 
-    table[#char "0"] = 140;
-    table[#char "1"] = 135;
+    table[#char "0"] = RARITY_ZERO;
+    table[#char "1"] = RARITY_ONE;
     // Whitespace.
     table[#char " "] = 255;
-    table[#char "\n"] = 150;
-    table[#char "\t"] = 110;
-    table[#char "\r"] = 70;
+    table[#char "\n"] = RARITY_NEWLINE;
+    table[#char "\t"] = RARITY_TAB;
+    table[#char "\r"] = RARITY_CARRIAGE_RETURN;
     // Letters, most common first; capitals are rarer than their lower case.
     ORDER :: "etaoinshrdlcumwfgypbvkjxqz";
     for ORDER {
         lower := it;
-        table[lower] = cast(u8) (250 - it_index * 6);
-        table[lower - 32] = cast(u8) (130 - it_index * 3);
+        table[lower] = cast(u8) (RARITY_LOWER_BASE - it_index * RARITY_LOWER_STEP);
+        table[lower - 32] = cast(u8) (RARITY_UPPER_BASE - it_index * RARITY_UPPER_STEP);
     }
 
     return table;
