@@ -311,7 +311,7 @@ frame_sleb :: (input: *Frame_Input) -> s64 {
         if !(byte & 0x80) {
             shift := (index + 1) * 7;
             if shift < 64 && byte & 0x40 value |= 0xffffffffffffffff << shift;
-            return cast(s64) value;
+            return cast,no_check(s64) value;
         }
     }
 

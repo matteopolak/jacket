@@ -356,7 +356,7 @@ dwarf_read_form :: (input: *Line_Wire_Input, encoded: u64, width: s64, cu_offset
         case 0x0d;
             number := line_wire_sleb(input);
 
-            result.number = cast(u64) number;
+            result.number = cast,no_check(u64) number;
             result.negative = number < 0;
 
             return result;

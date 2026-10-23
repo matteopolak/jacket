@@ -283,7 +283,7 @@ line_wire_sleb :: (input: *Line_Wire_Input) -> s64 {
         if !(byte & 0x80) {
             shift := (index + 1) * 7;
             if shift < 64 && byte & 0x40 result |= 0xffffffffffffffff << shift;
-            return cast(s64) result;
+            return cast,no_check(s64) result;
         }
     }
 
