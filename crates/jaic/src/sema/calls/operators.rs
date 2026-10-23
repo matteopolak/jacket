@@ -64,6 +64,61 @@ impl Compiler {
         Ok(procs)
     }
 
+    /// A struct operand no `operator` overload takes stands for its `#as` member that is not a
+    /// struct (`#as socket: s32`), so `a.handle == b.handle` compares the integers. The operands
+    /// when one is converted, `None` otherwise.
+    pub fn as_scalar_operands(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        op: ast::BinOp,
+        lhs: &Operand,
+        rhs: &Operand,
+        span: Span,
+    ) -> Result<Option<(Operand, Operand)>> {
+        let is_struct = |s: &Self, t: TypeId| matches!(s.ty.types.kind(t), TypeKind::Struct(_));
+        if !(is_struct(self, lhs.ty()) || is_struct(self, rhs.ty()))
+            || matches!(lhs, Operand::Type(_) | Operand::Procs(_))
+            || matches!(rhs, Operand::Type(_) | Operand::Procs(_))
+        {
+            return Ok(None);
+        }
+        let procs = self.operator_candidates(scope, binop_text(op))?;
+        let args = [operand_arg(scope, span, lhs), operand_arg(scope, span, rhs)];
+        if self.any_accepts(&procs, &args, span) {
+            return Ok(None);
+        }
+        let mut operands = Vec::new();
+        for operand in [lhs, rhs] {
+            let Some(base) = self.as_scalar_base(operand.ty()) else {
+                operands.push(operand.clone());
+                continue;
+            };
+            operands.push(self.convert(f, operand.clone(), base, span)?);
+        }
+        let rhs = operands.pop().expect("two operands");
+        let lhs = operands.pop().expect("two operands");
+        if is_struct(self, lhs.ty()) || is_struct(self, rhs.ty()) {
+            return Ok(None);
+        }
+        Ok(Some((lhs, rhs)))
+    }
+
+    /// The type of the first `#as` member of struct `ty`, looking through `#as` structs, that
+    /// is not a struct.
+    fn as_scalar_base(&mut self, ty: TypeId) -> Option<TypeId> {
+        let s = self.ty.types.as_struct(ty)?;
+        if self.layout_struct(s, Span::NONE).is_err() {
+            return None;
+        }
+        let fields = self.ty.types.struct_info(s).fields.clone();
+        let field = fields.iter().find(|field| field.as_)?;
+        if self.ty.types.as_struct(field.ty).is_some() {
+            return self.as_scalar_base(field.ty);
+        }
+        Some(field.ty)
+    }
+
     pub fn try_binary_operator_overload(
         &mut self,
         f: &mut FnCtx,

@@ -70,6 +70,10 @@ impl Compiler {
                 _ => err(span, "types can only be compared with == and !="),
             };
         }
+        let (lhs, rhs) = match self.as_scalar_operands(f, scope, op, &lhs, &rhs, span)? {
+            Some(operands) => operands,
+            None => (lhs, rhs),
+        };
         if let Some(result) = self.try_binary_operator_overload(f, scope, op, &lhs, &rhs, span)? {
             return Ok(result);
         }
