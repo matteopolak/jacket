@@ -43,6 +43,7 @@
 
 ### Fixed
 
+- `*Node.[first, last]` is an array literal of `*Node`.
 - A procedure with a bare polymorphic struct parameter such as `pairs: Table` can still write `Table(string, s64)` in its body.
 - A build program with `do_output = false` that reaches `init_plugins` on a branch that does not run no longer fails for the initialization that was never generated.
 - A struct with a scalar `#as` member compares as that member when no `operator` takes it, so `a.socket == b.socket` works on a wrapped handle.

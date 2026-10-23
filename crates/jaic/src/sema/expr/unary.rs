@@ -19,6 +19,25 @@ impl Compiler {
     ) -> Result<Operand> {
         match op {
             UnOp::Star => {
+                // `*Block.[a, b]` is an array literal whose element type is `*Block`.
+                if let E::ArrayLit {
+                    ty: Some(elem),
+                    elems,
+                } = &a.kind
+                    && self.eval_type_in(f, scope, elem).is_ok()
+                {
+                    let literal = ast::Expr {
+                        kind: E::ArrayLit {
+                            ty: Some(Box::new(ast::Expr {
+                                kind: E::Unary(UnOp::Star, elem.clone()),
+                                span: elem.span,
+                            })),
+                            elems: elems.clone(),
+                        },
+                        span: a.span,
+                    };
+                    return self.check_expr(f, scope, &literal, expected);
+                }
                 // Address-taking selects the pointer getter even when an ordinary
                 // getter is available. Reuse its place normalization, and evaluate
                 // each operand only once if builtin indexing is the fallback.
