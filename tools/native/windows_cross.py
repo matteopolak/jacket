@@ -543,7 +543,9 @@ def use_cross_libs(args):
         check=True,
     )
     # Every Windows program binds the crash runtime (crash-native/platform_io_windows_crash), C built
-    # from source and never stored in the repository: link it as a static archive.
+    # from source and never stored in the repository. Programs link its import library and the DLL
+    # goes beside them: the static archive asks for DbgHelp through an MSVC-only pragma, which MinGW
+    # linkers ignore.
     subprocess.run(
         [
             sys.executable,
@@ -552,10 +554,10 @@ def use_cross_libs(args):
             str(ROOT / "stdlib"),
             "--cpu",
             args.cpu,
-            "--static-library",
         ],
         check=True,
     )
+    CROSS_DLLS.append(ROOT / "stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll")
     os.environ["JAIC_CROSS_LIBS"] = str(target_libraries)
     # SDL2 is linked through its import library, so its DLL goes beside the executables.
     CROSS_DLLS.extend(build_native_libs.output_dir(platform).glob("SDL2.dll"))

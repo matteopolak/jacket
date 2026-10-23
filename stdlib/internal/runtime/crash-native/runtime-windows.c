@@ -1,5 +1,10 @@
 // Independent native exception diagnostics against the public Windows SDK.
 #define WIN32_LEAN_AND_MEAN
+// GetCurrentThreadStackLimits is declared only for Windows 8 and later; MinGW headers default lower.
+#if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0602
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0602
+#endif
 #include <windows.h>
 #include <dbghelp.h>
 // A program that links the static archive gets DbgHelp from here; the DLL links it itself.

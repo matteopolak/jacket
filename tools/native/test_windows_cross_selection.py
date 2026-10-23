@@ -216,7 +216,7 @@ class Selection(unittest.TestCase):
                 )
                 crash_command = build.call_args_list[2].args[0]
                 self.assertIn("build_platform_io_runtime.py", crash_command[1])
-                self.assertIn("--static-library", crash_command)
+                self.assertNotIn("--static-library", crash_command)
                 self.assertEqual(crash_command[crash_command.index("--cpu") + 1], "arm64")
                 self.assertEqual(os.environ["JAIC_CROSS_LIBS"], directory)
 
