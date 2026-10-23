@@ -29,6 +29,7 @@
 
 ### Changed
 
+- `jailint` rules belong to categories (`correctness`, `suspicious`, `complexity`, `style`, `perf`, `pedantic`, `restriction`) that set their default level and can be set as a group in `[lint.rules]`, with `-A`/`-W`/`-D` and in `allow(...)` comments. `correctness` rules, such as `double_free` and `use_after_free`, are now `deny` by default, so they fail the run.
 - The `Fuzz` module moved to `Extensions/Fuzz`.
 
 ### Fixed

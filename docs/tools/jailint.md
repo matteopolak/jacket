@@ -63,55 +63,69 @@ To change what a rule recognises, annotate the declaration; `jailint` has no nam
 
 ## Rules
 
+Every rule belongs to one category, and the category sets its default level, as in clippy:
+
+| Category | Default | What |
+| --- | --- | --- |
+| `correctness` | deny | code that is wrong: it does not do what it says |
+| `suspicious` | warn | code that is most likely wrong, or does nothing |
+| `complexity` | warn | code that says something in a roundabout way |
+| `style` | warn | code that works but is not written the usual way |
+| `perf` | warn | code that could be faster |
+| `pedantic` | allow | stricter checks with more false positives |
+| `restriction` | allow | checks that forbid things a project may choose to avoid |
+
+A category name works wherever a rule name does: `[lint.rules] pedantic = "warn"`, `-W pedantic`, `// jailint: allow(suspicious)`. In `[lint.rules]` a rule's own entry wins over its category's; on the command line later flags win (`-W pedantic -A magic_number`). `deny` findings are errors: the run exits 1 and editors show them as errors. `jailint --list` prints each rule's category and default.
+
 Columns: `yes` means `--fix` applies the fix; `editor` means the fix may change behaviour, so it is only a quick fix in the editor; `no` means none. "Side-effect-free" below means names, member paths, literals, indexing, casts and operators: no calls. Rules that compare expressions compare them as written, ignoring whitespace. A rule is removed once `jaic` rejects what it found; a `jailint.toml` naming a removed rule fails with `unknown rule`.
 
 Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comment saying exactly when it fires, and `tests/lint/<rule>/` has `bad.jai` (+ `bad.expected`, `bad.fixed.jai`) and `good.jai`. The `every_rule_is_documented` test requires a table row and a `### <rule>` section here, because editors link to the anchor.
 
-| Rule | Default | Fix | Finds |
-| --- | --- | --- | --- |
-| `absurd_comparison` | warn | editor | `u >= 0`, `u < 0` with an unsigned `u`: always true or false |
-| `almost_swapped` | warn | no | `a = b; b = a;`, a swap that sets both to `b` |
-| `banner_comment` | warn | no | a comment that is only a line of `-`, `=` or `*` fencing off a section |
-| `bitwise_precedence` | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
-| `bool_comparison` | warn | yes | `x == true`, `x != false`, `false == x` |
-| `broken_doc_link` | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
-| `constant_condition` | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
-| `defer_in_loop` | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
-| `double_free` | warn | no | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
-| `dropped_result` | warn | no | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
-| `duplicate_condition` | warn | no | an `else if` that repeats an earlier condition and can never run |
-| `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
-| `excessive_nesting` | allow | no | blocks nested deeper than `max_nesting` (default 6) |
-| `float_equality` | allow | no | `==` or `!=` between two computed floats |
-| `identical_branches` | warn | no | `if c { A } else { A }`, `ifx c then a else a` |
-| `identical_operands` | warn | no | `a == a`, `x - x`, `ok && ok` |
-| `identity_op` | warn | yes | `x + 0`, `x * 1`, `x / 1` |
-| `index_only_loop` | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
-| `infinite_loop` | warn | no | a `while` whose condition nothing in the loop changes |
-| `integer_division_in_float` | warn | no | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
-| `leaked_allocation` | allow | no | `p := New(T);` that is never freed, returned or handed on |
-| `lossy_xx` | allow | yes | `xx` that narrows a number to a smaller type |
-| `magic_number` | allow | no | `if x > 37`, `y * 1.0472`, `timeout = 8640`: an unexplained number where a named constant would read better |
-| `manual_assign_op` | warn | yes | `a = a + b` to `a += b` |
-| `manual_index_counter` | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
-| `min_max` | warn | no | `min(0, max(100, x))`: a clamp with swapped bounds |
-| `needless_bool` | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
-| `no_effect` | warn | no | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
-| `range_past_count` | warn | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
-| `redundant_alias` | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
-| `redundant_cast` | warn | yes | a cast to the type the value already has |
-| `remove_in_for` | warn | no | `array_*_remove_*` on the array a `for` is walking |
-| `reversed_range` | warn | editor | `for i: 10..0`: a range that never runs |
-| `self_assignment` | warn | editor | `x = x;` |
-| `shadowed_it` | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
-| `string_literal_write` | warn | no | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
-| `unpaired_lock` | warn | no | `lock(*m);` with a `return`, or the end of the procedure, reached before the matching unlock |
-| `unused_import` | warn | yes | an `#import` nothing in its scope uses |
-| `unused_parameter` | warn | no | a parameter the procedure never uses |
-| `unused_result` | warn | no | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
-| `unused_variable` | warn | yes | a local variable that is never used |
-| `use_after_free` | warn | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
-| `wrapping_constant` | warn | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
+| Rule | Category | Default | Fix | Finds |
+| --- | --- | --- | --- | --- |
+| `absurd_comparison` | correctness | deny | editor | `u >= 0`, `u < 0` with an unsigned `u`: always true or false |
+| `almost_swapped` | correctness | deny | no | `a = b; b = a;`, a swap that sets both to `b` |
+| `banner_comment` | style | warn | no | a comment that is only a line of `-`, `=` or `*` fencing off a section |
+| `bitwise_precedence` | suspicious | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
+| `bool_comparison` | complexity | warn | yes | `x == true`, `x != false`, `false == x` |
+| `broken_doc_link` | style | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
+| `constant_condition` | suspicious | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
+| `defer_in_loop` | suspicious | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
+| `double_free` | correctness | deny | no | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
+| `dropped_result` | suspicious | warn | no | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
+| `duplicate_condition` | suspicious | warn | no | an `else if` that repeats an earlier condition and can never run |
+| `erasing_op` | suspicious | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
+| `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
+| `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
+| `identical_branches` | suspicious | warn | no | `if c { A } else { A }`, `ifx c then a else a` |
+| `identical_operands` | suspicious | warn | no | `a == a`, `x - x`, `ok && ok` |
+| `identity_op` | complexity | warn | yes | `x + 0`, `x * 1`, `x / 1` |
+| `index_only_loop` | complexity | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
+| `infinite_loop` | suspicious | warn | no | a `while` whose condition nothing in the loop changes |
+| `integer_division_in_float` | suspicious | warn | no | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
+| `leaked_allocation` | pedantic | allow | no | `p := New(T);` that is never freed, returned or handed on |
+| `lossy_xx` | pedantic | allow | yes | `xx` that narrows a number to a smaller type |
+| `magic_number` | pedantic | allow | no | `if x > 37`, `y * 1.0472`, `timeout = 8640`: an unexplained number where a named constant would read better |
+| `manual_assign_op` | complexity | warn | yes | `a = a + b` to `a += b` |
+| `manual_index_counter` | complexity | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
+| `min_max` | correctness | deny | no | `min(0, max(100, x))`: a clamp with swapped bounds |
+| `needless_bool` | complexity | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
+| `no_effect` | suspicious | warn | no | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
+| `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
+| `redundant_alias` | complexity | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
+| `redundant_cast` | complexity | warn | yes | a cast to the type the value already has |
+| `remove_in_for` | correctness | deny | no | `array_*_remove_*` on the array a `for` is walking |
+| `reversed_range` | correctness | deny | editor | `for i: 10..0`: a range that never runs |
+| `self_assignment` | suspicious | warn | editor | `x = x;` |
+| `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
+| `string_literal_write` | correctness | deny | no | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
+| `unpaired_lock` | suspicious | warn | no | `lock(*m);` with a `return`, or the end of the procedure, reached before the matching unlock |
+| `unused_import` | style | warn | yes | an `#import` nothing in its scope uses |
+| `unused_parameter` | style | warn | no | a parameter the procedure never uses |
+| `unused_result` | suspicious | warn | no | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
+| `unused_variable` | style | warn | yes | a local variable that is never used |
+| `use_after_free` | correctness | deny | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
+| `wrapping_constant` | correctness | deny | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
 
 ### absurd_comparison
 An unsigned value is never below zero, so counting down an unsigned `i` with `while i >= 0` never stops. Only the bottom of a type is checked: aliases like `c_ulong` change width per platform.

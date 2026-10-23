@@ -89,7 +89,7 @@ pub fn lint_files(
         };
         let wanted: Vec<&RuleInfo> = RULES
             .iter()
-            .filter(|r| config.level(r.name, r.default) != Level::Allow)
+            .filter(|r| config.level(r) != Level::Allow)
             .collect();
         if wanted.is_empty() {
             continue;
@@ -116,12 +116,12 @@ pub fn lint_files(
             let mut found = Vec::new();
             (rule.check)(&cx, &mut found);
             for f in found {
-                if suppressions.allows(rule.name, f.start) {
+                if suppressions.allows_rule(rule, f.start) {
                     continue;
                 }
                 out.push(Lint {
                     rule: rule.name,
-                    level: config.level(rule.name, rule.default),
+                    level: config.level(rule),
                     path: path.clone(),
                     start: f.start,
                     end: f.end,

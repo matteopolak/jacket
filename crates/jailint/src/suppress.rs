@@ -33,6 +33,12 @@ impl Suppressions {
         s
     }
 
+    /// A comment or note silences `rule` (by its name, its category or `all`) at `offset`.
+    pub fn allows_rule(&self, rule: &crate::RuleInfo, offset: usize) -> bool {
+        self.allows(rule.name, offset) || self.allows(rule.category.as_str(), offset)
+    }
+
+    /// A comment or note silences the rule or category `rule` (or `all`) at `offset`.
     pub fn allows(&self, rule: &str, offset: usize) -> bool {
         let names = |list: &[String]| list.iter().any(|r| r == rule || r == "all");
         names(&self.file)
@@ -171,6 +177,15 @@ mod tests {
         assert!(s.allows("unused_parameter", text.find("a:").unwrap()));
         assert!(s.allows("unused_parameter", text.find("x :=").unwrap()));
         assert!(!s.allows("unused_parameter", text.find("g ::").unwrap()));
+    }
+
+    #[test]
+    fn a_category_covers_its_rules() {
+        let text = "// jailint: allow-file(pedantic)\nx := 1;\n";
+        let s = suppressions(text);
+        let rule = |name: &str| crate::RULES.iter().find(|r| r.name == name).unwrap();
+        assert!(s.allows_rule(rule("magic_number"), text.find("x :=").unwrap()));
+        assert!(!s.allows_rule(rule("double_free"), text.find("x :=").unwrap()));
     }
 
     #[test]

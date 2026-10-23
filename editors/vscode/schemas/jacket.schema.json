@@ -52,10 +52,20 @@
         },
         "rules": {
           "type": "object",
-          "description": "Rule levels.",
+          "description": "Levels for rules and categories.",
           "additionalProperties": false,
           "properties": {
-            "absurd_comparison": {
+            "correctness": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "deny",
+              "markdownDescription": "Every correctness rule: code that is wrong: it does not do what it says (default `deny`). A rule's own entry wins. [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules)"
+            },
+            "suspicious": {
               "type": "string",
               "enum": [
                 "allow",
@@ -63,7 +73,67 @@
                 "deny"
               ],
               "default": "warn",
-              "markdownDescription": "a comparison an unsigned value always passes or fails (`u >= 0`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#absurd_comparison)"
+              "markdownDescription": "Every suspicious rule: code that is most likely wrong, or does nothing (default `warn`). A rule's own entry wins. [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules)"
+            },
+            "complexity": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "Every complexity rule: code that says something in a roundabout way (default `warn`). A rule's own entry wins. [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules)"
+            },
+            "style": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "Every style rule: code that works but is not written the usual way (default `warn`). A rule's own entry wins. [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules)"
+            },
+            "perf": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "Every perf rule: code that could be faster (default `warn`). A rule's own entry wins. [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules)"
+            },
+            "pedantic": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "Every pedantic rule: stricter checks with more false positives (default `allow`). A rule's own entry wins. [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules)"
+            },
+            "restriction": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "Every restriction rule: checks that forbid things a project may choose to avoid (default `allow`). A rule's own entry wins. [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#rules)"
+            },
+            "absurd_comparison": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "deny",
+              "markdownDescription": "a comparison an unsigned value always passes or fails (`u >= 0`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#absurd_comparison)"
             },
             "almost_swapped": {
               "type": "string",
@@ -72,8 +142,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "`a = b; b = a;`, a swap that sets both to `b` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#almost_swapped)"
+              "default": "deny",
+              "markdownDescription": "`a = b; b = a;`, a swap that sets both to `b` (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#almost_swapped)"
             },
             "banner_comment": {
               "type": "string",
@@ -142,8 +212,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "two `@FreesArgument` calls on the same variable with nothing in between (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#double_free)"
+              "default": "deny",
+              "markdownDescription": "two `@FreesArgument` calls on the same variable with nothing in between (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#double_free)"
             },
             "dropped_result": {
               "type": "string",
@@ -312,8 +382,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "`min(0, max(100, x))`, a clamp that is always one bound (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#min_max)"
+              "default": "deny",
+              "markdownDescription": "`min(0, max(100, x))`, a clamp that is always one bound (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#min_max)"
             },
             "needless_bool": {
               "type": "string",
@@ -342,8 +412,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "`for i: 0..xs.count` indexing `xs[i]`, one past the end (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#range_past_count)"
+              "default": "deny",
+              "markdownDescription": "`for i: 0..xs.count` indexing `xs[i]`, one past the end (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#range_past_count)"
             },
             "redundant_alias": {
               "type": "string",
@@ -372,8 +442,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "removing from an array while a `for` walks it forward (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#remove_in_for)"
+              "default": "deny",
+              "markdownDescription": "removing from an array while a `for` walks it forward (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#remove_in_for)"
             },
             "reversed_range": {
               "type": "string",
@@ -382,8 +452,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "a range whose start is above its end, which never runs (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#reversed_range)"
+              "default": "deny",
+              "markdownDescription": "a range whose start is above its end, which never runs (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#reversed_range)"
             },
             "self_assignment": {
               "type": "string",
@@ -412,8 +482,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#string_literal_write)"
+              "default": "deny",
+              "markdownDescription": "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#string_literal_write)"
             },
             "unpaired_lock": {
               "type": "string",
@@ -472,8 +542,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#use_after_free)"
+              "default": "deny",
+              "markdownDescription": "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#use_after_free)"
             },
             "wrapping_constant": {
               "type": "string",
@@ -482,8 +552,8 @@
                 "warn",
                 "deny"
               ],
-              "default": "warn",
-              "markdownDescription": "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#wrapping_constant)"
+              "default": "deny",
+              "markdownDescription": "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#wrapping_constant)"
             }
           }
         },

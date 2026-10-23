@@ -77,7 +77,7 @@ fn rendered(lints: &[Lint], text: &str, file: &Path) -> String {
         let default = RULES
             .iter()
             .find(|r| r.name == l.rule)
-            .map_or(Level::Warn, |r| r.default);
+            .map_or(Level::Warn, jailint::RuleInfo::default);
         out.push_str(&render(l, text, &lines, &shown, default, &Style::PLAIN));
         out.push('\n');
     }
@@ -116,8 +116,13 @@ fn every_rule_is_documented() {
         .expect("docs/tools/jailint.md is readable");
     for r in RULES {
         assert!(
-            doc.contains(&format!("\n| `{}` | {} |", r.name, r.default.as_str())),
-            "docs/tools/jailint.md: the rules table needs a row for `{}` with its default",
+            doc.contains(&format!(
+                "\n| `{}` | {} | {} |",
+                r.name,
+                r.category.as_str(),
+                r.default().as_str()
+            )),
+            "docs/tools/jailint.md: the rules table needs a row for `{}` with its category and default",
             r.name
         );
         assert!(
@@ -132,7 +137,7 @@ fn every_rule_is_documented() {
 fn rules_match_their_cases() {
     let dir = repo().join("tests/lint");
     for r in RULES {
-        let level = match r.default {
+        let level = match r.default() {
             Level::Allow => Level::Warn,
             other => other,
         };

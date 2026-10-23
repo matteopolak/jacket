@@ -1,8 +1,8 @@
 //! `jailint`: report (and fix) common mistakes and unidiomatic code in Jai programs.
 #![forbid(unsafe_code)]
-use jailint::config::{Config, Level};
+use jailint::config::{Category, Config, Level};
 use jailint::render::render;
-use jailint::{Lint, RULES};
+use jailint::{Lint, RULES, RuleInfo};
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -104,7 +104,13 @@ fn parse_args() -> Result<Option<Args>, String> {
             }
             "--list" => {
                 for r in RULES {
-                    println!("{:<26} {:<5}  {}", r.name, r.default.as_str(), r.summary);
+                    println!(
+                        "{:<26} {:<11} {:<5}  {}",
+                        r.name,
+                        r.category.as_str(),
+                        r.default().as_str(),
+                        r.summary
+                    );
                 }
                 return Ok(None);
             }
@@ -261,10 +267,15 @@ fn run() -> Result<ExitCode, String> {
             for r in RULES {
                 config.levels.insert(r.name.to_string(), *level);
             }
+        } else if let Some(category) = Category::parse(rule) {
+            // Later flags win, so set each rule rather than the category under them.
+            for r in RULES.iter().filter(|r| r.category == category) {
+                config.levels.insert(r.name.to_string(), *level);
+            }
         } else if RULES.iter().any(|r| r.name == rule) {
             config.levels.insert(rule.clone(), *level);
         } else {
-            let help = match jaic::suggest::closest(rule, RULES.iter().map(|r| r.name)) {
+            let help = match jaic::suggest::closest(rule, jailint::config::rule_names()) {
                 Some(near) => format!("did you mean `{near}`? `jailint --list` lists the rules"),
                 None => "`jailint --list` lists the rules".to_string(),
             };
@@ -324,7 +335,7 @@ fn run() -> Result<ExitCode, String> {
         let default = RULES
             .iter()
             .find(|r| r.name == lint.rule)
-            .map_or(Level::Warn, |r| r.default);
+            .map_or(Level::Warn, RuleInfo::default);
         let _ = writeln!(
             out,
             "{}",

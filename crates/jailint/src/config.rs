@@ -45,9 +45,69 @@ impl Level {
     }
 }
 
+/// A group of rules, named like a rule in settings, `-A`/`-W`/`-D` and `allow(...)` comments.
+/// Its level is the default of every rule in it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Category {
+    /// Code that is wrong: it does not do what it says.
+    Correctness,
+    /// Code that is most likely wrong or does nothing.
+    Suspicious,
+    /// Code that says something in a roundabout way.
+    Complexity,
+    /// Code that is fine but not written the usual way.
+    Style,
+    /// Code that could be faster.
+    Perf,
+    /// Stricter checks with more false positives: off by default.
+    Pedantic,
+    /// Checks that forbid things a project may choose to avoid: off by default.
+    Restriction,
+}
+
+impl Category {
+    pub const ALL: [Category; 7] = [
+        Category::Correctness,
+        Category::Suspicious,
+        Category::Complexity,
+        Category::Style,
+        Category::Perf,
+        Category::Pedantic,
+        Category::Restriction,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Category::Correctness => "correctness",
+            Category::Suspicious => "suspicious",
+            Category::Complexity => "complexity",
+            Category::Style => "style",
+            Category::Perf => "perf",
+            Category::Pedantic => "pedantic",
+            Category::Restriction => "restriction",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Category> {
+        Category::ALL.into_iter().find(|c| c.as_str() == text)
+    }
+
+    /// The default level of the rules in this category.
+    pub fn level(self) -> Level {
+        match self {
+            Category::Correctness => Level::Deny,
+            Category::Suspicious | Category::Complexity | Category::Style | Category::Perf => {
+                Level::Warn
+            }
+            Category::Pedantic | Category::Restriction => Level::Allow,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Config {
-    /// Levels set for rules; others keep their default.
+    /// Levels set for rules and categories (by name); a rule's own entry wins over its
+    /// category's, and anything unset keeps its default.
     pub levels: HashMap<String, Level>,
     /// Warnings become errors (`-D warnings`).
     pub deny_warnings: bool,
@@ -111,9 +171,14 @@ impl Config {
         }
     }
 
-    /// The level of `rule`, whose default is `default`.
-    pub fn level(&self, rule: &str, default: Level) -> Level {
-        let level = self.levels.get(rule).copied().unwrap_or(default);
+    /// The level of `rule`: its own setting, else its category's, else the category default.
+    pub fn level(&self, rule: &crate::RuleInfo) -> Level {
+        let level = self
+            .levels
+            .get(rule.name)
+            .or_else(|| self.levels.get(rule.category.as_str()))
+            .copied()
+            .unwrap_or_else(|| rule.default());
         if self.deny_warnings && level == Level::Warn {
             Level::Deny
         } else {
@@ -216,10 +281,18 @@ impl Config {
     }
 }
 
-/// Whether `rule` is a rule and `value` a level for it.
+/// Rule and category names, for suggestions.
+pub fn rule_names() -> impl Iterator<Item = &'static str> {
+    crate::RULES
+        .iter()
+        .map(|r| r.name)
+        .chain(Category::ALL.map(Category::as_str))
+}
+
+/// Whether `rule` is a rule or category and `value` a level for it.
 fn check_rule(rule: &str, value: &str) -> Result<(), String> {
-    if !crate::RULES.iter().any(|r| r.name == rule) {
-        let help = match jaic::suggest::closest(rule, crate::RULES.iter().map(|r| r.name)) {
+    if !rule_names().any(|r| r == rule) {
+        let help = match jaic::suggest::closest(rule, rule_names()) {
             Some(near) => {
                 format!("did you mean `{near}`? `jailint --list` lists the rules")
             }
@@ -295,8 +368,26 @@ mod tests {
         let text = "[lint]\n# settings\nexclude = [\n  \"tests/**\", # fixtures\n  \"a.jai\",\n]\n\n[lint.rules]\nfloat_equality = \"deny\" # strict\n";
         let config = parse(text).unwrap();
         assert_eq!(config.exclude, ["tests/**", "a.jai"]);
-        assert_eq!(config.level("float_equality", Level::Allow), Level::Deny);
-        assert_eq!(config.level("lossy_xx", Level::Warn), Level::Warn);
+        assert_eq!(config.level(rule("float_equality")), Level::Deny);
+        assert_eq!(config.level(rule("lossy_xx")), Level::Allow);
+    }
+
+    fn rule(name: &str) -> &'static crate::RuleInfo {
+        crate::RULES.iter().find(|r| r.name == name).unwrap()
+    }
+
+    #[test]
+    fn categories_set_their_rules_unless_a_rule_says_otherwise() {
+        let text =
+            "[lint.rules]\npedantic = \"warn\"\nlossy_xx = \"allow\"\ncorrectness = \"warn\"\n";
+        let config = parse(text).unwrap();
+        assert_eq!(config.level(rule("float_equality")), Level::Warn);
+        assert_eq!(config.level(rule("lossy_xx")), Level::Allow);
+        assert_eq!(config.level(rule("double_free")), Level::Warn);
+        assert_eq!(config.level(rule("unused_variable")), Level::Warn);
+        let defaults = parse("").unwrap();
+        assert_eq!(defaults.level(rule("double_free")), Level::Deny);
+        assert!(parse("[lint.rules]\npedantc = \"warn\"").is_err_and(|e| e.contains("pedantic")));
     }
 
     #[test]

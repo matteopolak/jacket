@@ -1,5 +1,6 @@
 //! The rules. Each lives in its own module, documented with why it exists; [`RULES`] lists
 //! them with their default levels.
+use crate::config::Category;
 use crate::syntax::{Cx, Node};
 use crate::{Edit, Finding, Fix, Level};
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
@@ -54,268 +55,276 @@ mod wrapping_constant;
 
 pub struct RuleInfo {
     pub name: &'static str,
-    pub default: Level,
+    /// The rule's group; its level is the rule's default.
+    pub category: Category,
     /// One line for `--list`.
     pub summary: &'static str,
     pub(crate) check: fn(&Cx, &mut Vec<Finding>),
 }
 
+impl RuleInfo {
+    /// The level the rule has when nothing configures it: its category's.
+    pub fn default(&self) -> Level {
+        self.category.level()
+    }
+}
+
 pub static RULES: &[RuleInfo] = &[
     RuleInfo {
         name: "absurd_comparison",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "a comparison an unsigned value always passes or fails (`u >= 0`)",
         check: absurd_comparison::check,
     },
     RuleInfo {
         name: "almost_swapped",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "`a = b; b = a;`, a swap that sets both to `b`",
         check: almost_swapped::check,
     },
     RuleInfo {
         name: "banner_comment",
-        default: Level::Warn,
+        category: Category::Style,
         summary: "a comment that is only a line of `-`, `=` or `*` fencing off a section",
         check: banner_comment::check,
     },
     RuleInfo {
         name: "bitwise_precedence",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a bitwise operator that binds differently than in C (`1 << n - 1`)",
         check: bitwise_precedence::check,
     },
     RuleInfo {
         name: "bool_comparison",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "comparing a bool with `true` or `false`",
         check: bool_comparison::check,
     },
     RuleInfo {
         name: "broken_doc_link",
-        default: Level::Warn,
+        category: Category::Style,
         summary: "a link in a doc comment (`[name]`) that names no declaration",
         check: broken_doc_link::check,
     },
     RuleInfo {
         name: "constant_condition",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "an `if` or `while` whose condition the compiler shows is always true or false",
         check: constant_condition::check,
     },
     RuleInfo {
         name: "defer_in_loop",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a `defer` in a loop body that cleans up something from outside the loop",
         check: defer_in_loop::check,
     },
     RuleInfo {
         name: "double_free",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "two `@FreesArgument` calls on the same variable with nothing in between",
         check: double_free::check,
     },
     RuleInfo {
         name: "dropped_result",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a call drops the `bool` that follows the values it keeps (`n := to_integer(s);`)",
         check: dropped_result::check,
     },
     RuleInfo {
         name: "duplicate_condition",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "an `else if` that repeats an earlier condition",
         check: duplicate_condition::check,
     },
     RuleInfo {
         name: "erasing_op",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "an operation that is always `0` (`x * 0`, `x & 0`)",
         check: erasing_op::check,
     },
     RuleInfo {
         name: "excessive_nesting",
-        default: Level::Allow,
+        category: Category::Pedantic,
         summary: "blocks nested deeper than `max_nesting` (default 6)",
         check: excessive_nesting::check,
     },
     RuleInfo {
         name: "float_equality",
-        default: Level::Allow,
+        category: Category::Pedantic,
         summary: "`==` or `!=` between two computed floats",
         check: float_equality::check,
     },
     RuleInfo {
         name: "identical_branches",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "an `if`/`else` or `ifx` whose branches are the same",
         check: identical_branches::check,
     },
     RuleInfo {
         name: "identical_operands",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "an operator with the same expression on both sides (`a == a`)",
         check: identical_operands::check,
     },
     RuleInfo {
         name: "identity_op",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "an operation that changes nothing (`x + 0`, `x * 1`)",
         check: identity_op::check,
     },
     RuleInfo {
         name: "index_only_loop",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "`for i: 0..xs.count-1` where `i` only indexes `xs`",
         check: index_only_loop::check,
     },
     RuleInfo {
         name: "infinite_loop",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a `while` whose condition nothing in the loop changes",
         check: infinite_loop::check,
     },
     RuleInfo {
         name: "integer_division_in_float",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "an integer division whose result is used as a float",
         check: integer_division_in_float::check,
     },
     RuleInfo {
         name: "leaked_allocation",
-        default: Level::Allow,
+        category: Category::Pedantic,
         summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
         check: leaked_allocation::check,
     },
     RuleInfo {
         name: "lossy_xx",
-        default: Level::Allow,
+        category: Category::Pedantic,
         summary: "`xx` that narrows a number to a smaller type",
         check: lossy_xx::check,
     },
     RuleInfo {
         name: "magic_number",
-        default: Level::Allow,
+        category: Category::Pedantic,
         summary: "an unexplained number in arithmetic, a comparison or an assignment",
         check: magic_number::check,
     },
     RuleInfo {
         name: "manual_assign_op",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "`a = a + b` instead of `a += b`",
         check: manual_assign_op::check,
     },
     RuleInfo {
         name: "manual_index_counter",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "a counter incremented in a `for` loop that always equals `it_index`",
         check: manual_index_counter::check,
     },
     RuleInfo {
         name: "min_max",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "`min(0, max(100, x))`, a clamp that is always one bound",
         check: min_max::check,
     },
     RuleInfo {
         name: "needless_bool",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "`ifx c then true else false` and `if c return true; else return false;`",
         check: needless_bool::check,
     },
     RuleInfo {
         name: "no_effect",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a statement that computes a value and drops it (`x == 5;`)",
         check: no_effect::check,
     },
     RuleInfo {
         name: "range_past_count",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "`for i: 0..xs.count` indexing `xs[i]`, one past the end",
         check: range_past_count::check,
     },
     RuleInfo {
         name: "redundant_alias",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "a local that only exists to be copied into another local or returned",
         check: redundant_alias::check,
     },
     RuleInfo {
         name: "redundant_cast",
-        default: Level::Warn,
+        category: Category::Complexity,
         summary: "a cast to the type the value already has",
         check: redundant_cast::check,
     },
     RuleInfo {
         name: "remove_in_for",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "removing from an array while a `for` walks it forward",
         check: remove_in_for::check,
     },
     RuleInfo {
         name: "reversed_range",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "a range whose start is above its end, which never runs",
         check: reversed_range::check,
     },
     RuleInfo {
         name: "self_assignment",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a value assigned to itself (`x = x;`)",
         check: self_assignment::check,
     },
     RuleInfo {
         name: "shadowed_it",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a nested `for` hides an `it` the enclosing loop uses",
         check: shadowed_it::check,
     },
     RuleInfo {
         name: "string_literal_write",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
         check: string_literal_write::check,
     },
     RuleInfo {
         name: "unpaired_lock",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a `@Locks` call with a path that returns or ends without a matching `@Unlocks`",
         check: unpaired_lock::check,
     },
     RuleInfo {
         name: "unused_import",
-        default: Level::Warn,
+        category: Category::Style,
         summary: "an `#import` nothing in its scope uses",
         check: unused_import::check,
     },
     RuleInfo {
         name: "unused_parameter",
-        default: Level::Warn,
+        category: Category::Style,
         summary: "a parameter the procedure never uses",
         check: unused_parameter::check,
     },
     RuleInfo {
         name: "unused_result",
-        default: Level::Warn,
+        category: Category::Suspicious,
         summary: "a call to a `@UseResult` procedure, as a statement",
         check: unused_result::check,
     },
     RuleInfo {
         name: "unused_variable",
-        default: Level::Warn,
+        category: Category::Style,
         summary: "a local variable that is never used",
         check: unused_variable::check,
     },
     RuleInfo {
         name: "use_after_free",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`)",
         check: use_after_free::check,
     },
     RuleInfo {
         name: "wrapping_constant",
-        default: Level::Warn,
+        category: Category::Correctness,
         summary: "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`)",
         check: wrapping_constant::check,
     },

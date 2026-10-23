@@ -90,12 +90,26 @@ const DOCS = "https://github.com/matteopolak/jacket/blob/main/docs/tools";
 
 export function parseRules(source: string) {
   const rules: { name: string; level: string; summary: string }[] = [];
-  const entry = /RuleInfo\s*\{\s*name:\s*"([a-z_]+)",\s*default:\s*Level::(\w+),\s*summary:\s*"((?:[^"\\]|\\.)*)"/g;
+  const entry = /RuleInfo\s*\{\s*name:\s*"([a-z_]+)",\s*category:\s*Category::(\w+),\s*summary:\s*"((?:[^"\\]|\\.)*)"/g;
   for (const match of source.matchAll(entry)) {
-    rules.push({ name: match[1]!, level: match[2]!.toLowerCase(), summary: match[3]!.replace(/\\(.)/g, "$1") });
+    const category = match[2]!.toLowerCase();
+    const level = CATEGORIES[category];
+    if (level === undefined) throw new Error(`rule ${match[1]} has unknown category ${category}`);
+    rules.push({ name: match[1]!, level: level[0], summary: match[3]!.replace(/\\(.)/g, "$1") });
   }
   return rules;
 }
+
+// Each category's default level and meaning, as in crates/jailint/src/config.rs.
+const CATEGORIES: Record<string, [string, string]> = {
+  correctness: ["deny", "code that is wrong: it does not do what it says"],
+  suspicious: ["warn", "code that is most likely wrong, or does nothing"],
+  complexity: ["warn", "code that says something in a roundabout way"],
+  style: ["warn", "code that works but is not written the usual way"],
+  perf: ["warn", "code that could be faster"],
+  pedantic: ["allow", "stricter checks with more false positives"],
+  restriction: ["allow", "checks that forbid things a project may choose to avoid"],
+};
 
 const rules = parseRules(readFileSync(join(repository, "crates/jailint/src/rules/mod.rs"), "utf8"));
 if (rules.length < 10) throw new Error(`found only ${rules.length} rules in crates/jailint/src/rules/mod.rs`);
@@ -122,9 +136,20 @@ const jailint = {
     },
     rules: {
       type: "object",
-      description: "Rule levels.",
+      description: "Levels for rules and categories.",
       additionalProperties: false,
-      properties: Object.fromEntries(rules.map((rule) => [rule.name, level(rule)])),
+      properties: Object.fromEntries([
+        ...Object.entries(CATEGORIES).map(([name, [level, summary]]) => [
+          name,
+          {
+            type: "string",
+            enum: ["allow", "warn", "deny"],
+            default: level,
+            markdownDescription: `Every ${name} rule: ${summary} (default \`${level}\`). A rule's own entry wins. [Docs](${DOCS}/jailint.md#rules)`,
+          },
+        ]),
+        ...rules.map((rule) => [rule.name, level(rule)]),
+      ]),
     },
   },
 };
