@@ -2,6 +2,10 @@
 #import "Math";
 Strings :: #import "String";
 #import "Hash_Table";
+#import "Thread";
+
+// Used only by a context member.
+#add_context lock: Mutex;
 
 main :: () {
     table: Table(string, int);
