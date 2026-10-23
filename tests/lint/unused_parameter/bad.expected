@@ -4,6 +4,9 @@ warning[unused_parameter]: unused parameter `label`
  3 | scale :: (value: int, factor: int, label: string) -> int {
    |                                    ^^^^^
    |
-   = help: remove it, or start its name with `_` if the signature must stay
+help: start its name with `_` if the signature must stay, or remove it
+   |
+ 3 ~ scale :: (value: int, factor: int, _label: string) -> int {
+   |
    = note: `unused_parameter` is `warn` by default
 

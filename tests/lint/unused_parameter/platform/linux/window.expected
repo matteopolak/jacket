@@ -4,6 +4,9 @@ warning[unused_parameter]: unused parameter `flags`
  5 | set_title :: (handle: int, flags: int) {
    |                            ^^^^^
    |
-   = help: remove it, or start its name with `_` if the signature must stay
+help: start its name with `_` if the signature must stay, or remove it
+   |
+ 5 ~ set_title :: (handle: int, _flags: int) {
+   |
    = note: `unused_parameter` is `warn` by default
 

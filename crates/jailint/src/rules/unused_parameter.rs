@@ -22,9 +22,9 @@
 //! not load: first the siblings in the file's directory, then the files of the directory above
 //! and of its immediate subdirectories, parsed once per directory. Overload sets are skipped
 //! by the compiler's own view of the scope.
-use crate::Finding;
 use crate::facts::Recorded;
 use crate::syntax::{Cx, Node, ProcSite};
+use crate::{Edit, Finding, Fix};
 use jaic::fxhash::HashMap;
 use jaic::lexer::{P, Tok, Token};
 use jaic::sema::Compiler;
@@ -85,9 +85,17 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 message: format!("unused parameter `{}`", name.name),
                 label: None,
                 help: Some(
-                    "remove it, or start its name with `_` if the signature must stay".into(),
+                    "start its name with `_` if the signature must stay, or remove it".into(),
                 ),
-                fix: None,
+                fix: Some(Fix {
+                    title: format!("rename `{0}` to `_{0}`", name.name),
+                    edits: vec![Edit {
+                        start: name.span.start as usize,
+                        end: name.span.start as usize,
+                        text: "_".into(),
+                    }],
+                    machine_applicable: false,
+                }),
             });
         }
     }
