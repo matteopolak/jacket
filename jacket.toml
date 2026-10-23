@@ -72,6 +72,8 @@ paths = [
     "stdlib/X11/**",
     "stdlib/Windows/**",
     "stdlib/POSIX/**",
+    # Staged copies of the files above and generated bindings that the developer checks lint.
+    "target/**",
 ]
 rules = { magic_number = "allow" }
 
