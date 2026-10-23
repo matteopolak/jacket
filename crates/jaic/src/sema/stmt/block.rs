@@ -17,6 +17,16 @@ impl Compiler {
         // `#import` in a body is visible to the whole module, also before the statement.
         let file_scope = self.file_scope_of(scope);
         self.hoist_body_imports(file_scope, stmts, false);
+        // So is a `#load`: the code before it can use what the file declares.
+        for stmt in stmts {
+            if let S::Load {
+                path,
+                span,
+            } = &stmt.kind
+            {
+                self.load_from_body(scope, path, *span)?;
+            }
+        }
         // Constants are visible throughout their block, also before their declaration.
         let mut failed = None;
         for stmt in stmts {
@@ -443,8 +453,9 @@ impl Compiler {
                 Ok(())
             }
             S::Load {
-                ..
-            } => err(span, "#load is only allowed at file scope"),
+                path,
+                span: load_span,
+            } => self.load_from_body(scope, path, *load_span),
             S::AddContext(_) => err(span, "#add_context is only allowed at file scope"),
             S::ModuleParameters(_) => err(span, "#module_parameters is only allowed at file scope"),
             S::Placeholder(_)

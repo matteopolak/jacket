@@ -63,6 +63,20 @@ impl Compiler {
         self.src.file_by_path.contains_key(&(path, module))
     }
 
+    /// `#load` in code a procedure body inserts: the file joins the module, as it does at file
+    /// scope, with its path relative to the file the code came from. Loading is idempotent, so a
+    /// body checked again (once per instance, say) finds the file already loaded.
+    pub(in crate::sema) fn load_from_body(
+        &mut self,
+        scope: ScopeId,
+        path: &str,
+        span: Span,
+    ) -> Result<()> {
+        let module = self.scope(scope).module;
+        let full = self.file_dir(self.scope_file(scope)).join(path);
+        self.load_file(&full, module, span)
+    }
+
     /// Load a file into `module`, declaring its top-level statements.
     pub fn load_file(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         self.check_source_access(path, span)?;

@@ -83,6 +83,7 @@
 - `operator* :: #procedure_of_call f(...)` can sit next to ordinary `operator*` overloads.
 - A struct can have several `_` members.
 - A global declared as `f := (x: int) -> int { ... };` can be called.
+- `#load` works in code that a procedure body inserts.
 
 ## [0.25.0] - 2026-10-21
 
