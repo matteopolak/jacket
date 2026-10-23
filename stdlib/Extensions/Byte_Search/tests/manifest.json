@@ -1,5 +1,15 @@
 [
   {
+    "name": "variants",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
     "name": "search",
     "unsupported_modes": [
       "wasm-interp",

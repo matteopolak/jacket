@@ -17,69 +17,38 @@
 // linear in the text, including substring search with a needle built to defeat it.
 
 // The first `byte` at or after `start`, or -1.
-find :: no_inline (text: string, byte: u8, start := 0) -> int {
-    a := byte;
-    #insert #run forward_search("eq(chunk, a)", "c == a");
+find :: inline (text: string, byte: u8, start := 0) -> int {
+    return find_byte(text, byte, start);
 }
 
 // The first of either byte at or after `start`, or -1.
-find_any :: no_inline (text: string, a: u8, b: u8, start := 0) -> int {
-    #insert #run forward_search("eq(chunk, a) | eq(chunk, b)", "c == a || c == b");
+find_any :: inline (text: string, a: u8, b: u8, start := 0) -> int {
+    return find_two(text, a, b, start);
 }
 
 // The first of any of the three bytes at or after `start`, or -1.
-find_any :: no_inline (text: string, a: u8, b: u8, c: u8, start := 0) -> int {
-    third := c;
-    #insert #run forward_search("eq(chunk, a) | eq(chunk, b) | eq(chunk, third)", "c == a || c == b || c == third");
+find_any :: inline (text: string, a: u8, b: u8, c: u8, start := 0) -> int {
+    return find_three(text, a, b, c, start);
 }
 
 // The last `byte` before `end` (-1: the end of the text), or -1.
-find_last :: no_inline (text: string, byte: u8, end := -1) -> int {
-    a := byte;
-    #insert #run backward_search("eq(chunk, a)", "c == a");
+find_last :: inline (text: string, byte: u8, end := -1) -> int {
+    return find_last_byte(text, byte, end);
 }
 
 // The last of either byte before `end`, or -1.
-find_last_any :: no_inline (text: string, a: u8, b: u8, end := -1) -> int {
-    #insert #run backward_search("eq(chunk, a) | eq(chunk, b)", "c == a || c == b");
+find_last_any :: inline (text: string, a: u8, b: u8, end := -1) -> int {
+    return find_last_two(text, a, b, end);
 }
 
 // The last of any of the three bytes before `end`, or -1.
-find_last_any :: no_inline (text: string, a: u8, b: u8, c: u8, end := -1) -> int {
-    third := c;
-    #insert #run backward_search("eq(chunk, a) | eq(chunk, b) | eq(chunk, third)", "c == a || c == b || c == third");
+find_last_any :: inline (text: string, a: u8, b: u8, c: u8, end := -1) -> int {
+    return find_last_three(text, a, b, c, end);
 }
 
 // How many times `byte` occurs in the text.
-count :: no_inline (text: string, byte: u8) -> int {
-    total := 0;
-    i := 0;
-
-    if text.count >= LANES {
-        a := byte;
-
-        // Matching lanes are 0xFF, which is -1 as a u8: subtracting the mask adds one per match.
-        // A u8 lane holds up to 255 of them, so the sums are emptied every 255 chunks.
-        while i + LANES <= text.count {
-            sums := splat(Bytes, 0);
-            rounds := min(255, (text.count - i) / LANES);
-
-            for 1..rounds {
-                chunk := load(Bytes, text.data + i);
-                sums = sums - bitcast(Bytes, eq(chunk, a));
-                i += LANES;
-            }
-
-            total += sum_lanes(sums);
-        }
-    }
-
-    while i < text.count {
-        if text[i] == byte total += 1;
-        i += 1;
-    }
-
-    return total;
+count :: inline (text: string, byte: u8) -> int {
+    return count_byte(text, byte);
 }
 
 // A set of bytes to search for, any number of them. Make it once with make_byte_set.
@@ -255,7 +224,20 @@ make_finder :: (needle: string) -> Finder {
 }
 
 // The first match at or after `start`, or -1.
-find :: no_inline (finder: *Finder, text: string, start := 0) -> int {
+find :: inline (finder: *Finder, text: string, start := 0) -> int {
+    return find_finder(finder, text, start);
+}
+
+// The last match ending at or before `end` (-1: the end of the text), or -1.
+find_last :: inline (finder: *Finder, text: string, end := -1) -> int {
+    return find_last_finder(finder, text, end);
+}
+
+#scope_module
+
+find_finder_body :: inline ($V: Type, finder: *Finder, text: string, start := 0) -> int {
+    Bytes :: V;
+    LANES :: V.N;
     needle := finder.needle;
 
     if start < 0 start = 0;
@@ -306,8 +288,9 @@ find :: no_inline (finder: *Finder, text: string, start := 0) -> int {
     return two_way_forward(finder, text, i);
 }
 
-// The last match ending at or before `end` (-1: the end of the text), or -1.
-find_last :: no_inline (finder: *Finder, text: string, end := -1) -> int {
+find_last_finder_body :: inline ($V: Type, finder: *Finder, text: string, end := -1) -> int {
+    Bytes :: V;
+    LANES :: V.N;
     needle := finder.needle;
 
     if end < 0 || end > text.count end = text.count;
@@ -347,6 +330,20 @@ find_last :: no_inline (finder: *Finder, text: string, end := -1) -> int {
 }
 
 #scope_module
+
+#insert #run wrappers("find_finder", "finder: *Finder, text: string, start := 0", "finder, text, start", "int", "text.count - max(start, 0) < 64");
+#insert #run wrappers("find_last_finder", "finder: *Finder, text: string, end := -1", "finder, text, end", "int", "(ifx end < 0 || end > text.count then text.count else end) < 64");
+
+// The searches that compare bytes exist twice: 16 bytes at a time for every processor, and 32 at a
+// time compiled for AVX2. The first call of each picks one (pick_target) and keeps it in a table, so
+// no call checks the processor. See docs/extensions/simd.md.
+#insert #run dispatch("find_byte", "text: string, byte: u8, start := 0", "text, byte, start", "int", "a := byte;", forward_search("eq(chunk, a)", "c == a"), "text.count - max(start, 0) < 64");
+#insert #run dispatch("find_two", "text: string, a: u8, b: u8, start := 0", "text, a, b, start", "int", "", forward_search("eq(chunk, a) | eq(chunk, b)", "c == a || c == b"), "text.count - max(start, 0) < 64");
+#insert #run dispatch("find_three", "text: string, a: u8, b: u8, c: u8, start := 0", "text, a, b, c, start", "int", "third := c;", forward_search("eq(chunk, a) | eq(chunk, b) | eq(chunk, third)", "c == a || c == b || c == third"), "text.count - max(start, 0) < 64");
+#insert #run dispatch("find_last_byte", "text: string, byte: u8, end := -1", "text, byte, end", "int", "a := byte;", backward_search("eq(chunk, a)", "c == a"), "(ifx end < 0 || end > text.count then text.count else end) < 64");
+#insert #run dispatch("find_last_two", "text: string, a: u8, b: u8, end := -1", "text, a, b, end", "int", "", backward_search("eq(chunk, a) | eq(chunk, b)", "c == a || c == b"), "(ifx end < 0 || end > text.count then text.count else end) < 64");
+#insert #run dispatch("find_last_three", "text: string, a: u8, b: u8, c: u8, end := -1", "text, a, b, c, end", "int", "third := c;", backward_search("eq(chunk, a) | eq(chunk, b) | eq(chunk, third)", "c == a || c == b || c == third"), "(ifx end < 0 || end > text.count then text.count else end) < 64");
+#insert #run dispatch("count_byte", "text: string, byte: u8", "text, byte", "int", "", count_loop(), "text.count < 64");
 
 pair_search :: no_inline (text: string, first: *Byte_Set, second: *Byte_Set, gap: int, start: int) -> int {
     low_a, high_a := first.low[0], first.high[0];
@@ -491,10 +488,87 @@ backward_search :: (test: string, scalar: string) -> string {
 JAI, test, scalar);
 }
 
-sum_lanes :: (sums: Bytes) -> int {
+sum_lanes :: (sums: Vector(u8, $N)) -> int {
     total := 0;
-    for 0..LANES - 1 total += sums[it];
+    for 0..N - 1 total += sums[it];
     return total;
+}
+
+// The source of a search `name` that takes `params` (called with `args`), in four procedures and
+// a table: a body over any vector type, a 16-byte and a 32-byte (AVX2) version of it, and the
+// public procedure, which goes through the table. `body` is the search itself, using `Bytes` and
+// `LANES` for the chunk type and its width, after `setup`. The 32-byte version hands texts under
+// two chunks to the 16-byte one, which has a better loop for them. `short` says when.
+dispatch :: (name: string, params: string, args: string, result: string, setup: string, body: string, short: string) -> string {
+    return tprint(#string JAI
+%1_body :: inline ($V: Type, %2) -> %4 {
+    Bytes :: V;
+    LANES :: V.N;
+    %5
+    %6
+}
+
+%7
+JAI, name, params, args, result, setup, body, wrappers(name, params, args, result, short));
+}
+
+// The part of dispatch that does not depend on the search: the two versions, the table and the
+// public procedure, around a `<name>_body` written by hand.
+wrappers :: (name: string, params: string, args: string, result: string, short: string) -> string {
+    return tprint(#string JAI
+%1_narrow :: no_inline (%2) -> %4 {
+    return %1_body(u8x16, %3);
+}
+
+%1_wide :: no_inline (%2) -> %4 #target_features "avx2" {
+    if %5 return %1_narrow(%3);
+    return %1_body(u8x32, %3);
+}
+
+%1_table: type_of(%1_narrow) = %1_first;
+
+%1_first :: (%2) -> %4 {
+    %1_table = pick_target(%1_narrow, avx2 = %1_wide);
+    return %1_table(%3);
+}
+
+%1 :: (%2) -> %4 {
+    return %1_table(%3);
+}
+JAI, name, params, args, result, short);
+}
+
+count_loop :: () -> string {
+    return #string JAI
+    total := 0;
+    i := 0;
+
+    if text.count >= LANES {
+        a := byte;
+
+        // Matching lanes are 0xFF, which is -1 as a u8: subtracting the mask adds one per match.
+        // A u8 lane holds up to 255 of them, so the sums are emptied every 255 chunks.
+        while i + LANES <= text.count {
+            sums := splat(Bytes, 0);
+            rounds := min(255, (text.count - i) / LANES);
+
+            for 1..rounds {
+                chunk := load(Bytes, text.data + i);
+                sums = sums - bitcast(Bytes, eq(chunk, a));
+                i += LANES;
+            }
+
+            total += sum_lanes(sums);
+        }
+    }
+
+    while i < text.count {
+        if text[i] == byte total += 1;
+        i += 1;
+    }
+
+    return total;
+JAI;
 }
 
 // How common a byte is in typical text, data and code: lower is rarer. The vector loop looks for
