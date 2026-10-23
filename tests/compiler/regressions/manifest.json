@@ -170,6 +170,16 @@
     ]
   },
   {
+    "name": "compile-time-host-results",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native host compiler: plain #run executes on the host twin"
+    ]
+  },
+  {
     "name": "compile-time-stack-trace",
     "unsupported_modes": [
       "wasm-interp",
