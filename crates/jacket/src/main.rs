@@ -215,8 +215,8 @@ mod tests {
             false
         }
 
-        fn read(&self, _: &Path) -> Option<String> {
-            None
+        fn read(&self, _: &Path) -> std::io::Result<String> {
+            Err(std::io::ErrorKind::NotFound.into())
         }
     }
 

@@ -399,8 +399,10 @@ impl Files for One {
         path == self.0
     }
 
-    fn read(&self, path: &Path) -> Option<String> {
-        (path == self.0).then(|| self.1.clone())
+    fn read(&self, path: &Path) -> std::io::Result<String> {
+        (path == self.0)
+            .then(|| self.1.clone())
+            .ok_or_else(|| std::io::ErrorKind::NotFound.into())
     }
 }
 

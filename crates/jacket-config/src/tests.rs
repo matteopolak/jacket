@@ -9,11 +9,12 @@ impl Files for Mem {
         self.0.iter().any(|(p, _)| Path::new(p) == path)
     }
 
-    fn read(&self, path: &Path) -> Option<String> {
+    fn read(&self, path: &Path) -> std::io::Result<String> {
         self.0
             .iter()
             .find(|(p, _)| Path::new(p) == path)
             .map(|(_, t)| t.to_string())
+            .ok_or_else(|| std::io::ErrorKind::NotFound.into())
     }
 }
 
@@ -118,8 +119,11 @@ impl Files for Unreadable {
         path.ends_with(FILE_NAME) || path.ends_with("jai.toml")
     }
 
-    fn read(&self, _: &Path) -> Option<String> {
-        None
+    fn read(&self, _: &Path) -> std::io::Result<String> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "no access for the test",
+        ))
     }
 }
 
@@ -127,6 +131,11 @@ impl Files for Unreadable {
 fn an_unreadable_file_is_an_error_not_defaults() {
     let error = load(&Unreadable, Path::new("/p")).unwrap_err();
     assert_eq!(error.path, Path::new("/p").join(FILE_NAME));
+    assert!(
+        error.message.contains("no access for the test"),
+        "{}",
+        error.message
+    );
     let error = plan(&Unreadable, Path::new("/p")).unwrap_err();
     assert_eq!(error.path, Path::new("/p/jai.toml"));
 }

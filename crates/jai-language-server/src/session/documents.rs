@@ -124,9 +124,26 @@ impl Session {
     }
 
     pub(crate) fn config_on_disk(&self, path: &Path) -> Option<String> {
+        self.read_config_on_disk(path).ok()
+    }
+
+    /// [`Self::config_on_disk`], with the reason a file could not be read.
+    pub(crate) fn read_config_on_disk(&self, path: &Path) -> std::io::Result<String> {
         match &self.environment {
-            Some(env) => env.fs.read(path).and_then(|b| String::from_utf8(b).ok()),
-            None => std::fs::read_to_string(path).ok(),
+            Some(env) => {
+                let bytes = env
+                    .fs
+                    .read(path)
+                    .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
+
+                String::from_utf8(bytes).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "stream did not contain valid UTF-8",
+                    )
+                })
+            }
+            None => std::fs::read_to_string(path),
         }
     }
 

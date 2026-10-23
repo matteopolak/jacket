@@ -41,7 +41,9 @@ pub const INFERRED_ENTRIES: &[&str] = &[
 /// The files a lookup sees: the disk, or an editor's open buffers over it.
 pub trait Files {
     fn is_file(&self, path: &Path) -> bool;
-    fn read(&self, path: &Path) -> Option<String>;
+
+    /// The file's text, or why it could not be read.
+    fn read(&self, path: &Path) -> std::io::Result<String>;
 }
 
 pub struct Disk;
@@ -51,8 +53,8 @@ impl Files for Disk {
         path.is_file()
     }
 
-    fn read(&self, path: &Path) -> Option<String> {
-        std::fs::read_to_string(path).ok()
+    fn read(&self, path: &Path) -> std::io::Result<String> {
+        std::fs::read_to_string(path)
     }
 }
 
@@ -139,9 +141,9 @@ impl Loaded {
 /// The text of a config file that exists; one that cannot be read (permissions, not UTF-8) is an
 /// error rather than empty settings.
 pub(crate) fn read(fs: &dyn Files, path: &Path) -> Result<String, ConfigError> {
-    fs.read(path).ok_or_else(|| ConfigError {
+    fs.read(path).map_err(|error| ConfigError {
         path: path.to_path_buf(),
-        message: "the file could not be read as UTF-8 text".into(),
+        message: format!("the file could not be read: {error}"),
     })
 }
 

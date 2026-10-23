@@ -38,8 +38,8 @@ impl Files for Mem {
         self.0.contains_key(path)
     }
 
-    fn read(&self, path: &Path) -> Option<String> {
-        self.0.get(path).cloned()
+    fn read(&self, path: &Path) -> std::io::Result<String> {
+        self.0.get(path).cloned().ok_or_else(|| std::io::ErrorKind::NotFound.into())
     }
 }
 

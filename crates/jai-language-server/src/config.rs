@@ -79,16 +79,16 @@ impl Files for SessionFiles<'_> {
             .map_or_else(|| path.is_file(), |env| env.fs.is_file(path))
     }
 
-    fn read(&self, path: &Path) -> Option<String> {
+    fn read(&self, path: &Path) -> std::io::Result<String> {
         if let Some(uri) = self.0.open_file_uri(path) {
             if let Some(text) = self.0.saved_configs.get(&uri) {
-                return Some(text.clone());
+                return Ok(text.clone());
             }
             if let Some(doc) = self.0.documents.get(&uri) {
-                return Some(doc.text.clone());
+                return Ok(doc.text.clone());
             }
         }
-        self.0.config_on_disk(path)
+        self.0.read_config_on_disk(path)
     }
 }
 
@@ -97,7 +97,8 @@ impl Files for crate::auto_import::Sources<'_> {
         crate::auto_import::Sources::is_file(self, path)
     }
 
-    fn read(&self, path: &Path) -> Option<String> {
+    fn read(&self, path: &Path) -> std::io::Result<String> {
         crate::auto_import::Sources::read(self, path)
+            .ok_or_else(|| std::io::ErrorKind::NotFound.into())
     }
 }
