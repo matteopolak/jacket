@@ -281,19 +281,84 @@ impl Compiler {
             .partition(|(decl, _)| decl.kind == ast::DeclKind::Const);
         let struct_scope = self.ty.struct_asts[&s].scope;
         for (decl, home) in consts {
-            for (index, n) in decl.names.iter().enumerate() {
-                let kind = EntityKind::Decl {
-                    decl: decl.clone(),
-                    index,
-                };
-                let id = self.add_entity(struct_scope, n.name, n.span, kind, true);
-                self.entity_mut(id).home = home;
-            }
+            self.add_context_constant(struct_scope, &decl, home);
         }
         self.ty.struct_asts.get_mut(&s).unwrap().extra = extra;
         self.ty.context_type = Some(ty);
         self.layout_struct(s, span)?;
         Ok(ty)
+    }
+}
+
+impl Compiler {
+    fn add_context_constant(&mut self, struct_scope: ScopeId, decl: &Rc<ast::Decl>, home: ScopeId) {
+        for (index, n) in decl.names.iter().enumerate() {
+            let kind = EntityKind::Decl {
+                decl: decl.clone(),
+                index,
+            };
+            let id = self.add_entity(struct_scope, n.name, n.span, kind, true);
+            self.entity_mut(id).home = home;
+        }
+    }
+
+    /// Add an `#add_context` met after the Context was laid out, because compile-time code
+    /// started before the file declaring it loaded. The member goes after the existing ones, so
+    /// their offsets hold, and fits in the room the compile-time context was allocated with; the
+    /// bytes of the new member in the live context are set to its default.
+    pub fn extend_context(
+        &mut self,
+        context: TypeId,
+        decl: &Rc<ast::Decl>,
+        home: ScopeId,
+        span: Span,
+    ) -> Result<()> {
+        let s = self.ty.types.as_struct(context).unwrap();
+        let struct_scope = self.ty.struct_asts[&s].scope;
+        if decl.kind == ast::DeclKind::Const {
+            self.add_context_constant(struct_scope, decl, home);
+            return Ok(());
+        }
+        let before = self.ty.types.struct_info(s).fields.len();
+        self.ty
+            .struct_asts
+            .get_mut(&s)
+            .unwrap()
+            .extra
+            .push((decl.clone(), home));
+        self.ty.types.struct_info_mut(s).layout = crate::types::LayoutState::Pending;
+        self.ty.default_images.remove(&context);
+        self.layout_struct(s, span)?;
+        let size = self.ty.types.struct_info(s).size;
+        let Some(global) = self.ct.context_global else {
+            return Ok(());
+        };
+        let capacity = self.out.program.globals[global.0 as usize].size;
+        if size > capacity {
+            return err(
+                span,
+                format!(
+                    "The #Context has gotten bigger than the limit. The maximum size configured in Build_Options is {capacity} bytes, but this declaration would make it {size} bytes."
+                ),
+            );
+        }
+        let from = self.ty.types.struct_info(s).fields[before..]
+            .iter()
+            .map(|f| f.offset)
+            .min()
+            .unwrap_or(size);
+        if let Some(image) = self.default_initializer(context, span)? {
+            let live = &mut self.out.program.globals[global.0 as usize];
+            live.init.resize(size as usize, 0);
+            let tail = (from as usize).min(image.bytes.len());
+            live.init[tail..image.bytes.len()].copy_from_slice(&image.bytes[tail..]);
+            live.relocs
+                .extend(image.relocs.iter().filter(|r| r.offset >= from).cloned());
+        }
+        self.ct
+            .interp
+            .initialize_global_tail(&self.out.program, global, from)
+            .map_err(|t| Box::new(crate::sema::Diagnostic::error(span, t.into_message())))
     }
 }
 

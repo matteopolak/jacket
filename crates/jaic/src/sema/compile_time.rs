@@ -6,11 +6,17 @@ use crate::interp::Interp;
 use crate::ir;
 use crate::sema::{Compiler, ScopeId};
 
+/// The bytes a build's `#Context` may grow to (`context_size_max`'s default). The compile-time
+/// context is allocated this large, so an `#add_context` met while it is in use fits in place.
+pub const CONTEXT_CAPACITY: u64 = 4096;
+
 #[derive(Default)]
 pub struct CompileTime {
     pub interp: Interp,
     /// Interpreter address of the compile-time `#Context`.
     pub context: Option<u64>,
+    /// The global behind `context`, which has room for `#add_context`s met after it was made.
+    pub context_global: Option<ir::GlobalId>,
     /// Compile-time code run so far, of any kind.
     pub(crate) executions: u64,
     /// Compile-time runs that ended in a trap so far.

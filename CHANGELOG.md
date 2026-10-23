@@ -57,6 +57,7 @@
 - `jailint --fix` keeps a trailing comment when it removes an unused variable or import.
 - `jailint`'s `manual_assign_op` no longer turns `a = f() + a` into `a += f()`, which reads `a` before the call instead of after.
 - `jailint`'s `needless_bool` no longer rewrites `!(a == b)` to `a != b` for a type that only defines `operator ==`.
+- A file imported while compile-time code is running can declare `#add_context`, instead of failing because the Context was already laid out.
 - An overloaded procedure passed to a polymorphic parameter, `$f: (int, int) -> int` or `$F`, is accepted: the member with the declared type is used, or the first member for `$F`.
 - An enum literal such as `.A` passed to overloads that include a struct parameter is no longer reported as ambiguous.
 - The language server and `jailint --fix` no longer run out of memory on a polymorphic procedure that instantiates itself with ever deeper pointer types.

@@ -279,7 +279,7 @@ impl Compiler {
             .unwrap_or_default();
         let g = self.out.program.add_global(ir::Global {
             name: "compile_time_context".into(),
-            size,
+            size: size.max(super::compile_time::CONTEXT_CAPACITY),
             align,
             init,
             relocs,
@@ -372,6 +372,7 @@ impl Compiler {
             .global_addr(&self.out.program, g)
             .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
         self.ct.context = Some(addr);
+        self.ct.context_global = Some(g);
         Ok(addr)
     }
 

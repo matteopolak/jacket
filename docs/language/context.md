@@ -27,7 +27,7 @@ inner :: () {
 
 ## How to change it
 
-Add context fields with `#add_context` in Jai, not in the compiler. The layout must be final before any `#run` lays it out: `expand_plain_ifs` (`sema/scope.rs`) expands plain `#if` first so a conditional `#add_context` is seen, but one that depends on a `#run` result cannot work. Tests: `tests/compiler/regressions/push-context-defer-pop.jai`, `add-context-constant.jai`.
+Add context fields with `#add_context` in Jai, not in the compiler. The layout must be final before any `#run` lays it out: `expand_plain_ifs` (`sema/scope.rs`) expands plain `#if` first so a conditional `#add_context` is seen, but one that depends on a `#run` result cannot work. A file that loads while a `#run` is already using the Context (an `#import,file` inside a procedure the `#run` calls) may still add members: they are appended and defaulted in the running context, up to 4096 bytes in all. Test: `late-add-context.jai`. Tests: `tests/compiler/regressions/push-context-defer-pop.jai`, `add-context-constant.jai`.
 
 ## Rules
 

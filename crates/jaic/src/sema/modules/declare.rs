@@ -492,14 +492,12 @@ impl Compiler {
                 // is still open.
                 if let Some(ty) = self.ty.context_type {
                     let s = self.ty.types.as_struct(ty).unwrap();
-                    if self.ty.types.struct_info(s).layout != crate::types::LayoutState::Pending {
-                        return err(
-                            stmt.span,
-                            "#add_context after the Context type was laid out (by compile-time code that ran earlier)",
-                        );
-                    }
-                    if let Some(src) = self.ty.struct_asts.get_mut(&s) {
-                        src.extra.push((decl.clone(), file_scope));
+                    if self.ty.types.struct_info(s).layout == crate::types::LayoutState::Pending {
+                        if let Some(src) = self.ty.struct_asts.get_mut(&s) {
+                            src.extra.push((decl.clone(), file_scope));
+                        }
+                    } else {
+                        self.extend_context(ty, decl, file_scope, stmt.span)?;
                     }
                 }
             }

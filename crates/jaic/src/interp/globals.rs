@@ -125,6 +125,45 @@ impl Interp {
         Ok(())
     }
 
+    /// Write the initial contents of global `g` from byte `from` on, into its live block and
+    /// leaving the bytes before `from` as they are (members appended to a record in use).
+    pub fn initialize_global_tail(&mut self, program: &Program, g: GlobalId, from: u64) -> Res<()> {
+        let Some(Some(m)) = self.globals.get(g.0 as usize) else {
+            return Ok(());
+        };
+        let addr = m.addr;
+        let global = &program.globals[g.0 as usize];
+        let mut pointers = Vec::new();
+        for r in global.relocs.iter().filter(|r| r.offset >= from) {
+            let target = match r.target {
+                ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
+                ir::RelocTarget::Func(f) => self.proc_value(program, f),
+                ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
+            };
+            pointers.push((r.offset, target.wrapping_add(r.addend as u64)));
+        }
+        let from = from as usize;
+        let end = (global.size as usize).min(global.init.len());
+        self.read_only.fill(addr, global.size as usize, || {
+            // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
+            // `global_addr`); `from..end` lies inside it and inside `init`, and each relocation
+            // addresses a pointer-sized slot inside it. Unaligned writes need no alignment.
+            unsafe {
+                if from < end {
+                    std::ptr::copy_nonoverlapping(
+                        global.init.as_ptr().add(from),
+                        (addr as *mut u8).add(from),
+                        end - from,
+                    );
+                }
+                for (offset, value) in pointers {
+                    std::ptr::write_unaligned((addr + offset) as *mut u64, value);
+                }
+            }
+        });
+        Ok(())
+    }
+
     /// Reload an already materialized global from its (rebuilt) initial contents, in place.
     pub fn refresh_global(&mut self, program: &Program, g: GlobalId) -> Res<()> {
         match self.globals.get(g.0 as usize) {
