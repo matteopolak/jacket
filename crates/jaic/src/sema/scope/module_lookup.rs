@@ -61,7 +61,10 @@ impl Compiler {
                     .collect()
             })
             .unwrap_or_default();
-        if !own.is_empty() {
+        // Procedures the module declares and procedures it re-exports under the same name form
+        // one overload set; any other declaration hides what is re-exported.
+        let overloads = !own.is_empty() && own.iter().all(|&e| self.entity_is_overloadable(e));
+        if !own.is_empty() && !overloads {
             return Ok(own);
         }
         // Names of modules this one re-exports with `using M :: #import "M";` (each module
@@ -70,7 +73,11 @@ impl Compiler {
             return Ok(own);
         }
         self.ns.reexport_visiting.push(module);
-        let mut result = Ok(own);
+        let mut result = Ok(if overloads {
+            Vec::new()
+        } else {
+            own.clone()
+        });
         for k in 0..self.ns.modules[module.0 as usize]
             .exported_using_imports
             .len()
@@ -109,6 +116,15 @@ impl Compiler {
             }
         }
         self.ns.reexport_visiting.pop();
+        if overloads {
+            let mut merged = own;
+            for id in result? {
+                if self.entity_is_overloadable(id) && !merged.contains(&id) {
+                    merged.push(id);
+                }
+            }
+            return Ok(merged);
+        }
         result
     }
 
