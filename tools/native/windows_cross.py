@@ -114,22 +114,18 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
 
 
 # In a cross build plain `#run` executes on the host twin (docs/compiler/compile-time-host-execution.md).
-# These programs inspect the target environment from compile-time code, name target-only declarations
-# there, or return Code, distinct types or local enums that the twin cannot hand to the target program.
-# They remain required in the native Windows build jobs, where no twin is involved.
+# These programs assert that `OS` names the target from compile-time code, name Windows-only
+# declarations there, or build child workspaces and plugin initialization whose compile-time
+# environment the twin does not reproduce. They remain required in the native Windows build jobs,
+# where no twin is involved.
 WINDOWS_HOST_TWIN_CASES = frozenset(
     {
-        "Compiler/tests/code-and-file-scoped-source",
-        "Compiler/tests/code-copy-syntax",
         "Socket/tests/windows-socket/scope-compile-time",
         "Windows_Resources/tests/console-windows",
         "compiler/build-options-main-defaults",
         "compiler/compiler-performance-and-dump-messages",
         "compiler/compiler-resolved-nodes",
-        "compiler/constant-parameter-overloads-of-distinct-types",
-        "compiler/modern-metaprogramming",
         "compiler/rules-compiler-module",
-        "compiler/rules-procedures",
         "compiler/unrun-plugin-initialization",
     }
 )
