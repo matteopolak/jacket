@@ -43,6 +43,7 @@ mod range_past_count;
 mod redundant_alias;
 mod redundant_cast;
 mod remove_in_for;
+mod returned_local_address;
 mod reversed_range;
 mod self_assignment;
 mod shadowed_it;
@@ -282,6 +283,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "removing from an array while a `for` walks it forward",
         check: remove_in_for::check,
+    },
+    RuleInfo {
+        name: "returned_local_address",
+        category: Category::Correctness,
+        summary: "`return *x;` with `x` a local, a pointer into a stack frame that is gone",
+        check: returned_local_address::check,
     },
     RuleInfo {
         name: "reversed_range",

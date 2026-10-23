@@ -118,6 +118,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `redundant_alias` | complexity | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
 | `redundant_cast` | complexity | warn | yes | a cast to the type the value already has |
 | `remove_in_for` | correctness | deny | no | `array_*_remove_*` on the array a `for` is walking |
+| `returned_local_address` | correctness | deny | no | `return *x;`, `return *x.field;`, `return buffer.data;` with `x` or `buffer` a local: a pointer into a stack frame that is gone |
 | `reversed_range` | correctness | deny | editor | `for i: 10..0`: a range that never runs |
 | `self_assignment` | suspicious | warn | editor | `x = x;` |
 | `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
@@ -212,6 +213,8 @@ Style rule, deliberately narrow so the fix never changes behaviour: the two stat
 Aliases like `c_long` differ per platform, so the value must be declared with the same type spelling. Polymorphic bodies and macros are skipped.
 ### remove_in_for
 The loop steps past the element moved into the removed slot. Use `remove it;`. Fires on `@RemovesFromArray` procedures (`Basic`'s `array_*_remove_*`). Quiet for backwards loops and when `break`/`return` follows.
+### returned_local_address
+Only variables declared in the body: parameters are left alone. A path that goes through a pointer, view or resizable array (`*p.field` with `p: *T`) is fine, and so is indexing a struct with an `operator *[]`.
 ### reversed_range
 Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-only.
 ### self_assignment

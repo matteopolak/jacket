@@ -438,6 +438,16 @@
           "default": "deny",
           "markdownDescription": "removing from an array while a `for` walks it forward (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#remove_in_for)"
         },
+        "returned_local_address": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "deny",
+          "markdownDescription": "`return *x;` with `x` a local, a pointer into a stack frame that is gone (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#returned_local_address)"
+        },
         "reversed_range": {
           "type": "string",
           "enum": [
