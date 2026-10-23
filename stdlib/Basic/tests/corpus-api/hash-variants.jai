@@ -38,7 +38,7 @@ main :: () {
     negative_zero := (cast(*float32) *negative_zero_bits).*;
 
     assert(H.get_hash(cast(Real32) negative_zero) == H.get_hash(negative_zero));
-    assert(H.get_hash(cast(Real32) negative_zero) != H.get_hash(cast(Real32) cast(float32) 0));
+    assert(H.get_hash(cast(Real32) negative_zero) == H.get_hash(cast(Real32) cast(float32) 0));
     table: Table(Event_Id, s64);
 
     table_add(*table, id, 42);
