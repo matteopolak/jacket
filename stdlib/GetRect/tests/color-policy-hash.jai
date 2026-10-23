@@ -24,7 +24,7 @@ main :: () {
 
     linear.geometry = .LINEAR;
     C.generate_color_samples(keys, linear, samples);
-    assert(samples[0].w == -0.5 && samples[4].w == 1.5);
+    assert(samples[0].w == 0 && samples[4].w == 1);
     assert(samples[1].w == 0 && samples[3].w == 1);
     linear.wrapping = true;
     C.generate_color_samples(keys, linear, samples);
@@ -33,7 +33,7 @@ main :: () {
     b.t = 0.5;
     linear.wrapping = false;
     C.generate_color_samples(keys, linear, samples);
-    assert(samples[0].w == -0.5 && samples[2].w == 0 && samples[4].w == 0.5);
+    assert(samples[0].w == 0 && samples[2].w == 0 && samples[4].w == 0.5);
     empty: [] Vector4;
 
     C.generate_color_samples(keys, linear, empty);
