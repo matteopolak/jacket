@@ -85,8 +85,6 @@ fn casts_that_change_sign_check_the_value() {
         ("u8", "s8", "200"),
         ("s8", "u8", "-1"),
         ("s8", "u64", "-1"),
-        ("u64", "s64", "18446744073709551615"),
-        ("s64", "u64", "-1"),
         ("s16", "u32", "-2"),
         ("s32", "u32", "-1"),
         ("u16", "s16", "65535"),
@@ -96,6 +94,17 @@ fn casts_that_change_sign_check_the_value() {
             "overflows",
         );
     }
+}
+
+#[test]
+fn sixty_four_bit_sign_changes_reinterpret_the_bits_at_compile_time() {
+    holds(
+        "flip :: (x: s64) -> u64 { return cast(u64) x; }\n#assert(flip(-1) == 18446744073709551615);",
+    );
+    holds(
+        "flip :: (x: u64) -> s64 { return cast(s64) x; }\n#assert(flip(18446744073709551615) == -1);",
+    );
+    holds("flip :: (x: s64) -> u64 { return xx x; }\n#assert(flip(-1) == 18446744073709551615);");
 }
 
 #[test]

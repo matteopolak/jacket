@@ -18,8 +18,8 @@ mod program;
 pub use self::analysis::{inst_vals, term_uses};
 pub use self::builder::Builder;
 pub use self::checks::{
-    CheckReason, NULL_COPY, NULL_FILL, NULL_READ, NULL_WRITE, cast_check_code, cast_check_target,
-    check_message,
+    CheckReason, NULL_COPY, NULL_FILL, NULL_READ, NULL_WRITE, cast_check_code,
+    cast_check_is_64_bit_sign_change, cast_check_target, check_message,
 };
 pub use self::func::{
     Block, DEBUG_CHAR, DEBUG_CHAR_PTR, DebugField, DebugGlobal, DebugScope, DebugType,

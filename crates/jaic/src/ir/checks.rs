@@ -37,9 +37,24 @@ pub const NULL_COPY: u64 = 2;
 pub const NULL_FILL: u64 = 3;
 
 /// `b` of a `CheckReason::CastOverflow` failure: the target's size in bytes (low byte), whether the
-/// target is signed (bit 8) and whether the value is (bit 9).
-pub fn cast_check_code(target_bytes: u64, target_signed: bool, value_signed: bool) -> u64 {
-    target_bytes | u64::from(target_signed) << 8 | u64::from(value_signed) << 9
+/// target is signed (bit 8), whether the value is (bit 9) and whether the value is 64 bits wide
+/// (bit 10).
+pub fn cast_check_code(
+    target_bytes: u64,
+    target_signed: bool,
+    value_signed: bool,
+    value_bytes: u64,
+) -> u64 {
+    target_bytes
+        | u64::from(target_signed) << 8
+        | u64::from(value_signed) << 9
+        | u64::from(value_bytes == 8) << 10
+}
+
+/// Whether a `cast_check_code` names a cast between `s64` and `u64`, which only changes how the
+/// same bits are read.
+pub fn cast_check_is_64_bit_sign_change(code: u64) -> bool {
+    code & 0xff == 8 && code & 0x400 != 0 && (code >> 8 & 1) != (code >> 9 & 1)
 }
 
 /// The integer type a `cast_check_code` names (`u8`, `s32`, ...).

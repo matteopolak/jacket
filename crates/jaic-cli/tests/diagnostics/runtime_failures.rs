@@ -166,6 +166,29 @@ fn cast_and_switch_checks_say_which_value() {
             "help: `s8` holds -128 to 127;",
         ],
     );
+    // A change of sign is checked at the same width, and `xx` is checked like `cast`.
+    for (name, body, message) in [
+        (
+            "sign.jai",
+            "n := -1;\n    c := cast(u64) n;",
+            "cast of -1 to `u64` overflows",
+        ),
+        (
+            "autocast.jai",
+            "n := 70000;\n    c: s16 = xx n;",
+            "cast of 70000 to `s16` overflows",
+        ),
+    ] {
+        let run = jaic_on(
+            &dir,
+            name,
+            &format!("main :: () {{\n    {body}\n}}\n"),
+            "-interp",
+            &[],
+        );
+        assert_eq!(run.status.code(), Some(1));
+        assert!(stderr(&run).contains(message), "{}", stderr(&run));
+    }
     let switch = jaic_on(
         &dir,
         "switch.jai",

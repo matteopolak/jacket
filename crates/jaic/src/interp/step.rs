@@ -280,6 +280,14 @@ impl Interp {
     /// `Intrinsic::CheckFailed` (reason, a, b, fatal): a trap, or a warning with the location
     /// on stderr when the check is not fatal.
     fn check_failed(&mut self, program: &Program, a: &[u64]) -> Res<()> {
+        // A 64-bit cast between signed and unsigned executed at compile time reinterprets the
+        // bits; the program's own run checks it, and every other cast is checked everywhere.
+        if self.compile_time
+            && ir::CheckReason::from_raw(a[0]) == Some(ir::CheckReason::CastOverflow)
+            && ir::cast_check_is_64_bit_sign_change(a[2])
+        {
+            return Ok(());
+        }
         if a[3] & 0xff != 0 {
             return self.check_trap(ir::CheckReason::from_raw(a[0]), a[1], a[2]);
         }

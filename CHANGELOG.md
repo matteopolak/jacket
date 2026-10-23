@@ -43,6 +43,7 @@
 
 ### Fixed
 
+- A 64-bit signed/unsigned cast evaluated at compile time, `xx` or `cast`, reinterprets the bits instead of failing the range check; the program's own run still checks it.
 - `*Node.[first, last]` is an array literal of `*Node`.
 - A procedure with a bare polymorphic struct parameter such as `pairs: Table` can still write `Table(string, s64)` in its body.
 - A build program with `do_output = false` that reaches `init_plugins` on a branch that does not run no longer fails for the initialization that was never generated.

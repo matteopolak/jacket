@@ -91,7 +91,8 @@ impl Compiler {
                 };
                 f.b.conv(widen, t, Ty::I64, x)
             };
-            let code = ir::cast_check_code(u64::from(tbits / 8), tsigned, ssigned);
+            let code =
+                ir::cast_check_code(u64::from(tbits / 8), tsigned, ssigned, u64::from(sbits / 8));
             let code = f.b.iconst(Ty::I64, code);
             self.emit_check_failed(
                 f,
