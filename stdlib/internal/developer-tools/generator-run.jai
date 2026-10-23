@@ -425,7 +425,7 @@ gr_parse_input :: (owner: *GM_Sessions.Session, options: *Generate_Bindings_Opti
         extension := ".h";
 
         for byte, index: input.filename {
-            if byte == #char "/" || byte == 92 extension = ".h";
+            if byte == #char "/" || byte == #char "\\" extension = ".h";
             else if byte == #char "." extension = .{ input.filename.count - index, input.filename.data + index };
         }
 

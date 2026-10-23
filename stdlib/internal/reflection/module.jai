@@ -131,7 +131,7 @@ set_value_from_string :: (any: Any, text: *string) -> bool {
 
     if info.type == .STRING {
         input := eat_spaces(text.*);
-        if input.count == 0 || input[0] != 34 return false;
+        if input.count == 0 || input[0] != #char "\"" return false;
 
         end := S.find_index_from_left(input, cast(u8) 34, 1);
         if end < 0 return false;

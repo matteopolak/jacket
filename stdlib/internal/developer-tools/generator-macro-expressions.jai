@@ -298,7 +298,7 @@ gme_macro_text :: (value: Macro_Value, enumeration: *Enum, name: string, ignore_
 }
 
 gme_continuation :: (text: string) -> bool {
-    for byte, index: text if byte == 92 && index + 1 < text.count {
+    for byte, index: text if byte == #char "\\" && index + 1 < text.count {
         if text[index + 1] == 10 || text[index + 1] == 13 return true;
     }
 

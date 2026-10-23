@@ -149,7 +149,7 @@ make_number :: (lexer: *J.Lexer) -> *J.Token #no_aoc {
     builder: Basic.String_Builder;
 
     Basic.init_string_builder(*builder);
-    for i: start..lexer.input_cursor - 1 if lexer.input[i] != 95 Basic.append(*builder, lexer.input[i]);
+    for i: start..lexer.input_cursor - 1 if lexer.input[i] != #char "_" Basic.append(*builder, lexer.input[i]);
 
     spelling := Basic.builder_to_string(*builder);
 

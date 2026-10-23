@@ -8,10 +8,10 @@ break_command_into_strings :: (input: string) -> [..] string {
 
         start := cursor;
 
-        if input[cursor] == 34 {
+        if input[cursor] == #char "\"" {
             cursor += 1;
             start = cursor;
-            while cursor < input.count && input[cursor] != 34 cursor += 1;
+            while cursor < input.count && input[cursor] != #char "\"" cursor += 1;
 
             array_add(*result, string.{ cursor - start, input.data + start });
             if cursor < input.count cursor += 1;
@@ -26,7 +26,7 @@ break_command_into_strings :: (input: string) -> [..] string {
 
 append_quoted :: (builder: *String_Builder, s: string) {
     quoted := s.count == 0;
-    for byte: s if byte == 32 || byte == 9 || byte == 34 quoted = true;
+    for byte: s if byte == 32 || byte == 9 || byte == #char "\"" quoted = true;
 
     if !quoted {
         append(builder, s);
@@ -37,12 +37,12 @@ append_quoted :: (builder: *String_Builder, s: string) {
     slashes: s64;
 
     for byte: s {
-        if byte == 92 {
+        if byte == #char "\\" {
             slashes += 1;
             continue;
         }
 
-        if byte == 34 {
+        if byte == #char "\"" {
             for 0..slashes * 2 append(builder, cast(u8) 92);
         } else for 0..slashes - 1 append(builder, cast(u8) 92);
 

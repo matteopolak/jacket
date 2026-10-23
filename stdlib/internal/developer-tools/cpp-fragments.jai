@@ -227,10 +227,10 @@ cpp_literal :: (builder: *String_Builder, literal: *Literal, scope: *Declaration
         octal := "01234567";
 
         for byte: literal.string_value {
-            if byte == 34 || byte == 92 {
+            if byte == #char "\"" || byte == #char "\\" {
                 append(builder, "\\");
                 append(builder, string.{ 1, *byte });
-            } else if byte >= 32 && byte <= 126 append(builder, string.{ 1, *byte });
+            } else if byte >= 32 && byte <= #char "~" append(builder, string.{ 1, *byte });
             else {
                 append(builder, "\\");
                 append(builder, string.{ 1, octal.data + (byte >> 6) });

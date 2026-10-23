@@ -5,7 +5,7 @@ wildcard_match :: (s: string, pat: string) -> bool {
     retry: s64;
 
     while cursor < s.count {
-        if pattern < pat.count && pat[pattern] == 42 {
+        if pattern < pat.count && pat[pattern] == #char "*" {
             star = pattern;
             pattern += 1;
             retry = cursor;
@@ -24,7 +24,7 @@ wildcard_match :: (s: string, pat: string) -> bool {
         }
     }
 
-    while pattern < pat.count && pat[pattern] == 42 pattern += 1;
+    while pattern < pat.count && pat[pattern] == #char "*" pattern += 1;
 
     return pattern == pat.count;
 }
@@ -33,15 +33,15 @@ wildcard_match :: (s: string, pat: string) -> bool {
 match_pattern_byte :: (pat: string, at: s64, byte: u8) -> bool, s64 {
     if at >= pat.count return false, at;
     if pat[at] == 63 return true, at + 1;
-    if pat[at] != 91 return pat[at] == byte, at + 1;
+    if pat[at] != #char "[" return pat[at] == byte, at + 1;
 
     cursor := at + 1;
     matches := false;
 
-    while cursor < pat.count && pat[cursor] != 93 {
+    while cursor < pat.count && pat[cursor] != #char "]" {
         low := pat[cursor];
 
-        if cursor + 2 < pat.count && pat[cursor + 1] == 45 && pat[cursor + 2] != 93 {
+        if cursor + 2 < pat.count && pat[cursor + 1] == #char "-" && pat[cursor + 2] != #char "]" {
             if low <= byte && byte <= pat[cursor + 2] matches = true;
             cursor += 3;
         } else {

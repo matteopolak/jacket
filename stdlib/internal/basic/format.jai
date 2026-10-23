@@ -211,7 +211,7 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
     while cursor < format_string.count {
         // Literal text up to the next '%' (37) or escaped percent (31) is appended in one piece.
         run_end := cursor;
-        while run_end < format_string.count && format_string[run_end] != 37 && format_string[run_end] != 31 run_end += 1;
+        while run_end < format_string.count && format_string[run_end] != #char "%" && format_string[run_end] != 31 run_end += 1;
 
         if run_end > cursor {
             append(builder, format_string.data + cursor, run_end - cursor);
@@ -229,7 +229,7 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
             continue;
         }
 
-        if byte == 37 {
+        if byte == #char "%" {
             if cursor < format_string.count && is_digit(format_string[cursor]) {
                 end, index := parse_number(format_string, cursor);
                 if index == 0 && end - cursor >= 2 {

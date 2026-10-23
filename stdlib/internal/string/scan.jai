@@ -9,7 +9,7 @@ scan :: (format: string, text: string) -> bool, [] Any {
 
         cursor += 1;
 
-        if byte != 37 {
+        if byte != #char "%" {
             if rest.count == 0 || rest[0] != byte return false, values;
             advance(*rest);
             continue;
@@ -21,8 +21,8 @@ scan :: (format: string, text: string) -> bool, [] Any {
 
         cursor += 1;
 
-        if directive == 37 {
-            if rest.count == 0 || rest[0] != 37 return false, values;
+        if directive == #char "%" {
+            if rest.count == 0 || rest[0] != #char "%" return false, values;
             // The scan contract intentionally leaves this byte unconsumed.
             continue;
         }
@@ -46,7 +46,7 @@ scan2 :: (text: string, format: string, args: ..Any) -> bool {
 
         cursor += 1;
 
-        if byte != 37 {
+        if byte != #char "%" {
             if rest.count == 0 || rest[0] != byte return false;
             advance(*rest);
             continue;
@@ -58,8 +58,8 @@ scan2 :: (text: string, format: string, args: ..Any) -> bool {
 
         cursor += 1;
 
-        if directive == 37 {
-            if rest.count == 0 || rest[0] != 37 return false;
+        if directive == #char "%" {
+            if rest.count == 0 || rest[0] != #char "%" return false;
             advance(*rest);
             continue;
         }

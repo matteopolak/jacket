@@ -9,7 +9,7 @@ parse_version :: (text: string, fields: s32, prefix: string = "") -> bool, [4] u
         start := cursor;
         value: u64;
 
-        while cursor < text.count && text[cursor] >= 48 && text[cursor] <= 57 {
+        while cursor < text.count && text[cursor] >= #char "0" && text[cursor] <= #char "9" {
             value = value * 10 + text[cursor] - 48;
             if value > 0xffffffff return false, result;
             cursor += 1;
@@ -20,7 +20,7 @@ parse_version :: (text: string, fields: s32, prefix: string = "") -> bool, [4] u
         result[part] = cast(u32) value;
 
         if part + 1 < fields {
-            if cursor >= text.count || text[cursor] != 46 return false, result;
+            if cursor >= text.count || text[cursor] != #char "." return false, result;
             cursor += 1;
         }
     }

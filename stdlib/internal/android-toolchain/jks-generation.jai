@@ -91,7 +91,7 @@ jks_distinguished_name :: (common_name: string, organization_name: string, count
         append(*builder, "\"");
 
         for byte: value {
-            if byte == 34 || byte == 92 append(*builder, "\\");
+            if byte == #char "\"" || byte == #char "\\" append(*builder, "\\");
             append(*builder, byte);
         }
 

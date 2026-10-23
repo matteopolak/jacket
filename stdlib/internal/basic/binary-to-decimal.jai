@@ -310,9 +310,9 @@ trimmed_fraction :: (text: string) -> string {
     end := text.count;
 
     for byte, index: text {
-        if byte == 46 point = index;
+        if byte == #char "." point = index;
 
-        if byte == 101 {
+        if byte == #char "e" {
             end = index;
             break;
         }
@@ -321,7 +321,7 @@ trimmed_fraction :: (text: string) -> string {
     if point < 0 return text;
 
     kept := end;
-    while kept > point + 1 && text[kept - 1] == 48 kept -= 1;
+    while kept > point + 1 && text[kept - 1] == #char "0" kept -= 1;
     if kept == point + 1 kept = point;
 
     result := text;
@@ -367,12 +367,12 @@ text_reads_back :: (text: string, value: float64, wide: bool, power_of_two: bool
     seen_point := false;
     at := 0;
 
-    while at < text.count && text[at] != 101 {
+    while at < text.count && text[at] != #char "e" {
         byte := text[at];
 
         at += 1;
 
-        if byte == 46 {
+        if byte == #char "." {
             seen_point = true;
             continue;
         }
@@ -382,7 +382,7 @@ text_reads_back :: (text: string, value: float64, wide: bool, power_of_two: bool
     }
 
     if at < text.count {
-        negative := text[at + 1] == 45;
+        negative := text[at + 1] == #char "-";
         written: s64;
 
         for i: at + 2..text.count - 1 written = written * 10 + cast(s64) (text[i] - 48);

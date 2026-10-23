@@ -280,7 +280,7 @@ quote_remote :: (text: string) -> string {
     append(*builder, "'");
 
     for byte: text {
-        if byte == 39 append(*builder, "'\"'\"'");
+        if byte == #char "'" append(*builder, "'\"'\"'");
         else append(*builder, *byte, 1);
     }
 

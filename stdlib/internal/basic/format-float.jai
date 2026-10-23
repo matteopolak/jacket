@@ -91,9 +91,9 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     exponent_at := text.count;
 
     for byte, index: text {
-        if byte == 46 point = index;
+        if byte == #char "." point = index;
 
-        if byte == 101 || byte == 69 {
+        if byte == #char "e" || byte == #char "E" {
             exponent_at = index;
             break;
         }
@@ -108,7 +108,7 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     if point >= 0 && zero_mode != .NO {
         minimum := point + 1;
         if zero_mode == .ONE_ZERO_AFTER_DECIMAL minimum += 1;
-        while fraction_end > minimum && text[fraction_end - 1] == 48 fraction_end -= 1;
+        while fraction_end > minimum && text[fraction_end - 1] == #char "0" fraction_end -= 1;
         if fraction_end == point + 1 fraction_end = point;
 
         removed = exponent_at - fraction_end;
@@ -198,11 +198,11 @@ padded_integer :: (value: float64) -> string {
 
     for byte: scientific {
         if seen_exponent {
-            if byte == 45 negative_exponent = true;
-            else if byte >= 48 && byte <= 57 exponent_value = exponent_value * 10 + cast(s64) (byte - 48);
-        } else if byte == 101 || byte == 69 {
+            if byte == #char "-" negative_exponent = true;
+            else if byte >= #char "0" && byte <= #char "9" exponent_value = exponent_value * 10 + cast(s64) (byte - 48);
+        } else if byte == #char "e" || byte == #char "E" {
             seen_exponent = true;
-        } else if byte >= 48 && byte <= 57 {
+        } else if byte >= #char "0" && byte <= #char "9" {
             append(*builder, byte);
             digits += 1;
         }

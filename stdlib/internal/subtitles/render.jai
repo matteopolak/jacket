@@ -35,7 +35,7 @@ csv_quote :: (s: string) -> string {
     append(*builder, cast(u8) 34);
 
     for byte: s {
-        if byte == 34 append(*builder, cast(u8) 34);
+        if byte == #char "\"" append(*builder, cast(u8) 34);
         append(*builder, byte);
     }
 

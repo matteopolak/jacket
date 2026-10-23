@@ -8,7 +8,7 @@ find_java_bin_path_from_environment :: () -> bool, bin_path: string, exe_path: s
     if home.count == 0 return false, "", "";
 
     // Preserve native roots; trailing separators must not duplicate /bin.
-    while home.count > 1 && (home[home.count - 1] == 47 || home[home.count - 1] == 92) home.count -= 1;
+    while home.count > 1 && (home[home.count - 1] == #char "/" || home[home.count - 1] == #char "\\") home.count -= 1;
 
     builder: String_Builder;
 

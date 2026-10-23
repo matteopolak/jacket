@@ -7,8 +7,8 @@ string_to_int :: (t: string, base := 10, $T := int) -> result: T, success: bool,
 
     negative := false;
 
-    if cursor < t.count && (t[cursor] == 45 || t[cursor] == 43) {
-        negative = t[cursor] == 45;
+    if cursor < t.count && (t[cursor] == #char "-" || t[cursor] == #char "+") {
+        negative = t[cursor] == #char "-";
         cursor += 1;
     }
 

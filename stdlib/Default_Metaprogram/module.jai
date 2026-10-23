@@ -19,7 +19,7 @@ DONE
 
 is_absolute_path :: (path: string) -> bool {
     if path.count == 0 return false;
-    return path[0] == 47 || path[0] == 92 || (path.count >= 3 && path[1] == 58);
+    return path[0] == #char "/" || path[0] == #char "\\" || (path.count >= 3 && path[1] == #char ":");
 }
 
 build :: () {

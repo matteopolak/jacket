@@ -693,7 +693,7 @@ emit_model_quoted :: (builder: *String_Builder, text: string) {
     for c: text {
         if c == #char "\n" append(builder, "\\n");
         else if c == #char "\r" append(builder, "\\r");
-        else if c < 32 || c > 126 {
+        else if c < 32 || c > #char "~" {
             digits := "0123456789abcdef";
             append(builder, "\\x");
             append(builder, string.{ 1, digits.data + (c >> 4) });

@@ -109,7 +109,7 @@ toolchain_root :: () -> string {
 
 normalize_root :: (input: string) -> string {
     end := input.count;
-    while end > 0 && (input[end - 1] == 47 || input[end - 1] == 92) end -= 1;
+    while end > 0 && (input[end - 1] == #char "/" || input[end - 1] == #char "\\") end -= 1;
 
     result := copy_string(S.slice(input, 0, end));
     for *byte: result if byte.* == 92 byte.* = 47;

@@ -169,7 +169,7 @@ read_version :: (handler: *Text_File_Handler, loc: Source_Code_Location) {
     if !handler.do_version_number return;
 
     line, found := consume_next_line(handler);
-    if found && line.count >= 3 && line[0] == 91 && line[line.count - 1] == 93 {
+    if found && line.count >= 3 && line[0] == #char "[" && line[line.count - 1] == #char "]" {
         digits: string = .{ line.count - 2, line.data + 1 };
         value, valid, rest := string_to_int(digits, 10, s64);
 

@@ -7,15 +7,15 @@ android_project_escape :: (text: string, xml := true) -> string {
 
     for c: text {
         if xml {
-            if c == 38 append(*b, "&amp;");
-            else if c == 60 append(*b, "&lt;");
-            else if c == 62 append(*b, "&gt;");
-            else if c == 34 append(*b, "&quot;");
-            else if c == 39 append(*b, "&apos;");
+            if c == #char "&" append(*b, "&amp;");
+            else if c == #char "<" append(*b, "&lt;");
+            else if c == #char ">" append(*b, "&gt;");
+            else if c == #char "\"" append(*b, "&quot;");
+            else if c == #char "'" append(*b, "&apos;");
             else append(*b, c);
         } else {
-            if c == 92 append(*b, "\\\\");
-            else if c == 39 append(*b, "\\'");
+            if c == #char "\\" append(*b, "\\\\");
+            else if c == #char "'" append(*b, "\\'");
             else if c == 10 append(*b, "\\n");
             else if c == 13 append(*b, "\\r");
             else append(*b, c);

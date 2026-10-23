@@ -43,7 +43,7 @@ parse_build_arguments :: (arguments: [] string, options: C.Build_Options, apply_
             break;
         }
 
-        if word.count > 0 && word[0] == 43 {
+        if word.count > 0 && word[0] == #char "+" {
             if word.count == 1 option_error("A plugin name must follow '+'.");
 
             plugin: Plugin_Request;
@@ -51,7 +51,7 @@ parse_build_arguments :: (arguments: [] string, options: C.Build_Options, apply_
 
             while index < arguments.count {
                 next := arguments[index];
-                if next == "-" || (next.count > 0 && next[0] == 43) break;
+                if next == "-" || (next.count > 0 && next[0] == #char "+") break;
                 array_add(*plugin.arguments, next);
                 index += 1;
             }
@@ -123,7 +123,7 @@ parse_build_arguments :: (arguments: [] string, options: C.Build_Options, apply_
                 if success && tail.count == 0 && number >= size_of(Context_Base) && number <= 0x40000 request.options.context_size_max = cast(s32) number;
                 else if apply_actions print("Ignoring invalid context size '%'.\n", value);
             case;
-                if word.count > 0 && word[0] == 45 option_error(sprint("Unknown option '%'.", word));
+                if word.count > 0 && word[0] == #char "-" option_error(sprint("Unknown option '%'.", word));
 
                 array_add(*request.sources, word);
         }

@@ -2,7 +2,7 @@ android_generate_signing_key_direct :: (out_path: string, key_name: string, algo
     // The generator ignores key_size; actual EC/RSA sizes are fixed.
     if algorithm != .EC && algorithm != .RSA return false, .{};
     if key_name.count == 0 return false, .{};
-    for byte: key_name if byte == 0 || byte == 47 || byte == 92 return false, .{};
+    for byte: key_name if byte == 0 || byte == #char "/" || byte == #char "\\" return false, .{};
 
     #if OS == .MACOS || OS == .LINUX || OS == .ANDROID {
         if !Key_File.make_directory_if_it_does_not_exist(out_path, recursive = true) return false, .{};
@@ -109,7 +109,7 @@ direct_key_subject :: (common_name: string, organization_name: string, country_c
         append(*builder, labels[i]);
 
         for byte: value {
-            if byte == 47 || byte == 92 append(*builder, "\\");
+            if byte == #char "/" || byte == #char "\\" append(*builder, "\\");
             append(*builder, byte);
         }
     }

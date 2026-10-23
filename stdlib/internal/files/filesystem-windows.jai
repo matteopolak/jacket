@@ -282,7 +282,7 @@ absolute_path :: (path: string) -> string, bool {
 parent_path :: (path: string) -> string {
     trimmed := path;
     while trimmed.count > 0 && S.is_any(trimmed[trimmed.count - 1], "/\\") {
-        if trimmed.count == 3 && trimmed[1] == 58 break;
+        if trimmed.count == 3 && trimmed[1] == #char ":" break;
         trimmed.count -= 1;
     }
 

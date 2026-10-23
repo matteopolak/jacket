@@ -53,13 +53,13 @@ select_sdk_directory :: (paths: [] string) -> bool, string {
 
 tool_path_join :: (root: string, suffix: string) -> string {
     root := root;
-    while root.count > 1 && (root[root.count - 1] == 47 || root[root.count - 1] == 92) root.count -= 1;
+    while root.count > 1 && (root[root.count - 1] == #char "/" || root[root.count - 1] == #char "\\") root.count -= 1;
 
     builder: String_Builder;
 
     defer free_buffers(*builder);
     append(*builder, root);
-    if root.count > 0 && root[root.count - 1] != 47 && root[root.count - 1] != 92 append(*builder, "/");
+    if root.count > 0 && root[root.count - 1] != #char "/" && root[root.count - 1] != #char "\\" append(*builder, "/");
 
     append(*builder, suffix);
 

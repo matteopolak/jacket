@@ -21,13 +21,13 @@ decimal_float_bits :: (text: string, cursor: s64, $T: Type) -> bits: u64, status
     while at < text.count {
         byte := text[at];
 
-        if byte == 46 && !point {
+        if byte == #char "." && !point {
             point = true;
             at += 1;
             continue;
         }
 
-        if byte < 48 || byte > 57 break;
+        if byte < #char "0" || byte > #char "9" break;
 
         digit := cast(u64) (byte - 48);
 
@@ -49,19 +49,19 @@ decimal_float_bits :: (text: string, cursor: s64, $T: Type) -> bits: u64, status
 
     exponent: s64;
 
-    if at < text.count && (text[at] == 101 || text[at] == 69) {
+    if at < text.count && (text[at] == #char "e" || text[at] == #char "E") {
         end := at + 1;
         minus := false;
 
-        if end < text.count && (text[end] == 43 || text[end] == 45) {
-            minus = text[end] == 45;
+        if end < text.count && (text[end] == #char "+" || text[end] == #char "-") {
+            minus = text[end] == #char "-";
             end += 1;
         }
 
         start := end;
 
         while end < text.count {
-            if text[end] < 48 || text[end] > 57 break;
+            if text[end] < #char "0" || text[end] > #char "9" break;
 
             digit := cast(s64) (text[end] - 48);
 

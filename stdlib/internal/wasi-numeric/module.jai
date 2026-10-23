@@ -18,13 +18,13 @@ space :: (c: u8) -> bool #no_context {
 nonzero_significand :: (text: string) -> bool #no_context {
     at: s64;
     while at < text.count && space(text[at]) at += 1;
-    if at < text.count && (text[at] == 43 || text[at] == 45) at += 1;
+    if at < text.count && (text[at] == #char "+" || text[at] == #char "-") at += 1;
     if at == text.count return false;
 
     first := text[at] | 32;
     if first == 105 || first == 110 return false; // inf/nan, not range errors.
 
-    hex := at + 2 < text.count && text[at] == 48 && (text[at + 1] | 32) == 120;
+    hex := at + 2 < text.count && text[at] == #char "0" && (text[at + 1] | 32) == 120;
     if hex at += 2;
 
     while at < text.count {
@@ -32,7 +32,7 @@ nonzero_significand :: (text: string) -> bool #no_context {
         lower := c | 32;
 
         if (!hex && lower == 101) || (hex && lower == 112) break;
-        if (c >= 49 && c <= 57) || (hex && lower >= 97 && lower <= 102) return true;
+        if (c >= #char "1" && c <= #char "9") || (hex && lower >= 97 && lower <= 102) return true;
 
         at += 1;
     }

@@ -4,7 +4,7 @@ is_tbd :: (file_content: string) -> bool {
 
     while reader.cursor < file_content.count {
         line := tbd_trim(tbd_line(*reader));
-        if line.count == 0 || line[0] == 35 continue;
+        if line.count == 0 || line[0] == #char "#" continue;
         return tbd_starts(line, "--- !tapi-tbd");
     }
 
@@ -39,7 +39,7 @@ parse_tbd :: (file_content: string, path := "(unspecified file)") -> success: bo
         start := reader.cursor;
         line := tbd_trim(tbd_line(*reader));
 
-        if line.count == 0 || line[0] == 35 continue;
+        if line.count == 0 || line[0] == #char "#" continue;
 
         reader.cursor = start;
         ok, document := tbd_document(*reader);
@@ -151,7 +151,7 @@ tbd_document :: (reader: *Tbd_Reader) -> bool, Text_Based_Dylib { // jailint: al
         raw := tbd_line(reader);
         text := tbd_trim(raw);
 
-        if text.count == 0 || text[0] == 35 continue;
+        if text.count == 0 || text[0] == #char "#" continue;
 
         if tbd_starts(text, "---") {
             reader.cursor = start;
@@ -168,9 +168,9 @@ tbd_document :: (reader: *Tbd_Reader) -> bool, Text_Based_Dylib { // jailint: al
         if dash text = tbd_trim(.{ text.count - 2, text.data + 2 });
 
         colon: s64;
-        while colon < text.count && text[colon] != 58 {
+        while colon < text.count && text[colon] != #char ":" {
             c := text[colon];
-            if !((c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c == 45 || c == 95) return false, .{};
+            if !((c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || (c >= #char "0" && c <= #char "9") || c == #char "-" || c == #char "_") return false, .{};
             colon += 1;
         }
 
@@ -338,7 +338,7 @@ tbd_seen :: (keys: [] string, key: string) -> bool {
 
 tbd_header :: (text: string) -> string {
     if tbd_starts(text, "---") || tbd_starts(text, "...") {
-        for text if it == 35 return tbd_trim(.{ it_index, text.data });
+        for text if it == #char "#" return tbd_trim(.{ it_index, text.data });
     }
 
     return text;
@@ -348,7 +348,7 @@ tbd_space :: (reader: *Tbd_Reader, multiline: bool) {
     while reader.cursor < reader.content.count {
         c := reader.content[reader.cursor];
         if c == 32 || c == 9 || c == 13 || (multiline && c == 10) reader.cursor += 1;
-        else if c == 35 {
+        else if c == #char "#" {
             while reader.cursor < reader.content.count && reader.content[reader.cursor] != 10 reader.cursor += 1;
             if !multiline return;
         } else return;
@@ -370,7 +370,7 @@ tbd_quoted :: (reader: *Tbd_Reader, quote: u8) -> bool, string {
         B.array_add(*normalized, c);
 
         if c == quote {
-            if quote == 39 && reader.cursor < reader.content.count && reader.content[reader.cursor] == 39 {
+            if quote == 39 && reader.cursor < reader.content.count && reader.content[reader.cursor] == #char "'" {
                 B.array_add(*normalized, quote);
                 reader.cursor += 1;
                 continue;
@@ -379,7 +379,7 @@ tbd_quoted :: (reader: *Tbd_Reader, quote: u8) -> bool, string {
             break;
         }
 
-        if c == 92 && quote == 34 && reader.cursor < reader.content.count {
+        if c == #char "\\" && quote == 34 && reader.cursor < reader.content.count {
             escape := reader.content[reader.cursor];
 
             reader.cursor += 1;
@@ -397,7 +397,7 @@ tbd_quoted :: (reader: *Tbd_Reader, quote: u8) -> bool, string {
 
             if expansion.count != 0 {
                 for expansion B.array_add(*normalized, it);
-            } else if escape == 47 || escape == 32 {
+            } else if escape == #char "/" || escape == 32 {
                 normalized.count -= 1;
                 B.array_add(*normalized, escape);
             } else B.array_add(*normalized, escape);
@@ -418,19 +418,19 @@ tbd_scalar :: (reader: *Tbd_Reader, flow: bool) -> bool, string {
     if reader.cursor >= reader.content.count return false, "";
 
     c := reader.content[reader.cursor];
-    if c == 34 || c == 39 return tbd_quoted(reader, c);
+    if c == #char "\"" || c == #char "'" return tbd_quoted(reader, c);
 
-    if c == 42 || c == 38 || c == 33 || c == 123 || c == 125 || c == 91 || c == 93 || c == 44 return false, "";
+    if c == #char "*" || c == #char "&" || c == #char "!" || c == #char "{" || c == #char "}" || c == #char "[" || c == #char "]" || c == #char "," return false, "";
 
     start := reader.cursor;
 
     while reader.cursor < reader.content.count {
         c = reader.content[reader.cursor];
-        comment := c == 35 && (reader.cursor == start || reader.content[reader.cursor - 1] == 32 || reader.content[reader.cursor - 1] == 9 || reader.content[reader.cursor - 1] == 13);
-        if c == 10 || comment || (flow && (c == 44 || c == 93)) break;
+        comment := c == #char "#" && (reader.cursor == start || reader.content[reader.cursor - 1] == 32 || reader.content[reader.cursor - 1] == 9 || reader.content[reader.cursor - 1] == 13);
+        if c == 10 || comment || (flow && (c == #char "," || c == #char "]")) break;
         if c < 32 && c != 9 && c != 13 return false, "";
-        if c == 91 || c == 123 || c == 125 || c == 34 || c == 39 return false, "";
-        if c == 58 && reader.cursor + 1 < reader.content.count && reader.content[reader.cursor + 1] == 32 return false, "";
+        if c == #char "[" || c == #char "{" || c == #char "}" || c == #char "\"" || c == #char "'" return false, "";
+        if c == #char ":" && reader.cursor + 1 < reader.content.count && reader.content[reader.cursor + 1] == 32 return false, "";
 
         reader.cursor += 1;
     }
@@ -459,13 +459,13 @@ tbd_value :: (reader: *Tbd_Reader) -> bool, s32, [] string {
 
     kind: s32 = 1;
 
-    if reader.content[reader.cursor] == 91 {
+    if reader.content[reader.cursor] == #char "[" {
         kind = 2;
         reader.cursor += 1;
         tbd_space(reader, true);
         if reader.cursor >= reader.content.count return false, 0, .{};
 
-        if reader.content[reader.cursor] != 93 {
+        if reader.content[reader.cursor] != #char "]" {
             while true {
                 ok, value := tbd_scalar(reader, true);
                 if !ok return false, 0, .{};
@@ -475,13 +475,13 @@ tbd_value :: (reader: *Tbd_Reader) -> bool, s32, [] string {
                 if reader.cursor >= reader.content.count return false, 0, .{};
 
                 c := reader.content[reader.cursor];
-                if c == 93 break;
-                if c != 44 return false, 0, .{};
+                if c == #char "]" break;
+                if c != #char "," return false, 0, .{};
 
                 reader.cursor += 1;
                 tbd_space(reader, true);
                 if reader.cursor >= reader.content.count return false, 0, .{};
-                if reader.content[reader.cursor] == 93 break;
+                if reader.content[reader.cursor] == #char "]" break;
             }
         }
 
@@ -515,7 +515,7 @@ tbd_block_list :: (reader: *Tbd_Reader, parent_indent: s64) -> bool, [] string {
         raw := tbd_line(reader);
         text := tbd_trim(raw);
 
-        if text.count == 0 || text[0] == 35 continue;
+        if text.count == 0 || text[0] == #char "#" continue;
 
         indent: s64;
         while indent < raw.count && raw[indent] == 32 indent += 1;
@@ -594,7 +594,7 @@ tbd_target :: (target: string) -> bool {
 
     for target {
         if it <= 32 || it == 127 return false;
-        if it == 45 dash = true;
+        if it == #char "-" dash = true;
     }
 
     return dash && target.count > 2;

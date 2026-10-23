@@ -634,7 +634,7 @@ lex_number :: (lexer: *Lexer) -> *Token {
         normalized: [..] u8;
 
         defer B.array_free(normalized);
-        for token.string_value if it != 95 B.array_add(*normalized, it);
+        for token.string_value if it != #char "_" B.array_add(*normalized, it);
 
         float_ok, number, remainder := B.string_to_float64_new(.{ normalized.count, normalized.data });
 

@@ -70,8 +70,8 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
 
     negative := false;
 
-    if cursor < text.count && (text[cursor] == 43 || text[cursor] == 45) {
-        negative = text[cursor] == 45;
+    if cursor < text.count && (text[cursor] == #char "+" || text[cursor] == #char "-") {
+        negative = text[cursor] == #char "-";
         cursor += 1;
     }
 
@@ -88,10 +88,10 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
     if first == 110 && word_at(text, cursor, "nan") {
         cursor += 3;
         end := cursor;
-        if end < text.count && text[end] == 40 {
+        if end < text.count && text[end] == #char "(" {
             end += 1;
-            while end < text.count && (is_alnum(text[end]) || text[end] == 95) end += 1;
-            if end < text.count && text[end] == 41 cursor = end + 1;
+            while end < text.count && (is_alnum(text[end]) || text[end] == #char "_") end += 1;
+            if end < text.count && text[end] == #char ")" cursor = end + 1;
         }
 
         return float_bits(sign | quiet_nan, T), true, advance(text, cursor);
@@ -99,9 +99,9 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
 
     base: u32 = 10;
 
-    if cursor + 2 < text.count && text[cursor] == 48 && to_lower(text[cursor + 1]) == 120 {
+    if cursor + 2 < text.count && text[cursor] == #char "0" && to_lower(text[cursor + 1]) == 120 {
         after := cursor + 2;
-        if text[after] == 46 after += 1;
+        if text[after] == #char "." after += 1;
 
         if after < text.count && digit_value(text[after]) < 16 {
             base = 16;
@@ -125,7 +125,7 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
 
     while cursor < text.count {
         byte := text[cursor];
-        if byte == 46 && !point {
+        if byte == #char "." && !point {
             point = true;
             cursor += 1;
             continue;
@@ -152,8 +152,8 @@ parse_float_number :: (text: string, $T := float64) -> (result: T, success: bool
         end := cursor + 1;
         minus := false;
 
-        if end < text.count && (text[end] == 43 || text[end] == 45) {
-            minus = text[end] == 45;
+        if end < text.count && (text[end] == #char "+" || text[end] == #char "-") {
+            minus = text[end] == #char "-";
             end += 1;
         }
 
@@ -382,12 +382,12 @@ round_decimal :: (digits: string, keep: s64, round_up: bool) -> string {
     if keep >= 0 && keep < digits.count {
         discarded := digits[keep];
 
-        up = discarded > 53;
+        up = discarded > #char "5";
 
-        if discarded == 53 {
+        if discarded == #char "5" {
             up = keep > 0 && (digits[keep - 1] & 1) != 0;
 
-            for i: keep + 1..digits.count - 1 if digits[i] != 48 {
+            for i: keep + 1..digits.count - 1 if digits[i] != #char "0" {
                 up = true;
                 break;
             }
@@ -397,7 +397,7 @@ round_decimal :: (digits: string, keep: s64, round_up: bool) -> string {
     if round_up {
         up = false;
 
-        for i: max(keep, cast(s64) 0)..digits.count - 1 if digits[i] != 48 {
+        for i: max(keep, cast(s64) 0)..digits.count - 1 if digits[i] != #char "0" {
             up = true;
             break;
         }
@@ -411,7 +411,7 @@ round_decimal :: (digits: string, keep: s64, round_up: bool) -> string {
 
     index := retained;
     while up && index > 0 {
-        if result[index] == 57 {
+        if result[index] == #char "9" {
             result[index] = 48;
             index -= 1;
         } else {
@@ -475,9 +475,9 @@ trim_fraction :: (text: string) -> string {
     point: s64 = -1;
 
     for byte, index: text {
-        if byte == 46 point = index;
+        if byte == #char "." point = index;
 
-        if byte == 101 {
+        if byte == #char "e" {
             end = index;
             break;
         }
@@ -486,7 +486,7 @@ trim_fraction :: (text: string) -> string {
     if point < 0 return text;
 
     kept := end;
-    while kept > point + 1 && text[kept - 1] == 48 kept -= 1;
+    while kept > point + 1 && text[kept - 1] == #char "0" kept -= 1;
     if kept == point + 1 kept = point;
     for i: 0..text.count - end - 1 text[kept + i] = text[end + i];
 

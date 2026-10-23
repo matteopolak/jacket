@@ -186,12 +186,12 @@ allocate_registration :: (name: string) -> *Registration {
 
     for byte, index: name {
         if byte == 0 return null;
-        #if OS != .WINDOWS if byte == 47 && index != 0 return null;
+        #if OS != .WINDOWS if byte == #char "/" && index != 0 return null;
     }
 
     extra: s64;
 
-    #if OS != .WINDOWS if name[0] != 47 extra = 1;
+    #if OS != .WINDOWS if name[0] != #char "/" extra = 1;
 
     count := name.count + extra;
     allocator := context.allocator;

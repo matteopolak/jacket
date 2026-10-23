@@ -6,11 +6,11 @@ pg_xml :: (value: string) -> string {
     defer free_buffers(*b);
 
     for byte: value {
-        if byte == 38 append(*b, "&amp;");
-        else if byte == 60 append(*b, "&lt;");
-        else if byte == 62 append(*b, "&gt;");
-        else if byte == 34 append(*b, "&quot;");
-        else if byte == 39 append(*b, "&apos;");
+        if byte == #char "&" append(*b, "&amp;");
+        else if byte == #char "<" append(*b, "&lt;");
+        else if byte == #char ">" append(*b, "&gt;");
+        else if byte == #char "\"" append(*b, "&quot;");
+        else if byte == #char "'" append(*b, "&apos;");
         else append(*b, byte);
     }
 
@@ -20,7 +20,7 @@ pg_xml :: (value: string) -> string {
 pg_windows_path :: (path: string) -> string {
     result := copy_string(path);
     PG_String.replace_chars(result, "/", 92);
-    if result.count > 1 && result[1] == 58 && result[0] >= 97 && result[0] <= 122 result[0] -= 32;
+    if result.count > 1 && result[1] == #char ":" && result[0] >= #char "a" && result[0] <= #char "z" result[0] -= 32;
     return result;
 }
 
@@ -87,7 +87,7 @@ pg_file_tag :: (path: string) -> string {
 pg_has_parent_segment :: (path: string) -> bool {
     begin: s64;
 
-    for byte, index: path if byte == 92 {
+    for byte, index: path if byte == #char "\\" {
         if PG_String.slice(path, begin, index - begin) == ".." return true;
         begin = index + 1;
     }
