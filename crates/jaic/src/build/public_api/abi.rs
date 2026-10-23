@@ -38,6 +38,18 @@ pub(crate) struct Layout {
     pub descriptor: Option<ir::GlobalId>,
 }
 
+/// What a record field the host reads or writes must hold.
+#[derive(Clone, Copy)]
+pub(crate) enum Need {
+    /// An integer, enum, bool or pointer of at most 8 bytes.
+    Scalar,
+    Text,
+    /// A view of strings.
+    Texts,
+    /// A view of anything.
+    View,
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct Schema {
     pub types: HashMap<TypeId, Layout>,
@@ -58,15 +70,61 @@ pub(crate) struct Binding {
 }
 
 impl Schema {
-    pub fn get(&self, ty: TypeId) -> &Layout {
-        &self.types[&ty]
+    pub fn get(&self, ty: TypeId) -> Result<&Layout, Trap> {
+        self.types
+            .get(&ty)
+            .ok_or_else(|| Trap::new("compiler API has no layout for this type"))
+    }
+
+    /// Check that `ty` has a field at `path` holding a `need`.
+    pub fn require(&self, ty: TypeId, path: &str, need: Need) -> Result<(), Trap> {
+        let mut field = ty;
+        for name in path.split('.') {
+            field = self.field(field, name)?.1;
+        }
+        let layout = self.get(field)?;
+        let holds = match (need, &layout.kind) {
+            (Need::Scalar, Kind::Scalar | Kind::Pointer(_)) => layout.size <= 8,
+            (Need::Text, Kind::String) => true,
+            (
+                Need::Texts,
+                Kind::Array {
+                    element,
+                    count: None,
+                    resizable: false,
+                },
+            ) => matches!(self.get(*element)?.kind, Kind::String),
+            (
+                Need::View,
+                Kind::Array {
+                    count: None,
+                    resizable: false,
+                    ..
+                },
+            ) => true,
+            _ => false,
+        };
+        if holds {
+            return Ok(());
+        }
+        let what = match need {
+            Need::Scalar => "a number",
+            Need::Text => "a string",
+            Need::Texts => "a [] string",
+            Need::View => "an array view",
+        };
+        Err(Trap::new(format!(
+            "field `{path}` of {} must be {what}",
+            self.get(ty)?.name
+        )))
     }
 
     pub fn field(&self, ty: TypeId, name: &str) -> Result<(u64, TypeId), Trap> {
-        let Kind::Record(fields) = &self.get(ty).kind else {
+        let layout = self.get(ty)?;
+        let Kind::Record(fields) = &layout.kind else {
             return Err(Trap::new(format!(
                 "compiler API expected a record, got {}",
-                self.get(ty).name
+                layout.name
             )));
         };
         if let Some(field) = fields.iter().find(|field| field.name == name) {
@@ -78,8 +136,8 @@ impl Schema {
             }
         }
         Err(Trap::new(format!(
-            "compiler API record {} has no field {name}",
-            self.get(ty).name
+            "compiler API record {} has no field `{name}`",
+            layout.name
         )))
     }
 
@@ -91,14 +149,14 @@ impl Schema {
     }
 
     pub fn pointed(&self, ty: TypeId) -> Result<TypeId, Trap> {
-        match self.get(ty).kind {
+        match self.get(ty)?.kind {
             Kind::Pointer(inner) => Ok(inner),
             _ => Err(Trap::new("compiler API expected a pointer")),
         }
     }
 
     pub fn read_number(&self, interp: &Interp, ty: TypeId, address: u64) -> Result<u64, Trap> {
-        let size = self.get(ty).size as usize;
+        let size = self.get(ty)?.size as usize;
         if size > 8 {
             return Err(Trap::new("compiler API expected a scalar"));
         }
@@ -117,7 +175,7 @@ impl Schema {
         address: u64,
         value: u64,
     ) -> Result<(), Trap> {
-        let size = self.get(ty).size as usize;
+        let size = self.get(ty)?.size as usize;
         if size > 8 {
             return Err(Trap::new("compiler API expected a scalar"));
         }

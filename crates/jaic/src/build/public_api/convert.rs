@@ -180,7 +180,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             element,
             count,
             ..
-        } = self.cx.schema().get(array).kind
+        } = self.cx.schema().get(array)?.kind
         else {
             return Err(Trap::new("syntax field must be an array"));
         };
@@ -188,7 +188,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             Some(count) => (count, address),
             None => view(self.interp, address)?,
         };
-        let size = self.cx.schema().get(element).size;
+        let size = self.cx.schema().get(element)?.size;
         if count
             .checked_mul(size)
             .is_none_or(|bytes| bytes > crate::sema::value::MAX_IMAGE)
@@ -196,7 +196,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             return Err(Trap::new("syntax array size overflow"));
         }
         self.print.extend_from_slice(&count.to_le_bytes());
-        let pointers = matches!(self.cx.schema().get(element).kind, Kind::Pointer(_));
+        let pointers = matches!(self.cx.schema().get(element)?.kind, Kind::Pointer(_));
         (0..count)
             .map(|index| {
                 let at = data + index * size;
@@ -216,12 +216,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             .get(&ty)
             .and_then(|members| members.iter().find(|(member, _)| member == name))
             .map(|(_, value)| *value as u64)
-            .ok_or_else(|| {
-                Trap::new(format!(
-                    "compiler syntax enum {} has no {name}",
-                    self.cx.schema().get(ty).name
-                ))
-            })
+            .ok_or_else(|| Trap::new(format!("compiler syntax enum has no member {name}")))
     }
 
     fn has(&mut self, at: u64, ty: TypeId, field: &str, name: &str) -> R<bool> {

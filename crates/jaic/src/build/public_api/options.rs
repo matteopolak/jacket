@@ -1,5 +1,5 @@
 //! Public option records are decoded by their resolved field schema.
-use super::abi::{bytes, string, view, write};
+use super::abi::{Need, bytes, string, view, write};
 use super::operations::{Call, put_strings};
 use super::{Kind, Operation};
 use crate::{
@@ -101,6 +101,61 @@ const TEXTS: &[(Text, &str)] = &[
     ),
 ];
 
+/// Scalars `set_build_options_dc` copies from its argument into the workspace's options.
+const COPIED: &[&str] = &[
+    "write_added_strings",
+    "append_executable_filename_extension",
+    "interactive_bytecode_debugger",
+];
+
+/// Texts `set_build_options_dc` sets when its argument has them.
+const RENAMED: &[(Text, &str)] = &[
+    (Text::OutputExecutableName, "output_executable_name"),
+    (Text::OutputPath, "output_path"),
+];
+
+/// The fields an options record must have, checked when an operation is bound.
+pub(super) fn fields(operation: Operation) -> Vec<(&'static str, Need)> {
+    let renamed = RENAMED.iter().map(|&(_, name)| (name, Need::Text));
+    let copied = COPIED.iter().map(|&name| (name, Need::Scalar));
+    match operation {
+        Operation::GetOptions => vec![("compile_time_command_line", Need::Texts)],
+        Operation::SetOptions => NUMBERS
+            .iter()
+            .map(|&(_, name)| (name, Need::Scalar))
+            .chain(FLAGS.iter().map(|&(_, name)| (name, Need::Scalar)))
+            .chain(TEXTS.iter().map(|&(_, name)| (name, Need::Text)))
+            .chain([
+                ("interactive_bytecode_debugger", Need::Scalar),
+                ("llvm_options.command_line", Need::Texts),
+                ("minimum_os_version.major", Need::Scalar),
+                ("minimum_os_version.minor", Need::Scalar),
+                ("import_path", Need::Texts),
+                ("additional_linker_arguments", Need::Texts),
+            ])
+            .collect(),
+        // The workspace's options this operation updates.
+        Operation::SetOptionsDuringCompile => copied
+            .chain(renamed)
+            .chain([("additional_linker_arguments", Need::Texts)])
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The fields `set_build_options_dc` reads from its argument.
+pub(super) fn during_compile() -> Vec<(&'static str, Need)> {
+    COPIED
+        .iter()
+        .map(|&name| (name, Need::Scalar))
+        .chain(RENAMED.iter().map(|&(_, name)| (name, Need::Text)))
+        .chain([
+            ("append_linker_arguments", Need::Texts),
+            ("do_output", Need::Scalar),
+        ])
+        .collect()
+}
+
 pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
     let ws = cx.workspace(usize::from(cx.binding.operation != Operation::GetOptions))?;
     match cx.binding.operation {
@@ -109,7 +164,7 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
         }
         Operation::SetOptions => set(cx, interp, ws, cx.arg(0), cx.binding.parameters[0])?,
         Operation::SetOptionsDuringCompile => {
-            let layout = cx.schema().get(options_record(cx)?.0);
+            let layout = cx.schema().get(options_record(cx)?.0)?;
             let options = interp.register_data_global(
                 &vec![0; layout.size as usize],
                 layout.align,
@@ -122,11 +177,7 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
             if cx.number(interp, dc, input, "interactive_bytecode_debugger")? != 0 {
                 return Err(Trap::new("interactive bytecode debugging is unavailable"));
             }
-            for name in [
-                "write_added_strings",
-                "append_executable_filename_extension",
-                "interactive_bytecode_debugger",
-            ] {
+            for &name in COPIED {
                 cx.set_number(
                     interp,
                     ty,
@@ -135,10 +186,7 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                     cx.number(interp, dc, input, name)?,
                 )?;
             }
-            for (key, name) in [
-                (Text::OutputExecutableName, "output_executable_name"),
-                (Text::OutputPath, "output_path"),
-            ] {
+            for &(key, name) in RENAMED {
                 let value = cx.text(interp, dc, input, name)?;
                 if !value.is_empty() {
                     super::abi::put_string(
@@ -193,7 +241,7 @@ fn options_record(cx: &Call) -> Result<(TypeId, ir::GlobalId), Trap> {
 fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap> {
     let (ty, defaults) = options_record(cx)?;
     let address = interp.global_addr(cx.program, defaults)?;
-    let initial = bytes(interp, address, cx.schema().get(ty).size as usize)?;
+    let initial = bytes(interp, address, cx.schema().get(ty)?.size as usize)?;
     write(interp, at, &initial)?;
     if !snapshot(cx, interp, ws, at, ty, false)? && ws == cx.shared.borrow().current_id() {
         let arguments = cx.shared.borrow().env.command_line.clone();
@@ -330,7 +378,7 @@ fn snapshot(
         strings: &mut Vec<u64>,
         arrays: &mut Vec<u64>,
     ) -> Result<(), Trap> {
-        match &cx.schema().get(ty).kind {
+        match &cx.schema().get(ty)?.kind {
             Kind::String => strings.push(base),
             Kind::Record(fields) => {
                 for field in fields {
@@ -346,7 +394,7 @@ fn snapshot(
                     offsets(
                         cx,
                         *element,
-                        base + i * cx.schema().get(*element).size,
+                        base + i * cx.schema().get(*element)?.size,
                         strings,
                         arrays,
                     )?;
@@ -356,7 +404,7 @@ fn snapshot(
                 element,
                 count: None,
                 resizable: false,
-            } if matches!(cx.schema().get(*element).kind, Kind::String) => arrays.push(base),
+            } if matches!(cx.schema().get(*element)?.kind, Kind::String) => arrays.push(base),
             Kind::Array {
                 count: None, ..
             } => return Err(Trap::new("unsupported build option view schema")),
@@ -366,7 +414,7 @@ fn snapshot(
     }
     let (mut strings, mut arrays) = (Vec::new(), Vec::new());
     offsets(cx, ty, 0, &mut strings, &mut arrays)?;
-    let size = cx.schema().get(ty).size as usize;
+    let size = cx.schema().get(ty)?.size as usize;
     if save {
         let snapshot = Snapshot::capture(interp, at, size, &strings, &arrays)?;
         cx.registry().save_options(ws, snapshot)?;

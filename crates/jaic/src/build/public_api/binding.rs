@@ -1,5 +1,5 @@
 //! Bind an operation to the actual declaration and its aggregate layouts.
-use super::{Binding, Field, Kind, Layout, Operation, Schema};
+use super::{Binding, Field, Kind, Layout, Operation, Schema, abi::Need, options};
 use crate::{
     intern::Sym,
     ir,
@@ -98,8 +98,16 @@ pub(crate) fn bind(
             .unwrap();
         entry.schema = schema.clone();
     }
+    require(
+        &schema,
+        operation,
+        &parameters,
+        &signature.returns,
+        options,
+        span,
+    )?;
     let options = options
-        .map(|ty| defaults(compiler, schema.get(ty), ty, span).map(|global| (ty, global)))
+        .map(|ty| defaults(compiler, ty, span).map(|global| (ty, global)))
         .transpose()?;
     Ok(Binding {
         operation,
@@ -226,13 +234,8 @@ fn ambiguous<T>(span: Span, name: &str) -> Result<T> {
 }
 
 /// A read-only copy of `ty`'s default value, where options start before a workspace's are read.
-fn defaults(
-    compiler: &mut Compiler,
-    layout: &Layout,
-    ty: TypeId,
-    span: Span,
-) -> Result<ir::GlobalId> {
-    let (size, align) = (layout.size, layout.align);
+fn defaults(compiler: &mut Compiler, ty: TypeId, span: Span) -> Result<ir::GlobalId> {
+    let (size, align) = (compiler.size_of(ty, span)?, compiler.align_of(ty, span)?);
     let image = compiler.default_initializer(ty, span)?;
     let (init, relocs) = image.map_or_else(
         || (Vec::new(), Vec::new()),
@@ -342,28 +345,43 @@ fn collect(
     Ok(())
 }
 
-/// Validate the calling convention before a host handler can inspect its slots.
-/// Aggregate fields are resolved separately; their offsets are never part of this signature.
-fn validate(
-    compiler: &Compiler,
-    operation: Operation,
-    params: &[TypeId],
-    returns: &[TypeId],
-    span: Span,
-) -> Result<()> {
-    #[derive(Clone, Copy)]
-    enum Shape {
-        Number,
-        Boolean,
-        Text,
-        Code,
-        Type,
-        Pointer,
-        Record,
-        Bytes,
-        Texts,
-        Pointers,
-    }
+/// What one parameter or result slot of an operation must be.
+#[derive(Clone, Copy)]
+enum Slot {
+    /// An integer or enum.
+    Number,
+    Boolean,
+    Text,
+    Code,
+    Type,
+    /// Any pointer.
+    Address,
+    /// A pointer to a record with these fields.
+    To(&'static [(&'static str, Need)]),
+    /// A record with these fields.
+    Record(&'static [(&'static str, Need)]),
+    /// A build options record (`options::fields`).
+    Options,
+    /// The record `set_build_options_dc` reads (`options::during_compile`).
+    DuringCompile,
+    /// `[] u8`.
+    Bytes,
+    /// `[] string`.
+    Texts,
+    /// A view of pointers to records.
+    Records,
+}
+
+const LOCATION: &[(&str, Need)] = &[
+    ("fully_pathed_filename", Need::Text),
+    ("line_number", Need::Scalar),
+    ("character_number", Need::Scalar),
+];
+
+const FILE: &[(&str, Need)] = &[("fully_pathed_filename", Need::Text)];
+
+/// The slots each operation reads and writes.
+fn slots(operation: Operation, parameters: usize) -> (&'static [Slot], &'static [Slot]) {
     use Operation::{
         AddDataSegment, AddFile, AddGlobalData, AddLibraryDirectory, AddString, AddStringToModule,
         BasePath, BeginIntercept, CommandLine, CreateWorkspace, CurrentWorkspace,
@@ -372,86 +390,118 @@ fn validate(
         RemapImport, Report, RootType, RuntimeInfo, SetOptions, SetOptionsDuringCompile,
         SetTypeInfoFlags, SetWorkspaceStatus, StructLocation, TypeTable, Version, WaitForMessage,
     };
-    use Shape::{Boolean, Bytes, Code, Number, Pointer, Pointers, Record, Text, Texts, Type};
-    let (inputs, outputs): (&[Shape], &[Shape]) = match operation {
+    use Slot::{
+        Address, Boolean, Bytes, Code, DuringCompile, Number, Options, Record, Records, Text,
+        Texts, To, Type,
+    };
+    match operation {
         CreateWorkspace => (&[Text], &[Number]),
         DestroyWorkspace | EndIntercept | CustomLinkComplete => (&[Number], &[]),
         CurrentWorkspace => (&[], &[Number]),
         Name => (&[Number], &[Text]),
-        GetOptions => (&[Number], &[Record]),
-        SetOptions => (&[Record, Number, Record], &[]),
-        SetOptionsDuringCompile => (&[Record, Number], &[]),
-        AddFile => (&[Text, Number, Record], &[]),
-        AddString => (&[Text, Number, Code, Record], &[]),
-        AddStringToModule => (&[Text, Number, Pointer, Record], &[]),
-        Report if params.len() == 3 => (&[Text, Record, Number], &[]),
+        GetOptions => (&[Number], &[Options]),
+        SetOptions => (&[Options, Number, Record(FILE)], &[]),
+        SetOptionsDuringCompile => (&[DuringCompile, Number], &[]),
+        AddFile => (&[Text, Number, Record(FILE)], &[]),
+        AddString => (&[Text, Number, Code, Record(&[])], &[]),
+        AddStringToModule => (&[Text, Number, To(&[]), Record(&[])], &[]),
+        Report if parameters == 3 => (&[Text, Record(LOCATION), Number], &[]),
         Report => (&[Text, Number, Number, Text, Number], &[]),
-        Version => (&[Pointer], &[Text]),
+        Version => (
+            &[To(&[
+                ("major", Need::Scalar),
+                ("minor", Need::Scalar),
+                ("micro", Need::Scalar),
+            ])],
+            &[Text],
+        ),
         CommandLine => (&[], &[Texts]),
         BasePath => (&[], &[Text]),
         AddLibraryDirectory => (&[Text], &[]),
         SetTypeInfoFlags => (&[Type, Number], &[]),
-        StructLocation => (&[Number, Pointer], &[Record]),
+        StructLocation => (&[Number, Address], &[Record(LOCATION)]),
         RemapImport => (&[Number, Text, Text, Text], &[]),
-        ProvideImport => (&[Number, Pointer, Number, Text], &[]),
-        GetNodes => (&[Code], &[Pointer, Pointers]),
-        GetCode => (&[Pointer, Code], &[Code]),
+        ProvideImport => (&[Number, To(&[]), Number, Text], &[]),
+        GetNodes => (&[Code], &[To(&[]), Records]),
+        GetCode => (&[To(&[]), Code], &[Code]),
         RootType => (&[Code], &[Number, Type]),
-        GetType => (&[Pointer], &[Type]),
-        TypeTable => (&[Number], &[Pointers]),
-        MakeLive | ModifyProcedure => (&[Number, Pointer], &[]),
+        GetType => (&[Address], &[Type]),
+        TypeTable => (&[Number], &[Records]),
+        MakeLive | ModifyProcedure => (&[Number, To(&[])], &[]),
         BeginIntercept => (&[Number, Number], &[]),
-        WaitForMessage => (&[], &[Pointer]),
+        WaitForMessage => (
+            &[],
+            &[To(&[("kind", Need::Scalar), ("workspace", Need::Scalar)])],
+        ),
         SetWorkspaceStatus => (&[Number, Number], &[]),
-        AddDataSegment => (&[Text, Number, Number, Number], &[Pointer, Boolean]),
-        AddGlobalData => (&[Bytes, Number, Pointer, Number], &[Bytes]),
-        RuntimeInfo => (&[Number], &[Record]),
-        MemoryBreakpoint | DeveloperDebug => (&[Pointer], &[]),
-    };
-    fn accepts(compiler: &Compiler, ty: TypeId, shape: Shape) -> bool {
-        let kind = compiler.ty.types.kind(compiler.ty.types.repr_struct(ty));
-        match (shape, kind) {
-            (
-                Number,
-                TypeKind::Int {
-                    ..
-                }
-                | TypeKind::Enum(_),
-            )
-            | (Boolean, TypeKind::Bool)
-            | (Text, TypeKind::String)
-            | (Code, TypeKind::Code)
-            | (Type, TypeKind::Type)
-            | (Pointer, TypeKind::Pointer(_))
-            | (Record, TypeKind::Struct(_)) => true,
-            (
-                Bytes | Texts | Pointers,
-                TypeKind::Array {
-                    elem,
-                    kind: ArrayKind::View,
-                },
-            ) => match shape {
-                Bytes => matches!(
-                    compiler.ty.types.kind(*elem),
-                    TypeKind::Int {
-                        bits: 8,
-                        signed: false
-                    }
-                ),
-                Texts => matches!(compiler.ty.types.kind(*elem), TypeKind::String),
-                Pointers => matches!(compiler.ty.types.kind(*elem), TypeKind::Pointer(_)),
-                _ => false,
-            },
-            _ => false,
-        }
+        AddDataSegment => (&[Text, Number, Number, Number], &[Address, Boolean]),
+        AddGlobalData => (&[Bytes, Number, Address, Number], &[Bytes]),
+        RuntimeInfo => (
+            &[Number],
+            &[Record(&[
+                ("type_table", Need::View),
+                ("global_data_info", Need::Scalar),
+            ])],
+        ),
+        MemoryBreakpoint | DeveloperDebug => (&[Address], &[]),
     }
+}
+
+/// Check the kinds of the declaration's slots before anything reads them; their records'
+/// fields are checked once the schema is bound (`require`).
+fn validate(
+    compiler: &Compiler,
+    operation: Operation,
+    params: &[TypeId],
+    returns: &[TypeId],
+    span: Span,
+) -> Result<()> {
+    let types = &compiler.ty.types;
+    let kind = |ty: TypeId| types.kind(types.repr_struct(ty));
+    let record = |ty: TypeId| matches!(kind(ty), TypeKind::Struct(_));
+    let accepts = |ty: TypeId, slot: Slot| match (slot, kind(ty)) {
+        (
+            Slot::Number,
+            TypeKind::Int {
+                ..
+            }
+            | TypeKind::Enum(_),
+        )
+        | (Slot::Boolean, TypeKind::Bool)
+        | (Slot::Text, TypeKind::String)
+        | (Slot::Code, TypeKind::Code)
+        | (Slot::Type, TypeKind::Type)
+        | (Slot::Address, TypeKind::Pointer(_))
+        | (Slot::Record(_) | Slot::Options | Slot::DuringCompile, TypeKind::Struct(_)) => true,
+        (Slot::To(_), TypeKind::Pointer(inner)) => record(*inner),
+        (
+            Slot::Bytes | Slot::Texts | Slot::Records,
+            TypeKind::Array {
+                elem,
+                kind: ArrayKind::View,
+            },
+        ) => match (slot, kind(*elem)) {
+            (
+                Slot::Bytes,
+                TypeKind::Int {
+                    bits: 8,
+                    signed: false,
+                },
+            )
+            | (Slot::Texts, TypeKind::String) => true,
+            (Slot::Records, TypeKind::Pointer(inner)) => record(*inner),
+            _ => false,
+        },
+        _ => false,
+    };
+    let (inputs, outputs) = slots(operation, params.len());
     if params.len() != inputs.len()
         || returns.len() != outputs.len()
         || params
             .iter()
             .zip(inputs)
             .chain(returns.iter().zip(outputs))
-            .any(|(&ty, &shape)| !accepts(compiler, ty, shape))
+            .any(|(&ty, &slot)| !accepts(ty, slot))
     {
         return err(
             span,
@@ -462,4 +512,49 @@ fn validate(
         );
     }
     Ok(())
+}
+
+/// Check that the records the handler reads and writes have the fields it uses.
+fn require(
+    schema: &Schema,
+    operation: Operation,
+    params: &[TypeId],
+    returns: &[TypeId],
+    options: Option<TypeId>,
+    span: Span,
+) -> Result<()> {
+    let (inputs, outputs) = slots(operation, params.len());
+    let check = |ty: TypeId, fields: &[(&str, Need)]| {
+        fields
+            .iter()
+            .try_for_each(|&(path, need)| schema.require(ty, path, need))
+    };
+    let checked = params
+        .iter()
+        .zip(inputs)
+        .chain(returns.iter().zip(outputs))
+        .try_for_each(|(&ty, &slot)| match slot {
+            Slot::Record(fields) => check(ty, fields),
+            Slot::To(fields) => check(schema.pointed(ty)?, fields),
+            Slot::Options => check(ty, &options::fields(operation)),
+            Slot::DuringCompile => check(ty, &options::during_compile()),
+            _ => Ok(()),
+        })
+        .and_then(|()| match (operation, options) {
+            // The workspace's options, which the argument updates.
+            (Operation::SetOptionsDuringCompile, Some(ty)) => {
+                check(ty, &options::fields(operation))
+            }
+            _ => Ok(()),
+        });
+    checked.or_else(|trap| {
+        err(
+            span,
+            format!(
+                "incompatible records for compiler operation {}: {}",
+                operation.name(),
+                trap.message
+            ),
+        )
+    })
 }

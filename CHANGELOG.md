@@ -20,6 +20,7 @@
 
 - `String` searches and `compare` on long text, and `array_find` on integer arrays, are several times faster.
 - The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.
+- A `#compiler` declaration whose records don't fit its operation is reported where it is declared, and `get_build_options` fills a record of any name with that record's own defaults.
 - Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
 - Typing in one program no longer makes the language server recheck other open programs that don't use the file.
 - Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.

@@ -263,3 +263,37 @@ main :: () {}
         "{diagnostic}"
     );
 }
+
+#[test]
+fn records_missing_what_an_operation_uses_are_rejected_when_bound() {
+    for (index, (fields, expected)) in [
+        ("major: s64; minor: s64;", "has no field `micro`"),
+        (
+            "major: s64; minor: s64; micro: string;",
+            "field `micro` of Version must be a number",
+        ),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let (_, source) = fixture(
+            &format!("missing-field-{index}"),
+            &format!(
+                "Version :: struct {{ {fields} }}\nversion :: (result: *Version) -> string #compiler \"compiler_get_version_info\";\n#run {{ value := version; }}\nmain :: () {{}}"
+            ),
+        );
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(source)
+            .arg("-interp")
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let diagnostic = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            diagnostic
+                .contains("incompatible records for compiler operation compiler_get_version_info")
+                && diagnostic.contains(expected),
+            "{diagnostic}"
+        );
+    }
+}

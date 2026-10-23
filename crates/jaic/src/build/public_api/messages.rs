@@ -52,7 +52,7 @@ fn allocate(
     ws: i64,
 ) -> Result<(u64, TypeId), Trap> {
     let ty = cx.schema().named(name)?;
-    let layout = cx.schema().get(ty);
+    let layout = cx.schema().get(ty)?;
     let at = interp.register_data_global(&vec![0; layout.size as usize], layout.align, false, 1)?;
     cx.set_number(interp, ty, at, "kind", kind)?;
     cx.set_number(interp, ty, at, "workspace", ws as u64)?;
@@ -159,11 +159,11 @@ fn filter(cx: &Call, interp: &mut Interp, at: u64, ty: TypeId, flags: i64) -> Re
     let Kind::Array {
         element: all_element,
         ..
-    } = cx.schema().get(all_address.1).kind
+    } = cx.schema().get(all_address.1)?.kind
     else {
         return Err(Trap::new("TYPECHECKED all must be an array"));
     };
-    let all_size = cx.schema().get(all_element).size;
+    let all_size = cx.schema().get(all_element)?.size;
     let mut all = Vec::new();
     for (name, skip) in [
         ("declarations", 2),
@@ -175,11 +175,11 @@ fn filter(cx: &Call, interp: &mut Interp, at: u64, ty: TypeId, flags: i64) -> Re
         let (address, array) = cx.field(ty, at, name)?;
         let Kind::Array {
             element, ..
-        } = cx.schema().get(array).kind
+        } = cx.schema().get(array)?.kind
         else {
             return Err(Trap::new("TYPECHECKED fields must be arrays"));
         };
-        let size = cx.schema().get(element).size;
+        let size = cx.schema().get(element)?.size;
         let (count, data) = view(interp, address)?;
         let mut selected = Vec::new();
         for index in 0..count {
@@ -226,8 +226,8 @@ fn filter(cx: &Call, interp: &mut Interp, at: u64, ty: TypeId, flags: i64) -> Re
             let (expression_offset, expression_type) =
                 cx.schema().field(all_element, "expression")?;
             let (views_offset, views_type) = cx.schema().field(all_element, "subexpressions")?;
-            let expression_size = cx.schema().get(expression_type).size as usize;
-            let views_size = cx.schema().get(views_type).size as usize;
+            let expression_size = cx.schema().get(expression_type)?.size as usize;
+            let views_size = cx.schema().get(views_type)?.size as usize;
             all[start + expression_offset as usize
                 ..start + expression_offset as usize + expression_size]
                 .copy_from_slice(&expression.to_le_bytes()[..expression_size]);

@@ -14,16 +14,16 @@ use crate::{
 fn descriptor(cx: &Call, interp: &mut Interp, ty: TypeId) -> Result<u64, Trap> {
     let global = cx
         .schema()
-        .get(ty)
+        .get(ty)?
         .descriptor
         .ok_or_else(|| Trap::new("compiler record has no type descriptor"))?;
     interp.global_addr(cx.program, global)
 }
 
 /// How a value of `ty` is stored in a built record.
-fn shape(schema: &Schema, ty: TypeId) -> Shape {
-    let layout = schema.get(ty);
-    match layout.kind {
+fn shape(schema: &Schema, ty: TypeId) -> Result<Shape, Trap> {
+    let layout = schema.get(ty)?;
+    Ok(match layout.kind {
         Kind::Scalar if layout.size > 0 => Shape::Int,
         Kind::Scalar => Shape::Other,
         Kind::String => Shape::String,
@@ -35,7 +35,7 @@ fn shape(schema: &Schema, ty: TypeId) -> Shape {
         Kind::Array {
             count: Some(_), ..
         } => Shape::FixedArray,
-    }
+    })
 }
 
 /// The members a record of type `ty` at `base` fills; promoted (`using`) struct members are
@@ -48,17 +48,17 @@ fn entries(
     output: &mut Vec<PlanEntry>,
 ) -> Result<(), Trap> {
     let schema = cx.schema();
-    let Kind::Record(fields) = &schema.get(ty).kind else {
+    let Kind::Record(fields) = &schema.get(ty)?.kind else {
         return Ok(());
     };
     for field in fields {
-        if field.promoted && matches!(schema.get(field.ty).kind, Kind::Record(_)) {
+        if field.promoted && matches!(schema.get(field.ty)?.kind, Kind::Record(_)) {
             entries(cx, interp, field.ty, base + field.offset, output)?;
             continue;
         }
-        let layout = schema.get(field.ty);
+        let layout = schema.get(field.ty)?;
         // A pointer's (or pointer element's) target, or the struct held in place.
-        let mut target = |ty: TypeId| match schema.get(ty).kind {
+        let mut target = |ty: TypeId| match schema.get(ty)?.kind {
             Kind::Pointer(inner) => descriptor(cx, interp, inner),
             Kind::Record(_) => descriptor(cx, interp, ty),
             _ => Ok(0),
@@ -72,17 +72,17 @@ fn entries(
                 ..
             } => PlanEntry {
                 offset: base + field.offset,
-                shape: shape(schema, field.ty),
+                shape: shape(schema, field.ty)?,
                 size,
                 name,
-                element: shape(schema, element),
-                element_size: schema.get(element).size,
+                element: shape(schema, element)?,
+                element_size: schema.get(element)?.size,
                 target: target(element)?,
                 resizable,
             },
             _ => PlanEntry::single(
                 base + field.offset,
-                shape(schema, field.ty),
+                shape(schema, field.ty)?,
                 size,
                 name,
                 target(field.ty)?,
