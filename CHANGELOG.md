@@ -84,6 +84,7 @@
 - A struct can have several `_` members.
 - A global declared as `f := (x: int) -> int { ... };` can be called.
 - `#load` works in code that a procedure body inserts.
+- An anonymous `union { ... }` or `struct { ... }` statement in a procedure brings its members into scope.
 
 ## [0.25.0] - 2026-10-21
 

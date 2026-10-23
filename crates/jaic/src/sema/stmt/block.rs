@@ -329,6 +329,10 @@ impl Compiler {
         match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
             S::Case(_) => err(span, "`case` outside of a switch"),
+            S::Expr(ast::Expr {
+                kind: E::Struct(lit),
+                span: lit_span,
+            }) => self.declare_anonymous_aggregate(f, scope, lit, *lit_span),
             S::Expr(e) => {
                 self.pr.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;

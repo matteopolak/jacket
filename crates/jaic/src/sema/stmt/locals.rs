@@ -224,6 +224,42 @@ impl Compiler {
         Ok(())
     }
 
+    /// A bare `struct { ... }` or `union { ... }` statement in a body: an anonymous local of that
+    /// type whose members are in scope directly, as they are in a struct body.
+    pub(super) fn declare_anonymous_aggregate(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        lit: &Rc<ast::StructLit>,
+        span: Span,
+    ) -> Result<()> {
+        let name = Sym::intern("anonymous");
+        self.check_struct_modify(name, lit)?;
+        let ty = self.new_struct_type(name, lit.clone(), scope, Vec::new(), None);
+        self.ensure_storage_type(ty, span)?;
+        let size = self.size_of(ty, span)?;
+        let align = self.align_of(ty, span)?;
+        let addr = f.b.alloca(size.max(1), align);
+        self.init_default(f, ty, addr, span)?;
+        let depth = self.scope(scope).proc_depth;
+        let entity = self.add_entity(
+            scope,
+            Sym::intern("\u{0}using"),
+            span,
+            EntityKind::Local {
+                ty,
+                addr,
+                depth,
+            },
+            false,
+        );
+        let entry = UsingEntry::Place {
+            ty,
+            entity,
+        };
+        self.push_variable_using(scope, entry)
+    }
+
     /// Where the local `name` in `scope` was declared.
     fn local_declaration(&self, scope: ScopeId, name: Sym) -> Option<Span> {
         let ids = self.scope(scope).names.get(&name)?;
