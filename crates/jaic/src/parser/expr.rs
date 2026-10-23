@@ -312,6 +312,14 @@ impl Parser<'_> {
                     self.bump();
                     let member = if self.operator_name_follows() {
                         self.parse_operator_name()?
+                    } else if let Tok::Str(text) = self.tok() {
+                        // `a.b."c"`: a member named by a string literal.
+                        let name = Sym::intern(&String::from_utf8_lossy(text));
+                        let span = self.bump();
+                        Ident {
+                            name,
+                            span,
+                        }
                     } else {
                         self.ident("after `.`")?
                     };
