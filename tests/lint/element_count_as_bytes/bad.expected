@@ -1,0 +1,36 @@
+error[element_count_as_bytes]: `values.count` counts `s32` elements, but this argument is a number of bytes
+  --> tests/lint/element_count_as_bytes/bad.jai:8:36
+   |
+ 8 |     memcpy(dest.data, values.data, values.count);
+   |                                    ^^^^^^^^^^^^
+   |
+help: multiply by the element size: `values.count * size_of(s32)`
+   |
+ 8 ~     memcpy(dest.data, values.data, values.count * size_of(s32));
+   |
+   = note: `element_count_as_bytes` is `deny` by default
+
+error[element_count_as_bytes]: `weights.count` counts `float32` elements, but this argument is a number of bytes
+  --> tests/lint/element_count_as_bytes/bad.jai:12:29
+   |
+12 |     memset(weights.data, 0, weights.count);
+   |                             ^^^^^^^^^^^^^
+   |
+help: multiply by the element size: `weights.count * size_of(float32)`
+   |
+12 ~     memset(weights.data, 0, weights.count * size_of(float32));
+   |
+   = note: `element_count_as_bytes` is `deny` by default
+
+error[element_count_as_bytes]: `a.count` counts `Pair` elements, but this argument is a number of bytes
+  --> tests/lint/element_count_as_bytes/bad.jai:16:35
+   |
+16 |     return memcmp(a.data, b.data, a.count) == 0;
+   |                                   ^^^^^^^
+   |
+help: multiply by the element size: `a.count * size_of(Pair)`
+   |
+16 ~     return memcmp(a.data, b.data, a.count * size_of(Pair)) == 0;
+   |
+   = note: `element_count_as_bytes` is `deny` by default
+

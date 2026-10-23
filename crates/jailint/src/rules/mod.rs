@@ -20,6 +20,7 @@ mod defer_in_loop;
 mod double_free;
 mod dropped_result;
 mod duplicate_condition;
+mod element_count_as_bytes;
 mod erasing_op;
 mod excessive_nesting;
 mod float_equality;
@@ -151,6 +152,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "an `else if` that repeats an earlier condition",
         check: duplicate_condition::check,
+    },
+    RuleInfo {
+        name: "element_count_as_bytes",
+        category: Category::Correctness,
+        summary: "`memcpy(d, xs.data, xs.count)` with elements wider than a byte",
+        check: element_count_as_bytes::check,
     },
     RuleInfo {
         name: "erasing_op",

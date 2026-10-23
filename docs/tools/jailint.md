@@ -50,6 +50,7 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@RemovesFromArray` | `remove_in_for` | removes elements from the array its first argument points to |
 | `@FreesArgument` | `defer_in_loop`, `use_after_free`, `double_free` | after the call the *first* argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s). Not for a procedure whose first argument is only an allocator, heap or owner |
 | `@Allocates` | `leaked_allocation` | the result is newly allocated and the caller owns it (`alloc`, `New`, `copy_string`, `sprint`, `join`, ...) |
+| `@TakesByteCount` | `element_count_as_bytes` | the last argument is a number of bytes in the memory the pointer arguments point at (`memcpy`, `memset`, `memcmp`) |
 | `@Locks` | `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
 | `@Unlocks` | `unpaired_lock` | gives back the lock its first argument names |
 
@@ -96,6 +97,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `double_free` | correctness | deny | no | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
 | `dropped_result` | suspicious | warn | no | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
 | `duplicate_condition` | suspicious | warn | no | an `else if` that repeats an earlier condition and can never run |
+| `element_count_as_bytes` | correctness | deny | yes | `memcpy(d, xs.data, xs.count)` with `xs: [] s32`: an element count passed where a `@TakesByteCount` procedure wants bytes |
 | `erasing_op` | suspicious | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
 | `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
@@ -157,6 +159,8 @@ The same walk as `use_after_free`: a statement-level `@FreesArgument` call on a 
 A declaration or assignment whose right side is one call that returns more values than the left side names, where the first dropped value, the one right after the last kept, is a `bool`: `value := parse(text);` quietly turns a failed parse into `0`. Receive the flag (`value, ok := parse(text);`) or write `value, _ := parse(text);` to say it is ignored on purpose. A success or found flag sits right after the value it describes, so a `bool` that comes later, after other results (status extras of a wide API such as `pressed, state, released := button(...)`), and dropped values of other types (counts, remainders) are fine, as are `_ := f();`, calls used as statements, compound assignments and calls whose procedure type is not known. Calls through procedure values count. To make dropping a result a hard compile error, mark it `#must` where the procedure is declared (see [directives and notes](../language/directives-and-notes.md)).
 ### duplicate_condition
 Conditions must be side-effect-free; a call in between restarts the comparison. A repeated `case` value is not checked here: the compiler rejects it.
+### element_count_as_bytes
+Only when `xs.data` is another argument of the same call, so the count clearly describes that array. Elements of one byte (`u8`, `s8`, `bool`) and strings are left alone. The fix appends `* size_of(Elem)`; it is not applied by `--fix`, since the element type may need its module's name.
 ### erasing_op
 Left alone inside an index or array literal, where a `0 *` lines up with other rows.
 ### excessive_nesting

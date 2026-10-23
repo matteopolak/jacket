@@ -255,6 +255,16 @@
               "default": "warn",
               "markdownDescription": "an `else if` that repeats an earlier condition (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#duplicate_condition)"
             },
+            "element_count_as_bytes": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "deny",
+              "markdownDescription": "`memcpy(d, xs.data, xs.count)` with elements wider than a byte (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#element_count_as_bytes)"
+            },
             "erasing_op": {
               "type": "string",
               "enum": [
