@@ -87,6 +87,31 @@ fn a_warning_gets_quick_fixes() {
 }
 
 #[test]
+fn a_name_a_namespaced_import_exports_gets_quick_fixes_that_use_the_import() {
+    let text = "M :: #import \"Math\";\nmain :: () {\n    x := sqrt(2.0);\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let fixes = quick_fixes(&s, text, "sqrt");
+    let titles: Vec<&str> = fixes.iter().map(|a| a.title.as_str()).collect();
+    // No second `#import "Math"`: the module is imported, under `M`.
+    assert_eq!(titles, ["Write `M.sqrt`", "Add `using M;`"], "{fixes:?}");
+    assert!(fixes[0].is_preferred);
+    assert!(!fixes[1].is_preferred);
+    let (target, edits) = fixes[0].edit.as_ref().unwrap();
+    assert_eq!(target, uri().as_str());
+    assert_eq!(edits.len(), 1);
+    assert_eq!(edits[0].new_text, "M.");
+    assert_eq!(edits[0].range.start, at_nth(text, "sqrt", 0, 0));
+    assert_eq!(edits[0].range.end, edits[0].range.start);
+    let (_, edits) = fixes[1].edit.as_ref().unwrap();
+    assert_eq!(edits[0].new_text, "\nusing M;");
+    assert_eq!(
+        edits[0].range.start,
+        at_nth(text, "\"Math\";", 0, "\"Math\";".len())
+    );
+}
+
+#[test]
 fn help_and_notes_reach_the_editor_in_the_message() {
     let text = "main :: () {\n    return;\n    x := 1;\n}\n";
     let mut s = session();

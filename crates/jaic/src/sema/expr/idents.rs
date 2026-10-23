@@ -447,10 +447,16 @@ impl Compiler {
         expected: Option<TypeId>,
     ) -> Result<Operand> {
         let Some(t) = expected else {
-            return err(
-                name.span,
-                format!("cannot infer the type of `.{}` here", name.name),
-            );
+            return Err(Box::new(
+                Diagnostic::error(
+                    name.span,
+                    format!("cannot infer the type of `.{}` here", name.name),
+                )
+                .with_help(format!(
+                    "nothing here says which type declares `{0}`: write `Type.{0}` with the enum or struct that does",
+                    name.name
+                )),
+            ));
         };
         if self.ed.is_live() && self.ide_wants_pub(name.span.file) {
             self.ed.inferred(name.span, t);
@@ -465,14 +471,20 @@ impl Compiler {
                 }
                 result
             }
-            _ => err(
-                name.span,
-                format!(
-                    "cannot infer `.{}` for type {}",
-                    name.name,
-                    self.ty.types.name(t)
-                ),
-            ),
+            _ => Err(Box::new(
+                Diagnostic::error(
+                    name.span,
+                    format!(
+                        "cannot infer `.{}` for type {}",
+                        name.name,
+                        self.ty.types.name(t)
+                    ),
+                )
+                .with_help(format!(
+                    "only an enum or struct type has members to look `.{0}` up in: write `Type.{0}` with the type that declares it",
+                    name.name
+                )),
+            )),
         }
     }
 

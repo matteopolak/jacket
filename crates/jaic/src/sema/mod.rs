@@ -45,6 +45,7 @@ mod modify;
 mod module_rank;
 mod modules;
 mod name_caches;
+mod namespace_hints;
 mod namespaces;
 mod output;
 pub mod perf;

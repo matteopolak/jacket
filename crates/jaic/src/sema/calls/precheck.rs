@@ -115,6 +115,9 @@ impl Compiler {
             } else {
                 Some(self.check_expr(f, scope, &a.value, None)?)
             };
+            if let Some(name) = a.name {
+                super::slots::note_argument_name(a.value.span, name.span);
+            }
             out.push(CallArg {
                 name: a.name.map(|n| n.name),
                 spread: a.spread,

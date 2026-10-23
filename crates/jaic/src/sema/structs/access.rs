@@ -19,13 +19,9 @@ impl Compiler {
             Operand::Module(m) => {
                 return match self.module_member_lookup(m, name)? {
                     Found::Using(entry, member) => self.using_member(f, entry, member, span),
-                    Found::Entities(ids) if ids.is_empty() => err(
-                        span,
-                        format!(
-                            "module `{}` has no exported member `{name}`",
-                            self.ns.modules[m.0 as usize].name
-                        ),
-                    ),
+                    Found::Entities(ids) if ids.is_empty() => {
+                        Err(Box::new(self.no_module_member(m, name, span)))
+                    }
                     Found::Entities(ids) => {
                         let result = self.entities_operand(f, scope, &ids, span);
                         // Preserve the actual lookup identity for IDE references, just
@@ -177,7 +173,7 @@ impl Compiler {
             let ty = self.ide_stand_in_member(target, name, span);
             return Ok(self.ide_sketch_value(f, ty, span));
         }
-        Err(Box::new(self.ty.no_member(target, name, span)))
+        Err(Box::new(self.no_member(target, name, span)))
     }
 
     pub(super) fn field_using_filter(
@@ -403,7 +399,7 @@ impl Compiler {
                         untyped: false,
                     });
                 }
-                Err(Box::new(self.ty.no_member(t, name, span)))
+                Err(Box::new(self.no_member(t, name, span)))
             }
             TypeKind::Struct(_) => {
                 if let Some(ids) = self.struct_constant(t, name)? {
@@ -434,7 +430,7 @@ impl Compiler {
                 let base = self.ty.types.distincts[d.0 as usize].base;
                 self.type_member(f, scope, base, name, span)
             }
-            _ => Err(Box::new(self.ty.no_member(t, name, span))),
+            _ => Err(Box::new(self.no_member(t, name, span))),
         }
     }
 }

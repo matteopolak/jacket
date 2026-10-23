@@ -126,7 +126,7 @@ impl Compiler {
                         m
                     }
                     None => {
-                        return Err(Box::new(self.ty.no_member(ty, n.name, n.span)));
+                        return Err(Box::new(self.no_member(ty, n.name, n.span)));
                     }
                 }
             } else {

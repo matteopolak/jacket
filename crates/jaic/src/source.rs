@@ -500,6 +500,9 @@ pub enum DiagnosticKind {
     /// A name no scope in reach declares. `scope` is the index of the sema scope the lookup
     /// started from, for the "did you mean" help worked out when the error is rendered.
     UnknownIdentifier { scope: Option<u32> },
+    /// `Module.name` where the module (the index of the sema module) exports no `name`, for the
+    /// help worked out when the error is rendered: the modules that declare the name.
+    UnknownModuleMember { module: u32 },
     /// A value whose type does not convert to the type expected there.
     TypeMismatch,
     /// A concrete generic argument fails a structural interface restriction.
@@ -543,6 +546,9 @@ impl DiagnosticKind {
             DiagnosticKind::UnknownIdentifier {
                 ..
             } => Some("unknown-identifier"),
+            DiagnosticKind::UnknownModuleMember {
+                ..
+            } => Some("unknown-module-member"),
             DiagnosticKind::TypeMismatch => Some("type-mismatch"),
             DiagnosticKind::IncompleteSwitch => Some("incomplete-switch"),
             DiagnosticKind::InterfaceConstraint => Some("interface-constraint"),

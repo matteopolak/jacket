@@ -32,6 +32,7 @@
 
 ### Improved
 
+- Name errors suggest the fix: a name that a namespaced import such as `M :: #import "Math"` provides gets `M.` (or `using M;`), a missing module member gets the closest export, and a misspelled type member or named argument is fixed in place.
 - `jailint` suggests a fix, as an editor quick fix, for far more findings: `almost_swapped`, `approx_constant`, `defer_frees_returned`, `double_free`, `dropped_result`, `duplicate_condition`, `erasing_op`, `identical_branches`, `impossible_comparison`, `integer_division_in_float`, `leaked_allocation`, `min_max`, `no_effect`, `remove_in_for`, `string_literal_write`, `unknown_allow`, `unpaired_lock`, `uninit_read`, `unused_parameter` and `unused_result`; `--fix` also removes `banner_comment` lines.
 - `String` searches and `compare` on long text, and `array_find` on integer arrays, are several times faster.
 - The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.

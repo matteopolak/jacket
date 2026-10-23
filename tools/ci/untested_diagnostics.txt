@@ -155,7 +155,6 @@ macro has no body
 missing destination operand
 missing polymorphic struct parameter binding
 missing value
-module `{}` has no exported member `{}`
 multiple placeholder definitions must form a procedure overload set
 named return values need a procedure
 no #asm instruction form with a {}-bit operand

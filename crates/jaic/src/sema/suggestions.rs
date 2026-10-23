@@ -3,7 +3,7 @@
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
 use super::module_rank::{ModuleRanking, count_importers};
 use super::scope::{ScopeId, UsingEntry};
-use super::{Compiler, Sym};
+use super::{Compiler, ModuleId, Sym};
 use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
 use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
@@ -138,20 +138,26 @@ fn mentions_target(cond: &Expr) -> bool {
 
 impl Compiler {
     /// `d` with a `help: a similar name exists` line when it reports an unknown identifier
-    /// and a visible name is close to it, and the modules that declare it (`d.imports`).
+    /// and a visible name is close to it, the namespaced import that provides it, and the
+    /// modules that declare it; the same modules for an unknown member of a module.
     pub fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
-        let DiagnosticKind::UnknownIdentifier {
-            scope: Some(scope),
-        } = d.kind
-        else {
-            return None;
-        };
+        match d.kind {
+            DiagnosticKind::UnknownIdentifier {
+                scope: Some(scope),
+            } => self.suggest_unknown_identifier(d, ScopeId(scope)),
+            DiagnosticKind::UnknownModuleMember {
+                module,
+            } => self.suggest_module_member(d, ModuleId(module)),
+            _ => None,
+        }
+    }
+
+    fn suggest_unknown_identifier(&self, d: &Diagnostic, scope: ScopeId) -> Option<Diagnostic> {
         let span = d.span;
         let wanted = self.src.sources.snippet(span);
         if wanted.is_empty() {
             return None;
         }
-        let names = self.names_visible_from(ScopeId(scope));
         let mut d = d.clone().with_label("not found in this scope");
         // An exact declaration elsewhere is a better lead than a similar name in scope.
         if let Some(builder) = self.src.metaprogram_defining(wanted, span) {
@@ -159,27 +165,64 @@ impl Compiler {
                 "`{wanted}` is added by `{builder}` (with `add_build_string`) when it builds this file: build through it, as in `jaic {builder}`"
             )));
         }
-        if let Some(found) = crate::suggest::closest(wanted, names.iter().copied()) {
-            d = d.with_replacement(format!("a similar name exists: `{found}`"), span, found);
+        let mut imports = self.imports_declaring(wanted);
+        let namespaces = self.namespaces_exporting(scope, wanted, &imports);
+        if namespaces.is_empty() {
+            let names = self.names_visible_from(scope);
+            if let Some(found) = crate::suggest::closest(wanted, names.iter().copied()) {
+                d = d.with_replacement(format!("a similar name exists: `{found}`"), span, found);
+            }
+        } else {
+            // The name is one `import` away already: other modules that declare it are noise.
+            imports.clear();
+            d = self.with_namespace_suggestions(d, wanted, span, &namespaces);
         }
-        let imports = self.imports_declaring(wanted);
+        Some(self.with_import_suggestions(d, wanted, &imports, None))
+    }
+
+    /// An unknown `Module.name`: the modules that declare `name` (other than `Module`).
+    fn suggest_module_member(&self, d: &Diagnostic, module: ModuleId) -> Option<Diagnostic> {
+        let wanted = self.src.sources.snippet(d.span);
+        if wanted.is_empty() {
+            return None;
+        }
+        let module_name = self.ns.modules[module.0 as usize].name.as_str();
+        let mut imports = self.imports_declaring(wanted);
+        imports.retain(|i| i.module != module_name);
+        Some(self.with_import_suggestions(d.clone(), wanted, &imports, Some(module_name)))
+    }
+
+    /// `d` with one suggestion per import that would declare `wanted`: the first is the help
+    /// line, the others are named together in one line below it. `qualifier` is the module a
+    /// member was looked up in, when it is a member the code wrote as `Qualifier.wanted`.
+    fn with_import_suggestions(
+        &self,
+        mut d: Diagnostic,
+        wanted: &str,
+        imports: &[ImportSuggestion],
+        qualifier: Option<&str>,
+    ) -> Diagnostic {
         for (i, import) in imports.iter().enumerate() {
             let module = &import.module;
-            let title = match &import.name {
-                Some(name) => format!(
+            let title = match (&import.name, qualifier) {
+                (Some(name), _) => format!(
                     "`{name}` is the name of a module: import it under that name with `{}`",
                     import.statement()
                 ),
-                None => format!(
+                (None, Some(qualifier)) => format!(
+                    "`{wanted}` is declared in the `{module}` module: add `{}` to this file and write `{wanted}` without the `{qualifier}` qualifier",
+                    import.statement()
+                ),
+                (None, None) => format!(
                     "`{wanted}` is declared in the `{module}` module: add `{}` to this file",
                     import.statement()
                 ),
             };
-            // The first is the help line; the others are named together in one line below.
             let suggestion = Suggestion::import(title, import.clone())
                 .with_action(format!("Add `{}`", import.statement()));
-            // The only module that declares the name is the one to import.
-            let suggestion = if imports.len() == 1 {
+            // The only module that declares the name is the one to import (but a member written
+            // with a qualifier needs the code changed too).
+            let suggestion = if imports.len() == 1 && qualifier.is_none() {
                 suggestion.with_applicability(Applicability::MachineApplicable)
             } else {
                 suggestion
@@ -200,7 +243,7 @@ impl Compiler {
                 others.join(", ")
             ));
         }
-        Some(d)
+        d
     }
 
     /// The `#import`s that would declare `name`, best first: the standard-library module of
@@ -431,20 +474,42 @@ impl Compiler {
 }
 
 impl TypeState {
+    /// The names of the fields of struct `id` and of the structs its `using` fields hold.
+    fn field_names(&self, id: crate::types::StructId, depth: usize, out: &mut Vec<String>) {
+        for f in self.types.struct_info(id).fields.iter() {
+            if let Some(n) = f.name {
+                out.push(n.to_string());
+            }
+            if f.using
+                && depth < 3
+                && let Some(inner) = self.types.as_struct(self.types.repr_struct(f.ty))
+            {
+                self.field_names(inner, depth + 1, out);
+            }
+        }
+    }
+
     /// "type `T` has no member `x`", with the closest member name or the members there are.
-    pub(super) fn no_member(&self, ty: crate::types::TypeId, name: Sym, span: Span) -> Diagnostic {
+    /// `extra` names members that are not fields (constants and procedures declared in the
+    /// struct); the members of `using` fields count too.
+    fn no_member_with(
+        &self,
+        ty: crate::types::TypeId,
+        name: Sym,
+        span: Span,
+        extra: Vec<String>,
+    ) -> Diagnostic {
         use crate::types::TypeKind;
         let shown = self.types.name(ty);
         let (what, members): (&str, Vec<String>) = match self.types.kind(ty) {
-            TypeKind::Struct(id) => (
-                "type",
-                self.types
-                    .struct_info(*id)
-                    .fields
-                    .iter()
-                    .filter_map(|f| f.name.map(|n| n.to_string()))
-                    .collect(),
-            ),
+            TypeKind::Struct(id) => {
+                let mut members = Vec::new();
+                self.field_names(*id, 0, &mut members);
+                members.extend(extra);
+                members.sort();
+                members.dedup();
+                ("type", members)
+            }
             TypeKind::Enum(id) => (
                 "enum",
                 self.types
@@ -545,5 +610,27 @@ impl SourceState {
                 }
             })
             .collect()
+    }
+}
+
+impl Compiler {
+    /// "type `T` has no member `x`", with the closest member name: a field, a member of a
+    /// `using` field, or a constant or procedure declared in the struct.
+    pub(super) fn no_member(&self, ty: crate::types::TypeId, name: Sym, span: Span) -> Diagnostic {
+        let declared = self
+            .ty
+            .types
+            .as_struct(ty)
+            .and_then(|id| self.ty.struct_asts.get(&id))
+            .map(|src| {
+                self.scope(src.scope)
+                    .names
+                    .keys()
+                    .map(ToString::to_string)
+                    .filter(|n| !n.starts_with("__"))
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.ty.no_member_with(ty, name, span, declared)
     }
 }

@@ -4,6 +4,20 @@ use crate::ast::ExprKind as E;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, ast, err};
 
+thread_local! {
+    /// Where the name of each named argument is written, by the span of its value: a
+    /// `CallArg` keeps only the value's span, and a fix for a wrong name replaces just the name.
+    static ARGUMENT_NAMES: std::cell::RefCell<crate::fxhash::HashMap<Span, Span>> =
+        std::cell::RefCell::new(crate::fxhash::HashMap::default());
+}
+
+/// Remember that the argument whose value is at `value` is named at `name`.
+pub(super) fn note_argument_name(value: Span, name: Span) {
+    ARGUMENT_NAMES.with(|names| {
+        names.borrow_mut().insert(value, name);
+    });
+}
+
 /// C default argument promotions for variadic arguments.
 pub(super) fn c_vararg_promote(
     c: &mut Compiler,
@@ -140,22 +154,45 @@ pub(super) fn assign_slots(
                     .iter()
                     .filter_map(|p| p.name.map(|n| n.name.as_str()))
                     .collect();
-                let help = match crate::suggest::closest(name.as_str(), names.iter().copied()) {
-                    Some(near) => format!("did you mean `{near}`?"),
-                    None if names.is_empty() => "this procedure has no named parameters".into(),
-                    None => format!(
-                        "its parameters are {}",
-                        names
+                let mut d = Diagnostic::error(arg.span, format!("no parameter named `{name}`"));
+                match crate::suggest::closest(name.as_str(), names.iter().copied()) {
+                    Some(near) => {
+                        let written =
+                            ARGUMENT_NAMES.with(|names| names.borrow().get(&arg.span).copied());
+                        d = match written {
+                            // Only the name changes, not the value after it.
+                            Some(name_span) => d.with_replacement(
+                                format!("did you mean `{near}`?"),
+                                name_span,
+                                near,
+                            ),
+                            None => d.with_help(format!("did you mean `{near}`?")),
+                        };
+                        if let Some(param) = params
                             .iter()
-                            .map(|n| format!("`{n}`"))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ),
-                };
-                return Err(Box::new(
-                    Diagnostic::error(arg.span, format!("no parameter named `{name}`"))
-                        .with_help(help),
-                ));
+                            .find(|p| p.name.map(|n| n.name.as_str()) == Some(near))
+                        {
+                            d = d.with_note(
+                                param.span,
+                                format!("parameter `{near}` is declared here"),
+                            );
+                        }
+                    }
+                    None if names.is_empty() => {
+                        d = d.with_help("this procedure has no named parameters");
+                    }
+                    None => {
+                        d = d.with_help(format!(
+                            "its parameters are {}",
+                            names
+                                .iter()
+                                .map(|n| format!("`{n}`"))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ));
+                    }
+                }
+                return Err(Box::new(d));
             };
             if slots[p].is_some() {
                 return Err(Box::new(
