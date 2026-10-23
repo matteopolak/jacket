@@ -284,7 +284,12 @@ impl Compiler {
                 .enum_info(*e)
                 .members
                 .iter()
-                .any(|(n, _)| *n == name));
+                .any(|(n, _)| *n == name)
+                || self
+                    .ty
+                    .enum_borrowed
+                    .get(&target)
+                    .is_some_and(|names| names.iter().any(|(n, _)| *n == name)));
         }
         if self.struct_constant(target, name)?.is_some() {
             return Ok(true);

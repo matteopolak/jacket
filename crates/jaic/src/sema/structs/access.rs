@@ -391,6 +391,18 @@ impl Compiler {
                         untyped: false,
                     });
                 }
+                if let Some(&(_, v)) = self
+                    .ty
+                    .enum_borrowed
+                    .get(&t)
+                    .and_then(|names| names.iter().find(|(n, _)| *n == name))
+                {
+                    return Ok(Operand::Const {
+                        ty: t,
+                        value: Value::Int(v),
+                        untyped: false,
+                    });
+                }
                 Err(Box::new(self.ty.no_member(t, name, span)))
             }
             TypeKind::Struct(_) => {

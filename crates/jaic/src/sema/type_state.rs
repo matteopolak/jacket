@@ -41,6 +41,9 @@ pub struct TypeState {
     pub info_flags: HashMap<TypeId, u32>,
     pub anonymous: HashMap<(ast::AstId, ScopeId), TypeId>,
     pub(in crate::sema) enum_member_scopes: HashMap<TypeId, ScopeId>,
+    /// Names an enum reaches through `using Other;` in its body, with their values. They are
+    /// not members of the enum.
+    pub(in crate::sema) enum_borrowed: HashMap<TypeId, Vec<(Sym, i128)>>,
     /// `using,only(...) field.path;` aliases declared in struct bodies.
     pub member_aliases: HashMap<StructId, Vec<structs::MemberAlias>>,
     /// `using,only(..)`/`using,except(..)` on struct members: field index and filter.
@@ -75,6 +78,7 @@ impl Default for TypeState {
             info_flags: HashMap::default(),
             anonymous: HashMap::default(),
             enum_member_scopes: HashMap::default(),
+            enum_borrowed: HashMap::default(),
             member_aliases: HashMap::default(),
             using_filters: HashMap::default(),
             default_images: HashMap::default(),

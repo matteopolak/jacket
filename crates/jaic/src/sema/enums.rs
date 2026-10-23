@@ -191,7 +191,7 @@ impl Compiler {
                     )?;
                 }
                 ast::EnumItem::Using(value) => {
-                    self.collect_enum_using(value, scope, ty, previous, out)?;
+                    self.collect_enum_using(value, scope, ty)?;
                 }
                 ast::EnumItem::Insert(value) => {
                     let inserted = self.eval_insert_enum_items(scope, value)?;
@@ -202,15 +202,9 @@ impl Compiler {
         Ok(())
     }
 
-    /// `using Other;` in an enum body declares `Other`'s members here, with the same values.
-    fn collect_enum_using(
-        &mut self,
-        value: &ast::Expr,
-        scope: ScopeId,
-        ty: TypeId,
-        previous: &mut Option<EntityId>,
-        out: &mut Vec<EntityId>,
-    ) -> Result<()> {
+    /// `using Other;` in an enum body makes `Other`'s names reachable through this enum, with
+    /// their values. They are not members of this enum, and do not shift its numbering.
+    fn collect_enum_using(&mut self, value: &ast::Expr, scope: ScopeId, ty: TypeId) -> Result<()> {
         let source = self.eval_type(scope, value)?;
         let TypeKind::Enum(source_id) = *self.ty.types.kind(source) else {
             return err(value.span, "`using` in an enum body needs an enum type");
@@ -229,7 +223,7 @@ impl Compiler {
                     format!("enum member `{name}` is declared more than once"),
                 );
             }
-            let id = self.add_entity(
+            self.add_entity(
                 scope,
                 name,
                 value.span,
@@ -240,8 +234,12 @@ impl Compiler {
                 true,
             );
             self.ide_note_enum_member(enum_id, name, value.span);
-            out.push(id);
-            *previous = Some(id);
+            // Reachable as `E.name`, but not a member of `E`: it is not listed or counted.
+            self.ty
+                .enum_borrowed
+                .entry(ty)
+                .or_default()
+                .push((name, member_value));
         }
         Ok(())
     }
