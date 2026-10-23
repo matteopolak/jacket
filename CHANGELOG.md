@@ -9,6 +9,7 @@
 - `Autorun` runs workspaces on Windows.
 - `Deep_Copy` and `Overwriting_Allocator` work on wasm.
 - `Vulkan` works on macOS.
+- `Extensions/SIMD` detects CPU features at run time, `#target_features` compiles a procedure for extra ones, and `Extensions/Byte_Search` uses 32-byte versions where available.
 - The crash handler reports crashes on Windows arm64.
 - The crash handler reports stack overflows, including on threads made with `Thread`.
 - `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` are available as compiler constants.
@@ -17,6 +18,7 @@
 
 ### Improved
 
+- `String` searches and `compare` on long text, and `array_find` on integer arrays, are several times faster.
 - The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.
 - Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
 - Typing in one program no longer makes the language server recheck other open programs that don't use the file.

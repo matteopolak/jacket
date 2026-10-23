@@ -20,6 +20,7 @@ One program per performance-critical part of the standard library, in `benchmark
 | `stdlib-math` | `Math`: `sqrt`, `sin`, `cos`, `atan2`, `exp`, `log`, `floor`, `abs` |
 | `stdlib-bit-array` | `Bit_Array`: set, clear, toggle, iteration |
 | `stdlib-paths` | `String` path helpers: `path_filename`, `path_strip_filename`, `path_extension`, `path_strip_extension` |
+| `stdlib-scan` | `String` and `Basic` over long inputs: byte, any-of and substring search from both ends, `compare`, `array_find` on `s32` and `u8`, plus short-string searches that must not get slower |
 | `stdlib-hash` | `Hash`: `fnv1a_hash`, `sdbm_hash`, `djb2_hash`, `get_hash` of integers and strings |
 
 ## How to run it
@@ -52,7 +53,12 @@ These are the changes the programs above measure; keep them when editing the lib
 - `Hash`: `sdbm_hash` and `djb2_hash` fold four bytes per step (`value * M^4 + b0 * M^3 + ...`, with the powers wrapped to 32 bits). `fnv1a_hash` stays a plain loop: FNV-1a is serial per byte, and unrolling it stops the table lookup from inlining it, which costs more on short keys than it saves.
 - `Unicode`: ASCII returns before any table lookup; two- to four-byte sequences are decoded and encoded without loops.
 - Integer formatting: digits are written backwards into a stack buffer, two decimal digits per division (a `"00".."99"` table), shifts and masks for power-of-two bases, then appended once with the padding. `print_to_builder` appends literal text between `%` signs in one `append`, and `render_item` checks for integers before anything else.
+- `String` searches: byte, any-of and substring searches switch to `Byte_Search` once the string is at least 64 bytes (substring: a 64-byte scalar probe first, vectors from 256 bytes), `compare` calls `memcmp` from 32 bytes, and the path helpers stay scalar (their needle is a constant the compiler unrolls). `stdlib-scan` runs about 5x fewer instructions than the scalar versions; `stdlib-paths` is unchanged.
+- `array_find` without a custom `compare`, on 1-, 2-, 4- and 8-byte elements, tests 128 bytes per step with an OR-reduce LLVM vectorizes, and rescans only the block that hit (`internal/array-scan`). It is a plain loop, so it also runs on wasm.
+- Measured and left alone: strict UTF-8 validation (the scalar loop is already fast on ASCII-heavy text) and the `%` scan in `print_to_builder` (`Basic` cannot import `Byte_Search`; its scan runs over short templates).
 - `Random`: the float helpers scale the low 24 bits of one `random_get`.
+
+Two programs outside the table are timed by themselves: `benchmarks/stdlib/byte-search.jai` (the 16-byte, 32-byte and picked versions of `Byte_Search`) and `benchmarks/stdlib/log-scan.jai` (a log scanner built on `Byte_Search`, about 0.9 GB/s on an Apple M-series core). On arm64 the 32-byte versions are two NEON registers wide; only x64 with AVX2 runs them as 256-bit code.
 
 Float parsing and formatting (`formatFloat`, most of `stdlib-strings`) are tuned separately.
 
