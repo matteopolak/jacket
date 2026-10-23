@@ -511,8 +511,26 @@ impl Compiler {
             self.signature(id, span)?;
             return Ok(());
         }
+        if self.waits_for_a_call(id) {
+            self.signature(id, span)?;
+            return Ok(());
+        }
         self.proc_func(id, span)?;
         self.drain_bodies()
+    }
+
+    /// Whether the body of unreferenced procedure `id` is left alone until something calls it: a
+    /// procedure that a file-scope `#insert` declares has its header checked at once, but not
+    /// its body, so generated overloads nothing uses may name things that do not exist. Only
+    /// the default `dead_code_elimination` leaves them; `.NONE` checks every body.
+    fn waits_for_a_call(&self, id: ProcId) -> bool {
+        let p = self.proc(id);
+        self.options.dead_code == DeadCode::ModulesOnly
+            && matches!(
+                self.scope(p.scope).kind,
+                ScopeKind::Module | ScopeKind::File
+            )
+            && self.src.insert_depth.contains_key(&p.span.file)
     }
 
     /// Lay out every top-level struct and union declaration, also those nothing uses.

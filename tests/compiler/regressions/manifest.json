@@ -570,5 +570,11 @@
     "required_capabilities": [
       "native Basic.exit assertion/termination path"
     ]
+  },
+  {
+    "name": "negative/inserted-procedure-called",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `Missing_Buffer`",
+    "positive_baseline": "inserted-procedure-bodies-wait"
   }
 ]
