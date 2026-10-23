@@ -58,6 +58,7 @@
         "jai.stdlib.path",
         "jai.stdlib.prelude",
         "jai.toolchain.autoDownload",
+        "jai.toolchain.preferDownloaded",
         "jai.run.arguments"
       ]
     }
@@ -299,6 +300,12 @@
           "default": "prompt",
           "scope": "machine",
           "markdownDescription": "What to do when no `jailsp` is configured or on `PATH`: download the toolchain release whose version matches this extension from github.com/matteopolak/jacket, verified against pinned SHA-256 checksums."
+        },
+        "jai.toolchain.preferDownloaded": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "markdownDescription": "Use the toolchain the extension downloaded ahead of `PATH` when `jai.server.path` and `jai.compiler.path` are empty. Set by the warning shown when `PATH` has an older toolchain than this extension expects."
         },
         "jai.completion.autoImport": {
           "type": "boolean",

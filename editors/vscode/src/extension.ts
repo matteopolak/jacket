@@ -7,6 +7,7 @@ import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, find
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
 import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
 import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
+import { acceptedKey, probeVersion, staleMessage, staleToolchain } from "./pathVersion";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
 /** Editable config buffers; jailsp applies their contents on save. */
@@ -20,6 +21,8 @@ let serverOutput: vscode.LogOutputChannel;
 let toolchain: ToolchainManager;
 let installed: Installed | undefined;
 let lifecycle: Promise<void> = Promise.resolve();
+const ACCEPTED_KEY = "jai.toolchain.acceptedStale";
+let extensionContext: vscode.ExtensionContext;
 
 function settings(): Settings {
   const config = vscode.workspace.getConfiguration("jai");
@@ -27,6 +30,7 @@ function settings(): Settings {
     serverPath: config.get<string>("server.path"),
     compilerPath: config.get<string>("compiler.path"),
     formatterPath: config.get<string>("formatter.path"),
+    preferToolchain: config.get<boolean>("toolchain.preferDownloaded", false),
   };
 }
 
@@ -59,6 +63,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     void offerToUninstallOldExtensions(old);
     return { client: () => undefined };
   }
+  extensionContext = context;
   log = vscode.window.createOutputChannel("Jai", { log: true });
   void offerToMigrate(context);
   serverOutput = vscode.window.createOutputChannel("Jai Language Server", { log: true });
@@ -92,7 +97,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     ),
     vscode.languages.registerDocumentFormattingEditProvider({ language: "jai" }, { provideDocumentFormattingEdits: formatDocument }),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (["jai.server.path", "jai.compiler.path", "jai.stdlib.path", "jai.stdlib.prelude"].some((s) => event.affectsConfiguration(s))) {
+      if (["jai.server.path", "jai.compiler.path", "jai.toolchain.preferDownloaded", "jai.stdlib.path", "jai.stdlib.prelude"].some((s) => event.affectsConfiguration(s))) {
         void restart(expansions);
       } else if (event.affectsConfiguration("jai")) {
         void schedule(async () => {
@@ -163,6 +168,33 @@ async function replaceServer(expansions: ExpansionDocuments): Promise<void> {
   await startServer(expansions);
 }
 
+/** Offers a newer toolchain when the PATH one is older than this extension expects. */
+async function warnIfStale(server: { path: string; source: string }, expansions: ExpansionDocuments): Promise<void> {
+  const stale = await staleToolchain({
+    found: server,
+    expected: toolchain.version,
+    accepted: extensionContext.globalState.get<string[]>(ACCEPTED_KEY, []),
+    preferDownloaded: settings().preferToolchain === true,
+    probe: probeVersion,
+  });
+  if (!stale) return;
+  log.warn(`${stale.path} is ${stale.version}; expected ${stale.expected}`);
+  const download = "Download Latest Toolchain";
+  const keep = "Keep Using It";
+  const choice = await vscode.window.showWarningMessage(staleMessage(stale), download, keep);
+  if (choice === keep) {
+    const accepted = extensionContext.globalState.get<string[]>(ACCEPTED_KEY, []);
+    await extensionContext.globalState.update(ACCEPTED_KEY, [...accepted, acceptedKey(stale.path, stale.version)]);
+  } else if (choice === download) {
+    const result = await toolchain.download();
+    if (!result) return;
+    installed = result;
+    await vscode.workspace.getConfiguration("jai").update("toolchain.preferDownloaded", true, vscode.ConfigurationTarget.Global);
+    // The setting change restarts the server; restart explicitly if it was already true.
+    await restart(expansions);
+  }
+}
+
 async function startServer(expansions: ExpansionDocuments): Promise<void> {
   const env = nodeEnvironment();
   let misconfigured = false;
@@ -188,6 +220,7 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
       }
     });
   }
+  if (server?.source === "path") void warnIfStale(server, expansions);
   if (!server) {
     log.warn("jailsp not found; the language server is not running");
     return;

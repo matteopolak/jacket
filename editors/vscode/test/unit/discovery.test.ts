@@ -87,3 +87,23 @@ describe("binary discovery", () => {
     assert.equal(expandPath("${env:JAI_HOME}/jailsp", env, { JAI_HOME: "/opt/jai" }), "/opt/jai/jailsp");
   });
 });
+
+describe("preferring the downloaded toolchain", () => {
+  const files = ["/usr/bin/jailsp", "/usr/bin/jaic", "/tc/jailsp", "/tc/jaic"];
+  it("picks the download over PATH when asked", () => {
+    const env = machine(files);
+    assert.deepEqual(findServer({ preferToolchain: true }, env, "/tc"), { path: "/tc/jailsp", source: "toolchain" });
+    assert.deepEqual(findCompiler({ preferToolchain: true }, env, "/tc"), { path: "/tc/jaic", source: "toolchain" });
+  });
+
+  it("keeps PATH first by default and falls back to PATH without a download", () => {
+    const env = machine(files);
+    assert.equal(findServer({}, env, "/tc")?.path, "/usr/bin/jailsp");
+    assert.equal(findServer({ preferToolchain: true }, env)?.path, "/usr/bin/jailsp");
+  });
+
+  it("still honours jai.server.path", () => {
+    const env = machine([...files, "/custom/jailsp"]);
+    assert.equal(findServer({ serverPath: "/custom/jailsp", preferToolchain: true }, env, "/tc")?.source, "setting");
+  });
+});

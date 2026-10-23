@@ -4,6 +4,7 @@
 
 ### New
 
+- The VS Code extension warns when `PATH` has an older toolchain than it expects, and can switch to its downloaded one.
 - `BuildCpp` builds C and C++ on Windows x64 and arm64, with MSVC or `clang-cl`.
 - `Autorun` runs workspaces on Windows.
 - `Deep_Copy` and `Overwriting_Allocator` work on wasm.

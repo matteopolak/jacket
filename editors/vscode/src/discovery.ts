@@ -77,6 +77,8 @@ export interface Settings {
   serverPath?: string;
   compilerPath?: string;
   formatterPath?: string;
+  /** Use the downloaded toolchain ahead of `PATH` (`jai.toolchain.preferDownloaded`). */
+  preferToolchain?: boolean;
 }
 
 /** A configured path that does not exist: an error, never a silent fallback. */
@@ -97,12 +99,14 @@ function configuredTool(value: string | undefined, setting: string, env: Environ
 }
 
 /**
- * The compiler: `jai.compiler.path`, else `jaic` on PATH, else in the downloaded toolchain
+ * The compiler: `jai.compiler.path`, else the downloaded toolchain when preferred, else `jaic` on PATH, else in the downloaded toolchain
  * (`toolchainDir`).
  */
 export function findCompiler(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
   const fromSetting = configuredTool(settings.compilerPath, "jai.compiler.path", env);
   if (fromSetting) return fromSetting;
+  const downloaded = settings.preferToolchain ? inToolchain("jaic", env, toolchainDir) : undefined;
+  if (downloaded) return downloaded;
   const fromPath = onPath("jaic", env);
   if (fromPath) return { path: fromPath, source: "path" };
   return inToolchain("jaic", env, toolchainDir);
@@ -115,6 +119,8 @@ export function findCompiler(settings: Settings, env: Environment, toolchainDir?
 export function findServer(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
   const fromSetting = configuredTool(settings.serverPath, "jai.server.path", env);
   if (fromSetting) return fromSetting;
+  const downloaded = settings.preferToolchain ? inToolchain("jailsp", env, toolchainDir) : undefined;
+  if (downloaded) return downloaded;
   const fromPath = onPath("jailsp", env);
   if (fromPath) return { path: fromPath, source: "path" };
   const compiler = findCompiler(settings, env);
@@ -130,6 +136,8 @@ export function findServer(settings: Settings, env: Environment, toolchainDir?: 
 export function findFormatter(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
   const fromSetting = configuredTool(settings.formatterPath, "jai.formatter.path", env);
   if (fromSetting) return fromSetting;
+  const downloaded = settings.preferToolchain ? inToolchain("jaifmt", env, toolchainDir) : undefined;
+  if (downloaded) return downloaded;
   const fromPath = onPath("jaifmt", env);
   if (fromPath) return { path: fromPath, source: "path" };
   const compiler = findCompiler(settings, env);
