@@ -1,6 +1,6 @@
 //! The file system the compiler reads sources through, and finding a module on it.
 use crate::paths::normalize;
-use crate::sema::{HashMap, PathBuf, Rc, ast};
+use crate::sema::{HashMap, HashSet, PathBuf, Rc, ast};
 use std::path::Path;
 
 /// Source access. Native builds read the filesystem; the browser supplies a
@@ -78,12 +78,26 @@ impl FileSystem for NativeFs {
 
 #[derive(Default)]
 pub struct VirtualFs {
-    pub files: HashMap<PathBuf, Rc<[u8]>>,
+    files: HashMap<PathBuf, Rc<[u8]>>,
+    /// Every directory holding a file, however deep: `is_dir` is asked for each path the
+    /// compiler canonicalizes, and a scan of `files` for each is quadratic in the library size.
+    dirs: HashSet<PathBuf>,
 }
 
 impl VirtualFs {
     pub fn insert(&mut self, path: impl Into<PathBuf>, bytes: impl Into<Rc<[u8]>>) {
-        self.files.insert(normalize(&path.into()), bytes.into());
+        let path = normalize(&path.into());
+        for dir in path.ancestors().skip(1) {
+            if !self.dirs.insert(dir.to_path_buf()) {
+                break;
+            }
+        }
+        self.files.insert(path, bytes.into());
+    }
+
+    /// The files by normalized path.
+    pub fn files(&self) -> &HashMap<PathBuf, Rc<[u8]>> {
+        &self.files
     }
 }
 
@@ -97,8 +111,7 @@ impl FileSystem for VirtualFs {
     }
 
     fn is_dir(&self, path: &Path) -> bool {
-        let p = normalize(path);
-        self.files.keys().any(|k| k.starts_with(&p) && k != &p)
+        self.dirs.contains(&normalize(path))
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
