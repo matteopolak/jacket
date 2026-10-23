@@ -300,8 +300,36 @@ directive_follows :: (src: string, at: s64) -> bool {
 at_leading_dot_float :: (src: string, at: s64) -> bool {
     if src[at] != #char "." || at + 1 >= src.count || !is_digit(src[at + 1]) return false;
     if at == 0 return true;
+
     prev := src[at - 1];
-    return !(is_ident_char(prev) || prev == #char ")" || prev == #char "]" || prev == #char "." || prev == #char "\"");
+    if prev == #char ")" return closes_cast(src, at - 1);
+
+    return !(is_ident_char(prev) || prev == #char "]" || prev == #char "." || prev == #char "\"");
+}
+
+// Whether the `)` at `close` ends a `cast(...)` prefix, which takes an operand after it.
+closes_cast :: (src: string, close: s64) -> bool {
+    depth := 0;
+    at := close;
+
+    while true {
+        if src[at] == #char ")" {
+            depth += 1;
+        } else if src[at] == #char "(" {
+            depth -= 1;
+            if depth == 0 break;
+        }
+
+        if at == 0 return false;
+
+        at -= 1;
+    }
+
+    end := at;
+    while end > 0 && (src[end - 1] == #char " " || src[end - 1] == #char "\t") end -= 1;
+    if end < 4 || src[end - 4] != #char "c" || src[end - 3] != #char "a" || src[end - 2] != #char "s" || src[end - 1] != #char "t" return false;
+
+    return end == 4 || !is_ident_char(src[end - 5]);
 }
 
 lex_number :: (src: string, at: *s64) {

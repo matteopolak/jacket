@@ -331,9 +331,40 @@ impl<'a> Lexer<'a> {
     fn at_leading_dot_float(&self) -> bool {
         let after_operand = self.at > 0 && {
             let prev = self.src[self.at - 1];
-            is_ident_char(prev) || matches!(prev, b')' | b']' | b'.' | b'"')
+            is_ident_char(prev)
+                || matches!(prev, b']' | b'.' | b'"')
+                || (prev == b')' && !self.closes_cast(self.at - 1))
         };
         self.peek(0) == b'.' && self.peek(1).is_ascii_digit() && !after_operand
+    }
+
+    /// True if the `)` at `close` ends a `cast(...)` prefix, which takes an operand after it.
+    fn closes_cast(&self, close: usize) -> bool {
+        let mut depth = 0usize;
+        let mut at = close;
+        loop {
+            match self.src[at] {
+                b')' => depth += 1,
+                b'(' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            if at == 0 {
+                return false;
+            }
+            at -= 1;
+        }
+        let mut end = at;
+        while end > 0 && matches!(self.src[end - 1], b' ' | b'\t') {
+            end -= 1;
+        }
+        end >= 4
+            && &self.src[end - 4..end] == b"cast"
+            && (end == 4 || !is_ident_char(self.src[end - 5]))
     }
 
     fn ident(&mut self) -> &'a str {
