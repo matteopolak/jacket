@@ -33,24 +33,24 @@ set_all :: (using fpm: *Free_Page_Map) {
 
 is_free_page :: (using fpm: Free_Page_Map, page_number: UPN) -> bool {
     word, mask := msf_page_bit(fpm, page_number);
-    bits := cast(u64) fpm.rgw[word];
+    bits := cast,no_check(u64) fpm.rgw[word];
     return (bits & mask) != 0;
 }
 
 alloc_page :: (using fpm: *Free_Page_Map, page_number: UPN) {
     assert(fpm != null, "Debug_Info: null free-page map");
     word, mask := msf_page_bit(fpm.*, page_number);
-    bits := cast(u64) fpm.rgw[word];
+    bits := cast,no_check(u64) fpm.rgw[word];
     bits &= ~mask;
-    fpm.rgw[word] = cast(s64) bits;
+    fpm.rgw[word] = cast,no_check(s64) bits;
 }
 
 free_page :: (using fpm: *Free_Page_Map, page_number: UPN) {
     assert(fpm != null, "Debug_Info: null free-page map");
     word, mask := msf_page_bit(fpm.*, page_number);
-    bits := cast(u64) fpm.rgw[word];
+    bits := cast,no_check(u64) fpm.rgw[word];
     bits |= mask;
-    fpm.rgw[word] = cast(s64) bits;
+    fpm.rgw[word] = cast,no_check(s64) bits;
 }
 
 is_fpm_page_number :: (using fpm: Free_Page_Map, pn: UPN) -> bool {
