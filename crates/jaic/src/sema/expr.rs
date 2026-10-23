@@ -48,17 +48,6 @@ pub(super) fn takes_sibling_type(e: &ast::Expr, sibling: &ast::Expr) -> bool {
     waits(e) && !waits(sibling)
 }
 
-/// Where an expected type comes from. A target is the type the value is for (a declaration, a
-/// parameter, a cast); a hint is the type of a sibling the value is combined with, such as the
-/// other operand of a binary operator. Only a target can reject a value: `c - (ifx up then 32
-/// else 0)` with a `u16` `c` takes its untyped arms as `u16`, where `x: u16 = ifx up then 32
-/// else 0` makes them `s64` and is an error.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Want {
-    Target,
-    Hint,
-}
-
 /// `ifx cond else e` without a `then`: the interesting part of the condition is the value.
 /// `!x` and `!f(x)` give `x`, `x >= y` gives `x` and a call `f(x, ...)` gives `x`.
 fn implicit_then_expr(cond: &ast::Expr) -> Option<&ast::Expr> {
@@ -84,29 +73,8 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
-        self.check_expr_for(f, scope, expr, (expected, Want::Target))
-    }
-
-    /// `expr` as a sibling of another expression, whose type is `hint`.
-    pub(super) fn check_expr_hinted(
-        &mut self,
-        f: &mut FnCtx,
-        scope: ScopeId,
-        expr: &ast::Expr,
-        hint: Option<TypeId>,
-    ) -> Result<Operand> {
-        self.check_expr_for(f, scope, expr, (hint, Want::Hint))
-    }
-
-    fn check_expr_for(
-        &mut self,
-        f: &mut FnCtx,
-        scope: ScopeId,
-        expr: &ast::Expr,
-        (expected, want): (Option<TypeId>, Want),
-    ) -> Result<Operand> {
         self.ed.sketch_tried(expr.span);
-        let mut result = self.check_expr_kind(f, scope, expr, (expected, want));
+        let mut result = self.check_expr_kind(f, scope, expr, expected);
         self.ed.expr_checked(expr.span, result.is_ok());
         if result.is_err()
             && self.ed.recovers_exprs()
@@ -144,7 +112,7 @@ impl Compiler {
         f: &mut FnCtx,
         scope: ScopeId,
         expr: &ast::Expr,
-        (expected, want): (Option<TypeId>, Want),
+        expected: Option<TypeId>,
     ) -> Result<Operand> {
         match &expr.kind {
             E::Ident(..)
@@ -185,7 +153,7 @@ impl Compiler {
             | E::Lambda {
                 ..
             }
-            | E::Block(..) => self.check_operator_expr(f, scope, expr, (expected, want)),
+            | E::Block(..) => self.check_operator_expr(f, scope, expr, expected),
             E::ArrayType {
                 ..
             }
@@ -296,7 +264,7 @@ impl Compiler {
         f: &mut FnCtx,
         scope: ScopeId,
         expr: &ast::Expr,
-        (expected, want): (Option<TypeId>, Want),
+        expected: Option<TypeId>,
     ) -> Result<Operand> {
         let span = expr.span;
         match &expr.kind {
@@ -483,7 +451,7 @@ impl Compiler {
                     scope,
                     (cond, *is_static),
                     (then_value.as_deref(), Some(e)),
-                    (expected, want),
+                    expected,
                     span,
                 ),
                 // `ifx c then a` / `ifx c`: the value, or zero when the condition is false.
@@ -492,7 +460,7 @@ impl Compiler {
                     scope,
                     (cond, *is_static),
                     (then_value.as_deref(), None),
-                    (expected, want),
+                    expected,
                     span,
                 ),
             },

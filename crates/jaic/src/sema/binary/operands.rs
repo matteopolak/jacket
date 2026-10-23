@@ -36,7 +36,7 @@ impl Compiler {
         // Shifts type their operands apart.
         let mut early_rhs = None;
         let mut lhs = if !is_shift && takes_sibling_type(a, b) {
-            let r = self.check_expr_hinted(f, scope, b, lhs_expected)?;
+            let r = self.check_expr(f, scope, b, lhs_expected)?;
             let typed = !matches!(
                 r,
                 Operand::Const {
@@ -49,7 +49,7 @@ impl Compiler {
             } else {
                 lhs_expected
             };
-            let l = self.check_expr_hinted(f, scope, a, hint)?;
+            let l = self.check_expr(f, scope, a, hint)?;
             early_rhs = Some(r);
             l
         } else if lhs_expected.is_some() && is_number_literal(a) {
@@ -60,7 +60,7 @@ impl Compiler {
             self.check_expr(f, scope, a, None)?
         } else {
             let own = is_complement_literal(a) && !is_shift && !is_cmp;
-            self.check_expr_hinted(
+            self.check_expr(
                 f,
                 scope,
                 a,
@@ -97,7 +97,7 @@ impl Compiler {
         let mut rhs = if let Some(r) = early_rhs {
             r
         } else {
-            self.check_expr_hinted(
+            self.check_expr(
                 f,
                 scope,
                 b,

@@ -2,6 +2,6 @@
 
 main :: () {
     wide := true;
-    base: u64 = ifx wide then 1024 else 1000;
+    base: u8 = ifx wide then 1 else 300;
     print("%\n", base);
 }

@@ -1,6 +1,6 @@
 #import "Basic";
 
 main :: () {
-    c: u64 = ifx true then 1 else 2;
+    c: u8 = ifx true then 1 else 256;
     print("%\n", c);
 }

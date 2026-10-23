@@ -1,5 +1,5 @@
 //! `ifx` expressions: branch agreement and constant folding.
-use super::{Want, implicit_then_expr, takes_sibling_type};
+use super::{implicit_then_expr, takes_sibling_type};
 use crate::sema::convert::int_fits;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
@@ -60,7 +60,7 @@ impl Compiler {
         &mut self,
         (then_op, else_op): (&Operand, &Operand),
         (then_e, else_e): (&ast::Expr, &ast::Expr),
-        (expected, want): (Option<TypeId>, Want),
+        expected: Option<TypeId>,
         span: Span,
     ) -> Result<()> {
         if matches!(
@@ -71,32 +71,6 @@ impl Compiler {
             Operand::Procs(_) | Operand::Void | Operand::Type(_)
         ) {
             return Ok(());
-        }
-        // Two untyped integer arms make an `s64`, which an unsigned target does not take.
-        let untyped_int = |o: &Operand| {
-            matches!(
-                o,
-                Operand::Const {
-                    value: Value::Int(_),
-                    untyped: true,
-                    ..
-                }
-            )
-        };
-        if want == Want::Target
-            && untyped_int(then_op)
-            && untyped_int(else_op)
-            && let Some(want) = expected
-            && let Some((_, false)) = self.ty.types.int_info(self.ty.types.repr(want))
-        {
-            let wanted = self.ty.types.name(want).clone();
-            return Err(Box::new(Diagnostic::error(
-                span,
-                format!(
-                    "Number signedness mismatch. Type wanted: {wanted}; type given: {}.",
-                    self.ty.types.name(TypeId::S64)
-                ),
-            )));
         }
         let (tt, et) = (
             Self::ifx_branch_type(then_op),
@@ -152,7 +126,7 @@ impl Compiler {
         scope: ScopeId,
         cond_holds: bool,
         (then_e, else_e): (&ast::Expr, &ast::Expr),
-        (expected, want): (Option<TypeId>, Want),
+        expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
         let (taken_e, other_e) = if cond_holds {
@@ -182,7 +156,20 @@ impl Compiler {
         } else {
             (&other, &taken)
         };
-        self.ifx_branch_agreement((then_op, else_op), (then_e, else_e), (expected, want), span)?;
+        self.ifx_branch_agreement((then_op, else_op), (then_e, else_e), expected, span)?;
+        // The arm not taken must still fit an integer target: `x: u8 = ifx true then 1 else 256`.
+        if let (
+            Some(e),
+            Operand::Const {
+                ty,
+                value: value @ Value::Int(_),
+                untyped: true,
+            },
+        ) = (expected, &other)
+            && self.ty.types.is_integer(self.ty.types.repr(e))
+        {
+            self.convert_const(*ty, value, true, e, other_e.span)?;
+        }
         // A one-character string only becomes a byte where a string is converted directly,
         // not through `ifx`.
         if let (
@@ -214,7 +201,7 @@ impl Compiler {
         scope: ScopeId,
         (cond, is_static): (&ast::Expr, bool),
         (then_value, else_value): (Option<&ast::Expr>, Option<&ast::Expr>),
-        (expected, want): (Option<TypeId>, Want),
+        expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
         let cond_op = self.check_expr(
@@ -249,14 +236,7 @@ impl Compiler {
                     return self.check_expr(f, scope, arm, expected);
                 }
                 if let (Some(then_e), Some(else_e)) = (then_value, else_value) {
-                    return self.fold_constant_ifx(
-                        f,
-                        scope,
-                        t,
-                        (then_e, else_e),
-                        (expected, want),
-                        span,
-                    );
+                    return self.fold_constant_ifx(f, scope, t, (then_e, else_e), expected, span);
                 }
                 if t {
                     return self.check_expr(f, scope, then_value.unwrap(), expected);
@@ -333,12 +313,7 @@ impl Compiler {
             (None, None) => None,
         };
         if let (Some(then_e), Some(else_e), Some(else_op)) = (then_value, else_value, &else_op) {
-            self.ifx_branch_agreement(
-                (&then_op, else_op),
-                (then_e, else_e),
-                (expected, want),
-                span,
-            )?;
+            self.ifx_branch_agreement((&then_op, else_op), (then_e, else_e), expected, span)?;
         }
         // Without a target type, a narrower numeric then-value widens to the else-value's
         // type (`ifx hit then entry.score_s16 else evaluate()` is an `s64`).

@@ -3740,27 +3740,27 @@
     {
       "id": "ifx-untyped-arms-unsigned-target",
       "source": "negative/ifx-untyped-arms-unsigned-target.jai",
-      "sha256": "bfd7f000182b9fc0658c6ceeba138aef2d307531b85bf5b416a193917e8c5d30",
+      "sha256": "492fb4fa4e9589d729d5139b2ea87b6f4bd3fc656eb4277278976f2b9b0c5f16",
       "suite": "negative",
-      "feature": "An ifx of two untyped numbers is signed and does not fit an unsigned target",
+      "feature": "An ifx of untyped numbers assigned to an unsigned type needs both numbers to fit it",
       "kind": "negative",
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Number signedness mismatch. Type wanted: u64; type given: s64."
+        "check": "constant 300 does not fit in u8"
       }
     },
     {
       "id": "ifx-constant-condition-unsigned-target",
       "source": "negative/ifx-constant-condition-unsigned-target.jai",
-      "sha256": "c1bde1e085169d5d7aa1673dbb75e13beb46e13d150f6c2dd03103573fe1f9e9",
+      "sha256": "924d3df3c19bd927a312420c7930b0c3577e63bd342966b83f8af5b38dffed53",
       "suite": "negative",
-      "feature": "A constant-condition ifx of two untyped numbers does not fit an unsigned target",
+      "feature": "A constant-condition ifx still checks that the arm not taken fits the target",
       "kind": "negative",
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Number signedness mismatch. Type wanted: u64; type given: s64."
+        "check": "constant 256 does not fit in u8"
       }
     },
     {

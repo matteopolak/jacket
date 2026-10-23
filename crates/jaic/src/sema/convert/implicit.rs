@@ -152,7 +152,7 @@ impl Compiler {
     }
 
     /// Constant-to-constant conversions (returns None when a runtime conversion is needed).
-    fn convert_const(
+    pub(in crate::sema) fn convert_const(
         &mut self,
         ty: TypeId,
         value: &Value,
