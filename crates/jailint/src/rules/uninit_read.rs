@@ -11,9 +11,9 @@
 //! built-in such as `type_of(x)`, or code the scan cannot follow (`#insert`, `#asm`, a macro).
 //! Procedures that use `using` are skipped.
 use super::frees::{local_of, opaque};
-use super::{PlaceUse, finding, place_use, statement_lists};
-use crate::Finding;
+use super::{PlaceUse, finding, place_use, statement_lists, suggesting};
 use crate::syntax::{Cx, Node, walk_node};
+use crate::{Edit, Finding};
 use jaic::ast::{AssignOp, DeclKind, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;
@@ -37,14 +37,30 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     continue;
                 };
                 if let Some(read) = first_read(cx, var, &list[k + 1..]) {
-                    out.push(finding(
-                        read.span,
-                        format!("`{name}` is read here before anything is written to it"),
-                        Some(format!(
-                            "`= ---` leaves `{name}` holding whatever was in memory: give it a \
-                             value first, or drop the `= ---`"
-                        )),
-                    ));
+                    let message = format!("`{name}` is read here before anything is written to it");
+                    let help = format!(
+                        "`= ---` leaves `{name}` holding whatever was in memory: give it a \
+                         value first, or drop the `= ---`"
+                    );
+                    // Without `= ---` the variable starts out zeroed.
+                    let init = match &s.kind {
+                        S::Decl(d) => d.ty.as_ref().zip(d.value.as_ref()),
+                        _ => None,
+                    };
+                    out.push(match init {
+                        Some((ty, value)) => suggesting(
+                            read.span,
+                            message,
+                            help,
+                            "drop the `= ---` so it starts out zeroed",
+                            vec![Edit {
+                                start: cx.whole(ty.span).1,
+                                end: cx.whole(value.span).1,
+                                text: String::new(),
+                            }],
+                        ),
+                        None => finding(read.span, message, Some(help)),
+                    });
                 }
             }
         });
