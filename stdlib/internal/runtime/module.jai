@@ -139,7 +139,7 @@ write_nonnegative_number :: (n: u64, base := 10, to_standard_error := false) #no
 write_number :: (n: s64, base := 10, to_standard_error := false) #no_context #no_abc #no_aoc {
     if n < 0 {
         write_string("-", to_standard_error);
-        write_nonnegative_number(0 - cast(u64) n, base, to_standard_error);
+        write_nonnegative_number(0 - cast,no_check(u64) n, base, to_standard_error);
     } else write_nonnegative_number(cast(u64) n, base, to_standard_error);
 }
 

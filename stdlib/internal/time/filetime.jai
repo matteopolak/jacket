@@ -2,11 +2,11 @@ ticks_to_words :: (ticks: u64) -> (low: u64, high: s64) #no_aoc {
     epoch_low, epoch_high := filetime_epoch();
     high, low := B.multiply_64bits_with_overflow(ticks, 100000000);
     result_low := epoch_low + low;
-    result_high := cast(u64) epoch_high + high;
+    result_high := cast,no_check(u64) epoch_high + high;
 
     if result_low < epoch_low result_high += 1;
 
-    return result_low, cast(s64) result_high;
+    return result_low, cast,no_check(s64) result_high;
 }
 
 words_to_ticks :: (input_low: u64, input_high: s64) -> (ticks: u64, success: bool) #no_aoc {
@@ -14,7 +14,7 @@ words_to_ticks :: (input_low: u64, input_high: s64) -> (ticks: u64, success: boo
     if input_high < epoch_high || (input_high == epoch_high && input_low < epoch_low) return 0, false;
 
     low := input_low - epoch_low;
-    high := cast(u64) input_high - cast(u64) epoch_high;
+    high := cast,no_check(u64) input_high - cast,no_check(u64) epoch_high;
 
     if input_low < epoch_low high -= 1;
 
@@ -36,5 +36,5 @@ filetime_epoch :: () -> (low: u64, high: s64) #no_aoc {
 
     if unix.low < offset.low high -= 1;
 
-    return low, cast(s64) high;
+    return low, cast,no_check(s64) high;
 }

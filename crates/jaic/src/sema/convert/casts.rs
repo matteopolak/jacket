@@ -7,11 +7,10 @@ use crate::sema::{Compiler, Result, Span, TypeId, Value, ast, err, expr, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
-    /// `Build_Options.cast_bounds_check`: before `cast(T) x` (or `xx x`) of a runtime integer to
-    /// a narrower integer type, check that the value fits `T`. Casts to a type at least as wide
-    /// only extend or reinterpret the bits and are never checked: `cast(s64)` of a `u64` and
-    /// `cast(u64)` of a negative `s8` keep their documented results, which programs rely on.
-    /// Returns the operand, evaluated.
+    /// `Build_Options.cast_bounds_check`: before `cast(T) x` (or `xx x`) of a runtime integer,
+    /// check that the value fits `T`. That covers narrowing and every change of sign:
+    /// `cast(u64)` of a negative `s8` and `cast(s64)` of a `u64` above `S64_MAX` fail too.
+    /// `cast,no_check` and `cast,trunc` keep the bits unchecked. Returns the operand, evaluated.
     pub(crate) fn emit_cast_check(
         &mut self,
         f: &mut FnCtx,
@@ -36,7 +35,7 @@ impl Compiler {
             || !plain_int(self, from)
             || !plain_int(self, to)
             || sbits > 64
-            || tbits >= sbits
+            || tbits > 64
         {
             return Ok(op);
         }

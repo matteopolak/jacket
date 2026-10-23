@@ -76,14 +76,14 @@ to_u128 :: (a: $T) -> U128 #modify {
 to_s128 :: (a: $T) -> S128 #modify {
     return (cast(*Type_Info) T).type == .INTEGER, "to_s128 requires a reflected integer type";
 } {
-    return .{ cast,no_check(u64) a, (cast(s64) a) >> 63 };
+    return .{ cast,no_check(u64) a, (cast,no_check(s64) a) >> 63 };
 }
 
 logical_shift_right :: (a: S128, $$x: u8) -> S128 {
     if x == 0 return a;
     if x >= 128 return .{};
 
-    high := cast(u64) a.high;
+    high := cast,no_check(u64) a.high;
     if x >= 64 return .{ high >> (x - 64), 0 };
 
     return .{ (a.low >> x) | (high << (64 - x)), cast(s64) (high >> x) };

@@ -16,7 +16,7 @@ p := (42).(u8);  q := big.(u32, trunc);   // postfix forms
 bits := cast,force(u32) f;           // reinterprets float bits
 ```
 
-- Narrowing integer casts are checked (see below); `trunc` and `no_check` keep the low bits. Casts to an equal or wider type are never checked (`cast(u64)` of `s8 -1` is `u64` max).
+- Integer casts are checked when the value may not fit: narrowing, and any change of sign (see below); `trunc` and `no_check` keep the low bits (`cast,no_check(u64)` of `s8 -1` is `u64` max).
 - Float to integer truncates toward zero. Integer to float rounds once, to nearest even, at the target width (no double rounding through `float64`); the interpreter, constant folding (`int_to_float`) and LLVM agree.
 - A number, enum, pointer or string cast to `bool` compares with zero. Pointers and integers convert both ways. `pointer & int`, `|`, `^` keep the pointer type (allocator code masks pointers). `*void` converts implicitly to and from any pointer. `E.loose` and `E` convert implicitly. A string literal converts to `*u8`; a `string` variable does not.
 - `xx` takes the type the context expects (declaration, parameter, return). In `xx a == b` it takes `b`'s type. As an argument, `xx a | b` takes the parameter's type and the other operand follows (`autocast_arithmetic`); an untyped struct literal in arithmetic does the same (`literal_arithmetic`).
@@ -49,7 +49,7 @@ So `cast(u32) b << 4 | 1` is `cast(u32) ((b << 4) | 1)`; write `(cast(u32) b) <<
 
 ### Cast bounds checks
 
-`Build_Options.cast_bounds_check` (`.FATAL` default, `.NONFATAL`, `.OFF`) checks runtime integer casts to a narrower type. `.NONFATAL` warns and keeps the low bits; `.OFF` keeps them silently; the option applies to metaprogram-created workspaces.
+`Build_Options.cast_bounds_check` (`.FATAL` default, `.NONFATAL`, `.OFF`) checks runtime integer casts whose value may not fit the target: a narrower type or a change of sign. `.NONFATAL` warns and keeps the low bits; `.OFF` keeps them silently; the option applies to metaprogram-created workspaces.
 
 ```
 cast.jai:3:5: error: runtime error: cast of 300 to `u8` overflows
@@ -72,7 +72,7 @@ Tests: `tests/compiler/regressions/lang-conversions.jai`, `cast-operand-typed-bo
 Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - The example produces the values in its comments {#cast.1}; the postfix form takes modifiers after the type {#cast.9}.
-- A cast to a narrower integer type checks that the value fits (see [cast bounds checks](#cast-bounds-checks)); `cast,trunc` and `cast,no_check` keep the low bits instead: `cast,trunc(u8) w` with `w := 300` is `44` {#cast.2}. A cast to a type at least as wide is never checked: `cast(u64) n` with `n: s8 = -1` is `18446744073709551615` {#cast.4}.
+- A cast to a narrower integer type checks that the value fits (see [cast bounds checks](#cast-bounds-checks)); `cast,trunc` and `cast,no_check` keep the low bits instead: `cast,trunc(u8) w` with `w := 300` is `44` {#cast.2}. Unchecked, a value is sign- or zero-extended and its bits reinterpreted: `cast,no_check(u64) n` with `n: s8 = -1` is `18446744073709551615` {#cast.4}.
 - Float-to-integer truncates toward zero: `cast(s64) -3.99` is `-3` {#cast.3}.
 - `cast,force` between a same-size integer and float reinterprets the bits {#cast.5}.
 - A number, enum or pointer cast to `bool` compares with zero {#cast.7}, so the result is exactly `true` or `false` (`!cast(bool) 2` is false) {#cast.22}. `cast(bool) ""` is false {#cast.6}.
@@ -95,7 +95,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - | comparisons, `&&`, `\|\|` | result | `cast(u8) n < 300` compares a `u8` {#cast.19} |
 - So `cast(u32) b << 4 | 1` is `cast(u32) ((b << 4) | 1)` {#cast.20}; write `(cast(u32) b) << 16` to widen before shifting.
 - A comma after a cast keyword is a modifier, not a list separator, so `(-cast,no_check(int) x)` parses as one expression {#cast.14}.
-- A negative value does not fit an unsigned target (`cast(u16)` of `n: s32 = -1` fails). Casts to a type of the same size or wider only extend or reinterpret the bits, so `cast(s64)` of a large `u64` and `cast(u32)` of a negative `s32` are never checked {#cast.32}. Evidence: `26.22_insert_scope.jai` in The Way to Jai prints negative numbers from `cast(int) random_get() % 100`, where `random_get` returns a `u64`.
+- A negative value does not fit an unsigned target at any width (`cast(u16)`, `cast(u32)` and `cast(u64)` of `n: s32 = -1` all fail), and an unsigned value above the signed maximum does not fit a signed target (`cast(s64)` of `u64` `0xffff_ffff_ffff_fff4` fails). Only a target that holds every value of the source (`u8` to `s16`, `s32` to `s64`) is not checked {#cast.32}. Code that wants the bits, such as hashing, writes `cast,no_check`.
 - `.NONFATAL` prints `path:line: warning: cast of 300 to `u8` overflows` on stderr and goes on with the low bits; `.OFF` keeps the low bits silently. The option applies to workspaces a metaprogram creates, like the other checks {#cast.33}.
-- `xx` to a narrower type is checked like `cast`; `trunc`, `no_check` and `force` skip the check, and so do enums and pointers {#cast.34}.
+- `xx` is checked like `cast` (narrowing and sign changes); `trunc`, `no_check` and `force` skip the check, and so do enums and pointers {#cast.34}.
 - A constant is checked at compile time instead (`check_constant_cast` in `sema/convert.rs`): `cast(u8) 300`, `cast(u8) -1` and `y: u8 = xx -1` are errors, and `cast,trunc(u8) 300` is `44` {#cast.35}. A hex, binary, `~` or named constant may fill a signed type's bits, so `cast(s8) 0xff` is `-1` and `cast(s32) 0xFFFF_FFFF` is accepted; `cast(s8) 255` is not.

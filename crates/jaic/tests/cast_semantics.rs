@@ -1,4 +1,4 @@
-//! Explicit casts: the range check on narrowing casts, constant folding, and the bit-level
+//! Explicit casts: the range check on narrowing and sign-changing casts, constant folding, and the bit-level
 //! reinterpretations, each checked by `#assert` over compile-time execution.
 mod common;
 use common::compile_source;
@@ -66,26 +66,51 @@ fn narrowing_casts_reject_values_just_outside_the_target_range() {
 }
 
 #[test]
-fn casts_to_a_type_at_least_as_wide_are_never_checked() {
-    for (from, to, value, expected) in [
-        ("u8", "s8", "200", "-56"),
-        ("s8", "u8", "-1", "255"),
-        ("s8", "u64", "-1", "18446744073709551615"),
-        ("u64", "s64", "18446744073709551615", "-1"),
-        ("s64", "u64", "-1", "18446744073709551615"),
-        ("s16", "u32", "-2", "4294967294"),
-        ("u32", "s64", "4294967295", "4294967295"),
+fn widening_casts_that_keep_the_value_are_never_checked() {
+    for (from, to, value) in [
+        ("u8", "s16", "200"),
+        ("u32", "s64", "4294967295"),
+        ("s8", "s64", "-1"),
+        ("u8", "u64", "255"),
     ] {
         holds(&format!(
-            "wide :: (x: {from}) -> {to} {{ return cast({to}) x; }}\n#assert(wide({value}) == {expected});"
+            "wide :: (x: {from}) -> {to} {{ return cast({to}) x; }}\n#assert(wide({value}) == {value});"
         ));
     }
 }
 
 #[test]
-fn casts_between_equal_widths_keep_the_bits() {
-    holds("flip :: (x: s32) -> u32 { return cast(u32) x; }\n#assert(flip(-1) == 4294967295);");
-    holds("flip :: (x: u16) -> s16 { return cast(s16) x; }\n#assert(flip(65535) == -1);");
+fn casts_that_change_sign_check_the_value() {
+    for (from, to, value) in [
+        ("u8", "s8", "200"),
+        ("s8", "u8", "-1"),
+        ("s8", "u64", "-1"),
+        ("u64", "s64", "18446744073709551615"),
+        ("s64", "u64", "-1"),
+        ("s16", "u32", "-2"),
+        ("s32", "u32", "-1"),
+        ("u16", "s16", "65535"),
+    ] {
+        rejected(
+            &format!("flip :: (x: {from}) -> {to} {{ return cast({to}) x; }}\n#run flip({value});"),
+            "overflows",
+        );
+    }
+}
+
+#[test]
+fn unchecked_sign_changes_keep_the_bits() {
+    for (from, to, value, expected) in [
+        ("u8", "s8", "200", "-56"),
+        ("s8", "u64", "-1", "18446744073709551615"),
+        ("u64", "s64", "18446744073709551615", "-1"),
+        ("s32", "u32", "-1", "4294967295"),
+        ("u16", "s16", "65535", "-1"),
+    ] {
+        holds(&format!(
+            "flip :: (x: {from}) -> {to} {{ return cast,no_check({to}) x; }}\n#assert(flip({value}) == {expected});"
+        ));
+    }
 }
 
 #[test]

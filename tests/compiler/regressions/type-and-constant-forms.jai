@@ -35,10 +35,10 @@ main :: () {
     // Two's complement.
     n: s8 = -1;
 
-    assert(cast(u8) n == 255);
+    assert(cast,no_check(u8) n == 255);
     big: u8 = 255;
 
-    assert(cast(s8) big == -1);
+    assert(cast,no_check(s8) big == -1);
 
     // Literal typing.
     assert(type_of(42) == s64);

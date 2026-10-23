@@ -27,7 +27,7 @@ main :: () {
     second := info.tagged_union_bindings[1];
 
     assert(first.constant_value == 4 && info.members[first.member_index].name == "a");
-    assert(cast(s64) second.constant_value == -12 && info.members[second.member_index].name == "c");
+    assert(cast,no_check(s64) second.constant_value == -12 && info.members[second.member_index].name == "c");
 
     t := ByType.{ kind = s32, b = 300 };
 

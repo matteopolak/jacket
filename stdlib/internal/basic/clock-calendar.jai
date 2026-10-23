@@ -122,14 +122,14 @@ calendar_failure :: (message: string, time_zone: Time_Zone) -> Calendar_Time {
 
 add_clock_words :: (a: Apollo_Time, b: Apollo_Time) -> Apollo_Time #no_aoc {
     low := a.low + b.low;
-    high := cast(u64) a.high + cast(u64) b.high;
+    high := cast,no_check(u64) a.high + cast,no_check(u64) b.high;
     if low < a.low high += 1;
-    return .{ low, cast(s64) high };
+    return .{ low, cast,no_check(s64) high };
 }
 
 subtract_clock_words :: (a: Apollo_Time, b: Apollo_Time) -> Apollo_Time #no_aoc {
     low := a.low - b.low;
-    high := cast(u64) a.high - cast(u64) b.high;
+    high := cast,no_check(u64) a.high - cast,no_check(u64) b.high;
     if a.low < b.low high -= 1;
-    return .{ low, cast(s64) high };
+    return .{ low, cast,no_check(s64) high };
 }

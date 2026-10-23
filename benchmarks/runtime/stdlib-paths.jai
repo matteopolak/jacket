@@ -6,7 +6,7 @@ main :: () {
     checksum: u64 = 1469598103934665603;
 
     mix :: (value: int) #expand {
-        checksum = (checksum ^ cast(u64) value) * 1099511628211;
+        checksum = (checksum ^ cast,no_check(u64) value) * 1099511628211;
     }
 
     paths := string.["/usr/local/lib/libthing.so.1", "relative/dir/file.tar.gz", "C:/Program Files/app/run.exe", "noext", "a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p.txt"];

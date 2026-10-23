@@ -41,7 +41,7 @@ nanoseconds_to_apollo :: (m: s64) -> Apollo_Time {
 }
 
 ConvertFromApollo :: inline (t: Apollo_Time, divisor: u64, $DO_ROUNDING: bool) -> (result: s64, success: bool) #no_aoc {
-    value := U128.{ t.low, cast(u64) t.high };
+    value := U128.{ t.low, cast,no_check(u64) t.high };
     negative := t.high < 0;
 
     if negative {
@@ -65,7 +65,7 @@ ConvertFromApollo :: inline (t: Apollo_Time, divisor: u64, $DO_ROUNDING: bool) -
     if quotient.high != 0 || quotient.low > limit return 0, false;
     if negative quotient.low = 0 - quotient.low;
 
-    return cast(s64) quotient.low, true;
+    return cast,no_check(s64) quotient.low, true;
 }
 
 to_seconds :: (t: Apollo_Time, $DO_ROUNDING := false) -> (result: s64, success: bool) {
@@ -135,7 +135,7 @@ to_apollo :: (seconds: float64) -> Apollo_Time #no_aoc {
         if low == 0 high += 1;
     }
 
-    return .{ low, cast(s64) high };
+    return .{ low, cast,no_check(s64) high };
 }
 
 #scope_file
@@ -155,14 +155,14 @@ seconds_with_fraction :: (input: Apollo_Time, whole: s64) -> float64 #no_aoc {
 }
 
 scale_duration :: (value: s64, factor: u64) -> Apollo_Time #no_aoc {
-    high, low := multiply_64bits_with_overflow(cast(u64) value, factor);
+    high, low := multiply_64bits_with_overflow(cast,no_check(u64) value, factor);
     if value < 0 high -= factor;
-    return Apollo_Time.{ low, cast(s64) high };
+    return Apollo_Time.{ low, cast,no_check(s64) high };
 }
 
 scale_signed_duration :: (value: s64, factor: s64) -> Apollo_Time #no_aoc {
-    high, low := multiply_64bits_with_overflow(cast(u64) value, cast(u64) factor);
-    if value < 0 high -= cast(u64) factor;
-    if factor < 0 high -= cast(u64) value;
-    return Apollo_Time.{ low, cast(s64) high };
+    high, low := multiply_64bits_with_overflow(cast,no_check(u64) value, cast,no_check(u64) factor);
+    if value < 0 high -= cast,no_check(u64) factor;
+    if factor < 0 high -= cast,no_check(u64) value;
+    return Apollo_Time.{ low, cast,no_check(s64) high };
 }

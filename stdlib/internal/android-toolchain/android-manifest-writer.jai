@@ -194,7 +194,7 @@ am_write :: (out: *String_Builder, c: Android_Project_Config) -> bool {
     am_attr(*w, "name", "android.app.NativeActivity");
     am_attr(*w, "exported", kind = 0x12, data = 0xffffffff);
     am_attr(*w, "launchMode", kind = 0x10, data = LAUNCH_MODE_SINGLE_TASK);
-    am_attr(*w, "screenOrientation", kind = 0x10, data = cast(u32) (cast(s32) c.screen_orientation - 1));
+    am_attr(*w, "screenOrientation", kind = 0x10, data = cast,no_check(u32) (cast(s32) c.screen_orientation - 1));
     am_attr(*w, "configChanges", kind = 0x11, data = 0x00000da0);
     am_start(*w, "activity");
     am_attr(*w, "name", "android.app.lib_name");

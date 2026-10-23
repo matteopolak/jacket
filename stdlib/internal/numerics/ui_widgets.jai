@@ -212,7 +212,7 @@ draw_dropdown_popup :: (_state: *void) {
         t := *state.theme.theme_for_each_choice;
         if i == state.current_value_pointer.* t = *state.theme.theme_for_current_choice;
 
-        pressed := button(r, text, t, cast(s64) combine_hashes(state.hash, cast(u64) i + 2), state.loc);
+        pressed := button(r, text, t, cast,no_check(s64) combine_hashes(state.hash, cast(u64) i + 2), state.loc);
         if pressed {
             if state.current_value_pointer.* != cast(s32) i {
                 found := false;

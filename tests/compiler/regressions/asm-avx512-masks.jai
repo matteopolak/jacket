@@ -114,7 +114,7 @@ main :: () {
         for 0..15 {
             if X[it] == Y[it] e |= (cast(u64) 1) << it;
             if X[it] > Y[it] g |= (cast(u64) 1) << it;
-            if cast(u32) X[it] < cast(u32) Y[it] u |= (cast(u64) 1) << it;
+            if cast,no_check(u32) X[it] < cast,no_check(u32) Y[it] u |= (cast(u64) 1) << it;
         }
 
         check("pcmpeqd -> k", eq, e);
@@ -267,17 +267,17 @@ main :: () {
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; prold r:, zx, 7; movdqu32 [po], r; }
 
         for 0..15 {
-            v := cast(u32) X[it];
-            want[it] = xx ((v << 7) | (v >> 25));
+            v := cast,no_check(u32) X[it];
+            want[it] = cast,no_check(s32) ((v << 7) | (v >> 25));
         }
 
         check_s32("prold", out, want);
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; movdqu32 zi:, [pi]; prorvd r:, zx, zi; movdqu32 [po], r; }
 
         for 0..15 {
-            v := cast(u32) X[it];
+            v := cast,no_check(u32) X[it];
             n := cast(u32) (idx[it] & 31);
-            want[it] = xx ifx n == 0 then v else (v >> n) | (v << (32 - n));
+            want[it] = cast,no_check(s32) (ifx n == 0 then v else (v >> n) | (v << (32 - n)));
         }
 
         check_s32("prorvd", out, want);
@@ -359,7 +359,7 @@ main :: () {
         #asm AVX512F { movdqu32 zb:, [pbig]; pmovusdw [pwords], zb; }
 
         for 0..15 {
-            v := cast(u32) big[it];
+            v := cast,no_check(u32) big[it];
             w := ifx v > 0xffff then 0xffff else v;
 
             if words[it] != w {

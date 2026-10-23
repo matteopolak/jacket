@@ -90,7 +90,7 @@ integer_bits :: (r: *Rng, size: s64, signed: bool) -> u64 {
 
     if bits < 64 all_ones = (cast(u64) 1 << bits) - 1;
 
-    sign_bit: u64 = cast(u64) 1 << (bits - 1);
+    sign_bit: u64 = (cast(u64) 1) << (bits - 1);
 
     choice := below(r, 12);
 

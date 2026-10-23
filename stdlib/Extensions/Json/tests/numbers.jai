@@ -315,7 +315,7 @@ fast_path_agrees :: (count: int) {
         halfway := (m << k) | ((cast(u64) 1) << (k - 1));
 
         for delta: -1..1 {
-            text := tprint("%", halfway + cast(u64) delta);
+            text := tprint("%", halfway + cast,no_check(u64) delta);
             fast_path_agrees_with(text, *bad);
         }
     }
@@ -490,7 +490,7 @@ shortest_matches_exact :: (count: int) {
         for delta: -2..2 {
             bits := (cast(u64) exponent << 52) + cast(u64) (delta + 2);
             same_digits_as_exact(cast,force(float64) bits, *bad);
-            same_digits_as_exact(cast,force(float64) ((cast(u64) exponent << 52) - 1 - cast(u64) delta + 2), *bad);
+            same_digits_as_exact(cast,force(float64) ((cast(u64) exponent << 52) - 1 - cast,no_check(u64) delta + 2), *bad);
         }
     }
 
@@ -502,9 +502,9 @@ shortest_matches_exact :: (count: int) {
 
     // Integers and short decimals, as they usually appear.
     for 1..count {
-        same_digits_as_exact(cast(float64) (cast(s64) random_get() - 2147483648), *bad);
-        same_digits_as_exact(cast(float64) (cast(s64) random_get() % 100000) / 100.0, *bad);
-        same_digits_as_exact(cast(float64) (cast(s64) ((cast(u64) random_get() << 21) ^ cast(u64) random_get())) * 1.0, *bad);
+        same_digits_as_exact(cast(float64) (cast,no_check(s64) random_get() - 2147483648), *bad);
+        same_digits_as_exact(cast(float64) (cast,no_check(s64) random_get() % 100000) / 100.0, *bad);
+        same_digits_as_exact(cast(float64) (cast,no_check(s64) ((cast(u64) random_get() << 21) ^ cast(u64) random_get())) * 1.0, *bad);
     }
 
     // Random bit patterns, and values with a random exponent in the usual range.

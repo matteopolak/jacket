@@ -305,7 +305,7 @@ main :: () {
         #asm AVX2 { cvtsi2sd.d dr, da, d; movupd.x [po], dr; }
         check("cvtsi2sd.d", h(16), 0xa383b1cd7918c685);
         #asm AVX2 { cvtss2si.d i32, fa; cvttsd2si.q i64, db; }
-        check("cvtss2si.d", cast(u32) i32, 0xfffffff8);
+        check("cvtss2si.d", cast,no_check(u32) i32, 0xfffffff8);
         check("cvttsd2si.q", cast(u64) i64, 0x1);
     }
 

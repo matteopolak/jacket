@@ -23,7 +23,7 @@ main :: () {
     quick_sort(words, compare_strings);
 
     checksum: u64 = 1469598103934665603;
-    for words checksum = (checksum ^ cast(u64) it.count ^ it[it.count - 1]) * 1099511628211;
+    for words checksum = (checksum ^ cast,no_check(u64) it.count ^ it[it.count - 1]) * 1099511628211;
 
     NUMBERS :: 2_000_000;
     values := NewArray(NUMBERS, int);
@@ -35,7 +35,7 @@ main :: () {
 
     intro_sort(values, (a, b) => a - b);
 
-    for values checksum = (checksum ^ cast(u64) it) * 1099511628211;
+    for values checksum = (checksum ^ cast,no_check(u64) it) * 1099511628211;
 
     print("% % %\n", words[COUNT / 2], values[NUMBERS / 2], checksum);
 }

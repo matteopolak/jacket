@@ -2472,6 +2472,38 @@
       ]
     },
     {
+      "id": "cast-check-negative-same-width",
+      "source": "negative/cast-check-negative-same-width.jai",
+      "sha256": "d0c220a86eb35d556e5d207a940261a7ef398f5e8819e9db8e4b9a619156d983",
+      "suite": "negative",
+      "feature": "a negative value does not fit an unsigned type of the same size",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "cast of -1 to `u64` overflows"
+      },
+      "rules": [
+        "cast.32"
+      ]
+    },
+    {
+      "id": "cast-check-unsigned-to-signed",
+      "source": "negative/cast-check-unsigned-to-signed.jai",
+      "sha256": "57b6299a5484f163ee9b6871a3fdee4c554d6efc83a2b576b55479a5186d94c7",
+      "suite": "negative",
+      "feature": "an unsigned value above the signed maximum does not fit a signed type of the same size",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "to `s64` overflows"
+      },
+      "rules": [
+        "cast.32"
+      ]
+    },
+    {
       "id": "cast-check-autocast",
       "source": "negative/cast-check-autocast.jai",
       "sha256": "e0a52891899ab83bd64f08b8932300d571452bb08f5516b6e736ef75e960e12c",

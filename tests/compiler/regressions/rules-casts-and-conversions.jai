@@ -71,10 +71,10 @@ main :: () {
 
     assert(cast(s64) b == 3, "3.99 to 3");
 
-    // cast.4: s8 -1 to u64.
+    // cast.4: s8 -1 to u64, unchecked.
     n: s8 = -1;
 
-    assert(cast(u64) n == 18446744073709551615, "sign extends then reinterprets");
+    assert(cast,no_check(u64) n == 18446744073709551615, "sign extends then reinterprets");
 
     // cast.5: cast,force between same-size integer and float.
     one_bits: u64 = 0x3ff0_0000_0000_0000;

@@ -105,7 +105,7 @@ scaled_round :: (mantissa: u64, binary: s64, decimal: s64, rounding: Rounding) -
             if high >> shift != 0 return 0, false;
 
             quotient = (high << (64 - shift)) | (low >> shift);
-            remainder = compare_with_half(0, low & ((cast(u64) 1 << shift) - 1), 0, cast(u64) 1 << (shift - 1));
+            remainder = compare_with_half(0, low & (((cast(u64) 1) << shift) - 1), 0, (cast(u64) 1) << (shift - 1));
         } else if shift < 128 {
             part := shift - 64;
             quotient = high >> part;

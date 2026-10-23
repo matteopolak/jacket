@@ -7,7 +7,7 @@ combine_hashes :: (a: u64, b: u64) -> u64 #no_aoc {
 get_hash :: (loc: Source_Code_Location, identifier: s64) -> u64 #no_aoc {
     h: u64 = 0;
     for byte: loc.fully_pathed_filename h = combine_hashes(h, cast(u64) byte);
-    return combine_hashes(combine_hashes(combine_hashes(h, cast(u64) loc.line_number), cast(u64) loc.character_number), cast(u64) identifier);
+    return combine_hashes(combine_hashes(combine_hashes(h, cast,no_check(u64) loc.line_number), cast,no_check(u64) loc.character_number), cast,no_check(u64) identifier);
 }
 
 get_rect :: (x: float, y: float, w: float, h: float) -> Rect {

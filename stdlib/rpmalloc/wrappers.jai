@@ -420,7 +420,7 @@ invoke_map :: (size: u64, offset: *u64) -> *void {
     public_offset: Boundary_Size;
     result := active_config.memory_map(cast(Boundary_Size) size, *public_offset);
 
-    offset.* = cast(u64) public_offset;
+    offset.* = cast,no_check(u64) public_offset;
 
     return result;
 }
@@ -443,7 +443,7 @@ callback_unmap :: (address: *void, size: u64, offset: u64, full: u64) #c_call {
 }
 
 invoke_unmap :: (address: *void, size: u64, offset: u64, full: u64) {
-    active_config.memory_unmap(address, cast(Boundary_Size) size, cast(Boundary_Size) offset, cast(Boundary_Size) full);
+    active_config.memory_unmap(address, cast(Boundary_Size) size, cast,no_check(Boundary_Size) offset, cast(Boundary_Size) full);
 }
 
 callback_failure :: (size: u64) -> s32 #c_call {

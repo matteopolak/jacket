@@ -1,7 +1,7 @@
-// Build_Options.cast_bounds_check: a cast to a narrower integer type checks that the value fits.
-// .FATAL (the default) stops the program, .NONFATAL reports on stderr and continues with the low
-// bits, .OFF keeps the low bits silently. `trunc` and `no_check` skip the check, and casts to a
-// type at least as wide are never checked. Programs that must fail are in
+// Build_Options.cast_bounds_check: an integer cast checks that the value fits the target, whether
+// it narrows or changes sign. .FATAL (the default) stops the program, .NONFATAL reports on stderr
+// and continues with the low bits, .OFF keeps the low bits silently. `trunc` and `no_check` skip
+// the check, and so does a cast to a type that holds every value. Programs that must fail are in
 // tests/corpus/negative/cast-check-*.jai.
 // rules: cast.2 cast.32 cast.33 cast.34
 #import "Basic";
@@ -32,7 +32,12 @@ run_cases :: () {
     // cast.34: `xx` to a narrower type is checked like `cast`.
     implicit := "n := 70000; c: s16 = xx n; assert(c == 4464);";
 
-    for body: string.[narrowing, signed, implicit] {
+    // cast.32: a change of sign is checked at any width.
+    same_width := "n := -1; c := cast(u64) n; assert(c == 0xffff_ffff_ffff_ffff);";
+    widening := "n: s8 = -1; c := cast(u32) n; assert(c == 0xffff_ffff);";
+    to_signed := "u: u64 = 0xffff_ffff_ffff_fff4; c := cast(s64) u; assert(c == -12);";
+
+    for body: string.[narrowing, signed, implicit, same_width, widening, to_signed] {
         build_with(body, .OFF);
         build_with(body, .NONFATAL);
     }
@@ -62,16 +67,24 @@ main :: () {
     assert(low == 44);
     assert(big.(u8, trunc) == 44);
 
-    // cast.32: a type at least as wide only extends or reinterprets the bits.
+    // cast.32: a target that holds every value is not checked; across a change of sign,
+    // `no_check` keeps the bits.
+    small: u8 = 200;
+
+    assert(cast(s16) small == 200);
+    assert(cast(u64) small == 200);
+    positive: s32 = 20;
+
+    assert(cast(u64) positive == 20);
     minus_one: s8 = -1;
 
-    assert(cast(u64) minus_one == 0xffff_ffff_ffff_ffff);
+    assert(cast,no_check(u64) minus_one == 0xffff_ffff_ffff_ffff);
     all_ones: u64 = 0xffff_ffff_ffff_fff4;
 
-    assert(cast(s64) all_ones == -12);
+    assert(cast,no_check(s64) all_ones == -12);
     negative: s32 = -20;
 
-    assert(cast(u32) negative == 0xffff_ffec);
+    assert(cast,no_check(u32) negative == 0xffff_ffec);
 
     print("ok\n");
 }

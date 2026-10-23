@@ -595,7 +595,7 @@ draw_subwindow :: (state: *Subwindow_State) {
     rounded_rectangle(full, theme.region_background.shape, theme.region_background.color, theme.region_background.frame_color);
 
     if title.h > 0 {
-        pressed := button(title, state.info.title_text, *theme.title_bar, cast(s64) state.hash);
+        pressed := button(title, state.info.title_text, *theme.title_bar, cast,no_check(s64) state.hash);
         if pressed {
             state.dragging = cast(type_of(state.dragging)) 1;
             state.dragging_last = mouse_position;
@@ -605,7 +605,7 @@ draw_subwindow :: (state: *Subwindow_State) {
 
     if (theme.subwindow_flags & .CLOSE_BUTTON) != 0 {
         close := cut_right(title, title.h * theme.close_button_width);
-        pressed := button(close, "×", *theme.close_button, cast(s64) state.hash + 1);
+        pressed := button(close, "×", *theme.close_button, cast,no_check(s64) state.hash + 1);
 
         if pressed {
             state.info.open = false;

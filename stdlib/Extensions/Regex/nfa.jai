@@ -189,9 +189,9 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
 
         while true {
             bit := cast(int) pc * width + (pos - start);
-            if visited[bit >> 6] & (cast(u64) 1 << cast(u64) (bit & 63)) break;
+            if visited[bit >> 6] & ((cast(u64) 1) << cast(u64) (bit & 63)) break;
 
-            visited[bit >> 6] |= cast(u64) 1 << cast(u64) (bit & 63);
+            visited[bit >> 6] |= (cast(u64) 1) << cast(u64) (bit & 63);
             inst := *program.insts[pc];
             if inst.kind == {
                 case .MATCH;

@@ -113,7 +113,7 @@ apply_relocations :: (elf: Elf, section_index: int, data: [] u8) -> bool {
             for previous: offsets if offset < previous + cast(u64) widths[it_index] && previous < offset + cast(u64) width return false;
 
             B.array_add(*offsets, offset);
-            B.array_add(*values, cast(u64) value);
+            B.array_add(*values, cast,no_check(u64) value);
             B.array_add(*widths, width);
         }
     }

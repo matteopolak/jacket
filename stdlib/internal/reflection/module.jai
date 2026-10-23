@@ -28,7 +28,7 @@ range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -
         if info.signed {
             lo, hi := signed_integer_range_from_size(info.runtime_size);
             if value < lo || value > hi return false, cast(T) lo, cast(T) hi;
-            store_integer(pointer, info.runtime_size, cast(u64) value);
+            store_integer(pointer, info.runtime_size, cast,no_check(u64) value);
             return true, cast(T) lo, cast(T) hi;
         }
 
@@ -65,7 +65,7 @@ get_enum_value :: (data: *void, info: *Type_Info_Enum) -> s64 {
 }
 
 set_enum_value :: (data: *void, info: *Type_Info_Enum, value: s64) {
-    store_integer(data, info.internal_type.runtime_size, cast(u64) value);
+    store_integer(data, info.internal_type.runtime_size, cast,no_check(u64) value);
 }
 
 set_value_from_string :: (any: Any, text: string) -> bool {
