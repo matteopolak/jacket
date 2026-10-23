@@ -10,11 +10,12 @@
 //! same statement list, with nothing in between that could have given it another value: any
 //! assignment to it, its address taken, or another declaration of the name, however deeply
 //! nested, ends the check. Writes inside nested blocks and macros are not reported.
-use super::{finding, statement_lists};
-use crate::Finding;
+use super::{statement_lists, suggesting};
 use crate::syntax::{Cx, Node, root_ident, walk_node};
+use crate::{Edit, Finding};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
+use jaic::source::Span;
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
@@ -23,7 +24,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
         statement_lists(&p.body.stmts, &mut |list: &[Stmt]| {
             // Locals in this list that still hold a literal.
-            let mut literals: Vec<Sym> = Vec::new();
+            let mut literals: Vec<(Sym, Span)> = Vec::new();
             for s in list {
                 if let S::Assign {
                     lhs, ..
@@ -31,33 +32,44 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 {
                     for l in lhs {
                         let shown = cx.whole_src(l.span).trim();
-                        if let Some(name) = written_local(l).filter(|n| literals.contains(n)) {
-                            out.push(finding(
+                        if let Some((name, literal)) = written_local(l)
+                            .and_then(|n| literals.iter().find(|(held, _)| *held == n).copied())
+                        {
+                            let literal_text = cx.whole_src(literal).trim();
+                            out.push(suggesting(
                                 l.span,
                                 format!(
                                     "`{shown}` writes into a string literal: `{}` still holds one, and literals are read-only",
                                     name.as_str()
                                 ),
-                                Some(format!(
-                                    "copy it first, for example `{0} = copy_string({0});`",
-                                    name.as_str()
-                                )),
+                                format!(
+                                    "copy it where `{}` is declared: `copy_string({})` (free the copy when done)",
+                                    name.as_str(),
+                                    literal_text
+                                ),
+                                "copy the literal where it is declared",
+                                vec![Edit {
+                                    start: cx.whole(literal).0,
+                                    end: cx.whole(literal).1,
+                                    text: format!("copy_string({literal_text})"),
+                                }],
                             ));
                         }
                     }
                 }
-                literals.retain(|name| !changes(s, *name));
+                literals.retain(|(name, _)| !changes(s, *name));
                 if let S::Decl(d) = &s.kind
                     && let [name] = d.names.as_slice()
                     && d.rare.is_none()
                     && !d.using
                     && !d.backtick
-                    && matches!(d.value.as_ref().map(|v| &v.kind), Some(E::Str(_)))
+                    && let Some(value) = &d.value
+                    && matches!(value.kind, E::Str(_))
                     && d.ty
                         .as_ref()
                         .is_none_or(|t| matches!(t.kind, E::Ident(n) if n.as_str() == "string"))
                 {
-                    literals.push(name.name);
+                    literals.push((name.name, value.span));
                 }
             }
         });
