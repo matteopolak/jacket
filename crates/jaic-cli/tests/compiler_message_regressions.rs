@@ -33,6 +33,7 @@ fn message_and_record_exports_run_interpreted() {
         "compiler-typechecked-polymorph-static-if",
         "compiler-typechecked-unused-and-global-flags",
         "compiler-import-control",
+        "build-file-later-conditional",
         "compiler-resolved-nodes",
         "compiler-get-code",
         "compiler-get-code-rerun",

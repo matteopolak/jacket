@@ -67,9 +67,11 @@ impl Compiler {
         }
         while i < self.scope(scope).pending.len() {
             // Items expand in source order: a re-entrant expansion (from inside an
-            // item's own condition or lookup) must not run later items early.
+            // item's own condition or lookup) must not run later items early. A later plain
+            // `#if` only reads names, so it can go ahead once those are declared: an item
+            // that runs compile-time code can need what a file added after it declares.
             if self.scope(scope).pending[i].state == PendingState::Expanding {
-                return Ok(());
+                return self.expand_plain_ifs(scope);
             }
             if self.scope(scope).pending[i].state == PendingState::Waiting {
                 self.scope_mut(scope).pending[i].state = PendingState::Expanding;
