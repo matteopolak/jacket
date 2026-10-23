@@ -8,9 +8,9 @@
 //! link of an `else if` chain (`else if f == .LAST { A } else { A }`) usually names its case
 //! before the default on purpose. `#if` is left alone: its branches are often the same code
 //! written for two platforms.
-use super::finding;
-use crate::Finding;
-use crate::syntax::{Cx, walk};
+use super::{finding, pure, suggesting};
+use crate::syntax::{Cx, is_atom, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{ExprKind as E, Stmt, StmtKind as S};
 use jaic::lexer::Token;
 use jaic::source::Span;
@@ -21,6 +21,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             match n {
                 crate::syntax::Node::Stmt(s) => {
                     if let S::If {
+                        cond,
                         then_branch,
                         else_branch: Some(other),
                         ..
@@ -30,18 +31,31 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         && !chain_tail(s, up)
                         && same_tokens(cx, then_branch.span, other.span)
                     {
-                        out.push(finding(
-                            s.span,
-                            "both branches of this `if` are the same".into(),
-                            Some(
-                                "the condition decides nothing: was one branch meant to differ?"
-                                    .into(),
-                            ),
-                        ));
+                        let message = "both branches of this `if` are the same".to_string();
+                        let help = "the condition decides nothing: was one branch meant to differ?"
+                            .to_string();
+                        // Without the test and the second copy, the block that is left runs
+                        // as it did; only an `if` whose condition has no effect can lose it.
+                        out.push(if pure(cond) && matches!(then_branch.kind, S::Block(_)) {
+                            suggesting(
+                                s.span,
+                                message,
+                                help,
+                                "keep one copy and drop the condition",
+                                vec![Edit {
+                                    start: s.span.start as usize,
+                                    end: s.span.end as usize,
+                                    text: cx.whole_src(then_branch.span).trim().to_string(),
+                                }],
+                            )
+                        } else {
+                            finding(s.span, message, Some(help))
+                        });
                     }
                 }
                 crate::syntax::Node::Expr(e) => {
                     if let E::Ifx {
+                        cond,
                         then_value: Some(a),
                         else_value: Some(b),
                         is_static: false,
@@ -49,14 +63,28 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     } = &e.kind
                         && same_tokens(cx, a.span, b.span)
                     {
-                        out.push(finding(
-                            e.span,
-                            "both branches of this `ifx` are the same".into(),
-                            Some(
-                                "the condition decides nothing: was one branch meant to differ?"
-                                    .into(),
-                            ),
-                        ));
+                        let message = "both branches of this `ifx` are the same".to_string();
+                        let help = "the condition decides nothing: was one branch meant to differ?"
+                            .to_string();
+                        out.push(if pure(cond) {
+                            suggesting(
+                                e.span,
+                                message,
+                                help,
+                                "keep one copy and drop the condition",
+                                vec![Edit {
+                                    start: e.span.start as usize,
+                                    end: e.span.end as usize,
+                                    text: if is_atom(a) {
+                                        cx.whole_src(a.span).trim().to_string()
+                                    } else {
+                                        format!("({})", cx.whole_src(a.span).trim())
+                                    },
+                                }],
+                            )
+                        } else {
+                            finding(e.span, message, Some(help))
+                        });
                     }
                 }
             }
