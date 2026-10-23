@@ -226,7 +226,9 @@ impl Compiler {
                     };
                     align = align.max(a);
                     let index = fields.len();
+                    // `_` is a placeholder: it can repeat and is not a name to anchor `#place` on.
                     if let Some(name) = d.name
+                        && name.as_str() != "_"
                         && names.insert(name, index).is_some()
                     {
                         return err(
