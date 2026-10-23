@@ -39,6 +39,7 @@ mod magic_number;
 mod manual_assign_op;
 mod manual_index_counter;
 mod min_max;
+mod misrefactored_assign_op;
 mod modified_range_bound;
 mod needless_bool;
 mod no_effect;
@@ -264,6 +265,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "`min(0, max(100, x))`, a clamp that is always one bound",
         check: min_max::check,
+    },
+    RuleInfo {
+        name: "misrefactored_assign_op",
+        category: Category::Correctness,
+        summary: "`a += a + b`, an update that applies the operator to `a` twice",
+        check: misrefactored_assign_op::check,
     },
     RuleInfo {
         name: "modified_range_bound",

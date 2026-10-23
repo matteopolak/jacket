@@ -398,6 +398,16 @@
           "default": "deny",
           "markdownDescription": "`min(0, max(100, x))`, a clamp that is always one bound (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#min_max)"
         },
+        "misrefactored_assign_op": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "deny",
+          "markdownDescription": "`a += a + b`, an update that applies the operator to `a` twice (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#misrefactored_assign_op)"
+        },
         "modified_range_bound": {
           "type": "string",
           "enum": [
