@@ -6,6 +6,7 @@ lookup :: (key: string) -> int, bool {
 
 main :: () {
     leftover := 5;
+    noted := 7; // the comment stays
     a, b := 1, 2;
 
     print("%\n", a);

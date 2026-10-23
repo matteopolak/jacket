@@ -10,39 +10,51 @@ help: remove it
    |
    = note: `unused_variable` is `warn` by default
 
-warning[unused_variable]: unused variable `b`
-  --> tests/lint/unused_variable/bad.jai:9:8
+warning[unused_variable]: unused variable `noted`
+  --> tests/lint/unused_variable/bad.jai:9:5
    |
- 9 |     a, b := 1, 2;
+ 9 |     noted := 7; // the comment stays
+   |     ^^^^^
+   |
+help: remove it
+   |
+ 9 ~     // the comment stays
+   |
+   = note: `unused_variable` is `warn` by default
+
+warning[unused_variable]: unused variable `b`
+  --> tests/lint/unused_variable/bad.jai:10:8
+   |
+10 |     a, b := 1, 2;
    |        ^
    |
 help: name it `_` if the value is not needed
    |
- 9 ~     a, _ := 1, 2;
+10 ~     a, _ := 1, 2;
    |
    = note: `unused_variable` is `warn` by default
 
 warning[unused_variable]: unused variable `found`
-  --> tests/lint/unused_variable/bad.jai:12:12
+  --> tests/lint/unused_variable/bad.jai:13:12
    |
-12 |     value, found := lookup("key");
+13 |     value, found := lookup("key");
    |            ^^^^^
    |
 help: leave it out: later results of a call can be dropped
    |
-12 ~     value := lookup("key");
+13 ~     value := lookup("key");
    |
    = note: `unused_variable` is `warn` by default
 
 warning[unused_variable]: unused variable `second`
-  --> tests/lint/unused_variable/bad.jai:15:12
+  --> tests/lint/unused_variable/bad.jai:16:12
    |
-15 |     first, second: string;
+16 |     first, second: string;
    |            ^^^^^^
    |
 help: remove it from the declaration
    |
-15 ~     first: string;
+16 ~     first: string;
    |
    = note: `unused_variable` is `warn` by default
 

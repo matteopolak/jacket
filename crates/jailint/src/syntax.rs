@@ -281,7 +281,8 @@ impl<'a> Cx<'a> {
     }
 
     /// The byte range of a whole statement line (with its newline) when the statement is alone
-    /// on its lines, else just the statement.
+    /// on its lines, else just the statement (and the space before a trailing `//` comment,
+    /// which stays).
     pub fn statement_removal(&self, span: Span) -> (usize, usize) {
         let (line, _) = self.line_start(span.start as usize);
         let before = &self.text[line..span.start as usize];
@@ -297,9 +298,13 @@ impl<'a> Cx<'a> {
         } else {
             after
         };
-        if before.trim().is_empty() && (after.trim().is_empty() || after.trim().starts_with("//")) {
+        if before.trim().is_empty() && after.trim().is_empty() {
             let stop = (line_end + 1).min(self.text.len());
             (line, stop)
+        } else if before.trim().is_empty() && after.trim().starts_with("//") {
+            // A trailing comment stays, on the line the statement leaves.
+            let comment = end + (after.len() - after.trim_start().len());
+            (span.start as usize, comment)
         } else {
             (span.start as usize, end)
         }
