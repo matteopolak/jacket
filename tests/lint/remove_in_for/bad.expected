@@ -4,7 +4,10 @@ error[remove_in_for]: `array_unordered_remove_by_index` changes `xs` while this 
  9 |         if it == 2 array_unordered_remove_by_index(*xs, it_index);
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
+help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
+   |
+ 9 ~         if it == 2 remove it;
+   |
    = note: `remove_in_for` is `deny` by default
 
 error[remove_in_for]: `array_ordered_remove_by_index` changes `xs` while this `for` walks it
@@ -13,7 +16,10 @@ error[remove_in_for]: `array_ordered_remove_by_index` changes `xs` while this `f
 12 |         if it == 3 array_ordered_remove_by_index(*xs, it_index);
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
+help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
+   |
+12 ~         if it == 3 remove it;
+   |
    = note: `remove_in_for` is `deny` by default
 
 error[remove_in_for]: `drop_at` changes `values` while this `for` walks it
@@ -22,6 +28,9 @@ error[remove_in_for]: `drop_at` changes `values` while this `for` walks it
 26 |         drop_at(*values, it_index);
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < values`)
+help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < values`)
+   |
+26 ~         remove it;
+   |
    = note: `remove_in_for` is `deny` by default
 

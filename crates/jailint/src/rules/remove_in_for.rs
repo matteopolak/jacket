@@ -11,9 +11,9 @@
 //! the call is directly followed by `break` or `return` (removing the one element searched
 //! for and stopping is fine), or the loop body assigns its index (`i -= 1;` after the removal
 //! steps back by hand).
-use super::{calls_noted, finding, statement_lists};
-use crate::Finding;
+use super::{calls_noted, finding, statement_lists, suggesting};
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{Expr, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::source::Span;
 
@@ -52,32 +52,52 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !calls_noted(cx, callee, "RemovesFromArray") {
                 return true;
             }
-            let walking = chain.iter().any(|a| match a {
+            let walking = chain.iter().rev().find_map(|a| match a {
                 Node::Stmt(Stmt {
                     kind: S::For(f),
                     ..
                 }) => {
                     let index = f.index.map_or("it_index", |i| i.name.as_str());
-                    !f.reverse
+                    (!f.reverse
                         && !assigns_index(&f.body, index)
                         && f.reverse_if.is_none()
                         && f.iterator.is_none()
-                        && matches!(&f.over, ForOver::Collection(c) if cx.same_tokens(c.span, array.span))
+                        && matches!(&f.over, ForOver::Collection(c) if cx.same_tokens(c.span, array.span)))
+                    .then_some((f.it.map_or("it", |i| i.name.as_str()), index))
                 }
-                _ => false,
+                _ => None,
             });
-            if !walking || stopped(chain, e, &stopping) {
+            let Some((it, index)) = walking else {
+                return true;
+            };
+            if stopped(chain, e, &stopping) {
                 return true;
             }
             let name = cx.whole_src(callee.span).trim();
             let array_shown = cx.whole_src(array.span).trim();
-            out.push(finding(
-                e.span,
-                format!("`{name}` changes `{array_shown}` while this `for` walks it"),
-                Some(format!(
-                    "the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < {array_shown}`)"
-                )),
-            ));
+            let message = format!("`{name}` changes `{array_shown}` while this `for` walks it");
+            let help = format!(
+                "the element moved into the freed slot is skipped; use `remove {it};` (or loop backwards with `for < {array_shown}`)"
+            );
+            // The call is a statement on its own that removes the element being visited.
+            let removes_current = args.len() == 2
+                && matches!(args[1].value.kind, E::Ident(n) if n.as_str() == it || n.as_str() == index)
+                && matches!(chain.last(), Some(Node::Stmt(s)) if matches!(&s.kind, S::Expr(x) if x.span == e.span));
+            out.push(if removes_current {
+                suggesting(
+                    e.span,
+                    message,
+                    help,
+                    format!("use `remove {it}`"),
+                    vec![Edit {
+                        start: e.span.start as usize,
+                        end: e.span.end as usize,
+                        text: format!("remove {it}"),
+                    }],
+                )
+            } else {
+                finding(e.span, message, Some(help))
+            });
             true
         });
     }
