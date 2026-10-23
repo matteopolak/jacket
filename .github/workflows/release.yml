@@ -346,8 +346,12 @@ jobs:
           test "$formatted" = "$(printf 'main :: () {\n    x := 1;\n}')"
           # Built for the baseline x86-64 CPU, not this runner's: the archive runs on machines
           # without AVX (the 0.4.1 jaifmt had AVX-512 and died with SIGILL on other runners).
+          # The `*_wide` byte searches are the exception: they are AVX2 and only reached through
+          # a table that picks them when the CPU has AVX2 (Extensions/Byte_Search).
           if [ "${{ matrix.name }}" = "linux-x64" ]; then
-            if objdump -d "$jaifmt" | grep -E -m 5 '%[yz]mm|\{%k[0-7]\}'; then
+            if objdump -d "$jaifmt" | awk '/>:$/ { symbol = $0; next }
+                symbol !~ /_wide/ && /%[yz]mm|\{%k[0-7]\}/ { print symbol; print; found = 1; exit }
+                END { exit !found }'; then
               echo "jaifmt uses instructions beyond baseline x86-64"; exit 1
             fi
           fi
