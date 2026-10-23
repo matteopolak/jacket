@@ -6,6 +6,7 @@ use super::state::FnState;
 use super::{Backend, R};
 use inkwell::IntPredicate;
 use inkwell::attributes::{Attribute, AttributeLoc};
+use inkwell::basic_block::BasicBlock;
 use inkwell::intrinsics::Intrinsic as LlvmIntrinsic;
 use inkwell::module::Linkage;
 use inkwell::types::{BasicTypeEnum, FunctionType};
@@ -217,6 +218,16 @@ impl<'ctx> Backend<'ctx, '_> {
         Ok(())
     }
 
+    /// The failure block and the continuation of a check. The continuation follows the block
+    /// being built and the failure block goes to the end of the function, so that unoptimised
+    /// code (no block placement) falls through on the passing path instead of jumping over the
+    /// failure code.
+    fn check_blocks(&self, st: &FnState<'ctx>) -> (BasicBlock<'ctx>, BasicBlock<'ctx>) {
+        let trap = self.ctx.append_basic_block(st.function, "trap");
+        let here = self.builder.get_insert_block().expect("positioned");
+        (trap, self.ctx.insert_basic_block_after(here, "cont"))
+    }
+
     /// Stop with a null pointer error when `addr` lies in the never-mapped first page. Addresses
     /// of slots and globals, and offsets into them, need no check.
     pub(super) fn null_check(&self, st: &mut FnState<'ctx>, addr: Val, kind: u64) -> R<()> {
@@ -241,8 +252,7 @@ impl<'ctx> Backend<'ctx, '_> {
             "",
         )?;
         let fail = self.null_fail_fn()?;
-        let fail_block = self.ctx.append_basic_block(st.function, "trap");
-        let cont = self.ctx.append_basic_block(st.function, "cont");
+        let (fail_block, cont) = self.check_blocks(st);
         self.builder
             .build_conditional_branch(low, fail_block, cont)?;
         self.builder.position_at_end(fail_block);
@@ -268,8 +278,7 @@ impl<'ctx> Backend<'ctx, '_> {
         a: IntValue<'ctx>,
         b: IntValue<'ctx>,
     ) -> R<()> {
-        let trap = self.ctx.append_basic_block(st.function, "trap");
-        let cont = self.ctx.append_basic_block(st.function, "cont");
+        let (trap, cont) = self.check_blocks(st);
         self.builder.build_conditional_branch(cond, trap, cont)?;
         self.builder.position_at_end(trap);
         let fatal = self.ctx.i8_type().const_int(1, false);

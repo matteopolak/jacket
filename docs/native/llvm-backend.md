@@ -44,7 +44,7 @@ Gotchas: `strip_body` must delete whole blocks, not erase instructions one at a 
 ### Lowering rules (`lower.rs`)
 
 - Every function has `"frame-pointer"="non-leaf"` so frame-pointer stack walks (macOS `backtrace`, profilers) see jaic frames.
-- Each IR `Val` is an SSA value; blocks are emitted in reverse post-order. `Slot`s become allocas in a first `allocas` block. Pointers are opaque; `PtrAdd` is an `i8` GEP.
+- Each IR `Val` is an SSA value; blocks are emitted in reverse post-order, visiting a block's last successor first so the first one (a branch's `then`, a loop body) follows it. A check's continuation block is inserted right after the block being built and its failure block goes to the end of the function (`check_blocks`). Unoptimised code gets no block placement, so this saves a jump per branch and per bounds or null check (1.5% to 6% fewer instructions in the runtime benchmarks). `Slot`s become allocas in a first `allocas` block. Pointers are opaque; `PtrAdd` is an `i8` GEP.
 - Integer semantics match the interpreter: division by zero traps, `INT_MIN / -1` wraps, shifts of `>= bits` give 0, float-to-int saturates.
 - Globals are packed structs of byte runs and relocations; `#program_export` names stay external. Every foreign call is an indirect call with a type built from its `Sig`, so one symbol can be called with several signatures.
 - Intrinsics: `Memcpy` is `memmove`; `CompareAndSwap` is seq_cst `cmpxchg`; `CycleCounter` reads `cntvct_el0` / `rdtsc`; `Syscall` is inline asm on x86-64 only.

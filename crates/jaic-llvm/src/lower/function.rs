@@ -308,13 +308,15 @@ fn reverse_post_order(func: &Func) -> Vec<usize> {
     }
     let mut visited = vec![false; func.blocks.len()];
     let mut post = Vec::new();
-    // Iterative DFS: (block, next successor index).
+    // Iterative DFS: (block, successors visited so far). Successors are taken last to first, so
+    // that in the reversed order the first one (a branch's `then`, a loop's body) follows its
+    // block and unoptimised code (no block placement) falls through into it.
     let mut stack = vec![(0usize, 0usize)];
     visited[0] = true;
     while let Some(&mut (block, ref mut next)) = stack.last_mut() {
         let s = succs(&func.blocks[block].term);
         if *next < s.len() {
-            let t = s[*next];
+            let t = s[s.len() - 1 - *next];
             *next += 1;
             if !visited[t] {
                 visited[t] = true;
