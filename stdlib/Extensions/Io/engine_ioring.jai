@@ -363,7 +363,7 @@
     ring_error :: (result: s32) -> s64 {
         if result >= 0 return 0;
 
-        bits := cast(u32) result;
+        bits := cast,no_check(u32) result;
 
         // HRESULT_FROM_WIN32.
         if ((bits >> 16) & 0x1fff) == 7 return bits & 0xffff;
