@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import subprocess
 import build_generator_platform
 from dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env
@@ -14,6 +15,16 @@ PREFIX = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/l
 
 def run(command, expected=None, env=None):
     return run_checked(command, label="Generator platform", expected=expected, env=env or ENV, timeout=60).stdout
+
+
+def fixture_lint_config():
+    """The repository's lint settings without `exclude`: it lists `tests/driven/`, and a path named on
+    the command line that the configuration excludes is skipped, but these fixtures are the point."""
+    text = (ROOT / "jacket.toml").read_text()
+    text = re.sub(r"^exclude = \[.*?^\]\n", "", text, flags=re.DOTALL | re.MULTILINE)
+    config = ROOT / "target/generator-platform-lint.toml"
+    config.write_text(text)
+    return config
 
 
 def configured_paths_environment():
@@ -119,7 +130,7 @@ def main():
         run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", path])
     checked = ROOT / "target/generator-platform-linted.txt"
     programs = [path for path in owned if path.parent.name == "driven"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", "jacket.toml", "--checked-files", checked,
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", fixture_lint_config(), "--checked-files", checked,
          *programs])
     linted = checked.read_text().splitlines()
     if any(str(path) not in linted for path in programs):
@@ -158,7 +169,7 @@ def main():
                                   "reviewed libclang copy/update/missing-source effects, including actual bundled SDK library bytes"]
     evidence["contextual_fixture_lint"] = "passed with warnings denied"
     try:
-        run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", ROOT / "jacket.toml", "--checked-files", checked,
+        run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", fixture_lint_config(), "--checked-files", checked,
              ROOT / "stdlib/Bindings_Generator/module.jai", *owned])
     except RuntimeError as error:
         evidence["module_root_lint"] = "failed; independent #add_context-after-bootstrap driver ordering reduction reported"
