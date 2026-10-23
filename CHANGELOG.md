@@ -4,61 +4,34 @@
 
 ### New
 
-- Support Windows x64/arm64 C/C++ builds through BuildCpp.
+- `BuildCpp` builds C and C++ on Windows x64 and arm64, with MSVC or `clang-cl`.
+- `Autorun` runs workspaces on Windows.
+- The crash handler reports crashes on Windows arm64.
+- `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` are available as compiler constants.
+- `Module.name` reaches a module's `#scope_module` declarations.
+- Polymorphic procedure lenses count instances from every program in the workspace.
 
-- Support Autorun workspace execution on Windows.
+### Improved
 
-- Expose the Windows arm64 native crash handler through Runtime_Support_Crash_Handler.
-
-- Expose `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` as compiler-defined constants.
-
-### Fixed
-
-- Show hover help for contextual `using,only`, `using,except`, and `using,map` modifiers.
-
-- Complete componentwise multiplication and division for Vector3/Vector4 and provide the missing Vector4 scalar-multiply, squared-distance and unit-vector helpers (#34).
-
-- Initialize compile-time context after early bootstrap queries instead of reusing a cached null pointer.
-
-- Discover MSVC and the Windows SDK for BuildCpp, preserve MSVC compiler flags, and exercise sgpu's VMA binding generator on Windows.
-
-- Align the Windows shared-memory channel regression with qualified module access rules.
-
-- Pass the CI APT configuration root explicitly for compatibility with runner ShellCheck versions.
-
-- Keep optional runner package feeds from blocking Linux CI dependency setup.
-
-- Preserve cast grouping when copying or modifying procedure code.
-
-- Preserve custom-link message layouts and reject unsupported target options with public diagnostics.
-
-- Keep compiler-owned command-line views intact in the default metaprogram.
-
-- Prefer concrete parameter elements when matching otherwise generic overloads.
-
-- Serialize VS Code settings updates and language-server restarts to avoid error popups on save.
-
-- Show real polymorphs across workspace programs, including closed callers and shared modules.
-
-- Use the freshly built toolchain in terminals opened by `just vscode-try`.
-
-- Apply project and legacy editor configuration on save, keeping unfinished edits quiet.
-
-- Resolve module-scope members through qualified names, including plugin factories.
-
-- Keep code after empty switch cases reachable in language-server diagnostics.
-
-- Execute public `#compiler` operations in the compiler; reserve Jai bodies for runtime calls.
-
-- Complete struct fields in generic call arguments, including `array_add` element literals.
-
-- Resolve nested promoted array fields without reporting false recursive storage.
-
-- Prefer an equally matching fixed-arity overload over an empty variadic overload.
+- The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.
+- Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
 
 ### Changed
 
-- Move the jaic-specific `Fuzz` module to `Extensions/Fuzz`.
+- The `Fuzz` module moved to `Extensions/Fuzz`.
+
+### Fixed
+
+- Hovers explain `using,only`, `using,except` and `using,map`.
+- `Vector3` and `Vector4` support componentwise `*` and `/`, and `Vector4` gains `multiply`, `distance_squared` and `unit_vector` (#34).
+- Copying or changing procedure code keeps the parentheses around casts.
+- An equally good fixed-arity overload is chosen over an empty variadic one, and `[]u8` over `[]$T`.
+- Nested `using` array fields no longer report a false recursive-size error.
+- Completion suggests struct fields inside generic call arguments, such as `array_add(*a, .{})`.
+- Code after an empty `case` is no longer shown as unreachable.
+- Changing VS Code settings while the language server restarts no longer logs errors.
+- Compile-time code that runs before the context is set up no longer breaks later compile-time code.
+- Unsupported target options set by a build program are reported as errors.
 
 ## [0.25.0] - 2026-10-21
 
