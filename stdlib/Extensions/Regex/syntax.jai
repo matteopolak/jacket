@@ -202,7 +202,7 @@ parse_concat :: (p: *Parser) -> *Node {
     return node;
 }
 
-// One of * + ? {n} {n,} {n,m} {,m} after `atom`, with an optional lazy `?`. Null when the next
+// One of * + ? {n} {n,} {n,m} after `atom`, with an optional lazy `?`. Null when the next
 // thing is not a repetition.
 parse_repetition :: (p: *Parser, atom: *Node) -> *Node {
     if at_end(p) return null;
