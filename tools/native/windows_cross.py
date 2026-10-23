@@ -113,6 +113,28 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
 )
 
 
+# In a cross build plain `#run` executes on the host twin (docs/compiler/compile-time-host-execution.md).
+# These programs inspect the target environment from compile-time code, name target-only declarations
+# there, or return Code, distinct types or local enums that the twin cannot hand to the target program.
+# They remain required in the native Windows build jobs, where no twin is involved.
+WINDOWS_HOST_TWIN_CASES = frozenset(
+    {
+        "Compiler/tests/code-and-file-scoped-source",
+        "Compiler/tests/code-copy-syntax",
+        "Socket/tests/windows-socket/scope-compile-time",
+        "Windows_Resources/tests/console-windows",
+        "compiler/build-options-main-defaults",
+        "compiler/compiler-performance-and-dump-messages",
+        "compiler/compiler-resolved-nodes",
+        "compiler/constant-parameter-overloads-of-distinct-types",
+        "compiler/modern-metaprogramming",
+        "compiler/rules-compiler-module",
+        "compiler/rules-procedures",
+        "compiler/unrun-plugin-initialization",
+    }
+)
+
+
 # Posted wheel messages carry modifier flags that Input reads back from the session's keyboard state.
 WINDOWS_SESSION_INPUT_CASES = frozenset({"Windows/tests/events"})
 
@@ -175,6 +197,12 @@ def fixture_unavailable_reason(case, platform, build_host):
         and not build_host.startswith("windows-")
     ):
         return "target Win32 File/Process calls during ordinary #run require a Windows build host; native Windows coverage remains required"
+    if (
+        case["id"] in WINDOWS_HOST_TWIN_CASES
+        and platform.startswith("windows-")
+        and not build_host.startswith("windows-")
+    ):
+        return "its compile-time code needs the target environment, which a cross build's host twin does not reproduce; native Windows coverage remains required"
     if (
         case["id"] in WINDOWS_HOST_LIBRARY_CASES
         and platform.startswith("windows-")
