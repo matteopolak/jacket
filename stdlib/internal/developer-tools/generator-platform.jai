@@ -313,8 +313,10 @@ gp_library_spelling :: (path: string, is_static: bool, static_suffix: string, sh
     } else if !is_static && shared_suffix == ".so" {
         // ELF's numeric versions follow .so. Validate the whole version tail;
         // unrelated dotted names are never shortened by a substring match.
-        for index: 0..count - 5 {
-            if GP_String.slice(filename, index, 4) != ".so." continue;
+        so_dot :: ".so.";
+        // A version needs at least one character after the dot.
+        for index: 0..count - so_dot.count - 1 {
+            if GP_String.slice(filename, index, so_dot.count) != so_dot continue;
 
             numeric := true;
             previous_dot := true;

@@ -59,8 +59,21 @@ finish_error_checking :: () {
 #import "Basic";
 #import "Compiler";
 
+// Kind codes the native signature reader writes.
+Binding_Native_Kind :: enum s32 {
+    VOID;
+    BOOL;
+    SIGNED;
+    UNSIGNED;
+    FLOAT;
+    POINTER;
+    NAMED;
+    FIXED_ARRAY;
+    PROCEDURE;
+}
+
 Binding_Native_Type :: struct {
-    kind: s32;
+    kind: Binding_Native_Kind;
     bytes: s32;
     child: *Binding_Native_Type;
     name: *u8;
@@ -97,7 +110,7 @@ binding_base_type :: (type: *Type_Info) -> *Type_Info {
 }
 
 binding_same_returns :: (native: *Binding_Native_Type, returns: [] *Type_Info, depth := 0) -> bool {
-    if returns.count == 0 return native && native.kind == 0;
+    if returns.count == 0 return native && native.kind == .VOID;
     return returns.count == 1 && binding_same_type(native, returns[0], depth + 1);
 }
 
@@ -106,37 +119,37 @@ binding_same_type :: (native: *Binding_Native_Type, type: *Type_Info, depth := 0
 
     type = binding_base_type(type);
     if !type return false;
-    if native.kind == 0 return type.type == .VOID;
-    if native.kind == 1 return type.type == .BOOL;
+    if native.kind == .VOID return type.type == .VOID;
+    if native.kind == .BOOL return type.type == .BOOL;
 
-    if native.kind == 2 || native.kind == 3 {
+    if native.kind == .SIGNED || native.kind == .UNSIGNED {
         if type.type != .INTEGER || type.runtime_size != native.bytes return false;
-        return (cast(*Type_Info_Integer) type).signed == (native.kind == 2);
+        return (cast(*Type_Info_Integer) type).signed == (native.kind == .SIGNED);
     }
 
-    if native.kind == 4 return type.type == .FLOAT && type.runtime_size == native.bytes;
+    if native.kind == .FLOAT return type.type == .FLOAT && type.runtime_size == native.bytes;
 
-    if native.kind == 5 {
+    if native.kind == .POINTER {
         // Jai procedure values already represent native function pointers.
-        if type.type == .PROCEDURE && native.child && native.child.kind == 8 return binding_same_type(native.child, type, depth + 1);
+        if type.type == .PROCEDURE && native.child && native.child.kind == .PROCEDURE return binding_same_type(native.child, type, depth + 1);
         if type.type != .POINTER return false;
         return binding_same_type(native.child, (cast(*Type_Info_Pointer) type).pointer_to, depth + 1);
     }
 
-    if native.kind == 6 {
+    if native.kind == .NAMED {
         if !native.name return false;
         if type.type == .STRUCT return (cast(*Type_Info_Struct) type).name == to_string(native.name);
         if type.type == .ENUM return (cast(*Type_Info_Enum) type).name == to_string(native.name);
         return false;
     }
 
-    if native.kind == 7 {
+    if native.kind == .FIXED_ARRAY {
         if type.type != .ARRAY return false;
         array := cast(*Type_Info_Array) type;
         return array.array_type == .FIXED && array.array_count == native.extent && binding_same_type(native.child, array.element_type, depth + 1);
     }
 
-    if native.kind == 8 {
+    if native.kind == .PROCEDURE {
         if type.type != .PROCEDURE return false;
 
         procedure := cast(*Type_Info_Procedure) type;

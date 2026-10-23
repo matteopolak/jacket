@@ -74,8 +74,8 @@ ge_name_width :: (decl: *Declaration, ignore_flags: bool) -> int {
     width := decl.output_name.count;
 
     if !ignore_flags {
-        if (decl.decl_flags & .QUALIFIER_USING) != 0 width += 6;
-        else if (decl.decl_flags & .QUALIFIER_AS) != 0 width += 4;
+        if (decl.decl_flags & .QUALIFIER_USING) != 0 width += "using ".count;
+        else if (decl.decl_flags & .QUALIFIER_AS) != 0 width += "#as ".count;
     }
 
     return width;
