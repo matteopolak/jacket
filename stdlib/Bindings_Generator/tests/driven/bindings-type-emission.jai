@@ -121,7 +121,7 @@ main :: () {
     for bytes: s64.[1, 2, 4, 8] {
         signed_type := integer;
         signed_type.size = bytes;
-        maximum := (cast(u64) 1 << (bytes * 8 - 1)) - 1;
+        maximum := ((cast(u64) 1) << (bytes * 8 - 1)) - 1;
 
         assert(!B.exceeds_signed_int_value(maximum, *signed_type));
         assert(B.exceeds_signed_int_value(maximum + 1, *signed_type));

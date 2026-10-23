@@ -130,7 +130,7 @@ exceeds_signed_int_value :: (value: u64, target_type: *CType) -> bool {
     if bytes == 16 return false;
 
     assert(bytes == 1 || bytes == 2 || bytes == 4 || bytes == 8, "unsupported signed integer width");
-    maximum := (cast(u64) 1 << (bytes * 8 - 1)) - 1;
+    maximum := ((cast(u64) 1) << (bytes * 8 - 1)) - 1;
 
     return value > maximum;
 }
