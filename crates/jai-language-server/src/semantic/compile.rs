@@ -1,5 +1,5 @@
 //! Running a compile for an analysis.
-use super::overlay::OverlayFs;
+use super::overlay::{OverlayFs, Reads};
 use super::{BLOCK_BUDGET, BuildFacts, BuiltProgram, Environment, Program};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::fxhash::HashSet;
@@ -147,7 +147,19 @@ fn module_entry(
         .flatten()
 }
 
-/// The compiled program and its errors, and the programs its metaprogram built.
+/// What one compile produced.
+pub(super) struct Compiled {
+    pub(super) compiler: Compiler,
+    pub(super) errors: Vec<jaic::source::Diagnostic>,
+    /// The programs its metaprogram built.
+    pub(super) others: Vec<Program>,
+    /// What the metaprogram did, when it ran to the end.
+    pub(super) facts: Option<BuildFacts>,
+    /// The paths it asked about (and later queries ask about).
+    pub(super) reads: Rc<RefCell<Reads>>,
+}
+
+/// Compile `root` with `files` over the environment's file system.
 pub(super) fn compile(
     env: &Environment,
     root: &Path,
@@ -156,12 +168,7 @@ pub(super) fn compile(
     os: Option<TargetOs>,
     parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
     untrusted: bool,
-) -> (
-    Compiler,
-    Vec<jaic::source::Diagnostic>,
-    Vec<Program>,
-    Option<BuildFacts>,
-) {
+) -> Compiled {
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let open: Vec<PathBuf> = files.keys().cloned().collect();
     let options = || {
@@ -183,11 +190,13 @@ pub(super) fn compile(
         );
         stub
     });
+    let reads = Rc::new(RefCell::new(Reads::default()));
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
         base: env.fs.clone(),
         dir: dir.clone(),
         files,
         canonical: jaic::paths::CanonCache::new(),
+        reads: reads.clone(),
     });
     let mut compiler = Compiler::new(options(), fs.clone());
     // Compile-time output goes nowhere: stdout may be the protocol channel.
@@ -307,5 +316,11 @@ pub(super) fn compile(
     let facts = ran_to_the_end.then(|| BuildFacts {
         programs: recorded.into_iter().map(|(_, p)| p).collect(),
     });
-    (compiler, errors, others, facts)
+    Compiled {
+        compiler,
+        errors,
+        others,
+        facts,
+        reads,
+    }
 }

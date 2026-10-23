@@ -18,6 +18,8 @@
 
 - The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.
 - Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
+- Typing in one program no longer makes the language server recheck other open programs that don't use the file.
+- Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.
 
 ### Changed
 

@@ -32,6 +32,8 @@ impl JsonSession {
             publications_pending: false,
             refresh_diagnostics: false,
             refreshes: 0,
+            refresh_code_lenses: false,
+            lenses_changed: false,
         }
     }
 
@@ -72,6 +74,37 @@ impl JsonSession {
         self.session.warm_auto_import();
     }
 
+    /// Whether `background_work` has something to do.
+    pub fn has_background_work(&self) -> bool {
+        self.session.has_background_work()
+    }
+
+    /// One piece of work a request left for later (see `Session::background_work`), for a
+    /// transport to do while no input waits. Once none is left, a client that supports it is
+    /// asked to fetch the code lenses it changed again.
+    pub fn background_work(&mut self) -> Result<Vec<String>, ProtocolError> {
+        let changed = self.guarded("background work", |this| Ok(this.session.background_work()));
+        let mut messages = match changed {
+            Ok(changed) => {
+                self.lenses_changed |= changed;
+                Vec::new()
+            }
+            Err((_, message)) => vec![log_error(&message)],
+        };
+        if self.lenses_changed && !self.session.has_background_work() {
+            self.lenses_changed = false;
+            if self.refresh_code_lenses {
+                self.refreshes += 1;
+                messages.push(json!({
+                    "jsonrpc": "2.0",
+                    "id": format!("jai-code-lens-refresh-{}", self.refreshes),
+                    "method": "workspace/codeLens/refresh",
+                }));
+            }
+        }
+        self.encode(messages, None)
+    }
+
     /// An edit is waiting for `flush_publications`.
     pub fn publications_pending(&self) -> bool {
         self.publications_pending
@@ -93,7 +126,7 @@ impl JsonSession {
         }
         match incoming(input) {
             Err(error) => self.encode(vec![error], None),
-            // The client's answer to a request of ours (a diagnostics refresh): nothing to do.
+            // The client's answer to a request of ours (a refresh): nothing to do.
             Ok(None) => Ok(vec![]),
             Ok(Some(Incoming {
                 id: Some(id),

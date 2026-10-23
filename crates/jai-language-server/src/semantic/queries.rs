@@ -6,10 +6,22 @@ use jaic::ide::IdeName;
 use jaic::intern::Sym;
 use jaic::source::{FileId, ImportSuggestion};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 impl Analysis {
+    /// The paths the compile asked about so far, and a hash of each open text among them.
+    pub(crate) fn inputs_read(&self) -> (super::Reads, BTreeMap<PathBuf, u64>) {
+        let reads = self.reads.borrow().clone();
+        let buffers = self
+            .files
+            .iter()
+            .filter(|(path, _)| reads.concerns(path))
+            .map(|(path, bytes)| (path.clone(), super::text_hash(bytes)))
+            .collect();
+        (reads, buffers)
+    }
+
     pub(crate) fn polymorph_compilers(
         &self,
     ) -> impl Iterator<Item = (&jaic::sema::Compiler, bool)> {

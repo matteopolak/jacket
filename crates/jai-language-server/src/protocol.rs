@@ -62,6 +62,10 @@ pub struct JsonSession {
     /// It can also be told to pull again (`workspace/diagnostic/refresh`).
     refresh_diagnostics: bool,
     refreshes: u64,
+    /// The client can be told to ask for code lenses again (`workspace/codeLens/refresh`).
+    refresh_code_lenses: bool,
+    /// Background work changed polymorph summaries since lenses were last refreshed.
+    lenses_changed: bool,
     /// Diagnostics are pushed by `flush_publications`, not with the answer to each edit.
     defer_publications: bool,
     /// An edit since the last flush has diagnostics to publish.

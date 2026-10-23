@@ -76,14 +76,22 @@ fn main() -> std::process::ExitCode {
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
                     Ok(received) => received,
                 }
-            } else if warm_needed {
-                // Idle after a message: read the indexes completion will want, unless input
-                // is already waiting.
+            } else if warm_needed || session.has_background_work() {
+                // Idle after a message: read the indexes completion will want, then do the
+                // work requests left for later one piece at a time, unless input is waiting.
                 match input.try_recv() {
                     Ok(received) => received,
                     Err(std::sync::mpsc::TryRecvError::Empty) => {
-                        warm_needed = false;
-                        session.warm_up();
+                        if warm_needed {
+                            warm_needed = false;
+                            session.warm_up();
+                        } else {
+                            for message in session.background_work()? {
+                                output
+                                    .write_all(&jai_language_server::framing::encode(&message))?;
+                            }
+                            output.flush()?;
+                        }
                         continue;
                     }
                     Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),

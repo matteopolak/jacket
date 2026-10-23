@@ -1,5 +1,5 @@
 //! The cache of finished analyses.
-use super::compile::compile;
+use super::compile::{Compiled, compile};
 use super::parses::parse_error;
 use super::{ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment};
 use jaic::sema::TargetOs;
@@ -26,6 +26,26 @@ pub struct Cache {
     pub(crate) recorded: BTreeMap<PathBuf, BuildFacts>,
     /// Moves on whenever `recorded` changes.
     pub(crate) recorded_version: u64,
+}
+
+/// A compile's open texts by canonical path, with the keys they are known by.
+struct Inputs {
+    quick: u64,
+    key: u64,
+    files: BTreeMap<PathBuf, Rc<[u8]>>,
+}
+
+/// Whether `analysis` answers for `files` as well as for the texts it was compiled from: every
+/// buffer that changed, appeared or went away is one it never read, tested or searched a
+/// folder for.
+fn unaffected(analysis: &Analysis, files: &BTreeMap<PathBuf, Rc<[u8]>>) -> bool {
+    let reads = analysis.reads.borrow();
+    let same = |old: &Rc<[u8]>, new: &Rc<[u8]>| Rc::ptr_eq(old, new) || old == new;
+    analysis.files.iter().all(|(path, old)| {
+        files.get(path).is_some_and(|new| same(old, new)) || !reads.concerns(path)
+    }) && files
+        .keys()
+        .all(|path| analysis.files.contains_key(path) || !reads.concerns(path))
 }
 
 pub(super) fn hash(
@@ -182,20 +202,80 @@ impl Cache {
         files: Buffers,
         os: Option<TargetOs>,
     ) -> &mut Analysis {
-        // The same buffers as last time (the session hands out its inputs again until a
-        // document changes): no need to hash megabytes of text to know it is the same program.
-        let quick = quick_key(root, dirs, &files, os);
-        if let Some(at) = self
-            .entries
-            .iter()
-            .position(|a| a.quick.as_ref().is_some_and(|(k, _)| *k == quick))
-        {
-            let entry = self.entries.remove(at);
-            self.entries.push(entry);
-            return self.entries.last_mut().expect("just pushed");
+        let at = match self.lookup(env, root, dirs, &files, os, true) {
+            Ok(at) => at,
+            Err(inputs) => {
+                // A compile of the same program from text that parses will check, and
+                // everything the older one can answer (completion after an unchanged prefix) it
+                // answers too, so the older one goes now instead of staying alive through the
+                // whole new compile.
+                if inputs.files.values().all(|bytes| {
+                    std::str::from_utf8(bytes).is_ok_and(|text| parse_error(text).is_none())
+                }) {
+                    self.entries
+                        .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
+                }
+                self.make_room(os, root);
+                let analysis = self.build(env, root, dirs, files, inputs, os);
+                self.entries.push(analysis);
+                self.entries.len() - 1
+            }
+        };
+        let entry = self.entries.remove(at);
+        self.entries.push(entry);
+        self.entries.last_mut().expect("just pushed")
+    }
+
+    /// A kept analysis of `root` with `files` open, if one answers for them, without compiling
+    /// and without making it the most recently used.
+    pub fn cached(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: &Buffers,
+    ) -> Option<&mut Analysis> {
+        let at = self.lookup(env, root, dirs, files, None, false).ok()?;
+        Some(&mut self.entries[at])
+    }
+
+    /// An analysis of `root` that the cache does not keep, for work beside the editor's (the
+    /// workspace's polymorph summaries): the compile the open document's requests use stays,
+    /// with the one that checked it last, and room is made among the others only.
+    pub fn compile_detached(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        files: Buffers,
+    ) -> Analysis {
+        let inputs = self.inputs(env, root, dirs, &files, None);
+        if let Some(active) = self.entries.iter().rposition(|a| a.os.is_none()) {
+            let root = self.entries[active].root.clone();
+            let checked = self
+                .entries
+                .iter()
+                .rposition(|a| a.usable && a.os.is_none() && a.root == root);
+            let mut at = 0;
+            self.entries.retain(|a| {
+                let keep = a.os.is_some() || at == active || Some(at) == checked;
+                at += 1;
+                keep
+            });
         }
-        let given = files.clone();
-        let files: BTreeMap<PathBuf, Rc<[u8]>> = files
+        self.build(env, root, dirs, files, inputs, None)
+    }
+
+    /// The canonical texts and keys of a compile's inputs.
+    fn inputs(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        given: &Buffers,
+        os: Option<TargetOs>,
+    ) -> Inputs {
+        let files: BTreeMap<PathBuf, Rc<[u8]>> = given
             .iter()
             .map(|(p, t)| {
                 let canonical = self
@@ -204,83 +284,139 @@ impl Cache {
                 (canonical, t.clone())
             })
             .collect();
-        let key = hash(root, dirs, &files, os);
-        if let Some(at) = self.entries.iter().position(|a| a.key == key) {
-            let mut entry = self.entries.remove(at);
-            entry.quick = Some((quick, given));
-            self.entries.push(entry);
-        } else {
-            // A compile of the same program from text that parses will check, and everything the
-            // older one can answer (completion after an unchanged prefix) it answers too, so the
-            // older one goes now instead of staying alive through the whole new compile.
-            if files.values().all(|bytes| {
-                std::str::from_utf8(bytes).is_ok_and(|text| parse_error(text).is_none())
-            }) {
-                self.entries
-                    .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
-            }
-            self.make_room(os, root);
-            self.compiles += 1;
-            let snapshot = files.clone();
-            // Folders a past run of this metaprogram added are not handed back to it: it adds
-            // them again if it still does, and a removed `import_path` line must disappear.
-            let past = self
-                .recorded
-                .get(&crate::document::path_key(&env.fs.canonical(root)));
-            let given_dirs: Vec<PathBuf> = dirs
-                .iter()
-                .filter(|d| {
-                    !past.is_some_and(|f| f.programs.iter().any(|p| p.import_dirs.contains(d)))
-                })
-                .cloned()
-                .collect();
-            let (compiler, errors, others, facts) = compile(
-                env,
-                root,
-                &given_dirs,
-                files,
-                os,
-                &self.parses,
-                self.untrusted,
-            );
-            // Another target's compile says nothing new about what the metaprogram did.
-            if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
-                let key = crate::document::path_key(&env.fs.canonical(root));
-                if self.recorded.get(&key) != Some(&facts) {
-                    self.recorded.insert(key, facts);
-                    self.recorded_version += 1;
-                }
-            }
-            let cost = std::iter::once(&compiler)
-                .chain(others.iter().map(|p| &p.compiler))
-                .flat_map(|c| {
-                    (0..c.src.sources.len() as u32).map(|f| c.src.sources.get(FileId(f)).text.len())
-                })
-                .sum();
-            let usable = errors.is_empty()
-                || compiler
-                    .ed
-                    .facts()
-                    .is_some_and(|ide| !ide.scopes.is_empty());
-            self.entries.push(Analysis {
-                compiler,
-                entry: Some(root.to_path_buf()),
-                key,
-                quick: Some((quick, given)),
-                os,
-                root: root.to_path_buf(),
-                dirs: dirs.to_vec(),
-                files: snapshot,
-                usable,
-                cost,
-                complete: errors.is_empty(),
-                errors,
-                lints: BTreeMap::new(),
-                imports: None,
-                found: RefCell::default(),
-                others,
-            });
+        Inputs {
+            quick: quick_key(root, dirs, given, os),
+            key: hash(root, dirs, &files, os),
+            files,
         }
-        self.entries.last_mut().expect("just pushed")
+    }
+
+    /// Where a kept analysis answers for these inputs, else the inputs worked out for a new
+    /// compile. When `remember`, the analysis found takes the inputs as its own.
+    fn lookup(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        given: &Buffers,
+        os: Option<TargetOs>,
+        remember: bool,
+    ) -> Result<usize, Inputs> {
+        // The same buffers as last time (the session hands out its inputs again until a
+        // document changes): no need to hash megabytes of text to know it is the same program.
+        let quick = quick_key(root, dirs, given, os);
+        if let Some(at) = self
+            .entries
+            .iter()
+            .position(|a| a.quick.as_ref().is_some_and(|(k, _)| *k == quick))
+        {
+            return Ok(at);
+        }
+        let inputs = self.inputs(env, root, dirs, given, os);
+        // The very same texts, or texts that differ only in files the compile never read: a
+        // buffer it did not load (another program's file) is not one of its inputs.
+        let at = self
+            .entries
+            .iter()
+            .position(|a| a.key == inputs.key)
+            .or_else(|| {
+                self.entries.iter().rposition(|a| {
+                    a.os == os && a.root == root && a.dirs == dirs && unaffected(a, &inputs.files)
+                })
+            });
+        let Some(at) = at else {
+            return Err(inputs);
+        };
+        if remember {
+            let entry = &mut self.entries[at];
+            entry.quick = Some((inputs.quick, given.clone()));
+            if entry.key != inputs.key {
+                entry.key = inputs.key;
+                entry.files = inputs.files;
+            }
+        }
+        Ok(at)
+    }
+
+    /// Compile `root` (counted, and its metaprogram's run recorded).
+    fn build(
+        &mut self,
+        env: &Environment,
+        root: &Path,
+        dirs: &[PathBuf],
+        given: Buffers,
+        inputs: Inputs,
+        os: Option<TargetOs>,
+    ) -> Analysis {
+        self.compiles += 1;
+        let Inputs {
+            quick,
+            key,
+            files,
+        } = inputs;
+        let snapshot = files.clone();
+        // Folders a past run of this metaprogram added are not handed back to it: it adds
+        // them again if it still does, and a removed `import_path` line must disappear.
+        let past = self
+            .recorded
+            .get(&crate::document::path_key(&env.fs.canonical(root)));
+        let given_dirs: Vec<PathBuf> = dirs
+            .iter()
+            .filter(|d| !past.is_some_and(|f| f.programs.iter().any(|p| p.import_dirs.contains(d))))
+            .cloned()
+            .collect();
+        let Compiled {
+            compiler,
+            errors,
+            others,
+            facts,
+            reads,
+        } = compile(
+            env,
+            root,
+            &given_dirs,
+            files,
+            os,
+            &self.parses,
+            self.untrusted,
+        );
+        // Another target's compile says nothing new about what the metaprogram did.
+        if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
+            let key = crate::document::path_key(&env.fs.canonical(root));
+            if self.recorded.get(&key) != Some(&facts) {
+                self.recorded.insert(key, facts);
+                self.recorded_version += 1;
+            }
+        }
+        let cost = std::iter::once(&compiler)
+            .chain(others.iter().map(|p| &p.compiler))
+            .flat_map(|c| {
+                (0..c.src.sources.len() as u32).map(|f| c.src.sources.get(FileId(f)).text.len())
+            })
+            .sum();
+        let usable = errors.is_empty()
+            || compiler
+                .ed
+                .facts()
+                .is_some_and(|ide| !ide.scopes.is_empty());
+        Analysis {
+            compiler,
+            entry: Some(root.to_path_buf()),
+            key,
+            quick: Some((quick, given)),
+            os,
+            root: root.to_path_buf(),
+            dirs: dirs.to_vec(),
+            files: snapshot,
+            reads,
+            usable,
+            cost,
+            complete: errors.is_empty(),
+            errors,
+            lints: BTreeMap::new(),
+            imports: None,
+            found: RefCell::default(),
+            others,
+        }
     }
 }

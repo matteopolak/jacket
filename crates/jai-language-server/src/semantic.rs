@@ -8,6 +8,7 @@ mod parses;
 mod queries;
 
 pub use self::cache::Cache;
+pub use self::overlay::Reads;
 pub(crate) use self::parses::text_key;
 pub use self::parses::{note_parse, parse_error};
 use jaic::ide::IdeLayout;
@@ -83,6 +84,14 @@ pub struct SemanticAnalysisContext {
     pub workspace_id: Option<i64>,
 }
 
+/// A hash of a buffer's bytes, to tell later whether it changed.
+pub(crate) fn text_hash(bytes: &[u8]) -> u64 {
+    use std::hash::Hasher;
+    let mut h = crate::fast_hash::FastHasher::default();
+    h.write(bytes);
+    h.finish()
+}
+
 /// A declaration in a compiled file: (path, text of the file, start, end of its name).
 pub type Decl = (String, Rc<str>, usize, usize);
 
@@ -151,6 +160,9 @@ pub struct Analysis {
     root: PathBuf,
     dirs: Vec<PathBuf>,
     files: BTreeMap<PathBuf, Rc<[u8]>>,
+    /// The paths the compile and the queries since asked about: a buffer outside them can
+    /// change without the compile going stale.
+    reads: Rc<RefCell<Reads>>,
     /// The compile got far enough to record scopes and names (the text parsed), so its facts
     /// can answer for an edit that left the code before the cursor alone.
     usable: bool,
