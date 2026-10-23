@@ -54,6 +54,79 @@ fn compile_time_clock_reads_the_host_for_every_target_os() {
     }
 }
 
+/// Targets that differ from the machine running the tests, so the host twin is in play.
+fn foreign_targets() -> Vec<(&'static str, &'static str)> {
+    let host_os = match std::env::consts::OS {
+        "macos" => "macos",
+        "windows" => "windows",
+        _ => "linux",
+    };
+    let host_cpu = match std::env::consts::ARCH {
+        "aarch64" => "arm64",
+        _ => "x64",
+    };
+    let mut targets = Vec::new();
+    for os in ["linux", "windows"] {
+        for cpu in ["x64", "arm64"] {
+            if (os, cpu) != (host_os, host_cpu) {
+                targets.push((os, cpu));
+            }
+        }
+    }
+    targets
+}
+
+fn check_for_foreign_targets(file: &std::path::Path) {
+    for (os, cpu) in foreign_targets() {
+        success(
+            Command::new(env!("CARGO_BIN_EXE_jaic"))
+                .arg(file)
+                .args(["-check", "-os", os, "-cpu", cpu]),
+        );
+    }
+}
+
+fn host_run_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/host-runs")
+        .join(name)
+}
+
+#[test]
+fn plain_run_sees_the_host_when_cross_compiling() {
+    check_for_foreign_targets(&host_run_fixture("cross-target-compile-time-host.jai"));
+}
+
+#[test]
+fn results_of_a_run_convert_to_the_target_program() {
+    check_for_foreign_targets(
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/compiler/regressions/compile-time-host-results.jai"),
+    );
+}
+
+#[test]
+fn build_programs_start_processes_and_drive_workspaces_when_cross_compiling() {
+    check_for_foreign_targets(&host_run_fixture("cross-target-metaprogram.jai"));
+}
+
+#[test]
+fn a_result_with_a_host_dependent_layout_is_rejected() {
+    // Windows is the target whose `Odd` layout differs; a Windows host checks for Linux instead,
+    // where the layouts agree, so the test only applies elsewhere.
+    if std::env::consts::OS == "windows" {
+        return;
+    }
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .arg(host_run_fixture("cross-target-layout-mismatch.jai"))
+        .args(["-check", "-os", "windows", "-cpu", "x64"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("different layout"), "{stderr}");
+}
+
 #[test]
 fn host_values_runs_in_the_interpreter() {
     success(
