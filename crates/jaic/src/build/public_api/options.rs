@@ -264,11 +264,9 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
             "raw LLVM command-line options are unavailable; use explicit build settings",
         ));
     }
-    if cx.number(interp, ty, at, "llvm_options.function_sections")? != 0
-        || cx.number(interp, ty, at, "llvm_options.disable_mem2reg")? != 0
-    {
+    if cx.number(interp, ty, at, "llvm_options.disable_mem2reg")? != 0 {
         return Err(Trap::new(
-            "these LLVM pass switches are not implemented by the current backend",
+            "llvm_options.disable_mem2reg is not implemented by the current backend",
         ));
     }
     for &(option, name) in NUMBERS {

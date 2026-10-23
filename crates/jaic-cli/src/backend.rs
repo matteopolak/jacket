@@ -266,6 +266,7 @@ impl LlvmBackend {
             loop_vectorization: switch(WorkspaceFlag::LlvmEnableLoopVectorization),
             slp_vectorization: switch(WorkspaceFlag::LlvmEnableSlpVectorization),
             merge_functions: switch(WorkspaceFlag::LlvmMergeFunctions),
+            function_sections: switch(WorkspaceFlag::LlvmFunctionSections),
             disable_inlining: if self.no_inline {
                 Some(true)
             } else {

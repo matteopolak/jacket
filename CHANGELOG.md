@@ -58,6 +58,7 @@
 - `jailint --fix` keeps a trailing comment when it removes an unused variable or import.
 - `jailint`'s `manual_assign_op` no longer turns `a = f() + a` into `a += f()`, which reads `a` before the call instead of after.
 - `jailint`'s `needless_bool` no longer rewrites `!(a == b)` to `a != b` for a type that only defines `operator ==`.
+- `llvm_options.function_sections` in `Build_Options` is accepted: on Linux targets every function gets its own `.text.<name>` section.
 - A module parameter of an `enum_flags` type takes a combination such as `#import "Mod"(MODES = .READ | .WRITE)`.
 - Indexing a constant or a returned struct through an `operator *[]` that takes a pointer, as `Enumerated_Array` does, is accepted.
 - A file imported while compile-time code is running can declare `#add_context`, instead of failing because the Context was already laid out.

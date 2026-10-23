@@ -547,3 +547,47 @@ fn library_search_directory_added_by_a_metaprogram() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "4242 4242\n");
 }
+
+/// `function_sections` puts each function of an ELF program in a `.text.<name>` section; an
+/// object format without function sections takes the option and ignores it.
+#[cfg(unix)]
+#[test]
+fn function_sections_name_a_section_per_function() {
+    let link = "compiler_custom_link_command_is_complete(w);";
+    let (dir, output) = build_custom_link(
+        "sections-elf",
+        link,
+        "options.os_target = .LINUX; options.cpu_target = .X64; options.llvm_options.function_sections = true;",
+        Some("1"),
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    let ir = std::fs::read_to_string(dir.join("obj/linked.ll")).unwrap();
+    assert!(ir.contains("section \".text.start"), "{ir}");
+
+    let (dir, output) = build_custom_link(
+        "sections-plain",
+        link,
+        "options.os_target = .LINUX; options.cpu_target = .X64;",
+        Some("1"),
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let ir = std::fs::read_to_string(dir.join("obj/linked.ll")).unwrap();
+    assert!(!ir.contains("section \".text."), "{ir}");
+
+    let (_, output) = build_custom_link(
+        "sections-host",
+        "result := run_command(..args); phase.linker_exit_code = result.exit_code; compiler_custom_link_command_is_complete(w);",
+        "options.llvm_options.function_sections = true;",
+        Some("1"),
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

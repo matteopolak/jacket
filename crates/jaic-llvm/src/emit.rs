@@ -254,6 +254,19 @@ pub(super) fn apply_abi_unwind_attributes<'ctx>(
     Ok(())
 }
 
+/// Put `function` in the section called `name`, as written. (inkwell's `set_section` prepends a
+/// comma to a name without one when the host is macOS, which is for Mach-O sections only.)
+#[allow(unsafe_code)]
+fn set_section_name(function: inkwell::values::FunctionValue<'_>, name: &str) {
+    use inkwell::values::AsValueRef;
+    let Ok(name) = std::ffi::CString::new(name) else {
+        return;
+    };
+    // SAFETY: `function` is a live function of the module and `name` is a NUL-terminated string
+    // that LLVM copies.
+    unsafe { inkwell::llvm_sys::core::LLVMSetSection(function.as_value_ref(), name.as_ptr()) };
+}
+
 /// The function attributes `Build_Options` asks for, on every function with a body.
 pub(super) fn apply_codegen_attributes(
     context: &Context,
@@ -262,6 +275,7 @@ pub(super) fn apply_codegen_attributes(
     target: BuildTarget,
 ) {
     let apple = target.is_apple();
+    let elf = !apple && !target.is_windows() && !target.is_wasm();
     let frame_pointer = match codegen.frame_pointers {
         Some(true) => Some("all"),
         // Apple's ABIs require frame records (`docs/metaprogramming/build-options.md`).
@@ -274,6 +288,10 @@ pub(super) fn apply_codegen_attributes(
     for function in module.get_functions() {
         if function.count_basic_blocks() == 0 {
             continue;
+        }
+        if codegen.function_sections == Some(true) && elf {
+            let section = format!(".text.{}", function.get_name().to_string_lossy());
+            set_section_name(function, &section);
         }
         if let Some(value) = frame_pointer {
             function.remove_string_attribute(AttributeLoc::Function, "frame-pointer");

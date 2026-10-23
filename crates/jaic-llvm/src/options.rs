@@ -73,6 +73,9 @@ pub struct Codegen {
     pub loop_vectorization: Option<bool>,
     pub slp_vectorization: Option<bool>,
     pub merge_functions: Option<bool>,
+    /// `function_sections`: every function in its own `.text.<name>` section, on ELF targets
+    /// (other object formats ignore it).
+    pub function_sections: Option<bool>,
     /// `disable_inlining`: every function not marked `inline` gets `noinline`.
     pub disable_inlining: Option<bool>,
     /// `enable_tail_calls = false`: `"disable-tail-calls"` on every function.
