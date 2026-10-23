@@ -53,7 +53,7 @@ impl Span {
 /// (`line_col`) or UTF-16 units (`utf16_position`, the language server protocol's unit).
 /// Building is one pass; every query after that is a binary search, so callers that ask
 /// about many offsets of one text build the index once and keep it (`SourceFile::lines`).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LineIndex {
     starts: Vec<u32>,
     ends: Vec<u32>,
@@ -70,20 +70,38 @@ pub enum Utf16Error {
 
 impl LineIndex {
     pub fn new(text: &str) -> Self {
+        let mut index = Self {
+            starts: vec![0],
+            ends: Vec::new(),
+        };
+        index.scan(text);
+        index
+    }
+
+    /// Bring the index up to date after an edit: `text` is the new text and `from` the first
+    /// byte that differs from the text the index was built for. Lines before the one holding
+    /// `from` keep their entries; that line and every one after it are scanned again.
+    pub fn update(&mut self, text: &str, from: usize) {
+        let line = self.line_of(from.min(text.len()));
+        self.starts.truncate(line + 1);
+        self.ends.truncate(line);
+        self.scan(text);
+    }
+
+    /// Record the lines of `text` from the start of the last known line to the end.
+    fn scan(&mut self, text: &str) {
         let bytes = text.as_bytes();
-        let mut starts = vec![0u32];
-        let mut ends = Vec::new();
-        for (at, _) in text.match_indices('\n') {
-            ends.push((at - usize::from(at > 0 && bytes[at - 1] == b'\r')) as u32);
-            starts.push(at as u32 + 1);
+        let from = self.starts.last().map_or(0, |&start| start as usize);
+        for (at, _) in text[from..].match_indices('\n') {
+            let at = from + at;
+            self.ends
+                .push((at - usize::from(at > 0 && bytes[at - 1] == b'\r')) as u32);
+            self.starts.push(at as u32 + 1);
         }
-        let last = *starts.last().unwrap_or(&0) as usize;
+        let last = *self.starts.last().unwrap_or(&0) as usize;
         let len = text.len();
-        ends.push((len - usize::from(len > last && bytes[len - 1] == b'\r')) as u32);
-        Self {
-            starts,
-            ends,
-        }
+        self.ends
+            .push((len - usize::from(len > last && bytes[len - 1] == b'\r')) as u32);
     }
 
     /// The number of lines: one more than the newlines, so the empty text has one, and a text

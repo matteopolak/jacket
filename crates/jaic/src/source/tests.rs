@@ -225,3 +225,28 @@ fn naming_the_typechecked_message_is_tracked_per_build() {
     c.share_typechecked_use(second.clone());
     assert!(named(&second));
 }
+
+#[test]
+fn updating_after_random_edits_matches_a_full_rebuild() {
+    let mut seed = 31;
+    for _ in 0..300 {
+        let mut text = random_text(&mut seed);
+        let mut index = LineIndex::new(&text);
+        for _ in 0..20 {
+            let piece = random_text(&mut seed);
+            let at = |seed: &mut u64| {
+                *seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+                text.floor_char_boundary((*seed >> 33) as usize % (text.len() + 1))
+            };
+            let start = at(&mut seed);
+            let end = at(&mut seed).max(start);
+            text.replace_range(start..end, &piece);
+            index.update(&text, start);
+            assert_eq!(
+                index,
+                LineIndex::new(&text),
+                "{text:?} after an edit at {start}"
+            );
+        }
+    }
+}

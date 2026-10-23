@@ -24,6 +24,11 @@ impl LineIndex {
         Self(jaic::source::LineIndex::new(text))
     }
 
+    /// Bring the index up to date after an edit that changed `text` from byte `from` on.
+    pub(crate) fn update(&mut self, text: &str, from: usize) {
+        self.0.update(text, from);
+    }
+
     pub(crate) fn byte(&self, text: &str, position: Position) -> Result<usize, Error> {
         self.0
             .offset_utf16(text, position.line, position.character)

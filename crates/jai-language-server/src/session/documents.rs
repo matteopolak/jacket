@@ -73,8 +73,8 @@ impl Session {
         }
         let old_bytes = document.text.len() + uri.as_str().len();
         let mut text = document.text.clone();
+        let mut index = document.index.clone();
         for change in changes {
-            let index = LineIndex::new(&text);
             let (start, end) = if let Some(range) = change.range {
                 if range.start > range.end {
                     return Err(Error::InvalidEdit("edit range is reversed"));
@@ -92,6 +92,7 @@ impl Session {
                 .ok_or(Error::Limit("edit size overflow"))?;
             self.admit(uri, bytes, old_bytes)?;
             text.replace_range(start..end, &change.text);
+            index.update(&text, start);
         }
         let lexical_damage =
             crate::lexical_recovery::update(&document.text, &text, &document.lexical_damage);
@@ -107,7 +108,7 @@ impl Session {
         let current = map.get_mut(uri).expect("checked document");
         *current = Document {
             version,
-            index: LineIndex::new(&text),
+            index,
             text,
             asm: OnceCell::new(),
             sites: OnceCell::new(),
