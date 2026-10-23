@@ -569,6 +569,41 @@ pub(crate) fn finding(span: Span, message: String, help: Option<String>) -> Find
     }
 }
 
+/// A statement's bytes with the `;` the span may stop before.
+pub(crate) fn statement_range(cx: &Cx, span: Span) -> (usize, usize) {
+    let start = span.start as usize;
+    let mut end = span.end as usize;
+    let rest = &cx.text[end..];
+    let trimmed = rest.trim_start_matches([' ', '\t']);
+    if trimmed.starts_with(';') && !cx.text[..end].ends_with(';') {
+        end += rest.len() - trimmed.len() + 1;
+    }
+    (start, end)
+}
+
+/// A finding with a fix the editor offers and `--fix` leaves alone: the change may not be what
+/// was meant, or it changes what the program does. `title` names the change.
+pub(crate) fn suggesting(
+    span: Span,
+    message: String,
+    help: String,
+    title: impl Into<String>,
+    edits: Vec<Edit>,
+) -> Finding {
+    Finding {
+        start: span.start as usize,
+        end: span.end as usize,
+        message,
+        label: None,
+        help: Some(help),
+        fix: Some(Fix {
+            title: title.into(),
+            edits,
+            machine_applicable: false,
+        }),
+    }
+}
+
 /// A finding whose fix replaces bytes `start..end` with `text`.
 pub(crate) fn replacing(
     span: Span,

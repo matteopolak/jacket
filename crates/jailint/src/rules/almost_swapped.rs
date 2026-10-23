@@ -7,9 +7,9 @@
 //! (names, member paths, indexing; no calls), spelled the same, of the same type. Between
 //! two types the pair is a conversion demo or round trip (`u = handle; handle = u;`), not a
 //! swap.
-use super::{finding, same_pure, statement_lists};
-use crate::Finding;
+use super::{finding, same_pure, statement_lists, statement_range, suggesting};
 use crate::syntax::Cx;
+use crate::{Edit, Finding};
 use jaic::ast::{AssignOp, Expr, Stmt, StmtKind as S};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -27,10 +27,26 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 {
                     let x = cx.whole_src(a.span).trim();
                     let y = cx.whole_src(b.span).trim();
-                    out.push(finding(
-                        pair[0].span.to(pair[1].span),
-                        format!("this sets both `{x}` and `{y}` to `{y}`"),
-                        Some(format!("to swap them, write `{x}, {y} = {y}, {x};`")),
+                    let span = pair[0].span.to(pair[1].span);
+                    let message = format!("this sets both `{x}` and `{y}` to `{y}`");
+                    let help = format!("to swap them, write `{x}, {y} = {y}, {x};`");
+                    let (start, _) = statement_range(cx, pair[0].span);
+                    let (_, end) = statement_range(cx, pair[1].span);
+                    // Comments between the two statements would be lost with them.
+                    if cx.text[start..end].contains("//") || cx.text[start..end].contains("/*") {
+                        out.push(finding(span, message, Some(help)));
+                        continue;
+                    }
+                    out.push(suggesting(
+                        span,
+                        message,
+                        help,
+                        "swap the two values",
+                        vec![Edit {
+                            start,
+                            end,
+                            text: format!("{x}, {y} = {y}, {x};"),
+                        }],
                     ));
                 }
             }

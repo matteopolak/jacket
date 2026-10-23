@@ -4,7 +4,12 @@ error[almost_swapped]: this sets both `a` and `b` to `b`
 12 |     a = b;
    |     ^^^^^^
    |
-   = help: to swap them, write `a, b = b, a;`
+help: to swap them, write `a, b = b, a;`
+   |
+12 -     a = b;
+13 -     b = a;
+12 +     a, b = b, a;
+   |
    = note: `almost_swapped` is `deny` by default
 
 error[almost_swapped]: this sets both `p.first` and `p.second` to `p.second`
@@ -13,6 +18,11 @@ error[almost_swapped]: this sets both `p.first` and `p.second` to `p.second`
 15 |     p.first = p.second;
    |     ^^^^^^^^^^^^^^^^^^^
    |
-   = help: to swap them, write `p.first, p.second = p.second, p.first;`
+help: to swap them, write `p.first, p.second = p.second, p.first;`
+   |
+15 -     p.first = p.second;
+16 -     p.second = p.first;
+15 +     p.first, p.second = p.second, p.first;
+   |
    = note: `almost_swapped` is `deny` by default
 

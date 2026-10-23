@@ -15,11 +15,10 @@
 //!
 //! The fixes are machine-applicable. Comments inside a rewritten `if` keep it from being
 //! offered, so nothing written there is lost.
-use super::{op_text, parenthesized, pure, replacing};
+use super::{op_text, parenthesized, pure, replacing, statement_range};
 use crate::Finding;
 use crate::syntax::{Cx, Node, is_atom, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
-use jaic::source::Span;
 use jaic::types::{TypeId, TypeKind};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -288,16 +287,4 @@ fn sequence(cx: &Cx, stmts: &[Stmt], out: &mut Vec<Finding>) {
             true,
         ));
     }
-}
-
-/// A statement's bytes with the `;` the span may stop before.
-fn statement_range(cx: &Cx, span: Span) -> (usize, usize) {
-    let start = span.start as usize;
-    let mut end = span.end as usize;
-    let rest = &cx.text[end..];
-    let trimmed = rest.trim_start_matches([' ', '\t']);
-    if trimmed.starts_with(';') && !cx.text[..end].ends_with(';') {
-        end += rest.len() - trimmed.len() + 1;
-    }
-    (start, end)
 }
