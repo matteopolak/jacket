@@ -11,9 +11,9 @@
 //! integer passes all of them (`&&`), or every integer passes one of them (`||`). The whole
 //! range of integers is used, so the answer holds whatever the expression's width. Floats are
 //! left alone: `x > 1 && x < 2` holds for `1.5`.
-use super::{finding, int_literal, pure};
-use crate::Finding;
+use super::{finding, int_literal, pure, suggesting};
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 use jaic::types::TypeKind;
 
@@ -35,7 +35,17 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 Some(E::Binary(outer, ..)) if outer == op
             );
             if !inner {
-                run(cx, e, *op, out);
+                // Swapping the operator keeps the grouping only when no other `&&`/`||` is
+                // wrapped around this one.
+                let alone = !matches!(
+                    ancestors
+                        .last()
+                        .copied()
+                        .and_then(Node::expr)
+                        .map(|p| &p.kind),
+                    Some(E::Binary(BinOp::And | BinOp::Or, ..))
+                );
+                run(cx, e, *op, alone, out);
             }
             true
         });
@@ -64,7 +74,7 @@ impl Test<'_> {
     }
 }
 
-fn run(cx: &Cx, e: &Expr, op: BinOp, out: &mut Vec<Finding>) {
+fn run(cx: &Cx, e: &Expr, op: BinOp, alone: bool, out: &mut Vec<Finding>) {
     let mut operands = Vec::new();
     flatten(e, op, &mut operands);
     let tests: Vec<Test> = operands.iter().filter_map(|o| test(cx, o)).collect();
@@ -108,11 +118,49 @@ fn run(cx: &Cx, e: &Expr, op: BinOp, out: &mut Vec<Finding>) {
                 "every integer passes one of these comparisons: was `&&` meant?",
             )
         };
-        out.push(finding(
-            e.span,
-            format!("`{shown}` is always `{always}`"),
-            Some(help.into()),
-        ));
+        let message = format!("`{shown}` is always `{always}`");
+        // `a && b` becomes `a || b` (and back), when the run is just those two operands.
+        let flipped = match &e.kind {
+            E::Binary(_, a, b) if alone && operands.len() == 2 => {
+                let (start, end) = (cx.whole(a.span).1, cx.whole(b.span).0);
+                let between = cx.text.get(start..end).unwrap_or("");
+                let (from, to) = if and {
+                    ("&&", "||")
+                } else {
+                    ("||", "&&")
+                };
+                // The other operator must not be just as impossible.
+                let sensible = if and {
+                    !points.iter().all(|&x| group.iter().any(|t| t.passes(x)))
+                } else {
+                    points.iter().any(|&x| group.iter().all(|t| t.passes(x)))
+                };
+                (sensible && between.trim() == from && !cx.has_comment_between(start, end))
+                    .then(|| (start, end, between.replacen(from, to, 1)))
+            }
+            _ => None,
+        };
+        out.push(match flipped {
+            Some((start, end, text)) => suggesting(
+                e.span,
+                message,
+                help.into(),
+                format!(
+                    "use `{}` instead",
+                    if and {
+                        "||"
+                    } else {
+                        "&&"
+                    }
+                ),
+                vec![Edit {
+                    start,
+                    end,
+                    text,
+                }],
+            ),
+            None => finding(e.span, message, Some(help.into())),
+        });
         return;
     }
 }
