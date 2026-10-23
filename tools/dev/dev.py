@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Developer commands behind the Justfile: build, format, lint and test the repository.
 
-    python3 tools/dev/dev.py build [--release] [-j N]
+    python3 tools/dev/dev.py build [--release] [--no-native] [-j N]
     python3 tools/dev/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--os linux|windows|macos|wasm] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py editor
@@ -103,13 +103,103 @@ def ensure_jaifmt(jobs: str) -> Path:
     return out
 
 
+DEVELOPER_TOOLS = ROOT / "stdlib" / "internal" / "developer-tools"
+HELPER_SUFFIX = {"darwin": "dylib", "win32": "dll"}.get(sys.platform, "so")
+
+
+def stale(output: Path, *sources: Path) -> bool:
+    return not output.exists() or output.stat().st_mtime < max(s.stat().st_mtime for s in sources)
+
+
+LLVM_HELP = ("install LLVM 23.1 and point LLVM_SYS_231_PREFIX at it (macOS: `brew install llvm@23` then "
+             "`export LLVM_SYS_231_PREFIX=\"$(brew --prefix llvm@23)\"`); see docs/tools/llvm-setup.md")
+
+
+def llvm_prefix() -> tuple[Path | None, str | None]:
+    """The LLVM that llvm-sys will build against (LLVM_SYS_231_PREFIX, else llvm-config on
+    PATH), or why there is none."""
+    configured = os.environ.get("LLVM_SYS_231_PREFIX")
+    if configured:
+        config = Path(configured) / "bin" / ("llvm-config" + EXE)
+        if not config.is_file():
+            return None, f"LLVM_SYS_231_PREFIX={configured} has no bin/llvm-config: {LLVM_HELP}"
+    else:
+        found = shutil.which("llvm-config-23") or shutil.which("llvm-config")
+        if not found:
+            return None, f"LLVM 23.1 not found (LLVM_SYS_231_PREFIX is not set and no llvm-config is on PATH): {LLVM_HELP}"
+        config = Path(found)
+    try:
+        version = subprocess.check_output([str(config), "--version"], text=True).strip()
+        prefix = Path(subprocess.check_output([str(config), "--prefix"], text=True).strip())
+    except (OSError, subprocess.CalledProcessError) as error:
+        return None, f"{config} does not run ({error}): {LLVM_HELP}"
+    if not version.startswith("23.1"):
+        return None, f"{config} is LLVM {version}, and the compiler needs 23.1: {LLVM_HELP}"
+    return prefix, None
+
+
+def missing_dependencies(native: bool) -> list[str]:
+    """Every tool `build` would fail on, each with how to get it, so one run names them all."""
+    problems = []
+    if not shutil.which("cargo"):
+        problems.append("cargo not found: install Rust with rustup (https://rustup.rs)")
+    prefix, llvm = llvm_prefix()
+    if llvm:
+        problems.append(llvm)
+    if not native:
+        return problems
+    compilers = ["clang"] if sys.platform == "win32" else ["cc", "c++"]
+    absent = [f"`{tool}`" for tool in compilers if not shutil.which(tool)]
+    if absent:
+        problems.append(f"{' and '.join(absent)} not found: the native libraries need a C and C++ compiler "
+                        "(macOS: `xcode-select --install`; Debian/Ubuntu: `apt install build-essential`)")
+    from native import build_native_libs
+    if "SDL3" in build_native_libs.missing() and not shutil.which("cmake"):
+        problems.append("`cmake` not found: SDL3 builds with CMake (`brew install cmake`, `apt install cmake`), "
+                        "or skip the native libraries with `just build --native=false`")
+    clang = DEVELOPER_TOOLS / "clang-bindings"
+    if (prefix and sys.platform != "win32" and stale(clang / "developer-tools-clang", clang / "main.c")
+            and not os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX")
+            and not (prefix / "include" / "clang-c" / "Index.h").is_file()):
+        problems.append(f"{prefix} has no include/clang-c/Index.h: Bindings_Generator's helper needs an LLVM "
+                        "with libclang (Homebrew's llvm@23 and apt's libclang-23-dev have it)")
+    return problems
+
+
+def build_native() -> int:
+    """What a release archive carries beside stdlib/ and a checkout builds itself: the
+    third-party libraries under target/native-libs (only the missing ones) and the
+    Bindings_Generator helpers in stdlib/internal/developer-tools (only when stale)."""
+    if run([sys.executable, str(ROOT / "tools" / "native" / "build_native_libs.py"), "--missing"]):
+        return 1
+    checks = ROOT / "tools" / "developer_checks"
+    platform_lib = DEVELOPER_TOOLS / f"libgenerator_platform.{HELPER_SUFFIX}"
+    if stale(platform_lib, DEVELOPER_TOOLS / "generator-platform-native.c"):
+        if run([sys.executable, str(checks / "build_generator_platform.py")]):
+            return 1
+    # The clang helper builds on macOS and Linux only; Windows release archives ship libclang.
+    clang = DEVELOPER_TOOLS / "clang-bindings"
+    if sys.platform != "win32" and stale(clang / "developer-tools-clang", clang / "main.c"):
+        if run([sys.executable, str(checks / "build_developer_bindings.py")]):
+            return 1
+    return 0
+
+
 def cmd_build(args) -> int:
+    problems = missing_dependencies(not args.no_native)
+    if problems:
+        print("just build: missing dependencies:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
     flags = ["--release"] if args.release else []
     if cargo_build([*flags, "-p", "jaic-cli", "-p", "jai-language-server", "-p", "jailint"],
                    args.jobs):
         return 1
     jaic = TARGET / ("release" if args.release else "debug") / ("jaic" + EXE)
-    return run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt_path())])
+    if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt_path())]):
+        return 1
+    return 0 if args.no_native else build_native()
 
 
 def cmd_fmt(args) -> int:
@@ -304,6 +394,9 @@ def main() -> int:
         p.add_argument("-j", "--jobs", default="3")
         if name in ("build", "lint"):
             p.add_argument("--release", action="store_true")
+        if name == "build":
+            p.add_argument("--no-native", action="store_true",
+                           help="skip the native libraries and Bindings_Generator helpers")
         if name in ("fmt", "lint"):
             p.add_argument("--lang", choices=["jai", "rust", "all"], default="all")
             p.add_argument("--staged", action="store_true")

@@ -14,12 +14,13 @@ default_jobs := env("JAI_JOBS", "3")
 default:
     @{{ just_executable() }} --list --unsorted
 
-# Build jaic, jailsp and jailint with cargo, then target/jaifmt with jaic.
+# Build jaic, jailsp, jailint and target/jaifmt, plus the native libraries and helpers a release ships (--native=false skips them).
 [group('build')]
 [arg("release", long, value="true")]
+[arg("native", long)]
 [arg("jobs", long, short="j")]
-build release="false" jobs=default_jobs:
-    {{ py }} tools/dev/dev.py build -j {{ jobs }} {{ if release == "true" { "--release" } else { "" } }}
+build release="false" native="true" jobs=default_jobs:
+    {{ py }} tools/dev/dev.py build -j {{ jobs }} {{ if release == "true" { "--release" } else { "" } }} {{ if native == "false" { "--no-native" } else { "" } }}
 
 # Format Jai (jaifmt) and Rust (rustfmt, item spacing); paths narrow it to files or directories.
 [group('check')]

@@ -326,13 +326,18 @@ impl Interp {
                         .map(|dir| dir.display().to_string())
                         .collect::<Vec<_>>();
                     format!(
-                        " (library `{}` was not found or does not define it; looked beside `{}` and in {})",
+                        " (library `{}` was not found or does not define it; looked beside `{}` and in {}){}",
                         library.name,
                         library.base_dir,
                         if dirs.is_empty() {
                             "no native library directory".to_string()
                         } else {
                             dirs.join(", ")
+                        },
+                        if in_source_checkout(&library.base_dir) {
+                            "; a source checkout builds the libraries the standard library binds with `just build`"
+                        } else {
+                            ""
                         }
                     )
                 })
@@ -534,4 +539,15 @@ impl Interp {
         }
         self.thunk_funcs.get(&value).copied()
     }
+}
+
+/// A library declared in a Jacket source checkout's `stdlib/`, whose native libraries and
+/// helpers are built by `just build` rather than shipped beside it as in a release archive.
+fn in_source_checkout(base_dir: &str) -> bool {
+    std::path::Path::new(base_dir).ancestors().any(|dir| {
+        dir.file_name().is_some_and(|name| name == "stdlib")
+            && dir
+                .parent()
+                .is_some_and(|root| root.join("Justfile").is_file())
+    })
 }

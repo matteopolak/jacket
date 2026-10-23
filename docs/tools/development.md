@@ -8,7 +8,7 @@ The root `Justfile` gives each dev command one name. CI's format and lint steps 
 
 | Recipe | Does |
 | --- | --- |
-| `build` | cargo build of `jaic-cli`, `jai-language-server`, `jailint`, then `target/jaifmt` (`--release`, `-j`) |
+| `build` | cargo build of `jaic-cli`, `jai-language-server`, `jailint`, then `target/jaifmt`, then the native pieces a release archive ships (below; `--release`, `--native=false`, `-j`) |
 | `fmt` | `jaifmt` on Jai; `cargo fmt` plus `tools/dev/rust_item_spacing.py` on Rust (`--check`, `--lang jai\|rust\|all`, `--staged`, paths) |
 | `lint` | `jailint -D warnings` on Jai; `cargo clippy --workspace --all-targets -- -D warnings` on Rust (`--fix`, `--lang`, `--staged`) |
 | `check` | `fmt --check`, `lint`, `editor`, `nvim-test --unit` |
@@ -18,6 +18,15 @@ The root `Justfile` gives each dev command one name. CI's format and lint steps 
 | `bump-version X.Y.Z` | `tools/bump_version.py`, the version step of [releases](releases.md) |
 | `fetch-upstreams`, `wasm`, `vscode` | `tools/fetch_upstreams.py`, `tools/browser/build_scripting_wasm.py --release`, `pnpm run <script>` in `editors/vscode` |
 | `vscode-try [FOLDER]` | Builds the tools (release; `--debug` for debug) and the extension, then opens VS Code with only that extension, in a throwaway profile whose settings point at the built `jailsp`, `jaic`, `jaifmt` and `stdlib/`. `FOLDER` opens in place; without it, a temporary copy of `examples/` |
+
+### Building from source
+
+`just build` gives a checkout what a release archive has beside `stdlib/`, so `jaic` from `target/` behaves like an installed one:
+
+- `tools/native/build_native_libs.py --missing` builds the third-party libraries the stdlib binds into `target/native-libs/<platform>` (the first run downloads and builds all of them, SDL3 alone takes a few minutes; later runs skip what exists). See [native libraries](native-libs.md).
+- `tools/developer_checks/build_generator_platform.py` and `build_developer_bindings.py` build the `Bindings_Generator` helpers (`libgenerator_platform` and the libclang tool) into `stdlib/internal/developer-tools/`, when their C sources are newer than the outputs. The libclang tool builds on macOS and Linux only.
+
+Both need the LLVM SDK the compiler builds against (`LLVM_SYS_231_PREFIX`, see [LLVM setup](llvm-setup.md)). A plain `cargo build` makes only the Rust binaries: `generate_bindings` then fails with "library `generator_platform` was not found", and jaic adds a hint to run `just build` when the library is declared in a checkout's `stdlib/` (`in_source_checkout` in `interp/foreign.rs`). `just build --native=false` skips this step. Before building, `just build` checks for what it needs (`missing_dependencies` in `tools/dev/dev.py`): cargo, LLVM 23.1 through `LLVM_SYS_231_PREFIX` or `llvm-config`, and for the native step a C and C++ compiler, CMake while SDL3 is unbuilt, and libclang's headers while the bindings helper is stale. It lists every missing one with how to install it, then stops.
 
 Rust lints: the root `[workspace.lints]` (inherited by every crate through `[lints] workspace = true`) enables `clippy::all`, `pedantic` (with a short allow-list, each entry commented), `cognitive_complexity`, `too_many_lines`, `undocumented_unsafe_blocks`, `excessive_nesting` and `wildcard_imports` (split files import the names they use from their parent explicitly; `use super::*` is only for test modules). Thresholds live in the root `clippy.toml`: nesting 7, cognitive complexity 40, function length 250 (a ratchet; lower it as functions are split). `std::collections::{HashMap, HashSet, LinkedList}` are banned through `disallowed-types`: use `jaic::fxhash::{HashMap, HashSet}`. Every `unsafe` block needs a `// SAFETY:` comment stating its invariant. `unsafe_code` is `deny` workspace-wide: a module that needs it opts in with a scoped `#[allow(unsafe_code)]`, and `jaic-cli`, `jailint`, `jacket` and `jacket-config` carry `#![forbid(unsafe_code)]`. Flatten or split rather than `#[allow]`; a local `#[expect(.., reason = "..")]` is acceptable only with a real reason. A new crate must add `[lints] workspace = true`. The Jai counterpart is jailint's [`excessive_nesting`](jailint.md#excessive_nesting) rule (off by default).
 

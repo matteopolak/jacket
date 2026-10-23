@@ -32,7 +32,7 @@ jobs:
           alsa: 'true'
       - name: Build jaic, jaifmt and the oracle
         run: |
-          python3 tools/dev/dev.py build --release
+          python3 tools/dev/dev.py build --release --no-native
           cargo build --release --locked -p jai-language-server --example lsp_oracle
       - name: Run the oracle
         run: python3 tools/lsp/oracle.py --sets "$SETS" --shard ${{ matrix.shard }}/4 --jobs "$(nproc)" --out target/lsp-oracle
