@@ -1,6 +1,6 @@
 // Target-availability reducer: custom rendering types do not replace Input.Event.
 #import "Basic";
-G :: #import "GetRect"(Type_Indicator = Renderer);
+G :: #import "GetRect"()(Type_Indicator = Renderer);
 
 Renderer :: struct {
     Font :: struct {

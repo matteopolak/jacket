@@ -2,8 +2,8 @@
 #import "Math";
 W :: #import "Window_Creation";
 Default :: #import "GetRect";
-G :: #import "GetRect"(Type_Indicator = Renderer);
-L :: #import "GetRect_LeftHanded"(Type_Indicator = Renderer);
+G :: #import "GetRect"()(Type_Indicator = Renderer);
+L :: #import "GetRect_LeftHanded"()(Type_Indicator = Renderer);
 
 Renderer :: struct {
     Font :: struct {
@@ -37,7 +37,7 @@ main :: () {
     p.draw_prepared_text = draw;
     p.texture_load_from_memory = load;
     G.ui_init(procs = *p);
-    assert(Default.draw_procs.prepare_text == null);
+    assert(Default.draw_procs.prepare_text == G.draw_procs.prepare_text);
     theme: G.Label_Theme;
     theme.font = *font;
     width := G.label(.{ 10, 20, 100, 40 }, "Wi", *theme, false);

@@ -2,7 +2,7 @@
 
 ## Public declaration inventory
 
-Module parameter: `Type_Indicator: Type = void`.
+Program parameter: `Type_Indicator: Type = void` (second list, `#import "GetRect"()(Type_Indicator = T)`), shared by every import of GetRect and GetRect_LeftHanded in a program.
 
 Visible public declarations and module-conditional variants are listed below. Procedure bodies and aggregate initializers are omitted; complete public type members are listed separately.
 
