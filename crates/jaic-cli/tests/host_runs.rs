@@ -179,3 +179,61 @@ fn host_values_runs_as_a_real_wasi_command() {
         .join("../../tools/browser/run_foundations_wasm.mjs");
     success(Command::new("node").arg(runner).arg(module));
 }
+
+/// Targets the interpreter can run `main` for from this machine while the build is a cross
+/// build (Windows programs call foreign procedures the host does not have).
+fn interpretable_foreign_targets() -> Vec<(&'static str, &'static str)> {
+    let host_os = match std::env::consts::OS {
+        "macos" => "macos",
+        "windows" => "windows",
+        _ => "linux",
+    };
+    let host_cpu = match std::env::consts::ARCH {
+        "aarch64" => "arm64",
+        _ => "x64",
+    };
+    let mut targets = Vec::new();
+    for os in ["linux", "macos"] {
+        for cpu in ["x64", "arm64"] {
+            if (os, cpu) != (host_os, host_cpu) {
+                targets.push((os, cpu));
+            }
+        }
+    }
+    targets
+}
+
+/// Run `main` of a fixture in the interpreter for every foreign target. The program reads what
+/// the target compiler holds, so state that compile-time code left only in the host twin shows.
+fn interpret_for_foreign_targets(name: &str) {
+    for (os, cpu) in interpretable_foreign_targets() {
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(host_run_fixture(name))
+            .args(["-interp", "-os", os, "-cpu", cpu])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{name} for {os} {cpu}: {stderr}");
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n", "{name}");
+    }
+}
+
+#[test]
+fn a_no_reset_global_written_by_a_run_reaches_the_cross_built_program() {
+    interpret_for_foreign_targets("cross-target-no-reset-global.jai");
+}
+
+#[test]
+fn global_data_registered_by_a_run_reaches_the_cross_built_program() {
+    interpret_for_foreign_targets("cross-target-global-data.jai");
+}
+
+#[test]
+fn type_info_flags_set_by_a_run_reach_the_cross_built_program() {
+    interpret_for_foreign_targets("cross-target-type-info-flags.jai");
+}
+
+#[test]
+fn type_descriptors_in_a_run_result_are_the_targets_own() {
+    interpret_for_foreign_targets("cross-target-type-info-result.jai");
+}

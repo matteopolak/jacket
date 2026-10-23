@@ -79,6 +79,20 @@ impl Operation {
         )
     }
 
+    /// Whether the operation reads or changes state that belongs to the program being built
+    /// (its type table, the type info flags and the global data it is made of). A host twin
+    /// holds its own copy of that state, so a run that needs it stays on the target compiler.
+    pub(crate) fn needs_target(self) -> bool {
+        matches!(
+            self,
+            Self::SetTypeInfoFlags
+                | Self::AddDataSegment
+                | Self::AddGlobalData
+                | Self::RuntimeInfo
+                | Self::TypeTable
+        )
+    }
+
     fn records(self) -> bool {
         matches!(
             self,

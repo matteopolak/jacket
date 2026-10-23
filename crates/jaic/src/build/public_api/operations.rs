@@ -163,6 +163,12 @@ pub(crate) fn call(
         "{:?} called without the baton",
         binding.operation
     );
+    if interp.in_host_twin && binding.operation.needs_target() {
+        interp.twin_declined = true;
+        return Err(Trap::new(
+            "this operation needs the target program, not the host twin",
+        ));
+    }
     if binding.operation.is_effect() {
         interp.effects += 1;
     }

@@ -129,6 +129,12 @@ impl Importer<'_> {
         if let Some(&copied) = self.globals.get(&old) {
             return Ok(ir::RelocTarget::Global(copied));
         }
+        // A type's descriptor is the target's own descriptor of the matching type, so pointers
+        // to it compare equal to `type_info(T)` in the target program.
+        if let Some(own) = self.type_descriptor(old) {
+            self.globals.insert(old, own);
+            return Ok(ir::RelocTarget::Global(own));
+        }
         // A variable of the program is the same variable in the target program.
         if let Some(&(name, span)) = self.host.out.declared_globals.get(&old) {
             let own = self.target_variable(name, span)?;
@@ -145,6 +151,15 @@ impl Importer<'_> {
         }
         self.target.out.program.globals[copied.0 as usize] = global;
         Ok(ir::RelocTarget::Global(copied))
+    }
+
+    /// The target's descriptor global for the host global `old` when it is the `Type_Info` of
+    /// a type that crosses; `None` for any other global (or a type with no counterpart, whose
+    /// descriptor is then copied like other data).
+    fn type_descriptor(&mut self, old: ir::GlobalId) -> Option<ir::GlobalId> {
+        let host_ty = self.host.ty.type_from_info_global(old)?;
+        let own = self.ty(host_ty).ok()?;
+        self.target.type_info_global(own, self.span).ok()
     }
 
     /// The target's type for the host type `host`.

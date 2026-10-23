@@ -172,6 +172,11 @@ pub struct Interp {
     pub ct_type_tables: Vec<Vec<u64>>,
     /// `compiler_set_type_info_flags` calls (type descriptor global, flags) not applied yet.
     pub pending_type_flags: Vec<(GlobalId, u32)>,
+    /// This interpreter belongs to a host twin. A `Compiler`-module operation that reads or
+    /// changes state the target program owns (type table, type info flags, global data) sets
+    /// `twin_declined` and traps, so the run is repeated on the target compiler.
+    pub in_host_twin: bool,
+    pub twin_declined: bool,
     /// Declaration of each struct whose descriptor exists: file path, line, column
     /// (`compiler_get_struct_location`).
     pub struct_locations: crate::fxhash::HashMap<GlobalId, (std::rc::Rc<str>, i64, i64)>,
@@ -307,6 +312,8 @@ impl Interp {
             ct_type_table: (0, 0),
             ct_type_tables: Vec::new(),
             pending_type_flags: Vec::new(),
+            in_host_twin: false,
+            twin_declined: false,
             struct_locations: crate::fxhash::HashMap::default(),
             workspaces: None,
             codes: Vec::new(),

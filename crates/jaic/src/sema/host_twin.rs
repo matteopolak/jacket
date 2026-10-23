@@ -15,7 +15,21 @@ pub(crate) struct TwinSlot {
     /// The twin could not be built (or the program does not load on the host); plain `#run`
     /// then executes on the target compiler.
     unavailable: bool,
+    /// How many files of the source table were searched for `#no_reset`, and whether one has it.
+    scanned: u32,
+    no_reset_declared: bool,
 }
+
+/// `Compiler`-module procedures that read or change state the target program owns; a run that
+/// names one stays on the target compiler (`Operation::needs_target` catches the calls a
+/// procedure makes on the way).
+const TARGET_STATE_OPERATIONS: [&str; 5] = [
+    "compiler_set_type_info_flags",
+    "add_data_segment",
+    "add_global_data",
+    "get_runtime_info",
+    "get_type_table",
+];
 
 /// Decides from the type of a run expression whether it runs; see `check_run_gated`.
 pub(super) type RunGate<'a> = dyn FnMut(&mut Compiler, TypeId) -> bool + 'a;
@@ -155,6 +169,7 @@ impl Compiler {
             })?,
         };
         twin.ct.interp = crate::interp::Interp::new(provider);
+        twin.ct.interp.in_host_twin = true;
         if let Some(shared) = workspaces {
             twin.attach_workspaces(shared);
         }
@@ -174,7 +189,7 @@ impl Compiler {
         flags: &[ast::Ident],
         span: Span,
     ) -> Result<Option<Vec<Operand>>> {
-        if !self.host_twin_wanted(flags) {
+        if !self.host_twin_wanted(flags) || self.runs_need_target(span) {
             return Ok(None);
         }
         let mut twin = match self.ct.twin.compiler.take() {
@@ -191,8 +206,37 @@ impl Compiler {
             },
         };
         let result = self.run_in_twin(&mut twin, scope, body, span);
+        if twin.ct.interp.twin_declined {
+            // The run needed state of the target program, which the twin holds its own copy
+            // of; whatever it wrote there is meaningless. Every later run stays on the target,
+            // so none of them sees the twin's copy.
+            self.ct.twin.unavailable = true;
+            return Ok(None);
+        }
         self.ct.twin.compiler = Some(twin);
         result
+    }
+
+    /// Whether the run at `span` must execute on this compiler because it works on state the
+    /// program being built owns, and the twin would change only its own copy:
+    /// - a `#no_reset` global anywhere in the program (compiled output starts from what
+    ///   compile-time code stored in it, and later runs read it back);
+    /// - a direct call of a `Compiler` operation on the program's type table or global data
+    ///   (a call inside a procedure is caught when the twin's interpreter makes it).
+    fn runs_need_target(&mut self, span: Span) -> bool {
+        let sources = &self.src.sources;
+        while (self.ct.twin.scanned as usize) < sources.len() {
+            let file = sources.get(crate::source::FileId(self.ct.twin.scanned));
+            self.ct.twin.no_reset_declared |= file.text.contains("#no_reset");
+            self.ct.twin.scanned += 1;
+        }
+        if self.ct.twin.no_reset_declared {
+            return true;
+        }
+        let text = self.src.sources.snippet(span);
+        words(text)
+            .iter()
+            .any(|word| TARGET_STATE_OPERATIONS.contains(word))
     }
 
     fn run_in_twin(
