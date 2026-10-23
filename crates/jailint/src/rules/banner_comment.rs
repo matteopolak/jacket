@@ -9,9 +9,10 @@
 //! Write the section name as one plain `// Names` line, or move the section into its own file.
 //! A rule line hides the real comment in the noise and invites a matching rule at every
 //! heading. Reports each comment whose text is three or more of `-`, `=`, `*`, `#`, `~` or `_`
-//! and nothing else, line or block. Generated files are skipped.
-use crate::Finding;
+//! and nothing else, line or block. Generated files are skipped. `--fix` removes the line (a name
+//! on a line of its own stays).
 use crate::syntax::Cx;
+use crate::{Edit, Finding, Fix};
 use jaic::lexer::CommentKind;
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -25,16 +26,25 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !is_rule(c.body(cx.text)) {
             continue;
         }
+        let (start, end) = cx.statement_removal(c.span);
         out.push(Finding {
             start: c.span.start as usize,
             end: c.span.end as usize,
             message: "this comment is only a line of rule characters".into(),
             label: None,
             help: Some(
-                "name the section in one plain `//` line, or drop the line; a long section can move to its own file"
+                "drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file"
                     .into(),
             ),
-            fix: None,
+            fix: Some(Fix {
+                title: "remove the comment".into(),
+                edits: vec![Edit {
+                    start,
+                    end,
+                    text: String::new(),
+                }],
+                machine_applicable: true,
+            }),
         });
     }
 }

@@ -1,0 +1,19 @@
+#import "Basic";
+
+// Names
+
+first :: () -> int {
+    return 1;
+}
+
+second :: () -> int {
+    return 2;
+}
+
+third :: () -> int {
+    return 3;
+}
+
+main :: () {
+    print("%\n", first() + second() + third());
+}

@@ -9,7 +9,6 @@ first :: () -> int {
 }
 
 /* ===== */
-
 second :: () -> int {
     //-----
     return 2;

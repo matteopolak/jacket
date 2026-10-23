@@ -4,7 +4,10 @@ warning[banner_comment]: this comment is only a line of rule characters
  3 | // -----------------------------------------------------------------------------
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: name the section in one plain `//` line, or drop the line; a long section can move to its own file
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+ 3 - // -----------------------------------------------------------------------------
+   |
    = note: `banner_comment` is `warn` by default
 
 warning[banner_comment]: this comment is only a line of rule characters
@@ -13,7 +16,10 @@ warning[banner_comment]: this comment is only a line of rule characters
  5 | // -----------------------------------------------------------------------------
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: name the section in one plain `//` line, or drop the line; a long section can move to its own file
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+ 5 - // -----------------------------------------------------------------------------
+   |
    = note: `banner_comment` is `warn` by default
 
 warning[banner_comment]: this comment is only a line of rule characters
@@ -22,24 +28,33 @@ warning[banner_comment]: this comment is only a line of rule characters
 11 | /* ===== */
    | ^^^^^^^^^^^
    |
-   = help: name the section in one plain `//` line, or drop the line; a long section can move to its own file
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+11 - /* ===== */
+   |
    = note: `banner_comment` is `warn` by default
 
 warning[banner_comment]: this comment is only a line of rule characters
-  --> tests/lint/banner_comment/bad.jai:14:5
+  --> tests/lint/banner_comment/bad.jai:13:5
    |
-14 |     //-----
+13 |     //-----
    |     ^^^^^^^
    |
-   = help: name the section in one plain `//` line, or drop the line; a long section can move to its own file
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+13 -     //-----
+   |
    = note: `banner_comment` is `warn` by default
 
 warning[banner_comment]: this comment is only a line of rule characters
-  --> tests/lint/banner_comment/bad.jai:18:1
+  --> tests/lint/banner_comment/bad.jai:17:1
    |
-18 | // ***
+17 | // ***
    | ^^^^^^
    |
-   = help: name the section in one plain `//` line, or drop the line; a long section can move to its own file
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+17 - // ***
+   |
    = note: `banner_comment` is `warn` by default
 
