@@ -39,7 +39,15 @@ verify_phase :: () {
         phase.phase = .POST_WRITE_EXECUTABLE;
         I.message(plugin, cast(*C.Message) *phase);
 
+        // Compile-time code of a cross build runs on a host-OS compiler, so OS can be Windows
+        // while the workspace targets another system, and the plugin then only logs a note.
+        windows_target := false;
+
         #if OS == .WINDOWS && BUILD_OS == .WINDOWS {
+            windows_target = C.get_build_options(phase.workspace).os_target == .WINDOWS;
+        }
+
+        if windows_target {
             // The ICO is deliberately absent: File and Icon both report failure.
             assert(counts.count == 2 && counts.errors == 2);
         } else assert(counts.count == 1 && counts.errors == 0);
