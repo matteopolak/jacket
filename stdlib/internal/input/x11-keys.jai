@@ -1,7 +1,7 @@
 get_key_code :: (key: KeySym) -> Key_Code {
     if key >= XK_F1 && key <= XK_F24 return cast(Key_Code) (cast(u32) Key_Code.F1 + cast(u32) (key - XK_F1));
     if key >= #char "a" && key <= #char "z" return cast(Key_Code) (key - #char "a" + #char "A");
-    if key >= 32 && key <= 126 return cast(Key_Code) key;
+    if key >= #char " " && key <= #char "~" return cast(Key_Code) key;
     for mapping: x11_keys if mapping.native == key return mapping.code;
 
     return .UNKNOWN;

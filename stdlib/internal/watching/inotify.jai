@@ -214,7 +214,7 @@ handle_inotify :: (watcher: *$T/File_Watcher, state: *State, record: R.Record) -
     if record.flags & L.IN_MOVED_FROM && record.flags & L.IN_ISDIR {
         stored := pooled_path(watcher.path_pool, path);
         if !stored return false;
-        B.array_add(*state.moves, Pending_Move.{ cookie = record.cookie, path = stored, deadline = B.seconds_since_init() + 0.1 });
+        B.array_add(*state.moves, Pending_Move.{ cookie = record.cookie, path = stored, deadline = B.seconds_since_init() + MOVE_PAIRING_SECONDS });
     }
 
     if record.flags & L.IN_MOVED_TO && record.flags & L.IN_ISDIR {
@@ -328,3 +328,8 @@ backend_deinit :: (watcher: *$T/File_Watcher, state: *State) -> bool {
 
     return true;
 } @FreesArgument
+
+#scope_file
+
+// How long a directory moved out waits for the matching moved-in event.
+MOVE_PAIRING_SECONDS :: 0.1;

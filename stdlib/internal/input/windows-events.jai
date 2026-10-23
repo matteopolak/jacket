@@ -53,7 +53,7 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
         event.type = .MOUSE_WHEEL;
         event.window = hwnd;
         event.wheel_delta = delta;
-        event.typical_wheel_delta = 120;
+        event.typical_wheel_delta = WINDOWS_WHEEL_NOTCH;
         event.modifier_flags = windows_mouse_modifiers(wParam);
 
         if message == WM_MOUSEWHEEL {
@@ -265,3 +265,8 @@ emit_windows_text :: (window: HWND, codepoint: u32) {
     event.modifier_flags = windows_modifiers();
     add_to_frame(*events_this_frame, event);
 }
+
+#scope_file
+
+// One notch of a standard Windows mouse wheel.
+WINDOWS_WHEEL_NOTCH :: 120;

@@ -87,8 +87,8 @@ x11_handle_mouse_button :: (window: Window, native: *XEvent) {
     if button == 1 code = .MOUSE_BUTTON_LEFT;
     if button == 2 code = .MOUSE_BUTTON_MIDDLE;
     if button == 3 code = .MOUSE_BUTTON_RIGHT;
-    if button == 8 code = .MOUSE_BUTTON_EXTRA_1;
-    if button == 9 code = .MOUSE_BUTTON_EXTRA_2;
+    if button == X11_BUTTON_EXTRA_1 code = .MOUSE_BUTTON_EXTRA_1;
+    if button == X11_BUTTON_EXTRA_2 code = .MOUSE_BUTTON_EXTRA_2;
     if code != .UNKNOWN x11_button(window, code, native.type == ButtonPress, false, flags);
 }
 
@@ -99,12 +99,12 @@ x11_wheel :: (window: Window, button: u32, flags: Event.Modifier_Flags) {
     event.modifier_flags = flags;
     event.typical_wheel_delta = WHEEL_DELTA;
     event.wheel_delta = WHEEL_DELTA;
-    if button == 5 || button == 6 event.wheel_delta = -WHEEL_DELTA;
+    if button == X11_WHEEL_DOWN || button == X11_WHEEL_LEFT event.wheel_delta = -WHEEL_DELTA;
 
-    if button <= 5 {
+    if button <= X11_WHEEL_DOWN {
         mouse_delta_z += event.wheel_delta;
         event.key_code = .MOUSE_WHEEL_UP;
-        if button == 5 event.key_code = .MOUSE_WHEEL_DOWN;
+        if button == X11_WHEEL_DOWN event.key_code = .MOUSE_WHEEL_DOWN;
     }
 
     add_to_frame(*events_this_frame, event);
@@ -172,3 +172,11 @@ x11_button :: (window: Window, code: Key_Code, down: bool, repeat: bool, flags: 
     event.modifier_flags = flags;
     add_to_frame(*events_this_frame, event);
 }
+
+#scope_file
+
+// Core X11 pointer button numbers past the three standard buttons.
+X11_WHEEL_DOWN :: 5;
+X11_WHEEL_LEFT :: 6;
+X11_BUTTON_EXTRA_1 :: 8;
+X11_BUTTON_EXTRA_2 :: 9;

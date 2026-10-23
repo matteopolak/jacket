@@ -71,7 +71,7 @@ file_read :: (f: File, vdata: *void, bytes_to_read: s64) -> (success: bool, tota
             error := W.GetLastError();
             // Synchronous pipes report their closed writer as BROKEN_PIPE;
             // HANDLE_EOF is the native explicit end-of-file status.
-            if error == 109 || error == 38 return true, total;
+            if error == W.ERROR_BROKEN_PIPE || error == ERROR_HANDLE_EOF return true, total;
 
             return false, total;
         }
@@ -325,6 +325,9 @@ get_path_os_saved_games :: () -> string {
 
 #scope_file
 W :: #import "Windows";
+
+ERROR_HANDLE_EOF :: 38;
+
 Text :: #import "internal/files/windows-text";
 
 shell32 :: #system_library "shell32";

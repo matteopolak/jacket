@@ -12,7 +12,7 @@ get_key_code :: (wParam: WPARAM) -> Key_Code {
         if value >= #char "a" && value <= #char "z" value -= 32;
         // Non-ASCII values overlap the canonical special-key ranges. Committed
         // Unicode text is delivered independently through WM_CHAR.
-        if value >= 32 && value <= 126 return cast(Key_Code) value;
+        if value >= #char " " && value <= #char "~" return cast(Key_Code) value;
     }
 
     return .UNKNOWN;
@@ -24,7 +24,7 @@ get_vk :: (key: Key_Code) -> VK: u64 {
     if (value >= #char "A" && value <= #char "Z") || (value >= #char "0" && value <= #char "9") return value;
     for mapping: windows_keys if mapping.code == key return mapping.native;
 
-    if value >= 32 && value <= 126 {
+    if value >= #char " " && value <= #char "~" {
         translated := native_character_key(cast(u16) value);
         if translated != -1 return cast(u64) (cast(s32) translated & 0xff);
     }

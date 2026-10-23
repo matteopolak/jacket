@@ -1,17 +1,17 @@
 srgb_to_linear :: inline (x: float) -> float {
-    if x <= 0.04045 return x / 12.92;
-    return pow((x + 0.055) / 1.055, 2.4);
+    if x <= SRGB_LINEAR_LIMIT return x / SRGB_LINEAR_SLOPE;
+    return pow((x + SRGB_OFFSET) / SRGB_SCALE, SRGB_GAMMA);
 }
 
 linear_to_srgb :: (x: float) -> float {
-    if x <= 0.0031308 return x * 12.92;
-    return 1.055 * pow(x, 1.0 / 2.4) - 0.055;
+    if x <= LINEAR_SRGB_LIMIT return x * SRGB_LINEAR_SLOPE;
+    return SRGB_SCALE * pow(x, 1.0 / SRGB_GAMMA) - SRGB_OFFSET;
 }
 
 // The fast path uses a piecewise linear interpolant of the exact transfer curve.
 // Sampling in encoded space concentrates linear-domain samples near black.
 srgb_to_linear_fast :: inline (x: float) -> float {
-    if x <= 0.04045 return x / 12.92;
+    if x <= SRGB_LINEAR_LIMIT return x / SRGB_LINEAR_SLOPE;
     if x >= 1 return srgb_to_linear(x);
 
     index := cast(int) (x * 64);
@@ -23,7 +23,7 @@ srgb_to_linear_fast :: inline (x: float) -> float {
 }
 
 linear_to_srgb_fast :: inline (x: float) -> float {
-    if x <= 0.0031308 return x * 12.92;
+    if x <= LINEAR_SRGB_LIMIT return x * SRGB_LINEAR_SLOPE;
     if x >= 1 return linear_to_srgb(x);
 
     // Binary search avoids evaluating a transcendental operation at runtime once
@@ -98,3 +98,13 @@ make_srgb_samples :: () -> [65] float {
 }
 
 srgb_samples :: #run make_srgb_samples();
+
+#scope_file
+
+// sRGB transfer curve parameters.
+SRGB_LINEAR_LIMIT :: 0.04045;
+LINEAR_SRGB_LIMIT :: 0.0031308;
+SRGB_LINEAR_SLOPE :: 12.92;
+SRGB_SCALE :: 1.055;
+SRGB_OFFSET :: 0.055;
+SRGB_GAMMA :: 2.4;

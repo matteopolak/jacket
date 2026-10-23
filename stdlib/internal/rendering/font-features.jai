@@ -48,7 +48,7 @@ discover_font_features :: (font: *Dynamic_Font) -> bool {
     count := gsub_u16(data, feature_list);
 
     for index: 0..cast(int) count - 1 {
-        record := feature_list + 2 + index * 6;
+        record := feature_list + 2 + index * GSUB_FEATURE_RECORD_SIZE;
         offset := feature_list + gsub_u16(data, record + 4);
         feature: Font_Feature;
         feature.feature_tag = gsub_u32(data, record);
@@ -98,7 +98,7 @@ expand_font_feature :: (feature: *Font_Feature) {
         table.subtables = Basic.NewArray(sub_count, Font_Lookup_Subtable);
 
         for sub_index: 0..cast(int) sub_count - 1 {
-            sub := offset + gsub_u16(data, offset + 6 + sub_index * 2);
+            sub := offset + gsub_u16(data, offset + GSUB_LOOKUP_HEADER_SIZE + sub_index * 2);
             kind := table.lookup_type;
 
             if kind == 7 {
@@ -120,7 +120,7 @@ expand_font_feature :: (feature: *Font_Feature) {
                     result.delta_glyph_id = delta;
                 } else {
                     assert(result.format == 2, "invalid GSUB single-substitution format");
-                    result.glyphs = gsub_words(data, sub + 6, gsub_u16(data, sub + 4));
+                    result.glyphs = gsub_words(data, sub + GSUB_SUBTABLE_HEADER_SIZE, gsub_u16(data, sub + 4));
                 }
             } else {
                 assert(result.format == 1, "invalid GSUB alternate-substitution format");
@@ -129,7 +129,7 @@ expand_font_feature :: (feature: *Font_Feature) {
                 result.sequence_table = Basic.NewArray(alternatives, Font_Sequence_Table_Entry);
 
                 for alt: 0..cast(int) alternatives - 1 {
-                    set := sub + gsub_u16(data, sub + 6 + alt * 2);
+                    set := sub + gsub_u16(data, sub + GSUB_SUBTABLE_HEADER_SIZE + alt * 2);
                     result.sequence_table[alt].glyphs = gsub_words(data, set + 2, gsub_u16(data, set));
                 }
             }
@@ -205,7 +205,7 @@ gsub_coverage :: (data: [] u8, offset: int) -> *Font_Coverage_Table {
         result.range_records = Basic.NewArray(count, Font_Range_Record);
 
         for index: 0..cast(int) count - 1 {
-            record := offset + 4 + index * 6;
+            record := offset + 4 + index * GSUB_RANGE_RECORD_SIZE;
             result.range_records[index] = .{ gsub_u16(data, record), gsub_u16(data, record + 2), gsub_u16(data, record + 4) };
         }
     }
@@ -231,3 +231,11 @@ gsub_u32 :: (data: [] u8, offset: int) -> u32 {
     low: u32 = gsub_u16(data, offset + 2);
     return (high << 16) | low;
 }
+
+#scope_file
+
+// Byte sizes of fixed GSUB records and headers.
+GSUB_FEATURE_RECORD_SIZE :: 6; // tag, offset
+GSUB_LOOKUP_HEADER_SIZE :: 6; // type, flags, subtable count
+GSUB_SUBTABLE_HEADER_SIZE :: 6; // format, coverage, count
+GSUB_RANGE_RECORD_SIZE :: 6; // start, end, start index

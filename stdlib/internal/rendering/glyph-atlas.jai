@@ -85,7 +85,7 @@ atlas_rasterize :: (page: *Font_Page, face: FT_Face, glyph_index: u32, utf32: u3
     }
 
     if !line {
-        row_height := (height * 11 + 9) / 10 + 2;
+        row_height := (height * ROW_HEIGHT_PERCENT + PERCENT - 1) / PERCENT + 2;
         if cast(int) page.line_cursor_y + row_height > bitmap.height return null, .PAGE_FULL, 0;
 
         line = Basic.New(Font_Line);
@@ -139,3 +139,9 @@ atlas_copy_coverage :: (source: *FT_Bitmap, destination: *u8, destination_stride
         }
     }
 }
+
+#scope_file
+
+// A new atlas row is this much taller than the glyph that opens it, so similar glyphs share it.
+ROW_HEIGHT_PERCENT :: 110;
+PERCENT :: 100;

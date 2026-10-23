@@ -29,7 +29,7 @@ create_window :: (width: int, height: int, window_name: string, window_x := -1, 
 
             Basic.assert(Windows.DeleteObject(brush) != 0, "window brush cleanup failed");
             // Module parameter instances share the process-wide native class.
-            if error != 1410 return null; // ERROR_CLASS_ALREADY_EXISTS
+            if error != ERROR_CLASS_ALREADY_EXISTS return null;
 
             existing: Windows.WNDCLASSEXW;
             existing.cbSize = size_of(Windows.WNDCLASSEXW);
@@ -125,3 +125,7 @@ Text :: #import "internal/files/windows-text";
 
 window_class_registered := false;
 window_class_name := u16.[67, 108, 101, 97, 110, 114, 111, 111, 109, 87, 105, 110, 100, 111, 119, 0];
+
+#scope_file
+
+ERROR_CLASS_ALREADY_EXISTS :: 1410;
