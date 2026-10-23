@@ -2,7 +2,7 @@ Overwriting_Allocator :: struct {
     base_allocator: Allocator;
     table: H.Table(*void, u64);
     overwrite_byte: u8;
-    mutex: T.Mutex;
+    mutex: Lock;
 }
 
 get_overwriting_allocator :: (base_allocator: Allocator = .{}, overwrite_byte: u8 = 0xcd) -> Allocator {
@@ -17,7 +17,7 @@ get_overwriting_allocator :: (base_allocator: Allocator = .{}, overwrite_byte: u
     wrapper.base_allocator = base;
     wrapper.table.allocator = base;
     wrapper.overwrite_byte = overwrite_byte;
-    T.init(*wrapper.mutex);
+    lock_init(*wrapper.mutex);
 
     return .{ overwriting_allocator_proc, wrapper };
 }
@@ -32,10 +32,10 @@ deinit_overwriting_allocator :: (a: Allocator) {
 } @FreesArgument
 
 deinit :: (ua: *Overwriting_Allocator) {
-    T.lock(*ua.mutex);
+    lock_acquire(*ua.mutex);
     H.deinit(*ua.table);
-    T.unlock(*ua.mutex);
-    T.destroy(*ua.mutex);
+    lock_release(*ua.mutex);
+    lock_destroy(*ua.mutex);
 } @FreesArgument
 
 overwriting_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
@@ -50,8 +50,8 @@ overwriting_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_si
     wrapper := cast(*Overwriting_Allocator) allocator_data;
 
     assert(wrapper != null);
-    T.lock(*wrapper.mutex);
-    defer T.unlock(*wrapper.mutex);
+    lock_acquire(*wrapper.mutex);
+    defer lock_release(*wrapper.mutex);
 
     if mode == .ALLOCATE {
         assert(requested_size >= 0);
@@ -92,7 +92,35 @@ overwriting_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_si
 #scope_file
 #import "Basic";
 H :: #import "Hash_Table";
-T :: #import "Thread";
+
+// Wasm builds are single-threaded, so the lock there is a no-op.
+#if OS == .WASM {
+    Lock :: struct {}
+    lock_init :: (lock: *Lock) {}
+    lock_acquire :: (lock: *Lock) {}
+    lock_release :: (lock: *Lock) {}
+    lock_destroy :: (lock: *Lock) {}
+} else {
+    T :: #import "Thread";
+
+    Lock :: T.Mutex;
+
+    lock_init :: (lock: *Lock) {
+        T.init(lock);
+    }
+
+    lock_acquire :: (lock: *Lock) {
+        T.lock(lock);
+    }
+
+    lock_release :: (lock: *Lock) {
+        T.unlock(lock);
+    }
+
+    lock_destroy :: (lock: *Lock) {
+        T.destroy(lock);
+    }
+}
 
 allocate :: (wrapper: *Overwriting_Allocator, bytes: s64) -> *void {
     base := wrapper.base_allocator;
