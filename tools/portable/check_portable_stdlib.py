@@ -48,6 +48,14 @@ CRASH_FAULTS = {
     ),
 }
 
+# The interpreter bounds its own call depth and stack, so a runaway recursion under `-interp`
+# ends in its checked runtime error (exit 1, no native stack) before the guard page is reached.
+# Only the native executable gets the crash handler's report and dies by the signal.
+INTERPRETER_CHECKED_FAULTS = {
+    "stdlib/Runtime_Support_Crash_Handler/tests/driven/faults/stack-overflow.jai",
+    "stdlib/Runtime_Support_Crash_Handler/tests/driven/faults/stack-overflow-thread.jai",
+}
+
 
 def run(command, env, expected=None, cwd=ROOT, expected_stderr="", expected_code=0):
     result = subprocess.run(
@@ -265,16 +273,24 @@ def main():
             executable = output / source.stem
             run([str(compiler), str(source), "-exe", str(executable)], env)
             commands.append([str(executable)])
-        for command in commands:
+        for index, command in enumerate(commands):
+            interpreted = index == 0 and relative in INTERPRETER_CHECKED_FAULTS
+            expected = ("stack overflow",) if interpreted else texts
             result = subprocess.run(
                 command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=45
             )
             if result.returncode == 0 or not all(
-                text in result.stderr for text in texts
+                text in result.stderr for text in expected
             ):
                 raise RuntimeError(
                     f"expected checked runtime fault: {result.returncode}: {result.stdout}{result.stderr}"
                 )
+            if interpreted:
+                if result.returncode != 1:
+                    raise RuntimeError(
+                        f"interpreter stack overflow should exit 1: {result.returncode}"
+                    )
+                continue
             if result.returncode not in {-signal.SIGSEGV, -signal.SIGBUS}:
                 raise RuntimeError(
                     "crash handler failed to preserve fatal signal termination"
