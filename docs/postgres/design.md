@@ -473,12 +473,11 @@ db/queries/<statement-id>.json        (committed)
 - **Statement id** = SHA-256 of the rewritten SQL plus the override aliases, truncated to 64 bits for the file name; the full hash is checked inside. sqlx uses the full SHA-256 of the query text and writes `.sqlx/query-<hash>.json`.
 - **Coarse validity:** `schema_hash` equals the current one. This is always correct, but every migration invalidates every query.
 - **Fine validity:** when `schema_hash` differs, the entry is still valid if every relation and type it depends on has the same fingerprint. A fingerprint is SHA-256 over that relation's catalog rows: columns, types, `attnotnull`, enum labels, domain bases. After a migration, the compile-time path computes all fingerprints in one catalog query and re-describes only the queries whose dependencies changed. So adding a column to `posts` leaves queries that don't touch `posts` alone. Column-level granularity is not worth it: `select *` and views make "which columns" fragile, and a re-describe costs a millisecond.
-- **Finding dependencies:**
-  - Table OIDs from `RowDescription` cover the selected columns but not tables used only in `where`, functions or types.
-  - The plan's relation list from `EXPLAIN (VERBOSE)` covers all scanned relations, for `SELECT` and DML alike.
-  - Types come from parameter and column OIDs, followed through domains, arrays and composites.
-
-  An option to test in a spike: for `SELECT`s, `CREATE TEMP VIEW ... AS <sql>` and read `pg_depend`. That is the server's own dependency list, functions included.
+- **Finding dependencies:** the server's own dependency list, read inside the describe transaction and rolled back with it.
+  - A `SELECT` becomes `CREATE TEMP VIEW pg_temp.q AS <sql>`. DML (and anything with parameters) becomes `CREATE FUNCTION pg_temp.q(<param types>) RETURNS TABLE (<columns>) LANGUAGE sql BEGIN ATOMIC <sql>; END`, with the types from the describe that came first.
+  - `pg_depend` rows of the view's rewrite rule, or of the function, list every table and column used anywhere in the statement (`where` clauses included), every function and every type.
+  - Views in that list are followed through their own rewrite rules, so a query on a view depends on the view's tables.
+  - The spike measured 0.3 ms for the view and 0.5 ms for the function on a local server. Table OIDs from `RowDescription` alone miss tables used only in `where`, functions and types, so they are not used.
 - **`search_path`** and the server major version are part of the key. A query described on 17 may describe differently on 18.
 
 #### Staleness check
@@ -738,7 +737,7 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
       1. a `Row($id)` struct with `#insert #run` fields, plus `#caller_code` argument types read in a macro;
       2. `jailsp` completion and hover on those generated fields;
       3. `for_expansion` body `Code` walking that finds `it.<field>`.
-1. **Spike on the client side:** the temp-view and `pg_depend` dependency trick.
+1. **Spike on the client side:** the temp-view and `pg_depend` dependency trick. Done; it works, and DML works through `BEGIN ATOMIC` functions ([Cache keys](#cache-keys-and-invalidation)).
 2. **Client:**
    1. Unix sockets in Io; HMAC, PBKDF2 and random in `internal/crypto`.
    2. Startup with TLS, MD5 and SCRAM (including `-PLUS`), simple and extended protocols, errors, core binary codecs.
