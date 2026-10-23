@@ -327,9 +327,14 @@ closes_cast :: (src: string, close: s64) -> bool {
 
     end := at;
     while end > 0 && (src[end - 1] == #char " " || src[end - 1] == #char "\t") end -= 1;
-    if end < 4 || src[end - 4] != #char "c" || src[end - 3] != #char "a" || src[end - 2] != #char "s" || src[end - 1] != #char "t" return false;
 
-    return end == 4 || !is_ident_char(src[end - 5]);
+    keyword :: "cast";
+    if end < keyword.count return false;
+
+    before := end - keyword.count;
+    if string.{ keyword.count, src.data + before } != keyword return false;
+
+    return before == 0 || !is_ident_char(src[before - 1]);
 }
 
 lex_number :: (src: string, at: *s64) {
