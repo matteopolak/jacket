@@ -7,7 +7,7 @@ grow :: (a: Table, b: Table) -> s64 {
     return a.count + b.count;
 }
 
-second :: (a: *Table, b: Table) -> s64 {
+second :: (_a: *Table, b: Table) -> s64 {
     return b.count;
 }
 
