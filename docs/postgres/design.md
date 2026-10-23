@@ -317,13 +317,21 @@ Steps 1 and 2 run inside the Postgres describe service ([Editor feedback](#edito
 
 **Migrated-schema cache.** Neither a dev database nor the managed server is trusted to have the right schema. The compile-time path:
 
-1. **Clone a template database.**
-   1. Hash the migration files: sorted names plus contents, SHA-256. This is the **schema hash**.
-   2. Look for a template database `jacket_<hash12>` on the compile-time server.
-   3. If it is missing, create it from `template0`, apply all migrations and mark it a template.
-2. **Describe queries in a clone of it.** A clone is cheap, because `CREATE DATABASE ... TEMPLATE` is a file copy; one clone per build is enough, since describes don't write. The user's dev database is never touched.
+1. **Find a schema database.**
+   1. Hash the migration files in order: each one's name and contents, chained with SHA-256. The hash after the last file is the **schema hash**; the hash after each file names that prefix.
+   2. Look for a database `jacket_<hash12>` for the longest prefix that has one.
+   3. If none matches the whole set, the missing migrations are applied on top of the prefix database **inside a transaction that is rolled back** (see below). A new database for the whole set is built in the background, from `template0`, and used once it is ready.
+2. **Describe queries in that transaction.** Describes don't write, so no clone is needed: the worker connects to the schema database, `BEGIN`s, applies any missing migrations, describes, and `ROLLBACK`s. The user's dev database is never touched.
 
-Old `jacket_*` templates beyond the newest N are dropped. This is the "cache the migrated schema by a hash of the migration files" idea from the TODO, and it works the same against any server.
+Old `jacket_*` databases beyond the newest N are dropped. The **benchmark** behind this (Postgres 17, local, `fsync=off`, generated migrations with tables, foreign keys, indexes, checks, enums, views and triggers; medians, in ms, each including a ~12 ms client round trip):
+
+| Migrations (lines) | Build from `template0` | Clone (`TEMPLATE`) | Clone (`FILE_COPY`) | Drop | Last migration in a rolled-back transaction | All migrations in a rolled-back transaction |
+| --- | --- | --- | --- | --- | --- | --- |
+| 30 (273) | 170-240 | 120-160 | 200 | 310-520 | 13 | 41 |
+| 100 (910) | 290-340 | 180-520 | 230 | 400-690 | 12 | 179 |
+| 300 (2730) | 730-1420 | 690-860 | 550 | 980-1070 | 13 | 338 |
+
+Clones and drops are not cheap: since Postgres 15, `CREATE DATABASE` copies through the WAL, and drops checkpoint. Applying the edited migration in a transaction costs about a millisecond. DDL is transactional in Postgres, so a rollback leaves nothing behind. This is the "cache the migrated schema by a hash of the migration files" idea from the TODO, and it works the same against any server.
 
 ### Editor feedback (phase 0)
 
@@ -387,7 +395,7 @@ This is more than "allow sockets":
   #run Compiler.serve(handle);      // the worker's loop: framed requests on stdin, responses on stdout
   ```
 
-- **The worker.** The host runs the service as a child process, `jaic -interp <service_file>`, using the normal native interpreter host. So the service gets real fibers, sockets, TLS, environment variables and a real clock, which is everything the build already has, and the Jai client runs unchanged. The worker stays alive and keeps its connections and template databases warm. Its lifecycle:
+- **The worker.** The host runs the service as a child process, `jaic -interp <service_file>`, using the normal native interpreter host. So the service gets real fibers, sockets, TLS, environment variables and a real clock, which is everything the build already has, and the Jai client runs unchanged. The worker stays alive and keeps its connections and schema databases warm. Its lifecycle:
 
   - **One worker per service file.** It is restarted when that file or anything it loads changes. It is killed when the workspace closes or after 10 minutes idle.
   - **Each request has a timeout:** 30 s in builds, with the editor's shorter wait described next.
@@ -419,8 +427,9 @@ C keeps the Jai client as the one source of truth, gives the editor exactly what
 #### Schema changes while editing
 
 - The macro reads the migration files through the overlay file system. They therefore land in the compile's `Reads`, and editing one, even unsaved, re-runs the queries that depend on it. The schema hash is part of every describe request.
-- The worker builds a template database per schema hash. It builds at most one at a time and debounces them (500 ms after the last migration change). Older pending builds are dropped, and the newest 3 templates are kept.
-- While a template is building, a describe answers from the previous template, marked `stale_schema`, and the editor shows a hint: "checked against the schema before migration 0007; updating".
+- **Unsaved edits count.** The migrations are read through the overlay, so an edited migration takes effect on the next analysis. Editing the newest migration (the usual case) costs about 1 ms per describe batch: it is applied in the rolled-back transaction on top of the database for the migrations before it. Editing an older one applies every later migration in that transaction too, which is 40-340 ms for 30-300 migrations, still within the pending-answer path.
+- The worker builds a schema database for a new prefix in the background, at most one at a time, debounced 2 s after the last migration change, so a migration being typed never builds one. The newest 3 are kept.
+- **Statements that cannot run in a transaction** (`CREATE INDEX CONCURRENTLY`, `ALTER TYPE ... ADD VALUE` followed by its use, `VACUUM`) cannot be overlaid. A migration that has them is applied only by a background build, and until that is ready, describes answer from the previous schema, marked `stale_schema`, and the editor shows a hint: "checked against the schema before migration 0007; updating".
 - **A migration that fails to apply** is reported on the `load_migrations` call and on the queries that need that schema: "migration 0007_add_teams.sql failed at line 3: relation "team" does not exist". `jailsp` can also publish that diagnostic on the `.sql` file's own URI, so it shows in the migration file when it is open.
 
 #### What the feedback looks like
@@ -520,12 +529,12 @@ User :: struct @pg_table("users") {
 
 **C. Hybrid: SQL is the truth, and generated structs are committed.**
 
-- The `generate` command writes `db/schema.jai`, a committed and formatted file. It is generated from the migrated template database, like `diesel print-schema` or `sqlc generate`, and contains:
+- The `generate` command writes `db/schema.jai`, a committed and formatted file. It is generated from the migrated schema database, like `diesel print-schema` or `sqlc generate`, and contains:
   - a struct per table and view;
   - an enum per Postgres enum;
   - the notes the ORM needs (`@pg_table`, `@pg_primary_key`, foreign keys).
 - A compile-time check (`#run Pg.check_schema(#file)`) compares the file's hash with the schema hash recorded in it. A stale file is a compile error saying "run the pg tool's `generate`". Like the query cache, this check needs no server.
-- Optionally, **struct-first authoring as scaffolding only.** A `diff` command compares hand-edited structs in `db/schema.jai` with the template database and *writes a proposed migration file* for you to review and edit. It never applies anything. This gives B's authoring feel for the easy 80% (add a table or a column) without making the diff engine a source of truth. It is a later phase and can stay simple, because it is only a starting point.
+- Optionally, **struct-first authoring as scaffolding only.** A `diff` command compares hand-edited structs in `db/schema.jai` with the schema database and *writes a proposed migration file* for you to review and edit. It never applies anything. This gives B's authoring feel for the easy 80% (add a table or a column) without making the diff engine a source of truth. It is a later phase and can stay simple, because it is only a starting point.
 
 #### The "disconnected" concern
 
@@ -664,7 +673,7 @@ No reusable cross-language protocol conformance suite exists. Drivers test again
 
 | Setting | Where | Meaning |
 | --- | --- | --- |
-| `JACKET_DATABASE_URL`, then `DATABASE_URL` (also read from `.env`) | environment | compile-time server for describing queries (`postgres://user:pass@host:port/db?sslmode=…`); also the pg tool's default. Needs `CREATEDB` for template databases |
+| `JACKET_DATABASE_URL`, then `DATABASE_URL` (also read from `.env`) | environment | compile-time server for describing queries (`postgres://user:pass@host:port/db?sslmode=…`); also the pg tool's default. Needs `CREATEDB` for schema databases |
 | `JACKET_PG_OFFLINE=1` | environment | never connect at compile time; cache misses are errors (CI) |
 | service limits | Compiler module constants | editor wait before `.PENDING` (50 ms), build request timeout (30 s), worker idle exit (10 min), memory cap (1 GiB), crash backoff (1-60 s), database reconnect backoff (1-30 s) |
 | `jaic` location for `jailsp` | `jacket.toml` | used only when `jaic` is neither next to `jailsp` nor on `PATH` |
@@ -693,7 +702,7 @@ Put that import in one file (`db/postgres.jai`) that both the program and `pg_to
 | **sqlx** (Rust) | Raw SQL typed by asking the server (`Describe`). `query_as!` checking user structs. Column-alias overrides (`"col!"`, `"col?"`, `"col: T"`). Committed offline cache and `prepare --check`. Nullability from `attnotnull` plus `EXPLAIN` join analysis. Migrations as SQL files with checksums. | A live database on every fresh build unless offline mode is set up. Coarse invalidation, where any change means re-prepare everything. Nullability inference that is sometimes wrong for outer joins and expressions, which overrides exist to patch. No answer for dynamic queries. A separate CLI needed to keep the cache fresh. |
 | **Diesel** (Rust) | `diesel print-schema`: Rust schema generated from the migrated database and committed, which is option C. SQL-file migrations. Compile-time-checked query DSL with joins. | Trait-heavy types whose errors are famously unreadable. The DSL rewrites SQL, so anything unusual becomes `sql_query` with no typing. Long compile times. |
 | **SeaORM** (Rust) | Entities generated from a live schema (`sea-orm-cli generate entity`). Relation definitions and a loader that batches `IN (...)` to avoid N+1. | Queries typed only at runtime (string columns, runtime errors). ActiveModel boilerplate. A migration DSL that duplicates SQL. |
-| **jOOQ** (Java) | Code generation from the schema *after running migrations in a throwaway database* (Flyway plus Testcontainers), which is exactly the template-database step. A DSL that is SQL, not an object model. Every Postgres feature reachable. Typed records per table. | Codegen as a separate build step that is easy to forget. Verbose DSL. Dynamic SQL everywhere by default, so nothing is checked until runtime unless you use the generated types. |
+| **jOOQ** (Java) | Code generation from the schema *after running migrations in a throwaway database* (Flyway plus Testcontainers), which is exactly the schema-database step. A DSL that is SQL, not an object model. Every Postgres feature reachable. Typed records per table. | Codegen as a separate build step that is easy to forget. Verbose DSL. Dynamic SQL everywhere by default, so nothing is checked until runtime unless you use the generated types. |
 | **Prisma** (TS) | `migrate dev`: edit a schema, get a *proposed* SQL migration you can edit, which is the scaffolding in option C. TypedSQL (6.12+): `.sql` files in `prisma/sql` typed by asking a live database at `generate --sql`, with `-- @param` comments for parameter names and nullability. Relation loading without N+1 in its client. | Its own schema language (PSL), a second DDL language that lags Postgres. The struct/schema-to-query disconnect B suffers from (raw SQL results were untyped until TypedSQL). Historically, a separate query-engine binary. |
 | **sqlc** (Go and others) | SQL-first: annotated `.sql` queries become generated, committed typed code. Nullable parameters marked explicitly (`sqlc.narg`). Generated code you can read and grep. | Typing by its own analysis over a schema parsed with libpg_query (the real Postgres parser, but not its type checker), which misses or mistypes some SQL. It later added a database-backed analyzer (`analyzer.database`, `database.managed`) to fix this. Asking the server avoids that class of bug. |
 | **Ecto** (Elixir) | Queries are macros compiled at compile time, with `^pinned` caller values as parameters; this is the model for `where = #code ...`. `preload` via join or a separate query. Changesets for validation. `Repo.transaction` with rollback. | Schemas declared in code *and* migrations in a DSL, maintained separately. They can disagree, which is the exact "disconnected" problem (Ecto relies on discipline). |
@@ -737,8 +746,8 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
    4. The `pg-conformance` workflow.
 
    Then pipelining, COPY, LISTEN/NOTIFY and protocol 3.2.
-3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, the describe service (template databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
-4. **Migrations and schema:** the runner, embedded migrations, the template-database cache, `generate`, the `db/schema.jai` staleness check, row type identity.
+3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, the describe service (schema databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
+4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate`, the `db/schema.jai` staleness check, row type identity.
 5. **ORM:** `select` with `Code` filters, column pruning, to-one joins, to-many batched loading, insert/update/delete.
 6. **Zero setup:** managed per-platform Postgres for compile-time typing; `diff` migration proposals.
 
@@ -753,9 +762,11 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 7. **Oldest server:** PostgreSQL 15.
 8. **Tooling:** all userspace (`Extensions/Postgres/Tool`, run with `jaic -interp`); nothing Postgres-specific in jacket. Generic `[commands]` in `jacket.toml` is a possible separate jacket feature.
 9. **Placement:** `stdlib/Extensions/Postgres`.
-10. **Template databases** on the `DATABASE_URL` server; requiring `CREATEDB` is fine.
+10. **Schema databases** on the `DATABASE_URL` server; requiring `CREATEDB` is fine.
 11. **Editor feedback through compile-time services** (option C in [Editor feedback](#editor-feedback-phase-0)), not networking inside the sandbox. C gives instant feedback in trusted workspaces without letting every trusted metaprogram reach the network on every keystroke. It keeps one protocol implementation, and isolates crashes in a separate process. The mechanism is generic, with no Postgres knowledge in `jaic` or `jailsp`.
+
+12. **Live migration edits:** unsaved migration buffers are used. The changed suffix is applied in a rolled-back transaction on the database for the unchanged prefix, about 1 ms for the newest migration ([benchmark](#how-types-are-learned-at-compile-time)). No clones.
 
 ## Open questions
 
-1. **Live migration edits:** build templates from unsaved migration buffers, or only from saved files? Decide after benchmarking template builds on a realistic migration set.
+None open.
