@@ -10,5 +10,6 @@ main :: () {
     x == 5;
     x + 1;
     flush;
+    x;
     print("%\n", x);
 }

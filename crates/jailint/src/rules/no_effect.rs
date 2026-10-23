@@ -6,9 +6,9 @@
 //! Fires on an expression statement made only of names, member paths, literals, indexing and
 //! operators (no calls, which may have effects). Statements inside an expression (the last
 //! statement of a block value, `#code`) are left alone: there the value is used.
-use super::{finding, op_text, pure};
-use crate::Finding;
+use super::{op_text, pure, suggesting};
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{BinOp, ExprKind as E, StmtKind as S};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -23,11 +23,21 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !pure(e) || chain.iter().any(|a| matches!(a, Node::Expr(_))) {
                 return true;
             }
-            let help = match &e.kind {
-                E::Binary(BinOp::Eq, a, b) => format!(
-                    "to assign, write `{} = {};`",
-                    cx.whole_src(a.span).trim(),
-                    cx.whole_src(b.span).trim()
+            let b = e.span.end as usize;
+            let edit = |start: usize, end: usize, text: String| Edit {
+                start,
+                end,
+                text,
+            };
+            let (help, title, edits) = match &e.kind {
+                E::Binary(BinOp::Eq, l, r) => (
+                    format!(
+                        "to assign, write `{} = {};`",
+                        cx.whole_src(l.span).trim(),
+                        cx.whole_src(r.span).trim()
+                    ),
+                    "assign instead of comparing",
+                    vec![edit(cx.whole(l.span).1, cx.whole(r.span).0, " = ".into())],
                 ),
                 E::Binary(
                     op @ (BinOp::Add
@@ -37,14 +47,22 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     | BinOp::BitAnd
                     | BinOp::BitOr
                     | BinOp::BitXor),
-                    a,
-                    b,
-                ) => format!(
-                    "to update `{}`, write `{} {}= {};`",
-                    cx.whole_src(a.span).trim(),
-                    cx.whole_src(a.span).trim(),
-                    op_text(*op),
-                    cx.whole_src(b.span).trim()
+                    l,
+                    r,
+                ) => (
+                    format!(
+                        "to update `{}`, write `{} {}= {};`",
+                        cx.whole_src(l.span).trim(),
+                        cx.whole_src(l.span).trim(),
+                        op_text(*op),
+                        cx.whole_src(r.span).trim()
+                    ),
+                    "update the variable instead of computing a value",
+                    vec![edit(
+                        cx.whole(l.span).1,
+                        cx.whole(r.span).0,
+                        format!(" {}= ", op_text(*op)),
+                    )],
                 ),
                 E::Ident(_) | E::Member(..)
                     if !super::callee_procs(cx, e).is_empty()
@@ -52,14 +70,27 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             matches!(cx.compiler.ty.types.kind(t), jaic::types::TypeKind::Proc(_))
                         }) =>
                 {
-                    format!("to call it, write `{}();`", cx.whole_src(e.span).trim())
+                    (
+                        format!("to call it, write `{}();`", cx.whole_src(e.span).trim()),
+                        "call it",
+                        vec![edit(b, b, "()".into())],
+                    )
                 }
-                _ => "remove it, or use its value".into(),
+                _ => {
+                    let (start, end) = cx.statement_removal(s.span);
+                    (
+                        "remove it, or use its value".into(),
+                        "remove the statement",
+                        vec![edit(start, end, String::new())],
+                    )
+                }
             };
-            out.push(finding(
+            out.push(suggesting(
                 s.span,
                 "this statement has no effect".into(),
-                Some(help),
+                help,
+                title,
+                edits,
             ));
             true
         });
