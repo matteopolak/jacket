@@ -3,7 +3,7 @@ use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
     AstId, EnumItem, EnumLit, EnumMember, Expr, ExprKind, StructBits, StructFlags, StructKind,
-    StructLit,
+    StructLit, UsingStmt,
 };
 use crate::lexer::{P, Tok};
 use std::rc::Rc;
@@ -163,9 +163,15 @@ impl Parser<'_> {
                 self.parse_expr().map(EnumItem::Insert)
             } else if self.at_kw("using") {
                 self.bump();
-                let value = self.parse_expr();
+                let item = self.parse_using_filter().and_then(|filter| {
+                    let value = self.parse_expr()?;
+                    Ok(EnumItem::Using(Box::new(UsingStmt {
+                        value,
+                        filter,
+                    })))
+                });
                 self.eat(P::Semi);
-                value.map(EnumItem::Using)
+                item
             } else if self.at_directive("if") {
                 self.parse_enum_if()
             } else {

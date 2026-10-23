@@ -166,7 +166,7 @@ impl Analysis {
                                 pending.extend(else_items.iter().rev());
                                 pending.extend(then_items.iter().rev());
                             }
-                            EnumItem::Insert(_) | EnumItem::Using(_) => {}
+                            EnumItem::Insert(_) | EnumItem::Using(..) => {}
                         }
                     }
                 }

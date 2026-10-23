@@ -658,8 +658,9 @@ pub enum EnumItem {
     Member(EnumMember),
     /// `#insert` inside an enum body generating members.
     Insert(Expr),
-    /// `using Other;` inside an enum body: the members of another enum, in order.
-    Using(Expr),
+    /// `using Other;` or `using,except(A) Other;` inside an enum body: the members of another
+    /// enum, in order, minus the ones the filter drops.
+    Using(Box<UsingStmt>),
     /// `#if` inside an enum body.
     If {
         cond: Expr,

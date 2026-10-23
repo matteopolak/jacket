@@ -344,12 +344,29 @@ impl Exporter<'_> {
                     rec.ptr("expression", value);
                     self.add(rec)
                 }
-                ast::EnumItem::Using(value) => {
-                    let value = self.expr(value);
+                ast::EnumItem::Using(using) => {
+                    let value = self.expr(&using.value);
+                    let (filter_type, filter_expression) = self.using_filter(&using.filter);
                     let mut rec = self.node(RecordTag::CodeUsing, node::USING, span);
                     rec.ptr("expression", value)
-                        .int("filter_type", 0)
-                        .ptr("filter_expression", 0);
+                        .int("filter_type", filter_type)
+                        .ptr("filter_expression", filter_expression)
+                        .str(
+                            SyntaxKey::Filter,
+                            Self::filter_syntax(&using.filter).as_bytes(),
+                        )
+                        .int(
+                            SyntaxKey::StaticFilter,
+                            if filter_expression == 0 {
+                                filter_type
+                            } else {
+                                0
+                            },
+                        )
+                        .str(
+                            SyntaxKey::FilterArguments,
+                            Self::filter_arguments(&using.filter).as_bytes(),
+                        );
                     self.add(rec)
                 }
                 ast::EnumItem::If {

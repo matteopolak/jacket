@@ -20,7 +20,7 @@ pub enum Initializer {
 
 fn may_declare_members(items: &[ast::EnumItem]) -> bool {
     items.iter().any(|item| match item {
-        ast::EnumItem::Member(_) | ast::EnumItem::Insert(_) | ast::EnumItem::Using(_) => true,
+        ast::EnumItem::Member(_) | ast::EnumItem::Insert(_) | ast::EnumItem::Using(..) => true,
         ast::EnumItem::If {
             then_items,
             else_items,
@@ -190,8 +190,8 @@ impl Compiler {
                         out,
                     )?;
                 }
-                ast::EnumItem::Using(value) => {
-                    self.collect_enum_using(value, scope, ty)?;
+                ast::EnumItem::Using(using) => {
+                    self.collect_enum_using(&using.value, &using.filter, scope, ty)?;
                 }
                 ast::EnumItem::Insert(value) => {
                     let inserted = self.eval_insert_enum_items(scope, value)?;
@@ -204,7 +204,17 @@ impl Compiler {
 
     /// `using Other;` in an enum body makes `Other`'s names reachable through this enum, with
     /// their values. They are not members of this enum, and do not shift its numbering.
-    fn collect_enum_using(&mut self, value: &ast::Expr, scope: ScopeId, ty: TypeId) -> Result<()> {
+    fn collect_enum_using(
+        &mut self,
+        value: &ast::Expr,
+        filter: &ast::UsingFilter,
+        scope: ScopeId,
+        ty: TypeId,
+    ) -> Result<()> {
+        if matches!(filter, ast::UsingFilter::Map(_)) {
+            return err(value.span, "`using,map` is not supported in an enum body");
+        }
+        let filter = self.resolve_name_filter(scope, filter)?;
         let source = self.eval_type(scope, value)?;
         let TypeKind::Enum(source_id) = *self.ty.types.kind(source) else {
             return err(value.span, "`using` in an enum body needs an enum type");
@@ -214,6 +224,9 @@ impl Compiler {
             unreachable!()
         };
         for (name, member_value) in members {
+            let Some(name) = super::using::filter_target(&filter, name) else {
+                continue;
+            };
             if self.scope(scope).names.get(&name).is_some_and(|ids| {
                 ids.iter()
                     .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))

@@ -415,7 +415,11 @@ impl Relocator {
                     self.opt_expr(&mut member.value);
                     self.notes(&mut member.notes);
                 }
-                EnumItem::Insert(expr) | EnumItem::Using(expr) => self.expr(expr),
+                EnumItem::Insert(expr) => self.expr(expr),
+                EnumItem::Using(using) => {
+                    self.expr(&mut using.value);
+                    self.filter(&mut using.filter);
+                }
                 EnumItem::If {
                     cond,
                     then_items,

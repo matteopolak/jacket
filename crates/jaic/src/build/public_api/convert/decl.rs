@@ -4,7 +4,7 @@ use crate::{
     ast::{
         self, AstId, CallHintFlag, Decl, DeclKind, DeclRare, EnumItem, EnumLit, EnumMember, Expr,
         ExprKind, Foreign, ForeignName, Int128, Param, ProcBits, ProcFlags, ProcHeader, ProcLit,
-        Return, StructBits, StructFlags, StructKind, StructLit, UnionTag, UsingFilter,
+        Return, StructBits, StructFlags, StructKind, StructLit, UnionTag, UsingFilter, UsingStmt,
     },
     builtin_keys::SyntaxKey,
     interp::Trap,
@@ -659,8 +659,11 @@ impl Convert<'_, '_> {
                         EnumItem::Insert(c.child(member, ty, "expression")?)
                     }
                     "USING" => {
-                        c.word("using");
-                        EnumItem::Using(c.child(member, ty, "expression")?)
+                        let filter = c.using_filter(member, ty)?;
+                        EnumItem::Using(Box::new(UsingStmt {
+                            value: c.child(member, ty, "expression")?,
+                            filter,
+                        }))
                     }
                     _ => {
                         return Err(Trap::new(format!(

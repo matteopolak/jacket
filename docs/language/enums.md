@@ -39,6 +39,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - `.FIRST == x` works: `check_binary` checks the right side first, so the inferred member takes its type {#enum.14}.
 - A polymorphic struct's enum-typed parameter types `.MEMBER` arguments and defaults (`Ticket(.SECOND)`, `struct(_order: Stuff = .FIRST)`) via `poly_struct_param_type` {#enum.15}.
 - `#insert` inside the enum body can generate members {#enum.13}.
+- `using Other;` in the body makes another enum's names reachable through this one without making them members; `using,only(...)` and `using,except(...)` (names or a computed array of strings) select which (`collect_enum_using` in `sema/enums.rs`). `using,map` is rejected there.
 - A member's value may name the enum itself, whose declaration is still being resolved (`IPV6 :: LAST + cast(Sc) 50`): `new_enum_type` binds the enum's name to its type in the members' scope {#enum.16}.
 - A member's value may follow `::`, `=` or `: :` (the constant form with its empty type written out, `INVERT : :5;`) {#enum.17}.
 - Reflection: `type_info(Color)` has `names` and `values` {#enum.10}, and `enum_type_flags` (`.FLAGS` for `enum_flags`, `.COMPLETE` for `#complete`, `.SPECIFIED` for `#specified`) {#enum.11}; `enum_highest_value(Color)` works {#enum.12}. `Color.names` is not a thing; use `type_info`.
