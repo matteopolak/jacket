@@ -2,7 +2,6 @@
 // other types, taken from the baked value; a baked procedure may name a `$T` of a parameter left
 // open (`names: *[..] string` fixes `T` of `user_data: $T`).
 #import "Basic";
-#import "File_Utilities";
 
 identity :: ($v: $T) -> T {
     return v;
@@ -16,12 +15,17 @@ pair :: ($a: $T, b: T) -> T {
 
 add_ten :: #bake_arguments pair(a = 10);
 
-collect :: #bake_arguments visit_files(
-    recursive = false,
-    visit_files = true,
-    visit_directories = true,
-    proc = (info: *File_Visit_Info, names: *[..] string) {
-        array_add(names, copy_string(info.short_name));
+walk :: (names: [] string, user_data: $T, proc: (name: string, data: T), skip_hidden := true) {
+    for names {
+        if skip_hidden && it[0] == #char "." continue;
+        proc(it, user_data);
+    }
+}
+
+collect :: #bake_arguments walk(
+    skip_hidden = false,
+    proc = (name: string, names: *[..] string) {
+        array_add(names, name);
     }
 );
 
@@ -32,11 +36,8 @@ main :: () {
 
     names: [..] string;
 
-    collect(#filepath, *names);
-    assert(names.count > 0, "no entries visited");
-    found := false;
-    for names if it == "bake-arguments-type-variables.jai" found = true;
-
-    assert(found, "this file was not visited");
+    collect(.["a", ".b"], *names);
+    assert(names.count == 2, "both names visited");
+    assert(names[1] == ".b", "the baked argument was used");
     print("ok\n");
 }
