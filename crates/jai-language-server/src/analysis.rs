@@ -90,12 +90,23 @@ pub(crate) struct Analysis {
     /// syntax the rows do not keep, and the lexical errors among them.
     pub syntax_tokens: Rc<[jaic::lexer::Token]>,
     pub lex_errors: Vec<jaic::source::Span>,
+    /// The lexical and syntax errors that carry suggestions, for the quick fixes.
+    pub syntax_fixes: Vec<SyntaxFix>,
     /// `#load` / `#import` strings.
     pub links: Vec<jaic::project::DirectiveLink>,
     pub complete: bool,
     /// Hash and length of the text this was built from, so a session can keep it while a
     /// document is unchanged (`Session::rebuild`).
     pub key: (u64, usize),
+}
+
+/// A lexical or syntax error with what can fix it.
+#[derive(Clone)]
+pub(crate) struct SyntaxFix {
+    pub diagnostic: Diagnostic,
+    /// The byte range of the error.
+    pub span: Span,
+    pub suggestions: Vec<jaic::source::Suggestion>,
 }
 
 /// A name a procedure introduces with `$` (`$T`, `$$n`): it is a type parameter throughout the
@@ -152,6 +163,7 @@ impl Analysis {
             type_parameters: vec![],
             syntax_tokens: Rc::from([]),
             lex_errors: vec![],
+            syntax_fixes: vec![],
             links: vec![],
             complete: false,
             key: crate::semantic::text_key(text),
@@ -258,6 +270,7 @@ impl Analysis {
             Severity::Error => DiagnosticSeverity::Error,
             Severity::Warning | Severity::Note => DiagnosticSeverity::Warning,
         };
+        let before = self.diagnostics.len();
         self.diagnostic(
             index,
             text,
@@ -266,6 +279,16 @@ impl Analysis {
             code,
             &error.message,
         );
+        if error.suggestions().is_empty() || self.diagnostics.len() == before {
+            return;
+        }
+        if let Some(diagnostic) = self.diagnostics.last() {
+            self.syntax_fixes.push(SyntaxFix {
+                diagnostic: diagnostic.clone(),
+                span: span_of(error.span),
+                suggestions: error.suggestions().to_vec(),
+            });
+        }
     }
 
     pub fn diagnostic(

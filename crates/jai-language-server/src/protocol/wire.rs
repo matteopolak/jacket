@@ -43,15 +43,7 @@ pub(super) fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticSeverity::Warning => 2,
         DiagnosticSeverity::Hint => 4,
     };
-    let (code, source) = match diagnostic.code {
-        DiagnosticCode::Lexer => ("lexer", "jaic"),
-        DiagnosticCode::Parser => ("parser", "jaic"),
-        DiagnosticCode::Source => ("source", "jaic"),
-        DiagnosticCode::Limit => ("limit", "jaic"),
-        DiagnosticCode::Check => ("check", "jaic"),
-        DiagnosticCode::Unreachable => ("unreachable", "jaic"),
-        DiagnosticCode::Lint(rule) => (rule, "jailint"),
-    };
+    let (code, source) = diagnostic.code.wire();
     let mut value = json!({
         "range": diagnostic.range,
         "severity": severity,

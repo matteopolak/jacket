@@ -8,6 +8,7 @@ use crate::ast::{
     UsingFilterKind, UsingStmt, WhileStmt,
 };
 use crate::lexer::{P, Tok};
+use crate::source::Diagnostic;
 
 /// A word that starts a statement of its own kind (`parse_keyword_stmt`).
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -102,7 +103,7 @@ impl Parser<'_> {
                 if self.recovery.is_some() {
                     break;
                 }
-                return Err(self.expected("`}`", "to close the block"));
+                return Err(self.unclosed_block(open, "to close the block"));
             }
             if self.ide_block_boundary(open) {
                 break;
@@ -186,14 +187,17 @@ impl Parser<'_> {
         {
             return Ok(());
         }
-        let error = self.expected("`;`", context);
+        let error = self.missing_semicolon(self.expected("`;`", context));
         // While typing, a line missing only its `;` is still a whole statement: keep it, so
         // its names stay navigable, and blame the end of that line rather than the next one.
         let line_end = self.prev_span();
         if self.newline_before()
             && let Some(errors) = self.recovery.as_mut()
         {
-            errors.push(crate::source::Diagnostic::error(line_end, error.message));
+            errors.push(Diagnostic {
+                span: line_end,
+                ..error
+            });
             return Ok(());
         }
         Err(error)
@@ -474,7 +478,10 @@ impl Parser<'_> {
                 self.parse_stmt()?;
                 let span = start.to(self.prev_span());
                 if let Some(errors) = self.recovery.as_mut() {
-                    errors.push(crate::source::Diagnostic::error(span, error.message));
+                    errors.push(Diagnostic {
+                        span,
+                        ..error
+                    });
                 }
                 continue;
             }
@@ -497,7 +504,7 @@ impl Parser<'_> {
             }
         }
         if !(self.eat(P::Semi) || self.eat(P::Colon) || self.at(P::LBrace)) {
-            return Err(self.expected("`;`", "after the case values"));
+            return Err(self.missing_semicolon(self.expected("`;`", "after the case values")));
         }
         let mut body = Vec::new();
         let mut through = false;

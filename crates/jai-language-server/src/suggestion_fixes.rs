@@ -48,49 +48,84 @@ impl Session {
             if !named && (finding.start > end || start > finding.end) {
                 continue;
             }
-            for suggestion in &finding.suggestions {
-                let mut edits = Vec::new();
-                let mut applies = true;
-                for edit in &suggestion.edits {
-                    let (at, new_text) = match edit {
-                        Edit::Replace {
-                            span,
-                            text,
-                        } => (
-                            Span::new(span.start as usize, span.end as usize),
-                            text.clone(),
-                        ),
-                        Edit::Import(import) => {
-                            let placed = planned(&doc.text, std::slice::from_ref(import));
-                            // Nothing to add when the document has the import already.
-                            let Some((_, offset, new_text)) = placed.into_iter().next() else {
-                                applies = false;
-                                break;
-                            };
-                            (Span::new(offset, offset), new_text)
-                        }
-                    };
-                    let Some(range) = self.range_of(uri, at) else {
-                        applies = false;
-                        break;
-                    };
-                    edits.push(TextEdit {
-                        range,
-                        new_text,
-                    });
-                }
-                if !applies || edits.is_empty() {
+            actions.extend(self.actions_of(
+                uri,
+                &doc.text,
+                &finding.diagnostic,
+                &finding.suggestions,
+            ));
+        }
+        // Lexical and syntax errors carry suggestions too (a missing `;`).
+        if let Some(analysis) = self.analysis_for(uri) {
+            for fix in &analysis.syntax_fixes {
+                let named = context.diagnostics.iter().any(|(code, range)| {
+                    code == fix.diagnostic.code.wire().0 && *range == fix.diagnostic.range
+                });
+                if !named && (fix.span.start > end || start > fix.span.end) {
                     continue;
                 }
-                actions.push(CodeAction {
-                    title: suggestion.action_title(),
-                    kind: Some("quickfix"),
-                    edit: Some((uri.as_str().into(), edits)),
-                    diagnostics: vec![finding.diagnostic.clone()],
-                    is_preferred: suggestion.applicability == Applicability::MachineApplicable,
-                    ..CodeAction::default()
+                if !analysis.diagnostics.contains(&fix.diagnostic) {
+                    continue;
+                }
+                actions.extend(self.actions_of(uri, &doc.text, &fix.diagnostic, &fix.suggestions));
+            }
+        }
+        actions
+    }
+}
+
+impl Session {
+    /// One `quickfix` per suggestion of `diagnostic` that applies to the document `text`.
+    fn actions_of(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        diagnostic: &crate::model::Diagnostic,
+        suggestions: &[jaic::source::Suggestion],
+    ) -> Vec<CodeAction> {
+        let mut actions = Vec::new();
+        for suggestion in suggestions {
+            let mut edits = Vec::new();
+            let mut applies = true;
+            for edit in &suggestion.edits {
+                let (at, new_text) = match edit {
+                    Edit::Replace {
+                        span,
+                        text,
+                    } => (
+                        Span::new(span.start as usize, span.end as usize),
+                        text.clone(),
+                    ),
+                    Edit::Import(import) => {
+                        let placed = planned(text, std::slice::from_ref(import));
+                        // Nothing to add when the document has the import already.
+                        let Some((_, offset, new_text)) = placed.into_iter().next() else {
+                            applies = false;
+                            break;
+                        };
+                        (Span::new(offset, offset), new_text)
+                    }
+                };
+                let Some(range) = self.range_of(uri, at) else {
+                    applies = false;
+                    break;
+                };
+                edits.push(TextEdit {
+                    range,
+                    new_text,
                 });
             }
+            if !applies || edits.is_empty() {
+                continue;
+            }
+            actions.push(CodeAction {
+                title: suggestion.action_title(),
+                kind: Some("quickfix"),
+                edit: Some((uri.as_str().into(), edits)),
+                diagnostics: vec![diagnostic.clone()],
+                is_preferred: suggestion.applicability == Applicability::MachineApplicable,
+                ..CodeAction::default()
+            });
         }
         actions
     }

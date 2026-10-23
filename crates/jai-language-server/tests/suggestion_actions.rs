@@ -221,3 +221,44 @@ fn an_enum_value_out_of_range_offers_to_widen_the_enum() {
     assert_eq!(edits[0].range.start, at_nth(text, "u8", 0, 0));
     assert_eq!(edits[0].range.end, at_nth(text, "u8", 0, 2));
 }
+
+#[test]
+fn a_syntax_error_offers_its_suggestion_as_a_quick_fix() {
+    let text = "main :: () {\n    x := 1\n    y := 2;\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let parse_errors: Vec<_> = s
+        .diagnostics(&uri())
+        .unwrap()
+        .into_iter()
+        .filter(|d| d.code == DiagnosticCode::Parser)
+        .collect();
+    assert_eq!(parse_errors.len(), 1, "{parse_errors:?}");
+    // The error blames the last token of the line, the `1`.
+    let fixes = quick_fixes(&s, text, "1\n");
+    assert_eq!(fixes.len(), 1, "{fixes:?}");
+    assert_eq!(fixes[0].title, "Insert `;`");
+    // The statement ends there for certain, so the editor may apply it on its own.
+    assert!(fixes[0].is_preferred);
+    assert_eq!(fixes[0].diagnostics, parse_errors);
+    let (target, edits) = fixes[0].edit.as_ref().unwrap();
+    assert_eq!(target, uri().as_str());
+    assert_eq!(edits.len(), 1);
+    assert_eq!(edits[0].new_text, ";");
+    let after_one = at_nth(text, "1\n", 0, 1);
+    assert_eq!(edits[0].range.start, after_one);
+    assert_eq!(edits[0].range.end, after_one);
+}
+
+#[test]
+fn a_lexical_error_offers_its_suggestion_as_a_quick_fix() {
+    let text = "main :: () {\n    s := \"a\\qb\";\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let fixes = quick_fixes(&s, text, "\\q");
+    assert_eq!(fixes.len(), 1, "{fixes:?}");
+    assert_eq!(fixes[0].title, "Escape the backslash");
+    assert!(!fixes[0].is_preferred);
+    let (_, edits) = fixes[0].edit.as_ref().unwrap();
+    assert_eq!(edits[0].new_text, "\\\\q");
+}

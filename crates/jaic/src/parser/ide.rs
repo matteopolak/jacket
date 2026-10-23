@@ -125,9 +125,12 @@ impl Parser<'_> {
 
     pub(super) fn ide_close_block(&mut self, open: Span, context: &str) -> PResult<Span> {
         if !self.at(P::RBrace) {
-            let error = self.expected("`}`", context);
+            let error = self.unclosed_block(open, context);
             if let Some(errors) = self.recovery.as_mut() {
-                errors.push(Diagnostic::error(open, error.message));
+                errors.push(Diagnostic {
+                    span: open,
+                    ..error
+                });
                 self.block_end = self.pos;
                 return Ok(Span {
                     end: self.span().start,
@@ -135,7 +138,11 @@ impl Parser<'_> {
                 });
             }
         }
-        self.expect(P::RBrace, context)
+        if self.at(P::RBrace) {
+            Ok(self.bump())
+        } else {
+            Err(self.unclosed_block(open, context))
+        }
     }
 
     pub(super) fn parse_stmt_recovering(
@@ -190,7 +197,10 @@ impl Parser<'_> {
                 };
                 // The malformed statement owns the diagnostic: the strict parser often
                 // notices a missing suffix only at the next, otherwise healthy line.
-                errors.push(Diagnostic::error(self.toks[start].span, error.message));
+                errors.push(Diagnostic {
+                    span: self.toks[start].span,
+                    ..error
+                });
                 self.in_list = saved_list;
                 self.pending_operator = saved_operator;
                 self.pending_notes = saved_notes;

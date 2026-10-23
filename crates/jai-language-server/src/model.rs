@@ -37,6 +37,21 @@ pub enum DiagnosticCode {
     Lint(&'static str),
 }
 
+impl DiagnosticCode {
+    /// The `code` and `source` of the diagnostic on the wire.
+    pub(crate) fn wire(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Lexer => ("lexer", "jaic"),
+            Self::Parser => ("parser", "jaic"),
+            Self::Source => ("source", "jaic"),
+            Self::Limit => ("limit", "jaic"),
+            Self::Check => ("check", "jaic"),
+            Self::Unreachable => ("unreachable", "jaic"),
+            Self::Lint(rule) => (rule, "jailint"),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CompletionKind {
     Function,

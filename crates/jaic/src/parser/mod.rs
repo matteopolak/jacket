@@ -32,7 +32,7 @@ mod tests;
 use crate::ast::{File, Ident, Note, Stmt};
 pub use crate::lexer::PlatformTarget;
 use crate::lexer::{P, Tok, Token, lex};
-use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
+use crate::source::{Applicability, Diagnostic, DiagnosticKind, FileId, Span, Suggestion};
 pub(crate) use directive_stmt::GENERIC_DIRECTIVES;
 pub(crate) use ide::parse_callee_ide;
 pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
@@ -346,6 +346,69 @@ impl<'a> Parser<'a> {
 
     fn error(&self, message: impl Into<String>) -> Diagnostic {
         Diagnostic::error(self.span(), message)
+    }
+
+    /// A suggestion that inserts `text` where the previous token ends.
+    fn insert_after_previous(
+        &self,
+        title: impl Into<String>,
+        text: &str,
+        applicability: Applicability,
+    ) -> Suggestion {
+        let end = self.prev_span().end;
+        let at = Span {
+            start: end,
+            ..self.prev_span()
+        };
+        Suggestion::insert(title, at, text, applicability)
+    }
+
+    /// `error` for a missing `;`, with the suggestion that writes it where the previous token
+    /// ends. It is certain when the next token starts a new line or closes a block, and a guess
+    /// when more of the same line follows.
+    fn missing_semicolon(&self, error: Diagnostic) -> Diagnostic {
+        let certain =
+            self.newline_before() || self.at_eof() || matches!(self.tok(), Tok::Punct(P::RBrace));
+        let applicability = if certain {
+            Applicability::MachineApplicable
+        } else {
+            Applicability::MaybeIncorrect
+        };
+        error.with_suggestion(
+            self.insert_after_previous("end the statement here with `;`", ";", applicability)
+                .with_action("Insert `;`"),
+        )
+    }
+
+    /// "expected `}` <context>" for the block opened at `open`: the note points back at the
+    /// `{`, and a block left open at the end of the file gets the `}` that closes it.
+    fn unclosed_block(&self, open: Span, context: &str) -> Diagnostic {
+        let error = self
+            .expected("`}`", context)
+            .with_note(open, "the block opens here");
+        if !self.at_eof() {
+            return error;
+        }
+        let end = self.src.len() as u32;
+        let at = Span {
+            start: end,
+            end,
+            ..self.span()
+        };
+        let text = if self.src.ends_with('\n') {
+            "}\n"
+        } else {
+            "\n}\n"
+        };
+        error.with_suggestion(
+            Suggestion::insert(
+                "close the block at the end of the file with `}`",
+                at,
+                text,
+                Applicability::MaybeIncorrect,
+            )
+            .with_action("Insert `}`"),
+        )
     }
 
     /// "expected X <context>, found Y" at the current token.

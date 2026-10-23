@@ -4,7 +4,7 @@ use super::conditions::fold_or;
 use super::punct::{INTEGER_TOO_BIG, P, puncts_starting_with};
 use super::{Tok, Token};
 use crate::intern::Sym;
-use crate::source::{Diagnostic, FileId, Span};
+use crate::source::{Applicability, Diagnostic, FileId, Span, Suggestion};
 use std::rc::Rc;
 
 pub(super) struct Lexer<'a> {
@@ -437,7 +437,18 @@ impl<'a> Lexer<'a> {
                 while depth > 0 {
                     if self.at >= self.src.len() {
                         self.note_comment(start, CommentKind::Block, false);
-                        return Err(self.unclosed_err(start, "unterminated block comment"));
+                        let end = Span::new(self.file, self.src.len(), self.src.len());
+                        return Err(self
+                            .unclosed_err(start, "unterminated block comment")
+                            .with_suggestion(
+                                Suggestion::insert(
+                                    "close the comment at the end of the file with `*/`",
+                                    end,
+                                    "*/\n",
+                                    Applicability::MaybeIncorrect,
+                                )
+                                .with_action("Insert `*/`"),
+                            ));
                     }
                     if self.peek(0) == b'/' && self.peek(1) == b'*' {
                         depth += 1;
@@ -624,10 +635,19 @@ impl<'a> Lexer<'a> {
                             // The escaped character may be several bytes long.
                             let ch = self.text[self.at - 1..].chars().next().unwrap_or('?');
                             self.at += ch.len_utf8() - 1;
-                            return Err(self.err(
-                                self.at - 1 - ch.len_utf8(),
-                                &format!("unknown escape sequence '\\{ch}'"),
-                            ));
+                            let backslash = self.at - 1 - ch.len_utf8();
+                            let escape = Span::new(self.file, backslash, self.at);
+                            return Err(self
+                                .err(backslash, &format!("unknown escape sequence '\\{ch}'"))
+                                .with_suggestion(
+                                    Suggestion::replace(
+                                        "write a literal backslash by doubling it",
+                                        escape,
+                                        format!("\\\\{ch}"),
+                                        Applicability::MaybeIncorrect,
+                                    )
+                                    .with_action("Escape the backslash"),
+                                ));
                         }
                     }
                 }
@@ -712,6 +732,23 @@ impl<'a> Lexer<'a> {
             self.at = line_end + 1;
         }
         self.at = self.src.len();
-        Err(self.unclosed_err(start, "unterminated here-string"))
+        let end = Span::new(self.file, self.src.len(), self.src.len());
+        let terminator = String::from_utf8_lossy(tag);
+        let text = if self.src.ends_with(b"\n") {
+            format!("{terminator}\n")
+        } else {
+            format!("\n{terminator}\n")
+        };
+        Err(self
+            .unclosed_err(start, "unterminated here-string")
+            .with_suggestion(
+                Suggestion::insert(
+                    format!("end the here-string at the end of the file with `{terminator}`"),
+                    end,
+                    text,
+                    Applicability::MaybeIncorrect,
+                )
+                .with_action(format!("Insert `{terminator}`")),
+            ))
     }
 }

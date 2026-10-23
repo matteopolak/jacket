@@ -6,7 +6,7 @@
 
 Two layers:
 
-- **Syntax** (always on): lexer/parser diagnostics, semantic tokens, symbols, folding, selection ranges, format-string hover, `#load`/`#import` links. Built from the `jaic` lexer and parser; works while the text does not parse.
+- **Syntax** (always on): lexer/parser diagnostics (with quick fixes for their suggestions, such as an inserted `;`), semantic tokens, symbols, folding, selection ranges, format-string hover, `#load`/`#import` links. Built from the `jaic` lexer and parser; works while the text does not parse.
 - **Semantic** (when the session has an `Environment`): everything needing the type checker: hover, completion, definition, references, rename, signature help, inlay hints, code actions, call hierarchy, code lenses, and [jailint](../tools/jailint.md) lints with quick fixes. Open documents are compiled with `jaic` and the compiler's editor facts are queried.
 
 Not supported: formatting (use `jaifmt --stdin` as an external formatter), type errors in a polymorphic procedure nobody instantiates (sketches cover hover only), unopened files in workspace diagnostics, bare-name uses of `using`'d fields in references/rename.
