@@ -142,6 +142,11 @@ impl<'a> Cx<'a> {
             )
     }
 
+    /// Whether parentheses are written around the whole expression at `span`.
+    pub fn parenthesized(&self, span: Span) -> bool {
+        self.whole(span).0 < jaic::lexer::balanced(self.tokens, span).start as usize
+    }
+
     /// The source text of [`Cx::whole`].
     pub fn whole_src(&self, span: Span) -> &'a str {
         let (start, end) = self.whole(span);

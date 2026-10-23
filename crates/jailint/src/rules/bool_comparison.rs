@@ -35,18 +35,21 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             let negate = (*op == BinOp::Eq) != lit;
-            let text = cx.src(other.span).trim();
+            // Spans leave grouping parentheses out: take them in on both sides.
+            let text = cx.whole_src(other.span).trim();
+            let grouped = cx.parenthesized(other.span);
             // Whether the replacement stands alone (a condition, a statement's value) or sits
             // inside a larger expression.
             let alone = matches!(chain.last(), Some(Node::Stmt(_)) | None);
-            let replacement = match (negate, is_atom(other)) {
+            let replacement = match (negate, grouped || is_atom(other)) {
                 (false, true) => text.to_string(),
                 (false, false) if alone => text.to_string(),
                 (false, false) => format!("({text})"),
                 (true, true) => format!("!{text}"),
                 (true, false) => format!("!({text})"),
             };
-            let written = cx.src(e.span).trim();
+            let (start, end) = cx.whole(e.span);
+            let written = cx.whole_src(e.span).trim();
             let help = format!("write `{replacement}`");
             out.push(Finding {
                 start: e.span.start as usize,
@@ -57,8 +60,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 fix: Some(Fix {
                     title: help,
                     edits: vec![Edit {
-                        start: e.span.start as usize,
-                        end: e.span.end as usize,
+                        start,
+                        end,
                         text: replacement,
                     }],
                     machine_applicable: true,

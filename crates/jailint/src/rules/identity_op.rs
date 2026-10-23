@@ -12,7 +12,7 @@
 //! `>> 8` and `>> 16` for the same reason. The fix (drop the operation) is machine-applicable.
 use super::{int_literal, op_text, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::{Cx, Node, is_atom, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -38,7 +38,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
-            let kept_text = cx.whole_src(kept.span).trim().to_string();
+            let mut kept_text = cx.whole_src(kept.span).trim().to_string();
+            // `(a + b + 0) * c`: the parentheses replaced still group the kept operand.
+            if cx.parenthesized(e.span) && !cx.parenthesized(kept.span) && !is_atom(kept) {
+                kept_text = format!("({kept_text})");
+            }
             let written = cx.whole_src(e.span).trim();
             out.push(replacing(
                 e.span,

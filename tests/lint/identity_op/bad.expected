@@ -46,3 +46,15 @@ help: write `x`
    |
    = note: `identity_op` is `warn` by default
 
+warning[identity_op]: `(x + x + 0)` is just `(x + x)`: `+` with this operand changes nothing
+  --> tests/lint/identity_op/bad.jai:9:11
+   |
+ 9 |     e := (x + x + 0) * 3;
+   |           ^^^^^^^^^
+   |
+help: write `(x + x)`
+   |
+ 9 ~     e := (x + x) * 3;
+   |
+   = note: `identity_op` is `warn` by default
+

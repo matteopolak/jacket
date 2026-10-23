@@ -46,3 +46,27 @@ help: write `!is_ready()`
    |
    = note: `bool_comparison` is `warn` by default
 
+warning[bool_comparison]: comparing a bool with `false`: `(a < b) == false`
+  --> tests/lint/bool_comparison/bad.jai:16:9
+   |
+16 |     if (a < b) == false print("not less\n");
+   |         ^^^^^^^^^^^^^^^
+   |
+help: write `!(a < b)`
+   |
+16 ~     if !(a < b) print("not less\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `true`: `(a < b) == true`
+  --> tests/lint/bool_comparison/bad.jai:17:9
+   |
+17 |     if (a < b) == true print("less\n");
+   |         ^^^^^^^^^^^^^^
+   |
+help: write `(a < b)`
+   |
+17 ~     if (a < b) print("less\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+

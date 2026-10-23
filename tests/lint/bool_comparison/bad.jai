@@ -11,6 +11,10 @@ main :: () {
     if false == ready print("not ready\n");
 
     waiting := is_ready() == false;
+    a, b := 1, 2;
+
+    if (a < b) == false print("not less\n");
+    if (a < b) == true print("less\n");
 
     print("%\n", waiting);
 }
