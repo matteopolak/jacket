@@ -35,6 +35,7 @@
 - Completion suggests struct fields inside generic call arguments, such as `array_add(*a, .{})`.
 - Code after an empty `case` is no longer shown as unreachable.
 - Changing VS Code settings while the language server restarts no longer logs errors.
+- Restarting the language server no longer logs "document is not open" errors.
 - Compile-time code that runs before the context is set up no longer breaks later compile-time code.
 - Unsupported target options set by a build program are reported as errors.
 - A `jacket.toml` key written outside its section, such as `import_path` or `build_files`, now says where it belongs.

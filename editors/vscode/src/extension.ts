@@ -1,8 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node";
+import { DidOpenTextDocumentNotification, LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { type JaicCommand, runJaic } from "./commands";
+import { hasPendingOpens, orderPendingOpens } from "./openOrder";
 import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findServer, nodeEnvironment } from "./discovery";
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
 import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
@@ -23,6 +24,8 @@ let installed: Installed | undefined;
 let lifecycle: Promise<void> = Promise.resolve();
 const ACCEPTED_KEY = "jai.toolchain.acceptedStale";
 let extensionContext: vscode.ExtensionContext;
+/** Per client: resolves once the didOpens it is sending are out (see `orderPendingOpens`). */
+const openings = new WeakMap<LanguageClient, () => Promise<void>>();
 
 function settings(): Settings {
   const config = vscode.workspace.getConfiguration("jai");
@@ -159,6 +162,8 @@ async function replaceServer(expansions: ExpansionDocuments): Promise<void> {
   client = undefined;
   if (old) {
     try {
+      // Documents opened as the old server started must not be opened after its `shutdown`.
+      await openings.get(old)?.();
       await old.stop(5000);
     } catch (error) {
       log.warn(`stopping jailsp: ${String(error)}`);
@@ -251,6 +256,8 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     },
   };
   const next = new LanguageClient("jai", "Jai Language Server", serverOptions, clientOptions);
+  const opens = next.getFeature(DidOpenTextDocumentNotification.method);
+  if (hasPendingOpens(opens)) openings.set(next, orderPendingOpens(opens));
   client = next;
   try {
     await next.start();
