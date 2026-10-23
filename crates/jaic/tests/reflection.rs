@@ -59,19 +59,34 @@ fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
 }
 
 #[test]
-fn adding_context_after_layout_remains_an_error() {
+fn adding_context_after_layout_appends_the_member() {
     let (mut compiler, result) = compile("#run size_of(#Context);");
     result.unwrap();
-    let error = compiler
+    let before = context_fields(&compiler);
+    compiler
         .add_source(&jaic::sema::ProgramSource::String(
             "#add_context late_field:bool;".into(),
         ))
-        .expect_err("a finalized Context must not silently change layout");
-    assert!(
-        error
-            .message
-            .contains("#add_context after the Context type was laid out")
-    );
+        .expect("a late #add_context goes after the existing members");
+    let after = context_fields(&compiler);
+    assert_eq!(&after[..before.len()], &before[..], "earlier offsets hold");
+    assert_eq!(after.len(), before.len() + 1);
+    assert_eq!(after.last().unwrap().0, "late_field");
+}
+
+fn context_fields(compiler: &Compiler) -> Vec<(String, u64)> {
+    let ty = compiler.ty.context_type.expect("the Context was made");
+    let types = &compiler.ty.types;
+    let info = types.struct_info(types.as_struct(ty).unwrap());
+    info.fields
+        .iter()
+        .map(|field| {
+            (
+                field.name.map(|n| n.to_string()).unwrap_or_default(),
+                field.offset,
+            )
+        })
+        .collect()
 }
 
 #[test]
