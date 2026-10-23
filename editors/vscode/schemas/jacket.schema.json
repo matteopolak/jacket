@@ -435,6 +435,16 @@
               "default": "deny",
               "markdownDescription": "`min(0, max(100, x))`, a clamp that is always one bound (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#min_max)"
             },
+            "modified_range_bound": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a variable bounding a `for` range assigned in the loop, which does not change it (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#modified_range_bound)"
+            },
             "needless_bool": {
               "type": "string",
               "enum": [

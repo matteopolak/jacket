@@ -5,6 +5,7 @@
 ### New
 
 - `jailint` has an opt-in `cognitive_complexity` lint for procedures with too much nested branching, with the limit set by `[lint] max_complexity`.
+- `jailint` reports changing a variable that bounds a `for` range inside the loop, which does not change how often it runs.
 - `jailint` suggests `PI`, `TAU` and the other `Math` constants over hand-typed approximations such as `3.14159`.
 - `jailint` reports passing an array's element count to `memcpy`, `memset` or `memcmp`, which take bytes.
 - `jailint` reports returning the address of a local variable.

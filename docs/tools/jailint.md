@@ -115,6 +115,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `manual_assign_op` | complexity | warn | yes | `a = a + b` to `a += b` |
 | `manual_index_counter` | complexity | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
 | `min_max` | correctness | deny | no | `min(0, max(100, x))`: a clamp with swapped bounds |
+| `modified_range_bound` | suspicious | warn | no | `for 0..n-1 { ...; n -= 1; }`: the range was fixed before the first iteration, so the change does not reach the loop |
 | `needless_bool` | complexity | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
 | `no_effect` | suspicious | warn | no | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
 | `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
@@ -208,6 +209,8 @@ Target must be side-effect-free and the operation must keep its type.
 `n := 0` right before a forward `for`, `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
 ### min_max
 Literal bounds only, with `@ReturnsSmaller`/`@ReturnsLarger` procedures (the library's `min`/`max`). Use `clamp`.
+### modified_range_bound
+Only locals named directly in a range end (`n` in `0..n-1`); `xs.count` bounds are left alone. Quiet when a `break` or `return` follows the assignment, or the statement holding it, in the same block (`n = it; break;` records a result).
 ### needless_bool
 A trailing `if c return true; return false;` is left alone when an earlier guard in the block also returns a literal. Comments inside the `if` withhold the fix.
 ### no_effect

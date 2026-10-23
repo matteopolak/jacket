@@ -39,6 +39,7 @@ mod magic_number;
 mod manual_assign_op;
 mod manual_index_counter;
 mod min_max;
+mod modified_range_bound;
 mod needless_bool;
 mod no_effect;
 mod range_past_count;
@@ -261,6 +262,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "`min(0, max(100, x))`, a clamp that is always one bound",
         check: min_max::check,
+    },
+    RuleInfo {
+        name: "modified_range_bound",
+        category: Category::Suspicious,
+        summary: "a variable bounding a `for` range assigned in the loop, which does not change it",
+        check: modified_range_bound::check,
     },
     RuleInfo {
         name: "needless_bool",

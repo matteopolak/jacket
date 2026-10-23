@@ -1,0 +1,18 @@
+warning[modified_range_bound]: `n` bounds this loop's range, which was fixed before the first iteration: changing it here does not change the loop
+  --> tests/lint/modified_range_bound/bad.jai:6:24
+   |
+ 6 |         if xs[it] == 0 n -= 1;
+   |                        ^
+   |
+   = help: use a `while` loop if the bound should follow the change, or a separate variable if it should not
+   = note: `modified_range_bound` is `warn` by default
+
+warning[modified_range_bound]: `end` bounds this loop's range, which was fixed before the first iteration: changing it here does not change the loop
+  --> tests/lint/modified_range_bound/bad.jai:18:9
+   |
+18 |         end = total;
+   |         ^^^
+   |
+   = help: use a `while` loop if the bound should follow the change, or a separate variable if it should not
+   = note: `modified_range_bound` is `warn` by default
+
