@@ -45,9 +45,9 @@ main :: () {
     text = alloc_string(TEXT_BYTES);
     state: u32 = 7;
 
-    for 0..text.count - 1 {
+    for *text {
         state = state * 1664525 + 1013904223;
-        text[it] = cast(u8) (#char "a" + (state >> 24) % 26);
+        it.* = cast(u8) (#char "a" + (state >> 24) % 26);
     }
 
     needle = "xyzqzx";

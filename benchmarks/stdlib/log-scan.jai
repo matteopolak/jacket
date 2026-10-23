@@ -93,7 +93,7 @@ main :: () {
     lines, sent, errors: int;
 
     for 1..ROUNDS {
-        for 0..classes.count - 1 classes[it] = 0;
+        for *classes it.* = 0;
 
         started := now();
 

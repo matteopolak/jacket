@@ -111,11 +111,11 @@ H :: #import "Hash_Table";
 
     lock_acquire :: (lock: *Lock) {
         T.lock(lock);
-    }
+    } @Locks
 
     lock_release :: (lock: *Lock) {
         T.unlock(lock);
-    }
+    } @Unlocks
 
     lock_destroy :: (lock: *Lock) {
         T.destroy(lock);
