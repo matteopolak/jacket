@@ -18,6 +18,7 @@
 | `differential/` | `jaic_diff.py` (backend differential testing), `jaic_reduce.py`, `jaic_sweep.py`, the random program generator `jaigen.py`. |
 | `fuzz/` | The stdlib fuzzer: driver, discovery metaprogram, per-module config and property hooks ([stdlib fuzzing](stdlib-fuzzing.md)). |
 | `generators/` | Generators of checked-in files (below). The generated file's header names its generator. |
+| `lsp/` | The language-server oracle checks driver `oracle.py` and its known findings ([oracle checks](lsp-oracle.md)). |
 | `native/` | Native dependency stages (below), the Windows cross/provider builders, `mbedtls/` and `sdl3/` sources. |
 | `native_bindings/` | The native binding generator and its verifiers (own test discovery and module names). |
 | `numerics/` | Numerics suite runners and capability tables. |

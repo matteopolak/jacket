@@ -1,0 +1,45 @@
+name: lsp-oracle
+# Nightly language-server oracle checks over every file `jaic -check` accepts (docs/tools/lsp-oracle.md).
+# A finding missing from tools/lsp/oracle-known.json fails the shard.
+on:
+  schedule:
+    - cron: '47 4 * * *'
+  workflow_dispatch:
+    inputs:
+      sets:
+        description: Comma list of stdlib, compiler, examples, jaigen
+        default: 'stdlib,compiler,examples,jaigen'
+permissions:
+  contents: read
+jobs:
+  oracle:
+    name: oracle shard ${{ matrix.shard }}/4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      CARGO_INCREMENTAL: '0'
+      SETS: ${{ inputs.sets || 'stdlib,compiler,examples,jaigen' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        with:
+          alsa: 'true'
+      - name: Build jaic, jaifmt and the oracle
+        run: |
+          python3 tools/dev/dev.py build --release
+          cargo build --release --locked -p jai-language-server --example lsp_oracle
+      - name: Run the oracle
+        run: python3 tools/lsp/oracle.py --sets "$SETS" --shard ${{ matrix.shard }}/4 --jobs "$(nproc)" --out target/lsp-oracle
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lsp-oracle-${{ matrix.shard }}
+          path: target/lsp-oracle
+          if-no-files-found: ignore
