@@ -137,6 +137,27 @@ impl Compiler {
     }
 }
 
+/// Joins already-built keys into one. Each part is length-prefixed rather than quoted with `{:?}`:
+/// quoting a string that holds quoted strings doubles its backslashes at every level, so a key
+/// for a type nested n pointers deep (`*****T`) would be 2^n bytes long.
+fn join<S: AsRef<str>>(parts: impl IntoIterator<Item = S>) -> String {
+    let mut out = String::from("(");
+    for part in parts {
+        let part = part.as_ref();
+        out.push_str(&part.len().to_string());
+        out.push(':');
+        out.push_str(part);
+        out.push(';');
+    }
+    out.push(')');
+    out
+}
+
+/// `join` of an optional key: none and empty differ.
+fn join_opt(part: Option<&str>) -> String {
+    part.map_or_else(|| "none".to_string(), |p| join([p]))
+}
+
 struct Keys<'a> {
     c: &'a Compiler,
     active: BTreeSet<String>,
@@ -153,15 +174,12 @@ impl Keys<'_> {
         let path = source.path.as_file().map(|p| self.c.src.fs.canonical(p));
         // Generated sources have no globally meaningful path. Their source text prevents
         // equally numbered added strings in different workspaces being conflated.
-        format!(
-            "{:?}",
-            (
-                path,
-                path_is_generated(&source.path).then_some(source.text.as_ref()),
-                span.start,
-                span.end
-            )
-        )
+        join([
+            format!("{path:?}"),
+            join_opt(path_is_generated(&source.path).then_some(source.text.as_ref())),
+            span.start.to_string(),
+            span.end.to_string(),
+        ])
     }
 
     fn scope(&mut self, scope: ScopeId) -> String {
@@ -173,7 +191,7 @@ impl Keys<'_> {
         let parameters: Vec<_> = module
             .into_iter()
             .flat_map(|m| &m.params)
-            .map(|(n, v, t)| format!("{:?}", (n.as_str(), self.typed(v, *t))))
+            .map(|(n, v, t)| join([n.as_str().to_string(), self.typed(v, *t)]))
             .collect();
         let path = module
             .and_then(|m| m.path.as_ref())
@@ -190,7 +208,12 @@ impl Keys<'_> {
         let generated_origin = module
             .filter(|_| path.is_none())
             .map(|m| self.location(m.argument_span));
-        format!("{:?}", (path, generated_origin, parameters, enclosing))
+        join([
+            format!("{path:?}"),
+            join_opt(generated_origin.as_deref()),
+            join(parameters),
+            join(enclosing),
+        ])
     }
 
     fn bindings(&mut self, scope: ScopeId) -> String {
@@ -214,12 +237,11 @@ impl Keys<'_> {
             })
             .collect();
         values.sort_by_key(|(n, ..)| *n);
-        format!(
-            "{:?}",
+        join(
             values
                 .into_iter()
-                .map(|(n, v, t)| (n, self.typed(v, t)))
-                .collect::<Vec<_>>()
+                .map(|(n, v, t)| join([n.to_string(), self.typed(v, t)]))
+                .collect::<Vec<_>>(),
         )
     }
 
@@ -230,17 +252,14 @@ impl Keys<'_> {
             return "recursive-procedure".into();
         }
         let bindings = p.bindings.map(|s| self.bindings(s));
-        let key = format!(
-            "{:?}",
-            (
-                self.location(p.span),
-                p.name.as_str(),
-                self.scope(p.scope),
-                bindings,
-                self.c.options.os,
-                self.c.options.cpu
-            )
-        );
+        let key = join([
+            self.location(p.span),
+            p.name.as_str().to_string(),
+            self.scope(p.scope),
+            join_opt(bindings.as_deref()),
+            format!("{:?}", self.c.options.os),
+            format!("{:?}", self.c.options.cpu),
+        ]);
         self.active.remove(&tag);
         key
     }
@@ -254,34 +273,39 @@ impl Keys<'_> {
             return "recursive-type".into();
         }
         let key = match self.c.ty.types.kind(ty) {
-            TypeKind::Pointer(t) => format!("ptr:{:?}", self.ty(*t)),
+            TypeKind::Pointer(t) => format!("ptr:{}", self.ty(*t)),
             TypeKind::Array {
                 elem,
                 kind,
-            } => format!("array:{:?}:{:?}", kind, self.ty(*elem)),
+            } => format!("array:{:?}:{}", kind, self.ty(*elem)),
             TypeKind::Proc(p) => format!(
-                "proc:{:?}",
-                (
-                    p.params.iter().map(|t| self.ty(*t)).collect::<Vec<_>>(),
-                    p.returns.iter().map(|t| self.ty(*t)).collect::<Vec<_>>(),
-                    p.variadic,
-                    p.c_varargs,
-                    p.c_call,
-                    p.no_context,
-                    p.non_pod_return
-                )
+                "proc:{}",
+                join([
+                    join(p.params.iter().map(|t| self.ty(*t)).collect::<Vec<_>>()),
+                    join(p.returns.iter().map(|t| self.ty(*t)).collect::<Vec<_>>()),
+                    format!(
+                        "{:?}",
+                        (
+                            p.variadic,
+                            p.c_varargs,
+                            p.c_call,
+                            p.no_context,
+                            p.non_pod_return
+                        )
+                    ),
+                ])
             ),
             TypeKind::Struct(s) => {
                 let info = self.c.ty.types.struct_info(*s);
                 let source = self.c.ty.struct_asts.get(s);
                 let args = source.map(|s| self.bindings(s.scope));
                 format!(
-                    "struct:{:?}",
-                    (
+                    "struct:{}",
+                    join([
                         self.location(info.span),
-                        source.map(|s| self.scope(s.scope)),
-                        args
-                    )
+                        join_opt(source.map(|s| self.scope(s.scope)).as_deref()),
+                        join_opt(args.as_deref()),
+                    ])
                 )
             }
             TypeKind::Enum(_) | TypeKind::Distinct(_) => {
@@ -290,17 +314,23 @@ impl Keys<'_> {
                     .ty
                     .nominal_origins
                     .get(&ty)
-                    .map(|(span, scope)| (self.location(*span), self.scope(*scope)));
+                    .map(|(span, scope)| join([self.location(*span), self.scope(*scope)]));
                 // Compiler-defined distincts have stable names rather than source locations.
-                format!("nominal:{:?}", (self.c.ty.types.name(ty), origin))
+                format!(
+                    "nominal:{}",
+                    join([
+                        format!("{:?}", self.c.ty.types.name(ty)),
+                        join_opt(origin.as_deref()),
+                    ])
+                )
             }
             TypeKind::PolyStruct {
                 id, ..
             } => {
                 let p = &self.c.ty.poly_structs[id.0 as usize];
                 format!(
-                    "family:{:?}",
-                    (self.location(p.lit.span), self.scope(p.scope))
+                    "family:{}",
+                    join([self.location(p.lit.span), self.scope(p.scope)])
                 )
             }
             primitive => format!("{primitive:?}"),
@@ -311,12 +341,12 @@ impl Keys<'_> {
     }
 
     fn typed(&mut self, value: &Value, ty: TypeId) -> String {
-        format!("{:?}", (self.ty(ty), self.value(value)))
+        join([self.ty(ty), self.value(value)])
     }
 
     fn value(&mut self, value: &Value) -> String {
         match value {
-            Value::Type(t) => format!("type:{:?}", self.ty(*t)),
+            Value::Type(t) => format!("type:{}", self.ty(*t)),
             Value::Proc(p) => self.procedure(*p),
             Value::Code(id) => {
                 let span = match self.c.pr.codes[id.0 as usize].as_ref() {
@@ -324,17 +354,25 @@ impl Keys<'_> {
                     crate::ast::CodeBody::Stmt(s) => s.span,
                     crate::ast::CodeBody::Block(b) => b.span,
                 };
-                format!("code:{:?}", self.location(span))
+                format!("code:{}", self.location(span))
             }
             Value::Bytes(a) => format!(
-                "bytes:{:?}",
-                (
-                    &a.bytes,
-                    a.relocs
-                        .iter()
-                        .map(|r| (r.offset, self.relocation(r.target), r.addend))
-                        .collect::<Vec<_>>()
-                )
+                "bytes:{}",
+                join([
+                    format!("{:?}", a.bytes),
+                    join(
+                        a.relocs
+                            .iter()
+                            .map(|r| {
+                                join([
+                                    r.offset.to_string(),
+                                    self.relocation(r.target),
+                                    r.addend.to_string(),
+                                ])
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+                ])
             ),
             scalar => format!("{scalar:?}"),
         }
@@ -350,31 +388,37 @@ impl Keys<'_> {
                 match proc {
                     Some(i) => self.procedure(ProcId(i as u32)),
                     None => format!(
-                        "generated-func:{:?}",
-                        self.c.out.program.func_names[f.0 as usize]
+                        "generated-func:{}",
+                        join([format!("{:?}", self.c.out.program.func_names[f.0 as usize])])
                     ),
                 }
             }
             RelocTarget::Foreign(f) => {
                 let foreign = &self.c.out.program.foreigns[f.0 as usize];
                 format!(
-                    "foreign:{:?}",
-                    (
-                        &foreign.symbol,
-                        foreign
-                            .library
-                            .map(|i| &self.c.out.program.libraries[i].name)
-                    )
+                    "foreign:{}",
+                    join([
+                        format!("{:?}", foreign.symbol),
+                        format!(
+                            "{:?}",
+                            foreign
+                                .library
+                                .map(|i| &self.c.out.program.libraries[i].name)
+                        ),
+                    ])
                 )
             }
             RelocTarget::Global(g) => {
                 if let Some((&ty, _)) = self.c.ty.infos.iter().find(|(_, id)| **id == g) {
-                    return format!("info:{:?}", self.ty(ty));
+                    return format!("info:{}", self.ty(ty));
                 }
                 if let Some(entity) = self.c.ns.entities.iter().find(|e| {
                     matches!(e.state, EntityState::Done(Resolved::Global { storage: Storage::Data(id), .. }) if id == g)
                 }) {
-                    return format!("global:{:?}", (self.location(entity.span), self.scope(entity.scope)));
+                    return format!(
+                        "global:{}",
+                        join([self.location(entity.span), self.scope(entity.scope)])
+                    );
                 }
                 let tag = format!("global:{}", g.0);
                 if !self.active.insert(tag.clone()) {
@@ -384,9 +428,22 @@ impl Keys<'_> {
                 let relocs = global
                     .relocs
                     .iter()
-                    .map(|r| (r.offset, self.relocation(r.target), r.addend))
+                    .map(|r| {
+                        join([
+                            r.offset.to_string(),
+                            self.relocation(r.target),
+                            r.addend.to_string(),
+                        ])
+                    })
                     .collect::<Vec<_>>();
-                let key = format!("image:{:?}", (&global.name, &global.init, relocs));
+                let key = format!(
+                    "image:{}",
+                    join([
+                        format!("{:?}", global.name),
+                        format!("{:?}", global.init),
+                        join(relocs),
+                    ])
+                );
                 self.active.remove(&tag);
                 key
             }

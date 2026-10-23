@@ -42,6 +42,7 @@
 
 ### Fixed
 
+- The language server and `jailint --fix` no longer run out of memory on a polymorphic procedure that instantiates itself with ever deeper pointer types.
 - An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.
 - `GetRect` and `GetRect_LeftHanded` take `Type_Indicator` as a program parameter, `#import "GetRect"()(Type_Indicator = T)`, shared by every import in the program.
 - The `macOS` module declares `OSStatus` and `OSType`.
