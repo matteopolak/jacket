@@ -8,7 +8,17 @@ slice :: inline (s: string, index: s64, count: s64) -> string {
 } @UseResult
 
 compare :: (a: string, b: string) -> int {
-    for i: 0..min(a.count, b.count) - 1 {
+    count := min(a.count, b.count);
+
+    // Long common prefixes go to memcmp; for short strings the call costs more than the loop.
+    if count >= 32 {
+        order := memcmp(a.data, b.data, count);
+        if order < 0 return -1;
+        if order > 0 return 1;
+        return ifx a.count < b.count then -1 else ifx a.count > b.count then 1 else 0;
+    }
+
+    for i: 0..count - 1 {
         if a[i] < b[i] return -1;
         if a[i] > b[i] return 1;
     }
@@ -62,12 +72,26 @@ is_any :: (c: u8, chars: string) -> bool {
     return false;
 }
 
+// Strings of VECTOR_MIN bytes or more are searched with the vector searches, shorter ones one byte
+// at a time: a call into the vector search costs more than scanning a word, a line or a path. The
+// vector searches are separate procedures so the short scans stay small enough to inline, where a
+// constant set like "/\\" is unrolled.
+VECTOR_MIN :: 64;
+
 find_index_from_left :: (s: string, byte: u8, start_index := 0) -> s64 #no_abc {
+    if s.count - start_index >= VECTOR_MIN return vector_find(s, byte, start_index);
     for i: max(start_index, 0)..s.count - 1 if s[i] == byte return i;
     return -1;
 } @UseResult
 
 find_index_from_right :: (s: string, byte: u8) -> s64 #no_abc {
+    if s.count >= VECTOR_MIN return vector_find_last(s, byte);
+    return scan_last(s, byte);
+} @UseResult
+
+// The last `byte`, one byte at a time. The path helpers use it: a file name or an extension is
+// within a few bytes of the end, however long the path.
+scan_last :: inline (s: string, byte: u8) -> s64 #no_abc {
     i := s.count;
     while i > 0 {
         i -= 1;
@@ -75,14 +99,20 @@ find_index_from_right :: (s: string, byte: u8) -> s64 #no_abc {
     }
 
     return -1;
-} @UseResult
+}
 
 find_index_of_any_from_left :: (s: string, bytes: string, start_index := 0) -> s64 #no_abc {
+    if s.count - start_index >= VECTOR_MIN return vector_find_any(s, bytes, start_index);
     for i: max(start_index, 0)..s.count - 1 if is_any(s[i], bytes) return i;
     return -1;
 }
 
 find_index_of_any_from_right :: (s: string, bytes: string) -> s64 #no_abc {
+    if s.count >= VECTOR_MIN return vector_find_last_any(s, bytes);
+    return scan_last_any(s, bytes);
+}
+
+scan_last_any :: inline (s: string, bytes: string) -> s64 #no_abc {
     i := s.count;
     while i > 0 {
         i -= 1;
@@ -91,6 +121,11 @@ find_index_of_any_from_right :: (s: string, bytes: string) -> s64 #no_abc {
 
     return -1;
 }
+
+// Searches for a substring compare at each offset for the first SUBSTRING_PROBE bytes, which is
+// where most are found; beyond that, preparing the needle for the vector search pays for itself.
+SUBSTRING_PROBE :: 64;
+SUBSTRING_VECTOR_MIN :: 256;
 
 find_index_from_left :: (s: string, substring: string, start_index := 0) -> s64 {
     if substring.count == 0 return -1;
@@ -101,6 +136,15 @@ find_index_from_left :: (s: string, substring: string, start_index := 0) -> s64 
 
     assert(start_index >= 0, "start_index is negative: %", start_index);
     i := start_index;
+    probe_end := min(last, start_index + SUBSTRING_PROBE);
+
+    while i <= probe_end {
+        if s.data[i] == first && slice(s, i, substring.count) == substring return i;
+        i += 1;
+    }
+
+    if i > last return -1;
+    if s.count - i >= SUBSTRING_VECTOR_MIN return vector_find_substring(s, substring, i);
 
     while i <= last {
         if s.data[i] == first && slice(s, i, substring.count) == substring return i;
@@ -112,6 +156,7 @@ find_index_from_left :: (s: string, substring: string, start_index := 0) -> s64 
 
 find_index_from_right :: (s: string, substring: string) -> s64 {
     if substring.count == 0 return -1;
+    if s.count >= SUBSTRING_VECTOR_MIN return vector_find_last_substring(s, substring);
 
     i := s.count - substring.count;
     while i >= 0 {
@@ -319,3 +364,47 @@ replace :: (s: string, old: string, new: string) -> string, ocurrences: int {
 
     return builder_to_string(*builder), count;
 } @UseResult @Allocates
+
+#scope_file
+Search :: #import "Extensions/Byte_Search";
+
+vector_find :: no_inline (s: string, byte: u8, start: s64) -> s64 {
+    return Search.find(s, byte, start);
+}
+
+vector_find_last :: no_inline (s: string, byte: u8) -> s64 {
+    return Search.find_last(s, byte);
+}
+
+// Any number of bytes: up to three have a vector search, more are checked one by one.
+vector_find_any :: no_inline (s: string, bytes: string, start: s64) -> s64 {
+    if bytes.count == 1 return Search.find(s, bytes[0], start);
+    if bytes.count == 2 return Search.find_any(s, bytes[0], bytes[1], start);
+    if bytes.count == 3 return Search.find_any(s, bytes[0], bytes[1], bytes[2], start);
+
+    for i: max(start, 0)..s.count - 1 if is_any(s[i], bytes) return i;
+
+    return -1;
+}
+
+vector_find_last_any :: no_inline (s: string, bytes: string) -> s64 {
+    if bytes.count == 1 return Search.find_last(s, bytes[0]);
+    if bytes.count == 2 return Search.find_last_any(s, bytes[0], bytes[1]);
+    if bytes.count == 3 return Search.find_last_any(s, bytes[0], bytes[1], bytes[2]);
+
+    i := s.count;
+    while i > 0 {
+        i -= 1;
+        if is_any(s[i], bytes) return i;
+    }
+
+    return -1;
+}
+
+vector_find_substring :: no_inline (s: string, substring: string, start: s64) -> s64 {
+    return Search.find(s, substring, start);
+}
+
+vector_find_last_substring :: no_inline (s: string, substring: string) -> s64 {
+    return Search.find_last(s, substring);
+}

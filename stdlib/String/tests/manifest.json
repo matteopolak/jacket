@@ -19,6 +19,10 @@
     "stdout": "ok\n"
   },
   {
+    "name": "long-strings",
+    "stdout": "ok\n"
+  },
+  {
     "name": "not-found-and-percent",
     "stdout": "ok\n"
   },

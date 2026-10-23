@@ -5,25 +5,25 @@
 }
 
 path_filename :: (path: string) -> string {
-    i := find_index_of_any_from_right(path, "/\\");
+    i := scan_last_any(path, "/\\");
     return slice(path, i + 1, path.count);
 } @UseResult
 
 path_strip_filename :: (path: string) -> string {
-    i := find_index_of_any_from_right(path, "/\\");
+    i := scan_last_any(path, "/\\");
     return slice(path, 0, i + 1);
 }
 
 path_extension :: (path: string) -> (extension: string, found_extension: bool) {
     file := path_filename(path);
-    dot := find_index_from_right(file, cast(u8) 46);
+    dot := scan_last(file, cast(u8) 46);
     if dot <= 0 return "", false;
     return slice(file, dot + 1, file.count), true;
 } @UseResult
 
 path_strip_extension :: (path: string) -> string {
     file := path_filename(path);
-    dot := find_index_from_right(file, cast(u8) 46);
+    dot := scan_last(file, cast(u8) 46);
     if dot <= 0 return path;
     return slice(path, 0, path.count - file.count + dot);
 } @UseResult
