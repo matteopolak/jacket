@@ -41,8 +41,10 @@ impl Compiler {
             } else {
                 let module = self.scope(def_scope).module;
                 let s = self.new_scope(ScopeKind::Block, Some(def_scope), module, None);
+                // Not written at the call: recording them there would make the call's
+                // text look like a declaration of `T` to hover and go to definition.
                 for (n, v, t) in bindings {
-                    self.add_const(s, *n, span, v.clone(), *t);
+                    self.new_const(s, *n, span, v.clone(), *t);
                 }
                 self.ns.default_scopes.insert(key, s);
                 s

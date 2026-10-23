@@ -315,7 +315,11 @@ impl Compiler {
             return None;
         }
         let text = self.src.sources.snippet(span);
-        let at = text.find(name.as_str())?;
+        let name_at = |&(at, _): &(usize, &str)| {
+            let ident = |c: char| c.is_alphanumeric() || c == '_';
+            !text[..at].ends_with(ident) && !text[at + name.as_str().len()..].starts_with(ident)
+        };
+        let (at, _) = text.match_indices(name.as_str()).find(name_at)?;
         let start = span.start + at as u32;
         Some(Span {
             file: span.file,
