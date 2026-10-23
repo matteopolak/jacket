@@ -243,6 +243,9 @@ impl Compiler {
                     value, ..
                 } => value,
                 Operand::Procs(p) if p.len() == 1 => Value::Proc(p[0]),
+                Operand::Procs(p) if !self.proc(p[0]).is_poly => {
+                    Value::Proc(self.overload_for_baked(&p, param, def_scope, arg.span)?)
+                }
                 other => {
                     // A member of a constant (`help.build`) is only known to be one when
                     // evaluated as a constant expression.
@@ -402,9 +405,8 @@ impl Compiler {
                     untyped: true,
                 } => self.ty.default_untyped(*ty, value),
                 Operand::Type(_) => TypeId::TYPE,
-                Operand::Procs(p) if p.len() == 1 && !self.proc(p[0]).is_poly => {
-                    self.proc_type(p[0], arg.span)?
-                }
+                // An overload set binds the type of its first member.
+                Operand::Procs(p) if !self.proc(p[0]).is_poly => self.proc_type(p[0], arg.span)?,
                 other => other.ty(),
             };
             if param.variadic
@@ -445,6 +447,37 @@ impl Compiler {
             }
         }
         Ok(())
+    }
+
+    /// The member of an overload set a baked parameter takes: the one with the parameter's
+    /// declared procedure type, or the first when the type is left to `$F`.
+    fn overload_for_baked(
+        &mut self,
+        procs: &[ProcId],
+        param: &ast::Param,
+        def_scope: ScopeId,
+        span: Span,
+    ) -> Result<ProcId> {
+        let Some(declared) = param.ty.as_ref().filter(|t| !procs::has_poly(t)) else {
+            return Ok(procs[0]);
+        };
+        let want = self.eval_type(def_scope, declared)?;
+        for &p in procs {
+            if self.proc(p).is_poly {
+                continue;
+            }
+            let ty = self.proc_type(p, span)?;
+            if ty == want || self.ty.proc_types_compatible(ty, want) {
+                return Ok(p);
+            }
+        }
+        err(
+            span,
+            format!(
+                "procedure does not match parameter type {}",
+                self.ty.types.name(want)
+            ),
+        )
     }
 
     /// A bare polymorphic struct parameter named `Table` is its own instance, even when an

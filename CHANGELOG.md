@@ -57,6 +57,7 @@
 - `jailint --fix` keeps a trailing comment when it removes an unused variable or import.
 - `jailint`'s `manual_assign_op` no longer turns `a = f() + a` into `a += f()`, which reads `a` before the call instead of after.
 - `jailint`'s `needless_bool` no longer rewrites `!(a == b)` to `a != b` for a type that only defines `operator ==`.
+- An overloaded procedure passed to a polymorphic parameter, `$f: (int, int) -> int` or `$F`, is accepted: the member with the declared type is used, or the first member for `$F`.
 - An enum literal such as `.A` passed to overloads that include a struct parameter is no longer reported as ambiguous.
 - The language server and `jailint --fix` no longer run out of memory on a polymorphic procedure that instantiates itself with ever deeper pointer types.
 - An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.
