@@ -35,6 +35,18 @@ impl Compiler {
                 ty: self.ty.types.pointer(ty),
                 val: addr,
             },
+            // A constant or computed struct has no address of its own: a pointer receiver gets
+            // a temporary copy, as with any other call that takes `*value`.
+            operand
+                if matches!(self.ty.types.kind(operand.ty()), TypeKind::Struct(_))
+                    && self.has_pointer_receiver(scope, "*[]", operand.ty())? =>
+            {
+                let (ty, val) = self.address_of(f, operand, span)?;
+                Operand::Value {
+                    ty: self.ty.types.pointer(ty),
+                    val,
+                }
+            }
             // By-value receivers also accept computed aggregate values. The
             // normal call binder retains their type and conversion rules.
             operand => operand,
@@ -50,6 +62,20 @@ impl Compiler {
         Ok(Some(Operand::Place {
             ty: elem,
             addr: val,
+        }))
+    }
+
+    /// Does an `operator` named `text` take a pointer to `ty` as its first parameter?
+    fn has_pointer_receiver(&mut self, scope: ScopeId, text: &str, ty: TypeId) -> Result<bool> {
+        let mut procs = self.operator_candidates(scope, text)?;
+        procs.retain(|&p| self.first_param_accepts(p, ty));
+        Ok(procs.iter().any(|&p| {
+            self.proc(p).lit.header.params.first().is_some_and(|param| {
+                matches!(
+                    param.ty.as_ref().map(|t| &t.kind),
+                    Some(ast::ExprKind::Unary(ast::UnOp::Star, _))
+                )
+            })
         }))
     }
 
