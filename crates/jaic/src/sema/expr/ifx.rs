@@ -212,7 +212,7 @@ impl Compiler {
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        cond: &ast::Expr,
+        (cond, is_static): (&ast::Expr, bool),
         (then_value, else_value): (Option<&ast::Expr>, Option<&ast::Expr>),
         (expected, want): (Option<TypeId>, Want),
         span: Span,
@@ -237,6 +237,17 @@ impl Compiler {
                 _ => None,
             };
             if let Some(t) = taken {
+                // `#ifx` leaves the other arm out entirely: it is neither checked nor required
+                // to share a type with the taken one.
+                if is_static
+                    && let Some(arm) = if t {
+                        then_value
+                    } else {
+                        else_value
+                    }
+                {
+                    return self.check_expr(f, scope, arm, expected);
+                }
                 if let (Some(then_e), Some(else_e)) = (then_value, else_value) {
                     return self.fold_constant_ifx(
                         f,

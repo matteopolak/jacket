@@ -117,6 +117,7 @@
 - Using a polymorphic `#type` alias such as `#type (value: *$T)` as a value is a compile error, not a crash when the program runs.
 - Compile-time code can use a declaration from an `#if` in a file added later with `add_build_file`.
 - `using,only(...)` and `using,except(...)` work inside an enum body.
+- A `#ifx` with a constant condition leaves the other arm out, so its type and contents do not matter.
 
 ## [0.25.0] - 2026-10-21
 

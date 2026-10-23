@@ -476,12 +476,12 @@ impl Compiler {
                 cond,
                 then_value,
                 else_value,
-                ..
+                is_static,
             } => match else_value {
                 Some(e) => self.check_ifx(
                     f,
                     scope,
-                    cond,
+                    (cond, *is_static),
                     (then_value.as_deref(), Some(e)),
                     (expected, want),
                     span,
@@ -490,7 +490,7 @@ impl Compiler {
                 None => self.check_ifx(
                     f,
                     scope,
-                    cond,
+                    (cond, *is_static),
                     (then_value.as_deref(), None),
                     (expected, want),
                     span,
