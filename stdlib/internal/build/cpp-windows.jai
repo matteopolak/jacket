@@ -100,7 +100,7 @@ create_intermediate_directory :: (basename: string) -> string, bool {
         error := Native.GetLastError();
 
         free(path);
-        if !converted || cast(u32) error != 183 return .{}, false;
+        if !converted || cast(u32) error != WIN32_ALREADY_EXISTS return .{}, false;
     }
 
     return .{}, false;
@@ -414,6 +414,8 @@ append_link_arguments :: (args: *[..] string, compiler: string, staged: string, 
 }
 
 #scope_file
+WIN32_ALREADY_EXISTS :: 183;
+
 kernel :: #system_library "kernel32";
 bcrypt :: #system_library "bcrypt";
 get_environment :: (name: *u16, buffer: *u16, capacity: u32) -> u32 #foreign kernel "GetEnvironmentVariableW";

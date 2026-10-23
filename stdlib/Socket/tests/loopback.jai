@@ -5,7 +5,7 @@ main :: () {
     assert(S.socket_init());
     server := S.socket(S.AF_INET, S.SOCK.STREAM, S.IPPROTO.TCP);
 
-    assert(server >= 0);
+    assert(server != S.INVALID_SOCKET);
     defer S.close_and_reset(*server);
     assert(S.bind(server, "127.0.0.1", 0) == 0);
     assert(S.listen(server, 8) == 0);
@@ -15,7 +15,7 @@ main :: () {
     assert(S.getsockname(server, cast(*S.sockaddr) *address, *length) == 0);
     client := S.socket(S.AF_INET, S.SOCK.STREAM, S.IPPROTO.TCP);
 
-    assert(client >= 0);
+    assert(client != S.INVALID_SOCKET);
     defer S.close_and_reset(*client);
     assert(S.set_blocking(client, false));
     assert(S.set_blocking(client, true));
@@ -23,7 +23,7 @@ main :: () {
     assert(S.connect(client, cast(*S.sockaddr) *address, length) == 0);
     peer, remote := S.accept(server);
 
-    assert(peer >= 0);
+    assert(peer != S.INVALID_SOCKET);
     assert(remote.sin_family == S.AF_INET);
     defer S.close_and_reset(*peer);
     assert(S.send(client, "copper".data, 6, cast(S.MSG) 0) == 6);

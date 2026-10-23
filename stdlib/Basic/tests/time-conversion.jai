@@ -112,7 +112,7 @@ main :: () {
             if ticks == 116444736000000000 assert(compare_apollo_times(at, APOLLO_TIME_FOR_JAN_1_1970) == 0);
         }
 
-        invalid_ft, valid_ft := to_filetime(APOLLO_TIME_INVALID);
+        _, valid_ft := to_filetime(APOLLO_TIME_INVALID);
 
         assert(!valid_ft);
         start := current_time_monotonic();
@@ -120,7 +120,7 @@ main :: () {
 
         assert(compare_apollo_times(start, APOLLO_TIME_INVALID) != 0 && compare_apollo_times(finish, start) >= 0);
         now := current_time_consensus();
-        now_ft, now_valid := to_filetime(now);
+        _, now_valid := to_filetime(now);
 
         assert(now_valid);
         native_now: Native_Filetime.FILETIME;

@@ -47,7 +47,7 @@ cvariable_wait :: (condition_variable: *Per_OS_Condition_Variable_Type, csection
     timeout := cast,no_check(u32) wait_time_ms;
     if wait_time_ms < 0 timeout = 0xffffffff;
     ok := W.SleepConditionVariableCS(condition_variable, csection, timeout);
-    windows_thread_check(ok != 0 || W.GetLastError() == 1460, "condition variable wait failed");
+    windows_thread_check(ok != 0 || W.GetLastError() == WIN32_WAIT_TIMED_OUT, "condition variable wait failed");
 }
 
 cvariable_wake :: (condition_variable: *Per_OS_Condition_Variable_Type) {
@@ -93,7 +93,7 @@ wait_for :: (s: *Semaphore, milliseconds: s32 = -1) -> Wait_For_Result {
 
     status := W.WaitForSingleObject(s.event, timeout);
     if status == 0 return .SUCCESS;
-    if status == 258 return .TIMEOUT;
+    if status == WAIT_RESULT_TIMEOUT return .TIMEOUT;
 
     return .ERROR;
 }
@@ -140,6 +140,9 @@ set_windows_thread_name :: (thread: *Thread, name: string) {
 }
 
 #scope_file
+WIN32_WAIT_TIMED_OUT :: 1460;
+WAIT_RESULT_TIMEOUT :: 258;
+
 Text :: #import "internal/files/windows-text";
 
 kernel32 :: #system_library "kernel32";
