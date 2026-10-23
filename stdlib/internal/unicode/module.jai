@@ -122,6 +122,13 @@ utf8_iter :: (s: *string, body: Code, flags: For_Flags) #expand {
                 break;
             }
 
+            // Bytes after the decoded character are stray continuation bytes. They come
+            // out one at a time from the end, as a forward pass would give them.
+            if index + consumed < s.count {
+                index = s.count - 1;
+                code, consumed, status = character_utf8_to_utf32(s.data + index, 1, true);
+            }
+
             s.count = index;
             `it := code;
             `it_index: s64 = -1;

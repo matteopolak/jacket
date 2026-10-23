@@ -18,6 +18,10 @@
     "diagnostic_contains": "cannot assign into the constant `U.offsetsFromUTF8`"
   },
   {
+    "name": "stray-continuation-iteration",
+    "stdout": "ok\n"
+  },
+  {
     "name": "malformed-input",
     "stdout": "ok\n"
   }
