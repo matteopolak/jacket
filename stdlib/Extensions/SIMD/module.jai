@@ -683,8 +683,19 @@ leading_zeros :: inline (x: u64) -> int {
     return cast(int) result;
 }
 
+// Choosing code by processor. A procedure compiled for a feature (`#target_features "avx2"`) is only
+// safe to call where the processor has it; these say what it has and pick the best version once.
+
+Cpu_Features :: Cpu.Cpu_Features;
+Vector_Tier :: Cpu.Vector_Tier;
+cpu_features :: Cpu.cpu_features;
+best_vector_tier :: Cpu.best_vector_tier;
+limit_vector_tier :: Cpu.limit_vector_tier;
+pick_target :: Cpu.pick_target;
+
 #scope_module
 
+Cpu :: #import "internal/cpu";
 #import "Basic";
 #import "Math";
 

@@ -1,5 +1,16 @@
 [
   {
+    "name": "cpu-dispatch",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
     "name": "generic-operations",
     "stdout": "ok\n",
     "unsupported_modes": [

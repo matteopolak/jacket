@@ -29,7 +29,42 @@ Most operations are plain loops over `lanes` in `inline` procedures that LLVM's 
 - **New intrinsic:** the work is in the compiler; declare it in this module's `#scope_module` and keep a scalar path for shapes it does not cover.
 - Checks go in `#modify` or `#assert`. Inside `#modify`, `$V: Type` is a variable: use `type_info`/`runtime_size`, not `size_of(V)` or `V.T`.
 - Tests: `tests/vectors.jai`; `python3 tools/stdlib/stdlib_runtime.py --jaic <jaic> --filter SIMD [--modes wasm-interp,wasm-native]`. Interpreted and native results must agree.
-- Not done: runtime CPU feature detection and AVX2/AVX-512 paths. Code targets the baseline CPU (SSE2 on x86-64; `core2`, with SSSE3, on macOS).
+- Code outside a `#target_features` procedure targets the baseline CPU (SSE2 on x86-64; `core2`, with SSSE3, on macOS). Wider code goes through [choosing code by CPU](#choosing-code-by-cpu).
+
+## Choosing code by CPU
+
+Detection and dispatch live in `stdlib/internal/cpu` and are re-exported by this module.
+
+```jai
+f := cpu_features();            // Cpu_Features: sse42, avx2, avx512, neon, sve
+tier := best_vector_tier();     // .BASELINE, .SSE42, .AVX2, .AVX512 or .SVE
+```
+
+- **x64:** `cpuid` gives SSE4.2, AVX, AVX2 and AVX-512 F/DQ/BW/VL; `xgetbv` confirms the operating system saves the YMM (AVX, AVX2) and opmask/ZMM (AVX-512) registers, so a feature the OS has not enabled reads as absent. Each tier implies those below it.
+- **arm64:** `neon` is always true (it is the baseline, not a tier). `sve` is read from `getauxval` on Linux and Android, and false elsewhere.
+- Other targets (wasm) report no features, so dispatch picks the baseline version.
+- Detection runs on the first call and is cached. `limit_vector_tier(.AVX2)` pretends the CPU has nothing above that tier, for tests and for comparing versions on one machine; call it before the first call of any dispatched procedure.
+
+A procedure compiled for a feature is `#target_features "avx2"` (see [directives](../language/directives-and-notes.md#target_features)); calling it where the CPU lacks the feature is undefined. `pick_target` chooses among versions:
+
+```jai
+count_body :: inline ($V: Type, data: *u8, n: s64) -> s64 { ... }    // written once, any vector type
+count_base :: (data: *u8, n: s64) -> s64 { return count_body(u8x16, data, n); }
+count_avx2 :: (data: *u8, n: s64) -> s64 #target_features "avx2" { return count_body(u8x32, data, n); }
+
+count_table: type_of(count_base) = count_first;
+count_first :: (data: *u8, n: s64) -> s64 {
+    count_table = pick_target(count_base, avx2 = count_avx2);   // avx512 =, sse42 =, sve = also exist
+    return count_table(data, n);
+}
+count :: (data: *u8, n: s64) -> s64 { return count_table(data, n); }
+```
+
+The table starts at the stub, the first call fills it, and later calls are one indirect call with no feature check. Two racing first calls store the same pointer. `pick_target` takes the highest tier that has both a version and the CPU feature, else the baseline version. The body is `inline` so each version gets the vectorizer of its own features; a baseline helper inlined into an AVX2 procedure is compiled for AVX2.
+
+- **Gotchas:** vector intrinsics (`lookup`, `to_bits` of a byte mask) still lower for the build's features, not the procedure's, so `lookup` is not faster in an AVX2 version (the baseline x86-64 target has no `pshufb`). Versions that are tiny should not be dispatched: the indirect call costs more than it saves under about 64 bytes of input.
+- **Testing a version:** call it directly. A `#target_features` procedure on another architecture is the plain code, so a 32-byte version can be tested on any machine; only call it on x64 where `cpu_features().avx2` is true. `Byte_Search/tests/variants.jai` loads the module with `#load` to reach its private versions.
+- Tests: `tests/cpu-dispatch.jai`.
 
 ## Configuration and dependencies
 
