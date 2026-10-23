@@ -368,7 +368,33 @@ impl Compiler {
                         });
                     }
                 }
-                let base_op = match self.check_expr(f, scope, base, None) {
+                // A fixed array's `data` is the address of its storage, constant although the
+                // variable is not: `view : []T = .{ 0, buffer.data }`.
+                let mut fixed_array_base = None;
+                if f.constant_only.is_some()
+                    && member.name.as_str() == "data"
+                    && names_variable_path(base)
+                {
+                    let saved = f.constant_only.take();
+                    let named = self.check_expr(f, scope, base, None);
+                    f.constant_only = saved;
+                    if let Ok(op) = named
+                        && matches!(
+                            self.ty.types.kind(self.ty.types.repr(op.ty())),
+                            TypeKind::Array {
+                                kind: ArrayKind::Fixed(_),
+                                ..
+                            }
+                        )
+                    {
+                        fixed_array_base = Some(op);
+                    }
+                }
+                let checked = match fixed_array_base {
+                    Some(op) => Ok(op),
+                    None => self.check_expr(f, scope, base, None),
+                };
+                let base_op = match checked {
                     Ok(op) => op,
                     Err(e) => {
                         // A constant whose `#run` failed still has the type the run returns, so
