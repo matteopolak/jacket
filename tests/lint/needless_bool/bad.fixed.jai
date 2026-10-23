@@ -8,6 +8,23 @@ small :: (n: int) -> bool {
     return n >= 10;
 }
 
+differs :: (a: int, b: int) -> bool {
+    return a != b;
+}
+
+// `V` only defines `operator ==`, so `!=` would not compile.
+V :: struct {
+    x: int;
+}
+
+operator == :: (a: V, b: V) -> bool {
+    return a.x == b.x;
+}
+
+distinct_values :: (a: V, b: V) -> bool {
+    return !(a == b);
+}
+
 main :: () {
     n := 5;
     even := n % 2 == 0;

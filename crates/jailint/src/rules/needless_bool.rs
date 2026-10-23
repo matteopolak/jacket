@@ -20,7 +20,7 @@ use crate::Finding;
 use crate::syntax::{Cx, Node, is_atom, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::source::Span;
-use jaic::types::TypeId;
+use jaic::types::{TypeId, TypeKind};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
@@ -51,7 +51,7 @@ fn literal(e: &Expr) -> Option<bool> {
 }
 
 /// `c` or `!c` as text, parenthesized for a larger expression when `inside`. A negated
-/// comparison of integers is written as the opposite comparison (`!(a < b)` is `a >= b`);
+/// comparison of built-in types is written as the opposite comparison (`!(a < b)` is `a >= b`);
 /// floats keep the `!`, since NaN fails both.
 fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
     let text = cx.whole_src(cond.span).trim();
@@ -59,8 +59,8 @@ fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
         && let E::Binary(op, a, b) = &cond.kind
         && let Some(opposite) = opposite(*op)
         && !parenthesized(cx, cond)
-        && cx.ty(a).is_some_and(|t| !cx.compiler.ty.types.is_float(t))
-        && cx.ty(b).is_some_and(|t| !cx.compiler.ty.types.is_float(t))
+        && cx.ty(a).is_some_and(|t| builtin_compare(cx, t, *op))
+        && cx.ty(b).is_some_and(|t| builtin_compare(cx, t, *op))
     {
         let flipped = format!(
             "{} {} {}",
@@ -81,6 +81,23 @@ fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
         (false, false) => text.to_string(),
         (true, true) => format!("!{text}"),
         (true, false) => format!("!({text})"),
+    }
+}
+
+/// Whether `ty` compares with the built-in operators, so the opposite one is certain to exist.
+/// A struct or distinct type may define `operator ==` without `operator !=`, and floats keep
+/// the `!` because NaN fails both.
+fn builtin_compare(cx: &Cx, ty: TypeId, op: BinOp) -> bool {
+    let types = &cx.compiler.ty.types;
+    match types.kind(ty) {
+        TypeKind::Bool
+        | TypeKind::Int {
+            ..
+        }
+        | TypeKind::Pointer(_)
+        | TypeKind::Enum(_) => true,
+        TypeKind::String | TypeKind::Type => matches!(op, BinOp::Eq | BinOp::Ne),
+        _ => false,
     }
 }
 
