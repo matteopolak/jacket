@@ -90,6 +90,40 @@ impl Compiler {
     /// of an overload set, a struct or enum. Spans are narrowed to the declared name when it
     /// starts the declaration (`name :: ...`).
     pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        let mut spans = self.ide_definition_in_sources(file, offset);
+        for span in &mut spans {
+            *span = self.ide_surface_span(*span);
+        }
+        spans.dedup();
+        spans
+    }
+
+    /// Where a declaration in generated text is shown: the `#insert` that wrote it, else the
+    /// start of the file the text was added for. Spans in real files stay.
+    pub(crate) fn ide_surface_span(&self, mut span: Span) -> Span {
+        for _ in 0..256 {
+            let Some(source) = self.src.sources.try_get(span.file) else {
+                break;
+            };
+            if !source.path.is_virtual() {
+                break;
+            }
+            if let Some(&site) = self.src.insert_sites.get(&span.file) {
+                span = site;
+            } else if let Some(&origin) = self.src.origins.get(&span.file) {
+                span = Span {
+                    file: origin,
+                    start: 0,
+                    end: 0,
+                };
+            } else {
+                break;
+            }
+        }
+        span
+    }
+
+    fn ide_definition_in_sources(&mut self, file: FileId, offset: u32) -> Vec<Span> {
         self.ide_note_callee_at(file, offset);
         if let Some((_, ids)) = self.ide_filter_targets(file, offset) {
             return self.ide_narrow_decls(

@@ -1147,6 +1147,7 @@ impl SourceState {
         };
         let file = self.sources.add(path, text);
         self.insert_depth.insert(file, depth);
+        self.insert_sites.insert(file, at);
         Ok(file)
     }
 }

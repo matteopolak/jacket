@@ -21,7 +21,7 @@ pub struct SourceState {
     pub files: Vec<FileInfo>,
     /// Lexical provenance of scoped/generated sources, for relative source loads
     /// and the distribution boundary around library-owned internals.
-    pub(in crate::sema) origins: HashMap<FileId, FileId>,
+    pub(crate) origins: HashMap<FileId, FileId>,
     pub(in crate::sema) file_by_path: HashMap<(PathBuf, ModuleId), modules::FileLoadState>,
     /// Whether each source file is the stdlib's, for trap reports (a `#run` can trap often).
     pub(in crate::sema) library_files: RefCell<HashMap<u32, bool>>,
@@ -34,6 +34,9 @@ pub struct SourceState {
     /// How deeply each `#insert`ed string file is nested in other inserted strings (absent: a
     /// real file). Bounds code that inserts itself (`X :: "#insert X;"`).
     pub(in crate::sema) insert_depth: HashMap<FileId, u32>,
+    /// Where each `#insert`ed string file was inserted: the editor shows a declaration in
+    /// generated text at the `#insert` that wrote it.
+    pub insert_sites: HashMap<FileId, Span>,
     /// The files and strings the program was given, kept in a cross build so the host twin loads
     /// the same program (`sema::host_twin`). Empty otherwise.
     pub(in crate::sema) program_sources: Vec<super::ProgramSource>,
@@ -57,6 +60,7 @@ impl SourceState {
             hoisted_imports: HashSet::default(),
             provided_texts: HashMap::default(),
             insert_depth: HashMap::default(),
+            insert_sites: HashMap::default(),
             program_sources: Vec::new(),
             twin_outbox: Vec::new(),
         }
