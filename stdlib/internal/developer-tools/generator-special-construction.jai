@@ -78,7 +78,7 @@ gm_objc_type_param :: (cur: CXCursor) -> *Declaration {
     return gm_template_formal(cur);
 }
 
-gm_template_formal :: (cur: CXCursor) -> *Declaration {
+gm_template_formal :: (cur: CXCursor) -> *Declaration { // jailint: allow(cognitive_complexity)
     if cur.kind != .TemplateTypeParameter && cur.kind != .NonTypeTemplateParameter && cur.kind != .TemplateTemplateParameter return null;
 
     generator := gm_active_generator();

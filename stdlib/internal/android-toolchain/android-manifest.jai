@@ -11,7 +11,7 @@ am_ref :: (m: *Android_Manifest_Binary, index: u32, optional := false) -> bool {
     return (optional && index == DUMMY_U32) || index < m.string_pool.count;
 }
 
-am_read :: (m: *Android_Manifest_Binary) -> bool {
+am_read :: (m: *Android_Manifest_Binary) -> bool { // jailint: allow(cognitive_complexity)
     s := m.raw_data;
     if s.count < 8 || !s.data || am16(s.data) != 3 || am16(s.data + 2) != 8 || am32(s.data + 4) != s.count return false;
 

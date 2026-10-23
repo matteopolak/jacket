@@ -820,7 +820,7 @@ group_numeric_macros :: (model: *Native_Model, options: Generate_Bindings_Option
     return true;
 }
 
-emit_model :: (builder: *String_Builder, model: *Native_Model, options: Generate_Bindings_Options, library: Library) -> bool {
+emit_model :: (builder: *String_Builder, model: *Native_Model, options: Generate_Bindings_Options, library: Library) -> bool { // jailint: allow(cognitive_complexity)
     if !custom_model_names_valid(model) || !custom_cpp_declarations_valid(model) return false;
 
     if options.generate_library_declarations {

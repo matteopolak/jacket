@@ -293,7 +293,7 @@ gm_apply_qualifiers :: (base: *CType, native: CXType) -> *CType {
     return result;
 }
 
-gm_build_type :: (native: CXType, cur: CXCursor, accurate: bool, depth: int, supplied: [] CXCursor = .[], use_supplied := false, array_dimension := 0) -> *CType {
+gm_build_type :: (native: CXType, cur: CXCursor, accurate: bool, depth: int, supplied: [] CXCursor = .[], use_supplied := false, array_dimension := 0) -> *CType { // jailint: allow(cognitive_complexity)
     session := gm_current_session();
     if !session return null;
 
@@ -685,7 +685,7 @@ gm_record_categories :: (record: *Struct, cur: CXCursor) {
     }
 }
 
-gm_build_declaration :: (cur: CXCursor, parent: CXCursor, only_structs: bool, type_only := false) -> *Declaration {
+gm_build_declaration :: (cur: CXCursor, parent: CXCursor, only_structs: bool, type_only := false) -> *Declaration { // jailint: allow(cognitive_complexity)
     cur := cur;
     session := gm_current_session();
 

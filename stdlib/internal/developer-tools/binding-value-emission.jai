@@ -175,7 +175,7 @@ emit_integer_bits :: (builder: *String_Builder, value: u64, bytes: s64, signed: 
     } else cpp_unsigned(builder, bits, hexadecimal);
 }
 
-jai_literal_fragment :: (builder: *String_Builder, literal: *Literal, target: *CType, scope: *Declaration, hexadecimal: bool, enum_printed: *bool) -> bool {
+jai_literal_fragment :: (builder: *String_Builder, literal: *Literal, target: *CType, scope: *Declaration, hexadecimal: bool, enum_printed: *bool) -> bool { // jailint: allow(cognitive_complexity)
     if !literal return false;
     if !BE_Traversal.enter(.LITERAL, literal) return false;
 

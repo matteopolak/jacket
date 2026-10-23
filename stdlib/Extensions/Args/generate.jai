@@ -242,7 +242,7 @@ numeric_kind :: (kind: Field_Kind) -> bool {
 
 // Reads and validates every field of `T`. With `quiet`, problems are not reported (the caller
 // that does report has already seen them).
-analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
+analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis { // jailint: allow(cognitive_complexity)
     analysis: Analysis;
     analysis.quiet = quiet;
     struct_info := cast(*Type_Info_Struct) type_info(T);
@@ -474,7 +474,7 @@ store_statement :: (field: *Field, destination: string, display: string, failure
     return tprint("if !store_value(state, %, value, %, %) return %;\n", display, destination, range_literal(field), failure);
 }
 
-generate_command :: (analysis: *Analysis, has_version: bool) -> string {
+generate_command :: (analysis: *Analysis, has_version: bool) -> string { // jailint: allow(cognitive_complexity)
     out: String_Builder;
     fields := analysis.fields;
 

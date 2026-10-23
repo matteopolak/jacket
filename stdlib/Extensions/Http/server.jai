@@ -218,7 +218,7 @@ choose_protocol :: (alpn: string) -> bool {
     return alpn.count == 0 || alpn == "http/1.1";
 }
 
-serve_connection :: (connection: *Connection) {
+serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_complexity)
     server := connection.server;
     app := server.app;
     config := *app.config;

@@ -197,7 +197,7 @@ gm_metadata_virtual_members :: (record: *Struct) -> bool {
     return true;
 }
 
-gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info {
+gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info { // jailint: allow(cognitive_complexity)
     generator := gm_active_generator();
     session := gm_current_session();
 

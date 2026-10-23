@@ -14,7 +14,7 @@ continue_failure :: (location: Source_Code_Location, message: string) -> bool {
     return false;
 }
 
-main :: () {
+main :: () { // jailint: allow(cognitive_complexity)
     assert(type_info(A.ASN1_Value).name == "ASN1_Value");
     bytes := "\x30\x03\x02\x01\x7f\x05\x00tail";
     start := bytes;

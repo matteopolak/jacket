@@ -76,7 +76,7 @@ model_unalias :: (type: *CType) -> *CType, bool {
     return type, true;
 }
 
-model_equal_type :: (a_in: *CType, b_in: *CType, top: bool, path: *[..] Model_Type_Pair) -> bool {
+model_equal_type :: (a_in: *CType, b_in: *CType, top: bool, path: *[..] Model_Type_Pair) -> bool { // jailint: allow(cognitive_complexity)
     work: [..] Model_Comparison_Work;
 
     defer array_free(work);

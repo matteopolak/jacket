@@ -49,7 +49,7 @@ binding_cpp_boundary :: (builder: *String_Builder, type: *CType, native: CXType,
     return cpp_declarator(builder, type, null, "", 0, 0, false, false);
 }
 
-binding_cpp_bridge :: (builder: *String_Builder, function: *Function) -> bool {
+binding_cpp_bridge :: (builder: *String_Builder, function: *Function) -> bool { // jailint: allow(cognitive_complexity)
     if !cpp_identifier(function.output_name) return false;
 
     type := function.type.type_of_function;

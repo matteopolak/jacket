@@ -45,7 +45,7 @@ parse_elf_header_and_program_header_table :: (data: string, path := "(unspecifie
     return true, header, table;
 }
 
-parse_elf :: (file_content: string, path := "(unspecified file)") -> success: bool, elf: Elf {
+parse_elf :: (file_content: string, path := "(unspecified file)") -> success: bool, elf: Elf { // jailint: allow(cognitive_complexity)
     header_ok, header, programs := parse_elf_header_and_program_header_table(file_content, path);
     if !header_ok return false, .{};
 

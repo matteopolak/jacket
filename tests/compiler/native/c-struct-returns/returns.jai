@@ -1390,7 +1390,7 @@ is_uf64x2i8 :: (r: R_uf64x2i8, seed: s32) -> bool {
     return r.f0[0] == cast(float64) (seed + 0.5) && r.f0[1] == cast(float64) (seed + 1.5);
 }
 
-main :: () {
+main :: () { // jailint: allow(cognitive_complexity)
     if !is_i8(ret_i8(7), 7) fail("i8: foreign return");
     if !check_i8(make_i8(7), 7) fail("i8: argument made in Jai");
     if !apply_check_i8(make_i8, 7) fail("i8: callback return read by C");

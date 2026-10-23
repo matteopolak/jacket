@@ -98,7 +98,7 @@ expression :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: bool, b
     return true;
 }
 
-expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: bool, bodies: bool, depth: s64) -> bool {
+expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: bool, bodies: bool, depth: s64) -> bool { // jailint: allow(cognitive_complexity)
     if !node || depth > 512 return false;
     if syntax_int(node, .INCOMPLETE) return false;
 
@@ -932,7 +932,7 @@ context_changes :: (builder: *Basic.String_Builder, changes: *C.Code_Node, names
     return true;
 }
 
-declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print_using: bool, compound: *C.Code_Compound_Declaration, print_type: bool, bodies: bool, depth: s64, parameter := false) -> bool {
+declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print_using: bool, compound: *C.Code_Compound_Declaration, print_type: bool, bodies: bool, depth: s64, parameter := false) -> bool { // jailint: allow(cognitive_complexity)
     if !decl || depth > 512 return false;
     if syntax_int(decl, .INCOMPLETE) return false;
 

@@ -7,7 +7,7 @@ gm_dependency_view_valid :: (view: $View) -> bool {
 
 // Temporary traversal state only; the Generator retains the sole canonical
 // registry. A shared worklist covers type/expression cycles without recursion.
-gm_declaration_depends_on :: (candidate: *Declaration, declaration: *Declaration) -> bool {
+gm_declaration_depends_on :: (candidate: *Declaration, declaration: *Declaration) -> bool { // jailint: allow(cognitive_complexity)
     parents: [..] *Declaration;
     types, seen_types: [..] *CType;
     expressions, seen_expressions: [..] *Expression;

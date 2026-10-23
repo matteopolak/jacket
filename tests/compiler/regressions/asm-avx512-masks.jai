@@ -23,7 +23,7 @@ check_s32 :: (name: string, got: [] s32, want: [] s32) {
     }
 }
 
-main :: () {
+main :: () { // jailint: allow(cognitive_complexity)
     // k-register arithmetic.
     {
         a: u64 = 0b1100_1010_1111_0000;

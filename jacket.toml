@@ -21,10 +21,15 @@ exclude = [
     "fuzz/**",
 ]
 
+# Procedures over this mark carry a `// jailint: allow(cognitive_complexity)` on their first
+# line; lower it as they are split.
+max_complexity = 100
+
 # Off-by-default rules this repository holds itself to.
 [lint.rules]
 excessive_nesting = "warn"
 leaked_allocation = "warn"
+cognitive_complexity = "warn"
 
 [format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.

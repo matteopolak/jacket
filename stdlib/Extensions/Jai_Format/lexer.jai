@@ -61,7 +61,7 @@ is_hex_digit :: inline (c: u8) -> bool {
     return is_digit(c) || (c >= #char "a" && c <= #char "f") || (c >= #char "A" && c <= #char "F");
 }
 
-lex :: (src: string) -> Lex_Result {
+lex :: (src: string) -> Lex_Result { // jailint: allow(cognitive_complexity)
     result: Lex_Result;
 
     array_reserve(*result.tokens, src.count / 4 + 16);

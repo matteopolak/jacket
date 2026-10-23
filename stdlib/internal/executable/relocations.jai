@@ -1,4 +1,4 @@
-apply_relocations :: (elf: Elf, section_index: int, data: [] u8) -> bool {
+apply_relocations :: (elf: Elf, section_index: int, data: [] u8) -> bool { // jailint: allow(cognitive_complexity)
     if !elf.header || data.count < 0 || section_index < 0 || section_index >= elf.sections.count return false;
 
     target := elf.sections[section_index];

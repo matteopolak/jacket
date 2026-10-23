@@ -117,7 +117,7 @@ tbd_utf8_valid :: (text: string) -> bool {
     return true;
 }
 
-tbd_document :: (reader: *Tbd_Reader) -> bool, Text_Based_Dylib {
+tbd_document :: (reader: *Tbd_Reader) -> bool, Text_Based_Dylib { // jailint: allow(cognitive_complexity)
     result: Text_Based_Dylib;
     groups: [..] Target_Exports;
     archs: [] string;

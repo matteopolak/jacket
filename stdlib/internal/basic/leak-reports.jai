@@ -62,7 +62,7 @@ make_leak_report :: (options: Leak_Report_Options = .{}, for_visualizer := false
 }
 
 #scope_module
-build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool) -> Leak_Report {
+build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool) -> Leak_Report { // jailint: allow(cognitive_complexity)
     report: Leak_Report;
 
     RP.set_allocators(*report.pool, context.allocator);

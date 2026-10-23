@@ -160,7 +160,7 @@ cv_zero_tail :: (input: *Line_Wire_Input, maximum: s64) -> bool {
     return !input.failed;
 }
 
-cv_read_symbols :: (info: *Codeview_Debug_Info, input: *Line_Wire_Input, verbose: bool) -> bool {
+cv_read_symbols :: (info: *Codeview_Debug_Info, input: *Line_Wire_Input, verbose: bool) -> bool { // jailint: allow(cognitive_complexity)
     scopes: [..] Cv_Symbol_Scope;
     links: [..] Cv_Procedure_Link;
 
