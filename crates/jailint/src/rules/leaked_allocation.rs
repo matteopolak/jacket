@@ -26,9 +26,9 @@
 //!
 //! Off by default: ownership conventions differ, and a program that allocates once for its whole
 //! run may leak on purpose.
-use super::{callee_procs, calls_noted, finding};
-use crate::Finding;
+use super::{callee_procs, calls_noted, finding, statement_range, suggesting};
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Block, Decl, Expr, ExprKind as E, ProcHeader, Stmt, StmtKind as S, UnOp};
 use jaic::sema::EntityId;
 use jaic::types::TypeKind;
@@ -67,17 +67,36 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     } => cx.whole_src(callee.span).trim(),
                     _ => "",
                 };
-                out.push(finding(
-                    name.span,
-                    format!(
-                        "`{}` holds memory from `{callee}` that is never freed, returned or handed on",
-                        name.name.as_str()
-                    ),
-                    Some(format!(
-                        "free it when done, for example `defer free({});` right after this line",
-                        name.name.as_str()
-                    )),
-                ));
+                let message = format!(
+                    "`{}` holds memory from `{callee}` that is never freed, returned or handed on",
+                    name.name.as_str()
+                );
+                let help = format!(
+                    "free it when done, for example `defer free({});` right after this line",
+                    name.name.as_str()
+                );
+                let pointer = d
+                    .value
+                    .as_ref()
+                    .and_then(|v| cx.ty(v))
+                    .is_some_and(|t| cx.compiler.ty.types.is_pointer(t));
+                out.push(if pointer {
+                    let end = statement_range(cx, d.span).1;
+                    let (_, indent) = cx.line_start(d.span.start as usize);
+                    suggesting(
+                        name.span,
+                        message,
+                        help,
+                        "free it when the procedure ends",
+                        vec![Edit {
+                            start: end,
+                            end,
+                            text: format!("\n{indent}defer free({});", name.name.as_str()),
+                        }],
+                    )
+                } else {
+                    finding(name.span, message, Some(help))
+                });
             }
         }
     }
