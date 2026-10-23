@@ -1,5 +1,5 @@
 ## errors (0)
-## refs (71)
+## refs (67)
 tests/compiler/regressions/auto-bake-omitted-default.jai:197..203 Entity(E(Parser@tests/compiler/regressions/auto-bake-omitted-default.jai:197)) (compile-time entity) decl=true
 tests/compiler/regressions/auto-bake-omitted-default.jai:225..228 Type(T(s64)) Type decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:233..237 Entity(E(skip@tests/compiler/regressions/auto-bake-omitted-default.jai:233)) (compile-time entity) decl=true
@@ -28,14 +28,10 @@ tests/compiler/regressions/auto-bake-omitted-default.jai:371..374 Entity(E(int@-
 tests/compiler/regressions/auto-bake-omitted-default.jai:371..374 Type(T(s64)) Type decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:385..387 Entity(E(by@tests/compiler/regressions/auto-bake-omitted-default.jai:357)) (compile-time entity) decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:385..387 Entity(E(by@tests/compiler/regressions/auto-bake-omitted-default.jai:359)) s64 decl=false
-tests/compiler/regressions/auto-bake-omitted-default.jai:403..403 Entity(E(\0lhs@tests/compiler/regressions/auto-bake-omitted-default.jai:403)) *T.pos decl=false
-tests/compiler/regressions/auto-bake-omitted-default.jai:403..403 Entity(E(\0lhs@tests/compiler/regressions/auto-bake-omitted-default.jai:403)) *s64 decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:403..404 Entity(E(p@tests/compiler/regressions/auto-bake-omitted-default.jai:349)) *Parser decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:403..404 Entity(E(p@tests/compiler/regressions/auto-bake-omitted-default.jai:349)) *T decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:405..408 Member(`pos`) T.pos decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:405..408 Member(`pos`) s64 decl=false
-tests/compiler/regressions/auto-bake-omitted-default.jai:437..437 Entity(E(\0lhs@tests/compiler/regressions/auto-bake-omitted-default.jai:437)) *T.pos decl=false
-tests/compiler/regressions/auto-bake-omitted-default.jai:437..437 Entity(E(\0lhs@tests/compiler/regressions/auto-bake-omitted-default.jai:437)) *s64 decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:437..438 Entity(E(p@tests/compiler/regressions/auto-bake-omitted-default.jai:349)) *Parser decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:437..438 Entity(E(p@tests/compiler/regressions/auto-bake-omitted-default.jai:349)) *T decl=false
 tests/compiler/regressions/auto-bake-omitted-default.jai:439..442 Member(`pos`) T.pos decl=false

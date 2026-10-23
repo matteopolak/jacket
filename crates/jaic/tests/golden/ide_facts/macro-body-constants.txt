@@ -1,5 +1,5 @@
 ## errors (0)
-## refs (67)
+## refs (66)
 tests/compiler/regressions/macro-body-constants.jai:115..120 Entity(E(Array@tests/compiler/regressions/macro-body-constants.jai:115)) (compile-time entity) decl=true
 tests/compiler/regressions/macro-body-constants.jai:131..132 Entity(E(T@tests/compiler/regressions/macro-body-constants.jai:131)) Type decl=true
 tests/compiler/regressions/macro-body-constants.jai:134..138 Type(T(Type)) Type decl=false
@@ -60,7 +60,6 @@ tests/compiler/regressions/macro-body-constants.jai:758..759 Entity(E(a@tests/co
 tests/compiler/regressions/macro-body-constants.jai:760..763 Entity(E(sum@tests/compiler/regressions/macro-body-constants.jai:740)) s64 decl=false
 tests/compiler/regressions/macro-body-constants.jai:767..769 Entity(E(it@tests/compiler/regressions/macro-body-constants.jai:383)) s64 decl=false
 tests/compiler/regressions/macro-body-constants.jai:780..781 Entity(E(a@tests/compiler/regressions/macro-body-constants.jai:683)) Array(s64) decl=false
-tests/compiler/regressions/macro-body-constants.jai:782..782 Entity(E(\0lhs@tests/compiler/regressions/macro-body-constants.jai:782)) *s64 decl=false
 tests/compiler/regressions/macro-body-constants.jai:782..784 Entity(E(it@tests/compiler/regressions/macro-body-constants.jai:353)) *s64 decl=false
 tests/compiler/regressions/macro-body-constants.jai:801..802 Entity(E(a@tests/compiler/regressions/macro-body-constants.jai:683)) Array(s64) decl=false
 tests/compiler/regressions/macro-body-constants.jai:803..806 Entity(E(sum@tests/compiler/regressions/macro-body-constants.jai:740)) s64 decl=false
