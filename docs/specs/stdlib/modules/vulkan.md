@@ -1700,1646 +1700,1646 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `VkExportMemoryWin32HandleInfoNV :: struct`
 - [OS == .WINDOWS] `PFN_vkGetMemoryWin32HandleNV :: #type (a0: VkDevice, a1: VkDeviceMemory, a2: VkExternalMemoryHandleTypeFlagsNV, a3: *HANDLE) -> VkResult #c_call`
 - [OS == .WINDOWS] `VkWin32KeyedMutexAcquireReleaseInfoNV :: struct`
-- [OS == .LINUX] `VK_VERSION_1_0 :: 1`
-- [OS == .LINUX] `VK_HEADER_VERSION :: 85`
-- [OS == .LINUX] `VK_LOD_CLAMP_NONE :: 1000.0`
-- [OS == .LINUX] `VK_VERSION_1_1 :: 1`
-- [OS == .LINUX] `VK_MAX_DEVICE_GROUP_SIZE :: 32`
-- [OS == .LINUX] `VK_LUID_SIZE :: 8`
-- [OS == .LINUX] `VK_QUEUE_FAMILY_EXTERNAL :: ~0-1`
-- [OS == .LINUX] `VK_KHR_surface :: 1`
-- [OS == .LINUX] `VK_KHR_SURFACE_SPEC_VERSION :: 25`
-- [OS == .LINUX] `VK_KHR_SURFACE_EXTENSION_NAME :: "VK_KHR_surface"`
-- [OS == .LINUX] `VK_KHR_swapchain :: 1`
-- [OS == .LINUX] `VK_KHR_SWAPCHAIN_SPEC_VERSION :: 70`
-- [OS == .LINUX] `VK_KHR_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_swapchain"`
-- [OS == .LINUX] `VK_KHR_display :: 1`
-- [OS == .LINUX] `VK_KHR_DISPLAY_SPEC_VERSION :: 21`
-- [OS == .LINUX] `VK_KHR_DISPLAY_EXTENSION_NAME :: "VK_KHR_display"`
-- [OS == .LINUX] `VK_KHR_display_swapchain :: 1`
-- [OS == .LINUX] `VK_KHR_DISPLAY_SWAPCHAIN_SPEC_VERSION :: 9`
-- [OS == .LINUX] `VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_display_swapchain"`
-- [OS == .LINUX] `VK_KHR_sampler_mirror_clamp_to_edge :: 1`
-- [OS == .LINUX] `VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME :: "VK_KHR_sampler_mirror_clamp_to_edge"`
-- [OS == .LINUX] `VK_KHR_multiview :: 1`
-- [OS == .LINUX] `VK_KHR_MULTIVIEW_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_MULTIVIEW_EXTENSION_NAME :: "VK_KHR_multiview"`
-- [OS == .LINUX] `VK_KHR_get_physical_device_properties2 :: 1`
-- [OS == .LINUX] `VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_physical_device_properties2"`
-- [OS == .LINUX] `VK_KHR_device_group :: 1`
-- [OS == .LINUX] `VK_KHR_DEVICE_GROUP_SPEC_VERSION :: 3`
-- [OS == .LINUX] `VK_KHR_DEVICE_GROUP_EXTENSION_NAME :: "VK_KHR_device_group"`
-- [OS == .LINUX] `VK_KHR_shader_draw_parameters :: 1`
-- [OS == .LINUX] `VK_KHR_SHADER_DRAW_PARAMETERS_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME :: "VK_KHR_shader_draw_parameters"`
-- [OS == .LINUX] `VK_KHR_maintenance1 :: 1`
-- [OS == .LINUX] `VK_KHR_MAINTENANCE1_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_KHR_MAINTENANCE1_EXTENSION_NAME :: "VK_KHR_maintenance1"`
-- [OS == .LINUX] `VK_KHR_device_group_creation :: 1`
-- [OS == .LINUX] `VK_KHR_DEVICE_GROUP_CREATION_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME :: "VK_KHR_device_group_creation"`
-- [OS == .LINUX] `VK_MAX_DEVICE_GROUP_SIZE_KHR :: VK_MAX_DEVICE_GROUP_SIZE`
-- [OS == .LINUX] `VK_KHR_external_memory_capabilities :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_memory_capabilities"`
-- [OS == .LINUX] `VK_LUID_SIZE_KHR :: VK_LUID_SIZE`
-- [OS == .LINUX] `VK_KHR_external_memory :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_MEMORY_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_KHR_external_memory"`
-- [OS == .LINUX] `VK_QUEUE_FAMILY_EXTERNAL_KHR :: VK_QUEUE_FAMILY_EXTERNAL`
-- [OS == .LINUX] `VK_KHR_external_memory_fd :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_MEMORY_FD_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME :: "VK_KHR_external_memory_fd"`
-- [OS == .LINUX] `VK_KHR_external_semaphore_capabilities :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_semaphore_capabilities"`
-- [OS == .LINUX] `VK_KHR_external_semaphore :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_SEMAPHORE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME :: "VK_KHR_external_semaphore"`
-- [OS == .LINUX] `VK_KHR_external_semaphore_fd :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_SEMAPHORE_FD_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME :: "VK_KHR_external_semaphore_fd"`
-- [OS == .LINUX] `VK_KHR_push_descriptor :: 1`
-- [OS == .LINUX] `VK_KHR_PUSH_DESCRIPTOR_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME :: "VK_KHR_push_descriptor"`
-- [OS == .LINUX] `VK_KHR_16bit_storage :: 1`
-- [OS == .LINUX] `VK_KHR_16BIT_STORAGE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_16BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_16bit_storage"`
-- [OS == .LINUX] `VK_KHR_incremental_present :: 1`
-- [OS == .LINUX] `VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME :: "VK_KHR_incremental_present"`
-- [OS == .LINUX] `VK_KHR_descriptor_update_template :: 1`
-- [OS == .LINUX] `VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_EXTENSION_NAME :: "VK_KHR_descriptor_update_template"`
-- [OS == .LINUX] `VK_KHR_create_renderpass2 :: 1`
-- [OS == .LINUX] `VK_KHR_CREATE_RENDERPASS_2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME :: "VK_KHR_create_renderpass2"`
-- [OS == .LINUX] `VK_KHR_shared_presentable_image :: 1`
-- [OS == .LINUX] `VK_KHR_SHARED_PRESENTABLE_IMAGE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME :: "VK_KHR_shared_presentable_image"`
-- [OS == .LINUX] `VK_KHR_external_fence_capabilities :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_FENCE_CAPABILITIES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_fence_capabilities"`
-- [OS == .LINUX] `VK_KHR_external_fence :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_FENCE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME :: "VK_KHR_external_fence"`
-- [OS == .LINUX] `VK_KHR_external_fence_fd :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_FENCE_FD_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME :: "VK_KHR_external_fence_fd"`
-- [OS == .LINUX] `VK_KHR_maintenance2 :: 1`
-- [OS == .LINUX] `VK_KHR_MAINTENANCE2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_MAINTENANCE2_EXTENSION_NAME :: "VK_KHR_maintenance2"`
-- [OS == .LINUX] `VK_KHR_get_surface_capabilities2 :: 1`
-- [OS == .LINUX] `VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME :: "VK_KHR_get_surface_capabilities2"`
-- [OS == .LINUX] `VK_KHR_variable_pointers :: 1`
-- [OS == .LINUX] `VK_KHR_VARIABLE_POINTERS_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME :: "VK_KHR_variable_pointers"`
-- [OS == .LINUX] `VK_KHR_get_display_properties2 :: 1`
-- [OS == .LINUX] `VK_KHR_GET_DISPLAY_PROPERTIES_2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_GET_DISPLAY_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_display_properties2"`
-- [OS == .LINUX] `VK_KHR_dedicated_allocation :: 1`
-- [OS == .LINUX] `VK_KHR_DEDICATED_ALLOCATION_SPEC_VERSION :: 3`
-- [OS == .LINUX] `VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_KHR_dedicated_allocation"`
-- [OS == .LINUX] `VK_KHR_storage_buffer_storage_class :: 1`
-- [OS == .LINUX] `VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME :: "VK_KHR_storage_buffer_storage_class"`
-- [OS == .LINUX] `VK_KHR_relaxed_block_layout :: 1`
-- [OS == .LINUX] `VK_KHR_RELAXED_BLOCK_LAYOUT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_RELAXED_BLOCK_LAYOUT_EXTENSION_NAME :: "VK_KHR_relaxed_block_layout"`
-- [OS == .LINUX] `VK_KHR_get_memory_requirements2 :: 1`
-- [OS == .LINUX] `VK_KHR_GET_MEMORY_REQUIREMENTS_2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME :: "VK_KHR_get_memory_requirements2"`
-- [OS == .LINUX] `VK_KHR_image_format_list :: 1`
-- [OS == .LINUX] `VK_KHR_IMAGE_FORMAT_LIST_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME :: "VK_KHR_image_format_list"`
-- [OS == .LINUX] `VK_KHR_sampler_ycbcr_conversion :: 1`
-- [OS == .LINUX] `VK_KHR_SAMPLER_YCBCR_CONVERSION_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME :: "VK_KHR_sampler_ycbcr_conversion"`
-- [OS == .LINUX] `VK_KHR_bind_memory2 :: 1`
-- [OS == .LINUX] `VK_KHR_BIND_MEMORY_2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_BIND_MEMORY_2_EXTENSION_NAME :: "VK_KHR_bind_memory2"`
-- [OS == .LINUX] `VK_KHR_maintenance3 :: 1`
-- [OS == .LINUX] `VK_KHR_MAINTENANCE3_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_MAINTENANCE3_EXTENSION_NAME :: "VK_KHR_maintenance3"`
-- [OS == .LINUX] `VK_KHR_draw_indirect_count :: 1`
-- [OS == .LINUX] `VK_KHR_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_KHR_draw_indirect_count"`
-- [OS == .LINUX] `VK_KHR_8bit_storage :: 1`
-- [OS == .LINUX] `VK_KHR_8BIT_STORAGE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_KHR_8BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_8bit_storage"`
-- [OS == .LINUX] `VK_KHR_vulkan_memory_model :: 1`
-- [OS == .LINUX] `VK_KHR_VULKAN_MEMORY_MODEL_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME :: "VK_KHR_vulkan_memory_model"`
-- [OS == .LINUX] `VK_EXT_debug_report :: 1`
-- [OS == .LINUX] `VK_EXT_DEBUG_REPORT_SPEC_VERSION :: 9`
-- [OS == .LINUX] `VK_EXT_DEBUG_REPORT_EXTENSION_NAME :: "VK_EXT_debug_report"`
-- [OS == .LINUX] `VK_NV_glsl_shader :: 1`
-- [OS == .LINUX] `VK_NV_GLSL_SHADER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_GLSL_SHADER_EXTENSION_NAME :: "VK_NV_glsl_shader"`
-- [OS == .LINUX] `VK_EXT_depth_range_unrestricted :: 1`
-- [OS == .LINUX] `VK_EXT_DEPTH_RANGE_UNRESTRICTED_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME :: "VK_EXT_depth_range_unrestricted"`
-- [OS == .LINUX] `VK_IMG_filter_cubic :: 1`
-- [OS == .LINUX] `VK_IMG_FILTER_CUBIC_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_IMG_FILTER_CUBIC_EXTENSION_NAME :: "VK_IMG_filter_cubic"`
-- [OS == .LINUX] `VK_AMD_rasterization_order :: 1`
-- [OS == .LINUX] `VK_AMD_RASTERIZATION_ORDER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME :: "VK_AMD_rasterization_order"`
-- [OS == .LINUX] `VK_AMD_shader_trinary_minmax :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_TRINARY_MINMAX_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME :: "VK_AMD_shader_trinary_minmax"`
-- [OS == .LINUX] `VK_AMD_shader_explicit_vertex_parameter :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME :: "VK_AMD_shader_explicit_vertex_parameter"`
-- [OS == .LINUX] `VK_EXT_debug_marker :: 1`
-- [OS == .LINUX] `VK_EXT_DEBUG_MARKER_SPEC_VERSION :: 4`
-- [OS == .LINUX] `VK_EXT_DEBUG_MARKER_EXTENSION_NAME :: "VK_EXT_debug_marker"`
-- [OS == .LINUX] `VK_AMD_gcn_shader :: 1`
-- [OS == .LINUX] `VK_AMD_GCN_SHADER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_GCN_SHADER_EXTENSION_NAME :: "VK_AMD_gcn_shader"`
-- [OS == .LINUX] `VK_NV_dedicated_allocation :: 1`
-- [OS == .LINUX] `VK_NV_DEDICATED_ALLOCATION_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_NV_dedicated_allocation"`
-- [OS == .LINUX] `VK_AMD_draw_indirect_count :: 1`
-- [OS == .LINUX] `VK_AMD_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_AMD_draw_indirect_count"`
-- [OS == .LINUX] `VK_AMD_negative_viewport_height :: 1`
-- [OS == .LINUX] `VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_EXTENSION_NAME :: "VK_AMD_negative_viewport_height"`
-- [OS == .LINUX] `VK_AMD_gpu_shader_half_float :: 1`
-- [OS == .LINUX] `VK_AMD_GPU_SHADER_HALF_FLOAT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME :: "VK_AMD_gpu_shader_half_float"`
-- [OS == .LINUX] `VK_AMD_shader_ballot :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_BALLOT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_BALLOT_EXTENSION_NAME :: "VK_AMD_shader_ballot"`
-- [OS == .LINUX] `VK_AMD_texture_gather_bias_lod :: 1`
-- [OS == .LINUX] `VK_AMD_TEXTURE_GATHER_BIAS_LOD_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_TEXTURE_GATHER_BIAS_LOD_EXTENSION_NAME :: "VK_AMD_texture_gather_bias_lod"`
-- [OS == .LINUX] `VK_AMD_shader_info :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_INFO_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_INFO_EXTENSION_NAME :: "VK_AMD_shader_info"`
-- [OS == .LINUX] `VK_AMD_shader_image_load_store_lod :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME :: "VK_AMD_shader_image_load_store_lod"`
-- [OS == .LINUX] `VK_NV_corner_sampled_image :: 1`
-- [OS == .LINUX] `VK_NV_CORNER_SAMPLED_IMAGE_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_NV_CORNER_SAMPLED_IMAGE_EXTENSION_NAME :: "VK_NV_corner_sampled_image"`
-- [OS == .LINUX] `VK_IMG_format_pvrtc :: 1`
-- [OS == .LINUX] `VK_IMG_FORMAT_PVRTC_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_IMG_FORMAT_PVRTC_EXTENSION_NAME :: "VK_IMG_format_pvrtc"`
-- [OS == .LINUX] `VK_NV_external_memory_capabilities :: 1`
-- [OS == .LINUX] `VK_NV_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_NV_external_memory_capabilities"`
-- [OS == .LINUX] `VK_NV_external_memory :: 1`
-- [OS == .LINUX] `VK_NV_EXTERNAL_MEMORY_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_NV_external_memory"`
-- [OS == .LINUX] `VK_EXT_validation_flags :: 1`
-- [OS == .LINUX] `VK_EXT_VALIDATION_FLAGS_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME :: "VK_EXT_validation_flags"`
-- [OS == .LINUX] `VK_EXT_shader_subgroup_ballot :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_SUBGROUP_BALLOT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME :: "VK_EXT_shader_subgroup_ballot"`
-- [OS == .LINUX] `VK_EXT_shader_subgroup_vote :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_SUBGROUP_VOTE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME :: "VK_EXT_shader_subgroup_vote"`
-- [OS == .LINUX] `VK_EXT_astc_decode_mode :: 1`
-- [OS == .LINUX] `VK_EXT_ASTC_DECODE_MODE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME :: "VK_EXT_astc_decode_mode"`
-- [OS == .LINUX] `VK_EXT_conditional_rendering :: 1`
-- [OS == .LINUX] `VK_EXT_CONDITIONAL_RENDERING_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME :: "VK_EXT_conditional_rendering"`
-- [OS == .LINUX] `VK_NVX_device_generated_commands :: 1`
-- [OS == .LINUX] `VK_NVX_DEVICE_GENERATED_COMMANDS_SPEC_VERSION :: 3`
-- [OS == .LINUX] `VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME :: "VK_NVX_device_generated_commands"`
-- [OS == .LINUX] `VK_NV_clip_space_w_scaling :: 1`
-- [OS == .LINUX] `VK_NV_CLIP_SPACE_W_SCALING_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_CLIP_SPACE_W_SCALING_EXTENSION_NAME :: "VK_NV_clip_space_w_scaling"`
-- [OS == .LINUX] `VK_EXT_direct_mode_display :: 1`
-- [OS == .LINUX] `VK_EXT_DIRECT_MODE_DISPLAY_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME :: "VK_EXT_direct_mode_display"`
-- [OS == .LINUX] `VK_EXT_display_surface_counter :: 1`
-- [OS == .LINUX] `VK_EXT_DISPLAY_SURFACE_COUNTER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME :: "VK_EXT_display_surface_counter"`
-- [OS == .LINUX] `VK_EXT_display_control :: 1`
-- [OS == .LINUX] `VK_EXT_DISPLAY_CONTROL_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME :: "VK_EXT_display_control"`
-- [OS == .LINUX] `VK_GOOGLE_display_timing :: 1`
-- [OS == .LINUX] `VK_GOOGLE_DISPLAY_TIMING_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME :: "VK_GOOGLE_display_timing"`
-- [OS == .LINUX] `VK_NV_sample_mask_override_coverage :: 1`
-- [OS == .LINUX] `VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_EXTENSION_NAME :: "VK_NV_sample_mask_override_coverage"`
-- [OS == .LINUX] `VK_NV_geometry_shader_passthrough :: 1`
-- [OS == .LINUX] `VK_NV_GEOMETRY_SHADER_PASSTHROUGH_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME :: "VK_NV_geometry_shader_passthrough"`
-- [OS == .LINUX] `VK_NV_viewport_array2 :: 1`
-- [OS == .LINUX] `VK_NV_VIEWPORT_ARRAY2_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME :: "VK_NV_viewport_array2"`
-- [OS == .LINUX] `VK_NVX_multiview_per_view_attributes :: 1`
-- [OS == .LINUX] `VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_EXTENSION_NAME :: "VK_NVX_multiview_per_view_attributes"`
-- [OS == .LINUX] `VK_NV_viewport_swizzle :: 1`
-- [OS == .LINUX] `VK_NV_VIEWPORT_SWIZZLE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME :: "VK_NV_viewport_swizzle"`
-- [OS == .LINUX] `VK_EXT_discard_rectangles :: 1`
-- [OS == .LINUX] `VK_EXT_DISCARD_RECTANGLES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME :: "VK_EXT_discard_rectangles"`
-- [OS == .LINUX] `VK_EXT_conservative_rasterization :: 1`
-- [OS == .LINUX] `VK_EXT_CONSERVATIVE_RASTERIZATION_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME :: "VK_EXT_conservative_rasterization"`
-- [OS == .LINUX] `VK_EXT_swapchain_colorspace :: 1`
-- [OS == .LINUX] `VK_EXT_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION :: 3`
-- [OS == .LINUX] `VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME :: "VK_EXT_swapchain_colorspace"`
-- [OS == .LINUX] `VK_EXT_hdr_metadata :: 1`
-- [OS == .LINUX] `VK_EXT_HDR_METADATA_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_HDR_METADATA_EXTENSION_NAME :: "VK_EXT_hdr_metadata"`
-- [OS == .LINUX] `VK_EXT_external_memory_dma_buf :: 1`
-- [OS == .LINUX] `VK_EXT_EXTERNAL_MEMORY_DMA_BUF_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME :: "VK_EXT_external_memory_dma_buf"`
-- [OS == .LINUX] `VK_EXT_queue_family_foreign :: 1`
-- [OS == .LINUX] `VK_EXT_QUEUE_FAMILY_FOREIGN_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME :: "VK_EXT_queue_family_foreign"`
-- [OS == .LINUX] `VK_QUEUE_FAMILY_FOREIGN_EXT :: ~0-2`
-- [OS == .LINUX] `VK_EXT_debug_utils :: 1`
-- [OS == .LINUX] `VK_EXT_DEBUG_UTILS_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_DEBUG_UTILS_EXTENSION_NAME :: "VK_EXT_debug_utils"`
-- [OS == .LINUX] `VK_EXT_sampler_filter_minmax :: 1`
-- [OS == .LINUX] `VK_EXT_SAMPLER_FILTER_MINMAX_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME :: "VK_EXT_sampler_filter_minmax"`
-- [OS == .LINUX] `VK_AMD_gpu_shader_int16 :: 1`
-- [OS == .LINUX] `VK_AMD_GPU_SHADER_INT16_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME :: "VK_AMD_gpu_shader_int16"`
-- [OS == .LINUX] `VK_AMD_mixed_attachment_samples :: 1`
-- [OS == .LINUX] `VK_AMD_MIXED_ATTACHMENT_SAMPLES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME :: "VK_AMD_mixed_attachment_samples"`
-- [OS == .LINUX] `VK_AMD_shader_fragment_mask :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_FRAGMENT_MASK_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_FRAGMENT_MASK_EXTENSION_NAME :: "VK_AMD_shader_fragment_mask"`
-- [OS == .LINUX] `VK_EXT_inline_uniform_block :: 1`
-- [OS == .LINUX] `VK_EXT_INLINE_UNIFORM_BLOCK_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME :: "VK_EXT_inline_uniform_block"`
-- [OS == .LINUX] `VK_EXT_shader_stencil_export :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_STENCIL_EXPORT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME :: "VK_EXT_shader_stencil_export"`
-- [OS == .LINUX] `VK_EXT_sample_locations :: 1`
-- [OS == .LINUX] `VK_EXT_SAMPLE_LOCATIONS_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME :: "VK_EXT_sample_locations"`
-- [OS == .LINUX] `VK_EXT_blend_operation_advanced :: 1`
-- [OS == .LINUX] `VK_EXT_BLEND_OPERATION_ADVANCED_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_EXT_BLEND_OPERATION_ADVANCED_EXTENSION_NAME :: "VK_EXT_blend_operation_advanced"`
-- [OS == .LINUX] `VK_NV_fragment_coverage_to_color :: 1`
-- [OS == .LINUX] `VK_NV_FRAGMENT_COVERAGE_TO_COLOR_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_FRAGMENT_COVERAGE_TO_COLOR_EXTENSION_NAME :: "VK_NV_fragment_coverage_to_color"`
-- [OS == .LINUX] `VK_NV_framebuffer_mixed_samples :: 1`
-- [OS == .LINUX] `VK_NV_FRAMEBUFFER_MIXED_SAMPLES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME :: "VK_NV_framebuffer_mixed_samples"`
-- [OS == .LINUX] `VK_NV_fill_rectangle :: 1`
-- [OS == .LINUX] `VK_NV_FILL_RECTANGLE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_FILL_RECTANGLE_EXTENSION_NAME :: "VK_NV_fill_rectangle"`
-- [OS == .LINUX] `VK_EXT_post_depth_coverage :: 1`
-- [OS == .LINUX] `VK_EXT_POST_DEPTH_COVERAGE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME :: "VK_EXT_post_depth_coverage"`
-- [OS == .LINUX] `VK_EXT_validation_cache :: 1`
-- [OS == .LINUX] `VK_EXT_VALIDATION_CACHE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_VALIDATION_CACHE_EXTENSION_NAME :: "VK_EXT_validation_cache"`
-- [OS == .LINUX] `VK_EXT_descriptor_indexing :: 1`
-- [OS == .LINUX] `VK_EXT_DESCRIPTOR_INDEXING_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME :: "VK_EXT_descriptor_indexing"`
-- [OS == .LINUX] `VK_EXT_shader_viewport_index_layer :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME :: "VK_EXT_shader_viewport_index_layer"`
-- [OS == .LINUX] `VK_NV_shading_rate_image :: 1`
-- [OS == .LINUX] `VK_NV_SHADING_RATE_IMAGE_SPEC_VERSION :: 3`
-- [OS == .LINUX] `VK_NV_SHADING_RATE_IMAGE_EXTENSION_NAME :: "VK_NV_shading_rate_image"`
-- [OS == .LINUX] `VK_NVX_raytracing :: 1`
-- [OS == .LINUX] `VK_NVX_RAYTRACING_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NVX_RAYTRACING_EXTENSION_NAME :: "VK_NVX_raytracing"`
-- [OS == .LINUX] `VK_NV_representative_fragment_test :: 1`
-- [OS == .LINUX] `VK_NV_REPRESENTATIVE_FRAGMENT_TEST_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME :: "VK_NV_representative_fragment_test"`
-- [OS == .LINUX] `VK_EXT_global_priority :: 1`
-- [OS == .LINUX] `VK_EXT_GLOBAL_PRIORITY_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_EXT_GLOBAL_PRIORITY_EXTENSION_NAME :: "VK_EXT_global_priority"`
-- [OS == .LINUX] `VK_EXT_external_memory_host :: 1`
-- [OS == .LINUX] `VK_EXT_EXTERNAL_MEMORY_HOST_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME :: "VK_EXT_external_memory_host"`
-- [OS == .LINUX] `VK_AMD_buffer_marker :: 1`
-- [OS == .LINUX] `VK_AMD_BUFFER_MARKER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_BUFFER_MARKER_EXTENSION_NAME :: "VK_AMD_buffer_marker"`
-- [OS == .LINUX] `VK_AMD_shader_core_properties :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_CORE_PROPERTIES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME :: "VK_AMD_shader_core_properties"`
-- [OS == .LINUX] `VK_EXT_vertex_attribute_divisor :: 1`
-- [OS == .LINUX] `VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_SPEC_VERSION :: 3`
-- [OS == .LINUX] `VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME :: "VK_EXT_vertex_attribute_divisor"`
-- [OS == .LINUX] `VK_NV_shader_subgroup_partitioned :: 1`
-- [OS == .LINUX] `VK_NV_SHADER_SUBGROUP_PARTITIONED_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME :: "VK_NV_shader_subgroup_partitioned"`
-- [OS == .LINUX] `VK_NV_compute_shader_derivatives :: 1`
-- [OS == .LINUX] `VK_NV_COMPUTE_SHADER_DERIVATIVES_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME :: "VK_NV_compute_shader_derivatives"`
-- [OS == .LINUX] `VK_NV_mesh_shader :: 1`
-- [OS == .LINUX] `VK_NV_MESH_SHADER_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_MESH_SHADER_EXTENSION_NAME :: "VK_NV_mesh_shader"`
-- [OS == .LINUX] `VK_NV_fragment_shader_barycentric :: 1`
-- [OS == .LINUX] `VK_NV_FRAGMENT_SHADER_BARYCENTRIC_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME :: "VK_NV_fragment_shader_barycentric"`
-- [OS == .LINUX] `VK_NV_shader_image_footprint :: 1`
-- [OS == .LINUX] `VK_NV_SHADER_IMAGE_FOOTPRINT_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME :: "VK_NV_shader_image_footprint"`
-- [OS == .LINUX] `VK_NV_scissor_exclusive :: 1`
-- [OS == .LINUX] `VK_NV_SCISSOR_EXCLUSIVE_SPEC_VERSION :: 1`
-- [OS == .LINUX] `VK_NV_SCISSOR_EXCLUSIVE_EXTENSION_NAME :: "VK_NV_scissor_exclusive"`
-- [OS == .LINUX] `VK_NV_device_diagnostic_checkpoints :: 1`
-- [OS == .LINUX] `VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_SPEC_VERSION :: 2`
-- [OS == .LINUX] `VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME :: "VK_NV_device_diagnostic_checkpoints"`
-- [OS == .LINUX] `VkFlags :: u32`
-- [OS == .LINUX] `VkBool32 :: u32`
-- [OS == .LINUX] `VkDeviceSize :: u64`
-- [OS == .LINUX] `VkSampleMask :: u32`
-- [OS == .LINUX] `VkInstance_T :: struct`
-- [OS == .LINUX] `VkInstance :: *VkInstance_T`
-- [OS == .LINUX] `VkPhysicalDevice_T :: struct`
-- [OS == .LINUX] `VkPhysicalDevice :: *VkPhysicalDevice_T`
-- [OS == .LINUX] `VkDevice_T :: struct`
-- [OS == .LINUX] `VkDevice :: *VkDevice_T`
-- [OS == .LINUX] `VkQueue_T :: struct`
-- [OS == .LINUX] `VkQueue :: *VkQueue_T`
-- [OS == .LINUX] `VkSemaphore_T :: struct`
-- [OS == .LINUX] `VkSemaphore :: *VkSemaphore_T`
-- [OS == .LINUX] `VkCommandBuffer_T :: struct`
-- [OS == .LINUX] `VkCommandBuffer :: *VkCommandBuffer_T`
-- [OS == .LINUX] `VkFence_T :: struct`
-- [OS == .LINUX] `VkFence :: *VkFence_T`
-- [OS == .LINUX] `VkDeviceMemory_T :: struct`
-- [OS == .LINUX] `VkDeviceMemory :: *VkDeviceMemory_T`
-- [OS == .LINUX] `VkBuffer_T :: struct`
-- [OS == .LINUX] `VkBuffer :: *VkBuffer_T`
-- [OS == .LINUX] `VkImage_T :: struct`
-- [OS == .LINUX] `VkImage :: *VkImage_T`
-- [OS == .LINUX] `VkEvent_T :: struct`
-- [OS == .LINUX] `VkEvent :: *VkEvent_T`
-- [OS == .LINUX] `VkQueryPool_T :: struct`
-- [OS == .LINUX] `VkQueryPool :: *VkQueryPool_T`
-- [OS == .LINUX] `VkBufferView_T :: struct`
-- [OS == .LINUX] `VkBufferView :: *VkBufferView_T`
-- [OS == .LINUX] `VkImageView_T :: struct`
-- [OS == .LINUX] `VkImageView :: *VkImageView_T`
-- [OS == .LINUX] `VkShaderModule_T :: struct`
-- [OS == .LINUX] `VkShaderModule :: *VkShaderModule_T`
-- [OS == .LINUX] `VkPipelineCache_T :: struct`
-- [OS == .LINUX] `VkPipelineCache :: *VkPipelineCache_T`
-- [OS == .LINUX] `VkPipelineLayout_T :: struct`
-- [OS == .LINUX] `VkPipelineLayout :: *VkPipelineLayout_T`
-- [OS == .LINUX] `VkRenderPass_T :: struct`
-- [OS == .LINUX] `VkRenderPass :: *VkRenderPass_T`
-- [OS == .LINUX] `VkPipeline_T :: struct`
-- [OS == .LINUX] `VkPipeline :: *VkPipeline_T`
-- [OS == .LINUX] `VkDescriptorSetLayout_T :: struct`
-- [OS == .LINUX] `VkDescriptorSetLayout :: *VkDescriptorSetLayout_T`
-- [OS == .LINUX] `VkSampler_T :: struct`
-- [OS == .LINUX] `VkSampler :: *VkSampler_T`
-- [OS == .LINUX] `VkDescriptorPool_T :: struct`
-- [OS == .LINUX] `VkDescriptorPool :: *VkDescriptorPool_T`
-- [OS == .LINUX] `VkDescriptorSet_T :: struct`
-- [OS == .LINUX] `VkDescriptorSet :: *VkDescriptorSet_T`
-- [OS == .LINUX] `VkFramebuffer_T :: struct`
-- [OS == .LINUX] `VkFramebuffer :: *VkFramebuffer_T`
-- [OS == .LINUX] `VkCommandPool_T :: struct`
-- [OS == .LINUX] `VkCommandPool :: *VkCommandPool_T`
-- [OS == .LINUX] `VkPipelineCacheHeaderVersion :: enum u32`
-- [OS == .LINUX] `VkResult :: enum s32`
-- [OS == .LINUX] `VkStructureType :: enum u32`
-- [OS == .LINUX] `VkSystemAllocationScope :: enum u32`
-- [OS == .LINUX] `VkInternalAllocationType :: enum u32`
-- [OS == .LINUX] `VkFormat :: enum u32`
-- [OS == .LINUX] `VkImageType :: enum u32`
-- [OS == .LINUX] `VkImageTiling :: enum u32`
-- [OS == .LINUX] `VkPhysicalDeviceType :: enum u32`
-- [OS == .LINUX] `VkQueryType :: enum u32`
-- [OS == .LINUX] `VkSharingMode :: enum u32`
-- [OS == .LINUX] `VkImageLayout :: enum u32`
-- [OS == .LINUX] `VkImageViewType :: enum u32`
-- [OS == .LINUX] `VkComponentSwizzle :: enum u32`
-- [OS == .LINUX] `VkVertexInputRate :: enum u32`
-- [OS == .LINUX] `VkPrimitiveTopology :: enum u32`
-- [OS == .LINUX] `VkPolygonMode :: enum u32`
-- [OS == .LINUX] `VkFrontFace :: enum u32`
-- [OS == .LINUX] `VkCompareOp :: enum u32`
-- [OS == .LINUX] `VkStencilOp :: enum u32`
-- [OS == .LINUX] `VkLogicOp :: enum u32`
-- [OS == .LINUX] `VkBlendFactor :: enum u32`
-- [OS == .LINUX] `VkBlendOp :: enum u32`
-- [OS == .LINUX] `VkDynamicState :: enum u32`
-- [OS == .LINUX] `VkFilter :: enum u32`
-- [OS == .LINUX] `VkSamplerMipmapMode :: enum u32`
-- [OS == .LINUX] `VkSamplerAddressMode :: enum u32`
-- [OS == .LINUX] `VkBorderColor :: enum u32`
-- [OS == .LINUX] `VkDescriptorType :: enum u32`
-- [OS == .LINUX] `VkAttachmentLoadOp :: enum u32`
-- [OS == .LINUX] `VkAttachmentStoreOp :: enum u32`
-- [OS == .LINUX] `VkPipelineBindPoint :: enum u32`
-- [OS == .LINUX] `VkCommandBufferLevel :: enum u32`
-- [OS == .LINUX] `VkIndexType :: enum u32`
-- [OS == .LINUX] `VkSubpassContents :: enum u32`
-- [OS == .LINUX] `VkObjectType :: enum u32`
-- [OS == .LINUX] `VkVendorId :: enum u32`
-- [OS == .LINUX] `VkInstanceCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkFormatFeatureFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkFormatFeatureFlags :: VkFormatFeatureFlagBits`
-- [OS == .LINUX] `VkImageUsageFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkImageUsageFlags :: VkImageUsageFlagBits`
-- [OS == .LINUX] `VkImageCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkImageCreateFlags :: VkImageCreateFlagBits`
-- [OS == .LINUX] `VkSampleCountFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkSampleCountFlags :: VkSampleCountFlagBits`
-- [OS == .LINUX] `VkQueueFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkQueueFlags :: VkQueueFlagBits`
-- [OS == .LINUX] `VkMemoryPropertyFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkMemoryPropertyFlags :: VkMemoryPropertyFlagBits`
-- [OS == .LINUX] `VkMemoryHeapFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkMemoryHeapFlags :: VkMemoryHeapFlagBits`
-- [OS == .LINUX] `VkDeviceCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkDeviceQueueCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkDeviceQueueCreateFlags :: VkDeviceQueueCreateFlagBits`
-- [OS == .LINUX] `VkPipelineStageFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkPipelineStageFlags :: VkPipelineStageFlagBits`
-- [OS == .LINUX] `VkMemoryMapFlags :: VkFlags`
-- [OS == .LINUX] `VkImageAspectFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkImageAspectFlags :: VkImageAspectFlagBits`
-- [OS == .LINUX] `VkSparseImageFormatFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkSparseImageFormatFlags :: VkSparseImageFormatFlagBits`
-- [OS == .LINUX] `VkSparseMemoryBindFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkSparseMemoryBindFlags :: VkSparseMemoryBindFlagBits`
-- [OS == .LINUX] `VkFenceCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkFenceCreateFlags :: VkFenceCreateFlagBits`
-- [OS == .LINUX] `VkSemaphoreCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkEventCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkQueryPoolCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkQueryPipelineStatisticFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkQueryPipelineStatisticFlags :: VkQueryPipelineStatisticFlagBits`
-- [OS == .LINUX] `VkQueryResultFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkQueryResultFlags :: VkQueryResultFlagBits`
-- [OS == .LINUX] `VkBufferCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkBufferCreateFlags :: VkBufferCreateFlagBits`
-- [OS == .LINUX] `VkBufferUsageFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkBufferUsageFlags :: VkBufferUsageFlagBits`
-- [OS == .LINUX] `VkBufferViewCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkImageViewCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkShaderModuleCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineCacheCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkPipelineCreateFlags :: VkPipelineCreateFlagBits`
-- [OS == .LINUX] `VkPipelineShaderStageCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkShaderStageFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkPipelineVertexInputStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineInputAssemblyStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineTessellationStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineViewportStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineRasterizationStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkCullModeFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkCullModeFlags :: VkCullModeFlagBits`
-- [OS == .LINUX] `VkPipelineMultisampleStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineDepthStencilStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineColorBlendStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkColorComponentFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkColorComponentFlags :: VkColorComponentFlagBits`
-- [OS == .LINUX] `VkPipelineDynamicStateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkPipelineLayoutCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkShaderStageFlags :: VkShaderStageFlagBits`
-- [OS == .LINUX] `VkSamplerCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkDescriptorSetLayoutCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkDescriptorSetLayoutCreateFlags :: VkDescriptorSetLayoutCreateFlagBits`
-- [OS == .LINUX] `VkDescriptorPoolCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkDescriptorPoolCreateFlags :: VkDescriptorPoolCreateFlagBits`
-- [OS == .LINUX] `VkDescriptorPoolResetFlags :: VkFlags`
-- [OS == .LINUX] `VkFramebufferCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkRenderPassCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkAttachmentDescriptionFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkAttachmentDescriptionFlags :: VkAttachmentDescriptionFlagBits`
-- [OS == .LINUX] `VkSubpassDescriptionFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkSubpassDescriptionFlags :: VkSubpassDescriptionFlagBits`
-- [OS == .LINUX] `VkAccessFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkAccessFlags :: VkAccessFlagBits`
-- [OS == .LINUX] `VkDependencyFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkDependencyFlags :: VkDependencyFlagBits`
-- [OS == .LINUX] `VkCommandPoolCreateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkCommandPoolCreateFlags :: VkCommandPoolCreateFlagBits`
-- [OS == .LINUX] `VkCommandPoolResetFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkCommandPoolResetFlags :: VkCommandPoolResetFlagBits`
-- [OS == .LINUX] `VkCommandBufferUsageFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkCommandBufferUsageFlags :: VkCommandBufferUsageFlagBits`
-- [OS == .LINUX] `VkQueryControlFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkQueryControlFlags :: VkQueryControlFlagBits`
-- [OS == .LINUX] `VkCommandBufferResetFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkCommandBufferResetFlags :: VkCommandBufferResetFlagBits`
-- [OS == .LINUX] `VkStencilFaceFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkStencilFaceFlags :: VkStencilFaceFlagBits`
-- [OS == .LINUX] `VkApplicationInfo :: struct`
-- [OS == .LINUX] `VkInstanceCreateInfo :: struct`
-- [OS == .LINUX] `PFN_vkAllocationFunction :: #type (pUserData: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call`
-- [OS == .LINUX] `PFN_vkReallocationFunction :: #type (pUserData: *void, pOriginal: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call`
-- [OS == .LINUX] `PFN_vkFreeFunction :: #type (pUserData: *void, pMemory: *void) -> void #c_call`
-- [OS == .LINUX] `PFN_vkInternalAllocationNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call`
-- [OS == .LINUX] `PFN_vkInternalFreeNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call`
-- [OS == .LINUX] `VkAllocationCallbacks :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceFeatures :: struct`
-- [OS == .LINUX] `VkFormatProperties :: struct`
-- [OS == .LINUX] `VkExtent3D :: struct`
-- [OS == .LINUX] `VkImageFormatProperties :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceLimits :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceSparseProperties :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceProperties :: struct`
-- [OS == .LINUX] `VkQueueFamilyProperties :: struct`
-- [OS == .LINUX] `VkMemoryType :: struct`
-- [OS == .LINUX] `VkMemoryHeap :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceMemoryProperties :: struct`
-- [OS == .LINUX] `PFN_vkVoidFunction :: #type () -> void #c_call`
-- [OS == .LINUX] `VkDeviceQueueCreateInfo :: struct`
-- [OS == .LINUX] `VkDeviceCreateInfo :: struct`
-- [OS == .LINUX] `VkExtensionProperties :: struct`
-- [OS == .LINUX] `VkLayerProperties :: struct`
-- [OS == .LINUX] `VkSubmitInfo :: struct`
-- [OS == .LINUX] `VkMemoryAllocateInfo :: struct`
-- [OS == .LINUX] `VkMappedMemoryRange :: struct`
-- [OS == .LINUX] `VkMemoryRequirements :: struct`
-- [OS == .LINUX] `VkSparseImageFormatProperties :: struct`
-- [OS == .LINUX] `VkSparseImageMemoryRequirements :: struct`
-- [OS == .LINUX] `VkSparseMemoryBind :: struct`
-- [OS == .LINUX] `VkSparseBufferMemoryBindInfo :: struct`
-- [OS == .LINUX] `VkSparseImageOpaqueMemoryBindInfo :: struct`
-- [OS == .LINUX] `VkImageSubresource :: struct`
-- [OS == .LINUX] `VkOffset3D :: struct`
-- [OS == .LINUX] `VkSparseImageMemoryBind :: struct`
-- [OS == .LINUX] `VkSparseImageMemoryBindInfo :: struct`
-- [OS == .LINUX] `VkBindSparseInfo :: struct`
-- [OS == .LINUX] `VkFenceCreateInfo :: struct`
-- [OS == .LINUX] `VkSemaphoreCreateInfo :: struct`
-- [OS == .LINUX] `VkEventCreateInfo :: struct`
-- [OS == .LINUX] `VkQueryPoolCreateInfo :: struct`
-- [OS == .LINUX] `VkBufferCreateInfo :: struct`
-- [OS == .LINUX] `VkBufferViewCreateInfo :: struct`
-- [OS == .LINUX] `VkImageCreateInfo :: struct`
-- [OS == .LINUX] `VkSubresourceLayout :: struct`
-- [OS == .LINUX] `VkComponentMapping :: struct`
-- [OS == .LINUX] `VkImageSubresourceRange :: struct`
-- [OS == .LINUX] `VkImageViewCreateInfo :: struct`
-- [OS == .LINUX] `VkShaderModuleCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineCacheCreateInfo :: struct`
-- [OS == .LINUX] `VkSpecializationMapEntry :: struct`
-- [OS == .LINUX] `VkSpecializationInfo :: struct`
-- [OS == .LINUX] `VkPipelineShaderStageCreateInfo :: struct`
-- [OS == .LINUX] `VkVertexInputBindingDescription :: struct`
-- [OS == .LINUX] `VkVertexInputAttributeDescription :: struct`
-- [OS == .LINUX] `VkPipelineVertexInputStateCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineInputAssemblyStateCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineTessellationStateCreateInfo :: struct`
-- [OS == .LINUX] `VkViewport :: struct`
-- [OS == .LINUX] `VkOffset2D :: struct`
-- [OS == .LINUX] `VkExtent2D :: struct`
-- [OS == .LINUX] `VkRect2D :: struct`
-- [OS == .LINUX] `VkPipelineViewportStateCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineRasterizationStateCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineMultisampleStateCreateInfo :: struct`
-- [OS == .LINUX] `VkStencilOpState :: struct`
-- [OS == .LINUX] `VkPipelineDepthStencilStateCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineColorBlendAttachmentState :: struct`
-- [OS == .LINUX] `VkPipelineColorBlendStateCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineDynamicStateCreateInfo :: struct`
-- [OS == .LINUX] `VkGraphicsPipelineCreateInfo :: struct`
-- [OS == .LINUX] `VkComputePipelineCreateInfo :: struct`
-- [OS == .LINUX] `VkPushConstantRange :: struct`
-- [OS == .LINUX] `VkPipelineLayoutCreateInfo :: struct`
-- [OS == .LINUX] `VkSamplerCreateInfo :: struct`
-- [OS == .LINUX] `VkDescriptorSetLayoutBinding :: struct`
-- [OS == .LINUX] `VkDescriptorSetLayoutCreateInfo :: struct`
-- [OS == .LINUX] `VkDescriptorPoolSize :: struct`
-- [OS == .LINUX] `VkDescriptorPoolCreateInfo :: struct`
-- [OS == .LINUX] `VkDescriptorSetAllocateInfo :: struct`
-- [OS == .LINUX] `VkDescriptorImageInfo :: struct`
-- [OS == .LINUX] `VkDescriptorBufferInfo :: struct`
-- [OS == .LINUX] `VkWriteDescriptorSet :: struct`
-- [OS == .LINUX] `VkCopyDescriptorSet :: struct`
-- [OS == .LINUX] `VkFramebufferCreateInfo :: struct`
-- [OS == .LINUX] `VkAttachmentDescription :: struct`
-- [OS == .LINUX] `VkAttachmentReference :: struct`
-- [OS == .LINUX] `VkSubpassDescription :: struct`
-- [OS == .LINUX] `VkSubpassDependency :: struct`
-- [OS == .LINUX] `VkRenderPassCreateInfo :: struct`
-- [OS == .LINUX] `VkCommandPoolCreateInfo :: struct`
-- [OS == .LINUX] `VkCommandBufferAllocateInfo :: struct`
-- [OS == .LINUX] `VkCommandBufferInheritanceInfo :: struct`
-- [OS == .LINUX] `VkCommandBufferBeginInfo :: struct`
-- [OS == .LINUX] `VkBufferCopy :: struct`
-- [OS == .LINUX] `VkImageSubresourceLayers :: struct`
-- [OS == .LINUX] `VkImageCopy :: struct`
-- [OS == .LINUX] `VkImageBlit :: struct`
-- [OS == .LINUX] `VkBufferImageCopy :: struct`
-- [OS == .LINUX] `VkClearColorValue :: struct`
-- [OS == .LINUX] `VkClearDepthStencilValue :: struct`
-- [OS == .LINUX] `VkClearValue :: struct`
-- [OS == .LINUX] `VkClearAttachment :: struct`
-- [OS == .LINUX] `VkClearRect :: struct`
-- [OS == .LINUX] `VkImageResolve :: struct`
-- [OS == .LINUX] `VkMemoryBarrier :: struct`
-- [OS == .LINUX] `VkBufferMemoryBarrier :: struct`
-- [OS == .LINUX] `VkImageMemoryBarrier :: struct`
-- [OS == .LINUX] `VkRenderPassBeginInfo :: struct`
-- [OS == .LINUX] `VkDispatchIndirectCommand :: struct`
-- [OS == .LINUX] `VkDrawIndexedIndirectCommand :: struct`
-- [OS == .LINUX] `VkDrawIndirectCommand :: struct`
-- [OS == .LINUX] `VkBaseOutStructure :: struct`
-- [OS == .LINUX] `VkBaseInStructure :: struct`
-- [OS == .LINUX] `PFN_vkCreateInstance :: #type (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyInstance :: #type (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkEnumeratePhysicalDevices :: #type (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceFeatures :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceProperties :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceQueueFamilyProperties :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceMemoryProperties :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetInstanceProcAddr :: #type (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #c_call`
-- [OS == .LINUX] `PFN_vkGetDeviceProcAddr :: #type (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #c_call`
-- [OS == .LINUX] `PFN_vkCreateDevice :: #type (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyDevice :: #type (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkEnumerateInstanceExtensionProperties :: #type (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkEnumerateDeviceExtensionProperties :: #type (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkEnumerateInstanceLayerProperties :: #type (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkEnumerateDeviceLayerProperties :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDeviceQueue :: #type (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #c_call`
-- [OS == .LINUX] `PFN_vkQueueSubmit :: #type (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkQueueWaitIdle :: #type (queue: VkQueue) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDeviceWaitIdle :: #type (device: VkDevice) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkAllocateMemory :: #type (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkFreeMemory :: #type (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkMapMemory :: #type (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkUnmapMemory :: #type (device: VkDevice, memory: VkDeviceMemory) -> void #c_call`
-- [OS == .LINUX] `PFN_vkFlushMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkInvalidateMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDeviceMemoryCommitment :: #type (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #c_call`
-- [OS == .LINUX] `PFN_vkBindBufferMemory :: #type (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkBindImageMemory :: #type (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetBufferMemoryRequirements :: #type (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetImageMemoryRequirements :: #type (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetImageSparseMemoryRequirements :: #type (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSparseImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkQueueBindSparse :: #type (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateFence :: #type (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyFence :: #type (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkResetFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetFenceStatus :: #type (device: VkDevice, fence: VkFence) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkWaitForFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateSemaphore :: #type (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroySemaphore :: #type (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateEvent :: #type (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyEvent :: #type (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetEventStatus :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkSetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkResetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateQueryPool :: #type (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyQueryPool :: #type (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetQueryPoolResults :: #type (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateBuffer :: #type (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyBuffer :: #type (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateBufferView :: #type (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyBufferView :: #type (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateImage :: #type (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyImage :: #type (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetImageSubresourceLayout :: #type (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateImageView :: #type (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyImageView :: #type (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateShaderModule :: #type (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyShaderModule :: #type (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreatePipelineCache :: #type (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyPipelineCache :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPipelineCacheData :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkMergePipelineCaches :: #type (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateGraphicsPipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateComputePipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyPipeline :: #type (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreatePipelineLayout :: #type (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyPipelineLayout :: #type (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateSampler :: #type (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroySampler :: #type (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateDescriptorSetLayout :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyDescriptorSetLayout :: #type (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateDescriptorPool :: #type (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkResetDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkAllocateDescriptorSets :: #type (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkFreeDescriptorSets :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkUpdateDescriptorSets :: #type (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateFramebuffer :: #type (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyFramebuffer :: #type (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateRenderPass :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyRenderPass :: #type (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetRenderAreaGranularity :: #type (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateCommandPool :: #type (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkResetCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkAllocateCommandBuffers :: #type (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkFreeCommandBuffers :: #type (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call`
-- [OS == .LINUX] `PFN_vkBeginCommandBuffer :: #type (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkEndCommandBuffer :: #type (commandBuffer: VkCommandBuffer) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkResetCommandBuffer :: #type (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCmdBindPipeline :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetViewport :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetScissor :: #type (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetLineWidth :: #type (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetDepthBias :: #type (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetBlendConstants :: #type (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetDepthBounds :: #type (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetStencilCompareMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetStencilWriteMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetStencilReference :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdBindDescriptorSets :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdBindIndexBuffer :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdBindVertexBuffers :: #type (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDraw :: #type (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawIndexed :: #type (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawIndexedIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDispatch :: #type (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDispatchIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdCopyBuffer :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdCopyImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdBlitImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdCopyBufferToImage :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdCopyImageToBuffer :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdUpdateBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdFillBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdClearColorImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdClearDepthStencilImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdClearAttachments :: #type (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdResolveImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdResetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdWaitEvents :: #type (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdPipelineBarrier :: #type (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdBeginQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdEndQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdResetQueryPool :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdWriteTimestamp :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdCopyQueryPoolResults :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdPushConstants :: #type (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdBeginRenderPass :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdNextSubpass :: #type (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdEndRenderPass :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdExecuteCommands :: #type (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call`
-- [OS == .LINUX] `vkCreateInstance :: (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyInstance :: (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkEnumeratePhysicalDevices :: (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceFeatures :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceProperties :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceQueueFamilyProperties :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceMemoryProperties :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetInstanceProcAddr :: (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan`
-- [OS == .LINUX] `vkGetDeviceProcAddr :: (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan`
-- [OS == .LINUX] `vkCreateDevice :: (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyDevice :: (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkEnumerateInstanceExtensionProperties :: (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkEnumerateDeviceExtensionProperties :: (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkEnumerateInstanceLayerProperties :: (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkEnumerateDeviceLayerProperties :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDeviceQueue :: (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkQueueSubmit :: (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkQueueWaitIdle :: (queue: VkQueue) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDeviceWaitIdle :: (device: VkDevice) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkAllocateMemory :: (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkFreeMemory :: (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkMapMemory :: (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkUnmapMemory :: (device: VkDevice, memory: VkDeviceMemory) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkFlushMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkInvalidateMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDeviceMemoryCommitment :: (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkBindBufferMemory :: (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkBindImageMemory :: (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetBufferMemoryRequirements :: (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetImageMemoryRequirements :: (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetImageSparseMemoryRequirements :: (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceSparseImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkQueueBindSparse :: (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateFence :: (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyFence :: (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkResetFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetFenceStatus :: (device: VkDevice, fence: VkFence) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkWaitForFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateSemaphore :: (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroySemaphore :: (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateEvent :: (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyEvent :: (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetEventStatus :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkSetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkResetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateQueryPool :: (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyQueryPool :: (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetQueryPoolResults :: (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateBuffer :: (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyBuffer :: (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateBufferView :: (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyBufferView :: (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateImage :: (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyImage :: (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetImageSubresourceLayout :: (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateImageView :: (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyImageView :: (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateShaderModule :: (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyShaderModule :: (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreatePipelineCache :: (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyPipelineCache :: (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPipelineCacheData :: (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkMergePipelineCaches :: (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateGraphicsPipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateComputePipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyPipeline :: (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreatePipelineLayout :: (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyPipelineLayout :: (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateSampler :: (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroySampler :: (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateDescriptorSetLayout :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyDescriptorSetLayout :: (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateDescriptorPool :: (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkResetDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkAllocateDescriptorSets :: (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkFreeDescriptorSets :: (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkUpdateDescriptorSets :: (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateFramebuffer :: (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyFramebuffer :: (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateRenderPass :: (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyRenderPass :: (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetRenderAreaGranularity :: (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateCommandPool :: (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyCommandPool :: (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkResetCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkAllocateCommandBuffers :: (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkFreeCommandBuffers :: (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkBeginCommandBuffer :: (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkEndCommandBuffer :: (commandBuffer: VkCommandBuffer) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkResetCommandBuffer :: (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCmdBindPipeline :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetViewport :: (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetScissor :: (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetLineWidth :: (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetDepthBias :: (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetBlendConstants :: (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetDepthBounds :: (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetStencilCompareMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetStencilWriteMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetStencilReference :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdBindDescriptorSets :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdBindIndexBuffer :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdBindVertexBuffers :: (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdDraw :: (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdDrawIndexed :: (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdDrawIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdDrawIndexedIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdDispatch :: (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdDispatchIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdCopyBuffer :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdCopyImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdBlitImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdCopyBufferToImage :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdCopyImageToBuffer :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdUpdateBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdFillBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdClearColorImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdClearDepthStencilImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdClearAttachments :: (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdResolveImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdResetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdWaitEvents :: (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdPipelineBarrier :: (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdBeginQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdEndQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdResetQueryPool :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdWriteTimestamp :: (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdCopyQueryPoolResults :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdPushConstants :: (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdBeginRenderPass :: (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdNextSubpass :: (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdEndRenderPass :: (commandBuffer: VkCommandBuffer) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdExecuteCommands :: (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan`
-- [OS == .LINUX] `VkSamplerYcbcrConversion_T :: struct`
-- [OS == .LINUX] `VkSamplerYcbcrConversion :: *VkSamplerYcbcrConversion_T`
-- [OS == .LINUX] `VkDescriptorUpdateTemplate_T :: struct`
-- [OS == .LINUX] `VkDescriptorUpdateTemplate :: *VkDescriptorUpdateTemplate_T`
-- [OS == .LINUX] `VkPointClippingBehavior :: enum u32`
-- [OS == .LINUX] `VkTessellationDomainOrigin :: enum u32`
-- [OS == .LINUX] `VkSamplerYcbcrModelConversion :: enum u32`
-- [OS == .LINUX] `VkSamplerYcbcrRange :: enum u32`
-- [OS == .LINUX] `VkChromaLocation :: enum u32`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateType :: enum u32`
-- [OS == .LINUX] `VkSubgroupFeatureFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkSubgroupFeatureFlags :: VkSubgroupFeatureFlagBits`
-- [OS == .LINUX] `VkPeerMemoryFeatureFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkPeerMemoryFeatureFlags :: VkPeerMemoryFeatureFlagBits`
-- [OS == .LINUX] `VkMemoryAllocateFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkMemoryAllocateFlags :: VkMemoryAllocateFlagBits`
-- [OS == .LINUX] `VkCommandPoolTrimFlags :: VkFlags`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateCreateFlags :: VkFlags`
-- [OS == .LINUX] `VkExternalMemoryHandleTypeFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkExternalMemoryHandleTypeFlags :: VkExternalMemoryHandleTypeFlagBits`
-- [OS == .LINUX] `VkExternalMemoryFeatureFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkExternalMemoryFeatureFlags :: VkExternalMemoryFeatureFlagBits`
-- [OS == .LINUX] `VkExternalFenceHandleTypeFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkExternalFenceHandleTypeFlags :: VkExternalFenceHandleTypeFlagBits`
-- [OS == .LINUX] `VkExternalFenceFeatureFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkExternalFenceFeatureFlags :: VkExternalFenceFeatureFlagBits`
-- [OS == .LINUX] `VkFenceImportFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkFenceImportFlags :: VkFenceImportFlagBits`
-- [OS == .LINUX] `VkSemaphoreImportFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkSemaphoreImportFlags :: VkSemaphoreImportFlagBits`
-- [OS == .LINUX] `VkExternalSemaphoreHandleTypeFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkExternalSemaphoreHandleTypeFlags :: VkExternalSemaphoreHandleTypeFlagBits`
-- [OS == .LINUX] `VkExternalSemaphoreFeatureFlagBits :: enum_flags u32`
-- [OS == .LINUX] `VkExternalSemaphoreFeatureFlags :: VkExternalSemaphoreFeatureFlagBits`
-- [OS == .LINUX] `VkPhysicalDeviceSubgroupProperties :: struct`
-- [OS == .LINUX] `VkBindBufferMemoryInfo :: struct`
-- [OS == .LINUX] `VkBindImageMemoryInfo :: struct`
-- [OS == .LINUX] `VkPhysicalDevice16BitStorageFeatures :: struct`
-- [OS == .LINUX] `VkMemoryDedicatedRequirements :: struct`
-- [OS == .LINUX] `VkMemoryDedicatedAllocateInfo :: struct`
-- [OS == .LINUX] `VkMemoryAllocateFlagsInfo :: struct`
-- [OS == .LINUX] `VkDeviceGroupRenderPassBeginInfo :: struct`
-- [OS == .LINUX] `VkDeviceGroupCommandBufferBeginInfo :: struct`
-- [OS == .LINUX] `VkDeviceGroupSubmitInfo :: struct`
-- [OS == .LINUX] `VkDeviceGroupBindSparseInfo :: struct`
-- [OS == .LINUX] `VkBindBufferMemoryDeviceGroupInfo :: struct`
-- [OS == .LINUX] `VkBindImageMemoryDeviceGroupInfo :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceGroupProperties :: struct`
-- [OS == .LINUX] `VkDeviceGroupDeviceCreateInfo :: struct`
-- [OS == .LINUX] `VkBufferMemoryRequirementsInfo2 :: struct`
-- [OS == .LINUX] `VkImageMemoryRequirementsInfo2 :: struct`
-- [OS == .LINUX] `VkImageSparseMemoryRequirementsInfo2 :: struct`
-- [OS == .LINUX] `VkMemoryRequirements2 :: struct`
-- [OS == .LINUX] `VkMemoryRequirements2KHR :: VkMemoryRequirements2`
-- [OS == .LINUX] `VkSparseImageMemoryRequirements2 :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceFeatures2 :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceProperties2 :: struct`
-- [OS == .LINUX] `VkFormatProperties2 :: struct`
-- [OS == .LINUX] `VkImageFormatProperties2 :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceImageFormatInfo2 :: struct`
-- [OS == .LINUX] `VkQueueFamilyProperties2 :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceMemoryProperties2 :: struct`
-- [OS == .LINUX] `VkSparseImageFormatProperties2 :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceSparseImageFormatInfo2 :: struct`
-- [OS == .LINUX] `VkPhysicalDevicePointClippingProperties :: struct`
-- [OS == .LINUX] `VkInputAttachmentAspectReference :: struct`
-- [OS == .LINUX] `VkRenderPassInputAttachmentAspectCreateInfo :: struct`
-- [OS == .LINUX] `VkImageViewUsageCreateInfo :: struct`
-- [OS == .LINUX] `VkPipelineTessellationDomainOriginStateCreateInfo :: struct`
-- [OS == .LINUX] `VkRenderPassMultiviewCreateInfo :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceMultiviewFeatures :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceMultiviewProperties :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceVariablePointerFeatures :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceProtectedMemoryFeatures :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceProtectedMemoryProperties :: struct`
-- [OS == .LINUX] `VkDeviceQueueInfo2 :: struct`
-- [OS == .LINUX] `VkProtectedSubmitInfo :: struct`
-- [OS == .LINUX] `VkSamplerYcbcrConversionCreateInfo :: struct`
-- [OS == .LINUX] `VkSamplerYcbcrConversionInfo :: struct`
-- [OS == .LINUX] `VkBindImagePlaneMemoryInfo :: struct`
-- [OS == .LINUX] `VkImagePlaneMemoryRequirementsInfo :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceSamplerYcbcrConversionFeatures :: struct`
-- [OS == .LINUX] `VkSamplerYcbcrConversionImageFormatProperties :: struct`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateEntry :: struct`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateCreateInfo :: struct`
-- [OS == .LINUX] `VkExternalMemoryProperties :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceExternalImageFormatInfo :: struct`
-- [OS == .LINUX] `VkExternalImageFormatProperties :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceExternalBufferInfo :: struct`
-- [OS == .LINUX] `VkExternalBufferProperties :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceIDProperties :: struct`
-- [OS == .LINUX] `VkExternalMemoryImageCreateInfo :: struct`
-- [OS == .LINUX] `VkExternalMemoryBufferCreateInfo :: struct`
-- [OS == .LINUX] `VkExportMemoryAllocateInfo :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceExternalFenceInfo :: struct`
-- [OS == .LINUX] `VkExternalFenceProperties :: struct`
-- [OS == .LINUX] `VkExportFenceCreateInfo :: struct`
-- [OS == .LINUX] `VkExportSemaphoreCreateInfo :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceExternalSemaphoreInfo :: struct`
-- [OS == .LINUX] `VkExternalSemaphoreProperties :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceMaintenance3Properties :: struct`
-- [OS == .LINUX] `VkDescriptorSetLayoutSupport :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceShaderDrawParameterFeatures :: struct`
-- [OS == .LINUX] `PFN_vkEnumerateInstanceVersion :: #type (pApiVersion: *u32) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkBindBufferMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkBindImageMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDeviceGroupPeerMemoryFeatures :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetDeviceMask :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDispatchBase :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkEnumeratePhysicalDeviceGroups :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetImageMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetBufferMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetImageSparseMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceFeatures2 :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceProperties2 :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceQueueFamilyProperties2 :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceMemoryProperties2 :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSparseImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkTrimCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetDeviceQueue2 :: #type (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateSamplerYcbcrConversion :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroySamplerYcbcrConversion :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateDescriptorUpdateTemplate :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyDescriptorUpdateTemplate :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkUpdateDescriptorSetWithTemplate :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceExternalBufferProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceExternalFenceProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceExternalSemaphoreProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetDescriptorSetLayoutSupport :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call`
-- [OS == .LINUX] `vkEnumerateInstanceVersion :: (pApiVersion: *u32) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkBindBufferMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkBindImageMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDeviceGroupPeerMemoryFeatures :: (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdSetDeviceMask :: (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCmdDispatchBase :: (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkEnumeratePhysicalDeviceGroups :: (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetImageMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetBufferMemoryRequirements2 :: (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetImageSparseMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceFeatures2 :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceProperties2 :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceFormatProperties2 :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceQueueFamilyProperties2 :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceMemoryProperties2 :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceSparseImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkTrimCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetDeviceQueue2 :: (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateSamplerYcbcrConversion :: (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroySamplerYcbcrConversion :: (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkCreateDescriptorUpdateTemplate :: (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroyDescriptorUpdateTemplate :: (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkUpdateDescriptorSetWithTemplate :: (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceExternalBufferProperties :: (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceExternalFenceProperties :: (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceExternalSemaphoreProperties :: (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetDescriptorSetLayoutSupport :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #foreign libvulkan`
-- [OS == .LINUX] `VkSurfaceKHR_T :: struct`
-- [OS == .LINUX] `VkSurfaceKHR :: *VkSurfaceKHR_T`
-- [OS == .LINUX] `VkColorSpaceKHR :: enum u32`
-- [OS == .LINUX] `VkPresentModeKHR :: enum u32`
-- [OS == .LINUX] `VkSurfaceTransformFlagBitsKHR :: enum_flags u32`
-- [OS == .LINUX] `VkSurfaceTransformFlagsKHR :: VkSurfaceTransformFlagBitsKHR`
-- [OS == .LINUX] `VkCompositeAlphaFlagBitsKHR :: enum_flags u32`
-- [OS == .LINUX] `VkCompositeAlphaFlagsKHR :: VkCompositeAlphaFlagBitsKHR`
-- [OS == .LINUX] `VkSurfaceCapabilitiesKHR :: struct`
-- [OS == .LINUX] `VkSurfaceFormatKHR :: struct`
-- [OS == .LINUX] `PFN_vkDestroySurfaceKHR :: #type (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSurfaceSupportKHR :: #type (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSurfaceFormatsKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSurfacePresentModesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #c_call`
-- [OS == .LINUX] `vkDestroySurfaceKHR :: (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceSurfaceSupportKHR :: (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceSurfaceFormatsKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceSurfacePresentModesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `VkSwapchainKHR_T :: struct`
-- [OS == .LINUX] `VkSwapchainKHR :: *VkSwapchainKHR_T`
-- [OS == .LINUX] `VkSwapchainCreateFlagBitsKHR :: enum_flags u32`
-- [OS == .LINUX] `VkSwapchainCreateFlagsKHR :: VkSwapchainCreateFlagBitsKHR`
-- [OS == .LINUX] `VkDeviceGroupPresentModeFlagBitsKHR :: enum_flags u32`
-- [OS == .LINUX] `VkDeviceGroupPresentModeFlagsKHR :: VkDeviceGroupPresentModeFlagBitsKHR`
-- [OS == .LINUX] `VkSwapchainCreateInfoKHR :: struct`
-- [OS == .LINUX] `VkPresentInfoKHR :: struct`
-- [OS == .LINUX] `VkImageSwapchainCreateInfoKHR :: struct`
-- [OS == .LINUX] `VkBindImageMemorySwapchainInfoKHR :: struct`
-- [OS == .LINUX] `VkAcquireNextImageInfoKHR :: struct`
-- [OS == .LINUX] `VkDeviceGroupPresentCapabilitiesKHR :: struct`
-- [OS == .LINUX] `VkDeviceGroupPresentInfoKHR :: struct`
-- [OS == .LINUX] `VkDeviceGroupSwapchainCreateInfoKHR :: struct`
-- [OS == .LINUX] `PFN_vkCreateSwapchainKHR :: #type (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroySwapchainKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetSwapchainImagesKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkAcquireNextImageKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkQueuePresentKHR :: #type (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDeviceGroupPresentCapabilitiesKHR :: #type (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDeviceGroupSurfacePresentModesKHR :: #type (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDevicePresentRectanglesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkAcquireNextImage2KHR :: #type (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #c_call`
-- [OS == .LINUX] `vkCreateSwapchainKHR :: (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkDestroySwapchainKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
-- [OS == .LINUX] `vkGetSwapchainImagesKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkAcquireNextImageKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkQueuePresentKHR :: (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDeviceGroupPresentCapabilitiesKHR :: (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDeviceGroupSurfacePresentModesKHR :: (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDevicePresentRectanglesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkAcquireNextImage2KHR :: (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `VkDisplayKHR_T :: struct`
-- [OS == .LINUX] `VkDisplayKHR :: *VkDisplayKHR_T`
-- [OS == .LINUX] `VkDisplayModeKHR_T :: struct`
-- [OS == .LINUX] `VkDisplayModeKHR :: *VkDisplayModeKHR_T`
-- [OS == .LINUX] `VkDisplayPlaneAlphaFlagBitsKHR :: enum_flags u32`
-- [OS == .LINUX] `VkDisplayPlaneAlphaFlagsKHR :: VkDisplayPlaneAlphaFlagBitsKHR`
-- [OS == .LINUX] `VkDisplayModeCreateFlagsKHR :: VkFlags`
-- [OS == .LINUX] `VkDisplaySurfaceCreateFlagsKHR :: VkFlags`
-- [OS == .LINUX] `VkDisplayPropertiesKHR :: struct`
-- [OS == .LINUX] `VkDisplayModeParametersKHR :: struct`
-- [OS == .LINUX] `VkDisplayModePropertiesKHR :: struct`
-- [OS == .LINUX] `VkDisplayModeCreateInfoKHR :: struct`
-- [OS == .LINUX] `VkDisplayPlaneCapabilitiesKHR :: struct`
-- [OS == .LINUX] `VkDisplayPlanePropertiesKHR :: struct`
-- [OS == .LINUX] `VkDisplaySurfaceCreateInfoKHR :: struct`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceDisplayPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDisplayPlaneSupportedDisplaysKHR :: #type (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDisplayModePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateDisplayModeKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDisplayPlaneCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCreateDisplayPlaneSurfaceKHR :: #type (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #c_call`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayPropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDisplayPlaneSupportedDisplaysKHR :: (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDisplayModePropertiesKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateDisplayModeKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDisplayPlaneCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkCreateDisplayPlaneSurfaceKHR :: (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `VkDisplayPresentInfoKHR :: struct`
-- [OS == .LINUX] `PFN_vkCreateSharedSwapchainsKHR :: #type (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #c_call`
-- [OS == .LINUX] `vkCreateSharedSwapchainsKHR :: (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `VkRenderPassMultiviewCreateInfoKHR :: VkRenderPassMultiviewCreateInfo`
-- [OS == .LINUX] `VkPhysicalDeviceMultiviewFeaturesKHR :: VkPhysicalDeviceMultiviewFeatures`
-- [OS == .LINUX] `VkPhysicalDeviceMultiviewPropertiesKHR :: VkPhysicalDeviceMultiviewProperties`
-- [OS == .LINUX] `VkPhysicalDeviceFeatures2KHR :: VkPhysicalDeviceFeatures2`
-- [OS == .LINUX] `VkPhysicalDeviceProperties2KHR :: VkPhysicalDeviceProperties2`
-- [OS == .LINUX] `VkFormatProperties2KHR :: VkFormatProperties2`
-- [OS == .LINUX] `VkImageFormatProperties2KHR :: VkImageFormatProperties2`
-- [OS == .LINUX] `VkPhysicalDeviceImageFormatInfo2KHR :: VkPhysicalDeviceImageFormatInfo2`
-- [OS == .LINUX] `VkQueueFamilyProperties2KHR :: VkQueueFamilyProperties2`
-- [OS == .LINUX] `VkPhysicalDeviceMemoryProperties2KHR :: VkPhysicalDeviceMemoryProperties2`
-- [OS == .LINUX] `VkSparseImageFormatProperties2KHR :: VkSparseImageFormatProperties2`
-- [OS == .LINUX] `VkPhysicalDeviceSparseImageFormatInfo2KHR :: VkPhysicalDeviceSparseImageFormatInfo2`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceFeatures2KHR :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceMemoryProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call`
-- [OS == .LINUX] `VkPeerMemoryFeatureFlagsKHR :: VkPeerMemoryFeatureFlags`
-- [OS == .LINUX] `VkPeerMemoryFeatureFlagBitsKHR :: VkPeerMemoryFeatureFlagBits`
-- [OS == .LINUX] `VkMemoryAllocateFlagsKHR :: VkMemoryAllocateFlags`
-- [OS == .LINUX] `VkMemoryAllocateFlagBitsKHR :: VkMemoryAllocateFlagBits`
-- [OS == .LINUX] `VkMemoryAllocateFlagsInfoKHR :: VkMemoryAllocateFlagsInfo`
-- [OS == .LINUX] `VkDeviceGroupRenderPassBeginInfoKHR :: VkDeviceGroupRenderPassBeginInfo`
-- [OS == .LINUX] `VkDeviceGroupCommandBufferBeginInfoKHR :: VkDeviceGroupCommandBufferBeginInfo`
-- [OS == .LINUX] `VkDeviceGroupSubmitInfoKHR :: VkDeviceGroupSubmitInfo`
-- [OS == .LINUX] `VkDeviceGroupBindSparseInfoKHR :: VkDeviceGroupBindSparseInfo`
-- [OS == .LINUX] `VkBindBufferMemoryDeviceGroupInfoKHR :: VkBindBufferMemoryDeviceGroupInfo`
-- [OS == .LINUX] `VkBindImageMemoryDeviceGroupInfoKHR :: VkBindImageMemoryDeviceGroupInfo`
-- [OS == .LINUX] `PFN_vkGetDeviceGroupPeerMemoryFeaturesKHR :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetDeviceMaskKHR :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDispatchBaseKHR :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call`
-- [OS == .LINUX] `VkCommandPoolTrimFlagsKHR :: VkCommandPoolTrimFlags`
-- [OS == .LINUX] `PFN_vkTrimCommandPoolKHR :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceGroupPropertiesKHR :: VkPhysicalDeviceGroupProperties`
-- [OS == .LINUX] `VkDeviceGroupDeviceCreateInfoKHR :: VkDeviceGroupDeviceCreateInfo`
-- [OS == .LINUX] `PFN_vkEnumeratePhysicalDeviceGroupsKHR :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call`
-- [OS == .LINUX] `VkExternalMemoryHandleTypeFlagsKHR :: VkExternalMemoryHandleTypeFlags`
-- [OS == .LINUX] `VkExternalMemoryHandleTypeFlagBitsKHR :: VkExternalMemoryHandleTypeFlagBits`
-- [OS == .LINUX] `VkExternalMemoryFeatureFlagsKHR :: VkExternalMemoryFeatureFlags`
-- [OS == .LINUX] `VkExternalMemoryFeatureFlagBitsKHR :: VkExternalMemoryFeatureFlagBits`
-- [OS == .LINUX] `VkExternalMemoryPropertiesKHR :: VkExternalMemoryProperties`
-- [OS == .LINUX] `VkPhysicalDeviceExternalImageFormatInfoKHR :: VkPhysicalDeviceExternalImageFormatInfo`
-- [OS == .LINUX] `VkExternalImageFormatPropertiesKHR :: VkExternalImageFormatProperties`
-- [OS == .LINUX] `VkPhysicalDeviceExternalBufferInfoKHR :: VkPhysicalDeviceExternalBufferInfo`
-- [OS == .LINUX] `VkExternalBufferPropertiesKHR :: VkExternalBufferProperties`
-- [OS == .LINUX] `VkPhysicalDeviceIDPropertiesKHR :: VkPhysicalDeviceIDProperties`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call`
-- [OS == .LINUX] `VkExternalMemoryImageCreateInfoKHR :: VkExternalMemoryImageCreateInfo`
-- [OS == .LINUX] `VkExternalMemoryBufferCreateInfoKHR :: VkExternalMemoryBufferCreateInfo`
-- [OS == .LINUX] `VkExportMemoryAllocateInfoKHR :: VkExportMemoryAllocateInfo`
-- [OS == .LINUX] `VkImportMemoryFdInfoKHR :: struct`
-- [OS == .LINUX] `VkMemoryFdPropertiesKHR :: struct`
-- [OS == .LINUX] `VkMemoryGetFdInfoKHR :: struct`
-- [OS == .LINUX] `PFN_vkGetMemoryFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkMemoryGetFdInfoKHR, pFd: *s32) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetMemoryFdPropertiesKHR :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, fd: s32, pMemoryFdProperties: *VkMemoryFdPropertiesKHR) -> VkResult #c_call`
-- [OS == .LINUX] `VkExternalSemaphoreHandleTypeFlagsKHR :: VkExternalSemaphoreHandleTypeFlags`
-- [OS == .LINUX] `VkExternalSemaphoreHandleTypeFlagBitsKHR :: VkExternalSemaphoreHandleTypeFlagBits`
-- [OS == .LINUX] `VkExternalSemaphoreFeatureFlagsKHR :: VkExternalSemaphoreFeatureFlags`
-- [OS == .LINUX] `VkExternalSemaphoreFeatureFlagBitsKHR :: VkExternalSemaphoreFeatureFlagBits`
-- [OS == .LINUX] `VkPhysicalDeviceExternalSemaphoreInfoKHR :: VkPhysicalDeviceExternalSemaphoreInfo`
-- [OS == .LINUX] `VkExternalSemaphorePropertiesKHR :: VkExternalSemaphoreProperties`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call`
-- [OS == .LINUX] `VkSemaphoreImportFlagsKHR :: VkSemaphoreImportFlags`
-- [OS == .LINUX] `VkSemaphoreImportFlagBitsKHR :: VkSemaphoreImportFlagBits`
-- [OS == .LINUX] `VkExportSemaphoreCreateInfoKHR :: VkExportSemaphoreCreateInfo`
-- [OS == .LINUX] `VkImportSemaphoreFdInfoKHR :: struct`
-- [OS == .LINUX] `VkSemaphoreGetFdInfoKHR :: struct`
-- [OS == .LINUX] `PFN_vkImportSemaphoreFdKHR :: #type (device: VkDevice, pImportSemaphoreFdInfo: *VkImportSemaphoreFdInfoKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetSemaphoreFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkSemaphoreGetFdInfoKHR, pFd: *s32) -> VkResult #c_call`
-- [OS == .LINUX] `VkPhysicalDevicePushDescriptorPropertiesKHR :: struct`
-- [OS == .LINUX] `PFN_vkCmdPushDescriptorSetKHR :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, set: u32, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdPushDescriptorSetWithTemplateKHR :: #type (commandBuffer: VkCommandBuffer, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, layout: VkPipelineLayout, set: u32, pData: *void) -> void #c_call`
-- [OS == .LINUX] `VkPhysicalDevice16BitStorageFeaturesKHR :: VkPhysicalDevice16BitStorageFeatures`
-- [OS == .LINUX] `VkRectLayerKHR :: struct`
-- [OS == .LINUX] `VkPresentRegionKHR :: struct`
-- [OS == .LINUX] `VkPresentRegionsKHR :: struct`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateKHR :: VkDescriptorUpdateTemplate`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateTypeKHR :: VkDescriptorUpdateTemplateType`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateCreateFlagsKHR :: VkDescriptorUpdateTemplateCreateFlags`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateEntryKHR :: VkDescriptorUpdateTemplateEntry`
-- [OS == .LINUX] `VkDescriptorUpdateTemplateCreateInfoKHR :: VkDescriptorUpdateTemplateCreateInfo`
-- [OS == .LINUX] `PFN_vkCreateDescriptorUpdateTemplateKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyDescriptorUpdateTemplateKHR :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkUpdateDescriptorSetWithTemplateKHR :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call`
-- [OS == .LINUX] `VkAttachmentDescription2KHR :: struct`
-- [OS == .LINUX] `VkAttachmentReference2KHR :: struct`
-- [OS == .LINUX] `VkSubpassDescription2KHR :: struct`
-- [OS == .LINUX] `VkSubpassDependency2KHR :: struct`
-- [OS == .LINUX] `VkRenderPassCreateInfo2KHR :: struct`
-- [OS == .LINUX] `VkSubpassBeginInfoKHR :: struct`
-- [OS == .LINUX] `VkSubpassEndInfoKHR :: struct`
-- [OS == .LINUX] `PFN_vkCreateRenderPass2KHR :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo2KHR, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCmdBeginRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, pSubpassBeginInfo: *VkSubpassBeginInfoKHR) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdNextSubpass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassBeginInfo: *VkSubpassBeginInfoKHR, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdEndRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call`
-- [OS == .LINUX] `VkSharedPresentSurfaceCapabilitiesKHR :: struct`
-- [OS == .LINUX] `PFN_vkGetSwapchainStatusKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR) -> VkResult #c_call`
-- [OS == .LINUX] `VkExternalFenceHandleTypeFlagsKHR :: VkExternalFenceHandleTypeFlags`
-- [OS == .LINUX] `VkExternalFenceHandleTypeFlagBitsKHR :: VkExternalFenceHandleTypeFlagBits`
-- [OS == .LINUX] `VkExternalFenceFeatureFlagsKHR :: VkExternalFenceFeatureFlags`
-- [OS == .LINUX] `VkExternalFenceFeatureFlagBitsKHR :: VkExternalFenceFeatureFlagBits`
-- [OS == .LINUX] `VkPhysicalDeviceExternalFenceInfoKHR :: VkPhysicalDeviceExternalFenceInfo`
-- [OS == .LINUX] `VkExternalFencePropertiesKHR :: VkExternalFenceProperties`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceExternalFencePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call`
-- [OS == .LINUX] `VkFenceImportFlagsKHR :: VkFenceImportFlags`
-- [OS == .LINUX] `VkFenceImportFlagBitsKHR :: VkFenceImportFlagBits`
-- [OS == .LINUX] `VkExportFenceCreateInfoKHR :: VkExportFenceCreateInfo`
-- [OS == .LINUX] `VkImportFenceFdInfoKHR :: struct`
-- [OS == .LINUX] `VkFenceGetFdInfoKHR :: struct`
-- [OS == .LINUX] `PFN_vkImportFenceFdKHR :: #type (device: VkDevice, pImportFenceFdInfo: *VkImportFenceFdInfoKHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetFenceFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkFenceGetFdInfoKHR, pFd: *s32) -> VkResult #c_call`
-- [OS == .LINUX] `VkPointClippingBehaviorKHR :: VkPointClippingBehavior`
-- [OS == .LINUX] `VkTessellationDomainOriginKHR :: VkTessellationDomainOrigin`
-- [OS == .LINUX] `VkPhysicalDevicePointClippingPropertiesKHR :: VkPhysicalDevicePointClippingProperties`
-- [OS == .LINUX] `VkRenderPassInputAttachmentAspectCreateInfoKHR :: VkRenderPassInputAttachmentAspectCreateInfo`
-- [OS == .LINUX] `VkInputAttachmentAspectReferenceKHR :: VkInputAttachmentAspectReference`
-- [OS == .LINUX] `VkImageViewUsageCreateInfoKHR :: VkImageViewUsageCreateInfo`
-- [OS == .LINUX] `VkPipelineTessellationDomainOriginStateCreateInfoKHR :: VkPipelineTessellationDomainOriginStateCreateInfo`
-- [OS == .LINUX] `VkPhysicalDeviceSurfaceInfo2KHR :: struct`
-- [OS == .LINUX] `VkSurfaceCapabilities2KHR :: struct`
-- [OS == .LINUX] `VkSurfaceFormat2KHR :: struct`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceCapabilities: *VkSurfaceCapabilities2KHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSurfaceFormats2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormat2KHR) -> VkResult #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceVariablePointerFeaturesKHR :: VkPhysicalDeviceVariablePointerFeatures`
-- [OS == .LINUX] `VkDisplayProperties2KHR :: struct`
-- [OS == .LINUX] `VkDisplayPlaneProperties2KHR :: struct`
-- [OS == .LINUX] `VkDisplayModeProperties2KHR :: struct`
-- [OS == .LINUX] `VkDisplayPlaneInfo2KHR :: struct`
-- [OS == .LINUX] `VkDisplayPlaneCapabilities2KHR :: struct`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceDisplayProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDisplayModeProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetDisplayPlaneCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #c_call`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDisplayModeProperties2KHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `vkGetDisplayPlaneCapabilities2KHR :: (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #foreign libvulkan`
-- [OS == .LINUX] `VkMemoryDedicatedRequirementsKHR :: VkMemoryDedicatedRequirements`
-- [OS == .LINUX] `VkMemoryDedicatedAllocateInfoKHR :: VkMemoryDedicatedAllocateInfo`
-- [OS == .LINUX] `VkBufferMemoryRequirementsInfo2KHR :: VkBufferMemoryRequirementsInfo2`
-- [OS == .LINUX] `VkImageMemoryRequirementsInfo2KHR :: VkImageMemoryRequirementsInfo2`
-- [OS == .LINUX] `VkImageSparseMemoryRequirementsInfo2KHR :: VkImageSparseMemoryRequirementsInfo2`
-- [OS == .LINUX] `VkSparseImageMemoryRequirements2KHR :: VkSparseImageMemoryRequirements2`
-- [OS == .LINUX] `PFN_vkGetImageMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetBufferMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetImageSparseMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call`
-- [OS == .LINUX] `VkImageFormatListCreateInfoKHR :: struct`
-- [OS == .LINUX] `VkSamplerYcbcrConversionKHR :: VkSamplerYcbcrConversion`
-- [OS == .LINUX] `VkSamplerYcbcrModelConversionKHR :: VkSamplerYcbcrModelConversion`
-- [OS == .LINUX] `VkSamplerYcbcrRangeKHR :: VkSamplerYcbcrRange`
-- [OS == .LINUX] `VkChromaLocationKHR :: VkChromaLocation`
-- [OS == .LINUX] `VkSamplerYcbcrConversionCreateInfoKHR :: VkSamplerYcbcrConversionCreateInfo`
-- [OS == .LINUX] `VkSamplerYcbcrConversionInfoKHR :: VkSamplerYcbcrConversionInfo`
-- [OS == .LINUX] `VkBindImagePlaneMemoryInfoKHR :: VkBindImagePlaneMemoryInfo`
-- [OS == .LINUX] `VkImagePlaneMemoryRequirementsInfoKHR :: VkImagePlaneMemoryRequirementsInfo`
-- [OS == .LINUX] `VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR :: VkPhysicalDeviceSamplerYcbcrConversionFeatures`
-- [OS == .LINUX] `VkSamplerYcbcrConversionImageFormatPropertiesKHR :: VkSamplerYcbcrConversionImageFormatProperties`
-- [OS == .LINUX] `PFN_vkCreateSamplerYcbcrConversionKHR :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroySamplerYcbcrConversionKHR :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `VkBindBufferMemoryInfoKHR :: VkBindBufferMemoryInfo`
-- [OS == .LINUX] `VkBindImageMemoryInfoKHR :: VkBindImageMemoryInfo`
-- [OS == .LINUX] `PFN_vkBindBufferMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkBindImageMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceMaintenance3PropertiesKHR :: VkPhysicalDeviceMaintenance3Properties`
-- [OS == .LINUX] `VkDescriptorSetLayoutSupportKHR :: VkDescriptorSetLayoutSupport`
-- [OS == .LINUX] `PFN_vkGetDescriptorSetLayoutSupportKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawIndexedIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `VkPhysicalDevice8BitStorageFeaturesKHR :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceVulkanMemoryModelFeaturesKHR :: struct`
-- [OS == .LINUX] `VkDebugReportCallbackEXT_T :: struct`
-- [OS == .LINUX] `VkDebugReportCallbackEXT :: *VkDebugReportCallbackEXT_T`
-- [OS == .LINUX] `VkDebugReportObjectTypeEXT :: enum u32`
-- [OS == .LINUX] `VkDebugReportFlagBitsEXT :: enum_flags u32`
-- [OS == .LINUX] `VkDebugReportFlagsEXT :: VkDebugReportFlagBitsEXT`
-- [OS == .LINUX] `PFN_vkDebugReportCallbackEXT :: #type (flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8, pUserData: *void) -> VkBool32 #c_call`
-- [OS == .LINUX] `VkDebugReportCallbackCreateInfoEXT :: struct`
-- [OS == .LINUX] `PFN_vkCreateDebugReportCallbackEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugReportCallbackCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pCallback: *VkDebugReportCallbackEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyDebugReportCallbackEXT :: #type (instance: VkInstance, callback: VkDebugReportCallbackEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkDebugReportMessageEXT :: #type (instance: VkInstance, flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8) -> void #c_call`
-- [OS == .LINUX] `VkRasterizationOrderAMD :: enum u32`
-- [OS == .LINUX] `VkPipelineRasterizationStateRasterizationOrderAMD :: struct`
-- [OS == .LINUX] `VkDebugMarkerObjectNameInfoEXT :: struct`
-- [OS == .LINUX] `VkDebugMarkerObjectTagInfoEXT :: struct`
-- [OS == .LINUX] `VkDebugMarkerMarkerInfoEXT :: struct`
-- [OS == .LINUX] `PFN_vkDebugMarkerSetObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugMarkerObjectTagInfoEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDebugMarkerSetObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugMarkerObjectNameInfoEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCmdDebugMarkerBeginEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDebugMarkerEndEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDebugMarkerInsertEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call`
-- [OS == .LINUX] `VkDedicatedAllocationImageCreateInfoNV :: struct`
-- [OS == .LINUX] `VkDedicatedAllocationBufferCreateInfoNV :: struct`
-- [OS == .LINUX] `VkDedicatedAllocationMemoryAllocateInfoNV :: struct`
-- [OS == .LINUX] `PFN_vkCmdDrawIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawIndexedIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `VkTextureLODGatherFormatPropertiesAMD :: struct`
-- [OS == .LINUX] `VkShaderInfoTypeAMD :: enum u32`
-- [OS == .LINUX] `VkShaderResourceUsageAMD :: struct`
-- [OS == .LINUX] `VkShaderStatisticsInfoAMD :: struct`
-- [OS == .LINUX] `PFN_vkGetShaderInfoAMD :: #type (device: VkDevice, pipeline: VkPipeline, shaderStage: VkShaderStageFlagBits, infoType: VkShaderInfoTypeAMD, pInfoSize: *u64, pInfo: *void) -> VkResult #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceCornerSampledImageFeaturesNV :: struct`
-- [OS == .LINUX] `VkExternalMemoryHandleTypeFlagBitsNV :: enum_flags u32`
-- [OS == .LINUX] `VkExternalMemoryHandleTypeFlagsNV :: VkExternalMemoryHandleTypeFlagBitsNV`
-- [OS == .LINUX] `VkExternalMemoryFeatureFlagBitsNV :: enum_flags u32`
-- [OS == .LINUX] `VkExternalMemoryFeatureFlagsNV :: VkExternalMemoryFeatureFlagBitsNV`
-- [OS == .LINUX] `VkExternalImageFormatPropertiesNV :: struct`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, externalHandleType: VkExternalMemoryHandleTypeFlagsNV, pExternalImageFormatProperties: *VkExternalImageFormatPropertiesNV) -> VkResult #c_call`
-- [OS == .LINUX] `VkExternalMemoryImageCreateInfoNV :: struct`
-- [OS == .LINUX] `VkExportMemoryAllocateInfoNV :: struct`
-- [OS == .LINUX] `VkValidationCheckEXT :: enum u32`
-- [OS == .LINUX] `VkValidationFlagsEXT :: struct`
-- [OS == .LINUX] `VkImageViewASTCDecodeModeEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceASTCDecodeFeaturesEXT :: struct`
-- [OS == .LINUX] `VkConditionalRenderingFlagBitsEXT :: enum_flags u32`
-- [OS == .LINUX] `VkConditionalRenderingFlagsEXT :: VkConditionalRenderingFlagBitsEXT`
-- [OS == .LINUX] `VkConditionalRenderingBeginInfoEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceConditionalRenderingFeaturesEXT :: struct`
-- [OS == .LINUX] `VkCommandBufferInheritanceConditionalRenderingInfoEXT :: struct`
-- [OS == .LINUX] `PFN_vkCmdBeginConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer, pConditionalRenderingBegin: *VkConditionalRenderingBeginInfoEXT) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdEndConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
-- [OS == .LINUX] `VkObjectTableNVX_T :: struct`
-- [OS == .LINUX] `VkObjectTableNVX :: *VkObjectTableNVX_T`
-- [OS == .LINUX] `VkIndirectCommandsLayoutNVX_T :: struct`
-- [OS == .LINUX] `VkIndirectCommandsLayoutNVX :: *VkIndirectCommandsLayoutNVX_T`
-- [OS == .LINUX] `VkIndirectCommandsTokenTypeNVX :: enum u32`
-- [OS == .LINUX] `VkObjectEntryTypeNVX :: enum u32`
-- [OS == .LINUX] `VkIndirectCommandsLayoutUsageFlagBitsNVX :: enum_flags u32`
-- [OS == .LINUX] `VkIndirectCommandsLayoutUsageFlagsNVX :: VkIndirectCommandsLayoutUsageFlagBitsNVX`
-- [OS == .LINUX] `VkObjectEntryUsageFlagBitsNVX :: enum_flags u32`
-- [OS == .LINUX] `VkObjectEntryUsageFlagsNVX :: VkObjectEntryUsageFlagBitsNVX`
-- [OS == .LINUX] `VkDeviceGeneratedCommandsFeaturesNVX :: struct`
-- [OS == .LINUX] `VkDeviceGeneratedCommandsLimitsNVX :: struct`
-- [OS == .LINUX] `VkIndirectCommandsTokenNVX :: struct`
-- [OS == .LINUX] `VkIndirectCommandsLayoutTokenNVX :: struct`
-- [OS == .LINUX] `VkIndirectCommandsLayoutCreateInfoNVX :: struct`
-- [OS == .LINUX] `VkCmdProcessCommandsInfoNVX :: struct`
-- [OS == .LINUX] `VkCmdReserveSpaceForCommandsInfoNVX :: struct`
-- [OS == .LINUX] `VkObjectTableCreateInfoNVX :: struct`
-- [OS == .LINUX] `VkObjectTableEntryNVX :: struct`
-- [OS == .LINUX] `VkObjectTablePipelineEntryNVX :: struct`
-- [OS == .LINUX] `VkObjectTableDescriptorSetEntryNVX :: struct`
-- [OS == .LINUX] `VkObjectTableVertexBufferEntryNVX :: struct`
-- [OS == .LINUX] `VkObjectTableIndexBufferEntryNVX :: struct`
-- [OS == .LINUX] `VkObjectTablePushConstantEntryNVX :: struct`
-- [OS == .LINUX] `PFN_vkCmdProcessCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pProcessCommandsInfo: *VkCmdProcessCommandsInfoNVX) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdReserveSpaceForCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pReserveSpaceInfo: *VkCmdReserveSpaceForCommandsInfoNVX) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateIndirectCommandsLayoutNVX :: #type (device: VkDevice, pCreateInfo: *VkIndirectCommandsLayoutCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pIndirectCommandsLayout: *VkIndirectCommandsLayoutNVX) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyIndirectCommandsLayoutNVX :: #type (device: VkDevice, indirectCommandsLayout: VkIndirectCommandsLayoutNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateObjectTableNVX :: #type (device: VkDevice, pCreateInfo: *VkObjectTableCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pObjectTable: *VkObjectTableNVX) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyObjectTableNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkRegisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, ppObjectTableEntries: **VkObjectTableEntryNVX, pObjectIndices: *u32) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkUnregisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, pObjectEntryTypes: *VkObjectEntryTypeNVX, pObjectIndices: *u32) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkDeviceGeneratedCommandsFeaturesNVX, pLimits: *VkDeviceGeneratedCommandsLimitsNVX) -> void #c_call`
-- [OS == .LINUX] `VkViewportWScalingNV :: struct`
-- [OS == .LINUX] `VkPipelineViewportWScalingStateCreateInfoNV :: struct`
-- [OS == .LINUX] `PFN_vkCmdSetViewportWScalingNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewportWScalings: *VkViewportWScalingNV) -> void #c_call`
-- [OS == .LINUX] `PFN_vkReleaseDisplayEXT :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> VkResult #c_call`
-- [OS == .LINUX] `VkSurfaceCounterFlagBitsEXT :: enum_flags u32`
-- [OS == .LINUX] `VkSurfaceCounterFlagsEXT :: VkSurfaceCounterFlagBitsEXT`
-- [OS == .LINUX] `VkSurfaceCapabilities2EXT :: struct`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilities2EXT) -> VkResult #c_call`
-- [OS == .LINUX] `VkDisplayPowerStateEXT :: enum u32`
-- [OS == .LINUX] `VkDeviceEventTypeEXT :: enum u32`
-- [OS == .LINUX] `VkDisplayEventTypeEXT :: enum u32`
-- [OS == .LINUX] `VkDisplayPowerInfoEXT :: struct`
-- [OS == .LINUX] `VkDeviceEventInfoEXT :: struct`
-- [OS == .LINUX] `VkDisplayEventInfoEXT :: struct`
-- [OS == .LINUX] `VkSwapchainCounterCreateInfoEXT :: struct`
-- [OS == .LINUX] `PFN_vkDisplayPowerControlEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayPowerInfo: *VkDisplayPowerInfoEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkRegisterDeviceEventEXT :: #type (device: VkDevice, pDeviceEventInfo: *VkDeviceEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkRegisterDisplayEventEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayEventInfo: *VkDisplayEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetSwapchainCounterEXT :: #type (device: VkDevice, swapchain: VkSwapchainKHR, counter: VkSurfaceCounterFlagBitsEXT, pCounterValue: *u64) -> VkResult #c_call`
-- [OS == .LINUX] `VkRefreshCycleDurationGOOGLE :: struct`
-- [OS == .LINUX] `VkPastPresentationTimingGOOGLE :: struct`
-- [OS == .LINUX] `VkPresentTimeGOOGLE :: struct`
-- [OS == .LINUX] `VkPresentTimesInfoGOOGLE :: struct`
-- [OS == .LINUX] `PFN_vkGetRefreshCycleDurationGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pDisplayTimingProperties: *VkRefreshCycleDurationGOOGLE) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetPastPresentationTimingGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pPresentationTimingCount: *u32, pPresentationTimings: *VkPastPresentationTimingGOOGLE) -> VkResult #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceMultiviewPerViewAttributesPropertiesNVX :: struct`
-- [OS == .LINUX] `VkViewportCoordinateSwizzleNV :: enum u32`
-- [OS == .LINUX] `VkPipelineViewportSwizzleStateCreateFlagsNV :: VkFlags`
-- [OS == .LINUX] `VkViewportSwizzleNV :: struct`
-- [OS == .LINUX] `VkPipelineViewportSwizzleStateCreateInfoNV :: struct`
-- [OS == .LINUX] `VkDiscardRectangleModeEXT :: enum u32`
-- [OS == .LINUX] `VkPipelineDiscardRectangleStateCreateFlagsEXT :: VkFlags`
-- [OS == .LINUX] `VkPhysicalDeviceDiscardRectanglePropertiesEXT :: struct`
-- [OS == .LINUX] `VkPipelineDiscardRectangleStateCreateInfoEXT :: struct`
-- [OS == .LINUX] `PFN_vkCmdSetDiscardRectangleEXT :: #type (commandBuffer: VkCommandBuffer, firstDiscardRectangle: u32, discardRectangleCount: u32, pDiscardRectangles: *VkRect2D) -> void #c_call`
-- [OS == .LINUX] `VkConservativeRasterizationModeEXT :: enum u32`
-- [OS == .LINUX] `VkPipelineRasterizationConservativeStateCreateFlagsEXT :: VkFlags`
-- [OS == .LINUX] `VkPhysicalDeviceConservativeRasterizationPropertiesEXT :: struct`
-- [OS == .LINUX] `VkPipelineRasterizationConservativeStateCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkXYColorEXT :: struct`
-- [OS == .LINUX] `VkHdrMetadataEXT :: struct`
-- [OS == .LINUX] `PFN_vkSetHdrMetadataEXT :: #type (device: VkDevice, swapchainCount: u32, pSwapchains: *VkSwapchainKHR, pMetadata: *VkHdrMetadataEXT) -> void #c_call`
-- [OS == .LINUX] `VkDebugUtilsMessengerEXT_T :: struct`
-- [OS == .LINUX] `VkDebugUtilsMessengerEXT :: *VkDebugUtilsMessengerEXT_T`
-- [OS == .LINUX] `VkDebugUtilsMessengerCallbackDataFlagsEXT :: VkFlags`
-- [OS == .LINUX] `VkDebugUtilsMessengerCreateFlagsEXT :: VkFlags`
-- [OS == .LINUX] `VkDebugUtilsMessageSeverityFlagBitsEXT :: enum_flags u32`
-- [OS == .LINUX] `VkDebugUtilsMessageSeverityFlagsEXT :: VkDebugUtilsMessageSeverityFlagBitsEXT`
-- [OS == .LINUX] `VkDebugUtilsMessageTypeFlagBitsEXT :: enum_flags u32`
-- [OS == .LINUX] `VkDebugUtilsMessageTypeFlagsEXT :: VkDebugUtilsMessageTypeFlagBitsEXT`
-- [OS == .LINUX] `VkDebugUtilsObjectNameInfoEXT :: struct`
-- [OS == .LINUX] `VkDebugUtilsObjectTagInfoEXT :: struct`
-- [OS == .LINUX] `VkDebugUtilsLabelEXT :: struct`
-- [OS == .LINUX] `VkDebugUtilsMessengerCallbackDataEXT :: struct`
-- [OS == .LINUX] `PFN_vkDebugUtilsMessengerCallbackEXT :: #type (messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageType: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT, pUserData: *void) -> VkBool32 #c_call`
-- [OS == .LINUX] `VkDebugUtilsMessengerCreateInfoEXT :: struct`
-- [OS == .LINUX] `PFN_vkSetDebugUtilsObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugUtilsObjectNameInfoEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkSetDebugUtilsObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugUtilsObjectTagInfoEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkQueueBeginDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
-- [OS == .LINUX] `PFN_vkQueueEndDebugUtilsLabelEXT :: #type (queue: VkQueue) -> void #c_call`
-- [OS == .LINUX] `PFN_vkQueueInsertDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdBeginDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdEndDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdInsertDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateDebugUtilsMessengerEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugUtilsMessengerCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pMessenger: *VkDebugUtilsMessengerEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyDebugUtilsMessengerEXT :: #type (instance: VkInstance, messenger: VkDebugUtilsMessengerEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkSubmitDebugUtilsMessageEXT :: #type (instance: VkInstance, messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageTypes: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT) -> void #c_call`
-- [OS == .LINUX] `VkSamplerReductionModeEXT :: enum u32`
-- [OS == .LINUX] `VkSamplerReductionModeCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceInlineUniformBlockFeaturesEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceInlineUniformBlockPropertiesEXT :: struct`
-- [OS == .LINUX] `VkWriteDescriptorSetInlineUniformBlockEXT :: struct`
-- [OS == .LINUX] `VkDescriptorPoolInlineUniformBlockCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkSampleLocationEXT :: struct`
-- [OS == .LINUX] `VkSampleLocationsInfoEXT :: struct`
-- [OS == .LINUX] `VkAttachmentSampleLocationsEXT :: struct`
-- [OS == .LINUX] `VkSubpassSampleLocationsEXT :: struct`
-- [OS == .LINUX] `VkRenderPassSampleLocationsBeginInfoEXT :: struct`
-- [OS == .LINUX] `VkPipelineSampleLocationsStateCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceSampleLocationsPropertiesEXT :: struct`
-- [OS == .LINUX] `VkMultisamplePropertiesEXT :: struct`
-- [OS == .LINUX] `PFN_vkCmdSetSampleLocationsEXT :: #type (commandBuffer: VkCommandBuffer, pSampleLocationsInfo: *VkSampleLocationsInfoEXT) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetPhysicalDeviceMultisamplePropertiesEXT :: #type (physicalDevice: VkPhysicalDevice, samples: VkSampleCountFlagBits, pMultisampleProperties: *VkMultisamplePropertiesEXT) -> void #c_call`
-- [OS == .LINUX] `VkBlendOverlapEXT :: enum u32`
-- [OS == .LINUX] `VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceBlendOperationAdvancedPropertiesEXT :: struct`
-- [OS == .LINUX] `VkPipelineColorBlendAdvancedStateCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkPipelineCoverageToColorStateCreateFlagsNV :: VkFlags`
-- [OS == .LINUX] `VkPipelineCoverageToColorStateCreateInfoNV :: struct`
-- [OS == .LINUX] `VkCoverageModulationModeNV :: enum u32`
-- [OS == .LINUX] `VkPipelineCoverageModulationStateCreateFlagsNV :: VkFlags`
-- [OS == .LINUX] `VkPipelineCoverageModulationStateCreateInfoNV :: struct`
-- [OS == .LINUX] `VkValidationCacheEXT_T :: struct`
-- [OS == .LINUX] `VkValidationCacheEXT :: *VkValidationCacheEXT_T`
-- [OS == .LINUX] `VkValidationCacheHeaderVersionEXT :: enum u32`
-- [OS == .LINUX] `VkValidationCacheCreateFlagsEXT :: VkFlags`
-- [OS == .LINUX] `VkValidationCacheCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkShaderModuleValidationCacheCreateInfoEXT :: struct`
-- [OS == .LINUX] `PFN_vkCreateValidationCacheEXT :: #type (device: VkDevice, pCreateInfo: *VkValidationCacheCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pValidationCache: *VkValidationCacheEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyValidationCacheEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkMergeValidationCachesEXT :: #type (device: VkDevice, dstCache: VkValidationCacheEXT, srcCacheCount: u32, pSrcCaches: *VkValidationCacheEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetValidationCacheDataEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pDataSize: *u64, pData: *void) -> VkResult #c_call`
-- [OS == .LINUX] `VkDescriptorBindingFlagBitsEXT :: enum_flags u32`
-- [OS == .LINUX] `VkDescriptorBindingFlagsEXT :: VkDescriptorBindingFlagBitsEXT`
-- [OS == .LINUX] `VkDescriptorSetLayoutBindingFlagsCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceDescriptorIndexingFeaturesEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceDescriptorIndexingPropertiesEXT :: struct`
-- [OS == .LINUX] `VkDescriptorSetVariableDescriptorCountAllocateInfoEXT :: struct`
-- [OS == .LINUX] `VkDescriptorSetVariableDescriptorCountLayoutSupportEXT :: struct`
-- [OS == .LINUX] `VkShadingRatePaletteEntryNV :: enum u32`
-- [OS == .LINUX] `VkCoarseSampleOrderTypeNV :: enum u32`
-- [OS == .LINUX] `VkShadingRatePaletteNV :: struct`
-- [OS == .LINUX] `VkPipelineViewportShadingRateImageStateCreateInfoNV :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceShadingRateImageFeaturesNV :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceShadingRateImagePropertiesNV :: struct`
-- [OS == .LINUX] `VkCoarseSampleLocationNV :: struct`
-- [OS == .LINUX] `VkCoarseSampleOrderCustomNV :: struct`
-- [OS == .LINUX] `VkPipelineViewportCoarseSampleOrderStateCreateInfoNV :: struct`
-- [OS == .LINUX] `PFN_vkCmdBindShadingRateImageNV :: #type (commandBuffer: VkCommandBuffer, imageView: VkImageView, imageLayout: VkImageLayout) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetViewportShadingRatePaletteNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pShadingRatePalettes: *VkShadingRatePaletteNV) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdSetCoarseSampleOrderNV :: #type (commandBuffer: VkCommandBuffer, sampleOrderType: VkCoarseSampleOrderTypeNV, customSampleOrderCount: u32, pCustomSampleOrders: *VkCoarseSampleOrderCustomNV) -> void #c_call`
-- [OS == .LINUX] `VkAccelerationStructureNVX_T :: struct`
-- [OS == .LINUX] `VkAccelerationStructureNVX :: *VkAccelerationStructureNVX_T`
-- [OS == .LINUX] `VkGeometryTypeNVX :: enum u32`
-- [OS == .LINUX] `VkAccelerationStructureTypeNVX :: enum u32`
-- [OS == .LINUX] `VkCopyAccelerationStructureModeNVX :: enum u32`
-- [OS == .LINUX] `VkGeometryFlagBitsNVX :: enum_flags u32`
-- [OS == .LINUX] `VkGeometryFlagsNVX :: VkGeometryFlagBitsNVX`
-- [OS == .LINUX] `VkGeometryInstanceFlagBitsNVX :: enum_flags u32`
-- [OS == .LINUX] `VkGeometryInstanceFlagsNVX :: VkGeometryInstanceFlagBitsNVX`
-- [OS == .LINUX] `VkBuildAccelerationStructureFlagBitsNVX :: enum_flags u32`
-- [OS == .LINUX] `VkBuildAccelerationStructureFlagsNVX :: VkBuildAccelerationStructureFlagBitsNVX`
-- [OS == .LINUX] `VkRaytracingPipelineCreateInfoNVX :: struct`
-- [OS == .LINUX] `VkGeometryTrianglesNVX :: struct`
-- [OS == .LINUX] `VkGeometryAABBNVX :: struct`
-- [OS == .LINUX] `VkGeometryDataNVX :: struct`
-- [OS == .LINUX] `VkGeometryNVX :: struct`
-- [OS == .LINUX] `VkAccelerationStructureCreateInfoNVX :: struct`
-- [OS == .LINUX] `VkBindAccelerationStructureMemoryInfoNVX :: struct`
-- [OS == .LINUX] `VkDescriptorAccelerationStructureInfoNVX :: struct`
-- [OS == .LINUX] `VkAccelerationStructureMemoryRequirementsInfoNVX :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceRaytracingPropertiesNVX :: struct`
-- [OS == .LINUX] `PFN_vkCreateAccelerationStructureNVX :: #type (device: VkDevice, pCreateInfo: *VkAccelerationStructureCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pAccelerationStructure: *VkAccelerationStructureNVX) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkDestroyAccelerationStructureNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetAccelerationStructureMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetAccelerationStructureScratchMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call`
-- [OS == .LINUX] `PFN_vkBindAccelerationStructureMemoryNVX :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindAccelerationStructureMemoryInfoNVX) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCmdBuildAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, type: VkAccelerationStructureTypeNVX, instanceCount: u32, instanceData: VkBuffer, instanceOffset: VkDeviceSize, geometryCount: u32, pGeometries: *VkGeometryNVX, flags: VkBuildAccelerationStructureFlagsNVX, update: VkBool32, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, scratch: VkBuffer, scratchOffset: VkDeviceSize) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdCopyAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, mode: VkCopyAccelerationStructureModeNVX) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdTraceRaysNVX :: #type (cmdBuf: VkCommandBuffer, raygenShaderBindingTableBuffer: VkBuffer, raygenShaderBindingOffset: VkDeviceSize, missShaderBindingTableBuffer: VkBuffer, missShaderBindingOffset: VkDeviceSize, missShaderBindingStride: VkDeviceSize, hitShaderBindingTableBuffer: VkBuffer, hitShaderBindingOffset: VkDeviceSize, hitShaderBindingStride: VkDeviceSize, width: u32, height: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCreateRaytracingPipelinesNVX :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkRaytracingPipelineCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetRaytracingShaderHandlesNVX :: #type (device: VkDevice, pipeline: VkPipeline, firstGroup: u32, groupCount: u32, dataSize: u64, pData: *void) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkGetAccelerationStructureHandleNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, dataSize: u64, pData: *void) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCmdWriteAccelerationStructurePropertiesNVX :: #type (cmdBuf: VkCommandBuffer, accelerationStructure: VkAccelerationStructureNVX, queryType: VkQueryType, queryPool: VkQueryPool, query: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCompileDeferredNVX :: #type (device: VkDevice, pipeline: VkPipeline, shader: u32) -> VkResult #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV :: struct`
-- [OS == .LINUX] `VkPipelineRepresentativeFragmentTestStateCreateInfoNV :: struct`
-- [OS == .LINUX] `VkQueueGlobalPriorityEXT :: enum u32`
-- [OS == .LINUX] `VkDeviceQueueGlobalPriorityCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkImportMemoryHostPointerInfoEXT :: struct`
-- [OS == .LINUX] `VkMemoryHostPointerPropertiesEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceExternalMemoryHostPropertiesEXT :: struct`
-- [OS == .LINUX] `PFN_vkGetMemoryHostPointerPropertiesEXT :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, pHostPointer: *void, pMemoryHostPointerProperties: *VkMemoryHostPointerPropertiesEXT) -> VkResult #c_call`
-- [OS == .LINUX] `PFN_vkCmdWriteBufferMarkerAMD :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, marker: u32) -> void #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceShaderCorePropertiesAMD :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT :: struct`
-- [OS == .LINUX] `VkVertexInputBindingDivisorDescriptionEXT :: struct`
-- [OS == .LINUX] `VkPipelineVertexInputDivisorStateCreateInfoEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceComputeShaderDerivativesFeaturesNV :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceMeshShaderFeaturesNV :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceMeshShaderPropertiesNV :: struct`
-- [OS == .LINUX] `VkDrawMeshTasksIndirectCommandNV :: struct`
-- [OS == .LINUX] `PFN_vkCmdDrawMeshTasksNV :: #type (commandBuffer: VkCommandBuffer, taskCount: u32, firstTask: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawMeshTasksIndirectNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `PFN_vkCmdDrawMeshTasksIndirectCountNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
-- [OS == .LINUX] `VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceShaderImageFootprintFeaturesNV :: struct`
-- [OS == .LINUX] `VkPipelineViewportExclusiveScissorStateCreateInfoNV :: struct`
-- [OS == .LINUX] `VkPhysicalDeviceExclusiveScissorFeaturesNV :: struct`
-- [OS == .LINUX] `PFN_vkCmdSetExclusiveScissorNV :: #type (commandBuffer: VkCommandBuffer, firstExclusiveScissor: u32, exclusiveScissorCount: u32, pExclusiveScissors: *VkRect2D) -> void #c_call`
-- [OS == .LINUX] `VkQueueFamilyCheckpointPropertiesNV :: struct`
-- [OS == .LINUX] `VkCheckpointDataNV :: struct`
-- [OS == .LINUX] `PFN_vkCmdSetCheckpointNV :: #type (commandBuffer: VkCommandBuffer, pCheckpointMarker: *void) -> void #c_call`
-- [OS == .LINUX] `PFN_vkGetQueueCheckpointDataNV :: #type (queue: VkQueue, pCheckpointDataCount: *u32, pCheckpointData: *VkCheckpointDataNV) -> void #c_call`
-- [OS == .LINUX] `vkEnumeratePhysicalDevices :: (instance: VkInstance) -> [] VkPhysicalDevice, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDeviceQueueFamilyProperties :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties`
-- [OS == .LINUX] `vkEnumerateInstanceExtensionProperties :: (pLayerName: *u8) -> [] VkExtensionProperties, VkResult`
-- [OS == .LINUX] `vkEnumerateDeviceExtensionProperties :: (physicalDevice: VkPhysicalDevice, pLayerName: *u8) -> [] VkExtensionProperties, VkResult`
-- [OS == .LINUX] `vkEnumerateInstanceLayerProperties :: () -> [] VkLayerProperties, VkResult`
-- [OS == .LINUX] `vkEnumerateDeviceLayerProperties :: (physicalDevice: VkPhysicalDevice) -> [] VkLayerProperties, VkResult`
-- [OS == .LINUX] `vkGetImageSparseMemoryRequirements :: (device: VkDevice, image: VkImage) -> [] VkSparseImageMemoryRequirements`
-- [OS == .LINUX] `vkGetPhysicalDeviceSparseImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling) -> [] VkSparseImageFormatProperties`
-- [OS == .LINUX] `vkEnumeratePhysicalDeviceGroups :: (instance: VkInstance) -> [] VkPhysicalDeviceGroupProperties, VkResult`
-- [OS == .LINUX] `vkGetImageSparseMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2) -> [] VkSparseImageMemoryRequirements2`
-- [OS == .LINUX] `vkGetPhysicalDeviceQueueFamilyProperties2 :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties2`
-- [OS == .LINUX] `vkGetPhysicalDeviceSparseImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2) -> [] VkSparseImageFormatProperties2`
-- [OS == .LINUX] `vkGetPhysicalDeviceSurfaceFormatsKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkSurfaceFormatKHR, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDeviceSurfacePresentModesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkPresentModeKHR, VkResult`
-- [OS == .LINUX] `vkGetSwapchainImagesKHR :: (device: VkDevice, swapchain: VkSwapchainKHR) -> [] VkImage, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDevicePresentRectanglesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkRect2D, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayPropertiesKHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPropertiesKHR, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPlanePropertiesKHR, VkResult`
-- [OS == .LINUX] `vkGetDisplayPlaneSupportedDisplaysKHR :: (physicalDevice: VkPhysicalDevice, planeIndex: u32) -> [] VkDisplayKHR, VkResult`
-- [OS == .LINUX] `vkGetDisplayModePropertiesKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> [] VkDisplayModePropertiesKHR, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDeviceQueueFamilyProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties2`
-- [OS == .LINUX] `vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2) -> [] VkSparseImageFormatProperties2`
-- [OS == .LINUX] `vkEnumeratePhysicalDeviceGroupsKHR :: (instance: VkInstance) -> [] VkPhysicalDeviceGroupProperties, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayProperties2KHR, VkResult`
-- [OS == .LINUX] `vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPlaneProperties2KHR, VkResult`
-- [OS == .LINUX] `vkGetDisplayModeProperties2KHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> [] VkDisplayModeProperties2KHR, VkResult`
-- [OS == .LINUX] `vkGetImageSparseMemoryRequirements2KHR :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2) -> [] VkSparseImageMemoryRequirements2`
-- [OS == .LINUX] `vkGetPastPresentationTimingGOOGLE :: (device: VkDevice, swapchain: VkSwapchainKHR) -> [] VkPastPresentationTimingGOOGLE, VkResult`
-- [OS == .LINUX] `vkGetQueueCheckpointDataNV :: (queue: VkQueue) -> [] VkCheckpointDataNV`
+- [OS == .LINUX || OS == .MACOS] `VK_VERSION_1_0 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_HEADER_VERSION :: 85`
+- [OS == .LINUX || OS == .MACOS] `VK_LOD_CLAMP_NONE :: 1000.0`
+- [OS == .LINUX || OS == .MACOS] `VK_VERSION_1_1 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_MAX_DEVICE_GROUP_SIZE :: 32`
+- [OS == .LINUX || OS == .MACOS] `VK_LUID_SIZE :: 8`
+- [OS == .LINUX || OS == .MACOS] `VK_QUEUE_FAMILY_EXTERNAL :: ~0-1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_surface :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SURFACE_SPEC_VERSION :: 25`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SURFACE_EXTENSION_NAME :: "VK_KHR_surface"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_swapchain :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SWAPCHAIN_SPEC_VERSION :: 70`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_swapchain"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_display :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DISPLAY_SPEC_VERSION :: 21`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DISPLAY_EXTENSION_NAME :: "VK_KHR_display"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_display_swapchain :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DISPLAY_SWAPCHAIN_SPEC_VERSION :: 9`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_display_swapchain"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_sampler_mirror_clamp_to_edge :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME :: "VK_KHR_sampler_mirror_clamp_to_edge"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_multiview :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MULTIVIEW_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MULTIVIEW_EXTENSION_NAME :: "VK_KHR_multiview"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_get_physical_device_properties2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_physical_device_properties2"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_device_group :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DEVICE_GROUP_SPEC_VERSION :: 3`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DEVICE_GROUP_EXTENSION_NAME :: "VK_KHR_device_group"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_shader_draw_parameters :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SHADER_DRAW_PARAMETERS_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME :: "VK_KHR_shader_draw_parameters"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_maintenance1 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MAINTENANCE1_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MAINTENANCE1_EXTENSION_NAME :: "VK_KHR_maintenance1"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_device_group_creation :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DEVICE_GROUP_CREATION_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME :: "VK_KHR_device_group_creation"`
+- [OS == .LINUX || OS == .MACOS] `VK_MAX_DEVICE_GROUP_SIZE_KHR :: VK_MAX_DEVICE_GROUP_SIZE`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_memory_capabilities :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_memory_capabilities"`
+- [OS == .LINUX || OS == .MACOS] `VK_LUID_SIZE_KHR :: VK_LUID_SIZE`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_memory :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_MEMORY_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_KHR_external_memory"`
+- [OS == .LINUX || OS == .MACOS] `VK_QUEUE_FAMILY_EXTERNAL_KHR :: VK_QUEUE_FAMILY_EXTERNAL`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_memory_fd :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_MEMORY_FD_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME :: "VK_KHR_external_memory_fd"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_semaphore_capabilities :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_semaphore_capabilities"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_semaphore :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_SEMAPHORE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME :: "VK_KHR_external_semaphore"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_semaphore_fd :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_SEMAPHORE_FD_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME :: "VK_KHR_external_semaphore_fd"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_push_descriptor :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_PUSH_DESCRIPTOR_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME :: "VK_KHR_push_descriptor"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_16bit_storage :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_16BIT_STORAGE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_16BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_16bit_storage"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_incremental_present :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME :: "VK_KHR_incremental_present"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_descriptor_update_template :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_EXTENSION_NAME :: "VK_KHR_descriptor_update_template"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_create_renderpass2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_CREATE_RENDERPASS_2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME :: "VK_KHR_create_renderpass2"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_shared_presentable_image :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SHARED_PRESENTABLE_IMAGE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME :: "VK_KHR_shared_presentable_image"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_fence_capabilities :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_FENCE_CAPABILITIES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_fence_capabilities"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_fence :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_FENCE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME :: "VK_KHR_external_fence"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_external_fence_fd :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_FENCE_FD_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME :: "VK_KHR_external_fence_fd"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_maintenance2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MAINTENANCE2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MAINTENANCE2_EXTENSION_NAME :: "VK_KHR_maintenance2"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_get_surface_capabilities2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME :: "VK_KHR_get_surface_capabilities2"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_variable_pointers :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_VARIABLE_POINTERS_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME :: "VK_KHR_variable_pointers"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_get_display_properties2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_DISPLAY_PROPERTIES_2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_DISPLAY_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_display_properties2"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_dedicated_allocation :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DEDICATED_ALLOCATION_SPEC_VERSION :: 3`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_KHR_dedicated_allocation"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_storage_buffer_storage_class :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME :: "VK_KHR_storage_buffer_storage_class"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_relaxed_block_layout :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_RELAXED_BLOCK_LAYOUT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_RELAXED_BLOCK_LAYOUT_EXTENSION_NAME :: "VK_KHR_relaxed_block_layout"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_get_memory_requirements2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_MEMORY_REQUIREMENTS_2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME :: "VK_KHR_get_memory_requirements2"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_image_format_list :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_IMAGE_FORMAT_LIST_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME :: "VK_KHR_image_format_list"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_sampler_ycbcr_conversion :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SAMPLER_YCBCR_CONVERSION_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME :: "VK_KHR_sampler_ycbcr_conversion"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_bind_memory2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_BIND_MEMORY_2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_BIND_MEMORY_2_EXTENSION_NAME :: "VK_KHR_bind_memory2"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_maintenance3 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MAINTENANCE3_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_MAINTENANCE3_EXTENSION_NAME :: "VK_KHR_maintenance3"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_draw_indirect_count :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_KHR_draw_indirect_count"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_8bit_storage :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_8BIT_STORAGE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_8BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_8bit_storage"`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_vulkan_memory_model :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_VULKAN_MEMORY_MODEL_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME :: "VK_KHR_vulkan_memory_model"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_debug_report :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEBUG_REPORT_SPEC_VERSION :: 9`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEBUG_REPORT_EXTENSION_NAME :: "VK_EXT_debug_report"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_glsl_shader :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_GLSL_SHADER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_GLSL_SHADER_EXTENSION_NAME :: "VK_NV_glsl_shader"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_depth_range_unrestricted :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEPTH_RANGE_UNRESTRICTED_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME :: "VK_EXT_depth_range_unrestricted"`
+- [OS == .LINUX || OS == .MACOS] `VK_IMG_filter_cubic :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_IMG_FILTER_CUBIC_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_IMG_FILTER_CUBIC_EXTENSION_NAME :: "VK_IMG_filter_cubic"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_rasterization_order :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_RASTERIZATION_ORDER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME :: "VK_AMD_rasterization_order"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_shader_trinary_minmax :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_TRINARY_MINMAX_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME :: "VK_AMD_shader_trinary_minmax"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_shader_explicit_vertex_parameter :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME :: "VK_AMD_shader_explicit_vertex_parameter"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_debug_marker :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEBUG_MARKER_SPEC_VERSION :: 4`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEBUG_MARKER_EXTENSION_NAME :: "VK_EXT_debug_marker"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_gcn_shader :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_GCN_SHADER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_GCN_SHADER_EXTENSION_NAME :: "VK_AMD_gcn_shader"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_dedicated_allocation :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_DEDICATED_ALLOCATION_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_NV_dedicated_allocation"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_draw_indirect_count :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_AMD_draw_indirect_count"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_negative_viewport_height :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_EXTENSION_NAME :: "VK_AMD_negative_viewport_height"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_gpu_shader_half_float :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_GPU_SHADER_HALF_FLOAT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME :: "VK_AMD_gpu_shader_half_float"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_shader_ballot :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_BALLOT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_BALLOT_EXTENSION_NAME :: "VK_AMD_shader_ballot"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_texture_gather_bias_lod :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_TEXTURE_GATHER_BIAS_LOD_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_TEXTURE_GATHER_BIAS_LOD_EXTENSION_NAME :: "VK_AMD_texture_gather_bias_lod"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_shader_info :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_INFO_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_INFO_EXTENSION_NAME :: "VK_AMD_shader_info"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_shader_image_load_store_lod :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME :: "VK_AMD_shader_image_load_store_lod"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_corner_sampled_image :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_CORNER_SAMPLED_IMAGE_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_CORNER_SAMPLED_IMAGE_EXTENSION_NAME :: "VK_NV_corner_sampled_image"`
+- [OS == .LINUX || OS == .MACOS] `VK_IMG_format_pvrtc :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_IMG_FORMAT_PVRTC_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_IMG_FORMAT_PVRTC_EXTENSION_NAME :: "VK_IMG_format_pvrtc"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_external_memory_capabilities :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_NV_external_memory_capabilities"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_external_memory :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_EXTERNAL_MEMORY_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_NV_external_memory"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_validation_flags :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_VALIDATION_FLAGS_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME :: "VK_EXT_validation_flags"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_shader_subgroup_ballot :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_SUBGROUP_BALLOT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME :: "VK_EXT_shader_subgroup_ballot"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_shader_subgroup_vote :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_SUBGROUP_VOTE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME :: "VK_EXT_shader_subgroup_vote"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_astc_decode_mode :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_ASTC_DECODE_MODE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME :: "VK_EXT_astc_decode_mode"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_conditional_rendering :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_CONDITIONAL_RENDERING_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME :: "VK_EXT_conditional_rendering"`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_device_generated_commands :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_DEVICE_GENERATED_COMMANDS_SPEC_VERSION :: 3`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME :: "VK_NVX_device_generated_commands"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_clip_space_w_scaling :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_CLIP_SPACE_W_SCALING_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_CLIP_SPACE_W_SCALING_EXTENSION_NAME :: "VK_NV_clip_space_w_scaling"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_direct_mode_display :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DIRECT_MODE_DISPLAY_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME :: "VK_EXT_direct_mode_display"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_display_surface_counter :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DISPLAY_SURFACE_COUNTER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME :: "VK_EXT_display_surface_counter"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_display_control :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DISPLAY_CONTROL_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME :: "VK_EXT_display_control"`
+- [OS == .LINUX || OS == .MACOS] `VK_GOOGLE_display_timing :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_GOOGLE_DISPLAY_TIMING_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME :: "VK_GOOGLE_display_timing"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_sample_mask_override_coverage :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_EXTENSION_NAME :: "VK_NV_sample_mask_override_coverage"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_geometry_shader_passthrough :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_GEOMETRY_SHADER_PASSTHROUGH_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME :: "VK_NV_geometry_shader_passthrough"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_viewport_array2 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_VIEWPORT_ARRAY2_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME :: "VK_NV_viewport_array2"`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_multiview_per_view_attributes :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_EXTENSION_NAME :: "VK_NVX_multiview_per_view_attributes"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_viewport_swizzle :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_VIEWPORT_SWIZZLE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME :: "VK_NV_viewport_swizzle"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_discard_rectangles :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DISCARD_RECTANGLES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME :: "VK_EXT_discard_rectangles"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_conservative_rasterization :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_CONSERVATIVE_RASTERIZATION_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME :: "VK_EXT_conservative_rasterization"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_swapchain_colorspace :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION :: 3`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME :: "VK_EXT_swapchain_colorspace"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_hdr_metadata :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_HDR_METADATA_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_HDR_METADATA_EXTENSION_NAME :: "VK_EXT_hdr_metadata"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_external_memory_dma_buf :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_EXTERNAL_MEMORY_DMA_BUF_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME :: "VK_EXT_external_memory_dma_buf"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_queue_family_foreign :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_QUEUE_FAMILY_FOREIGN_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME :: "VK_EXT_queue_family_foreign"`
+- [OS == .LINUX || OS == .MACOS] `VK_QUEUE_FAMILY_FOREIGN_EXT :: ~0-2`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_debug_utils :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEBUG_UTILS_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DEBUG_UTILS_EXTENSION_NAME :: "VK_EXT_debug_utils"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_sampler_filter_minmax :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SAMPLER_FILTER_MINMAX_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME :: "VK_EXT_sampler_filter_minmax"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_gpu_shader_int16 :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_GPU_SHADER_INT16_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME :: "VK_AMD_gpu_shader_int16"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_mixed_attachment_samples :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_MIXED_ATTACHMENT_SAMPLES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME :: "VK_AMD_mixed_attachment_samples"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_shader_fragment_mask :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_FRAGMENT_MASK_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_FRAGMENT_MASK_EXTENSION_NAME :: "VK_AMD_shader_fragment_mask"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_inline_uniform_block :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_INLINE_UNIFORM_BLOCK_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME :: "VK_EXT_inline_uniform_block"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_shader_stencil_export :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_STENCIL_EXPORT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME :: "VK_EXT_shader_stencil_export"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_sample_locations :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SAMPLE_LOCATIONS_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME :: "VK_EXT_sample_locations"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_blend_operation_advanced :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_BLEND_OPERATION_ADVANCED_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_BLEND_OPERATION_ADVANCED_EXTENSION_NAME :: "VK_EXT_blend_operation_advanced"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_fragment_coverage_to_color :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FRAGMENT_COVERAGE_TO_COLOR_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FRAGMENT_COVERAGE_TO_COLOR_EXTENSION_NAME :: "VK_NV_fragment_coverage_to_color"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_framebuffer_mixed_samples :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FRAMEBUFFER_MIXED_SAMPLES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME :: "VK_NV_framebuffer_mixed_samples"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_fill_rectangle :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FILL_RECTANGLE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FILL_RECTANGLE_EXTENSION_NAME :: "VK_NV_fill_rectangle"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_post_depth_coverage :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_POST_DEPTH_COVERAGE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME :: "VK_EXT_post_depth_coverage"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_validation_cache :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_VALIDATION_CACHE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_VALIDATION_CACHE_EXTENSION_NAME :: "VK_EXT_validation_cache"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_descriptor_indexing :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DESCRIPTOR_INDEXING_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME :: "VK_EXT_descriptor_indexing"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_shader_viewport_index_layer :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME :: "VK_EXT_shader_viewport_index_layer"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_shading_rate_image :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SHADING_RATE_IMAGE_SPEC_VERSION :: 3`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SHADING_RATE_IMAGE_EXTENSION_NAME :: "VK_NV_shading_rate_image"`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_raytracing :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_RAYTRACING_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NVX_RAYTRACING_EXTENSION_NAME :: "VK_NVX_raytracing"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_representative_fragment_test :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_REPRESENTATIVE_FRAGMENT_TEST_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME :: "VK_NV_representative_fragment_test"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_global_priority :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_GLOBAL_PRIORITY_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_GLOBAL_PRIORITY_EXTENSION_NAME :: "VK_EXT_global_priority"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_external_memory_host :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_EXTERNAL_MEMORY_HOST_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME :: "VK_EXT_external_memory_host"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_buffer_marker :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_BUFFER_MARKER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_BUFFER_MARKER_EXTENSION_NAME :: "VK_AMD_buffer_marker"`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_shader_core_properties :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_CORE_PROPERTIES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME :: "VK_AMD_shader_core_properties"`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_vertex_attribute_divisor :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_SPEC_VERSION :: 3`
+- [OS == .LINUX || OS == .MACOS] `VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME :: "VK_EXT_vertex_attribute_divisor"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_shader_subgroup_partitioned :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SHADER_SUBGROUP_PARTITIONED_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME :: "VK_NV_shader_subgroup_partitioned"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_compute_shader_derivatives :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_COMPUTE_SHADER_DERIVATIVES_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME :: "VK_NV_compute_shader_derivatives"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_mesh_shader :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_MESH_SHADER_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_MESH_SHADER_EXTENSION_NAME :: "VK_NV_mesh_shader"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_fragment_shader_barycentric :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FRAGMENT_SHADER_BARYCENTRIC_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME :: "VK_NV_fragment_shader_barycentric"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_shader_image_footprint :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SHADER_IMAGE_FOOTPRINT_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME :: "VK_NV_shader_image_footprint"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_scissor_exclusive :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SCISSOR_EXCLUSIVE_SPEC_VERSION :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_SCISSOR_EXCLUSIVE_EXTENSION_NAME :: "VK_NV_scissor_exclusive"`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_device_diagnostic_checkpoints :: 1`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_SPEC_VERSION :: 2`
+- [OS == .LINUX || OS == .MACOS] `VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME :: "VK_NV_device_diagnostic_checkpoints"`
+- [OS == .LINUX || OS == .MACOS] `VkFlags :: u32`
+- [OS == .LINUX || OS == .MACOS] `VkBool32 :: u32`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceSize :: u64`
+- [OS == .LINUX || OS == .MACOS] `VkSampleMask :: u32`
+- [OS == .LINUX || OS == .MACOS] `VkInstance_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkInstance :: *VkInstance_T`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevice_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevice :: *VkPhysicalDevice_T`
+- [OS == .LINUX || OS == .MACOS] `VkDevice_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDevice :: *VkDevice_T`
+- [OS == .LINUX || OS == .MACOS] `VkQueue_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkQueue :: *VkQueue_T`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphore_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphore :: *VkSemaphore_T`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBuffer_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBuffer :: *VkCommandBuffer_T`
+- [OS == .LINUX || OS == .MACOS] `VkFence_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkFence :: *VkFence_T`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceMemory_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceMemory :: *VkDeviceMemory_T`
+- [OS == .LINUX || OS == .MACOS] `VkBuffer_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBuffer :: *VkBuffer_T`
+- [OS == .LINUX || OS == .MACOS] `VkImage_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImage :: *VkImage_T`
+- [OS == .LINUX || OS == .MACOS] `VkEvent_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkEvent :: *VkEvent_T`
+- [OS == .LINUX || OS == .MACOS] `VkQueryPool_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkQueryPool :: *VkQueryPool_T`
+- [OS == .LINUX || OS == .MACOS] `VkBufferView_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBufferView :: *VkBufferView_T`
+- [OS == .LINUX || OS == .MACOS] `VkImageView_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageView :: *VkImageView_T`
+- [OS == .LINUX || OS == .MACOS] `VkShaderModule_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkShaderModule :: *VkShaderModule_T`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCache_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCache :: *VkPipelineCache_T`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineLayout_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineLayout :: *VkPipelineLayout_T`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPass_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPass :: *VkRenderPass_T`
+- [OS == .LINUX || OS == .MACOS] `VkPipeline_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipeline :: *VkPipeline_T`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayout_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayout :: *VkDescriptorSetLayout_T`
+- [OS == .LINUX || OS == .MACOS] `VkSampler_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSampler :: *VkSampler_T`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPool_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPool :: *VkDescriptorPool_T`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSet_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSet :: *VkDescriptorSet_T`
+- [OS == .LINUX || OS == .MACOS] `VkFramebuffer_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkFramebuffer :: *VkFramebuffer_T`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPool_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPool :: *VkCommandPool_T`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCacheHeaderVersion :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkResult :: enum s32`
+- [OS == .LINUX || OS == .MACOS] `VkStructureType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSystemAllocationScope :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkInternalAllocationType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkFormat :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkImageType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkImageTiling :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkQueryType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSharingMode :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkImageLayout :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkImageViewType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkComponentSwizzle :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkVertexInputRate :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPrimitiveTopology :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPolygonMode :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkFrontFace :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkCompareOp :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkStencilOp :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkLogicOp :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkBlendFactor :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkBlendOp :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDynamicState :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkFilter :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerMipmapMode :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerAddressMode :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkBorderColor :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentLoadOp :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentStoreOp :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineBindPoint :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferLevel :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkIndexType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassContents :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkObjectType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkVendorId :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkInstanceCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkFormatFeatureFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkFormatFeatureFlags :: VkFormatFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkImageUsageFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkImageUsageFlags :: VkImageUsageFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkImageCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkImageCreateFlags :: VkImageCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkSampleCountFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSampleCountFlags :: VkSampleCountFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkQueueFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkQueueFlags :: VkQueueFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryPropertyFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryPropertyFlags :: VkMemoryPropertyFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryHeapFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryHeapFlags :: VkMemoryHeapFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceQueueCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceQueueCreateFlags :: VkDeviceQueueCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineStageFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineStageFlags :: VkPipelineStageFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryMapFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkImageAspectFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkImageAspectFlags :: VkImageAspectFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageFormatFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageFormatFlags :: VkSparseImageFormatFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkSparseMemoryBindFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSparseMemoryBindFlags :: VkSparseMemoryBindFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkFenceCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkFenceCreateFlags :: VkFenceCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphoreCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkEventCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkQueryPoolCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkQueryPipelineStatisticFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkQueryPipelineStatisticFlags :: VkQueryPipelineStatisticFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkQueryResultFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkQueryResultFlags :: VkQueryResultFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkBufferCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkBufferCreateFlags :: VkBufferCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkBufferUsageFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkBufferUsageFlags :: VkBufferUsageFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkBufferViewCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkImageViewCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkShaderModuleCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCacheCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCreateFlags :: VkPipelineCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineShaderStageCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkShaderStageFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineVertexInputStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineInputAssemblyStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineTessellationStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineRasterizationStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkCullModeFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkCullModeFlags :: VkCullModeFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineMultisampleStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineDepthStencilStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineColorBlendStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkColorComponentFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkColorComponentFlags :: VkColorComponentFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineDynamicStateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineLayoutCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkShaderStageFlags :: VkShaderStageFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayoutCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayoutCreateFlags :: VkDescriptorSetLayoutCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPoolCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPoolCreateFlags :: VkDescriptorPoolCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPoolResetFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkFramebufferCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentDescriptionFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentDescriptionFlags :: VkAttachmentDescriptionFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassDescriptionFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassDescriptionFlags :: VkSubpassDescriptionFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkAccessFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkAccessFlags :: VkAccessFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkDependencyFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDependencyFlags :: VkDependencyFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPoolCreateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPoolCreateFlags :: VkCommandPoolCreateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPoolResetFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPoolResetFlags :: VkCommandPoolResetFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferUsageFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferUsageFlags :: VkCommandBufferUsageFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkQueryControlFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkQueryControlFlags :: VkQueryControlFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferResetFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferResetFlags :: VkCommandBufferResetFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkStencilFaceFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkStencilFaceFlags :: VkStencilFaceFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkApplicationInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkInstanceCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkAllocationFunction :: #type (pUserData: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkReallocationFunction :: #type (pUserData: *void, pOriginal: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkFreeFunction :: #type (pUserData: *void, pMemory: *void) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkInternalAllocationNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkInternalFreeNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkAllocationCallbacks :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceFeatures :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkFormatProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExtent3D :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageFormatProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceLimits :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSparseProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkQueueFamilyProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryType :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryHeap :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMemoryProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkVoidFunction :: #type () -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceQueueCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExtensionProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkLayerProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubmitInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryAllocateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMappedMemoryRange :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryRequirements :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageFormatProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageMemoryRequirements :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseMemoryBind :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseBufferMemoryBindInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageOpaqueMemoryBindInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageSubresource :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkOffset3D :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageMemoryBind :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageMemoryBindInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindSparseInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkFenceCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphoreCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkEventCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkQueryPoolCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBufferCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBufferViewCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubresourceLayout :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkComponentMapping :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageSubresourceRange :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageViewCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkShaderModuleCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCacheCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSpecializationMapEntry :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSpecializationInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineShaderStageCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkVertexInputBindingDescription :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkVertexInputAttributeDescription :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineVertexInputStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineInputAssemblyStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineTessellationStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkViewport :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkOffset2D :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExtent2D :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRect2D :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineRasterizationStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineMultisampleStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkStencilOpState :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineDepthStencilStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineColorBlendAttachmentState :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineColorBlendStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineDynamicStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkGraphicsPipelineCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkComputePipelineCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPushConstantRange :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineLayoutCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayoutBinding :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayoutCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPoolSize :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPoolCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetAllocateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorImageInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorBufferInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkWriteDescriptorSet :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCopyDescriptorSet :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkFramebufferCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentDescription :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentReference :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassDescription :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassDependency :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPoolCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferAllocateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferInheritanceInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferBeginInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBufferCopy :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageSubresourceLayers :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageCopy :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageBlit :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBufferImageCopy :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkClearColorValue :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkClearDepthStencilValue :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkClearValue :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkClearAttachment :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkClearRect :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageResolve :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryBarrier :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBufferMemoryBarrier :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageMemoryBarrier :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassBeginInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDispatchIndirectCommand :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDrawIndexedIndirectCommand :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDrawIndirectCommand :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBaseOutStructure :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBaseInStructure :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateInstance :: #type (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyInstance :: #type (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumeratePhysicalDevices :: #type (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceFeatures :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceProperties :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceQueueFamilyProperties :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceMemoryProperties :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetInstanceProcAddr :: #type (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceProcAddr :: #type (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDevice :: #type (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyDevice :: #type (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumerateInstanceExtensionProperties :: #type (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumerateDeviceExtensionProperties :: #type (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumerateInstanceLayerProperties :: #type (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumerateDeviceLayerProperties :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceQueue :: #type (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkQueueSubmit :: #type (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkQueueWaitIdle :: #type (queue: VkQueue) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDeviceWaitIdle :: #type (device: VkDevice) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkAllocateMemory :: #type (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkFreeMemory :: #type (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkMapMemory :: #type (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkUnmapMemory :: #type (device: VkDevice, memory: VkDeviceMemory) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkFlushMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkInvalidateMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceMemoryCommitment :: #type (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBindBufferMemory :: #type (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBindImageMemory :: #type (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetBufferMemoryRequirements :: #type (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetImageMemoryRequirements :: #type (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetImageSparseMemoryRequirements :: #type (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSparseImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkQueueBindSparse :: #type (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateFence :: #type (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyFence :: #type (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkResetFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetFenceStatus :: #type (device: VkDevice, fence: VkFence) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkWaitForFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateSemaphore :: #type (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroySemaphore :: #type (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateEvent :: #type (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyEvent :: #type (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetEventStatus :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkSetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkResetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateQueryPool :: #type (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyQueryPool :: #type (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetQueryPoolResults :: #type (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateBuffer :: #type (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyBuffer :: #type (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateBufferView :: #type (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyBufferView :: #type (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateImage :: #type (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyImage :: #type (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetImageSubresourceLayout :: #type (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateImageView :: #type (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyImageView :: #type (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateShaderModule :: #type (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyShaderModule :: #type (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreatePipelineCache :: #type (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyPipelineCache :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPipelineCacheData :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkMergePipelineCaches :: #type (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateGraphicsPipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateComputePipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyPipeline :: #type (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreatePipelineLayout :: #type (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyPipelineLayout :: #type (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateSampler :: #type (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroySampler :: #type (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDescriptorSetLayout :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyDescriptorSetLayout :: #type (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDescriptorPool :: #type (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkResetDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkAllocateDescriptorSets :: #type (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkFreeDescriptorSets :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkUpdateDescriptorSets :: #type (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateFramebuffer :: #type (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyFramebuffer :: #type (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateRenderPass :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyRenderPass :: #type (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetRenderAreaGranularity :: #type (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateCommandPool :: #type (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkResetCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkAllocateCommandBuffers :: #type (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkFreeCommandBuffers :: #type (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBeginCommandBuffer :: #type (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEndCommandBuffer :: #type (commandBuffer: VkCommandBuffer) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkResetCommandBuffer :: #type (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBindPipeline :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetViewport :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetScissor :: #type (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetLineWidth :: #type (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetDepthBias :: #type (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetBlendConstants :: #type (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetDepthBounds :: #type (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetStencilCompareMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetStencilWriteMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetStencilReference :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBindDescriptorSets :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBindIndexBuffer :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBindVertexBuffers :: #type (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDraw :: #type (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawIndexed :: #type (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawIndexedIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDispatch :: #type (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDispatchIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdCopyBuffer :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdCopyImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBlitImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdCopyBufferToImage :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdCopyImageToBuffer :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdUpdateBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdFillBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdClearColorImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdClearDepthStencilImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdClearAttachments :: #type (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdResolveImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdResetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdWaitEvents :: #type (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdPipelineBarrier :: #type (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBeginQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdEndQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdResetQueryPool :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdWriteTimestamp :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdCopyQueryPoolResults :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdPushConstants :: #type (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBeginRenderPass :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdNextSubpass :: #type (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdEndRenderPass :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdExecuteCommands :: #type (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkCreateInstance :: (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyInstance :: (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkEnumeratePhysicalDevices :: (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceFeatures :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceProperties :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceQueueFamilyProperties :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceMemoryProperties :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetInstanceProcAddr :: (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDeviceProcAddr :: (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateDevice :: (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyDevice :: (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateInstanceExtensionProperties :: (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateDeviceExtensionProperties :: (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateInstanceLayerProperties :: (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateDeviceLayerProperties :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDeviceQueue :: (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkQueueSubmit :: (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkQueueWaitIdle :: (queue: VkQueue) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDeviceWaitIdle :: (device: VkDevice) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkAllocateMemory :: (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkFreeMemory :: (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkMapMemory :: (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkUnmapMemory :: (device: VkDevice, memory: VkDeviceMemory) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkFlushMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkInvalidateMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDeviceMemoryCommitment :: (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkBindBufferMemory :: (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkBindImageMemory :: (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetBufferMemoryRequirements :: (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageMemoryRequirements :: (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageSparseMemoryRequirements :: (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSparseImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkQueueBindSparse :: (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateFence :: (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyFence :: (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkResetFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetFenceStatus :: (device: VkDevice, fence: VkFence) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkWaitForFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateSemaphore :: (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroySemaphore :: (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateEvent :: (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyEvent :: (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetEventStatus :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkSetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkResetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateQueryPool :: (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyQueryPool :: (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetQueryPoolResults :: (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateBuffer :: (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyBuffer :: (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateBufferView :: (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyBufferView :: (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateImage :: (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyImage :: (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageSubresourceLayout :: (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateImageView :: (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyImageView :: (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateShaderModule :: (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyShaderModule :: (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreatePipelineCache :: (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyPipelineCache :: (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPipelineCacheData :: (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkMergePipelineCaches :: (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateGraphicsPipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateComputePipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyPipeline :: (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreatePipelineLayout :: (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyPipelineLayout :: (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateSampler :: (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroySampler :: (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateDescriptorSetLayout :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyDescriptorSetLayout :: (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateDescriptorPool :: (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkResetDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkAllocateDescriptorSets :: (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkFreeDescriptorSets :: (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkUpdateDescriptorSets :: (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateFramebuffer :: (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyFramebuffer :: (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateRenderPass :: (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyRenderPass :: (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetRenderAreaGranularity :: (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateCommandPool :: (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyCommandPool :: (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkResetCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkAllocateCommandBuffers :: (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkFreeCommandBuffers :: (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkBeginCommandBuffer :: (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkEndCommandBuffer :: (commandBuffer: VkCommandBuffer) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkResetCommandBuffer :: (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdBindPipeline :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetViewport :: (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetScissor :: (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetLineWidth :: (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetDepthBias :: (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetBlendConstants :: (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetDepthBounds :: (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetStencilCompareMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetStencilWriteMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetStencilReference :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdBindDescriptorSets :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdBindIndexBuffer :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdBindVertexBuffers :: (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdDraw :: (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdDrawIndexed :: (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdDrawIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdDrawIndexedIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdDispatch :: (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdDispatchIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdCopyBuffer :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdCopyImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdBlitImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdCopyBufferToImage :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdCopyImageToBuffer :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdUpdateBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdFillBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdClearColorImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdClearDepthStencilImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdClearAttachments :: (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdResolveImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdResetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdWaitEvents :: (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdPipelineBarrier :: (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdBeginQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdEndQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdResetQueryPool :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdWriteTimestamp :: (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdCopyQueryPoolResults :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdPushConstants :: (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdBeginRenderPass :: (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdNextSubpass :: (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdEndRenderPass :: (commandBuffer: VkCommandBuffer) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdExecuteCommands :: (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversion_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversion :: *VkSamplerYcbcrConversion_T`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplate_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplate :: *VkDescriptorUpdateTemplate_T`
+- [OS == .LINUX || OS == .MACOS] `VkPointClippingBehavior :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkTessellationDomainOrigin :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrModelConversion :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrRange :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkChromaLocation :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateType :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSubgroupFeatureFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSubgroupFeatureFlags :: VkSubgroupFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPeerMemoryFeatureFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkPeerMemoryFeatureFlags :: VkPeerMemoryFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryAllocateFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryAllocateFlags :: VkMemoryAllocateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPoolTrimFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateCreateFlags :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryHandleTypeFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryHandleTypeFlags :: VkExternalMemoryHandleTypeFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryFeatureFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryFeatureFlags :: VkExternalMemoryFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceHandleTypeFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceHandleTypeFlags :: VkExternalFenceHandleTypeFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceFeatureFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceFeatureFlags :: VkExternalFenceFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkFenceImportFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkFenceImportFlags :: VkFenceImportFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphoreImportFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphoreImportFlags :: VkSemaphoreImportFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreHandleTypeFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreHandleTypeFlags :: VkExternalSemaphoreHandleTypeFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreFeatureFlagBits :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreFeatureFlags :: VkExternalSemaphoreFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSubgroupProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindBufferMemoryInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindImageMemoryInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevice16BitStorageFeatures :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryDedicatedRequirements :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryDedicatedAllocateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryAllocateFlagsInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupRenderPassBeginInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupCommandBufferBeginInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupSubmitInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupBindSparseInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindBufferMemoryDeviceGroupInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindImageMemoryDeviceGroupInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceGroupProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupDeviceCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBufferMemoryRequirementsInfo2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageMemoryRequirementsInfo2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageSparseMemoryRequirementsInfo2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryRequirements2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryRequirements2KHR :: VkMemoryRequirements2`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageMemoryRequirements2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceFeatures2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceProperties2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkFormatProperties2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageFormatProperties2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceImageFormatInfo2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkQueueFamilyProperties2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMemoryProperties2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageFormatProperties2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSparseImageFormatInfo2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevicePointClippingProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkInputAttachmentAspectReference :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassInputAttachmentAspectCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageViewUsageCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineTessellationDomainOriginStateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassMultiviewCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMultiviewFeatures :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMultiviewProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceVariablePointerFeatures :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceProtectedMemoryFeatures :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceProtectedMemoryProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceQueueInfo2 :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkProtectedSubmitInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversionCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversionInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindImagePlaneMemoryInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImagePlaneMemoryRequirementsInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSamplerYcbcrConversionFeatures :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversionImageFormatProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateEntry :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalImageFormatInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalImageFormatProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalBufferInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalBufferProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceIDProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryImageCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryBufferCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExportMemoryAllocateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalFenceInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExportFenceCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExportSemaphoreCreateInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalSemaphoreInfo :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreProperties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMaintenance3Properties :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayoutSupport :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceShaderDrawParameterFeatures :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumerateInstanceVersion :: #type (pApiVersion: *u32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBindBufferMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBindImageMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceGroupPeerMemoryFeatures :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetDeviceMask :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDispatchBase :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumeratePhysicalDeviceGroups :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetImageMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetBufferMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetImageSparseMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceFeatures2 :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceProperties2 :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceQueueFamilyProperties2 :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceMemoryProperties2 :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSparseImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkTrimCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceQueue2 :: #type (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateSamplerYcbcrConversion :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroySamplerYcbcrConversion :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDescriptorUpdateTemplate :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyDescriptorUpdateTemplate :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkUpdateDescriptorSetWithTemplate :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceExternalBufferProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceExternalFenceProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceExternalSemaphoreProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDescriptorSetLayoutSupport :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateInstanceVersion :: (pApiVersion: *u32) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkBindBufferMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkBindImageMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDeviceGroupPeerMemoryFeatures :: (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdSetDeviceMask :: (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCmdDispatchBase :: (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkEnumeratePhysicalDeviceGroups :: (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetBufferMemoryRequirements2 :: (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageSparseMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceFeatures2 :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceProperties2 :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceFormatProperties2 :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceQueueFamilyProperties2 :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceMemoryProperties2 :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSparseImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkTrimCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDeviceQueue2 :: (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateSamplerYcbcrConversion :: (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroySamplerYcbcrConversion :: (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateDescriptorUpdateTemplate :: (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroyDescriptorUpdateTemplate :: (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkUpdateDescriptorSetWithTemplate :: (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceExternalBufferProperties :: (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceExternalFenceProperties :: (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceExternalSemaphoreProperties :: (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDescriptorSetLayoutSupport :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceKHR_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceKHR :: *VkSurfaceKHR_T`
+- [OS == .LINUX || OS == .MACOS] `VkColorSpaceKHR :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPresentModeKHR :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceTransformFlagBitsKHR :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceTransformFlagsKHR :: VkSurfaceTransformFlagBitsKHR`
+- [OS == .LINUX || OS == .MACOS] `VkCompositeAlphaFlagBitsKHR :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkCompositeAlphaFlagsKHR :: VkCompositeAlphaFlagBitsKHR`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceCapabilitiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceFormatKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroySurfaceKHR :: #type (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSurfaceSupportKHR :: #type (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSurfaceFormatsKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSurfacePresentModesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkDestroySurfaceKHR :: (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSurfaceSupportKHR :: (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSurfaceFormatsKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSurfacePresentModesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `VkSwapchainKHR_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSwapchainKHR :: *VkSwapchainKHR_T`
+- [OS == .LINUX || OS == .MACOS] `VkSwapchainCreateFlagBitsKHR :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSwapchainCreateFlagsKHR :: VkSwapchainCreateFlagBitsKHR`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupPresentModeFlagBitsKHR :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupPresentModeFlagsKHR :: VkDeviceGroupPresentModeFlagBitsKHR`
+- [OS == .LINUX || OS == .MACOS] `VkSwapchainCreateInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPresentInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageSwapchainCreateInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindImageMemorySwapchainInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAcquireNextImageInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupPresentCapabilitiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupPresentInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupSwapchainCreateInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateSwapchainKHR :: #type (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroySwapchainKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetSwapchainImagesKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkAcquireNextImageKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkQueuePresentKHR :: #type (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceGroupPresentCapabilitiesKHR :: #type (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceGroupSurfacePresentModesKHR :: #type (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDevicePresentRectanglesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkAcquireNextImage2KHR :: #type (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkCreateSwapchainKHR :: (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkDestroySwapchainKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetSwapchainImagesKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkAcquireNextImageKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkQueuePresentKHR :: (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDeviceGroupPresentCapabilitiesKHR :: (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDeviceGroupSurfacePresentModesKHR :: (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDevicePresentRectanglesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkAcquireNextImage2KHR :: (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayKHR_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayKHR :: *VkDisplayKHR_T`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayModeKHR_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayModeKHR :: *VkDisplayModeKHR_T`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPlaneAlphaFlagBitsKHR :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPlaneAlphaFlagsKHR :: VkDisplayPlaneAlphaFlagBitsKHR`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayModeCreateFlagsKHR :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDisplaySurfaceCreateFlagsKHR :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPropertiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayModeParametersKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayModePropertiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayModeCreateInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPlaneCapabilitiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPlanePropertiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplaySurfaceCreateInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceDisplayPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDisplayPlaneSupportedDisplaysKHR :: #type (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDisplayModePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDisplayModeKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDisplayPlaneCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDisplayPlaneSurfaceKHR :: #type (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayPropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayPlaneSupportedDisplaysKHR :: (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayModePropertiesKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateDisplayModeKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayPlaneCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkCreateDisplayPlaneSurfaceKHR :: (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPresentInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateSharedSwapchainsKHR :: #type (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkCreateSharedSwapchainsKHR :: (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassMultiviewCreateInfoKHR :: VkRenderPassMultiviewCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMultiviewFeaturesKHR :: VkPhysicalDeviceMultiviewFeatures`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMultiviewPropertiesKHR :: VkPhysicalDeviceMultiviewProperties`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceFeatures2KHR :: VkPhysicalDeviceFeatures2`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceProperties2KHR :: VkPhysicalDeviceProperties2`
+- [OS == .LINUX || OS == .MACOS] `VkFormatProperties2KHR :: VkFormatProperties2`
+- [OS == .LINUX || OS == .MACOS] `VkImageFormatProperties2KHR :: VkImageFormatProperties2`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceImageFormatInfo2KHR :: VkPhysicalDeviceImageFormatInfo2`
+- [OS == .LINUX || OS == .MACOS] `VkQueueFamilyProperties2KHR :: VkQueueFamilyProperties2`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMemoryProperties2KHR :: VkPhysicalDeviceMemoryProperties2`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageFormatProperties2KHR :: VkSparseImageFormatProperties2`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSparseImageFormatInfo2KHR :: VkPhysicalDeviceSparseImageFormatInfo2`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceFeatures2KHR :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceMemoryProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPeerMemoryFeatureFlagsKHR :: VkPeerMemoryFeatureFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPeerMemoryFeatureFlagBitsKHR :: VkPeerMemoryFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryAllocateFlagsKHR :: VkMemoryAllocateFlags`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryAllocateFlagBitsKHR :: VkMemoryAllocateFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryAllocateFlagsInfoKHR :: VkMemoryAllocateFlagsInfo`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupRenderPassBeginInfoKHR :: VkDeviceGroupRenderPassBeginInfo`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupCommandBufferBeginInfoKHR :: VkDeviceGroupCommandBufferBeginInfo`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupSubmitInfoKHR :: VkDeviceGroupSubmitInfo`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupBindSparseInfoKHR :: VkDeviceGroupBindSparseInfo`
+- [OS == .LINUX || OS == .MACOS] `VkBindBufferMemoryDeviceGroupInfoKHR :: VkBindBufferMemoryDeviceGroupInfo`
+- [OS == .LINUX || OS == .MACOS] `VkBindImageMemoryDeviceGroupInfoKHR :: VkBindImageMemoryDeviceGroupInfo`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDeviceGroupPeerMemoryFeaturesKHR :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetDeviceMaskKHR :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDispatchBaseKHR :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkCommandPoolTrimFlagsKHR :: VkCommandPoolTrimFlags`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkTrimCommandPoolKHR :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceGroupPropertiesKHR :: VkPhysicalDeviceGroupProperties`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGroupDeviceCreateInfoKHR :: VkDeviceGroupDeviceCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkEnumeratePhysicalDeviceGroupsKHR :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryHandleTypeFlagsKHR :: VkExternalMemoryHandleTypeFlags`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryHandleTypeFlagBitsKHR :: VkExternalMemoryHandleTypeFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryFeatureFlagsKHR :: VkExternalMemoryFeatureFlags`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryFeatureFlagBitsKHR :: VkExternalMemoryFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryPropertiesKHR :: VkExternalMemoryProperties`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalImageFormatInfoKHR :: VkPhysicalDeviceExternalImageFormatInfo`
+- [OS == .LINUX || OS == .MACOS] `VkExternalImageFormatPropertiesKHR :: VkExternalImageFormatProperties`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalBufferInfoKHR :: VkPhysicalDeviceExternalBufferInfo`
+- [OS == .LINUX || OS == .MACOS] `VkExternalBufferPropertiesKHR :: VkExternalBufferProperties`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceIDPropertiesKHR :: VkPhysicalDeviceIDProperties`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryImageCreateInfoKHR :: VkExternalMemoryImageCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryBufferCreateInfoKHR :: VkExternalMemoryBufferCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkExportMemoryAllocateInfoKHR :: VkExportMemoryAllocateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkImportMemoryFdInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryFdPropertiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryGetFdInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetMemoryFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkMemoryGetFdInfoKHR, pFd: *s32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetMemoryFdPropertiesKHR :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, fd: s32, pMemoryFdProperties: *VkMemoryFdPropertiesKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreHandleTypeFlagsKHR :: VkExternalSemaphoreHandleTypeFlags`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreHandleTypeFlagBitsKHR :: VkExternalSemaphoreHandleTypeFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreFeatureFlagsKHR :: VkExternalSemaphoreFeatureFlags`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphoreFeatureFlagBitsKHR :: VkExternalSemaphoreFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalSemaphoreInfoKHR :: VkPhysicalDeviceExternalSemaphoreInfo`
+- [OS == .LINUX || OS == .MACOS] `VkExternalSemaphorePropertiesKHR :: VkExternalSemaphoreProperties`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphoreImportFlagsKHR :: VkSemaphoreImportFlags`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphoreImportFlagBitsKHR :: VkSemaphoreImportFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExportSemaphoreCreateInfoKHR :: VkExportSemaphoreCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkImportSemaphoreFdInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSemaphoreGetFdInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkImportSemaphoreFdKHR :: #type (device: VkDevice, pImportSemaphoreFdInfo: *VkImportSemaphoreFdInfoKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetSemaphoreFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkSemaphoreGetFdInfoKHR, pFd: *s32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevicePushDescriptorPropertiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdPushDescriptorSetKHR :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, set: u32, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdPushDescriptorSetWithTemplateKHR :: #type (commandBuffer: VkCommandBuffer, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, layout: VkPipelineLayout, set: u32, pData: *void) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevice16BitStorageFeaturesKHR :: VkPhysicalDevice16BitStorageFeatures`
+- [OS == .LINUX || OS == .MACOS] `VkRectLayerKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPresentRegionKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPresentRegionsKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateKHR :: VkDescriptorUpdateTemplate`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateTypeKHR :: VkDescriptorUpdateTemplateType`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateCreateFlagsKHR :: VkDescriptorUpdateTemplateCreateFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateEntryKHR :: VkDescriptorUpdateTemplateEntry`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorUpdateTemplateCreateInfoKHR :: VkDescriptorUpdateTemplateCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDescriptorUpdateTemplateKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyDescriptorUpdateTemplateKHR :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkUpdateDescriptorSetWithTemplateKHR :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentDescription2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentReference2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassDescription2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassDependency2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassCreateInfo2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassBeginInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassEndInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateRenderPass2KHR :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo2KHR, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBeginRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, pSubpassBeginInfo: *VkSubpassBeginInfoKHR) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdNextSubpass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassBeginInfo: *VkSubpassBeginInfoKHR, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdEndRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkSharedPresentSurfaceCapabilitiesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetSwapchainStatusKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceHandleTypeFlagsKHR :: VkExternalFenceHandleTypeFlags`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceHandleTypeFlagBitsKHR :: VkExternalFenceHandleTypeFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceFeatureFlagsKHR :: VkExternalFenceFeatureFlags`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFenceFeatureFlagBitsKHR :: VkExternalFenceFeatureFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalFenceInfoKHR :: VkPhysicalDeviceExternalFenceInfo`
+- [OS == .LINUX || OS == .MACOS] `VkExternalFencePropertiesKHR :: VkExternalFenceProperties`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceExternalFencePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkFenceImportFlagsKHR :: VkFenceImportFlags`
+- [OS == .LINUX || OS == .MACOS] `VkFenceImportFlagBitsKHR :: VkFenceImportFlagBits`
+- [OS == .LINUX || OS == .MACOS] `VkExportFenceCreateInfoKHR :: VkExportFenceCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkImportFenceFdInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkFenceGetFdInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkImportFenceFdKHR :: #type (device: VkDevice, pImportFenceFdInfo: *VkImportFenceFdInfoKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetFenceFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkFenceGetFdInfoKHR, pFd: *s32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPointClippingBehaviorKHR :: VkPointClippingBehavior`
+- [OS == .LINUX || OS == .MACOS] `VkTessellationDomainOriginKHR :: VkTessellationDomainOrigin`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevicePointClippingPropertiesKHR :: VkPhysicalDevicePointClippingProperties`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassInputAttachmentAspectCreateInfoKHR :: VkRenderPassInputAttachmentAspectCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkInputAttachmentAspectReferenceKHR :: VkInputAttachmentAspectReference`
+- [OS == .LINUX || OS == .MACOS] `VkImageViewUsageCreateInfoKHR :: VkImageViewUsageCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineTessellationDomainOriginStateCreateInfoKHR :: VkPipelineTessellationDomainOriginStateCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSurfaceInfo2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceCapabilities2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceFormat2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceCapabilities: *VkSurfaceCapabilities2KHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSurfaceFormats2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormat2KHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceVariablePointerFeaturesKHR :: VkPhysicalDeviceVariablePointerFeatures`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayProperties2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPlaneProperties2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayModeProperties2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPlaneInfo2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPlaneCapabilities2KHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceDisplayProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDisplayModeProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDisplayPlaneCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayModeProperties2KHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayPlaneCapabilities2KHR :: (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #foreign libvulkan`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryDedicatedRequirementsKHR :: VkMemoryDedicatedRequirements`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryDedicatedAllocateInfoKHR :: VkMemoryDedicatedAllocateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkBufferMemoryRequirementsInfo2KHR :: VkBufferMemoryRequirementsInfo2`
+- [OS == .LINUX || OS == .MACOS] `VkImageMemoryRequirementsInfo2KHR :: VkImageMemoryRequirementsInfo2`
+- [OS == .LINUX || OS == .MACOS] `VkImageSparseMemoryRequirementsInfo2KHR :: VkImageSparseMemoryRequirementsInfo2`
+- [OS == .LINUX || OS == .MACOS] `VkSparseImageMemoryRequirements2KHR :: VkSparseImageMemoryRequirements2`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetImageMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetBufferMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetImageSparseMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkImageFormatListCreateInfoKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversionKHR :: VkSamplerYcbcrConversion`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrModelConversionKHR :: VkSamplerYcbcrModelConversion`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrRangeKHR :: VkSamplerYcbcrRange`
+- [OS == .LINUX || OS == .MACOS] `VkChromaLocationKHR :: VkChromaLocation`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversionCreateInfoKHR :: VkSamplerYcbcrConversionCreateInfo`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversionInfoKHR :: VkSamplerYcbcrConversionInfo`
+- [OS == .LINUX || OS == .MACOS] `VkBindImagePlaneMemoryInfoKHR :: VkBindImagePlaneMemoryInfo`
+- [OS == .LINUX || OS == .MACOS] `VkImagePlaneMemoryRequirementsInfoKHR :: VkImagePlaneMemoryRequirementsInfo`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR :: VkPhysicalDeviceSamplerYcbcrConversionFeatures`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerYcbcrConversionImageFormatPropertiesKHR :: VkSamplerYcbcrConversionImageFormatProperties`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateSamplerYcbcrConversionKHR :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroySamplerYcbcrConversionKHR :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkBindBufferMemoryInfoKHR :: VkBindBufferMemoryInfo`
+- [OS == .LINUX || OS == .MACOS] `VkBindImageMemoryInfoKHR :: VkBindImageMemoryInfo`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBindBufferMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBindImageMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMaintenance3PropertiesKHR :: VkPhysicalDeviceMaintenance3Properties`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayoutSupportKHR :: VkDescriptorSetLayoutSupport`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetDescriptorSetLayoutSupportKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawIndexedIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDevice8BitStorageFeaturesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceVulkanMemoryModelFeaturesKHR :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugReportCallbackEXT_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugReportCallbackEXT :: *VkDebugReportCallbackEXT_T`
+- [OS == .LINUX || OS == .MACOS] `VkDebugReportObjectTypeEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDebugReportFlagBitsEXT :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDebugReportFlagsEXT :: VkDebugReportFlagBitsEXT`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDebugReportCallbackEXT :: #type (flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8, pUserData: *void) -> VkBool32 #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkDebugReportCallbackCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDebugReportCallbackEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugReportCallbackCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pCallback: *VkDebugReportCallbackEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyDebugReportCallbackEXT :: #type (instance: VkInstance, callback: VkDebugReportCallbackEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDebugReportMessageEXT :: #type (instance: VkInstance, flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkRasterizationOrderAMD :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineRasterizationStateRasterizationOrderAMD :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugMarkerObjectNameInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugMarkerObjectTagInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugMarkerMarkerInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDebugMarkerSetObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugMarkerObjectTagInfoEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDebugMarkerSetObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugMarkerObjectNameInfoEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDebugMarkerBeginEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDebugMarkerEndEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDebugMarkerInsertEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkDedicatedAllocationImageCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDedicatedAllocationBufferCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDedicatedAllocationMemoryAllocateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawIndexedIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkTextureLODGatherFormatPropertiesAMD :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkShaderInfoTypeAMD :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkShaderResourceUsageAMD :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkShaderStatisticsInfoAMD :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetShaderInfoAMD :: #type (device: VkDevice, pipeline: VkPipeline, shaderStage: VkShaderStageFlagBits, infoType: VkShaderInfoTypeAMD, pInfoSize: *u64, pInfo: *void) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceCornerSampledImageFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryHandleTypeFlagBitsNV :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryHandleTypeFlagsNV :: VkExternalMemoryHandleTypeFlagBitsNV`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryFeatureFlagBitsNV :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryFeatureFlagsNV :: VkExternalMemoryFeatureFlagBitsNV`
+- [OS == .LINUX || OS == .MACOS] `VkExternalImageFormatPropertiesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, externalHandleType: VkExternalMemoryHandleTypeFlagsNV, pExternalImageFormatProperties: *VkExternalImageFormatPropertiesNV) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkExternalMemoryImageCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkExportMemoryAllocateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkValidationCheckEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkValidationFlagsEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImageViewASTCDecodeModeEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceASTCDecodeFeaturesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkConditionalRenderingFlagBitsEXT :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkConditionalRenderingFlagsEXT :: VkConditionalRenderingFlagBitsEXT`
+- [OS == .LINUX || OS == .MACOS] `VkConditionalRenderingBeginInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceConditionalRenderingFeaturesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCommandBufferInheritanceConditionalRenderingInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBeginConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer, pConditionalRenderingBegin: *VkConditionalRenderingBeginInfoEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdEndConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTableNVX_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTableNVX :: *VkObjectTableNVX_T`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsLayoutNVX_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsLayoutNVX :: *VkIndirectCommandsLayoutNVX_T`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsTokenTypeNVX :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkObjectEntryTypeNVX :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsLayoutUsageFlagBitsNVX :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsLayoutUsageFlagsNVX :: VkIndirectCommandsLayoutUsageFlagBitsNVX`
+- [OS == .LINUX || OS == .MACOS] `VkObjectEntryUsageFlagBitsNVX :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkObjectEntryUsageFlagsNVX :: VkObjectEntryUsageFlagBitsNVX`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGeneratedCommandsFeaturesNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceGeneratedCommandsLimitsNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsTokenNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsLayoutTokenNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkIndirectCommandsLayoutCreateInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCmdProcessCommandsInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCmdReserveSpaceForCommandsInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTableCreateInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTableEntryNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTablePipelineEntryNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTableDescriptorSetEntryNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTableVertexBufferEntryNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTableIndexBufferEntryNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkObjectTablePushConstantEntryNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdProcessCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pProcessCommandsInfo: *VkCmdProcessCommandsInfoNVX) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdReserveSpaceForCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pReserveSpaceInfo: *VkCmdReserveSpaceForCommandsInfoNVX) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateIndirectCommandsLayoutNVX :: #type (device: VkDevice, pCreateInfo: *VkIndirectCommandsLayoutCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pIndirectCommandsLayout: *VkIndirectCommandsLayoutNVX) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyIndirectCommandsLayoutNVX :: #type (device: VkDevice, indirectCommandsLayout: VkIndirectCommandsLayoutNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateObjectTableNVX :: #type (device: VkDevice, pCreateInfo: *VkObjectTableCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pObjectTable: *VkObjectTableNVX) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyObjectTableNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkRegisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, ppObjectTableEntries: **VkObjectTableEntryNVX, pObjectIndices: *u32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkUnregisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, pObjectEntryTypes: *VkObjectEntryTypeNVX, pObjectIndices: *u32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkDeviceGeneratedCommandsFeaturesNVX, pLimits: *VkDeviceGeneratedCommandsLimitsNVX) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkViewportWScalingNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportWScalingStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetViewportWScalingNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewportWScalings: *VkViewportWScalingNV) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkReleaseDisplayEXT :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceCounterFlagBitsEXT :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceCounterFlagsEXT :: VkSurfaceCounterFlagBitsEXT`
+- [OS == .LINUX || OS == .MACOS] `VkSurfaceCapabilities2EXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilities2EXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPowerStateEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceEventTypeEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayEventTypeEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayPowerInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceEventInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDisplayEventInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSwapchainCounterCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDisplayPowerControlEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayPowerInfo: *VkDisplayPowerInfoEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkRegisterDeviceEventEXT :: #type (device: VkDevice, pDeviceEventInfo: *VkDeviceEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkRegisterDisplayEventEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayEventInfo: *VkDisplayEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetSwapchainCounterEXT :: #type (device: VkDevice, swapchain: VkSwapchainKHR, counter: VkSurfaceCounterFlagBitsEXT, pCounterValue: *u64) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkRefreshCycleDurationGOOGLE :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPastPresentationTimingGOOGLE :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPresentTimeGOOGLE :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPresentTimesInfoGOOGLE :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetRefreshCycleDurationGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pDisplayTimingProperties: *VkRefreshCycleDurationGOOGLE) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPastPresentationTimingGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pPresentationTimingCount: *u32, pPresentationTimings: *VkPastPresentationTimingGOOGLE) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMultiviewPerViewAttributesPropertiesNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkViewportCoordinateSwizzleNV :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportSwizzleStateCreateFlagsNV :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkViewportSwizzleNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportSwizzleStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDiscardRectangleModeEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineDiscardRectangleStateCreateFlagsEXT :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceDiscardRectanglePropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineDiscardRectangleStateCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetDiscardRectangleEXT :: #type (commandBuffer: VkCommandBuffer, firstDiscardRectangle: u32, discardRectangleCount: u32, pDiscardRectangles: *VkRect2D) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkConservativeRasterizationModeEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineRasterizationConservativeStateCreateFlagsEXT :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceConservativeRasterizationPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineRasterizationConservativeStateCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkXYColorEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkHdrMetadataEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkSetHdrMetadataEXT :: #type (device: VkDevice, swapchainCount: u32, pSwapchains: *VkSwapchainKHR, pMetadata: *VkHdrMetadataEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessengerEXT_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessengerEXT :: *VkDebugUtilsMessengerEXT_T`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessengerCallbackDataFlagsEXT :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessengerCreateFlagsEXT :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessageSeverityFlagBitsEXT :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessageSeverityFlagsEXT :: VkDebugUtilsMessageSeverityFlagBitsEXT`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessageTypeFlagBitsEXT :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessageTypeFlagsEXT :: VkDebugUtilsMessageTypeFlagBitsEXT`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsObjectNameInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsObjectTagInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsLabelEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessengerCallbackDataEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDebugUtilsMessengerCallbackEXT :: #type (messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageType: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT, pUserData: *void) -> VkBool32 #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkDebugUtilsMessengerCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkSetDebugUtilsObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugUtilsObjectNameInfoEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkSetDebugUtilsObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugUtilsObjectTagInfoEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkQueueBeginDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkQueueEndDebugUtilsLabelEXT :: #type (queue: VkQueue) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkQueueInsertDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBeginDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdEndDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdInsertDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateDebugUtilsMessengerEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugUtilsMessengerCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pMessenger: *VkDebugUtilsMessengerEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyDebugUtilsMessengerEXT :: #type (instance: VkInstance, messenger: VkDebugUtilsMessengerEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkSubmitDebugUtilsMessageEXT :: #type (instance: VkInstance, messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageTypes: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerReductionModeEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkSamplerReductionModeCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceInlineUniformBlockFeaturesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceInlineUniformBlockPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkWriteDescriptorSetInlineUniformBlockEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorPoolInlineUniformBlockCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSampleLocationEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSampleLocationsInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAttachmentSampleLocationsEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkSubpassSampleLocationsEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkRenderPassSampleLocationsBeginInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineSampleLocationsStateCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceSampleLocationsPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMultisamplePropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetSampleLocationsEXT :: #type (commandBuffer: VkCommandBuffer, pSampleLocationsInfo: *VkSampleLocationsInfoEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetPhysicalDeviceMultisamplePropertiesEXT :: #type (physicalDevice: VkPhysicalDevice, samples: VkSampleCountFlagBits, pMultisampleProperties: *VkMultisamplePropertiesEXT) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkBlendOverlapEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceBlendOperationAdvancedPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineColorBlendAdvancedStateCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCoverageToColorStateCreateFlagsNV :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCoverageToColorStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCoverageModulationModeNV :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCoverageModulationStateCreateFlagsNV :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineCoverageModulationStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkValidationCacheEXT_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkValidationCacheEXT :: *VkValidationCacheEXT_T`
+- [OS == .LINUX || OS == .MACOS] `VkValidationCacheHeaderVersionEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkValidationCacheCreateFlagsEXT :: VkFlags`
+- [OS == .LINUX || OS == .MACOS] `VkValidationCacheCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkShaderModuleValidationCacheCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateValidationCacheEXT :: #type (device: VkDevice, pCreateInfo: *VkValidationCacheCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pValidationCache: *VkValidationCacheEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyValidationCacheEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkMergeValidationCachesEXT :: #type (device: VkDevice, dstCache: VkValidationCacheEXT, srcCacheCount: u32, pSrcCaches: *VkValidationCacheEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetValidationCacheDataEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pDataSize: *u64, pData: *void) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorBindingFlagBitsEXT :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorBindingFlagsEXT :: VkDescriptorBindingFlagBitsEXT`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetLayoutBindingFlagsCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceDescriptorIndexingFeaturesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceDescriptorIndexingPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetVariableDescriptorCountAllocateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorSetVariableDescriptorCountLayoutSupportEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkShadingRatePaletteEntryNV :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkCoarseSampleOrderTypeNV :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkShadingRatePaletteNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportShadingRateImageStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceShadingRateImageFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceShadingRateImagePropertiesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCoarseSampleLocationNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCoarseSampleOrderCustomNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportCoarseSampleOrderStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBindShadingRateImageNV :: #type (commandBuffer: VkCommandBuffer, imageView: VkImageView, imageLayout: VkImageLayout) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetViewportShadingRatePaletteNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pShadingRatePalettes: *VkShadingRatePaletteNV) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetCoarseSampleOrderNV :: #type (commandBuffer: VkCommandBuffer, sampleOrderType: VkCoarseSampleOrderTypeNV, customSampleOrderCount: u32, pCustomSampleOrders: *VkCoarseSampleOrderCustomNV) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkAccelerationStructureNVX_T :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAccelerationStructureNVX :: *VkAccelerationStructureNVX_T`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryTypeNVX :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkAccelerationStructureTypeNVX :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkCopyAccelerationStructureModeNVX :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryFlagBitsNVX :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryFlagsNVX :: VkGeometryFlagBitsNVX`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryInstanceFlagBitsNVX :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryInstanceFlagsNVX :: VkGeometryInstanceFlagBitsNVX`
+- [OS == .LINUX || OS == .MACOS] `VkBuildAccelerationStructureFlagBitsNVX :: enum_flags u32`
+- [OS == .LINUX || OS == .MACOS] `VkBuildAccelerationStructureFlagsNVX :: VkBuildAccelerationStructureFlagBitsNVX`
+- [OS == .LINUX || OS == .MACOS] `VkRaytracingPipelineCreateInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryTrianglesNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryAABBNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryDataNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkGeometryNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAccelerationStructureCreateInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkBindAccelerationStructureMemoryInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDescriptorAccelerationStructureInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkAccelerationStructureMemoryRequirementsInfoNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceRaytracingPropertiesNVX :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateAccelerationStructureNVX :: #type (device: VkDevice, pCreateInfo: *VkAccelerationStructureCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pAccelerationStructure: *VkAccelerationStructureNVX) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkDestroyAccelerationStructureNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetAccelerationStructureMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetAccelerationStructureScratchMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkBindAccelerationStructureMemoryNVX :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindAccelerationStructureMemoryInfoNVX) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdBuildAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, type: VkAccelerationStructureTypeNVX, instanceCount: u32, instanceData: VkBuffer, instanceOffset: VkDeviceSize, geometryCount: u32, pGeometries: *VkGeometryNVX, flags: VkBuildAccelerationStructureFlagsNVX, update: VkBool32, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, scratch: VkBuffer, scratchOffset: VkDeviceSize) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdCopyAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, mode: VkCopyAccelerationStructureModeNVX) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdTraceRaysNVX :: #type (cmdBuf: VkCommandBuffer, raygenShaderBindingTableBuffer: VkBuffer, raygenShaderBindingOffset: VkDeviceSize, missShaderBindingTableBuffer: VkBuffer, missShaderBindingOffset: VkDeviceSize, missShaderBindingStride: VkDeviceSize, hitShaderBindingTableBuffer: VkBuffer, hitShaderBindingOffset: VkDeviceSize, hitShaderBindingStride: VkDeviceSize, width: u32, height: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCreateRaytracingPipelinesNVX :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkRaytracingPipelineCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetRaytracingShaderHandlesNVX :: #type (device: VkDevice, pipeline: VkPipeline, firstGroup: u32, groupCount: u32, dataSize: u64, pData: *void) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetAccelerationStructureHandleNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, dataSize: u64, pData: *void) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdWriteAccelerationStructurePropertiesNVX :: #type (cmdBuf: VkCommandBuffer, accelerationStructure: VkAccelerationStructureNVX, queryType: VkQueryType, queryPool: VkQueryPool, query: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCompileDeferredNVX :: #type (device: VkDevice, pipeline: VkPipeline, shader: u32) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineRepresentativeFragmentTestStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkQueueGlobalPriorityEXT :: enum u32`
+- [OS == .LINUX || OS == .MACOS] `VkDeviceQueueGlobalPriorityCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkImportMemoryHostPointerInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkMemoryHostPointerPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExternalMemoryHostPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetMemoryHostPointerPropertiesEXT :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, pHostPointer: *void, pMemoryHostPointerProperties: *VkMemoryHostPointerPropertiesEXT) -> VkResult #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdWriteBufferMarkerAMD :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, marker: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceShaderCorePropertiesAMD :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkVertexInputBindingDivisorDescriptionEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineVertexInputDivisorStateCreateInfoEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceComputeShaderDerivativesFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMeshShaderFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceMeshShaderPropertiesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkDrawMeshTasksIndirectCommandNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawMeshTasksNV :: #type (commandBuffer: VkCommandBuffer, taskCount: u32, firstTask: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawMeshTasksIndirectNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdDrawMeshTasksIndirectCountNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceShaderImageFootprintFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPipelineViewportExclusiveScissorStateCreateInfoNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkPhysicalDeviceExclusiveScissorFeaturesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetExclusiveScissorNV :: #type (commandBuffer: VkCommandBuffer, firstExclusiveScissor: u32, exclusiveScissorCount: u32, pExclusiveScissors: *VkRect2D) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `VkQueueFamilyCheckpointPropertiesNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `VkCheckpointDataNV :: struct`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkCmdSetCheckpointNV :: #type (commandBuffer: VkCommandBuffer, pCheckpointMarker: *void) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `PFN_vkGetQueueCheckpointDataNV :: #type (queue: VkQueue, pCheckpointDataCount: *u32, pCheckpointData: *VkCheckpointDataNV) -> void #c_call`
+- [OS == .LINUX || OS == .MACOS] `vkEnumeratePhysicalDevices :: (instance: VkInstance) -> [] VkPhysicalDevice, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceQueueFamilyProperties :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateInstanceExtensionProperties :: (pLayerName: *u8) -> [] VkExtensionProperties, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateDeviceExtensionProperties :: (physicalDevice: VkPhysicalDevice, pLayerName: *u8) -> [] VkExtensionProperties, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateInstanceLayerProperties :: () -> [] VkLayerProperties, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkEnumerateDeviceLayerProperties :: (physicalDevice: VkPhysicalDevice) -> [] VkLayerProperties, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageSparseMemoryRequirements :: (device: VkDevice, image: VkImage) -> [] VkSparseImageMemoryRequirements`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSparseImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling) -> [] VkSparseImageFormatProperties`
+- [OS == .LINUX || OS == .MACOS] `vkEnumeratePhysicalDeviceGroups :: (instance: VkInstance) -> [] VkPhysicalDeviceGroupProperties, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageSparseMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2) -> [] VkSparseImageMemoryRequirements2`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceQueueFamilyProperties2 :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties2`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSparseImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2) -> [] VkSparseImageFormatProperties2`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSurfaceFormatsKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkSurfaceFormatKHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSurfacePresentModesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkPresentModeKHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetSwapchainImagesKHR :: (device: VkDevice, swapchain: VkSwapchainKHR) -> [] VkImage, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDevicePresentRectanglesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkRect2D, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayPropertiesKHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPropertiesKHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPlanePropertiesKHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayPlaneSupportedDisplaysKHR :: (physicalDevice: VkPhysicalDevice, planeIndex: u32) -> [] VkDisplayKHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayModePropertiesKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> [] VkDisplayModePropertiesKHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceQueueFamilyProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties2`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2) -> [] VkSparseImageFormatProperties2`
+- [OS == .LINUX || OS == .MACOS] `vkEnumeratePhysicalDeviceGroupsKHR :: (instance: VkInstance) -> [] VkPhysicalDeviceGroupProperties, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayProperties2KHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPlaneProperties2KHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetDisplayModeProperties2KHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> [] VkDisplayModeProperties2KHR, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetImageSparseMemoryRequirements2KHR :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2) -> [] VkSparseImageMemoryRequirements2`
+- [OS == .LINUX || OS == .MACOS] `vkGetPastPresentationTimingGOOGLE :: (device: VkDevice, swapchain: VkSwapchainKHR) -> [] VkPastPresentationTimingGOOGLE, VkResult`
+- [OS == .LINUX || OS == .MACOS] `vkGetQueueCheckpointDataNV :: (queue: VkQueue) -> [] VkCheckpointDataNV`
 
 
 ## Public aggregate shapes and enum values
@@ -4162,7 +4162,7 @@ VkClearValue :: struct {
     #overlay (color) depthStencil: VkClearDepthStencilValue;
 }
 ```
-Variant 2 (Linux):
+Variant 2 (Linux or macOS):
 
 ```jai
 VkClearValue :: struct {
@@ -12188,4 +12188,4 @@ VkXYColorEXT :: struct {
 ```
 ## Contracts and constraints
 
-This module is a large Vulkan C ABI binding surface, including core declarations and platform/extension structures selected by target. It does not validate Vulkan usage: callers must obey Vulkan handle lifetimes, synchronization, extension enablement, and pointer/count contracts. Structure layout, enum values, and calling convention must match the Vulkan headers/loader for the selected platform; platform-specific declarations (notably Win32) are only usable on matching targets. The page inventory is the public surface, not a semantic wrapper.
+This module is a large Vulkan C ABI binding surface, including core declarations and platform/extension structures selected by target. It does not validate Vulkan usage: callers must obey Vulkan handle lifetimes, synchronization, extension enablement, and pointer/count contracts. Structure layout, enum values, and calling convention must match the Vulkan headers/loader for the selected platform; platform-specific declarations (notably Win32) are only usable on matching targets. Targets are Windows, Linux and macOS; on macOS the loader is `libvulkan` from the Vulkan SDK or Homebrew, with MoltenVK as the driver. The page inventory is the public surface, not a semantic wrapper.

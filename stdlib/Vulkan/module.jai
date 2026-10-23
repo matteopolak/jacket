@@ -1,3 +1,3 @@
-#assert OS == .WINDOWS || OS == .LINUX, "Vulkan requires its documented native platform";
+#assert OS == .WINDOWS || OS == .LINUX || OS == .MACOS, "Vulkan requires its documented native platform";
 
 #load "declarations.jai";

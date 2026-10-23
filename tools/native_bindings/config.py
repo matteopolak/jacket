@@ -156,7 +156,7 @@ TARGETS = {
     'dxc_compiler': 'OS == .WINDOWS', 'dxgi': 'OS == .WINDOWS',
     'Linux': 'OS == .LINUX', 'X11': 'OS == .LINUX',
     'POSIX': 'OS == .LINUX || OS == .MACOS || OS == .ANDROID || OS == .IOS',
-    'Vulkan': 'OS == .WINDOWS || OS == .LINUX',
+    'Vulkan': 'OS == .WINDOWS || OS == .LINUX || OS == .MACOS',
     'macOS': 'OS == .MACOS', 'Metal': 'OS == .MACOS || OS == .IOS',
     'Objective_C': 'OS == .MACOS || OS == .IOS',
     'Objective_C/AppKit': 'OS == .MACOS',

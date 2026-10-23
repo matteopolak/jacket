@@ -46,7 +46,7 @@ def platform_condition(label):
         return "OS != .WINDOWS"
     atoms = {"Linux": "OS == .LINUX", "Windows": "OS == .WINDOWS",
              "macOS": "OS == .MACOS", "Android": "OS == .ANDROID",
-             "iOS": "OS == .IOS", "ARM64": "CPU == .ARM64", "x64": "CPU == .X64"}
+             "iOS": "OS == .IOS", "Linux or macOS": "OS == .LINUX || OS == .MACOS", "ARM64": "CPU == .ARM64", "x64": "CPU == .X64"}
     parts = label.split(", ")
     return " && ".join(atoms.get(p, p) for p in parts)
 

@@ -14,7 +14,7 @@ binding_abort :: () #foreign libc "abort";
     binding_vkEnumeratePhysicalDeviceGroupsKHR :: (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #foreign libvulkan "vkEnumeratePhysicalDeviceGroupsKHR";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     binding_vkEnumeratePhysicalDeviceGroupsKHR :: (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #foreign libvulkan "vkEnumeratePhysicalDeviceGroupsKHR";
 }
 
@@ -22,7 +22,7 @@ binding_abort :: () #foreign libc "abort";
     binding_vkGetImageSparseMemoryRequirements2KHR :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #foreign libvulkan "vkGetImageSparseMemoryRequirements2KHR";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     binding_vkGetImageSparseMemoryRequirements2KHR :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #foreign libvulkan "vkGetImageSparseMemoryRequirements2KHR";
 }
 
@@ -30,7 +30,7 @@ binding_abort :: () #foreign libc "abort";
     binding_vkGetPastPresentationTimingGOOGLE :: (device: VkDevice, swapchain: VkSwapchainKHR, pPresentationTimingCount: *u32, pPresentationTimings: *VkPastPresentationTimingGOOGLE) -> VkResult #foreign libvulkan "vkGetPastPresentationTimingGOOGLE";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     binding_vkGetPastPresentationTimingGOOGLE :: (device: VkDevice, swapchain: VkSwapchainKHR, pPresentationTimingCount: *u32, pPresentationTimings: *VkPastPresentationTimingGOOGLE) -> VkResult #foreign libvulkan "vkGetPastPresentationTimingGOOGLE";
 }
 
@@ -38,7 +38,7 @@ binding_abort :: () #foreign libc "abort";
     binding_vkGetPhysicalDeviceQueueFamilyProperties2KHR :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #foreign libvulkan "vkGetPhysicalDeviceQueueFamilyProperties2KHR";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     binding_vkGetPhysicalDeviceQueueFamilyProperties2KHR :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #foreign libvulkan "vkGetPhysicalDeviceQueueFamilyProperties2KHR";
 }
 
@@ -46,7 +46,7 @@ binding_abort :: () #foreign libc "abort";
     binding_vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #foreign libvulkan "vkGetPhysicalDeviceSparseImageFormatProperties2KHR";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     binding_vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #foreign libvulkan "vkGetPhysicalDeviceSparseImageFormatProperties2KHR";
 }
 
@@ -54,7 +54,7 @@ binding_abort :: () #foreign libc "abort";
     binding_vkGetQueueCheckpointDataNV :: (queue: VkQueue, pCheckpointDataCount: *u32, pCheckpointData: *VkCheckpointDataNV) -> void #foreign libvulkan "vkGetQueueCheckpointDataNV";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     binding_vkGetQueueCheckpointDataNV :: (queue: VkQueue, pCheckpointDataCount: *u32, pCheckpointData: *VkCheckpointDataNV) -> void #foreign libvulkan "vkGetQueueCheckpointDataNV";
 }
 
@@ -82,7 +82,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAccelerationStructureCreateInfoNVX :: struct {
         sType: VkStructureType = .ACCELERATION_STRUCTURE_CREATE_INFO_NVX;
         pNext: *void;
@@ -105,7 +105,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAccelerationStructureMemoryRequirementsInfoNVX :: struct {
         sType: VkStructureType = .ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NVX;
         pNext: *void;
@@ -119,7 +119,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAccelerationStructureNVX_T :: struct {}
 
 }
@@ -143,7 +143,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAccelerationStructureTypeNVX :: enum u32 {
         TOP_LEVEL_NVX :: 0;
         BOTTOM_LEVEL_NVX :: 1;
@@ -219,7 +219,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAccessFlagBits :: enum_flags u32 {
         INDIRECT_COMMAND_READ_BIT :: 0x1;
         INDEX_READ_BIT :: 0x2;
@@ -289,7 +289,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAcquireNextImageInfoKHR :: struct {
         sType: VkStructureType = .ACQUIRE_NEXT_IMAGE_INFO_KHR;
         pNext: *void;
@@ -314,7 +314,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAllocationCallbacks :: struct {
         pUserData: *void;
         pfnAllocation: PFN_vkAllocationFunction;
@@ -339,7 +339,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkApplicationInfo :: struct {
         sType: VkStructureType = .APPLICATION_INFO;
         pNext: *void;
@@ -367,7 +367,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentDescription :: struct {
         flags: VkAttachmentDescriptionFlags;
         format: VkFormat;
@@ -399,7 +399,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentDescription2KHR :: struct {
         sType: VkStructureType = .ATTACHMENT_DESCRIPTION_2_KHR;
         pNext: *void;
@@ -427,7 +427,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentDescriptionFlagBits :: enum_flags u32 {
         MAY_ALIAS_BIT :: 0x1;
         FLAG_BITS_MAX_ENUM :: 0x7fffffff;
@@ -459,7 +459,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentLoadOp :: enum u32 {
         LOAD :: 0;
         CLEAR :: 1;
@@ -488,7 +488,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentReference :: struct {
         attachment: u32;
         layout: VkImageLayout;
@@ -507,7 +507,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentReference2KHR :: struct {
         sType: VkStructureType = .ATTACHMENT_REFERENCE_2_KHR;
         pNext: *void;
@@ -526,7 +526,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentSampleLocationsEXT :: struct {
         attachmentIndex: u32;
         sampleLocationsInfo: VkSampleLocationsInfoEXT;
@@ -553,7 +553,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentStoreOp :: enum u32 {
         STORE :: 0;
         DONT_CARE :: 1;
@@ -580,7 +580,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBaseInStructure :: struct {
         sType: VkStructureType;
         pNext: *VkBaseInStructure;
@@ -596,7 +596,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBaseOutStructure :: struct {
         sType: VkStructureType;
         pNext: *VkBaseOutStructure;
@@ -617,7 +617,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindAccelerationStructureMemoryInfoNVX :: struct {
         sType: VkStructureType = .BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NVX;
         pNext: *void;
@@ -640,7 +640,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindBufferMemoryDeviceGroupInfo :: struct {
         sType: VkStructureType = .BIND_BUFFER_MEMORY_DEVICE_GROUP_INFO;
         pNext: *void;
@@ -661,7 +661,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindBufferMemoryInfo :: struct {
         sType: VkStructureType = .BIND_BUFFER_MEMORY_INFO;
         pNext: *void;
@@ -684,7 +684,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindImageMemoryDeviceGroupInfo :: struct {
         sType: VkStructureType = .BIND_IMAGE_MEMORY_DEVICE_GROUP_INFO;
         pNext: *void;
@@ -707,7 +707,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindImageMemoryInfo :: struct {
         sType: VkStructureType = .BIND_IMAGE_MEMORY_INFO;
         pNext: *void;
@@ -728,7 +728,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindImageMemorySwapchainInfoKHR :: struct {
         sType: VkStructureType = .BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHR;
         pNext: *void;
@@ -747,7 +747,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindImagePlaneMemoryInfo :: struct {
         sType: VkStructureType = .BIND_IMAGE_PLANE_MEMORY_INFO;
         pNext: *void;
@@ -774,7 +774,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindSparseInfo :: struct {
         sType: VkStructureType = .BIND_SPARSE_INFO;
         pNext: *void;
@@ -845,7 +845,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBlendFactor :: enum u32 {
         ZERO :: 0;
         ONE :: 1;
@@ -1015,7 +1015,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBlendOp :: enum u32 {
         ADD :: 0;
         SUBTRACT :: 1;
@@ -1153,7 +1153,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBlendOverlapEXT :: enum u32 {
         UNCORRELATED_EXT :: 0;
         DISJOINT_EXT :: 1;
@@ -1201,7 +1201,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBorderColor :: enum u32 {
         FLOAT_TRANSPARENT_BLACK :: 0;
         INT_TRANSPARENT_BLACK :: 1;
@@ -1233,7 +1233,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBuffer_T :: struct {}
 
 }
@@ -1247,7 +1247,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferCopy :: struct {
         srcOffset: VkDeviceSize;
         dstOffset: VkDeviceSize;
@@ -1273,7 +1273,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferCreateFlagBits :: enum_flags u32 {
         SPARSE_BINDING_BIT :: 0x1;
         SPARSE_RESIDENCY_BIT :: 0x2;
@@ -1304,7 +1304,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferCreateInfo :: struct {
         sType: VkStructureType = .BUFFER_CREATE_INFO;
         pNext: *void;
@@ -1330,7 +1330,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferImageCopy :: struct {
         bufferOffset: VkDeviceSize;
         bufferRowLength: u32;
@@ -1357,7 +1357,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferMemoryBarrier :: struct {
         sType: VkStructureType = .BUFFER_MEMORY_BARRIER;
         pNext: *void;
@@ -1381,7 +1381,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferMemoryRequirementsInfo2 :: struct {
         sType: VkStructureType = .BUFFER_MEMORY_REQUIREMENTS_INFO_2;
         pNext: *void;
@@ -1421,7 +1421,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferUsageFlagBits :: enum_flags u32 {
         TRANSFER_SRC_BIT :: 0x1;
         TRANSFER_DST_BIT :: 0x2;
@@ -1457,7 +1457,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferView_T :: struct {}
 
 }
@@ -1475,7 +1475,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferViewCreateInfo :: struct {
         sType: VkStructureType = .BUFFER_VIEW_CREATE_INFO;
         pNext: *void;
@@ -1507,7 +1507,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBuildAccelerationStructureFlagBitsNVX :: enum_flags u32 {
         ALLOW_UPDATE_BIT_NVX :: 0x1;
         ALLOW_COMPACTION_BIT_NVX :: 0x2;
@@ -1536,7 +1536,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCheckpointDataNV :: struct {
         sType: VkStructureType = .CHECKPOINT_DATA_NV;
         pNext: *void;
@@ -1569,7 +1569,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkChromaLocation :: enum u32 {
         COSITED_EVEN :: 0;
         MIDPOINT :: 1;
@@ -1601,7 +1601,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkClearAttachment :: struct {
         aspectMask: VkImageAspectFlags;
         colorAttachment: u32;
@@ -1620,7 +1620,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkClearColorValue :: struct {
         _float32: [4] float;
 
@@ -1638,7 +1638,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkClearDepthStencilValue :: struct {
         depth: float;
         stencil: u32;
@@ -1655,7 +1655,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkClearRect :: struct {
         rect: VkRect2D;
         baseArrayLayer: u32;
@@ -1673,7 +1673,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkClearValue :: struct {
         color: VkClearColorValue;
 
@@ -1700,7 +1700,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCmdProcessCommandsInfoNVX :: struct {
         sType: VkStructureType = .CMD_PROCESS_COMMANDS_INFO_NVX;
         pNext: *void;
@@ -1729,7 +1729,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCmdReserveSpaceForCommandsInfoNVX :: struct {
         sType: VkStructureType = .CMD_RESERVE_SPACE_FOR_COMMANDS_INFO_NVX;
         pNext: *void;
@@ -1749,7 +1749,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCoarseSampleLocationNV :: struct {
         pixelX: u32;
         pixelY: u32;
@@ -1768,7 +1768,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCoarseSampleOrderCustomNV :: struct {
         shadingRate: VkShadingRatePaletteEntryNV;
         sampleCount: u32;
@@ -1801,7 +1801,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCoarseSampleOrderTypeNV :: enum u32 {
         DEFAULT_NV :: 0;
         CUSTOM_NV :: 1;
@@ -1841,7 +1841,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkColorComponentFlagBits :: enum_flags u32 {
         R_BIT :: 0x1;
         G_BIT :: 0x2;
@@ -1905,7 +1905,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkColorSpaceKHR :: enum u32 {
         COLOR_SPACE_SRGB_NONLINEAR_KHR :: 0;
         COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT :: 1000104001;
@@ -1957,7 +1957,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBuffer_T :: struct {}
 
 }
@@ -1973,7 +1973,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferAllocateInfo :: struct {
         sType: VkStructureType = .COMMAND_BUFFER_ALLOCATE_INFO;
         pNext: *void;
@@ -1994,7 +1994,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferBeginInfo :: struct {
         sType: VkStructureType = .COMMAND_BUFFER_BEGIN_INFO;
         pNext: *void;
@@ -2013,7 +2013,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferInheritanceConditionalRenderingInfoEXT :: struct {
         sType: VkStructureType = .COMMAND_BUFFER_INHERITANCE_CONDITIONAL_RENDERING_INFO_EXT;
         pNext: *void;
@@ -2036,7 +2036,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferInheritanceInfo :: struct {
         sType: VkStructureType = .COMMAND_BUFFER_INHERITANCE_INFO;
         pNext: *void;
@@ -2069,7 +2069,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferLevel :: enum u32 {
         PRIMARY :: 0;
         SECONDARY :: 1;
@@ -2099,7 +2099,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferResetFlagBits :: enum_flags u32 {
         RELEASE_RESOURCES_BIT :: 0x1;
         FLAG_BITS_MAX_ENUM :: 0x7fffffff;
@@ -2125,7 +2125,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferUsageFlagBits :: enum_flags u32 {
         ONE_TIME_SUBMIT_BIT :: 0x1;
         RENDER_PASS_CONTINUE_BIT :: 0x2;
@@ -2145,7 +2145,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPool_T :: struct {}
 
 }
@@ -2165,7 +2165,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPoolCreateFlagBits :: enum_flags u32 {
         TRANSIENT_BIT :: 0x1;
         RESET_COMMAND_BUFFER_BIT :: 0x2;
@@ -2190,7 +2190,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPoolCreateInfo :: struct {
         sType: VkStructureType = .COMMAND_POOL_CREATE_INFO;
         pNext: *void;
@@ -2211,7 +2211,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPoolResetFlagBits :: enum_flags u32 {
         RELEASE_RESOURCES_BIT :: 0x1;
         FLAG_BITS_MAX_ENUM :: 0x7fffffff;
@@ -2253,7 +2253,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCompareOp :: enum u32 {
         NEVER :: 0;
         LESS :: 1;
@@ -2294,7 +2294,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkComponentMapping :: struct {
         r: VkComponentSwizzle;
         g: VkComponentSwizzle;
@@ -2333,7 +2333,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkComponentSwizzle :: enum u32 {
         IDENTITY :: 0;
         ZERO :: 1;
@@ -2379,7 +2379,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCompositeAlphaFlagBitsKHR :: enum_flags u32 {
         OPAQUE_BIT_KHR :: 0x1;
         PRE_MULTIPLIED_BIT_KHR :: 0x2;
@@ -2409,7 +2409,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkComputePipelineCreateInfo :: struct {
         sType: VkStructureType = .COMPUTE_PIPELINE_CREATE_INFO;
         pNext: *void;
@@ -2433,7 +2433,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkConditionalRenderingBeginInfoEXT :: struct {
         sType: VkStructureType = .CONDITIONAL_RENDERING_BEGIN_INFO_EXT;
         pNext: *void;
@@ -2455,7 +2455,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkConditionalRenderingFlagBitsEXT :: enum_flags u32 {
         INVERTED_BIT_EXT :: 0x1;
         FLAG_BITS_MAX_ENUM_EXT :: 0x7fffffff;
@@ -2487,7 +2487,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkConservativeRasterizationModeEXT :: enum u32 {
         DISABLED_EXT :: 0;
         OVERESTIMATE_EXT :: 1;
@@ -2527,7 +2527,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCopyAccelerationStructureModeNVX :: enum u32 {
         CLONE_NVX :: 0;
         COMPACT_NVX :: 1;
@@ -2561,7 +2561,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCopyDescriptorSet :: struct {
         sType: VkStructureType = .COPY_DESCRIPTOR_SET;
         pNext: *void;
@@ -2599,7 +2599,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCoverageModulationModeNV :: enum u32 {
         NONE_NV :: 0;
         RGB_NV :: 1;
@@ -2639,7 +2639,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCullModeFlagBits :: enum_flags u32 {
         NONE :: 0x0;
         FRONT_BIT :: 0x1;
@@ -2678,7 +2678,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugMarkerMarkerInfoEXT :: struct {
         sType: VkStructureType = .DEBUG_MARKER_MARKER_INFO_EXT;
         pNext: *void;
@@ -2699,7 +2699,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugMarkerObjectNameInfoEXT :: struct {
         sType: VkStructureType = .DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
         pNext: *void;
@@ -2723,7 +2723,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugMarkerObjectTagInfoEXT :: struct {
         sType: VkStructureType = .DEBUG_MARKER_OBJECT_TAG_INFO_EXT;
         pNext: *void;
@@ -2747,7 +2747,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugReportCallbackCreateInfoEXT :: struct {
         sType: VkStructureType = .DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
         pNext: *void;
@@ -2763,7 +2763,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugReportCallbackEXT_T :: struct {}
 
 }
@@ -2787,7 +2787,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugReportFlagBitsEXT :: enum_flags u32 {
         INFORMATION_BIT_EXT :: 0x1;
         WARNING_BIT_EXT :: 0x2;
@@ -2903,7 +2903,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugReportObjectTypeEXT :: enum u32 {
         UNKNOWN_EXT :: 0;
         INSTANCE_EXT :: 1;
@@ -3010,7 +3010,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsLabelEXT :: struct {
         sType: VkStructureType = .DEBUG_UTILS_LABEL_EXT;
         pNext: *void;
@@ -3037,7 +3037,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessageSeverityFlagBitsEXT :: enum_flags u32 {
         VERBOSE_BIT_EXT :: 0x1;
         INFO_BIT_EXT :: 0x10;
@@ -3069,7 +3069,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessageTypeFlagBitsEXT :: enum_flags u32 {
         GENERAL_BIT_EXT :: 0x1;
         VALIDATION_BIT_EXT :: 0x2;
@@ -3102,7 +3102,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessengerCallbackDataEXT :: struct {
         sType: VkStructureType = .DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT;
         pNext: *void;
@@ -3133,7 +3133,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessengerCreateInfoEXT :: struct {
         sType: VkStructureType = .DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         pNext: *void;
@@ -3151,7 +3151,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessengerEXT_T :: struct {}
 
 }
@@ -3167,7 +3167,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsObjectNameInfoEXT :: struct {
         sType: VkStructureType = .DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
         pNext: *void;
@@ -3191,7 +3191,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsObjectTagInfoEXT :: struct {
         sType: VkStructureType = .DEBUG_UTILS_OBJECT_TAG_INFO_EXT;
         pNext: *void;
@@ -3213,7 +3213,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDedicatedAllocationBufferCreateInfoNV :: struct {
         sType: VkStructureType = .DEDICATED_ALLOCATION_BUFFER_CREATE_INFO_NV;
         pNext: *void;
@@ -3231,7 +3231,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDedicatedAllocationImageCreateInfoNV :: struct {
         sType: VkStructureType = .DEDICATED_ALLOCATION_IMAGE_CREATE_INFO_NV;
         pNext: *void;
@@ -3250,7 +3250,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDedicatedAllocationMemoryAllocateInfoNV :: struct {
         sType: VkStructureType = .DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV;
         pNext: *void;
@@ -3279,7 +3279,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDependencyFlagBits :: enum_flags u32 {
         BY_REGION_BIT :: 0x1;
         DEVICE_GROUP_BIT :: 0x4;
@@ -3308,7 +3308,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorAccelerationStructureInfoNVX :: struct {
         sType: VkStructureType = .DESCRIPTOR_ACCELERATION_STRUCTURE_INFO_NVX;
         pNext: *void;
@@ -3335,7 +3335,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorBindingFlagBitsEXT :: enum_flags u32 {
         UPDATE_AFTER_BIND_BIT_EXT :: 0x1;
         UPDATE_UNUSED_WHILE_PENDING_BIT_EXT :: 0x2;
@@ -3361,7 +3361,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorBufferInfo :: struct {
         buffer: VkBuffer;
         offset: VkDeviceSize;
@@ -3379,7 +3379,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorImageInfo :: struct {
         sampler: VkSampler;
         imageView: VkImageView;
@@ -3393,7 +3393,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPool_T :: struct {}
 
 }
@@ -3411,7 +3411,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPoolCreateFlagBits :: enum_flags u32 {
         FREE_DESCRIPTOR_SET_BIT :: 0x1;
         UPDATE_AFTER_BIND_BIT_EXT :: 0x2;
@@ -3436,7 +3436,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPoolCreateInfo :: struct {
         sType: VkStructureType = .DESCRIPTOR_POOL_CREATE_INFO;
         pNext: *void;
@@ -3457,7 +3457,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPoolInlineUniformBlockCreateInfoEXT :: struct {
         sType: VkStructureType = .DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO_EXT;
         pNext: *void;
@@ -3474,7 +3474,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPoolSize :: struct {
         type: VkDescriptorType;
         descriptorCount: u32;
@@ -3487,7 +3487,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSet_T :: struct {}
 
 }
@@ -3503,7 +3503,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetAllocateInfo :: struct {
         sType: VkStructureType = .DESCRIPTOR_SET_ALLOCATE_INFO;
         pNext: *void;
@@ -3519,7 +3519,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayout_T :: struct {}
 
 }
@@ -3535,7 +3535,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayoutBinding :: struct {
         binding: u32;
         descriptorType: VkDescriptorType;
@@ -3556,7 +3556,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT :: struct {
         sType: VkStructureType = .DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
         pNext: *void;
@@ -3579,7 +3579,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayoutCreateFlagBits :: enum_flags u32 {
         PUSH_DESCRIPTOR_BIT_KHR :: 0x1;
         UPDATE_AFTER_BIND_POOL_BIT_EXT :: 0x2;
@@ -3603,7 +3603,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayoutCreateInfo :: struct {
         sType: VkStructureType = .DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         pNext: *void;
@@ -3623,7 +3623,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayoutSupport :: struct {
         sType: VkStructureType = .DESCRIPTOR_SET_LAYOUT_SUPPORT;
         pNext: *void;
@@ -3642,7 +3642,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetVariableDescriptorCountAllocateInfoEXT :: struct {
         sType: VkStructureType = .DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
         pNext: *void;
@@ -3661,7 +3661,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetVariableDescriptorCountLayoutSupportEXT :: struct {
         sType: VkStructureType = .DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_LAYOUT_SUPPORT_EXT;
         pNext: *void;
@@ -3711,7 +3711,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorType :: enum u32 {
         SAMPLER :: 0;
         COMBINED_IMAGE_SAMPLER :: 1;
@@ -3757,7 +3757,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplate_T :: struct {}
 
 }
@@ -3778,7 +3778,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateCreateInfo :: struct {
         sType: VkStructureType = .DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO;
         pNext: *void;
@@ -3806,7 +3806,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateEntry :: struct {
         dstBinding: u32;
         dstArrayElement: u32;
@@ -3839,7 +3839,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateType :: enum u32 {
         DESCRIPTOR_SET :: 0;
         PUSH_DESCRIPTORS_KHR :: 1;
@@ -3865,7 +3865,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDevice_T :: struct {}
 
 }
@@ -3886,7 +3886,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceCreateInfo :: struct {
         sType: VkStructureType = .DEVICE_CREATE_INFO;
         pNext: *void;
@@ -3911,7 +3911,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceEventInfoEXT :: struct {
         sType: VkStructureType = .DEVICE_EVENT_INFO_EXT;
         pNext: *void;
@@ -3937,7 +3937,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceEventTypeEXT :: enum u32 {
         DISPLAY_HOTPLUG_EXT :: 0;
         BEGIN_RANGE_EXT :: 0;
@@ -3963,7 +3963,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGeneratedCommandsFeaturesNVX :: struct {
         sType: VkStructureType = .DEVICE_GENERATED_COMMANDS_FEATURES_NVX;
         pNext: *void;
@@ -3985,7 +3985,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGeneratedCommandsLimitsNVX :: struct {
         sType: VkStructureType = .DEVICE_GENERATED_COMMANDS_LIMITS_NVX;
         pNext: *void;
@@ -4008,7 +4008,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupBindSparseInfo :: struct {
         sType: VkStructureType = .DEVICE_GROUP_BIND_SPARSE_INFO;
         pNext: *void;
@@ -4027,7 +4027,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupCommandBufferBeginInfo :: struct {
         sType: VkStructureType = .DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO;
         pNext: *void;
@@ -4046,7 +4046,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupDeviceCreateInfo :: struct {
         sType: VkStructureType = .DEVICE_GROUP_DEVICE_CREATE_INFO;
         pNext: *void;
@@ -4066,7 +4066,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupPresentCapabilitiesKHR :: struct {
         sType: VkStructureType = .DEVICE_GROUP_PRESENT_CAPABILITIES_KHR;
         pNext: *void;
@@ -4087,7 +4087,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupPresentInfoKHR :: struct {
         sType: VkStructureType = .DEVICE_GROUP_PRESENT_INFO_KHR;
         pNext: *void;
@@ -4115,7 +4115,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupPresentModeFlagBitsKHR :: enum_flags u32 {
         LOCAL_BIT_KHR :: 0x1;
         REMOTE_BIT_KHR :: 0x2;
@@ -4143,7 +4143,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupRenderPassBeginInfo :: struct {
         sType: VkStructureType = .DEVICE_GROUP_RENDER_PASS_BEGIN_INFO;
         pNext: *void;
@@ -4168,7 +4168,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupSubmitInfo :: struct {
         sType: VkStructureType = .DEVICE_GROUP_SUBMIT_INFO;
         pNext: *void;
@@ -4191,7 +4191,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupSwapchainCreateInfoKHR :: struct {
         sType: VkStructureType = .DEVICE_GROUP_SWAPCHAIN_CREATE_INFO_KHR;
         pNext: *void;
@@ -4205,7 +4205,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceMemory_T :: struct {}
 
 }
@@ -4221,7 +4221,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceQueueCreateFlagBits :: enum_flags u32 {
         PROTECTED_BIT :: 0x1;
         FLAG_BITS_MAX_ENUM :: 0x7fffffff;
@@ -4244,7 +4244,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceQueueCreateInfo :: struct {
         sType: VkStructureType = .DEVICE_QUEUE_CREATE_INFO;
         pNext: *void;
@@ -4265,7 +4265,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceQueueGlobalPriorityCreateInfoEXT :: struct {
         sType: VkStructureType = .DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO_EXT;
         pNext: *void;
@@ -4285,7 +4285,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceQueueInfo2 :: struct {
         sType: VkStructureType = .DEVICE_QUEUE_INFO_2;
         pNext: *void;
@@ -4315,7 +4315,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDiscardRectangleModeEXT :: enum u32 {
         INCLUSIVE_EXT :: 0;
         EXCLUSIVE_EXT :: 1;
@@ -4343,7 +4343,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDispatchIndirectCommand :: struct {
         x: u32;
         y: u32;
@@ -4361,7 +4361,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayEventInfoEXT :: struct {
         sType: VkStructureType = .DISPLAY_EVENT_INFO_EXT;
         pNext: *void;
@@ -4387,7 +4387,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayEventTypeEXT :: enum u32 {
         FIRST_PIXEL_OUT_EXT :: 0;
         BEGIN_RANGE_EXT :: 0;
@@ -4409,7 +4409,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayKHR_T :: struct {}
 
 }
@@ -4424,7 +4424,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayModeCreateInfoKHR :: struct {
         sType: VkStructureType = .DISPLAY_MODE_CREATE_INFO_KHR;
         pNext: *void;
@@ -4439,7 +4439,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayModeKHR_T :: struct {}
 
 }
@@ -4452,7 +4452,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayModeParametersKHR :: struct {
         visibleRegion: VkExtent2D;
         refreshRate: u32;
@@ -4469,7 +4469,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayModeProperties2KHR :: struct {
         sType: VkStructureType = .DISPLAY_MODE_PROPERTIES_2_KHR;
         pNext: *void;
@@ -4486,7 +4486,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayModePropertiesKHR :: struct {
         displayMode: VkDisplayModeKHR;
         parameters: VkDisplayModeParametersKHR;
@@ -4511,7 +4511,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPlaneAlphaFlagBitsKHR :: enum_flags u32 {
         OPAQUE_BIT_KHR :: 0x1;
         GLOBAL_BIT_KHR :: 0x2;
@@ -4537,7 +4537,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPlaneCapabilities2KHR :: struct {
         sType: VkStructureType = .DISPLAY_PLANE_CAPABILITIES_2_KHR;
         pNext: *void;
@@ -4561,7 +4561,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPlaneCapabilitiesKHR :: struct {
         supportedAlpha: VkDisplayPlaneAlphaFlagsKHR;
         minSrcPosition: VkOffset2D;
@@ -4586,7 +4586,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPlaneInfo2KHR :: struct {
         sType: VkStructureType = .DISPLAY_PLANE_INFO_2_KHR;
         pNext: *void;
@@ -4605,7 +4605,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPlaneProperties2KHR :: struct {
         sType: VkStructureType = .DISPLAY_PLANE_PROPERTIES_2_KHR;
         pNext: *void;
@@ -4622,7 +4622,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPlanePropertiesKHR :: struct {
         currentDisplay: VkDisplayKHR;
         currentStackIndex: u32;
@@ -4639,7 +4639,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPowerInfoEXT :: struct {
         sType: VkStructureType = .DISPLAY_POWER_INFO_EXT;
         pNext: *void;
@@ -4669,7 +4669,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPowerStateEXT :: enum u32 {
         OFF_EXT :: 0;
         SUSPEND_EXT :: 1;
@@ -4701,7 +4701,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPresentInfoKHR :: struct {
         sType: VkStructureType = .DISPLAY_PRESENT_INFO_KHR;
         pNext: *void;
@@ -4721,7 +4721,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayProperties2KHR :: struct {
         sType: VkStructureType = .DISPLAY_PROPERTIES_2_KHR;
         pNext: *void;
@@ -4743,7 +4743,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPropertiesKHR :: struct {
         display: VkDisplayKHR;
         displayName: *u8;
@@ -4772,7 +4772,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplaySurfaceCreateInfoKHR :: struct {
         sType: VkStructureType = .DISPLAY_SURFACE_CREATE_INFO_KHR;
         pNext: *void;
@@ -4799,7 +4799,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDrawIndexedIndirectCommand :: struct {
         indexCount: u32;
         instanceCount: u32;
@@ -4820,7 +4820,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDrawIndirectCommand :: struct {
         vertexCount: u32;
         instanceCount: u32;
@@ -4838,7 +4838,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDrawMeshTasksIndirectCommandNV :: struct {
         taskCount: u32;
         firstTask: u32;
@@ -4891,7 +4891,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDynamicState :: enum u32 {
         VIEWPORT :: 0;
         SCISSOR :: 1;
@@ -4941,7 +4941,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkEvent_T :: struct {}
 
 }
@@ -4955,7 +4955,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkEventCreateInfo :: struct {
         sType: VkStructureType = .EVENT_CREATE_INFO;
         pNext: *void;
@@ -4973,7 +4973,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExportFenceCreateInfo :: struct {
         sType: VkStructureType = .EXPORT_FENCE_CREATE_INFO;
         pNext: *void;
@@ -5002,7 +5002,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExportMemoryAllocateInfo :: struct {
         sType: VkStructureType = .EXPORT_MEMORY_ALLOCATE_INFO;
         pNext: *void;
@@ -5020,7 +5020,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExportMemoryAllocateInfoNV :: struct {
         sType: VkStructureType = .EXPORT_MEMORY_ALLOCATE_INFO_NV;
         pNext: *void;
@@ -5059,7 +5059,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExportSemaphoreCreateInfo :: struct {
         sType: VkStructureType = .EXPORT_SEMAPHORE_CREATE_INFO;
         pNext: *void;
@@ -5087,7 +5087,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExtensionProperties :: struct {
         extensionName: [256] u8;
         specVersion: u32;
@@ -5103,7 +5103,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExtent2D :: struct {
         width: u32;
         height: u32;
@@ -5120,7 +5120,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExtent3D :: struct {
         width: u32;
         height: u32;
@@ -5138,7 +5138,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalBufferProperties :: struct {
         sType: VkStructureType = .EXTERNAL_BUFFER_PROPERTIES;
         pNext: *void;
@@ -5164,7 +5164,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceFeatureFlagBits :: enum_flags u32 {
         EXPORTABLE_BIT :: 0x1;
         IMPORTABLE_BIT :: 0x2;
@@ -5206,7 +5206,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceHandleTypeFlagBits :: enum_flags u32 {
         OPAQUE_FD_BIT :: 0x1;
         OPAQUE_WIN32_BIT :: 0x2;
@@ -5242,7 +5242,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceProperties :: struct {
         sType: VkStructureType = .EXTERNAL_FENCE_PROPERTIES;
         pNext: *void;
@@ -5262,7 +5262,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalImageFormatProperties :: struct {
         sType: VkStructureType = .EXTERNAL_IMAGE_FORMAT_PROPERTIES;
         pNext: *void;
@@ -5281,7 +5281,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalImageFormatPropertiesNV :: struct {
         imageFormatProperties: VkImageFormatProperties;
         externalMemoryFeatures: VkExternalMemoryFeatureFlagsNV;
@@ -5300,7 +5300,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryBufferCreateInfo :: struct {
         sType: VkStructureType = .EXTERNAL_MEMORY_BUFFER_CREATE_INFO;
         pNext: *void;
@@ -5330,7 +5330,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryFeatureFlagBits :: enum_flags u32 {
         DEDICATED_ONLY_BIT :: 0x1;
         EXPORTABLE_BIT :: 0x2;
@@ -5366,7 +5366,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryFeatureFlagBitsNV :: enum_flags u32 {
         DEDICATED_ONLY_BIT_NV :: 0x1;
         EXPORTABLE_BIT_NV :: 0x2;
@@ -5426,7 +5426,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryHandleTypeFlagBits :: enum_flags u32 {
         OPAQUE_FD_BIT :: 0x1;
         OPAQUE_WIN32_BIT :: 0x2;
@@ -5488,7 +5488,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryHandleTypeFlagBitsNV :: enum_flags u32 {
         OPAQUE_WIN32_BIT_NV :: 0x1;
         OPAQUE_WIN32_KMT_BIT_NV :: 0x2;
@@ -5514,7 +5514,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryImageCreateInfo :: struct {
         sType: VkStructureType = .EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
         pNext: *void;
@@ -5532,7 +5532,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryImageCreateInfoNV :: struct {
         sType: VkStructureType = .EXTERNAL_MEMORY_IMAGE_CREATE_INFO_NV;
         pNext: *void;
@@ -5550,7 +5550,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryProperties :: struct {
         externalMemoryFeatures: VkExternalMemoryFeatureFlags;
         exportFromImportedHandleTypes: VkExternalMemoryHandleTypeFlags;
@@ -5576,7 +5576,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreFeatureFlagBits :: enum_flags u32 {
         EXPORTABLE_BIT :: 0x1;
         IMPORTABLE_BIT :: 0x2;
@@ -5622,7 +5622,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreHandleTypeFlagBits :: enum_flags u32 {
         OPAQUE_FD_BIT :: 0x1;
         OPAQUE_WIN32_BIT :: 0x2;
@@ -5662,7 +5662,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreProperties :: struct {
         sType: VkStructureType = .EXTERNAL_SEMAPHORE_PROPERTIES;
         pNext: *void;
@@ -5678,7 +5678,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFence_T :: struct {}
 
 }
@@ -5694,7 +5694,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceCreateFlagBits :: enum_flags u32 {
         SIGNALED_BIT :: 0x1;
         FLAG_BITS_MAX_ENUM :: 0x7fffffff;
@@ -5714,7 +5714,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceCreateInfo :: struct {
         sType: VkStructureType = .FENCE_CREATE_INFO;
         pNext: *void;
@@ -5733,7 +5733,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceGetFdInfoKHR :: struct {
         sType: VkStructureType = .FENCE_GET_FD_INFO_KHR;
         pNext: *void;
@@ -5766,7 +5766,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceImportFlagBits :: enum_flags u32 {
         TEMPORARY_BIT :: 0x1;
         TEMPORARY_BIT_KHR :: 0x1;
@@ -5800,7 +5800,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFilter :: enum u32 {
         NEAREST :: 0;
         LINEAR :: 1;
@@ -6358,7 +6358,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFormat :: enum u32 {
         UNDEFINED :: 0;
         R4G4_UNORM_PACK8 :: 1;
@@ -6970,7 +6970,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFormatFeatureFlagBits :: enum_flags u32 {
         SAMPLED_IMAGE_BIT :: 0x1;
         STORAGE_IMAGE_BIT :: 0x2;
@@ -7054,7 +7054,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFormatProperties :: struct {
         linearTilingFeatures: VkFormatFeatureFlags;
         optimalTilingFeatures: VkFormatFeatureFlags;
@@ -7072,7 +7072,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFormatProperties2 :: struct {
         sType: VkStructureType = .FORMAT_PROPERTIES_2;
         pNext: *void;
@@ -7086,7 +7086,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFramebuffer_T :: struct {}
 
 }
@@ -7106,7 +7106,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFramebufferCreateInfo :: struct {
         sType: VkStructureType = .FRAMEBUFFER_CREATE_INFO;
         pNext: *void;
@@ -7140,7 +7140,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFrontFace :: enum u32 {
         COUNTER_CLOCKWISE :: 0;
         CLOCKWISE :: 1;
@@ -7171,7 +7171,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryAABBNVX :: struct {
         sType: VkStructureType = .GEOMETRY_AABB_NVX;
         pNext: *void;
@@ -7191,7 +7191,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryDataNVX :: struct {
         triangles: VkGeometryTrianglesNVX;
         aabbs: VkGeometryAABBNVX;
@@ -7212,7 +7212,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryFlagBitsNVX :: enum_flags u32 {
         OPAQUE_BIT_NVX :: 0x1;
         NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_NVX :: 0x2;
@@ -7242,7 +7242,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryInstanceFlagBitsNVX :: enum_flags u32 {
         TRIANGLE_CULL_DISABLE_BIT_NVX :: 0x1;
         TRIANGLE_CULL_FLIP_WINDING_BIT_NVX :: 0x2;
@@ -7270,7 +7270,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryNVX :: struct {
         sType: VkStructureType = .GEOMETRY_NVX;
         pNext: *void;
@@ -7300,7 +7300,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryTrianglesNVX :: struct {
         sType: VkStructureType = .GEOMETRY_TRIANGLES_NVX;
         pNext: *void;
@@ -7338,7 +7338,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryTypeNVX :: enum u32 {
         TRIANGLES_NVX :: 0;
         AABBS_NVX :: 1;
@@ -7382,7 +7382,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGraphicsPipelineCreateInfo :: struct {
         sType: VkStructureType = .GRAPHICS_PIPELINE_CREATE_INFO;
         pNext: *void;
@@ -7423,7 +7423,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkHdrMetadataEXT :: struct {
         sType: VkStructureType = .HDR_METADATA_EXT;
         pNext: *void;
@@ -7444,7 +7444,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImage_T :: struct {}
 
 }
@@ -7478,7 +7478,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageAspectFlagBits :: enum_flags u32 {
         COLOR_BIT :: 0x1;
         DEPTH_BIT :: 0x2;
@@ -7517,7 +7517,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageBlit :: struct {
         srcSubresource: VkImageSubresourceLayers;
         srcOffsets: [2] VkOffset3D;
@@ -7538,7 +7538,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageCopy :: struct {
         srcSubresource: VkImageSubresourceLayers;
         srcOffset: VkOffset3D;
@@ -7598,7 +7598,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageCreateFlagBits :: enum_flags u32 {
         SPARSE_BINDING_BIT :: 0x1;
         SPARSE_RESIDENCY_BIT :: 0x2;
@@ -7668,7 +7668,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageCreateInfo :: struct {
         sType: VkStructureType = .IMAGE_CREATE_INFO;
         pNext: *void;
@@ -7699,7 +7699,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageFormatListCreateInfoKHR :: struct {
         sType: VkStructureType = .IMAGE_FORMAT_LIST_CREATE_INFO_KHR;
         pNext: *void;
@@ -7720,7 +7720,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageFormatProperties :: struct {
         maxExtent: VkExtent3D;
         maxMipLevels: u32;
@@ -7740,7 +7740,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageFormatProperties2 :: struct {
         sType: VkStructureType = .IMAGE_FORMAT_PROPERTIES_2;
         pNext: *void;
@@ -7796,7 +7796,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageLayout :: enum u32 {
         UNDEFINED :: 0;
         GENERAL :: 1;
@@ -7859,7 +7859,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageMemoryBarrier :: struct {
         sType: VkStructureType = .IMAGE_MEMORY_BARRIER;
         pNext: *void;
@@ -7884,7 +7884,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageMemoryRequirementsInfo2 :: struct {
         sType: VkStructureType = .IMAGE_MEMORY_REQUIREMENTS_INFO_2;
         pNext: *void;
@@ -7902,7 +7902,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImagePlaneMemoryRequirementsInfo :: struct {
         sType: VkStructureType = .IMAGE_PLANE_MEMORY_REQUIREMENTS_INFO;
         pNext: *void;
@@ -7922,7 +7922,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageResolve :: struct {
         srcSubresource: VkImageSubresourceLayers;
         srcOffset: VkOffset3D;
@@ -7942,7 +7942,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageSparseMemoryRequirementsInfo2 :: struct {
         sType: VkStructureType = .IMAGE_SPARSE_MEMORY_REQUIREMENTS_INFO_2;
         pNext: *void;
@@ -7960,7 +7960,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageSubresource :: struct {
         aspectMask: VkImageAspectFlags;
         mipLevel: u32;
@@ -7979,7 +7979,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageSubresourceLayers :: struct {
         aspectMask: VkImageAspectFlags;
         mipLevel: u32;
@@ -8000,7 +8000,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageSubresourceRange :: struct {
         aspectMask: VkImageAspectFlags;
         baseMipLevel: u32;
@@ -8020,7 +8020,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageSwapchainCreateInfoKHR :: struct {
         sType: VkStructureType = .IMAGE_SWAPCHAIN_CREATE_INFO_KHR;
         pNext: *void;
@@ -8048,7 +8048,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageTiling :: enum u32 {
         OPTIMAL :: 0;
         LINEAR :: 1;
@@ -8088,7 +8088,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageType :: enum u32 {
         _1D :: 0;
         _2D :: 1;
@@ -8136,7 +8136,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageUsageFlagBits :: enum_flags u32 {
         TRANSFER_SRC_BIT :: 0x1;
         TRANSFER_DST_BIT :: 0x2;
@@ -8168,7 +8168,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageView_T :: struct {}
 
 }
@@ -8182,7 +8182,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageViewASTCDecodeModeEXT :: struct {
         sType: VkStructureType = .IMAGE_VIEW_ASTC_DECODE_MODE_EXT;
         pNext: *void;
@@ -8205,7 +8205,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageViewCreateInfo :: struct {
         sType: VkStructureType = .IMAGE_VIEW_CREATE_INFO;
         pNext: *void;
@@ -8248,7 +8248,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageViewType :: enum u32 {
         _1D :: 0;
         _2D :: 1;
@@ -8286,7 +8286,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageViewUsageCreateInfo :: struct {
         sType: VkStructureType = .IMAGE_VIEW_USAGE_CREATE_INFO;
         pNext: *void;
@@ -8307,7 +8307,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImportFenceFdInfoKHR :: struct {
         sType: VkStructureType = .IMPORT_FENCE_FD_INFO_KHR;
         pNext: *void;
@@ -8342,7 +8342,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImportMemoryFdInfoKHR :: struct {
         sType: VkStructureType = .IMPORT_MEMORY_FD_INFO_KHR;
         pNext: *void;
@@ -8362,7 +8362,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImportMemoryHostPointerInfoEXT :: struct {
         sType: VkStructureType = .IMPORT_MEMORY_HOST_POINTER_INFO_EXT;
         pNext: *void;
@@ -8405,7 +8405,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImportSemaphoreFdInfoKHR :: struct {
         sType: VkStructureType = .IMPORT_SEMAPHORE_FD_INFO_KHR;
         pNext: *void;
@@ -8449,7 +8449,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndexType :: enum u32 {
         UINT16 :: 0;
         UINT32 :: 1;
@@ -8480,7 +8480,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsLayoutCreateInfoNVX :: struct {
         sType: VkStructureType = .INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_NVX;
         pNext: *void;
@@ -8497,7 +8497,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsLayoutNVX_T :: struct {}
 
 }
@@ -8512,7 +8512,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsLayoutTokenNVX :: struct {
         tokenType: VkIndirectCommandsTokenTypeNVX;
         bindingUnit: u32;
@@ -8539,7 +8539,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsLayoutUsageFlagBitsNVX :: enum_flags u32 {
         UNORDERED_SEQUENCES_BIT_NVX :: 0x1;
         SPARSE_SEQUENCES_BIT_NVX :: 0x2;
@@ -8565,7 +8565,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsTokenNVX :: struct {
         tokenType: VkIndirectCommandsTokenTypeNVX;
         buffer: VkBuffer;
@@ -8605,7 +8605,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsTokenTypeNVX :: enum u32 {
         PIPELINE_NVX :: 0;
         DESCRIPTOR_SET_NVX :: 1;
@@ -8645,7 +8645,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkInputAttachmentAspectReference :: struct {
         subpass: u32;
         inputAttachmentIndex: u32;
@@ -8659,7 +8659,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkInstance_T :: struct {}
 
 }
@@ -8678,7 +8678,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkInstanceCreateInfo :: struct {
         sType: VkStructureType = .INSTANCE_CREATE_INFO;
         pNext: *void;
@@ -8709,7 +8709,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkInternalAllocationType :: enum u32 {
         EXECUTABLE :: 0;
         BEGIN_RANGE :: 0;
@@ -8736,7 +8736,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkLayerProperties :: struct {
         layerName: [256] u8;
         specVersion: u32;
@@ -8793,7 +8793,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkLogicOp :: enum u32 {
         CLEAR :: 0;
         AND :: 1;
@@ -8851,7 +8851,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMappedMemoryRange :: struct {
         sType: VkStructureType = .MAPPED_MEMORY_RANGE;
         pNext: *void;
@@ -8875,7 +8875,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryAllocateFlagBits :: enum_flags u32 {
         DEVICE_MASK_BIT :: 0x1;
         DEVICE_MASK_BIT_KHR :: 0x1;
@@ -8898,7 +8898,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryAllocateFlagsInfo :: struct {
         sType: VkStructureType = .MEMORY_ALLOCATE_FLAGS_INFO;
         pNext: *void;
@@ -8918,7 +8918,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryAllocateInfo :: struct {
         sType: VkStructureType = .MEMORY_ALLOCATE_INFO;
         pNext: *void;
@@ -8938,7 +8938,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryBarrier :: struct {
         sType: VkStructureType = .MEMORY_BARRIER;
         pNext: *void;
@@ -8958,7 +8958,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryDedicatedAllocateInfo :: struct {
         sType: VkStructureType = .MEMORY_DEDICATED_ALLOCATE_INFO;
         pNext: *void;
@@ -8978,7 +8978,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryDedicatedRequirements :: struct {
         sType: VkStructureType = .MEMORY_DEDICATED_REQUIREMENTS;
         pNext: *void;
@@ -8997,7 +8997,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryFdPropertiesKHR :: struct {
         sType: VkStructureType = .MEMORY_FD_PROPERTIES_KHR;
         pNext: *void;
@@ -9016,7 +9016,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryGetFdInfoKHR :: struct {
         sType: VkStructureType = .MEMORY_GET_FD_INFO_KHR;
         pNext: *void;
@@ -9044,7 +9044,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryHeap :: struct {
         size: VkDeviceSize;
         flags: VkMemoryHeapFlags;
@@ -9067,7 +9067,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryHeapFlagBits :: enum_flags u32 {
         DEVICE_LOCAL_BIT :: 0x1;
         MULTI_INSTANCE_BIT :: 0x2;
@@ -9091,7 +9091,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryHostPointerPropertiesEXT :: struct {
         sType: VkStructureType = .MEMORY_HOST_POINTER_PROPERTIES_EXT;
         pNext: *void;
@@ -9121,7 +9121,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryPropertyFlagBits :: enum_flags u32 {
         DEVICE_LOCAL_BIT :: 0x1;
         HOST_VISIBLE_BIT :: 0x2;
@@ -9151,7 +9151,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryRequirements :: struct {
         size: VkDeviceSize;
         alignment: VkDeviceSize;
@@ -9169,7 +9169,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryRequirements2 :: struct {
         sType: VkStructureType = .MEMORY_REQUIREMENTS_2;
         pNext: *void;
@@ -9186,7 +9186,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryType :: struct {
         propertyFlags: VkMemoryPropertyFlags;
         heapIndex: u32;
@@ -9212,7 +9212,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMultisamplePropertiesEXT :: struct {
         sType: VkStructureType = .MULTISAMPLE_PROPERTIES_EXT;
         pNext: *void;
@@ -9246,7 +9246,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectEntryTypeNVX :: enum u32 {
         DESCRIPTOR_SET_NVX :: 0;
         PIPELINE_NVX :: 1;
@@ -9284,7 +9284,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectEntryUsageFlagBitsNVX :: enum_flags u32 {
         GRAPHICS_BIT_NVX :: 0x1;
         COMPUTE_BIT_NVX :: 0x2;
@@ -9314,7 +9314,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTableCreateInfoNVX :: struct {
         sType: VkStructureType = .OBJECT_TABLE_CREATE_INFO_NVX;
         pNext: *void;
@@ -9341,7 +9341,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTableDescriptorSetEntryNVX :: struct {
         type: VkObjectEntryTypeNVX;
         flags: VkObjectEntryUsageFlagsNVX;
@@ -9359,7 +9359,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTableEntryNVX :: struct {
         type: VkObjectEntryTypeNVX;
         flags: VkObjectEntryUsageFlagsNVX;
@@ -9377,7 +9377,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTableIndexBufferEntryNVX :: struct {
         type: VkObjectEntryTypeNVX;
         flags: VkObjectEntryUsageFlagsNVX;
@@ -9392,7 +9392,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTableNVX_T :: struct {}
 
 }
@@ -9406,7 +9406,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTablePipelineEntryNVX :: struct {
         type: VkObjectEntryTypeNVX;
         flags: VkObjectEntryUsageFlagsNVX;
@@ -9425,7 +9425,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTablePushConstantEntryNVX :: struct {
         type: VkObjectEntryTypeNVX;
         flags: VkObjectEntryUsageFlagsNVX;
@@ -9444,7 +9444,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTableVertexBufferEntryNVX :: struct {
         type: VkObjectEntryTypeNVX;
         flags: VkObjectEntryUsageFlagsNVX;
@@ -9548,7 +9548,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectType :: enum u32 {
         UNKNOWN :: 0;
         INSTANCE :: 1;
@@ -9651,7 +9651,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkOffset2D :: struct {
         x: s32;
         y: s32;
@@ -9668,7 +9668,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkOffset3D :: struct {
         x: s32;
         y: s32;
@@ -9688,7 +9688,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPastPresentationTimingGOOGLE :: struct {
         presentID: u32;
         desiredPresentTime: u64;
@@ -9724,7 +9724,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPeerMemoryFeatureFlagBits :: enum_flags u32 {
         COPY_SRC_BIT :: 0x1;
         COPY_DST_BIT :: 0x2;
@@ -9761,7 +9761,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevice16BitStorageFeatures :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
         pNext: *void;
@@ -9784,7 +9784,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevice8BitStorageFeaturesKHR :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
         pNext: *void;
@@ -9800,7 +9800,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevice_T :: struct {}
 
 }
@@ -9814,7 +9814,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceASTCDecodeFeaturesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT;
         pNext: *void;
@@ -9832,7 +9832,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_FEATURES_EXT;
         pNext: *void;
@@ -9855,7 +9855,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceBlendOperationAdvancedPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_PROPERTIES_EXT;
         pNext: *void;
@@ -9879,7 +9879,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceComputeShaderDerivativesFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV;
         pNext: *void;
@@ -9899,7 +9899,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceConditionalRenderingFeaturesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT;
         pNext: *void;
@@ -9926,7 +9926,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceConservativeRasterizationPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT;
         pNext: *void;
@@ -9952,7 +9952,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceCornerSampledImageFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_CORNER_SAMPLED_IMAGE_FEATURES_NV;
         pNext: *void;
@@ -9989,7 +9989,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
         pNext: *void;
@@ -10048,7 +10048,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceDescriptorIndexingPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES_EXT;
         pNext: *void;
@@ -10088,7 +10088,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceDiscardRectanglePropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT;
         pNext: *void;
@@ -10106,7 +10106,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExclusiveScissorFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_EXCLUSIVE_SCISSOR_FEATURES_NV;
         pNext: *void;
@@ -10126,7 +10126,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalBufferInfo :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO;
         pNext: *void;
@@ -10146,7 +10146,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalFenceInfo :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_EXTERNAL_FENCE_INFO;
         pNext: *void;
@@ -10164,7 +10164,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalImageFormatInfo :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO;
         pNext: *void;
@@ -10182,7 +10182,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalMemoryHostPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT;
         pNext: *void;
@@ -10200,7 +10200,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalSemaphoreInfo :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_EXTERNAL_SEMAPHORE_INFO;
         pNext: *void;
@@ -10270,7 +10270,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceFeatures :: struct {
         robustBufferAccess: VkBool32;
         fullDrawIndexUint32: VkBool32;
@@ -10340,7 +10340,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceFeatures2 :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_FEATURES_2;
         pNext: *void;
@@ -10358,7 +10358,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_NV;
         pNext: *void;
@@ -10378,7 +10378,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceGroupProperties :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_GROUP_PROPERTIES;
         pNext: *void;
@@ -10402,7 +10402,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceIDProperties :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_ID_PROPERTIES;
         pNext: *void;
@@ -10428,7 +10428,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceImageFormatInfo2 :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2;
         pNext: *void;
@@ -10451,7 +10451,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceInlineUniformBlockFeaturesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT;
         pNext: *void;
@@ -10474,7 +10474,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceInlineUniformBlockPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT;
         pNext: *void;
@@ -10599,7 +10599,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceLimits :: struct {
         maxImageDimension1D: u32;
         maxImageDimension2D: u32;
@@ -10721,7 +10721,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMaintenance3Properties :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES;
         pNext: *void;
@@ -10741,7 +10741,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMemoryProperties :: struct {
         memoryTypeCount: u32;
         memoryTypes: [32] VkMemoryType;
@@ -10760,7 +10760,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMemoryProperties2 :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
         pNext: *void;
@@ -10779,7 +10779,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMeshShaderFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV;
         pNext: *void;
@@ -10810,7 +10810,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMeshShaderPropertiesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_NV;
         pNext: *void;
@@ -10842,7 +10842,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMultiviewFeatures :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
         pNext: *void;
@@ -10862,7 +10862,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMultiviewPerViewAttributesPropertiesNVX :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_ATTRIBUTES_PROPERTIES_NVX;
         pNext: *void;
@@ -10881,7 +10881,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMultiviewProperties :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES;
         pNext: *void;
@@ -10900,7 +10900,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevicePointClippingProperties :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_POINT_CLIPPING_PROPERTIES;
         pNext: *void;
@@ -10924,7 +10924,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceProperties :: struct {
         apiVersion: u32;
         driverVersion: u32;
@@ -10948,7 +10948,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceProperties2 :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_PROPERTIES_2;
         pNext: *void;
@@ -10966,7 +10966,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceProtectedMemoryFeatures :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES;
         pNext: *void;
@@ -10984,7 +10984,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceProtectedMemoryProperties :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_PROTECTED_MEMORY_PROPERTIES;
         pNext: *void;
@@ -11002,7 +11002,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevicePushDescriptorPropertiesKHR :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR;
         pNext: *void;
@@ -11022,7 +11022,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceRaytracingPropertiesNVX :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_RAYTRACING_PROPERTIES_NVX;
         pNext: *void;
@@ -11042,7 +11042,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_REPRESENTATIVE_FRAGMENT_TEST_FEATURES_NV;
         pNext: *void;
@@ -11064,7 +11064,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSampleLocationsPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT;
         pNext: *void;
@@ -11087,7 +11087,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES_EXT;
         pNext: *void;
@@ -11106,7 +11106,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSamplerYcbcrConversionFeatures :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES;
         pNext: *void;
@@ -11137,7 +11137,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceShaderCorePropertiesAMD :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_AMD;
         pNext: *void;
@@ -11168,7 +11168,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceShaderDrawParameterFeatures :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES;
         pNext: *void;
@@ -11186,7 +11186,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceShaderImageFootprintFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV;
         pNext: *void;
@@ -11205,7 +11205,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceShadingRateImageFeaturesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SHADING_RATE_IMAGE_FEATURES_NV;
         pNext: *void;
@@ -11226,7 +11226,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceShadingRateImagePropertiesNV :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SHADING_RATE_IMAGE_PROPERTIES_NV;
         pNext: *void;
@@ -11250,7 +11250,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSparseImageFormatInfo2 :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2;
         pNext: *void;
@@ -11274,7 +11274,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSparseProperties :: struct {
         residencyStandard2DBlockShape: VkBool32;
         residencyStandard2DMultisampleBlockShape: VkBool32;
@@ -11297,7 +11297,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSubgroupProperties :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
         pNext: *void;
@@ -11318,7 +11318,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSurfaceInfo2KHR :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_SURFACE_INFO_2_KHR;
         pNext: *void;
@@ -11352,7 +11352,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceType :: enum u32 {
         OTHER :: 0;
         INTEGRATED_GPU :: 1;
@@ -11387,7 +11387,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceVariablePointerFeatures :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_VARIABLE_POINTER_FEATURES;
         pNext: *void;
@@ -11407,7 +11407,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT;
         pNext: *void;
@@ -11426,7 +11426,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT;
         pNext: *void;
@@ -11445,7 +11445,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceVulkanMemoryModelFeaturesKHR :: struct {
         sType: VkStructureType = .PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES_KHR;
         pNext: *void;
@@ -11460,7 +11460,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipeline_T :: struct {}
 
 }
@@ -11486,7 +11486,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineBindPoint :: enum u32 {
         GRAPHICS :: 0;
         COMPUTE :: 1;
@@ -11512,7 +11512,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCache_T :: struct {}
 
 }
@@ -11528,7 +11528,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCacheCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_CACHE_CREATE_INFO;
         pNext: *void;
@@ -11556,7 +11556,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCacheHeaderVersion :: enum u32 {
         ONE :: 1;
         BEGIN_RANGE :: 1;
@@ -11584,7 +11584,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineColorBlendAdvancedStateCreateInfoEXT :: struct {
         sType: VkStructureType = .PIPELINE_COLOR_BLEND_ADVANCED_STATE_CREATE_INFO_EXT;
         pNext: *void;
@@ -11609,7 +11609,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineColorBlendAttachmentState :: struct {
         blendEnable: VkBool32;
         srcColorBlendFactor: VkBlendFactor;
@@ -11637,7 +11637,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineColorBlendStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         pNext: *void;
@@ -11664,7 +11664,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCoverageModulationStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_COVERAGE_MODULATION_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -11688,7 +11688,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCoverageToColorStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_COVERAGE_TO_COLOR_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -11724,7 +11724,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCreateFlagBits :: enum_flags u32 {
         DISABLE_OPTIMIZATION_BIT :: 0x1;
         ALLOW_DERIVATIVES_BIT :: 0x2;
@@ -11767,7 +11767,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineDepthStencilStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         pNext: *void;
@@ -11797,7 +11797,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineDiscardRectangleStateCreateInfoEXT :: struct {
         sType: VkStructureType = .PIPELINE_DISCARD_RECTANGLE_STATE_CREATE_INFO_EXT;
         pNext: *void;
@@ -11820,7 +11820,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineDynamicStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         pNext: *void;
@@ -11842,7 +11842,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineInputAssemblyStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         pNext: *void;
@@ -11858,7 +11858,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineLayout_T :: struct {}
 
 }
@@ -11876,7 +11876,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineLayoutCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_LAYOUT_CREATE_INFO;
         pNext: *void;
@@ -11904,7 +11904,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineMultisampleStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         pNext: *void;
@@ -11930,7 +11930,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineRasterizationConservativeStateCreateInfoEXT :: struct {
         sType: VkStructureType = .PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT;
         pNext: *void;
@@ -11960,7 +11960,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineRasterizationStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         pNext: *void;
@@ -11988,7 +11988,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineRasterizationStateRasterizationOrderAMD :: struct {
         sType: VkStructureType = .PIPELINE_RASTERIZATION_STATE_RASTERIZATION_ORDER_AMD;
         pNext: *void;
@@ -12006,7 +12006,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineRepresentativeFragmentTestStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_REPRESENTATIVE_FRAGMENT_TEST_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -12025,7 +12025,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineSampleLocationsStateCreateInfoEXT :: struct {
         sType: VkStructureType = .PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT;
         pNext: *void;
@@ -12048,7 +12048,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineShaderStageCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_SHADER_STAGE_CREATE_INFO;
         pNext: *void;
@@ -12116,7 +12116,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineStageFlagBits :: enum_flags u32 {
         TOP_OF_PIPE_BIT :: 0x1;
         DRAW_INDIRECT_BIT :: 0x2;
@@ -12180,7 +12180,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineTessellationDomainOriginStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_TESSELLATION_DOMAIN_ORIGIN_STATE_CREATE_INFO;
         pNext: *void;
@@ -12199,7 +12199,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineTessellationStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_TESSELLATION_STATE_CREATE_INFO;
         pNext: *void;
@@ -12219,7 +12219,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineVertexInputDivisorStateCreateInfoEXT :: struct {
         sType: VkStructureType = .PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT;
         pNext: *void;
@@ -12242,7 +12242,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineVertexInputStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         pNext: *void;
@@ -12266,7 +12266,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportCoarseSampleOrderStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_VIEWPORT_COARSE_SAMPLE_ORDER_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -12287,7 +12287,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportExclusiveScissorStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_VIEWPORT_EXCLUSIVE_SCISSOR_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -12308,7 +12308,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportShadingRateImageStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_VIEWPORT_SHADING_RATE_IMAGE_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -12332,7 +12332,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportStateCreateInfo :: struct {
         sType: VkStructureType = .PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         pNext: *void;
@@ -12356,7 +12356,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportSwizzleStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_VIEWPORT_SWIZZLE_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -12378,7 +12378,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportWScalingStateCreateInfoNV :: struct {
         sType: VkStructureType = .PIPELINE_VIEWPORT_W_SCALING_STATE_CREATE_INFO_NV;
         pNext: *void;
@@ -12412,7 +12412,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPointClippingBehavior :: enum u32 {
         ALL_CLIP_PLANES :: 0;
         USER_CLIP_PLANES_ONLY :: 1;
@@ -12458,7 +12458,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPolygonMode :: enum u32 {
         FILL :: 0;
         LINE :: 1;
@@ -12495,7 +12495,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPresentInfoKHR :: struct {
         sType: VkStructureType = .PRESENT_INFO_KHR;
         pNext: *void;
@@ -12536,7 +12536,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPresentModeKHR :: enum u32 {
         IMMEDIATE_KHR :: 0;
         MAILBOX_KHR :: 1;
@@ -12571,7 +12571,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPresentRegionKHR :: struct {
         rectangleCount: u32;
         pRectangles: *VkRectLayerKHR;
@@ -12589,7 +12589,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPresentRegionsKHR :: struct {
         sType: VkStructureType = .PRESENT_REGIONS_KHR;
         pNext: *void;
@@ -12607,7 +12607,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPresentTimeGOOGLE :: struct {
         presentID: u32;
         desiredPresentTime: u64;
@@ -12625,7 +12625,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPresentTimesInfoGOOGLE :: struct {
         sType: VkStructureType = .PRESENT_TIMES_INFO_GOOGLE;
         pNext: *void;
@@ -12672,7 +12672,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPrimitiveTopology :: enum u32 {
         POINT_LIST :: 0;
         LINE_LIST :: 1;
@@ -12718,7 +12718,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkProtectedSubmitInfo :: struct {
         sType: VkStructureType = .PROTECTED_SUBMIT_INFO;
         pNext: *void;
@@ -12736,7 +12736,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPushConstantRange :: struct {
         stageFlags: VkShaderStageFlags;
         offset: u32;
@@ -12756,7 +12756,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryControlFlagBits :: enum_flags u32 {
         PRECISE_BIT :: 0x1;
         FLAG_BITS_MAX_ENUM :: 0x7fffffff;
@@ -12798,7 +12798,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryPipelineStatisticFlagBits :: enum_flags u32 {
         INPUT_ASSEMBLY_VERTICES_BIT :: 0x1;
         INPUT_ASSEMBLY_PRIMITIVES_BIT :: 0x2;
@@ -12834,7 +12834,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryPool_T :: struct {}
 
 }
@@ -12851,7 +12851,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryPoolCreateInfo :: struct {
         sType: VkStructureType = .QUERY_POOL_CREATE_INFO;
         pNext: *void;
@@ -12880,7 +12880,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryResultFlagBits :: enum_flags u32 {
         _64_BIT :: 0x1;
         WAIT_BIT :: 0x2;
@@ -12920,7 +12920,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryType :: enum u32 {
         OCCLUSION :: 0;
         PIPELINE_STATISTICS :: 1;
@@ -12948,7 +12948,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueue_T :: struct {}
 
 }
@@ -12962,7 +12962,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueueFamilyCheckpointPropertiesNV :: struct {
         sType: VkStructureType = .QUEUE_FAMILY_CHECKPOINT_PROPERTIES_NV;
         pNext: *void;
@@ -12981,7 +12981,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueueFamilyProperties :: struct {
         queueFlags: VkQueueFlags;
         queueCount: u32;
@@ -13000,7 +13000,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueueFamilyProperties2 :: struct {
         sType: VkStructureType = .QUEUE_FAMILY_PROPERTIES_2;
         pNext: *void;
@@ -13028,7 +13028,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueueFlagBits :: enum_flags u32 {
         GRAPHICS_BIT :: 0x1;
         COMPUTE_BIT :: 0x2;
@@ -13070,7 +13070,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueueGlobalPriorityEXT :: enum u32 {
         LOW_EXT :: 128;
         MEDIUM_EXT :: 256;
@@ -13112,7 +13112,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRasterizationOrderAMD :: enum u32 {
         STRICT_AMD :: 0;
         RELAXED_AMD :: 1;
@@ -13147,7 +13147,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRaytracingPipelineCreateInfoNVX :: struct {
         sType: VkStructureType = .RAYTRACING_PIPELINE_CREATE_INFO_NVX;
         pNext: *void;
@@ -13171,7 +13171,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRect2D :: struct {
         offset: VkOffset2D;
         extent: VkExtent2D;
@@ -13188,7 +13188,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRectLayerKHR :: struct {
         offset: VkOffset2D;
         extent: VkExtent2D;
@@ -13204,7 +13204,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRefreshCycleDurationGOOGLE :: struct {
         refreshDuration: u64;
     }
@@ -13216,7 +13216,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPass_T :: struct {}
 
 }
@@ -13234,7 +13234,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassBeginInfo :: struct {
         sType: VkStructureType = .RENDER_PASS_BEGIN_INFO;
         pNext: *void;
@@ -13262,7 +13262,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassCreateInfo :: struct {
         sType: VkStructureType = .RENDER_PASS_CREATE_INFO;
         pNext: *void;
@@ -13294,7 +13294,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassCreateInfo2KHR :: struct {
         sType: VkStructureType = .RENDER_PASS_CREATE_INFO_2_KHR;
         pNext: *void;
@@ -13321,7 +13321,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassInputAttachmentAspectCreateInfo :: struct {
         sType: VkStructureType = .RENDER_PASS_INPUT_ATTACHMENT_ASPECT_CREATE_INFO;
         pNext: *void;
@@ -13345,7 +13345,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassMultiviewCreateInfo :: struct {
         sType: VkStructureType = .RENDER_PASS_MULTIVIEW_CREATE_INFO;
         pNext: *void;
@@ -13371,7 +13371,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassSampleLocationsBeginInfoEXT :: struct {
         sType: VkStructureType = .RENDER_PASS_SAMPLE_LOCATIONS_BEGIN_INFO_EXT;
         pNext: *void;
@@ -13460,7 +13460,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkResult :: enum s32 {
         SUCCESS :: 0;
         NOT_READY :: 1;
@@ -13560,7 +13560,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSampleCountFlagBits :: enum_flags u32 {
         _1_BIT :: 0x1;
         _2_BIT :: 0x2;
@@ -13591,7 +13591,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSampleLocationEXT :: struct {
         x: float;
         y: float;
@@ -13611,7 +13611,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSampleLocationsInfoEXT :: struct {
         sType: VkStructureType = .SAMPLE_LOCATIONS_INFO_EXT;
         pNext: *void;
@@ -13628,7 +13628,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSampler_T :: struct {}
 
 }
@@ -13658,7 +13658,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerAddressMode :: enum u32 {
         REPEAT :: 0;
         MIRRORED_REPEAT :: 1;
@@ -13707,7 +13707,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerCreateInfo :: struct {
         sType: VkStructureType = .SAMPLER_CREATE_INFO;
         pNext: *void;
@@ -13750,7 +13750,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerMipmapMode :: enum u32 {
         NEAREST :: 0;
         LINEAR :: 1;
@@ -13778,7 +13778,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerReductionModeCreateInfoEXT :: struct {
         sType: VkStructureType = .SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
         pNext: *void;
@@ -13808,7 +13808,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerReductionModeEXT :: enum u32 {
         WEIGHTED_AVERAGE_EXT :: 0;
         MIN_EXT :: 1;
@@ -13834,7 +13834,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversion_T :: struct {}
 
 }
@@ -13855,7 +13855,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversionCreateInfo :: struct {
         sType: VkStructureType = .SAMPLER_YCBCR_CONVERSION_CREATE_INFO;
         pNext: *void;
@@ -13880,7 +13880,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversionImageFormatProperties :: struct {
         sType: VkStructureType = .SAMPLER_YCBCR_CONVERSION_IMAGE_FORMAT_PROPERTIES;
         pNext: *void;
@@ -13898,7 +13898,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversionInfo :: struct {
         sType: VkStructureType = .SAMPLER_YCBCR_CONVERSION_INFO;
         pNext: *void;
@@ -13942,7 +13942,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrModelConversion :: enum u32 {
         RGB_IDENTITY :: 0;
         YCBCR_IDENTITY :: 1;
@@ -14000,7 +14000,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrRange :: enum u32 {
         ITU_FULL :: 0;
         ITU_NARROW :: 1;
@@ -14028,7 +14028,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphore_T :: struct {}
 
 }
@@ -14042,7 +14042,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphoreCreateInfo :: struct {
         sType: VkStructureType = .SEMAPHORE_CREATE_INFO;
         pNext: *void;
@@ -14061,7 +14061,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphoreGetFdInfoKHR :: struct {
         sType: VkStructureType = .SEMAPHORE_GET_FD_INFO_KHR;
         pNext: *void;
@@ -14094,7 +14094,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphoreImportFlagBits :: enum_flags u32 {
         TEMPORARY_BIT :: 0x1;
         TEMPORARY_BIT_KHR :: 0x1;
@@ -14128,7 +14128,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderInfoTypeAMD :: enum u32 {
         STATISTICS_AMD :: 0;
         BINARY_AMD :: 1;
@@ -14154,7 +14154,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderModule_T :: struct {}
 
 }
@@ -14170,7 +14170,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderModuleCreateInfo :: struct {
         sType: VkStructureType = .SHADER_MODULE_CREATE_INFO;
         pNext: *void;
@@ -14190,7 +14190,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderModuleValidationCacheCreateInfoEXT :: struct {
         sType: VkStructureType = .SHADER_MODULE_VALIDATION_CACHE_CREATE_INFO_EXT;
         pNext: *void;
@@ -14210,7 +14210,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderResourceUsageAMD :: struct {
         numUsedVgprs: u32;
         numUsedSgprs: u32;
@@ -14262,7 +14262,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderStageFlagBits :: enum_flags u32 {
         VERTEX_BIT :: 0x1;
         TESSELLATION_CONTROL_BIT :: 0x2;
@@ -14316,7 +14316,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderStatisticsInfoAMD :: struct {
         shaderStageMask: VkShaderStageFlags;
         resourceUsage: VkShaderResourceUsageAMD;
@@ -14368,7 +14368,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShadingRatePaletteEntryNV :: enum u32 {
         NO_INVOCATIONS_NV :: 0;
         _16_INVOCATIONS_PER_PIXEL_NV :: 1;
@@ -14415,7 +14415,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShadingRatePaletteNV :: struct {
         shadingRatePaletteEntryCount: u32;
         pShadingRatePaletteEntries: *VkShadingRatePaletteEntryNV;
@@ -14432,7 +14432,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSharedPresentSurfaceCapabilitiesKHR :: struct {
         sType: VkStructureType = .SHARED_PRESENT_SURFACE_CAPABILITIES_KHR;
         pNext: *void;
@@ -14460,7 +14460,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSharingMode :: enum u32 {
         EXCLUSIVE :: 0;
         CONCURRENT :: 1;
@@ -14488,7 +14488,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseBufferMemoryBindInfo :: struct {
         buffer: VkBuffer;
         bindCount: u32;
@@ -14512,7 +14512,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageFormatFlagBits :: enum_flags u32 {
         SINGLE_MIPTAIL_BIT :: 0x1;
         ALIGNED_MIP_SIZE_BIT :: 0x2;
@@ -14536,7 +14536,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageFormatProperties :: struct {
         aspectMask: VkImageAspectFlags;
         imageGranularity: VkExtent3D;
@@ -14554,7 +14554,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageFormatProperties2 :: struct {
         sType: VkStructureType = .SPARSE_IMAGE_FORMAT_PROPERTIES_2;
         pNext: *void;
@@ -14575,7 +14575,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageMemoryBind :: struct {
         subresource: VkImageSubresource;
         offset: VkOffset3D;
@@ -14596,7 +14596,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageMemoryBindInfo :: struct {
         image: VkImage;
         bindCount: u32;
@@ -14616,7 +14616,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageMemoryRequirements :: struct {
         formatProperties: VkSparseImageFormatProperties;
         imageMipTailFirstLod: u32;
@@ -14636,7 +14636,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageMemoryRequirements2 :: struct {
         sType: VkStructureType = .SPARSE_IMAGE_MEMORY_REQUIREMENTS_2;
         pNext: *void;
@@ -14654,7 +14654,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageOpaqueMemoryBindInfo :: struct {
         image: VkImage;
         bindCount: u32;
@@ -14674,7 +14674,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseMemoryBind :: struct {
         resourceOffset: VkDeviceSize;
         size: VkDeviceSize;
@@ -14696,7 +14696,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseMemoryBindFlagBits :: enum_flags u32 {
         METADATA_BIT :: 0x1;
         FLAG_BITS_MAX_ENUM :: 0x7fffffff;
@@ -14717,7 +14717,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSpecializationInfo :: struct {
         mapEntryCount: u32;
         pMapEntries: *VkSpecializationMapEntry;
@@ -14736,7 +14736,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSpecializationMapEntry :: struct {
         constantID: u32;
         offset: u32;
@@ -14760,7 +14760,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkStencilFaceFlagBits :: enum_flags u32 {
         FACE_FRONT_BIT :: 0x1;
         FACE_BACK_BIT :: 0x2;
@@ -14806,7 +14806,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkStencilOp :: enum u32 {
         KEEP :: 0;
         ZERO :: 1;
@@ -14850,7 +14850,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkStencilOpState :: struct {
         failOp: VkStencilOp;
         passOp: VkStencilOp;
@@ -15566,7 +15566,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkStructureType :: enum u32 {
         APPLICATION_INFO :: 0;
         INSTANCE_CREATE_INFO :: 1;
@@ -16296,7 +16296,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubgroupFeatureFlagBits :: enum_flags u32 {
         BASIC_BIT :: 0x1;
         VOTE_BIT :: 0x2;
@@ -16338,7 +16338,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubmitInfo :: struct {
         sType: VkStructureType = .SUBMIT_INFO;
         pNext: *void;
@@ -16362,7 +16362,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassBeginInfoKHR :: struct {
         sType: VkStructureType = .SUBPASS_BEGIN_INFO_KHR;
         pNext: *void;
@@ -16390,7 +16390,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassContents :: enum u32 {
         INLINE :: 0;
         SECONDARY_COMMAND_BUFFERS :: 1;
@@ -16422,7 +16422,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassDependency :: struct {
         srcSubpass: u32;
         dstSubpass: u32;
@@ -16451,7 +16451,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassDependency2KHR :: struct {
         sType: VkStructureType = .SUBPASS_DEPENDENCY_2_KHR;
         pNext: *void;
@@ -16483,7 +16483,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassDescription :: struct {
         flags: VkSubpassDescriptionFlags;
         pipelineBindPoint: VkPipelineBindPoint;
@@ -16518,7 +16518,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassDescription2KHR :: struct {
         sType: VkStructureType = .SUBPASS_DESCRIPTION_2_KHR;
         pNext: *void;
@@ -16550,7 +16550,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassDescriptionFlagBits :: enum_flags u32 {
         PER_VIEW_ATTRIBUTES_BIT_NVX :: 0x1;
         PER_VIEW_POSITION_X_ONLY_BIT_NVX :: 0x2;
@@ -16571,7 +16571,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassEndInfoKHR :: struct {
         sType: VkStructureType = .SUBPASS_END_INFO_KHR;
         pNext: *void;
@@ -16587,7 +16587,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassSampleLocationsEXT :: struct {
         subpassIndex: u32;
         sampleLocationsInfo: VkSampleLocationsInfoEXT;
@@ -16606,7 +16606,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubresourceLayout :: struct {
         offset: VkDeviceSize;
         size: VkDeviceSize;
@@ -16636,7 +16636,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceCapabilities2EXT :: struct {
         sType: VkStructureType = .SURFACE_CAPABILITIES_2_EXT;
         pNext: *void;
@@ -16664,7 +16664,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceCapabilities2KHR :: struct {
         sType: VkStructureType = .SURFACE_CAPABILITIES_2_KHR;
         pNext: *void;
@@ -16689,7 +16689,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceCapabilitiesKHR :: struct {
         minImageCount: u32;
         maxImageCount: u32;
@@ -16716,7 +16716,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceCounterFlagBitsEXT :: enum_flags u32 {
         VBLANK_EXT :: 0x1;
         FLAG_BITS_MAX_ENUM_EXT :: 0x7fffffff;
@@ -16736,7 +16736,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceFormat2KHR :: struct {
         sType: VkStructureType = .SURFACE_FORMAT_2_KHR;
         pNext: *void;
@@ -16753,7 +16753,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceFormatKHR :: struct {
         format: VkFormat;
         colorSpace: VkColorSpaceKHR;
@@ -16766,7 +16766,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceKHR_T :: struct {}
 
 }
@@ -16798,7 +16798,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceTransformFlagBitsKHR :: enum_flags u32 {
         IDENTITY_BIT_KHR :: 0x1;
         ROTATE_90_BIT_KHR :: 0x2;
@@ -16834,7 +16834,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSwapchainCounterCreateInfoEXT :: struct {
         sType: VkStructureType = .SWAPCHAIN_COUNTER_CREATE_INFO_EXT;
         pNext: *void;
@@ -16856,7 +16856,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSwapchainCreateFlagBitsKHR :: enum_flags u32 {
         SPLIT_INSTANCE_BIND_REGIONS_BIT_KHR :: 0x1;
         PROTECTED_BIT_KHR :: 0x2;
@@ -16893,7 +16893,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSwapchainCreateInfoKHR :: struct {
         sType: VkStructureType = .SWAPCHAIN_CREATE_INFO_KHR;
         pNext: *void;
@@ -16922,7 +16922,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSwapchainKHR_T :: struct {}
 
 }
@@ -16952,7 +16952,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSystemAllocationScope :: enum u32 {
         COMMAND :: 0;
         OBJECT :: 1;
@@ -17000,7 +17000,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkTessellationDomainOrigin :: enum u32 {
         UPPER_LEFT :: 0;
         LOWER_LEFT :: 1;
@@ -17032,7 +17032,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkTextureLODGatherFormatPropertiesAMD :: struct {
         sType: VkStructureType = .TEXTURE_LOD_GATHER_FORMAT_PROPERTIES_AMD;
         pNext: *void;
@@ -17052,7 +17052,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkValidationCacheCreateInfoEXT :: struct {
         sType: VkStructureType = .VALIDATION_CACHE_CREATE_INFO_EXT;
         pNext: *void;
@@ -17068,7 +17068,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkValidationCacheEXT_T :: struct {}
 
 }
@@ -17090,7 +17090,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkValidationCacheHeaderVersionEXT :: enum u32 {
         ONE_EXT :: 1;
         BEGIN_RANGE_EXT :: 1;
@@ -17126,7 +17126,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkValidationCheckEXT :: enum u32 {
         ALL_EXT :: 0;
         SHADERS_EXT :: 1;
@@ -17155,7 +17155,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkValidationFlagsEXT :: struct {
         sType: VkStructureType = .VALIDATION_FLAGS_EXT;
         pNext: *void;
@@ -17186,7 +17186,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkVendorId :: enum u32 {
         VIV :: 65537;
         VSI :: 65538;
@@ -17217,7 +17217,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkVertexInputAttributeDescription :: struct {
         location: u32;
         binding: u32;
@@ -17236,7 +17236,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkVertexInputBindingDescription :: struct {
         binding: u32;
         stride: u32;
@@ -17253,7 +17253,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkVertexInputBindingDivisorDescriptionEXT :: struct {
         binding: u32;
         divisor: u32;
@@ -17280,7 +17280,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkVertexInputRate :: enum u32 {
         VERTEX :: 0;
         INSTANCE :: 1;
@@ -17311,7 +17311,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkViewport :: struct {
         x: float;
         y: float;
@@ -17354,7 +17354,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkViewportCoordinateSwizzleNV :: enum u32 {
         POSITIVE_X_NV :: 0;
         NEGATIVE_X_NV :: 1;
@@ -17395,7 +17395,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkViewportSwizzleNV :: struct {
         x: VkViewportCoordinateSwizzleNV;
         y: VkViewportCoordinateSwizzleNV;
@@ -17413,7 +17413,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkViewportWScalingNV :: struct {
         xcoeff: float;
         ycoeff: float;
@@ -17478,7 +17478,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkWriteDescriptorSet :: struct {
         sType: VkStructureType = .WRITE_DESCRIPTOR_SET;
         pNext: *void;
@@ -17504,7 +17504,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkWriteDescriptorSetInlineUniformBlockEXT :: struct {
         sType: VkStructureType = .WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK_EXT;
         pNext: *void;
@@ -17522,7 +17522,7 @@ VK_Version :: struct {
 
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkXYColorEXT :: struct {
         x: float;
         y: float;
@@ -17536,7 +17536,7 @@ VK_Version :: struct {
     PFN_vkAcquireNextImage2KHR :: #type (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkAcquireNextImage2KHR :: #type (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #c_call;
 }
 
@@ -17544,7 +17544,7 @@ VK_Version :: struct {
     PFN_vkAcquireNextImageKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkAcquireNextImageKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #c_call;
 }
 
@@ -17552,7 +17552,7 @@ VK_Version :: struct {
     PFN_vkAllocateCommandBuffers :: #type (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkAllocateCommandBuffers :: #type (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #c_call;
 }
 
@@ -17560,7 +17560,7 @@ VK_Version :: struct {
     PFN_vkAllocateDescriptorSets :: #type (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkAllocateDescriptorSets :: #type (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call;
 }
 
@@ -17568,7 +17568,7 @@ VK_Version :: struct {
     PFN_vkAllocateMemory :: #type (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkAllocateMemory :: #type (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #c_call;
 }
 
@@ -17576,7 +17576,7 @@ VK_Version :: struct {
     PFN_vkAllocationFunction :: #type (pUserData: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkAllocationFunction :: #type (pUserData: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call;
 }
 
@@ -17584,7 +17584,7 @@ VK_Version :: struct {
     PFN_vkBeginCommandBuffer :: #type (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBeginCommandBuffer :: #type (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #c_call;
 }
 
@@ -17592,7 +17592,7 @@ VK_Version :: struct {
     PFN_vkBindAccelerationStructureMemoryNVX :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindAccelerationStructureMemoryInfoNVX) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBindAccelerationStructureMemoryNVX :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindAccelerationStructureMemoryInfoNVX) -> VkResult #c_call;
 }
 
@@ -17600,7 +17600,7 @@ VK_Version :: struct {
     PFN_vkBindBufferMemory :: #type (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBindBufferMemory :: #type (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call;
 }
 
@@ -17608,7 +17608,7 @@ VK_Version :: struct {
     PFN_vkBindBufferMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBindBufferMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call;
 }
 
@@ -17616,7 +17616,7 @@ VK_Version :: struct {
     PFN_vkBindBufferMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBindBufferMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #c_call;
 }
 
@@ -17624,7 +17624,7 @@ VK_Version :: struct {
     PFN_vkBindImageMemory :: #type (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBindImageMemory :: #type (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #c_call;
 }
 
@@ -17632,7 +17632,7 @@ VK_Version :: struct {
     PFN_vkBindImageMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBindImageMemory2 :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call;
 }
 
@@ -17640,7 +17640,7 @@ VK_Version :: struct {
     PFN_vkBindImageMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkBindImageMemory2KHR :: #type (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #c_call;
 }
 
@@ -17648,7 +17648,7 @@ VK_Version :: struct {
     PFN_vkCmdBeginConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer, pConditionalRenderingBegin: *VkConditionalRenderingBeginInfoEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBeginConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer, pConditionalRenderingBegin: *VkConditionalRenderingBeginInfoEXT) -> void #c_call;
 }
 
@@ -17656,7 +17656,7 @@ VK_Version :: struct {
     PFN_vkCmdBeginDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBeginDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
@@ -17664,7 +17664,7 @@ VK_Version :: struct {
     PFN_vkCmdBeginQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBeginQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #c_call;
 }
 
@@ -17672,7 +17672,7 @@ VK_Version :: struct {
     PFN_vkCmdBeginRenderPass :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBeginRenderPass :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #c_call;
 }
 
@@ -17680,7 +17680,7 @@ VK_Version :: struct {
     PFN_vkCmdBeginRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, pSubpassBeginInfo: *VkSubpassBeginInfoKHR) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBeginRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, pSubpassBeginInfo: *VkSubpassBeginInfoKHR) -> void #c_call;
 }
 
@@ -17688,7 +17688,7 @@ VK_Version :: struct {
     PFN_vkCmdBindDescriptorSets :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBindDescriptorSets :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #c_call;
 }
 
@@ -17696,7 +17696,7 @@ VK_Version :: struct {
     PFN_vkCmdBindIndexBuffer :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBindIndexBuffer :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #c_call;
 }
 
@@ -17704,7 +17704,7 @@ VK_Version :: struct {
     PFN_vkCmdBindPipeline :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBindPipeline :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #c_call;
 }
 
@@ -17712,7 +17712,7 @@ VK_Version :: struct {
     PFN_vkCmdBindShadingRateImageNV :: #type (commandBuffer: VkCommandBuffer, imageView: VkImageView, imageLayout: VkImageLayout) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBindShadingRateImageNV :: #type (commandBuffer: VkCommandBuffer, imageView: VkImageView, imageLayout: VkImageLayout) -> void #c_call;
 }
 
@@ -17720,7 +17720,7 @@ VK_Version :: struct {
     PFN_vkCmdBindVertexBuffers :: #type (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBindVertexBuffers :: #type (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #c_call;
 }
 
@@ -17728,7 +17728,7 @@ VK_Version :: struct {
     PFN_vkCmdBlitImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBlitImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #c_call;
 }
 
@@ -17736,7 +17736,7 @@ VK_Version :: struct {
     PFN_vkCmdBuildAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, type: VkAccelerationStructureTypeNVX, instanceCount: u32, instanceData: VkBuffer, instanceOffset: VkDeviceSize, geometryCount: u32, pGeometries: *VkGeometryNVX, flags: VkBuildAccelerationStructureFlagsNVX, update: VkBool32, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, scratch: VkBuffer, scratchOffset: VkDeviceSize) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdBuildAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, type: VkAccelerationStructureTypeNVX, instanceCount: u32, instanceData: VkBuffer, instanceOffset: VkDeviceSize, geometryCount: u32, pGeometries: *VkGeometryNVX, flags: VkBuildAccelerationStructureFlagsNVX, update: VkBool32, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, scratch: VkBuffer, scratchOffset: VkDeviceSize) -> void #c_call;
 }
 
@@ -17744,7 +17744,7 @@ VK_Version :: struct {
     PFN_vkCmdClearAttachments :: #type (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdClearAttachments :: #type (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #c_call;
 }
 
@@ -17752,7 +17752,7 @@ VK_Version :: struct {
     PFN_vkCmdClearColorImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdClearColorImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call;
 }
 
@@ -17760,7 +17760,7 @@ VK_Version :: struct {
     PFN_vkCmdClearDepthStencilImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdClearDepthStencilImage :: #type (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #c_call;
 }
 
@@ -17768,7 +17768,7 @@ VK_Version :: struct {
     PFN_vkCmdCopyAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, mode: VkCopyAccelerationStructureModeNVX) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdCopyAccelerationStructureNVX :: #type (cmdBuf: VkCommandBuffer, dst: VkAccelerationStructureNVX, src: VkAccelerationStructureNVX, mode: VkCopyAccelerationStructureModeNVX) -> void #c_call;
 }
 
@@ -17776,7 +17776,7 @@ VK_Version :: struct {
     PFN_vkCmdCopyBuffer :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdCopyBuffer :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #c_call;
 }
 
@@ -17784,7 +17784,7 @@ VK_Version :: struct {
     PFN_vkCmdCopyBufferToImage :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdCopyBufferToImage :: #type (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call;
 }
 
@@ -17792,7 +17792,7 @@ VK_Version :: struct {
     PFN_vkCmdCopyImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdCopyImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #c_call;
 }
 
@@ -17800,7 +17800,7 @@ VK_Version :: struct {
     PFN_vkCmdCopyImageToBuffer :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdCopyImageToBuffer :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #c_call;
 }
 
@@ -17808,7 +17808,7 @@ VK_Version :: struct {
     PFN_vkCmdCopyQueryPoolResults :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdCopyQueryPoolResults :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #c_call;
 }
 
@@ -17816,7 +17816,7 @@ VK_Version :: struct {
     PFN_vkCmdDebugMarkerBeginEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDebugMarkerBeginEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call;
 }
 
@@ -17824,7 +17824,7 @@ VK_Version :: struct {
     PFN_vkCmdDebugMarkerEndEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDebugMarkerEndEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
@@ -17832,7 +17832,7 @@ VK_Version :: struct {
     PFN_vkCmdDebugMarkerInsertEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDebugMarkerInsertEXT :: #type (commandBuffer: VkCommandBuffer, pMarkerInfo: *VkDebugMarkerMarkerInfoEXT) -> void #c_call;
 }
 
@@ -17840,7 +17840,7 @@ VK_Version :: struct {
     PFN_vkCmdDispatch :: #type (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDispatch :: #type (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call;
 }
 
@@ -17848,7 +17848,7 @@ VK_Version :: struct {
     PFN_vkCmdDispatchBase :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDispatchBase :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call;
 }
 
@@ -17856,7 +17856,7 @@ VK_Version :: struct {
     PFN_vkCmdDispatchBaseKHR :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDispatchBaseKHR :: #type (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #c_call;
 }
 
@@ -17864,7 +17864,7 @@ VK_Version :: struct {
     PFN_vkCmdDispatchIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDispatchIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #c_call;
 }
 
@@ -17872,7 +17872,7 @@ VK_Version :: struct {
     PFN_vkCmdDraw :: #type (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDraw :: #type (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #c_call;
 }
 
@@ -17880,7 +17880,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawIndexed :: #type (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawIndexed :: #type (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #c_call;
 }
 
@@ -17888,7 +17888,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawIndexedIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawIndexedIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17896,7 +17896,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawIndexedIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawIndexedIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17904,7 +17904,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawIndexedIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawIndexedIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17912,7 +17912,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawIndirect :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17920,7 +17920,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawIndirectCountAMD :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17928,7 +17928,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawIndirectCountKHR :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17936,7 +17936,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawMeshTasksIndirectCountNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawMeshTasksIndirectCountNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, countBuffer: VkBuffer, countBufferOffset: VkDeviceSize, maxDrawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17944,7 +17944,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawMeshTasksIndirectNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawMeshTasksIndirectNV :: #type (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #c_call;
 }
 
@@ -17952,7 +17952,7 @@ VK_Version :: struct {
     PFN_vkCmdDrawMeshTasksNV :: #type (commandBuffer: VkCommandBuffer, taskCount: u32, firstTask: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdDrawMeshTasksNV :: #type (commandBuffer: VkCommandBuffer, taskCount: u32, firstTask: u32) -> void #c_call;
 }
 
@@ -17960,7 +17960,7 @@ VK_Version :: struct {
     PFN_vkCmdEndConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdEndConditionalRenderingEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
@@ -17968,7 +17968,7 @@ VK_Version :: struct {
     PFN_vkCmdEndDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdEndDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
@@ -17976,7 +17976,7 @@ VK_Version :: struct {
     PFN_vkCmdEndQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdEndQuery :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #c_call;
 }
 
@@ -17984,7 +17984,7 @@ VK_Version :: struct {
     PFN_vkCmdEndRenderPass :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdEndRenderPass :: #type (commandBuffer: VkCommandBuffer) -> void #c_call;
 }
 
@@ -17992,7 +17992,7 @@ VK_Version :: struct {
     PFN_vkCmdEndRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdEndRenderPass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call;
 }
 
@@ -18000,7 +18000,7 @@ VK_Version :: struct {
     PFN_vkCmdExecuteCommands :: #type (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdExecuteCommands :: #type (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call;
 }
 
@@ -18008,7 +18008,7 @@ VK_Version :: struct {
     PFN_vkCmdFillBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdFillBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #c_call;
 }
 
@@ -18016,7 +18016,7 @@ VK_Version :: struct {
     PFN_vkCmdInsertDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdInsertDebugUtilsLabelEXT :: #type (commandBuffer: VkCommandBuffer, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
@@ -18024,7 +18024,7 @@ VK_Version :: struct {
     PFN_vkCmdNextSubpass :: #type (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdNextSubpass :: #type (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #c_call;
 }
 
@@ -18032,7 +18032,7 @@ VK_Version :: struct {
     PFN_vkCmdNextSubpass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassBeginInfo: *VkSubpassBeginInfoKHR, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdNextSubpass2KHR :: #type (commandBuffer: VkCommandBuffer, pSubpassBeginInfo: *VkSubpassBeginInfoKHR, pSubpassEndInfo: *VkSubpassEndInfoKHR) -> void #c_call;
 }
 
@@ -18040,7 +18040,7 @@ VK_Version :: struct {
     PFN_vkCmdPipelineBarrier :: #type (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdPipelineBarrier :: #type (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call;
 }
 
@@ -18048,7 +18048,7 @@ VK_Version :: struct {
     PFN_vkCmdProcessCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pProcessCommandsInfo: *VkCmdProcessCommandsInfoNVX) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdProcessCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pProcessCommandsInfo: *VkCmdProcessCommandsInfoNVX) -> void #c_call;
 }
 
@@ -18056,7 +18056,7 @@ VK_Version :: struct {
     PFN_vkCmdPushConstants :: #type (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdPushConstants :: #type (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #c_call;
 }
 
@@ -18064,7 +18064,7 @@ VK_Version :: struct {
     PFN_vkCmdPushDescriptorSetKHR :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, set: u32, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdPushDescriptorSetKHR :: #type (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, set: u32, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet) -> void #c_call;
 }
 
@@ -18072,7 +18072,7 @@ VK_Version :: struct {
     PFN_vkCmdPushDescriptorSetWithTemplateKHR :: #type (commandBuffer: VkCommandBuffer, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, layout: VkPipelineLayout, set: u32, pData: *void) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdPushDescriptorSetWithTemplateKHR :: #type (commandBuffer: VkCommandBuffer, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, layout: VkPipelineLayout, set: u32, pData: *void) -> void #c_call;
 }
 
@@ -18080,7 +18080,7 @@ VK_Version :: struct {
     PFN_vkCmdReserveSpaceForCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pReserveSpaceInfo: *VkCmdReserveSpaceForCommandsInfoNVX) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdReserveSpaceForCommandsNVX :: #type (commandBuffer: VkCommandBuffer, pReserveSpaceInfo: *VkCmdReserveSpaceForCommandsInfoNVX) -> void #c_call;
 }
 
@@ -18088,7 +18088,7 @@ VK_Version :: struct {
     PFN_vkCmdResetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdResetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call;
 }
 
@@ -18096,7 +18096,7 @@ VK_Version :: struct {
     PFN_vkCmdResetQueryPool :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdResetQueryPool :: #type (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #c_call;
 }
 
@@ -18104,7 +18104,7 @@ VK_Version :: struct {
     PFN_vkCmdResolveImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdResolveImage :: #type (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #c_call;
 }
 
@@ -18112,7 +18112,7 @@ VK_Version :: struct {
     PFN_vkCmdSetBlendConstants :: #type (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetBlendConstants :: #type (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #c_call;
 }
 
@@ -18120,7 +18120,7 @@ VK_Version :: struct {
     PFN_vkCmdSetCheckpointNV :: #type (commandBuffer: VkCommandBuffer, pCheckpointMarker: *void) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetCheckpointNV :: #type (commandBuffer: VkCommandBuffer, pCheckpointMarker: *void) -> void #c_call;
 }
 
@@ -18128,7 +18128,7 @@ VK_Version :: struct {
     PFN_vkCmdSetCoarseSampleOrderNV :: #type (commandBuffer: VkCommandBuffer, sampleOrderType: VkCoarseSampleOrderTypeNV, customSampleOrderCount: u32, pCustomSampleOrders: *VkCoarseSampleOrderCustomNV) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetCoarseSampleOrderNV :: #type (commandBuffer: VkCommandBuffer, sampleOrderType: VkCoarseSampleOrderTypeNV, customSampleOrderCount: u32, pCustomSampleOrders: *VkCoarseSampleOrderCustomNV) -> void #c_call;
 }
 
@@ -18136,7 +18136,7 @@ VK_Version :: struct {
     PFN_vkCmdSetDepthBias :: #type (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetDepthBias :: #type (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #c_call;
 }
 
@@ -18144,7 +18144,7 @@ VK_Version :: struct {
     PFN_vkCmdSetDepthBounds :: #type (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetDepthBounds :: #type (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #c_call;
 }
 
@@ -18152,7 +18152,7 @@ VK_Version :: struct {
     PFN_vkCmdSetDeviceMask :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetDeviceMask :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call;
 }
 
@@ -18160,7 +18160,7 @@ VK_Version :: struct {
     PFN_vkCmdSetDeviceMaskKHR :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetDeviceMaskKHR :: #type (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #c_call;
 }
 
@@ -18168,7 +18168,7 @@ VK_Version :: struct {
     PFN_vkCmdSetDiscardRectangleEXT :: #type (commandBuffer: VkCommandBuffer, firstDiscardRectangle: u32, discardRectangleCount: u32, pDiscardRectangles: *VkRect2D) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetDiscardRectangleEXT :: #type (commandBuffer: VkCommandBuffer, firstDiscardRectangle: u32, discardRectangleCount: u32, pDiscardRectangles: *VkRect2D) -> void #c_call;
 }
 
@@ -18176,7 +18176,7 @@ VK_Version :: struct {
     PFN_vkCmdSetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetEvent :: #type (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #c_call;
 }
 
@@ -18184,7 +18184,7 @@ VK_Version :: struct {
     PFN_vkCmdSetExclusiveScissorNV :: #type (commandBuffer: VkCommandBuffer, firstExclusiveScissor: u32, exclusiveScissorCount: u32, pExclusiveScissors: *VkRect2D) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetExclusiveScissorNV :: #type (commandBuffer: VkCommandBuffer, firstExclusiveScissor: u32, exclusiveScissorCount: u32, pExclusiveScissors: *VkRect2D) -> void #c_call;
 }
 
@@ -18192,7 +18192,7 @@ VK_Version :: struct {
     PFN_vkCmdSetLineWidth :: #type (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetLineWidth :: #type (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #c_call;
 }
 
@@ -18200,7 +18200,7 @@ VK_Version :: struct {
     PFN_vkCmdSetSampleLocationsEXT :: #type (commandBuffer: VkCommandBuffer, pSampleLocationsInfo: *VkSampleLocationsInfoEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetSampleLocationsEXT :: #type (commandBuffer: VkCommandBuffer, pSampleLocationsInfo: *VkSampleLocationsInfoEXT) -> void #c_call;
 }
 
@@ -18208,7 +18208,7 @@ VK_Version :: struct {
     PFN_vkCmdSetScissor :: #type (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetScissor :: #type (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #c_call;
 }
 
@@ -18216,7 +18216,7 @@ VK_Version :: struct {
     PFN_vkCmdSetStencilCompareMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetStencilCompareMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #c_call;
 }
 
@@ -18224,7 +18224,7 @@ VK_Version :: struct {
     PFN_vkCmdSetStencilReference :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetStencilReference :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #c_call;
 }
 
@@ -18232,7 +18232,7 @@ VK_Version :: struct {
     PFN_vkCmdSetStencilWriteMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetStencilWriteMask :: #type (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #c_call;
 }
 
@@ -18240,7 +18240,7 @@ VK_Version :: struct {
     PFN_vkCmdSetViewport :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetViewport :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #c_call;
 }
 
@@ -18248,7 +18248,7 @@ VK_Version :: struct {
     PFN_vkCmdSetViewportShadingRatePaletteNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pShadingRatePalettes: *VkShadingRatePaletteNV) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetViewportShadingRatePaletteNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pShadingRatePalettes: *VkShadingRatePaletteNV) -> void #c_call;
 }
 
@@ -18256,7 +18256,7 @@ VK_Version :: struct {
     PFN_vkCmdSetViewportWScalingNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewportWScalings: *VkViewportWScalingNV) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdSetViewportWScalingNV :: #type (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewportWScalings: *VkViewportWScalingNV) -> void #c_call;
 }
 
@@ -18264,7 +18264,7 @@ VK_Version :: struct {
     PFN_vkCmdTraceRaysNVX :: #type (cmdBuf: VkCommandBuffer, raygenShaderBindingTableBuffer: VkBuffer, raygenShaderBindingOffset: VkDeviceSize, missShaderBindingTableBuffer: VkBuffer, missShaderBindingOffset: VkDeviceSize, missShaderBindingStride: VkDeviceSize, hitShaderBindingTableBuffer: VkBuffer, hitShaderBindingOffset: VkDeviceSize, hitShaderBindingStride: VkDeviceSize, width: u32, height: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdTraceRaysNVX :: #type (cmdBuf: VkCommandBuffer, raygenShaderBindingTableBuffer: VkBuffer, raygenShaderBindingOffset: VkDeviceSize, missShaderBindingTableBuffer: VkBuffer, missShaderBindingOffset: VkDeviceSize, missShaderBindingStride: VkDeviceSize, hitShaderBindingTableBuffer: VkBuffer, hitShaderBindingOffset: VkDeviceSize, hitShaderBindingStride: VkDeviceSize, width: u32, height: u32) -> void #c_call;
 }
 
@@ -18272,7 +18272,7 @@ VK_Version :: struct {
     PFN_vkCmdUpdateBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdUpdateBuffer :: #type (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #c_call;
 }
 
@@ -18280,7 +18280,7 @@ VK_Version :: struct {
     PFN_vkCmdWaitEvents :: #type (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdWaitEvents :: #type (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #c_call;
 }
 
@@ -18288,7 +18288,7 @@ VK_Version :: struct {
     PFN_vkCmdWriteAccelerationStructurePropertiesNVX :: #type (cmdBuf: VkCommandBuffer, accelerationStructure: VkAccelerationStructureNVX, queryType: VkQueryType, queryPool: VkQueryPool, query: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdWriteAccelerationStructurePropertiesNVX :: #type (cmdBuf: VkCommandBuffer, accelerationStructure: VkAccelerationStructureNVX, queryType: VkQueryType, queryPool: VkQueryPool, query: u32) -> void #c_call;
 }
 
@@ -18296,7 +18296,7 @@ VK_Version :: struct {
     PFN_vkCmdWriteBufferMarkerAMD :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, marker: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdWriteBufferMarkerAMD :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, marker: u32) -> void #c_call;
 }
 
@@ -18304,7 +18304,7 @@ VK_Version :: struct {
     PFN_vkCmdWriteTimestamp :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCmdWriteTimestamp :: #type (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #c_call;
 }
 
@@ -18312,7 +18312,7 @@ VK_Version :: struct {
     PFN_vkCompileDeferredNVX :: #type (device: VkDevice, pipeline: VkPipeline, shader: u32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCompileDeferredNVX :: #type (device: VkDevice, pipeline: VkPipeline, shader: u32) -> VkResult #c_call;
 }
 
@@ -18320,7 +18320,7 @@ VK_Version :: struct {
     PFN_vkCreateAccelerationStructureNVX :: #type (device: VkDevice, pCreateInfo: *VkAccelerationStructureCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pAccelerationStructure: *VkAccelerationStructureNVX) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateAccelerationStructureNVX :: #type (device: VkDevice, pCreateInfo: *VkAccelerationStructureCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pAccelerationStructure: *VkAccelerationStructureNVX) -> VkResult #c_call;
 }
 
@@ -18328,7 +18328,7 @@ VK_Version :: struct {
     PFN_vkCreateBuffer :: #type (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateBuffer :: #type (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #c_call;
 }
 
@@ -18336,7 +18336,7 @@ VK_Version :: struct {
     PFN_vkCreateBufferView :: #type (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateBufferView :: #type (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #c_call;
 }
 
@@ -18344,7 +18344,7 @@ VK_Version :: struct {
     PFN_vkCreateCommandPool :: #type (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateCommandPool :: #type (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #c_call;
 }
 
@@ -18352,7 +18352,7 @@ VK_Version :: struct {
     PFN_vkCreateComputePipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateComputePipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call;
 }
 
@@ -18360,7 +18360,7 @@ VK_Version :: struct {
     PFN_vkCreateDebugReportCallbackEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugReportCallbackCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pCallback: *VkDebugReportCallbackEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDebugReportCallbackEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugReportCallbackCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pCallback: *VkDebugReportCallbackEXT) -> VkResult #c_call;
 }
 
@@ -18368,7 +18368,7 @@ VK_Version :: struct {
     PFN_vkCreateDebugUtilsMessengerEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugUtilsMessengerCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pMessenger: *VkDebugUtilsMessengerEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDebugUtilsMessengerEXT :: #type (instance: VkInstance, pCreateInfo: *VkDebugUtilsMessengerCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pMessenger: *VkDebugUtilsMessengerEXT) -> VkResult #c_call;
 }
 
@@ -18376,7 +18376,7 @@ VK_Version :: struct {
     PFN_vkCreateDescriptorPool :: #type (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDescriptorPool :: #type (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #c_call;
 }
 
@@ -18384,7 +18384,7 @@ VK_Version :: struct {
     PFN_vkCreateDescriptorSetLayout :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDescriptorSetLayout :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #c_call;
 }
 
@@ -18392,7 +18392,7 @@ VK_Version :: struct {
     PFN_vkCreateDescriptorUpdateTemplate :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDescriptorUpdateTemplate :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call;
 }
 
@@ -18400,7 +18400,7 @@ VK_Version :: struct {
     PFN_vkCreateDescriptorUpdateTemplateKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDescriptorUpdateTemplateKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #c_call;
 }
 
@@ -18408,7 +18408,7 @@ VK_Version :: struct {
     PFN_vkCreateDevice :: #type (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDevice :: #type (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #c_call;
 }
 
@@ -18416,7 +18416,7 @@ VK_Version :: struct {
     PFN_vkCreateDisplayModeKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDisplayModeKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #c_call;
 }
 
@@ -18424,7 +18424,7 @@ VK_Version :: struct {
     PFN_vkCreateDisplayPlaneSurfaceKHR :: #type (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateDisplayPlaneSurfaceKHR :: #type (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #c_call;
 }
 
@@ -18432,7 +18432,7 @@ VK_Version :: struct {
     PFN_vkCreateEvent :: #type (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateEvent :: #type (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #c_call;
 }
 
@@ -18440,7 +18440,7 @@ VK_Version :: struct {
     PFN_vkCreateFence :: #type (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateFence :: #type (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call;
 }
 
@@ -18448,7 +18448,7 @@ VK_Version :: struct {
     PFN_vkCreateFramebuffer :: #type (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateFramebuffer :: #type (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #c_call;
 }
 
@@ -18456,7 +18456,7 @@ VK_Version :: struct {
     PFN_vkCreateGraphicsPipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateGraphicsPipelines :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call;
 }
 
@@ -18464,7 +18464,7 @@ VK_Version :: struct {
     PFN_vkCreateImage :: #type (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateImage :: #type (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #c_call;
 }
 
@@ -18472,7 +18472,7 @@ VK_Version :: struct {
     PFN_vkCreateImageView :: #type (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateImageView :: #type (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #c_call;
 }
 
@@ -18480,7 +18480,7 @@ VK_Version :: struct {
     PFN_vkCreateIndirectCommandsLayoutNVX :: #type (device: VkDevice, pCreateInfo: *VkIndirectCommandsLayoutCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pIndirectCommandsLayout: *VkIndirectCommandsLayoutNVX) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateIndirectCommandsLayoutNVX :: #type (device: VkDevice, pCreateInfo: *VkIndirectCommandsLayoutCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pIndirectCommandsLayout: *VkIndirectCommandsLayoutNVX) -> VkResult #c_call;
 }
 
@@ -18488,7 +18488,7 @@ VK_Version :: struct {
     PFN_vkCreateInstance :: #type (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateInstance :: #type (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #c_call;
 }
 
@@ -18496,7 +18496,7 @@ VK_Version :: struct {
     PFN_vkCreateObjectTableNVX :: #type (device: VkDevice, pCreateInfo: *VkObjectTableCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pObjectTable: *VkObjectTableNVX) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateObjectTableNVX :: #type (device: VkDevice, pCreateInfo: *VkObjectTableCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pObjectTable: *VkObjectTableNVX) -> VkResult #c_call;
 }
 
@@ -18504,7 +18504,7 @@ VK_Version :: struct {
     PFN_vkCreatePipelineCache :: #type (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreatePipelineCache :: #type (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #c_call;
 }
 
@@ -18512,7 +18512,7 @@ VK_Version :: struct {
     PFN_vkCreatePipelineLayout :: #type (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreatePipelineLayout :: #type (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #c_call;
 }
 
@@ -18520,7 +18520,7 @@ VK_Version :: struct {
     PFN_vkCreateQueryPool :: #type (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateQueryPool :: #type (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #c_call;
 }
 
@@ -18528,7 +18528,7 @@ VK_Version :: struct {
     PFN_vkCreateRaytracingPipelinesNVX :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkRaytracingPipelineCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateRaytracingPipelinesNVX :: #type (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkRaytracingPipelineCreateInfoNVX, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #c_call;
 }
 
@@ -18536,7 +18536,7 @@ VK_Version :: struct {
     PFN_vkCreateRenderPass :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateRenderPass :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call;
 }
 
@@ -18544,7 +18544,7 @@ VK_Version :: struct {
     PFN_vkCreateRenderPass2KHR :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo2KHR, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateRenderPass2KHR :: #type (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo2KHR, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #c_call;
 }
 
@@ -18552,7 +18552,7 @@ VK_Version :: struct {
     PFN_vkCreateSampler :: #type (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateSampler :: #type (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #c_call;
 }
 
@@ -18560,7 +18560,7 @@ VK_Version :: struct {
     PFN_vkCreateSamplerYcbcrConversion :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateSamplerYcbcrConversion :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call;
 }
 
@@ -18568,7 +18568,7 @@ VK_Version :: struct {
     PFN_vkCreateSamplerYcbcrConversionKHR :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateSamplerYcbcrConversionKHR :: #type (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #c_call;
 }
 
@@ -18576,7 +18576,7 @@ VK_Version :: struct {
     PFN_vkCreateSemaphore :: #type (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateSemaphore :: #type (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #c_call;
 }
 
@@ -18584,7 +18584,7 @@ VK_Version :: struct {
     PFN_vkCreateShaderModule :: #type (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateShaderModule :: #type (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #c_call;
 }
 
@@ -18592,7 +18592,7 @@ VK_Version :: struct {
     PFN_vkCreateSharedSwapchainsKHR :: #type (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateSharedSwapchainsKHR :: #type (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #c_call;
 }
 
@@ -18600,7 +18600,7 @@ VK_Version :: struct {
     PFN_vkCreateSwapchainKHR :: #type (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateSwapchainKHR :: #type (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #c_call;
 }
 
@@ -18608,7 +18608,7 @@ VK_Version :: struct {
     PFN_vkCreateValidationCacheEXT :: #type (device: VkDevice, pCreateInfo: *VkValidationCacheCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pValidationCache: *VkValidationCacheEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkCreateValidationCacheEXT :: #type (device: VkDevice, pCreateInfo: *VkValidationCacheCreateInfoEXT, pAllocator: *VkAllocationCallbacks, pValidationCache: *VkValidationCacheEXT) -> VkResult #c_call;
 }
 
@@ -18620,7 +18620,7 @@ VK_Version :: struct {
     PFN_vkDebugMarkerSetObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugMarkerObjectNameInfoEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDebugMarkerSetObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugMarkerObjectNameInfoEXT) -> VkResult #c_call;
 }
 
@@ -18628,7 +18628,7 @@ VK_Version :: struct {
     PFN_vkDebugMarkerSetObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugMarkerObjectTagInfoEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDebugMarkerSetObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugMarkerObjectTagInfoEXT) -> VkResult #c_call;
 }
 
@@ -18636,7 +18636,7 @@ VK_Version :: struct {
     PFN_vkDebugReportCallbackEXT :: #type (flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8, pUserData: *void) -> VkBool32 #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDebugReportCallbackEXT :: #type (flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8, pUserData: *void) -> VkBool32 #c_call;
 }
 
@@ -18644,7 +18644,7 @@ VK_Version :: struct {
     PFN_vkDebugReportMessageEXT :: #type (instance: VkInstance, flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDebugReportMessageEXT :: #type (instance: VkInstance, flags: VkDebugReportFlagsEXT, objectType: VkDebugReportObjectTypeEXT, object: u64, location: u64, messageCode: s32, pLayerPrefix: *u8, pMessage: *u8) -> void #c_call;
 }
 
@@ -18652,7 +18652,7 @@ VK_Version :: struct {
     PFN_vkDebugUtilsMessengerCallbackEXT :: #type (messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageType: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT, pUserData: *void) -> VkBool32 #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDebugUtilsMessengerCallbackEXT :: #type (messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageType: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT, pUserData: *void) -> VkBool32 #c_call;
 }
 
@@ -18660,7 +18660,7 @@ VK_Version :: struct {
     PFN_vkDestroyAccelerationStructureNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyAccelerationStructureNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18668,7 +18668,7 @@ VK_Version :: struct {
     PFN_vkDestroyBuffer :: #type (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyBuffer :: #type (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18676,7 +18676,7 @@ VK_Version :: struct {
     PFN_vkDestroyBufferView :: #type (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyBufferView :: #type (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18684,7 +18684,7 @@ VK_Version :: struct {
     PFN_vkDestroyCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18692,7 +18692,7 @@ VK_Version :: struct {
     PFN_vkDestroyDebugReportCallbackEXT :: #type (instance: VkInstance, callback: VkDebugReportCallbackEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyDebugReportCallbackEXT :: #type (instance: VkInstance, callback: VkDebugReportCallbackEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18700,7 +18700,7 @@ VK_Version :: struct {
     PFN_vkDestroyDebugUtilsMessengerEXT :: #type (instance: VkInstance, messenger: VkDebugUtilsMessengerEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyDebugUtilsMessengerEXT :: #type (instance: VkInstance, messenger: VkDebugUtilsMessengerEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18708,7 +18708,7 @@ VK_Version :: struct {
     PFN_vkDestroyDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18716,7 +18716,7 @@ VK_Version :: struct {
     PFN_vkDestroyDescriptorSetLayout :: #type (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyDescriptorSetLayout :: #type (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18724,7 +18724,7 @@ VK_Version :: struct {
     PFN_vkDestroyDescriptorUpdateTemplate :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyDescriptorUpdateTemplate :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18732,7 +18732,7 @@ VK_Version :: struct {
     PFN_vkDestroyDescriptorUpdateTemplateKHR :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyDescriptorUpdateTemplateKHR :: #type (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18740,7 +18740,7 @@ VK_Version :: struct {
     PFN_vkDestroyDevice :: #type (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyDevice :: #type (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18748,7 +18748,7 @@ VK_Version :: struct {
     PFN_vkDestroyEvent :: #type (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyEvent :: #type (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18756,7 +18756,7 @@ VK_Version :: struct {
     PFN_vkDestroyFence :: #type (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyFence :: #type (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18764,7 +18764,7 @@ VK_Version :: struct {
     PFN_vkDestroyFramebuffer :: #type (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyFramebuffer :: #type (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18772,7 +18772,7 @@ VK_Version :: struct {
     PFN_vkDestroyImage :: #type (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyImage :: #type (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18780,7 +18780,7 @@ VK_Version :: struct {
     PFN_vkDestroyImageView :: #type (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyImageView :: #type (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18788,7 +18788,7 @@ VK_Version :: struct {
     PFN_vkDestroyIndirectCommandsLayoutNVX :: #type (device: VkDevice, indirectCommandsLayout: VkIndirectCommandsLayoutNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyIndirectCommandsLayoutNVX :: #type (device: VkDevice, indirectCommandsLayout: VkIndirectCommandsLayoutNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18796,7 +18796,7 @@ VK_Version :: struct {
     PFN_vkDestroyInstance :: #type (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyInstance :: #type (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18804,7 +18804,7 @@ VK_Version :: struct {
     PFN_vkDestroyObjectTableNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyObjectTableNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18812,7 +18812,7 @@ VK_Version :: struct {
     PFN_vkDestroyPipeline :: #type (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyPipeline :: #type (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18820,7 +18820,7 @@ VK_Version :: struct {
     PFN_vkDestroyPipelineCache :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyPipelineCache :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18828,7 +18828,7 @@ VK_Version :: struct {
     PFN_vkDestroyPipelineLayout :: #type (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyPipelineLayout :: #type (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18836,7 +18836,7 @@ VK_Version :: struct {
     PFN_vkDestroyQueryPool :: #type (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyQueryPool :: #type (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18844,7 +18844,7 @@ VK_Version :: struct {
     PFN_vkDestroyRenderPass :: #type (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyRenderPass :: #type (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18852,7 +18852,7 @@ VK_Version :: struct {
     PFN_vkDestroySampler :: #type (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroySampler :: #type (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18860,7 +18860,7 @@ VK_Version :: struct {
     PFN_vkDestroySamplerYcbcrConversion :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroySamplerYcbcrConversion :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18868,7 +18868,7 @@ VK_Version :: struct {
     PFN_vkDestroySamplerYcbcrConversionKHR :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroySamplerYcbcrConversionKHR :: #type (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18876,7 +18876,7 @@ VK_Version :: struct {
     PFN_vkDestroySemaphore :: #type (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroySemaphore :: #type (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18884,7 +18884,7 @@ VK_Version :: struct {
     PFN_vkDestroyShaderModule :: #type (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyShaderModule :: #type (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18892,7 +18892,7 @@ VK_Version :: struct {
     PFN_vkDestroySurfaceKHR :: #type (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroySurfaceKHR :: #type (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18900,7 +18900,7 @@ VK_Version :: struct {
     PFN_vkDestroySwapchainKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroySwapchainKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18908,7 +18908,7 @@ VK_Version :: struct {
     PFN_vkDestroyValidationCacheEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDestroyValidationCacheEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -18916,7 +18916,7 @@ VK_Version :: struct {
     PFN_vkDeviceWaitIdle :: #type (device: VkDevice) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDeviceWaitIdle :: #type (device: VkDevice) -> VkResult #c_call;
 }
 
@@ -18924,7 +18924,7 @@ VK_Version :: struct {
     PFN_vkDisplayPowerControlEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayPowerInfo: *VkDisplayPowerInfoEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkDisplayPowerControlEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayPowerInfo: *VkDisplayPowerInfoEXT) -> VkResult #c_call;
 }
 
@@ -18932,7 +18932,7 @@ VK_Version :: struct {
     PFN_vkEndCommandBuffer :: #type (commandBuffer: VkCommandBuffer) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEndCommandBuffer :: #type (commandBuffer: VkCommandBuffer) -> VkResult #c_call;
 }
 
@@ -18940,7 +18940,7 @@ VK_Version :: struct {
     PFN_vkEnumerateDeviceExtensionProperties :: #type (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumerateDeviceExtensionProperties :: #type (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call;
 }
 
@@ -18948,7 +18948,7 @@ VK_Version :: struct {
     PFN_vkEnumerateDeviceLayerProperties :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumerateDeviceLayerProperties :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call;
 }
 
@@ -18956,7 +18956,7 @@ VK_Version :: struct {
     PFN_vkEnumerateInstanceExtensionProperties :: #type (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumerateInstanceExtensionProperties :: #type (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #c_call;
 }
 
@@ -18964,7 +18964,7 @@ VK_Version :: struct {
     PFN_vkEnumerateInstanceLayerProperties :: #type (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumerateInstanceLayerProperties :: #type (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #c_call;
 }
 
@@ -18972,7 +18972,7 @@ VK_Version :: struct {
     PFN_vkEnumerateInstanceVersion :: #type (pApiVersion: *u32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumerateInstanceVersion :: #type (pApiVersion: *u32) -> VkResult #c_call;
 }
 
@@ -18980,7 +18980,7 @@ VK_Version :: struct {
     PFN_vkEnumeratePhysicalDeviceGroups :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumeratePhysicalDeviceGroups :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call;
 }
 
@@ -18988,7 +18988,7 @@ VK_Version :: struct {
     PFN_vkEnumeratePhysicalDeviceGroupsKHR :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumeratePhysicalDeviceGroupsKHR :: #type (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #c_call;
 }
 
@@ -18996,7 +18996,7 @@ VK_Version :: struct {
     PFN_vkEnumeratePhysicalDevices :: #type (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkEnumeratePhysicalDevices :: #type (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #c_call;
 }
 
@@ -19004,7 +19004,7 @@ VK_Version :: struct {
     PFN_vkFlushMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkFlushMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call;
 }
 
@@ -19012,7 +19012,7 @@ VK_Version :: struct {
     PFN_vkFreeCommandBuffers :: #type (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkFreeCommandBuffers :: #type (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #c_call;
 }
 
@@ -19020,7 +19020,7 @@ VK_Version :: struct {
     PFN_vkFreeDescriptorSets :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkFreeDescriptorSets :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #c_call;
 }
 
@@ -19028,7 +19028,7 @@ VK_Version :: struct {
     PFN_vkFreeFunction :: #type (pUserData: *void, pMemory: *void) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkFreeFunction :: #type (pUserData: *void, pMemory: *void) -> void #c_call;
 }
 
@@ -19036,7 +19036,7 @@ VK_Version :: struct {
     PFN_vkFreeMemory :: #type (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkFreeMemory :: #type (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #c_call;
 }
 
@@ -19044,7 +19044,7 @@ VK_Version :: struct {
     PFN_vkGetAccelerationStructureHandleNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, dataSize: u64, pData: *void) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetAccelerationStructureHandleNVX :: #type (device: VkDevice, accelerationStructure: VkAccelerationStructureNVX, dataSize: u64, pData: *void) -> VkResult #c_call;
 }
 
@@ -19052,7 +19052,7 @@ VK_Version :: struct {
     PFN_vkGetAccelerationStructureMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetAccelerationStructureMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call;
 }
 
@@ -19060,7 +19060,7 @@ VK_Version :: struct {
     PFN_vkGetAccelerationStructureScratchMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetAccelerationStructureScratchMemoryRequirementsNVX :: #type (device: VkDevice, pInfo: *VkAccelerationStructureMemoryRequirementsInfoNVX, pMemoryRequirements: *VkMemoryRequirements2KHR) -> void #c_call;
 }
 
@@ -19068,7 +19068,7 @@ VK_Version :: struct {
     PFN_vkGetBufferMemoryRequirements :: #type (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetBufferMemoryRequirements :: #type (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call;
 }
 
@@ -19076,7 +19076,7 @@ VK_Version :: struct {
     PFN_vkGetBufferMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetBufferMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
@@ -19084,7 +19084,7 @@ VK_Version :: struct {
     PFN_vkGetBufferMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetBufferMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
@@ -19092,7 +19092,7 @@ VK_Version :: struct {
     PFN_vkGetDescriptorSetLayoutSupport :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDescriptorSetLayoutSupport :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call;
 }
 
@@ -19100,7 +19100,7 @@ VK_Version :: struct {
     PFN_vkGetDescriptorSetLayoutSupportKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDescriptorSetLayoutSupportKHR :: #type (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #c_call;
 }
 
@@ -19108,7 +19108,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceGroupPeerMemoryFeatures :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceGroupPeerMemoryFeatures :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call;
 }
 
@@ -19116,7 +19116,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceGroupPeerMemoryFeaturesKHR :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceGroupPeerMemoryFeaturesKHR :: #type (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #c_call;
 }
 
@@ -19124,7 +19124,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceGroupPresentCapabilitiesKHR :: #type (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceGroupPresentCapabilitiesKHR :: #type (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #c_call;
 }
 
@@ -19132,7 +19132,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceGroupSurfacePresentModesKHR :: #type (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceGroupSurfacePresentModesKHR :: #type (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #c_call;
 }
 
@@ -19140,7 +19140,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceMemoryCommitment :: #type (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceMemoryCommitment :: #type (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #c_call;
 }
 
@@ -19148,7 +19148,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceProcAddr :: #type (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceProcAddr :: #type (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #c_call;
 }
 
@@ -19156,7 +19156,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceQueue :: #type (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceQueue :: #type (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #c_call;
 }
 
@@ -19164,7 +19164,7 @@ VK_Version :: struct {
     PFN_vkGetDeviceQueue2 :: #type (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDeviceQueue2 :: #type (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #c_call;
 }
 
@@ -19172,7 +19172,7 @@ VK_Version :: struct {
     PFN_vkGetDisplayModeProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDisplayModeProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #c_call;
 }
 
@@ -19180,7 +19180,7 @@ VK_Version :: struct {
     PFN_vkGetDisplayModePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDisplayModePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #c_call;
 }
 
@@ -19188,7 +19188,7 @@ VK_Version :: struct {
     PFN_vkGetDisplayPlaneCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDisplayPlaneCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #c_call;
 }
 
@@ -19196,7 +19196,7 @@ VK_Version :: struct {
     PFN_vkGetDisplayPlaneCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDisplayPlaneCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #c_call;
 }
 
@@ -19204,7 +19204,7 @@ VK_Version :: struct {
     PFN_vkGetDisplayPlaneSupportedDisplaysKHR :: #type (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetDisplayPlaneSupportedDisplaysKHR :: #type (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #c_call;
 }
 
@@ -19212,7 +19212,7 @@ VK_Version :: struct {
     PFN_vkGetEventStatus :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetEventStatus :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call;
 }
 
@@ -19220,7 +19220,7 @@ VK_Version :: struct {
     PFN_vkGetFenceFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkFenceGetFdInfoKHR, pFd: *s32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetFenceFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkFenceGetFdInfoKHR, pFd: *s32) -> VkResult #c_call;
 }
 
@@ -19228,7 +19228,7 @@ VK_Version :: struct {
     PFN_vkGetFenceStatus :: #type (device: VkDevice, fence: VkFence) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetFenceStatus :: #type (device: VkDevice, fence: VkFence) -> VkResult #c_call;
 }
 
@@ -19240,7 +19240,7 @@ VK_Version :: struct {
     PFN_vkGetImageMemoryRequirements :: #type (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetImageMemoryRequirements :: #type (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #c_call;
 }
 
@@ -19248,7 +19248,7 @@ VK_Version :: struct {
     PFN_vkGetImageMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetImageMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
@@ -19256,7 +19256,7 @@ VK_Version :: struct {
     PFN_vkGetImageMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetImageMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #c_call;
 }
 
@@ -19264,7 +19264,7 @@ VK_Version :: struct {
     PFN_vkGetImageSparseMemoryRequirements :: #type (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetImageSparseMemoryRequirements :: #type (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #c_call;
 }
 
@@ -19272,7 +19272,7 @@ VK_Version :: struct {
     PFN_vkGetImageSparseMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetImageSparseMemoryRequirements2 :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call;
 }
 
@@ -19280,7 +19280,7 @@ VK_Version :: struct {
     PFN_vkGetImageSparseMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetImageSparseMemoryRequirements2KHR :: #type (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #c_call;
 }
 
@@ -19288,7 +19288,7 @@ VK_Version :: struct {
     PFN_vkGetImageSubresourceLayout :: #type (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetImageSubresourceLayout :: #type (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #c_call;
 }
 
@@ -19296,7 +19296,7 @@ VK_Version :: struct {
     PFN_vkGetInstanceProcAddr :: #type (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetInstanceProcAddr :: #type (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #c_call;
 }
 
@@ -19304,7 +19304,7 @@ VK_Version :: struct {
     PFN_vkGetMemoryFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkMemoryGetFdInfoKHR, pFd: *s32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetMemoryFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkMemoryGetFdInfoKHR, pFd: *s32) -> VkResult #c_call;
 }
 
@@ -19312,7 +19312,7 @@ VK_Version :: struct {
     PFN_vkGetMemoryFdPropertiesKHR :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, fd: s32, pMemoryFdProperties: *VkMemoryFdPropertiesKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetMemoryFdPropertiesKHR :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, fd: s32, pMemoryFdProperties: *VkMemoryFdPropertiesKHR) -> VkResult #c_call;
 }
 
@@ -19320,7 +19320,7 @@ VK_Version :: struct {
     PFN_vkGetMemoryHostPointerPropertiesEXT :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, pHostPointer: *void, pMemoryHostPointerProperties: *VkMemoryHostPointerPropertiesEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetMemoryHostPointerPropertiesEXT :: #type (device: VkDevice, handleType: VkExternalMemoryHandleTypeFlagBits, pHostPointer: *void, pMemoryHostPointerProperties: *VkMemoryHostPointerPropertiesEXT) -> VkResult #c_call;
 }
 
@@ -19340,7 +19340,7 @@ VK_Version :: struct {
     PFN_vkGetPastPresentationTimingGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pPresentationTimingCount: *u32, pPresentationTimings: *VkPastPresentationTimingGOOGLE) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPastPresentationTimingGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pPresentationTimingCount: *u32, pPresentationTimings: *VkPastPresentationTimingGOOGLE) -> VkResult #c_call;
 }
 
@@ -19348,7 +19348,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #c_call;
 }
 
@@ -19356,7 +19356,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #c_call;
 }
 
@@ -19364,7 +19364,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceDisplayProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceDisplayProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #c_call;
 }
 
@@ -19372,7 +19372,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceDisplayPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceDisplayPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #c_call;
 }
 
@@ -19380,7 +19380,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceExternalBufferProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceExternalBufferProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call;
 }
 
@@ -19388,7 +19388,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #c_call;
 }
 
@@ -19396,7 +19396,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceExternalFenceProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceExternalFenceProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call;
 }
 
@@ -19404,7 +19404,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceExternalFencePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceExternalFencePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #c_call;
 }
 
@@ -19412,7 +19412,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, externalHandleType: VkExternalMemoryHandleTypeFlagsNV, pExternalImageFormatProperties: *VkExternalImageFormatPropertiesNV) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, externalHandleType: VkExternalMemoryHandleTypeFlagsNV, pExternalImageFormatProperties: *VkExternalImageFormatPropertiesNV) -> VkResult #c_call;
 }
 
@@ -19420,7 +19420,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceExternalSemaphoreProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceExternalSemaphoreProperties :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call;
 }
 
@@ -19428,7 +19428,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR :: #type (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #c_call;
 }
 
@@ -19436,7 +19436,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceFeatures :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceFeatures :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #c_call;
 }
 
@@ -19444,7 +19444,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceFeatures2 :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceFeatures2 :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call;
 }
 
@@ -19452,7 +19452,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceFeatures2KHR :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceFeatures2KHR :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #c_call;
 }
 
@@ -19460,7 +19460,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #c_call;
 }
 
@@ -19468,7 +19468,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call;
 }
 
@@ -19476,7 +19476,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #c_call;
 }
 
@@ -19484,7 +19484,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkDeviceGeneratedCommandsFeaturesNVX, pLimits: *VkDeviceGeneratedCommandsLimitsNVX) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX :: #type (physicalDevice: VkPhysicalDevice, pFeatures: *VkDeviceGeneratedCommandsFeaturesNVX, pLimits: *VkDeviceGeneratedCommandsLimitsNVX) -> void #c_call;
 }
 
@@ -19492,7 +19492,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #c_call;
 }
 
@@ -19500,7 +19500,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call;
 }
 
@@ -19508,7 +19508,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #c_call;
 }
 
@@ -19516,7 +19516,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceMemoryProperties :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceMemoryProperties :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #c_call;
 }
 
@@ -19524,7 +19524,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceMemoryProperties2 :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceMemoryProperties2 :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call;
 }
 
@@ -19532,7 +19532,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceMemoryProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceMemoryProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #c_call;
 }
 
@@ -19540,7 +19540,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceMultisamplePropertiesEXT :: #type (physicalDevice: VkPhysicalDevice, samples: VkSampleCountFlagBits, pMultisampleProperties: *VkMultisamplePropertiesEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceMultisamplePropertiesEXT :: #type (physicalDevice: VkPhysicalDevice, samples: VkSampleCountFlagBits, pMultisampleProperties: *VkMultisamplePropertiesEXT) -> void #c_call;
 }
 
@@ -19548,7 +19548,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDevicePresentRectanglesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDevicePresentRectanglesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #c_call;
 }
 
@@ -19556,7 +19556,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceProperties :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceProperties :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #c_call;
 }
 
@@ -19564,7 +19564,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceProperties2 :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceProperties2 :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call;
 }
 
@@ -19572,7 +19572,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #c_call;
 }
 
@@ -19580,7 +19580,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceQueueFamilyProperties :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceQueueFamilyProperties :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #c_call;
 }
 
@@ -19588,7 +19588,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceQueueFamilyProperties2 :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceQueueFamilyProperties2 :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call;
 }
 
@@ -19596,7 +19596,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #c_call;
 }
 
@@ -19604,7 +19604,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties :: #type (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #c_call;
 }
 
@@ -19612,7 +19612,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2 :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call;
 }
 
@@ -19620,7 +19620,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: #type (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #c_call;
 }
 
@@ -19628,7 +19628,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilities2EXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilities2EXT) -> VkResult #c_call;
 }
 
@@ -19636,7 +19636,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceCapabilities: *VkSurfaceCapabilities2KHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceCapabilities: *VkSurfaceCapabilities2KHR) -> VkResult #c_call;
 }
 
@@ -19644,7 +19644,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #c_call;
 }
 
@@ -19652,7 +19652,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSurfaceFormats2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormat2KHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSurfaceFormats2KHR :: #type (physicalDevice: VkPhysicalDevice, pSurfaceInfo: *VkPhysicalDeviceSurfaceInfo2KHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormat2KHR) -> VkResult #c_call;
 }
 
@@ -19660,7 +19660,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSurfaceFormatsKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSurfaceFormatsKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #c_call;
 }
 
@@ -19668,7 +19668,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR :: #type (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #c_call;
 }
 
@@ -19676,7 +19676,7 @@ VK_Version :: struct {
     PFN_vkGetPhysicalDeviceSurfaceSupportKHR :: #type (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPhysicalDeviceSurfaceSupportKHR :: #type (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #c_call;
 }
 
@@ -19688,7 +19688,7 @@ VK_Version :: struct {
     PFN_vkGetPipelineCacheData :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetPipelineCacheData :: #type (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #c_call;
 }
 
@@ -19696,7 +19696,7 @@ VK_Version :: struct {
     PFN_vkGetQueryPoolResults :: #type (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetQueryPoolResults :: #type (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #c_call;
 }
 
@@ -19704,7 +19704,7 @@ VK_Version :: struct {
     PFN_vkGetQueueCheckpointDataNV :: #type (queue: VkQueue, pCheckpointDataCount: *u32, pCheckpointData: *VkCheckpointDataNV) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetQueueCheckpointDataNV :: #type (queue: VkQueue, pCheckpointDataCount: *u32, pCheckpointData: *VkCheckpointDataNV) -> void #c_call;
 }
 
@@ -19712,7 +19712,7 @@ VK_Version :: struct {
     PFN_vkGetRaytracingShaderHandlesNVX :: #type (device: VkDevice, pipeline: VkPipeline, firstGroup: u32, groupCount: u32, dataSize: u64, pData: *void) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetRaytracingShaderHandlesNVX :: #type (device: VkDevice, pipeline: VkPipeline, firstGroup: u32, groupCount: u32, dataSize: u64, pData: *void) -> VkResult #c_call;
 }
 
@@ -19720,7 +19720,7 @@ VK_Version :: struct {
     PFN_vkGetRefreshCycleDurationGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pDisplayTimingProperties: *VkRefreshCycleDurationGOOGLE) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetRefreshCycleDurationGOOGLE :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pDisplayTimingProperties: *VkRefreshCycleDurationGOOGLE) -> VkResult #c_call;
 }
 
@@ -19728,7 +19728,7 @@ VK_Version :: struct {
     PFN_vkGetRenderAreaGranularity :: #type (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetRenderAreaGranularity :: #type (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #c_call;
 }
 
@@ -19736,7 +19736,7 @@ VK_Version :: struct {
     PFN_vkGetSemaphoreFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkSemaphoreGetFdInfoKHR, pFd: *s32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetSemaphoreFdKHR :: #type (device: VkDevice, pGetFdInfo: *VkSemaphoreGetFdInfoKHR, pFd: *s32) -> VkResult #c_call;
 }
 
@@ -19748,7 +19748,7 @@ VK_Version :: struct {
     PFN_vkGetShaderInfoAMD :: #type (device: VkDevice, pipeline: VkPipeline, shaderStage: VkShaderStageFlagBits, infoType: VkShaderInfoTypeAMD, pInfoSize: *u64, pInfo: *void) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetShaderInfoAMD :: #type (device: VkDevice, pipeline: VkPipeline, shaderStage: VkShaderStageFlagBits, infoType: VkShaderInfoTypeAMD, pInfoSize: *u64, pInfo: *void) -> VkResult #c_call;
 }
 
@@ -19756,7 +19756,7 @@ VK_Version :: struct {
     PFN_vkGetSwapchainCounterEXT :: #type (device: VkDevice, swapchain: VkSwapchainKHR, counter: VkSurfaceCounterFlagBitsEXT, pCounterValue: *u64) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetSwapchainCounterEXT :: #type (device: VkDevice, swapchain: VkSwapchainKHR, counter: VkSurfaceCounterFlagBitsEXT, pCounterValue: *u64) -> VkResult #c_call;
 }
 
@@ -19764,7 +19764,7 @@ VK_Version :: struct {
     PFN_vkGetSwapchainImagesKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetSwapchainImagesKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #c_call;
 }
 
@@ -19772,7 +19772,7 @@ VK_Version :: struct {
     PFN_vkGetSwapchainStatusKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetSwapchainStatusKHR :: #type (device: VkDevice, swapchain: VkSwapchainKHR) -> VkResult #c_call;
 }
 
@@ -19780,7 +19780,7 @@ VK_Version :: struct {
     PFN_vkGetValidationCacheDataEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pDataSize: *u64, pData: *void) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkGetValidationCacheDataEXT :: #type (device: VkDevice, validationCache: VkValidationCacheEXT, pDataSize: *u64, pData: *void) -> VkResult #c_call;
 }
 
@@ -19788,7 +19788,7 @@ VK_Version :: struct {
     PFN_vkImportFenceFdKHR :: #type (device: VkDevice, pImportFenceFdInfo: *VkImportFenceFdInfoKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkImportFenceFdKHR :: #type (device: VkDevice, pImportFenceFdInfo: *VkImportFenceFdInfoKHR) -> VkResult #c_call;
 }
 
@@ -19800,7 +19800,7 @@ VK_Version :: struct {
     PFN_vkImportSemaphoreFdKHR :: #type (device: VkDevice, pImportSemaphoreFdInfo: *VkImportSemaphoreFdInfoKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkImportSemaphoreFdKHR :: #type (device: VkDevice, pImportSemaphoreFdInfo: *VkImportSemaphoreFdInfoKHR) -> VkResult #c_call;
 }
 
@@ -19812,7 +19812,7 @@ VK_Version :: struct {
     PFN_vkInternalAllocationNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkInternalAllocationNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call;
 }
 
@@ -19820,7 +19820,7 @@ VK_Version :: struct {
     PFN_vkInternalFreeNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkInternalFreeNotification :: #type (pUserData: *void, size: u64, allocationType: VkInternalAllocationType, allocationScope: VkSystemAllocationScope) -> void #c_call;
 }
 
@@ -19828,7 +19828,7 @@ VK_Version :: struct {
     PFN_vkInvalidateMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkInvalidateMappedMemoryRanges :: #type (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #c_call;
 }
 
@@ -19836,7 +19836,7 @@ VK_Version :: struct {
     PFN_vkMapMemory :: #type (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkMapMemory :: #type (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #c_call;
 }
 
@@ -19844,7 +19844,7 @@ VK_Version :: struct {
     PFN_vkMergePipelineCaches :: #type (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkMergePipelineCaches :: #type (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #c_call;
 }
 
@@ -19852,7 +19852,7 @@ VK_Version :: struct {
     PFN_vkMergeValidationCachesEXT :: #type (device: VkDevice, dstCache: VkValidationCacheEXT, srcCacheCount: u32, pSrcCaches: *VkValidationCacheEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkMergeValidationCachesEXT :: #type (device: VkDevice, dstCache: VkValidationCacheEXT, srcCacheCount: u32, pSrcCaches: *VkValidationCacheEXT) -> VkResult #c_call;
 }
 
@@ -19860,7 +19860,7 @@ VK_Version :: struct {
     PFN_vkQueueBeginDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkQueueBeginDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
@@ -19868,7 +19868,7 @@ VK_Version :: struct {
     PFN_vkQueueBindSparse :: #type (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkQueueBindSparse :: #type (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #c_call;
 }
 
@@ -19876,7 +19876,7 @@ VK_Version :: struct {
     PFN_vkQueueEndDebugUtilsLabelEXT :: #type (queue: VkQueue) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkQueueEndDebugUtilsLabelEXT :: #type (queue: VkQueue) -> void #c_call;
 }
 
@@ -19884,7 +19884,7 @@ VK_Version :: struct {
     PFN_vkQueueInsertDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkQueueInsertDebugUtilsLabelEXT :: #type (queue: VkQueue, pLabelInfo: *VkDebugUtilsLabelEXT) -> void #c_call;
 }
 
@@ -19892,7 +19892,7 @@ VK_Version :: struct {
     PFN_vkQueuePresentKHR :: #type (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkQueuePresentKHR :: #type (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #c_call;
 }
 
@@ -19900,7 +19900,7 @@ VK_Version :: struct {
     PFN_vkQueueSubmit :: #type (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkQueueSubmit :: #type (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #c_call;
 }
 
@@ -19908,7 +19908,7 @@ VK_Version :: struct {
     PFN_vkQueueWaitIdle :: #type (queue: VkQueue) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkQueueWaitIdle :: #type (queue: VkQueue) -> VkResult #c_call;
 }
 
@@ -19916,7 +19916,7 @@ VK_Version :: struct {
     PFN_vkReallocationFunction :: #type (pUserData: *void, pOriginal: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkReallocationFunction :: #type (pUserData: *void, pOriginal: *void, size: u64, alignment: u64, allocationScope: VkSystemAllocationScope) -> *void #c_call;
 }
 
@@ -19924,7 +19924,7 @@ VK_Version :: struct {
     PFN_vkRegisterDeviceEventEXT :: #type (device: VkDevice, pDeviceEventInfo: *VkDeviceEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkRegisterDeviceEventEXT :: #type (device: VkDevice, pDeviceEventInfo: *VkDeviceEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call;
 }
 
@@ -19932,7 +19932,7 @@ VK_Version :: struct {
     PFN_vkRegisterDisplayEventEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayEventInfo: *VkDisplayEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkRegisterDisplayEventEXT :: #type (device: VkDevice, display: VkDisplayKHR, pDisplayEventInfo: *VkDisplayEventInfoEXT, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #c_call;
 }
 
@@ -19940,7 +19940,7 @@ VK_Version :: struct {
     PFN_vkRegisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, ppObjectTableEntries: **VkObjectTableEntryNVX, pObjectIndices: *u32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkRegisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, ppObjectTableEntries: **VkObjectTableEntryNVX, pObjectIndices: *u32) -> VkResult #c_call;
 }
 
@@ -19948,7 +19948,7 @@ VK_Version :: struct {
     PFN_vkReleaseDisplayEXT :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkReleaseDisplayEXT :: #type (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> VkResult #c_call;
 }
 
@@ -19956,7 +19956,7 @@ VK_Version :: struct {
     PFN_vkResetCommandBuffer :: #type (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkResetCommandBuffer :: #type (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #c_call;
 }
 
@@ -19964,7 +19964,7 @@ VK_Version :: struct {
     PFN_vkResetCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkResetCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #c_call;
 }
 
@@ -19972,7 +19972,7 @@ VK_Version :: struct {
     PFN_vkResetDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkResetDescriptorPool :: #type (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #c_call;
 }
 
@@ -19980,7 +19980,7 @@ VK_Version :: struct {
     PFN_vkResetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkResetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call;
 }
 
@@ -19988,7 +19988,7 @@ VK_Version :: struct {
     PFN_vkResetFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkResetFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #c_call;
 }
 
@@ -19996,7 +19996,7 @@ VK_Version :: struct {
     PFN_vkSetDebugUtilsObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugUtilsObjectNameInfoEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkSetDebugUtilsObjectNameEXT :: #type (device: VkDevice, pNameInfo: *VkDebugUtilsObjectNameInfoEXT) -> VkResult #c_call;
 }
 
@@ -20004,7 +20004,7 @@ VK_Version :: struct {
     PFN_vkSetDebugUtilsObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugUtilsObjectTagInfoEXT) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkSetDebugUtilsObjectTagEXT :: #type (device: VkDevice, pTagInfo: *VkDebugUtilsObjectTagInfoEXT) -> VkResult #c_call;
 }
 
@@ -20012,7 +20012,7 @@ VK_Version :: struct {
     PFN_vkSetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkSetEvent :: #type (device: VkDevice, event: VkEvent) -> VkResult #c_call;
 }
 
@@ -20020,7 +20020,7 @@ VK_Version :: struct {
     PFN_vkSetHdrMetadataEXT :: #type (device: VkDevice, swapchainCount: u32, pSwapchains: *VkSwapchainKHR, pMetadata: *VkHdrMetadataEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkSetHdrMetadataEXT :: #type (device: VkDevice, swapchainCount: u32, pSwapchains: *VkSwapchainKHR, pMetadata: *VkHdrMetadataEXT) -> void #c_call;
 }
 
@@ -20028,7 +20028,7 @@ VK_Version :: struct {
     PFN_vkSubmitDebugUtilsMessageEXT :: #type (instance: VkInstance, messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageTypes: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkSubmitDebugUtilsMessageEXT :: #type (instance: VkInstance, messageSeverity: VkDebugUtilsMessageSeverityFlagBitsEXT, messageTypes: VkDebugUtilsMessageTypeFlagsEXT, pCallbackData: *VkDebugUtilsMessengerCallbackDataEXT) -> void #c_call;
 }
 
@@ -20036,7 +20036,7 @@ VK_Version :: struct {
     PFN_vkTrimCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkTrimCommandPool :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call;
 }
 
@@ -20044,7 +20044,7 @@ VK_Version :: struct {
     PFN_vkTrimCommandPoolKHR :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkTrimCommandPoolKHR :: #type (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #c_call;
 }
 
@@ -20052,7 +20052,7 @@ VK_Version :: struct {
     PFN_vkUnmapMemory :: #type (device: VkDevice, memory: VkDeviceMemory) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkUnmapMemory :: #type (device: VkDevice, memory: VkDeviceMemory) -> void #c_call;
 }
 
@@ -20060,7 +20060,7 @@ VK_Version :: struct {
     PFN_vkUnregisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, pObjectEntryTypes: *VkObjectEntryTypeNVX, pObjectIndices: *u32) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkUnregisterObjectsNVX :: #type (device: VkDevice, objectTable: VkObjectTableNVX, objectCount: u32, pObjectEntryTypes: *VkObjectEntryTypeNVX, pObjectIndices: *u32) -> VkResult #c_call;
 }
 
@@ -20068,7 +20068,7 @@ VK_Version :: struct {
     PFN_vkUpdateDescriptorSets :: #type (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkUpdateDescriptorSets :: #type (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #c_call;
 }
 
@@ -20076,7 +20076,7 @@ VK_Version :: struct {
     PFN_vkUpdateDescriptorSetWithTemplate :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkUpdateDescriptorSetWithTemplate :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call;
 }
 
@@ -20084,7 +20084,7 @@ VK_Version :: struct {
     PFN_vkUpdateDescriptorSetWithTemplateKHR :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkUpdateDescriptorSetWithTemplateKHR :: #type (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #c_call;
 }
 
@@ -20092,7 +20092,7 @@ VK_Version :: struct {
     PFN_vkVoidFunction :: #type () -> void #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkVoidFunction :: #type () -> void #c_call;
 }
 
@@ -20100,7 +20100,7 @@ VK_Version :: struct {
     PFN_vkWaitForFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #c_call;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     PFN_vkWaitForFences :: #type (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #c_call;
 }
 
@@ -20110,7 +20110,7 @@ VK_Version :: struct {
     VK_AMD_buffer_marker :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_buffer_marker :: 1;
 }
 
@@ -20118,7 +20118,7 @@ VK_Version :: struct {
     VK_AMD_BUFFER_MARKER_EXTENSION_NAME :: "VK_AMD_buffer_marker";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_BUFFER_MARKER_EXTENSION_NAME :: "VK_AMD_buffer_marker";
 }
 
@@ -20126,7 +20126,7 @@ VK_Version :: struct {
     VK_AMD_BUFFER_MARKER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_BUFFER_MARKER_SPEC_VERSION :: 1;
 }
 
@@ -20134,7 +20134,7 @@ VK_Version :: struct {
     VK_AMD_draw_indirect_count :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_draw_indirect_count :: 1;
 }
 
@@ -20142,7 +20142,7 @@ VK_Version :: struct {
     VK_AMD_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_AMD_draw_indirect_count";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_AMD_draw_indirect_count";
 }
 
@@ -20150,7 +20150,7 @@ VK_Version :: struct {
     VK_AMD_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1;
 }
 
@@ -20158,7 +20158,7 @@ VK_Version :: struct {
     VK_AMD_gcn_shader :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_gcn_shader :: 1;
 }
 
@@ -20166,7 +20166,7 @@ VK_Version :: struct {
     VK_AMD_GCN_SHADER_EXTENSION_NAME :: "VK_AMD_gcn_shader";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_GCN_SHADER_EXTENSION_NAME :: "VK_AMD_gcn_shader";
 }
 
@@ -20174,7 +20174,7 @@ VK_Version :: struct {
     VK_AMD_GCN_SHADER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_GCN_SHADER_SPEC_VERSION :: 1;
 }
 
@@ -20182,7 +20182,7 @@ VK_Version :: struct {
     VK_AMD_gpu_shader_half_float :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_gpu_shader_half_float :: 1;
 }
 
@@ -20190,7 +20190,7 @@ VK_Version :: struct {
     VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME :: "VK_AMD_gpu_shader_half_float";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME :: "VK_AMD_gpu_shader_half_float";
 }
 
@@ -20198,7 +20198,7 @@ VK_Version :: struct {
     VK_AMD_GPU_SHADER_HALF_FLOAT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_GPU_SHADER_HALF_FLOAT_SPEC_VERSION :: 1;
 }
 
@@ -20206,7 +20206,7 @@ VK_Version :: struct {
     VK_AMD_gpu_shader_int16 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_gpu_shader_int16 :: 1;
 }
 
@@ -20214,7 +20214,7 @@ VK_Version :: struct {
     VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME :: "VK_AMD_gpu_shader_int16";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME :: "VK_AMD_gpu_shader_int16";
 }
 
@@ -20222,7 +20222,7 @@ VK_Version :: struct {
     VK_AMD_GPU_SHADER_INT16_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_GPU_SHADER_INT16_SPEC_VERSION :: 1;
 }
 
@@ -20230,7 +20230,7 @@ VK_Version :: struct {
     VK_AMD_mixed_attachment_samples :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_mixed_attachment_samples :: 1;
 }
 
@@ -20238,7 +20238,7 @@ VK_Version :: struct {
     VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME :: "VK_AMD_mixed_attachment_samples";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME :: "VK_AMD_mixed_attachment_samples";
 }
 
@@ -20246,7 +20246,7 @@ VK_Version :: struct {
     VK_AMD_MIXED_ATTACHMENT_SAMPLES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_MIXED_ATTACHMENT_SAMPLES_SPEC_VERSION :: 1;
 }
 
@@ -20254,7 +20254,7 @@ VK_Version :: struct {
     VK_AMD_negative_viewport_height :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_negative_viewport_height :: 1;
 }
 
@@ -20262,7 +20262,7 @@ VK_Version :: struct {
     VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_EXTENSION_NAME :: "VK_AMD_negative_viewport_height";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_EXTENSION_NAME :: "VK_AMD_negative_viewport_height";
 }
 
@@ -20270,7 +20270,7 @@ VK_Version :: struct {
     VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_SPEC_VERSION :: 1;
 }
 
@@ -20278,7 +20278,7 @@ VK_Version :: struct {
     VK_AMD_rasterization_order :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_rasterization_order :: 1;
 }
 
@@ -20286,7 +20286,7 @@ VK_Version :: struct {
     VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME :: "VK_AMD_rasterization_order";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME :: "VK_AMD_rasterization_order";
 }
 
@@ -20294,7 +20294,7 @@ VK_Version :: struct {
     VK_AMD_RASTERIZATION_ORDER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_RASTERIZATION_ORDER_SPEC_VERSION :: 1;
 }
 
@@ -20302,7 +20302,7 @@ VK_Version :: struct {
     VK_AMD_shader_ballot :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_shader_ballot :: 1;
 }
 
@@ -20310,7 +20310,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_BALLOT_EXTENSION_NAME :: "VK_AMD_shader_ballot";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_BALLOT_EXTENSION_NAME :: "VK_AMD_shader_ballot";
 }
 
@@ -20318,7 +20318,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_BALLOT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_BALLOT_SPEC_VERSION :: 1;
 }
 
@@ -20326,7 +20326,7 @@ VK_Version :: struct {
     VK_AMD_shader_core_properties :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_shader_core_properties :: 1;
 }
 
@@ -20334,7 +20334,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME :: "VK_AMD_shader_core_properties";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_CORE_PROPERTIES_EXTENSION_NAME :: "VK_AMD_shader_core_properties";
 }
 
@@ -20342,7 +20342,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_CORE_PROPERTIES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_CORE_PROPERTIES_SPEC_VERSION :: 1;
 }
 
@@ -20350,7 +20350,7 @@ VK_Version :: struct {
     VK_AMD_shader_explicit_vertex_parameter :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_shader_explicit_vertex_parameter :: 1;
 }
 
@@ -20358,7 +20358,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME :: "VK_AMD_shader_explicit_vertex_parameter";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME :: "VK_AMD_shader_explicit_vertex_parameter";
 }
 
@@ -20366,7 +20366,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_SPEC_VERSION :: 1;
 }
 
@@ -20374,7 +20374,7 @@ VK_Version :: struct {
     VK_AMD_shader_fragment_mask :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_shader_fragment_mask :: 1;
 }
 
@@ -20382,7 +20382,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_FRAGMENT_MASK_EXTENSION_NAME :: "VK_AMD_shader_fragment_mask";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_FRAGMENT_MASK_EXTENSION_NAME :: "VK_AMD_shader_fragment_mask";
 }
 
@@ -20390,7 +20390,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_FRAGMENT_MASK_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_FRAGMENT_MASK_SPEC_VERSION :: 1;
 }
 
@@ -20398,7 +20398,7 @@ VK_Version :: struct {
     VK_AMD_shader_image_load_store_lod :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_shader_image_load_store_lod :: 1;
 }
 
@@ -20406,7 +20406,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME :: "VK_AMD_shader_image_load_store_lod";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME :: "VK_AMD_shader_image_load_store_lod";
 }
 
@@ -20414,7 +20414,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_SPEC_VERSION :: 1;
 }
 
@@ -20422,7 +20422,7 @@ VK_Version :: struct {
     VK_AMD_shader_info :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_shader_info :: 1;
 }
 
@@ -20430,7 +20430,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_INFO_EXTENSION_NAME :: "VK_AMD_shader_info";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_INFO_EXTENSION_NAME :: "VK_AMD_shader_info";
 }
 
@@ -20438,7 +20438,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_INFO_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_INFO_SPEC_VERSION :: 1;
 }
 
@@ -20446,7 +20446,7 @@ VK_Version :: struct {
     VK_AMD_shader_trinary_minmax :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_shader_trinary_minmax :: 1;
 }
 
@@ -20454,7 +20454,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME :: "VK_AMD_shader_trinary_minmax";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME :: "VK_AMD_shader_trinary_minmax";
 }
 
@@ -20462,7 +20462,7 @@ VK_Version :: struct {
     VK_AMD_SHADER_TRINARY_MINMAX_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_SHADER_TRINARY_MINMAX_SPEC_VERSION :: 1;
 }
 
@@ -20470,7 +20470,7 @@ VK_Version :: struct {
     VK_AMD_texture_gather_bias_lod :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_texture_gather_bias_lod :: 1;
 }
 
@@ -20478,7 +20478,7 @@ VK_Version :: struct {
     VK_AMD_TEXTURE_GATHER_BIAS_LOD_EXTENSION_NAME :: "VK_AMD_texture_gather_bias_lod";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_TEXTURE_GATHER_BIAS_LOD_EXTENSION_NAME :: "VK_AMD_texture_gather_bias_lod";
 }
 
@@ -20486,7 +20486,7 @@ VK_Version :: struct {
     VK_AMD_TEXTURE_GATHER_BIAS_LOD_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_AMD_TEXTURE_GATHER_BIAS_LOD_SPEC_VERSION :: 1;
 }
 
@@ -20500,7 +20500,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_astc_decode_mode :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_astc_decode_mode :: 1;
 }
 
@@ -20508,7 +20508,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME :: "VK_EXT_astc_decode_mode";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME :: "VK_EXT_astc_decode_mode";
 }
 
@@ -20516,7 +20516,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_ASTC_DECODE_MODE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_ASTC_DECODE_MODE_SPEC_VERSION :: 1;
 }
 
@@ -20524,7 +20524,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_blend_operation_advanced :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_blend_operation_advanced :: 1;
 }
 
@@ -20532,7 +20532,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_BLEND_OPERATION_ADVANCED_EXTENSION_NAME :: "VK_EXT_blend_operation_advanced";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_BLEND_OPERATION_ADVANCED_EXTENSION_NAME :: "VK_EXT_blend_operation_advanced";
 }
 
@@ -20540,7 +20540,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_BLEND_OPERATION_ADVANCED_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_BLEND_OPERATION_ADVANCED_SPEC_VERSION :: 2;
 }
 
@@ -20548,7 +20548,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_conditional_rendering :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_conditional_rendering :: 1;
 }
 
@@ -20556,7 +20556,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME :: "VK_EXT_conditional_rendering";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME :: "VK_EXT_conditional_rendering";
 }
 
@@ -20564,7 +20564,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_CONDITIONAL_RENDERING_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_CONDITIONAL_RENDERING_SPEC_VERSION :: 1;
 }
 
@@ -20572,7 +20572,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_conservative_rasterization :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_conservative_rasterization :: 1;
 }
 
@@ -20580,7 +20580,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME :: "VK_EXT_conservative_rasterization";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME :: "VK_EXT_conservative_rasterization";
 }
 
@@ -20588,7 +20588,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_CONSERVATIVE_RASTERIZATION_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_CONSERVATIVE_RASTERIZATION_SPEC_VERSION :: 1;
 }
 
@@ -20596,7 +20596,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_debug_marker :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_debug_marker :: 1;
 }
 
@@ -20604,7 +20604,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEBUG_MARKER_EXTENSION_NAME :: "VK_EXT_debug_marker";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEBUG_MARKER_EXTENSION_NAME :: "VK_EXT_debug_marker";
 }
 
@@ -20612,7 +20612,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEBUG_MARKER_SPEC_VERSION :: 4;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEBUG_MARKER_SPEC_VERSION :: 4;
 }
 
@@ -20620,7 +20620,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_debug_report :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_debug_report :: 1;
 }
 
@@ -20628,7 +20628,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEBUG_REPORT_EXTENSION_NAME :: "VK_EXT_debug_report";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEBUG_REPORT_EXTENSION_NAME :: "VK_EXT_debug_report";
 }
 
@@ -20636,7 +20636,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEBUG_REPORT_SPEC_VERSION :: 9;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEBUG_REPORT_SPEC_VERSION :: 9;
 }
 
@@ -20644,7 +20644,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_debug_utils :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_debug_utils :: 1;
 }
 
@@ -20652,7 +20652,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME :: "VK_EXT_debug_utils";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME :: "VK_EXT_debug_utils";
 }
 
@@ -20660,7 +20660,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEBUG_UTILS_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEBUG_UTILS_SPEC_VERSION :: 1;
 }
 
@@ -20668,7 +20668,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_depth_range_unrestricted :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_depth_range_unrestricted :: 1;
 }
 
@@ -20676,7 +20676,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME :: "VK_EXT_depth_range_unrestricted";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME :: "VK_EXT_depth_range_unrestricted";
 }
 
@@ -20684,7 +20684,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DEPTH_RANGE_UNRESTRICTED_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DEPTH_RANGE_UNRESTRICTED_SPEC_VERSION :: 1;
 }
 
@@ -20692,7 +20692,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_descriptor_indexing :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_descriptor_indexing :: 1;
 }
 
@@ -20700,7 +20700,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME :: "VK_EXT_descriptor_indexing";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME :: "VK_EXT_descriptor_indexing";
 }
 
@@ -20708,7 +20708,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DESCRIPTOR_INDEXING_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DESCRIPTOR_INDEXING_SPEC_VERSION :: 2;
 }
 
@@ -20716,7 +20716,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_direct_mode_display :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_direct_mode_display :: 1;
 }
 
@@ -20724,7 +20724,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME :: "VK_EXT_direct_mode_display";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME :: "VK_EXT_direct_mode_display";
 }
 
@@ -20732,7 +20732,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DIRECT_MODE_DISPLAY_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DIRECT_MODE_DISPLAY_SPEC_VERSION :: 1;
 }
 
@@ -20740,7 +20740,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_discard_rectangles :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_discard_rectangles :: 1;
 }
 
@@ -20748,7 +20748,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME :: "VK_EXT_discard_rectangles";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME :: "VK_EXT_discard_rectangles";
 }
 
@@ -20756,7 +20756,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DISCARD_RECTANGLES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DISCARD_RECTANGLES_SPEC_VERSION :: 1;
 }
 
@@ -20764,7 +20764,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_display_control :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_display_control :: 1;
 }
 
@@ -20772,7 +20772,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME :: "VK_EXT_display_control";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME :: "VK_EXT_display_control";
 }
 
@@ -20780,7 +20780,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DISPLAY_CONTROL_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DISPLAY_CONTROL_SPEC_VERSION :: 1;
 }
 
@@ -20788,7 +20788,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_display_surface_counter :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_display_surface_counter :: 1;
 }
 
@@ -20796,7 +20796,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME :: "VK_EXT_display_surface_counter";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME :: "VK_EXT_display_surface_counter";
 }
 
@@ -20804,7 +20804,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_DISPLAY_SURFACE_COUNTER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_DISPLAY_SURFACE_COUNTER_SPEC_VERSION :: 1;
 }
 
@@ -20812,7 +20812,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_external_memory_dma_buf :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_external_memory_dma_buf :: 1;
 }
 
@@ -20820,7 +20820,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME :: "VK_EXT_external_memory_dma_buf";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME :: "VK_EXT_external_memory_dma_buf";
 }
 
@@ -20828,7 +20828,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_EXTERNAL_MEMORY_DMA_BUF_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_EXTERNAL_MEMORY_DMA_BUF_SPEC_VERSION :: 1;
 }
 
@@ -20836,7 +20836,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_external_memory_host :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_external_memory_host :: 1;
 }
 
@@ -20844,7 +20844,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME :: "VK_EXT_external_memory_host";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME :: "VK_EXT_external_memory_host";
 }
 
@@ -20852,7 +20852,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_EXTERNAL_MEMORY_HOST_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_EXTERNAL_MEMORY_HOST_SPEC_VERSION :: 1;
 }
 
@@ -20860,7 +20860,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_global_priority :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_global_priority :: 1;
 }
 
@@ -20868,7 +20868,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_GLOBAL_PRIORITY_EXTENSION_NAME :: "VK_EXT_global_priority";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_GLOBAL_PRIORITY_EXTENSION_NAME :: "VK_EXT_global_priority";
 }
 
@@ -20876,7 +20876,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_GLOBAL_PRIORITY_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_GLOBAL_PRIORITY_SPEC_VERSION :: 2;
 }
 
@@ -20884,7 +20884,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_hdr_metadata :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_hdr_metadata :: 1;
 }
 
@@ -20892,7 +20892,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_HDR_METADATA_EXTENSION_NAME :: "VK_EXT_hdr_metadata";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_HDR_METADATA_EXTENSION_NAME :: "VK_EXT_hdr_metadata";
 }
 
@@ -20900,7 +20900,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_HDR_METADATA_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_HDR_METADATA_SPEC_VERSION :: 1;
 }
 
@@ -20908,7 +20908,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_inline_uniform_block :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_inline_uniform_block :: 1;
 }
 
@@ -20916,7 +20916,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME :: "VK_EXT_inline_uniform_block";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME :: "VK_EXT_inline_uniform_block";
 }
 
@@ -20924,7 +20924,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_INLINE_UNIFORM_BLOCK_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_INLINE_UNIFORM_BLOCK_SPEC_VERSION :: 1;
 }
 
@@ -20932,7 +20932,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_post_depth_coverage :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_post_depth_coverage :: 1;
 }
 
@@ -20940,7 +20940,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME :: "VK_EXT_post_depth_coverage";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME :: "VK_EXT_post_depth_coverage";
 }
 
@@ -20948,7 +20948,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_POST_DEPTH_COVERAGE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_POST_DEPTH_COVERAGE_SPEC_VERSION :: 1;
 }
 
@@ -20956,7 +20956,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_queue_family_foreign :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_queue_family_foreign :: 1;
 }
 
@@ -20964,7 +20964,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME :: "VK_EXT_queue_family_foreign";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME :: "VK_EXT_queue_family_foreign";
 }
 
@@ -20972,7 +20972,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_QUEUE_FAMILY_FOREIGN_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_QUEUE_FAMILY_FOREIGN_SPEC_VERSION :: 1;
 }
 
@@ -20980,7 +20980,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_sample_locations :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_sample_locations :: 1;
 }
 
@@ -20988,7 +20988,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME :: "VK_EXT_sample_locations";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME :: "VK_EXT_sample_locations";
 }
 
@@ -20996,7 +20996,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SAMPLE_LOCATIONS_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SAMPLE_LOCATIONS_SPEC_VERSION :: 1;
 }
 
@@ -21004,7 +21004,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_sampler_filter_minmax :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_sampler_filter_minmax :: 1;
 }
 
@@ -21012,7 +21012,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME :: "VK_EXT_sampler_filter_minmax";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME :: "VK_EXT_sampler_filter_minmax";
 }
 
@@ -21020,7 +21020,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SAMPLER_FILTER_MINMAX_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SAMPLER_FILTER_MINMAX_SPEC_VERSION :: 1;
 }
 
@@ -21028,7 +21028,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_shader_stencil_export :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_shader_stencil_export :: 1;
 }
 
@@ -21036,7 +21036,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME :: "VK_EXT_shader_stencil_export";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME :: "VK_EXT_shader_stencil_export";
 }
 
@@ -21044,7 +21044,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_STENCIL_EXPORT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_STENCIL_EXPORT_SPEC_VERSION :: 1;
 }
 
@@ -21052,7 +21052,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_shader_subgroup_ballot :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_shader_subgroup_ballot :: 1;
 }
 
@@ -21060,7 +21060,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME :: "VK_EXT_shader_subgroup_ballot";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME :: "VK_EXT_shader_subgroup_ballot";
 }
 
@@ -21068,7 +21068,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_SUBGROUP_BALLOT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_SUBGROUP_BALLOT_SPEC_VERSION :: 1;
 }
 
@@ -21076,7 +21076,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_shader_subgroup_vote :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_shader_subgroup_vote :: 1;
 }
 
@@ -21084,7 +21084,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME :: "VK_EXT_shader_subgroup_vote";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME :: "VK_EXT_shader_subgroup_vote";
 }
 
@@ -21092,7 +21092,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_SUBGROUP_VOTE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_SUBGROUP_VOTE_SPEC_VERSION :: 1;
 }
 
@@ -21100,7 +21100,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_shader_viewport_index_layer :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_shader_viewport_index_layer :: 1;
 }
 
@@ -21108,7 +21108,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME :: "VK_EXT_shader_viewport_index_layer";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME :: "VK_EXT_shader_viewport_index_layer";
 }
 
@@ -21116,7 +21116,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_SPEC_VERSION :: 1;
 }
 
@@ -21124,7 +21124,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME :: "VK_EXT_swapchain_colorspace";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME :: "VK_EXT_swapchain_colorspace";
 }
 
@@ -21132,7 +21132,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION :: 3;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION :: 3;
 }
 
@@ -21140,7 +21140,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_swapchain_colorspace :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_swapchain_colorspace :: 1;
 }
 
@@ -21148,7 +21148,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_validation_cache :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_validation_cache :: 1;
 }
 
@@ -21156,7 +21156,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_VALIDATION_CACHE_EXTENSION_NAME :: "VK_EXT_validation_cache";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_VALIDATION_CACHE_EXTENSION_NAME :: "VK_EXT_validation_cache";
 }
 
@@ -21164,7 +21164,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_VALIDATION_CACHE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_VALIDATION_CACHE_SPEC_VERSION :: 1;
 }
 
@@ -21172,7 +21172,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_validation_flags :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_validation_flags :: 1;
 }
 
@@ -21180,7 +21180,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME :: "VK_EXT_validation_flags";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME :: "VK_EXT_validation_flags";
 }
 
@@ -21188,7 +21188,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_VALIDATION_FLAGS_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_VALIDATION_FLAGS_SPEC_VERSION :: 1;
 }
 
@@ -21196,7 +21196,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_vertex_attribute_divisor :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_vertex_attribute_divisor :: 1;
 }
 
@@ -21204,7 +21204,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME :: "VK_EXT_vertex_attribute_divisor";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME :: "VK_EXT_vertex_attribute_divisor";
 }
 
@@ -21212,7 +21212,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_SPEC_VERSION :: 3;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_SPEC_VERSION :: 3;
 }
 
@@ -21220,7 +21220,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_GOOGLE_display_timing :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_GOOGLE_display_timing :: 1;
 }
 
@@ -21228,7 +21228,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME :: "VK_GOOGLE_display_timing";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME :: "VK_GOOGLE_display_timing";
 }
 
@@ -21236,7 +21236,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_GOOGLE_DISPLAY_TIMING_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_GOOGLE_DISPLAY_TIMING_SPEC_VERSION :: 1;
 }
 
@@ -21244,7 +21244,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_HEADER_VERSION :: 85;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_HEADER_VERSION :: 85;
 }
 
@@ -21252,7 +21252,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_IMG_filter_cubic :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_IMG_filter_cubic :: 1;
 }
 
@@ -21260,7 +21260,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_IMG_FILTER_CUBIC_EXTENSION_NAME :: "VK_IMG_filter_cubic";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_IMG_FILTER_CUBIC_EXTENSION_NAME :: "VK_IMG_filter_cubic";
 }
 
@@ -21268,7 +21268,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_IMG_FILTER_CUBIC_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_IMG_FILTER_CUBIC_SPEC_VERSION :: 1;
 }
 
@@ -21276,7 +21276,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_IMG_format_pvrtc :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_IMG_format_pvrtc :: 1;
 }
 
@@ -21284,7 +21284,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_IMG_FORMAT_PVRTC_EXTENSION_NAME :: "VK_IMG_format_pvrtc";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_IMG_FORMAT_PVRTC_EXTENSION_NAME :: "VK_IMG_format_pvrtc";
 }
 
@@ -21292,7 +21292,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_IMG_FORMAT_PVRTC_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_IMG_FORMAT_PVRTC_SPEC_VERSION :: 1;
 }
 
@@ -21300,7 +21300,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_16bit_storage :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_16bit_storage :: 1;
 }
 
@@ -21308,7 +21308,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_16BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_16bit_storage";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_16BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_16bit_storage";
 }
 
@@ -21316,7 +21316,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_16BIT_STORAGE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_16BIT_STORAGE_SPEC_VERSION :: 1;
 }
 
@@ -21324,7 +21324,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_8bit_storage :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_8bit_storage :: 1;
 }
 
@@ -21332,7 +21332,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_8BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_8bit_storage";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_8BIT_STORAGE_EXTENSION_NAME :: "VK_KHR_8bit_storage";
 }
 
@@ -21340,7 +21340,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_8BIT_STORAGE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_8BIT_STORAGE_SPEC_VERSION :: 1;
 }
 
@@ -21348,7 +21348,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_bind_memory2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_bind_memory2 :: 1;
 }
 
@@ -21356,7 +21356,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_BIND_MEMORY_2_EXTENSION_NAME :: "VK_KHR_bind_memory2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_BIND_MEMORY_2_EXTENSION_NAME :: "VK_KHR_bind_memory2";
 }
 
@@ -21364,7 +21364,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_BIND_MEMORY_2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_BIND_MEMORY_2_SPEC_VERSION :: 1;
 }
 
@@ -21372,7 +21372,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_create_renderpass2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_create_renderpass2 :: 1;
 }
 
@@ -21380,7 +21380,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME :: "VK_KHR_create_renderpass2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME :: "VK_KHR_create_renderpass2";
 }
 
@@ -21388,7 +21388,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_CREATE_RENDERPASS_2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_CREATE_RENDERPASS_2_SPEC_VERSION :: 1;
 }
 
@@ -21396,7 +21396,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_dedicated_allocation :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_dedicated_allocation :: 1;
 }
 
@@ -21404,7 +21404,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_KHR_dedicated_allocation";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_KHR_dedicated_allocation";
 }
 
@@ -21412,7 +21412,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DEDICATED_ALLOCATION_SPEC_VERSION :: 3;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DEDICATED_ALLOCATION_SPEC_VERSION :: 3;
 }
 
@@ -21420,7 +21420,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_descriptor_update_template :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_descriptor_update_template :: 1;
 }
 
@@ -21428,7 +21428,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_EXTENSION_NAME :: "VK_KHR_descriptor_update_template";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_EXTENSION_NAME :: "VK_KHR_descriptor_update_template";
 }
 
@@ -21436,7 +21436,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DESCRIPTOR_UPDATE_TEMPLATE_SPEC_VERSION :: 1;
 }
 
@@ -21444,7 +21444,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_device_group :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_device_group :: 1;
 }
 
@@ -21452,7 +21452,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_device_group_creation :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_device_group_creation :: 1;
 }
 
@@ -21460,7 +21460,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME :: "VK_KHR_device_group_creation";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME :: "VK_KHR_device_group_creation";
 }
 
@@ -21468,7 +21468,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DEVICE_GROUP_CREATION_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DEVICE_GROUP_CREATION_SPEC_VERSION :: 1;
 }
 
@@ -21476,7 +21476,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DEVICE_GROUP_EXTENSION_NAME :: "VK_KHR_device_group";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DEVICE_GROUP_EXTENSION_NAME :: "VK_KHR_device_group";
 }
 
@@ -21484,7 +21484,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DEVICE_GROUP_SPEC_VERSION :: 3;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DEVICE_GROUP_SPEC_VERSION :: 3;
 }
 
@@ -21492,7 +21492,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_display :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_display :: 1;
 }
 
@@ -21500,7 +21500,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DISPLAY_EXTENSION_NAME :: "VK_KHR_display";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DISPLAY_EXTENSION_NAME :: "VK_KHR_display";
 }
 
@@ -21508,7 +21508,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DISPLAY_SPEC_VERSION :: 21;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DISPLAY_SPEC_VERSION :: 21;
 }
 
@@ -21516,7 +21516,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_display_swapchain :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_display_swapchain :: 1;
 }
 
@@ -21524,7 +21524,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_display_swapchain";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_display_swapchain";
 }
 
@@ -21532,7 +21532,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DISPLAY_SWAPCHAIN_SPEC_VERSION :: 9;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DISPLAY_SWAPCHAIN_SPEC_VERSION :: 9;
 }
 
@@ -21540,7 +21540,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_draw_indirect_count :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_draw_indirect_count :: 1;
 }
 
@@ -21548,7 +21548,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_KHR_draw_indirect_count";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME :: "VK_KHR_draw_indirect_count";
 }
 
@@ -21556,7 +21556,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_DRAW_INDIRECT_COUNT_SPEC_VERSION :: 1;
 }
 
@@ -21564,7 +21564,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_fence :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_fence :: 1;
 }
 
@@ -21572,7 +21572,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_fence_capabilities :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_fence_capabilities :: 1;
 }
 
@@ -21580,7 +21580,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_fence_capabilities";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_fence_capabilities";
 }
 
@@ -21588,7 +21588,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_FENCE_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_FENCE_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
@@ -21596,7 +21596,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME :: "VK_KHR_external_fence";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME :: "VK_KHR_external_fence";
 }
 
@@ -21604,7 +21604,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_fence_fd :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_fence_fd :: 1;
 }
 
@@ -21612,7 +21612,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME :: "VK_KHR_external_fence_fd";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME :: "VK_KHR_external_fence_fd";
 }
 
@@ -21620,7 +21620,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_FENCE_FD_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_FENCE_FD_SPEC_VERSION :: 1;
 }
 
@@ -21628,7 +21628,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_FENCE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_FENCE_SPEC_VERSION :: 1;
 }
 
@@ -21636,7 +21636,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_memory :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_memory :: 1;
 }
 
@@ -21644,7 +21644,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_memory_capabilities :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_memory_capabilities :: 1;
 }
 
@@ -21652,7 +21652,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_memory_capabilities";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_memory_capabilities";
 }
 
@@ -21660,7 +21660,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
@@ -21668,7 +21668,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_KHR_external_memory";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_KHR_external_memory";
 }
 
@@ -21676,7 +21676,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_memory_fd :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_memory_fd :: 1;
 }
 
@@ -21684,7 +21684,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME :: "VK_KHR_external_memory_fd";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME :: "VK_KHR_external_memory_fd";
 }
 
@@ -21692,7 +21692,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_MEMORY_FD_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_MEMORY_FD_SPEC_VERSION :: 1;
 }
 
@@ -21700,7 +21700,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_MEMORY_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_MEMORY_SPEC_VERSION :: 1;
 }
 
@@ -21708,7 +21708,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_semaphore :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_semaphore :: 1;
 }
 
@@ -21716,7 +21716,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_semaphore_capabilities :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_semaphore_capabilities :: 1;
 }
 
@@ -21724,7 +21724,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_semaphore_capabilities";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME :: "VK_KHR_external_semaphore_capabilities";
 }
 
@@ -21732,7 +21732,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
@@ -21740,7 +21740,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME :: "VK_KHR_external_semaphore";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME :: "VK_KHR_external_semaphore";
 }
 
@@ -21748,7 +21748,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_external_semaphore_fd :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_external_semaphore_fd :: 1;
 }
 
@@ -21756,7 +21756,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME :: "VK_KHR_external_semaphore_fd";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME :: "VK_KHR_external_semaphore_fd";
 }
 
@@ -21764,7 +21764,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_SEMAPHORE_FD_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_SEMAPHORE_FD_SPEC_VERSION :: 1;
 }
 
@@ -21772,7 +21772,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_EXTERNAL_SEMAPHORE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_EXTERNAL_SEMAPHORE_SPEC_VERSION :: 1;
 }
 
@@ -21780,7 +21780,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_get_display_properties2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_get_display_properties2 :: 1;
 }
 
@@ -21788,7 +21788,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_DISPLAY_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_display_properties2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_DISPLAY_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_display_properties2";
 }
 
@@ -21796,7 +21796,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_DISPLAY_PROPERTIES_2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_DISPLAY_PROPERTIES_2_SPEC_VERSION :: 1;
 }
 
@@ -21804,7 +21804,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_get_memory_requirements2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_get_memory_requirements2 :: 1;
 }
 
@@ -21812,7 +21812,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME :: "VK_KHR_get_memory_requirements2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME :: "VK_KHR_get_memory_requirements2";
 }
 
@@ -21820,7 +21820,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_MEMORY_REQUIREMENTS_2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_MEMORY_REQUIREMENTS_2_SPEC_VERSION :: 1;
 }
 
@@ -21828,7 +21828,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_get_physical_device_properties2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_get_physical_device_properties2 :: 1;
 }
 
@@ -21836,7 +21836,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_physical_device_properties2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME :: "VK_KHR_get_physical_device_properties2";
 }
 
@@ -21844,7 +21844,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_SPEC_VERSION :: 1;
 }
 
@@ -21852,7 +21852,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_get_surface_capabilities2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_get_surface_capabilities2 :: 1;
 }
 
@@ -21860,7 +21860,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME :: "VK_KHR_get_surface_capabilities2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME :: "VK_KHR_get_surface_capabilities2";
 }
 
@@ -21868,7 +21868,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION :: 1;
 }
 
@@ -21876,7 +21876,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_image_format_list :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_image_format_list :: 1;
 }
 
@@ -21884,7 +21884,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME :: "VK_KHR_image_format_list";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME :: "VK_KHR_image_format_list";
 }
 
@@ -21892,7 +21892,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_IMAGE_FORMAT_LIST_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_IMAGE_FORMAT_LIST_SPEC_VERSION :: 1;
 }
 
@@ -21900,7 +21900,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_incremental_present :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_incremental_present :: 1;
 }
 
@@ -21908,7 +21908,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME :: "VK_KHR_incremental_present";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME :: "VK_KHR_incremental_present";
 }
 
@@ -21916,7 +21916,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION :: 1;
 }
 
@@ -21924,7 +21924,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_maintenance1 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_maintenance1 :: 1;
 }
 
@@ -21932,7 +21932,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MAINTENANCE1_EXTENSION_NAME :: "VK_KHR_maintenance1";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MAINTENANCE1_EXTENSION_NAME :: "VK_KHR_maintenance1";
 }
 
@@ -21940,7 +21940,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MAINTENANCE1_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MAINTENANCE1_SPEC_VERSION :: 2;
 }
 
@@ -21948,7 +21948,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_maintenance2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_maintenance2 :: 1;
 }
 
@@ -21956,7 +21956,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MAINTENANCE2_EXTENSION_NAME :: "VK_KHR_maintenance2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MAINTENANCE2_EXTENSION_NAME :: "VK_KHR_maintenance2";
 }
 
@@ -21964,7 +21964,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MAINTENANCE2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MAINTENANCE2_SPEC_VERSION :: 1;
 }
 
@@ -21972,7 +21972,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_maintenance3 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_maintenance3 :: 1;
 }
 
@@ -21980,7 +21980,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MAINTENANCE3_EXTENSION_NAME :: "VK_KHR_maintenance3";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MAINTENANCE3_EXTENSION_NAME :: "VK_KHR_maintenance3";
 }
 
@@ -21988,7 +21988,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MAINTENANCE3_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MAINTENANCE3_SPEC_VERSION :: 1;
 }
 
@@ -21996,7 +21996,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_multiview :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_multiview :: 1;
 }
 
@@ -22004,7 +22004,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MULTIVIEW_EXTENSION_NAME :: "VK_KHR_multiview";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MULTIVIEW_EXTENSION_NAME :: "VK_KHR_multiview";
 }
 
@@ -22012,7 +22012,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_MULTIVIEW_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_MULTIVIEW_SPEC_VERSION :: 1;
 }
 
@@ -22020,7 +22020,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_push_descriptor :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_push_descriptor :: 1;
 }
 
@@ -22028,7 +22028,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME :: "VK_KHR_push_descriptor";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME :: "VK_KHR_push_descriptor";
 }
 
@@ -22036,7 +22036,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_PUSH_DESCRIPTOR_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_PUSH_DESCRIPTOR_SPEC_VERSION :: 2;
 }
 
@@ -22044,7 +22044,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_relaxed_block_layout :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_relaxed_block_layout :: 1;
 }
 
@@ -22052,7 +22052,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_RELAXED_BLOCK_LAYOUT_EXTENSION_NAME :: "VK_KHR_relaxed_block_layout";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_RELAXED_BLOCK_LAYOUT_EXTENSION_NAME :: "VK_KHR_relaxed_block_layout";
 }
 
@@ -22060,7 +22060,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_RELAXED_BLOCK_LAYOUT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_RELAXED_BLOCK_LAYOUT_SPEC_VERSION :: 1;
 }
 
@@ -22068,7 +22068,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_sampler_mirror_clamp_to_edge :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_sampler_mirror_clamp_to_edge :: 1;
 }
 
@@ -22076,7 +22076,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME :: "VK_KHR_sampler_mirror_clamp_to_edge";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME :: "VK_KHR_sampler_mirror_clamp_to_edge";
 }
 
@@ -22084,7 +22084,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_SPEC_VERSION :: 1;
 }
 
@@ -22092,7 +22092,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_sampler_ycbcr_conversion :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_sampler_ycbcr_conversion :: 1;
 }
 
@@ -22100,7 +22100,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME :: "VK_KHR_sampler_ycbcr_conversion";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME :: "VK_KHR_sampler_ycbcr_conversion";
 }
 
@@ -22108,7 +22108,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SAMPLER_YCBCR_CONVERSION_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SAMPLER_YCBCR_CONVERSION_SPEC_VERSION :: 1;
 }
 
@@ -22116,7 +22116,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_shader_draw_parameters :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_shader_draw_parameters :: 1;
 }
 
@@ -22124,7 +22124,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME :: "VK_KHR_shader_draw_parameters";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME :: "VK_KHR_shader_draw_parameters";
 }
 
@@ -22132,7 +22132,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SHADER_DRAW_PARAMETERS_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SHADER_DRAW_PARAMETERS_SPEC_VERSION :: 1;
 }
 
@@ -22140,7 +22140,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_shared_presentable_image :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_shared_presentable_image :: 1;
 }
 
@@ -22148,7 +22148,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME :: "VK_KHR_shared_presentable_image";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SHARED_PRESENTABLE_IMAGE_EXTENSION_NAME :: "VK_KHR_shared_presentable_image";
 }
 
@@ -22156,7 +22156,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SHARED_PRESENTABLE_IMAGE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SHARED_PRESENTABLE_IMAGE_SPEC_VERSION :: 1;
 }
 
@@ -22164,7 +22164,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_storage_buffer_storage_class :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_storage_buffer_storage_class :: 1;
 }
 
@@ -22172,7 +22172,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME :: "VK_KHR_storage_buffer_storage_class";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME :: "VK_KHR_storage_buffer_storage_class";
 }
 
@@ -22180,7 +22180,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_SPEC_VERSION :: 1;
 }
 
@@ -22188,7 +22188,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_surface :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_surface :: 1;
 }
 
@@ -22196,7 +22196,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SURFACE_EXTENSION_NAME :: "VK_KHR_surface";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SURFACE_EXTENSION_NAME :: "VK_KHR_surface";
 }
 
@@ -22204,7 +22204,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SURFACE_SPEC_VERSION :: 25;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SURFACE_SPEC_VERSION :: 25;
 }
 
@@ -22212,7 +22212,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_swapchain :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_swapchain :: 1;
 }
 
@@ -22220,7 +22220,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_swapchain";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME :: "VK_KHR_swapchain";
 }
 
@@ -22228,7 +22228,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_SWAPCHAIN_SPEC_VERSION :: 70;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_SWAPCHAIN_SPEC_VERSION :: 70;
 }
 
@@ -22236,7 +22236,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_variable_pointers :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_variable_pointers :: 1;
 }
 
@@ -22244,7 +22244,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME :: "VK_KHR_variable_pointers";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_VARIABLE_POINTERS_EXTENSION_NAME :: "VK_KHR_variable_pointers";
 }
 
@@ -22252,7 +22252,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_VARIABLE_POINTERS_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_VARIABLE_POINTERS_SPEC_VERSION :: 1;
 }
 
@@ -22260,7 +22260,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_vulkan_memory_model :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_vulkan_memory_model :: 1;
 }
 
@@ -22268,7 +22268,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME :: "VK_KHR_vulkan_memory_model";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME :: "VK_KHR_vulkan_memory_model";
 }
 
@@ -22276,7 +22276,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_KHR_VULKAN_MEMORY_MODEL_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_KHR_VULKAN_MEMORY_MODEL_SPEC_VERSION :: 2;
 }
 
@@ -22296,7 +22296,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_LOD_CLAMP_NONE :: 1000.0;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_LOD_CLAMP_NONE :: 1000.0;
 }
 
@@ -22304,7 +22304,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_LUID_SIZE :: 8;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_LUID_SIZE :: 8;
 }
 
@@ -22312,7 +22312,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_LUID_SIZE_KHR :: VK_LUID_SIZE;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_LUID_SIZE_KHR :: VK_LUID_SIZE;
 }
 
@@ -22320,7 +22320,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_MAX_DEVICE_GROUP_SIZE :: 32;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_MAX_DEVICE_GROUP_SIZE :: 32;
 }
 
@@ -22328,7 +22328,7 @@ VK_API_VERSION_1_2 :: #run VK_MAKE_VERSION(1, 2, 0);
     VK_MAX_DEVICE_GROUP_SIZE_KHR :: VK_MAX_DEVICE_GROUP_SIZE;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_MAX_DEVICE_GROUP_SIZE_KHR :: VK_MAX_DEVICE_GROUP_SIZE;
 }
 
@@ -22338,7 +22338,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_clip_space_w_scaling :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_clip_space_w_scaling :: 1;
 }
 
@@ -22346,7 +22346,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_CLIP_SPACE_W_SCALING_EXTENSION_NAME :: "VK_NV_clip_space_w_scaling";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_CLIP_SPACE_W_SCALING_EXTENSION_NAME :: "VK_NV_clip_space_w_scaling";
 }
 
@@ -22354,7 +22354,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_CLIP_SPACE_W_SCALING_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_CLIP_SPACE_W_SCALING_SPEC_VERSION :: 1;
 }
 
@@ -22362,7 +22362,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_compute_shader_derivatives :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_compute_shader_derivatives :: 1;
 }
 
@@ -22370,7 +22370,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME :: "VK_NV_compute_shader_derivatives";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME :: "VK_NV_compute_shader_derivatives";
 }
 
@@ -22378,7 +22378,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_COMPUTE_SHADER_DERIVATIVES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_COMPUTE_SHADER_DERIVATIVES_SPEC_VERSION :: 1;
 }
 
@@ -22386,7 +22386,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_corner_sampled_image :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_corner_sampled_image :: 1;
 }
 
@@ -22394,7 +22394,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_CORNER_SAMPLED_IMAGE_EXTENSION_NAME :: "VK_NV_corner_sampled_image";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_CORNER_SAMPLED_IMAGE_EXTENSION_NAME :: "VK_NV_corner_sampled_image";
 }
 
@@ -22402,7 +22402,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_CORNER_SAMPLED_IMAGE_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_CORNER_SAMPLED_IMAGE_SPEC_VERSION :: 2;
 }
 
@@ -22410,7 +22410,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_dedicated_allocation :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_dedicated_allocation :: 1;
 }
 
@@ -22418,7 +22418,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_NV_dedicated_allocation";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME :: "VK_NV_dedicated_allocation";
 }
 
@@ -22426,7 +22426,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_DEDICATED_ALLOCATION_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_DEDICATED_ALLOCATION_SPEC_VERSION :: 1;
 }
 
@@ -22434,7 +22434,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_device_diagnostic_checkpoints :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_device_diagnostic_checkpoints :: 1;
 }
 
@@ -22442,7 +22442,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME :: "VK_NV_device_diagnostic_checkpoints";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME :: "VK_NV_device_diagnostic_checkpoints";
 }
 
@@ -22450,7 +22450,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_SPEC_VERSION :: 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_SPEC_VERSION :: 2;
 }
 
@@ -22458,7 +22458,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_external_memory :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_external_memory :: 1;
 }
 
@@ -22466,7 +22466,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_external_memory_capabilities :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_external_memory_capabilities :: 1;
 }
 
@@ -22474,7 +22474,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_NV_external_memory_capabilities";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME :: "VK_NV_external_memory_capabilities";
 }
 
@@ -22482,7 +22482,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION :: 1;
 }
 
@@ -22490,7 +22490,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_NV_external_memory";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_EXTERNAL_MEMORY_EXTENSION_NAME :: "VK_NV_external_memory";
 }
 
@@ -22498,7 +22498,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_EXTERNAL_MEMORY_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_EXTERNAL_MEMORY_SPEC_VERSION :: 1;
 }
 
@@ -22506,7 +22506,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_fill_rectangle :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_fill_rectangle :: 1;
 }
 
@@ -22514,7 +22514,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FILL_RECTANGLE_EXTENSION_NAME :: "VK_NV_fill_rectangle";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FILL_RECTANGLE_EXTENSION_NAME :: "VK_NV_fill_rectangle";
 }
 
@@ -22522,7 +22522,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FILL_RECTANGLE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FILL_RECTANGLE_SPEC_VERSION :: 1;
 }
 
@@ -22530,7 +22530,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_fragment_coverage_to_color :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_fragment_coverage_to_color :: 1;
 }
 
@@ -22538,7 +22538,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FRAGMENT_COVERAGE_TO_COLOR_EXTENSION_NAME :: "VK_NV_fragment_coverage_to_color";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FRAGMENT_COVERAGE_TO_COLOR_EXTENSION_NAME :: "VK_NV_fragment_coverage_to_color";
 }
 
@@ -22546,7 +22546,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FRAGMENT_COVERAGE_TO_COLOR_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FRAGMENT_COVERAGE_TO_COLOR_SPEC_VERSION :: 1;
 }
 
@@ -22554,7 +22554,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_fragment_shader_barycentric :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_fragment_shader_barycentric :: 1;
 }
 
@@ -22562,7 +22562,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME :: "VK_NV_fragment_shader_barycentric";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME :: "VK_NV_fragment_shader_barycentric";
 }
 
@@ -22570,7 +22570,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FRAGMENT_SHADER_BARYCENTRIC_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FRAGMENT_SHADER_BARYCENTRIC_SPEC_VERSION :: 1;
 }
 
@@ -22578,7 +22578,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_framebuffer_mixed_samples :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_framebuffer_mixed_samples :: 1;
 }
 
@@ -22586,7 +22586,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME :: "VK_NV_framebuffer_mixed_samples";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME :: "VK_NV_framebuffer_mixed_samples";
 }
 
@@ -22594,7 +22594,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_FRAMEBUFFER_MIXED_SAMPLES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_FRAMEBUFFER_MIXED_SAMPLES_SPEC_VERSION :: 1;
 }
 
@@ -22602,7 +22602,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_geometry_shader_passthrough :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_geometry_shader_passthrough :: 1;
 }
 
@@ -22610,7 +22610,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME :: "VK_NV_geometry_shader_passthrough";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME :: "VK_NV_geometry_shader_passthrough";
 }
 
@@ -22618,7 +22618,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_GEOMETRY_SHADER_PASSTHROUGH_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_GEOMETRY_SHADER_PASSTHROUGH_SPEC_VERSION :: 1;
 }
 
@@ -22626,7 +22626,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_glsl_shader :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_glsl_shader :: 1;
 }
 
@@ -22634,7 +22634,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_GLSL_SHADER_EXTENSION_NAME :: "VK_NV_glsl_shader";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_GLSL_SHADER_EXTENSION_NAME :: "VK_NV_glsl_shader";
 }
 
@@ -22642,7 +22642,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_GLSL_SHADER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_GLSL_SHADER_SPEC_VERSION :: 1;
 }
 
@@ -22650,7 +22650,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_mesh_shader :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_mesh_shader :: 1;
 }
 
@@ -22658,7 +22658,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_MESH_SHADER_EXTENSION_NAME :: "VK_NV_mesh_shader";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_MESH_SHADER_EXTENSION_NAME :: "VK_NV_mesh_shader";
 }
 
@@ -22666,7 +22666,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_MESH_SHADER_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_MESH_SHADER_SPEC_VERSION :: 1;
 }
 
@@ -22674,7 +22674,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_representative_fragment_test :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_representative_fragment_test :: 1;
 }
 
@@ -22682,7 +22682,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME :: "VK_NV_representative_fragment_test";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME :: "VK_NV_representative_fragment_test";
 }
 
@@ -22690,7 +22690,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_REPRESENTATIVE_FRAGMENT_TEST_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_REPRESENTATIVE_FRAGMENT_TEST_SPEC_VERSION :: 1;
 }
 
@@ -22698,7 +22698,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_sample_mask_override_coverage :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_sample_mask_override_coverage :: 1;
 }
 
@@ -22706,7 +22706,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_EXTENSION_NAME :: "VK_NV_sample_mask_override_coverage";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_EXTENSION_NAME :: "VK_NV_sample_mask_override_coverage";
 }
 
@@ -22714,7 +22714,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SAMPLE_MASK_OVERRIDE_COVERAGE_SPEC_VERSION :: 1;
 }
 
@@ -22722,7 +22722,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_scissor_exclusive :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_scissor_exclusive :: 1;
 }
 
@@ -22730,7 +22730,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SCISSOR_EXCLUSIVE_EXTENSION_NAME :: "VK_NV_scissor_exclusive";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SCISSOR_EXCLUSIVE_EXTENSION_NAME :: "VK_NV_scissor_exclusive";
 }
 
@@ -22738,7 +22738,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SCISSOR_EXCLUSIVE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SCISSOR_EXCLUSIVE_SPEC_VERSION :: 1;
 }
 
@@ -22746,7 +22746,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_shader_image_footprint :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_shader_image_footprint :: 1;
 }
 
@@ -22754,7 +22754,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME :: "VK_NV_shader_image_footprint";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME :: "VK_NV_shader_image_footprint";
 }
 
@@ -22762,7 +22762,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SHADER_IMAGE_FOOTPRINT_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SHADER_IMAGE_FOOTPRINT_SPEC_VERSION :: 1;
 }
 
@@ -22770,7 +22770,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_shader_subgroup_partitioned :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_shader_subgroup_partitioned :: 1;
 }
 
@@ -22778,7 +22778,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME :: "VK_NV_shader_subgroup_partitioned";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME :: "VK_NV_shader_subgroup_partitioned";
 }
 
@@ -22786,7 +22786,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SHADER_SUBGROUP_PARTITIONED_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SHADER_SUBGROUP_PARTITIONED_SPEC_VERSION :: 1;
 }
 
@@ -22794,7 +22794,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_shading_rate_image :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_shading_rate_image :: 1;
 }
 
@@ -22802,7 +22802,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SHADING_RATE_IMAGE_EXTENSION_NAME :: "VK_NV_shading_rate_image";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SHADING_RATE_IMAGE_EXTENSION_NAME :: "VK_NV_shading_rate_image";
 }
 
@@ -22810,7 +22810,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_SHADING_RATE_IMAGE_SPEC_VERSION :: 3;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_SHADING_RATE_IMAGE_SPEC_VERSION :: 3;
 }
 
@@ -22818,7 +22818,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_viewport_array2 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_viewport_array2 :: 1;
 }
 
@@ -22826,7 +22826,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME :: "VK_NV_viewport_array2";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_VIEWPORT_ARRAY2_EXTENSION_NAME :: "VK_NV_viewport_array2";
 }
 
@@ -22834,7 +22834,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_VIEWPORT_ARRAY2_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_VIEWPORT_ARRAY2_SPEC_VERSION :: 1;
 }
 
@@ -22842,7 +22842,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_viewport_swizzle :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_viewport_swizzle :: 1;
 }
 
@@ -22850,7 +22850,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME :: "VK_NV_viewport_swizzle";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME :: "VK_NV_viewport_swizzle";
 }
 
@@ -22858,7 +22858,7 @@ VK_NULL_HANDLE :: null;
     VK_NV_VIEWPORT_SWIZZLE_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NV_VIEWPORT_SWIZZLE_SPEC_VERSION :: 1;
 }
 
@@ -22866,7 +22866,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_device_generated_commands :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_device_generated_commands :: 1;
 }
 
@@ -22874,7 +22874,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME :: "VK_NVX_device_generated_commands";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME :: "VK_NVX_device_generated_commands";
 }
 
@@ -22882,7 +22882,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_DEVICE_GENERATED_COMMANDS_SPEC_VERSION :: 3;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_DEVICE_GENERATED_COMMANDS_SPEC_VERSION :: 3;
 }
 
@@ -22890,7 +22890,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_multiview_per_view_attributes :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_multiview_per_view_attributes :: 1;
 }
 
@@ -22898,7 +22898,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_EXTENSION_NAME :: "VK_NVX_multiview_per_view_attributes";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_EXTENSION_NAME :: "VK_NVX_multiview_per_view_attributes";
 }
 
@@ -22906,7 +22906,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_MULTIVIEW_PER_VIEW_ATTRIBUTES_SPEC_VERSION :: 1;
 }
 
@@ -22914,7 +22914,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_raytracing :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_raytracing :: 1;
 }
 
@@ -22922,7 +22922,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_RAYTRACING_EXTENSION_NAME :: "VK_NVX_raytracing";
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_RAYTRACING_EXTENSION_NAME :: "VK_NVX_raytracing";
 }
 
@@ -22930,7 +22930,7 @@ VK_NULL_HANDLE :: null;
     VK_NVX_RAYTRACING_SPEC_VERSION :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_NVX_RAYTRACING_SPEC_VERSION :: 1;
 }
 
@@ -22938,7 +22938,7 @@ VK_NULL_HANDLE :: null;
     VK_QUEUE_FAMILY_EXTERNAL :: ~0 - 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_QUEUE_FAMILY_EXTERNAL :: ~0 - 1;
 }
 
@@ -22946,7 +22946,7 @@ VK_NULL_HANDLE :: null;
     VK_QUEUE_FAMILY_EXTERNAL_KHR :: VK_QUEUE_FAMILY_EXTERNAL;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_QUEUE_FAMILY_EXTERNAL_KHR :: VK_QUEUE_FAMILY_EXTERNAL;
 }
 
@@ -22954,7 +22954,7 @@ VK_NULL_HANDLE :: null;
     VK_QUEUE_FAMILY_FOREIGN_EXT :: ~0 - 2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_QUEUE_FAMILY_FOREIGN_EXT :: ~0 - 2;
 }
 
@@ -22962,7 +22962,7 @@ VK_NULL_HANDLE :: null;
     VK_VERSION_1_0 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_VERSION_1_0 :: 1;
 }
 
@@ -22970,7 +22970,7 @@ VK_NULL_HANDLE :: null;
     VK_VERSION_1_1 :: 1;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VK_VERSION_1_1 :: 1;
 }
 
@@ -22978,7 +22978,7 @@ VK_NULL_HANDLE :: null;
     VkAccelerationStructureNVX :: *VkAccelerationStructureNVX_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAccelerationStructureNVX :: *VkAccelerationStructureNVX_T;
 }
 
@@ -22986,7 +22986,7 @@ VK_NULL_HANDLE :: null;
     VkAccessFlags :: VkAccessFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAccessFlags :: VkAccessFlagBits;
 }
 
@@ -22994,7 +22994,7 @@ VK_NULL_HANDLE :: null;
     VkAttachmentDescriptionFlags :: VkAttachmentDescriptionFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkAttachmentDescriptionFlags :: VkAttachmentDescriptionFlagBits;
 }
 
@@ -23002,7 +23002,7 @@ VK_NULL_HANDLE :: null;
     VkBindBufferMemoryDeviceGroupInfoKHR :: VkBindBufferMemoryDeviceGroupInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindBufferMemoryDeviceGroupInfoKHR :: VkBindBufferMemoryDeviceGroupInfo;
 }
 
@@ -23010,7 +23010,7 @@ VK_NULL_HANDLE :: null;
     VkBindBufferMemoryInfoKHR :: VkBindBufferMemoryInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindBufferMemoryInfoKHR :: VkBindBufferMemoryInfo;
 }
 
@@ -23018,7 +23018,7 @@ VK_NULL_HANDLE :: null;
     VkBindImageMemoryDeviceGroupInfoKHR :: VkBindImageMemoryDeviceGroupInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindImageMemoryDeviceGroupInfoKHR :: VkBindImageMemoryDeviceGroupInfo;
 }
 
@@ -23026,7 +23026,7 @@ VK_NULL_HANDLE :: null;
     VkBindImageMemoryInfoKHR :: VkBindImageMemoryInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindImageMemoryInfoKHR :: VkBindImageMemoryInfo;
 }
 
@@ -23034,7 +23034,7 @@ VK_NULL_HANDLE :: null;
     VkBindImagePlaneMemoryInfoKHR :: VkBindImagePlaneMemoryInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBindImagePlaneMemoryInfoKHR :: VkBindImagePlaneMemoryInfo;
 }
 
@@ -23042,7 +23042,7 @@ VK_NULL_HANDLE :: null;
     VkBool32 :: u32;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBool32 :: u32;
 }
 
@@ -23050,7 +23050,7 @@ VK_NULL_HANDLE :: null;
     VkBuffer :: *VkBuffer_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBuffer :: *VkBuffer_T;
 }
 
@@ -23058,7 +23058,7 @@ VK_NULL_HANDLE :: null;
     VkBufferCreateFlags :: VkBufferCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferCreateFlags :: VkBufferCreateFlagBits;
 }
 
@@ -23066,7 +23066,7 @@ VK_NULL_HANDLE :: null;
     VkBufferMemoryRequirementsInfo2KHR :: VkBufferMemoryRequirementsInfo2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferMemoryRequirementsInfo2KHR :: VkBufferMemoryRequirementsInfo2;
 }
 
@@ -23074,7 +23074,7 @@ VK_NULL_HANDLE :: null;
     VkBufferUsageFlags :: VkBufferUsageFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferUsageFlags :: VkBufferUsageFlagBits;
 }
 
@@ -23082,7 +23082,7 @@ VK_NULL_HANDLE :: null;
     VkBufferView :: *VkBufferView_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferView :: *VkBufferView_T;
 }
 
@@ -23090,7 +23090,7 @@ VK_NULL_HANDLE :: null;
     VkBufferViewCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBufferViewCreateFlags :: VkFlags;
 }
 
@@ -23098,7 +23098,7 @@ VK_NULL_HANDLE :: null;
     VkBuildAccelerationStructureFlagsNVX :: VkBuildAccelerationStructureFlagBitsNVX;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkBuildAccelerationStructureFlagsNVX :: VkBuildAccelerationStructureFlagBitsNVX;
 }
 
@@ -23106,7 +23106,7 @@ VK_NULL_HANDLE :: null;
     VkChromaLocationKHR :: VkChromaLocation;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkChromaLocationKHR :: VkChromaLocation;
 }
 
@@ -23114,7 +23114,7 @@ VK_NULL_HANDLE :: null;
     VkColorComponentFlags :: VkColorComponentFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkColorComponentFlags :: VkColorComponentFlagBits;
 }
 
@@ -23122,7 +23122,7 @@ VK_NULL_HANDLE :: null;
     VkCommandBuffer :: *VkCommandBuffer_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBuffer :: *VkCommandBuffer_T;
 }
 
@@ -23130,7 +23130,7 @@ VK_NULL_HANDLE :: null;
     VkCommandBufferResetFlags :: VkCommandBufferResetFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferResetFlags :: VkCommandBufferResetFlagBits;
 }
 
@@ -23138,7 +23138,7 @@ VK_NULL_HANDLE :: null;
     VkCommandBufferUsageFlags :: VkCommandBufferUsageFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandBufferUsageFlags :: VkCommandBufferUsageFlagBits;
 }
 
@@ -23146,7 +23146,7 @@ VK_NULL_HANDLE :: null;
     VkCommandPool :: *VkCommandPool_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPool :: *VkCommandPool_T;
 }
 
@@ -23154,7 +23154,7 @@ VK_NULL_HANDLE :: null;
     VkCommandPoolCreateFlags :: VkCommandPoolCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPoolCreateFlags :: VkCommandPoolCreateFlagBits;
 }
 
@@ -23162,7 +23162,7 @@ VK_NULL_HANDLE :: null;
     VkCommandPoolResetFlags :: VkCommandPoolResetFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPoolResetFlags :: VkCommandPoolResetFlagBits;
 }
 
@@ -23170,7 +23170,7 @@ VK_NULL_HANDLE :: null;
     VkCommandPoolTrimFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPoolTrimFlags :: VkFlags;
 }
 
@@ -23178,7 +23178,7 @@ VK_NULL_HANDLE :: null;
     VkCommandPoolTrimFlagsKHR :: VkCommandPoolTrimFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCommandPoolTrimFlagsKHR :: VkCommandPoolTrimFlags;
 }
 
@@ -23186,7 +23186,7 @@ VK_NULL_HANDLE :: null;
     VkCompositeAlphaFlagsKHR :: VkCompositeAlphaFlagBitsKHR;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCompositeAlphaFlagsKHR :: VkCompositeAlphaFlagBitsKHR;
 }
 
@@ -23194,7 +23194,7 @@ VK_NULL_HANDLE :: null;
     VkConditionalRenderingFlagsEXT :: VkConditionalRenderingFlagBitsEXT;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkConditionalRenderingFlagsEXT :: VkConditionalRenderingFlagBitsEXT;
 }
 
@@ -23202,7 +23202,7 @@ VK_NULL_HANDLE :: null;
     VkCullModeFlags :: VkCullModeFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkCullModeFlags :: VkCullModeFlagBits;
 }
 
@@ -23210,7 +23210,7 @@ VK_NULL_HANDLE :: null;
     VkDebugReportCallbackEXT :: *VkDebugReportCallbackEXT_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugReportCallbackEXT :: *VkDebugReportCallbackEXT_T;
 }
 
@@ -23218,7 +23218,7 @@ VK_NULL_HANDLE :: null;
     VkDebugReportFlagsEXT :: VkDebugReportFlagBitsEXT;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugReportFlagsEXT :: VkDebugReportFlagBitsEXT;
 }
 
@@ -23226,7 +23226,7 @@ VK_NULL_HANDLE :: null;
     VkDebugUtilsMessageSeverityFlagsEXT :: VkDebugUtilsMessageSeverityFlagBitsEXT;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessageSeverityFlagsEXT :: VkDebugUtilsMessageSeverityFlagBitsEXT;
 }
 
@@ -23234,7 +23234,7 @@ VK_NULL_HANDLE :: null;
     VkDebugUtilsMessageTypeFlagsEXT :: VkDebugUtilsMessageTypeFlagBitsEXT;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessageTypeFlagsEXT :: VkDebugUtilsMessageTypeFlagBitsEXT;
 }
 
@@ -23242,7 +23242,7 @@ VK_NULL_HANDLE :: null;
     VkDebugUtilsMessengerCallbackDataFlagsEXT :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessengerCallbackDataFlagsEXT :: VkFlags;
 }
 
@@ -23250,7 +23250,7 @@ VK_NULL_HANDLE :: null;
     VkDebugUtilsMessengerCreateFlagsEXT :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessengerCreateFlagsEXT :: VkFlags;
 }
 
@@ -23258,7 +23258,7 @@ VK_NULL_HANDLE :: null;
     VkDebugUtilsMessengerEXT :: *VkDebugUtilsMessengerEXT_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDebugUtilsMessengerEXT :: *VkDebugUtilsMessengerEXT_T;
 }
 
@@ -23266,7 +23266,7 @@ VK_NULL_HANDLE :: null;
     VkDependencyFlags :: VkDependencyFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDependencyFlags :: VkDependencyFlagBits;
 }
 
@@ -23274,7 +23274,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorBindingFlagsEXT :: VkDescriptorBindingFlagBitsEXT;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorBindingFlagsEXT :: VkDescriptorBindingFlagBitsEXT;
 }
 
@@ -23282,7 +23282,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorPool :: *VkDescriptorPool_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPool :: *VkDescriptorPool_T;
 }
 
@@ -23290,7 +23290,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorPoolCreateFlags :: VkDescriptorPoolCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPoolCreateFlags :: VkDescriptorPoolCreateFlagBits;
 }
 
@@ -23298,7 +23298,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorPoolResetFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorPoolResetFlags :: VkFlags;
 }
 
@@ -23306,7 +23306,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorSet :: *VkDescriptorSet_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSet :: *VkDescriptorSet_T;
 }
 
@@ -23314,7 +23314,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorSetLayout :: *VkDescriptorSetLayout_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayout :: *VkDescriptorSetLayout_T;
 }
 
@@ -23322,7 +23322,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorSetLayoutCreateFlags :: VkDescriptorSetLayoutCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayoutCreateFlags :: VkDescriptorSetLayoutCreateFlagBits;
 }
 
@@ -23330,7 +23330,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorSetLayoutSupportKHR :: VkDescriptorSetLayoutSupport;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorSetLayoutSupportKHR :: VkDescriptorSetLayoutSupport;
 }
 
@@ -23338,7 +23338,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorUpdateTemplate :: *VkDescriptorUpdateTemplate_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplate :: *VkDescriptorUpdateTemplate_T;
 }
 
@@ -23346,7 +23346,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorUpdateTemplateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateCreateFlags :: VkFlags;
 }
 
@@ -23354,7 +23354,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorUpdateTemplateCreateFlagsKHR :: VkDescriptorUpdateTemplateCreateFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateCreateFlagsKHR :: VkDescriptorUpdateTemplateCreateFlags;
 }
 
@@ -23362,7 +23362,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorUpdateTemplateCreateInfoKHR :: VkDescriptorUpdateTemplateCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateCreateInfoKHR :: VkDescriptorUpdateTemplateCreateInfo;
 }
 
@@ -23370,7 +23370,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorUpdateTemplateEntryKHR :: VkDescriptorUpdateTemplateEntry;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateEntryKHR :: VkDescriptorUpdateTemplateEntry;
 }
 
@@ -23378,7 +23378,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorUpdateTemplateKHR :: VkDescriptorUpdateTemplate;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateKHR :: VkDescriptorUpdateTemplate;
 }
 
@@ -23386,7 +23386,7 @@ VK_NULL_HANDLE :: null;
     VkDescriptorUpdateTemplateTypeKHR :: VkDescriptorUpdateTemplateType;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDescriptorUpdateTemplateTypeKHR :: VkDescriptorUpdateTemplateType;
 }
 
@@ -23394,7 +23394,7 @@ VK_NULL_HANDLE :: null;
     VkDevice :: *VkDevice_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDevice :: *VkDevice_T;
 }
 
@@ -23402,7 +23402,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceCreateFlags :: VkFlags;
 }
 
@@ -23410,7 +23410,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceGroupBindSparseInfoKHR :: VkDeviceGroupBindSparseInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupBindSparseInfoKHR :: VkDeviceGroupBindSparseInfo;
 }
 
@@ -23418,7 +23418,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceGroupCommandBufferBeginInfoKHR :: VkDeviceGroupCommandBufferBeginInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupCommandBufferBeginInfoKHR :: VkDeviceGroupCommandBufferBeginInfo;
 }
 
@@ -23426,7 +23426,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceGroupDeviceCreateInfoKHR :: VkDeviceGroupDeviceCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupDeviceCreateInfoKHR :: VkDeviceGroupDeviceCreateInfo;
 }
 
@@ -23434,7 +23434,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceGroupPresentModeFlagsKHR :: VkDeviceGroupPresentModeFlagBitsKHR;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupPresentModeFlagsKHR :: VkDeviceGroupPresentModeFlagBitsKHR;
 }
 
@@ -23442,7 +23442,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceGroupRenderPassBeginInfoKHR :: VkDeviceGroupRenderPassBeginInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupRenderPassBeginInfoKHR :: VkDeviceGroupRenderPassBeginInfo;
 }
 
@@ -23450,7 +23450,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceGroupSubmitInfoKHR :: VkDeviceGroupSubmitInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceGroupSubmitInfoKHR :: VkDeviceGroupSubmitInfo;
 }
 
@@ -23458,7 +23458,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceMemory :: *VkDeviceMemory_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceMemory :: *VkDeviceMemory_T;
 }
 
@@ -23466,7 +23466,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceQueueCreateFlags :: VkDeviceQueueCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceQueueCreateFlags :: VkDeviceQueueCreateFlagBits;
 }
 
@@ -23474,7 +23474,7 @@ VK_NULL_HANDLE :: null;
     VkDeviceSize :: u64;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDeviceSize :: u64;
 }
 
@@ -23482,7 +23482,7 @@ VK_NULL_HANDLE :: null;
     VkDisplayKHR :: *VkDisplayKHR_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayKHR :: *VkDisplayKHR_T;
 }
 
@@ -23490,7 +23490,7 @@ VK_NULL_HANDLE :: null;
     VkDisplayModeCreateFlagsKHR :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayModeCreateFlagsKHR :: VkFlags;
 }
 
@@ -23498,7 +23498,7 @@ VK_NULL_HANDLE :: null;
     VkDisplayModeKHR :: *VkDisplayModeKHR_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayModeKHR :: *VkDisplayModeKHR_T;
 }
 
@@ -23506,7 +23506,7 @@ VK_NULL_HANDLE :: null;
     VkDisplayPlaneAlphaFlagsKHR :: VkDisplayPlaneAlphaFlagBitsKHR;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplayPlaneAlphaFlagsKHR :: VkDisplayPlaneAlphaFlagBitsKHR;
 }
 
@@ -23514,7 +23514,7 @@ VK_NULL_HANDLE :: null;
     VkDisplaySurfaceCreateFlagsKHR :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkDisplaySurfaceCreateFlagsKHR :: VkFlags;
 }
 
@@ -23522,7 +23522,7 @@ VK_NULL_HANDLE :: null;
     VkEvent :: *VkEvent_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkEvent :: *VkEvent_T;
 }
 
@@ -23530,7 +23530,7 @@ VK_NULL_HANDLE :: null;
     VkEventCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkEventCreateFlags :: VkFlags;
 }
 
@@ -23538,7 +23538,7 @@ VK_NULL_HANDLE :: null;
     VkExportFenceCreateInfoKHR :: VkExportFenceCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExportFenceCreateInfoKHR :: VkExportFenceCreateInfo;
 }
 
@@ -23546,7 +23546,7 @@ VK_NULL_HANDLE :: null;
     VkExportMemoryAllocateInfoKHR :: VkExportMemoryAllocateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExportMemoryAllocateInfoKHR :: VkExportMemoryAllocateInfo;
 }
 
@@ -23554,7 +23554,7 @@ VK_NULL_HANDLE :: null;
     VkExportSemaphoreCreateInfoKHR :: VkExportSemaphoreCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExportSemaphoreCreateInfoKHR :: VkExportSemaphoreCreateInfo;
 }
 
@@ -23562,7 +23562,7 @@ VK_NULL_HANDLE :: null;
     VkExternalBufferPropertiesKHR :: VkExternalBufferProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalBufferPropertiesKHR :: VkExternalBufferProperties;
 }
 
@@ -23570,7 +23570,7 @@ VK_NULL_HANDLE :: null;
     VkExternalFenceFeatureFlagBitsKHR :: VkExternalFenceFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceFeatureFlagBitsKHR :: VkExternalFenceFeatureFlagBits;
 }
 
@@ -23578,7 +23578,7 @@ VK_NULL_HANDLE :: null;
     VkExternalFenceFeatureFlags :: VkExternalFenceFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceFeatureFlags :: VkExternalFenceFeatureFlagBits;
 }
 
@@ -23586,7 +23586,7 @@ VK_NULL_HANDLE :: null;
     VkExternalFenceFeatureFlagsKHR :: VkExternalFenceFeatureFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceFeatureFlagsKHR :: VkExternalFenceFeatureFlags;
 }
 
@@ -23594,7 +23594,7 @@ VK_NULL_HANDLE :: null;
     VkExternalFenceHandleTypeFlagBitsKHR :: VkExternalFenceHandleTypeFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceHandleTypeFlagBitsKHR :: VkExternalFenceHandleTypeFlagBits;
 }
 
@@ -23602,7 +23602,7 @@ VK_NULL_HANDLE :: null;
     VkExternalFenceHandleTypeFlags :: VkExternalFenceHandleTypeFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceHandleTypeFlags :: VkExternalFenceHandleTypeFlagBits;
 }
 
@@ -23610,7 +23610,7 @@ VK_NULL_HANDLE :: null;
     VkExternalFenceHandleTypeFlagsKHR :: VkExternalFenceHandleTypeFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFenceHandleTypeFlagsKHR :: VkExternalFenceHandleTypeFlags;
 }
 
@@ -23618,7 +23618,7 @@ VK_NULL_HANDLE :: null;
     VkExternalFencePropertiesKHR :: VkExternalFenceProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalFencePropertiesKHR :: VkExternalFenceProperties;
 }
 
@@ -23626,7 +23626,7 @@ VK_NULL_HANDLE :: null;
     VkExternalImageFormatPropertiesKHR :: VkExternalImageFormatProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalImageFormatPropertiesKHR :: VkExternalImageFormatProperties;
 }
 
@@ -23634,7 +23634,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryBufferCreateInfoKHR :: VkExternalMemoryBufferCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryBufferCreateInfoKHR :: VkExternalMemoryBufferCreateInfo;
 }
 
@@ -23642,7 +23642,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryFeatureFlagBitsKHR :: VkExternalMemoryFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryFeatureFlagBitsKHR :: VkExternalMemoryFeatureFlagBits;
 }
 
@@ -23650,7 +23650,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryFeatureFlags :: VkExternalMemoryFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryFeatureFlags :: VkExternalMemoryFeatureFlagBits;
 }
 
@@ -23658,7 +23658,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryFeatureFlagsKHR :: VkExternalMemoryFeatureFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryFeatureFlagsKHR :: VkExternalMemoryFeatureFlags;
 }
 
@@ -23666,7 +23666,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryFeatureFlagsNV :: VkExternalMemoryFeatureFlagBitsNV;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryFeatureFlagsNV :: VkExternalMemoryFeatureFlagBitsNV;
 }
 
@@ -23674,7 +23674,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryHandleTypeFlagBitsKHR :: VkExternalMemoryHandleTypeFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryHandleTypeFlagBitsKHR :: VkExternalMemoryHandleTypeFlagBits;
 }
 
@@ -23682,7 +23682,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryHandleTypeFlags :: VkExternalMemoryHandleTypeFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryHandleTypeFlags :: VkExternalMemoryHandleTypeFlagBits;
 }
 
@@ -23690,7 +23690,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryHandleTypeFlagsKHR :: VkExternalMemoryHandleTypeFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryHandleTypeFlagsKHR :: VkExternalMemoryHandleTypeFlags;
 }
 
@@ -23698,7 +23698,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryHandleTypeFlagsNV :: VkExternalMemoryHandleTypeFlagBitsNV;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryHandleTypeFlagsNV :: VkExternalMemoryHandleTypeFlagBitsNV;
 }
 
@@ -23706,7 +23706,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryImageCreateInfoKHR :: VkExternalMemoryImageCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryImageCreateInfoKHR :: VkExternalMemoryImageCreateInfo;
 }
 
@@ -23714,7 +23714,7 @@ VK_NULL_HANDLE :: null;
     VkExternalMemoryPropertiesKHR :: VkExternalMemoryProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalMemoryPropertiesKHR :: VkExternalMemoryProperties;
 }
 
@@ -23722,7 +23722,7 @@ VK_NULL_HANDLE :: null;
     VkExternalSemaphoreFeatureFlagBitsKHR :: VkExternalSemaphoreFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreFeatureFlagBitsKHR :: VkExternalSemaphoreFeatureFlagBits;
 }
 
@@ -23730,7 +23730,7 @@ VK_NULL_HANDLE :: null;
     VkExternalSemaphoreFeatureFlags :: VkExternalSemaphoreFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreFeatureFlags :: VkExternalSemaphoreFeatureFlagBits;
 }
 
@@ -23738,7 +23738,7 @@ VK_NULL_HANDLE :: null;
     VkExternalSemaphoreFeatureFlagsKHR :: VkExternalSemaphoreFeatureFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreFeatureFlagsKHR :: VkExternalSemaphoreFeatureFlags;
 }
 
@@ -23746,7 +23746,7 @@ VK_NULL_HANDLE :: null;
     VkExternalSemaphoreHandleTypeFlagBitsKHR :: VkExternalSemaphoreHandleTypeFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreHandleTypeFlagBitsKHR :: VkExternalSemaphoreHandleTypeFlagBits;
 }
 
@@ -23754,7 +23754,7 @@ VK_NULL_HANDLE :: null;
     VkExternalSemaphoreHandleTypeFlags :: VkExternalSemaphoreHandleTypeFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreHandleTypeFlags :: VkExternalSemaphoreHandleTypeFlagBits;
 }
 
@@ -23762,7 +23762,7 @@ VK_NULL_HANDLE :: null;
     VkExternalSemaphoreHandleTypeFlagsKHR :: VkExternalSemaphoreHandleTypeFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphoreHandleTypeFlagsKHR :: VkExternalSemaphoreHandleTypeFlags;
 }
 
@@ -23770,7 +23770,7 @@ VK_NULL_HANDLE :: null;
     VkExternalSemaphorePropertiesKHR :: VkExternalSemaphoreProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkExternalSemaphorePropertiesKHR :: VkExternalSemaphoreProperties;
 }
 
@@ -23778,7 +23778,7 @@ VK_NULL_HANDLE :: null;
     VkFence :: *VkFence_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFence :: *VkFence_T;
 }
 
@@ -23786,7 +23786,7 @@ VK_NULL_HANDLE :: null;
     VkFenceCreateFlags :: VkFenceCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceCreateFlags :: VkFenceCreateFlagBits;
 }
 
@@ -23794,7 +23794,7 @@ VK_NULL_HANDLE :: null;
     VkFenceImportFlagBitsKHR :: VkFenceImportFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceImportFlagBitsKHR :: VkFenceImportFlagBits;
 }
 
@@ -23802,7 +23802,7 @@ VK_NULL_HANDLE :: null;
     VkFenceImportFlags :: VkFenceImportFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceImportFlags :: VkFenceImportFlagBits;
 }
 
@@ -23810,7 +23810,7 @@ VK_NULL_HANDLE :: null;
     VkFenceImportFlagsKHR :: VkFenceImportFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFenceImportFlagsKHR :: VkFenceImportFlags;
 }
 
@@ -23818,7 +23818,7 @@ VK_NULL_HANDLE :: null;
     VkFlags :: u32;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFlags :: u32;
 }
 
@@ -23826,7 +23826,7 @@ VK_NULL_HANDLE :: null;
     VkFormatFeatureFlags :: VkFormatFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFormatFeatureFlags :: VkFormatFeatureFlagBits;
 }
 
@@ -23834,7 +23834,7 @@ VK_NULL_HANDLE :: null;
     VkFormatProperties2KHR :: VkFormatProperties2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFormatProperties2KHR :: VkFormatProperties2;
 }
 
@@ -23842,7 +23842,7 @@ VK_NULL_HANDLE :: null;
     VkFramebuffer :: *VkFramebuffer_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFramebuffer :: *VkFramebuffer_T;
 }
 
@@ -23850,7 +23850,7 @@ VK_NULL_HANDLE :: null;
     VkFramebufferCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkFramebufferCreateFlags :: VkFlags;
 }
 
@@ -23858,7 +23858,7 @@ VK_NULL_HANDLE :: null;
     VkGeometryFlagsNVX :: VkGeometryFlagBitsNVX;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryFlagsNVX :: VkGeometryFlagBitsNVX;
 }
 
@@ -23866,7 +23866,7 @@ VK_NULL_HANDLE :: null;
     VkGeometryInstanceFlagsNVX :: VkGeometryInstanceFlagBitsNVX;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkGeometryInstanceFlagsNVX :: VkGeometryInstanceFlagBitsNVX;
 }
 
@@ -23874,7 +23874,7 @@ VK_NULL_HANDLE :: null;
     VkImage :: *VkImage_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImage :: *VkImage_T;
 }
 
@@ -23882,7 +23882,7 @@ VK_NULL_HANDLE :: null;
     VkImageAspectFlags :: VkImageAspectFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageAspectFlags :: VkImageAspectFlagBits;
 }
 
@@ -23890,7 +23890,7 @@ VK_NULL_HANDLE :: null;
     VkImageCreateFlags :: VkImageCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageCreateFlags :: VkImageCreateFlagBits;
 }
 
@@ -23898,7 +23898,7 @@ VK_NULL_HANDLE :: null;
     VkImageFormatProperties2KHR :: VkImageFormatProperties2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageFormatProperties2KHR :: VkImageFormatProperties2;
 }
 
@@ -23906,7 +23906,7 @@ VK_NULL_HANDLE :: null;
     VkImageMemoryRequirementsInfo2KHR :: VkImageMemoryRequirementsInfo2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageMemoryRequirementsInfo2KHR :: VkImageMemoryRequirementsInfo2;
 }
 
@@ -23914,7 +23914,7 @@ VK_NULL_HANDLE :: null;
     VkImagePlaneMemoryRequirementsInfoKHR :: VkImagePlaneMemoryRequirementsInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImagePlaneMemoryRequirementsInfoKHR :: VkImagePlaneMemoryRequirementsInfo;
 }
 
@@ -23922,7 +23922,7 @@ VK_NULL_HANDLE :: null;
     VkImageSparseMemoryRequirementsInfo2KHR :: VkImageSparseMemoryRequirementsInfo2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageSparseMemoryRequirementsInfo2KHR :: VkImageSparseMemoryRequirementsInfo2;
 }
 
@@ -23930,7 +23930,7 @@ VK_NULL_HANDLE :: null;
     VkImageUsageFlags :: VkImageUsageFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageUsageFlags :: VkImageUsageFlagBits;
 }
 
@@ -23938,7 +23938,7 @@ VK_NULL_HANDLE :: null;
     VkImageView :: *VkImageView_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageView :: *VkImageView_T;
 }
 
@@ -23946,7 +23946,7 @@ VK_NULL_HANDLE :: null;
     VkImageViewCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageViewCreateFlags :: VkFlags;
 }
 
@@ -23954,7 +23954,7 @@ VK_NULL_HANDLE :: null;
     VkImageViewUsageCreateInfoKHR :: VkImageViewUsageCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkImageViewUsageCreateInfoKHR :: VkImageViewUsageCreateInfo;
 }
 
@@ -23962,7 +23962,7 @@ VK_NULL_HANDLE :: null;
     VkIndirectCommandsLayoutNVX :: *VkIndirectCommandsLayoutNVX_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsLayoutNVX :: *VkIndirectCommandsLayoutNVX_T;
 }
 
@@ -23970,7 +23970,7 @@ VK_NULL_HANDLE :: null;
     VkIndirectCommandsLayoutUsageFlagsNVX :: VkIndirectCommandsLayoutUsageFlagBitsNVX;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkIndirectCommandsLayoutUsageFlagsNVX :: VkIndirectCommandsLayoutUsageFlagBitsNVX;
 }
 
@@ -23978,7 +23978,7 @@ VK_NULL_HANDLE :: null;
     VkInputAttachmentAspectReferenceKHR :: VkInputAttachmentAspectReference;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkInputAttachmentAspectReferenceKHR :: VkInputAttachmentAspectReference;
 }
 
@@ -23986,7 +23986,7 @@ VK_NULL_HANDLE :: null;
     VkInstance :: *VkInstance_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkInstance :: *VkInstance_T;
 }
 
@@ -23994,7 +23994,7 @@ VK_NULL_HANDLE :: null;
     VkInstanceCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkInstanceCreateFlags :: VkFlags;
 }
 
@@ -24002,7 +24002,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryAllocateFlagBitsKHR :: VkMemoryAllocateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryAllocateFlagBitsKHR :: VkMemoryAllocateFlagBits;
 }
 
@@ -24010,7 +24010,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryAllocateFlags :: VkMemoryAllocateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryAllocateFlags :: VkMemoryAllocateFlagBits;
 }
 
@@ -24018,7 +24018,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryAllocateFlagsInfoKHR :: VkMemoryAllocateFlagsInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryAllocateFlagsInfoKHR :: VkMemoryAllocateFlagsInfo;
 }
 
@@ -24026,7 +24026,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryAllocateFlagsKHR :: VkMemoryAllocateFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryAllocateFlagsKHR :: VkMemoryAllocateFlags;
 }
 
@@ -24034,7 +24034,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryDedicatedAllocateInfoKHR :: VkMemoryDedicatedAllocateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryDedicatedAllocateInfoKHR :: VkMemoryDedicatedAllocateInfo;
 }
 
@@ -24042,7 +24042,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryDedicatedRequirementsKHR :: VkMemoryDedicatedRequirements;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryDedicatedRequirementsKHR :: VkMemoryDedicatedRequirements;
 }
 
@@ -24050,7 +24050,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryHeapFlags :: VkMemoryHeapFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryHeapFlags :: VkMemoryHeapFlagBits;
 }
 
@@ -24058,7 +24058,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryMapFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryMapFlags :: VkFlags;
 }
 
@@ -24066,7 +24066,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryPropertyFlags :: VkMemoryPropertyFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryPropertyFlags :: VkMemoryPropertyFlagBits;
 }
 
@@ -24074,7 +24074,7 @@ VK_NULL_HANDLE :: null;
     VkMemoryRequirements2KHR :: VkMemoryRequirements2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkMemoryRequirements2KHR :: VkMemoryRequirements2;
 }
 
@@ -24082,7 +24082,7 @@ VK_NULL_HANDLE :: null;
     VkObjectEntryUsageFlagsNVX :: VkObjectEntryUsageFlagBitsNVX;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectEntryUsageFlagsNVX :: VkObjectEntryUsageFlagBitsNVX;
 }
 
@@ -24090,7 +24090,7 @@ VK_NULL_HANDLE :: null;
     VkObjectTableNVX :: *VkObjectTableNVX_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkObjectTableNVX :: *VkObjectTableNVX_T;
 }
 
@@ -24098,7 +24098,7 @@ VK_NULL_HANDLE :: null;
     VkPeerMemoryFeatureFlagBitsKHR :: VkPeerMemoryFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPeerMemoryFeatureFlagBitsKHR :: VkPeerMemoryFeatureFlagBits;
 }
 
@@ -24106,7 +24106,7 @@ VK_NULL_HANDLE :: null;
     VkPeerMemoryFeatureFlags :: VkPeerMemoryFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPeerMemoryFeatureFlags :: VkPeerMemoryFeatureFlagBits;
 }
 
@@ -24114,7 +24114,7 @@ VK_NULL_HANDLE :: null;
     VkPeerMemoryFeatureFlagsKHR :: VkPeerMemoryFeatureFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPeerMemoryFeatureFlagsKHR :: VkPeerMemoryFeatureFlags;
 }
 
@@ -24122,7 +24122,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDevice :: *VkPhysicalDevice_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevice :: *VkPhysicalDevice_T;
 }
 
@@ -24130,7 +24130,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDevice16BitStorageFeaturesKHR :: VkPhysicalDevice16BitStorageFeatures;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevice16BitStorageFeaturesKHR :: VkPhysicalDevice16BitStorageFeatures;
 }
 
@@ -24138,7 +24138,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceExternalBufferInfoKHR :: VkPhysicalDeviceExternalBufferInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalBufferInfoKHR :: VkPhysicalDeviceExternalBufferInfo;
 }
 
@@ -24146,7 +24146,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceExternalFenceInfoKHR :: VkPhysicalDeviceExternalFenceInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalFenceInfoKHR :: VkPhysicalDeviceExternalFenceInfo;
 }
 
@@ -24154,7 +24154,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceExternalImageFormatInfoKHR :: VkPhysicalDeviceExternalImageFormatInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalImageFormatInfoKHR :: VkPhysicalDeviceExternalImageFormatInfo;
 }
 
@@ -24162,7 +24162,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceExternalSemaphoreInfoKHR :: VkPhysicalDeviceExternalSemaphoreInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceExternalSemaphoreInfoKHR :: VkPhysicalDeviceExternalSemaphoreInfo;
 }
 
@@ -24170,7 +24170,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceFeatures2KHR :: VkPhysicalDeviceFeatures2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceFeatures2KHR :: VkPhysicalDeviceFeatures2;
 }
 
@@ -24178,7 +24178,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceGroupPropertiesKHR :: VkPhysicalDeviceGroupProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceGroupPropertiesKHR :: VkPhysicalDeviceGroupProperties;
 }
 
@@ -24186,7 +24186,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceIDPropertiesKHR :: VkPhysicalDeviceIDProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceIDPropertiesKHR :: VkPhysicalDeviceIDProperties;
 }
 
@@ -24194,7 +24194,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceImageFormatInfo2KHR :: VkPhysicalDeviceImageFormatInfo2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceImageFormatInfo2KHR :: VkPhysicalDeviceImageFormatInfo2;
 }
 
@@ -24202,7 +24202,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceMaintenance3PropertiesKHR :: VkPhysicalDeviceMaintenance3Properties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMaintenance3PropertiesKHR :: VkPhysicalDeviceMaintenance3Properties;
 }
 
@@ -24210,7 +24210,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceMemoryProperties2KHR :: VkPhysicalDeviceMemoryProperties2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMemoryProperties2KHR :: VkPhysicalDeviceMemoryProperties2;
 }
 
@@ -24218,7 +24218,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceMultiviewFeaturesKHR :: VkPhysicalDeviceMultiviewFeatures;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMultiviewFeaturesKHR :: VkPhysicalDeviceMultiviewFeatures;
 }
 
@@ -24226,7 +24226,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceMultiviewPropertiesKHR :: VkPhysicalDeviceMultiviewProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceMultiviewPropertiesKHR :: VkPhysicalDeviceMultiviewProperties;
 }
 
@@ -24234,7 +24234,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDevicePointClippingPropertiesKHR :: VkPhysicalDevicePointClippingProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDevicePointClippingPropertiesKHR :: VkPhysicalDevicePointClippingProperties;
 }
 
@@ -24242,7 +24242,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceProperties2KHR :: VkPhysicalDeviceProperties2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceProperties2KHR :: VkPhysicalDeviceProperties2;
 }
 
@@ -24250,7 +24250,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR :: VkPhysicalDeviceSamplerYcbcrConversionFeatures;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR :: VkPhysicalDeviceSamplerYcbcrConversionFeatures;
 }
 
@@ -24258,7 +24258,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceSparseImageFormatInfo2KHR :: VkPhysicalDeviceSparseImageFormatInfo2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceSparseImageFormatInfo2KHR :: VkPhysicalDeviceSparseImageFormatInfo2;
 }
 
@@ -24266,7 +24266,7 @@ VK_NULL_HANDLE :: null;
     VkPhysicalDeviceVariablePointerFeaturesKHR :: VkPhysicalDeviceVariablePointerFeatures;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPhysicalDeviceVariablePointerFeaturesKHR :: VkPhysicalDeviceVariablePointerFeatures;
 }
 
@@ -24274,7 +24274,7 @@ VK_NULL_HANDLE :: null;
     VkPipeline :: *VkPipeline_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipeline :: *VkPipeline_T;
 }
 
@@ -24282,7 +24282,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineCache :: *VkPipelineCache_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCache :: *VkPipelineCache_T;
 }
 
@@ -24290,7 +24290,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineCacheCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCacheCreateFlags :: VkFlags;
 }
 
@@ -24298,7 +24298,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineColorBlendStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineColorBlendStateCreateFlags :: VkFlags;
 }
 
@@ -24306,7 +24306,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineCoverageModulationStateCreateFlagsNV :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCoverageModulationStateCreateFlagsNV :: VkFlags;
 }
 
@@ -24314,7 +24314,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineCoverageToColorStateCreateFlagsNV :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCoverageToColorStateCreateFlagsNV :: VkFlags;
 }
 
@@ -24322,7 +24322,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineCreateFlags :: VkPipelineCreateFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineCreateFlags :: VkPipelineCreateFlagBits;
 }
 
@@ -24330,7 +24330,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineDepthStencilStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineDepthStencilStateCreateFlags :: VkFlags;
 }
 
@@ -24338,7 +24338,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineDiscardRectangleStateCreateFlagsEXT :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineDiscardRectangleStateCreateFlagsEXT :: VkFlags;
 }
 
@@ -24346,7 +24346,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineDynamicStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineDynamicStateCreateFlags :: VkFlags;
 }
 
@@ -24354,7 +24354,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineInputAssemblyStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineInputAssemblyStateCreateFlags :: VkFlags;
 }
 
@@ -24362,7 +24362,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineLayout :: *VkPipelineLayout_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineLayout :: *VkPipelineLayout_T;
 }
 
@@ -24370,7 +24370,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineLayoutCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineLayoutCreateFlags :: VkFlags;
 }
 
@@ -24378,7 +24378,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineMultisampleStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineMultisampleStateCreateFlags :: VkFlags;
 }
 
@@ -24386,7 +24386,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineRasterizationConservativeStateCreateFlagsEXT :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineRasterizationConservativeStateCreateFlagsEXT :: VkFlags;
 }
 
@@ -24394,7 +24394,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineRasterizationStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineRasterizationStateCreateFlags :: VkFlags;
 }
 
@@ -24402,7 +24402,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineShaderStageCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineShaderStageCreateFlags :: VkFlags;
 }
 
@@ -24410,7 +24410,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineStageFlags :: VkPipelineStageFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineStageFlags :: VkPipelineStageFlagBits;
 }
 
@@ -24418,7 +24418,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineTessellationDomainOriginStateCreateInfoKHR :: VkPipelineTessellationDomainOriginStateCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineTessellationDomainOriginStateCreateInfoKHR :: VkPipelineTessellationDomainOriginStateCreateInfo;
 }
 
@@ -24426,7 +24426,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineTessellationStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineTessellationStateCreateFlags :: VkFlags;
 }
 
@@ -24434,7 +24434,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineVertexInputStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineVertexInputStateCreateFlags :: VkFlags;
 }
 
@@ -24442,7 +24442,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineViewportStateCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportStateCreateFlags :: VkFlags;
 }
 
@@ -24450,7 +24450,7 @@ VK_NULL_HANDLE :: null;
     VkPipelineViewportSwizzleStateCreateFlagsNV :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPipelineViewportSwizzleStateCreateFlagsNV :: VkFlags;
 }
 
@@ -24458,7 +24458,7 @@ VK_NULL_HANDLE :: null;
     VkPointClippingBehaviorKHR :: VkPointClippingBehavior;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkPointClippingBehaviorKHR :: VkPointClippingBehavior;
 }
 
@@ -24466,7 +24466,7 @@ VK_NULL_HANDLE :: null;
     VkQueryControlFlags :: VkQueryControlFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryControlFlags :: VkQueryControlFlagBits;
 }
 
@@ -24474,7 +24474,7 @@ VK_NULL_HANDLE :: null;
     VkQueryPipelineStatisticFlags :: VkQueryPipelineStatisticFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryPipelineStatisticFlags :: VkQueryPipelineStatisticFlagBits;
 }
 
@@ -24482,7 +24482,7 @@ VK_NULL_HANDLE :: null;
     VkQueryPool :: *VkQueryPool_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryPool :: *VkQueryPool_T;
 }
 
@@ -24490,7 +24490,7 @@ VK_NULL_HANDLE :: null;
     VkQueryPoolCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryPoolCreateFlags :: VkFlags;
 }
 
@@ -24498,7 +24498,7 @@ VK_NULL_HANDLE :: null;
     VkQueryResultFlags :: VkQueryResultFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueryResultFlags :: VkQueryResultFlagBits;
 }
 
@@ -24506,7 +24506,7 @@ VK_NULL_HANDLE :: null;
     VkQueue :: *VkQueue_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueue :: *VkQueue_T;
 }
 
@@ -24514,7 +24514,7 @@ VK_NULL_HANDLE :: null;
     VkQueueFamilyProperties2KHR :: VkQueueFamilyProperties2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueueFamilyProperties2KHR :: VkQueueFamilyProperties2;
 }
 
@@ -24522,7 +24522,7 @@ VK_NULL_HANDLE :: null;
     VkQueueFlags :: VkQueueFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkQueueFlags :: VkQueueFlagBits;
 }
 
@@ -24530,7 +24530,7 @@ VK_NULL_HANDLE :: null;
     VkRenderPass :: *VkRenderPass_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPass :: *VkRenderPass_T;
 }
 
@@ -24538,7 +24538,7 @@ VK_NULL_HANDLE :: null;
     VkRenderPassCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassCreateFlags :: VkFlags;
 }
 
@@ -24546,7 +24546,7 @@ VK_NULL_HANDLE :: null;
     VkRenderPassInputAttachmentAspectCreateInfoKHR :: VkRenderPassInputAttachmentAspectCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassInputAttachmentAspectCreateInfoKHR :: VkRenderPassInputAttachmentAspectCreateInfo;
 }
 
@@ -24554,7 +24554,7 @@ VK_NULL_HANDLE :: null;
     VkRenderPassMultiviewCreateInfoKHR :: VkRenderPassMultiviewCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkRenderPassMultiviewCreateInfoKHR :: VkRenderPassMultiviewCreateInfo;
 }
 
@@ -24562,7 +24562,7 @@ VK_NULL_HANDLE :: null;
     VkSampleCountFlags :: VkSampleCountFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSampleCountFlags :: VkSampleCountFlagBits;
 }
 
@@ -24570,7 +24570,7 @@ VK_NULL_HANDLE :: null;
     VkSampleMask :: u32;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSampleMask :: u32;
 }
 
@@ -24578,7 +24578,7 @@ VK_NULL_HANDLE :: null;
     VkSampler :: *VkSampler_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSampler :: *VkSampler_T;
 }
 
@@ -24586,7 +24586,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerCreateFlags :: VkFlags;
 }
 
@@ -24594,7 +24594,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerYcbcrConversion :: *VkSamplerYcbcrConversion_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversion :: *VkSamplerYcbcrConversion_T;
 }
 
@@ -24602,7 +24602,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerYcbcrConversionCreateInfoKHR :: VkSamplerYcbcrConversionCreateInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversionCreateInfoKHR :: VkSamplerYcbcrConversionCreateInfo;
 }
 
@@ -24610,7 +24610,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerYcbcrConversionImageFormatPropertiesKHR :: VkSamplerYcbcrConversionImageFormatProperties;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversionImageFormatPropertiesKHR :: VkSamplerYcbcrConversionImageFormatProperties;
 }
 
@@ -24618,7 +24618,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerYcbcrConversionInfoKHR :: VkSamplerYcbcrConversionInfo;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversionInfoKHR :: VkSamplerYcbcrConversionInfo;
 }
 
@@ -24626,7 +24626,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerYcbcrConversionKHR :: VkSamplerYcbcrConversion;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrConversionKHR :: VkSamplerYcbcrConversion;
 }
 
@@ -24634,7 +24634,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerYcbcrModelConversionKHR :: VkSamplerYcbcrModelConversion;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrModelConversionKHR :: VkSamplerYcbcrModelConversion;
 }
 
@@ -24642,7 +24642,7 @@ VK_NULL_HANDLE :: null;
     VkSamplerYcbcrRangeKHR :: VkSamplerYcbcrRange;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSamplerYcbcrRangeKHR :: VkSamplerYcbcrRange;
 }
 
@@ -24650,7 +24650,7 @@ VK_NULL_HANDLE :: null;
     VkSemaphore :: *VkSemaphore_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphore :: *VkSemaphore_T;
 }
 
@@ -24658,7 +24658,7 @@ VK_NULL_HANDLE :: null;
     VkSemaphoreCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphoreCreateFlags :: VkFlags;
 }
 
@@ -24666,7 +24666,7 @@ VK_NULL_HANDLE :: null;
     VkSemaphoreImportFlagBitsKHR :: VkSemaphoreImportFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphoreImportFlagBitsKHR :: VkSemaphoreImportFlagBits;
 }
 
@@ -24674,7 +24674,7 @@ VK_NULL_HANDLE :: null;
     VkSemaphoreImportFlags :: VkSemaphoreImportFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphoreImportFlags :: VkSemaphoreImportFlagBits;
 }
 
@@ -24682,7 +24682,7 @@ VK_NULL_HANDLE :: null;
     VkSemaphoreImportFlagsKHR :: VkSemaphoreImportFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSemaphoreImportFlagsKHR :: VkSemaphoreImportFlags;
 }
 
@@ -24690,7 +24690,7 @@ VK_NULL_HANDLE :: null;
     VkShaderModule :: *VkShaderModule_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderModule :: *VkShaderModule_T;
 }
 
@@ -24698,7 +24698,7 @@ VK_NULL_HANDLE :: null;
     VkShaderModuleCreateFlags :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderModuleCreateFlags :: VkFlags;
 }
 
@@ -24706,7 +24706,7 @@ VK_NULL_HANDLE :: null;
     VkShaderStageFlags :: VkShaderStageFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkShaderStageFlags :: VkShaderStageFlagBits;
 }
 
@@ -24714,7 +24714,7 @@ VK_NULL_HANDLE :: null;
     VkSparseImageFormatFlags :: VkSparseImageFormatFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageFormatFlags :: VkSparseImageFormatFlagBits;
 }
 
@@ -24722,7 +24722,7 @@ VK_NULL_HANDLE :: null;
     VkSparseImageFormatProperties2KHR :: VkSparseImageFormatProperties2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageFormatProperties2KHR :: VkSparseImageFormatProperties2;
 }
 
@@ -24730,7 +24730,7 @@ VK_NULL_HANDLE :: null;
     VkSparseImageMemoryRequirements2KHR :: VkSparseImageMemoryRequirements2;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseImageMemoryRequirements2KHR :: VkSparseImageMemoryRequirements2;
 }
 
@@ -24738,7 +24738,7 @@ VK_NULL_HANDLE :: null;
     VkSparseMemoryBindFlags :: VkSparseMemoryBindFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSparseMemoryBindFlags :: VkSparseMemoryBindFlagBits;
 }
 
@@ -24746,7 +24746,7 @@ VK_NULL_HANDLE :: null;
     VkStencilFaceFlags :: VkStencilFaceFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkStencilFaceFlags :: VkStencilFaceFlagBits;
 }
 
@@ -24754,7 +24754,7 @@ VK_NULL_HANDLE :: null;
     VkSubgroupFeatureFlags :: VkSubgroupFeatureFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubgroupFeatureFlags :: VkSubgroupFeatureFlagBits;
 }
 
@@ -24762,7 +24762,7 @@ VK_NULL_HANDLE :: null;
     VkSubpassDescriptionFlags :: VkSubpassDescriptionFlagBits;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSubpassDescriptionFlags :: VkSubpassDescriptionFlagBits;
 }
 
@@ -24770,7 +24770,7 @@ VK_NULL_HANDLE :: null;
     VkSurfaceCounterFlagsEXT :: VkSurfaceCounterFlagBitsEXT;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceCounterFlagsEXT :: VkSurfaceCounterFlagBitsEXT;
 }
 
@@ -24778,7 +24778,7 @@ VK_NULL_HANDLE :: null;
     VkSurfaceKHR :: *VkSurfaceKHR_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceKHR :: *VkSurfaceKHR_T;
 }
 
@@ -24786,7 +24786,7 @@ VK_NULL_HANDLE :: null;
     VkSurfaceTransformFlagsKHR :: VkSurfaceTransformFlagBitsKHR;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSurfaceTransformFlagsKHR :: VkSurfaceTransformFlagBitsKHR;
 }
 
@@ -24794,7 +24794,7 @@ VK_NULL_HANDLE :: null;
     VkSwapchainCreateFlagsKHR :: VkSwapchainCreateFlagBitsKHR;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSwapchainCreateFlagsKHR :: VkSwapchainCreateFlagBitsKHR;
 }
 
@@ -24802,7 +24802,7 @@ VK_NULL_HANDLE :: null;
     VkSwapchainKHR :: *VkSwapchainKHR_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkSwapchainKHR :: *VkSwapchainKHR_T;
 }
 
@@ -24810,7 +24810,7 @@ VK_NULL_HANDLE :: null;
     VkTessellationDomainOriginKHR :: VkTessellationDomainOrigin;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkTessellationDomainOriginKHR :: VkTessellationDomainOrigin;
 }
 
@@ -24818,7 +24818,7 @@ VK_NULL_HANDLE :: null;
     VkValidationCacheCreateFlagsEXT :: VkFlags;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkValidationCacheCreateFlagsEXT :: VkFlags;
 }
 
@@ -24826,7 +24826,7 @@ VK_NULL_HANDLE :: null;
     VkValidationCacheEXT :: *VkValidationCacheEXT_T;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     VkValidationCacheEXT :: *VkValidationCacheEXT_T;
 }
 
@@ -24872,7 +24872,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkAcquireNextImage2KHR :: (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkAcquireNextImage2KHR :: (device: VkDevice, pAcquireInfo: *VkAcquireNextImageInfoKHR, pImageIndex: *u32) -> VkResult #foreign libvulkan;
 }
 
@@ -24880,7 +24880,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkAcquireNextImageKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkAcquireNextImageKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, timeout: u64, semaphore: VkSemaphore, fence: VkFence, pImageIndex: *u32) -> VkResult #foreign libvulkan;
 }
 
@@ -24888,7 +24888,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkAllocateCommandBuffers :: (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkAllocateCommandBuffers :: (device: VkDevice, pAllocateInfo: *VkCommandBufferAllocateInfo, pCommandBuffers: *VkCommandBuffer) -> VkResult #foreign libvulkan;
 }
 
@@ -24896,7 +24896,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkAllocateDescriptorSets :: (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkAllocateDescriptorSets :: (device: VkDevice, pAllocateInfo: *VkDescriptorSetAllocateInfo, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan;
 }
 
@@ -24904,7 +24904,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkAllocateMemory :: (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkAllocateMemory :: (device: VkDevice, pAllocateInfo: *VkMemoryAllocateInfo, pAllocator: *VkAllocationCallbacks, pMemory: *VkDeviceMemory) -> VkResult #foreign libvulkan;
 }
 
@@ -24912,7 +24912,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkBeginCommandBuffer :: (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkBeginCommandBuffer :: (commandBuffer: VkCommandBuffer, pBeginInfo: *VkCommandBufferBeginInfo) -> VkResult #foreign libvulkan;
 }
 
@@ -24920,7 +24920,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkBindBufferMemory :: (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkBindBufferMemory :: (device: VkDevice, buffer: VkBuffer, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan;
 }
 
@@ -24928,7 +24928,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkBindBufferMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkBindBufferMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindBufferMemoryInfo) -> VkResult #foreign libvulkan;
 }
 
@@ -24936,7 +24936,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkBindImageMemory :: (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkBindImageMemory :: (device: VkDevice, image: VkImage, memory: VkDeviceMemory, memoryOffset: VkDeviceSize) -> VkResult #foreign libvulkan;
 }
 
@@ -24944,7 +24944,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkBindImageMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkBindImageMemory2 :: (device: VkDevice, bindInfoCount: u32, pBindInfos: *VkBindImageMemoryInfo) -> VkResult #foreign libvulkan;
 }
 
@@ -24952,7 +24952,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdBeginQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdBeginQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32, flags: VkQueryControlFlags) -> void #foreign libvulkan;
 }
 
@@ -24960,7 +24960,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdBeginRenderPass :: (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdBeginRenderPass :: (commandBuffer: VkCommandBuffer, pRenderPassBegin: *VkRenderPassBeginInfo, contents: VkSubpassContents) -> void #foreign libvulkan;
 }
 
@@ -24968,7 +24968,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdBindDescriptorSets :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdBindDescriptorSets :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, layout: VkPipelineLayout, firstSet: u32, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet, dynamicOffsetCount: u32, pDynamicOffsets: *u32) -> void #foreign libvulkan;
 }
 
@@ -24976,7 +24976,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdBindIndexBuffer :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdBindIndexBuffer :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, indexType: VkIndexType) -> void #foreign libvulkan;
 }
 
@@ -24984,7 +24984,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdBindPipeline :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdBindPipeline :: (commandBuffer: VkCommandBuffer, pipelineBindPoint: VkPipelineBindPoint, pipeline: VkPipeline) -> void #foreign libvulkan;
 }
 
@@ -24992,7 +24992,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdBindVertexBuffers :: (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdBindVertexBuffers :: (commandBuffer: VkCommandBuffer, firstBinding: u32, bindingCount: u32, pBuffers: *VkBuffer, pOffsets: *VkDeviceSize) -> void #foreign libvulkan;
 }
 
@@ -25000,7 +25000,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdBlitImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdBlitImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageBlit, filter: VkFilter) -> void #foreign libvulkan;
 }
 
@@ -25008,7 +25008,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdClearAttachments :: (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdClearAttachments :: (commandBuffer: VkCommandBuffer, attachmentCount: u32, pAttachments: *VkClearAttachment, rectCount: u32, pRects: *VkClearRect) -> void #foreign libvulkan;
 }
 
@@ -25016,7 +25016,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdClearColorImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdClearColorImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pColor: *VkClearColorValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan;
 }
 
@@ -25024,7 +25024,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdClearDepthStencilImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdClearDepthStencilImage :: (commandBuffer: VkCommandBuffer, image: VkImage, imageLayout: VkImageLayout, pDepthStencil: *VkClearDepthStencilValue, rangeCount: u32, pRanges: *VkImageSubresourceRange) -> void #foreign libvulkan;
 }
 
@@ -25032,7 +25032,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdCopyBuffer :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdCopyBuffer :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferCopy) -> void #foreign libvulkan;
 }
 
@@ -25040,7 +25040,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdCopyBufferToImage :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdCopyBufferToImage :: (commandBuffer: VkCommandBuffer, srcBuffer: VkBuffer, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan;
 }
 
@@ -25048,7 +25048,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdCopyImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdCopyImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageCopy) -> void #foreign libvulkan;
 }
 
@@ -25056,7 +25056,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdCopyImageToBuffer :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdCopyImageToBuffer :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstBuffer: VkBuffer, regionCount: u32, pRegions: *VkBufferImageCopy) -> void #foreign libvulkan;
 }
 
@@ -25064,7 +25064,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdCopyQueryPoolResults :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdCopyQueryPoolResults :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, stride: VkDeviceSize, flags: VkQueryResultFlags) -> void #foreign libvulkan;
 }
 
@@ -25072,7 +25072,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdDispatch :: (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdDispatch :: (commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan;
 }
 
@@ -25080,7 +25080,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdDispatchBase :: (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdDispatchBase :: (commandBuffer: VkCommandBuffer, baseGroupX: u32, baseGroupY: u32, baseGroupZ: u32, groupCountX: u32, groupCountY: u32, groupCountZ: u32) -> void #foreign libvulkan;
 }
 
@@ -25088,7 +25088,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdDispatchIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdDispatchIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize) -> void #foreign libvulkan;
 }
 
@@ -25096,7 +25096,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdDraw :: (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdDraw :: (commandBuffer: VkCommandBuffer, vertexCount: u32, instanceCount: u32, firstVertex: u32, firstInstance: u32) -> void #foreign libvulkan;
 }
 
@@ -25104,7 +25104,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdDrawIndexed :: (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdDrawIndexed :: (commandBuffer: VkCommandBuffer, indexCount: u32, instanceCount: u32, firstIndex: u32, vertexOffset: s32, firstInstance: u32) -> void #foreign libvulkan;
 }
 
@@ -25112,7 +25112,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdDrawIndexedIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdDrawIndexedIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan;
 }
 
@@ -25120,7 +25120,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdDrawIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdDrawIndirect :: (commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize, drawCount: u32, stride: u32) -> void #foreign libvulkan;
 }
 
@@ -25128,7 +25128,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdEndQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdEndQuery :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan;
 }
 
@@ -25136,7 +25136,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdEndRenderPass :: (commandBuffer: VkCommandBuffer) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdEndRenderPass :: (commandBuffer: VkCommandBuffer) -> void #foreign libvulkan;
 }
 
@@ -25144,7 +25144,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdExecuteCommands :: (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdExecuteCommands :: (commandBuffer: VkCommandBuffer, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan;
 }
 
@@ -25152,7 +25152,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdFillBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdFillBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, size: VkDeviceSize, data: u32) -> void #foreign libvulkan;
 }
 
@@ -25160,7 +25160,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdNextSubpass :: (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdNextSubpass :: (commandBuffer: VkCommandBuffer, contents: VkSubpassContents) -> void #foreign libvulkan;
 }
 
@@ -25168,7 +25168,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdPipelineBarrier :: (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdPipelineBarrier :: (commandBuffer: VkCommandBuffer, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, dependencyFlags: VkDependencyFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan;
 }
 
@@ -25176,7 +25176,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdPushConstants :: (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdPushConstants :: (commandBuffer: VkCommandBuffer, layout: VkPipelineLayout, stageFlags: VkShaderStageFlags, offset: u32, size: u32, pValues: *void) -> void #foreign libvulkan;
 }
 
@@ -25184,7 +25184,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdResetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdResetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan;
 }
 
@@ -25192,7 +25192,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdResetQueryPool :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdResetQueryPool :: (commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32) -> void #foreign libvulkan;
 }
 
@@ -25200,7 +25200,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdResolveImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdResolveImage :: (commandBuffer: VkCommandBuffer, srcImage: VkImage, srcImageLayout: VkImageLayout, dstImage: VkImage, dstImageLayout: VkImageLayout, regionCount: u32, pRegions: *VkImageResolve) -> void #foreign libvulkan;
 }
 
@@ -25208,7 +25208,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetBlendConstants :: (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetBlendConstants :: (commandBuffer: VkCommandBuffer, blendConstants: *[4] float) -> void #foreign libvulkan;
 }
 
@@ -25216,7 +25216,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetDepthBias :: (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetDepthBias :: (commandBuffer: VkCommandBuffer, depthBiasConstantFactor: float, depthBiasClamp: float, depthBiasSlopeFactor: float) -> void #foreign libvulkan;
 }
 
@@ -25224,7 +25224,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetDepthBounds :: (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetDepthBounds :: (commandBuffer: VkCommandBuffer, minDepthBounds: float, maxDepthBounds: float) -> void #foreign libvulkan;
 }
 
@@ -25232,7 +25232,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetDeviceMask :: (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetDeviceMask :: (commandBuffer: VkCommandBuffer, deviceMask: u32) -> void #foreign libvulkan;
 }
 
@@ -25240,7 +25240,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetEvent :: (commandBuffer: VkCommandBuffer, event: VkEvent, stageMask: VkPipelineStageFlags) -> void #foreign libvulkan;
 }
 
@@ -25248,7 +25248,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetLineWidth :: (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetLineWidth :: (commandBuffer: VkCommandBuffer, lineWidth: float) -> void #foreign libvulkan;
 }
 
@@ -25256,7 +25256,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetScissor :: (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetScissor :: (commandBuffer: VkCommandBuffer, firstScissor: u32, scissorCount: u32, pScissors: *VkRect2D) -> void #foreign libvulkan;
 }
 
@@ -25264,7 +25264,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetStencilCompareMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetStencilCompareMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32) -> void #foreign libvulkan;
 }
 
@@ -25272,7 +25272,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetStencilReference :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetStencilReference :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32) -> void #foreign libvulkan;
 }
 
@@ -25280,7 +25280,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetStencilWriteMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetStencilWriteMask :: (commandBuffer: VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32) -> void #foreign libvulkan;
 }
 
@@ -25288,7 +25288,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdSetViewport :: (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdSetViewport :: (commandBuffer: VkCommandBuffer, firstViewport: u32, viewportCount: u32, pViewports: *VkViewport) -> void #foreign libvulkan;
 }
 
@@ -25296,7 +25296,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdUpdateBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdUpdateBuffer :: (commandBuffer: VkCommandBuffer, dstBuffer: VkBuffer, dstOffset: VkDeviceSize, dataSize: VkDeviceSize, pData: *void) -> void #foreign libvulkan;
 }
 
@@ -25304,7 +25304,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdWaitEvents :: (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdWaitEvents :: (commandBuffer: VkCommandBuffer, eventCount: u32, pEvents: *VkEvent, srcStageMask: VkPipelineStageFlags, dstStageMask: VkPipelineStageFlags, memoryBarrierCount: u32, pMemoryBarriers: *VkMemoryBarrier, bufferMemoryBarrierCount: u32, pBufferMemoryBarriers: *VkBufferMemoryBarrier, imageMemoryBarrierCount: u32, pImageMemoryBarriers: *VkImageMemoryBarrier) -> void #foreign libvulkan;
 }
 
@@ -25312,7 +25312,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCmdWriteTimestamp :: (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCmdWriteTimestamp :: (commandBuffer: VkCommandBuffer, pipelineStage: VkPipelineStageFlagBits, queryPool: VkQueryPool, query: u32) -> void #foreign libvulkan;
 }
 
@@ -25320,7 +25320,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateBuffer :: (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateBuffer :: (device: VkDevice, pCreateInfo: *VkBufferCreateInfo, pAllocator: *VkAllocationCallbacks, pBuffer: *VkBuffer) -> VkResult #foreign libvulkan;
 }
 
@@ -25328,7 +25328,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateBufferView :: (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateBufferView :: (device: VkDevice, pCreateInfo: *VkBufferViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkBufferView) -> VkResult #foreign libvulkan;
 }
 
@@ -25336,7 +25336,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateCommandPool :: (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateCommandPool :: (device: VkDevice, pCreateInfo: *VkCommandPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pCommandPool: *VkCommandPool) -> VkResult #foreign libvulkan;
 }
 
@@ -25344,7 +25344,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateComputePipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateComputePipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkComputePipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan;
 }
 
@@ -25352,7 +25352,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateDescriptorPool :: (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateDescriptorPool :: (device: VkDevice, pCreateInfo: *VkDescriptorPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorPool: *VkDescriptorPool) -> VkResult #foreign libvulkan;
 }
 
@@ -25360,7 +25360,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateDescriptorSetLayout :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateDescriptorSetLayout :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pSetLayout: *VkDescriptorSetLayout) -> VkResult #foreign libvulkan;
 }
 
@@ -25368,7 +25368,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateDescriptorUpdateTemplate :: (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateDescriptorUpdateTemplate :: (device: VkDevice, pCreateInfo: *VkDescriptorUpdateTemplateCreateInfo, pAllocator: *VkAllocationCallbacks, pDescriptorUpdateTemplate: *VkDescriptorUpdateTemplate) -> VkResult #foreign libvulkan;
 }
 
@@ -25376,7 +25376,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateDevice :: (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateDevice :: (physicalDevice: VkPhysicalDevice, pCreateInfo: *VkDeviceCreateInfo, pAllocator: *VkAllocationCallbacks, pDevice: *VkDevice) -> VkResult #foreign libvulkan;
 }
 
@@ -25384,7 +25384,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateDisplayModeKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateDisplayModeKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pCreateInfo: *VkDisplayModeCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pMode: *VkDisplayModeKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25392,7 +25392,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateDisplayPlaneSurfaceKHR :: (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateDisplayPlaneSurfaceKHR :: (instance: VkInstance, pCreateInfo: *VkDisplaySurfaceCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSurface: *VkSurfaceKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25400,7 +25400,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateEvent :: (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateEvent :: (device: VkDevice, pCreateInfo: *VkEventCreateInfo, pAllocator: *VkAllocationCallbacks, pEvent: *VkEvent) -> VkResult #foreign libvulkan;
 }
 
@@ -25408,7 +25408,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateFence :: (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateFence :: (device: VkDevice, pCreateInfo: *VkFenceCreateInfo, pAllocator: *VkAllocationCallbacks, pFence: *VkFence) -> VkResult #foreign libvulkan;
 }
 
@@ -25416,7 +25416,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateFramebuffer :: (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateFramebuffer :: (device: VkDevice, pCreateInfo: *VkFramebufferCreateInfo, pAllocator: *VkAllocationCallbacks, pFramebuffer: *VkFramebuffer) -> VkResult #foreign libvulkan;
 }
 
@@ -25424,7 +25424,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateGraphicsPipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateGraphicsPipelines :: (device: VkDevice, pipelineCache: VkPipelineCache, createInfoCount: u32, pCreateInfos: *VkGraphicsPipelineCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelines: *VkPipeline) -> VkResult #foreign libvulkan;
 }
 
@@ -25432,7 +25432,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateImage :: (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateImage :: (device: VkDevice, pCreateInfo: *VkImageCreateInfo, pAllocator: *VkAllocationCallbacks, pImage: *VkImage) -> VkResult #foreign libvulkan;
 }
 
@@ -25440,7 +25440,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateImageView :: (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateImageView :: (device: VkDevice, pCreateInfo: *VkImageViewCreateInfo, pAllocator: *VkAllocationCallbacks, pView: *VkImageView) -> VkResult #foreign libvulkan;
 }
 
@@ -25448,7 +25448,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateInstance :: (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateInstance :: (pCreateInfo: *VkInstanceCreateInfo, pAllocator: *VkAllocationCallbacks, pInstance: *VkInstance) -> VkResult #foreign libvulkan;
 }
 
@@ -25456,7 +25456,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreatePipelineCache :: (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreatePipelineCache :: (device: VkDevice, pCreateInfo: *VkPipelineCacheCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineCache: *VkPipelineCache) -> VkResult #foreign libvulkan;
 }
 
@@ -25464,7 +25464,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreatePipelineLayout :: (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreatePipelineLayout :: (device: VkDevice, pCreateInfo: *VkPipelineLayoutCreateInfo, pAllocator: *VkAllocationCallbacks, pPipelineLayout: *VkPipelineLayout) -> VkResult #foreign libvulkan;
 }
 
@@ -25472,7 +25472,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateQueryPool :: (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateQueryPool :: (device: VkDevice, pCreateInfo: *VkQueryPoolCreateInfo, pAllocator: *VkAllocationCallbacks, pQueryPool: *VkQueryPool) -> VkResult #foreign libvulkan;
 }
 
@@ -25480,7 +25480,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateRenderPass :: (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateRenderPass :: (device: VkDevice, pCreateInfo: *VkRenderPassCreateInfo, pAllocator: *VkAllocationCallbacks, pRenderPass: *VkRenderPass) -> VkResult #foreign libvulkan;
 }
 
@@ -25488,7 +25488,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateSampler :: (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateSampler :: (device: VkDevice, pCreateInfo: *VkSamplerCreateInfo, pAllocator: *VkAllocationCallbacks, pSampler: *VkSampler) -> VkResult #foreign libvulkan;
 }
 
@@ -25496,7 +25496,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateSamplerYcbcrConversion :: (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateSamplerYcbcrConversion :: (device: VkDevice, pCreateInfo: *VkSamplerYcbcrConversionCreateInfo, pAllocator: *VkAllocationCallbacks, pYcbcrConversion: *VkSamplerYcbcrConversion) -> VkResult #foreign libvulkan;
 }
 
@@ -25504,7 +25504,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateSemaphore :: (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateSemaphore :: (device: VkDevice, pCreateInfo: *VkSemaphoreCreateInfo, pAllocator: *VkAllocationCallbacks, pSemaphore: *VkSemaphore) -> VkResult #foreign libvulkan;
 }
 
@@ -25512,7 +25512,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateShaderModule :: (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateShaderModule :: (device: VkDevice, pCreateInfo: *VkShaderModuleCreateInfo, pAllocator: *VkAllocationCallbacks, pShaderModule: *VkShaderModule) -> VkResult #foreign libvulkan;
 }
 
@@ -25520,7 +25520,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateSharedSwapchainsKHR :: (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateSharedSwapchainsKHR :: (device: VkDevice, swapchainCount: u32, pCreateInfos: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchains: *VkSwapchainKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25528,7 +25528,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkCreateSwapchainKHR :: (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkCreateSwapchainKHR :: (device: VkDevice, pCreateInfo: *VkSwapchainCreateInfoKHR, pAllocator: *VkAllocationCallbacks, pSwapchain: *VkSwapchainKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25540,7 +25540,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyBuffer :: (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyBuffer :: (device: VkDevice, buffer: VkBuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25548,7 +25548,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyBufferView :: (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyBufferView :: (device: VkDevice, bufferView: VkBufferView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25556,7 +25556,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyCommandPool :: (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyCommandPool :: (device: VkDevice, commandPool: VkCommandPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25564,7 +25564,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25572,7 +25572,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyDescriptorSetLayout :: (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyDescriptorSetLayout :: (device: VkDevice, descriptorSetLayout: VkDescriptorSetLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25580,7 +25580,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyDescriptorUpdateTemplate :: (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyDescriptorUpdateTemplate :: (device: VkDevice, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25588,7 +25588,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyDevice :: (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyDevice :: (device: VkDevice, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25596,7 +25596,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyEvent :: (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyEvent :: (device: VkDevice, event: VkEvent, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25604,7 +25604,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyFence :: (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyFence :: (device: VkDevice, fence: VkFence, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25612,7 +25612,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyFramebuffer :: (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyFramebuffer :: (device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25620,7 +25620,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyImage :: (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyImage :: (device: VkDevice, image: VkImage, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25628,7 +25628,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyImageView :: (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyImageView :: (device: VkDevice, imageView: VkImageView, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25636,7 +25636,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyInstance :: (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyInstance :: (instance: VkInstance, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25644,7 +25644,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyPipeline :: (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyPipeline :: (device: VkDevice, pipeline: VkPipeline, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25652,7 +25652,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyPipelineCache :: (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyPipelineCache :: (device: VkDevice, pipelineCache: VkPipelineCache, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25660,7 +25660,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyPipelineLayout :: (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyPipelineLayout :: (device: VkDevice, pipelineLayout: VkPipelineLayout, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25668,7 +25668,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyQueryPool :: (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyQueryPool :: (device: VkDevice, queryPool: VkQueryPool, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25676,7 +25676,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyRenderPass :: (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyRenderPass :: (device: VkDevice, renderPass: VkRenderPass, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25684,7 +25684,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroySampler :: (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroySampler :: (device: VkDevice, sampler: VkSampler, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25692,7 +25692,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroySamplerYcbcrConversion :: (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroySamplerYcbcrConversion :: (device: VkDevice, ycbcrConversion: VkSamplerYcbcrConversion, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25700,7 +25700,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroySemaphore :: (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroySemaphore :: (device: VkDevice, semaphore: VkSemaphore, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25708,7 +25708,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroyShaderModule :: (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroyShaderModule :: (device: VkDevice, shaderModule: VkShaderModule, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25716,7 +25716,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroySurfaceKHR :: (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroySurfaceKHR :: (instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25724,7 +25724,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDestroySwapchainKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDestroySwapchainKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25732,7 +25732,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkDeviceWaitIdle :: (device: VkDevice) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkDeviceWaitIdle :: (device: VkDevice) -> VkResult #foreign libvulkan;
 }
 
@@ -25740,7 +25740,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEndCommandBuffer :: (commandBuffer: VkCommandBuffer) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEndCommandBuffer :: (commandBuffer: VkCommandBuffer) -> VkResult #foreign libvulkan;
 }
 
@@ -25748,7 +25748,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEnumerateDeviceExtensionProperties :: (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateDeviceExtensionProperties :: (physicalDevice: VkPhysicalDevice, pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan;
 }
 
@@ -25756,7 +25756,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEnumerateDeviceLayerProperties :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateDeviceLayerProperties :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan;
 }
 
@@ -25764,7 +25764,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEnumerateInstanceExtensionProperties :: (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateInstanceExtensionProperties :: (pLayerName: *u8, pPropertyCount: *u32, pProperties: *VkExtensionProperties) -> VkResult #foreign libvulkan;
 }
 
@@ -25772,7 +25772,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEnumerateInstanceLayerProperties :: (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateInstanceLayerProperties :: (pPropertyCount: *u32, pProperties: *VkLayerProperties) -> VkResult #foreign libvulkan;
 }
 
@@ -25780,7 +25780,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEnumerateInstanceVersion :: (pApiVersion: *u32) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateInstanceVersion :: (pApiVersion: *u32) -> VkResult #foreign libvulkan;
 }
 
@@ -25788,7 +25788,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEnumeratePhysicalDeviceGroups :: (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumeratePhysicalDeviceGroups :: (instance: VkInstance, pPhysicalDeviceGroupCount: *u32, pPhysicalDeviceGroupProperties: *VkPhysicalDeviceGroupProperties) -> VkResult #foreign libvulkan;
 }
 
@@ -25796,7 +25796,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkEnumeratePhysicalDevices :: (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumeratePhysicalDevices :: (instance: VkInstance, pPhysicalDeviceCount: *u32, pPhysicalDevices: *VkPhysicalDevice) -> VkResult #foreign libvulkan;
 }
 
@@ -25804,7 +25804,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkFlushMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkFlushMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan;
 }
 
@@ -25812,7 +25812,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkFreeCommandBuffers :: (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkFreeCommandBuffers :: (device: VkDevice, commandPool: VkCommandPool, commandBufferCount: u32, pCommandBuffers: *VkCommandBuffer) -> void #foreign libvulkan;
 }
 
@@ -25820,7 +25820,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkFreeDescriptorSets :: (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkFreeDescriptorSets :: (device: VkDevice, descriptorPool: VkDescriptorPool, descriptorSetCount: u32, pDescriptorSets: *VkDescriptorSet) -> VkResult #foreign libvulkan;
 }
 
@@ -25828,7 +25828,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkFreeMemory :: (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkFreeMemory :: (device: VkDevice, memory: VkDeviceMemory, pAllocator: *VkAllocationCallbacks) -> void #foreign libvulkan;
 }
 
@@ -25836,7 +25836,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetBufferMemoryRequirements :: (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetBufferMemoryRequirements :: (device: VkDevice, buffer: VkBuffer, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan;
 }
 
@@ -25844,7 +25844,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetBufferMemoryRequirements2 :: (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetBufferMemoryRequirements2 :: (device: VkDevice, pInfo: *VkBufferMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan;
 }
 
@@ -25852,7 +25852,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDescriptorSetLayoutSupport :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDescriptorSetLayoutSupport :: (device: VkDevice, pCreateInfo: *VkDescriptorSetLayoutCreateInfo, pSupport: *VkDescriptorSetLayoutSupport) -> void #foreign libvulkan;
 }
 
@@ -25860,7 +25860,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDeviceGroupPeerMemoryFeatures :: (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDeviceGroupPeerMemoryFeatures :: (device: VkDevice, heapIndex: u32, localDeviceIndex: u32, remoteDeviceIndex: u32, pPeerMemoryFeatures: *VkPeerMemoryFeatureFlags) -> void #foreign libvulkan;
 }
 
@@ -25868,7 +25868,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDeviceGroupPresentCapabilitiesKHR :: (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDeviceGroupPresentCapabilitiesKHR :: (device: VkDevice, pDeviceGroupPresentCapabilities: *VkDeviceGroupPresentCapabilitiesKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25876,7 +25876,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDeviceGroupSurfacePresentModesKHR :: (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDeviceGroupSurfacePresentModesKHR :: (device: VkDevice, surface: VkSurfaceKHR, pModes: *VkDeviceGroupPresentModeFlagsKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25884,7 +25884,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDeviceMemoryCommitment :: (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDeviceMemoryCommitment :: (device: VkDevice, memory: VkDeviceMemory, pCommittedMemoryInBytes: *VkDeviceSize) -> void #foreign libvulkan;
 }
 
@@ -25892,7 +25892,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDeviceProcAddr :: (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDeviceProcAddr :: (device: VkDevice, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan;
 }
 
@@ -25900,7 +25900,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDeviceQueue :: (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDeviceQueue :: (device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *VkQueue) -> void #foreign libvulkan;
 }
 
@@ -25908,7 +25908,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDeviceQueue2 :: (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDeviceQueue2 :: (device: VkDevice, pQueueInfo: *VkDeviceQueueInfo2, pQueue: *VkQueue) -> void #foreign libvulkan;
 }
 
@@ -25916,7 +25916,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDisplayModeProperties2KHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayModeProperties2KHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModeProperties2KHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25924,7 +25924,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDisplayModePropertiesKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayModePropertiesKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR, pPropertyCount: *u32, pProperties: *VkDisplayModePropertiesKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25932,7 +25932,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDisplayPlaneCapabilities2KHR :: (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayPlaneCapabilities2KHR :: (physicalDevice: VkPhysicalDevice, pDisplayPlaneInfo: *VkDisplayPlaneInfo2KHR, pCapabilities: *VkDisplayPlaneCapabilities2KHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25940,7 +25940,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDisplayPlaneCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayPlaneCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, mode: VkDisplayModeKHR, planeIndex: u32, pCapabilities: *VkDisplayPlaneCapabilitiesKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25948,7 +25948,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetDisplayPlaneSupportedDisplaysKHR :: (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayPlaneSupportedDisplaysKHR :: (physicalDevice: VkPhysicalDevice, planeIndex: u32, pDisplayCount: *u32, pDisplays: *VkDisplayKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -25956,7 +25956,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetEventStatus :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetEventStatus :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan;
 }
 
@@ -25964,7 +25964,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetFenceStatus :: (device: VkDevice, fence: VkFence) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetFenceStatus :: (device: VkDevice, fence: VkFence) -> VkResult #foreign libvulkan;
 }
 
@@ -25972,7 +25972,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetImageMemoryRequirements :: (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageMemoryRequirements :: (device: VkDevice, image: VkImage, pMemoryRequirements: *VkMemoryRequirements) -> void #foreign libvulkan;
 }
 
@@ -25980,7 +25980,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetImageMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageMemoryRequirementsInfo2, pMemoryRequirements: *VkMemoryRequirements2) -> void #foreign libvulkan;
 }
 
@@ -25988,7 +25988,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetImageSparseMemoryRequirements :: (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageSparseMemoryRequirements :: (device: VkDevice, image: VkImage, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements) -> void #foreign libvulkan;
 }
 
@@ -25996,7 +25996,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetImageSparseMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageSparseMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2, pSparseMemoryRequirementCount: *u32, pSparseMemoryRequirements: *VkSparseImageMemoryRequirements2) -> void #foreign libvulkan;
 }
 
@@ -26004,7 +26004,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetImageSubresourceLayout :: (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageSubresourceLayout :: (device: VkDevice, image: VkImage, pSubresource: *VkImageSubresource, pLayout: *VkSubresourceLayout) -> void #foreign libvulkan;
 }
 
@@ -26012,7 +26012,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetInstanceProcAddr :: (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetInstanceProcAddr :: (instance: VkInstance, pName: *u8) -> PFN_vkVoidFunction #foreign libvulkan;
 }
 
@@ -26020,7 +26020,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlaneProperties2KHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26028,7 +26028,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPlanePropertiesKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26036,7 +26036,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceDisplayProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayProperties2KHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayProperties2KHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26044,7 +26044,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceDisplayPropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayPropertiesKHR :: (physicalDevice: VkPhysicalDevice, pPropertyCount: *u32, pProperties: *VkDisplayPropertiesKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26052,7 +26052,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceExternalBufferProperties :: (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceExternalBufferProperties :: (physicalDevice: VkPhysicalDevice, pExternalBufferInfo: *VkPhysicalDeviceExternalBufferInfo, pExternalBufferProperties: *VkExternalBufferProperties) -> void #foreign libvulkan;
 }
 
@@ -26060,7 +26060,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceExternalFenceProperties :: (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceExternalFenceProperties :: (physicalDevice: VkPhysicalDevice, pExternalFenceInfo: *VkPhysicalDeviceExternalFenceInfo, pExternalFenceProperties: *VkExternalFenceProperties) -> void #foreign libvulkan;
 }
 
@@ -26068,7 +26068,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceExternalSemaphoreProperties :: (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceExternalSemaphoreProperties :: (physicalDevice: VkPhysicalDevice, pExternalSemaphoreInfo: *VkPhysicalDeviceExternalSemaphoreInfo, pExternalSemaphoreProperties: *VkExternalSemaphoreProperties) -> void #foreign libvulkan;
 }
 
@@ -26076,7 +26076,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceFeatures :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceFeatures :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures) -> void #foreign libvulkan;
 }
 
@@ -26084,7 +26084,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceFeatures2 :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceFeatures2 :: (physicalDevice: VkPhysicalDevice, pFeatures: *VkPhysicalDeviceFeatures2) -> void #foreign libvulkan;
 }
 
@@ -26092,7 +26092,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties) -> void #foreign libvulkan;
 }
 
@@ -26100,7 +26100,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceFormatProperties2 :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceFormatProperties2 :: (physicalDevice: VkPhysicalDevice, format: VkFormat, pFormatProperties: *VkFormatProperties2) -> void #foreign libvulkan;
 }
 
@@ -26108,7 +26108,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, tiling: VkImageTiling, usage: VkImageUsageFlags, flags: VkImageCreateFlags, pImageFormatProperties: *VkImageFormatProperties) -> VkResult #foreign libvulkan;
 }
 
@@ -26116,7 +26116,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pImageFormatInfo: *VkPhysicalDeviceImageFormatInfo2, pImageFormatProperties: *VkImageFormatProperties2) -> VkResult #foreign libvulkan;
 }
 
@@ -26124,7 +26124,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceMemoryProperties :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceMemoryProperties :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties) -> void #foreign libvulkan;
 }
 
@@ -26132,7 +26132,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceMemoryProperties2 :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceMemoryProperties2 :: (physicalDevice: VkPhysicalDevice, pMemoryProperties: *VkPhysicalDeviceMemoryProperties2) -> void #foreign libvulkan;
 }
 
@@ -26140,7 +26140,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDevicePresentRectanglesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDevicePresentRectanglesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pRectCount: *u32, pRects: *VkRect2D) -> VkResult #foreign libvulkan;
 }
 
@@ -26148,7 +26148,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceProperties :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceProperties :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties) -> void #foreign libvulkan;
 }
 
@@ -26156,7 +26156,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceProperties2 :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceProperties2 :: (physicalDevice: VkPhysicalDevice, pProperties: *VkPhysicalDeviceProperties2) -> void #foreign libvulkan;
 }
 
@@ -26164,7 +26164,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceQueueFamilyProperties :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceQueueFamilyProperties :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties) -> void #foreign libvulkan;
 }
 
@@ -26172,7 +26172,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceQueueFamilyProperties2 :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceQueueFamilyProperties2 :: (physicalDevice: VkPhysicalDevice, pQueueFamilyPropertyCount: *u32, pQueueFamilyProperties: *VkQueueFamilyProperties2) -> void #foreign libvulkan;
 }
 
@@ -26180,7 +26180,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceSparseImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSparseImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties) -> void #foreign libvulkan;
 }
 
@@ -26188,7 +26188,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceSparseImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSparseImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2, pPropertyCount: *u32, pProperties: *VkSparseImageFormatProperties2) -> void #foreign libvulkan;
 }
 
@@ -26196,7 +26196,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceCapabilities: *VkSurfaceCapabilitiesKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26204,7 +26204,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceSurfaceFormatsKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSurfaceFormatsKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pSurfaceFormatCount: *u32, pSurfaceFormats: *VkSurfaceFormatKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26212,7 +26212,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceSurfacePresentModesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSurfacePresentModesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR, pPresentModeCount: *u32, pPresentModes: *VkPresentModeKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26220,7 +26220,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPhysicalDeviceSurfaceSupportKHR :: (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSurfaceSupportKHR :: (physicalDevice: VkPhysicalDevice, queueFamilyIndex: u32, surface: VkSurfaceKHR, pSupported: *VkBool32) -> VkResult #foreign libvulkan;
 }
 
@@ -26232,7 +26232,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetPipelineCacheData :: (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPipelineCacheData :: (device: VkDevice, pipelineCache: VkPipelineCache, pDataSize: *u64, pData: *void) -> VkResult #foreign libvulkan;
 }
 
@@ -26240,7 +26240,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetQueryPoolResults :: (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetQueryPoolResults :: (device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32, dataSize: u64, pData: *void, stride: VkDeviceSize, flags: VkQueryResultFlags) -> VkResult #foreign libvulkan;
 }
 
@@ -26248,7 +26248,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetRenderAreaGranularity :: (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetRenderAreaGranularity :: (device: VkDevice, renderPass: VkRenderPass, pGranularity: *VkExtent2D) -> void #foreign libvulkan;
 }
 
@@ -26256,7 +26256,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkGetSwapchainImagesKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetSwapchainImagesKHR :: (device: VkDevice, swapchain: VkSwapchainKHR, pSwapchainImageCount: *u32, pSwapchainImages: *VkImage) -> VkResult #foreign libvulkan;
 }
 
@@ -26264,7 +26264,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkInvalidateMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkInvalidateMappedMemoryRanges :: (device: VkDevice, memoryRangeCount: u32, pMemoryRanges: *VkMappedMemoryRange) -> VkResult #foreign libvulkan;
 }
 
@@ -26272,7 +26272,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkMapMemory :: (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkMapMemory :: (device: VkDevice, memory: VkDeviceMemory, offset: VkDeviceSize, size: VkDeviceSize, flags: VkMemoryMapFlags, ppData: **void) -> VkResult #foreign libvulkan;
 }
 
@@ -26280,7 +26280,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkMergePipelineCaches :: (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkMergePipelineCaches :: (device: VkDevice, dstCache: VkPipelineCache, srcCacheCount: u32, pSrcCaches: *VkPipelineCache) -> VkResult #foreign libvulkan;
 }
 
@@ -26288,7 +26288,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkQueueBindSparse :: (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkQueueBindSparse :: (queue: VkQueue, bindInfoCount: u32, pBindInfo: *VkBindSparseInfo, fence: VkFence) -> VkResult #foreign libvulkan;
 }
 
@@ -26296,7 +26296,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkQueuePresentKHR :: (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkQueuePresentKHR :: (queue: VkQueue, pPresentInfo: *VkPresentInfoKHR) -> VkResult #foreign libvulkan;
 }
 
@@ -26304,7 +26304,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkQueueSubmit :: (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkQueueSubmit :: (queue: VkQueue, submitCount: u32, pSubmits: *VkSubmitInfo, fence: VkFence) -> VkResult #foreign libvulkan;
 }
 
@@ -26312,7 +26312,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkQueueWaitIdle :: (queue: VkQueue) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkQueueWaitIdle :: (queue: VkQueue) -> VkResult #foreign libvulkan;
 }
 
@@ -26320,7 +26320,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkResetCommandBuffer :: (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkResetCommandBuffer :: (commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult #foreign libvulkan;
 }
 
@@ -26328,7 +26328,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkResetCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkResetCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolResetFlags) -> VkResult #foreign libvulkan;
 }
 
@@ -26336,7 +26336,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkResetDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkResetDescriptorPool :: (device: VkDevice, descriptorPool: VkDescriptorPool, flags: VkDescriptorPoolResetFlags) -> VkResult #foreign libvulkan;
 }
 
@@ -26344,7 +26344,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkResetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkResetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan;
 }
 
@@ -26352,7 +26352,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkResetFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkResetFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence) -> VkResult #foreign libvulkan;
 }
 
@@ -26360,7 +26360,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkSetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkSetEvent :: (device: VkDevice, event: VkEvent) -> VkResult #foreign libvulkan;
 }
 
@@ -26368,7 +26368,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkTrimCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkTrimCommandPool :: (device: VkDevice, commandPool: VkCommandPool, flags: VkCommandPoolTrimFlags) -> void #foreign libvulkan;
 }
 
@@ -26376,7 +26376,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkUnmapMemory :: (device: VkDevice, memory: VkDeviceMemory) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkUnmapMemory :: (device: VkDevice, memory: VkDeviceMemory) -> void #foreign libvulkan;
 }
 
@@ -26384,7 +26384,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkUpdateDescriptorSets :: (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkUpdateDescriptorSets :: (device: VkDevice, descriptorWriteCount: u32, pDescriptorWrites: *VkWriteDescriptorSet, descriptorCopyCount: u32, pDescriptorCopies: *VkCopyDescriptorSet) -> void #foreign libvulkan;
 }
 
@@ -26392,7 +26392,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkUpdateDescriptorSetWithTemplate :: (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkUpdateDescriptorSetWithTemplate :: (device: VkDevice, descriptorSet: VkDescriptorSet, descriptorUpdateTemplate: VkDescriptorUpdateTemplate, pData: *void) -> void #foreign libvulkan;
 }
 
@@ -26400,7 +26400,7 @@ VK_MAX_DESCRIPTION_SIZE: u32 : 256;
     vkWaitForFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #foreign libvulkan;
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkWaitForFences :: (device: VkDevice, fenceCount: u32, pFences: *VkFence, waitAll: VkBool32, timeout: u64) -> VkResult #foreign libvulkan;
 }
 
@@ -26468,7 +26468,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateDeviceExtensionProperties :: (physicalDevice: VkPhysicalDevice, pLayerName: *u8) -> [] VkExtensionProperties, VkResult {
         count: u32;
         status := vkEnumerateDeviceExtensionProperties(physicalDevice, pLayerName, *count, null);
@@ -26512,7 +26512,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateDeviceLayerProperties :: (physicalDevice: VkPhysicalDevice) -> [] VkLayerProperties, VkResult {
         count: u32;
         status := vkEnumerateDeviceLayerProperties(physicalDevice, *count, null);
@@ -26556,7 +26556,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateInstanceExtensionProperties :: (pLayerName: *u8) -> [] VkExtensionProperties, VkResult {
         count: u32;
         status := vkEnumerateInstanceExtensionProperties(pLayerName, *count, null);
@@ -26600,7 +26600,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumerateInstanceLayerProperties :: () -> [] VkLayerProperties, VkResult {
         count: u32;
         status := vkEnumerateInstanceLayerProperties(*count, null);
@@ -26644,7 +26644,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumeratePhysicalDeviceGroups :: (instance: VkInstance) -> [] VkPhysicalDeviceGroupProperties, VkResult {
         count: u32;
         status := vkEnumeratePhysicalDeviceGroups(instance, *count, null);
@@ -26666,7 +26666,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumeratePhysicalDeviceGroupsKHR :: (instance: VkInstance) -> [] VkPhysicalDeviceGroupProperties, VkResult {
         count: u32;
         status := binding_vkEnumeratePhysicalDeviceGroupsKHR(instance, *count, null);
@@ -26710,7 +26710,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkEnumeratePhysicalDevices :: (instance: VkInstance) -> [] VkPhysicalDevice, VkResult {
         count: u32;
         status := vkEnumeratePhysicalDevices(instance, *count, null);
@@ -26754,7 +26754,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayModeProperties2KHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> [] VkDisplayModeProperties2KHR, VkResult {
         count: u32;
         status := vkGetDisplayModeProperties2KHR(physicalDevice, display, *count, null);
@@ -26798,7 +26798,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayModePropertiesKHR :: (physicalDevice: VkPhysicalDevice, display: VkDisplayKHR) -> [] VkDisplayModePropertiesKHR, VkResult {
         count: u32;
         status := vkGetDisplayModePropertiesKHR(physicalDevice, display, *count, null);
@@ -26842,7 +26842,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetDisplayPlaneSupportedDisplaysKHR :: (physicalDevice: VkPhysicalDevice, planeIndex: u32) -> [] VkDisplayKHR, VkResult {
         count: u32;
         status := vkGetDisplayPlaneSupportedDisplaysKHR(physicalDevice, planeIndex, *count, null);
@@ -26881,7 +26881,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageSparseMemoryRequirements :: (device: VkDevice, image: VkImage) -> [] VkSparseImageMemoryRequirements {
         count: u32;
 
@@ -26915,7 +26915,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageSparseMemoryRequirements2 :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2) -> [] VkSparseImageMemoryRequirements2 {
         count: u32;
 
@@ -26932,7 +26932,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetImageSparseMemoryRequirements2KHR :: (device: VkDevice, pInfo: *VkImageSparseMemoryRequirementsInfo2) -> [] VkSparseImageMemoryRequirements2 {
         count: u32;
 
@@ -26949,7 +26949,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPastPresentationTimingGOOGLE :: (device: VkDevice, swapchain: VkSwapchainKHR) -> [] VkPastPresentationTimingGOOGLE, VkResult {
         count: u32;
         status := binding_vkGetPastPresentationTimingGOOGLE(device, swapchain, *count, null);
@@ -26993,7 +26993,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayPlaneProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPlaneProperties2KHR, VkResult {
         count: u32;
         status := vkGetPhysicalDeviceDisplayPlaneProperties2KHR(physicalDevice, *count, null);
@@ -27037,7 +27037,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayPlanePropertiesKHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPlanePropertiesKHR, VkResult {
         count: u32;
         status := vkGetPhysicalDeviceDisplayPlanePropertiesKHR(physicalDevice, *count, null);
@@ -27081,7 +27081,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayProperties2KHR, VkResult {
         count: u32;
         status := vkGetPhysicalDeviceDisplayProperties2KHR(physicalDevice, *count, null);
@@ -27125,7 +27125,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceDisplayPropertiesKHR :: (physicalDevice: VkPhysicalDevice) -> [] VkDisplayPropertiesKHR, VkResult {
         count: u32;
         status := vkGetPhysicalDeviceDisplayPropertiesKHR(physicalDevice, *count, null);
@@ -27169,7 +27169,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDevicePresentRectanglesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkRect2D, VkResult {
         count: u32;
         status := vkGetPhysicalDevicePresentRectanglesKHR(physicalDevice, surface, *count, null);
@@ -27208,7 +27208,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceQueueFamilyProperties :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties {
         count: u32;
 
@@ -27242,7 +27242,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceQueueFamilyProperties2 :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties2 {
         count: u32;
 
@@ -27259,7 +27259,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceQueueFamilyProperties2KHR :: (physicalDevice: VkPhysicalDevice) -> [] VkQueueFamilyProperties2 {
         count: u32;
 
@@ -27293,7 +27293,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSparseImageFormatProperties :: (physicalDevice: VkPhysicalDevice, format: VkFormat, type: VkImageType, samples: VkSampleCountFlagBits, usage: VkImageUsageFlags, tiling: VkImageTiling) -> [] VkSparseImageFormatProperties {
         count: u32;
 
@@ -27327,7 +27327,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSparseImageFormatProperties2 :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2) -> [] VkSparseImageFormatProperties2 {
         count: u32;
 
@@ -27344,7 +27344,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSparseImageFormatProperties2KHR :: (physicalDevice: VkPhysicalDevice, pFormatInfo: *VkPhysicalDeviceSparseImageFormatInfo2) -> [] VkSparseImageFormatProperties2 {
         count: u32;
 
@@ -27383,7 +27383,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSurfaceFormatsKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkSurfaceFormatKHR, VkResult {
         count: u32;
         status := vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, *count, null);
@@ -27427,7 +27427,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetPhysicalDeviceSurfacePresentModesKHR :: (physicalDevice: VkPhysicalDevice, surface: VkSurfaceKHR) -> [] VkPresentModeKHR, VkResult {
         count: u32;
         status := vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, *count, null);
@@ -27449,7 +27449,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetQueueCheckpointDataNV :: (queue: VkQueue) -> [] VkCheckpointDataNV {
         count: u32;
 
@@ -27488,7 +27488,7 @@ VK_VERSION_PATCH :: (version: u32) -> u32 {
     }
 }
 
-#if OS == .LINUX {
+#if OS == .LINUX || OS == .MACOS {
     vkGetSwapchainImagesKHR :: (device: VkDevice, swapchain: VkSwapchainKHR) -> [] VkImage, VkResult {
         count: u32;
         status := vkGetSwapchainImagesKHR(device, swapchain, *count, null);
