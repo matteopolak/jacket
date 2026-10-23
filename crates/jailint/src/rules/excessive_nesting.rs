@@ -19,7 +19,7 @@
 //! count themselves, but a procedure written inside a block carries that block's depth with it,
 //! so a nested procedure (or a lambda) cannot hide the nesting. `else if` chains stay at the
 //! level of the first `if`, and `#if` does not count. Reports the first block past the limit on
-//! each path and does not look inside it. The limit is `max_nesting` in `jailint.toml` or
+//! each path and does not look inside it. The limit is `[lint] max_nesting` in `jacket.toml` or
 //! `--max-nesting` (default 6). Off by default.
 use crate::Finding;
 use crate::syntax::{Cx, Node, ProcSite, walk};

@@ -137,7 +137,7 @@ Conditions must be side-effect-free; a call in between restarts the comparison. 
 ### erasing_op
 Left alone inside an index or array literal, where a `0 *` lines up with other rows.
 ### excessive_nesting
-Off by default. A level is a braced block or a `switch`; `else if` chains and `#if` add none. A procedure written inside a block starts counting from that block's depth, so a nested procedure cannot hide the nesting. Reports the first block past the limit on each path, on its `{` (or the `switch` header). The limit is `max_nesting` in `jailint.toml` or `--max-nesting <n>`, default 6; enable it with `-W excessive_nesting` or `[rules]`. On the standard library, a limit of 6 finds nothing and 5 finds five blocks. Fix by returning or `continue`ing early, or by moving the inner part into a procedure. Generated files are skipped.
+Off by default. A level is a braced block or a `switch`; `else if` chains and `#if` add none. A procedure written inside a block starts counting from that block's depth, so a nested procedure cannot hide the nesting. Reports the first block past the limit on each path, on its `{` (or the `switch` header). The limit is `[lint] max_nesting` in `jacket.toml` or `--max-nesting <n>`, default 6; enable it with `-W excessive_nesting` or `[lint.rules]`. On the standard library, a limit of 6 finds nothing and 5 finds five blocks. Fix by returning or `continue`ing early, or by moving the inner part into a procedure. Generated files are skipped.
 ### float_equality
 Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
 ### identical_branches
