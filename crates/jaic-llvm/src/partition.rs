@@ -26,8 +26,11 @@ use jaic::ir::{Callee, Func, Inst, Linkage, Program, RelocTarget};
 /// IR instructions in a function up to which another module may hold a copy of it for inlining.
 const IMPORT_MAX: usize = 200;
 
-/// Instructions of imported copies a module may hold, as a percentage of what it owns.
-const IMPORT_BUDGET_PERCENT: usize = 100;
+/// Instructions of imported copies a module may hold, as a percentage of what it owns. Every
+/// copy is optimized in each module that holds one and then discarded, so this is mostly what
+/// splitting costs in CPU time; the copies chosen are the ones with the most callers per
+/// instruction (`choose_imports`), which keeps the inlining that matters at a small budget.
+const IMPORT_BUDGET_PERCENT: usize = 12;
 
 /// Read-only globals up to this size are copied into the modules that read them.
 const GLOBAL_IMPORT_MAX: u64 = 16 * 1024;
@@ -387,14 +390,29 @@ fn choose_imports(
         owned_weight[owner[n] as usize] += weight[n];
     }
     let mut imports: Vec<Vec<u32>> = vec![Vec::new(); units];
+    // Per module, how many nodes (its own or imported) refer to each node, to import the
+    // functions with the most callers per instruction first.
+    let mut callers = vec![0u32; nodes];
     for k in 0..units {
         let budget = owned_weight[k] * IMPORT_BUDGET_PERCENT / 100;
         let mut used = 0usize;
-        let mut queue: Vec<u32> = (0..nodes as u32)
+        callers.fill(0);
+        for n in 0..nodes {
+            if owner[n] as usize == k {
+                for &r in &refs[n] {
+                    callers[r as usize] += 1;
+                }
+            }
+        }
+        let priority = |n: usize, callers: &[u32]| -> u64 {
+            u64::from(callers[n]) * 4096 / (weight[n] as u64 + 8)
+        };
+        let mut queue: std::collections::BinaryHeap<(u64, u32)> = (0..nodes as u32)
             .filter(|&n| need[k][n as usize] && importable(n as usize))
+            .map(|n| (priority(n as usize, &callers), n))
             .collect();
         let mut imported = vec![false; nodes];
-        while let Some(n) = queue.pop() {
+        while let Some((_, n)) = queue.pop() {
             let n = n as usize;
             if imported[n] || (n < nf && used + weight[n] > budget) {
                 continue;
@@ -411,8 +429,9 @@ fn choose_imports(
                     if !need[k][r] {
                         need[k][r] = true;
                     }
+                    callers[r] += 1;
                     if importable(r) && !imported[r] {
-                        queue.push(r as u32);
+                        queue.push((priority(r, &callers), r as u32));
                     }
                 }
             }
