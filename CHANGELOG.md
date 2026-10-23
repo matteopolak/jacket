@@ -50,7 +50,8 @@
 - `(#import "Basic").print(...)` works: `#import` can be used inside an expression.
 - `#code a.b."c"` accepts a string literal as a member name.
 - `#code` ends at a trailing comma, so `.[ #code 2 + 4, ]` parses, and `#code return 5` ends at the call's `)`.
-- `using Other;` inside an enum body brings in the members of another enum.
+- `using Other;` inside an enum body makes the other enum's names reachable through it, keeping their values, without making them members or shifting the numbering.
+- A `return` in code passed to a macro now returns from the function that wrote the code, not from the macro.
 - Debug builds check integer casts that change sign, such as `cast(u64)` of a negative number, not only narrowing ones.
 - Opening a module file on its own (such as `Extensions/SIMD/module.jai`) no longer reports `#module_parameters` as misplaced.
 - `BuildCpp` on Windows accepts `/bigobj` objects and finds Visual Studio's `clang-cl` for the host when targeting another CPU.
