@@ -60,6 +60,9 @@ pub(super) fn directive_starts_expr(name: &str) -> bool {
 impl Parser<'_> {
     pub(super) fn parse_directive_expr(&mut self, name: &str) -> PResult<Expr> {
         let start = self.span();
+        if name == "import" {
+            return self.parse_import_expr(start);
+        }
         let Some(directive) = Directive::from_name(name) else {
             return self.parse_unknown_directive();
         };
@@ -89,6 +92,18 @@ impl Parser<'_> {
             // The lexer reads `#string` text itself; a stray `#string` token is unknown here.
             Directive::String => self.parse_unknown_directive(),
         }
+    }
+
+    /// `(#import "Basic").print(...)`: the import is declared under a hidden name just before
+    /// the statement that uses it, and the expression names that.
+    fn parse_import_expr(&mut self, start: crate::source::Span) -> PResult<Expr> {
+        let name = Ident {
+            name: crate::intern::Sym::intern(&format!("__import_expr_{}", start.start)),
+            span: start,
+        };
+        let import = self.parse_import(Some(name), start)?;
+        self.hoisted.push(import);
+        Ok(mk(ExprKind::Ident(name.name), start.to(self.prev_span())))
     }
 
     /// A directive that is a whole expression on its own, as `#line`.
@@ -239,7 +254,10 @@ impl Parser<'_> {
                 .iter()
                 .any(|k| self.at_kw(k))
             {
-                let stmt = self.parse_stmt()?;
+                let saved = std::mem::replace(&mut self.in_code_stmt, true);
+                let stmt = self.parse_stmt();
+                self.in_code_stmt = saved;
+                let stmt = stmt?;
                 // `x := #code return 1;`: the `;` ends the enclosing statement (in
                 // `f(#code using x;)` it is the code's own).
                 if self.at_prev(P::Semi) && !matches!(self.tok(), Tok::Punct(P::RParen | P::Comma))

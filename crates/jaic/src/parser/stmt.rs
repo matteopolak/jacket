@@ -107,7 +107,9 @@ impl Parser<'_> {
             if self.ide_block_boundary(open) {
                 break;
             }
+            let hoisted = self.hoisted.len();
             if let Some(stmt) = self.parse_stmt_recovering(Some(open))? {
+                stmts.extend(self.hoisted.split_off(hoisted));
                 stmts.push(stmt);
             }
         }
@@ -180,6 +182,10 @@ impl Parser<'_> {
         if self.eat(P::Semi) || self.ends_block() || (self.at_prev(P::Semi) && self.at(P::RBrace)) {
             return Ok(());
         }
+        if self.in_code_stmt && matches!(self.tok(), Tok::Punct(P::RParen | P::RBracket | P::Comma))
+        {
+            return Ok(());
+        }
         let error = self.expected("`;`", context);
         // While typing, a line missing only its `;` is still a whole statement: keep it, so
         // its names stay navigable, and blame the end of that line rather than the next one.
@@ -233,7 +239,14 @@ impl Parser<'_> {
     /// An assignment or expression statement after its first operand.
     fn finish_simple_stmt(&mut self, start: crate::source::Span, first: Expr) -> PResult<Stmt> {
         let mut lhs = vec![first];
-        while self.eat(P::Comma) {
+        // A comma before a closer is a trailing one (`.[ #code 1 + 2, ]`), not a target list.
+        while self.at(P::Comma)
+            && !matches!(
+                self.tok_at(1),
+                Tok::Punct(P::RBracket | P::RParen | P::RBrace)
+            )
+        {
+            self.bump();
             lhs.push(self.parse_assign_target()?);
         }
         let op = match self.tok() {

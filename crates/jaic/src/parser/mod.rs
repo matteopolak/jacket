@@ -112,6 +112,12 @@ pub(crate) struct Parser<'a> {
     block_end: usize,
     /// Notes parsed in the middle of a construct, attached when it completes.
     pending_notes: Vec<Note>,
+    /// Declarations an expression needs before its statement (`(#import "M").f()`), moved in
+    /// front of that statement by the enclosing statement list.
+    hoisted: Vec<Stmt>,
+    /// True while parsing the statement of a `#code` literal: a closing `)`, `]` or `,` of the
+    /// enclosing expression ends it like a `;` would.
+    in_code_stmt: bool,
     /// Expressions and statements currently open (see `MAX_NESTING`).
     depth: usize,
     /// Set only by the editor entry points. Strict parsing never resynchronizes.
@@ -141,6 +147,8 @@ impl<'a> Parser<'a> {
             pending_operator: None,
             block_end: usize::MAX,
             pending_notes: Vec::new(),
+            hoisted: Vec::new(),
+            in_code_stmt: false,
             depth: 0,
             recovery: None,
             ide_closed_braces: crate::fxhash::HashSet::default(),
@@ -169,7 +177,9 @@ impl<'a> Parser<'a> {
     fn parse_file_stmts(&mut self) -> PResult<Vec<Stmt>> {
         let mut stmts = Vec::new();
         while !self.at_eof() {
+            let hoisted = self.hoisted.len();
             if let Some(stmt) = self.parse_stmt_recovering(None)? {
+                stmts.extend(self.hoisted.split_off(hoisted));
                 stmts.push(stmt);
             }
         }
