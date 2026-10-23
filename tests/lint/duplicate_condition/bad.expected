@@ -4,6 +4,11 @@ warning[duplicate_condition]: `key == 1` was already tested earlier in this chai
  6 |     else if key == 1 print("uno\n");
    |             ^^^^^^^^
    |
-   = help: this branch can never run: was another condition meant?
+help: this branch can never run: was another condition meant?
+   |
+ 5 -     else if key == 2 print("two\n");
+ 6 -     else if key == 1 print("uno\n");
+ 5 +     else if key == 2 print("two\n");
+   |
    = note: `duplicate_condition` is `warn` by default
 
