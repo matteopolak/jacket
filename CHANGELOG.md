@@ -47,6 +47,7 @@
 
 ### Fixed
 
+- `jailint` finds `manual_index_counter` counters declared inside a `case` body or a `#if` branch.
 - A 64-bit signed/unsigned cast evaluated at compile time, `xx` or `cast`, reinterprets the bits instead of failing the range check; the program's own run still checks it.
 - `*Node.[first, last]` is an array literal of `*Node`.
 - A procedure with a bare polymorphic struct parameter such as `pairs: Table` can still write `Table(string, s64)` in its body.

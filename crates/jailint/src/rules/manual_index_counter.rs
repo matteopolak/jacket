@@ -29,10 +29,23 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
         examine_block(cx, &p.body.stmts, p.body.span.end, out);
         walk(&p.body.stmts, &mut |n, _| {
-            if let Some(s) = n.stmt()
-                && let S::Block(b) = &s.kind
-            {
-                examine_block(cx, &b.stmts, b.span.end, out);
+            if let Some(s) = n.stmt() {
+                match &s.kind {
+                    S::Block(b) => examine_block(cx, &b.stmts, b.span.end, out),
+                    // A `case` body and the arms of a `#if` are statement lists of their own.
+                    S::Switch(sw) | S::StaticSwitch(sw) => {
+                        for c in &sw.cases {
+                            examine_block(cx, &c.body, c.span.end, out);
+                        }
+                    }
+                    S::StaticIf(si) => {
+                        examine_block(cx, &si.then_branch, si.then_arm.end, out);
+                        if let Some(arm) = si.else_arm {
+                            examine_block(cx, &si.else_branch, arm.end, out);
+                        }
+                    }
+                    _ => {}
+                }
             }
             true
         });

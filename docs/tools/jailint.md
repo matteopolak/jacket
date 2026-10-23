@@ -207,7 +207,7 @@ Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` i
 ### manual_assign_op
 Target must be side-effect-free and the operation must keep its type.
 ### manual_index_counter
-`n := 0` right before a forward `for`, `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
+`n := 0` right before a forward `for` (in a block, a `case` body or a `#if` branch), `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
 ### min_max
 Literal bounds only, with `@ReturnsSmaller`/`@ReturnsLarger` procedures (the library's `min`/`max`). Use `clamp`.
 ### modified_range_bound
