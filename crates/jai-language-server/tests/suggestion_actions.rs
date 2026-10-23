@@ -262,3 +262,24 @@ fn a_lexical_error_offers_its_suggestion_as_a_quick_fix() {
     let (_, edits) = fixes[0].edit.as_ref().unwrap();
     assert_eq!(edits[0].new_text, "\\\\q");
 }
+
+#[test]
+fn a_format_argument_warning_offers_to_remove_the_extra_argument() {
+    let text = "#import \"Basic\";\nmain :: () {\n    print(\"done\\n\", 1);\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let fixes: Vec<_> = quick_fixes(&s, text, "print(")
+        .into_iter()
+        .filter(|a| {
+            a.diagnostics
+                .iter()
+                .all(|d| d.code == DiagnosticCode::Check)
+        })
+        .collect();
+    assert_eq!(fixes.len(), 1, "{fixes:?}");
+    assert_eq!(fixes[0].title, "Remove the extra argument");
+    assert!(!fixes[0].is_preferred);
+    let (_, edits) = fixes[0].edit.as_ref().unwrap();
+    assert_eq!(edits[0].new_text, "");
+    assert_eq!(edits[0].range.start, at_nth(text, ", 1", 0, 0));
+}

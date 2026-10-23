@@ -5,6 +5,7 @@ use super::{Compiler, Diagnostic, FileId, ProcId, Result, Span, Sym, TypeId, ast
 use crate::ast::ExprKind as E;
 use crate::format_string;
 use crate::lexer::{self, P, Tok};
+use crate::source::{Applicability, Edit, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
 
 /// Whether `body` passes the parameters `format` and `values` to the same call, which is what
@@ -144,7 +145,7 @@ impl Compiler {
                 "are"
             }
         );
-        let warning = if given.len() < need {
+        let mut warning = if given.len() < need {
             Diagnostic::warning(call, message)
                 .with_label("no argument for the last `%`")
                 .with_help("pass a value for every `%`, or write `\\%` for a percent sign")
@@ -153,7 +154,130 @@ impl Compiler {
                 .with_label("the extra arguments are not printed")
                 .with_help("add a `%` for each argument, or remove the extra ones")
         };
+        let fix = if given.len() < need {
+            self.escape_unmatched(format_arg.span, given.len())
+        } else {
+            self.drop_extra_arguments(format_arg.span, need, given.iter().map(|&a| args[a].span))
+        };
+        if let Some(fix) = fix {
+            warning = warning.with_suggestion(fix);
+        }
         self.warn(warning);
         Ok(())
     }
+
+    /// The source text of `span`, when it is in a file with text (macro code is not).
+    fn source_of(&self, span: Span) -> Option<&str> {
+        ((span.file.0 as usize) < self.src.sources.len()).then(|| self.src.sources.snippet(span))
+    }
+
+    /// For a format string that asks for more arguments than the call passes (`given`): write
+    /// each `%` that has none as `\%`, a literal percent sign. Only offered when every such
+    /// directive is a bare `%` and the string then asks for exactly the arguments passed.
+    fn escape_unmatched(&self, format: Span, given: usize) -> Option<Suggestion> {
+        let literal = self.source_of(format)?;
+        if !literal.starts_with('"') {
+            return None;
+        }
+        let specs = format_string::specs(literal, 0, literal.len());
+        let mut unmatched: Vec<_> = specs
+            .iter()
+            .filter(|s| s.index.is_some_and(|i| i >= given))
+            .collect();
+        if unmatched.is_empty() || unmatched.iter().any(|s| s.end - s.start != 1) {
+            return None;
+        }
+        unmatched.sort_by_key(|s| s.start);
+        let mut fixed = literal.to_string();
+        for spec in unmatched.iter().rev() {
+            fixed.insert(spec.start, '\\');
+        }
+        // The escaped string must use exactly the arguments the call passes.
+        let after = format_string::specs(&fixed, 0, fixed.len());
+        if format_string::required(&after) != given {
+            return None;
+        }
+        let title = if unmatched.len() == 1 {
+            "write the last `%` as `\\%` to print a percent sign"
+        } else {
+            "write each `%` without an argument as `\\%` to print a percent sign"
+        };
+        let edits = unmatched
+            .iter()
+            .map(|s| {
+                let at = format.start as usize + s.start;
+                Edit::Replace {
+                    span: Span::new(format.file, at, at),
+                    text: "\\".into(),
+                }
+            })
+            .collect();
+        Some(
+            Suggestion::with_edits(title, edits, Applicability::MaybeIncorrect)
+                .with_action("Escape the `%`"),
+        )
+    }
+
+    /// For a call that passes more arguments than the format string uses (`need`): remove the
+    /// ones after them. Only offered when the call ends right after the last argument and
+    /// the removed text has balanced brackets, so it is exactly the arguments.
+    fn drop_extra_arguments(
+        &self,
+        format: Span,
+        need: usize,
+        given: impl Iterator<Item = Span>,
+    ) -> Option<Suggestion> {
+        let given: Vec<Span> = given.collect();
+        let last = *given.last()?;
+        let keep = if need == 0 {
+            format
+        } else {
+            *given.get(need - 1)?
+        };
+        if keep.file != last.file || keep.file != format.file || keep.end > last.start {
+            return None;
+        }
+        let removed = Span::new(keep.file, keep.end as usize, last.end as usize);
+        let removed_text = self.source_of(removed)?;
+        let text_len = self.src.sources.get(keep.file).text.len();
+        let after = Span::new(keep.file, last.end as usize, text_len);
+        let rest = self.source_of(after)?.trim_start();
+        let rest = rest.strip_prefix(',').unwrap_or(rest).trim_start();
+        if !rest.starts_with(')') || !balanced(removed_text) {
+            return None;
+        }
+        let (title, action) = if given.len() - need == 1 {
+            ("remove the extra argument", "Remove the extra argument")
+        } else {
+            ("remove the extra arguments", "Remove the extra arguments")
+        };
+        Some(
+            Suggestion::replace(title, removed, "", Applicability::MaybeIncorrect)
+                .with_action(action),
+        )
+    }
+}
+
+/// Whether the brackets in `text` pair up and no string literal is left open.
+fn balanced(text: &str) -> bool {
+    let mut depth = 0i32;
+    let mut quote = false;
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if quote => {
+                chars.next();
+            }
+            '"' => quote = !quote,
+            '(' | '[' | '{' if !quote => depth += 1,
+            ')' | ']' | '}' if !quote => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    depth == 0 && !quote
 }

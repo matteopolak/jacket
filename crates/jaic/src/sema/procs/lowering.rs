@@ -302,13 +302,24 @@ impl Compiler {
         let storage_constants = f.runtime_storage_constants;
         let func = f.b.finish();
         if owes_result {
-            self.warn(
-                Diagnostic::warning(header.span, "not all control paths return a value")
-                    .with_label("this procedure can reach its end without returning")
-                    .with_help(
-                        "end the body with a `return`; a switch needs a default `case;` or `#complete`",
-                    ),
+            let mut warning = Diagnostic::warning(
+                header.span,
+                "not all control paths return a value",
+            )
+            .with_label("this procedure can reach its end without returning")
+            .with_help(
+                "end the body with a `return`; a switch needs a default `case;` or `#complete`",
             );
+            // The closing brace is where control runs out.
+            let brace = Span::new(
+                body.span.file,
+                (body.span.end as usize).saturating_sub(1),
+                body.span.end as usize,
+            );
+            if self.src.sources.snippet(brace) == "}" {
+                warning = warning.with_note(brace, "the body ends here without a `return`");
+            }
+            self.warn(warning);
         }
         if let Some(func_id) = func_id {
             self.out

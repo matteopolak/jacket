@@ -32,6 +32,7 @@
 
 ### Improved
 
+- A format string that disagrees with its arguments suggests the fix as an edit: remove the extra arguments, or write a `%` that has no argument as `\%`. A procedure that can end without a `return` points at its closing `}`.
 - Syntax errors suggest the fix as an edit and as an editor quick fix: a missing `;`, an unclosed `}` (with a note at the `{`), an unknown escape such as `\q`, and an unterminated comment or here-string.
 - An `ifx` of untyped numbers can be assigned to an unsigned type when both numbers fit it, as in `x: u32 = ifx c then 1 else 0;`.
 - Conversion and cast errors suggest the fix as an edit: a `cast`, `.*`, `*` or `!= 0` around the expression for a mismatched assignment, argument or operand, a range for `for n`, `cast,trunc` or `cast,force` where a cast needs it, and the result types for a wrong `return`.
