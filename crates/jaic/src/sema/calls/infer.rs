@@ -199,6 +199,25 @@ impl Compiler {
                     .filter(|&dt| self.is_scalar_constant_type(dt)),
                 _ => None,
             };
+            // Any other declared type rejects an argument of a type it does not accept, so
+            // overloads `($c: A)` and `($c: B)` of distinct types tell their arguments apart.
+            if scalar_declared.is_none()
+                && arg.op.is_some()
+                && matches!(
+                    &op,
+                    Operand::Const {
+                        value: Value::Bytes(_) | Value::Int(_) | Value::Float(..),
+                        ..
+                    }
+                )
+                && let Some(t) = &param.ty
+                && !procs::has_poly(t)
+                && let Ok(dt) = self.eval_type(def_scope, t)
+                && dt != TypeId::TYPE
+                && dt != TypeId::CODE
+            {
+                self.arg_cost(arg, dt, false)?;
+            }
             let op = match (scalar_declared, &op) {
                 (
                     Some(dt),
