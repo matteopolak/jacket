@@ -210,7 +210,7 @@ impl Compiler {
                     }
                 }
                 if let Some(result) =
-                    self.try_unary_operator_overload(f, scope, op, &inner, span)?
+                    self.try_unary_operator_overload(f, scope, op, &inner, (span, a.span))?
                 {
                     return Ok(result);
                 }

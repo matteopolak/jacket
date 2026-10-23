@@ -34,12 +34,12 @@
   {
     "name": "matrix-operators/mixed-add-negative",
     "mode": "check-fail",
-    "diagnostic_contains": "no overload of"
+    "diagnostic_contains": "no `operator +` for `Matrix2` and `Matrix3`"
   },
   {
     "name": "matrix-operators/reverse-vector-negative",
     "mode": "check-fail",
-    "diagnostic_contains": "no overload of"
+    "diagnostic_contains": "no `operator *` for `Vector2` and `Matrix2`"
   },
   {
     "name": "quaternion-operators",

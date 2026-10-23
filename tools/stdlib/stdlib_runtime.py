@@ -87,18 +87,16 @@ def contract_result(case, code, output, error="", native=False):
             and case["error_contains"] in output + error
             and output == case.get("stdout", "")
         )
+    # An interpreted run prints the compiler's warnings on the program's stderr; a compiled
+    # program's own stderr stays empty (its build output is checked where it is built).
+    if "warning_contains" in case and not native:
+        error_ok = case["warning_contains"] in error
+    else:
+        error_ok = error == case.get("stderr", "")
     if "stdout" in case:
-        return (
-            code == case.get("exit_code", 0)
-            and output == case["stdout"]
-            and error == case.get("stderr", "")
-        )
+        return code == case.get("exit_code", 0) and output == case["stdout"] and error_ok
     if "stdout_one_of" in case:
-        return (
-            code == case.get("exit_code", 0)
-            and output in case["stdout_one_of"]
-            and error == case.get("stderr", "")
-        )
+        return code == case.get("exit_code", 0) and output in case["stdout_one_of"] and error_ok
     return code == 0
 
 
@@ -503,6 +501,9 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
                 False,
                 f"build failed ({'timeout' if code is None else f'exit {code}'}):\n{out}",
             )
+        warning = (metadata or {}).get("warning_contains")
+        if warning and warning not in out:
+            return False, f"build did not warn `{warning}`:\n{out}"
         built = [
             p
             for p in exe.parent.iterdir()

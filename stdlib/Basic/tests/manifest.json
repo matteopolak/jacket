@@ -23,22 +23,22 @@
     "stdout": "ok\n"
   },
   {
-    "name": "apollo-comparisons/negative-except-lt",
-    "mode": "check-fail",
-    "diagnostic_contains": "operator Lt is not defined for Apollo_Time"
-  },
-  {
-    "name": "apollo-comparisons/negative-no-using",
-    "mode": "check-fail",
-    "diagnostic_contains": "operator Lt is not defined for Apollo_Time"
-  },
-  {
-    "name": "apollo-comparisons/negative-only-equality",
-    "mode": "check-fail",
-    "diagnostic_contains": "operator Lt is not defined for Apollo_Time"
-  },
-  {
     "name": "apollo-comparisons/public"
+  },
+  {
+    "name": "apollo-comparisons/type-module-except-lt",
+    "stdout": "ok\n",
+    "warning_contains": "`operator <` is not in scope here"
+  },
+  {
+    "name": "apollo-comparisons/type-module-no-using",
+    "stdout": "ok\n",
+    "warning_contains": "`operator <` is not in scope here"
+  },
+  {
+    "name": "apollo-comparisons/type-module-only-equality",
+    "stdout": "ok\n",
+    "warning_contains": "`operator <` is not in scope here"
   },
   {
     "name": "apollo-comparisons/word-boundary-oracle"
@@ -565,9 +565,9 @@
     "stdout": "ok\n"
   },
   {
-    "name": "public-filter-facades/internal-name-negative",
-    "mode": "check-fail",
-    "diagnostic_contains": "operator Sub is not defined for Apollo_Time"
+    "name": "public-filter-facades/internal-name-type-module",
+    "stdout": "ok\n",
+    "warning_contains": "`operator -` is not in scope here"
   },
   {
     "name": "public-filter-facades/math",

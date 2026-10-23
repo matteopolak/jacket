@@ -1,8 +1,9 @@
 //! Operator overloading: finding and calling `operator` procedures.
 
+use super::lenient::{LenientUse, Rewrite};
 use super::{
-    CallArg, Compiler, FnCtx, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId, TypeKind, Value,
-    ast, err, ir, scope,
+    CallArg, Compiler, Diagnostic, FnCtx, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId,
+    TypeKind, Value, ast, err, ir, scope,
 };
 use crate::ast::ExprKind as E;
 use crate::sema::TypeState;
@@ -17,6 +18,8 @@ struct OperatorAttempt {
     negate: bool,
     /// The operands of a `#symmetric` overload are exchanged.
     swapped: bool,
+    /// The overloads are not in scope: they come from the module of an operand's type.
+    lenient: Option<LenientUse>,
 }
 
 /// An already checked operand as a call argument.
@@ -39,8 +42,25 @@ impl Compiler {
         scope: ScopeId,
         text: &str,
     ) -> Result<Vec<ProcId>> {
+        self.operator_candidates_in(scope, text, false)
+    }
+
+    /// The overloads of `operator <text>` visible from `scope`; with `public_only`, those a
+    /// module declares for its importers (not under `#scope_file`).
+    pub(in crate::sema) fn operator_candidates_in(
+        &mut self,
+        scope: ScopeId,
+        text: &str,
+        public_only: bool,
+    ) -> Result<Vec<ProcId>> {
         let name = Sym::intern(&format!("operator{text}"));
-        let ids = self.lookup(scope, name)?;
+        let mut ids = self.lookup(scope, name)?;
+        if public_only {
+            ids.retain(|&id| {
+                let e = self.entity(id);
+                e.exported && !e.file_private
+            });
+        }
         if ids.len() > 1 {
             self.check_identical_overloads(&ids)?;
         }
@@ -119,11 +139,11 @@ impl Compiler {
         Some(field.ty)
     }
 
-    pub fn try_binary_operator_overload(
+    pub(in crate::sema) fn try_binary_operator_overload(
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        op: ast::BinOp,
+        node: Binary<'_>,
         lhs: &Operand,
         rhs: &Operand,
         span: Span,
@@ -142,7 +162,7 @@ impl Compiler {
         let args = vec![operand_arg(scope, span, lhs), operand_arg(scope, span, rhs)];
         let reports_failure = matches!(self.ty.types.kind(lt), TypeKind::Struct(_))
             || matches!(self.ty.types.kind(rt), TypeKind::Struct(_));
-        self.call_operator(f, scope, op, args, reports_failure, span)
+        self.call_operator(f, scope, node, args, reports_failure, span)
     }
 
     /// `.{...} op x` and `x op .{...}`: an operand with no type of its own next to a checked one
@@ -251,41 +271,112 @@ impl Compiler {
         op: ast::BinOp,
         args: &[CallArg],
     ) -> Result<Vec<OperatorAttempt>> {
-        let procs = self.operator_candidates(scope, binop_text(op))?;
+        let text = binop_text(op);
+        let tys: Vec<TypeId> = args
+            .iter()
+            .filter_map(|a| a.op.as_ref().map(Operand::ty))
+            .collect();
         let mut attempts = Vec::new();
-        if !procs.is_empty() {
-            attempts.push(OperatorAttempt {
-                procs: procs.clone(),
-                args: args.to_vec(),
-                negate: false,
-                swapped: false,
-            });
-        }
         // `a != b` without a matching `operator !=` is `!(a == b)`.
-        if op == ast::BinOp::Ne {
-            let equal = self.operator_candidates(scope, "==")?;
-            if !equal.is_empty() {
+        let shapes: &[(&str, bool)] = if op == ast::BinOp::Ne {
+            &[(text, false), ("==", true)]
+        } else {
+            &[(text, false)]
+        };
+        // The overloads in scope first, then those of the operand types' modules.
+        for lenient in [false, true] {
+            let mut symmetric = Vec::new();
+            let mut module = None;
+            for &(text, negate) in shapes {
+                let scoped = self.operator_candidates(scope, text)?;
+                let (found, used) = if lenient {
+                    self.home_operator_candidates(text, &tys, &scoped)?
+                } else {
+                    (scoped, None)
+                };
+                if found.is_empty() {
+                    continue;
+                }
+                module = module.or_else(|| used.clone());
+                if !negate {
+                    symmetric = found
+                        .iter()
+                        .copied()
+                        .filter(|&p| self.proc(p).lit.header.flags.symmetric())
+                        .collect();
+                }
                 attempts.push(OperatorAttempt {
-                    procs: equal,
+                    procs: found,
                     args: args.to_vec(),
-                    negate: true,
+                    negate,
                     swapped: false,
+                    lenient: used,
+                });
+            }
+            if !symmetric.is_empty() {
+                attempts.push(OperatorAttempt {
+                    procs: symmetric,
+                    args: vec![args[1].clone(), args[0].clone()],
+                    negate: false,
+                    swapped: true,
+                    lenient: module,
                 });
             }
         }
-        let symmetric: Vec<ProcId> = procs
-            .into_iter()
-            .filter(|&p| self.proc(p).lit.header.flags.symmetric())
-            .collect();
-        if !symmetric.is_empty() {
-            attempts.push(OperatorAttempt {
-                procs: symmetric,
-                args: vec![args[1].clone(), args[0].clone()],
-                negate: false,
-                swapped: true,
-            });
-        }
         Ok(attempts)
+    }
+
+    /// The source of `a op b` rewritten as a call of the overload by name, to replace `span`:
+    /// the whole expression, or the statement when it is `a op= b`.
+    pub(in crate::sema) fn operator_rewrite(
+        &self,
+        node: Binary<'_>,
+        span: Span,
+        negate: bool,
+        swapped: bool,
+    ) -> Rewrite {
+        let Binary {
+            op,
+            a,
+            b,
+        } = node;
+        let sources = &self.src.sources;
+        let (a_text, b_text) = (sources.snippet(a.span), sources.snippet(b.span));
+        let between = Span::new(a.span.file, a.span.end as usize, b.span.start as usize);
+        let compound = a.span.end <= b.span.start
+            && sources.snippet(between).trim() == format!("{}=", binop_text(op));
+        let (first, second) = if swapped {
+            (b_text, a_text)
+        } else {
+            (a_text, b_text)
+        };
+        let prefix = match (compound, negate) {
+            (true, _) => format!("{a_text} = "),
+            (false, true) => "!".to_string(),
+            (false, false) => String::new(),
+        };
+        Rewrite {
+            span,
+            prefix,
+            args: format!("{first}, {second}"),
+        }
+    }
+
+    fn warn_lenient_binary(
+        &mut self,
+        scope: ScopeId,
+        node: Binary<'_>,
+        span: Span,
+        (negate, swapped): (bool, bool),
+        used: LenientUse,
+    ) {
+        let text = if negate {
+            "=="
+        } else {
+            binop_text(node.op)
+        };
+        let rewrite = self.operator_rewrite(node, span, negate, swapped);
+        self.warn_lenient_operator(scope, span, text, used, Some(rewrite));
     }
 
     /// Call the `operator` overloads of `op` with checked `args` by the first attempt that
@@ -294,11 +385,12 @@ impl Compiler {
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        op: ast::BinOp,
+        node: Binary<'_>,
         args: Vec<CallArg>,
         reports_failure: bool,
         span: Span,
     ) -> Result<Option<Operand>> {
+        let op = node.op;
         let attempts = self.operator_attempts(scope, op, &args)?;
         for attempt in attempts {
             let (best, _) = self.rank_candidates(&attempt.procs, &attempt.args, span);
@@ -309,6 +401,10 @@ impl Compiler {
             let Ok(r) = self.emit_call(f, scope, chosen, attempt.args, span) else {
                 continue;
             };
+            if let Some(used) = attempt.lenient {
+                let shape = (attempt.negate, attempt.swapped);
+                self.warn_lenient_binary(scope, node, span, shape, used);
+            }
             if !attempt.negate {
                 return Ok(Some(r));
             }
@@ -322,10 +418,35 @@ impl Compiler {
         }
         let procs = self.operator_candidates(scope, binop_text(op))?;
         if reports_failure && !procs.is_empty() {
-            // Report the overload failure for struct operands.
-            return self
-                .call_procs(f, scope, &procs, args, None, span)
-                .map(Some);
+            // No overload takes the struct operands: say so without naming a candidate, and
+            // list the ones in scope as notes.
+            let names: Vec<String> = args
+                .iter()
+                .filter_map(|a| a.op.as_ref().map(|o| self.ty.types.name(o.ty())))
+                .collect();
+            let text = binop_text(op);
+            let mut d = Diagnostic::error(
+                span,
+                format!(
+                    "no `operator {text}` for {}",
+                    names
+                        .iter()
+                        .map(|n| format!("`{n}`"))
+                        .collect::<Vec<_>>()
+                        .join(" and ")
+                ),
+            );
+            for &p in &procs {
+                let header = self.proc(p).lit.header.span;
+                d = d.with_note(header, format!("`operator {text}` is declared here"));
+            }
+            let rewrite = self.operator_rewrite(node, span, false, false);
+            return Err(Box::new(self.with_missing_operator_help(
+                scope,
+                d,
+                text,
+                Some(rewrite),
+            )));
         }
         Ok(None)
     }
@@ -365,7 +486,7 @@ impl Compiler {
         scope: ScopeId,
         op: ast::UnOp,
         operand: &Operand,
-        span: Span,
+        (span, operand_span): (Span, Span),
     ) -> Result<Option<Operand>> {
         if !matches!(
             self.ty.types.kind(self.ty.types.repr_struct(operand.ty())),
@@ -379,9 +500,40 @@ impl Compiler {
             ast::UnOp::BitNot => "~",
             _ => return Ok(None),
         };
-        let procs = self.operator_candidates(scope, text)?;
+        let (procs, lenient) = self.operator_candidates_for(scope, text, operand.ty())?;
         if procs.is_empty() {
-            return Ok(None);
+            if op == ast::UnOp::Not {
+                return Ok(None);
+            }
+            // Neither `-` nor `~` has a builtin meaning for a struct.
+            let what = if op == ast::UnOp::Neg {
+                "negate"
+            } else {
+                "bit-complement"
+            };
+            let d = Diagnostic::error(
+                span,
+                format!("cannot {what} {}", self.ty.types.name(operand.ty())),
+            );
+            let rewrite = Rewrite {
+                span,
+                prefix: String::new(),
+                args: self.src.sources.snippet(operand_span).to_string(),
+            };
+            return Err(Box::new(self.with_missing_operator_help(
+                scope,
+                d,
+                text,
+                Some(rewrite),
+            )));
+        }
+        if let Some(used) = lenient {
+            let rewrite = Rewrite {
+                span,
+                prefix: String::new(),
+                args: self.src.sources.snippet(operand_span).to_string(),
+            };
+            self.warn_lenient_operator(scope, span, text, used, Some(rewrite));
         }
         let args = vec![CallArg {
             name: None,
@@ -409,13 +561,16 @@ impl Compiler {
         if !matches!(self.ty.types.kind(target), TypeKind::Struct(_)) {
             return Ok(None);
         }
-        let mut procs = self.operator_candidates(scope, text)?;
+        let (mut procs, lenient) = self.operator_candidates_for(scope, text, target)?;
         // Unrelated lexical operators do not hide builtin pointer indexing.
         // Keep index/type/result validation in normal call binding once a
         // receiver applies, rather than swallowing an arbitrary call error.
         procs.retain(|&p| self.first_param_accepts(p, target));
         if procs.is_empty() {
             return Ok(None);
+        }
+        if let Some(used) = lenient {
+            self.warn_lenient_operator(scope, span, text, used, None);
         }
         let args = vec![
             CallArg {

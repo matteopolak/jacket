@@ -44,6 +44,9 @@ ROW_KEYS = frozenset(
         # exact stdout must be one of these, with the same empty stderr and exit code as `stdout`.
         "stdout_one_of",
         "stderr",
+        # A compiler warning the case must produce (on stderr when interpreted, in the build
+        # output when compiled); the program's own stderr must otherwise be empty.
+        "warning_contains",
         "exit_code",
         "error_contains",
         # `mode` "check-fail": a compile-time rejection (`-check` must fail with

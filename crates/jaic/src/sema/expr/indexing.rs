@@ -142,8 +142,11 @@ impl Compiler {
         ) {
             return Ok(None);
         }
-        let mut procs = self.operator_candidates(scope, "[]")?;
+        let (mut procs, lenient) = self.operator_candidates_for(scope, "[]", ty)?;
         procs.retain(|&p| self.first_param_accepts(p, ty));
+        if let Some(used) = lenient.filter(|_| !procs.is_empty()) {
+            self.warn_lenient_operator(scope, span, "[]", used, None);
+        }
         if procs.is_empty() {
             return Ok(None);
         }

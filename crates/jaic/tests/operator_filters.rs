@@ -78,7 +78,8 @@ fn internal_spelling_is_not_a_public_filter_alias() {
             r#"M :: #import "Operators"; using,only({filter}) M;
             main :: () {{ a:=M.Value.{{7}}; b:=M.Value.{{2}}; v:=a-b; }}"#
         );
-        compile(&source, None).expect_err("internal spelling must not select minus");
+        // Not selected by the filter, but found in the type's own module (with a warning).
+        compile(&source, None).unwrap();
     }
     // An unknown exclusion does not hide the actual public operator symbol.
     compile(
@@ -96,7 +97,8 @@ fn excludes_and_unselected_overloads_stay_hidden() {
             r#"using,{filter} M :: #import "Operators";
             main :: () {{ a:=M.Value.{{7}}; b:=M.Value.{{2}}; v:=a-b; }}"#
         );
-        compile(&source, None).expect_err("minus is not exposed by this filter");
+        // The filter keeps minus out of scope; the type's module still supplies it.
+        compile(&source, None).unwrap();
     }
 }
 
@@ -127,9 +129,13 @@ fn each_reviewed_symbol_can_be_excluded_through_a_filtered_reexport() {
             check :: ()->bool {{ a:=M.Value.{{12}}; b:=M.Value.{{3}}; {body} }}
             main :: () {{}}"#
         );
-        assert!(
+        // Excluded operators stay out of scope: a named call fails. The
+        // others are still found in the type's own module (with a warning).
+        let hidden = body.contains("operator ");
+        assert_eq!(
             compile(&source, Some(&facade)).is_err(),
-            "excluded {symbol} must stay hidden"
+            hidden,
+            "excluded {symbol}"
         );
     }
 }

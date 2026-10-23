@@ -30,6 +30,7 @@ mod cost;
 mod emit;
 mod infer;
 mod intrinsics;
+mod lenient;
 mod macro_expand;
 mod matching;
 mod operators;

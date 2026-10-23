@@ -74,9 +74,10 @@ impl Compiler {
             Some(operands) => operands,
             None => (lhs, rhs),
         };
-        if let Some(result) = self.try_binary_operator_overload(f, scope, op, &lhs, &rhs, span)? {
+        if let Some(result) = self.try_binary_operator_overload(f, scope, node, &lhs, &rhs, span)? {
             return Ok(result);
         }
+        self.reject_missing_operator(scope, node, &lhs, &rhs, span)?;
         if let (
             Operand::Const {
                 ..

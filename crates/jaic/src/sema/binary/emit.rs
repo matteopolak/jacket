@@ -179,8 +179,8 @@ impl Compiler {
             return err(
                 span,
                 format!(
-                    "operator {:?} is not defined for {}",
-                    op,
+                    "operator {} is not defined for {}",
+                    crate::sema::calls::binop_text(op),
                     self.ty.types.name(ty)
                 ),
             );
@@ -201,8 +201,8 @@ impl Compiler {
             Box::new(Diagnostic::error(
                 span,
                 format!(
-                    "operator {:?} is not defined for {}",
-                    op,
+                    "operator {} is not defined for {}",
+                    crate::sema::calls::binop_text(op),
                     self.ty.types.name(ty)
                 ),
             ))
@@ -211,8 +211,8 @@ impl Compiler {
             return err(
                 span,
                 format!(
-                    "arithmetic operator {:?} is not defined for {}",
-                    op,
+                    "arithmetic operator {} is not defined for {}",
+                    crate::sema::calls::binop_text(op),
                     self.ty.types.name(ty)
                 ),
             );

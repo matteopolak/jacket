@@ -36,12 +36,15 @@ impl Compiler {
         {
             return Ok(false);
         }
-        let mut setters = self.operator_candidates(scope, "[]=")?;
+        let (mut setters, lenient) = self.operator_candidates_for(scope, "[]=", st)?;
         // Only an operator taking this struct applies. Otherwise `p[i] = v` through a raw
         // pointer writes memory, and a struct with only `operator *[]` assigns through it.
         setters.retain(|&p| self.first_param_accepts(p, st));
         if setters.is_empty() {
             return Ok(false);
+        }
+        if let Some(used) = lenient {
+            self.warn_lenient_operator(scope, span, "[]=", used, None);
         }
         let base_op = self.check_expr(f, scope, base, None)?;
         let ptr_ty = self.ty.types.pointer(st);
@@ -77,7 +80,10 @@ impl Compiler {
         let value = match op {
             ast::AssignOp::Assign => self.check_expr(f, scope, rhs, None)?,
             ast::AssignOp::Op(bin) => {
-                let getters = self.operator_candidates(scope, "[]")?;
+                let (getters, lenient) = self.operator_candidates_for(scope, "[]", st)?;
+                if let Some(used) = lenient {
+                    self.warn_lenient_operator(scope, span, "[]", used, None);
+                }
                 let by_ptr = vec![arg(ptr_op.clone()), arg(index_op.clone())];
                 let old = if let Ok(v) = self.try_call(f, scope, &getters, by_ptr, span) {
                     v
@@ -216,11 +222,14 @@ impl Compiler {
             return Ok(false);
         }
         let text = format!("{}=", calls::binop_text(bin));
-        let candidates = self.operator_candidates(scope, &text)?;
+        let (candidates, lenient) = self.operator_candidates_for(scope, &text, probe.ty())?;
         if candidates.is_empty()
             || !self.operator_assign_applies(f, scope, &candidates, target, rhs, span)
         {
             return Ok(false);
+        }
+        if let Some(used) = lenient {
+            self.warn_lenient_operator(scope, span, &text, used, None);
         }
         let Operand::Place {
             ty,

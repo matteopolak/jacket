@@ -112,6 +112,31 @@ fn a_name_a_namespaced_import_exports_gets_quick_fixes_that_use_the_import() {
 }
 
 #[test]
+fn an_operator_found_through_its_type_module_offers_the_explicit_call() {
+    let text =
+        "Math :: #import \"Math\";\nmain :: () {\n    u, v: Math.Vector2;\n    w := u + v;\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let warning = s
+        .diagnostics(&uri())
+        .unwrap()
+        .into_iter()
+        .find(|d| d.severity == DiagnosticSeverity::Warning && d.message.contains("`operator +`"))
+        .expect("a warning for the namespaced operator");
+    assert!(
+        warning.message.contains("help: or add `using Math;`"),
+        "{warning:?}"
+    );
+    let fixes = quick_fixes(&s, text, "u + v");
+    assert_eq!(fixes.len(), 1, "{fixes:?}");
+    assert_eq!(fixes[0].title, "Call `Math.operator +` explicitly");
+    assert!(fixes[0].is_preferred);
+    let (_, edits) = fixes[0].edit.as_ref().unwrap();
+    assert_eq!(edits.len(), 1);
+    assert_eq!(edits[0].new_text, "Math.operator +(u, v)");
+}
+
+#[test]
 fn help_and_notes_reach_the_editor_in_the_message() {
     let text = "main :: () {\n    return;\n    x := 1;\n}\n";
     let mut s = session();

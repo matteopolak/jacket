@@ -21,6 +21,29 @@ const MAX_IMPORTS: usize = 4;
 /// Modules the compiler loads itself; they are never imported by name.
 pub const COMPILER_INTERNAL_MODULES: &[&str] = &["prelude", "Preload", "Runtime_Support"];
 
+/// Whether the module file `text` declares `operator <op>` outside its `#scope_file` sections
+/// (a line-based test: the declaration starts a line, as `operator + :: (...)`).
+fn exports_operator(text: &str, op: &str) -> bool {
+    let mut file_scope = false;
+    for line in text.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("#scope_file") {
+            file_scope = true;
+        } else if trimmed.starts_with("#scope_export") || trimmed.starts_with("#scope_module") {
+            file_scope = trimmed.starts_with("#scope_module");
+        } else if !file_scope
+            && line.len() - trimmed.len() <= 4
+            && trimmed
+                .strip_prefix("operator")
+                .and_then(|rest| rest.trim_start().strip_prefix(op))
+                .is_some_and(|rest| rest.trim_start().starts_with("::"))
+        {
+            return true;
+        }
+    }
+    false
+}
+
 /// Whether the module file `text` declares `name` for its importers: at its top level (or in a
 /// top-level `#if`), outside `#scope_file` and `#scope_module` sections. Only a file whose lines
 /// look like such a declaration is parsed.
@@ -251,6 +274,22 @@ impl Compiler {
     /// level (outside `#scope_file`), best ranked first (`ModuleRanking`) and jaic's `Extensions/` modules
     /// (named by that path) last. At most [`MAX_IMPORTS`].
     fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
+        self.imports_declaring_by(name, &|text| exports_name(text, name))
+    }
+
+    /// The modules whose source declares `operator <text>` (as [`Self::imports_declaring`]
+    /// ranks and limits them).
+    pub(super) fn imports_declaring_operator(&self, text: &str) -> Vec<ImportSuggestion> {
+        self.imports_declaring_by(&format!("operator {text}"), &|source| {
+            exports_operator(source, text)
+        })
+    }
+
+    fn imports_declaring_by(
+        &self,
+        name: &str,
+        declares_in: &dyn Fn(&str) -> bool,
+    ) -> Vec<ImportSuggestion> {
         let mut found = Vec::new();
         if name.len() < 2 || name.starts_with("__") {
             return found;
@@ -302,7 +341,7 @@ impl Compiler {
                 self.src
                     .fs
                     .read(path)
-                    .is_some_and(|bytes| exports_name(&String::from_utf8_lossy(&bytes), name))
+                    .is_some_and(|bytes| declares_in(&String::from_utf8_lossy(&bytes)))
             });
             if declares {
                 found.push(ImportSuggestion {

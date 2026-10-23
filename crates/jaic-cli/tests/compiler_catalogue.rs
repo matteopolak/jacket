@@ -60,7 +60,7 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
 }
 
 #[test]
-fn a_qualified_namespace_does_not_implicitly_import_operators() {
+fn a_qualified_namespace_does_not_import_operators_but_the_type_module_supplies_them() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("operator-namespace-visibility");
     std::fs::create_dir_all(&dir).unwrap();
@@ -78,9 +78,13 @@ fn a_qualified_namespace_does_not_implicitly_import_operators() {
         .arg(root.join("tests/compiler/semantics/modules"))
         .output()
         .unwrap();
-    assert!(!output.status.success());
+    // Not in scope through `Probe`, but found with the type: accepted, with a warning.
     let error = String::from_utf8_lossy(&output.stderr);
-    assert!(error.contains("cannot negate Scalar"), "{error}");
+    assert!(output.status.success(), "{error}");
+    assert!(
+        error.contains("`operator -` is not in scope here"),
+        "{error}"
+    );
 }
 
 #[test]

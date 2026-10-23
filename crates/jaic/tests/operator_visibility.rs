@@ -22,8 +22,12 @@ fn compile(facade: &str, body: &str) -> Result<(), String> {
 #[test]
 fn canonical_type_only_facade_does_not_leak_symbolic_or_named_operators() {
     let facade = "Value :: Impl.Value; #scope_file Impl :: #import \"Definition\";";
-    for body in ["v := a-b;", "v := !a;", "v := operator -(a,b);"] {
-        compile(facade, body).expect_err("a type alias cannot reexport hidden overloads");
+    // Named, the overload is not in scope. As an operator it is found in the type's own module
+    // (with a warning), so only the named form fails.
+    compile(facade, "v := operator -(a,b);")
+        .expect_err("a type alias cannot reexport hidden overloads");
+    for body in ["v := a-b;", "v := !a;"] {
+        compile(facade, body).unwrap();
     }
 }
 
