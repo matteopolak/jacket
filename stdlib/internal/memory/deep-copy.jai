@@ -192,29 +192,8 @@ timer_failure :: () {
 Timer_Libc :: #system_library "libc";
 abort_timer_failure :: () #foreign Timer_Libc "abort";
 
-#if OS == .WINDOWS {
-    W :: #import "Windows";
-
-    monotonic_seconds :: () -> float64 {
-        ticks: W.LARGE_INTEGER;
-        frequency: W.LARGE_INTEGER;
-
-        counter_status := W.QueryPerformanceCounter(*ticks);
-        frequency_status := W.QueryPerformanceFrequency(*frequency);
-
-        if counter_status == 0 || frequency_status == 0 || frequency.QuadPart <= 0 timer_failure();
-
-        return cast(float64) ticks.QuadPart / cast(float64) frequency.QuadPart;
-    }
-} else {
-    #assert OS == .MACOS || OS == .LINUX, "Deep_Copy timer backend is unavailable on this target";
-
-    P :: #import "POSIX";
-
-    monotonic_seconds :: () -> float64 {
-        now: P.timespec;
-        status := P.clock_gettime(P.clockid_t.MONOTONIC, *now);
-        if status != 0 timer_failure();
-        return cast(float64) now.tv_sec + cast(float64) now.tv_nsec / 1000000000.0;
-    }
+monotonic_seconds :: () -> float64 {
+    seconds, ok := to_float64_seconds(current_time_monotonic());
+    if !ok timer_failure();
+    return seconds;
 }
