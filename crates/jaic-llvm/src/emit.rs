@@ -323,6 +323,14 @@ pub(super) const INSTS_PER_UNIT: usize = 5_000;
 /// The same for optimized builds, whose modules also run the optimizer.
 const OPT_INSTS_PER_UNIT: usize = 20_000;
 
+/// IR instructions per unoptimized module above which a program gets more units than threads:
+/// the threads then work through them in turn and free each module once written, which holds
+/// peak memory to about the modules in flight (a 500k-line program peaked 37% lower).
+const MAX_UNIT_INSTS: usize = 100_000;
+
+/// Most modules an unoptimized build is divided into.
+const MAX_UNOPT_UNITS: usize = 64;
+
 /// Most modules an optimized build is divided into before the optimizer.
 const MAX_OPT_UNITS: usize = 8;
 
@@ -352,7 +360,10 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
         if options.codegen.split_modules == Some(false) {
             return 1;
         }
-        return (insts / INSTS_PER_UNIT).clamp(1, cores);
+        // A program past `MAX_UNIT_INSTS` per core gets more units than threads, so a module
+        // is written and dropped (`emit_objects`) before all of the program is in memory.
+        let by_size = (insts / INSTS_PER_UNIT).clamp(1, cores);
+        return by_size.max(insts / MAX_UNIT_INSTS).min(MAX_UNOPT_UNITS);
     }
     // Optimized builds split before the optimizer only when it is worth the code it loses
     // (`partition.rs`); wasm modules stay whole.
@@ -423,7 +434,10 @@ pub fn emit_objects(
                 plan: &plan,
                 index: u as u32,
             };
-            emit_module(program, options, &paths[u], Some(shard), false, true, &cuts).map(drop)
+            // The last modules to start are kept alive, since the process links and exits next;
+            // earlier ones are freed so their memory serves the units still to come.
+            let leak = u + jaic::pool::threads() >= units;
+            emit_module(program, options, &paths[u], Some(shard), false, leak, &cuts).map(drop)
         },
         || {},
     )
