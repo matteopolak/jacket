@@ -402,6 +402,7 @@ fn compiler_and_abi_regressions_run_natively() {
         "global-procedure-variable",
         "insert-load-in-body",
         "anonymous-aggregate-statement",
+        "bake-arguments-context",
     ] {
         // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
         if cfg!(windows) && name == "proc-sentinel-constant" {

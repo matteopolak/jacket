@@ -26,10 +26,12 @@ impl Compiler {
                     (p.name, p.lit.clone(), p.bindings.unwrap_or(p.scope))
                 };
                 let params = lit.header.params.clone();
+                let (context_args, plain_args): (Vec<&ast::Arg>, Vec<&ast::Arg>) =
+                    args.iter().partition(|a| a.context);
                 // `T = float` binds a polymorphic type variable rather than a parameter.
                 let poly_vars = calls::header_poly_names(&lit.header);
                 let (poly_args, param_args): (Vec<&ast::Arg>, Vec<&ast::Arg>) =
-                    args.iter().partition(|a| {
+                    plain_args.iter().copied().partition(|a| {
                         a.name.is_some_and(|n| {
                             poly_vars.contains(&n.name)
                                 && !params
@@ -40,6 +42,17 @@ impl Compiler {
                 self.ide_note_bake_proc_args(def_scope, &lit.header, args);
                 let (kept, mut consts) =
                     self.bake_params(scope, def_scope, &params, &param_args, span)?;
+                let body = if context_args.is_empty() {
+                    lit.body.clone()
+                } else {
+                    Some(self.bake_context_overrides(
+                        scope,
+                        lit.body.as_ref(),
+                        &context_args,
+                        &mut consts,
+                        span,
+                    )?)
+                };
                 let mut header = (*lit.header).clone();
                 header.params = kept;
                 // `#bake_constants f(T = float)` on `f :: (m: Matrix($T, $M, $N))`: the copy is
@@ -70,7 +83,7 @@ impl Compiler {
                 header.flags.program_export = None;
                 let lit = Rc::new(ast::ProcLit {
                     header: Rc::new(header),
-                    body: lit.body.clone(),
+                    body,
                 });
                 let baked_scope = self.const_scope(def_scope, consts, span);
                 if partial {
@@ -103,6 +116,12 @@ impl Compiler {
                     let p = &self.ty.poly_structs[ps.0 as usize];
                     (p.name, p.lit.clone())
                 };
+                if let Some(arg) = args.iter().find(|a| a.context) {
+                    return err(
+                        arg.value.span,
+                        "context arguments can only be baked into a procedure",
+                    );
+                }
                 let def_scope = self.ty.poly_structs[ps.0 as usize].scope;
                 self.ide_note_bake_struct_args(ps, &lit.params, args);
                 let args: Vec<&ast::Arg> = args.iter().collect();
@@ -135,6 +154,109 @@ impl Compiler {
                 "#bake_arguments needs a single procedure or a polymorphic struct",
             ),
         }
+    }
+
+    /// The constant a baked argument stands for, of the parameter's `declared` type when it has
+    /// one.
+    fn bake_value(
+        &mut self,
+        scope: ScopeId,
+        arg: &ast::Expr,
+        declared: Option<TypeId>,
+    ) -> Result<(Value, TypeId)> {
+        Ok(match declared {
+            Some(TypeId::TYPE) | None => match self.eval_const(scope, arg, declared)? {
+                Operand::Type(t) => (Value::Type(t), TypeId::TYPE),
+                Operand::Procs(p) if p.len() == 1 => {
+                    let v = Value::Proc(p[0]);
+                    let ty = self.type_of_value(&v);
+                    (v, ty)
+                }
+                Operand::Const {
+                    value,
+                    ty,
+                    untyped,
+                } => {
+                    let ty = if untyped {
+                        self.ty.default_untyped(ty, &value)
+                    } else {
+                        ty
+                    };
+                    (value, ty)
+                }
+                _ => return err(arg.span, "baked argument must be a compile-time constant"),
+            },
+            Some(t) => (self.const_value_of_type(scope, arg, t)?, t),
+        })
+    }
+
+    /// `#bake_arguments f(,, allocator = a)`: the copy runs `f`'s body with those context
+    /// fields set, as a call written with `,,` does. Each value is a constant of the copy.
+    fn bake_context_overrides(
+        &mut self,
+        scope: ScopeId,
+        body: Option<&ast::Block>,
+        overrides: &[&ast::Arg],
+        consts: &mut Vec<ConstArg>,
+        span: Span,
+    ) -> Result<ast::Block> {
+        use ast::ExprKind as E;
+        use ast::StmtKind as S;
+        let Some(body) = body else {
+            return err(
+                span,
+                "a procedure without a body cannot bake context arguments",
+            );
+        };
+        let at = |kind, span| ast::Expr {
+            kind,
+            span,
+        };
+        let stmt = |kind, span| ast::Stmt {
+            kind,
+            span,
+            notes: ast::Notes::default(),
+        };
+        let mut stmts = Vec::new();
+        for (i, arg) in overrides.iter().enumerate() {
+            let field = arg.name.unwrap_or(ast::Ident {
+                name: Sym::intern("allocator"),
+                span: arg.value.span,
+            });
+            let (value, ty) = self.bake_value(scope, &arg.value, None)?;
+            let held = Sym::intern(&format!("\u{0}context_argument_{i}"));
+            consts.push((held, value, ty));
+            stmts.push(stmt(
+                S::Assign {
+                    op: ast::AssignOp::Assign,
+                    lhs: vec![at(
+                        E::Member(Box::new(at(E::Context, field.span)), field),
+                        field.span,
+                    )],
+                    rhs: vec![at(E::Ident(held), arg.value.span)],
+                },
+                arg.value.span,
+            ));
+        }
+        stmts.push(stmt(S::Block(body.clone()), body.span));
+        let pushed = ast::PushContextStmt {
+            backtick: false,
+            context: at(E::Context, span),
+            body: Box::new(stmt(
+                S::Block(ast::Block {
+                    stmts,
+                    span: body.span,
+                    checks_off: body.checks_off,
+                }),
+                body.span,
+            )),
+            bare: true,
+        };
+        Ok(ast::Block {
+            stmts: vec![stmt(S::PushContext(Box::new(pushed)), body.span)],
+            span: body.span,
+            checks_off: body.checks_off,
+        })
     }
 
     /// Split `params` into those left open and `(name, value, type)` constants
@@ -189,35 +311,7 @@ impl Compiler {
                 (Some(t), None) => Some(self.eval_type(def_scope, t)?),
                 _ => None,
             };
-            let (value, ty) = match declared {
-                Some(TypeId::TYPE) | None => match self.eval_const(scope, &arg.value, declared)? {
-                    Operand::Type(t) => (Value::Type(t), TypeId::TYPE),
-                    Operand::Procs(p) if p.len() == 1 => {
-                        let v = Value::Proc(p[0]);
-                        let ty = self.type_of_value(&v);
-                        (v, ty)
-                    }
-                    Operand::Const {
-                        value,
-                        ty,
-                        untyped,
-                    } => {
-                        let ty = if untyped {
-                            self.ty.default_untyped(ty, &value)
-                        } else {
-                            ty
-                        };
-                        (value, ty)
-                    }
-                    _ => {
-                        return err(
-                            arg.value.span,
-                            "baked argument must be a compile-time constant",
-                        );
-                    }
-                },
-                Some(t) => (self.const_value_of_type(scope, &arg.value, t)?, t),
-            };
+            let (value, ty) = self.bake_value(scope, &arg.value, declared)?;
             // `($v: $T)` baked with `v = 3`: `T` is what the value's type says, and the body and
             // the other parameter types still name it.
             if let Some(pattern) = &pattern {
