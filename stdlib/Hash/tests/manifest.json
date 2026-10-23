@@ -38,5 +38,17 @@
   {
     "name": "scalars",
     "stdout": "ok\n"
+  },
+  {
+    "name": "crypto-hmac",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "crypto-random",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "crypto-sha2",
+    "stdout": "ok\n"
   }
 ]
