@@ -4,7 +4,6 @@
 #caller_code did not produce Code
 #caller_code is only valid as a parameter default
 #insert in an enum body needs a string
-#load is only allowed at file scope
 #modify rejected the arguments to {}{}
 #overlay needs a field name
 #overlay needs a following stored member
@@ -28,6 +27,7 @@ Preload's `{}` is not a type
 `__arithmetic_overflow` must be defined in Jai
 `main` is declared, but no entry point calls it (is Runtime_Support loaded?)
 `offset_of` takes `(Type, "member")` or `Type.member`
+`using,map` is not supported in an enum body
 `{}` cannot be masked
 `{}` cannot take the lock_ prefix
 `{}` compares a memory operand ([ptr])
@@ -66,7 +66,6 @@ Preload's `{}` is not a type
 `{}` takes dst, src, imm8
 `{}` takes dst, src, wk (the implicit xmm0 as an operand)
 `{}` takes the operands {}{}
-`{}` takes {} to {} operands, found {}
 `{}` was given an unknown memory order
 a C variadic parameter must be the last runtime parameter
 a Jai variadic pack requires an array-view parameter

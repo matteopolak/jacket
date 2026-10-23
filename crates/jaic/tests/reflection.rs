@@ -74,6 +74,24 @@ fn adding_context_after_layout_appends_the_member() {
     assert_eq!(after.last().unwrap().0, "late_field");
 }
 
+#[test]
+fn a_late_context_member_past_the_size_limit_is_rejected() {
+    let (mut compiler, result) = compile("#run { p := *context; };");
+    result.unwrap();
+    let error = compiler
+        .add_source(&jaic::sema::ProgramSource::String(
+            "#add_context huge: [8192] u8;".into(),
+        ))
+        .expect_err("the compile-time context has no room for the member");
+    assert!(
+        error
+            .message
+            .contains("The #Context has gotten bigger than the limit"),
+        "{}",
+        error.render(&compiler.src.sources)
+    );
+}
+
 fn context_fields(compiler: &Compiler) -> Vec<(String, u64)> {
     let ty = compiler.ty.context_type.expect("the Context was made");
     let types = &compiler.ty.types;

@@ -219,3 +219,19 @@ fn unavailable_debugger_is_a_required_diagnostic() {
             .contains("developer_debug requires compiler debugger support")
     );
 }
+
+#[test]
+fn baking_context_arguments_into_a_struct_is_rejected() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .env("JAIC_STDLIB", root.join("stdlib"))
+        .arg(root.join("tests/compiler/semantics/context-bake-struct-rejected.jai"))
+        .arg("-check")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("context arguments can only be baked into a procedure")
+    );
+}
