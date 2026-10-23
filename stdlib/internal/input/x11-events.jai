@@ -19,100 +19,19 @@ update_window_events :: () {
         window := native.xany.window;
         if !x_window_is_ours(display, window) continue;
 
-        flags := x11_modifiers(0);
-
         if native.type == KeyPress || native.type == KeyRelease {
-            if native.type == KeyRelease && XPending(display) > 0 {
-                next: XEvent;
-                XPeekEvent(display, *next);
-                if next.type == KeyPress && next.xkey.time == native.xkey.time && next.xkey.keycode == native.xkey.keycode continue;
-            }
-
-            bytes: [64] u8;
-            symbol: KeySym;
-            count := XLookupString(*native.xkey, bytes.data, 64, *symbol, null);
-            code := get_key_code(symbol);
-
-            flags = x11_modifiers(native.xkey.state);
-            repeat := (input_button_states[cast(int) code] & .DOWN) != .NONE && native.type == KeyPress;
-            if code != .UNKNOWN x11_button(window, code, native.type == KeyPress, repeat, flags);
-
-            if native.type == KeyPress {
-                for index: 0..count - 1 {
-                    if bytes[index] <= 31 || bytes[index] == 127 continue;
-
-                    event: Event;
-                    event.type = .TEXT_INPUT;
-                    event.window = window;
-                    event.utf32 = bytes[index];
-                    event.modifier_flags = flags;
-                    add_to_frame(*events_this_frame, event);
-                }
-            }
+            x11_handle_key(display, window, *native);
         } else if native.type == ButtonPress || native.type == ButtonRelease {
-            button := native.xbutton.button;
-
-            flags = x11_modifiers(native.xbutton.state);
-
-            if button >= 4 && button <= 7 {
-                if native.type != ButtonPress continue;
-
-                event: Event;
-                event.type = .MOUSE_WHEEL;
-                event.window = window;
-                event.modifier_flags = flags;
-                event.typical_wheel_delta = WHEEL_DELTA;
-                event.wheel_delta = WHEEL_DELTA;
-                if button == 5 || button == 6 event.wheel_delta = -WHEEL_DELTA;
-
-                if button <= 5 {
-                    mouse_delta_z += event.wheel_delta;
-                    event.key_code = .MOUSE_WHEEL_UP;
-                    if button == 5 event.key_code = .MOUSE_WHEEL_DOWN;
-                }
-
-                add_to_frame(*events_this_frame, event);
-            } else {
-                code := Key_Code.UNKNOWN;
-                if button == 1 code = .MOUSE_BUTTON_LEFT;
-                if button == 2 code = .MOUSE_BUTTON_MIDDLE;
-                if button == 3 code = .MOUSE_BUTTON_RIGHT;
-                if button == 8 code = .MOUSE_BUTTON_EXTRA_1;
-                if button == 9 code = .MOUSE_BUTTON_EXTRA_2;
-                if code != .UNKNOWN x11_button(window, code, native.type == ButtonPress, false, flags);
-            }
+            x11_handle_mouse_button(window, *native);
         } else if native.type == MotionNotify {
-            if !custom_cursor XUndefineCursor(display, window);
-
-            dx, dy := Connection.pointer_motion(window, native.xmotion.x, native.xmotion.y);
-            mouse_delta_x += dx;
-            mouse_delta_y += dy;
+            x11_handle_motion(display, window, *native);
         } else if native.type == ConfigureNotify {
             add_resize_record(window, native.xconfigure.width, native.xconfigure.height);
             add_to_frame(*move_records, Window_Move_Record.{ window, native.xconfigure.x, native.xconfigure.y });
         } else if native.type == FocusIn || native.type == FocusOut {
-            input_application_has_focus = native.type == FocusIn;
-            event: Event;
-            event.type = .WINDOW;
-            event.window = window;
-            event.window_event_type = .LOST_FOCUS;
-            if input_application_has_focus event.window_event_type = .GAINED_FOCUS;
-
-            add_to_frame(*events_this_frame, event);
-
-            if !input_application_has_focus for state, index: input_button_states {
-                if (state & .DOWN) != .NONE x11_button(window, cast(Key_Code) index, false, false, .{});
-            }
+            x11_handle_focus(window, native.type == FocusIn);
         } else if native.type == ClientMessage {
-            protocols := XInternAtom(display, "WM_PROTOCOLS", 0);
-            close_atom := XInternAtom(display, "WM_DELETE_WINDOW", 0);
-
-            if native.xclient.message_type == protocols && native.xclient.format == 32 && native.xclient.data.l[0] == cast(s64) close_atom {
-                event: Event;
-                event.type = .QUIT;
-                event.window = window;
-                add_to_frame(*events_this_frame, event);
-            }
+            x11_handle_client_message(display, window, *native);
         } else if native.type == DestroyNotify Connection.release_window(window);
     }
 }
@@ -120,6 +39,111 @@ update_window_events :: () {
 #scope_module
 #import "X11";
 Connection :: #import "internal/window/connection";
+
+x11_handle_key :: (display: *Display, window: Window, native: *XEvent) {
+    // An auto-repeat arrives as a release immediately followed by an identical press; drop the pair.
+    if native.type == KeyRelease && XPending(display) > 0 {
+        next: XEvent;
+        XPeekEvent(display, *next);
+        if next.type == KeyPress && next.xkey.time == native.xkey.time && next.xkey.keycode == native.xkey.keycode return;
+    }
+
+    bytes: [64] u8;
+    symbol: KeySym;
+    count := XLookupString(*native.xkey, bytes.data, 64, *symbol, null);
+    code := get_key_code(symbol);
+
+    flags := x11_modifiers(native.xkey.state);
+    repeat := (input_button_states[cast(int) code] & .DOWN) != .NONE && native.type == KeyPress;
+
+    if code != .UNKNOWN x11_button(window, code, native.type == KeyPress, repeat, flags);
+
+    if native.type == KeyPress x11_text_input(window, bytes.data, count, flags);
+}
+
+x11_text_input :: (window: Window, bytes: *u8, count: s32, flags: Event.Modifier_Flags) {
+    for index: 0..count - 1 {
+        if bytes[index] <= 31 || bytes[index] == 127 continue;
+
+        event: Event;
+        event.type = .TEXT_INPUT;
+        event.window = window;
+        event.utf32 = bytes[index];
+        event.modifier_flags = flags;
+        add_to_frame(*events_this_frame, event);
+    }
+}
+
+x11_handle_mouse_button :: (window: Window, native: *XEvent) {
+    button := native.xbutton.button;
+    flags := x11_modifiers(native.xbutton.state);
+
+    if button >= 4 && button <= 7 {
+        if native.type == ButtonPress x11_wheel(window, button, flags);
+        return;
+    }
+
+    code := Key_Code.UNKNOWN;
+    if button == 1 code = .MOUSE_BUTTON_LEFT;
+    if button == 2 code = .MOUSE_BUTTON_MIDDLE;
+    if button == 3 code = .MOUSE_BUTTON_RIGHT;
+    if button == 8 code = .MOUSE_BUTTON_EXTRA_1;
+    if button == 9 code = .MOUSE_BUTTON_EXTRA_2;
+    if code != .UNKNOWN x11_button(window, code, native.type == ButtonPress, false, flags);
+}
+
+x11_wheel :: (window: Window, button: u32, flags: Event.Modifier_Flags) {
+    event: Event;
+    event.type = .MOUSE_WHEEL;
+    event.window = window;
+    event.modifier_flags = flags;
+    event.typical_wheel_delta = WHEEL_DELTA;
+    event.wheel_delta = WHEEL_DELTA;
+    if button == 5 || button == 6 event.wheel_delta = -WHEEL_DELTA;
+
+    if button <= 5 {
+        mouse_delta_z += event.wheel_delta;
+        event.key_code = .MOUSE_WHEEL_UP;
+        if button == 5 event.key_code = .MOUSE_WHEEL_DOWN;
+    }
+
+    add_to_frame(*events_this_frame, event);
+}
+
+x11_handle_motion :: (display: *Display, window: Window, native: *XEvent) {
+    if !custom_cursor XUndefineCursor(display, window);
+
+    dx, dy := Connection.pointer_motion(window, native.xmotion.x, native.xmotion.y);
+    mouse_delta_x += dx;
+    mouse_delta_y += dy;
+}
+
+x11_handle_focus :: (window: Window, gained: bool) {
+    input_application_has_focus = gained;
+    event: Event;
+    event.type = .WINDOW;
+    event.window = window;
+    event.window_event_type = .LOST_FOCUS;
+    if gained event.window_event_type = .GAINED_FOCUS;
+
+    add_to_frame(*events_this_frame, event);
+
+    if !gained for state, index: input_button_states {
+        if (state & .DOWN) != .NONE x11_button(window, cast(Key_Code) index, false, false, .{});
+    }
+}
+
+x11_handle_client_message :: (display: *Display, window: Window, native: *XEvent) {
+    protocols := XInternAtom(display, "WM_PROTOCOLS", 0);
+    close_atom := XInternAtom(display, "WM_DELETE_WINDOW", 0);
+
+    if native.xclient.message_type == protocols && native.xclient.format == 32 && native.xclient.data.l[0] == cast(s64) close_atom {
+        event: Event;
+        event.type = .QUIT;
+        event.window = window;
+        add_to_frame(*events_this_frame, event);
+    }
+}
 
 x11_modifiers :: (state: u32) -> Event.Modifier_Flags {
     flags: Event.Modifier_Flags;
