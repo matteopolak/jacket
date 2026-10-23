@@ -24,6 +24,7 @@ exclude = [
 # Off-by-default rules this repository holds itself to.
 [lint.rules]
 excessive_nesting = "warn"
+leaked_allocation = "warn"
 
 [format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.

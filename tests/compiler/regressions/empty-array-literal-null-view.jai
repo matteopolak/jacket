@@ -12,6 +12,8 @@ main :: () -> s64 {
     if v.data return 2;
 
     a := NewArray(0, s64);
+
+    defer array_free(a);
     if a.data return 3;
 
     print("ok\n");

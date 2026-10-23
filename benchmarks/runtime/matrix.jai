@@ -8,6 +8,10 @@ main :: () {
     b := NewArray(N * N, float64);
     c := NewArray(N * N, float64);
 
+    defer array_free(a);
+    defer array_free(b);
+    defer array_free(c);
+
     for i: 0..N - 1 for j : 0..N - 1 {
         a[i * N + j] = cast(float64) ((i * 7 + j * 3) % 11);
         b[i * N + j] = cast(float64) ((i * 5 + j) % 13);

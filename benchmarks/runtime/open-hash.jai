@@ -21,6 +21,8 @@ main :: () {
     CAPACITY :: 1 << 22;
     slots := NewArray(CAPACITY, Slot);
 
+    defer array_free(slots);
+
     for 0..2_000_000 - 1 {
         key := it * 7919 % 4_000_037;
         index := mix(key) & (CAPACITY - 1);

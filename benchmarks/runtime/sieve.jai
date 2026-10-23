@@ -5,6 +5,8 @@ main :: () {
     limit :: 30_000_000;
     composite := NewArray(limit + 1, bool);
 
+    defer array_free(composite);
+
     count := 0;
 
     for 2..limit {
