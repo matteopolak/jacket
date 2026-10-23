@@ -542,6 +542,20 @@ def use_cross_libs(args):
         ],
         check=True,
     )
+    # Every Windows program binds the crash runtime (crash-native/platform_io_windows_crash), C built
+    # from source and never stored in the repository: link it as a static archive.
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools/stdlib/build_platform_io_runtime.py"),
+            "--stdlib",
+            str(ROOT / "stdlib"),
+            "--cpu",
+            args.cpu,
+            "--static-library",
+        ],
+        check=True,
+    )
     os.environ["JAIC_CROSS_LIBS"] = str(target_libraries)
     # SDL2 is linked through its import library, so its DLL goes beside the executables.
     CROSS_DLLS.extend(build_native_libs.output_dir(platform).glob("SDL2.dll"))
