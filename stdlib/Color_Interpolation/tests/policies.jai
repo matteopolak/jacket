@@ -24,7 +24,7 @@ main :: () {
 
     linear.geometry = .LINEAR;
     C.generate_color_samples(keys, linear, samples);
-    assert(samples[0].w == -0.5 && samples[4].w == 1.5);
+    assert(samples[0].w == 0 && samples[4].w == 1);
     assert(samples[1].w == 0 && samples[3].w == 1);
     linear.wrapping = true;
     C.generate_color_samples(keys, linear, samples);
@@ -33,7 +33,7 @@ main :: () {
     b.t = 0.5;
     linear.wrapping = false;
     C.generate_color_samples(keys, linear, samples);
-    assert(samples[0].w == -0.5 && samples[2].w == 0 && samples[4].w == 0.5);
+    assert(samples[0].w == 0 && samples[2].w == 0 && samples[4].w == 0.5);
     empty: [] Vector4;
 
     C.generate_color_samples(keys, linear, empty);
@@ -52,5 +52,23 @@ main :: () {
     low := C.oklab_to_linear_srgb(xyz(-1, 0, 0));
 
     assert(low.x == 0 && low.y == 0 && low.z == 0);
+
+    // Outside the keys the end colors hold, in every color space.
+    a.color_rgb = .{ 0.2, 0.4, 0.6, 0 };
+    b.color_rgb = .{ 0.8, 0.5, 0.1, 1 };
+    a.t = 0.25;
+    b.t = 0.75;
+
+    for space: C.Interpolation.color_space.[.RGB, .OKLAB, .HSV] {
+        edges: [5] Vector4;
+
+        C.generate_color_samples(keys, .{ space, .LINEAR, false }, edges);
+
+        assert(edges[0] == edges[1] && edges[3] == edges[4]);
+        assert(edges[0].w == 0 && edges[4].w == 1);
+
+        for edges assert(it.x == it.x && it.y == it.y && it.z == it.z);
+    }
+
     print("portable color policies ok\n");
 }

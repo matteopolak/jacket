@@ -155,7 +155,9 @@ interpolate_one_sample :: inline (i0: int, t: float, interp: Interpolation, sort
     denominator := t1 - t0;
     if denominator == 0 denominator = 1;
 
-    u := (t - t0) / denominator;
+    // Outside the keys the nearest key's color holds; extrapolating would leave the
+    // color range and take roots of negative numbers.
+    u := clamp((t - t0) / denominator, 0.0, 1.0);
     if interp.geometry == .QUADRIC u = easeInOutQuad(u);
     else if interp.geometry == .HERMITE u = u * u * (3 - 2 * u);
 
