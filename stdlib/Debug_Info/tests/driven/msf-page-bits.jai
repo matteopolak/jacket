@@ -63,7 +63,7 @@ main :: () {
         }
 
         for word: 0..map.rgw.count - 1 {
-            value := cast(u64) map.rgw[word];
+            value := cast,no_check(u64) map.rgw[word];
             for byte: 0..7 assert(cast(u8) ((value >> (byte * 8)) & 0xff) == bytes[start + word * 8 + byte]);
         }
 

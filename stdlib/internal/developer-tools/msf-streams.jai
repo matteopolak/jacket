@@ -80,7 +80,7 @@ parse_msf :: (file_content: string, path := "", verbose := false) -> success: bo
 
         for byte: 0..7 bits |= cast(u64) file_content[position + byte] << (byte * 8);
 
-        result.fpm.rgw[word] = cast(s64) bits;
+        result.fpm.rgw[word] = cast,no_check(s64) bits;
     }
 
     if verbose log("Debug_Info: MSF % contains % streams\n", path, result.stream_table.stream_infos.count);
