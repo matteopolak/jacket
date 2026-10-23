@@ -526,6 +526,42 @@ impl Interp {
                 }
             }
             Hook::DebugBreak => return self.trap("debug_break() was called"),
+            Hook::Service => {
+                let read = |this: &Self, s: u64| -> Res<Vec<u8>> {
+                    let count = this.fetch_u64(s)? as usize;
+                    let data = this.fetch_u64(s + 8)?;
+                    this.fetch(data, count)
+                };
+                let service = String::from_utf8_lossy(&read(self, args[0])?).into_owned();
+                let request = read(self, args[1])?;
+                let response = args[2];
+                self.effects += 1;
+                let reply = self.host.service(&service, &request);
+                let body = reply.body.into_boxed_slice();
+                let (count, data) = (body.len() as u64, body.as_ptr() as u64);
+                self.service_replies.push(body);
+                if response != 0 {
+                    self.store(ir::Ty::I64, response, count)?;
+                    self.store(ir::Ty::Ptr, response + 8, data)?;
+                }
+                return Ok(Rets::one(reply.status as u64));
+            }
+            Hook::Unknown => {
+                let s = args[0];
+                let count = self.fetch_u64(s)? as usize;
+                let data = self.fetch_u64(s + 8)?;
+                let message = String::from_utf8_lossy(&self.fetch(data, count)?).into_owned();
+                return self.trap_of(TrapKind::Unknown, message);
+            }
+            Hook::HostMonotonicNanos => {
+                static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+                // Start above zero so a reading is never mistaken for an unset value.
+                let nanos = ORIGIN
+                    .get_or_init(std::time::Instant::now)
+                    .elapsed()
+                    .as_nanos();
+                return Ok(Rets::one((nanos as u64).saturating_add(1_000_000_000)));
+            }
             Hook::AssertionFailed {
                 context,
                 location,

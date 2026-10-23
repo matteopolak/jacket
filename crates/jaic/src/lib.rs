@@ -41,6 +41,7 @@ pub mod record_build;
 pub mod records;
 pub mod render;
 pub mod sema;
+pub mod service;
 pub mod source;
 pub mod stack_trace;
 pub mod suggest;

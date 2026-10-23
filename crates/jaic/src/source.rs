@@ -549,6 +549,20 @@ pub enum DiagnosticKind {
     /// Compile-time code was not run because the workspace is untrusted (editor trust mode):
     /// the value is unknown, not wrong, so editors do not report it.
     Untrusted,
+    /// Compile-time code could not know its result here (`compile_time_unknown`: a service was
+    /// pending or unavailable). An error in a build; editors treat it like `Untrusted`.
+    Unknown,
+}
+
+impl DiagnosticKind {
+    /// Compile-time code's result is unknown, not wrong: editors salvage and hide it.
+    #[must_use]
+    pub fn is_unknown_result(self) -> bool {
+        matches!(
+            self,
+            DiagnosticKind::Untrusted | DiagnosticKind::Unavailable | DiagnosticKind::Unknown
+        )
+    }
 }
 
 impl DiagnosticKind {
@@ -576,6 +590,7 @@ impl DiagnosticKind {
             DiagnosticKind::OperatorOutOfScope => Some("operator-out-of-scope"),
             DiagnosticKind::ArgumentCount => Some("argument-count"),
             DiagnosticKind::Untrusted => Some("untrusted"),
+            DiagnosticKind::Unknown => Some("unknown-result"),
         }
     }
 }

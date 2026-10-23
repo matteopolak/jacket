@@ -17,7 +17,7 @@ Opening a folder in an editor must not run that folder's code. Jai runs code at 
 
 **Switching.** `Session::set_trusted` clears the semantic compile cache (the compiles were made under the other setting) and bumps the generation; the JSON layer then republishes diagnostics (and sends `workspace/diagnostic/refresh` to pull clients), so open files re-analyse at once.
 
-**Trusted mode still has a budget.** Trusted compile-time code runs in the editor's `SandboxHost` with `BLOCK_BUDGET` interpreter blocks per analysis, no real file or process access beyond what the sandbox provides, and output sent nowhere. Trust removes the refusal, not that sandbox.
+**Trusted mode still has a budget.** Trusted compile-time code runs in the editor's `SandboxHost` with `BLOCK_BUDGET` interpreter blocks per analysis, no real file or process access beyond what the sandbox provides, and output sent nowhere. Trust removes the refusal, not that sandbox. Trusted compiles add exactly two things to it. `getenv` reads the real environment, read-only (`SandboxHost::real_environment`). [Compile-time services](../extensions/service.md) answer from separate `jaic -interp` workers that run outside the sandbox: they are how editor code reaches a database or other slow, stateful resources without blocking a keystroke. Untrusted compiles get neither, since they run no compile-time code at all.
 
 ## How each editor sets it
 

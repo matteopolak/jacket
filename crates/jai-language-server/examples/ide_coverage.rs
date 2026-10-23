@@ -26,6 +26,7 @@ enum Role {
 
 fn environment(stdlib: PathBuf, runtime_support: bool) -> Environment {
     Environment {
+        services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |_| {
             let mut options = jaic::sema::Options::host();

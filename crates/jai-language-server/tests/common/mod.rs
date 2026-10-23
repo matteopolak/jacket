@@ -33,6 +33,7 @@ pub fn environment() -> Environment {
 /// An environment whose stdlib is `stdlib`, optionally for another OS.
 pub fn environment_at(stdlib: PathBuf, os: Option<TargetOs>) -> Environment {
     Environment {
+        services: None,
         fs: Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |_| {
             let mut options = Options::host();
@@ -51,6 +52,7 @@ pub fn environment_at(stdlib: PathBuf, os: Option<TargetOs>) -> Environment {
 pub fn modules_environment(os: Option<TargetOs>) -> Environment {
     let stdlib = std::env::var_os("JAIC_STDLIB").map_or_else(stdlib_dir, PathBuf::from);
     Environment {
+        services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();
@@ -68,6 +70,7 @@ pub fn modules_environment(os: Option<TargetOs>) -> Environment {
 /// An environment without the runtime support or stack traces, so no stdlib is needed.
 pub fn lean_environment() -> Environment {
     Environment {
+        services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(|_| {
             let mut options = jaic::sema::Options::host();
@@ -104,6 +107,7 @@ pub fn session_over(
     Session::with_environment(
         Limits::default(),
         Environment {
+            services: None,
             fs,
             options: Box::new(move |_| {
                 let mut options = Options::host();

@@ -31,6 +31,8 @@ mod protocol;
 mod refactor;
 mod selection;
 mod semantic;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod services;
 mod session;
 mod struct_literal;
 mod suggestion_fixes;

@@ -116,6 +116,7 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
     let mut s = Session::with_environment(
         Limits::default(),
         Environment {
+            services: None,
             fs: std::rc::Rc::new(ProvenAlias),
             options: Box::new(|_| {
                 let mut o = jaic::sema::Options::host();
@@ -178,6 +179,7 @@ fn native_windows_drive_uri_resolves_production_print() {
     let mut s = Session::with_environment(
         Limits::default(),
         Environment {
+            services: None,
             fs: std::rc::Rc::new(jaic::sema::NativeFs),
             options: Box::new(move |_| {
                 let mut o = jaic::sema::Options::host();

@@ -102,6 +102,29 @@ impl Session {
         }
     }
 
+    /// Compile-time service answers that compiles read as pending have arrived: check again.
+    /// Returns whether any did.
+    pub fn take_service_arrivals(&mut self) -> bool {
+        let arrived = self
+            .environment
+            .as_ref()
+            .and_then(|env| env.services.as_ref())
+            .is_some_and(|services| services.take_arrivals());
+        if arrived {
+            self.semantic.borrow_mut().forget_compiles();
+            self.touch();
+        }
+        arrived
+    }
+
+    /// Some compile-time service answer is still pending.
+    pub fn services_waiting(&self) -> bool {
+        self.environment
+            .as_ref()
+            .and_then(|env| env.services.as_ref())
+            .is_some_and(|services| services.waiting())
+    }
+
     pub fn trusted(&self) -> bool {
         self.semantic.borrow().trusted()
     }

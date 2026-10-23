@@ -100,9 +100,10 @@ fn check_rest(
     errors
 }
 
-/// Without the errors that only say compile-time code was not run (an untrusted workspace,
-/// or a foreign procedure the editor's sandbox does not provide, which a build runs for
-/// real): what it would have produced is unknown, not wrong. Code a `#insert` would have generated
+/// Without the errors that only say compile-time code was not run (an untrusted workspace, or a
+/// foreign procedure the editor's sandbox does not provide, which a build runs for real) or could
+/// not know its result (a pending or unavailable compile-time service): what it would have
+/// produced is unknown, not wrong. Code a `#insert` would have generated
 /// may declare any name, so a file that has one refused cannot report names as unknown.
 fn known(
     compiler: &Compiler,
@@ -116,12 +117,9 @@ fn known(
             .is_some_and(|ide| ide.refused.iter().any(|s| s.file == file))
             && compiler.src.sources.get(file).text.contains("#insert")
     };
-    errors.retain(|e| match e.kind {
-        DiagnosticKind::Untrusted | DiagnosticKind::Unavailable => false,
-        DiagnosticKind::UnknownIdentifier {
-            ..
-        } => !refused(e.span.file),
-        _ => true,
+    errors.retain(|e| {
+        !(e.kind.is_unknown_result()
+            || (matches!(e.kind, DiagnosticKind::UnknownIdentifier { .. }) && refused(e.span.file)))
     });
     errors
 }
@@ -240,6 +238,13 @@ pub(super) fn compile(
         fs,
         &dir.to_string_lossy(),
     )));
+    // Trusted compile-time code may ask services and read the real environment (a database
+    // URL, say); the rest of the sandbox stays.
+    if !untrusted {
+        let mut host = host.borrow_mut();
+        host.services.clone_from(&env.services);
+        host.real_environment = true;
+    }
     compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
     compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
     // Spelled like the compiler's source paths, which come through the overlay's keys.

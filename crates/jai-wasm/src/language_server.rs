@@ -85,6 +85,7 @@ pub fn lsp_environment() -> Environment {
     let fs = Rc::new(virtual_fs(&BTreeMap::new()));
     let option_fs = fs.clone();
     Environment {
+        services: None,
         fs,
         options: Box::new(move |main| {
             let mut options = Options::host();

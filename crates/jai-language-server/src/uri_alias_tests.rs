@@ -39,6 +39,7 @@ fn fixture(text: &str) -> (Session, DocumentUri, DocumentUri) {
     let mut s = Session::with_environment(
         Limits::default(),
         Environment {
+            services: None,
             fs: Rc::new(AliasFs),
             options: Box::new(|_| {
                 let mut o = jaic::sema::Options::host();

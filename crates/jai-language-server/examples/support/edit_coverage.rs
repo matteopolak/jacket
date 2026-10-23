@@ -67,6 +67,7 @@ fn file_uri(path: &Path) -> DocumentUri {
 
 fn environment(stdlib: Option<PathBuf>) -> Environment {
     Environment {
+        services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |_| {
             let mut options = jaic::sema::Options::host();

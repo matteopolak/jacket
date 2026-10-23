@@ -266,6 +266,14 @@ pub struct SandboxHost {
     error_texts: HashMap<u64, u64>,
     stdin: stdin::Stdin,
     objc: objc::Objc,
+    /// Compile-time services, when the embedder offers them (the language server in a trusted
+    /// workspace). `None` answers every call as unavailable.
+    pub services: Option<Rc<dyn crate::service::ServiceProvider>>,
+    /// `getenv` reads the process's real environment (the language server in a trusted
+    /// workspace); otherwise every variable is unset.
+    pub real_environment: bool,
+    /// `getenv` results by (name, value); they stay valid for the whole run, like libc's.
+    environment_texts: HashMap<(String, String), u64>,
 }
 
 impl SandboxHost {
@@ -559,6 +567,16 @@ impl Host for SandboxHost {
     fn working_directory(&self) -> Option<String> {
         (!self.cwd.is_empty()).then(|| self.cwd.clone())
     }
+
+    fn service(&mut self, service: &str, request: &[u8]) -> crate::service::ServiceReply {
+        let Some(services) = &self.services else {
+            return crate::service::ServiceReply::unavailable(
+                "compile-time services are not available here",
+            );
+        };
+        let base = (!self.cwd.is_empty()).then(|| std::path::Path::new(&self.cwd));
+        services.ask(&crate::service::resolve(service, base), request)
+    }
 }
 
 /// Shares a [`SandboxHost`] with the embedder so output can be read after the run (and so
@@ -601,5 +619,22 @@ impl Host for SharedHost {
 
     fn working_directory(&self) -> Option<String> {
         self.0.borrow().working_directory()
+    }
+
+    fn service(&mut self, service: &str, request: &[u8]) -> crate::service::ServiceReply {
+        // The provider may run for a while (a short wait in the editor): don't hold the borrow.
+        let (services, base) = {
+            let host = self.0.borrow();
+            (host.services.clone(), host.working_directory())
+        };
+        let Some(services) = services else {
+            return crate::service::ServiceReply::unavailable(
+                "compile-time services are not available here",
+            );
+        };
+        services.ask(
+            &crate::service::resolve(service, base.as_deref().map(std::path::Path::new)),
+            request,
+        )
     }
 }

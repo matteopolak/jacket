@@ -23,6 +23,7 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
     let mut session = Session::with_environment(
         Limits::default(),
         Environment {
+            services: None,
             fs: Rc::new(fs),
             options: Box::new(move |root| {
                 observed.set(observed.get() + 1);

@@ -1,0 +1,13 @@
+[
+  {
+    "name": "call",
+    "stdout": "OK HELLO\nOK AGAIN\nFAILED no table\nUNAVAILABLE no database\nFAILED\nUNAVAILABLE\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "compile-time services start jaic worker processes"
+    ]
+  }
+]

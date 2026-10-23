@@ -59,7 +59,7 @@ impl JsonSession {
     }
 
     /// The publications after an edit, and a pull request when a settings file changed.
-    fn edited(&mut self, settings_touched: bool) -> Vec<Value> {
+    pub(super) fn edited(&mut self, settings_touched: bool) -> Vec<Value> {
         let mut messages = self.publications();
         if settings_touched {
             messages.extend(self.refresh());
