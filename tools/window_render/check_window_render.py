@@ -122,11 +122,9 @@ def main():
             if os_name == "windows":
                 run([compiler, ROOT / "stdlib/Simp/tests/font-public.jai", "-check", "-no_dce",
                      "-os", os_name, "-cpu", cpu, "-I", args.stdlib])
-    for cpu in ["x64", "arm64"]:
-        # Execute pure packet assertions with the target's layouts at compile
-        # time; native Windows startup APIs cannot execute on a foreign host.
-        run([compiler, test_source("windows-device-decoding"), "-check", "-add", "#run main();",
-             "-os", "windows", "-cpu", cpu, "-I", args.stdlib], "ok\n")
+    # The packet assertions of windows-device-decoding run natively in the Windows stdlib runtime shards. A
+    # cross build's `#run` executes on the host twin, which sees the host's Windows module, so the cross
+    # builds above only type-check it.
     for case, member in [("private-helper-negative", "pack_bitmap"), ("private-atlas-negative", "atlas_create_page")]:
         visibility = subprocess.run([str(compiler), str(ROOT / WINDOW_RENDER_TESTS[case]),
                                      "-check", "-os", "linux", "-I", str(args.stdlib)],
