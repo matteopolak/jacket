@@ -145,6 +145,16 @@
               "default": "deny",
               "markdownDescription": "`a = b; b = a;`, a swap that sets both to `b` (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#almost_swapped)"
             },
+            "approx_constant": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a hand-typed `3.14159` or `1.4142` where `Math` has the constant (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#approx_constant)"
+            },
             "banner_comment": {
               "type": "string",
               "enum": [

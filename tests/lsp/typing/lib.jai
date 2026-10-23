@@ -16,7 +16,7 @@ scaled :: (body: Body, factor: float) -> Body {
 }
 
 area :: (body: Body) -> float {
-    if body.shape == .CIRCLE return 3.14159 * body.size * body.size;
+    if body.shape == .CIRCLE return 3.14159 * body.size * body.size; // jailint: allow(approx_constant)
     return body.size * body.size;
 }
 

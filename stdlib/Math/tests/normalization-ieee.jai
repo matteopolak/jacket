@@ -15,8 +15,8 @@ main :: () {
         n := M.normalize(*v);
 
         assert(n > 0);
-        assert(M.abs(cast(float64) v.x - 0.7071067811865476) < 0.00000002, "normalization must not divide by a rounded/overflowed binary32 length");
-        assert(M.abs(cast(float64) v.y - 0.7071067811865476) < 0.00000002);
+        assert(M.abs(cast(float64) v.x - M.SQRTH) < 0.00000002, "normalization must not divide by a rounded/overflowed binary32 length");
+        assert(M.abs(cast(float64) v.y - M.SQRTH) < 0.00000002);
     }
 
     v3 := M.unit_vector(M.xyz(M.FLOAT32_MAX, M.FLOAT32_MAX, M.FLOAT32_MAX));

@@ -341,6 +341,7 @@ LOG2_E :: Pair.{ 1.4426950408889634, 2.0355273740931033e-17 }; // 1 / ln 2
 LOG10_E :: Pair.{ 0.4342944819032518, 1.098319650216765e-17 }; // 1 / ln 10
 EXP_OVERFLOW :: 709.782712893384; // above: beyond the largest float64
 EXP_UNDERFLOW :: -745.1332191019412; // below: under half the smallest subnormal
+ROOT_TWO :: 1.4142135623730951;
 
 // value * 2^exponent for any exponent, through steps that stay in range.
 scale :: (value: float64, exponent: s64) -> float64 #no_context {
@@ -394,7 +395,7 @@ log_pair :: (x: float64) -> Pair #no_context {
     k := e + 52;
     mantissa := from_bits((m & FRACTION_BITS) | 0x3ff0_0000_0000_0000); // in [1, 2)
 
-    if mantissa > 1.4142135623730951 {
+    if mantissa > ROOT_TWO {
         mantissa *= 0.5;
         k += 1;
     }

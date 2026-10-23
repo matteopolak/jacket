@@ -13,7 +13,7 @@ tour_strings :: () {
     print("%1, %1. %2\n", "Knock", "Who's there?");
 
     // Formatting helpers wrap a value with options.
-    pi := 3.14159265;
+    pi := PI64;
 
     print("pi to 2 places: %, padded: [%]\n",
         formatFloat(pi, trailing_width = 2), formatFloat(pi, width = 10, trailing_width = 4));

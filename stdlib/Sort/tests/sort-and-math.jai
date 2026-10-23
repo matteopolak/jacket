@@ -18,6 +18,6 @@ main :: () {
 
     Sort.quick_sort(ranked, item => item.rank);
     assert(ranked[0].rank == -1 && ranked[1].rank == 3 && ranked[2].rank == 8);
-    assert(Math.PI64 > 3.141592653589 && Math.PI64 < 3.141592653590);
+    assert(Math.PI64 > 3.141592653589 && Math.PI64 < 3.141592653590); // jailint: allow(approx_constant)
     print("ok\n");
 }

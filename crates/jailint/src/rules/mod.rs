@@ -9,6 +9,7 @@ use jaic::source::Span;
 
 mod absurd_comparison;
 mod almost_swapped;
+mod approx_constant;
 mod banner_comment;
 mod bitwise_precedence;
 mod bool_comparison;
@@ -86,6 +87,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "`a = b; b = a;`, a swap that sets both to `b`",
         check: almost_swapped::check,
+    },
+    RuleInfo {
+        name: "approx_constant",
+        category: Category::Style,
+        summary: "a hand-typed `3.14159` or `1.4142` where `Math` has the constant",
+        check: approx_constant::check,
     },
     RuleInfo {
         name: "banner_comment",

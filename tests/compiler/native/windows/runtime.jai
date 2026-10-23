@@ -86,7 +86,7 @@ main :: () {
     memset(big, 7, 1 << 24);
     check((cast(*u8) big)[(1 << 24) - 1] == 7, "large allocation");
     free(big);
-    check(abs(sqrt(2.0) - 1.41421356) < 0.00001, "sqrt");
+    check(abs(sqrt(2.0) - 1.41421356) < 0.00001, "sqrt"); // jailint: allow(approx_constant)
     args := get_command_line_arguments();
     for args check(it.count > 0, "command line argument");
 
