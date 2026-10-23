@@ -93,9 +93,31 @@ sudo() {
 }
 apt_get update""")
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.count("timeout 600 apt-get update"), 3)
-        self.assertEqual(result.stdout.count("dpkg --configure -a"), 3)
-        self.assertIn("attempt 3 of 3", result.stderr)
+        self.assertEqual(result.stdout.count("timeout 180 apt-get update"), 5)
+        self.assertEqual(result.stdout.count("dpkg --configure -a"), 5)
+        self.assertIn("attempt 5 of 5", result.stderr)
+
+    def test_prefetch_downloads_each_planned_package_and_never_fails(self):
+        result = self.run_bash("""source "$1"
+sudo() {
+  if [[ "$1" == apt-get ]]; then
+    printf "'http://m/a_1.deb' a_1.deb 10 SHA256:x\\n'http://m/b_2.deb' b_2.deb 20 SHA256:y\\n"
+  else
+    shift 2
+    [[ "$1" != curl ]] || { shift; printf 'curl %s\\n' "$*"; return 22; }
+  fi
+}
+export -f sudo
+apt_prefetch pkg""")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("/var/cache/apt/archives/a_1.deb http://m/a_1.deb", result.stdout)
+        self.assertIn("/var/cache/apt/archives/b_2.deb http://m/b_2.deb", result.stdout)
+
+    def test_prefetch_tolerates_a_failed_plan(self):
+        result = self.run_bash("""source "$1"
+sudo() { return 100; }
+apt_prefetch pkg""")
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

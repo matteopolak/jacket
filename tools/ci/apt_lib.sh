@@ -34,12 +34,26 @@ apt_configure() {
 # install cut off mid-way leaves dpkg half done, so finish that before the retry.
 apt_get() {
   local attempt
-  for attempt in 1 2 3; do
-    if sudo timeout 600 apt-get "$@"; then
+  for attempt in 1 2 3 4 5; do
+    if sudo timeout 180 apt-get "$@"; then
       return 0
     fi
-    echo "apt-get $1 failed or stalled (attempt $attempt of 3)" >&2
+    echo "apt-get $1 failed or stalled (attempt $attempt of 5)" >&2
     sudo dpkg --configure -a || true
   done
   return 1
+}
+
+# Best-effort: fetch the packages an install would need over several connections into apt's archive
+# cache, so one slow connection cannot stall the whole install. The real install then finds the
+# files (apt checks their hashes and refetches anything bad). Never fails; apt_get does the work.
+apt_prefetch() {
+  local uris
+  uris=$(sudo apt-get install --yes --no-install-recommends --print-uris "$@" 2> /dev/null \
+    | sed -n "s/^'\([^']*\)' \([^ ]*\) .*/\1 \2/p") || return 0
+  [[ -n "$uris" ]] || return 0
+  # shellcheck disable=SC2016 # $0 and $1 belong to the inner bash
+  printf '%s\n' "$uris" \
+    | xargs -P 8 -L 1 bash -c 'sudo timeout 180 curl --fail --silent --location --retry 3 --connect-timeout 20 --output "/var/cache/apt/archives/$1" "$0"' \
+    || true
 }

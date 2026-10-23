@@ -1012,7 +1012,7 @@ jobs:
       - name: Install MinGW-w64
         if: matrix.cpu == 'x64'
         run: |
-          sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+          bash tools/ci/apt_install.sh gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
           x86_64-w64-mingw32-gcc --version
       - name: Install llvm-mingw
         if: matrix.cpu == 'arm64'

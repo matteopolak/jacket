@@ -10,4 +10,5 @@ fi
 source "$(dirname "${BASH_SOURCE[0]}")/apt_lib.sh"
 apt_configure /etc/apt
 apt_get update
+apt_prefetch "$@"
 apt_get install --yes --no-install-recommends "$@"
