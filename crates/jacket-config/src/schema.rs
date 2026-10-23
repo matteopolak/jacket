@@ -61,6 +61,15 @@ pub struct Lint {
     /// How many blocks deep code may nest before `excessive_nesting` fires.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_nesting: Option<usize>,
+    /// Numbers `magic_number` never reports, besides its built-in ones.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub magic_number_allow: Vec<f64>,
+    /// Whole numbers smaller than this in magnitude are not magic (`magic_number`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub magic_number_min: Option<f64>,
+    /// `magic_number` also checks files in `tests` and `test` folders.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub magic_number_in_tests: Option<bool>,
     /// Rule name and level text (`allow`, `warn`, `deny`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rules: BTreeMap<String, String>,
@@ -130,7 +139,14 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         "" => &["project", "toolchain", "lint", "format", "experimental"],
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],
-        "lint" => &["exclude", "max_nesting", "rules"],
+        "lint" => &[
+            "exclude",
+            "max_nesting",
+            "magic_number_allow",
+            "magic_number_min",
+            "magic_number_in_tests",
+            "rules",
+        ],
         "format" => &[
             "indent_width",
             "case_indent",

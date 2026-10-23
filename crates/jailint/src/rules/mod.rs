@@ -29,6 +29,7 @@ mod infinite_loop;
 mod integer_division_in_float;
 mod leaked_allocation;
 mod lossy_xx;
+mod magic_number;
 mod manual_assign_op;
 mod manual_index_counter;
 mod min_max;
@@ -191,6 +192,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Allow,
         summary: "`xx` that narrows a number to a smaller type",
         check: lossy_xx::check,
+    },
+    RuleInfo {
+        name: "magic_number",
+        default: Level::Allow,
+        summary: "an unexplained number in arithmetic, a comparison or an assignment",
+        check: magic_number::check,
     },
     RuleInfo {
         name: "manual_assign_op",

@@ -91,6 +91,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `integer_division_in_float` | warn | no | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
 | `leaked_allocation` | allow | no | `p := New(T);` that is never freed, returned or handed on |
 | `lossy_xx` | allow | yes | `xx` that narrows a number to a smaller type |
+| `magic_number` | allow | no | `if x > 37`, `y * 1.0472`, `timeout = 8640`: an unexplained number where a named constant would read better |
 | `manual_assign_op` | warn | yes | `a = a + b` to `a += b` |
 | `manual_index_counter` | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
 | `min_max` | warn | no | `min(0, max(100, x))`: a clamp with swapped bounds |
@@ -156,6 +157,20 @@ Operands are typed before the cast, so the integers divide first. A variable div
 Off by default: ownership conventions differ, and a program that allocates once for its whole run may leak on purpose. A local declared from a call of an `@Allocates` procedure (the library's `alloc`, `New`, `NewArray`, `copy_string`, `sprint`, `join`, `array_copy`, `to_upper_copy`, `read_entire_file`, ...; a cast around the call is fine) whose every later mention is harmless: reading or writing a number, bool or enum through it (`p.count`, `p.depth = 1`), comparing it, testing it in an `if`/`while`, or a bare statement. Passing it (or anything reached through it) to any call, freeing it (also by `defer`), returning it, assigning it elsewhere, taking its address, putting it in a literal or reassigning it all count as handling the memory and keep the rule silent. It also stays silent when it cannot tell which allocator is in force: a procedure that uses `push_context`, assigns `context`, calls a macro (`push_allocator` is one) or has `#insert`/`using`, an allocating call with `,, allocator = temp`, or a name mentioned where the walk cannot follow.
 ### lossy_xx
 Off by default: narrowing with `xx` is common Jai style. The fix spells out `cast(T)`.
+### magic_number
+Off by default. Reports a decimal literal written directly as an operand of `+ - * / %` or a comparison, or as the value of an assignment (`x = 37;`, `x += 37;`). Arguments, indexes, array and struct literals, `return` values, `case` labels and declarations (`x := 37;` names the number already) are left alone, as is anything inside a constant declaration, a type (`[48] u8`), a `cast`, `#run` or `#asm`. Bitwise and shift operators are skipped: masks and shift counts are their own idiom. Never reported: whole numbers below `magic_number_min` in magnitude (default 3, so `-2` to `2`), powers of two, all-ones masks (`255`, `1023`), hex, octal and binary literals, floats with an allowed whole value (`2.0`) or a fraction in eighths (`0.5`, `0.25`, `1.5`), `10`, `100`, `1000`, and anything in `magic_number_allow`. Tune it under `[lint]`:
+
+```toml
+[lint]
+magic_number_allow = [60, 24, 3.14159]   # never reported (negatives too)
+magic_number_min = 10                    # whole numbers below 10 are fine
+magic_number_in_tests = true             # also check files in `tests`/`test` folders
+
+[lint.rules]
+magic_number = "warn"
+```
+
+Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set, since test data is full of expected values. In `==` and `!=` with a printable ASCII code (`c == 47`) the help suggests `#char "/"`. Generated files are skipped. On the standard library outside its tests, the defaults report about 1,400 numbers: mostly character codes, calendar arithmetic and file-format offsets. Fix by naming the number: `RETRY_AFTER :: 8640;`.
 ### manual_assign_op
 Target must be side-effect-free and the operation must keep its type.
 ### manual_index_counter
@@ -223,6 +238,8 @@ The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up f
 [lint]
 exclude = ["tests/corpus/negative/**", "generated/**"]   # globs relative to this file
 max_nesting = 6                                          # blocks `excessive_nesting` allows
+magic_number_allow = [60, 24]                            # numbers `magic_number` accepts
+magic_number_min = 3                                     # whole numbers below this are fine
 
 [lint.rules]
 excessive_nesting = "warn"

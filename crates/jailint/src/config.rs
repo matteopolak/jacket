@@ -55,6 +55,12 @@ pub struct Config {
     pub exclude: Vec<String>,
     /// How many blocks deep code may nest before `excessive_nesting` fires.
     pub max_nesting: Option<usize>,
+    /// Numbers `magic_number` lets through, besides its built-in ones.
+    pub magic_number_allow: Vec<f64>,
+    /// Whole numbers below this magnitude are not magic.
+    pub magic_number_min: Option<f64>,
+    /// `magic_number` also checks files in `tests` folders.
+    pub magic_number_in_tests: Option<bool>,
     /// Directory of the configuration file (or the working directory).
     pub root: PathBuf,
     /// The file the settings came from, if any.
@@ -66,10 +72,43 @@ pub struct Config {
 /// The nesting depth `excessive_nesting` allows when nothing sets it.
 pub const DEFAULT_MAX_NESTING: usize = 6;
 
+/// Whole numbers below this magnitude are not magic when nothing sets `magic_number_min`.
+pub const DEFAULT_MAGIC_NUMBER_MIN: f64 = 3.0;
+
+/// The numbers `magic_number` lets through.
+#[derive(Clone, Debug)]
+pub struct MagicNumbers {
+    /// Allowed exactly (and negated).
+    pub allow: Vec<f64>,
+    /// Whole numbers below this magnitude are allowed.
+    pub min: f64,
+    /// Files in `tests` folders are checked too.
+    pub in_tests: bool,
+}
+
+impl Default for MagicNumbers {
+    fn default() -> Self {
+        MagicNumbers {
+            allow: Vec::new(),
+            min: DEFAULT_MAGIC_NUMBER_MIN,
+            in_tests: false,
+        }
+    }
+}
+
 impl Config {
     /// The deepest block nesting `excessive_nesting` accepts.
     pub fn max_nesting(&self) -> usize {
         self.max_nesting.unwrap_or(DEFAULT_MAX_NESTING)
+    }
+
+    /// The numbers `magic_number` lets through.
+    pub fn magic_numbers(&self) -> MagicNumbers {
+        MagicNumbers {
+            allow: self.magic_number_allow.clone(),
+            min: self.magic_number_min.unwrap_or(DEFAULT_MAGIC_NUMBER_MIN),
+            in_tests: self.magic_number_in_tests.unwrap_or(false),
+        }
     }
 
     /// The level of `rule`, whose default is `default`.
@@ -88,6 +127,9 @@ impl Config {
             root: root.to_path_buf(),
             exclude: lint.exclude.clone(),
             max_nesting: lint.max_nesting,
+            magic_number_allow: lint.magic_number_allow.clone(),
+            magic_number_min: lint.magic_number_min,
+            magic_number_in_tests: lint.magic_number_in_tests,
             ..Config::default()
         };
         for (rule, level) in &lint.rules {

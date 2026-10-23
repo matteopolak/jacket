@@ -355,7 +355,8 @@ fn known_keys_match_the_structs() {
         ("toolchain", "version = \"1\"\n"),
         (
             "lint",
-            "exclude = [\"a\"]\nmax_nesting = 1\n[lint.rules]\na = \"b\"\n",
+            "exclude = [\"a\"]\nmax_nesting = 1\nmagic_number_allow = [60, 0.5]\n\
+             magic_number_min = 4\nmagic_number_in_tests = true\n[lint.rules]\na = \"b\"\n",
         ),
         (
             "format",

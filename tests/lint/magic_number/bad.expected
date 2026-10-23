@@ -1,0 +1,64 @@
+warning[magic_number]: magic number `37` in a comparison
+  --> tests/lint/magic_number/bad.jai:7:18
+   |
+ 7 |     if elapsed > 37 timeout = 8640;
+   |                  ^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+
+warning[magic_number]: magic number `8640` in an assignment
+  --> tests/lint/magic_number/bad.jai:7:31
+   |
+ 7 |     if elapsed > 37 timeout = 8640;
+   |                               ^^^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+
+warning[magic_number]: magic number `45` in an assignment
+  --> tests/lint/magic_number/bad.jai:9:16
+   |
+ 9 |     timeout += 45;
+   |                ^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+
+warning[magic_number]: magic number `1.37` in arithmetic
+  --> tests/lint/magic_number/bad.jai:10:23
+   |
+10 |     turned := angle * 1.37;
+   |                       ^^^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+
+warning[magic_number]: magic number `-13` in a comparison
+  --> tests/lint/magic_number/bad.jai:11:19
+   |
+11 |     if elapsed == -13 return 0, turned;
+   |                   ^^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+
+warning[magic_number]: magic number `3600` in arithmetic
+  --> tests/lint/magic_number/bad.jai:13:24
+   |
+13 |     hours := elapsed / 3600 + timeout % DAY_SECONDS;
+   |                        ^^^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+
+warning[magic_number]: magic number `0.3` in arithmetic
+  --> tests/lint/magic_number/bad.jai:16:17
+   |
+16 |     if turned - 0.3 < eps || elapsed == 47 return hours, 0;
+   |                 ^^^
+   |
+   = help: name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`
+
+warning[magic_number]: magic number `47` in a comparison
+  --> tests/lint/magic_number/bad.jai:16:41
+   |
+16 |     if turned - 0.3 < eps || elapsed == 47 return hours, 0;
+   |                                         ^^
+   |
+   = help: if this is a character, write `#char "/"`
+

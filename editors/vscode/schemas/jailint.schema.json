@@ -238,6 +238,16 @@
           "default": "allow",
           "markdownDescription": "`xx` that narrows a number to a smaller type (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#lossy_xx)"
         },
+        "magic_number": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "an unexplained number in arithmetic, a comparison or an assignment (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#magic_number)"
+        },
         "manual_assign_op": {
           "type": "string",
           "enum": [

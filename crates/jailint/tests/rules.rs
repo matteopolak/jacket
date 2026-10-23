@@ -23,10 +23,20 @@ fn repo() -> PathBuf {
 
 /// Lint `file` with `levels` on top of every rule allowed.
 fn lint(file: &Path, levels: &[(&str, Level)]) -> (Vec<Lint>, String) {
-    let mut config = Config {
-        root: repo(),
-        ..Config::default()
-    };
+    lint_with(
+        file,
+        levels,
+        Config {
+            // The cases live in `tests/lint`, which `magic_number` skips by default.
+            magic_number_in_tests: Some(true),
+            ..Config::default()
+        },
+    )
+}
+
+/// [`lint`] with other settings in `config`.
+fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<Lint>, String) {
+    config.root = repo();
     for r in RULES {
         config.levels.insert(r.name.to_string(), Level::Allow);
     }
@@ -255,4 +265,35 @@ fn runs_in_one_process_share_no_state() {
     let _ = std::fs::remove_dir_all(&root);
     assert_eq!(second.len(), 1, "{second:?}");
     assert!(second[0].message.contains("title"));
+}
+
+#[test]
+fn magic_number_settings() {
+    let file = repo().join("tests/lint/magic_number/bad.jai");
+    let levels = [("magic_number", Level::Warn)];
+    let found = |config: Config| -> Vec<String> {
+        let (lints, text) = lint_with(&file, &levels, config);
+        lints
+            .iter()
+            .map(|l| text[l.start..l.end].to_string())
+            .collect()
+    };
+    // Files in a `tests` folder are skipped unless asked for.
+    assert!(found(Config::default()).is_empty());
+    let all = found(Config {
+        magic_number_in_tests: Some(true),
+        ..Config::default()
+    });
+    assert_eq!(
+        all,
+        ["37", "8640", "45", "1.37", "-13", "3600", "0.3", "47"]
+    );
+    // An allowed number is allowed negated too; whole numbers below the minimum pass.
+    let tuned = found(Config {
+        magic_number_in_tests: Some(true),
+        magic_number_allow: vec![13.0, 1.37, 3600.0],
+        magic_number_min: Some(50.0),
+        ..Config::default()
+    });
+    assert_eq!(tuned, ["8640", "0.3"]);
 }
