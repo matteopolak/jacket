@@ -51,6 +51,7 @@
 - A module's procedures and the same-named procedures of a module it re-exports with `using` form one overload set for its importers.
 - Overloads that take constant parameters of different distinct types, such as `($c: Position)` and `($c: Velocity)`, are told apart by the argument's type.
 - A global initializer can hold the `data` of a global fixed array, as in `view : [] T = .{0, buffer.data}`.
+- `jailint`'s `manual_assign_op` no longer turns `a = f() + a` into `a += f()`, which reads `a` before the call instead of after.
 - `jailint`'s `needless_bool` no longer rewrites `!(a == b)` to `a != b` for a type that only defines `operator ==`.
 - The language server and `jailint --fix` no longer run out of memory on a polymorphic procedure that instantiates itself with ever deeper pointer types.
 - An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.

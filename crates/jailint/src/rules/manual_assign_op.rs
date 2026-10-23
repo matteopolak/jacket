@@ -7,7 +7,8 @@
 //! when the target is a side-effect-free expression (names, member paths, indexing; no calls)
 //! of a number type, spelled the same on both sides, and `a OP b` has the target's type (so the
 //! compound form converts nothing differently). For `+`, `*`, `&`, `|` and `^` on integers,
-//! `a = b OP a` is reported too. The fix is machine-applicable.
+//! `a = b OP a` is reported too, when `b` has no side effects (`a = f() + a` reads `a` after
+//! `f` ran, `a += f()` before). The fix is machine-applicable.
 use super::{op_text, pure, replacing};
 use crate::Finding;
 use crate::syntax::{Cx, walk};
@@ -66,7 +67,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             ) && types.is_integer(ty);
             let other = if same(a) {
                 b
-            } else if commutes && same(b) {
+            } else if commutes && same(b) && pure(a) {
                 a
             } else {
                 return true;
