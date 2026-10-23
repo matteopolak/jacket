@@ -89,23 +89,26 @@ const KEEPS_MEMORY: u8 = 2;
 /// The call can have effects outside the interpreter's memory.
 const OBSERVABLE: u8 = 4;
 
-/// The call can write to the terminal, so the build status line goes down first.
+/// The call may write to the terminal, so the build status line goes down first.
 const WRITES_OUTPUT: u8 = 8;
 
-/// C functions that write to a file descriptor or stream (`WRITES_OUTPUT`).
-const OUTPUT_SYMBOLS: &[&str] = &[
-    "write",
-    "writev",
-    "fwrite",
-    "fputs",
-    "puts",
-    "putchar",
-    "printf",
-    "fprintf",
-    "WriteFile",
-    "WriteConsoleA",
-    "WriteConsoleW",
-];
+/// Does the call leave the terminal alone? Only these known calls do (`write` is in the memory
+/// list but writes). Any other may print (`system`, `dprintf`, a spawned child, a library's own
+/// output), so the status line goes down before it.
+fn is_quiet(symbol: &str) -> bool {
+    const QUIET: &[&str] = &[
+        "nanosleep",
+        "usleep",
+        "sleep",
+        "clock_nanosleep",
+        "sched_yield",
+    ];
+    symbol != "write"
+        && (KEEPS_MEMORY_SYMBOLS.contains(&symbol)
+            || UNOBSERVABLE_SYMBOLS.contains(&symbol)
+            || QUIET.contains(&symbol)
+            || symbol.starts_with("pthread_"))
+}
 
 impl Interp {
     pub(super) fn load_required_libraries(&mut self, program: &Program) -> Res<()> {
@@ -254,7 +257,7 @@ impl Interp {
         if !UNOBSERVABLE_SYMBOLS.contains(&symbol) {
             flags |= OBSERVABLE;
         }
-        if OUTPUT_SYMBOLS.contains(&symbol) {
+        if !is_quiet(symbol) {
             flags |= WRITES_OUTPUT;
         }
         if self.foreign_flags.len() <= id.0 as usize {

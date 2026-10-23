@@ -192,7 +192,11 @@ impl Interp {
                             _ => match self.thunk_funcs.get(&addr) {
                                 // A thunk this interpreter made: no need to go through C.
                                 Some(&f) => self.exec(program, f, argv)?,
-                                None => self.call_native(program, addr, argv, sig, None, true)?,
+                                None => {
+                                    // Native code of unknown purpose may print.
+                                    crate::progress::before_output();
+                                    self.call_native(program, addr, argv, sig, None, true)?
+                                }
                             },
                         }
                     }

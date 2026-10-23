@@ -102,7 +102,7 @@ The middle line is replaced as the compile moves through `Parsing`, `Checking`, 
 | `-quiet` / `--quiet` | nothing |
 | `JAIC_PROGRESS=off\|plain\|live` | that, whatever stderr is (`-quiet` still wins) |
 
-Diagnostics, `-verbose` lines, what compile-time code prints and the program's own output are never mixed with the status line: everything jaic writes to stderr, and every write compile-time code makes through `write`, `WriteFile` and friends, erases the line first and keeps it down for 400 ms. A jaic started by compile-time code inherits `JAIC_PROGRESS=off`, so two status lines never share a terminal.
+Diagnostics, `-verbose` lines, what compile-time code prints and the program's own output are never mixed with the status line: everything jaic writes to stderr, and every write compile-time code makes, and every foreign call not known to be quiet (a spawned shell, a library's own printing), erases the line first and keeps it down for 400 ms. A jaic started by compile-time code inherits `JAIC_PROGRESS=off`, so two status lines never share a terminal.
 
 The implementation is `jaic::progress` (`crates/jaic/src/progress.rs`). The phases come from the same places `-timings` and `PERFORMANCE_REPORT` measure (`timings::time` in `jaic-cli`, the `#run` clock in `sema/consteval.rs`, body lowering, file loading); counters are relaxed atomics touched only while the status line is live, and a separate thread samples them about 12 times a second. With the status off the cost is one relaxed load per file, module and procedure body.
 

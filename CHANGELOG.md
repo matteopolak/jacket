@@ -35,6 +35,8 @@
 - Changing VS Code settings while the language server restarts no longer logs errors.
 - Compile-time code that runs before the context is set up no longer breaks later compile-time code.
 - Unsupported target options set by a build program are reported as errors.
+- A `jacket.toml` key written outside its section, such as `import_path` or `build_files`, now says where it belongs.
+- The build status line no longer shares a line with output from compile-time code that runs a shell or other native code.
 
 ## [0.25.0] - 2026-10-21
 

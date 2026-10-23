@@ -154,3 +154,26 @@ fn live_status_steps_aside_for_output() {
         "{text:?}"
     );
 }
+
+/// Output from a foreign call that is not a known writer (here a shell the `#run` starts) steps
+/// aside for the status line too.
+#[cfg(unix)]
+#[test]
+fn live_status_steps_aside_for_a_child_process() {
+    let dir = scratch(
+        "child",
+        "#import \"Basic\";\n\
+         libc :: #system_library \"libc\";\n\
+         system :: (command: *u8) -> s32 #foreign libc;\n\
+         main :: () {}\n\
+         #run { sleep_milliseconds(700); system(\"echo from child 1>&2\"); sleep_milliseconds(700); }\n",
+    );
+    let output = jaic(&dir, Some("live"), &["hello.jai", "-check"]);
+    let text = String::from_utf8_lossy(&output.stderr);
+    let printed = text
+        .split('\n')
+        .find(|line| line.contains("from child"))
+        .expect("the child's output");
+    let shown = printed.rsplit('\r').next().unwrap();
+    assert_eq!(shown.trim_start_matches("\x1b[K"), "from child", "{text:?}");
+}
