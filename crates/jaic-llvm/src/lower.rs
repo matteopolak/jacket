@@ -64,6 +64,8 @@ struct Backend<'ctx, 'p> {
     /// into a library call (and every `memset` into one), which costs more than the copy.
     inline_small_copies: bool,
     simd: crate::simd::Target,
+    /// The LLVM feature string of the target machine.
+    features: String,
 }
 
 /// The largest copy or fill that unoptimized code writes inline.

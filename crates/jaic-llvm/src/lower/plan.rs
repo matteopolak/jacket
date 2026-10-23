@@ -46,6 +46,8 @@ pub struct LowerOptions<'a> {
     /// Per function: never inline it.
     pub no_inline: &'a [bool],
     pub simd: crate::simd::Target,
+    /// The LLVM feature string the target machine was made with: what `#target_features` adds to.
+    pub features: &'a str,
 }
 
 /// Lower `program` into `module`. With a shard, the module defines only that shard's
@@ -65,6 +67,7 @@ pub fn lower_program<'ctx>(
         unoptimized,
         no_inline,
         simd,
+        features,
     } = *options;
     let debug = debug
         .map(|(format, optimized)| DebugInfo::new(context, module, program, format, optimized));
@@ -102,6 +105,7 @@ pub fn lower_program<'ctx>(
         inline_small_copies: unoptimized && !arch.is_wasm(),
         no_inline: no_inline.to_vec(),
         simd,
+        features: features.to_string(),
     };
     backend.run().map_err(|e| e.0)
 }

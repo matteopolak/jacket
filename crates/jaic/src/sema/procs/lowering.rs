@@ -114,6 +114,7 @@ impl Compiler {
             ast::CallHintFlag::NoInline => ir::InlineHint::Never,
             ast::CallHintFlag::None => ir::InlineHint::Default,
         };
+        f.b.func.target_features = header.flags.target_features.as_deref().map(str::to_string);
         if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc() {
             f.b.func.null_checks = true;
             self.note_check_handler(span)?;

@@ -197,6 +197,73 @@ impl Target {
     }
 }
 
+/// The feature names `#target_features` accepts per architecture family; LLVM would print a
+/// warning for a name its target does not know, so other names are dropped.
+fn known_extra(family: Family, name: &str) -> bool {
+    const X86: &[&str] = &[
+        "sse2",
+        "ssse3",
+        "sse4.1",
+        "sse4.2",
+        "popcnt",
+        "avx",
+        "avx2",
+        "fma",
+        "f16c",
+        "bmi",
+        "bmi2",
+        "lzcnt",
+        "pclmul",
+        "aes",
+        "gfni",
+        "avx512f",
+        "avx512bw",
+        "avx512vl",
+        "avx512dq",
+        "avx512cd",
+        "avx512vbmi",
+        "avx512vbmi2",
+        "avx512vnni",
+        "avx512vpopcntdq",
+    ];
+    const AARCH64: &[&str] = &[
+        "neon", "sve", "sve2", "crc", "aes", "sha2", "dotprod", "i8mm", "bf16", "lse", "fp16",
+    ];
+    const WASM: &[&str] = &["simd128", "relaxed-simd"];
+    match family {
+        Family::X86 => X86,
+        Family::Aarch64 => AARCH64,
+        Family::Wasm => WASM,
+    }
+    .contains(&name)
+}
+
+/// The feature string for a function declared `#target_features "extra"` in a build whose
+/// target machine has `base`: `base` followed by `+x` for each name of `extra` this
+/// architecture has (a leading `+` or `-` is kept). `None` when nothing applies, so the
+/// function keeps the machine's features.
+pub fn function_features(arch: Arch, base: &str, extra: &str) -> Option<String> {
+    let family = Family::of(arch);
+    let mut all = base.to_string();
+    let mut any = false;
+    for item in extra.split(',').map(str::trim) {
+        let (sign, name) = match item.as_bytes().first() {
+            Some(b'+' | b'-') => (&item[..1], &item[1..]),
+            _ => ("+", item),
+        };
+        if !known_extra(family, name) {
+            continue;
+        }
+        if !all.is_empty() {
+            all.push(',');
+        }
+        all.push_str(sign);
+        all.push_str(name);
+        any = true;
+    }
+    any.then_some(all)
+}
+
 /// The vector features a named CPU has, beyond the architecture's baseline (SSE2 on x86-64,
 /// NEON on aarch64, nothing on wasm). Only the features this module names are listed. An
 /// unknown name gets the baseline: code for it stays correct, just not the fastest.
@@ -310,6 +377,27 @@ mod tests {
 
     fn x86(cpu: &str, features: &str) -> Target {
         Target::resolve(Arch::X86_64, cpu, features)
+    }
+
+    #[test]
+    fn function_features_extend_the_machines_and_skip_other_architectures() {
+        let all = |arch, base, extra| function_features(arch, base, extra);
+        assert_eq!(
+            all(Arch::X86_64, "", "avx2, bmi2").as_deref(),
+            Some("+avx2,+bmi2")
+        );
+        assert_eq!(
+            all(Arch::X86_64, "+sse4.2", "avx2,-fma").as_deref(),
+            Some("+sse4.2,+avx2,-fma")
+        );
+        // Names of another architecture are dropped, so LLVM never warns about them.
+        assert_eq!(all(Arch::Aarch64, "", "avx2"), None);
+        assert_eq!(all(Arch::X86_64, "", "sve,avx2").as_deref(), Some("+avx2"));
+        assert_eq!(
+            all(Arch::Wasm64, "+bulk-memory", "simd128").as_deref(),
+            Some("+bulk-memory,+simd128")
+        );
+        assert_eq!(all(Arch::X86_64, "", "nonsense"), None);
     }
 
     #[test]

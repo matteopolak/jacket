@@ -106,6 +106,9 @@ pub struct ProcFlags {
     pub inline: CallHintFlag,
     pub deprecated: Option<Option<Rc<[u8]>>>,
     pub program_export: Option<Option<Rc<[u8]>>>,
+    /// The string after `#target_features`: CPU features (`"avx2,bmi2"`) the native code of
+    /// this procedure may use on top of the build's.
+    pub target_features: Option<Rc<str>>,
     /// The string after `#compiler "name"` / `#intrinsic "name"` selecting the builtin.
     pub builtin_name: Option<Rc<str>>,
     /// Any other `#directive` flag (`#dump`, `#entry_point`, `#no_alias`, ...), kept by name.

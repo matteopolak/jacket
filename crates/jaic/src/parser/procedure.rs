@@ -36,6 +36,7 @@ raw_enum! {
         EntryPoint = "entry_point",
         NoAlias = "no_alias",
         CompileTime = "compile_time",
+        TargetFeatures = "target_features",
     }
 }
 
@@ -592,6 +593,12 @@ impl Parser<'_> {
                 }
                 if let Tok::Str(s) = self.tok() {
                     flags.builtin_name = Some(String::from_utf8_lossy(s).into_owned().into());
+                    self.bump();
+                }
+            }
+            ProcFlag::TargetFeatures => {
+                if let Tok::Str(s) = self.tok() {
+                    flags.target_features = Some(String::from_utf8_lossy(s).into_owned().into());
                     self.bump();
                 }
             }

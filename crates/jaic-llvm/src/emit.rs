@@ -81,6 +81,7 @@ fn emit_module(
                 &machine.get_cpu().to_string_lossy(),
                 &machine.get_feature_string().to_string_lossy(),
             ),
+            features: &machine.get_feature_string().to_string_lossy(),
         },
     )?;
     apply_abi_unwind_attributes(&context, &module, arch)?;

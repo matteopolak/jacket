@@ -28,6 +28,14 @@ assert :: (cond: bool, #discard msg := "") { ... }   // msg is type-checked, nev
 
 A `#discard` argument is only type-checked (`discarded_args`, `precheck_args_deferring` in `sema/calls/mod.rs`), so `#discard x: $T` still infers `T`, and defaults are not evaluated. Using the parameter in the callee is an error (`entity_operand`, `sema/expr.rs`). `Basic.assert` uses it when `ENABLE_ASSERT` is false.
 
+### `#target_features`
+
+```jai
+sum_avx2 :: (xs: [] u8) -> u64 #target_features "avx2,bmi2" { ... }
+```
+
+Native code for the procedure may use the listed CPU features on top of the build's (`parse_proc_flags` stores the string in `ProcFlags::target_features`; `Func::target_features` carries it to `lower/symbols.rs`, which writes LLVM's `target-features` attribute as the machine's feature string plus `+name` per entry). Bare names mean `+`; a leading `-` removes one. Names the target architecture does not have are dropped (`simd::function_features`), so one source can list x64 features and still build for arm64 or wasm, where the attribute is simply absent. The interpreter ignores the directive. LLVM inlines a procedure into callers with at least its features only, so a `#target_features` procedure called from baseline code is a real call, which is what a dispatch table wants ([SIMD](../extensions/simd.md#choosing-code-by-cpu)). Vector intrinsics (`byte_lookup`, `sign_mask`) still lower for the build's features, not the procedure's.
+
 ## How to change it
 
 - New expression directive: a `Directive` variant in `parser/directive.rs` and an arm in `parse_directive_expr`; a directive suffix is consumed where the directive is evaluated. New procedure flag: a `ProcFlag` variant and an arm in `apply_proc_flag` (`parser/procedure.rs`), read in `sema/procs.rs`; `ProcFlag::kept_by_name` lists the flags that do not make the procedure a header.

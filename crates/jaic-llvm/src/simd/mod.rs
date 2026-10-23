@@ -12,7 +12,7 @@ mod generic;
 mod wasm;
 mod x86;
 
-pub use features::Target;
+pub use features::{Target, function_features};
 
 use crate::lower::Error;
 use inkwell::builder::Builder;

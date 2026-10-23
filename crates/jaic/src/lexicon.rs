@@ -702,6 +702,11 @@ pub const DIRECTIVES: &[Directive] = &[
         about: Some("Declare a system library"),
     },
     Directive {
+        name: "target_features",
+        role: Some(DirectiveRole::Modifier),
+        about: Some("Compile a procedure for extra CPU features"),
+    },
+    Directive {
         name: "this",
         role: Some(DirectiveRole::Value),
         about: Some("The enclosing procedure, struct or scope"),

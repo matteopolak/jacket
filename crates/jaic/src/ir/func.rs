@@ -50,6 +50,9 @@ pub struct Func {
     /// The procedure was declared `inline` or `no_inline`: native code always or never inlines
     /// it.
     pub inline: InlineHint,
+    /// CPU features (`"avx2,bmi2"`) this function's native code may use beyond the build's,
+    /// from `#target_features`. The interpreter ignores them.
+    pub target_features: Option<String>,
     /// Native debug information (named variables, lexical scopes), recorded only when the
     /// program is built with debug info. Boxed so the interpreter's hot data stays small.
     pub debug: Option<Box<FuncDebug>>,
