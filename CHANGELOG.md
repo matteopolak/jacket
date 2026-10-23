@@ -25,6 +25,7 @@
 - The crash handler reports crashes on Windows arm64.
 - The crash handler reports stack overflows, including on threads made with `Thread`.
 - `IS_CROSS_COMPILING` and `MACHINE_OPTIONS_SIZE` are available as compiler constants.
+- In a cross build (`-os`, `-cpu`), `#run` code runs against the machine doing the compiling: `OS` and `CPU` there name that machine, the standard library takes its host branches, and the results come back to the program as constants.
 - `Module.name` reaches a module's `#scope_module` declarations.
 - Polymorphic procedure lenses count instances from every program in the workspace.
 
@@ -32,6 +33,7 @@
 
 - `String` searches and `compare` on long text, and `array_find` on integer arrays, are several times faster.
 - The `Compiler` module's operations run inside the compiler, so they work with any standard library folder.
+- Cross builds whose `#run` code starts processes, queries files or detects the CPU, such as a `Build.jai` using `run_command`, work.
 - A `#compiler` declaration whose records don't fit its operation is reported where it is declared, and `get_build_options` fills a record of any name with that record's own defaults.
 - Settings in `jacket.toml`, `jaifmt.toml` and `jailint.toml` apply when the file is saved.
 - Typing in one program no longer makes the language server recheck other open programs that don't use the file.
