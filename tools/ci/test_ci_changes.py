@@ -101,6 +101,13 @@ class JobSelection(unittest.TestCase):
         )
         self.assertEqual(sorted(gated), sorted(ci_changes.JOBS))
 
+    def test_macos_asan_runs_on_pushes_only_for_sanitizer_relevant_paths(self):
+        area = ci_changes.AREAS["sanitizers-macos"]
+        self.assertTrue(ci_changes.matches(area, ["crates/jaic-llvm/src/lib.rs"]))
+        self.assertTrue(ci_changes.matches(area, ["tools/differential/jaic_sweep.py"]))
+        self.assertFalse(ci_changes.matches(area, ["stdlib/Hash/module.jai"], False))
+        self.assertFalse(ci_changes.matches(area, ["crates/jailint/src/lib.rs"], False))
+
 
 if __name__ == "__main__":
     unittest.main()

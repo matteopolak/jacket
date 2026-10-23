@@ -611,10 +611,9 @@ jobs:
       fail-fast: false
       matrix:
         # Linux takes longest, so its cases are split in two (tools/differential/jaic_sweep.py --shard).
-        include:
-          - {runner: ubuntu-24.04, shard: 1/2}
-          - {runner: ubuntu-24.04, shard: 2/2}
-          - {runner: macos-15, shard: 1/1}
+        # macOS only on nightly and manual runs, and on pushes that change what ASan builds
+        # (the `sanitizers-macos` area of tools/ci/ci_changes.py): its slot is the scarcest.
+        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.jobs), 'sanitizers-macos')) && '[{"runner":"ubuntu-24.04","shard":"1/2"},{"runner":"ubuntu-24.04","shard":"2/2"},{"runner":"macos-15","shard":"1/1"}]' || '[{"runner":"ubuntu-24.04","shard":"1/2"},{"runner":"ubuntu-24.04","shard":"2/2"}]') }}
     concurrency:
       group: ${{ github.workflow }}-sanitizers-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.shard }}
       cancel-in-progress: true

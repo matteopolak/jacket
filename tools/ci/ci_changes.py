@@ -59,6 +59,19 @@ AREAS = {
         "tools/ci/test_install_ps1.ps1",
         "tests/installers/**",
     ],
+    # macOS ASan is slot-limited and the slowest sanitizer leg: on pushes it runs only for the code
+    # that decides what the sanitized binaries are (code generation, the driver, the sweep and
+    # its inputs, the toolchain); Linux ASan runs on every push, and nightly/manual runs do both.
+    "sanitizers-macos": [
+        "crates/jaic-llvm/**",
+        "crates/jaic-cli/src/**",
+        "crates/jaic/src/**",
+        "tools/differential/**",
+        "tools/native/**",
+        "corpus/**",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+    ],
     # Windows runs on pushes (main, staging) only for the paths its coverage is about, never on
     # pull requests, and always on manual runs.
     "windows": [
@@ -116,6 +129,8 @@ JOBS = {
     "stdlib-runtime": "code",
     "upstream-smoke": "code",
     "sanitizers": "code",
+    # Not a job of its own: the macOS leg of `sanitizers`.
+    "sanitizers-macos": "sanitizers-macos",
     "sdl3": "sdl3",
     "clipboard-linux": "clipboard",
     "nix": "nix",
