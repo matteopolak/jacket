@@ -31,7 +31,15 @@ random_get_zero_to_one :: (state: *u64) -> float {
 }
 
 random_get_within_range :: (state: *u64, min: float, max: float) -> float {
-    return min + (max - min) * random_get_zero_to_one(state);
+    value := min + (max - min) * random_get_zero_to_one(state);
+
+    // Rounding can land a hair outside an ordered range; reversed bounds are left as they are.
+    if min <= max {
+        if value < min return min;
+        if value > max return max;
+    }
+
+    return value;
 }
 
 random_get :: inline () -> u32 {

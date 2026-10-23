@@ -49,6 +49,7 @@
 ### Fixed
 
 - `Zip_File_Directory.load_zip_directory` returns `false` for an archive with a bad central-directory signature or a data-descriptor entry, instead of stopping the program with an assertion.
+- `PCG.random_get_within_range` never returns a value outside an ordered range.
 - A `jacket.toml` or legacy settings file that cannot be read now says why (permissions, not UTF-8, and so on).
 - `jailint` finds `manual_index_counter` counters declared inside a `case` body or a `#if` branch.
 - A 64-bit signed/unsigned cast evaluated at compile time, `xx` or `cast`, reinterprets the bits instead of failing the range check; the program's own run still checks it.

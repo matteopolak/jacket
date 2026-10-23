@@ -2,5 +2,9 @@
   {
     "name": "state-vector",
     "stdout": "ok\n"
+  },
+  {
+    "name": "within-range",
+    "stdout": "ok\n"
   }
 ]
