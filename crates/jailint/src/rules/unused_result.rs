@@ -8,9 +8,9 @@
 //! `@UseResult` (the library marks its value-returning `String`, `Basic` and `Math`
 //! procedures; a program marks its own the same way), when the call returns a value and no
 //! argument is a pointer (`normalize(*v)` normalizes in place).
-use super::{calls_noted, finding, pure};
-use crate::Finding;
+use super::{calls_noted, finding, pure, suggesting};
 use crate::syntax::{Cx, Node, root_ident, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{ExprKind as E, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 
@@ -54,6 +54,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             let name = cx.whole_src(callee.span).trim();
             let call = cx.whole_src(e.span).trim();
+            let mut edits = Vec::new();
             let help = match args.first() {
                 Some(first)
                     if pure(&first.value)
@@ -61,18 +62,29 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         && first.name.is_none()
                         && cx.ty(&first.value) == cx.ty(e) =>
                 {
-                    format!(
-                        "to update the argument, write `{} = {call};`",
-                        cx.whole_src(first.value.span).trim()
-                    )
+                    let target = cx.whole_src(first.value.span).trim();
+                    edits.push(Edit {
+                        start: e.span.start as usize,
+                        end: e.span.start as usize,
+                        text: format!("{target} = "),
+                    });
+                    format!("to update the argument, write `{target} = {call};`")
                 }
-                _ => "use the result, or remove the call".into(),
+                _ => "keep the result in a variable, or remove the call".into(),
             };
-            out.push(finding(
-                e.span,
-                format!("the result of `{name}` is discarded; it does not change its arguments"),
-                Some(help),
-            ));
+            let message =
+                format!("the result of `{name}` is discarded; it does not change its arguments");
+            out.push(if edits.is_empty() {
+                finding(e.span, message, Some(help))
+            } else {
+                suggesting(
+                    e.span,
+                    message,
+                    help,
+                    "assign the result back to the argument",
+                    edits,
+                )
+            });
             true
         });
     }
