@@ -541,6 +541,13 @@ impl Compiler {
             }
             return Ok(());
         }
+        // A list of values pairs with the targets one to one, as in `a, b := 1, 2;`.
+        if rhs.len() > 1 && rhs.len() != lhs.len() {
+            return err(
+                span,
+                format!("{} names but {} values", lhs.len(), rhs.len()),
+            );
+        }
         // Multiple assignment: evaluate every value first.
         let mut values: Vec<(TypeId, ir::Val)> = Vec::new();
         if rhs.len() == 1 {

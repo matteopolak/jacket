@@ -56,6 +56,7 @@
 
 ### Fixed
 
+- `a, b = 1, 2, 3;` reports that it has too many values instead of ignoring the extra one.
 - `Bit_Array.deinit` empties the array, so a later loop or bit access no longer reaches freed storage.
 - `Subtitles` HTML output escapes `&`, `<`, `>` and `"` in titles, speaker names and lines, so text containing them no longer breaks the page.
 - `Zip_File_Directory.load_zip_directory` returns `false` for an archive with a bad central-directory signature or a data-descriptor entry, instead of stopping the program with an assertion.

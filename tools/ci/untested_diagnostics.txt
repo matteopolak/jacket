@@ -132,7 +132,6 @@ expected an 8-bit immediate operand
 expected digits after numeric prefix
 expected hex digits in escape
 expected three decimal digits after \\d
-expected {} values, found {}
 field needs a type
 generic declaration metadata is unavailable
 generic parameter `{}` has no concrete binding
