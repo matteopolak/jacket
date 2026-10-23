@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.26.0] - 2026-10-23
 
 ### New
 
@@ -43,6 +43,7 @@
 
 ### Fixed
 
+- A constant `#ifx` of untyped numbers can be assigned to an unsigned type (#35).
 - The language server and `jailint --fix` no longer run out of memory on a polymorphic procedure that instantiates itself with ever deeper pointer types.
 - An enum value with no name prints as `(enum out of range: N)`, not with the enum's own name.
 - `GetRect` and `GetRect_LeftHanded` take `Type_Indicator` as a program parameter, `#import "GetRect"()(Type_Indicator = T)`, shared by every import in the program.
