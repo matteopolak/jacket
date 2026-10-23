@@ -665,6 +665,30 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "`magic_number` also checks files in `tests` and `test` folders."
+        },
+        "overrides": {
+          "type": "array",
+          "markdownDescription": "Rule levels for some paths. Each entry's `rules` win over `[lint.rules]` for the files its `paths` match; a later entry wins over an earlier one, and command-line flags win over both.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "paths"
+            ],
+            "properties": {
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "markdownDescription": "Globs (relative to this file) of the files these levels apply to: `*`, `**`, `?`."
+              },
+              "rules": {
+                "$ref": "#/properties/lint/properties/rules"
+              }
+            }
+          }
         }
       }
     },

@@ -265,15 +265,15 @@ fn run() -> Result<ExitCode, String> {
             config.deny_warnings = true;
         } else if rule == "all" {
             for r in RULES {
-                config.levels.insert(r.name.to_string(), *level);
+                config.flags.insert(r.name.to_string(), *level);
             }
         } else if let Some(category) = Category::parse(rule) {
             // Later flags win, so set each rule rather than the category under them.
             for r in RULES.iter().filter(|r| r.category == category) {
-                config.levels.insert(r.name.to_string(), *level);
+                config.flags.insert(r.name.to_string(), *level);
             }
         } else if RULES.iter().any(|r| r.name == rule) {
-            config.levels.insert(rule.clone(), *level);
+            config.flags.insert(rule.clone(), *level);
         } else {
             let help = match jaic::suggest::closest(rule, jailint::config::rule_names()) {
                 Some(near) => format!("did you mean `{near}`? `jailint --list` lists the rules"),

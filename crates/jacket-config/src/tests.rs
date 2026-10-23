@@ -356,7 +356,8 @@ fn known_keys_match_the_structs() {
         (
             "lint",
             "exclude = [\"a\"]\nmax_nesting = 1\nmax_complexity = 9\nmagic_number_allow = [60, 0.5]\n\
-             magic_number_min = 4\nmagic_number_in_tests = true\n[lint.rules]\na = \"b\"\n",
+             magic_number_min = 4\nmagic_number_in_tests = true\n[lint.rules]\na = \"b\"\n\
+             [[lint.overrides]]\npaths = [\"c\"]\n[lint.overrides.rules]\nd = \"e\"\n",
         ),
         (
             "format",

@@ -203,7 +203,7 @@ magic_number_in_tests = true             # also check files in `tests`/`test` fo
 magic_number = "warn"
 ```
 
-Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set, since test data is full of expected values. A printable character code compared with a byte of a `string` (`text[i]`, a local set from one, or `it` in `for text`) gets a `--fix` to `#char "a"`. In `<`, `<=`, `>` and `>=` only range ends are rewritten (digits, `a z A Z f F`, space, `~`), so `header[2] > 88` in a binary buffer stays a number. Other bytes may be table entries, so in their `==` and `!=` the help only suggests `#char`. Generated files are skipped. On the standard library outside its tests, the defaults report about 1,400 numbers: mostly character codes, calendar arithmetic and file-format offsets. Fix by naming the number: `RETRY_AFTER :: 8640;`.
+Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set, since test data is full of expected values. A printable character, tab, newline or carriage-return code compared with a byte of a `string` (`text[i]`, a local set from one, or `it` in `for text`) gets a `--fix` to `#char "a"`. In `<`, `<=`, `>` and `>=` only range ends are rewritten (digits, `a z A Z f F`, space, `~`), so `header[2] > 88` in a binary buffer stays a number. Other bytes may be table entries, so in their `==` and `!=` the help only suggests `#char`. Generated files are skipped. On the standard library outside its tests, the defaults report about 1,400 numbers: mostly character codes, calendar arithmetic and file-format offsets. Fix by naming the number: `RETRY_AFTER :: 8640;`.
 ### manual_assign_op
 Target must be side-effect-free and the operation must keep its type.
 ### manual_index_counter
@@ -271,7 +271,7 @@ Rules are comma-separated; `all` means every rule. A `_` prefix marks an unused 
 
 ## Configuration
 
-The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). A directory with only a legacy `jailint.toml` is read the same way (the same keys, without the `[lint]` header) and the tool suggests `jacket config migrate`. Unknown settings are dropped with a warning (`unknown setting ... (ignored)`); unknown rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file.
+The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). A directory with only a legacy `jailint.toml` is read the same way (the same keys, without the `[lint]` header) and the tool suggests `jacket config migrate`. Unknown settings are dropped with a warning (`unknown setting ... (ignored)`); unknown rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file, overrides included.
 
 ```toml
 [lint]
@@ -285,9 +285,15 @@ magic_number_min = 3                                     # whole numbers below t
 excessive_nesting = "warn"
 float_equality = "warn"
 unused_parameter = "allow"
+
+[[lint.overrides]]                                       # levels for some paths only
+paths = ["tests/**"]
+rules = { float_equality = "allow", magic_number = "allow" }
 ```
 
-The formatter is written in Jai and reads the `[format]` table itself; both tables live in one file. The repository's `jacket.toml` excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks`; deliberate findings in tests carry an `allow` with the reason.
+`[[lint.overrides]]` entries set rule or category levels for the files their `paths` globs match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `magic_number_*`) are not per path.
+
+The formatter is written in Jai and reads the `[format]` table itself; both tables live in one file. The repository's `jacket.toml` excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks`; deliberate findings in tests carry an `allow` with the reason. It also holds the repository to `magic_number` (time units allowed) and, under `stdlib/`, to `float_equality`; `[[lint.overrides]]` turn `magic_number` off for benchmarks, examples and binary-format, numeric and OS-binding code, and `float_equality` off in stdlib tests.
 
 | Setting | Effect |
 | --- | --- |

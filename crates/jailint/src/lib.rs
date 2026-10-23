@@ -87,19 +87,23 @@ pub fn lint_files(
         let Ok(ast) = ast else {
             continue;
         };
-        let wanted: Vec<&RuleInfo> = RULES
+        // Override globs are matched against the canonical path, as `exclude` is.
+        let at = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone().into());
+        let at = at.as_path();
+        let wanted: Vec<(&RuleInfo, Level)> = RULES
             .iter()
-            .filter(|r| config.level(r) != Level::Allow)
+            .map(|r| (r, config.level_at(r, at)))
+            .filter(|(_, level)| *level != Level::Allow)
             .collect();
         if wanted.is_empty() {
             continue;
         }
-        let imports = if wanted.iter().any(|r| r.name == "unused_import") {
+        let imports = if wanted.iter().any(|(r, _)| r.name == "unused_import") {
             rules::unused_import::prepare(compiler, &mut module_facts, file, &ast, &tokens)
         } else {
             Vec::new()
         };
-        let doc_links = if complete && wanted.iter().any(|r| r.name == "broken_doc_link") {
+        let doc_links = if complete && wanted.iter().any(|(r, _)| r.name == "broken_doc_link") {
             rules::broken_doc_link::prepare(compiler, file, &text)
         } else {
             Vec::new()
@@ -115,7 +119,7 @@ pub fn lint_files(
             .max_complexity
             .unwrap_or(config::DEFAULT_MAX_COMPLEXITY);
         cx.doc_links = doc_links;
-        for rule in wanted {
+        for (rule, level) in wanted {
             let mut found = Vec::new();
             (rule.check)(&cx, &mut found);
             for f in found {
@@ -124,7 +128,7 @@ pub fn lint_files(
                 }
                 out.push(Lint {
                     rule: rule.name,
-                    level: config.level(rule),
+                    level,
                     path: path.clone(),
                     start: f.start,
                     end: f.end,

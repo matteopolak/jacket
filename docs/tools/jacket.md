@@ -106,6 +106,10 @@ max_nesting = 5                 # excessive_nesting threshold
 [lint.rules]
 unused_variable = "deny"        # allow | warn | deny
 
+[[lint.overrides]]              # levels for some paths; a later entry wins
+paths = ["tests/**"]
+rules = { unused_variable = "warn" }
+
 [format]                        # every jaifmt key, see jaifmt.md
 indent_width = 4
 ignore = ["gen/**"]

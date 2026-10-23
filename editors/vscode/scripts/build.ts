@@ -248,6 +248,19 @@ const jacket = {
         magic_number_allow: { type: "array", items: { type: "number" }, markdownDescription: "Numbers `magic_number` never reports, besides `10`, `100`, `1000`, powers of two and all-ones masks, such as `[60, 24, 3.14159]`." },
         magic_number_min: { type: "number", minimum: 0, default: 3, markdownDescription: "Whole numbers smaller than this in magnitude are not reported by `magic_number`." },
         magic_number_in_tests: { type: "boolean", default: false, markdownDescription: "`magic_number` also checks files in `tests` and `test` folders." },
+        overrides: {
+          type: "array",
+          markdownDescription: "Rule levels for some paths. Each entry's `rules` win over `[lint.rules]` for the files its `paths` match; a later entry wins over an earlier one, and command-line flags win over both.",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["paths"],
+            properties: {
+              paths: { type: "array", items: { type: "string" }, minItems: 1, markdownDescription: "Globs (relative to this file) of the files these levels apply to: `*`, `**`, `?`." },
+              rules: { $ref: "#/properties/lint/properties/rules" },
+            },
+          },
+        },
       },
     },
     format: section(jaifmt, "Settings for the jaifmt formatter."),

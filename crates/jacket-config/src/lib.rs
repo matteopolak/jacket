@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 pub mod migrate;
 pub mod schema;
 
-pub use schema::{Config, Experimental, Format, Lint, Project, Toolchain};
+pub use schema::{Config, Experimental, Format, Lint, LintOverride, Project, Toolchain};
 
 /// The configuration file name.
 pub const FILE_NAME: &str = "jacket.toml";

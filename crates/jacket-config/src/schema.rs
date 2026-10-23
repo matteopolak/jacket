@@ -76,6 +76,20 @@ pub struct Lint {
     /// Rule name and level text (`allow`, `warn`, `deny`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rules: BTreeMap<String, String>,
+    /// Rule levels for some paths (`[[lint.overrides]]`); a later entry wins over an earlier one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overrides: Vec<LintOverride>,
+}
+
+/// Rule levels for the files under some paths.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct LintOverride {
+    /// Globs of the files these levels apply to, relative to the file.
+    #[serde(default)]
+    pub paths: Vec<String>,
+    /// Rule or category name and level text, as in `[lint.rules]`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub rules: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
@@ -150,6 +164,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "magic_number_min",
             "magic_number_in_tests",
             "rules",
+            "overrides",
         ],
         "format" => &[
             "indent_width",

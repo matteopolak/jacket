@@ -9,6 +9,10 @@
 //! [lint.rules]
 //! float_equality = "warn"
 //! lossy_xx = "allow"
+//!
+//! [[lint.overrides]]
+//! paths = ["tests/**"]
+//! rules = { float_equality = "allow" }
 //! ```
 //!
 //! Anything the schema does not know under `[lint]` is an error, so a typo does not silently
@@ -109,6 +113,11 @@ pub struct Config {
     /// Levels set for rules and categories (by name); a rule's own entry wins over its
     /// category's, and anything unset keeps its default.
     pub levels: HashMap<String, Level>,
+    /// Levels for the files under some paths, in file order: a later match wins, and any match
+    /// wins over `levels`.
+    pub overrides: Vec<Override>,
+    /// Levels given on the command line (`-A`, `-W`, `-D`), by rule: they win over everything.
+    pub flags: HashMap<String, Level>,
     /// Warnings become errors (`-D warnings`).
     pub deny_warnings: bool,
     /// Glob patterns of paths not to lint, relative to `root`.
@@ -129,6 +138,15 @@ pub struct Config {
     pub source: Option<PathBuf>,
     /// One-line notes about the configuration (a legacy file in use or ignored).
     pub notes: Vec<String>,
+}
+
+/// Rule levels for the files matching some globs (`[[lint.overrides]]`).
+#[derive(Clone, Debug, Default)]
+pub struct Override {
+    /// Glob patterns relative to the config's `root`.
+    pub paths: Vec<String>,
+    /// Levels by rule or category name; a rule's own entry wins over its category's.
+    pub levels: HashMap<String, Level>,
 }
 
 /// The nesting depth `excessive_nesting` allows when nothing sets it.
@@ -176,13 +194,40 @@ impl Config {
         }
     }
 
-    /// The level of `rule`: its own setting, else its category's, else the category default.
+    /// The level of `rule` outside every override: a flag, else its own setting, else its
+    /// category's, else the category default.
     pub fn level(&self, rule: &crate::RuleInfo) -> Level {
+        self.resolve(rule, None)
+    }
+
+    /// The level of `rule` in the file at `path`: as [`Config::level`], with the last
+    /// `[[lint.overrides]]` entry matching `path` that names the rule or its category taking
+    /// the place of `[lint.rules]`.
+    pub fn level_at(&self, rule: &crate::RuleInfo, path: &Path) -> Level {
+        self.resolve(rule, Some(path))
+    }
+
+    fn resolve(&self, rule: &crate::RuleInfo, path: Option<&Path>) -> Level {
+        let named = |levels: &HashMap<String, Level>| {
+            levels
+                .get(rule.name)
+                .or_else(|| levels.get(rule.category.as_str()))
+                .copied()
+        };
+        let overridden = path.and_then(|path| {
+            let text = self.relative(path);
+            self.overrides
+                .iter()
+                .rev()
+                .filter(|o| o.paths.iter().any(|p| glob(p, &text)))
+                .find_map(|o| named(&o.levels))
+        });
         let level = self
-            .levels
+            .flags
             .get(rule.name)
-            .or_else(|| self.levels.get(rule.category.as_str()))
             .copied()
+            .or(overridden)
+            .or_else(|| named(&self.levels))
             .unwrap_or_else(|| rule.default());
         if self.deny_warnings && level == Level::Warn {
             Level::Deny
@@ -203,10 +248,15 @@ impl Config {
             magic_number_in_tests: lint.magic_number_in_tests,
             ..Config::default()
         };
-        for (rule, level) in &lint.rules {
-            check_rule(rule, level)?;
-            let level = Level::parse(level).expect("`check_rule` accepts a level");
-            config.levels.insert(rule.clone(), level);
+        config.levels = levels(&lint.rules)?;
+        for o in &lint.overrides {
+            if o.paths.is_empty() {
+                return Err("a `[[lint.overrides]]` entry has no `paths`".into());
+            }
+            config.overrides.push(Override {
+                paths: o.paths.clone(),
+                levels: levels(&o.rules)?,
+            });
         }
         Ok(config)
     }
@@ -281,9 +331,14 @@ impl Config {
 
     /// Whether `path` matches an `exclude` pattern.
     pub fn excluded(&self, path: &Path) -> bool {
-        let relative = path.strip_prefix(&self.root).unwrap_or(path);
-        let text = relative.to_string_lossy().replace('\\', "/");
+        let text = self.relative(path);
         self.exclude.iter().any(|p| glob(p, &text))
+    }
+
+    /// `path` relative to `root`, with `/` separators, for matching globs.
+    fn relative(&self, path: &Path) -> String {
+        let relative = path.strip_prefix(&self.root).unwrap_or(path);
+        relative.to_string_lossy().replace('\\', "/")
     }
 }
 
@@ -293,6 +348,21 @@ pub fn rule_names() -> impl Iterator<Item = &'static str> {
         .iter()
         .map(|r| r.name)
         .chain(Category::ALL.map(Category::as_str))
+}
+
+/// Checked levels of a `rules` table.
+fn levels(
+    rules: &std::collections::BTreeMap<String, String>,
+) -> Result<HashMap<String, Level>, String> {
+    let mut out = HashMap::default();
+    for (rule, level) in rules {
+        check_rule(rule, level)?;
+        out.insert(
+            rule.clone(),
+            Level::parse(level).expect("`check_rule` accepts a level"),
+        );
+    }
+    Ok(out)
 }
 
 /// Whether `rule` is a rule or category and `value` a level for it.
@@ -394,6 +464,34 @@ mod tests {
         let defaults = parse("").unwrap();
         assert_eq!(defaults.level(rule("double_free")), Level::Deny);
         assert!(parse("[lint.rules]\npedantc = \"warn\"").is_err_and(|e| e.contains("pedantic")));
+    }
+
+    #[test]
+    fn overrides_set_levels_under_their_paths() {
+        let text = "[lint.rules]\nfloat_equality = \"warn\"\n\n[[lint.overrides]]\npaths = [\"tests/**\"]\nrules = { float_equality = \"allow\", pedantic = \"warn\" }\n\n[[lint.overrides]]\npaths = [\"tests/strict\"]\nrules = { float_equality = \"deny\" }\n";
+        let mut config = parse(text).unwrap();
+        let at = |c: &Config, r: &str, p: &str| c.level_at(rule(r), Path::new(p));
+        assert_eq!(
+            at(&config, "float_equality", "/r/stdlib/a.jai"),
+            Level::Warn
+        );
+        assert_eq!(
+            at(&config, "float_equality", "/r/tests/a.jai"),
+            Level::Allow
+        );
+        assert_eq!(
+            at(&config, "float_equality", "/r/tests/strict/a.jai"),
+            Level::Deny
+        );
+        assert_eq!(at(&config, "lossy_xx", "/r/tests/a.jai"), Level::Warn);
+        assert_eq!(at(&config, "lossy_xx", "/r/stdlib/a.jai"), Level::Allow);
+        // Command-line levels win everywhere.
+        config.flags.insert("float_equality".into(), Level::Deny);
+        assert_eq!(at(&config, "float_equality", "/r/tests/a.jai"), Level::Deny);
+        assert!(parse("[[lint.overrides]]\nrules = { lossy_xx = \"warn\" }\n").is_err());
+        assert!(
+            parse("[[lint.overrides]]\npaths = [\"a\"]\nrules = { lossy = \"warn\" }\n").is_err()
+        );
     }
 
     #[test]
