@@ -1,4 +1,5 @@
 //! The conversion cost of an argument against a parameter.
+use super::poly_hints::CANNOT_INFER;
 use super::{CallArg, inferred_flags, is_deferred};
 use crate::ast::ExprKind as E;
 use crate::sema::convert;
@@ -295,10 +296,7 @@ impl Compiler {
             if !fits {
                 return err(
                     arg.span,
-                    format!(
-                        "argument cannot be inferred as parameter type {}",
-                        self.ty.types.name(param)
-                    ),
+                    format!("{CANNOT_INFER} {}", self.ty.types.name(param)),
                 );
             }
             return Ok(convert::LITERAL);

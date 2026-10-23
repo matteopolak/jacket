@@ -134,3 +134,109 @@ fn array_pattern_mismatch_names_the_argument_type_and_pattern() {
         "{notes:?}"
     );
 }
+
+#[test]
+fn a_literal_a_parameter_cannot_take_points_at_the_parameter_and_the_literal() {
+    let (source, error) = failure("g :: (a: $T, count: int) {}\nmain :: () { g(1, .[1, 2]); }");
+    assert!(
+        error
+            .message
+            .contains("argument cannot be inferred as parameter type s64"),
+        "{}",
+        error.message
+    );
+    let notes = located(&source, &error);
+    assert!(
+        notes.iter().any(|(at, n)| at == "count: int"
+            && n.contains("parameter `count` is declared here, with type `s64`")),
+        "{notes:?}"
+    );
+    assert!(
+        notes.iter().any(|(at, n)| at == ".[1, 2]"
+            && n.contains("a `.[...]` literal, which has no type of its own")),
+        "{notes:?}"
+    );
+    assert!(
+        error
+            .help
+            .iter()
+            .any(|h| h.contains("a value of type `s64`")),
+        "{:?}",
+        error.help
+    );
+}
+
+#[test]
+fn an_inferred_member_and_a_struct_literal_are_described_too() {
+    let (source, error) = failure("g :: (name: string) {}\nmain :: () { g(.{1, 2}); }");
+    let notes = located(&source, &error);
+    assert!(
+        notes.iter().any(|(at, n)| at == ".{1, 2}"
+            && n.contains("a `.{...}` literal, which has no type of its own")),
+        "{notes:?}"
+    );
+    let (source, error) = failure("g :: (x: float) {}\nmain :: () { g(.A); }");
+    let notes = located(&source, &error);
+    assert!(
+        notes
+            .iter()
+            .any(|(at, n)| at == ".A" && n.contains("an inferred member")),
+        "{notes:?}"
+    );
+    assert!(
+        error
+            .help
+            .iter()
+            .any(|h| h.contains("`float32` is not an enum")),
+        "{:?}",
+        error.help
+    );
+}
+
+#[test]
+fn arrays_of_different_lengths_name_the_length_each_has() {
+    let (source, error) = failure(
+        "same :: (a: [$N] int, b: [N] int) {}\n\
+         main :: () { x: [3] int; y: [4] int; same(x, y); }",
+    );
+    assert!(error.message.contains("does not match parameter type"));
+    let notes = located(&source, &error);
+    assert!(
+        notes
+            .iter()
+            .any(|(at, n)| at == "x" && n.contains("has length 3, so `$N` is 3 (parameter `a`)")),
+        "{notes:?}"
+    );
+    assert!(
+        notes
+            .iter()
+            .any(|(at, n)| at == "y" && n.contains("has length 4, but `N` is 3")),
+        "{notes:?}"
+    );
+    assert!(
+        error
+            .help
+            .iter()
+            .any(|h| h.contains("arrays of the same length")),
+        "{:?}",
+        error.help
+    );
+}
+
+#[test]
+fn arrays_of_the_same_length_compile() {
+    let (_, result) = compile_source(
+        "same :: (a: [$N] int, b: [N] int) {}\n\
+         main :: () { x: [3] int; y: [3] int; same(x, y); }",
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn an_element_type_mismatch_gets_no_length_notes() {
+    let (_, error) = failure(
+        "same :: (a: [$N] int, b: [N] int) {}\n\
+         main :: () { x: [3] int; y: [3] string; same(x, y); }",
+    );
+    assert!(error.notes.iter().all(|(_, n)| !n.contains("has length")));
+}

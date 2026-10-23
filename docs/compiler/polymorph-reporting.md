@@ -31,6 +31,9 @@ When a call cannot infer `$T`, `sema/calls/poly_hints.rs` adds located notes to 
 - Conflict: `infer_pattern_param` records the first argument that bound each variable (`Inference::binders`); the error gets a note at both arguments with their types, and help to `cast` one. An explicit `T = ...` does not convert a conflicting argument, so it is not suggested there.
 - Pattern mismatch: a note at the argument with its type and the pattern as written.
 
+- Literal arguments: `arg_cost_for` (`calls/matching.rs`) adds notes to "argument cannot be inferred as parameter type" (a `.{...}`, `.[...]` or `.NAME` argument, which has no type of its own, next to a parameter that cannot take it): a note at the parameter with its type, a note at the argument saying what kind of literal it is, and help to pass a value of the parameter's type. `poly_hints::CANNOT_INFER` is the message prefix it recognizes.
+- Array lengths: when `[N] T` follows a `[$N] T` parameter and the arguments' fixed lengths differ, the "does not match parameter type" error (`with_length_notes`) gets a note at the argument that bound `$N` with its length, a note at the failing argument with its length, and help to pass arrays of the same length. Element-type mismatches keep the plain error.
+
 No edits are offered; the right type is the author's choice.
 
 ## Configuration

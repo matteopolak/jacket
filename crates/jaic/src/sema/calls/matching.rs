@@ -1,4 +1,5 @@
 //! Matching arguments against a candidate and baking automatic variants.
+use super::poly_hints::CANNOT_INFER;
 use super::slots::{assign_slots, header_poly_names, pattern_specificity};
 use super::{AutoBake, CallArg, Candidate, Slot, const_marker};
 use crate::ast::ExprKind as E;
@@ -170,10 +171,14 @@ impl Compiler {
                     }
                 }
                 Slot::Arg(a) => {
-                    cost += self.arg_cost(&args[*a], param.ty, is_macro)?;
+                    cost +=
+                        self.arg_cost_for((&header, &slots, args), i, *a, param.ty, is_macro)?;
                     fit += self.arg_fit(&args[*a], param.ty)?;
                 }
-                Slot::Spread(a) => cost += self.arg_cost(&args[*a], param.ty, is_macro)?,
+                Slot::Spread(a) => {
+                    cost +=
+                        self.arg_cost_for((&header, &slots, args), i, *a, param.ty, is_macro)?;
+                }
                 Slot::Variadic(list) => {
                     let elem = if sig.c_varargs {
                         param.ty
@@ -189,7 +194,8 @@ impl Compiler {
                         } else {
                             elem
                         };
-                        cost += self.arg_cost(&args[a], target, is_macro)?;
+                        cost +=
+                            self.arg_cost_for((&header, &slots, args), i, a, target, is_macro)?;
                     }
                 }
             }
@@ -200,6 +206,29 @@ impl Compiler {
             cost,
             specificity,
             fit,
+        })
+    }
+
+    /// [`Self::arg_cost`] for the argument of `param`: an argument with no type of its own that
+    /// the parameter cannot take gets notes at the parameter and the argument.
+    fn arg_cost_for(
+        &mut self,
+        (header, slots, args): (&ast::ProcHeader, &[Slot], &[CallArg]),
+        at: usize,
+        arg_at: usize,
+        ty: TypeId,
+        macro_call: bool,
+    ) -> Result<u32> {
+        let param = &header.params[at];
+        let arg = &args[arg_at];
+        self.arg_cost(arg, ty, macro_call).map_err(|d| {
+            if d.message.starts_with(CANNOT_INFER) {
+                Box::new(self.with_literal_param_notes(*d, param, arg, ty))
+            } else if d.message.contains("does not match parameter type") {
+                Box::new(self.with_length_notes(*d, header, slots, args, param, arg))
+            } else {
+                d
+            }
         })
     }
 

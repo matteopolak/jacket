@@ -96,7 +96,6 @@ an interface restriction must name a struct contract
 an isolated #run,host procedure must take no arguments
 argument `{}` conflicts with the configured runtime instance
 argument `{}` is not a parameter of this module
-argument cannot be inferred as parameter type {}
 argument for `${}` must be a compile-time constant
 argument {} supplied more than once
 array type {} is too large (the limit is {} bytes)
@@ -132,6 +131,7 @@ expected an 8-bit immediate operand
 expected digits after numeric prefix
 expected hex digits in escape
 expected three decimal digits after \\d
+expected {} values, found {}
 field needs a type
 generic declaration metadata is unavailable
 generic parameter `{}` has no concrete binding
@@ -221,4 +221,5 @@ xgetbv requires an x86-64 target
 {} outputs must be 32- or 64-bit integer registers
 {} requires a 16-, 32- or 64-bit integer register destination
 {} requires no arguments and one 64-bit integer result
+{} {}
 {}: {}

@@ -34,7 +34,7 @@
 
 - A format string that disagrees with its arguments suggests the fix as an edit: remove the extra arguments, or write a `%` that has no argument as `\%`. A procedure that can end without a `return` points at its closing `}`.
 - Syntax errors suggest the fix as an edit and as an editor quick fix: a missing `;`, an unclosed `}` (with a note at the `{`), an unknown escape such as `\q`, and an unterminated comment or here-string.
-- Polymorphic calls that cannot infer a type now point at the parameter that declares it and the argument that did not match, and say how to pass the type by name.
+- Polymorphic calls that cannot infer a type now point at the parameter that declares it and the argument that did not match, and say how to pass the type by name; arrays of different lengths for one `$N` say which length each has, and a `.{...}` or `.[...]` literal that a parameter cannot take points at both.
 - An `ifx` of untyped numbers can be assigned to an unsigned type when both numbers fit it, as in `x: u32 = ifx c then 1 else 0;`.
 - Conversion and cast errors suggest the fix as an edit: a `cast`, `.*`, `*` or `!= 0` around the expression for a mismatched assignment, argument or operand, a range for `for n`, `cast,trunc` or `cast,force` where a cast needs it, and the result types for a wrong `return`.
 - Name errors suggest the fix: a name that a namespaced import such as `M :: #import "Math"` provides gets `M.` (or `using M;`), a missing module member gets the closest export, and a misspelled type member or named argument is fixed in place.
@@ -47,7 +47,7 @@
 - Typing in one program no longer makes the language server recheck other open programs that don't use the file.
 - Polymorphic procedure lenses update without waiting for unrelated programs to be rechecked.
 - Struct literal completion lists fields in declaration order and selects the first one left (#29).
-- Operators on a struct from a namespaced import, such as `u + v` on `Math.Vector2`, work without `using`, with a warning and quick fix that write the call as `Math.operator +(u, v)`; an operator that nothing reaches suggests the import or alias that has it.
+- Operators on a struct from a namespaced import, such as `u + v` on `Math.Vector2`, work without `using`, with a warning and quick fix that write the call as `Math.operator +(u, v)`; `operator *[]` and a `.{...}` operand work the same way, and an operator that nothing reaches suggests the import or alias that has it, and only a module that has an overload for those types.
 - Errors in calls, declarations and assignments say more: a call with the wrong number of arguments shows the callee's signature and can drop the extra ones, a repeated name points at the first, assigning to a constant or an argument says how to declare or copy it, and enum values, struct literals, lambdas and name counts that don't fit get a note or a fix.
 
 ### Changed
