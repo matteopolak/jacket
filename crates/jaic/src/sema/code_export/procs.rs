@@ -366,11 +366,10 @@ pub(super) fn procedure_flags(h: &ast::ProcHeader, polymorphic: bool) -> i64 {
     flags
 }
 
-/// Records for a `#code` value outside its compiler (`compiler_get_nodes`):
-/// the root node (`__source` holds the code's text, so the target compiler
-/// can parse it again when the node is inserted) and every node below it.
-pub fn export_code(r: &mut Records, body: &ast::CodeBody, source: &str) -> (i64, Vec<i64>) {
-    export_code_in(None, ScopeId(0), r, body, source)
+/// Records for a `#code` value outside its compiler (`compiler_get_nodes`): the root node
+/// and every node below it.
+pub fn export_code(r: &mut Records, body: &ast::CodeBody) -> (i64, Vec<i64>) {
+    export_code_in(None, ScopeId(0), r, body)
 }
 
 /// `export_code`, with names resolved and types filled in by `c` when given: identifiers
@@ -380,7 +379,6 @@ pub(super) fn export_code_in(
     scope: ScopeId,
     r: &mut Records,
     body: &ast::CodeBody,
-    source: &str,
 ) -> (i64, Vec<i64>) {
     let mut out = Typechecked::default();
     let own = c.is_some();
@@ -404,8 +402,5 @@ pub(super) fn export_code_in(
         ast::CodeBody::Block(b) => ex.block(&b.stmts, 1, b.span),
     };
     let sub = std::mem::take(&mut ex.sub);
-    if let Some(rec) = r.get_mut(root) {
-        rec.str("__source", source.as_bytes());
-    }
     (root, sub)
 }

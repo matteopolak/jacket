@@ -58,13 +58,10 @@ pub(super) fn step(
     // The registry borrow is released while the compiler runs: its
     // compile-time code may call back into the registry.
     shared.borrow_mut().current.push(id);
-    let modified = {
-        let reg = shared.borrow();
-        modifications
-            .iter()
-            .try_for_each(|(body, stmts)| compiler.modify_procedure(&reg.records, *body, stmts))
-    }
-    .and_then(|()| compiler.relower_modified());
+    let modified = modifications
+        .into_iter()
+        .try_for_each(|m| compiler.modify_procedure(m))
+        .and_then(|()| compiler.relower_modified());
     let mut pending = pending;
     let original_sources = pending.clone();
     if stage == Stage::Open {

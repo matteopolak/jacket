@@ -715,10 +715,12 @@ fn native_symlink_cannot_expose_internal_source_as_public_module() {
 #[test]
 fn procedure_modification_rejects_unknown_body_record() {
     let mut c = compiler(&[], false);
-    assert!(
-        c.modify_procedure(&jaic::records::Records::default(), 999, &[])
-            .is_err()
-    );
+    let unknown = jaic::sema::Modification {
+        body: 999,
+        stmts: Vec::new(),
+        source: "".into(),
+    };
+    assert!(c.modify_procedure(unknown).is_err());
 }
 
 #[test]

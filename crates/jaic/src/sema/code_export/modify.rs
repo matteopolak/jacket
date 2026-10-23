@@ -1,14 +1,8 @@
 //! Making procedures live and applying modifications to them.
-use super::state::ModifiedStmt;
-use crate::records::{Item, Records};
-use crate::sema::SourceState;
+use super::state::Modification;
 use crate::sema::{Compiler, Rc, Result, SourcePath, Span, ast, err, procs};
 
 impl Compiler {
-    /// `compiler_modify_procedure`: give the procedure of body record `body`
-    /// the statements `stmts` (statement records exported from this
-    /// workspace, or `#code` roots from `compiler_get_nodes`, parsed again
-    /// here). A body already lowered is lowered again.
     /// `compiler_make_procedure_live`: keep the procedure behind header record `header` in the
     /// program though nothing calls it. False when the record is not a procedure header this
     /// compiler exported.
@@ -39,12 +33,10 @@ impl Compiler {
         }
     }
 
-    pub fn modify_procedure(
-        &mut self,
-        r: &Records,
-        body: i64,
-        stmts: &[ModifiedStmt],
-    ) -> Result<()> {
+    /// `compiler_modify_procedure`: give the procedure of body record `m.body` the statements
+    /// `m.stmts`. A body already lowered is lowered again.
+    pub fn modify_procedure(&mut self, m: Modification) -> Result<()> {
+        let body = m.body;
         // Ownership is attached to the actual exported workspace procedure, never
         // recovered from a display name, copied serial or caller-created header.
         let Some(&p) = self.meta.export.bodies.get(&body) else {
@@ -66,30 +58,13 @@ impl Compiler {
                 "compiler_modify_procedure: procedure has no body",
             );
         };
-        let mut new_stmts = Vec::new();
-        for stmt in stmts {
-            let id = match stmt {
-                ModifiedStmt::Record(id) => *id,
-                ModifiedStmt::Source(text) => {
-                    new_stmts.extend(self.src.parse_inserted_code(text)?);
-                    continue;
-                }
-            };
-            if let Some(stmt) = self.meta.export.stmts.get(&id) {
-                new_stmts.push((**stmt).clone());
-                continue;
-            }
-            let Some(Item::Str(text)) = r.item(id, "__source", None) else {
-                return err(
-                    old_body.span,
-                    "compiler_modify_procedure: a statement is neither from this procedure nor from compiler_get_nodes",
-                );
-            };
-            new_stmts.extend(
-                self.src
-                    .parse_inserted_code(&String::from_utf8_lossy(&text))?,
-            );
-        }
+        let label = SourcePath::virtual_source(format!(
+            "compiler_modify_procedure {}",
+            self.src.sources.len()
+        ));
+        let file = self.src.sources.add(label, m.source);
+        let mut new_stmts = m.stmts;
+        ast::relocate::relocate_stmts(&mut new_stmts, file);
         let lit = ast::ProcLit {
             header: old.header.clone(),
             body: Some(ast::Block {
@@ -113,30 +88,5 @@ impl Compiler {
             self.lower_body(p)?;
         }
         Ok(())
-    }
-}
-
-impl SourceState {
-    /// Statements of the text of a `#code` value, as source of this compiler.
-    fn parse_inserted_code(&mut self, text: &str) -> Result<Vec<ast::Stmt>> {
-        let source = format!("__jaic_inserted :: () {{\n{text};\n}}\n");
-        let label =
-            SourcePath::virtual_source(format!("compiler_get_nodes {}", self.sources.len()));
-        let file = self.sources.add(label, source.as_str().into());
-        let parsed = crate::parser::parse_file(file, &source).map_err(Box::new)?;
-        let body = parsed.stmts.into_iter().find_map(|s| match s.kind {
-            ast::StmtKind::Decl(d) => match d.value.as_ref().map(|v| &v.kind) {
-                Some(ast::ExprKind::Proc(lit)) => lit.body.clone(),
-                _ => None,
-            },
-            _ => None,
-        });
-        match body {
-            Some(b) => Ok(b.stmts),
-            None => err(
-                Span::NONE,
-                "compiler_modify_procedure: could not parse inserted code",
-            ),
-        }
     }
 }

@@ -9,7 +9,6 @@
 use crate::intern::Sym;
 use crate::source::Span;
 mod flags;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod relocate;
 pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
 use std::cell::Cell;

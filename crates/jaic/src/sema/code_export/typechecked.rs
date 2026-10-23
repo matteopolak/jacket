@@ -347,17 +347,16 @@ impl Compiler {
         let Some(shared) = self.ct.interp.workspaces.clone() else {
             return;
         };
-        let (Some(body), Some(&scope), Some((_, text))) = (
+        let (Some(body), Some(&scope)) = (
             self.pr.codes.get(code).cloned(),
             self.pr.code_scopes.get(code),
-            self.ct.interp.codes.get(code).cloned(),
         ) else {
             return;
         };
         // No further requests while exporting: nested compile-time code gets plain nodes.
         let outer = self.ct.interp.run_effects.take();
         let mut records = Records::lend(&mut shared.borrow_mut().records);
-        let exported = export_code_in(Some(self), scope, &mut records, &body, &text);
+        let exported = export_code_in(Some(self), scope, &mut records, &body);
         Records::give_back(&mut shared.borrow_mut().records, records);
         self.ct.interp.run_effects = outer;
         self.ct

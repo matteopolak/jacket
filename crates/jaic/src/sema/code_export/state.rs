@@ -4,13 +4,13 @@ use crate::sema::{
     ast,
 };
 
-/// A statement of a body given to `compiler_modify_procedure`.
+/// A body given to `compiler_modify_procedure`: the body record, its new statements and the
+/// text their spans point into (built under `PLACEHOLDER_FILE`).
 #[derive(Debug, Clone)]
-pub enum ModifiedStmt {
-    /// A statement the compiler exported, unchanged.
-    Record(i64),
-    /// A new or edited statement, printed by the metaprogram.
-    Source(String),
+pub struct Modification {
+    pub body: i64,
+    pub stmts: Vec<ast::Stmt>,
+    pub source: Rc<str>,
 }
 
 /// Exporter state kept by a workspace's compiler between messages.
@@ -27,8 +27,6 @@ pub struct ExportState {
     pub(super) system_modules: HashMap<ModuleId, bool>,
     /// Procedure of each exported procedure-body record.
     pub bodies: HashMap<i64, ProcId>,
-    /// Statement behind each exported statement record.
-    pub stmts: HashMap<i64, Rc<ast::Stmt>>,
     /// Procedures whose header went out but whose body is not lowered yet:
     /// (procedure, header record, scope for type expressions). The body is reported
     /// in a later TYPECHECKED message, once lowered (like Jai, unused bodies never are).

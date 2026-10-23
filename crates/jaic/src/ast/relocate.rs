@@ -34,6 +34,30 @@ pub fn relocate(file: &mut File, real: FileId) {
     }
 }
 
+/// Rewrites a tree built under `PLACEHOLDER_FILE` so its spans name `real`.
+pub fn relocate_code(body: &mut CodeBody, real: FileId) {
+    let mut r = Relocator {
+        file: real,
+        shared: HashSet::default(),
+    };
+    match body {
+        CodeBody::Expr(expr) => r.expr(expr),
+        CodeBody::Stmt(stmt) => r.stmt(stmt),
+        CodeBody::Block(block) => r.block(block),
+    }
+}
+
+/// Rewrites statements built under `PLACEHOLDER_FILE` so their spans name `real`.
+pub fn relocate_stmts(stmts: &mut [Stmt], real: FileId) {
+    let mut r = Relocator {
+        file: real,
+        shared: HashSet::default(),
+    };
+    for stmt in stmts {
+        r.stmt(stmt);
+    }
+}
+
 /// Mutable access to an `Rc`'s contents. The tree being relocated is owned by one thread and
 /// nothing else holds its nodes, so no reference to the contents exists while it is edited.
 #[allow(unsafe_code, clippy::mut_from_ref)]

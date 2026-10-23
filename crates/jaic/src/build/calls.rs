@@ -46,9 +46,7 @@ impl Family {
             | MetaOp::AddStringToModule
             | MetaOp::AddStringToCode
             | MetaOp::CodeIsNull
-            | MetaOp::CodeNodes
-            | MetaOp::ParseCode
-            | MetaOp::ModifyProcedure => Family::Sources,
+            | MetaOp::CodeNodes => Family::Sources,
             MetaOp::CompilerVersion
             | MetaOp::BasePath
             | MetaOp::CommandLineCount
@@ -92,12 +90,6 @@ impl Call<'_> {
             .args
             .get(i)
             .expect("invariant: a primitive reads only the arguments its declaration passes")
-    }
-
-    /// Every pointer here comes from the program: reading or writing through one it made up is
-    /// an error, not a crash.
-    pub(super) fn load(&self, interp: &Interp, p: u64) -> Result<u64, Trap> {
-        interp.read_u64(p).ok_or_else(|| Trap::unreadable(p, 8))
     }
 
     pub(super) fn string(&self, interp: &Interp, i: usize) -> Result<Vec<u8>, Trap> {
@@ -149,7 +141,6 @@ fn is_effect(op: MetaOp) -> bool {
             | MetaOp::TypeTable
             | MetaOp::CodeIsNull
             | MetaOp::CodeNodes
-            | MetaOp::ParseCode
             | MetaOp::RecInt
             | MetaOp::RecRef
             | MetaOp::RecCount

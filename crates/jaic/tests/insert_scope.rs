@@ -409,8 +409,8 @@ fn insertion_declarations_do_not_escape_the_receiving_block() {
 #[test]
 fn code_export_and_text_parse_preserve_payload_shape_without_source_heuristics() {
     use jaic::{
-        ast::CodeBody,
-        build::parse_code_text,
+        ast::{CodeBody, ExprKind, StmtKind},
+        parser::parse_file,
         records::{RecordTag, Records},
         sema::code_export::export_code,
         source::FileId,
@@ -420,11 +420,17 @@ fn code_export_and_text_parse_preserve_payload_shape_without_source_heuristics()
         ("{value:=2;}", false),
         ("{{value:=2;}}", false),
     ] {
-        let body = parse_code_text(FileId(0), text).unwrap();
-        assert_eq!(matches!(&*body, CodeBody::Stmt(_)), statement);
+        let file = parse_file(FileId(0), &format!("c :: #code {text};")).unwrap();
+        let StmtKind::Decl(decl) = &file.stmts[0].kind else {
+            panic!("{text}: not a declaration");
+        };
+        let Some(ExprKind::Code(body)) = decl.value.as_ref().map(|value| &value.kind) else {
+            panic!("{text}: not a code literal");
+        };
+        assert_eq!(matches!(&**body, CodeBody::Stmt(_)), statement);
         let mut records = Records::default();
         // An unavailable/replaced source spelling cannot change AST lexical shape.
-        let (root, _) = export_code(&mut records, &body, "");
+        let (root, _) = export_code(&mut records, body);
         assert_eq!(
             records.get(root).unwrap().tag,
             if statement {

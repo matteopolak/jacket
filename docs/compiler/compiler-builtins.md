@@ -16,7 +16,7 @@ Query strings, views and message records are compiler-owned and remain valid for
 
 ## How to change it
 
-For public operations, update the registry, binding validation and handler under `build/public_api`, plus the public declaration. The editable-code serializer in `public_api/syntax` must preserve expression precedence when `compiler_get_code` or `compiler_modify_procedure` writes source: cast expressions used as children need grouping so a following dereference, member, index or call applies to the cast result. `code_roundtrips.rs` covers these forms through real compilation and execution. Test bodyless compile-time execution and runtime bodies. For a syntax attribute, add the same key/value in Jai and Rust and update the exporter and printers. `typed_builtin_keys.rs` checks shared enum values; `meta_op_names.rs` ensures only the retained syntax hooks are declared and bindable.
+For public operations, update the registry, binding validation and handler under `build/public_api`, plus the public declaration. The record-to-tree converter in `public_api/convert` builds the trees `compiler_get_code` and `compiler_modify_procedure` return; a new syntax form needs a mapping there, and every value it reads goes through the `Convert` readers so replay fingerprints stay complete. `code_roundtrips.rs` covers edited and unsupported nodes through real compilation and execution. Test bodyless compile-time execution and runtime bodies. For a syntax attribute, add the same key/value in Jai and Rust and update the exporter and printers. `typed_builtin_keys.rs` checks shared enum values; `meta_op_names.rs` ensures only the retained syntax hooks are declared and bindable.
 
 ## Configuration
 

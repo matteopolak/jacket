@@ -33,6 +33,7 @@ use crate::ast::{File, Ident, Note, Stmt};
 pub use crate::lexer::PlatformTarget;
 use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
+pub(crate) use directive_stmt::GENERIC_DIRECTIVES;
 pub(crate) use ide::parse_callee_ide;
 pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
 pub(crate) use stmt::check_bits;

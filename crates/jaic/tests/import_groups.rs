@@ -26,11 +26,7 @@ fn exported_calls_preserve_presence_and_separate_argument_counts() {
             panic!("procedure")
         };
         let mut records = Records::default();
-        let (root, _) = export_code(
-            &mut records,
-            &CodeBody::Block(proc.body.clone().unwrap()),
-            "{",
-        );
+        let (root, _) = export_code(&mut records, &CodeBody::Block(proc.body.clone().unwrap()));
         let Some(FieldRef::List(stmts)) = records.field(root, "statements") else {
             panic!("statements")
         };

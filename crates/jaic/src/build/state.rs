@@ -33,7 +33,7 @@ pub(super) struct Workspace {
     pub(super) events: VecDeque<Event>,
     pub(super) failed: bool,
     /// `compiler_modify_procedure` calls not applied yet: (body record, statement records).
-    pub(super) modifications: Vec<(i64, Vec<crate::sema::ModifiedStmt>)>,
+    pub(super) modifications: Vec<crate::sema::Modification>,
     /// Set from `READY_FOR_CUSTOM_LINK_COMMAND` until the metaprogram's link is reported.
     pub(super) link: Option<PendingLink>,
     /// `remap_import` rules: (importing module, imported name, replacement).

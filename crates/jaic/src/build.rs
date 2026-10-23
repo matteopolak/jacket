@@ -17,7 +17,6 @@ use crate::interp::{Interp, Rets, Trap};
 use crate::records::{FieldRef, Item};
 use crate::sema::{ProgramSource, ProvidedImport, ProvidedKind};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 mod calls;
 mod drive;
@@ -37,7 +36,6 @@ mod state;
 mod workspace;
 
 pub use plugin_program::{PluginImport, PluginProgram, plugin_metaprogram};
-pub use sources::parse_code_text;
 
 pub use self::calls::call;
 use self::calls::{Call, store, store_pair};

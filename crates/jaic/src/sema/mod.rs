@@ -71,7 +71,7 @@ use crate::source::{Diagnostic, DiagnosticKind, FileId, SourcePath, Span};
 use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).
 pub use asm::catalog as asm_catalog;
-pub use code_export::ModifiedStmt;
+pub use code_export::Modification;
 pub use compile_time::CompileTime;
 pub use diagnostics::Diagnostics;
 pub use driver::ProgramSource;
@@ -509,8 +509,8 @@ impl Compiler {
         c
     }
 
-    /// A new `Code` value. The interpreter keeps the body and its text too
-    /// (`compiler_get_nodes` exports it from compile-time code).
+    /// A new `Code` value. The interpreter keeps the body too (`compiler_get_nodes` exports
+    /// it from compile-time code).
     pub fn add_code(&mut self, body: Rc<ast::CodeBody>, scope: ScopeId) -> value::CodeId {
         self.adopt_made_codes();
         // Constant evaluation uses synthetic procedure scopes to hide runtime
@@ -524,35 +524,20 @@ impl Compiler {
             scope = parent;
         }
         let id = value::CodeId(self.pr.codes.len() as u32);
-        let span = match &*body {
-            ast::CodeBody::Expr(e) => e.span,
-            ast::CodeBody::Stmt(s) => s.span,
-            ast::CodeBody::Block(b) => b.span,
-        };
-        let text: Rc<str> = if (span.file.0 as usize) < self.src.sources.len() {
-            self.src.sources.snippet(span).into()
-        } else {
-            "".into()
-        };
-        self.ct.interp.codes.push((body.clone(), text));
+        self.ct.interp.codes.push(body.clone());
         self.pr.codes.push(body);
         self.pr.code_scopes.push(scope);
         id
     }
 
-    /// Take over the codes compile-time code made (`compiler_get_code`), parsing their
-    /// text again as a registered source so diagnostics can point into it.
+    /// Take over the codes compile-time code made (`compiler_get_code`), registering their
+    /// text as a source so diagnostics can point into it.
     pub fn adopt_made_codes(&mut self) {
         while self.pr.codes.len() < self.ct.interp.codes.len() {
             let id = self.pr.codes.len();
-            let text = self.ct.interp.codes[id].1.clone();
-            let from = self
-                .ct
-                .interp
-                .made_codes
-                .iter()
-                .find(|(made, _)| *made == id)
-                .map(|&(_, from)| from);
+            let made = self.ct.interp.made_codes.iter().find(|m| m.id == id);
+            let from = made.map(|m| m.scope_from);
+            let source = made.map(|m| m.source.clone());
             let unscoped = from.is_none_or(|f| {
                 matches!(&*self.pr.codes[f], ast::CodeBody::Expr(e) if matches!(e.kind, ast::ExprKind::Null))
             });
@@ -567,13 +552,14 @@ impl Compiler {
             let scope = from
                 .and_then(|f| self.pr.code_scopes.get(f).copied())
                 .unwrap_or(self.ns.root_scope);
-            let file = self.src.sources.add(
-                SourcePath::virtual_source(format!("compiler_get_code {id}")),
-                format!("__jaic_code :: #code {text};\n").into(),
-            );
-            let body = crate::build::parse_code_text(file, &text)
-                .unwrap_or_else(|_| self.ct.interp.codes[id].0.clone());
-            self.ct.interp.codes[id].0 = body.clone();
+            if let Some(source) = source {
+                let file = self.src.sources.add(
+                    SourcePath::virtual_source(format!("compiler_get_code {id}")),
+                    source,
+                );
+                ast::relocate::relocate_code(Rc::make_mut(&mut self.ct.interp.codes[id]), file);
+            }
+            let body = self.ct.interp.codes[id].clone();
             self.pr.codes.push(body);
             self.pr.code_scopes.push(scope);
         }

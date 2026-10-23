@@ -28,7 +28,12 @@ fn reference(records: &Records, id: i64, field: &str) -> i64 {
 
 #[test]
 fn retained_member_and_anonymous_bodies_have_canonical_ownership() {
-    use jaic::sema::code_export::ModifiedStmt;
+    // Ownership is checked before the statements are looked at, so none are given.
+    let modification = |body| jaic::sema::Modification {
+        body,
+        stmts: Vec::new(),
+        source: "".into(),
+    };
 
     let mut fs = VirtualFs::default();
     fs.insert("/lib/prelude/module.jai", "".as_bytes());
@@ -67,24 +72,17 @@ main :: () -> int {
             assert!(bodies.insert(body));
             assert!(headers.insert(header));
             assert_eq!(reference(&records, header, "body_or_null"), body);
-            let block = reference(&records, body, "block");
-            let statements: Vec<_> = refs(&records, block, "statements")
-                .into_iter()
-                .map(ModifiedStmt::Record)
-                .collect();
             assert!(
-                other.modify_procedure(&records, body, &statements).is_err(),
+                other.modify_procedure(modification(body)).is_err(),
                 "foreign workspace body must be rejected"
             );
             let copy = records.add(records.get(body).unwrap().clone());
             assert!(
-                compiler
-                    .modify_procedure(&records, copy, &statements)
-                    .is_err(),
+                compiler.modify_procedure(modification(copy)).is_err(),
                 "copying fields cannot transfer canonical ownership"
             );
             compiler
-                .modify_procedure(&records, body, &statements)
+                .modify_procedure(modification(body))
                 .expect("retained body belongs to the actual canonical procedure");
         }
     }
@@ -94,7 +92,7 @@ main :: () -> int {
         "main, member and callback each reported once"
     );
     compiler.relower_modified().unwrap();
-    assert!(compiler.modify_procedure(&records, 999_999, &[]).is_err());
+    assert!(compiler.modify_procedure(modification(999_999)).is_err());
 }
 
 #[test]

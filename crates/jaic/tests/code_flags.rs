@@ -47,11 +47,7 @@ fn type_instantiation_flags_preserve_array_directive_and_variadic_kinds() {
         panic!("procedure")
     };
     let mut records = Records::default();
-    let (root, _) = export_code(
-        &mut records,
-        &CodeBody::Block(proc.body.clone().unwrap()),
-        "{",
-    );
+    let (root, _) = export_code(&mut records, &CodeBody::Block(proc.body.clone().unwrap()));
     let declarations = list(&records, root, "statements");
     for (&decl, expected) in declarations.iter().zip([2, 0, 64, 8, 16, 32, 4]) {
         assert_eq!(
@@ -80,11 +76,7 @@ fn static_using_arguments_are_independent_of_the_public_filter_kind() {
         panic!("procedure")
     };
     let mut records = Records::default();
-    let (root, _) = export_code(
-        &mut records,
-        &CodeBody::Block(proc.body.clone().unwrap()),
-        "{",
-    );
+    let (root, _) = export_code(&mut records, &CodeBody::Block(proc.body.clone().unwrap()));
     for (&id, (kind, arguments)) in
         list(&records, root, "statements")
             .iter()
@@ -113,11 +105,7 @@ fn exported_while_syntax_retains_caller_binding_and_label_modes() {
         panic!("procedure")
     };
     let mut records = Records::default();
-    let (root, _) = export_code(
-        &mut records,
-        &CodeBody::Block(proc.body.clone().unwrap()),
-        "{",
-    );
+    let (root, _) = export_code(&mut records, &CodeBody::Block(proc.body.clone().unwrap()));
     for (&id, (bind, tick)) in
         list(&records, root, "statements")
             .iter()

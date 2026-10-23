@@ -134,9 +134,14 @@ pub(super) fn build(cx: &Call, interp: &mut Interp, id: i64, ty: TypeId) -> Resu
     Ok(cx.invoke(interp, MetaOp::RecBuild, &[handle, id as u64, expected])?[0])
 }
 
-pub(super) fn record_id(cx: &Call, interp: &mut Interp, address: u64) -> Result<i64, Trap> {
+/// The record a compiler-made pointer came from, or 0 for memory the program made.
+pub(super) fn record_of(cx: &Call, interp: &mut Interp, address: u64) -> Result<i64, Trap> {
     let handle = builder(cx, interp)?;
-    let id = cx.invoke(interp, MetaOp::RecOf, &[handle, address])?[0] as i64;
+    Ok(cx.invoke(interp, MetaOp::RecOf, &[handle, address])?[0] as i64)
+}
+
+pub(super) fn record_id(cx: &Call, interp: &mut Interp, address: u64) -> Result<i64, Trap> {
+    let id = record_of(cx, interp, address)?;
     if id == 0 {
         return Err(Trap::new(
             "syntax/message pointer was not produced by this compiler",
@@ -255,8 +260,8 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                 &[cx.workspace(0)? as u64, record as u64],
             )
         }
-        GetCode => super::syntax::get_code(cx, interp),
-        ModifyProcedure => super::syntax::modify(cx, interp),
+        GetCode => super::convert::get_code(cx, interp),
+        ModifyProcedure => super::convert::modify(cx, interp),
         _ => unreachable!(),
     }
 }

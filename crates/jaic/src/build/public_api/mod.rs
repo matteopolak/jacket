@@ -1,11 +1,11 @@
 //! The public #compiler contract, independent of the selected standard library's bodies.
 mod abi;
 mod binding;
+mod convert;
 mod messages;
 mod operations;
 mod options;
 mod records;
-mod syntax;
 
 pub(crate) use abi::{Binding, Field, Kind, Layout, Schema};
 pub(crate) use binding::bind;

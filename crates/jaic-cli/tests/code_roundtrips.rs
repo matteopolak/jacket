@@ -35,6 +35,10 @@ const CASES: &[(&str, &str)] = &[
         "fixtures/code-roundtrip/postfix-cast-roundtrip.jai",
         "postfix casts ok\n",
     ),
+    (
+        "fixtures/code-roundtrip/edited-nodes-roundtrip.jai",
+        "edited nodes ok\n",
+    ),
 ];
 
 fn source(path: &str) -> PathBuf {
@@ -58,17 +62,30 @@ fn filtered_parameters_and_caller_visible_while_roundtrip_in_the_interpreter() {
 }
 
 #[test]
-fn explicitly_reset_record_kind_is_rejected_without_shape_guessing() {
-    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
-        .arg(source("fixtures/code-roundtrip/code-record-reset-tag.jai"))
-        .arg("-check")
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    assert!(
-        String::from_utf8_lossy(&output.stderr)
-            .contains("cannot serialize an uninitialized syntax node")
-    );
+fn unsupported_edits_are_rejected() {
+    for (path, message) in [
+        (
+            "fixtures/code-roundtrip/code-record-reset-tag.jai",
+            "cannot serialize an uninitialized syntax node",
+        ),
+        (
+            "fixtures/code-roundtrip/changed-kind-rejected.jai",
+            "cannot serialize a node whose kind was changed without rebuilding its record",
+        ),
+        (
+            "fixtures/code-roundtrip/assignment-value-rejected.jai",
+            "an assignment cannot be used as an expression",
+        ),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(source(path))
+            .arg("-check")
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{path}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(message), "{path}: {stderr}");
+    }
 }
 
 #[cfg(feature = "llvm")]

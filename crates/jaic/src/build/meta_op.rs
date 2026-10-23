@@ -35,8 +35,6 @@ pub enum MetaOp by name {
     AddStringToCode = "__jaic_workspace_add_string_to_code",
     CodeNodes = "__jaic_code_nodes",
     CodeIsNull = "__jaic_code_is_null",
-    ParseCode = "__jaic_parse_code",
-    ModifyProcedure = "__jaic_modify_procedure",
     SetTypeInfoFlags = "__jaic_set_type_info_flags",
     StructLocation = "__jaic_struct_location",
     BasePath = "__jaic_base_path",

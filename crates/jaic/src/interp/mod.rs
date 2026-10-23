@@ -110,6 +110,17 @@ pub fn compile_time_spent() -> (std::time::Duration, u64) {
     )
 }
 
+/// A code `compiler_get_code` made.
+pub struct MadeCode {
+    pub id: usize,
+    /// The code whose scope it takes.
+    pub scope_from: usize,
+    /// The text its spans point into, until the compiler adopts it.
+    pub source: std::rc::Rc<str>,
+    /// Every value its conversion read: a repeated run that reads the same makes the same code.
+    pub fingerprint: Box<[u8]>,
+}
+
 pub struct Interp {
     stack: ValueStack,
     sp: u64,
@@ -166,11 +177,10 @@ pub struct Interp {
     pub struct_locations: crate::fxhash::HashMap<GlobalId, (std::rc::Rc<str>, i64, i64)>,
     /// Workspace registry for the `Compiler` module, when the embedder has one.
     pub workspaces: Option<crate::build::SharedWorkspaces>,
-    /// Bodies and source text of the compiler's `Code` values, by `CodeId`.
-    pub codes: Vec<(std::rc::Rc<crate::ast::CodeBody>, std::rc::Rc<str>)>,
-    /// Codes made by compile-time code (`compiler_get_code`): their index and the
-    /// index of the code whose scope they take. The compiler adopts them lazily.
-    pub made_codes: Vec<(usize, usize)>,
+    /// Bodies of the compiler's `Code` values, by `CodeId`.
+    pub codes: Vec<std::rc::Rc<crate::ast::CodeBody>>,
+    /// Codes made by compile-time code (`compiler_get_code`). The compiler adopts them lazily.
+    pub made_codes: Vec<MadeCode>,
     pub pending_data_globals: Vec<PendingDataGlobal>,
     data_segment_tags: HashMap<GlobalId, u16>,
     runtime_data_snapshots: Vec<Box<[u64]>>,
