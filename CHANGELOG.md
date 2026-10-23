@@ -8,6 +8,7 @@
 - The `Codex` module takes the `USAGE_MODE` parameter, `#import "Codex"(USAGE_MODE = .READ)`.
 - `jailint` rule levels can be set per path with `[[lint.overrides]]` in `jacket.toml`.
 - `jailint` has an opt-in `cognitive_complexity` lint for procedures with too much nested branching, with the limit set by `[lint] max_complexity`.
+- `jailint` warns about a `// jailint: allow(...)` comment that names a rule that does not exist (`unknown_allow`), and suggests the closest rule name.
 - `jailint` reports reading a variable declared `= ---` before anything is written to it.
 - `jailint` reports changing a variable that bounds a `for` range inside the loop, which does not change how often it runs.
 - `jailint` suggests `PI`, `TAU` and the other `Math` constants over hand-typed approximations such as `3.14159`.

@@ -58,20 +58,10 @@ impl Suppressions {
                 continue;
             }
             let (start, line_end) = (comment.span.start as usize, comment.span.end as usize);
-            let Some(rest) = comment.body(text).trim().strip_prefix(MARKER) else {
+            let Some((file_wide, rules)) = directive(comment.body(text)) else {
                 continue;
             };
-            let rest = rest.trim();
-            let (file_wide, list) = if let Some(l) = rest.strip_prefix("allow-file") {
-                (true, l)
-            } else if let Some(l) = rest.strip_prefix("allow") {
-                (false, l)
-            } else {
-                continue;
-            };
-            let Some(rules) = rule_list(list) else {
-                continue;
-            };
+            let rules: Vec<String> = rules.into_iter().map(str::to_string).collect();
             if file_wide {
                 self.file.extend(rules);
                 continue;
@@ -125,6 +115,8 @@ impl Suppressions {
                 continue;
             };
             if let Some(rules) = rule_list(list) {
+                let rules = rules.into_iter().map(str::to_string).collect();
+
                 self.ranges
                     .push((span.start as usize, span.end as usize, rules));
             }
@@ -132,13 +124,25 @@ impl Suppressions {
     }
 }
 
+/// The body of a `// jailint: allow(...)` or `allow-file(...)` comment: whether it covers the
+/// whole file, and the names it lists.
+pub(crate) fn directive(body: &str) -> Option<(bool, Vec<&str>)> {
+    let rest = body.trim().strip_prefix(MARKER)?.trim();
+    let (file_wide, list) = if let Some(l) = rest.strip_prefix("allow-file") {
+        (true, l)
+    } else {
+        (false, rest.strip_prefix("allow")?)
+    };
+    Some((file_wide, rule_list(list)?))
+}
+
 /// `(a, b)` as names.
-fn rule_list(text: &str) -> Option<Vec<String>> {
+fn rule_list(text: &str) -> Option<Vec<&str>> {
     let inner = text.trim().strip_prefix('(')?;
     let inner = &inner[..inner.find(')')?];
-    let rules: Vec<String> = inner
+    let rules: Vec<&str> = inner
         .split(',')
-        .map(|r| r.trim().to_string())
+        .map(str::trim)
         .filter(|r| !r.is_empty())
         .collect();
     (!rules.is_empty()).then_some(rules)

@@ -128,6 +128,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
 | `string_literal_write` | correctness | deny | no | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
 | `uninit_read` | correctness | deny | no | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
+| `unknown_allow` | suspicious | warn | no | a `// jailint: allow(...)` comment naming a rule that does not exist |
 | `unpaired_lock` | suspicious | warn | no | `lock(*m);` with a `return`, or the end of the procedure, reached before the matching unlock |
 | `unused_import` | style | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | style | warn | no | a parameter the procedure never uses |
@@ -236,6 +237,8 @@ Not auto-fixed: the slip may be on the other side. After `using info;`, `width =
 Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native). Fires on `s[i] = x`, `s[i] += x`, `s.data[i] = x` and `s.data.* = x` when `s` was declared from a literal (`s := "abc";`, `s: string = "abc";`) in the same statement list and nothing since could have changed it: any assignment to `s`, taking `*s`, or redeclaring the name (in any nested scope) ends the check, so `s = copy_string(s);` silences later writes. Writes in nested blocks and in macros are not reported.
 ### uninit_read
 The first mention after the declaration, in the same block, decides; a write anywhere (even inside an `if`) ends the check, so only straight-line reads are reported. Taking the address (`init(*x)`, `for *x`), `.data`/`.count` of a fixed-size array and compiler built-ins (`type_of(x)`) are not reads. Procedures with `using` are skipped.
+### unknown_allow
+A name in a line comment's `allow(...)` or `allow-file(...)` list that is not a rule, a category or `all`. The comment allows nothing, so a typo leaves the finding in place, and a rule that was renamed leaves a comment that covers nothing. Suggests the closest rule name. `@jailint_allow(...)` notes are not checked.
 ### unpaired_lock
 A statement-level call of a `@Locks` procedure with an argument (`lock(*state.mutex);`) at the top level of a procedure body, followed by a path that reaches a `return`, or the end of the body, without a call of an `@Unlocks` procedure on the same first argument (compared as written, ignoring whitespace) or a `defer` of one. A `defer` earlier in the body counts. Paths made of statements in sequence, `if`/`else` and blocks are followed; anything else is silent: a loop or `switch` that mentions the unlock (one with a `return` and no unlock is reported at the `return`), `break`/`continue`, an `if` whose branches disagree about unlocking, `#insert`, `using`, macro calls. A procedure that is itself `@Locks` is a wrapper and is not checked, and a lock taken inside a nested block is not followed. A lock whose result reports failure (`err := lock(...)`) is not a statement-level call and is left alone.
 ### unused_import
@@ -267,7 +270,7 @@ callback :: (event: int, data: *void) {
 } @jailint_allow(unused_parameter)        // after a declaration: all of it
 ```
 
-Rules are comma-separated; `all` means every rule. A `_` prefix marks an unused variable or parameter as intentional.
+Rules are comma-separated; `all` means every rule. A name that is neither a rule, a category nor `all` is reported by `unknown_allow`. A `_` prefix marks an unused variable or parameter as intentional.
 
 ## Configuration
 

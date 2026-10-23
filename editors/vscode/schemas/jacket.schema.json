@@ -565,6 +565,16 @@
               "default": "deny",
               "markdownDescription": "a variable declared `= ---` read before anything is written to it (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#uninit_read)"
             },
+            "unknown_allow": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a `// jailint: allow(...)` comment naming a rule that does not exist (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unknown_allow)"
+            },
             "unpaired_lock": {
               "type": "string",
               "enum": [

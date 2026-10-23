@@ -52,6 +52,7 @@ mod self_assignment;
 mod shadowed_it;
 mod string_literal_write;
 mod uninit_read;
+mod unknown_allow;
 mod unpaired_lock;
 pub(crate) mod unused_import;
 mod unused_parameter;
@@ -341,6 +342,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a variable declared `= ---` read before anything is written to it",
         check: uninit_read::check,
+    },
+    RuleInfo {
+        name: "unknown_allow",
+        category: Category::Suspicious,
+        summary: "a `// jailint: allow(...)` comment naming a rule that does not exist",
+        check: unknown_allow::check,
     },
     RuleInfo {
         name: "unpaired_lock",

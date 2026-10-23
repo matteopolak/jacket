@@ -203,6 +203,10 @@ fn fixed_cases_are_clean() {
             continue;
         }
         let (lints, text) = lint(&fixed, &[(r.name, Level::Warn)]);
+        // The linter skips a file that does not parse, so a broken fix would pass as clean.
+        if let Err(error) = jaic::parser::parse_file(jaic::source::FileId(0), &text) {
+            panic!("{} does not parse: {error:?}", fixed.display());
+        }
         // What is left carries no fix to apply (a nested loop that keeps `index_only_loop`
         // from using `it`).
         let lints: Vec<Lint> = lints

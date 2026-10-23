@@ -1,0 +1,27 @@
+warning[unknown_allow]: `unused_varaible` is not a jailint rule, so this comment allows nothing
+  --> tests/lint/unknown_allow/bad.jai:3:19
+   |
+ 3 | // jailint: allow(unused_varaible)
+   |                   ^^^^^^^^^^^^^^^
+   |
+   = help: did you mean `unused_variable`? (`--list` shows every rule)
+   = note: `unknown_allow` is `warn` by default
+
+warning[unknown_allow]: `no_such_rule` is not a jailint rule, so this comment allows nothing
+  --> tests/lint/unknown_allow/bad.jai:5:48
+   |
+ 5 |     x := 1; // jailint: allow(unused_variable, no_such_rule)
+   |                                                ^^^^^^^^^^^^
+   |
+   = help: `--list` shows every rule; `all` and the category names also work
+   = note: `unknown_allow` is `warn` by default
+
+warning[unknown_allow]: `everything` is not a jailint rule, so this comment allows nothing
+  --> tests/lint/unknown_allow/bad.jai:9:24
+   |
+ 9 | // jailint: allow-file(everything)
+   |                        ^^^^^^^^^^
+   |
+   = help: `--list` shows every rule; `all` and the category names also work
+   = note: `unknown_allow` is `warn` by default
+
