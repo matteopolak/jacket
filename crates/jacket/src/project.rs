@@ -46,8 +46,14 @@ pub fn migrate_on_first_use(cwd: &Path) {
 
 /// The configuration above `cwd`, with notes printed. A broken file is an error.
 pub fn load(cwd: &Path) -> Result<Option<Loaded>, ConfigError> {
+    load_with(cwd, true)
+}
+
+/// [`load`], printing the notes only when `notes` is set: a command that starts a tool which
+/// reads the same file and prints them itself (`jailint`) leaves them to it.
+pub fn load_with(cwd: &Path, notes: bool) -> Result<Option<Loaded>, ConfigError> {
     let loaded = jacket_config::load(&Disk, cwd)?;
-    if let Some(loaded) = &loaded {
+    if notes && let Some(loaded) = &loaded {
         for note in &loaded.notes {
             eprintln!("jacket: {note}");
         }

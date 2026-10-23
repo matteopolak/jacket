@@ -75,7 +75,8 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         return tools::exec(tools::find(tool).as_os_str(), args);
     }
     project::migrate_on_first_use(cwd);
-    let loaded = match project::load(cwd) {
+    // `jailint` reads the same file and prints its own notes.
+    let loaded = match project::load_with(cwd, command != "lint") {
         Ok(loaded) => loaded,
         Err(error) => {
             eprintln!("jacket: error: {error}");
