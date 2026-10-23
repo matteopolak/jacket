@@ -7,9 +7,9 @@
 //! `a > b`, in either argument order, when the outer and inner calls are to procedures
 //! declared with the notes `@ReturnsSmaller` and `@ReturnsLarger` (the library's `min` and `max` carry
 //! them, whatever they are called where they are used).
-use super::{calls_noted, finding, int_literal};
-use crate::Finding;
+use super::{calls_noted, int_literal, suggesting};
 use crate::syntax::{Cx, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{Expr, ExprKind as E};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -42,7 +42,27 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             };
             if always {
                 let (lo, hi) = (bound.min(other), bound.max(other));
-                out.push(finding(
+                let outer_literal = if literal(x).is_some() {
+                    x
+                } else {
+                    y
+                };
+                let (inner_literal, value) = if literal(p).is_some() {
+                    (p, q)
+                } else {
+                    (q, p)
+                };
+                let (lo_expr, hi_expr) = if bound <= other {
+                    (outer_literal, inner_literal)
+                } else {
+                    (inner_literal, outer_literal)
+                };
+                let (lo_text, hi_text) = (
+                    cx.whole_src(lo_expr.span).trim(),
+                    cx.whole_src(hi_expr.span).trim(),
+                );
+                let value = cx.whole_src(value.span).trim();
+                out.push(suggesting(
                     e.span,
                     format!(
                         "this is always `{}`: the bounds are swapped",
@@ -52,9 +72,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         })
                         .trim()
                     ),
-                    Some(format!(
+                    format!(
                         "to keep a value between {lo} and {hi}, write `clamp(value, {lo}, {hi})`"
-                    )),
+                    ),
+                    "clamp between the two bounds",
+                    vec![Edit {
+                        start: e.span.start as usize,
+                        end: e.span.end as usize,
+                        text: format!("clamp({value}, {lo_text}, {hi_text})"),
+                    }],
                 ));
             }
             true
