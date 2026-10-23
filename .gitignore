@@ -35,5 +35,6 @@ node_modules/
 # Local deferred-work notes
 /TODO.md
 /HANDOFF.md
+/BUGS.md
 /CLEANROOM.md
 /playground/
