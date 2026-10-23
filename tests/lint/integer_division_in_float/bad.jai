@@ -7,5 +7,7 @@ main :: () {
     width := 10.0;
     half := 1 / 2 * width;
 
-    print("% %\n", ratio, half);
+    sum := (done + total) / total * 0.5;
+
+    print("% % %\n", ratio, half, sum);
 }

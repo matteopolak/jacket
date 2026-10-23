@@ -13,9 +13,9 @@
 //! float (`cast(float32)`, `cast(float64)`, or `xx` to a float) or is an operand of arithmetic
 //! that produces a float. A variable divided by a literal power of two (`cast(float)(w / 2)`,
 //! centring on whole pixels) is taken as deliberate and not reported.
-use super::{finding, int_literal};
-use crate::Finding;
+use super::{int_literal, parenthesized, suggesting};
 use crate::syntax::{Cx, Node, walk};
+use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
@@ -58,15 +58,30 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let a_text = cx.whole_src(a.span).trim();
             let float_a = match a.kind {
                 E::Int(_) => format!("{a_text}.0"),
-                _ => format!("cast(float) {a_text}"),
+                E::Ident(_)
+                | E::Member(..)
+                | E::Index(..)
+                | E::Call {
+                    ..
+                } => {
+                    format!("cast(float) {a_text}")
+                }
+                _ if parenthesized(cx, a) => format!("cast(float) {a_text}"),
+                _ => format!("cast(float) ({a_text})"),
             };
             let b_text = cx.whole_src(b.span).trim();
-            out.push(finding(
+            out.push(suggesting(
                 e.span,
                 format!(
                     "integer division `{a_text} / {b_text}` is {how}: the remainder is lost first"
                 ),
-                Some(format!("divide as floats: `{float_a} / {b_text}`")),
+                format!("divide as floats: `{float_a} / {b_text}`"),
+                "convert the dividend to a float",
+                vec![Edit {
+                    start: cx.whole(a.span).0,
+                    end: cx.whole(a.span).1,
+                    text: float_a,
+                }],
             ));
             true
         });
