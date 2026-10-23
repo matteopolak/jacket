@@ -1,0 +1,25 @@
+name: Cache the dependency age lookups
+description: >-
+  Restores the registry answers tools/ci/check_dependency_age.py keeps (publish dates never change), so
+  only crates new since the last main run are looked up at one second each; on main the grown file is
+  saved when the job succeeds. Exports DEPENDENCY_AGE_CACHE, which the script reads.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo "DEPENDENCY_AGE_CACHE=${{ runner.temp }}/dependency-age.json" >> "$GITHUB_ENV"
+    # An exact hit means the lockfiles are unchanged; otherwise the newest older file seeds the
+    # lookups and the result is saved under the new key. The script re-checks entries older than
+    # three days (a release can be yanked), whatever the key.
+    - if: github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/dependency-age.json
+        key: dep-age-${{ hashFiles('Cargo.lock', 'fuzz/Cargo.lock') }}
+        restore-keys: dep-age-
+    - if: github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/dependency-age.json
+        key: dep-age-${{ hashFiles('Cargo.lock', 'fuzz/Cargo.lock') }}
+        restore-keys: dep-age-

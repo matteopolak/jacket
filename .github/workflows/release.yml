@@ -169,6 +169,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      - uses: ./.github/actions/dependency-age-cache
       - name: Validate dependency ages before building
         # Read-only GitHub API access for the commit dates of pinned git dependencies.
         env:

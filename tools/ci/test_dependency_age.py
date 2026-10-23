@@ -101,6 +101,32 @@ class AgePolicyTests(unittest.TestCase):
         )
         self.assertIn("yanked", errors[0])
 
+    def test_cache_entries_are_trusted_only_while_fresh_and_well_formed(self):
+        now = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        entry = {
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "yanked": False,
+            "fetched": (now - timedelta(days=1)).isoformat(),
+        }
+        stale = entry | {"fetched": (now - timedelta(days=4)).isoformat()}
+        future = entry | {"fetched": (now + timedelta(days=1)).isoformat()}
+        self.assertTrue(age.fresh(entry, now))
+        self.assertFalse(age.fresh(stale, now))
+        self.assertFalse(age.fresh(future, now))
+        self.assertFalse(age.fresh(entry | {"yanked": "no"}, now))
+        self.assertFalse(age.fresh({}, now))
+
+    def test_unreadable_cache_is_empty(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "c.json"
+            self.assertEqual(age.load_cache(path), {})
+            path.write_text("not json")
+            self.assertEqual(age.load_cache(path), {})
+            path.write_text("[1]")
+            self.assertEqual(age.load_cache(path), {})
+
 
 if __name__ == "__main__":
     unittest.main()
