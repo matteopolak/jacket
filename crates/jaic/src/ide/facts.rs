@@ -175,6 +175,9 @@ pub struct IdeFacts {
     /// The value type left of each `a.b` of the recorded files, by the span of `b` (`None`
     /// when checking it several times gave different types).
     pub receivers: HashMap<Span, Option<TypeId>>,
+    /// Every value, type or module left of a `.b` of the recorded files, by the span of `b`
+    /// (a polymorphic body is checked once per instance, and once with stand-in types).
+    pub receiver_sets: HashMap<Span, Vec<IdeReceiver>>,
     /// The struct each `Poly(args)` of the recorded files instantiated, by the span of `Poly`.
     pub instances: HashMap<Span, Option<TypeId>>,
     /// The struct each field name of the recorded files was laid out in, by the name's span
@@ -459,7 +462,7 @@ impl IdeCall {
 }
 
 /// What `a.b.` refers to, for member completion.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IdeReceiver {
     Value(TypeId),
     Type(TypeId),

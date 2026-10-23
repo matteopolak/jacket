@@ -39,7 +39,7 @@ pub struct MemberAlias {
 
 impl MemberAlias {
     /// The member of the target that `name` stands for, if the filter lets it through.
-    pub(super) fn target_name(&self, name: Sym) -> Option<Sym> {
+    pub(crate) fn target_name(&self, name: Sym) -> Option<Sym> {
         match &self.filter {
             ast::UsingFilter::None => Some(name),
             ast::UsingFilter::Only(names) => names.iter().any(|n| n.name == name).then_some(name),

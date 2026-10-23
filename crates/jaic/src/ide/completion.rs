@@ -4,11 +4,12 @@ use crate::ast;
 use crate::fxhash::HashSet;
 use crate::intern::Sym;
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Found, Resolved, ScopeId, ScopeKind};
+use crate::sema::structs::MemberAlias;
 use crate::sema::{Compiler, ModuleId, scope, value};
 use crate::source::FileId;
 use crate::source::Span;
 use crate::types::TypeId;
-use crate::types::{ArrayKind, TypeKind};
+use crate::types::{ArrayKind, StructId, TypeKind};
 
 impl Compiler {
     /// Names visible at `offset` of `file` from `scope`: locals declared before the offset,
@@ -384,26 +385,50 @@ impl Compiler {
                 from = parent;
             }
         }
-        let mut recv = match self.lookup_full(from, *first).ok()? {
-            Found::Entities(ids) => self.ide_entity_receiver(*ids.first()?)?,
-            Found::Using(entry, member) => {
-                let ty = entry.member_type()?;
-                IdeReceiver::Value(self.ide_field_type(ty, member)?)
-            }
+        // In a struct's body a field is named by itself: `ship.model = "x";`.
+        let body = matches!(
+            self.scope(from).kind,
+            ScopeKind::File | ScopeKind::Struct(_)
+        )
+        .then(|| self.ide_body_field_type(from, at, *first))
+        .flatten();
+        let mut recv = match body {
+            Some(ty) => IdeReceiver::Value(ty),
+            None => match self.lookup_full(from, *first).ok()? {
+                Found::Entities(ids) => self.ide_entity_receiver(*ids.first()?)?,
+                Found::Using(entry, member) => {
+                    let ty = entry.member_type()?;
+                    IdeReceiver::Value(self.ide_field_type(ty, member)?)
+                }
+            },
         };
         for name in rest {
             recv = match recv {
-                IdeReceiver::Value(t) => IdeReceiver::Value(self.ide_field_type(t, *name)?),
+                IdeReceiver::Value(t) => {
+                    if let Some(field) = self.ide_field_type(t, *name) {
+                        IdeReceiver::Value(field)
+                    } else {
+                        // A constant of the struct reached through a value (`context.Alias`).
+                        let id = *self
+                            .struct_scope_entities(self.ide_deref(t), *name)
+                            .first()?;
+                        self.ide_entity_receiver(id)?
+                    }
+                }
                 IdeReceiver::Type(t) => {
-                    // A type declared in the struct (`Outer.Inner`) is the receiver; else
-                    // `Enum.MEMBER.` or a struct constant: the value has the type itself.
+                    // A type or constant declared in the struct (`Outer.Inner`) is the receiver;
+                    // else a field named through its struct, or `Enum.MEMBER.`.
                     let nested = self
                         .struct_scope_entities(self.ide_deref(t), *name)
                         .first()
                         .and_then(|&id| self.ide_entity_receiver(id));
                     match nested {
-                        Some(r @ IdeReceiver::Type(_)) => r,
-                        _ => IdeReceiver::Value(t),
+                        Some(r) => r,
+                        // `Type.field.CONSTANT`: the field named through its struct.
+                        None => match self.ide_declared_field_type(t, *name) {
+                            Some(field) => IdeReceiver::Value(field),
+                            None => IdeReceiver::Value(t),
+                        },
                     }
                 }
                 IdeReceiver::Module(m) => match self.module_member_lookup(m, *name).ok()? {
@@ -415,6 +440,45 @@ impl Compiler {
             };
         }
         Some(recv)
+    }
+
+    /// The type of the field `name` of the struct whose body is at `scope` or `at`.
+    fn ide_body_field_type(
+        &mut self,
+        scope: ScopeId,
+        at: Option<(FileId, u32)>,
+        name: Sym,
+    ) -> Option<TypeId> {
+        let mut current = Some(scope);
+        while let Some(sid) = current {
+            if let ScopeKind::Struct(t) = self.scope(sid).kind {
+                return self.ide_declared_field_type(t, name);
+            }
+            current = self.scope(sid).parent;
+        }
+        // A struct body is not a scope the editor records: the innermost struct whose text
+        // holds the position.
+        let (file, offset) = at?;
+        let inside = (0..self.ns.scopes.len())
+            .filter_map(|i| match self.scope(ScopeId(i as u32)).kind {
+                ScopeKind::Struct(t) => Some(t),
+                _ => None,
+            })
+            .filter_map(|t| match self.ty.types.kind(t) {
+                TypeKind::Struct(s) => Some((t, self.ty.types.struct_info(*s).span)),
+                _ => None,
+            })
+            .filter(|(_, span)| span.file == file && span.start <= offset && offset <= span.end)
+            .min_by_key(|(_, span)| span.end - span.start)?;
+        self.ide_declared_field_type(inside.0, name)
+    }
+
+    /// The type of the field `name` declared by the struct `t` itself or reached through its
+    /// `using` members.
+    fn ide_declared_field_type(&mut self, t: TypeId, name: Sym) -> Option<TypeId> {
+        let t = self.ide_deref(t);
+        matches!(self.ty.types.kind(t), TypeKind::Struct(_)).then_some(())?;
+        self.ide_member_type(t, name)
     }
 
     fn ide_entity_receiver(&mut self, id: EntityId) -> Option<IdeReceiver> {
@@ -470,7 +534,8 @@ impl Compiler {
         let t = self.ide_deref(t);
         match self.ty.types.kind(t) {
             TypeKind::Struct(s) => {
-                for f in self.ty.types.struct_info(*s).fields.clone().iter() {
+                let s = *s;
+                for f in self.ty.types.struct_info(s).fields.clone().iter() {
                     if f.name == Some(name) {
                         return Some(f.ty);
                     }
@@ -478,6 +543,19 @@ impl Compiler {
                         && let Some(inner) = self.ide_member_type(f.ty, name)
                     {
                         return Some(inner);
+                    }
+                }
+                let aliases = self.ty.member_aliases.get(&s).cloned().unwrap_or_default();
+                for alias in aliases {
+                    let Some(old) = alias.target_name(name) else {
+                        continue;
+                    };
+                    let mut target = t;
+                    for step in &alias.path {
+                        target = self.ide_member_type(target, *step)?;
+                    }
+                    if let Some(found) = self.ide_member_type(target, old) {
+                        return Some(found);
                     }
                 }
                 None
@@ -503,6 +581,82 @@ impl Compiler {
         }
     }
 
+    /// The members a `using,only(..) path;` statement of the struct `t` exposes.
+    fn ide_alias_members(&mut self, t: TypeId, alias: &MemberAlias) -> Vec<IdeName> {
+        let mut target = t;
+        for step in &alias.path {
+            let Some(next) = self.ide_declared_field_type(target, *step) else {
+                return Vec::new();
+            };
+            target = next;
+        }
+        let inner = self.ide_members(IdeReceiver::Value(target));
+        if let ast::UsingFilter::Map(pairs) = &alias.filter {
+            return pairs
+                .iter()
+                .filter_map(|(new, old)| {
+                    let mut name = inner.iter().find(|n| n.name == old.name.as_str())?.clone();
+                    name.name = new.name.to_string();
+                    Some(name)
+                })
+                .collect();
+        }
+        inner
+            .into_iter()
+            .filter(|n| alias.target_name(Sym::intern(&n.name)).is_some())
+            .collect()
+    }
+
+    fn ide_using_constants(&mut self, s: StructId, seen: &mut Vec<StructId>) -> Vec<IdeName> {
+        let mut out = Vec::new();
+        let fields = self.ty.types.struct_info(s).fields.clone();
+        for f in fields.iter().filter(|f| f.using) {
+            let ty = self.ide_deref(f.ty);
+            let TypeKind::Struct(inner) = *self.ty.types.kind(ty) else {
+                continue;
+            };
+            if seen.contains(&inner) {
+                continue;
+            }
+            seen.push(inner);
+            out.extend(self.ide_struct_constants(ty));
+            out.extend(self.ide_using_constants(inner, seen));
+        }
+        out
+    }
+
+    /// The constants, nested types and parameters declared in the struct `t`'s scope.
+    fn ide_struct_constants(&self, t: TypeId) -> Vec<IdeName> {
+        let scopes: Vec<ScopeId> = (0..self.ns.scopes.len())
+            .map(|i| ScopeId(i as u32))
+            .filter(|&s| self.scope(s).kind == ScopeKind::Struct(t))
+            .collect();
+        let mut out = Vec::new();
+        for s in scopes {
+            let ids: Vec<EntityId> = self
+                .scope(s)
+                .names
+                .values()
+                .filter_map(|v| v.first().copied())
+                .collect();
+            for id in ids {
+                let constant = match &self.entity(id).kind {
+                    EntityKind::Decl {
+                        decl, ..
+                    } => decl.kind == ast::DeclKind::Const,
+                    EntityKind::Const {
+                        ..
+                    } => true,
+                    _ => false,
+                };
+                if constant && let Some(n) = self.ide_entity_name(id) {
+                    out.push(n);
+                }
+            }
+        }
+        out
+    }
+
     /// Members reachable with `.` on a value or type.
     pub fn ide_members(&mut self, recv: IdeReceiver) -> Vec<IdeName> {
         let mut out = Vec::new();
@@ -517,7 +671,14 @@ impl Compiler {
                         TypeKind::Enum(strict) => *strict,
                         _ => *e,
                     });
-                    for (n, v) in &info.members {
+                    if info.loose_of.is_none() {
+                        // `Enum.loose` is the same enum with implicit conversions.
+                        out.push(field("loose", "Type"));
+                    }
+                    // `using Other;` in an enum body: names reachable through this enum too.
+                    let borrowed = self.ty.enum_borrowed.get(&t).cloned().unwrap_or_default();
+                    let info = self.ty.types.enum_info(*e);
+                    for (n, v) in info.members.iter().chain(borrowed.iter()) {
                         out.push(IdeName {
                             name: n.to_string(),
                             kind: IdeKind::EnumMember,
@@ -532,34 +693,22 @@ impl Compiler {
                         });
                     }
                 }
-                // Struct constants live in the struct's scope.
-                let scopes: Vec<ScopeId> = (0..self.ns.scopes.len())
-                    .map(|i| ScopeId(i as u32))
-                    .filter(|&s| self.scope(s).kind == ScopeKind::Struct(t))
-                    .collect();
-                for s in scopes {
-                    let ids: Vec<EntityId> = self
-                        .scope(s)
-                        .names
-                        .values()
-                        .filter_map(|v| v.first().copied())
-                        .collect();
-                    for id in ids {
-                        if let EntityKind::Decl {
-                            decl, ..
-                        } = &self.entity(id).kind
-                            && decl.kind == ast::DeclKind::Const
-                            && let Some(n) = self.ide_entity_name(id)
-                        {
-                            out.push(n);
-                        }
-                    }
+                out.extend(self.ide_struct_constants(t));
+                // Constants of `using` members are reached through the type too, and a field
+                // named through its struct is its type (`Type.field.CONSTANT`).
+                if let TypeKind::Struct(s) = *self.ty.types.kind(t) {
+                    let mut seen = vec![s];
+                    out.extend(self.ide_using_constants(s, &mut seen));
+                    let fields = self.ide_members(IdeReceiver::Value(t));
+                    out.extend(fields.into_iter().filter(|n| n.kind == IdeKind::Field));
                 }
             }
             IdeReceiver::Value(t) => {
                 let t = self.ide_deref(t);
                 match self.ty.types.kind(t).clone() {
                     TypeKind::Struct(s) => {
+                        // Constants and parameters of the struct are members of its values too.
+                        out.extend(self.ide_struct_constants(t));
                         let fields = self.ty.types.struct_info(s).fields.clone();
                         for f in fields.iter() {
                             if let Some(n) = f.name {
@@ -575,6 +724,11 @@ impl Compiler {
                             if f.using {
                                 out.extend(self.ide_members(IdeReceiver::Value(f.ty)));
                             }
+                        }
+                        // `using,only(a, b) field.inner;` names members of a nested field.
+                        let aliases = self.ty.member_aliases.get(&s).cloned().unwrap_or_default();
+                        for alias in aliases {
+                            out.extend(self.ide_alias_members(t, &alias));
                         }
                     }
                     TypeKind::String => {
@@ -598,7 +752,12 @@ impl Compiler {
                         out.push(field("type", "*Type_Info"));
                         out.push(field("value_pointer", "*void"));
                     }
-                    TypeKind::Enum(_) => return self.ide_members(IdeReceiver::Type(t)),
+                    TypeKind::Enum(_) => {
+                        // `loose` belongs to the enum type, not to its values.
+                        let mut members = self.ide_members(IdeReceiver::Type(t));
+                        members.retain(|n| n.kind != IdeKind::Field);
+                        return members;
+                    }
                     _ => {}
                 }
             }

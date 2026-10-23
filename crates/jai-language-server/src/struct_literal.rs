@@ -116,10 +116,25 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
         })
         .filter(|&comma| comma)
         .count();
+    // `base.x = v` and `xs[1] = w` assign a field by a path; they are not positional values.
+    let is_target = |range: &std::ops::Range<usize>| {
+        let mut depth = 0usize;
+        for (k, t) in tokens[range.clone()].iter().enumerate() {
+            match t.tok {
+                Tok::Punct(P::LBracket) => depth += 1,
+                Tok::Punct(P::RBracket) if depth > 0 => depth -= 1,
+                _ if depth > 0 => {}
+                Tok::Ident(_) | Tok::Punct(P::Dot) => {}
+                Tok::Punct(P::Eq) => return k > 0,
+                _ => return false,
+            }
+        }
+        false
+    };
     // A positional value before the cursor: the values here are expressions too.
     if args[..current.min(args.len())]
         .iter()
-        .any(|a| name_of(a).is_none())
+        .any(|a| name_of(a).is_none() && !is_target(a))
     {
         return None;
     }

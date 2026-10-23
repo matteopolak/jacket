@@ -47,7 +47,7 @@ pub struct TypeState {
     pub(in crate::sema) enum_base_spans: HashMap<TypeId, crate::source::Span>,
     /// Names an enum reaches through `using Other;` in its body, with their values. They are
     /// not members of the enum.
-    pub(in crate::sema) enum_borrowed: HashMap<TypeId, Vec<(Sym, i128)>>,
+    pub(crate) enum_borrowed: HashMap<TypeId, Vec<(Sym, i128)>>,
     /// `using,only(...) field.path;` aliases declared in struct bodies.
     pub member_aliases: HashMap<StructId, Vec<structs::MemberAlias>>,
     /// `using,only(..)`/`using,except(..)` on struct members: field index and filter.

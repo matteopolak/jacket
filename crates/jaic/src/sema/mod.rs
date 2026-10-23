@@ -60,7 +60,7 @@ mod runtime_info;
 pub mod scope;
 mod source_state;
 mod stmt;
-mod structs;
+pub(crate) mod structs;
 mod suggestions;
 mod trap_report;
 mod type_state;

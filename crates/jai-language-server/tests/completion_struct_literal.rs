@@ -277,3 +277,23 @@ fn fields_keep_declaration_order_and_the_first_left_is_preselected() {
     let order = sorted_fields(&format!("{zyx}main :: () {{ v := Zyx.{{ z = 1, | }}; }}"));
     assert_eq!(order, [("y".into(), true), ("x".into(), false)]);
 }
+
+#[test]
+fn a_literal_of_a_type_parameter_inside_type_of() {
+    let l = labels(
+        "Inner :: struct { x: int; }\nOuter :: struct { inner: Inner; y: int; }\n\
+         pick :: ($T: Type) -> Type { return type_of(T.{ | }.inner); }\n\
+         main :: () { t: pick(Outer); }",
+    );
+    assert!(has(&l, "inner") && has(&l, "y"), "{l:?}");
+}
+
+#[test]
+fn fields_after_assignments_through_paths() {
+    let l = labels(
+        "Handlers :: struct { on_start: int; count: int; }\n\
+         Widget :: struct { #as base: Handlers; extra: int; }\n\
+         main :: () { w := Widget.{ base.on_start = 1, base.count = 3, | }; }",
+    );
+    assert!(has(&l, "extra") && has(&l, "base"), "{l:?}");
+}

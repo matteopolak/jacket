@@ -167,6 +167,13 @@ fn path_directive(before: &[Token]) -> Option<PathDirective> {
 
 /// Whether `t` can end an expression a `.` follows.
 fn ends_expression(t: &Tok) -> bool {
+    // `#filepath.count`, `#Context.name`: directives that stand for a value.
+    if let Tok::Directive(d) = t {
+        return matches!(
+            d.as_str(),
+            "filepath" | "file" | "line" | "this" | "Context"
+        );
+    }
     matches!(
         t,
         Tok::Ident(_)
@@ -180,7 +187,11 @@ fn ends_expression(t: &Tok) -> bool {
 /// The receiver of the `.` at `tokens[dot]`: its span, and the names when it is `a.b.c`.
 /// Nothing is a receiver unless it touches the dot, so `case .` and `== .` are inferred members.
 fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
-    let touches = |i: usize| tokens[i].span.end == tokens[i + 1].span.start;
+    // `#Context .name` is written with a space, so the dot is not taken for a member of `#`.
+    let touches = |i: usize| {
+        tokens[i].span.end == tokens[i + 1].span.start
+            || matches!(&tokens[i].tok, Tok::Directive(d) if d.as_str() == "Context")
+    };
     let Some(mut i) = dot
         .checked_sub(1)
         .filter(|&i| touches(i) && ends_expression(&tokens[i].tok))

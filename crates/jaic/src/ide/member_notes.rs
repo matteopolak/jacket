@@ -12,26 +12,50 @@ use crate::types::TypeId;
 use crate::types::{StructId, TypeKind};
 
 impl Compiler {
-    /// The members of the value whose member name starts at `offset`, by the type the check
-    /// recorded for it; `None` when it recorded none or several.
+    /// The members of what is left of the member name that starts at `offset`, by the types
+    /// the check recorded for it: those of every instance together.
     pub fn ide_recorded_members(&mut self, file: FileId, offset: u32) -> Option<Vec<IdeName>> {
-        let ty = self
+        let all = self
             .ed
             .facts()?
-            .receivers
+            .receiver_sets
             .iter()
-            .find(|(span, _)| span.file == file && span.start == offset)
-            .and_then(|(_, ty)| *ty)?;
-        Some(self.ide_members(IdeReceiver::Value(ty)))
+            .find(|(span, _)| span.file == file && span.start == offset)?
+            .1
+            .clone();
+        let mut out: Vec<IdeName> = Vec::new();
+        for receiver in all {
+            for name in self.ide_members(receiver) {
+                if !out.iter().any(|n| n.name == name.name) {
+                    out.push(name);
+                }
+            }
+        }
+        Some(out)
     }
 
     /// `b` of `a.b` was checked with `a` being `base`.
     pub(crate) fn ide_note_receiver(&mut self, span: Span, base: &Operand) {
-        if matches!(
-            base,
-            Operand::Type(_) | Operand::Module(_) | Operand::Procs(_)
-        ) || !self.ide_wants(span.file)
+        if matches!(base, Operand::Procs(_)) || !self.ide_wants(span.file) {
+            return;
+        }
+        let receiver = match base {
+            Operand::Module(m) => Some(IdeReceiver::Module(*m)),
+            Operand::Type(t) => Some(IdeReceiver::Type(*t)),
+            other => {
+                let ty = other.ty();
+                (ty != TypeId::VOID).then_some(IdeReceiver::Value(ty))
+            }
+        };
+        if let Some(receiver) = receiver
+            && let Some(ide) = self.ed.facts_mut()
         {
+            let seen = ide.receiver_sets.entry(span).or_default();
+            if !seen.contains(&receiver) {
+                seen.push(receiver);
+            }
+        }
+        if matches!(base, Operand::Module(_) | Operand::Type(_)) {
             return;
         }
         let ty = base.ty();
@@ -110,16 +134,35 @@ impl Compiler {
         if let Some(at) = fields.iter().position(|f| f.name == Some(name)) {
             return Some((s, at));
         }
-        fields.iter().filter(|f| f.using).find_map(|f| {
-            let mut ty = f.ty;
-            while let Some(p) = self.ty.types.pointee(ty) {
-                ty = p;
-            }
-            let TypeKind::Struct(inner) = *self.ty.types.kind(self.ty.types.repr_struct(ty)) else {
-                return None;
-            };
+        let through_using = fields.iter().filter(|f| f.using).find_map(|f| {
+            let inner = self.ide_struct_of(f.ty)?;
             self.ide_find_field_decl(inner, name, searched)
+        });
+        through_using.or_else(|| {
+            // `using,only(a, b) field.inner;` names members of a nested field.
+            let aliases = self.ty.member_aliases.get(&s)?;
+            aliases.iter().find_map(|alias| {
+                let old = alias.target_name(name)?;
+                let mut inner = s;
+                for step in &alias.path {
+                    let (owner, at) = self.ide_find_field_decl(inner, *step, &mut Vec::new())?;
+                    let ty = self.ty.types.struct_info(owner).fields[at].ty;
+                    inner = self.ide_struct_of(ty)?;
+                }
+                self.ide_find_field_decl(inner, old, searched)
+            })
         })
+    }
+
+    /// The struct a field of type `ty` holds, through pointers.
+    fn ide_struct_of(&self, mut ty: TypeId) -> Option<StructId> {
+        while let Some(p) = self.ty.types.pointee(ty) {
+            ty = p;
+        }
+        match *self.ty.types.kind(self.ty.types.repr_struct(ty)) {
+            TypeKind::Struct(inner) => Some(inner),
+            _ => None,
+        }
     }
 
     /// `name` at `span` named a member of `ty` (a field through `a.name`, `T.{ name = v }`, an
@@ -355,7 +398,8 @@ impl Compiler {
             let t = self.ty.types.repr_struct(t);
             if matches!(self.ty.types.kind(t), TypeKind::Enum(_)) {
                 for n in self.ide_members(IdeReceiver::Type(t)) {
-                    if !out.iter().any(|o| o.name == n.name) {
+                    // `.loose` is spelled on the enum's name, never inferred.
+                    if n.kind != IdeKind::Field && !out.iter().any(|o| o.name == n.name) {
                         out.push(n);
                     }
                 }

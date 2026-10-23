@@ -58,6 +58,11 @@ impl Session {
         // read from the document as it is now.
         let ask = |a: &mut semantic::Analysis, path: &Path| {
             let mut names = a.complete(path, at, &chain)?;
+            // A receiver with no members may be a stand-in left by a failed attempt: what the
+            // check recorded for the member name has the rest.
+            if names.is_empty() && !chain.is_empty() {
+                return None;
+            }
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))

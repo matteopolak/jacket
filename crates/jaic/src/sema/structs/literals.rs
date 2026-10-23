@@ -220,6 +220,7 @@ impl Compiler {
     ) -> Result<Operand> {
         match &target.kind {
             E::Ident(name) => {
+                self.ed.inferred(target.span, ty);
                 self.ide_note_member_use(target.span, ty, *name);
                 let whole = Operand::Place {
                     ty,
@@ -231,6 +232,7 @@ impl Compiler {
             }
             E::Member(inner, member) => {
                 let inner = self.literal_target(f, scope, ty, base, inner)?;
+                self.ide_note_receiver(member.span, &inner);
                 self.ide_note_member_use(member.span, inner.ty(), member.name);
                 let field = self.member_access(f, scope, inner, member.name, member.span)?;
                 self.ide_note_member_ref(member.span, member.name, field.ty());
