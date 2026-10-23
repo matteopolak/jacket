@@ -31,7 +31,7 @@ main :: () {
                 value |= wide << (byte * 8);
             }
 
-            map.rgw[word] = cast(s64) value;
+            map.rgw[word] = cast,no_check(s64) value;
         }
 
         free_count: s64;
