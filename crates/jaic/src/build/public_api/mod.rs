@@ -55,6 +55,30 @@ pub enum Operation by name {
 }
 
 impl Operation {
+    /// Whether the operation changes something a compile-time run can observe, so the run
+    /// cannot be repeated (`Interp::effects`). Waiting for a message counts only when it steps
+    /// a workspace (`messages::call`).
+    fn is_effect(self) -> bool {
+        !matches!(
+            self,
+            Self::CurrentWorkspace
+                | Self::Name
+                | Self::GetType
+                | Self::GetNodes
+                | Self::GetCode
+                | Self::RootType
+                | Self::TypeTable
+                | Self::RuntimeInfo
+                | Self::Version
+                | Self::BasePath
+                | Self::CommandLine
+                | Self::StructLocation
+                | Self::WaitForMessage
+                | Self::MemoryBreakpoint
+                | Self::DeveloperDebug
+        )
+    }
+
     fn records(self) -> bool {
         matches!(
             self,

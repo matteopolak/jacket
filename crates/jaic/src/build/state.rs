@@ -136,14 +136,13 @@ pub struct Workspaces {
     pub(super) list: Vec<Workspace>,
     /// Workspace whose compile-time code is running.
     pub(super) current: Vec<i64>,
-    pub(super) event: Event,
     /// Strings handed to Jai code; kept alive for the whole compilation.
     pub(super) strings: Vec<Box<[u8]>>,
     /// Record strings handed to Jai code without copying (the record may later drop its own).
     pub(super) kept: Vec<Rc<[u8]>>,
     /// Messages, syntax trees and types exported to metaprograms.
     pub(crate) records: Records,
-    /// The structs each program built from the records (`__jaic_rec_builder` numbers them from 1).
+    /// The structs each program built from the records (`State::builder` indexes it).
     pub(super) builders: Vec<crate::record_build::Builder>,
     pub(super) data_segments: Vec<DataSegment>,
     /// What the build's sources say about reading TYPECHECKED messages.

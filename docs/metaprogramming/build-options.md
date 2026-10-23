@@ -6,7 +6,7 @@ What jaic does with each `Build_Options` / `Build_Options_During_Compile` field 
 
 ## How it works
 
-`set_build_options` (`stdlib/internal/compiler-api/workspaces.jai`) forwards each field through a typed builtin (`__jaic_workspace_set_text/flag/number/list`) keyed by an enum, so a field cannot be forwarded and then dropped; see [compiler builtins](../compiler/compiler-builtins.md).
+`set_build_options` is bound to `build/public_api/options.rs`, which reads each field through the declared `Build_Options` layout and hands it to `Workspaces::set_text/set_flag/set_number/append_list`, keyed by the `Workspace_*` enums in `builtin_keys.rs`, so a field cannot be read and then dropped; see [compiler builtins](../compiler/compiler-builtins.md).
 
 ```jai
 options := get_build_options(w);
@@ -32,8 +32,8 @@ The program's own workspace reports real outputs from `get_build_options()`: the
 
 ## How to change it
 
-- New option jaic acts on: add the field to `Build_Options` (`stdlib/Compiler/contract-records.jai`), forward it in `set_build_options`, add a member to the matching `Workspace_*` enum (both sides) and handle it in `Workspaces::set_text/set_flag/set_number/append_list`, and read it in `new_compiler` (sema) or `LlvmBackend::prepare` (codegen).
-- An option jaic cannot honour: add a `require(...)` with a clear message in `set_build_options`.
+- New option jaic acts on: add the field to `Build_Options` (`stdlib/Compiler/contract-records.jai`), list it in `options.rs` (`NUMBERS`, `FLAGS` or `TEXTS`), add a member to the matching `Workspace*` enum in `builtin_keys.rs` and handle it in `Workspaces::set_text/set_flag/set_number/append_list`, and read it in `new_compiler` (sema) or `LlvmBackend::prepare` (codegen).
+- An option jaic cannot honour: return a `Trap` with a clear message from `options.rs::set`.
 - Another backend implements `OutputBackend::write_objects` for custom links.
 
 Configuration: `MACOSX_DEPLOYMENT_TARGET` when no `minimum_os_version` was forwarded; `-O0`..`-O3` replace code generation switches for the top-level program. Other: `crates/jaic/src/build/option_snapshot.rs` carries the full options between compilers. See [compiler module](compiler-module.md) and [workspaces](workspaces.md).

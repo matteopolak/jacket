@@ -1,5 +1,6 @@
 //! Private `Build_Options` transport between compilers sharing a workspace registry.
-//! The Jai facade supplies offsets from reflection, so no target layout is hardcoded.
+//! The caller supplies the string and view offsets from the declared layout, so no target
+//! layout is hardcoded here.
 //! Strings/views own their contents here; opaque user pointers retain borrowed identity.
 use crate::interp::{Interp, Trap};
 
@@ -24,24 +25,15 @@ fn pair(interp: &Interp, address: u64) -> Result<(usize, u64), Trap> {
     Ok((count, data))
 }
 
-fn offsets(interp: &Interp, view: u64, size: usize) -> Result<Vec<usize>, Trap> {
-    let (count, data) = pair(interp, view)?;
-    let len = count
-        .checked_mul(8)
-        .ok_or_else(|| Trap::new("invalid option schema"))?;
-    fetch(interp, data, len)?
-        .as_chunks::<8>()
-        .0
+/// Check that each offset leaves room for a 16-byte view inside a snapshot of `size` bytes.
+fn checked(offsets: &[u64], size: usize) -> Result<impl Iterator<Item = usize> + '_, Trap> {
+    if offsets
         .iter()
-        .map(|bytes| {
-            let offset = usize::try_from(u64::from_le_bytes(*bytes))
-                .map_err(|_| Trap::new("invalid option offset"))?;
-            if offset.checked_add(16).is_none_or(|end| end > size) {
-                return Err(Trap::new("option view outside snapshot"));
-            }
-            Ok(offset)
-        })
-        .collect()
+        .any(|&offset| offset.checked_add(16).is_none_or(|end| end > size as u64))
+    {
+        return Err(Trap::new("option view outside snapshot"));
+    }
+    Ok(offsets.iter().map(|&offset| offset as usize))
 }
 
 impl Snapshot {
@@ -49,8 +41,8 @@ impl Snapshot {
         interp: &Interp,
         address: u64,
         size: usize,
-        strings: u64,
-        arrays: u64,
+        strings: &[u64],
+        arrays: &[u64],
     ) -> Result<Self, Trap> {
         let bytes = fetch(interp, address, size)?;
         let mut result = Self {
@@ -58,11 +50,11 @@ impl Snapshot {
             strings: Vec::new(),
             arrays: Vec::new(),
         };
-        for offset in offsets(interp, strings, size)? {
+        for offset in checked(strings, size)? {
             let (count, data) = pair(interp, address + offset as u64)?;
             result.strings.push((offset, fetch(interp, data, count)?));
         }
-        for offset in offsets(interp, arrays, size)? {
+        for offset in checked(arrays, size)? {
             let (count, data) = pair(interp, address + offset as u64)?;
             count
                 .checked_mul(16)

@@ -12,44 +12,58 @@ use crate::interp::{Interp, Trap};
 use crate::records::{FieldRef, Item, List, Name, Records};
 use std::rc::Rc;
 
-/// Internal member plan kinds used by public API layout binding.
-pub const PLAN_OTHER: u64 = 0;
-
-pub const PLAN_INT: u64 = 1;
-pub const PLAN_STRING: u64 = 2;
-pub const PLAN_POINTER: u64 = 3;
-
-/// A struct held in place.
-pub const PLAN_STRUCT: u64 = 4;
-
-/// A view or resizable array.
-pub const PLAN_ARRAY: u64 = 5;
-
-pub const PLAN_FIXED_ARRAY: u64 = 6;
-
-/// Size of `Record_Plan_Entry`: offset, kind, size, name (16 bytes), type, `element_kind`,
-/// `element_size`, target, resizable.
-const ENTRY_SIZE: u64 = 80;
+/// How a plan entry (or an array's element) is stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shape {
+    /// Nothing a record fills (an empty type, say).
+    Other,
+    /// An integer, enum or float of up to 8 bytes.
+    Int,
+    String,
+    Pointer,
+    /// A struct held in place.
+    Struct,
+    /// A view or resizable array.
+    Array,
+    FixedArray,
+}
 
 /// Structs are carved out of chunks this big; bigger ones get their own block.
 const CHUNK: usize = 256 * 1024;
 
-struct Entry {
-    offset: u64,
-    kind: u64,
-    size: usize,
-    name: Name,
-    /// An array's elements: their kind and size.
-    element_kind: u64,
-    element_size: u64,
+/// One member a record fills: its place in the struct and how it is stored.
+pub struct PlanEntry {
+    pub offset: u64,
+    pub shape: Shape,
+    pub size: usize,
+    pub name: Name,
+    /// An array's elements: their shape and size.
+    pub element: Shape,
+    pub element_size: u64,
     /// The type a pointer (or a pointer element) points to, or the struct held in place.
-    target: u64,
-    resizable: bool,
+    pub target: u64,
+    pub resizable: bool,
+}
+
+impl PlanEntry {
+    /// An entry that is not an array.
+    pub fn single(offset: u64, shape: Shape, size: usize, name: Name, target: u64) -> Self {
+        Self {
+            offset,
+            shape,
+            size,
+            name,
+            element: Shape::Other,
+            element_size: 0,
+            target,
+            resizable: false,
+        }
+    }
 }
 
 struct Plan {
     size: u64,
-    entries: Vec<Entry>,
+    entries: Vec<PlanEntry>,
     /// Where a `Type_Info_Struct`'s `constant_storage` is: its polymorph parameters that are
     /// types point at other descriptors (`__constant_pointers`).
     constant_storage: Option<u64>,
@@ -130,17 +144,6 @@ impl Image<'_> {
     }
 }
 
-/// The Jai `string` at `p`, or "" when it cannot be read.
-fn read_string(interp: &Interp, p: u64) -> String {
-    match interp.read_pair(p) {
-        Some((count, data)) if count > 0 => interp
-            .read(data, count as usize)
-            .map(|b| String::from_utf8_lossy(&b).into_owned())
-            .unwrap_or_default(),
-        _ => String::new(),
-    }
-}
-
 /// An integer or a record id.
 fn number(item: &Item) -> Option<i64> {
     match item {
@@ -149,15 +152,15 @@ fn number(item: &Item) -> Option<i64> {
     }
 }
 
-/// What a build is writing into: strings handed out and the records read.
-/// How one plan entry is stored: its plan kind, its size in bytes and, for a pointer or nested
+/// How one plan entry is stored: its shape, its size in bytes and, for a pointer or nested
 /// struct, the record type it refers to.
 struct Slot {
-    kind: u64,
+    shape: Shape,
     size: usize,
     type_target: u64,
 }
 
+/// What a build is writing into: strings handed out and the records read.
 struct Fill<'a> {
     records: &'a Records,
     kept: &'a mut Vec<Rc<[u8]>>,
@@ -183,35 +186,15 @@ impl Builder {
         self.builtins.insert(name.into(), info);
     }
 
-    /// `__jaic_rec_plan(builder, info, size, entries, count, is_type_info_struct)`.
+    /// The member plan of the struct type whose descriptor is `info`. A `Type_Info_Struct`
+    /// (`type_info_struct`) also gets its polymorph parameters that are types patched.
     pub fn add_plan(
         &mut self,
-        interp: &Interp,
         info: u64,
         size: u64,
-        at: u64,
-        count: u64,
+        entries: Vec<PlanEntry>,
         type_info_struct: bool,
-    ) -> Result<(), Trap> {
-        let mut entries = Vec::with_capacity(count as usize);
-        for k in 0..count {
-            let entry = at + k * ENTRY_SIZE;
-            let read = |off: u64| {
-                interp
-                    .read_u64(entry + off)
-                    .ok_or_else(|| Trap::unreadable(entry + off, 8))
-            };
-            entries.push(Entry {
-                offset: read(0)?,
-                kind: read(8)?,
-                size: read(16)? as usize,
-                name: Name::intern(&read_string(interp, entry + 24)),
-                element_kind: read(48)?,
-                element_size: read(56)?,
-                target: read(64)?,
-                resizable: read(72)? != 0,
-            });
-        }
+    ) {
         let constant_storage = type_info_struct
             .then(|| {
                 entries
@@ -228,7 +211,6 @@ impl Builder {
                 constant_storage,
             }),
         );
-        Ok(())
     }
 
     /// The record a built struct came from, 0 if none.
@@ -236,7 +218,7 @@ impl Builder {
         self.ids.get(&pointer).copied().unwrap_or(0)
     }
 
-    /// `__jaic_rec_build(builder, record, expected)`: the struct for `record`, building it and
+    /// The struct for `record`, building it and
     /// everything it reaches that is not built yet. `expected` is the type the caller wants
     /// (a pointer member's target); the record's tag may name a subtype of it.
     pub fn build(
@@ -468,7 +450,7 @@ impl Builder {
             .get(id)
             .ok_or_else(|| Trap::new(format!("records: no record with id {id}")))?;
         for entry in &plan.entries {
-            if entry.kind == PLAN_POINTER
+            if entry.shape == Shape::Pointer
                 && matches!(
                     record.field_named(entry.name),
                     None | Some(FieldRef::Ref(0) | FieldRef::Int(0))
@@ -486,7 +468,7 @@ impl Builder {
             let target = memory + entry.offset;
             match field {
                 FieldRef::List(items)
-                    if entry.kind == PLAN_ARRAY || entry.kind == PLAN_FIXED_ARRAY =>
+                    if matches!(entry.shape, Shape::Array | Shape::FixedArray) =>
                 {
                     if items.is_empty() {
                         continue;
@@ -496,10 +478,10 @@ impl Builder {
                         .checked_mul(size)
                         .filter(|&n| n <= crate::sema::value::MAX_IMAGE)
                         .ok_or_else(|| Trap::new("records: array size overflow"))?;
-                    if entry.kind == PLAN_FIXED_ARRAY && bytes > entry.size as u64 {
+                    if entry.shape == Shape::FixedArray && bytes > entry.size as u64 {
                         return Err(Trap::new("records: fixed array has too many elements"));
                     }
-                    let data = if entry.kind == PLAN_FIXED_ARRAY {
+                    let data = if entry.shape == Shape::FixedArray {
                         target
                     } else {
                         self.alloc(bytes as usize)
@@ -516,7 +498,7 @@ impl Builder {
                             interp,
                             &mut array,
                             Slot {
-                                kind: entry.element_kind,
+                                shape: entry.element,
                                 size: size as usize,
                                 type_target: entry.target,
                             },
@@ -524,7 +506,7 @@ impl Builder {
                             data + k as u64 * size,
                         )?;
                     }
-                    if entry.kind == PLAN_FIXED_ARRAY {
+                    if entry.shape == Shape::FixedArray {
                         image.put(target, &elements)?;
                     } else {
                         self.place(interp, data, &elements)?;
@@ -549,7 +531,7 @@ impl Builder {
                         interp,
                         image,
                         Slot {
-                            kind: entry.kind,
+                            shape: entry.shape,
                             size: entry.size,
                             type_target: entry.target,
                         },
@@ -562,7 +544,7 @@ impl Builder {
         Ok(())
     }
 
-    /// Write one value of plan kind `kind` and `size` bytes at `target`.
+    /// Write one value of `slot`'s shape and size at `target`.
     fn fill_item(
         &mut self,
         fill: &mut Fill,
@@ -573,26 +555,26 @@ impl Builder {
         target: u64,
     ) -> Result<(), Trap> {
         let Slot {
-            kind,
+            shape,
             size,
             type_target,
         } = slot;
-        match (kind, item) {
-            (PLAN_INT, Item::Int(v) | Item::Ref(v)) => {
+        match (shape, item) {
+            (Shape::Int, Item::Int(v) | Item::Ref(v)) => {
                 image.put(target, &v.to_le_bytes()[..size.min(8)])
             }
-            (PLAN_STRING, Item::Str(s)) => {
+            (Shape::String, Item::Str(s)) => {
                 fill.kept.push(s.clone());
                 image.put_pair(target, s.len() as u64, s.as_ptr() as u64)
             }
-            (PLAN_POINTER, item) => {
+            (Shape::Pointer, item) => {
                 let id = number(item).ok_or_else(|| {
                     Trap::new("records: pointer field requires a record reference")
                 })?;
                 let p = self.obtain(fill, id, type_target)?;
                 image.put(target, &p.to_le_bytes())
             }
-            (PLAN_STRUCT, item) => {
+            (Shape::Struct, item) => {
                 let id = number(item).ok_or_else(|| {
                     Trap::new("records: struct field requires a record reference")
                 })?;
@@ -615,7 +597,7 @@ impl Builder {
                 )
             }
             _ => Err(Trap::new(format!(
-                "records: value shape does not match plan kind {kind}"
+                "records: value shape does not match plan shape {shape:?}"
             ))),
         }
     }
@@ -662,26 +644,8 @@ mod tests {
             Rc::new(Plan {
                 size: 16,
                 entries: vec![
-                    Entry {
-                        offset: 0,
-                        kind: PLAN_INT,
-                        size: 8,
-                        name: Name::intern("value"),
-                        element_kind: 0,
-                        element_size: 0,
-                        target: 0,
-                        resizable: false,
-                    },
-                    Entry {
-                        offset: 8,
-                        kind: PLAN_POINTER,
-                        size: 8,
-                        name: Name::intern("next"),
-                        element_kind: 0,
-                        element_size: 0,
-                        target: 1,
-                        resizable: false,
-                    },
+                    PlanEntry::single(0, Shape::Int, 8, Name::intern("value"), 0),
+                    PlanEntry::single(8, Shape::Pointer, 8, Name::intern("next"), 1),
                 ],
                 constant_storage: None,
             }),
@@ -770,16 +734,13 @@ mod tests {
             1,
             Rc::new(Plan {
                 size: 8,
-                entries: vec![Entry {
-                    offset: 0,
-                    kind: PLAN_INT,
-                    size: 8,
-                    name: Name::intern("value"),
-                    element_kind: 0,
-                    element_size: 0,
-                    target: 0,
-                    resizable: false,
-                }],
+                entries: vec![PlanEntry::single(
+                    0,
+                    Shape::Int,
+                    8,
+                    Name::intern("value"),
+                    0,
+                )],
                 constant_storage: None,
             }),
         );
@@ -802,16 +763,13 @@ mod tests {
                 info,
                 Rc::new(Plan {
                     size: 16,
-                    entries: vec![Entry {
+                    entries: vec![PlanEntry::single(
                         offset,
-                        kind: PLAN_INT,
-                        size: 8,
-                        name: Name::intern("value"),
-                        element_kind: 0,
-                        element_size: 0,
-                        target: 0,
-                        resizable: false,
-                    }],
+                        Shape::Int,
+                        8,
+                        Name::intern("value"),
+                        0,
+                    )],
                     constant_storage: None,
                 }),
             );
@@ -838,12 +796,12 @@ mod tests {
             1,
             Rc::new(Plan {
                 size: 24,
-                entries: vec![Entry {
+                entries: vec![PlanEntry {
                     offset: 8,
-                    kind: PLAN_FIXED_ARRAY,
+                    shape: Shape::FixedArray,
                     size: 16,
                     name: Name::intern("values"),
-                    element_kind: PLAN_INT,
+                    element: Shape::Int,
                     element_size: 8,
                     target: 0,
                     resizable: false,

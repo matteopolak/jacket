@@ -568,11 +568,12 @@ impl Interp {
                     return self.trap("this build has no compiler workspaces (Compiler module)");
                 };
                 let loc = self.loc;
-                return crate::build::call(&workspaces, op, has_context, args, program, self)
-                    .map_err(|mut t| {
+                return crate::build::call(&workspaces, op, has_context, args, self).map_err(
+                    |mut t| {
                         t.loc = t.loc.or(loc);
                         t
-                    });
+                    },
+                );
             }
         }
         Ok(Rets::default())

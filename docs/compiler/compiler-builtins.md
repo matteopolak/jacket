@@ -6,7 +6,7 @@ Public `#compiler` operations bind directly to Rust compiler handlers. Three pri
 
 ## How it works
 
-`build/public_api/mod.rs` lists public operation names. An explicit `#compiler "name"` selector takes precedence over the procedure name. Binding validates the parameter/result shapes and captures the selected declaration's actual aggregate layouts and defaults. Compile-time calls enter Rust; runtime calls execute the Jai body, or fail as compile-time only when there is none.
+`build/public_api/mod.rs` lists public operation names. An explicit `#compiler "name"` selector takes precedence over the procedure name. Binding validates the parameter/result shapes and captures the selected declaration's actual aggregate layouts and defaults. Compile-time calls enter Rust; runtime calls execute the Jai body, or fail as compile-time only when there is none. Handlers read their arguments through those layouts and call typed engine functions in `build/engine.rs`; no argument is passed through interpreter memory the handler made itself.
 
 Workspace options are decoded from public named fields into typed Rust settings. `builtin_keys.rs` keeps internal workspace selector enums and validates public option enum values. These internal selectors are not declared in Jai. Target enums are translated by their declared member names, so unsupported targets produce public option diagnostics instead of internal selector errors. Deferred custom-link messages retain the schema that owns their mutable exit-code field.
 

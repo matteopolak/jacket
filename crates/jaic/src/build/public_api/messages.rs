@@ -3,7 +3,7 @@ use super::abi::{bytes, put_string, put_view, view};
 use super::operations::{Call, put_strings};
 use super::{Kind, Operation};
 use crate::{
-    build::{Event, MetaOp},
+    build::{Event, engine},
     interp::{Interp, Rets, Trap},
     types::TypeId,
 };
@@ -16,11 +16,9 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
             .link_phases
             .remove(&ws)
             .ok_or_else(|| Trap::new("workspace is not waiting for custom linking"))?;
-        return cx.invoke(
-            interp,
-            MetaOp::CustomLinkComplete,
-            &[ws as u64, schema.read_number(interp, ty, at)?],
-        );
+        let exit_code = schema.read_number(interp, ty, at)? as i64;
+        cx.registry().complete_custom_link(ws, exit_code)?;
+        return Ok(Rets::default());
     }
     let count = interp.public_api_state.intercepted.len();
     for _ in 0..count {
@@ -30,14 +28,14 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
         if interp.public_api_state.finished.contains(&ws) {
             continue;
         }
-        let kind = cx.invoke(interp, MetaOp::NextEvent, &[ws as u64])?[0];
-        if kind == 0 {
+        // Stepping another workspace's compilation is observable.
+        interp.effects += 1;
+        let Some(event) = engine::next_event(&cx.shared, interp, ws)? else {
             interp.public_api_state.finished.push(ws);
             continue;
-        }
-        let event = cx.shared.borrow().event.clone();
+        };
         let pointer = materialize(cx, interp, ws, &event)?;
-        if kind == 3 {
+        if event.kind == crate::build::EVENT_COMPLETE {
             interp.public_api_state.finished.push(ws);
             interp.public_api_state.last_complete = pointer;
         }
@@ -71,12 +69,7 @@ fn materialize(cx: &Call, interp: &mut Interp, ws: i64, event: &Event) -> Result
         let pointer = super::records::build(cx, interp, id, base)?;
         if event.kind == crate::build::EVENT_TYPECHECKED {
             let ty = cx.schema().named("Message_Typechecked")?;
-            let flags = cx
-                .shared
-                .borrow_mut()
-                .ws(ws)
-                .map_err(Trap::new)?
-                .intercept_flags;
+            let flags = cx.registry().workspace(ws)?.intercept_flags;
             filter(cx, interp, pointer, ty, flags)?;
         }
         return Ok(pointer);

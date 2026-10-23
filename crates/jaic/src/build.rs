@@ -6,41 +6,31 @@
 //! system; its output (executable, library, object) is written by the
 //! embedder's [`OutputBackend`] (LLVM in `jaic-cli`, none in the browser).
 //!
-//! Jai code reaches this module only through a few `#compiler` primitives
-//! (`__jaic_*`, see [`MetaOp`]) with a scalar/string ABI; the public
-//! `Compiler` module API (`Build_Options`, Message structs...) is written in Jai
-//! on top of them in `stdlib/Compiler/module.jai`.
-use crate::builtin_keys::{
-    SyntaxKey, WorkspaceFlag, WorkspaceList, WorkspaceNumber, WorkspaceText,
-};
-use crate::interp::{Interp, Rets, Trap};
-use crate::records::{FieldRef, Item};
-use crate::sema::{ProgramSource, ProvidedImport, ProvidedKind};
-use std::path::{Path, PathBuf};
+//! Jai code reaches it through the public `Compiler` procedures, bound to the engine
+//! by their declarations ([`public_api`]), and the three `__jaic_syntax_*` primitives
+//! ([`MetaOp`]) behind the stdlib's `Code_Node` helpers.
+use crate::builtin_keys::SyntaxKey;
+use crate::interp::{Interp, Trap};
+use crate::sema::{ProgramSource, ProvidedImport};
 
 mod calls;
 mod drive;
-mod host;
-mod messages;
+mod engine;
 mod meta_op;
 mod option_snapshot;
 mod output;
 mod plugin_program;
-mod program_data;
 pub(crate) mod public_api;
-mod records;
 mod registry;
 mod settings;
-mod sources;
 mod state;
-mod workspace;
 
 pub use plugin_program::{PluginImport, PluginProgram, plugin_metaprogram};
 
 pub use self::calls::call;
-use self::calls::{Call, store, store_pair};
 use self::drive::step;
 pub use self::meta_op::{LANGUAGE_VERSION, MetaOp, TOP_LEVEL_WORKSPACE, compiler_version};
+use self::option_snapshot::Snapshot;
 pub use self::output::{finish_all, report_executable};
 pub use self::registry::{
     WASI_RUNTIME_IMPORT, dead_code_setting, import_rules, take_live_requests, take_own_sources,

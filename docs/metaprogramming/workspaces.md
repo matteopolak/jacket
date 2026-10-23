@@ -8,7 +8,7 @@ The Rust side of the `Compiler` module, in `crates/jaic/src/build.rs`. Metaprogr
 
 The embedder creates `Workspaces` (shared as `SharedWorkspaces`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, arguments after `-`, a report sink (told each message's `ReportSeverity`, which is how `-quiet` drops warnings and notes), and an optional `WorkspaceObserver` ([jailint](../tools/jailint.md) uses it to lint what a metaprogram builds). Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`); workspace 1 is reserved as in Jai, so the first created workspace is 3.
 
-Public `#compiler` declarations bind to `Hook::PublicCompiler` through `build/public_api`. The operation is selected by its explicit compiler selector or declaration name. The binding validates the signature and resolves actual aggregate layouts, then Rust handlers call the workspace engine. Supplied Jai bodies are runtime implementations; compile-time execution does not run them. See [Compiler module](compiler-module.md).
+Public `#compiler` declarations bind to `Hook::PublicCompiler` through `build/public_api`. The operation is selected by its explicit compiler selector or declaration name. The binding validates the signature and resolves actual aggregate layouts, then Rust handlers call the typed workspace engine (`build/engine.rs`). Supplied Jai bodies are runtime implementations; compile-time execution does not run them. See [Compiler module](compiler-module.md).
 
 ### State machine
 
@@ -36,7 +36,7 @@ With `do_output` set and `output_type != NO_OUTPUT`, `OutputBackend::write_outpu
 
 ## How to change it
 
-- New public operation: add its registry entry, signature validation and handler under `build/public_api`, a public `#compiler` declaration, and compile-time/runtime regression coverage. Internal engine operations remain Rust-only.
+- New public operation: add its registry entry, signature validation and handler under `build/public_api`, the typed engine call in `build/engine.rs`, a public `#compiler` declaration, and compile-time/runtime regression coverage.
 - New option: handle the key in `Workspaces::set_option` and read it in `new_compiler` or `write_output`. Unknown keys and unbuildable `os_target`/`cpu_target` are errors ([build options](build-options.md)).
 - New event kind: push it in `step`; strings given to Jai go through `keep_string`.
 

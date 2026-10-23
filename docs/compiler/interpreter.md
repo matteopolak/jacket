@@ -6,7 +6,7 @@
 
 ## How it works
 
-`Interp::call` is the entry from the compiler; `exec` pushes a frame and `run_entered` runs the body with `run_code` (`interp/code.rs`). Procedure values are tagged addresses (`FUNC_TAG`), except `#c_call` procedures under native linking, which are native thunks. Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with ``foreign procedure `...` is not available here``. `#compiler` procedures are hooks (`Hook`, `run_hook`) handled by `MetaOp` in `build.rs` ([compiler records](../metaprogramming/compiler-module.md)).
+`Interp::call` is the entry from the compiler; `exec` pushes a frame and `run_entered` runs the body with `run_code` (`interp/code.rs`). Procedure values are tagged addresses (`FUNC_TAG`), except `#c_call` procedures under native linking, which are native thunks. Foreign procedures without a native address are tagged `FOREIGN_TAG` and trap with ``foreign procedure `...` is not available here``. `#compiler` procedures are hooks (`Hook`, `run_hook`): public `Compiler` operations go to `build::public_api`, the syntax reads to `MetaOp` in `build/calls.rs` ([compiler records](../metaprogramming/compiler-module.md)).
 
 ### Code form
 
@@ -93,7 +93,7 @@ fiber_switch :: (from: *Fiber_Context, to: *Fiber_Context) #intrinsic;
 - **New op or fold**: keep `Op` at 16 bytes (compile-time assert). An op that folds a register away must call `fold`; one that reads a register `build` did not count must add to `uses`; an op that may be dropped when unread must have no side effect and list its operands in `op_srcs`.
 - **Native call shapes**: `call_as` and the shape structs in `native.rs`, plus the matching `Ret` impl and thunk family in `native/callbacks.rs`. They must stay mirror images.
 - **Threads**: anything reading or writing `Interp` from a thread must hold the baton; a new way of calling native code must go through `call_unlocked`; never hold the `Shared` lock across a native call or `exec`. A new blocking primitive needs a `Block` variant, a case in `Sched::expire_waits`, and must set `Sched::woke`. For the inline scheduler add a `Wait` variant, its `satisfied` rule and a case in `inline_thread_foreign`.
-- **New compiler primitive**: a `MetaOp` in `build.rs` and a bodiless `#compiler` declaration in `stdlib/Compiler`.
+- **New compiler operation**: an `Operation` in `build/public_api/mod.rs`, its handler there and the engine call in `build/engine.rs`, and a bodiless `#compiler` declaration in `stdlib/Compiler`.
 - **x86-64 paths on an arm64 Mac**: `cargo build -p jaic-cli --no-default-features --target x86_64-apple-darwin` and run with `arch -x86_64`. Windows stubs: `cargo build -p jaic --target x86_64-pc-windows-msvc` and inspect with `llvm-objdump -d`.
 - **Writing a global from the compiler**: go through `initialize_global` or wrap the write in `self.read_only.fill`; a plain write into a `read_only` global faults.
 - **New way for interpreted code to write memory**: call `check_writable` (or go through `store`/`put`) so a literal write traps instead of faulting.

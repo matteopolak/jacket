@@ -444,10 +444,9 @@ impl Record {
     }
 }
 
-/// Field kinds as reported to Jai (`__jaic_rec_field`).
-pub const KIND_NONE: i64 = 0;
-
+/// How a field slot's value is stored.
 pub const KIND_INT: i64 = 1;
+
 pub const KIND_STRING: i64 = 2;
 pub const KIND_REF: i64 = 3;
 pub const KIND_LIST: i64 = 4;
@@ -542,16 +541,6 @@ impl Records {
     /// The syntax attribute `key` of record `id`.
     pub fn syntax_field(&self, id: i64, key: SyntaxKey) -> Option<FieldRef<'_>> {
         self.get(id)?.field_named(key.field())
-    }
-
-    pub fn kind(&self, id: i64, name: &str) -> i64 {
-        match self.field(id, name) {
-            None => KIND_NONE,
-            Some(FieldRef::Int(_)) => KIND_INT,
-            Some(FieldRef::Str(_)) => KIND_STRING,
-            Some(FieldRef::Ref(_)) => KIND_REF,
-            Some(FieldRef::List(_)) => KIND_LIST,
-        }
     }
 
     /// The item named `name`, or element `index` of the list named `name`.

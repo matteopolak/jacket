@@ -1,9 +1,9 @@
 //! Public option records are decoded by their resolved field schema.
 use super::abi::{bytes, string, view, write};
-use super::operations::{Call, put_strings, temporary_string};
+use super::operations::{Call, put_strings};
 use super::{Kind, Operation};
 use crate::{
-    build::MetaOp,
+    build::{Snapshot, engine},
     builtin_keys::{
         WorkspaceFlag as Flag, WorkspaceList as List, WorkspaceNumber as Number,
         WorkspaceText as Text,
@@ -147,22 +147,20 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                         value.as_bytes(),
                     )?;
                 }
-                cx.invoke(
-                    interp,
-                    MetaOp::SetText,
-                    &[ws as u64, key as u64, cx.field(ty, options, name)?.0],
-                )?;
+                let value = cx.text(interp, ty, options, name)?;
+                cx.registry().set_text(ws, key, &value).map_err(Trap::new)?;
             }
             let added = read_strings(interp, cx.field(dc, input, "append_linker_arguments")?.0)?;
             if !added.is_empty() {
                 let destination = cx.field(ty, options, "additional_linker_arguments")?.0;
                 let mut all = read_strings(interp, destination)?;
                 for value in &added {
-                    let slot = temporary_string(interp, value.as_bytes())?;
-                    cx.invoke(
+                    append(
+                        cx,
                         interp,
-                        MetaOp::AppendList,
-                        &[ws as u64, List::AdditionalLinkerArgument as u64, slot],
+                        ws,
+                        List::AdditionalLinkerArgument,
+                        value.clone(),
                     )?;
                 }
                 all.extend(added);
@@ -175,11 +173,8 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                     "append_executable_filename_extension",
                 ),
             ] {
-                cx.invoke(
-                    interp,
-                    MetaOp::SetFlag,
-                    &[ws as u64, flag as u64, cx.number(interp, dc, input, name)?],
-                )?;
+                let value = cx.number(interp, dc, input, name)? & 1 != 0;
+                cx.registry().set_flag(ws, flag, value).map_err(Trap::new)?;
             }
             snapshot(cx, interp, ws, options, ty, true)?;
         }
@@ -251,25 +246,21 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
                 }
             };
         }
-        cx.invoke(
-            interp,
-            MetaOp::SetNumber,
-            &[ws as u64, option as u64, value],
-        )?;
+        cx.registry()
+            .set_number(ws, option, value)
+            .map_err(Trap::new)?;
     }
     for &(option, name) in FLAGS {
-        cx.invoke(
-            interp,
-            MetaOp::SetFlag,
-            &[ws as u64, option as u64, cx.number(interp, ty, at, name)?],
-        )?;
+        let value = cx.number(interp, ty, at, name)? & 1 != 0;
+        cx.registry()
+            .set_flag(ws, option, value)
+            .map_err(Trap::new)?;
     }
     for &(option, name) in TEXTS {
-        cx.invoke(
-            interp,
-            MetaOp::SetText,
-            &[ws as u64, option as u64, cx.field(ty, at, name)?.0],
-        )?;
+        let value = cx.text(interp, ty, at, name)?;
+        cx.registry()
+            .set_text(ws, option, &value)
+            .map_err(Trap::new)?;
     }
     let major = cx.number(interp, ty, at, "minimum_os_version.major")?;
     let minor = cx.number(interp, ty, at, "minimum_os_version.minor")?;
@@ -278,12 +269,9 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
     } else {
         format!("{major}.{minor}")
     };
-    let slot = temporary_string(interp, version.as_bytes())?;
-    cx.invoke(
-        interp,
-        MetaOp::SetText,
-        &[ws as u64, Text::MinimumOsVersion as u64, slot],
-    )?;
+    cx.registry()
+        .set_text(ws, Text::MinimumOsVersion, &version)
+        .map_err(Trap::new)?;
     for (list, name) in [
         (List::ImportPath, "import_path"),
         (
@@ -291,19 +279,29 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
             "additional_linker_arguments",
         ),
     ] {
-        cx.invoke(interp, MetaOp::ClearList, &[ws as u64, list as u64])?;
+        cx.registry().clear_list(ws, list).map_err(Trap::new)?;
         for value in read_strings(interp, cx.field(ty, at, name)?.0)? {
             let value = if list == List::ImportPath {
                 cx.location_path(interp, 2, value)?
             } else {
                 value
             };
-            let slot = temporary_string(interp, value.as_bytes())?;
-            cx.invoke(interp, MetaOp::AppendList, &[ws as u64, list as u64, slot])?;
+            append(cx, interp, ws, list, value)?;
         }
     }
     snapshot(cx, interp, ws, at, ty, true)?;
     Ok(())
+}
+
+fn append(cx: &Call, interp: &Interp, ws: i64, list: List, value: String) -> Result<(), Trap> {
+    let value = if list == List::ImportPath {
+        engine::import_folder(interp, value)
+    } else {
+        value
+    };
+    cx.registry()
+        .append_list(ws, list, &value)
+        .map_err(Trap::new)
 }
 
 pub(super) fn read_strings(interp: &Interp, at: u64) -> Result<Vec<String>, Trap> {
@@ -363,31 +361,17 @@ fn snapshot(
         }
         Ok(())
     }
-    fn list(interp: &mut Interp, values: &[u64]) -> Result<u64, Trap> {
-        let bytes: Vec<u8> = values
-            .iter()
-            .flat_map(|value| value.to_le_bytes())
-            .collect();
-        let data = interp.register_data_global(&bytes, 8, false, 1)?;
-        let slot = interp.register_data_global(&[0; 16], 8, false, 1)?;
-        super::abi::put_view(interp, slot, values.len() as u64, data)?;
-        Ok(slot)
-    }
     let (mut strings, mut arrays) = (Vec::new(), Vec::new());
     offsets(cx, ty, 0, &mut strings, &mut arrays)?;
-    let strings = list(interp, &strings)?;
-    let arrays = list(interp, &arrays)?;
-    Ok(cx.invoke(
-        interp,
-        MetaOp::OptionsSnapshot,
-        &[
-            ws as u64,
-            at,
-            cx.schema().get(ty).size,
-            strings,
-            arrays,
-            u64::from(save),
-        ],
-    )?[0]
-        != 0)
+    let size = cx.schema().get(ty).size as usize;
+    if save {
+        let snapshot = Snapshot::capture(interp, at, size, &strings, &arrays)?;
+        cx.registry().save_options(ws, snapshot)?;
+        return Ok(true);
+    }
+    let Some(snapshot) = cx.registry().options_snapshot(ws)? else {
+        return Ok(false);
+    };
+    snapshot.restore(interp, at, size)?;
+    Ok(true)
 }

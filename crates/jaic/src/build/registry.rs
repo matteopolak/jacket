@@ -39,7 +39,6 @@ impl Workspaces {
                 top,
             ],
             current: vec![TOP_LEVEL_WORKSPACE],
-            event: Event::default(),
             strings: Vec::new(),
             kept: Vec::new(),
             records: Records::default(),
