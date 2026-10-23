@@ -51,7 +51,8 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@FreesArgument` | `defer_in_loop`, `use_after_free`, `double_free` | after the call the *first* argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s). Not for a procedure whose first argument is only an allocator, heap or owner |
 | `@Allocates` | `leaked_allocation` | the result is newly allocated and the caller owns it (`alloc`, `New`, `copy_string`, `sprint`, `join`, ...) |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a number of bytes in the memory the pointer arguments point at (`memcpy`, `memset`, `memcmp`) |
-| `@Locks` | `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
+| `@Locks` | `uninit_read` | correctness | deny | no | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
+| `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
 | `@Unlocks` | `unpaired_lock` | gives back the lock its first argument names |
 
 ```jai
@@ -233,6 +234,8 @@ Not auto-fixed: the slip may be on the other side. After `using info;`, `width =
 `row := it;` before the inner loop is the usual idiom and is not reported.
 ### string_literal_write
 Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native). Fires on `s[i] = x`, `s[i] += x`, `s.data[i] = x` and `s.data.* = x` when `s` was declared from a literal (`s := "abc";`, `s: string = "abc";`) in the same statement list and nothing since could have changed it: any assignment to `s`, taking `*s`, or redeclaring the name (in any nested scope) ends the check, so `s = copy_string(s);` silences later writes. Writes in nested blocks and in macros are not reported.
+### uninit_read
+The first mention after the declaration, in the same block, decides; a write anywhere (even inside an `if`) ends the check, so only straight-line reads are reported. Taking the address (`init(*x)`, `for *x`), `.data`/`.count` of a fixed-size array and compiler built-ins (`type_of(x)`) are not reads. Procedures with `using` are skipped.
 ### unpaired_lock
 A statement-level call of a `@Locks` procedure with an argument (`lock(*state.mutex);`) at the top level of a procedure body, followed by a path that reaches a `return`, or the end of the body, without a call of an `@Unlocks` procedure on the same first argument (compared as written, ignoring whitespace) or a `defer` of one. A `defer` earlier in the body counts. Paths made of statements in sequence, `if`/`else` and blocks are followed; anything else is silent: a loop or `switch` that mentions the unlock (one with a `return` and no unlock is reported at the `return`), `break`/`continue`, an `if` whose branches disagree about unlocking, `#insert`, `using`, macro calls. A procedure that is itself `@Locks` is a wrapper and is not checked, and a lock taken inside a nested block is not followed. A lock whose result reports failure (`err := lock(...)`) is not a statement-level call and is left alone.
 ### unused_import

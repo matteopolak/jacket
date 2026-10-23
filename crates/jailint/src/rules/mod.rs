@@ -51,6 +51,7 @@ mod reversed_range;
 mod self_assignment;
 mod shadowed_it;
 mod string_literal_write;
+mod uninit_read;
 mod unpaired_lock;
 pub(crate) mod unused_import;
 mod unused_parameter;
@@ -334,6 +335,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
         check: string_literal_write::check,
+    },
+    RuleInfo {
+        name: "uninit_read",
+        category: Category::Correctness,
+        summary: "a variable declared `= ---` read before anything is written to it",
+        check: uninit_read::check,
     },
     RuleInfo {
         name: "unpaired_lock",
