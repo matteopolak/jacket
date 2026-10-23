@@ -44,7 +44,7 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
 // The leftmost-first match at or after `start`: its start and end, or end -1. `earliest` only
 // promises to say whether there is one (the end may be early and the start is not computed).
 find_span :: (engine: *Engine, text: string, start: int, earliest := false) -> start: int, end: int {
-    if start > text.count return -1, -1;
+    if start < 0 || start > text.count return -1, -1;
 
     program := *engine.program;
     if program.anchored && start > 0 return -1, -1;

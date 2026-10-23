@@ -92,6 +92,13 @@ searching :: () {
 
     m = Regex.find(*unicode_word, "--héllo--");
     check(m.text == "héllo", "\\w is Unicode");
+
+    // A start outside the text finds nothing, below it as well as past it.
+    _, found = Regex.find(*unicode_word, "abc", -1);
+    check(!found, "negative start finds nothing");
+    check(!Regex.is_match(*unicode_word, "abc", -3), "negative start is no match");
+    _, found = Regex.find(*unicode_word, "abc", 4);
+    check(!found, "start past the end finds nothing");
 }
 
 capturing :: () {

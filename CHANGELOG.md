@@ -60,6 +60,7 @@
 - `jailint`'s `manual_assign_op` no longer turns `a = f() + a` into `a += f()`, which reads `a` before the call instead of after.
 - `jailint`'s `needless_bool` no longer rewrites `!(a == b)` to `a != b` for a type that only defines `operator ==`.
 - `get_hash` gives `-0.0` and `0.0` the same hash, so either finds the other in a `Table`.
+- `Regex` searches given a negative start find nothing, instead of reading before the text.
 - `Color_Interpolation` holds the end colors outside the key range instead of extrapolating to NaN or out-of-range values.
 - Reverse `utf8_iter` no longer skips stray continuation bytes; it gives the same elements as a forward pass, last first.
 - `Subtitles.serialize` writes an event without a parameter or times so it loads back with the same time.
