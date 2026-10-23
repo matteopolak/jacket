@@ -52,3 +52,19 @@ fn an_oversized_message_is_skipped_and_the_stream_stays_in_step() {
     assert_eq!(decoder.take_oversized(), [300]);
     assert_eq!(decoder.take_oversized(), [] as [usize; 0]);
 }
+
+/// A message just under the limit, then the next one, arriving in one chunk that is larger
+/// than the room left: both are read.
+#[test]
+fn a_message_near_the_limit_followed_by_another_in_one_chunk() {
+    let frame = |body: &str| format!("Content-Length: {}\r\n\r\n{body}", body.len());
+    let big = "x".repeat(20_000);
+    let small = "y".repeat(10_000);
+    let stream = format!("{}{}", frame(&big), frame(&small));
+    let mut decoder = FrameDecoder::new(20_000);
+    // The second chunk holds the last 1000 bytes of the first body and all of the second.
+    let first_cut = frame(&big).len() - 1000;
+    let mut messages = decoder.push(&stream.as_bytes()[..first_cut]).unwrap();
+    messages.extend(decoder.push(&stream.as_bytes()[first_cut..]).unwrap());
+    assert_eq!(messages, vec![big, small]);
+}

@@ -69,18 +69,6 @@ impl FrameDecoder {
         let skipped = self.discarding.min(bytes.len());
         self.discarding -= skipped;
         let bytes = &bytes[skipped..];
-        let limit = self
-            .body_limit
-            .checked_add(HEADER_LIMIT)
-            .ok_or(FrameError::BodyLimit)?;
-        if self
-            .buffer
-            .len()
-            .checked_add(bytes.len())
-            .is_none_or(|n| n > limit)
-        {
-            return Err(FrameError::BodyLimit);
-        }
         self.buffer.extend_from_slice(bytes);
         let mut messages = vec![];
         loop {
@@ -106,6 +94,12 @@ impl FrameDecoder {
             self.buffer.drain(..length);
             self.expected = None;
             messages.push(body);
+        }
+        // What is left is one incomplete message: its body (at most the limit, checked when its
+        // header was read) or its header. Complete messages in the same chunk do not count.
+        let limit = self.body_limit.saturating_add(HEADER_LIMIT);
+        if self.buffer.len() > limit {
+            return Err(FrameError::BodyLimit);
         }
         Ok(messages)
     }
