@@ -243,7 +243,14 @@ impl Parser<'_> {
     /// A `{ ... }` list (no new scope) or a single statement.
     fn parse_static_branch(&mut self) -> PResult<Vec<Stmt>> {
         if !self.at(P::LBrace) {
-            return Ok(vec![self.parse_stmt()?]);
+            let first = self.parse_stmt()?;
+            // `#overlay(a)` only names the member that follows it, so that member belongs to
+            // the branch too.
+            if matches!(first.kind, StmtKind::Overlay(_)) && !self.at(P::RBrace) {
+                let member = self.parse_stmt()?;
+                return Ok(vec![first, member]);
+            }
+            return Ok(vec![first]);
         }
         let open = self.bump();
         let stmts = self.parse_stmts_until_close()?;
