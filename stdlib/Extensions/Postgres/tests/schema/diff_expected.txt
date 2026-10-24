@@ -1,0 +1,42 @@
+-- Proposed by the pg tool's `diff` from the structs in db/schema.jai. It is a starting point:
+-- review it, edit it, and resolve every TODO before running `migrate`.
+
+create schema if not exists "reporting";
+
+alter type "public"."mood" add value 'happy';
+create type "public"."plan" as enum ('free', 'paid');
+
+create table "public"."posts" (
+    "id" bigint not null,
+    "author_id" bigint not null,
+    "title" text not null,
+    "plan" "public"."plan" not null,
+    "body" text,
+    "token" uuid not null,
+    "tags" text[] not null,
+    primary key ("id"),
+    foreign key ("author_id") references "public"."users" ("id")
+);
+
+create table "reporting"."reports" (
+    "id" bigint not null,
+    primary key ("id")
+);
+
+alter table "public"."users" add column "nickname" text;
+alter table "public"."users" add column "age" integer not null;
+alter table "public"."users" add column "created_at" timestamptz not null;
+
+-- TODO: "public"."users"."team_id": the type changed from s64 to s32; write the conversion by hand, such as `alter table "public"."users" alter column "team_id" type integer using ...`
+-- TODO: "public"."users"."born": now not null; this fails while it holds nulls, so fill them in first
+-- alter table "public"."users" alter column "born" set not null;
+-- TODO: "public"."users"."age": not null with no default fails on a table that has rows; add a default or fill it in first
+-- TODO: "public"."users"."created_at": set the default (@pg_default says there is one)
+-- WARNING: dropping a column destroys its data.
+-- alter table "public"."users" drop column "tags";
+-- TODO: "public"."users": nickname, age, created_at added and tags removed; if a column was renamed, use `alter table ... rename column ... to ...` instead
+-- TODO: "public"."posts"."id": set the default (@pg_default says there is one)
+-- TODO: "public"."posts"."strange": no Postgres type for the Jai type Settings; the column is left out
+-- TODO: "audit"."users" has no struct in the schema file
+-- WARNING: dropping a table destroys its data.
+-- drop table "audit"."users";

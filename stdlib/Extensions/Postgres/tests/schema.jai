@@ -15,6 +15,7 @@ main :: () {
     test_source();
     test_problems();
     test_staleness();
+    test_diff();
 
     port_text := environment_variable("JAI_PG_TEST_PORT");
 
@@ -177,6 +178,109 @@ test_staleness :: () {
     assert(contains(Pg.schema_problem(path), "no schema hash"));
 }
 
+// The file `diff` reads for the offline test: the generated one for `catalog()`, edited by hand.
+EDITED_SCHEMA :: #string SCHEMA
+#scope_file
+
+Pg :: #import "Extensions/Postgres";
+
+#scope_export
+
+/// Enum public.mood.
+Mood :: enum {
+    sad;
+    __in_20progress;
+    happy;
+}
+
+Plan :: enum {
+    free;
+    paid;
+}
+
+/// Table public.teams.
+Team :: struct @pg_table(public.teams) {
+    /// bigint, not null
+    id: s64; @pg_primary_key @pg_default
+    /// text, not null
+    name: string;
+}
+
+/// Table public.users.
+User :: struct @pg_table(public.users) @pg_belongs_to(team:team_id:Team:id) {
+    id: s64; @pg_primary_key @pg_default
+    team_id: s32;
+    mood: Pg.Nullable(Mood);
+    past_moods: [] Mood;
+    settings: Pg.Nullable(Pg.Json(Pg.json_column_type("users.settings")));
+    born: Pg.Date;
+    nickname: Pg.Nullable(string);
+    age: s32;
+    created_at: Pg.Timestamp; @pg_default
+}
+
+/// Table public.posts.
+Post :: struct @pg_table(public.posts) @pg_belongs_to(author:author_id:User:id) {
+    id: s64; @pg_primary_key @pg_default
+    author_id: s64;
+    title: string;
+    plan: Plan;
+    body: Pg.Nullable(string);
+    token: Pg.Uuid;
+    tags: [] string;
+    strange: Settings;
+}
+
+Reports :: struct @pg_table(reporting.reports) {
+    id: s64; @pg_primary_key
+}
+
+// Not a table: skipped.
+Helper :: struct {
+    anything goes here
+}
+SCHEMA
+
+// `diff` for a hand-edited schema file: every kind of change, written as a migration.
+test_diff :: () {
+    description, problem := Pg.parse_schema_text(EDITED_SCHEMA);
+
+    assert(problem == "", "%", problem);
+    assert(description.structs.count == 4 && description.enums.count == 2, "% structs, % enums", description.structs.count, description.enums.count);
+    assert(description.structs[2].belongs_to.count == 1 && description.structs[2].fields[0].primary_key && description.structs[2].fields[0].has_default);
+    assert(description.enums[0].labels.count == 3 && description.enums[0].labels[1] == "in progress");
+
+    proposal, why := Pg.propose_migration(catalog(), description);
+
+    assert(why == "", "%", why);
+    assert(proposal.sql == read_fixture("diff_expected.txt"), "the proposal differs from tests/schema/diff_expected.txt:\n%", proposal.sql);
+    assert(proposal.changes == 8 && proposal.todos == 8, "% changes, % todos", proposal.changes, proposal.todos);
+
+    // The generated file describes the catalog it came from: nothing differs.
+    source, _ := Pg.schema_source(catalog(), "abc123");
+
+    description, problem = Pg.parse_schema_text(source);
+
+    assert(problem == "", "%", problem);
+
+    proposal, why = Pg.propose_migration(catalog(), description);
+
+    assert(why == "" && proposal.sql == "" && proposal.changes == 0 && proposal.todos == 0, "%", proposal.sql);
+
+    // Shapes it does not read are problems naming the line.
+    _, problem = Pg.parse_schema_text("A :: struct @pg_table(a.b) {\n    x: s64 = 3;\n}\n");
+    assert(contains(problem, "line 2") && contains(problem, "default"), "%", problem);
+
+    _, problem = Pg.parse_schema_text("A :: struct @pg_table(a.b) { x: s64; }\n");
+    assert(contains(problem, "separate lines"), "%", problem);
+
+    _, problem = Pg.parse_schema_text("A :: struct @pg_table(a.b) {\n    x: s64;\n");
+    assert(contains(problem, "closing"), "%", problem);
+
+    _, problem = Pg.parse_schema_text("E :: enum {\n    a = 1;\n}\n");
+    assert(contains(problem, "plain members"), "%", problem);
+}
+
 Mood :: enum {
     sad;
     __in_20progress;
@@ -201,6 +305,8 @@ test_server :: (port: u16) {
     assert(problem == "", "%", problem);
     assert(source == read_fixture("expected_schema.txt"), "the generated text differs from tests/schema/expected_schema.txt:\n%", source);
 
+    test_diff_server(config, source);
+
     source, problem = Pg.generate_schema(config, join(#filepath, "migrations_bad",, temp));
     assert(source == "" && contains(problem, "migration 0001_fails failed"), "%", problem);
 
@@ -217,6 +323,68 @@ test_server :: (port: u16) {
 
     test_enums(db);
     test_json_raw(db);
+}
+
+// `diff` against the real schema database: the generated file differs from nothing, and a few
+// hand edits of it become the migration that makes them true.
+test_diff_server :: (config: Pg.Config, generated: string) {
+    folder := join(#filepath, "schema/migrations",, temp);
+    file := tprint("/tmp/jacket-diff-test-%.jai", cast(s64) getpid());
+
+    defer file_delete(file);
+
+    assert(write_entire_file(file, generated));
+
+    proposal, problem := Pg.diff_schema(config, folder, file);
+
+    assert(problem == "" && proposal.sql == "", "%: %", problem, proposal.sql);
+
+    edited := replace(generated, "    __if;\n}", "    __if;\n    viewer;\n}");
+    edited = tprint("%\nLabel :: enum {\n    red;\n}\n\nNote :: struct @pg_table(public.notes) {\n    id: s64; @pg_primary_key\n    body: string;\n    label: Label;\n}\n", edited);
+
+    assert(edited != generated && write_entire_file(file, edited));
+
+    proposal, problem = Pg.diff_schema(config, folder, file);
+
+    assert(problem == "", "%", problem);
+    assert(contains(proposal.sql, "alter type \"public\".\"member_role\" add value 'viewer';"), "%", proposal.sql);
+    assert(contains(proposal.sql, "create type \"public\".\"label\" as enum ('red');"), "%", proposal.sql);
+    assert(contains(proposal.sql, "create table \"public\".\"notes\" (\n    \"id\" bigint not null,\n    \"body\" text not null,\n    \"label\" \"public\".\"label\" not null,\n    primary key (\"id\")\n);"), "%", proposal.sql);
+    assert(proposal.changes == 3 && proposal.todos == 0, "% changes, % todos", proposal.changes, proposal.todos);
+
+    // And it is SQL the server accepts.
+    admin, error := Pg.connect(config);
+
+    assert(error.kind == .NONE, "%", Pg.error_text(error));
+    defer Pg.close(admin);
+
+    error = Pg.execute_script(admin, "create database jacket_diff_check");
+    assert(error.kind == .NONE, "%", Pg.error_text(error));
+    Pg.free_error(*error);
+
+    defer {
+        dropped := Pg.execute_script(admin, "drop database if exists jacket_diff_check");
+        Pg.free_error(*dropped);
+    }
+
+    target := config;
+    target.database = "jacket_diff_check";
+
+    db, db_error := Pg.connect(target);
+
+    assert(db_error.kind == .NONE, "%", Pg.error_text(db_error));
+    defer Pg.close(db);
+
+    migrations, why := Pg.read_migrations(folder);
+
+    assert(why == "", "%", why);
+
+    _, error = Pg.migrate(db, migrations);
+    assert(error.kind == .NONE, "%", Pg.error_text(error));
+
+    error = Pg.execute_script(db, proposal.sql);
+    assert(error.kind == .NONE, "the proposal does not run: %", Pg.error_text(error));
+    Pg.free_error(*error);
 }
 
 query_one_row :: (db: *Pg.Connection, sql: string, args: ..Any) -> Pg.Result {

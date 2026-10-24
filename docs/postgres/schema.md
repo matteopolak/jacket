@@ -2,7 +2,7 @@
 
 ## What it is
 
-`generate` turns the project's migrations into `db/schema.jai`: a committed Jai file with a struct per table and view, an enum per Postgres enum, and the notes the ORM reads. SQL stays the source of truth ([design](design.md#layer-3-schema-migrations-and-table-structs), option C). The pg tool also runs the migrations (`migrate`, `status`, `new`).
+`generate` turns the project's migrations into `db/schema.jai`: a committed Jai file with a struct per table and view, an enum per Postgres enum, and the notes the ORM reads. SQL stays the source of truth ([design](design.md#layer-3-schema-migrations-and-table-structs), option C). The pg tool also runs the migrations (`migrate`, `status`, `new`), and `diff` proposes a migration from hand-edited structs ([diff.md](diff.md)).
 
 ```
 jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- generate [--root DIR] [--out FILE]

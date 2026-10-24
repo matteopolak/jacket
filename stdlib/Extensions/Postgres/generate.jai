@@ -53,12 +53,22 @@ Catalog :: struct {
 // `config` names, building it first when there is none, and returns the text of `db/schema.jai`;
 // or what went wrong. Runs on a fiber, like every call that talks to the server.
 generate_schema :: (config: Config, migrations_folder: string) -> source: string, problem: string {
-    migrations, problem := read_migrations(migrations_folder);
+    catalog, hash, problem := migrated_catalog(config, migrations_folder);
     if problem return "", problem;
-    if !migrations.count return "", tprint("%: there are no migrations to generate a schema from", migrations_folder);
+
+    return schema_source(catalog, hash);
+}
+
+// The catalog of the migrations in `migrations_folder` and their schema hash, read from the
+// schema database on the server `config` names (built first when there is none); or what went
+// wrong. Runs on a fiber, like every call that talks to the server.
+migrated_catalog :: (config: Config, migrations_folder: string) -> Catalog, hash: string, problem: string {
+    migrations, problem := read_migrations(migrations_folder);
+    if problem return .{}, "", problem;
+    if !migrations.count return .{}, "", tprint("%: there are no migrations to generate a schema from", migrations_folder);
 
     admin, error := connect(config);
-    if error.kind != .NONE return "", tprint("cannot connect: %", error_text(error));
+    if error.kind != .NONE return .{}, "", tprint("cannot connect: %", error_text(error));
 
     defer close(admin);
 
@@ -66,11 +76,11 @@ generate_schema :: (config: Config, migrations_folder: string) -> source: string
     name := schema_database_name(hash);
     existing, list_error := schema_database_names(admin);
 
-    if list_error.kind != .NONE return "", tprint("cannot list the schema databases: %", error_text(list_error));
+    if list_error.kind != .NONE return .{}, "", tprint("cannot list the schema databases: %", error_text(list_error));
 
     if !array_find(existing, name) {
         build_problem := build_schema_database(admin, config, migrations, name);
-        if build_problem return "", build_problem;
+        if build_problem return .{}, "", build_problem;
 
         prune_schema_databases(admin);
     }
@@ -79,14 +89,14 @@ generate_schema :: (config: Config, migrations_folder: string) -> source: string
     target.database = name;
 
     db, db_error := connect(target);
-    if db_error.kind != .NONE return "", tprint("cannot connect to the schema database: %", error_text(db_error));
+    if db_error.kind != .NONE return .{}, "", tprint("cannot connect to the schema database: %", error_text(db_error));
 
     defer close(db);
 
     catalog, catalog_error := load_catalog(db);
-    if catalog_error.kind != .NONE return "", tprint("reading the catalog: %", error_text(catalog_error));
+    if catalog_error.kind != .NONE return .{}, "", tprint("reading the catalog: %", error_text(catalog_error));
 
-    return schema_source(catalog, hash);
+    return catalog, hash, "";
 }
 
 // The text of `db/schema.jai` for a catalog made from migrations with this schema hash, or a
@@ -334,6 +344,8 @@ copy_strings :: (strings: [] string) -> [] string {
 
 // ---- names ----
 
+#scope_export
+
 Names :: struct {
     enums: [] string; // the Jai type of each enum, in the catalog's order
     relations: [] string; // and of each relation
@@ -365,6 +377,8 @@ assign_names :: (catalog: Catalog) -> Names, problem: string {
 
     return .{ enums, relations }, "";
 }
+
+#scope_file
 
 // The first candidate nobody has, which is then taken; else the last with a number.
 claim :: (taken: *[..] string, candidates: ..string) -> string {
@@ -464,6 +478,8 @@ pg_type_text :: (base: string) -> string {
     return text;
 }
 
+#scope_export
+
 // The type of a column's field, or a problem: an enum the catalog does not list.
 field_type :: (relation: Catalog_Relation, column: Catalog_Column, catalog: Catalog, names: Names) -> string, problem: string {
     text: string;
@@ -489,6 +505,8 @@ field_type :: (relation: Catalog_Relation, column: Catalog_Column, catalog: Cata
 
     return text, "";
 }
+
+#scope_file
 
 // How a belongs-to relation is called: the foreign key column without `_id`, else the column. It
 // may not share a name with a column of its table or with another relation, so it falls back to
