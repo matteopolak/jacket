@@ -141,8 +141,8 @@ without a mapped type.
 error if `min_protocol_version` is higher. `connection.protocol_minor` says what is in use. The
 difference that matters is the cancel key: four bytes in 3.0, 4 to 256 in 3.2 (PostgreSQL 18
 sends 32). The key is kept as bytes (`connection.cancel_key`) and sent whole in `CancelRequest`.
-Not yet read from connection strings: the URL parameters `min_protocol_version` and
-`max_protocol_version` need adding to `conninfo.jai`'s keyword list.
+Connection strings set them with `min_protocol_version` and `max_protocol_version` (`3.0`, `3.2`
+or `latest`), parsed in `config.jai`.
 
 **Pipelining** (`pipeline.jai`). A pipeline queues several statements and reads their results
 later, in order. The semantics are libpq's pipeline mode.
