@@ -28,6 +28,7 @@ main :: () {
         test_json_and_sql(db);
         test_relations(db);
         test_writes(db);
+        test_json_maybe(db);
     });
 
     if failures {
@@ -201,4 +202,48 @@ test_writes :: (db: *Pg.Connection) {
     gone:, error = Pg.delete(db, User, where = #code it.id == inserted.id);
 
     check(error.kind == .NONE && gone == 1, Pg.error_text(error));
+}
+
+// A Json_Maybe field's three states. User 1's settings have no "beta" key, user 2 has no settings.
+test_json_maybe :: (db: *Pg.Connection) {
+    users, error := Pg.select(db, User, where = #code it.settings.beta.state == .MISSING);
+    all := Pg.fetch_all(*users);
+
+    check(error.kind == .NONE && all.count == 1 && all[0].id == 1 && all[0].settings.value.value.beta.state == .MISSING, Pg.error_text(error));
+    Pg.free_rows(*users);
+
+    user := User.{ email = "maybe@example.com" };
+    user.settings = .{ value = .{ value = .{ theme = "x", beta = .{ state = .NULL } } } };
+
+    with_null, error = := Pg.insert(db, user);
+    check(error.kind == .NONE, Pg.error_text(error));
+
+    users, error = Pg.select(db, User, where = #code it.settings.beta.state == .NULL);
+    all = Pg.fetch_all(*users);
+    check(error.kind == .NONE && all.count == 1 && all[0].id == with_null.id && all[0].settings.value.value.beta.state == .NULL, Pg.error_text(error));
+    Pg.free_rows(*users);
+
+    user.email = "set@example.com";
+    user.settings.value.value.beta = .{ state = .SET, value = true };
+
+    with_value, error = := Pg.insert(db, user);
+    check(error.kind == .NONE, Pg.error_text(error));
+
+    // `.value` is the key itself.
+    users, error = Pg.select(db, User, where = #code it.settings.beta.state == .SET && it.settings.beta.value == true);
+    all = Pg.fetch_all(*users);
+    check(error.kind == .NONE && all.count == 1 && all[0].id == with_value.id, Pg.error_text(error));
+    Pg.free_rows(*users);
+
+    // User 2 (no settings) has no state, so it matches every `!=`.
+    users, error = Pg.select(db, User, where = #code it.settings.beta.state != .SET, order_by = #code it.id);
+    all = Pg.fetch_all(*users);
+    ids := ids_of(all);
+
+    check(error.kind == .NONE && ids.count == 3 && ids[0] == 1 && ids[1] == 2 && ids[2] == with_null.id, Pg.error_text(error));
+    Pg.free_rows(*users);
+
+    gone:, error = Pg.delete(db, User, where = #code it.id == with_null.id || it.id == with_value.id);
+
+    check(error.kind == .NONE && gone == 2, Pg.error_text(error));
 }

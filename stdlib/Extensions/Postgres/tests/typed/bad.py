@@ -72,6 +72,12 @@ CASES = [
     ("orm related field", 'rows, error := Pg.select(db, Orm_Post, where = #code it.author.nope == 1);', "it.author.nope", 'has no field "nope"', ""),
     ("orm has-many filter", 'rows, error := Pg.select(db, Orm_User, where = #code it.posts.title == "x");', "it.posts.title", "has-many relation", ""),
     ("orm load kind", 'users: [] Orm_User; loaded, error := Pg.load_one(db, users, "posts");', "Pg.load_one", "load it with Pg.load_many", ""),
+    (
+        "orm json maybe state",
+        'Beta :: struct { beta: Pg.Json_Module.Json_Maybe(bool); } Row :: struct @pg_table(public.users) { id: s64; settings: Pg.Nullable(Pg.Json(Beta)); } '
+        'rows, error := Pg.select(db, Row, where = #code it.settings.beta.state < .SET);',
+        "it.settings.beta.state", "compare a Json_Maybe's state", "",
+    ),
     ("orm sql field", 'rows, error := Pg.select(db, Orm_User, where = #code Pg.sql("%(it.nope) = 1"));', 'Pg.sql("%(it.nope) = 1")', 'has no field "nope"', ""),
 ]
 

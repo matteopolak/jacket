@@ -2,6 +2,7 @@
 #scope_file
 
 Pg :: #import "Extensions/Postgres";
+#import "Extensions/Json";
 
 #scope_export
 
@@ -14,6 +15,7 @@ Mood :: enum {
 Settings :: struct {
     theme: string;
     font_size := 14; @json(default)
+    beta: Json_Maybe(bool);
 }
 
 User :: struct @pg_table(public.users) @pg_has_many(posts:Post:author_id:id) {
