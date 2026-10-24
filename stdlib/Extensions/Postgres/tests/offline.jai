@@ -47,6 +47,12 @@ test_urls :: () {
     assert(config.host == "/var/run/postgresql" && config.user == "me" && config.database == "app");
     Pg.free_config(*config);
 
+    // The query parameters win over the authority, as in libpq.
+    config, error = Pg.parse_url("postgres://u@localhost:1/app?host=/tmp/sock&port=54329");
+    assert(error.kind == .NONE);
+    assert(config.host == "/tmp/sock" && config.port == 54329 && config.user == "u", tprint("%:%", config.host, config.port));
+    Pg.free_config(*config);
+
     config, error = Pg.parse_url("postgres://localhost");
     assert(error.kind == .NONE && config.host == "localhost" && config.database == "");
     Pg.free_config(*config);
@@ -127,12 +133,12 @@ test_conninfo :: () {
         Pg.free_error(*error);
     }
 
-    info, _ := Pg.parse_conninfo_options("postgres://h?options=-c%20x%3D1&host=ignored");
+    info, _ := Pg.parse_conninfo_options("postgres://h?options=-c%20x%3D1&host=chosen");
     value, found := Pg.conninfo_get(info, "options");
 
     assert(found && value == "-c x=1");
     value, found = Pg.conninfo_get(info, "host");
-    assert(found && value == "h");
+    assert(found && value == "chosen");
     _, found = Pg.conninfo_get(info, "port");
     assert(!found);
     Pg.free_conninfo(*info);
