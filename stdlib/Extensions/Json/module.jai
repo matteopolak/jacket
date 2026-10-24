@@ -42,9 +42,49 @@ Json_Error :: struct {
     path: string;
 }
 
+Json_Duplicate_Keys :: enum u8 {
+    ERROR; // a repeated key in an object is a .DUPLICATE_FIELD error
+    LAST; // the last one wins (what Postgres jsonb keeps); the earlier value is released
+}
+
 Json_Options :: struct {
     max_depth := 256; // nesting of arrays and objects
     max_size := 1 << 30; // bytes of text
+
+    // Every struct denies unknown keys, as if it had `@json(deny_unknown_fields)`. A struct's own
+    // note still denies when this is false.
+    deny_unknown_fields := false;
+
+    // A missing field that is not optional keeps its declared initializer instead of failing
+    // with .MISSING_FIELD.
+    missing_fields_default := false;
+
+    // What a repeated key in an object does. A Hash_Table already keeps the last value.
+    duplicate_keys := Json_Duplicate_Keys.ERROR;
+
+    // Strings without escapes (and the keys and numbers of a Json_Value) are slices of the input
+    // text instead of copies; strings with escapes are still allocated from context.allocator.
+    // The input must outlive the result, and the result must never be released with free_json
+    // (nor may a failed decode free through a heap allocator): decode with context.allocator
+    // set to an arena or `temp`, whose free does nothing, and reset that instead. Ignored by the
+    // streaming from_json and by from_query/from_param, whose text does not outlive the call.
+    borrow := false;
+}
+
+// A field that distinguishes a key that is missing, a `null` and a value. As a struct member a
+// missing key leaves `.MISSING` (never a missing-field error), `null` gives `.NULL` and any other
+// value decodes into `value` and gives `.SET`. Encoding omits the key for `.MISSING`, writes
+// `null` for `.NULL` and the value for `.SET`. Outside a struct member (the document, an array
+// element) `.MISSING` encodes as `null`. free_json releases `value` when it is `.SET`.
+Json_Presence :: enum u8 {
+    MISSING;
+    NULL;
+    SET;
+}
+
+Json_Maybe :: struct(T: Type) {
+    state: Json_Presence;
+    value: T;
 }
 
 // Switches for the vector code paths, which give the same results as the scalar ones. Set
@@ -62,6 +102,61 @@ Json_Index_Stats :: struct {
 }
 
 json_index_stats: Json_Index_Stats;
+
+// The error's path in jsonpath form, as `jsonb_path_query` takes it: `$` for the document itself,
+// `$.address.tags[2]`, and a key that is not a plain identifier quoted: `$."we ird"`. Allocated
+// with the temporary allocator.
+json_path_text :: (error: Json_Error) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    append(*builder, "$");
+
+    path := error.path;
+    i := 0;
+
+    while i < path.count {
+        c := path[i];
+
+        if c == #char "[" {
+            end := i;
+            while end < path.count && path[end] != #char "]" end += 1;
+            if end < path.count end += 1;
+
+            append(*builder, slice(path, i, end - i));
+            i = end;
+        } else if c == #char "\"" {
+            // A quoted key, already in JSON string form.
+            end := i + 1;
+            while end < path.count && path[end] != #char "\"" {
+                if path[end] == #char "\\" end += 1;
+                end += 1;
+            }
+
+            if end < path.count end += 1;
+
+            append(*builder, ".");
+            append(*builder, slice(path, i, end - i));
+            i = end;
+        } else if c == #char "." {
+            i += 1;
+        } else {
+            end := i;
+            while end < path.count && path[end] != #char "." && path[end] != #char "[" end += 1;
+
+            key := slice(path, i, end - i);
+
+            append(*builder, ".");
+
+            if is_path_identifier(key) append(*builder, key);
+            else append_json_string(*builder, key);
+
+            i = end;
+        }
+    }
+
+    return builder_to_string(*builder,, temp);
+}
 
 // `message at line 3, column 5 (tags[2])`
 error_text :: (error: Json_Error) -> string {
@@ -117,6 +212,9 @@ Json_Source :: struct {
 from_json :: ($T: Type, source: Json_Source, options := Json_Options.{}) -> T, Json_Error {
     empty: T;
 
+    copying := options;
+    copying.borrow = false;
+
     text: [..] u8;
 
     defer array_free(text);
@@ -134,14 +232,14 @@ from_json :: ($T: Type, source: Json_Source, options := Json_Options.{}) -> T, J
 
         text.count += count;
 
-        if text.count > options.max_size {
-            message := copy_string(tprint("the input is larger than the limit of % bytes", options.max_size));
+        if text.count > copying.max_size {
+            message := copy_string(tprint("the input is larger than the limit of % bytes", copying.max_size));
 
-            return empty, Json_Error.{ kind = .LIMIT, message = message, offset = options.max_size, line = 1, column = 1 };
+            return empty, Json_Error.{ kind = .LIMIT, message = message, offset = copying.max_size, line = 1, column = 1 };
         }
     }
 
-    return from_json(T, string.{ text.count, text.data }, options);
+    return from_json(T, string.{ text.count, text.data }, copying);
 }
 
 // Decodes `text` into a `T`. Strings, arrays, pointers and tables in the result are allocated
@@ -208,6 +306,18 @@ from_json :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Err
 }
 
 #scope_module
+
+is_path_identifier :: (key: string) -> bool {
+    if !key.count return false;
+
+    for key {
+        letter := (it >= #char "a" && it <= #char "z") || (it >= #char "A" && it <= #char "Z") || it == #char "_";
+
+        if !letter && (it_index == 0 || it < #char "0" || it > #char "9") return false;
+    }
+
+    return true;
+}
 
 decode_document :: (r: *Json_Reader, out: *$T) -> bool {
     if !json_decode(r, out) return false;
