@@ -84,6 +84,11 @@ main :: () {
     assert(!has(sdk, "ISlangUnknown_release :: inline (this: *ISession)"));
     assert(has(sdk, "ISession_describe :: inline (this: *ISession, outDesc: *SessionDesc) -> SlangResult"));
 
+    // The interface-identity macro puts an inline static member in each struct and the declaration is split over lines:
+    // neither takes a slot or hides the wrapper the SDK's callers use.
+    assert(has(sdk, "createSession: #type (this: *IGlobalSession, desc: *SessionDesc, outSession: **ISession) -> SlangResult #cpp_method;"));
+    assert(has(sdk, "using vtable: ISlangUnknown_VTable;") && !has(sdk, "getTypeGuid"));
+
     assert(write_entire_file(tprint("%/developer-tools-cpp-wrappers-shapes.jai", args[1]), shapes));
     assert(write_entire_file(tprint("%/developer-tools-cpp-wrappers-sdk.jai", args[1]), sdk));
     print("ok\n");
