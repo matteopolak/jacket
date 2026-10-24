@@ -844,53 +844,17 @@ orm_relation :: (T: Type, name: string) -> Orm_Relation, problem: string {
 // text (`->>`); any other leaf is cast from its text. `as_document` keeps the leaf a jsonb
 // document (`->` all the way), for the jsonb operators.
 orm_json_path :: (sql: *Orm_Sql, node: *Code_Node, member: *Type_Info_Struct_Member, path: [] string, as_document := false) {
-    info := member.type;
-    if is_nullable_info(info) info = nullable_value_type(info);
+    keys, info, ok := orm_json_keys(sql, node, member, path);
+    if !ok return;
 
-    if !is_json_info(info) {
-        orm_fail(sql, node, tprint("%.% is not a json column, so it has no fields in SQL", sql.T, path[0]));
-        return;
-    }
-
-    info = nullable_value_type(info);
-
-    keys: [..] string;
-    keys.allocator = temp;
-
-    for 1..path.count - 1 {
-        name := path[it];
-
-        if info.type != .STRUCT {
-            orm_fail(sql, node, tprint("% has no field \"%\"", get_type(info), name));
-            return;
-        }
-
-        field: *Type_Info_Struct_Member;
-        for *(cast(*Type_Info_Struct) info).members if it.name == name field = it;
-
-        if !field {
-            orm_fail(sql, node, tprint("% has no field \"%\"", get_type(info), name));
-            return;
-        }
-
-        array_add(*keys, json_key_of(field));
-        info = field.type;
-    }
-
-    append(*sql.builder, "(");
-    append(*sql.builder, quote_identifier(path[0]));
-
-    for keys {
-        arrow := ifx it_index == keys.count - 1 && !as_document then "->>" else "->";
-        print_to_builder(*sql.builder, "%'%'", arrow, replace(it, "'", "''",, temp));
-    }
-
-    append(*sql.builder, ")");
-
+    orm_json_access(sql, path[0], keys, as_document);
     if as_document return;
 
     leaf := info;
     if is_nullable_info(leaf) leaf = nullable_value_type(leaf);
+
+    maybe := json_maybe_value(leaf);
+    if maybe leaf = maybe;
 
     if leaf.type != .STRING {
         cast_to := parameter_cast(get_type(leaf));
@@ -903,6 +867,145 @@ orm_json_path :: (sql: *Orm_Sql, node: *Code_Node, member: *Type_Info_Struct_Mem
 
         print_to_builder(*sql.builder, "::%", cast_to);
     }
+}
+
+// The json keys of `path` after its column `path[0]`, and the type at its end. A `Json_Maybe`'s
+// `value` is the key itself, so it adds no key.
+orm_json_keys :: (sql: *Orm_Sql, node: *Code_Node, member: *Type_Info_Struct_Member, path: [] string) -> [] string, *Type_Info, bool {
+    info := member.type;
+    if is_nullable_info(info) info = nullable_value_type(info);
+
+    if !is_json_info(info) {
+        orm_fail(sql, node, tprint("%.% is not a json column, so it has no fields in SQL", sql.T, path[0]));
+        return .[], null, false;
+    }
+
+    info = nullable_value_type(info);
+
+    keys: [..] string;
+    keys.allocator = temp;
+
+    for 1..path.count - 1 {
+        name := path[it];
+        maybe := json_maybe_value(info);
+
+        if maybe && name == "value" {
+            info = maybe;
+            continue;
+        }
+
+        if maybe && name == "state" {
+            orm_fail(sql, node, "compare a Json_Maybe's state with .MISSING, .NULL or .SET");
+            return .[], null, false;
+        }
+
+        if info.type != .STRUCT {
+            orm_fail(sql, node, tprint("% has no field \"%\"", get_type(info), name));
+            return .[], null, false;
+        }
+
+        field: *Type_Info_Struct_Member;
+        for *(cast(*Type_Info_Struct) info).members if it.name == name field = it;
+
+        if !field {
+            orm_fail(sql, node, tprint("% has no field \"%\"", get_type(info), name));
+            return .[], null, false;
+        }
+
+        array_add(*keys, json_key_of(field));
+        info = field.type;
+    }
+
+    return keys, info, true;
+}
+
+// `("column"->'a'->>'b')`: the last key as text, or as a document when `as_document` is set.
+orm_json_access :: (sql: *Orm_Sql, column: string, keys: [] string, as_document: bool) {
+    append(*sql.builder, "(");
+    append(*sql.builder, quote_identifier(column));
+
+    for keys {
+        arrow := ifx it_index == keys.count - 1 && !as_document then "->>" else "->";
+        print_to_builder(*sql.builder, "%'%'", arrow, replace(it, "'", "''",, temp));
+    }
+
+    append(*sql.builder, ")");
+}
+
+// The value type of a `Json_Maybe(T)`, or null for any other type.
+json_maybe_value :: (info: *Type_Info) -> *Type_Info {
+    if !info || info.type != .STRUCT return null;
+
+    struct_info := cast(*Type_Info_Struct) info;
+    if !begins_with(struct_info.name, "Json_Maybe") || struct_info.members.count != 2 return null;
+    if struct_info.members[0].name != "state" || struct_info.members[1].name != "value" return null;
+
+    return struct_info.members[1].type;
+}
+
+// `it.settings.beta.state == .MISSING` (or `.NULL`, `.SET`, or `!=`) for a `Json_Maybe` field. A
+// row whose column is SQL null has none of the three states. Returns false when `binary` is not
+// such a comparison.
+orm_maybe_state :: (sql: *Orm_Sql, binary: *Code_Binary_Operator) -> bool {
+    side, state_node := binary.left, binary.right;
+    state := enum_literal_name(state_node);
+
+    if !state {
+        side, state_node = binary.right, binary.left;
+        state = enum_literal_name(state_node);
+    }
+
+    if !state return false;
+
+    path := field_path(side);
+    if path.count < 3 || path[path.count - 1] != "state" return false;
+
+    member := member_of(sql.T, path[0]);
+    if !member return false;
+
+    keys, info, ok := orm_json_keys(sql, side, member, array_view(path, 0, path.count - 1));
+    if !ok return true;
+
+    if !json_maybe_value(info) || !keys.count {
+        orm_fail(sql, side, "only a Json_Maybe field inside a json column has a state");
+        return true;
+    }
+
+    parent := array_view(keys, 0, keys.count - 1);
+    key := replace(keys[keys.count - 1], "'", "''",, temp);
+
+    append(*sql.builder, ifx binary.operator_type == .IS_EQUAL then "coalesce(" else "not coalesce(");
+
+    if state == {
+        case "MISSING";
+            append(*sql.builder, "not (");
+            orm_json_access(sql, path[0], parent, true);
+            print_to_builder(*sql.builder, "::jsonb ? '%')", key);
+        case "NULL";
+            orm_json_access(sql, path[0], keys, true);
+            append(*sql.builder, "::jsonb = 'null'::jsonb");
+        case "SET";
+            append(*sql.builder, "jsonb_typeof(");
+            orm_json_access(sql, path[0], keys, true);
+            append(*sql.builder, "::jsonb) <> 'null'");
+        case;
+            orm_fail(sql, state_node, tprint("Json_Maybe has no state .%", state));
+            return true;
+    }
+
+    append(*sql.builder, ", false)");
+
+    return true;
+}
+
+// `MISSING` for the enum literal `.MISSING`, else empty.
+enum_literal_name :: (node: *Code_Node) -> string {
+    if !node || node.kind != .BINARY_OPERATOR return "";
+
+    binary := cast(*Code_Binary_Operator) node;
+    if binary.operator_type != #char "." || binary.left || !binary.right || binary.right.kind != .IDENT return "";
+
+    return (cast(*Code_Ident) binary.right).name;
 }
 
 // The key a field has in its json document: its `@json(name=...)` rename, else its name.
@@ -930,6 +1033,8 @@ orm_binary :: (sql: *Orm_Sql, binary: *Code_Binary_Operator) {
     }
 
     if op == .IS_EQUAL || op == .IS_NOT_EQUAL {
+        if orm_maybe_state(sql, binary) return;
+
         null_side: *Code_Node;
         other: *Code_Node;
 

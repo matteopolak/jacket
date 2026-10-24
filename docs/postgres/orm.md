@@ -37,6 +37,7 @@ Each call is an `#expand` macro whose body is `#insert #run orm_statement_code(.
    - `&& || ! == != < <= > >= + - * / %` map to SQL; `== null` / `!= null` become `is null` / `is not null`.
    - `Pg.like`, `Pg.ilike`, `Pg.in` (`= any($n)`), `Pg.lower`, `Pg.upper` and `Pg.if_some(x, #code cond)` (`(x is null or cond)`, with `x` standing for its value inside `cond`). These procedures do nothing at run time; they only name SQL.
    - jsonb operators on a column or a document inside one: `Pg.contains(it.settings, value)` is `@> $n::jsonb` (the value is sent as `Json(type_of(value))`), `Pg.has_key(it.settings, "beta")` is `?`, `Pg.json_path(it.settings, "$.tags[*] ? (@ == \"x\")")` is `@? ...::jsonpath`. On a `json` (not `jsonb`) column the server rejects the operator, which shows up as a compile error from the describe step.
+   - A `Json_Maybe` field inside a document: `it.settings.beta.state == .MISSING` is `not (settings ? 'beta')`, `.NULL` is `settings->'beta' = 'null'::jsonb`, `.SET` is a key holding anything but null. A row whose column is SQL null has none of the three states, so it matches every `!=`. `it.settings.beta.value` is the key's value.
    - `Pg.sql("lower(%(it.email)) = lower(%email)")` is raw SQL: `%(it.field)` (or `%(it.json.key)`) is a column, `%name` and `%(expression)` are parameters, `%%` is a percent sign. The text must be a string literal. `contains` and `sql` have no procedure in the module, because those names are common ones; the walker knows them by name.
    - Anything else (a call to another procedure, `it` passed whole) is a compile error at that node.
 3. **Parameter types.** The macro first emits `Orm_P<i> :: type_of((#insert,scope(where) "<text>"))` for each parameter, so the compiler types it in the caller's scope. Each hole gets a cast from that type (`$1 ::int8`, `$2 ::text`), so Postgres never has to guess.
@@ -77,7 +78,7 @@ The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`
   - The filter is walked as written, so a parameter expression is evaluated once per call, in the caller's scope.
   - Inside an `#expand` macro, `return f()` of a two-value call crashes the compiler today. The generated code binds the results to locals first.
   - A `Nullable(T)` zero value is not null (`null` defaults to `false`).
-- **Not yet built** (see the design): column pruning from the loop body (every select reads all columns), relations read inside the loop body without an explicit `load_*` call, relations on several columns in `load_*`, `Json_Maybe` comparisons, and COPY for large `insert_many`.
+- **Not yet built** (see the design): column pruning from the loop body (every select reads all columns), relations read inside the loop body without an explicit `load_*` call, relations on several columns in `load_*`, and COPY for large `insert_many`.
 
 ## Configuration
 
