@@ -243,8 +243,10 @@ impl Parser<'_> {
     /// An assignment or expression statement after its first operand.
     fn finish_simple_stmt(&mut self, start: crate::source::Span, first: Expr) -> PResult<Stmt> {
         let mut lhs = vec![first];
-        // A comma before a closer is a trailing one (`.[ #code 1 + 2, ]`), not a target list.
+        // A comma before a closer is a trailing one (`.[ #code 1 + 2, ]`), not a target list;
+        // inside an argument list (`f(#code a == b, limit = 1)`) it ends the `#code`.
         while self.at(P::Comma)
+            && !self.in_list
             && !matches!(
                 self.tok_at(1),
                 Tok::Punct(P::RBracket | P::RParen | P::RBrace)
@@ -268,7 +270,7 @@ impl Parser<'_> {
         };
         self.bump();
         let mut rhs = vec![self.parse_expr()?];
-        while self.eat(P::Comma) {
+        while !self.in_list && self.eat(P::Comma) {
             rhs.push(self.parse_expr()?);
         }
         let span = start.to(self.prev_span());
