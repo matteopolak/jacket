@@ -34,11 +34,15 @@ Connection :: struct {
     // a FATAL error from the server.
     broken: bool;
     busy: bool; // a request is in flight
+    pool: *Pool; // the pool it belongs to, if any
 
     // Below: the client's own state.
     host: string;
     port: u16;
     unix_socket: bool;
+    ssl_direct: bool;
+    cancel_timeout: s64;
+    opened_at: s64; // monotonic ms, for a pool's max_lifetime
     cancel_key: [] u8;
     tcp: Io.Tcp_Stream;
     reader: Io.Reader;

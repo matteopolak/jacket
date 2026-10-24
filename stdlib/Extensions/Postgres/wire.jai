@@ -138,7 +138,9 @@ fill :: (c: *Connection, count: s64) -> Pg_Error {
         got, io := Io.read(c.reader, room);
 
         if io != .NONE {
-            c.broken = true;
+            // A deadline or cancel loses no bytes, so the stream is still in step: the request
+            // decides whether to recover it (`recover_interrupted`).
+            if io != .TIMED_OUT && io != .CANCELED c.broken = true;
             return io_failure(io, "could not read from the server");
         }
 

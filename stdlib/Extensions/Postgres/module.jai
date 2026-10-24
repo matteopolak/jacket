@@ -35,6 +35,7 @@
 #load "query.jai";
 #load "codecs.jai";
 #load "types.jai";
+#load "pool.jai";
 
 #scope_module
 

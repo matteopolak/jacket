@@ -83,9 +83,53 @@ every `ErrorResponse` field (`code`, `detail`, `hint`, `position`, `table`, `col
 its text: call `free_error` when done. A failure that leaves the stream out of step (I/O, a
 protocol error, a FATAL) sets `connection.broken`, and later calls fail with `CLOSED`.
 
-**Deadlines.** Any call can sit under `Io.with_deadline`. For now, a deadline or cancel that
-fires while a query runs breaks the connection (`TIMED_OUT`/`CANCELED`). Sending `CancelRequest`
-and draining, so the connection survives, comes with the pool.
+**Deadlines and cancellation.** Any call can sit under `Io.with_deadline`, and `Io.cancel` of the
+fiber works the same way. When either ends the wait for an answer, the call returns `TIMED_OUT` or
+`CANCELED`, and `recover_interrupted` (in `query.jai`) keeps the connection usable:
+
+1. Inside `Io.with_grace(config.cancel_timeout)`, so it runs past the expired deadline or cancel,
+   it opens a second connection to the same server and sends `CancelRequest` (pid and key from
+   `BackendKeyData`), over TLS if the main connection used it, reusing its TLS settings.
+2. It reads the main connection up to `ReadyForQuery`, answering a pending `COPY FROM STDIN`
+   with `CopyFail`.
+3. If that does not finish in time, the connection is marked broken.
+
+A deadline loses no bytes (Io and Tls leave the stream in step), so `fill` does not break the
+connection for these two errors. A failed *write* still does: part of a message may have gone.
+A statement that finished before the cancel arrived has taken effect. Inside a transaction, the
+canceled statement leaves it `FAILED`.
+
+**Pool** (`pool.jai`). `create_pool(config, Pool_Config)` makes a pool for the fibers of one
+scheduler: no locks, so with `io_run_threads` create one per thread (it asserts this).
+
+- `acquire` hands out the most recently used idle connection, so the rest go stale and are closed
+  when the load drops. It opens a new one while fewer than `max_size` exist, and otherwise waits on
+  an `Io.Condition` for up to `acquire_timeout`.
+- A connection idle longer than `health_check_after` gets `ping` (an empty `Sync`) first; a dead
+  one is dropped, and the next is tried.
+- `release` rolls back a connection left in a transaction (under `with_grace`, so a canceled
+  borrower still cleans up). It closes one that is broken or past `max_lifetime`.
+- A background fiber closes idle connections past `idle_timeout` or `max_lifetime`, and opens
+  connections up to `min_idle`.
+- `close_pool` closes the idle connections. The pool is freed when the last borrowed one comes
+  back and the background fiber has stopped (`Pool.maintaining`).
+
+**Transactions.** `transaction(pool_or_connection, [data,] body, isolation, retries, read_only)`
+runs `body(tx, data) -> Pg_Error` between `BEGIN` and `COMMIT`:
+
+- an error from `body` rolls back and is returned;
+- so does a statement that failed while `body` ignored it (`25P02`);
+- a `40001` or `40P01` from `body` or from `COMMIT` reruns `body`, up to `retries` times.
+
+It takes a procedure, not a `#code` block: a macro would have to declare `tx` in the caller's scope,
+and two transactions in one scope would then collide. A procedure can also `return` its error.
+
+```jai
+error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Error {
+    _, error := Pg.query_dynamic(tx, "update users set seen = now() where id = $1", id);
+    return error;
+}, .SERIALIZABLE, retries = 3);
+```
 
 **Notices** (`RAISE NOTICE`, warnings) go to `connection.on_notice`, by default `log`.
 `connection.user_data` is there for the handler's state.
@@ -112,20 +156,25 @@ and draining, so the connection survives, comes with the pool.
 `Config` fields: `host`, `port`, `user` (default `$USER`), `password`, `database` (default the user),
 `application_name`, `options`, `ssl_mode` (`DISABLE`, `PREFER` (default), `REQUIRE`,
 `VERIFY_CA`, `VERIFY_FULL`), `ssl_direct`, `ssl_root_cert_pem` (default: the system roots),
-`channel_binding` (`DISABLE`, `PREFER`, `REQUIRE`), `connect_timeout` (ms, default 10 s),
+`channel_binding` (`DISABLE`, `PREFER`, `REQUIRE`), `connect_timeout` (ms, default 10 s), `cancel_timeout` (ms, default 2 s: the time allowed for
+cancel and drain after a deadline or cancel),
 `max_scram_iterations` (default 1,000,000), `allow_cleartext_password`.
 
 `parse_url` reads `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
 `user`, `password`, `dbname`, `sslmode` (`allow` maps to `prefer`), `sslnegotiation=direct`,
 `sslrootcert` (a PEM file), `channel_binding`, `application_name`, `options` and
-`connect_timeout` (seconds). A config from `parse_url` owns its strings: call `free_config`.
+`connect_timeout` (seconds). A config from `parse_url` or `copy_config` owns its strings: call `free_config`.
+
+`Pool_Config` fields (milliseconds; a negative value turns the limit off): `max_size` (10),
+`min_idle` (0), `idle_timeout` (10 min), `max_lifetime` (30 min, less a jitter of up to a tenth),
+`health_check_after` (30 s), `acquire_timeout` (30 s).
 
 Module parameter: `#import "Extensions/Postgres"(TLS = false)` leaves out Tls and mbedTLS for
 programs that only use Unix sockets or cleartext TCP.
 
 ## Dependencies and tests
 
-Depends on `Io` (fibers, TCP, Unix sockets, deadlines) and `Tls` (mbedTLS: handshake, peer
+Depends on `Io` (fibers, TCP, Unix sockets, deadlines, `with_grace`, `Condition`) and `Tls` (mbedTLS: handshake, peer
 certificate). It also uses `internal/crypto` for SHA-256/384/512, HMAC, PBKDF2 and random bytes
 ([crypto](../stdlib/crypto.md)), plus `md5` and `Base64`.
 
@@ -138,7 +187,11 @@ Tests (`stdlib/Extensions/Postgres/tests`):
   - Unix sockets;
   - every type in both formats, arrays and parameters;
   - server errors and recovery, scripts and transaction status;
-  - deadlines.
+  - deadlines and `Io.cancel`, which leave the connection usable (plain, TLS, direct TLS, in a
+    transaction);
+  - the pool: limits and waiting, newest first, rollback on release, health checks, lifetime,
+    `min_idle`, closing with borrowed connections;
+  - transactions: commit, rollback, ignored failures, retries.
 
   It skips unless `JAI_PG_TEST_PORT` is set. To start a matching server:
 
