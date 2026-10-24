@@ -33,6 +33,9 @@ Config :: struct {
 
     // The whole connect (TCP, TLS, authentication), in milliseconds; negative: no limit.
     connect_timeout := 10_000;
+    // After a deadline or cancel ends a query: how long to spend asking the server to stop it and
+    // reading what is left of its answer, in milliseconds. The connection breaks if that fails.
+    cancel_timeout := 2_000;
     // A server could ask for any number of SCRAM iterations to waste the client's time.
     max_scram_iterations := 1_000_000;
     // Send the password in clear text when the server asks, without TLS.
@@ -246,6 +249,21 @@ parse_url :: (url: string) -> Config, Pg_Error {
 }
 
 // Frees the strings of a config from `parse_url`; does nothing for one the program built.
+// A config that owns copies of its strings, for keeping beyond the original (`free_config`).
+copy_config :: (config: Config) -> Config {
+    copy := config;
+    copy.owned = true;
+    copy.host = copy_string(config.host);
+    copy.user = copy_string(config.user);
+    copy.password = copy_string(config.password);
+    copy.database = copy_string(config.database);
+    copy.application_name = copy_string(config.application_name);
+    copy.options = copy_string(config.options);
+    copy.ssl_root_cert_pem = copy_string(config.ssl_root_cert_pem);
+
+    return copy;
+}
+
 free_config :: (config: *Config) {
     if !config.owned return;
 

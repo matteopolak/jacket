@@ -45,6 +45,10 @@ main :: () {
         test_scripts_and_status();
         step("test_deadline");
         test_deadline();
+        step("test_pool");
+        test_pool();
+        step("test_transactions");
+        test_transactions();
     });
     print("ok\n");
 }
@@ -475,18 +479,274 @@ test_scripts_and_status :: () {
 }
 
 test_deadline :: () {
+    // A deadline sends CancelRequest and drains, so the connection stays usable, plain and over
+    // TLS (verify-full and direct TLS reuse the main connection's TLS settings).
+    ca, read := read_entire_file(tprint("%ca.pem", FIXTURES));
+
+    assert(read);
+    defer free(ca);
+
+    tls := config_for("jai_tls_scram", "tls secret");
+    tls.host = "localhost";
+    tls.ssl_mode = .VERIFY_FULL;
+    tls.ssl_root_cert_pem = ca;
+
+    direct := tls;
+    direct.ssl_direct = true;
+
+    for Pg.Config.[config_for("postgres"), tls, direct] {
+        db, error := Pg.connect(it);
+        if error.kind != .NONE {
+            assert(it.ssl_direct, "connect failed: %", Pg.error_text(error)); // before PostgreSQL 17
+            Pg.free_error(*error);
+            continue;
+        }
+
+        defer Pg.close(db);
+        expect_timeout_recovers(db);
+    }
+
+    // Canceled inside a transaction: the transaction failed, and ROLLBACK clears it.
     db := connect_ok(config_for("postgres"));
 
     defer Pg.close(db);
+
+    assert(Pg.execute_script(db, "begin").kind == .NONE);
+    expect_timeout_recovers(db, .FAILED);
+    assert(Pg.execute_script(db, "rollback").kind == .NONE);
+    assert(db.status == .IDLE);
+
+    // Io.cancel from another fiber works the same way, and execute_script recovers too.
+    canceled_db = db;
+    worker := Io.spawn(cancel_worker);
+
+    Io.sleep(100);
+    Io.cancel(worker);
+    while !worker_done Io.sleep(10);
+
+    assert(worker_error == .CANCELED, "the worker got %", worker_error);
+    assert(scalar(db, "select 7", s64) == 7);
+}
+
+canceled_db: *Pg.Connection;
+worker_error: Pg.Error_Kind;
+worker_done: bool;
+
+cancel_worker :: () {
+    error := Pg.execute_script(canceled_db, "select pg_sleep(5); select pg_sleep(5)");
+    worker_error = error.kind;
+    worker_done = true;
+    Pg.free_error(*error);
+}
+
+expect_timeout_recovers :: (db: *Pg.Connection, status := Pg.Transaction_Status.IDLE) {
     error: Pg.Pg_Error;
+    started := current_time_monotonic();
 
     Io.with_deadline(100, #code {
         result: Pg.Result;
         result, error = Pg.query_dynamic(db, "select pg_sleep(5)");
         Pg.free_result(*result);
     });
-    assert(error.kind == .TIMED_OUT);
+
+    elapsed := to_milliseconds(current_time_monotonic() - started);
+
+    assert(error.kind == .TIMED_OUT, "got %", Pg.error_text(error));
     Pg.free_error(*error);
+    assert(!db.broken, "the connection broke");
+    assert(elapsed < 3000, "the cancel took % ms", elapsed);
+    assert(db.status == status, "status %", db.status);
+
+    if status == .IDLE assert(scalar(db, "select 41 + 1", s64) == 42);
+}
+
+test_pool :: () {
+    settings: Pg.Pool_Config;
+    settings.max_size = 2;
+    settings.acquire_timeout = 100;
+
+    pool, error := Pg.create_pool(config_for("postgres"), settings);
+
+    assert_ok(error, "create_pool");
+
+    // Two at most; a third borrower times out.
+    a := acquire_ok(pool);
+    b := acquire_ok(pool);
+
+    assert(a != b);
+
+    c: *Pg.Connection;
+    c, error = Pg.acquire(pool);
+    assert(!c && error.kind == .TIMED_OUT, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+
+    // A waiting borrower gets the connection that comes back.
+    waiting_pool = pool;
+    Io.spawn(pool_waiter);
+    Io.yield();
+    assert(!waiter_got);
+    Pg.release(pool, b);
+    Io.yield();
+    assert(waiter_got == b, "the waiter did not get the released connection");
+    Pg.release(pool, waiter_got);
+
+    // Newest idle first.
+    Pg.release(pool, a);
+    c = acquire_ok(pool);
+    assert(c == a);
+
+    // Left in a transaction: rolled back before it goes back.
+    // (Separate calls: a BEGIN in a script pulls the statements before it into the transaction.)
+    assert(Pg.execute_script(c, "create temp table pool_check (x int)").kind == .NONE);
+    assert(Pg.execute_script(c, "begin; insert into pool_check values (1)").kind == .NONE);
+    assert(c.status == .IN_TRANSACTION);
+    Pg.release(pool, c);
+    c = acquire_ok(pool);
+    assert(c == a && c.status == .IDLE);
+    assert(scalar(c, "select count(*) from pool_check", s64) == 0);
+
+    // A dead connection fails its health check and is replaced.
+    dead_pid := c.backend_pid;
+    killer := acquire_ok(pool);
+
+    assert(killer != c);
+    Pg.release(pool, c);
+    assert(scalar(killer, tprint("select pg_terminate_backend(%)", dead_pid), bool));
+    Pg.release(pool, killer);
+    pool.settings.health_check_after = 0;
+    Io.sleep(50);
+    // Both idle now; the newest (killer) comes first, then the dead one is checked and dropped.
+    first := acquire_ok(pool);
+    second := acquire_ok(pool);
+
+    assert(first.backend_pid != dead_pid && second.backend_pid != dead_pid);
+    assert(scalar(second, "select 1", s64) == 1);
+    Pg.release(pool, first);
+    Pg.release(pool, second);
+    pool.settings.health_check_after = 30_000;
+
+    // Past max_lifetime: closed, not reused.
+    pool.settings.max_lifetime = 0;
+    c = acquire_ok(pool);
+    old_pid := c.backend_pid;
+
+    Pg.release(pool, c);
+    assert(pool.idle.count == 0 && pool.open == 0, "idle % open %", pool.idle.count, pool.open); // all expired
+    pool.settings.max_lifetime = -1;
+
+    // Closing with a borrowed connection: the pool goes when it comes back.
+    c = acquire_ok(pool);
+    assert(c.backend_pid != old_pid);
+    Pg.close_pool(pool);
+    _, error = Pg.acquire(pool);
+    assert(error.kind == .USAGE);
+    Pg.free_error(*error);
+    Pg.release(pool, c);
+
+    // min_idle connections open in the background.
+    settings = .{};
+    settings.min_idle = 2;
+    pool, error = Pg.create_pool(config_for("postgres"), settings);
+    assert_ok(error, "create_pool");
+
+    for 1..100 {
+        if pool.idle.count == 2 break;
+        Io.sleep(20);
+    }
+
+    assert(pool.idle.count == 2 && pool.open == 2, "idle % open %", pool.idle.count, pool.open);
+    Pg.close_pool(pool);
+}
+
+waiting_pool: *Pg.Pool;
+waiter_got: *Pg.Connection;
+
+pool_waiter :: () {
+    c, error := Pg.acquire(waiting_pool);
+    assert_ok(error, "acquire while waiting");
+    waiter_got = c;
+}
+
+acquire_ok :: (pool: *Pg.Pool) -> *Pg.Connection {
+    c, error := Pg.acquire(pool);
+    assert_ok(error, "acquire");
+
+    return c;
+}
+
+attempts: int;
+
+test_transactions :: () {
+    pool, error := Pg.create_pool(config_for("postgres"));
+
+    assert_ok(error, "create_pool");
+    defer Pg.close_pool(pool);
+
+    setup := acquire_ok(pool);
+
+    assert_ok(Pg.execute_script(setup, "drop table if exists tx_check; create table tx_check (x int)"), "setup");
+    Pg.release(pool, setup);
+
+    // Commits when the body returns no error.
+    error = Pg.transaction(pool, 1, insert_value);
+    assert_ok(error, "commit");
+
+    // An error from the body rolls back and comes out.
+    error = Pg.transaction(pool, (tx: *Pg.Connection) -> Pg.Pg_Error {
+        _, failure := Pg.query_dynamic(tx, "insert into tx_check values (2)");
+        assert(failure.kind == .NONE);
+        return Pg.make_error(.USAGE, "changed my mind");
+    });
+    assert(error.kind == .USAGE);
+    Pg.free_error(*error);
+
+    // An ignored failed statement rolls back too.
+    error = Pg.transaction(pool, (tx: *Pg.Connection) -> Pg.Pg_Error {
+        _, failure := Pg.query_dynamic(tx, "insert into tx_check values (3)");
+        _, failure = Pg.query_dynamic(tx, "select 1/0");
+        Pg.free_error(*failure);
+        return .{};
+    }, .REPEATABLE_READ);
+    assert(error.kind == .SERVER && error.code == .IN_FAILED_SQL_TRANSACTION, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+
+    // A serialization failure runs the body again.
+    attempts = 0;
+    error = Pg.transaction(pool, (tx: *Pg.Connection) -> Pg.Pg_Error {
+        attempts += 1;
+        _, failure := Pg.query_dynamic(tx, "insert into tx_check values (4)");
+        if attempts == 1 && failure.kind == .NONE {
+            _, failure = Pg.query_dynamic(tx, "do $$ begin raise exception 'retry me' using errcode = '40001'; end $$");
+        }
+
+        return failure;
+    }, .SERIALIZABLE, retries = 2);
+    assert_ok(error, "retried");
+    assert(attempts == 2);
+
+    // Without retries it comes out.
+    error = Pg.transaction(pool, (tx: *Pg.Connection) -> Pg.Pg_Error {
+        _, failure := Pg.query_dynamic(tx, "do $$ begin raise exception 'no retry' using errcode = '40001'; end $$");
+        return failure;
+    }, read_only = true);
+    assert(error.code == .SERIALIZATION_FAILURE);
+    Pg.free_error(*error);
+
+    // On a plain connection.
+    db := connect_ok(config_for("postgres"));
+
+    defer Pg.close(db);
+    error = Pg.transaction(db, 5, insert_value);
+    assert_ok(error, "plain connection");
+    assert(db.status == .IDLE);
+
+    assert(scalar(db, "select string_agg(x::text, ',' order by x) from tx_check", string) == "1,4,5");
+    assert_ok(Pg.execute_script(db, "drop table tx_check"), "cleanup");
+}
+
+insert_value :: (tx: *Pg.Connection, value: int) -> Pg.Pg_Error {
+    _, error := Pg.query_dynamic(tx, "insert into tx_check values ($1)", value);
+    return error;
 }
 
 #if OS == .WINDOWS {

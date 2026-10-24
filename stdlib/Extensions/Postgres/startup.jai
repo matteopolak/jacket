@@ -29,6 +29,8 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
 
     c.host = copy_string(config.host);
     c.port = config.port;
+    c.ssl_direct = config.ssl_direct;
+    c.cancel_timeout = config.cancel_timeout;
     error := open_transport(c);
     if error.kind != .NONE return error;
 
@@ -158,6 +160,70 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
 
         return .{};
     }
+}
+
+// Asks the server to stop what `c` is running: a CancelRequest on a connection of its own, over
+// TLS when `c` uses it. The server answers nothing and closes that connection once it has acted.
+// Whether a statement was stopped shows on `c` (`QUERY_CANCELED`), not here.
+send_cancel_request :: (c: *Connection) -> Pg_Error {
+    if !c.cancel_key.count return make_error(.USAGE, "the server sent no cancel key");
+
+    side: Connection;
+    side.host = c.host;
+    side.port = c.port;
+
+    defer {
+        close_transport(*side, false);
+        array_free(side.out);
+    }
+
+    error := open_transport(*side);
+    if error.kind != .NONE return error;
+
+    #if TLS {
+        if c.tls_used {
+            if !c.ssl_direct {
+                begin_message(*side, 0);
+                put_u32(*side.out, SSL_REQUEST);
+                end_message(*side);
+                error = send(*side);
+                if error.kind != .NONE return error;
+
+                answer: [1] u8;
+                _, io := Io.read_full(side.reader, answer);
+
+                if io != .NONE return io_failure(io, "the server did not answer the TLS request");
+                if answer[0] != #char "S" return make_error(.TLS, "the server refused TLS for the cancel request");
+            }
+
+            name := ifx c.tls_config.verify then c.host else "";
+            stream, tls_error := Tls.tls_connect(*c.tls_config, side.reader, side.writer, name);
+
+            if tls_error.kind != .NONE return make_error(.TLS, Tls.error_text(tls_error));
+
+            side.tls = stream;
+            side.reader = Tls.reader_of(stream);
+            side.writer = Tls.writer_of(stream);
+        }
+    }
+
+    begin_message(*side, 0);
+    put_u32(*side.out, CANCEL_REQUEST);
+    put_u32(*side.out, cast(u32) c.backend_pid);
+    put_bytes(*side.out, c.cancel_key);
+    end_message(*side);
+    error = send(*side);
+    if error.kind != .NONE return error;
+
+    // The server closes the connection when it has passed the request on.
+    buffer: [16] u8;
+
+    while true {
+        count, io := Io.read(side.reader, buffer);
+        if io != .NONE || count == 0 break;
+    }
+
+    return .{};
 }
 
 authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {

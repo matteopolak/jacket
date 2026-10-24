@@ -148,13 +148,12 @@ A connection goes back to the pool only at `ReadyForQuery` status `I`. If the st
 **Transactions:**
 
 ```jai
-Pg.transaction(pool) {
-    `tx` is a connection pinned for the block
-    rollback via `defer` unless the block finishes
-}
+error := Pg.transaction(pool, data, (tx: *Pg.Connection, data: T) -> Pg.Pg_Error {
+    // `tx` is a connection pinned for the call; an error return rolls back
+}, .SERIALIZABLE, retries = 3);
 ```
 
-`Pg.transaction(pool, .SERIALIZABLE, retries = 3)` retries on `40001`/`40P01`. Statement caches are per connection, so pinning matters (see [Statement and plan caching](#statement-and-plan-caching)).
+It takes a procedure rather than a `#code` block. A macro would declare `tx` in the caller's scope, so two transactions in one scope would collide, and a `#code` body cannot `return` its error. `retries` reruns the body on `40001`/`40P01`. Statement caches are per connection, so pinning matters (see [Statement and plan caching](#statement-and-plan-caching)).
 
 **Multiplexing.** Several fibers may share one connection, with requests serialised in pipeline order. This gives higher throughput with fewer server connections. Later; v1 is one borrower per connection.
 
@@ -741,7 +740,7 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 2. **Client:**
    1. Unix sockets in Io; HMAC, PBKDF2 and random in `internal/crypto`. Done.
    2. Startup with TLS, MD5 and SCRAM (including `-PLUS`), simple and extended protocols, errors, core binary codecs. Done: [Postgres](../extensions/postgres.md). The runtime calls are `query_dynamic`, `query_binary` and `execute_script`, which leaves `query`/`execute` for the typed macros.
-   3. Pool, transactions, cancellation.
+   3. Pool, transactions, cancellation. Done. Io gained `with_grace` (cleanup past a deadline or cancel) and `Condition` (a wait that honours deadlines) for it.
    4. The `pg-conformance` workflow.
 
    Then pipelining, COPY, LISTEN/NOTIFY and protocol 3.2.

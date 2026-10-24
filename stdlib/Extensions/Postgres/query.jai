@@ -70,6 +70,7 @@ execute_script :: (c: *Connection, sql: string) -> Pg_Error {
         type, body, read_error := read_message(c);
         if read_error.kind != .NONE {
             free_error(*failure);
+            recover_interrupted(c, read_error);
             return read_error;
         }
 
@@ -257,6 +258,7 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
         if read_error.kind != .NONE {
             free_error(*failure);
             free_result(*result);
+            recover_interrupted(c, read_error);
             return .{}, read_error;
         }
 
@@ -312,6 +314,46 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
     }
 
     return .{}, .{};
+}
+
+// A deadline or cancel ended the wait for an answer, with the request already sent. Asks the
+// server to stop it and reads the rest of its answer, up to ReadyForQuery, so the connection stays
+// in step and usable; it breaks if that does not happen within `cancel_timeout`. A statement that
+// finished before the cancel arrived has still taken effect.
+recover_interrupted :: (c: *Connection, error: Pg_Error) {
+    if c.broken || (error.kind != .TIMED_OUT && error.kind != .CANCELED) return;
+
+    recovered := false;
+
+    Io.with_grace(c.cancel_timeout, #code {
+        send_cancel_request(c); // whether it worked shows in the drain below
+        recovered = drain_to_ready(c);
+    });
+
+    if !recovered c.broken = true;
+}
+
+drain_to_ready :: (c: *Connection) -> bool {
+    while true {
+        type, body, error := read_message(c);
+        if error.kind != .NONE return false;
+
+        if handle_async(c, type, body) continue;
+
+        if type == {
+            case #char "Z";
+                c.status = transaction_status(ifx body.count then body[0] else 0);
+                return true;
+            case #char "G";
+                // COPY FROM STDIN waits for data: end it.
+                begin_message(c, #char "f");
+                put_cstring(*c.out, "canceled");
+                end_message(c);
+                if send(c).kind != .NONE return false;
+        }
+    }
+
+    return false;
 }
 
 begin_request :: (c: *Connection, sql: string) -> Pg_Error {
