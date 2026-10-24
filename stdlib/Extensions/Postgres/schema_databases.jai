@@ -13,6 +13,15 @@
 Schema_Databases :: struct {
     // When each set of migrations (by schema hash) was first asked about without a database.
     first_seen: [..] Seen_Hash;
+
+    // Sets of migrations (by schema hash) whose build failed, so the failure is answered again
+    // without building again.
+    failures: [..] Known_Failure;
+}
+
+Known_Failure :: struct {
+    hash: string;
+    failure: Migration_Failure;
 }
 
 Seen_Hash :: struct {
@@ -26,7 +35,22 @@ Seen_Hash :: struct {
 Schema_Target :: struct {
     database: string;
     setup: string;
+    setup_marks: [] Setup_Mark;
     built: bool;
+
+    // A migration failed while building the database for the whole set. `database` is then the
+    // schema before it (empty when no migration comes before it): answers from it are stale.
+    failed: bool;
+    failure: Migration_Failure;
+}
+
+// Where one migration's SQL lies in `setup`, so a failure in the transaction can be traced to its
+// file.
+Setup_Mark :: struct {
+    name: string;
+    index: s64;
+    start: s64; // byte offset in the setup text
+    length: s64;
 }
 
 // How long a set of migrations must stay unchanged before its database is built;
@@ -87,7 +111,27 @@ schema_target :: (state: *Schema_Databases, db: *Connection, config: Config, fol
     }
 
     if must_build || now - seen >= delay {
-        build_problem := build_schema_database(db, config, migrations, schema_database_name(full));
+        for state.failures if it.hash == full {
+            before := ifx it.failure.index > 0 then schema_database_name(hashes[it.failure.index - 1]) else "";
+            if before && !array_find(existing, before) before = "";
+
+            return .{ database = before, failed = true, failure = it.failure }, "";
+        }
+
+        build_problem, failure, before := build_schema_database(db, config, migrations, schema_database_name(full));
+
+        if failure.name {
+            failure.file = join(folder, "/", failure.name, ".sql",, temp);
+
+            kept := failure;
+            kept.name = copy_string(failure.name);
+            kept.file = copy_string(failure.file);
+            kept.message = copy_string(failure.message);
+            array_add(*state.failures, .{ copy_string(full), kept });
+
+            return .{ database = before, built = before != "", failed = true, failure = failure }, "";
+        }
+
         if build_problem return .{}, build_problem;
 
         return .{ database = schema_database_name(full), built = true }, "";
@@ -96,9 +140,17 @@ schema_target :: (state: *Schema_Databases, db: *Connection, config: Config, fol
     builder: String_Builder;
     builder.allocator = temp;
 
-    for best + 1..migrations.count - 1 print_to_builder(*builder, "%\n;\n", migrations[it].sql);
+    marks: [..] Setup_Mark;
+    marks.allocator = temp;
+    offset := 0;
 
-    return .{ database = schema_database_name(hashes[best]), setup = builder_to_string(*builder) }, "";
+    for best + 1..migrations.count - 1 {
+        array_add(*marks, .{ migrations[it].name, it, offset, migrations[it].sql.count });
+        print_to_builder(*builder, "%\n;\n", migrations[it].sql);
+        offset += migrations[it].sql.count + 3;
+    }
+
+    return .{ database = schema_database_name(hashes[best]), setup = builder_to_string(*builder), setup_marks = marks }, "";
 }
 
 // Drops schema databases beyond the newest `SCHEMA_DATABASES_KEPT`. One still in use (by another
@@ -136,13 +188,15 @@ schema_database_names :: (db: *Connection) -> [] string, Pg_Error {
 }
 
 // Creates `name` from template0 under a temporary name, migrates it, and renames it, so another
-// worker never sees it half built.
-build_schema_database :: (db: *Connection, config: Config, migrations: [] Migration, name: string) -> problem: string {
+// worker never sees it half built. When a migration fails, `failure` says which and where, and the
+// database that holds the migrations before it (if it ran in a transaction, so left nothing half
+// done) is kept under the name of that prefix and returned as `before`.
+build_schema_database :: (db: *Connection, config: Config, migrations: [] Migration, name: string) -> problem: string, failure: Migration_Failure, before: string {
     building := tprint("jacket_build_%_%", slice(name, 7, 12), to_milliseconds(current_time_monotonic()) % 1_000_000);
 
     error := execute_script(db, tprint("create database \"%\" template template0", building));
 
-    if error.kind != .NONE return tprint("cannot create a schema database (the role needs CREATEDB): %", error_text(error));
+    if error.kind != .NONE return tprint("cannot create a schema database (the role needs CREATEDB): %", error_text(error)), .{}, "";
 
     target := config;
     target.database = building;
@@ -151,16 +205,35 @@ build_schema_database :: (db: *Connection, config: Config, migrations: [] Migrat
 
     if connect_error.kind != .NONE {
         drop_built(db, building);
-        return tprint("cannot connect to the new schema database: %", error_text(connect_error));
+        return tprint("cannot connect to the new schema database: %", error_text(connect_error)), .{}, "";
     }
 
-    _, migrate_error := migrate(migrated, migrations);
+    failure: Migration_Failure;
+    _, migrate_error := migrate_reporting(migrated, migrations, *failure);
 
     close(migrated);
 
     if migrate_error.kind != .NONE {
+        if failure.name && failure.index > 0 && migrations[failure.index].transaction {
+            prefix := schema_database_name(prefix_hashes(migrations)[failure.index - 1]);
+            renamed := execute_script(db, tprint("alter database \"%\" rename to \"%\"", building, prefix));
+
+            if renamed.kind == .NONE return describe_failure(failure), failure, prefix;
+
+            free_error(*renamed);
+            existing, list_error := schema_database_names(db);
+
+            if list_error.kind == .NONE && array_find(existing, prefix) {
+                drop_built(db, building);
+                return describe_failure(failure), failure, prefix;
+            }
+        }
+
         drop_built(db, building);
-        return tprint("the migrations failed on a fresh database: %", error_text(migrate_error));
+
+        if failure.name return describe_failure(failure), failure, "";
+
+        return tprint("the migrations failed on a fresh database: %", error_text(migrate_error)), failure, "";
     }
 
     error = execute_script(db, tprint("alter database \"%\" rename to \"%\"", building, name));
@@ -171,7 +244,7 @@ build_schema_database :: (db: *Connection, config: Config, migrations: [] Migrat
         drop_built(db, building);
     }
 
-    return "";
+    return "", .{}, "";
 }
 
 drop_built :: (db: *Connection, name: string) {

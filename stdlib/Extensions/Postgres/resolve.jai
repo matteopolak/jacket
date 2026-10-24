@@ -303,50 +303,68 @@ ask_service :: (request: Describe_Request) -> Service.Status, string {
 
 // Describes the statement from scratch, trusting nothing cached. The answer is an entry, or has
 // reported an error.
-describe_with_service :: (prepared: *Prepared, settings: Typed_Settings, sql: string) -> Query_Entry, ok: bool, unavailable: string {
+describe_with_service :: (prepared: *Prepared, settings: Typed_Settings, sql: string) -> Query_Entry, ok: bool, unavailable: string, stale: bool {
     request := Describe_Request.{ op = "describe", url = settings.url, managed = settings.managed, managed_version = settings.managed_version, search_path = settings.search_path, sql = prepared.rewrite.sql, schema_hash = settings.schema_hash, migrations = settings.migrations, min_server_version = MIN_SERVER_VERSION };
     status, reply := ask_service(request);
 
-    if status == .UNAVAILABLE return .{}, false, reply;
+    if status == .UNAVAILABLE return .{}, false, reply, false;
 
     if status == .FAILED {
         report_at(prepared.sql_node, tprint("the describe service failed: %", reply));
-        return .{}, false, "";
+        return .{}, false, "", false;
     }
 
     document, error := Json_Module.from_json(Json_Value, reply,, temp);
 
     if error.kind != .NONE {
         report_at(prepared.sql_node, tprint("the describe service sent an answer that is not JSON: %", error.message));
-        return .{}, false, "";
+        return .{}, false, "", false;
     }
 
     kind := string_member(*document, "kind");
+    stale := json_get(*document, "stale_schema");
+
+    if kind == "migration_error" {
+        failure, _ := report_migration_failure(json_get(*document, "migration"));
+        report_at(prepared.sql_node, tprint("the migrations do not build, so this query cannot be checked: %", failure));
+
+        return .{}, false, "", false;
+    }
 
     if kind == "sql_error" {
-        report_sql_error(prepared, sql, json_get(*document, "error"));
-        return .{}, false, "";
+        report_sql_error(prepared, sql, json_get(*document, "error"), stale);
+        return .{}, false, "", false;
     }
 
     answer := json_get(*document, "entry");
 
     if kind != "ok" || !answer {
         report_at(prepared.sql_node, tprint("the describe service could not describe the query: %", string_member(*document, "message")));
-        return .{}, false, "";
+        return .{}, false, "", false;
     }
 
     entry, ok := entry_from_json(answer);
 
     if !ok {
         report_at(prepared.sql_node, "the describe service sent a description this compiler cannot read");
-        return .{}, false, "";
+        return .{}, false, "", false;
     }
 
-    return entry, true, "";
+    // A migration failed: the description comes from the schema before it, which the cache must
+    // never hold as the project's.
+    if stale {
+        _, first := report_migration_failure(stale);
+
+        if first {
+            compiler_report(tprint("this query and the ones after it are checked against the schema before the failed migration %.sql", string_member(stale, "name")), node_location(prepared.sql_node), .INFO);
+        }
+    }
+
+    return entry, true, "", stale != null;
 }
 
 // The server's complaint, at the character it points to inside the SQL string.
-report_sql_error :: (prepared: *Prepared, sql: string, details: *Json_Value) {
+report_sql_error :: (prepared: *Prepared, sql: string, details: *Json_Value, stale: *Json_Value) {
     if !details {
         report_at(prepared.sql_node, "the database rejected the query");
         return;
@@ -365,6 +383,11 @@ report_sql_error :: (prepared: *Prepared, sql: string, details: *Json_Value) {
     if hint print_to_builder(*builder, "\n  hint: %", hint);
     if suggestion && !hint print_to_builder(*builder, "\n  hint: did you mean \"%\"?", suggestion);
 
+    if stale {
+        failure, _ := report_migration_failure(stale);
+        print_to_builder(*builder, "\n  note: checked against the schema before the failed migration; %", failure);
+    }
+
     byte_node := json_get(details, "byte");
     position := json_get(details, "position");
 
@@ -375,6 +398,39 @@ report_sql_error :: (prepared: *Prepared, sql: string, details: *Json_Value) {
     } else {
         report_at(prepared.sql_node, builder_to_string(*builder));
     }
+}
+
+// Failures already reported in this compile, so many queries do not repeat one error.
+reported_failures: [..] string;
+
+// Reports a failed migration at its line in the migration file, once per compile, and returns the
+// text ("migration 0007_add_teams.sql failed at line 3: ...") and whether this call reported it.
+// A report with a continuing error mode names the file and line itself and fails the build without
+// ending the macro, so the queries that depend on the schema still get their own answers.
+report_migration_failure :: (details: *Json_Value) -> string, first: bool {
+    if !details return "a migration failed", false;
+
+    name := string_member(details, "name");
+    file := string_member(details, "file");
+    message := string_member(details, "message");
+    line := int_member(details, "line");
+    column := int_member(details, "column");
+
+    text := ifx line > 0 then tprint("migration %.sql failed at line %: %", name, line, message) else tprint("migration %.sql failed: %", name, message);
+    key := tprint("%|%|%", file, line, message);
+
+    for reported_failures if it == key return text, false;
+
+    array_add(*reported_failures, copy_string(key));
+
+    location: Source_Code_Location;
+    location.fully_pathed_filename = file;
+    location.line_number = cast(s32) max(line, 1);
+    location.character_number = cast(s32) max(column, 1);
+
+    compiler_report(text, location, .ERROR_CONTINUABLE);
+
+    return text, true;
 }
 
 // Is the cached entry still right? Without a database to ask, only the schema hash can say.
@@ -533,7 +589,7 @@ prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
         managed_prepared = true;
     }
 
-    entry, ok, unavailable := describe_with_service(prepared, settings, sql);
+    entry, ok, unavailable, stale := describe_with_service(prepared, settings, sql);
 
     if !ok {
         if unavailable {
@@ -544,7 +600,8 @@ prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
     }
 
     prepared.entry = entry;
-    write_cache_entry(settings.root, prepared.id, entry);
+    if !stale write_cache_entry(settings.root, prepared.id, entry);
+
     array_add(*prepared_memo, prepared);
 
     return prepared;

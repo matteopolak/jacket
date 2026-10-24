@@ -80,6 +80,13 @@ answer :: (request_text: string) -> Service.Status, string {
 
         if problem return .FAILED, problem;
 
+        // A migration failed to build: answer from the schema before it, if there is one.
+        if target.failed {
+            if !target.database return .OK, Pg.migration_error_text(target.failure, request.migrations);
+
+            request.stale = target.failure;
+        }
+
         if target.built {
             for held if it.database != target.database && begins_with(it.database, "jacket_") drop_connection(it.url, it.database);
             Pg.prune_schema_databases(db);
@@ -93,6 +100,7 @@ answer :: (request_text: string) -> Service.Status, string {
         }
 
         request.setup = target.setup;
+        request.setup_marks = target.setup_marks;
         reply: string;
 
         if request.op == "fingerprints" reply = Pg.fingerprints_answer(answered, request);

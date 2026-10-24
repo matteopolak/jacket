@@ -16,6 +16,8 @@ Describe_Request :: struct {
     keys: [] string; // "fingerprints": the dependency keys to fingerprint
     migrations: string; // the migrations folder: answer from its schema database
     setup: string; // set by the service: SQL run first inside the describe's transaction
+    setup_marks: [] Setup_Mark; // set by the service: where each migration lies in `setup`
+    stale: Migration_Failure; // set by the service: the schema is the one before this failed migration
     min_server_version: s64; // the oldest server major version the project supports; 0: any
 }
 
@@ -35,6 +37,10 @@ describe_request_json :: (request: Describe_Request) -> string {
 //   {"kind":"ok","entry":{...}}                  the cache entry (see entry_to_json)
 //   {"kind":"sql_error","error":{...}}           the server refused the statement
 //   {"kind":"error","message":"..."}             anything else (the connection died, say)
+//
+// "ok" and "sql_error" carry `"stale_schema": {"name","file","line","column","message"}` when a
+// migration failed and the statement was described against the schema before it. A failure with no
+// schema to fall back on is `{"kind":"migration_error","migration":{...}}` (see migration_error_answer).
 describe_answer :: (db: *Connection, request: Describe_Request) -> string {
     answer := describe_value(db, request);
     text := Json_Module.to_json(answer);
@@ -65,18 +71,28 @@ fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
         return Json_Module.to_json(answer);
     }
 
+    if request.stale.name return Json_Module.to_json(migration_error_answer(request.stale, request.migrations));
+
     if request.setup {
-        error = execute_script(db, tprint("begin;\n%", request.setup));
+        stale := request.stale;
+        used_setup: string;
+
+        error = begin_with_setup(db, request, *stale, *used_setup);
 
         if error.kind != .NONE {
             json_set(*answer, "kind", json_string("error"));
-            json_set(*answer, "message", json_string(tprint("a migration newer than the schema database failed: %", error_text(error))));
+            json_set(*answer, "message", json_string(error_text(error)));
             free_error(*error);
-            rolled_back := execute_script(db, "rollback");
-
-            free_error(*rolled_back);
 
             return Json_Module.to_json(answer);
+        }
+
+        // Fingerprints of a schema that is not the project's would pass a stale entry as good.
+        if stale.name {
+            rolled_back := execute_script(db, "rollback");
+            free_error(*rolled_back);
+
+            return Json_Module.to_json(migration_error_answer(stale, request.migrations));
         }
     }
 
@@ -106,6 +122,15 @@ fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
     return Json_Module.to_json(answer);
 }
 
+// The answer for migrations that do not build and leave no earlier schema to describe against.
+migration_error_text :: (failure: Migration_Failure, folder: string) -> string {
+    answer := migration_error_answer(failure, folder);
+    text := Json_Module.to_json(answer);
+    Json_Module.free_json(*answer);
+
+    return text;
+}
+
 #scope_module
 
 describe_value :: (db: *Connection, request: Describe_Request) -> Json_Value {
@@ -119,31 +144,25 @@ describe_value :: (db: *Connection, request: Describe_Request) -> Json_Value {
 
     if error.kind != .NONE return failure_answer(error);
 
-    error = execute_script(db, "begin");
+    stale := request.stale;
+    used_setup: string;
+
+    error = begin_with_setup(db, request, *stale, *used_setup);
     if error.kind != .NONE return failure_answer(error);
-
-    if request.setup {
-        error = execute_script(db, request.setup);
-
-        if error.kind != .NONE {
-            message := tprint("a migration newer than the schema database failed: %", error_text(error));
-
-            free_error(*error);
-            abandoned := execute_script(db, "rollback");
-
-            free_error(*abandoned);
-
-            return failure_answer(make_error(.USAGE, "%", message));
-        }
-    }
 
     info, describe_error := describe_statement(db, request.sql);
 
     if describe_error.kind != .NONE {
         rolled_back := execute_script(db, "rollback; deallocate all");
+
         free_error(*rolled_back);
 
-        if describe_error.kind == .SERVER return sql_error_answer(db, request.sql, describe_error);
+        if describe_error.kind == .SERVER {
+            refused := sql_error_answer(db, request.sql, describe_error);
+            add_stale(*refused, stale, request.migrations);
+
+            return refused;
+        }
 
         return failure_answer(describe_error);
     }
@@ -170,14 +189,134 @@ describe_value :: (db: *Connection, request: Describe_Request) -> Json_Value {
 
     free_error(*rolled_back);
 
-    dependencies(db, request.sql, request.setup, info, *types, *entry);
+    dependencies(db, request.sql, used_setup, info, *types, *entry);
 
     free_statement_info(*info);
 
     json_set(*answer, "kind", json_string("ok"));
     json_set(*answer, "entry", entry_to_json(entry));
+    add_stale(*answer, stale, request.migrations);
 
     return answer;
+}
+
+// Opens the describe's transaction and runs the migrations newer than the schema database in it
+// (`request.setup`). When one of them fails, the answer is still given, from the schema before it:
+// the transaction is begun again with the migrations that came earlier, `stale` says which one
+// failed and where, and `used_setup` is the part of the setup that ran. Any other failure is
+// returned with the transaction rolled back.
+begin_with_setup :: (db: *Connection, request: Describe_Request, stale: *Migration_Failure, used_setup: *string) -> Pg_Error {
+    used_setup.* = request.setup;
+
+    error := execute_script(db, "begin");
+    if error.kind != .NONE return error;
+    if !request.setup return .{};
+
+    marks := request.setup_marks;
+
+    if !marks.count {
+        error = execute_script(db, request.setup);
+        if error.kind == .NONE return .{};
+
+        message := tprint("a migration newer than the schema database failed: %", error_text(error));
+
+        free_error(*error);
+        abandoned := execute_script(db, "rollback");
+
+        free_error(*abandoned);
+
+        return make_error(.USAGE, "%", message);
+    }
+
+    failed := -1;
+
+    for marks {
+        part := slice(request.setup, it.start, it.length);
+
+        error = execute_script(db, part);
+        if error.kind == .NONE continue;
+
+        failed = it_index;
+        stale.* = migration_failure(it.name, it.index, part, part, error);
+        stale.file = migration_file(request.migrations, it.name);
+
+        break;
+    }
+
+    if failed < 0 return .{};
+
+    message := tprint("a migration newer than the schema database failed: %", error_text(error));
+    from_server := error.kind == .SERVER;
+    original := copy_string(error.message,, temp);
+
+    free_error(*error);
+    abandoned := execute_script(db, "rollback");
+
+    free_error(*abandoned);
+
+    if !from_server return make_error(.USAGE, "%", message);
+
+    // Again, without the failed migration and the ones after it.
+    error = execute_script(db, "begin");
+    if error.kind != .NONE return error;
+
+    for 0..failed - 1 {
+        error = execute_script(db, slice(request.setup, marks[it].start, marks[it].length));
+
+        if error.kind != .NONE {
+            abandoned = execute_script(db, "rollback");
+            free_error(*abandoned);
+
+            return error;
+        }
+    }
+
+    // The failure has no position: find the statement, from the state the migration started in.
+    if stale.line == 0 {
+        part := slice(request.setup, marks[failed].start, marks[failed].length);
+        stale.* = locate_failing_statement(db, stale.name, stale.index, part, original, stale.*);
+        stale.file = migration_file(request.migrations, stale.name);
+    }
+
+    used_setup.* = slice(request.setup, 0, marks[failed].start);
+
+    return .{};
+}
+
+migration_file :: (folder: string, name: string) -> string {
+    if !folder return tprint("%.sql", name);
+
+    return join(folder, "/", name, ".sql",, temp);
+}
+
+failure_json :: (failure: Migration_Failure, folder: string) -> Json_Value {
+    object := json_object();
+    file := ifx failure.file then failure.file else migration_file(folder, failure.name);
+
+    json_set(*object, "name", json_string(failure.name));
+    json_set(*object, "file", json_string(file));
+    json_set(*object, "line", json_int(failure.line));
+    json_set(*object, "column", json_int(failure.column));
+    json_set(*object, "message", json_string(failure.message));
+
+    return object;
+}
+
+// No schema to describe against: the migrations themselves do not build.
+migration_error_answer :: (failure: Migration_Failure, folder: string) -> Json_Value {
+    answer := json_object();
+
+    json_set(*answer, "kind", json_string("migration_error"));
+    json_set(*answer, "migration", failure_json(failure, folder));
+
+    return answer;
+}
+
+// Marks an answer that was given from the schema before a failed migration.
+add_stale :: (answer: *Json_Value, stale: Migration_Failure, folder: string) {
+    if !stale.name return;
+
+    json_set(answer, "stale_schema", failure_json(stale, folder));
 }
 
 abandon :: (db: *Connection, error: Pg_Error) -> Json_Value {
@@ -582,6 +721,15 @@ string_member :: (object: *Json_Value, key: string) -> string {
     text, _ := json_as_string(member);
 
     return text;
+}
+
+int_member :: (object: *Json_Value, key: string) -> s64 {
+    member := json_get(object, key);
+    if !member return 0;
+
+    value, _ := json_as_s64(member);
+
+    return value;
 }
 
 string_member_at :: (array: *Json_Value, index: s64) -> string {

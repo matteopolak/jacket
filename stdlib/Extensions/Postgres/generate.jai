@@ -79,7 +79,7 @@ migrated_catalog :: (config: Config, migrations_folder: string) -> Catalog, hash
     if list_error.kind != .NONE return .{}, "", tprint("cannot list the schema databases: %", error_text(list_error));
 
     if !array_find(existing, name) {
-        build_problem := build_schema_database(admin, config, migrations, name);
+        build_problem, _, _ := build_schema_database(admin, config, migrations, name);
         if build_problem return .{}, "", build_problem;
 
         prune_schema_databases(admin);

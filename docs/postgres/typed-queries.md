@@ -57,6 +57,21 @@ With a `db/migrations` folder, queries are described in a **schema database** bu
 
 The dependency fingerprints are read from the same schema database.
 
+#### A migration that fails
+
+When a migration fails while the schema database is built, or in the describe's transaction, the build reports it at its line in the migration file and still describes the queries against the schema before it:
+
+```
+db/migrations/0007_add_teams.sql:3:1: error: migration 0007_add_teams.sql failed at line 3: relation "team" does not exist
+queries.jai:61:33: info: this query and the ones after it are checked against the schema before the failed migration 0007_add_teams.sql
+```
+
+- `Migration_Failure` (`migrate.jai`) names the migration, its index and the line and column. `migrate_reporting` fills it; `migrate` is the same call without it. The line comes from the server's error position (`line_column_of_position`, which counts characters as the server does). An error with no position (most errors in `alter table ...`) is traced by running the migration's statements one by one inside a transaction that is rolled back (`locate_failing_statement`), and the first statement that fails with the same message gives the line. If the file's `;` splitting does not match how the server read it, the line stays unknown and the message omits it.
+- In the describe's transaction (`describe.jai`, `begin_with_setup`), each newer migration runs on its own slice of the setup (`Setup_Mark` says where it lies), so a failure is attributed to its file. The transaction is then begun again with only the migrations before it.
+- When the whole set is built from `template0`, a migration that failed inside a transaction leaves the database of the migrations before it; it is kept under that prefix's name and answers the queries. One that has no earlier migration, or that ran outside a transaction (it may have left work half done), leaves no schema to trust: the answer is `{"kind":"migration_error", ...}` and the query is reported with the failure's text. The service remembers a failed set of migrations by its hash and does not build it again.
+- Descriptions from the schema before a failed migration carry `"stale_schema"` in the answer. They are used for the current compile but never written to `db/queries`.
+- The file report uses the continuing error mode of `compiler_report`, so it names the `.sql` file and line itself and fails the build without ending the macro. Publishing it as an editor diagnostic on the `.sql` file is not done: that needs the language server to publish diagnostics for a file outside the program. Queries that cannot be checked at all report the failure's text, which names the file and line.
+
 ### Project root and cache
 
 The root is the nearest folder upward from the calling file containing `jacket.toml` or the first folder of `MIGRATIONS` (`db/`), else the file's own folder. Entries are JSON (`entry.jai`): columns, parameters, JSON types, dependencies and a schema fingerprint. A cached entry is good when its `schema_hash` (from `db/migrations/*.sql`, see `schema_hash` in `migrate.jai`) matches. Otherwise, with a URL and not offline, the fingerprints of its dependencies are re-checked through the service. Offline, a hash mismatch is stale, and anything else is used as is.

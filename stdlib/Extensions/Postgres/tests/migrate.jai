@@ -39,6 +39,27 @@ test_split :: () {
     assert(parts[3] == "/* ; /* ; */ */ select E'\\';'");
     assert(Pg.split_statements("-- only a comment\n").count == 0);
     assert(Pg.split_statements("select $1; select 2").count == 2);
+
+    // The server counts characters from 1; a failure is reported by line and column.
+    text := "select 1;\nselect é, x\nfrom t";
+    line, column := Pg.line_column_of_position(text, 21);
+
+    assert(line == 2 && column == 11, "% %", line, column);
+
+    line, column = Pg.line_column_of_position(text, 1);
+    assert(line == 1 && column == 1);
+
+    line, column = Pg.line_column_of_position(text, 23);
+    assert(line == 3 && column == 1, "% %", line, column);
+
+    line, column = Pg.line_column_of_position(text, 0);
+    assert(line == 0 && column == 0);
+
+    failure := Pg.Migration_Failure.{ name = "0007_add_teams", line = 3, message = "relation \"team\" does not exist" };
+
+    assert(Pg.describe_failure(failure) == "migration 0007_add_teams.sql failed at line 3: relation \"team\" does not exist");
+    failure.line = 0;
+    assert(Pg.describe_failure(failure) == "migration 0007_add_teams.sql failed: relation \"team\" does not exist");
 }
 
 test_loaded :: () {
@@ -123,4 +144,17 @@ test_migrate :: (port: u16) {
 
     assert(gone && rows == 3, "% %", gone, rows);
     Pg.free_result(*result);
+
+    // The failure says where in the file: the line the server's position falls on. An error
+    // without a position (a utility statement) is traced to its statement.
+    failure: Pg.Migration_Failure;
+
+    applied, error = Pg.migrate_reporting(db, .[MIGRATIONS[0], MIGRATIONS[1], MIGRATIONS[2], bad], *failure);
+    assert(error.kind == .SERVER && failure.name == "0001_fails" && failure.index == 3 && failure.line == 2 && failure.column == 15, "% % %", failure.name, failure.line, failure.column);
+
+    quiet := bad;
+    quiet.name = "0004_quiet";
+    quiet.sql = "select 1;\n\nalter table mig_no_such_table add column x int;\nselect 2;";
+    applied, error = Pg.migrate_reporting(db, .[MIGRATIONS[0], MIGRATIONS[1], MIGRATIONS[2], quiet], *failure);
+    assert(error.kind == .SERVER && failure.name == "0004_quiet" && failure.line == 3, "% %", failure.name, failure.line);
 }
