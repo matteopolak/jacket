@@ -94,6 +94,7 @@ mod unused_result;
 mod unused_variable;
 mod use_after_free;
 mod useless_format;
+mod useless_resizable;
 mod wrapping_constant;
 mod zero_ptr;
 
@@ -617,6 +618,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "`tprint(\"%\", s)` or `sprint(\"%\", s)` with a string `s`, which only copies it",
         check: useless_format::check,
+    },
+    RuleInfo {
+        name: "useless_resizable",
+        category: Category::Perf,
+        summary: "a local `[..] T` that is only filled with a known number of `array_add` calls and never resized",
+        check: useless_resizable::check,
     },
     RuleInfo {
         name: "use_after_free",

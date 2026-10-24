@@ -43,6 +43,7 @@
 - `jailint` suggests `print_to_builder` for `append(*builder, tprint(...))` (`format_push_string`).
 - `jailint` suggests `memcpy` for a loop that only copies one array into another (`manual_memcpy`).
 - `jailint` suggests `array_find` for a loop that searches an array and breaks on the first match (`manual_array_find`).
+- `jailint` suggests a fixed array for a local resizable array that only gets a known number of `array_add` calls (`useless_resizable`).
 
 ### Improved
 

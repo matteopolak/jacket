@@ -30,13 +30,13 @@ array_add :: (array: *[..] $T) -> *T {
     array.count += 1;
 
     return result;
-}
+} @AddsToArray
 
 array_add :: (array: *[..] $T, item: T) #no_abc {
     maybe_grow(cast(*Resizable_Array) array, size_of(T));
     array.data[array.count] = item;
     array.count += 1;
-}
+} @AddsToArray
 
 array_add :: (array: *[..] $T, to_append: ..T) {
     if to_append.count == 0 return;

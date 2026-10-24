@@ -1,0 +1,18 @@
+warning[useless_resizable]: `parts` is a resizable array that only ever holds 2 elements
+  --> tests/lint/useless_resizable/bad.jai:4:5
+   |
+ 4 |     parts: [..] string;
+   |     ^^^^^
+   |
+   = help: a fixed array does not allocate: `parts: [2] string;`, and the call that frees it goes away
+   = note: `useless_resizable` is `warn` by default
+
+warning[useless_resizable]: `numbers` is a resizable array that only ever holds 3 elements
+  --> tests/lint/useless_resizable/bad.jai:13:5
+   |
+13 |     numbers: [..] int;
+   |     ^^^^^^^
+   |
+   = help: a fixed array does not allocate: `numbers: [3] int;`
+   = note: `useless_resizable` is `warn` by default
+

@@ -965,6 +965,16 @@
               "default": "warn",
               "markdownDescription": "`tprint(\"%\", s)` or `sprint(\"%\", s)` with a string `s`, which only copies it (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#useless_format)"
             },
+            "useless_resizable": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a local `[..] T` that is only filled with a known number of `array_add` calls and never resized (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#useless_resizable)"
+            },
             "use_after_free": {
               "type": "string",
               "enum": [
