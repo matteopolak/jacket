@@ -363,6 +363,30 @@ test_each :: (db: *Pg.Connection) {
 
     check(error.kind == .NONE && users.count == 1 && users[0].mood == .happy, Pg.error_text(error));
 
+    // Only `theme` of the settings document is fetched; a null document stays null.
+    themes: [..] string;
+    themes.allocator = temp;
+
+    for Pg.each(db, User, *error, order_by = #code it.id) {
+        if it.settings.null array_add(*themes, "none");
+        else array_add(*themes, copy_string(it.settings.value.value.theme,, temp));
+
+        // A key the document lacks stays missing, apart from a key holding null.
+        if !it.settings.null check(it.settings.value.value.beta.state == .MISSING && it.settings.value.value.font_size == 16, "beta should be missing");
+    }
+
+    check(error.kind == .NONE && themes.count == 2 && themes[0] == "dark" && themes[1] == "none", Pg.error_text(error));
+
+    // A field of a to-one relation, read in the loop, comes from a subquery in the same statement.
+    authors := 0;
+
+    for Pg.each(db, Post, *error, order_by = #code it.id) {
+        check(it.author.email == "a@example.com" && it.title.count > 0, it.author.email);
+        authors += 1;
+    }
+
+    check(error.kind == .NONE && authors == 2, Pg.error_text(error));
+
     // A failure lands in `error`, and the body never runs.
     zero := 0;
     ran := false;
