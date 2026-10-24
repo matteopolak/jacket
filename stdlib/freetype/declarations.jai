@@ -1505,14 +1505,16 @@ freetype :: #library,system "freetype";
 }
 
 #if OS != .WINDOWS {
-    FT_StreamDesc_ :: struct {
+    FT_StreamDesc_ :: union {
         value: s64;
+        pointer: *void;
     }
 
 }
 
 #if OS == .WINDOWS {
-    FT_StreamDesc_ :: struct {
+    FT_StreamDesc_ :: union {
+        value: s32;
         pointer: *void;
     }
 

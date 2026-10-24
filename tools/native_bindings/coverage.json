@@ -42077,7 +42077,7 @@
     },
     "freetype": {
       "spec": "docs/specs/stdlib/modules/freetype.md",
-      "spec_sha256": "6dfc0436c689a86971dfed30463bfa14a63cfbda5355a02162e088dc90c2d264",
+      "spec_sha256": "b9f86e2a8783ffe9e00531af7f3412d2b7de58c00012d087bfb82bd4492be3d2",
       "counts": {
         "implemented": 17,
         "declared": 764
@@ -43774,7 +43774,7 @@
         },
         {
           "name": "FT_StreamDesc_",
-          "signature": "FT_StreamDesc_ :: struct",
+          "signature": "FT_StreamDesc_ :: union",
           "condition": "OS != .WINDOWS",
           "spec_line": 251,
           "status": "declared"
@@ -46175,7 +46175,7 @@
         },
         {
           "name": "FT_StreamDesc_",
-          "signature": "FT_StreamDesc_ :: struct",
+          "signature": "FT_StreamDesc_ :: union",
           "condition": "OS == .WINDOWS",
           "spec_line": 597,
           "status": "declared"

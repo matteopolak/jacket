@@ -248,7 +248,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `FT_Realloc_Func :: #type (memory: FT_Memory, cur_size: s64, new_size: s64, block: *void) -> *void #c_call`
 - `FT_MemoryRec_ :: struct`
 - `FT_Stream :: *FT_StreamRec_`
-- `FT_StreamDesc_ :: struct`
+- `FT_StreamDesc_ :: union`
 - `FT_StreamDesc :: FT_StreamDesc_`
 - `FT_Stream_IoFunc :: #type (stream: FT_Stream, offset: u64, buffer: *u8, count: u64) -> u64 #c_call`
 - `FT_Stream_CloseFunc :: #type (stream: FT_Stream) -> void #c_call`
@@ -594,7 +594,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `FT_Realloc_Func :: #type (memory: FT_Memory, cur_size: s32, new_size: s32, block: *void) -> *void #c_call`
 - `FT_MemoryRec_ :: struct`
 - `FT_Stream :: *FT_StreamRec_`
-- `FT_StreamDesc_ :: struct`
+- `FT_StreamDesc_ :: union`
 - `FT_StreamDesc :: FT_StreamDesc_`
 - `FT_Stream_IoFunc :: #type (stream: FT_Stream, offset: u32, buffer: *u8, count: u32) -> u32 #c_call`
 - `FT_Stream_CloseFunc :: #type (stream: FT_Stream) -> void #c_call`
@@ -848,9 +848,10 @@ FT_SubGlyphRec_ :: struct {}
 - `free:    FT_Free_Func`
 - `realloc: FT_Realloc_Func`
 
-#### `FT_StreamDesc_` (struct)
+#### `FT_StreamDesc_` (union)
 
-- `value: s64`
+- `value:   s64`
+- `pointer: *void`
 
 #### `FT_StreamRec_` (struct)
 
@@ -1637,8 +1638,9 @@ FT_SubGlyphRec_ :: struct {}
 - `free:    FT_Free_Func`
 - `realloc: FT_Realloc_Func`
 
-#### `FT_StreamDesc_` (struct)
+#### `FT_StreamDesc_` (union)
 
+- `value:   s32`
 - `pointer: *void`
 
 #### `FT_StreamRec_` (struct)
