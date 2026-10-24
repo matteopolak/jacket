@@ -285,6 +285,25 @@ fn a_run_in_a_branch_only_the_target_takes_stays_on_the_target() {
 }
 
 #[test]
+fn a_run_naming_a_member_only_the_target_exports_is_checked_on_the_target() {
+    // `Check` exports its porting checks on Windows only. On another host the twin's `Check`
+    // lacks them, and the run falls back to the target compiler, which runs the check.
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .arg(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/compiler/rejections/check-array.jai"),
+        )
+        .args(["-check", "-os", "windows", "-cpu", "x64"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("fixed array used as a pointer in assignment"),
+        "{stderr}"
+    );
+}
+
+#[test]
 fn a_target_only_foreign_procedure_is_unavailable_at_compile_time() {
     for (os, cpu) in foreign_targets() {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
