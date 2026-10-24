@@ -101,6 +101,7 @@ mod unsigned_range_end_minus_one;
 pub(crate) mod unused_import;
 mod unused_parameter;
 pub(crate) use unused_parameter::RunState;
+mod unused_private_declaration;
 mod unused_result;
 mod unused_suppression;
 mod unused_variable;
@@ -678,6 +679,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Style,
         summary: "a parameter the procedure never uses",
         check: unused_parameter::check,
+    },
+    RuleInfo {
+        name: "unused_private_declaration",
+        category: Category::Suspicious,
+        summary: "a `#scope_file` declaration that nothing in its file uses",
+        check: unused_private_declaration::check,
     },
     RuleInfo {
         name: "unused_result",

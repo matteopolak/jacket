@@ -187,6 +187,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `unsigned_range_end_minus_one` | suspicious | warn | no | `for i: 0..n-1` with `n: u32`: when `n` is `0`, `n - 1` wraps to the largest value |
 | `unused_import` | style | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | style | warn | editor | a parameter the procedure never uses |
+| `unused_private_declaration` | suspicious | warn | no | `#scope_file` followed by `helper :: () { ... }` that nothing in the file mentions |
 | `unused_result` | suspicious | warn | editor | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
 | `unused_suppression` | suspicious | warn | no | `x := 1; // jailint: allow(float_equality)`: a name in an allow comment or note that silences nothing |
 | `unused_variable` | style | warn | yes | a local variable that is never used |
@@ -392,6 +393,8 @@ Ranges include their end, so `0..n-1` visits the `n` indices below `n`, but with
 Unnamed imports count as used when any lookup went through them, or (guard for unchecked code) when the module's files mention a name it exports. Not reported: imports with module parameters, modules with `#program_export`, programs that did not compile fully, generated files. Files whose first 10 lines say a tool generated them (`Automatically generated`, `DO NOT EDIT`, ...) are skipped by every `unused_*` rule.
 ### unused_parameter
 Only for procedures whose every caller is in view: named, only called (never taken as a value), called at least once, not overloaded or exported, no `#c_call`/`#foreign`/`#expand`/notes. Also skipped when a variant exists (same name and parameter names, e.g. another platform's definition in an `#if` branch or sibling `.jai` file the program does not load; those files are parsed, not text-searched). Prefix a name with `_` to keep it. The editor offers the `_` prefix; `--fix` does not, since a caller may pass the argument by name.
+### unused_private_declaration
+A procedure, struct, enum, constant or variable declared after `#scope_file` whose name appears nowhere else in its file (mentions in its own declaration do not count, so a procedure that only calls itself is unused; mentions in code an `#if` left out do). Nothing outside the file can see it, so it is dead code. Files with an `#insert` or `#placeholder` are skipped, as are `main`, the entry point, `build`, `get_plugin`, `for_expansion`, names starting with `__`, `_`, `using` and multi-name declarations, and declarations with notes, `#c_call`, `#foreign`, `#program_export`, `#compiler`, `#expand` or operator forms. No fix.
 ### unused_result
 Procedures declared with `@UseResult` (many in `Basic`/`String`/`Math`), so a program's own `trim` is left alone unless it carries the note. Calls with a pointer argument (works in place) are skipped. When the first argument is a plain name of the result's type, the editor offers `x = f(x);`.
 ### unused_suppression

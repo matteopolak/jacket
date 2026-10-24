@@ -16,4 +16,4 @@ bump :: () -> int {
 #load "sub/part.jai";
 
 #scope_file
-secret :: 1;
+secret :: 1; // jailint: allow(unused_private_declaration) the test checks that importers cannot see it

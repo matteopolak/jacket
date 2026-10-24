@@ -1008,6 +1008,16 @@
           "default": "warn",
           "markdownDescription": "a parameter the procedure never uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_parameter)"
         },
+        "unused_private_declaration": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a `#scope_file` declaration that nothing in its file uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_private_declaration)"
+        },
         "unused_result": {
           "type": "string",
           "enum": [

@@ -995,8 +995,6 @@ parse_class_atom :: (p: *Parser) -> value: u32, is_class: bool, ranges: [..] Cha
     return next_char(p), false, empty, true;
 }
 
-POSIX_NAMES :: string.["alnum", "alpha", "ascii", "blank", "cntrl", "digit", "graph", "lower", "print", "punct", "space", "upper", "word", "xdigit"];
-
 // `[:name:]` or `[:^name:]` (ASCII only). `is_posix` is false when the text only looks like one,
 // e.g. `[:a]`, in which case nothing is consumed and it is a nested class.
 parse_posix_class :: (p: *Parser) -> [..] Char_Range, is_posix: bool, ok: bool {

@@ -7,4 +7,4 @@ module_private := 71;
 public_in_root :: 13;
 
 #scope_file
-file_only := 29;
+file_only := 29; // jailint: allow(unused_private_declaration) the test checks that it stays out of reach

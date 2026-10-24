@@ -1,0 +1,54 @@
+warning[unused_private_declaration]: `LIMIT` is private to this file and nothing in the file uses it
+  --> tests/lint/unused_private_declaration/bad.jai:9:1
+   |
+ 9 | LIMIT :: 64;
+   | ^^^^^
+   |
+   = help: delete it, or put it under `#scope_export` if another file should use it
+   = note: `unused_private_declaration` is `warn` by default
+
+warning[unused_private_declaration]: `Counter` is private to this file and nothing in the file uses it
+  --> tests/lint/unused_private_declaration/bad.jai:11:1
+   |
+11 | Counter :: struct {
+   | ^^^^^^^
+   |
+   = help: delete it, or put it under `#scope_export` if another file should use it
+   = note: `unused_private_declaration` is `warn` by default
+
+warning[unused_private_declaration]: `orphan_count` is private to this file and nothing in the file uses it
+  --> tests/lint/unused_private_declaration/bad.jai:15:1
+   |
+15 | orphan_count: int;
+   | ^^^^^^^^^^^^
+   |
+   = help: delete it, or put it under `#scope_export` if another file should use it
+   = note: `unused_private_declaration` is `warn` by default
+
+warning[unused_private_declaration]: `clamp_index` is private to this file and nothing in the file uses it
+  --> tests/lint/unused_private_declaration/bad.jai:21:1
+   |
+21 | clamp_index :: (i: int, count: int) -> int {
+   | ^^^^^^^^^^^
+   |
+   = help: delete it, or put it under `#scope_export` if another file should use it
+   = note: `unused_private_declaration` is `warn` by default
+
+warning[unused_private_declaration]: `spin` is private to this file and nothing in the file uses it
+  --> tests/lint/unused_private_declaration/bad.jai:25:1
+   |
+25 | spin :: (n: int) -> int {
+   | ^^^^
+   |
+   = help: delete it, or put it under `#scope_export` if another file should use it
+   = note: `unused_private_declaration` is `warn` by default
+
+warning[unused_private_declaration]: `Mode` is private to this file and nothing in the file uses it
+  --> tests/lint/unused_private_declaration/bad.jai:30:1
+   |
+30 | Mode :: enum {
+   | ^^^^
+   |
+   = help: delete it, or put it under `#scope_export` if another file should use it
+   = note: `unused_private_declaration` is `warn` by default
+

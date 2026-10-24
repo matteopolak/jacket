@@ -231,6 +231,13 @@ fn generated_files_are_skipped_by_unused_rules() {
 }
 
 #[test]
+fn private_declarations_in_files_with_insert_are_left_alone() {
+    let file = repo().join("tests/lint/unused_private_declaration/insert.jai");
+    let (lints, text) = lint(&file, &[("unused_private_declaration", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
+}
+
+#[test]
 fn files_generated_with_a_tool_are_skipped_by_enum_member_prefix() {
     let file = repo().join("tests/lint/enum_member_prefix/generated.jai");
     let (lints, text) = lint(&file, &[("enum_member_prefix", Level::Warn)]);
