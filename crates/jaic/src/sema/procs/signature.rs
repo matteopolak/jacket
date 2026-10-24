@@ -4,7 +4,7 @@ use super::model::{
 };
 use crate::sema::SourceState;
 use crate::sema::lower::Operand;
-use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
+use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{
     Compiler, Diagnostic, EntityId, HashMap, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value,
     ast, err, ir, value,
@@ -232,8 +232,7 @@ impl Compiler {
         t: &ast::Expr,
         params: &[ParamInfo],
     ) -> Result<TypeId> {
-        let module = self.scope(scope).module;
-        let inner = self.new_scope(ScopeKind::Block, Some(scope), module, None);
+        let inner = self.new_hidden_scope(scope);
         let mut scratch = self.scratch_ctx(inner);
         let depth = self.scope(inner).proc_depth;
         for param in params {

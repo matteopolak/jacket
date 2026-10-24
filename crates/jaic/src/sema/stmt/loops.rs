@@ -63,8 +63,7 @@ impl Compiler {
                 let align = self.align_of(ty, cond.span)?;
                 let addr = f.b.alloca(size.max(1), align);
                 self.store_value(f, ty, addr, v, cond.span)?;
-                let inner = self.new_block_scope(scope);
-                self.ide_scope_span(inner, cond.span.to(body.span));
+                let inner = self.new_block_scope(scope, cond.span.to(body.span));
                 let depth = self.scope(inner).proc_depth;
                 self.declare_loop_var(
                     f,
@@ -278,8 +277,7 @@ impl Compiler {
             ast::ForOver::Range(a, b) => (Some(a), Some(b), None),
             ast::ForOver::Collection(c) => (None, None, Some(c)),
         };
-        let loop_scope = self.new_block_scope(scope);
-        self.ide_scope_span(loop_scope, span);
+        let loop_scope = self.new_block_scope(scope, span);
         let depth = self.scope(loop_scope).proc_depth;
         let lp = ForLoop {
             for_,
@@ -885,7 +883,7 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         // The body becomes a Code value; names declared with backticks land in the loop scope.
-        let loop_scope = self.new_block_scope(scope);
+        let loop_scope = self.new_hidden_scope(scope);
         let body_stmt = Rc::new((*for_.body).clone());
         let code = self.add_code(
             Rc::new(ast::CodeBody::Block(ast::Block {

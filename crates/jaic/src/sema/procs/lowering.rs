@@ -285,8 +285,7 @@ impl Compiler {
             }
         }
         // Parameters and named results live in an outer scope; the body may shadow them.
-        let body_scope = self.new_block_scope(scope);
-        self.ide_scope_span(body_scope, body.span);
+        let body_scope = self.new_block_scope(scope, body.span);
         self.check_block_stmts(&mut f, body_scope, &body.stmts)?;
         self.ide_require_parsed_body(body.span)?;
         // The body is read for what Jai warns about: a result still owed at its end, and
@@ -447,8 +446,7 @@ impl Compiler {
             return err(span, crate::sema::too_many_instances(self.proc(id).name));
         }
         let parent = self.proc(id).scope;
-        let module = self.scope(parent).module;
-        let scope = self.new_scope(ScopeKind::Block, Some(parent), module, None);
+        let scope = self.new_hidden_scope(parent);
         let header = self.proc(id).lit.header.clone();
         let binders = self.poly_binders(&header);
         let mut bound = Vec::new();

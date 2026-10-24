@@ -1,6 +1,6 @@
 //! Enum declarations retain source order while values resolve through the ordinary entity graph.
 use super::lower::Operand;
-use super::scope::{EntityKind, Resolved, ScopeKind};
+use super::scope::{EntityKind, Resolved};
 use super::{Compiler, EntityId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 use crate::ast::ExprKind as E;
 use crate::types::{EnumInfo, TypeKind};
@@ -58,8 +58,7 @@ impl Compiler {
         let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };
-        let module = self.scope(scope).module;
-        let members_scope = self.new_scope(ScopeKind::Block, Some(scope), module, None);
+        let members_scope = self.new_hidden_scope(scope);
         if name.as_str() != "enum" {
             self.add_const(members_scope, name, lit.span, Value::Type(ty), TypeId::TYPE);
         }

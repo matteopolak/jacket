@@ -270,7 +270,7 @@ impl Compiler {
                         f.restore_context_binding(*previous);
                     }
                     DeferAction::Statement(stmt) => {
-                        let inner = self.new_block_scope(entry.scope);
+                        let inner = self.new_hidden_scope(entry.scope);
                         let saved_backtick =
                             std::mem::replace(&mut f.backtick_scope, entry.caller_scope);
                         let result = self.check_stmt(f, inner, stmt);

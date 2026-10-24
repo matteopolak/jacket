@@ -1,8 +1,8 @@
 //! Values for baked (`$x`) parameters: defaults, `Code` arguments and constant packs.
 
 use super::{
-    ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, PackKey, Rc, Result, ScopeId, ScopeKind,
-    Span, Sym, TypeId, Value, ast, err, ir, procs, value,
+    ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, PackKey, Rc, Result, ScopeId, Span, Sym,
+    TypeId, Value, ast, err, ir, procs, value,
 };
 
 impl Compiler {
@@ -39,8 +39,7 @@ impl Compiler {
             scope = if let Some(&s) = self.ns.default_scopes.get(&key) {
                 s
             } else {
-                let module = self.scope(def_scope).module;
-                let s = self.new_scope(ScopeKind::Block, Some(def_scope), module, None);
+                let s = self.new_hidden_scope(def_scope);
                 // Not written at the call: recording them there would make the call's
                 // text look like a declaration of `T` to hover and go to definition.
                 for (n, v, t) in bindings {

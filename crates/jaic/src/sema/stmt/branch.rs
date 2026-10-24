@@ -149,8 +149,7 @@ impl Compiler {
                 let mut i = start;
                 loop {
                     taken.push(i);
-                    let inner = self.new_block_scope(scope);
-                    self.ide_scope_span(inner, cases[i].span);
+                    let inner = self.new_block_scope(scope, cases[i].span);
                     let depth = f.mark_defers();
                     self.check_block_stmts(f, inner, &cases[i].body)?;
                     if !f.b.is_terminated() {
@@ -233,8 +232,7 @@ impl Compiler {
         f.b.jump(default);
         for (i, case) in cases.iter().enumerate() {
             f.b.switch_to(bodies[i]);
-            let inner = self.new_block_scope(scope);
-            self.ide_scope_span(inner, case.span);
+            let inner = self.new_block_scope(scope, case.span);
             let depth = f.mark_defers();
             self.check_block_stmts(f, inner, &case.body)?;
             if !f.b.is_terminated() {
@@ -337,8 +335,7 @@ impl Compiler {
             if taken.contains(&i) {
                 continue;
             }
-            let inner = self.new_block_scope(scope);
-            self.ide_scope_span(inner, case.span);
+            let inner = self.new_block_scope(scope, case.span);
             let depth = f.mark_defers();
             self.check_block_stmts(f, inner, &case.body)?;
             if !f.b.is_terminated() {

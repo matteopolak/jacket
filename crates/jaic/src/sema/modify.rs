@@ -277,7 +277,7 @@ impl Compiler {
             globals.push((name, ty, global));
         }
 
-        let inner = self.new_scope(ScopeKind::Block, Some(scope), module, None);
+        let inner = self.new_block_scope(scope, block.span);
         self.check_block_stmts(&mut f, inner, &block.stmts)?;
         if !f.b.is_terminated() {
             let accept = f.b.iconst(Ty::I8, 1);

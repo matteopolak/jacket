@@ -96,8 +96,7 @@ impl Compiler {
             }
             ast::RunBody::Block(block) => {
                 let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
-                let module = self.scope(tscope).module;
-                let inner = self.new_scope(ScopeKind::Block, Some(tscope), module, None);
+                let inner = self.new_block_scope(tscope, block.span);
                 self.check_block_stmts(&mut f, inner, &block.stmts)?;
                 self.ide_require_parsed_body(block.span)?;
                 if !f.b.is_terminated() {

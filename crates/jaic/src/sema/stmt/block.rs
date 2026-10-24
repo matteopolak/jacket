@@ -286,7 +286,18 @@ impl Compiler {
         }
     }
 
-    pub(in crate::sema) fn new_block_scope(&mut self, parent: ScopeId) -> ScopeId {
+    /// A block scope for code written in the source at `covers`. The editor finds the names
+    /// visible at a position through the scopes recorded this way, so every scope that holds
+    /// declarations someone wrote is made here.
+    pub(in crate::sema) fn new_block_scope(&mut self, parent: ScopeId, covers: Span) -> ScopeId {
+        let inner = self.new_hidden_scope(parent);
+        self.ide_scope_span(inner, covers);
+        inner
+    }
+
+    /// A block scope with no source of its own: compiler temporaries, baked constants, code
+    /// checked again where it is inserted or deferred to.
+    pub(in crate::sema) fn new_hidden_scope(&mut self, parent: ScopeId) -> ScopeId {
         let module = self.scope(parent).module;
         self.new_scope(ScopeKind::Block, Some(parent), module, None)
     }
@@ -298,8 +309,7 @@ impl Compiler {
         scope: ScopeId,
         stmt: &ast::Stmt,
     ) -> Result<()> {
-        let inner = self.new_block_scope(scope);
-        self.ide_scope_span(inner, stmt.span);
+        let inner = self.new_block_scope(scope, stmt.span);
         let depth = f.mark_defers();
         match &stmt.kind {
             S::Block(b) if b.checks_off.adds_to(f.checks_off) => {

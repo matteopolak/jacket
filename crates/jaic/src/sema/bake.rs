@@ -7,7 +7,7 @@
 use super::lower::Operand;
 use super::{
     Compiler, ConstArg, Diagnostic, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err,
-    procs, scope, value,
+    procs, value,
 };
 
 impl Compiler {
@@ -342,8 +342,7 @@ impl Compiler {
         consts: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> ScopeId {
-        let module = self.scope(parent).module;
-        let scope = self.new_scope(scope::ScopeKind::Block, Some(parent), module, None);
+        let scope = self.new_hidden_scope(parent);
         // Each name is written as an argument, recorded as naming the parameter it bakes.
         for (name, value, ty) in consts {
             self.new_const(scope, name, span, value, ty);

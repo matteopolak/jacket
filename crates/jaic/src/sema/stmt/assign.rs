@@ -97,7 +97,7 @@ impl Compiler {
                     self.call_procs(f, scope, &getters, by_value, None, span)?
                 };
                 let (old_ty, old_val) = self.rvalue(f, old, span)?;
-                let inner = self.new_block_scope(scope);
+                let inner = self.new_hidden_scope(scope);
                 let slot = self.spill(f, old_ty, old_val, span)?;
                 let tmp = Sym::intern("\u{0}old");
                 let depth = self.scope(inner).proc_depth;
@@ -376,7 +376,7 @@ impl Compiler {
         rhs: &[ast::Expr],
         span: Span,
     ) -> Result<()> {
-        let inner = self.new_block_scope(scope);
+        let inner = self.new_hidden_scope(scope);
         let depth = self.scope(inner).proc_depth;
         let mut values = Vec::new();
         for (i, value) in rhs.iter().enumerate() {
@@ -475,7 +475,7 @@ impl Compiler {
                 self.store_value(f, ty, addr, v, span)?;
                 return Ok(());
             }
-            let inner = self.new_block_scope(scope);
+            let inner = self.new_hidden_scope(scope);
             let ptr_ty = self.ty.types.pointer(ty);
             let slot = self.spill(f, ptr_ty, addr, span)?;
             let tmp = Sym::intern("\u{0}lhs");

@@ -613,8 +613,7 @@ impl Compiler {
             Some(fallbacks) if fallbacks.is_empty() => site,
             Some(fallbacks) => {
                 let fallbacks = fallbacks.clone();
-                let module = self.scope(site).module;
-                let scope = self.new_scope(scope::ScopeKind::Block, Some(site), module, None);
+                let scope = self.new_hidden_scope(site);
                 self.ns.scopes[scope.0 as usize].fallbacks = fallbacks;
                 scope
             }

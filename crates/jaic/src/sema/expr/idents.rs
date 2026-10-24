@@ -58,8 +58,7 @@ impl Compiler {
         else {
             return err(span, "a block used as a value must end in an expression");
         };
-        let inner = self.new_block_scope(scope);
-        self.ide_scope_span(inner, span);
+        let inner = self.new_block_scope(scope, span);
         let depth = f.mark_defers();
         self.check_block_stmts(f, inner, rest)?;
         let mut op = self.check_expr(f, inner, last, expected)?;

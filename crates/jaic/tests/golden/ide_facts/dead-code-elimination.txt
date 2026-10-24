@@ -68,10 +68,11 @@ tests/compiler/regressions/dead-code-elimination.jai:792..793 Entity(E(x@tests/c
 tests/compiler/regressions/dead-code-elimination.jai:798..811 Entity(E(expand_unused@tests/compiler/regressions/dead-code-elimination.jai:798)) (compile-time entity) decl=true
 tests/compiler/regressions/dead-code-elimination.jai:832..837 Entity(E(wrong@tests/compiler/regressions/dead-code-elimination.jai:832)) s64 decl=true
 tests/compiler/regressions/dead-code-elimination.jai:839..842 Type(T(s64)) Type decl=false
-## scopes (6)
+## scopes (7)
 tests/compiler/regressions/dead-code-elimination.jai:1387..1928 S(tests/compiler/regressions/dead-code-elimination.jai:1387..1928)
 tests/compiler/regressions/dead-code-elimination.jai:1683..1878 S(tests/compiler/regressions/dead-code-elimination.jai:1683..1878)
 tests/compiler/regressions/dead-code-elimination.jai:1770..1872 S(tests/compiler/regressions/dead-code-elimination.jai:1770..1872)
+tests/compiler/regressions/dead-code-elimination.jai:1935..2109 S(tests/compiler/regressions/dead-code-elimination.jai:1935..2109)
 tests/compiler/regressions/dead-code-elimination.jai:2122..2173 S(tests/compiler/regressions/dead-code-elimination.jai:2122..2173)
 tests/compiler/regressions/dead-code-elimination.jai:716..796 S(tests/compiler/regressions/dead-code-elimination.jai:716..796)
 tests/compiler/regressions/dead-code-elimination.jai:826..887 S(tests/compiler/regressions/dead-code-elimination.jai:826..887)
