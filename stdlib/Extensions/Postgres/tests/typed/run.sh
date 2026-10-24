@@ -26,17 +26,19 @@ admin -d postgres -c "drop database if exists $database" -c "create database $da
 admin -d "$database" -f "$here/schema.sql" > /dev/null
 
 fail() { echo "FAILED: $*"; exit 1; }
+# Runs a test binary; anything but "ok" fails with what it printed.
+expect_ok() { out=$("$1" 2>&1) || true; [ "$out" = ok ] || { printf '%s\n' "$out"; fail "$2"; }; }
 
 # 1. Every macro, describing through the service and filling the cache.
 "$jaic" "$here/queries.jai" -exe "$work/queries" || fail "build"
-[ "$("$work/queries")" = ok ] || fail "queries"
+expect_ok "$work/queries" "queries"
 count=$(find "$JACKET_PG_ROOT/db/queries" -type f | wc -l)
 [ "$count" -gt 10 ] || fail "cache entries were not written ($count)"
 
 # 2. Offline: the committed cache alone is enough.
 rm -f "$work/queries"
 JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/queries" || fail "offline build"
-[ "$("$work/queries")" = ok ] || fail "offline queries"
+expect_ok "$work/queries" "offline queries"
 
 # 2b. An entry written by another format is a miss: an error offline, described again online.
 grep -q '"format": 1' "$JACKET_PG_ROOT"/db/queries/*.json || fail "entries do not record their format"
@@ -46,7 +48,7 @@ done
 if JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/old_format" > "$work/out" 2>&1; then fail "entries of another format were used"; fi
 grep -q "JACKET_PG_OFFLINE" "$work/out" || fail "the old format error does not name the setting"
 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build over entries of another format"
-[ "$("$work/queries")" = ok ] || fail "queries over entries of another format"
+expect_ok "$work/queries" "queries over entries of another format"
 [ "$(grep -L '"format": 1' "$JACKET_PG_ROOT"/db/queries/*.json | wc -l)" -eq 0 ] || fail "entries of another format were not rewritten"
 
 # 3. Offline with an empty cache is an error naming the query.
@@ -59,7 +61,7 @@ grep -q "JACKET_PG_OFFLINE" "$work/out" || fail "offline error does not name the
 before=$(cat "$JACKET_PG_ROOT"/db/queries/*.json | md5 2>/dev/null || cat "$JACKET_PG_ROOT"/db/queries/*.json | md5sum)
 admin -d "$database" -c "alter table posts add column pinned boolean not null default false" > /dev/null
 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build after alter"
-[ "$("$work/queries")" = ok ] || fail "queries after alter"
+expect_ok "$work/queries" "queries after alter"
 after=$(cat "$JACKET_PG_ROOT"/db/queries/*.json | md5 2>/dev/null || cat "$JACKET_PG_ROOT"/db/queries/*.json | md5sum)
 [ "$before" != "$after" ] || fail "a changed table did not change the cache"
 unchanged=$(grep -l '"r:public.posts"' "$JACKET_PG_ROOT"/db/queries/*.json | wc -l)
@@ -78,7 +80,7 @@ grep -v "schema public" "$here/schema.sql" > "$JACKET_PG_ROOT/db/migrations/0001
 grep -q '"schema_hash": "[0-9a-f]\{64\}"' "$JACKET_PG_ROOT"/db/queries/*.json || fail "the schema hash was not recorded"
 rm -f "$work/queries"
 JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/queries" || fail "offline build against the schema hash"
-[ "$("$work/queries")" = ok ] || fail "offline queries against the schema hash"
+expect_ok "$work/queries" "offline queries against the schema hash"
 # A new migration is first applied on top of the existing database, in a rolled-back transaction.
 echo "alter table posts add column pinned boolean not null default false;" > "$JACKET_PG_ROOT/db/migrations/0002_pinned.sql"
 if JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/stale" > "$work/out" 2>&1; then fail "a changed migration did not stale the cache"; fi
@@ -95,7 +97,7 @@ mkdir -p "$work/pinned_root/db" && cp -R "$JACKET_PG_ROOT/db/migrations" "$work/
 JACKET_PG_ROOT="$work/pinned_root" JACKET_PG_BUILD_DELAY_MS=600000 "$jaic" "$work/pinned.jai" -exe "$work/pinned" > /dev/null || fail "a query using the new migration's column"
 [ "$(schema_databases | wc -l)" -eq 1 ] || fail "the new migration built a database early: $(schema_databases)"
 JACKET_PG_BUILD_DELAY_MS=600000 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build with a new migration"
-[ "$("$work/queries")" = ok ] || fail "queries with a new migration"
+expect_ok "$work/queries" "queries with a new migration"
 # One that cannot run in a transaction makes a database for the whole set right away; only the
 # newest three are kept.
 printf -- '-- jacket: no-transaction\ncreate index concurrently posts_title on posts (title);\n' > "$JACKET_PG_ROOT/db/migrations/0003_index.sql"
@@ -150,12 +152,12 @@ rm -f "$JACKET_PG_ROOT/db/queries/1111111111111111.json"
 # 7. Row type identity: `select *` returns the table's struct from db/schema.jai.
 cp -R "$here/identity" "$work/identity"
 JACKET_PG_ROOT="$work/identity" "$jaic" "$work/identity/main.jai" -exe "$work/identity_test" || fail "build row type identity"
-[ "$("$work/identity_test")" = ok ] || fail "row type identity"
+expect_ok "$work/identity_test" "row type identity"
 
 # 8. The ORM: select, insert, update and delete through table structs.
 cp -R "$here/../orm" "$work/orm"
 JACKET_PG_ROOT="$work/orm" "$jaic" "$work/orm/main.jai" -exe "$work/orm_test" || fail "build orm"
-[ "$("$work/orm_test")" = ok ] || fail "orm"
+expect_ok "$work/orm_test" "orm"
 # Pg.each fetched only what its loop body reads.
 grep -rqF 'select \"id\", \"email\" from \"public\".\"users\"' "$work/orm/db/queries" || fail "orm each did not prune its columns"
 grep -rqF 'jsonb_each(\"settings\"::jsonb) as orm_j' "$work/orm/db/queries" || fail "orm each did not prune the settings document"
@@ -194,7 +196,7 @@ env_root="$work/dotenv_project"
 mkdir -p "$env_root"
 printf '# local database\nexport DATABASE_URL="%s" # the dev server\n' "$DATABASE_URL" > "$env_root/.env"
 env -u DATABASE_URL -u JACKET_DATABASE_URL JACKET_PG_ROOT="$env_root" "$jaic" "$here/queries.jai" -exe "$work/dotenv_queries" > /dev/null || fail "build with the URL in .env"
-[ "$("$work/dotenv_queries")" = ok ] || fail "queries with the URL in .env"
+expect_ok "$work/dotenv_queries" "queries with the URL in .env"
 [ "$(find "$env_root/db/queries" -type f | wc -l)" -gt 10 ] || fail "the .env URL did not fill the cache"
 rm -rf "$env_root/db"
 if env DATABASE_URL="postgres://postgres@localhost/none?host=/nonexistent&port=1" JACKET_PG_ROOT="$env_root" "$jaic" "$here/queries.jai" -exe "$work/dotenv_none" > "$work/out" 2>&1; then fail ".env won over the environment"; fi
@@ -221,7 +223,7 @@ if [ "${JAI_PG_TEST_MANAGED:-}" = 1 ]; then
 
     grep -v "schema public" "$here/schema.sql" > "$managed_root/db/migrations/0001_init.sql"
     managed "$jaic" "$here/queries.jai" -exe "$work/managed_queries" || fail "managed build"
-    [ "$("$work/managed_queries")" = ok ] || fail "managed queries"
+    expect_ok "$work/managed_queries" "managed queries"
     managed_count=$(find "$managed_root/db/queries" -type f | wc -l)
     [ "$managed_count" -gt 10 ] || fail "managed cache entries were not written ($managed_count)"
     running=0
@@ -231,7 +233,7 @@ if [ "${JAI_PG_TEST_MANAGED:-}" = 1 ]; then
     # A second build with an empty cache finds the server running and reuses it.
     rm -rf "$managed_root/db/queries" "$work/managed_queries"
     managed "$jaic" "$here/queries.jai" -exe "$work/managed_queries" || fail "managed rebuild"
-    [ "$("$work/managed_queries")" = ok ] || fail "managed queries after a rebuild"
+    expect_ok "$work/managed_queries" "managed queries after a rebuild"
     [ "$(find "$managed_root/db/queries" -type f | wc -l)" -eq "$managed_count" ] || fail "managed rebuild wrote a different cache"
 
     # `[postgres] managed = true` in jacket.toml turns it on without the variable.
@@ -254,7 +256,8 @@ if [ "${JAI_PG_TEST_MANAGED:-}" = 1 ]; then
     race_b=$!
     wait "$race_a" || { cat "$work/race_a/out"; fail "the first of two racing managed builds"; }
     wait "$race_b" || { cat "$work/race_b/out"; fail "the second of two racing managed builds"; }
-    [ "$("$work/race_a/q")" = ok ] && [ "$("$work/race_b/q")" = ok ] || fail "racing managed builds"
+    expect_ok "$work/race_a/q" "racing managed builds"
+    expect_ok "$work/race_b/q" "racing managed builds"
     [ "$(find "$managed_root/db/queries" -type f | wc -l)" -eq "$managed_count" ] || fail "racing managed builds wrote a different cache"
     rm -f "$managed_root/jacket.toml"
     stop_managed_server
