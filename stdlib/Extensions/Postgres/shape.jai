@@ -103,6 +103,52 @@ row_shape :: (sql: string, call: Code, sql_index: s64) -> string {
     return shape;
 }
 
+// Row type identity. When every column is read straight from one table under its own name
+// (`select *`, `returning *`), the query returns that table's struct from db/schema.jai instead of
+// an anonymous row, if the caller can see it and its fields take the columns in order. The macros
+// ask in three steps, since only an inserted name resolves in the caller's scope:
+// `row_table_exists` gives `#exists(Name)` (or `false`), `row_table_type` turns its answer into
+// `Name` (or `void`), and `row_type` checks the fields and falls back to `Row(...)`.
+
+row_table_exists :: (sql: string, call: Code, sql_index: s64) -> string {
+    name := row_table_struct(prepare_query(sql, call, sql_index));
+    if !name return "false";
+
+    return tprint("#exists(%)", name);
+}
+
+row_table_type :: (sql: string, call: Code, sql_index: s64, exists: bool) -> string {
+    if !exists return "void";
+
+    return row_table_struct(prepare_query(sql, call, sql_index));
+}
+
+row_type :: (sql: string, call: Code, sql_index: s64, table: Type, fallback: Type) -> Type {
+    if table == void return fallback;
+
+    prepared := prepare_query(sql, call, sql_index);
+    info := type_info(table);
+
+    if info.type != .STRUCT return fallback;
+
+    field := 0;
+
+    for member: (cast(*Type_Info_Struct) info).members {
+        if (member.flags & .CONSTANT) || (member.flags & .USING) continue;
+        if field >= prepared.entry.columns.count return fallback;
+
+        column := prepared.entry.columns[field];
+
+        if column.name != member.name || field_accepts(column, member.type) return fallback;
+
+        field += 1;
+    }
+
+    if field != prepared.entry.columns.count return fallback;
+
+    return table;
+}
+
 scalar_type :: (sql: string, call: Code, sql_index: s64) -> string {
     prepared := prepare_query(sql, call, sql_index);
 
@@ -360,4 +406,42 @@ field_map_code :: (T: Type, sql: string, call: Code, sql_index: s64) -> string {
     append(*builder, "];");
 
     return builder_to_string(*builder);
+}
+
+// The name db/schema.jai gives the one table every column comes from, or "".
+row_table_struct :: (prepared: *Prepared) -> string {
+    columns := prepared.entry.columns;
+    if !columns.count return "";
+
+    table := "";
+
+    for columns {
+        dot := find_index_from_right(it.origin, #char ".");
+        if dot <= 0 || slice(it.origin, dot + 1, it.origin.count - dot - 1) != it.name return "";
+
+        owner := slice(it.origin, 0, dot);
+
+        if it_index == 0 table = owner;
+        else if owner != table return "";
+    }
+
+    location := node_location(cast(*Code_Node) prepared.call_node);
+    path := join(find_project_root(location.fully_pathed_filename), "/db/schema.jai",, temp);
+    text, ok := read_entire_file(path, log_errors = false,, temp);
+
+    if !ok return "";
+
+    marker := tprint(" :: struct @pg_table(%)", table);
+
+    for line: split(text, "\n",, temp) {
+        at := find_index_from_left(line, marker);
+        if at <= 0 continue;
+
+        after := advance(line, at + marker.count);
+        if after.count && after[0] != #char " " && after[0] != #char "{" continue;
+
+        return slice(line, 0, at);
+    }
+
+    return "";
 }
