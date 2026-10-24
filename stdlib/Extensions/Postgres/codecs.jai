@@ -30,16 +30,22 @@ Oid :: enum u32 {
 
     BOOL_ARRAY :: 1000;
     BYTEA_ARRAY :: 1001;
+    CHAR_ARRAY :: 1002;
+    NAME_ARRAY :: 1003;
     INT2_ARRAY :: 1005;
     INT4_ARRAY :: 1007;
     TEXT_ARRAY :: 1009;
+    BPCHAR_ARRAY :: 1014;
     VARCHAR_ARRAY :: 1015;
     INT8_ARRAY :: 1016;
+    OID_ARRAY :: 1028;
     FLOAT4_ARRAY :: 1021;
     FLOAT8_ARRAY :: 1022;
     TIMESTAMP_ARRAY :: 1115;
     DATE_ARRAY :: 1182;
+    TIME_ARRAY :: 1183;
     TIMESTAMPTZ_ARRAY :: 1185;
+    INTERVAL_ARRAY :: 1187;
     NUMERIC_ARRAY :: 1231;
     UUID_ARRAY :: 2951;
     JSONB_ARRAY :: 3807;
@@ -160,6 +166,9 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Options
             }
         }
 
+        // The text form of the "char" byte 0 is an empty string.
+        if binary && oid == xx Oid.CHAR && bytes.count == 1 && bytes[0] == 0 text = "";
+
         out.* = text;
 
         return "";
@@ -233,6 +242,17 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Options
             return "";
         }
 
+        // Servers from 17 have interval infinities: every field at its limit.
+        if text == "infinity" {
+            out.* = .{ S32_MAX, S32_MAX, S64_MAX };
+            return "";
+        }
+
+        if text == "-infinity" {
+            out.* = .{ S32_MIN, S32_MIN, S64_MIN };
+            return "";
+        }
+
         if !parse_interval_text(text, out) return tprint("\"%\" is not an interval in IntervalStyle postgres", text);
 
         return "";
@@ -264,6 +284,8 @@ ARRAY_TYPES :: struct {
 .{ .FLOAT4_ARRAY, .FLOAT4 }, .{ .FLOAT8_ARRAY, .FLOAT8 }, .{ .TIMESTAMP_ARRAY, .TIMESTAMP },
 .{ .TIMESTAMPTZ_ARRAY, .TIMESTAMPTZ }, .{ .DATE_ARRAY, .DATE }, .{ .NUMERIC_ARRAY, .NUMERIC },
 .{ .UUID_ARRAY, .UUID }, .{ .JSON_ARRAY, .JSON }, .{ .JSONB_ARRAY, .JSONB },
+.{ .CHAR_ARRAY, .CHAR }, .{ .NAME_ARRAY, .NAME }, .{ .BPCHAR_ARRAY, .BPCHAR }, .{ .OID_ARRAY, .OID },
+.{ .TIME_ARRAY, .TIME }, .{ .INTERVAL_ARRAY, .INTERVAL },
 ];
 
 element_oid :: (array_oid: u32) -> u32 {
@@ -515,6 +537,90 @@ decode_numeric_binary :: (bytes: [] u8, out: *Numeric) -> string {
     out.text = builder_to_string(*builder);
 
     return "";
+}
+
+// The binary form of a numeric given as text: "-12.50", "0", "NaN", "Infinity", "-Infinity".
+// Digits are base 10000, so both parts are padded to whole groups of four decimal digits.
+numeric_binary :: (text: string) -> string, string {
+    out: [..] u8;
+    out.allocator = temp;
+
+    if text == "NaN" || text == "Infinity" || text == "-Infinity" {
+        sign: u16 = 0xc000;
+        if text == "Infinity" sign = 0xd000;
+        else if text == "-Infinity" sign = 0xf000;
+
+        put_u16(*out, 0);
+        put_u16(*out, 0);
+        put_u16(*out, sign);
+        put_u16(*out, 0);
+
+        return cast(string) out, "";
+    }
+
+    r := text;
+    negative := begins_with(r, "-");
+
+    if negative || begins_with(r, "+") r = advance(r, 1);
+
+    dot := find_index_from_left(r, #char ".");
+    whole := ifx dot < 0 then r else slice(r, 0, dot);
+    fraction := ifx dot < 0 then "" else advance(r, dot + 1);
+
+    if !whole && !fraction return "", tprint("\"%\" is not a numeric", text);
+
+    for whole if it < #char "0" || it > #char "9" return "", tprint("\"%\" is not a numeric", text);
+    for fraction if it < #char "0" || it > #char "9" return "", tprint("\"%\" is not a numeric", text);
+
+    // Every group of four digits, the whole part right-aligned and the fraction left-aligned.
+    groups: [..] s64;
+    groups.allocator = temp;
+    lead := (4 - whole.count % 4) % 4;
+    weight := (whole.count + lead) / 4 - 1;
+
+    for 0..(whole.count + lead) / 4 - 1 {
+        value := 0;
+
+        for k: 0..3 {
+            at := it * 4 + k - lead;
+            value = value * 10 + ifx at >= 0 then whole[at] - #char "0" else 0;
+        }
+
+        array_add(*groups, value);
+    }
+
+    for 0..(fraction.count + 3) / 4 - 1 {
+        value := 0;
+
+        for k: 0..3 {
+            at := it * 4 + k;
+            value = value * 10 + ifx at < fraction.count then fraction[at] - #char "0" else 0;
+        }
+
+        array_add(*groups, value);
+    }
+
+    first := 0;
+
+    while first < groups.count && groups[first] == 0 {
+        first += 1;
+        weight -= 1;
+    }
+
+    last := groups.count;
+    while last > first && groups[last - 1] == 0 last -= 1;
+
+    count := last - first;
+    if !count weight = 0;
+
+    put_u16(*out, cast(u16) count);
+    put_u16(*out, cast,no_check(u16) weight);
+    put_u16(*out, ifx negative && count > 0 then cast(u16) 0x4000 else 0);
+    put_u16(*out, cast(u16) fraction.count);
+
+    for first..last - 1 put_u16(*out, cast(u16) groups[it]);
+
+    return cast(string) out, "";
 }
 
 // "2024-01-31" or "2024-01-31 BC", "infinity", "-infinity".
@@ -890,6 +996,12 @@ encode_array :: (value: Any) -> Param, string {
 
         if inner_info.type == .ARRAY {
             param = .{ oid = xx Oid.BYTEA, format = .BINARY, data = cast(string) any_array_view(Any.{ inner_info, at + inner_offset }) };
+        } else if inner_info == type_info(Numeric) {
+            // An array element is binary, so the numeric's text is turned into binary form.
+            param.data, why = numeric_binary((cast(*Numeric) (at + inner_offset)).text);
+            if why return .{}, why;
+
+            param.oid = xx Oid.NUMERIC;
         } else {
             param, why = encode_binary(Any.{ inner_info, at + inner_offset });
             if why return .{}, why;

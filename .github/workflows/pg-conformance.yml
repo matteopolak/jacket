@@ -2,9 +2,11 @@ name: postgres conformance
 # The Postgres client against PostgreSQL's own suites (docs/postgres/conformance.md): the server
 # tests in stdlib/Extensions/Postgres/tests, then the regression suite run once through the real
 # psql and once through the Jai psql shim, on every supported major version. A test that passes
-# with psql and fails with the shim fails the job unless regress-skip.txt lists it. The TAP suites
-# (connection strings, password authentication, SASLprep, query cancellation) run through the shim
-# psql and libpq_uri_regress the same way.
+# with psql and fails with the shim fails the job unless regress-skip.txt lists it. The binary
+# round trip then fetches the typed data that run leaves behind in text and in binary, and the JSON
+# regression literals, and sends every value back to the server. The TAP suites (connection
+# strings, password authentication, SASLprep, query cancellation) run through the shim psql and
+# libpq_uri_regress the same way.
 on:
   push:
     branches: [main]
@@ -77,6 +79,8 @@ jobs:
         run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config" --pipeline-traces
       - name: TAP suites through psql and the shims
         run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config" --tap
+      - name: Binary round trip over the regression tables
+        run: python3 -u tools/pg_conformance/roundtrip.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config"
       - name: Keep the diffs
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

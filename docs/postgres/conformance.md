@@ -26,7 +26,7 @@ extension differences in the environment do not show up as client failures.
 | Suite | Where in the source | What it covers | Status |
 | --- | --- | --- | --- |
 | Regression | `src/test/regress` (`parallel_schedule`, `sql/`, `expected/`) | text I/O of every built-in type (including `json`, `jsonb`, `jsonpath`), errors with every field and position, notices, COPY in and out, LISTEN/NOTIFY, transactions, multiple statements, big results | Applies. The shim covers the meta-commands in the table below. |
-| Binary round trip | the same SQL | binary codecs: every result is fetched again in binary and compared with the text decode | Ours, driven by the regression SQL |
+| Binary round trip | the tables the regression run leaves behind, plus `edge_values.sql` | binary codecs: every value is fetched in text and in binary, decoded, compared, then sent back as a parameter and compared on the server | Ours: `tools/pg_conformance/roundtrip.py`, in the workflow after the regression step |
 | Authentication TAP | `src/test/authentication/t/001_password.pl`, `002_saslprep.pl`, `003_peer.pl`, `004_file_inclusion.pl`, `006_login_trigger.pl` | SCRAM, MD5, cleartext, `require_auth`, password files, SASLprep of passwords, peer authentication, login event triggers | Passes: 178, 20, 53, 2 and 32 tests. `005_sspi.pl` is Windows only. |
 | SSL TAP | `src/test/ssl/t/001_ssltests.pl`, `002_scram.pl` | `sslmode`, `sslrootcert`, host name checks, client certificates, CRLs, SCRAM channel binding | Applies. Client certificates, CRLs and `sslsni` are client features still to add. |
 | libpq TAP | `src/interfaces/libpq/t/001_uri.pl` | connection URI and key/value parsing | Passes (60 tests) through the `libpq_uri_regress` shim |
@@ -94,7 +94,45 @@ narrower:
 - psycopg's and npgsql's lists of awkward values (infinities, out-of-range dates, `NaN` numerics,
   empty arrays and arrays with lower bounds).
 
-These go into the binary round-trip test as extra SQL, with a note of where each came from.
+These go into the binary round-trip test as extra SQL, `tests/conformance/edge_values.sql`: every
+value there is written for this suite, from those lists' ideas (its header says so). It covers
+integer limits, `-0.0` and the float limits, `NaN` and infinities of floats and numerics, numerics
+with a huge weight, a huge scale and a negative scale, BC dates and the year 294276 and 5874897
+limits, the `infinity` values of dates, timestamps and (from 17) intervals, intervals of both signs,
+every byte of a `bytea`, Unicode text, empty arrays, arrays with NULLs and with lower bounds, and
+json documents with duplicate keys, deep nesting and escapes.
+
+### The binary round trip
+
+`tests/conformance/roundtrip.jai` takes every column of every type the client decodes, in the
+tables of the schemas it is given, and for each distinct value:
+
+1. fetches the column in text (`query_dynamic`) and in binary (`query_binary`) and decodes both
+   into the Jai type (`bool`, `s16`... `Pg.Numeric`, `Pg.Interval`, `[] Pg.Nullable(T)` for
+   arrays...); the two must be the same value (floats by their bits, so `-0.0` differs from `0.0`);
+2. sends the decoded value back as a parameter, with the original text as a second one, and has
+   the server check `$1::T is not distinct from $2::T` and that both print the same text (so a
+   numeric's scale and `-0` count). Arrays are compared through `to_jsonb`, and their text only when
+   the original has no lower bounds, which a Jai slice cannot hold;
+3. for `json` and `jsonb`: decodes the document into a `Json_Value` from both formats, writes it
+   back with `Pg.json`, and has the server compare it with the original (`jsonb` equality and
+   text; for `json` the jsonb forms, when the text has one).
+
+A column of another type (ranges, `inet`, `bit`, enums, arrays of domains...) is listed as not
+decoded. Multi-dimensional arrays are counted as skipped: the client only reads one dimension.
+
+`tools/pg_conformance/roundtrip.py` runs it. A temporary cluster runs the regression schedule with
+the real `psql` (its tables stay in the `regression` database), then `roundtrip.jai` checks every
+non-system schema plus `edge_values.sql`, and every `json`/`jsonb` literal harvested from the
+`json`, `jsonb`, `jsonpath`, `jsonb_jsonpath`, `json_encoding`, `jsonpath_encoding` and `sqljson*`
+regression files (string literals cast to `json`/`jsonb`, or that look like a document; the
+server's refusals, the invalid ones in those files, are counted and skipped). The session time zone
+is `Europe/Amsterdam`, so `timestamptz` text carries the odd offsets of old local mean time.
+
+On 17.11 it checks about 157,000 distinct values (1.3 million fetched) and 390 JSON documents with
+no failure. Two known limits are counted, not failed: a `json` text with a lone surrogate escape
+(`"\ud83d"`) cannot be a `Json_Value` string and is read as `Json_Raw`, and `json` text with a
+`\u0000` escape has no `jsonb` form to compare with.
 
 ## How to change it
 
@@ -115,6 +153,13 @@ These go into the binary round-trip test as extra SQL, with a note of where each
   `target/pg-conformance/run/<major>/`; each run's `summary.txt` holds pg_regress's report,
   since it deletes `regression.out` when everything passes. Fix the client or the shim. Never
   edit `expected/`.
+- **A failing round-trip value:** `python3 tools/pg_conformance/roundtrip.py` prints the
+  table, column, original text and what was sent back. It builds `roundtrip.jai` and keeps the
+  JSON literals under `target/pg-conformance/roundtrip/<major>/`. `--skip-regress` checks the
+  edge values and literals only; `--only int4 numeric` shortens the regression run. To run it by
+  hand against a server: `./roundtrip --database <db> --schema '*' --script edge_values.sql`, with
+  `PGHOST`, `PGPORT` and `PGUSER` set. A new awkward value is a row in `edge_values.sql`; a new
+  decoded type is a `case` in `check_oid`.
 - **The C helpers:** `run.py` compiles `regress.c` and contrib/spi's `autoinc.c` and `refint.c`
   (with `REFINT_VERBOSE`, as its Makefile does) against the server's headers into the run's
   `lib/`, which pg_regress gets as `--dlpath`.
