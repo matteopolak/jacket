@@ -9,13 +9,42 @@
 //! `all` stands for every rule.
 use jaic::ast::{File, Note, Stmt, StmtKind};
 use jaic::lexer::{Comment, CommentKind, Tok, Token};
+use std::cell::Cell;
 
 pub(crate) struct Suppressions {
-    file: Vec<String>,
-    /// (line start, line end, rules): a covered line.
-    lines: Vec<(usize, usize, Vec<String>)>,
-    /// (start, end, rules): a covered declaration.
-    ranges: Vec<(usize, usize, Vec<String>)>,
+    entries: Vec<Entry>,
+}
+
+/// One comment or note: where it applies, and the names it lists.
+struct Entry {
+    scope: Scope,
+    names: Vec<Name>,
+    /// Inside an `#if`, or in a file with one: another branch may be what needs it, so it is
+    /// never reported as unused.
+    conditional: bool,
+}
+
+enum Scope {
+    File,
+    /// (line start, line end): a covered line.
+    Lines(usize, usize),
+    /// (start, end): a covered declaration.
+    Range(usize, usize),
+}
+
+struct Name {
+    text: String,
+    /// Where to point when it is unused.
+    at: (usize, usize),
+    /// Some finding was silenced by it.
+    used: Cell<bool>,
+}
+
+/// A name in a suppression that silenced nothing.
+pub(crate) struct Unused {
+    pub start: usize,
+    pub end: usize,
+    pub name: String,
 }
 
 const MARKER: &str = "jailint:";
@@ -24,32 +53,68 @@ const NOTE: &str = "jailint_allow";
 impl Suppressions {
     pub fn new(text: &str, tokens: &[Token], comments: &[Comment], ast: &File) -> Self {
         let mut s = Suppressions {
-            file: Vec::new(),
-            lines: Vec::new(),
-            ranges: Vec::new(),
+            entries: Vec::new(),
         };
+        let mut conditional = Vec::new();
+        s.notes(&ast.stmts, &mut conditional);
         s.comments(text, tokens, comments);
-        s.notes(&ast.stmts);
+        // Code in one branch of an `#if` can be what a suppression outside it is for (an
+        // import only the Windows branch uses), so a file with any `#if` is not judged.
+        let file_has_if = !conditional.is_empty();
+        for entry in &mut s.entries {
+            let at = entry.names.first().map_or(0, |n| n.at.0);
+            entry.conditional |= file_has_if || conditional.iter().any(|&(a, b)| a <= at && at < b);
+        }
         s
     }
 
     /// A comment or note silences `rule` (by its name, its category or `all`) at `offset`.
     pub fn allows_rule(&self, rule: &crate::RuleInfo, offset: usize) -> bool {
-        self.allows(rule.name, offset) || self.allows(rule.category.as_str(), offset)
+        let by_name = self.allows(rule.name, offset);
+        let by_category = self.allows(rule.category.as_str(), offset);
+        by_name || by_category
     }
 
-    /// A comment or note silences the rule or category `rule` (or `all`) at `offset`.
+    /// A comment or note silences the rule or category `rule` (or `all`) at `offset`. Every
+    /// name that does is marked used.
     pub fn allows(&self, rule: &str, offset: usize) -> bool {
-        let names = |list: &[String]| list.iter().any(|r| r == rule || r == "all");
-        names(&self.file)
-            || self
-                .lines
-                .iter()
-                .any(|(a, b, r)| *a <= offset && offset <= *b && names(r))
-            || self
-                .ranges
-                .iter()
-                .any(|(a, b, r)| *a <= offset && offset < *b && names(r))
+        let mut found = false;
+        for entry in &self.entries {
+            let covers = match entry.scope {
+                Scope::File => true,
+                Scope::Lines(a, b) => a <= offset && offset <= b,
+                Scope::Range(a, b) => a <= offset && offset < b,
+            };
+            if !covers {
+                continue;
+            }
+            for name in &entry.names {
+                if name.text == rule || name.text == "all" {
+                    name.used.set(true);
+                    found = true;
+                }
+            }
+        }
+        found
+    }
+
+    /// The names that silenced nothing. `judge` says whether a name could have: it names rules
+    /// that all ran (a rule that was off, or that stays quiet on an incomplete compile, proves
+    /// nothing), and it is not misspelt (`unknown_allow` reports that).
+    pub fn unused(&self, judge: &dyn Fn(&str) -> bool) -> Vec<Unused> {
+        let mut out = Vec::new();
+        for entry in self.entries.iter().filter(|e| !e.conditional) {
+            for name in &entry.names {
+                if !name.used.get() && judge(&name.text) {
+                    out.push(Unused {
+                        start: name.at.0,
+                        end: name.at.1,
+                        name: name.text.clone(),
+                    });
+                }
+            }
+        }
+        out
     }
 
     fn comments(&mut self, text: &str, tokens: &[Token], comments: &[Comment]) {
@@ -61,32 +126,51 @@ impl Suppressions {
             let Some((file_wide, rules)) = directive(comment.body(text)) else {
                 continue;
             };
-            let rules: Vec<String> = rules.into_iter().map(str::to_string).collect();
-            if file_wide {
-                self.file.extend(rules);
-                continue;
-            }
-            let line_start = jaic::source::line_start(text, start);
-            if !text[line_start..start].trim().is_empty() {
-                self.lines.push((line_start, line_end, rules));
-                continue;
-            }
-            // The next line holding code: the comment lines in between are covered too (a
-            // marker inside a doc comment covers the links below it).
-            let next = tokens.partition_point(|t| (t.span.start as usize) < line_end);
-            if let Some(t) = tokens.get(next).filter(|t| t.tok != Tok::Eof) {
-                let end = jaic::source::line_end(text, t.span.start as usize);
-                self.lines.push((line_end + 1, end, rules));
-            }
+            let names = rules
+                .into_iter()
+                .map(|r| {
+                    let at = offset_in(text, r).unwrap_or(start);
+                    Name {
+                        text: r.to_string(),
+                        at: (at, at + r.len()),
+                        used: Cell::new(false),
+                    }
+                })
+                .collect();
+            let scope = if file_wide {
+                Scope::File
+            } else {
+                let line_start = jaic::source::line_start(text, start);
+                if text[line_start..start].trim().is_empty() {
+                    // The next line holding code: the comment lines in between are covered
+                    // too (a marker inside a doc comment covers the links below it).
+                    let next = tokens.partition_point(|t| (t.span.start as usize) < line_end);
+                    let Some(t) = tokens.get(next).filter(|t| t.tok != Tok::Eof) else {
+                        continue;
+                    };
+                    let end = jaic::source::line_end(text, t.span.start as usize);
+                    Scope::Lines(line_end + 1, end)
+                } else {
+                    Scope::Lines(line_start, line_end)
+                }
+            };
+            self.entries.push(Entry {
+                scope,
+                names,
+                conditional: false,
+            });
         }
     }
 
-    fn notes(&mut self, stmts: &[Stmt]) {
+    fn notes(&mut self, stmts: &[Stmt], conditional: &mut Vec<(usize, usize)>) {
         for s in stmts {
             let mut stack = Vec::new();
             crate::syntax::walk_node(crate::syntax::Node::Stmt(s), &mut stack, &mut |n, _| {
                 match n {
                     crate::syntax::Node::Stmt(s) => {
+                        if matches!(s.kind, StmtKind::StaticIf(_) | StmtKind::StaticSwitch(_)) {
+                            conditional.push((s.span.start as usize, s.span.end as usize));
+                        }
                         self.note_list(&s.notes, s.span);
                         if let StmtKind::Decl(d) = &s.kind {
                             self.note_list(&d.notes, s.span.to(d.span));
@@ -96,11 +180,11 @@ impl Suppressions {
                         if let jaic::ast::ExprKind::Proc(lit) = &e.kind {
                             self.note_list(&lit.header.notes, e.span);
                             if let Some(body) = &lit.body {
-                                self.notes(&body.stmts);
+                                self.notes(&body.stmts, conditional);
                             }
                         }
                         if let jaic::ast::ExprKind::Struct(st) = &e.kind {
-                            self.notes(&st.body);
+                            self.notes(&st.body, conditional);
                         }
                     }
                 }
@@ -115,13 +199,50 @@ impl Suppressions {
                 continue;
             };
             if let Some(rules) = rule_list(list) {
-                let rules = rules.into_iter().map(str::to_string).collect();
-
-                self.ranges
-                    .push((span.start as usize, span.end as usize, rules));
+                let at = (note.span.start as usize, note.span.end as usize);
+                self.entries.push(Entry {
+                    scope: Scope::Range(span.start as usize, span.end as usize),
+                    names: rules
+                        .into_iter()
+                        .map(|r| Name {
+                            text: r.to_string(),
+                            at,
+                            used: Cell::new(false),
+                        })
+                        .collect(),
+                    conditional: false,
+                });
             }
         }
     }
+}
+
+/// Whether an unused `name` is evidence of anything: it is a rule, a category or `all`, and
+/// every rule it covers ran (`unused_suppression` itself apart).
+pub(crate) fn could_judge(name: &str, ran: &[&str]) -> bool {
+    let covered: Vec<&str> = if name == "all" {
+        crate::RULES.iter().map(|r| r.name).collect()
+    } else if let Some(category) = crate::config::Category::parse(name) {
+        crate::RULES
+            .iter()
+            .filter(|r| r.category == category)
+            .map(|r| r.name)
+            .collect()
+    } else if crate::RULES.iter().any(|r| r.name == name) {
+        vec![name]
+    } else {
+        return false;
+    };
+    name != "unused_suppression"
+        && covered
+            .iter()
+            .all(|r| *r == "unused_suppression" || ran.contains(r))
+}
+
+/// Where `part`, a slice of `text`, starts.
+pub(crate) fn offset_in(text: &str, part: &str) -> Option<usize> {
+    let start = (part.as_ptr() as usize).checked_sub(text.as_ptr() as usize)?;
+    (start + part.len() <= text.len()).then_some(start)
 }
 
 /// The body of a `// jailint: allow(...)` or `allow-file(...)` comment: whether it covers the
@@ -228,5 +349,36 @@ mod tests {
         let s = suppressions(text);
         assert!(s.allows("a", text.find("x :=").unwrap()));
         assert!(!s.allows("b", text.find("y :=").unwrap()));
+    }
+
+    #[test]
+    fn names_that_silenced_nothing_are_unused() {
+        let text = "// jailint: allow(a, b)\nx := 1;\ny := 2; // jailint: allow(c)\n";
+        let s = suppressions(text);
+        assert!(s.allows("a", text.find("x :=").unwrap()));
+        let unused: Vec<String> = s.unused(&|_| true).into_iter().map(|u| u.name).collect();
+        assert_eq!(unused, ["b", "c"]);
+        let none = s.unused(&|name| name == "c");
+        assert_eq!(none.len(), 1);
+        assert_eq!(&text[none[0].start..none[0].end], "c");
+    }
+
+    #[test]
+    fn a_file_with_an_if_is_not_judged() {
+        // The import is used only in the Windows branch: on other targets the allow is needed.
+        let text = "#import \"Basic\"; // jailint: allow(a)\n#if OS == .WINDOWS {\n// jailint: allow(b)\nz := 3;\n}\n";
+        let s = suppressions(text);
+        assert!(s.unused(&|_| true).is_empty());
+    }
+
+    #[test]
+    fn a_name_is_judged_only_when_its_rules_ran() {
+        let ran = ["unused_variable", "float_equality"];
+        assert!(could_judge("unused_variable", &ran));
+        assert!(!could_judge("magic_number", &ran));
+        assert!(!could_judge("no_such_rule", &ran));
+        assert!(!could_judge("all", &ran));
+        assert!(!could_judge("pedantic", &ran));
+        assert!(!could_judge("unused_suppression", &ran));
     }
 }

@@ -95,6 +95,27 @@ fn expect(path: &Path, actual: &str) {
     assert_eq!(actual, expected, "{} differs", path.display());
 }
 
+/// Rules a case needs on besides its own: a suppression is only unused when the rules it
+/// names ran.
+fn companions(rule: &str) -> &'static [&'static str] {
+    match rule {
+        "unused_suppression" => &[
+            "unused_variable",
+            "unused_parameter",
+            "float_equality",
+            "todo_marker",
+        ],
+        _ => &[],
+    }
+}
+
+/// The levels for the case of `rule`: the rule at `level`, and its companions at `warn`.
+fn case_levels(rule: &str, level: Level) -> Vec<(&str, Level)> {
+    std::iter::once((rule, level))
+        .chain(companions(rule).iter().map(|c| (*c, Level::Warn)))
+        .collect()
+}
+
 #[test]
 fn every_rule_has_cases() {
     let dir = repo().join("tests/lint");
@@ -143,7 +164,7 @@ fn rules_match_their_cases() {
         };
         let case = dir.join(r.name);
         let bad = case.join("bad.jai");
-        let (lints, text) = lint(&bad, &[(r.name, level)]);
+        let (lints, text) = lint(&bad, &case_levels(r.name, level));
         assert!(
             !lints.is_empty(),
             "{} finds nothing in its bad case",
@@ -159,7 +180,7 @@ fn rules_match_their_cases() {
             assert!(!fixed_path.exists(), "{} has no fixes to apply", r.name);
         }
         let good = case.join("good.jai");
-        let (lints, text) = lint(&good, &[(r.name, level)]);
+        let (lints, text) = lint(&good, &case_levels(r.name, level));
         assert!(
             lints.is_empty(),
             "{} fires on its good case:\n{}",
@@ -225,7 +246,7 @@ fn fixed_cases_are_clean() {
         if !fixed.exists() {
             continue;
         }
-        let (lints, text) = lint(&fixed, &[(r.name, Level::Warn)]);
+        let (lints, text) = lint(&fixed, &case_levels(r.name, Level::Warn));
         // The linter skips a file that does not parse, so a broken fix would pass as clean.
         if let Err(error) = jaic::parser::parse_file(jaic::source::FileId(0), &text) {
             panic!("{} does not parse: {error:?}", fixed.display());

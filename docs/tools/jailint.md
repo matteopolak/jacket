@@ -186,6 +186,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `unused_import` | style | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | style | warn | editor | a parameter the procedure never uses |
 | `unused_result` | suspicious | warn | editor | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
+| `unused_suppression` | suspicious | warn | no | `x := 1; // jailint: allow(float_equality)`: a name in an allow comment or note that silences nothing |
 | `unused_variable` | style | warn | yes | a local variable that is never used |
 | `use_after_free` | correctness | deny | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
 | `useless_format` | complexity | warn | editor | `tprint("%", name)`, `sprint("%", name)` with `name: string`: a copy made through a string builder |
@@ -387,6 +388,8 @@ Unnamed imports count as used when any lookup went through them, or (guard for u
 Only for procedures whose every caller is in view: named, only called (never taken as a value), called at least once, not overloaded or exported, no `#c_call`/`#foreign`/`#expand`/notes. Also skipped when a variant exists (same name and parameter names, e.g. another platform's definition in an `#if` branch or sibling `.jai` file the program does not load; those files are parsed, not text-searched). Prefix a name with `_` to keep it. The editor offers the `_` prefix; `--fix` does not, since a caller may pass the argument by name.
 ### unused_result
 Procedures declared with `@UseResult` (many in `Basic`/`String`/`Math`), so a program's own `trim` is left alone unless it carries the note. Calls with a pointer argument (works in place) are skipped. When the first argument is a plain name of the result's type, the editor offers `x = f(x);`.
+### unused_suppression
+A name in a `// jailint: allow(...)`, `allow-file(...)` or `@jailint_allow(...)` that no finding was silenced by, reported on the name (or on the whole note). It is judged only when it proves something: every rule it names (every rule of a category for a category name, every rule for `all`) ran at an enabled level on the file, so `all` and category names with an off rule in them are left alone; the compile finished (not under `--allow-incomplete` with errors, and not in a file whose bodies failed to check); it does not sit inside an `#if` or `#if ==` block, whose other branches may be the ones that need it; and it names a real rule (`unknown_allow` reports the rest). `[[lint.overrides]]` entries in `jacket.toml` are not checked. No fix.
 ### unused_variable
 A name that appears anywhere else in its block is never reported (covers `#if`-excluded code and `#asm`). Skipped: backtick declarations, `using`, `_` names, blocks with `#insert`, macros. Fix removes the declaration, drops trailing call results, or renames to `_`.
 ### use_after_free
@@ -416,7 +419,7 @@ callback :: (event: int, data: *void) {
 } @jailint_allow(unused_parameter)        // after a declaration: all of it
 ```
 
-Rules are comma-separated; `all` means every rule. A name that is neither a rule, a category nor `all` is reported by `unknown_allow`. A `_` prefix marks an unused variable or parameter as intentional.
+Rules are comma-separated; `all` means every rule. A name that is neither a rule, a category nor `all` is reported by `unknown_allow`, and one that silences nothing by `unused_suppression`. A `_` prefix marks an unused variable or parameter as intentional.
 
 ## Configuration
 

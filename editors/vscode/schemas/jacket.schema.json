@@ -1035,6 +1035,16 @@
               "default": "warn",
               "markdownDescription": "a call to a `@UseResult` procedure, as a statement (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_result)"
             },
+            "unused_suppression": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a name in a `// jailint: allow(...)` comment or `@jailint_allow` note that silences nothing (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_suppression)"
+            },
             "unused_variable": {
               "type": "string",
               "enum": [

@@ -9,7 +9,7 @@
 //! overload set shares a shape), not exported from a module (its users are elsewhere), and
 //! not `#c_call`, `#program_export`, `#foreign`, `#expand` (which `for_expansion` must be),
 //! operators or the entry point.
-//! Procedures with notes are skipped too: metaprograms find procedures by their notes and
+//! Procedures with notes (other than `@jailint_allow`) are skipped too: metaprograms find procedures by their notes and
 //! call them with a fixed signature. Empty bodies (stubs), bodies with `#insert` (inserted
 //! code may use any parameter) and parameters whose type has a `$` (the argument settles a
 //! polymorphic type) are left alone.
@@ -117,9 +117,9 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
         || f.runtime_support()
         || h.foreign.is_some()
         || h.operator.is_some()
-        || !h.notes.is_empty()
-        || !decl.notes.is_empty()
-        || h.params.iter().any(|q| !q.notes.is_empty())
+        || read_by_tools(&h.notes)
+        || read_by_tools(&decl.notes)
+        || h.params.iter().any(|q| read_by_tools(&q.notes))
     {
         return false;
     }
@@ -424,4 +424,9 @@ fn top_level(list: &[jaic::ast::Stmt], defs: &mut HashMap<String, Vec<Signature>
         }
         true
     });
+}
+
+/// Some note is one a metaprogram may look for; `@jailint_allow(...)` is for this linter.
+fn read_by_tools(notes: &[jaic::ast::Note]) -> bool {
+    notes.iter().any(|n| !n.text.starts_with("jailint_allow"))
 }

@@ -100,6 +100,7 @@ pub(crate) mod unused_import;
 mod unused_parameter;
 pub(crate) use unused_parameter::RunState;
 mod unused_result;
+mod unused_suppression;
 mod unused_variable;
 mod use_after_free;
 mod useless_format;
@@ -669,6 +670,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a call to a `@UseResult` procedure, as a statement",
         check: unused_result::check,
+    },
+    RuleInfo {
+        name: "unused_suppression",
+        category: Category::Suspicious,
+        summary: "a name in a `// jailint: allow(...)` comment or `@jailint_allow` note that silences nothing",
+        check: unused_suppression::check,
     },
     RuleInfo {
         name: "unused_variable",

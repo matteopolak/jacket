@@ -126,7 +126,7 @@ pub fn lint_files(
             .max_stack_array_bytes
             .unwrap_or(config::DEFAULT_MAX_STACK_ARRAY_BYTES);
         cx.doc_links = doc_links;
-        for (rule, level) in wanted {
+        for &(rule, level) in &wanted {
             let mut found = Vec::new();
             (rule.check)(&cx, &mut found);
             for f in found {
@@ -143,6 +143,29 @@ pub fn lint_files(
                     label: f.label,
                     help: f.help,
                     fix: f.fix,
+                });
+            }
+        }
+        // After every other rule has had its say: what no finding used is stale.
+        if complete
+            && let Some(&(rule, level)) =
+                wanted.iter().find(|(r, _)| r.name == "unused_suppression")
+        {
+            let ran: Vec<&str> = wanted.iter().map(|(r, _)| r.name).collect();
+            for stale in suppressions.unused(&|name| suppress::could_judge(name, &ran)) {
+                if suppressions.allows_rule(rule, stale.start) {
+                    continue;
+                }
+                out.push(Lint {
+                    rule: rule.name,
+                    level,
+                    path: path.clone(),
+                    start: stale.start,
+                    end: stale.end,
+                    message: format!("`{}` allows nothing here", stale.name),
+                    label: None,
+                    help: Some("nothing it covers is reported any more; remove it".into()),
+                    fix: None,
                 });
             }
         }

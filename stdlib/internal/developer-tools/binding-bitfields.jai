@@ -431,7 +431,7 @@ binding_bitfield_accessors :: (builder: *String_Builder, group: *Bitfield, scope
 }
 
 // One setter and getter. Returns false, printing nothing, for a member whose type has no name to compute with.
-binding_member_accessors :: (builder: *String_Builder, unit: Bitfield_Accessor_Unit, member: *Declaration, shift: s64, getter: string, setter: string) -> bool { // jailint: allow(cognitive_complexity)
+binding_member_accessors :: (builder: *String_Builder, unit: Bitfield_Accessor_Unit, member: *Declaration, shift: s64, getter: string, setter: string) -> bool {
     width := member.bitfield_width;
     base := strip_type(member.type, typedefs = true, enums = true);
     named := strip_type(member.type, typedefs = true);

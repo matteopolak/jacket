@@ -13,7 +13,7 @@
 //! not checked.
 use super::RULES;
 use crate::config::Category;
-use crate::suppress::directive;
+use crate::suppress::{directive, offset_in};
 use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
 use jaic::lexer::CommentKind;
@@ -60,12 +60,6 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             });
         }
     }
-}
-
-/// Where `part`, a slice of `text`, starts.
-fn offset_in(text: &str, part: &str) -> Option<usize> {
-    let start = (part.as_ptr() as usize).checked_sub(text.as_ptr() as usize)?;
-    (start + part.len() <= text.len()).then_some(start)
 }
 
 /// The rule whose name is within two edits of `name`.
