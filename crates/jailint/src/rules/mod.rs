@@ -30,6 +30,7 @@ mod erasing_op;
 mod excessive_bools;
 mod excessive_nesting;
 mod exit_in_module;
+mod field_reassign_with_default;
 mod float_equality;
 mod format_push_string;
 mod frees;
@@ -247,6 +248,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Pedantic,
         summary: "blocks nested deeper than `max_nesting` (default 6)",
         check: excessive_nesting::check,
+    },
+    RuleInfo {
+        name: "field_reassign_with_default",
+        category: Category::Pedantic,
+        summary: "`x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }` sets the fields at the declaration",
+        check: field_reassign_with_default::check,
     },
     RuleInfo {
         name: "exit_in_module",

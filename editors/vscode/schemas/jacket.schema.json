@@ -345,6 +345,16 @@
               "default": "allow",
               "markdownDescription": "blocks nested deeper than `max_nesting` (default 6) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_nesting)"
             },
+            "field_reassign_with_default": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "`x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }` sets the fields at the declaration (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#field_reassign_with_default)"
+            },
             "exit_in_module": {
               "type": "string",
               "enum": [

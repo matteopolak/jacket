@@ -113,6 +113,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `excessive_bools` | restriction | allow | no | `open :: (path: string, read: bool, write: bool, create: bool, truncate: bool)` |
 | `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
 | `exit_in_module` | restriction | allow | no | `exit(1)` in a file that belongs to a module |
+| `field_reassign_with_default` | pedantic | allow | editor | `config: Config; config.width = 80; config.height = 24;` |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
 | `format_push_string` | perf | warn | editor | `append(*builder, tprint("%: %\n", name, value))`: `print_to_builder` writes into the builder directly |
 | `identical_branches` | suspicious | warn | editor | `if c { A } else { A }`, `ifx c then a else a` |
@@ -226,6 +227,8 @@ A parameter counts when its type is written `bool`, or it has no type and defaul
 Off by default. A level is a braced block or a `switch`; `else if` chains and `#if` add none. A procedure written inside a block starts counting from that block's depth, so a nested procedure cannot hide the nesting. Reports the first block past the limit on each path, on its `{` (or the `switch` header). The limit is `[lint] max_nesting` in `jacket.toml` or `--max-nesting <n>`, default 6; enable it with `-W excessive_nesting` or `[lint.rules]`. On the standard library, a limit of 6 finds nothing and 5 finds five blocks. Fix by returning or `continue`ing early, or by moving the inner part into a procedure. Generated files are skipped.
 ### exit_in_module
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module). A call is reported when the procedure it calls has the `@Exits` note (the library's `exit`). A library that exits skips the program's cleanup and cannot be tested: return an error. Programs, macros and generated files are not checked. No fix.
+### field_reassign_with_default
+The fields not named in the literal keep their defaults, as in the declaration, and the values are set where the variable is made instead of in statements a later edit can separate from it. Fires on a local `name: T;` of a struct type with no value, directly followed by one or more plain assignments `name.field = value;` to distinct fields, whose values do not mention `name`. Unions, `+=` and nested members are left alone. The editor offers the literal when no comment sits among the statements; `--fix` does not apply it. Off by default: declaring and then assigning is common, readable Jai (over 500 places in this repository).
 ### float_equality
 Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
 ### format_push_string
