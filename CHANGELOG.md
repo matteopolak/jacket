@@ -31,6 +31,7 @@
 - `jailint` has an opt-in lint for `TODO`, `FIXME`, `XXX` and `HACK` comments (`todo_marker`).
 - `jailint` has an opt-in lint for procedures with too many parameters, with the limit set by `max_arguments` (`too_many_arguments`).
 - `jailint` has an opt-in lint for procedures with too many `bool` parameters, with the limit set by `max_bools` (`excessive_bools`).
+- `jailint` has an opt-in lint for a `switch` on an enum that leaves members out without `#complete` or a default case (`incomplete_enum_switch`).
 
 ### Improved
 

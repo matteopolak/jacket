@@ -37,6 +37,7 @@ mod identical_operands;
 mod identity_op;
 mod if_not_else;
 mod impossible_comparison;
+mod incomplete_enum_switch;
 mod index_only_loop;
 mod infinite_loop;
 mod int_plus_one;
@@ -269,6 +270,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Pedantic,
         summary: "an `if` or `ifx` with a negated condition and an `else`",
         check: if_not_else::check,
+    },
+    RuleInfo {
+        name: "incomplete_enum_switch",
+        category: Category::Pedantic,
+        summary: "a `switch` on an enum that neither covers every member nor has a default case",
+        check: incomplete_enum_switch::check,
     },
     RuleInfo {
         name: "impossible_comparison",

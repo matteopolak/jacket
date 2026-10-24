@@ -405,6 +405,16 @@
               "default": "allow",
               "markdownDescription": "an `if` or `ifx` with a negated condition and an `else` (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#if_not_else)"
             },
+            "incomplete_enum_switch": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a `switch` on an enum that neither covers every member nor has a default case (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#incomplete_enum_switch)"
+            },
             "impossible_comparison": {
               "type": "string",
               "enum": [

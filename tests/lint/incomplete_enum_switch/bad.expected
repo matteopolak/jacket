@@ -1,0 +1,16 @@
+warning[incomplete_enum_switch]: this `switch` on `Shape` does not handle .TRIANGLE, .HEXAGON
+  --> tests/lint/incomplete_enum_switch/bad.jai:11:5
+   |
+11 |     if kind == {
+   |     ^^^^^^^^^^^^
+   |
+   = help: handle them, or add `case;` for the rest, or write `#complete` so the compiler checks the list
+
+warning[incomplete_enum_switch]: this `switch` on `Shape` does not handle .HEXAGON
+  --> tests/lint/incomplete_enum_switch/bad.jai:22:5
+   |
+22 |     if kind == {
+   |     ^^^^^^^^^^^^
+   |
+   = help: handle them, or add `case;` for the rest, or write `#complete` so the compiler checks the list
+

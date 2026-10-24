@@ -116,6 +116,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `identity_op` | complexity | warn | yes | `x + 0`, `x * 1`, `x / 1` |
 | `if_not_else` | pedantic | allow | editor | `if !ready { ... } else { ... }`, `if a != b { ... } else { ... }`, `ifx !c then x else y`: a negation the swapped branches would not need |
 | `impossible_comparison` | correctness | deny | editor | `x > 5 && x < 3`, `x != 1 \|\| x != 2`: comparisons of one integer that never pass together, or always pass between them |
+| `incomplete_enum_switch` | pedantic | allow | no | `if kind == { case .CIRCLE; ...; case .SQUARE; ...; }` with `TRIANGLE` left out and no `#complete` or `case;` |
 | `index_only_loop` | complexity | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
 | `infinite_loop` | suspicious | warn | no | a `while` whose condition nothing in the loop changes |
 | `int_plus_one` | complexity | warn | editor | `x >= y + 1`, `x - 1 >= y`, `x + 1 <= y`, `x <= y - 1`: an integer comparison with `1` added or taken off, which is a strict comparison |
@@ -221,6 +222,8 @@ Float `==`, `!=` and `-` are left alone (NaN tests), as are operator procedures.
 Off by default, since putting the exceptional or shorter branch first is often right. A condition `!c`, or `a != b` of numbers, pointers, enums or strings, with a plain `else` (an `else if` chain is skipped). The editor swaps the branches when both are blocks, or for an `ifx`; `--fix` leaves it.
 ### impossible_comparison
 Only integer expressions compared with integer literals, within one run of `&&` or `||`. Floats are left alone (`x > 1 && x < 2` holds for `1.5`). Redundant pairs such as `x < 3 && x < 5` are not reported. For a lone pair of comparisons the editor offers to swap `&&` and `||`, when the swapped test is not impossible too.
+### incomplete_enum_switch
+Lists the members no case mentions. Mark the switch `#complete` so the compiler keeps the list current, or add `case;` to name the fallback. Plain enums only (not `enum_flags`); a case value that is not a plain member name (`case Color.RED + 1;`) hides the coverage, so such switches are skipped. Members with the same value as a listed one count as covered. Off by default: handling two members of ten is often deliberate. No fix.
 ### index_only_loop
 Becomes `for xs` (or `for *xs` when elements are written), other uses of `i` become `it_index`. Quiet when the loop may change `xs`, walks a grid, indexes other arrays or `xs[i + 1]`, or when `xs` is a constant. When the rewrite would make `it` name an inner loop's element, the fix is withheld and a named iterator is suggested.
 ### infinite_loop
