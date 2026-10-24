@@ -56,6 +56,7 @@ main :: () {
         test_json_and_arrays(db);
         test_statement_cache(db, config);
         test_pipeline(db);
+        test_stream(db);
     });
 
     if failures {
@@ -285,6 +286,48 @@ count_parses :: (c: *Pg.Connection, line: string) {
 
 // Typed queries prepare once per connection and bind afterwards; `plan = .CUSTOM` opts out, and
 // `verify_statements` notices a table that changed under the program.
+test_stream :: (db: *Pg.Connection) {
+    error: Pg.Pg_Error;
+    sum := 0;
+    seen := 0;
+
+    for Pg.stream(db, *error, "select g as \"n!\" from generate_series(1, %) as g", 2500, batch = 1000) {
+        check(it_index == seen, "it_index counts rows");
+        sum += it.n;
+        seen += 1;
+    }
+
+    check(error.kind == .NONE && seen == 2500 && sum == 2500 * 2501 / 2, "stream every row");
+
+    // Leaving early cancels the rest, and the connection is usable again.
+    seen = 0;
+
+    for Pg.stream(db, *error, "select g as \"n!\" from generate_series(1, %) as g", 1000000, batch = 100) {
+        seen += 1;
+        if seen == 250 break;
+    }
+
+    check(error.kind == .NONE && seen == 250, "break out of a stream");
+
+    count, count_error := Pg.query_scalar(db, "select count(*) from users where id > %", 0);
+
+    check(count_error.kind == .NONE && count == 2, "the connection works after a break");
+
+    // A failure part way: the rows before it arrive, then the error.
+    seen = 0;
+    for Pg.stream(db, *error, "select 1 / (1500 - g) as \"n!\" from generate_series(1, %) as g", 3000, batch = 100) seen += 1;
+
+    check(error.kind == .SERVER && error.code == .DIVISION_BY_ZERO && seen >= 1400 && seen < 1500, "error in the middle of a stream");
+
+    for Pg.stream(db, *error, "select id from users where id > %", 0, batch = 0) seen += 1;
+
+    check(error.kind == .USAGE, "a batch of 0 is refused");
+
+    _, after_error := Pg.query_scalar(db, "select count(*) from users where id > %", 0);
+
+    check(after_error.kind == .NONE, "the connection works after a failed stream");
+}
+
 test_pipeline :: (db: *Pg.Connection) {
     p, enter_error := Pg.pipeline_enter(db);
 
