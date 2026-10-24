@@ -112,8 +112,7 @@ work :: () {
 
 // The compile-time database's settings from the environment, or a message on `problem`.
 database_config :: () -> Pg.Config, bool {
-    url := environment_variable("JACKET_DATABASE_URL");
-    if !url url = environment_variable("DATABASE_URL");
+    url := Pg.database_url(options.root);
 
     if !url && managed_allowed() {
         managed := environment_variable("JACKET_PG_MANAGED");

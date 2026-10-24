@@ -149,6 +149,16 @@ if JACKET_PG_ROOT="$params_root" "$jaic" "$work/params_new.jai" -exe "$work/para
 grep -q "needs at least 99 (MIN_SERVER_VERSION)" "$work/out" || fail "the old server error does not name MIN_SERVER_VERSION"
 drop_schema_databases
 
+# 9c. The URL from the project's .env file when the environment has none; the environment wins.
+env_root="$work/dotenv_project"
+mkdir -p "$env_root"
+printf '# local database\nexport DATABASE_URL="%s" # the dev server\n' "$DATABASE_URL" > "$env_root/.env"
+env -u DATABASE_URL -u JACKET_DATABASE_URL JACKET_PG_ROOT="$env_root" "$jaic" "$here/queries.jai" -exe "$work/dotenv_queries" > /dev/null || fail "build with the URL in .env"
+[ "$("$work/dotenv_queries")" = ok ] || fail "queries with the URL in .env"
+[ "$(find "$env_root/db/queries" -type f | wc -l)" -gt 10 ] || fail "the .env URL did not fill the cache"
+rm -rf "$env_root/db"
+if env DATABASE_URL="postgres://postgres@localhost/none?host=/nonexistent&port=1" JACKET_PG_ROOT="$env_root" "$jaic" "$here/queries.jai" -exe "$work/dotenv_none" > "$work/out" 2>&1; then fail ".env won over the environment"; fi
+
 # 10. Managed mode: no database URL at all; the describe service starts its own server and builds
 # the schema database from the migrations. Downloads the pinned PostgreSQL release unless
 # JAI_PG_TEST_MANAGED_CACHE names a folder that has it. Gated on JAI_PG_TEST_MANAGED=1.

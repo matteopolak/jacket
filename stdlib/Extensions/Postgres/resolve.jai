@@ -36,7 +36,7 @@ managed_prepared: bool;
 
 // Where to look, from the environment and the project: see `typed_settings`.
 Typed_Settings :: struct {
-    url: string; // JACKET_DATABASE_URL, else DATABASE_URL
+    url: string; // JACKET_DATABASE_URL, else DATABASE_URL, from the environment or the project's .env
     managed: bool; // JACKET_PG_MANAGED (or jacket.toml), no URL, not offline: describe in the managed server
     managed_version: string; // the managed server's release (JACKET_PG_MANAGED_VERSION, or jacket.toml)
     search_path: string; // JACKET_PG_SEARCH_PATH
@@ -129,6 +129,16 @@ find_project_root :: (file: string) -> string {
     return copy_string(start,, temp);
 }
 
+// The compile-time database's URL: JACKET_DATABASE_URL, else DATABASE_URL, from the environment;
+// when it has neither, the same two names in the project's `.env` file. Empty when there is none.
+database_url :: (root: string) -> string {
+    url := environment_variable("JACKET_DATABASE_URL");
+    if !url url = environment_variable("DATABASE_URL");
+    if !url url = dotenv_database_url(root);
+
+    return url;
+}
+
 #scope_module
 
 // `db` for "db/migrations".
@@ -140,8 +150,8 @@ first_folder :: (path: string) -> string {
 
 typed_settings :: (file: string) -> Typed_Settings {
     settings: Typed_Settings;
-    settings.url = environment_variable("JACKET_DATABASE_URL");
-    if !settings.url settings.url = environment_variable("DATABASE_URL");
+    settings.root = find_project_root(file);
+    settings.url = database_url(settings.root);
 
     settings.search_path = environment_variable("JACKET_PG_SEARCH_PATH");
     offline := environment_variable("JACKET_PG_OFFLINE");
@@ -149,7 +159,6 @@ typed_settings :: (file: string) -> Typed_Settings {
     settings.offline = offline != "" && offline != "0";
 
     settings.recording = environment_variable("JACKET_PG_CHECK") != "";
-    settings.root = find_project_root(file);
 
     // JACKET_PG_MANAGED, else `[postgres] managed` in jacket.toml.
     managed := environment_variable("JACKET_PG_MANAGED");

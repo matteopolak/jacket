@@ -26,7 +26,40 @@ main :: () {
     test_uuids();
     test_calendar();
     test_numerics();
+    test_dotenv();
     print("ok\n");
+}
+
+test_dotenv :: () {
+    text := "# comment\n\nA=plain\nexport B = \"quoted # kept \\\"q\\\" \\n.\"\nC='single # kept'\nD=trailing   # dropped\r\nE=\nF=one\nF=two\nnot an assignment\n=nope\nG H=spaced name\nJACKET_DATABASE_URL=postgres://u@h/d?x=1#frag\n";
+
+    value, found := Pg.dotenv_value(text, "A");
+
+    assert(found && value == "plain");
+
+    value, found = Pg.dotenv_value(text, "B");
+    assert(found && value == "quoted # kept \"q\" \n.");
+
+    value, found = Pg.dotenv_value(text, "C");
+    assert(found && value == "single # kept");
+
+    value, found = Pg.dotenv_value(text, "D");
+    assert(found && value == "trailing");
+
+    value, found = Pg.dotenv_value(text, "E");
+    assert(found && value == "");
+
+    value, found = Pg.dotenv_value(text, "F");
+    assert(found && value == "two");
+
+    value, found = Pg.dotenv_value(text, "G H");
+    assert(!found);
+
+    value, found = Pg.dotenv_value(text, "missing");
+    assert(!found);
+
+    value, found = Pg.dotenv_value(text, "JACKET_DATABASE_URL");
+    assert(found && value == "postgres://u@h/d?x=1#frag");
 }
 
 test_urls :: () {
