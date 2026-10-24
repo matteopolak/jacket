@@ -152,9 +152,7 @@ impl Compiler {
             ProcTarget::Foreign(id) => {
                 if sig.c_varargs {
                     // Record the actual argument classes for this variadic call site.
-                    for &v in &c_vararg_values {
-                        ir_sig.params.push(f.b.val_ty(v));
-                    }
+                    record_vararg_types(f, &mut ir_sig, &c_vararg_values);
                     let fp = f.b.foreign_addr(id);
                     ir::Callee::Indirect(fp, Box::new(ir_sig.clone()))
                 } else {
@@ -163,9 +161,7 @@ impl Compiler {
             }
         };
         if sig.c_varargs && !matches!(callee, ir::Callee::Indirect(..)) {
-            ir_sig
-                .params
-                .extend(c_vararg_values.iter().map(|&v| f.b.val_ty(v)));
+            record_vararg_types(f, &mut ir_sig, &c_vararg_values);
         }
         let results = f.b.call(callee, values, &ir_sig.returns.clone());
         Ok(self.call_results(&sig.returns, results, outs, &sig.return_callables))
@@ -642,5 +638,13 @@ impl Compiler {
             );
         }
         Err(Box::new(d))
+    }
+}
+
+/// Appends the IR types of a C variadic call's extra arguments to its signature. A type-only
+/// probe skips it: its arguments may name values of the enclosing function, not of the probe.
+fn record_vararg_types(f: &FnCtx, sig: &mut ir::Sig, values: &[ir::Val]) {
+    if !f.type_only {
+        sig.params.extend(values.iter().map(|&v| f.b.val_ty(v)));
     }
 }
