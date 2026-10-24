@@ -2,6 +2,7 @@
 //! over every scope in reach, so it happens when an error is rendered for the user, not each
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
 use super::module_rank::{ModuleRanking, count_importers};
+use super::name_caches::DeclaringKey;
 use super::scope::{ScopeId, UsingEntry};
 use super::{Compiler, ModuleId, Sym, TypeId};
 use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
@@ -324,7 +325,16 @@ impl Compiler {
     /// level (outside `#scope_file`), best ranked first (`ModuleRanking`) and jaic's `Extensions/` modules
     /// (named by that path) last. At most [`MAX_IMPORTS`].
     fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
-        self.imports_declaring_by(name, &|_, text| exports_name(text, name))
+        let key = DeclaringKey::Name(name.to_string());
+        if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
+            return found.clone();
+        }
+        let found = self.imports_declaring_by(name, &|_, text| exports_name(text, name));
+        self.caches
+            .declaring_imports
+            .borrow_mut()
+            .insert(key, found.clone());
+        found
     }
 
     /// The modules whose source declares `operator <text>` for operands of types `tys` (as
@@ -358,12 +368,21 @@ impl Compiler {
                     .map(|m| m.name.clone()),
             );
         }
-        self.imports_declaring_by(&format!("operator {text}"), &|module, source| {
+        let key = DeclaringKey::Operator(text.to_string(), names.clone(), homes.clone());
+        if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
+            return found.clone();
+        }
+        let found = self.imports_declaring_by(&format!("operator {text}"), &|module, source| {
             exports_operator(source, text)
                 && (names.is_empty()
                     || homes.iter().any(|h| h == module)
                     || operator_takes(source, text, &names))
-        })
+        });
+        self.caches
+            .declaring_imports
+            .borrow_mut()
+            .insert(key, found.clone());
+        found
     }
 
     fn imports_declaring_by(
