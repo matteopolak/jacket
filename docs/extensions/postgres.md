@@ -33,7 +33,7 @@ Io.io_run(() {
 **Files.** `config.jai` (`Config`, `parse_url`), `connection.jai` (`connect`, `close`, the
 `Connection` struct), `startup.jai` (transport, TLS negotiation, the startup message, the
 authentication loop), `scram.jai`, `wire.jai` (message framing and the `Cursor` reader),
-`query.jai` (`Result`, `query_dynamic`, `query_binary`, `execute_script`, `get`), `codecs.jai`
+`query.jai` (`Result`, `query_dynamic`, `query_binary`, `execute_script`, `run_script`, `get`), `codecs.jai`
 (`Oid`, decoding and parameter encoding), `types.jai` (`Nullable`, `Uuid`, the date and time
 types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`).
 
@@ -59,6 +59,11 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`).
   unnamed statement and portal, text results.
 - `query_binary` is the same with binary results.
 - `execute_script` uses the simple protocol: several statements, no parameters, rows dropped.
+- `run_script(db, sql, *hooks)` is the same protocol with every statement's outcome reported to
+  `Script_Hooks`: `on_result` gets each statement's `Result` (rows, `command` tag, `returns_rows`)
+  in order, `copy_in` feeds `COPY ... FROM STDIN` (or fails it with a message), and `copy_out`
+  receives `COPY ... TO STDOUT` data. The returned error is the one that stopped the script, after
+  the results before it were reported. Embed the hooks with `#as using` to carry your own state.
   Postgres runs the whole string as one implicit transaction unless it has its own `BEGIN`.
 - After an `ErrorResponse` the reader drains to `ReadyForQuery`, so the connection stays usable
   and `connection.status` is current (`IDLE`, `IN_TRANSACTION`, `FAILED`).

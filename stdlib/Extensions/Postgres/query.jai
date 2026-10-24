@@ -20,6 +20,9 @@ Result :: struct {
     // in it (0 when it has none).
     command: string;
     rows_affected: s64;
+    // The statement returns rows (it sent a row description), even if there were none or it has
+    // no columns: `select` returns one row of zero columns.
+    returns_rows: bool;
 
     values: [..] Value_Span; // row_count * columns.count of them, row by row
     data: [..] u8;
@@ -54,6 +57,39 @@ query_binary :: (c: *Connection, sql: string, args: ..Any) -> Result, Pg_Error {
 // discards any rows. For migrations and scripts. Without an explicit BEGIN the whole string runs
 // as one implicit transaction, so the first error stops it and undoes the statements before it.
 execute_script :: (c: *Connection, sql: string) -> Pg_Error {
+    return run_script(c, sql, null);
+}
+
+// What `run_script` does with each statement's outcome. Every hook is optional.
+Script_Hooks :: struct {
+    // Called once per statement that completes, in order, with its rows (when it returns rows) and
+    // command tag. The result is freed after the call unless the hook moves it out (and leaves
+    // `result.*` zeroed). Without this hook rows are not kept at all.
+    on_result: (hooks: *Script_Hooks, result: *Result);
+
+    // COPY ... FROM STDIN: called until it says `done`, each time for the next piece of data (any
+    // split; rows need not line up with calls). A non-empty `failure` aborts the COPY with that
+    // message instead, and the server answers with an error. Without this hook the COPY fails.
+    copy_in: (hooks: *Script_Hooks, copy: *Copy_Info) -> data : string, done: bool, failure: string;
+
+    // COPY ... TO STDOUT: called with each piece of data the server sends (one row in text and CSV
+    // formats). Without this hook the data is dropped.
+    copy_out: (hooks: *Script_Hooks, copy: *Copy_Info, data: [] u8);
+
+    user_data: *void;
+}
+
+// The shape of a COPY the server has started.
+Copy_Info :: struct {
+    format: Format; // the overall format: text (also CSV) or binary
+    column_formats: [] Format;
+}
+
+// Runs SQL that may hold several statements (the simple query protocol) and reports each
+// statement's outcome to `hooks`. The returned error is the one that stopped the script, after the
+// results of the statements before it were reported. Without an explicit BEGIN the whole string
+// runs as one implicit transaction.
+run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
     error := begin_request(c, sql);
     if error.kind != .NONE return error;
 
@@ -64,7 +100,16 @@ execute_script :: (c: *Connection, sql: string) -> Pg_Error {
     error = send(c);
     if error.kind != .NONE return error;
 
+    keep_rows := hooks && hooks.on_result;
     failure: Pg_Error;
+    result: Result;
+    result.allocator = context.allocator;
+    copy: Copy_Info;
+
+    defer {
+        free_result(*result);
+        array_free(copy.column_formats);
+    }
 
     while true {
         type, body, read_error := read_message(c);
@@ -77,25 +122,69 @@ execute_script :: (c: *Connection, sql: string) -> Pg_Error {
         if handle_async(c, type, body) continue;
 
         if type == {
-            case #char "T"; #through;
-            case #char "D"; #through;
-            case #char "C"; #through;
-            case #char "I"; #through;
-            case #char "d"; #through;
-            case #char "c";
-            // Rows, command tags, and COPY TO STDOUT data are dropped.
-            case #char "G";
-                begin_message(c, #char "f");
-                put_cstring(*c.out, "COPY FROM STDIN is not supported by execute_script");
-                end_message(c);
-                send_error := send(c);
-                if send_error.kind != .NONE return send_error;
+            case #char "T";
+                result.returns_rows = true;
+                if !keep_rows continue;
+
+                error = read_columns(c, *result, body);
+                if error.kind != .NONE {
+                    free_error(*failure);
+                    return error;
+                }
+
+            case #char "D";
+                if !keep_rows continue;
+
+                error = read_row(c, *result, body);
+                if error.kind != .NONE {
+                    free_error(*failure);
+                    return error;
+                }
+
+            case #char "C";
+                r := Cursor.{ data = body };
+                tag := get_cstring(*r);
+
+                free(result.command);
+                result.command = copy_string(tag);
+                result.rows_affected = rows_in_tag(tag);
+
+                if keep_rows hooks.on_result(hooks, *result);
+
+                free_result(*result);
+                result.allocator = context.allocator;
+
+            case #char "I";
+            // An empty statement: nothing to report.
+
+            case #char "G"; #through;
             case #char "H";
+                error = read_copy_info(c, *copy, body);
+                if error.kind != .NONE {
+                    free_error(*failure);
+                    return error;
+                }
+
+                if type == #char "G" {
+                    error = send_copy_data(c, hooks, *copy);
+                    if error.kind != .NONE {
+                        free_error(*failure);
+                        return error;
+                    }
+                }
+
+            case #char "d";
+                if hooks && hooks.copy_out hooks.copy_out(hooks, *copy, body);
+
+            case #char "c";
+
             case #char "E";
                 if failure.kind == .NONE failure = parse_server_error(body);
+
             case #char "Z";
                 c.status = transaction_status(ifx body.count then body[0] else 0);
                 return failure;
+
             case;
                 free_error(*failure);
                 return protocol_error(c, tprint("unexpected message % during a simple query", cast(string) u8.[type]));
@@ -417,6 +506,62 @@ read_row :: (c: *Connection, result: *Result, body: [] u8) -> Pg_Error {
     result.row_count += 1;
 
     return .{};
+}
+
+read_copy_info :: (c: *Connection, copy: *Copy_Info, body: [] u8) -> Pg_Error {
+    r := Cursor.{ data = body };
+
+    copy.format = cast(Format) get_u8(*r);
+    count := cast(s64) get_u16(*r);
+
+    array_free(copy.column_formats);
+    copy.column_formats = NewArray(count, Format);
+    for *copy.column_formats it.* = cast(Format) get_u16(*r);
+
+    if r.bad return protocol_error(c, "a malformed COPY response");
+
+    return .{};
+}
+
+// Feeds COPY FROM STDIN from the hook, then ends it with CopyDone or CopyFail.
+send_copy_data :: (c: *Connection, hooks: *Script_Hooks, copy: *Copy_Info) -> Pg_Error {
+    if !hooks || !hooks.copy_in {
+        begin_message(c, #char "f");
+        put_cstring(*c.out, "COPY FROM STDIN needs Script_Hooks.copy_in");
+        end_message(c);
+        return send(c);
+    }
+
+    COPY_CHUNK :: 64 * 1024; // flush when this much is waiting
+
+    while true {
+        data, done, failure := hooks.copy_in(hooks, copy);
+
+        if failure {
+            begin_message(c, #char "f");
+            put_cstring(*c.out, ifx contains_zero(failure) then "COPY aborted" else failure);
+            end_message(c);
+            return send(c);
+        }
+
+        if data {
+            begin_message(c, #char "d");
+            put_bytes(*c.out, cast([] u8) data);
+            end_message(c);
+        }
+
+        if done break;
+
+        if c.out.count >= COPY_CHUNK {
+            error := send(c);
+            if error.kind != .NONE return error;
+        }
+    }
+
+    begin_message(c, #char "c");
+    end_message(c);
+
+    return send(c);
 }
 
 // "INSERT 0 5" is 5, "UPDATE 3" is 3, "CREATE TABLE" is 0.

@@ -43,6 +43,8 @@ main :: () {
         test_errors();
         step("test_scripts_and_status");
         test_scripts_and_status();
+        step("test_run_script");
+        test_run_script();
         step("test_startup_parameters");
         test_startup_parameters();
         step("test_deadline");
@@ -478,6 +480,116 @@ test_scripts_and_status :: () {
     assert(error.code == .DIVISION_BY_ZERO);
     Pg.free_error(*error);
     assert(scalar(db, "select count(*) from t", s64) == 2);
+}
+
+Script_Log :: struct {
+    #as using hooks: Pg.Script_Hooks;
+    lines: [..] string;
+    copy_rows: [] string;
+    copy_sent: s64;
+    copied: String_Builder;
+}
+
+log_result :: (hooks: *Pg.Script_Hooks, result: *Pg.Result) {
+    log := cast(*Script_Log) hooks;
+    line := tprint("% returns_rows=% columns=% rows=%", result.command, result.returns_rows, result.columns.count, result.row_count);
+
+    for row: 0..result.row_count - 1 {
+        for column: 0..result.columns.count - 1 {
+            bytes, is_null := Pg.raw_value(result, row, column);
+            line = tprint("% %", line, ifx is_null then "NULL" else cast(string) bytes);
+        }
+    }
+
+    array_add(*log.lines, line);
+}
+
+feed_copy :: (hooks: *Pg.Script_Hooks, copy: *Pg.Copy_Info) -> string, bool, string {
+    log := cast(*Script_Log) hooks;
+    if log.copy_sent == log.copy_rows.count return "", true, "";
+
+    log.copy_sent += 1;
+    row := log.copy_rows[log.copy_sent - 1];
+    if row == "FAIL" return "", false, "stopped by the test";
+
+    return row, false, "";
+}
+
+collect_copy :: (hooks: *Pg.Script_Hooks, copy: *Pg.Copy_Info, data: [] u8) {
+    log := cast(*Script_Log) hooks;
+    append(*log.copied, cast(string) data);
+}
+
+test_run_script :: () {
+    db := connect_ok(config_for("postgres"));
+
+    defer Pg.close(db);
+
+    log: Script_Log;
+    log.on_result = log_result;
+    log.copy_in = feed_copy;
+    log.copy_out = collect_copy;
+    log.copy_rows = .["1\tone\n2\t", "two\n", "3\t\\N\n"];
+
+    sql := #string SQL
+create temp table s (a int, b text);
+select 1 as x, null::text as y union all select 2, 'b';
+;
+select;
+copy s from stdin;
+copy s to stdout;
+select count(*) from s;
+SQL;
+
+    assert_ok(Pg.run_script(db, sql, *log), "script");
+    expected := string.[
+        "CREATE TABLE returns_rows=false columns=0 rows=0",
+        "SELECT 2 returns_rows=true columns=2 rows=2 1 NULL 2 b",
+        "SELECT 1 returns_rows=true columns=0 rows=1",
+        "COPY 3 returns_rows=false columns=0 rows=0",
+        "COPY 3 returns_rows=false columns=0 rows=0",
+        "SELECT 1 returns_rows=true columns=1 rows=1 3",
+    ];
+    for expected {
+        if it_index >= log.lines.count || log.lines[it_index] != it {
+            print("run_script line %: got \"%\", wanted \"%\"\n", it_index, ifx it_index < log.lines.count then log.lines[it_index] else "(none)", it);
+            assert(false);
+        }
+    }
+
+    assert(log.lines.count == expected.count);
+    assert(builder_to_string(*log.copied,, temp) == "1\tone\n2\ttwo\n3\t\\N\n");
+
+    // Results before an error are reported; the error comes back after them.
+    log.lines.count = 0;
+    error := Pg.run_script(db, "select 7; select 1/0; select 8", *log);
+
+    assert(error.code == .DIVISION_BY_ZERO);
+    Pg.free_error(*error);
+    assert(log.lines.count == 1 && log.lines[0] == "SELECT 1 returns_rows=true columns=1 rows=1 7");
+
+    // A copy_in failure aborts the COPY, and the connection stays usable.
+    log.copy_rows = .["4\tfour\n", "FAIL"];
+    log.copy_sent = 0;
+    error = Pg.run_script(db, "copy s from stdin", *log);
+    assert(error.code == .QUERY_CANCELED, Pg.error_text(error));
+    assert(contains(error.message, "stopped by the test"));
+    Pg.free_error(*error);
+    assert(scalar(db, "select count(*) from s", s64) == 3);
+
+    // A bad row fails the COPY; the rows after it are ignored.
+    log.copy_rows = .["5\tfive\n", "x\tbad\n", "6\tsix\n"];
+    log.copy_sent = 0;
+    error = Pg.run_script(db, "copy s from stdin", *log);
+    assert(error.code == .INVALID_TEXT_REPRESENTATION, Pg.error_text(error));
+    Pg.free_error(*error);
+    assert(scalar(db, "select count(*) from s", s64) == 3);
+
+    // Without hooks COPY FROM STDIN fails cleanly.
+    error = Pg.execute_script(db, "copy s from stdin");
+    assert(error.code == .QUERY_CANCELED);
+    Pg.free_error(*error);
+    assert(scalar(db, "select 5", s64) == 5);
 }
 
 test_startup_parameters :: () {
