@@ -233,8 +233,50 @@ group_member :: (member: Member) {
     Io.done(member.group);
 }
 
+// A condition wakes its waiters in order, honours deadlines, and a notify with no waiter is lost.
+changed: Io.Condition;
+woken: [..] int;
+
+condition_waiter :: (index: int) {
+    error := Io.wait(*changed);
+    assert(error == .NONE);
+    array_add(*woken, index);
+}
+
+test_condition :: () {
+    Io.notify_one(*changed); // nobody waits: lost
+
+    error: Io.Io_Error;
+
+    Io.with_deadline(5, #code {
+        error = Io.wait(*changed);
+    });
+    assert(error == .TIMED_OUT);
+
+    for 0..2 Io.spawn(condition_waiter, it);
+
+    Io.yield();
+
+    Io.notify_one(*changed);
+    Io.yield();
+    assert(woken.count == 1 && woken[0] == 0);
+
+    Io.notify_all(*changed);
+    Io.yield();
+    assert(woken.count == 3 && woken[1] == 1 && woken[2] == 2);
+
+    // A timed-out waiter left the list: this notify finds nobody.
+    Io.with_deadline(1, #code {
+        error = Io.wait(*changed);
+    });
+    assert(error == .TIMED_OUT);
+    Io.notify_all(*changed);
+    array_free(woken);
+}
+
 root :: () {
     test_ping_pong();
+    test_condition();
     test_buffered();
     test_fan_in();
     test_mutex();

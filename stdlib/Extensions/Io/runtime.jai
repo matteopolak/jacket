@@ -17,6 +17,21 @@ with_deadline :: (milliseconds: s64, body: Code) #expand {
     #insert body;
 }
 
+// Runs `body` clear of the running fiber's deadline and cancel, for cleanup that has to happen
+// after one of them fired: telling a server to stop a query, a goodbye message. `body` has its own
+// limit of `milliseconds` (negative: none), and `with_deadline` inside it nests as usual. When
+// `body` ends, the outer deadline is back, and the fiber is canceled if it was before or a cancel
+// came during `body`.
+//
+//     count, error = read(conn, buffer);           // .TIMED_OUT
+//     with_grace(1000, #code { write(conn, "stop"); });
+with_grace :: (milliseconds: s64, body: Code) #expand {
+    previous_grace := push_grace(milliseconds);
+    defer pop_grace(previous_grace);
+
+    #insert body;
+}
+
 // A `with_deadline` argument that adds no limit.
 NO_DEADLINE :: -1;
 
@@ -160,6 +175,35 @@ pop_deadline :: (previous: s64) {
     fiber := current_fiber();
 
     fiber.deadline = previous;
+}
+
+Grace :: struct {
+    deadline: s64;
+    canceled: bool;
+}
+
+push_grace :: (milliseconds: s64) -> Grace {
+    fiber := current_fiber();
+    previous := Grace.{ fiber.deadline, fiber.canceled };
+
+    fiber.grace_depth += 1;
+    fiber.canceled = false;
+    fiber.deadline = ifx milliseconds < 0 then 0 else now_nanoseconds() + milliseconds * 1_000_000;
+
+    return previous;
+}
+
+pop_grace :: (previous: Grace) {
+    fiber := current_fiber();
+
+    fiber.grace_depth -= 1;
+    fiber.deadline = previous.deadline;
+    fiber.canceled = previous.canceled;
+
+    if fiber.grace_depth == 0 && fiber.cancel_held {
+        fiber.cancel_held = false;
+        fiber.canceled = true;
+    }
 }
 
 run_threads :: (count: s64, entry: Thread.Thread_Proc, data: *void) {

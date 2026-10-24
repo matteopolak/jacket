@@ -4,7 +4,7 @@ Shared rules (pointers vs values, `close(x, now)`, errors, who frees, millisecon
 
 ## What it is
 
-Cooperative fibers on a per-thread scheduler (`io_run`, `spawn`, `sleep`, `cancel`, `Channel(T)`, `Wait_Group`, `Fiber_Mutex`), plus blocking-style TCP, files, name lookups, deadlines and cancellation on top of an internal completion engine: io_uring and epoll (Linux), kqueue (macOS), completion ports with an optional IoRing for files (Windows). A common `Reader`/`Writer` covers files, TCP and pipes. Built on the [fiber intrinsics](../compiler/interpreter.md); a compile error on wasm.
+Cooperative fibers on a per-thread scheduler (`io_run`, `spawn`, `sleep`, `cancel`, `Channel(T)`, `Wait_Group`, `Fiber_Mutex`, `Condition`, `with_grace`), plus blocking-style TCP, files, name lookups, deadlines and cancellation on top of an internal completion engine: io_uring and epoll (Linux), kqueue (macOS), completion ports with an optional IoRing for files (Windows). A common `Reader`/`Writer` covers files, TCP and pipes. Built on the [fiber intrinsics](../compiler/interpreter.md); a compile error on wasm.
 
 ```jai
 Io :: #import "Extensions/Io";
@@ -56,6 +56,10 @@ Io.with_deadline(2000, #code { count, error = Io.read(source, buffer); });   // 
 ```
 
 `with_deadline` limits every IO call and `sleep` in the block; the earlier deadline wins when nested; an expired deadline fails a call before it starts, even with data waiting (pipes too). jaic has no trailing-block call syntax, so the body is a `#code` argument: assign to variables declared before it and do not `return` inside. Channel and lock operations ignore deadlines. `cancel(fiber)` ends the fiber's current IO with `.CANCELED` and all later IO fails the same way; the buffer is never written after the call returns.
+
+`with_grace(ms, #code {...})` runs cleanup after a deadline or cancel fired (a protocol's cancel message, draining a connection back into step): inside, the outer deadline and cancel are set aside and the block has its own limit of `ms`. A cancel that arrives meanwhile is held (`Fiber.cancel_held`) and applies when the outermost grace block ends, as does an earlier one. `cancel_fiber` checks `grace_depth` for this.
+
+`Condition` (`wait`, `notify_one`, `notify_all`) is the one coordination primitive that honours deadlines: a fiber waits for a state change with a time limit (a pool waiting for a free connection). It carries no value, and a notify with no waiter is lost, so callers loop on their own state.
 
 Unix-domain sockets: `connect_unix(path)` returns the same `Tcp_Stream` as `connect`, and `unix_listen(path, backlog, replace)` the same `Tcp_Listener` (so `accept`, `read`, `reader_of`, `wait_readable`, deadlines and cancel work as for TCP, on every backend). A path must be non-empty, free of zero bytes and shorter than `sun_path` (at most 103 bytes on macOS, 107 elsewhere), else `.INVALID`; nothing is truncated. `unix_listen` fails with `.ADDRESS_IN_USE` if the file exists unless `replace = true`, which `unlink`s whatever is at `path` first; the socket file is never removed on `close`. Abstract (Linux) names are not supported. Windows returns `.UNSUPPORTED` from both: `ConnectEx` and the port path are only written for IP sockets. `local_address`/`peer_address` give an empty `Address` for these sockets.
 
