@@ -42,6 +42,7 @@
 #load "pipeline.jai";
 #load "notify.jai";
 #load "trace.jai";
+#load "migrate.jai";
 
 #scope_module
 
