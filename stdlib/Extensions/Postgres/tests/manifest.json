@@ -21,6 +21,17 @@
     ]
   },
   {
+    "name": "migrate",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io fibers; a PostgreSQL server from tests/start_server.sh for the database part"
+    ]
+  },
+  {
     "name": "conformance/print_test",
     "stdout": "ok\n"
   },
