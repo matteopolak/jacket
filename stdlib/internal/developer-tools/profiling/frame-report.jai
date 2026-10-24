@@ -3,7 +3,9 @@ compute_heat :: (variance: float64, value: float64) -> float64 {
 
     defer Profile_Context.set_active(prior_runtime_guard);
 
-    if Profile_Math.abs(value) < 0.000000001 return 0;
+    NEGLIGIBLE_VALUE :: 0.000000001;
+
+    if Profile_Math.abs(value) < NEGLIGIBLE_VALUE return 0;
 
     variance = max(cast(float64) 0, variance - value * value);
     ratio := Profile_Math.sqrt(variance) / Profile_Math.abs(value);

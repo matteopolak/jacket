@@ -79,11 +79,15 @@ float_to_half_fast3 :: (_f: float32) -> Float16 {
         return cast(Float16) (sign | 0x7c00);
     }
 
-    if e < -25 return cast(Float16) sign;
+    // Below 2^-25 everything rounds to zero; below 2^-14 the result is subnormal.
+    ROUNDS_TO_ZERO_EXPONENT :: -25;
+    SMALLEST_NORMAL_EXPONENT :: -14;
+
+    if e < ROUNDS_TO_ZERO_EXPONENT return cast(Float16) sign;
 
     shift: u32 = 13;
 
-    if e < -14 {
+    if e < SMALLEST_NORMAL_EXPONENT {
         m |= 0x800000;
         shift = cast(u32) (-e - 1);
     }
@@ -95,7 +99,7 @@ float_to_half_fast3 :: (_f: float32) -> Float16 {
     if tail > halfway || (tail == halfway && (rounded & 1) != 0) rounded += 1;
 
     encoded: u32;
-    if e < -14 encoded = rounded;
+    if e < SMALLEST_NORMAL_EXPONENT encoded = rounded;
     else encoded = (cast(u32) (e + 15) << 10) + rounded;
 
     if encoded >= 0x7c00 {

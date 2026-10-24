@@ -161,9 +161,13 @@ codex_timestamp :: () -> Apollo_Time, bool #no_aoc {
         Codex_Windows.GetSystemTimeAsFileTime(*now);
         ticks := (cast(u64) now.dwHighDateTime << 32) | now.dwLowDateTime;
 
+        FILETIME_TICKS_PER_SECOND :: 10000000;
+        NANOSECONDS_PER_FILETIME_TICK :: 100;
         // Calendar difference between 1601-01-01 and 1970-01-01.
-        seconds = cast(s64) (ticks / 10000000) - 11644473600;
-        nanoseconds = cast(s64) (ticks % 10000000) * 100;
+        FILETIME_TO_UNIX_SECONDS :: 11644473600;
+
+        seconds = cast(s64) (ticks / FILETIME_TICKS_PER_SECOND) - FILETIME_TO_UNIX_SECONDS;
+        nanoseconds = cast(s64) (ticks % FILETIME_TICKS_PER_SECOND) * NANOSECONDS_PER_FILETIME_TICK;
     } else return APOLLO_TIME_INVALID, false;
 
     duration := seconds_to_apollo(seconds);

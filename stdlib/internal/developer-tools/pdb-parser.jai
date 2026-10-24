@@ -3,7 +3,10 @@ parse_tpi_stream :: (msf: Msf, stream_index: UNSN, verbose := false) -> [] *Code
     if !ok return .{}, false;
 
     defer free(bytes.data);
-    if bytes.count < 56 return .{}, false;
+    TPI_HEADER_BYTES :: 56;
+    TPI_VERSION_V80 :: 20040203;
+
+    if bytes.count < TPI_HEADER_BYTES return .{}, false;
 
     input := Line_Wire_Input.{ data = bytes, limit = bytes.count };
     version := line_wire_uint(*input, 4);
@@ -12,7 +15,7 @@ parse_tpi_stream :: (msf: Msf, stream_index: UNSN, verbose := false) -> [] *Code
     end := line_wire_uint(*input, 4);
     record_bytes := line_wire_uint(*input, 4);
 
-    if version != 20040203 || header_size != 56 || begin != 0x1000 || end < begin || record_bytes > cast(u64) bytes.count - header_size return .{}, false;
+    if version != TPI_VERSION_V80 || header_size != TPI_HEADER_BYTES || begin != 0x1000 || end < begin || record_bytes > cast(u64) bytes.count - header_size return .{}, false;
 
     parsed_ok, records := parse_codeview_types(.{ cast(s64) record_bytes, bytes.data + header_size }, false, verbose);
     if !parsed_ok return .{}, false;

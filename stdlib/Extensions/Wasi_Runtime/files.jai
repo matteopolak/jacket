@@ -609,6 +609,9 @@ wasi_realpath :: (path: *u8, resolved: *u8) -> *u8 #c_call {
 
     if length < 0 return null;
 
+    // Past this many links the path is taken to loop (ELOOP).
+    MAX_SYMLINK_HOPS :: 40;
+
     links_followed := 0;
     // `checked` is how much of `current` is known to have no symbolic links.
     checked: s64 = 1;
@@ -630,7 +633,7 @@ wasi_realpath :: (path: *u8, resolved: *u8) -> *u8 #c_call {
 
         if code == 0 && used > 0 {
             links_followed += 1;
-            if links_followed > 40 {
+            if links_followed > MAX_SYMLINK_HOPS {
                 error_number = ELOOP;
                 return null;
             }

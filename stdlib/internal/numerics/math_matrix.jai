@@ -440,13 +440,16 @@ reflect_rows :: (M: *Matrix3, u: Vector3) {
 
 polar_decomp :: (M: Matrix3) -> (Q: Matrix3, S: Matrix3, det: float) {
     // Jacobi eigensystem of M^T M: singular values, then an orthogonal completion.
+    OFF_DIAGONAL_EPSILON :: 0.00000001;
+    SINGULAR_VALUE_EPSILON :: 0.0000001;
+
     c := multiply(transpose(M), M);
     v := Matrix3_Identity;
 
     for sweep: 0..31 {
         for p: 0..1 for q : p + 1..2 {
             a := c.coef[p][q];
-            if abs(a) <= 0.00000001 * sqrt(abs(c.coef[p][p] * c.coef[q][q])) continue;
+            if abs(a) <= OFF_DIAGONAL_EPSILON * sqrt(abs(c.coef[p][p] * c.coef[q][q])) continue;
 
             theta := 0.5 * atan2(2 * a, c.coef[q][q] - c.coef[p][p]);
             cs := cos(theta);
@@ -466,13 +469,13 @@ polar_decomp :: (M: Matrix3) -> (Q: Matrix3, S: Matrix3, det: float) {
 
     for i: 0..2 {
         d.coef[i][i] = sqrt(max(c.coef[i][i], 0.0));
-        if d.coef[i][i] > 0.0000001 invd.coef[i][i] = 1 / d.coef[i][i];
+        if d.coef[i][i] > SINGULAR_VALUE_EPSILON invd.coef[i][i] = 1 / d.coef[i][i];
     }
 
     u := multiply(multiply(M, v), invd);
 
     // Fill null-space directions without disturbing nonzero singular vectors.
-    for i: 0..2 if d.coef[i][i] <= 0.0000001 {
+    for i: 0..2 if d.coef[i][i] <= SINGULAR_VALUE_EPSILON {
         best: Vector3;
         bestn: float = -1;
 

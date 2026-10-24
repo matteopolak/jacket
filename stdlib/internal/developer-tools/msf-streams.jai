@@ -91,7 +91,10 @@ parse_msf :: (file_content: string, path := "", verbose := false) -> success: bo
 }
 
 is_valid_user_stream_number :: (msf: Msf, stream_index: UNSN) -> bool {
-    return stream_index >= 5 && is_valid_stream_number(msf, stream_index);
+    // The streams before this one are the fixed ones (old directory, PDB, TPI, DBI, IPI).
+    FIRST_USER_STREAM :: 5;
+
+    return stream_index >= FIRST_USER_STREAM && is_valid_stream_number(msf, stream_index);
 }
 
 verify_integrity :: (msf: Msf) -> bool {

@@ -63,7 +63,10 @@ slerp :: (start: Quaternion, end: Quaternion, t: float) -> Quaternion {
         e = .{ -e.x, -e.y, -e.z, -e.w };
     }
 
-    if d > 0.9995 return nlerp(start, e, t);
+    // Close enough to parallel that the sine in the slerp weights would be nearly zero.
+    NEARLY_PARALLEL :: 0.9995;
+
+    if d > NEARLY_PARALLEL return nlerp(start, e, t);
 
     a := acos(clamp(d, -1.0, 1.0));
     s := sin(a);
@@ -168,7 +171,9 @@ get_rotation :: (using m: $T/interface AnyMatrix3) -> Quaternion {
 
 make_an_orthonormal_basis :: (x_axis: Vector3) -> (y_axis: Vector3, z_axis: Vector3) {
     approximate := Vector3.{ 0, 0, 1 };
-    if abs(x_axis.z) > 0.9 approximate = .{ 0, 1, 0 };
+    NEARLY_ALONG_Z :: 0.9;
+
+    if abs(x_axis.z) > NEARLY_ALONG_Z approximate = .{ 0, 1, 0 };
     return make_an_orthonormal_basis(x_axis, approximate);
 }
 
@@ -178,7 +183,9 @@ make_an_orthonormal_basis :: (x_axis: Vector3, approximate_axis: Vector3) -> (y_
 
     if length_squared(z) == 0 {
         a := Vector3.{ 1, 0, 0 };
-        if abs(x.x) > 0.9 a = .{ 0, 1, 0 };
+        NEARLY_ALONG_X :: 0.9;
+
+        if abs(x.x) > NEARLY_ALONG_X a = .{ 0, 1, 0 };
         z = unit_vector(cross(x, a));
     }
 

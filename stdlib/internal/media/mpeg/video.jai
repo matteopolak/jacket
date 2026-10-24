@@ -190,7 +190,10 @@ video_decode_sequence_header :: (video: *Video) -> bool {
 
     mb_width := (width + 15) >> 4;
     mb_height := (height + 15) >> 4;
-    frame_bytes := cast(s64) mb_width * mb_height * 384;
+    // A macroblock holds four 8x8 luma blocks and two 8x8 chroma blocks.
+    MACROBLOCK_SAMPLES :: 6 * 64;
+
+    frame_bytes := cast(s64) mb_width * mb_height * MACROBLOCK_SAMPLES;
     storage := cast(*u8) B.alloc(frame_bytes * 3);
 
     if !storage return false;

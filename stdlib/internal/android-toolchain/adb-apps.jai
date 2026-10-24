@@ -15,12 +15,14 @@ android_is_app_installed :: (package_name: string) -> bool {
     if !success return false;
 
     remaining := output;
+    PACKAGE_PREFIX :: "package:/";
+
     found := false;
 
     while remaining.count > 0 {
         line := take_line(*remaining);
         if line.count == 0 continue;
-        if !starts(line, "package:/") || line.count <= 9 return false;
+        if !starts(line, PACKAGE_PREFIX) || line.count <= PACKAGE_PREFIX.count return false;
         found = true;
     }
 

@@ -32,8 +32,11 @@ tools_msf_release :: (view: *Tools_Msf_View) {
 } @FreesArgument
 
 tools_msf_decode :: (content: string) -> Tools_Msf_View, Tools_Msf_Error {
+    MSF_SUPERBLOCK_BYTES :: 56;
+
     empty: Tools_Msf_View;
-    if !content.data || content.count < 56 || !tools_msf_magic(content) return empty, .HEADER;
+
+    if !content.data || content.count < MSF_SUPERBLOCK_BYTES || !tools_msf_magic(content) return empty, .HEADER;
 
     block_size := cast(s64) tools_msf_u32(content, 32);
     // Other documented sizes have layout variants that are not implemented.

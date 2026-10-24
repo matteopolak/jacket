@@ -70,7 +70,11 @@ backend_init :: (config: Sound_Player_Config) -> Backend_Properties {
     if !is_finite(config.seconds_to_fill_ahead) || config.seconds_to_fill_ahead <= 0 return result;
 
     channels := audio_output_preferred_channels();
-    if channels != 2 && channels != 6 && channels != 8 return result;
+    STEREO :: 2;
+    SURROUND_5_1 :: 6;
+    SURROUND_7_1 :: 8;
+
+    if channels != STEREO && channels != SURROUND_5_1 && channels != SURROUND_7_1 return result;
 
     error: s32;
 
@@ -82,8 +86,8 @@ backend_init :: (config: Sound_Player_Config) -> Backend_Properties {
     result.output_sampling_rate = audio_output_rate(output_handle);
     result.channel_names = .{ result.num_channels, channel_names.data };
     initialize_panning_vectors();
-    if result.num_channels == 6 arcs = arcs_6ch;
-    else if result.num_channels == 8 arcs = arcs_8ch;
+    if result.num_channels == SURROUND_5_1 arcs = arcs_6ch;
+    else if result.num_channels == SURROUND_7_1 arcs = arcs_8ch;
     else arcs = .{};
 
     properties = result;

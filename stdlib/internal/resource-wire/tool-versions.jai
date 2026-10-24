@@ -10,7 +10,7 @@ parse_version :: (text: string, fields: s32, prefix: string = "") -> bool, [4] u
         value: u64;
 
         while cursor < text.count && text[cursor] >= #char "0" && text[cursor] <= #char "9" {
-            value = value * 10 + text[cursor] - 48;
+            value = value * 10 + text[cursor] - #char "0";
             if value > 0xffffffff return false, result;
             cursor += 1;
         }

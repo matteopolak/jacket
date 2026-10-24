@@ -52,7 +52,9 @@ random_get_zero_to_one_open :: inline (state: *Random_State) -> float {
 }
 
 random_get_zero_to_one_new :: (state: *Random_State) -> float64 #no_aoc {
-    result := cast(float64) random_get(state) / 18446744073709551616.0;
+    TWO_TO_THE_64TH :: 18446744073709551616.0;
+
+    result := cast(float64) random_get(state) / TWO_TO_THE_64TH;
     if result == 1 return 0.9999999999999999;
     return result;
 }

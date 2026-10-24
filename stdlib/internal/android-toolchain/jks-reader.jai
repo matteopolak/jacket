@@ -9,7 +9,10 @@ jks_read :: (data: string, password: string) -> bool, certificate: string, encry
 
     defer jks_release_secret(password_bytes);
 
-    body := string.{ data.count - 20, data.data };
+    // The store ends with the SHA-1 digest of everything before it.
+    DIGEST_BYTES :: 20;
+
+    body := string.{ data.count - DIGEST_BYTES, data.data };
     cursor := body;
     ok, magic := jks_word(*cursor, 4);
 

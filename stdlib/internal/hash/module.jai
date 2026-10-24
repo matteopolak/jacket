@@ -73,7 +73,9 @@ fnv1a_hash :: (data: *void, size: int, h := FNV_64_OFFSET_BIAS) -> u64 #no_aoc {
 }
 
 knuth_hash :: inline (x: u64) -> u64 #no_aoc {
-    return x * 11400714819323198485;
+    KNUTH_MULTIPLIER: u64 : 11400714819323198485;
+
+    return x * KNUTH_MULTIPLIER;
 }
 
 get_hash :: (s: string, h := HASH_INIT) -> u32 {
