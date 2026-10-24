@@ -296,12 +296,12 @@ print("%\n", row.settings.value.theme);
 
     ```jai
     Json_Columns :: Pg.Json_Column.[
-        .{ "users.settings", Settings },
-        .{ "events.payload", Event_Payload },
+        .{ "users.settings", Settings, .{ unknown_fields = .DENY } },
+        .{ column = "events.payload", type = Event_Payload }, // default options
     ];
     ```
 
-    The generator emits `settings: Pg.Json(Pg.json_column_type("users.settings"));`. That is a compile-time lookup in `Json_Columns`, falling back to `Json_Raw` (the field is then `Json(Json_Raw)`, whose `.value.text` is the document), so changing a mapping does not regenerate the schema. A mapping naming a column that is not JSON is a compile error.
+    The generator emits `settings: Pg.Json(Pg.json_column_type("users.settings"), Pg.json_column_options("users.settings"));`. That is a compile-time lookup in `Json_Columns`, falling back to `Json_Raw` (the field is then `Json(Json_Raw)`, whose `.value.text` is the document), so changing a mapping does not regenerate the schema. A mapping naming a column that is not JSON is a compile error.
 - **Strictness.** `Pg.Json_Options` is a `Json_Options` with Postgres defaults, set per query (`json = .{ unknown_fields = .DENY }`), per `Json_Columns` entry, or per connection in `Config`:
   - `unknown_fields`: `.IGNORE` (the default) or `.DENY`;
   - `missing_fields`: `.ERROR` (the default) or `.DEFAULT`, which keeps each field's initializer;
