@@ -142,12 +142,8 @@ impl Cx<'_> {
             if r.uri != self.uri.as_str() {
                 return;
             }
-            let (Ok(s), Ok(e)) = (
-                doc.index.byte(self.text, r.range.start),
-                doc.index.byte(self.text, r.range.end),
-            ) else {
-                return;
-            };
+            let s = doc.index.byte(self.text, r.range.start);
+            let e = doc.index.byte(self.text, r.range.end);
             spans.push((s, e));
         }
         if !spans.contains(&(from, to)) {

@@ -174,7 +174,7 @@ impl Session {
         position: Position,
     ) -> Result<Vec<CallHierarchyItem>, Error> {
         let doc = self.document(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         let here = sites(&doc.text);
         if let Some(site) = here.iter().find(|s| contains(s.name_span, byte)) {
             return Ok(site_item(uri.as_str(), &doc.text, site)
@@ -192,9 +192,7 @@ impl Session {
             let Some(text) = self.source(&target) else {
                 continue;
             };
-            let Ok(at) = LineIndex::new(&text).byte(&text, location.range.start) else {
-                continue;
-            };
+            let at = LineIndex::new(&text).byte(&text, location.range.start);
             if let Some(found) =
                 declared_at(&sites(&text), at).and_then(|s| site_item(&location.uri, &text, s))
                 && !items
@@ -226,12 +224,8 @@ impl Session {
                 continue;
             };
             let index = LineIndex::new(&text);
-            let (Ok(a), Ok(b)) = (
-                index.byte(&text, reference.range.start),
-                index.byte(&text, reference.range.end),
-            ) else {
-                continue;
-            };
+            let a = index.byte(&text, reference.range.start);
+            let b = index.byte(&text, reference.range.end);
             // Calls only: a name followed by its arguments.
             if !text[b..].trim_start_matches([' ', '\t']).starts_with('(') {
                 continue;
@@ -259,7 +253,7 @@ impl Session {
             return Ok(Vec::new());
         };
         let here = sites(&doc.text);
-        let start = doc.index.byte(&doc.text, item.selection_range.start)?;
+        let start = doc.index.byte(&doc.text, item.selection_range.start);
         let Some(me) = here.iter().find(|s| contains(s.name_span, start)) else {
             return Ok(Vec::new());
         };

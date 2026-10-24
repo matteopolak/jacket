@@ -66,12 +66,8 @@ impl Session {
             if !incomplete.contains(&diagnostic.range) {
                 continue;
             }
-            let (Ok(a), Ok(b)) = (
-                doc.index.byte(&doc.text, diagnostic.range.start),
-                doc.index.byte(&doc.text, diagnostic.range.end),
-            ) else {
-                continue;
-            };
+            let a = doc.index.byte(&doc.text, diagnostic.range.start);
+            let b = doc.index.byte(&doc.text, diagnostic.range.end);
             let named = context.diagnostics.iter().any(|(code, range)| {
                 code == crate::suggestion_fixes::CHECK_CODE && *range == diagnostic.range
             });

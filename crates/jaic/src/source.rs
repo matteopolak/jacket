@@ -59,15 +59,6 @@ pub struct LineIndex {
     ends: Vec<u32>,
 }
 
-/// Why `LineIndex::offset_utf16` found no offset.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Utf16Error {
-    /// The line is past the last one.
-    LineOutside,
-    /// The column falls between the two halves of a surrogate pair.
-    SplitsPair,
-}
-
 impl LineIndex {
     pub fn new(text: &str) -> Self {
         let mut index = Self {
@@ -169,23 +160,22 @@ impl LineIndex {
         Some((line as u32, column))
     }
 
-    /// The offset of zero-based `line` and UTF-16 column `column` in `text`. A column past the
-    /// line's end names the end.
-    pub fn offset_utf16(&self, text: &str, line: u32, column: u32) -> Result<usize, Utf16Error> {
-        let (start, end) = self
-            .line_range(line as usize)
-            .ok_or(Utf16Error::LineOutside)?;
+    /// The offset of zero-based `line` and UTF-16 column `column` in `text`, clamped the way
+    /// the language server protocol asks: a line past the last one names the end of the text,
+    /// a column past the line's end names the line's end, and a column inside a surrogate pair
+    /// names the start of that character.
+    pub fn offset_utf16(&self, text: &str, line: u32, column: u32) -> usize {
+        let Some((start, end)) = self.line_range(line as usize) else {
+            return text.len();
+        };
         let mut units = 0u32;
         for (relative, ch) in text[start..end].char_indices() {
-            if units == column {
-                return Ok(start + relative);
-            }
             units += ch.len_utf16() as u32;
             if units > column {
-                return Err(Utf16Error::SplitsPair);
+                return start + relative;
             }
         }
-        Ok(end)
+        end
     }
 }
 

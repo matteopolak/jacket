@@ -33,7 +33,8 @@ fn empty_text_has_one_empty_line() {
     assert_eq!(index.line_range(0), Some((0, 0)));
     assert_eq!(index.line_col("", 0), (1, 1));
     assert_eq!(index.utf16_position("", 0), Some((0, 0)));
-    assert_eq!(index.offset_utf16("", 0, 5), Ok(0));
+    assert_eq!(index.offset_utf16("", 0, 5), 0);
+    assert_eq!(index.offset_utf16("", 3, 0), 0);
 }
 
 #[test]
@@ -49,11 +50,10 @@ fn offsets_at_and_past_the_end() {
     let index = LineIndex::new(ends_in_newline);
     assert_eq!(index.line_col(ends_in_newline, 3), (2, 1));
     assert_eq!(index.utf16_position(ends_in_newline, 3), Some((1, 0)));
-    assert_eq!(index.offset_utf16(ends_in_newline, 1, 0), Ok(3));
-    assert_eq!(
-        index.offset_utf16(ends_in_newline, 2, 0),
-        Err(Utf16Error::LineOutside)
-    );
+    assert_eq!(index.offset_utf16(ends_in_newline, 1, 0), 3);
+    // A line past the last one names the end of the text.
+    assert_eq!(index.offset_utf16(ends_in_newline, 2, 0), 3);
+    assert_eq!(index.offset_utf16(ends_in_newline, u32::MAX, u32::MAX), 3);
 }
 
 #[test]
@@ -65,14 +65,17 @@ fn columns_in_characters_bytes_and_utf16() {
     assert_eq!(index.line_col(text, z), (2, 3));
     assert_eq!(index.line_byte_col(z), (2, 7));
     assert_eq!(index.utf16_position(text, z), Some((1, 3)));
-    assert_eq!(index.offset_utf16(text, 1, 3), Ok(z));
+    assert_eq!(index.offset_utf16(text, 1, 3), z);
     // The middle of the emoji, in bytes and in UTF-16 units.
     assert_eq!(index.utf16_position(text, z - 2), None);
-    assert_eq!(index.offset_utf16(text, 1, 2), Err(Utf16Error::SplitsPair));
+    // A column between the halves of a pair names the start of the character.
+    assert_eq!(index.offset_utf16(text, 1, 2), z - 4);
+    assert_eq!(index.offset_utf16(text, 1, 1), z - 4);
+    assert_eq!(index.offset_utf16(text, 1, 0), 2);
     // Offsets inside a character are moved back for the character column.
     assert_eq!(index.line_col(text, z - 2), (2, 2));
     // Past the line's end names the end.
-    assert_eq!(index.offset_utf16(text, 1, 40), Ok(text.len()));
+    assert_eq!(index.offset_utf16(text, 1, 40), text.len());
 }
 
 #[test]
@@ -165,7 +168,7 @@ fn utf16_positions_agree_with_the_original_on_random_text() {
             if byte <= end {
                 assert_eq!(
                     index.offset_utf16(&text, want.0, want.1),
-                    Ok(byte),
+                    byte,
                     "{text:?} at {byte}"
                 );
             }

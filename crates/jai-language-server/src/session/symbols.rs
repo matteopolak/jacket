@@ -78,7 +78,7 @@ impl Session {
         position: Position,
     ) -> Result<Option<(usize, Token)>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         Ok(tokens_at(
             &self
                 .analysis_for(uri)
@@ -96,7 +96,7 @@ impl Session {
         position: Position,
     ) -> Result<Vec<(&DocumentUri, &SymbolRow)>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         let Some((at, token)) = self.word(uri, position)? else {
             return Ok(vec![]);
         };

@@ -49,9 +49,7 @@ impl Session {
             {
                 continue;
             }
-            let Ok(end) = doc.index.byte(&doc.text, whole.end) else {
-                continue;
-            };
+            let end = doc.index.byte(&doc.text, whole.end);
             // The declaration may end in `;` or trail whitespace after its brace.
             let trimmed = doc.text[..end].trim_end().trim_end_matches(';').trim_end();
             if !trimmed.ends_with('}') {

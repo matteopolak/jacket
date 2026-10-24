@@ -35,8 +35,8 @@ impl Session {
         context: &crate::lints::ActionContext,
     ) -> Result<Vec<CodeAction>, Error> {
         let doc = self.document(uri)?;
-        let start = doc.index.byte(&doc.text, range.start)?;
-        let end = doc.index.byte(&doc.text, range.end)?;
+        let start = doc.index.byte(&doc.text, range.start);
+        let end = doc.index.byte(&doc.text, range.end);
         let text = &doc.text;
         let mut fixes = self.suggestion_actions(uri, start, end, context);
         fixes.extend(self.lint_actions(uri, start, end, context));
@@ -133,8 +133,8 @@ impl Session {
     pub fn typed_hints(&self, uri: &DocumentUri, range: Range) -> Result<Vec<InlayHint>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
-        let first = doc.index.byte(text, range.start)?;
-        let last = doc.index.byte(text, range.end)?;
+        let first = doc.index.byte(text, range.start);
+        let last = doc.index.byte(text, range.end);
         let Some((types, calls, expansions, loop_names)) = self.checked(uri, |a, f| {
             (
                 a.compiler.ide_declared_types(f),

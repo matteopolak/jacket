@@ -81,7 +81,7 @@ impl Session {
         let parsed = jaic::parser::parse_file_ide(FileId(0), &doc.ide_text()).file;
         let mut result = Vec::new();
         for &position in positions {
-            let byte = doc.index.byte(text, position)?;
+            let byte = doc.index.byte(text, position);
             let mut found: Vec<(usize, usize)> = Vec::new();
             // The token under the cursor (the later one when between two), and a string's text.
             let tokens = &self

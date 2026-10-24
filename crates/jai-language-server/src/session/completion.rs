@@ -140,7 +140,7 @@ impl Session {
         position: Position,
     ) -> Result<CompletionList, Error> {
         let (uri, doc) = self.document_entry(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
             return Ok(list);
         }

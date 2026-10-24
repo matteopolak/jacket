@@ -209,9 +209,7 @@ impl Analysis {
         let parsed = jaic::parser::parse_tokens_ide(file, text, tokens);
         result.diagnostics.retain(|d| {
             d.code != DiagnosticCode::Lexer
-                || index
-                    .byte(text, d.range.start)
-                    .is_ok_and(|byte| !parsed.recovered_literal_at(byte as u32))
+                || !parsed.recovered_literal_at(index.byte(text, d.range.start) as u32)
         });
         crate::semantic::note_parse(
             text,

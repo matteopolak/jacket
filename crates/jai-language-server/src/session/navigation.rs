@@ -15,7 +15,7 @@ impl Session {
         position: Position,
     ) -> Result<Vec<Location>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         if let Some(location) = self.link_definition(uri, byte) {
             return Ok(vec![location]);
         }
@@ -107,7 +107,7 @@ impl Session {
         kind: MarkupKind,
     ) -> Result<Option<Hover>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         let found = |start: usize, end: usize, text: HoverText| -> Result<Option<Hover>, Error> {
             Ok(Some(Hover {
                 contents: MarkupContent {

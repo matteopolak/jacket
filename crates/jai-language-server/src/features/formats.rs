@@ -142,7 +142,7 @@ impl Session {
         position: Position,
     ) -> Result<Option<Expansion>, Error> {
         let doc = self.document(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         let Some(e) = self.expansion_at(uri, byte) else {
             return Ok(None);
         };

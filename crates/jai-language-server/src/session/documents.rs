@@ -79,9 +79,9 @@ impl Session {
                 if range.start > range.end {
                     return Err(Error::InvalidEdit("edit range is reversed"));
                 }
-                let start = index.byte(&text, range.start)?;
+                let start = index.byte(&text, range.start);
                 // `rangeLength` is deprecated and clients count it differently: the range decides.
-                (start, index.byte(&text, range.end)?)
+                (start, index.byte(&text, range.end))
             } else {
                 (0, text.len())
             };

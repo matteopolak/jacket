@@ -1,5 +1,4 @@
 use crate::Error;
-use jaic::source::Utf16Error;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -29,15 +28,12 @@ impl LineIndex {
         self.0.update(text, from);
     }
 
-    pub(crate) fn byte(&self, text: &str, position: Position) -> Result<usize, Error> {
-        self.0
-            .offset_utf16(text, position.line, position.character)
-            .map_err(|error| match error {
-                Utf16Error::LineOutside => Error::Position("line is outside the document"),
-                Utf16Error::SplitsPair => {
-                    Error::Position("UTF-16 position splits a surrogate pair")
-                }
-            })
+    /// The byte offset of `position`. One policy serves requests and edits alike, per LSP
+    /// 3.17: a line past the last names the end of the document, a character past the end of
+    /// its line names the line's end, and one inside a surrogate pair names the start of the
+    /// character. No position is an error.
+    pub(crate) fn byte(&self, text: &str, position: Position) -> usize {
+        self.0.offset_utf16(text, position.line, position.character)
     }
 
     pub(crate) fn position(&self, text: &str, byte: usize) -> Result<Position, Error> {

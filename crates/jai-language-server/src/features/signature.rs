@@ -24,7 +24,7 @@ impl Session {
     ) -> Result<Option<SignatureHelp>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
-        let byte = doc.index.byte(text, position)?;
+        let byte = doc.index.byte(text, position);
         if let Some(help) = self.asm_signature_help(text, byte) {
             return Ok(Some(help));
         }

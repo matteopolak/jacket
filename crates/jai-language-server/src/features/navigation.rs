@@ -15,7 +15,7 @@ impl Session {
         declaration: bool,
     ) -> Result<Vec<Location>, Error> {
         let doc = self.document(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         let found = self
             .checked(uri, |a, f| {
                 a.compiler
@@ -47,7 +47,7 @@ impl Session {
             return Ok(None);
         }
         let range = doc.index.range(&doc.text, token.span)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         let outside = self
             .checked(uri, |a, f| a.compiler.ide_member_declared(f, byte as u32))
             .flatten()
@@ -59,8 +59,8 @@ impl Session {
         // rewrite, so renaming its uses would break them. A declaration spelled otherwise is
         // another name for the same thing (`T` bound to `int`), not this one's.
         let word = {
-            let start = doc.index.byte(&doc.text, range.start)?;
-            let end = doc.index.byte(&doc.text, range.end)?;
+            let start = doc.index.byte(&doc.text, range.start);
+            let end = doc.index.byte(&doc.text, range.end);
             doc.text[start..end].to_string()
         };
         let declared = self
@@ -99,8 +99,8 @@ impl Session {
         };
         let doc = self.document(uri)?;
         let old = {
-            let start = doc.index.byte(&doc.text, range.start)?;
-            let end = doc.index.byte(&doc.text, range.end)?;
+            let start = doc.index.byte(&doc.text, range.start);
+            let end = doc.index.byte(&doc.text, range.end);
             doc.text[start..end].to_string()
         };
         let mut edits: Vec<(String, Vec<TextEdit>)> = Vec::new();
@@ -109,8 +109,8 @@ impl Session {
             if let Ok(target) = DocumentUri::parse(&location.uri)
                 && let Some(open) = self.documents.get(&target)
             {
-                let start = open.index.byte(&open.text, location.range.start)?;
-                let end = open.index.byte(&open.text, location.range.end)?;
+                let start = open.index.byte(&open.text, location.range.start);
+                let end = open.index.byte(&open.text, location.range.end);
                 if open.text.get(start..end) != Some(old.as_str()) {
                     continue;
                 }
@@ -148,7 +148,7 @@ impl Session {
         position: Position,
     ) -> Result<Vec<Location>, Error> {
         let doc = self.document(uri)?;
-        let byte = doc.index.byte(&doc.text, position)?;
+        let byte = doc.index.byte(&doc.text, position);
         let found = self
             .checked(uri, |a, f| {
                 a.compiler

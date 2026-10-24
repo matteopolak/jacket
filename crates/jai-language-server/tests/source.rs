@@ -30,17 +30,17 @@ fn utf16_crlf_surrogates_and_versioned_edits_are_atomic() {
     let invalid = edit(
         Position {
             line: 0,
-            character: 4,
+            character: 5,
         },
         Position {
             line: 0,
-            character: 5,
+            character: 4,
         },
         "x",
     );
     assert!(matches!(
         session.change(&name, 2, &[invalid]),
-        Err(Error::Position(_))
+        Err(Error::InvalidEdit(_))
     ));
     assert_eq!(session.document_text(&name).unwrap(), original);
     assert_eq!(session.version(&name).unwrap(), 1);
@@ -94,12 +94,12 @@ fn a_late_invalid_edit_rolls_back_the_entire_change_batch() {
         ),
         edit(
             Position {
-                line: 99,
-                character: 0,
+                line: 0,
+                character: 5,
             },
             Position {
-                line: 99,
-                character: 0,
+                line: 0,
+                character: 4,
             },
             "x",
         ),
@@ -107,6 +107,59 @@ fn a_late_invalid_edit_rolls_back_the_entire_change_batch() {
     assert!(session.change(&name, 2, &changes).is_err());
     assert_eq!(session.document_text(&name).unwrap(), text);
     assert_eq!(session.version(&name).unwrap(), 1);
+}
+
+fn position(line: u32, character: u32) -> Position {
+    Position {
+        line,
+        character,
+    }
+}
+
+#[test]
+fn edits_clamp_positions_like_requests() {
+    let mut session = Session::new(Limits::default());
+    let name = uri("main.jai");
+    session
+        .open(name.clone(), 1, "ab\n// 🦀 c\nz".into())
+        .unwrap();
+    // Past the end of a line: the end of that line.
+    let past_column = edit(position(0, 99), position(0, 99), "!");
+    session.change(&name, 2, &[past_column]).unwrap();
+    assert_eq!(session.document_text(&name).unwrap(), "ab!\n// 🦀 c\nz");
+    // Inside a surrogate pair: the start of the character, so the crab is replaced whole.
+    let inside_pair = edit(position(1, 4), position(1, 5), "x");
+    session.change(&name, 3, &[inside_pair]).unwrap();
+    assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz");
+    // Past the last line: the end of the document.
+    let past_line = edit(position(99, 0), position(99, 7), "?");
+    session.change(&name, 4, &[past_line]).unwrap();
+    assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz?");
+    // A whole-document replacement and a later edit still agree about the lines.
+    let again = edit(position(2, 1), position(2, 99), "\nw");
+    session.change(&name, 5, &[again]).unwrap();
+    assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz\nw");
+    let last = edit(position(3, 99), position(99, 99), "v");
+    session.change(&name, 6, &[last]).unwrap();
+    assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz\nwv");
+}
+
+#[test]
+fn requests_clamp_positions_instead_of_failing() {
+    let mut session = Session::new(Limits::default());
+    let name = uri("main.jai");
+    let text = "value :: 1;\nmain :: () -> int {return value;}";
+    session.open(name.clone(), 1, text.into()).unwrap();
+    for at in [position(0, 4000), position(99, 0), position(99, 99)] {
+        assert!(session.definition(&name, at).is_ok(), "{at:?}");
+    }
+    // The same position, named by line and by a column past the end, finds the same thing.
+    assert_eq!(
+        session.definition(&name, position(1, 4000)).unwrap(),
+        session
+            .definition(&name, position(1, text.len() as u32))
+            .unwrap()
+    );
 }
 
 #[test]
