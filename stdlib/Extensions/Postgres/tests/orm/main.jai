@@ -332,7 +332,8 @@ test_copy :: (db: *Pg.Connection) {
     stored, error = Pg.copy_in(db, "copy copy_kinds from stdin (format binary)", rows);
     check(error.kind == .NONE && stored == 2, Pg.error_text(error));
 
-    text, error = := Pg.query_dynamic(db, "select n::text, j::text, jb->>'theme', encode(b, 'hex'), (at at time zone 'UTC')::date::text, a::text, m::text, f::text, i::text, t from copy_kinds order by i");
+    // copy_kinds.i: a bare `i` would sort by the i::text column, in the server's collation.
+    text, error = := Pg.query_dynamic(db, "select n::text, j::text, jb->>'theme', encode(b, 'hex'), (at at time zone 'UTC')::date::text, a::text, m::text, f::text, i::text, t from copy_kinds order by copy_kinds.i");
     defer Pg.free_result(*text);
     check(error.kind == .NONE && text.row_count == 2, Pg.error_text(error));
 
