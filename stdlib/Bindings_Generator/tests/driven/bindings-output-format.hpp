@@ -1,8 +1,16 @@
+#include <stdint.h>
+#define SLANG_PTR_IS_32 0
+enum OperandDataType : uint8_t { OperandDataType_None, OperandDataType_Int };
 struct VMExecOperand {
-    unsigned char** section;
-    unsigned int type : 8;   // kind
-    unsigned int field : 24; // field index
-    unsigned int offset;
+    uint8_t** section; // Pointer to the section start pointer.
+    #if SLANG_PTR_IS_32
+    uint32_t padding;
+    #endif
+    uint32_t type : 8; // type of the operand data.
+    uint32_t size : 24;
+    uint32_t offset;
+    void* getPtr() const { return *section + offset; }
+    OperandDataType getType() const { return (OperandDataType)type; }
 };
 struct Flags { int a : 3; unsigned b : 1; bool c : 1; };
 struct SessionDesc { int x; };
