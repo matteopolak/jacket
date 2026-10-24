@@ -105,30 +105,83 @@ scram_continue :: (c: *Connection, config: Config, s: *Scram, data: [] u8) -> Pg
         return auth_error(c, tprint("the server asked for % SCRAM iterations, more than max_scram_iterations (%)", iterations, config.max_scram_iterations));
     }
 
-    salted := Hmac.pbkdf2_hmac_sha256(prepare_password(config.password), salt, iterations);
-    salted_text := string.{ 32, salted.data };
-    client_key := Hmac.hmac_sha256(salted_text, "Client Key");
-    stored_key := Sha.sha256(string.{ 32, client_key.data });
-
-    binding := Base64.base64_encode(s.binding,, temp);
-    without_proof := tprint("c=%,r=%", binding, server_nonce);
-    auth_message := tprint("%,%,%", s.client_first_bare, server_first, without_proof);
-    client_signature := Hmac.hmac_sha256(string.{ 32, stored_key.data }, auth_message);
-    proof: [32] u8;
-
-    for 0..31 proof[it] = client_key[it] ^ client_signature[it];
-
-    server_key := Hmac.hmac_sha256(salted_text, "Server Key");
-
-    s.server_signature = Hmac.hmac_sha256(string.{ 32, server_key.data }, auth_message);
-
-    final := tprint("%,p=%", without_proof, Base64.base64_encode(string.{ 32, proof.data },, temp));
+    final: string;
+    final, s.server_signature = scram_client_proof(config.password, s.client_first_bare, s.binding, server_first, server_nonce, salt, iterations);
 
     begin_message(c, #char "p");
     put_bytes(*c.out, final);
     end_message(c);
 
     return send(c);
+}
+
+// SaltedPassword (the PBKDF2 of the password) for the last few (password, salt, iterations)
+// triples of the process, so a pool that reconnects, or opens several connections at once, runs
+// the iterations once. The key is a hash of the triple: the cache holds no password text. The
+// salted value is as good as the password for logging in with SCRAM, and lives as long as the
+// process, as the password does in the connection's `Config`.
+SALTED_CACHE_SIZE :: 16;
+
+Salted_Entry :: struct {
+    key: [32] u8;
+    salted: [32] u8;
+    used: s64;
+    full: bool;
+}
+
+salted_cache: [SALTED_CACHE_SIZE] Salted_Entry;
+salted_tick: s64;
+salted_lock: s32; // 0 free, 1 taken: connections open on any thread
+salted_runs: s64; // how many times PBKDF2 ran, for the tests
+
+lock_salted :: () {
+    while !compare_and_swap(*salted_lock, cast(s32) 0, cast(s32) 1) sleep_milliseconds(0);
+}
+
+unlock_salted :: () {
+    atomic_store(*salted_lock, cast(s32) 0);
+}
+
+salted_password :: (password: string, salt: string, iterations: s64) -> [32] u8 {
+    key := Sha.sha256(tprint("%:%:%:%", password.count, password, iterations, Base64.base64_encode(salt,, temp)));
+
+    lock_salted();
+
+    for *salted_cache {
+        if it.full && memcmp(it.key.data, key.data, 32) == 0 {
+            salted_tick += 1;
+            it.used = salted_tick;
+            found := it.salted;
+
+            unlock_salted();
+
+            return found;
+        }
+    }
+
+    unlock_salted();
+
+    salted := Hmac.pbkdf2_hmac_sha256(password, salt, iterations);
+
+    lock_salted();
+
+    slot := *salted_cache[0];
+
+    for *salted_cache {
+        if !it.full {
+            slot = it;
+            break;
+        }
+
+        if it.used < slot.used slot = it;
+    }
+
+    salted_tick += 1;
+    salted_runs += 1;
+    slot.* = .{ key = key, salted = salted, used = salted_tick, full = true };
+    unlock_salted();
+
+    return salted;
 }
 
 scram_finish :: (c: *Connection, s: *Scram, data: [] u8) -> Pg_Error {
@@ -203,6 +256,39 @@ scram_secret :: (password: string, iterations := 4096) -> string {
     server_key := Hmac.hmac_sha256(salted_text, "Server Key");
 
     return tprint("SCRAM-SHA-256$%:%$%:%", iterations, Base64.base64_encode(string.{ salt.count, salt.data },, temp), Base64.base64_encode(string.{ 32, stored_key.data },, temp), Base64.base64_encode(string.{ 32, server_key.data },, temp));
+}
+
+// The client-final-message for a server-first-message, and the signature the server must prove it
+// knows in its final message. `binding` is the GS2 header (plus the certificate hash for -PLUS),
+// `salt` the decoded salt. Exported so the RFC 7677 example can be checked.
+scram_client_proof :: (password: string, client_first_bare: string, binding: string, server_first: string, server_nonce: string, salt: string, iterations: s64) -> final: string, server_signature: [32] u8 {
+    salted := salted_password(prepare_password(password), salt, iterations);
+    salted_text := string.{ 32, salted.data };
+    client_key := Hmac.hmac_sha256(salted_text, "Client Key");
+    stored_key := Sha.sha256(string.{ 32, client_key.data });
+
+    encoded_binding := Base64.base64_encode(binding,, temp);
+    without_proof := tprint("c=%,r=%", encoded_binding, server_nonce);
+    auth_message := tprint("%,%,%", client_first_bare, server_first, without_proof);
+    client_signature := Hmac.hmac_sha256(string.{ 32, stored_key.data }, auth_message);
+    proof: [32] u8;
+
+    for 0..31 proof[it] = client_key[it] ^ client_signature[it];
+
+    server_key := Hmac.hmac_sha256(salted_text, "Server Key");
+    signature := Hmac.hmac_sha256(string.{ 32, server_key.data }, auth_message);
+    final := tprint("%,p=%", without_proof, Base64.base64_encode(string.{ 32, proof.data },, temp));
+
+    return final, signature;
+}
+
+// How many times a SCRAM exchange ran PBKDF2 in this process: cache hits do not count.
+scram_pbkdf2_runs :: () -> s64 {
+    lock_salted();
+    runs := salted_runs;
+    unlock_salted();
+
+    return runs;
 }
 
 // The MD5 secret for a password and a role name: `md5` and the hash of the two joined.
