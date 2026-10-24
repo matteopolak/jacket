@@ -20,7 +20,7 @@
 #import "String";
 #import "File";
 #import "Hash_Table";
-POSIX :: #import "POSIX";
+#import "Extensions/Environment";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
 Json :: #import "Extensions/Json";
@@ -55,12 +55,6 @@ unpaired_surrogates: s64;
 
 exit_code: s64;
 
-environment :: (name: string) -> string {
-    value := POSIX.getenv(temp_c_string(name));
-    if !value return "";
-    return to_string(value);
-}
-
 main :: () {
     Io.io_run(() {
         exit_code = run(get_command_line_arguments());
@@ -70,7 +64,7 @@ main :: () {
 }
 
 run :: (args: [] string) -> s64 {
-    database := environment("PGDATABASE");
+    database := environment_variable("PGDATABASE");
     script, literals: string;
     schemas: [..] string;
 
@@ -140,18 +134,18 @@ config_from_environment :: (database: string) -> Pg.Config {
     config.host = "localhost";
     config.json_options.duplicate_keys = .LAST;
 
-    if environment("PGHOST") config.host = environment("PGHOST");
+    if environment_variable("PGHOST") config.host = environment_variable("PGHOST");
 
-    if environment("PGPORT") {
-        port, valid := string_to_int(environment("PGPORT"));
+    if environment_variable("PGPORT") {
+        port, valid := string_to_int(environment_variable("PGPORT"));
         if valid config.port = cast(u16) port;
     }
 
-    config.user = ifx environment("PGUSER") then environment("PGUSER") else "postgres";
+    config.user = ifx environment_variable("PGUSER") then environment_variable("PGUSER") else "postgres";
     config.database = ifx database then database else "postgres";
 
     // Text timestamps carry the zone's offset, including the odd offsets of old local mean time.
-    zone := ifx environment("ROUNDTRIP_TIMEZONE") then environment("ROUNDTRIP_TIMEZONE") else "Europe/Amsterdam";
+    zone := ifx environment_variable("ROUNDTRIP_TIMEZONE") then environment_variable("ROUNDTRIP_TIMEZONE") else "Europe/Amsterdam";
 
     config.parameters = Pg.Startup_Parameter.[.{ "TimeZone", zone }];
 

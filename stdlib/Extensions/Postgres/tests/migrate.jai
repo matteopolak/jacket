@@ -2,7 +2,7 @@
 // set. The split and naming checks run without one.
 #import "Basic";
 #import "String";
-#import "POSIX";
+#import "Extensions/Environment";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
 
@@ -15,7 +15,7 @@ main :: () {
     test_split();
     test_loaded();
 
-    port_text := to_string(getenv("JAI_PG_TEST_PORT"));
+    port_text := environment_variable("JAI_PG_TEST_PORT");
     if port_text {
         value, valid := string_to_int(port_text);
 

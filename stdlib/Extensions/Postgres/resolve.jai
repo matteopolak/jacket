@@ -81,7 +81,7 @@ call_of :: (call: Code) -> *Code_Procedure_Call {
 // `jacket.toml` or a `db` folder; if there is none, that file's own folder. JACKET_PG_ROOT
 // overrides it.
 find_project_root :: (file: string) -> string {
-    forced := environment("JACKET_PG_ROOT");
+    forced := environment_variable("JACKET_PG_ROOT");
     if forced return forced;
 
     start := path_strip_filename(file);
@@ -108,14 +108,14 @@ find_project_root :: (file: string) -> string {
 
 typed_settings :: (file: string) -> Typed_Settings {
     settings: Typed_Settings;
-    settings.url = environment("JACKET_DATABASE_URL");
-    if !settings.url settings.url = environment("DATABASE_URL");
+    settings.url = environment_variable("JACKET_DATABASE_URL");
+    if !settings.url settings.url = environment_variable("DATABASE_URL");
 
-    settings.search_path = environment("JACKET_PG_SEARCH_PATH");
-    offline := environment("JACKET_PG_OFFLINE");
+    settings.search_path = environment_variable("JACKET_PG_SEARCH_PATH");
+    offline := environment_variable("JACKET_PG_OFFLINE");
 
     settings.offline = offline != "" && offline != "0";
-    settings.recording = environment("JACKET_PG_CHECK") != "";
+    settings.recording = environment_variable("JACKET_PG_CHECK") != "";
     settings.root = find_project_root(file);
     settings.schema_hash = migrations_hash(settings.root);
 

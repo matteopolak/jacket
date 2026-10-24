@@ -395,5 +395,5 @@ environment_lookup :: (state: *Parse_State, name: string) -> string {
         }
     }
 
-    return environment_value(name);
+    return Env.environment_variable(name);
 }

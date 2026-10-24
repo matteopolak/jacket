@@ -165,11 +165,11 @@ managed_cache_dir_for :: (os: Managed_Os, home: string, xdg_cache_home: string, 
 
 managed_cache_dir :: () -> string {
     #if OS == .WINDOWS {
-        return managed_cache_dir_for(.WINDOWS, managed_env("USERPROFILE"), "", managed_env("LOCALAPPDATA"));
+        return managed_cache_dir_for(.WINDOWS, environment_variable("USERPROFILE"), "", environment_variable("LOCALAPPDATA"));
     } else #if OS == .MACOS {
-        return managed_cache_dir_for(.MACOS, managed_env("HOME"), "", "");
+        return managed_cache_dir_for(.MACOS, environment_variable("HOME"), "", "");
     } else {
-        return managed_cache_dir_for(.LINUX, managed_env("HOME"), managed_env("XDG_CACHE_HOME"), "");
+        return managed_cache_dir_for(.LINUX, environment_variable("HOME"), environment_variable("XDG_CACHE_HOME"), "");
     }
 }
 
@@ -333,15 +333,7 @@ File_Utilities :: #import "File_Utilities";
     MANAGED_EXE :: ".exe";
 
     kernel32_managed :: #system_library "kernel32";
-    GetEnvironmentVariableA :: (name: *u8, buffer: *u8, size: u32) -> u32 #foreign kernel32_managed;
     GetCurrentProcessId :: () -> u32 #foreign kernel32_managed;
-
-    managed_env :: (name: string) -> string {
-        buffer: [1024] u8;
-        count := GetEnvironmentVariableA(temp_c_string(name), buffer.data, buffer.count);
-        if count == 0 || count >= buffer.count return "";
-        return copy_string(string.{ count, buffer.data },, temp);
-    }
 
     managed_process_id :: () -> s64 {
         return GetCurrentProcessId();
@@ -350,14 +342,7 @@ File_Utilities :: #import "File_Utilities";
     MANAGED_EXE :: "";
 
     libc_managed :: #system_library "libc";
-    getenv_managed :: (name: *u8) -> *u8 #foreign libc_managed "getenv";
     getpid_managed :: () -> s32 #foreign libc_managed "getpid";
-
-    managed_env :: (name: string) -> string {
-        value := getenv_managed(temp_c_string(name));
-        if !value return "";
-        return copy_string(to_string(value),, temp);
-    }
 
     managed_process_id :: () -> s64 {
         return getpid_managed();

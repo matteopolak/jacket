@@ -11,6 +11,7 @@
 #import "Basic";
 #import "String";
 POSIX :: #import "POSIX";
+#import "Extensions/Environment";
 Pg :: #import "Extensions/Postgres";
 
 write_fd :: (fd: s32, text: string) {
@@ -22,12 +23,6 @@ write_fd :: (fd: s32, text: string) {
 
         at += n;
     }
-}
-
-environment :: (name: string) -> string {
-    value := POSIX.getenv(temp_c_string(name));
-    if !value return "";
-    return to_string(value);
 }
 
 main :: () {
@@ -46,7 +41,7 @@ main :: () {
     }
 
     // sslmode starts as verify-full when the system's roots are in use.
-    default_sslmode := ifx environment("PGSSLROOTCERT") == "system" then "verify-full" else "prefer";
+    default_sslmode := ifx environment_variable("PGSSLROOTCERT") == "system" then "verify-full" else "prefer";
 
     builder: String_Builder;
     first := true;

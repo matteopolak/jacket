@@ -109,16 +109,16 @@ check_auth_method :: (c: *Connection, config: Config, policy: Auth_Policy, code:
 passfile_password :: (config: Config, host: string, port: u16, database: string, user: string) -> string {
     path := config.passfile;
 
-    if !path path = environment("PGPASSFILE");
+    if !path path = environment_variable("PGPASSFILE");
 
     if !path {
         #if OS == .WINDOWS {
-            base := environment("APPDATA");
+            base := environment_variable("APPDATA");
             if !base return "";
 
             path = tprint("%/postgresql/pgpass.conf", base);
         } else {
-            home := environment("HOME");
+            home := environment_variable("HOME");
             if !home return "";
 
             path = tprint("%/.pgpass", home);
