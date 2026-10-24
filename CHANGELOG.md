@@ -55,6 +55,7 @@
 - `Bindings_Generator` prints C++ virtual methods in the official layout: a `Name_VTable` record with `#cpp_method` slots, derived records that hold their base with `#as using,except(vtable)` and `#overlay`, and a `Record_method` wrapper for each method (#39).
 - `Bindings_Generator` lays out C bitfields like the C compiler does, in one `__bitfield` field per storage unit, and writes `set_member` and `get_member` procedures after the record; packed records and `#pragma pack` keep their layout (#38).
 - `d3d11`, `d3d12`, `ImGui` and `macOS` records that hold a union or bitfield have the size and field offsets of the C records: `D3D12_ROOT_PARAMETER`, `D3D12_BARRIER_GROUP`, the ray tracing and render pass descriptors, `D3D11_VIDEO_PROCESSOR_COLOR_SPACE`, `ImFontGlyph` and the `mach_msg_ool_*` descriptors.
+- `dxgi` error codes such as `DXGI_ERROR_DEVICE_REMOVED` are `HRESULT` values, so they compare equal to the `HRESULT` a call returns.
 - The language server no longer reports an error for compile-time code that calls something only a real build can run, such as `BuildCpp`'s `mkdtemp` (#37).
 - `a, b = 1, 2, 3;` reports that it has too many values instead of ignoring the extra one.
 - `Bit_Array.deinit` empties the array, so a later loop or bit access no longer reaches freed storage.

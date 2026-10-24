@@ -39068,7 +39068,7 @@
     },
     "dxgi": {
       "spec": "docs/specs/stdlib/modules/dxgi.md",
-      "spec_sha256": "74a2255eb80a1315f75c919fafeb04b050926c1fcd06fcda591acd836e03827b",
+      "spec_sha256": "01abac88725ff616722e92dd6c8b0eb84b3bfbce969336dd19f8c3f73ca2de1d",
       "counts": {
         "declared": 243,
         "forwarded": 181,
@@ -41809,189 +41809,189 @@
         },
         {
           "name": "DXGI_ERROR_INVALID_CALL",
-          "signature": "DXGI_ERROR_INVALID_CALL :: 0x887A0001",
+          "signature": "DXGI_ERROR_INVALID_CALL :HRESULT: 0x887A0001",
           "condition": "",
           "spec_line": 397,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_NOT_FOUND",
-          "signature": "DXGI_ERROR_NOT_FOUND :: 0x887A0002",
+          "signature": "DXGI_ERROR_NOT_FOUND :HRESULT: 0x887A0002",
           "condition": "",
           "spec_line": 398,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_MORE_DATA",
-          "signature": "DXGI_ERROR_MORE_DATA :: 0x887A0003",
+          "signature": "DXGI_ERROR_MORE_DATA :HRESULT: 0x887A0003",
           "condition": "",
           "spec_line": 399,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_UNSUPPORTED",
-          "signature": "DXGI_ERROR_UNSUPPORTED :: 0x887A0004",
+          "signature": "DXGI_ERROR_UNSUPPORTED :HRESULT: 0x887A0004",
           "condition": "",
           "spec_line": 400,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_DEVICE_REMOVED",
-          "signature": "DXGI_ERROR_DEVICE_REMOVED :: 0x887A0005",
+          "signature": "DXGI_ERROR_DEVICE_REMOVED :HRESULT: 0x887A0005",
           "condition": "",
           "spec_line": 401,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_DEVICE_HUNG",
-          "signature": "DXGI_ERROR_DEVICE_HUNG :: 0x887A0006",
+          "signature": "DXGI_ERROR_DEVICE_HUNG :HRESULT: 0x887A0006",
           "condition": "",
           "spec_line": 402,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_DEVICE_RESET",
-          "signature": "DXGI_ERROR_DEVICE_RESET :: 0x887A0007",
+          "signature": "DXGI_ERROR_DEVICE_RESET :HRESULT: 0x887A0007",
           "condition": "",
           "spec_line": 403,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_WAS_STILL_DRAWING",
-          "signature": "DXGI_ERROR_WAS_STILL_DRAWING :: 0x887A000A",
+          "signature": "DXGI_ERROR_WAS_STILL_DRAWING :HRESULT: 0x887A000A",
           "condition": "",
           "spec_line": 404,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_FRAME_STATISTICS_DISJOINT",
-          "signature": "DXGI_ERROR_FRAME_STATISTICS_DISJOINT :: 0x887A000B",
+          "signature": "DXGI_ERROR_FRAME_STATISTICS_DISJOINT :HRESULT: 0x887A000B",
           "condition": "",
           "spec_line": 405,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_GRAPHICS_VIDPN_SOURCE_IN_USE",
-          "signature": "DXGI_ERROR_GRAPHICS_VIDPN_SOURCE_IN_USE :: 0x887A000C",
+          "signature": "DXGI_ERROR_GRAPHICS_VIDPN_SOURCE_IN_USE :HRESULT: 0x887A000C",
           "condition": "",
           "spec_line": 406,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_DRIVER_INTERNAL_ERROR",
-          "signature": "DXGI_ERROR_DRIVER_INTERNAL_ERROR :: 0x887A0020",
+          "signature": "DXGI_ERROR_DRIVER_INTERNAL_ERROR :HRESULT: 0x887A0020",
           "condition": "",
           "spec_line": 407,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_NONEXCLUSIVE",
-          "signature": "DXGI_ERROR_NONEXCLUSIVE :: 0x887A0021",
+          "signature": "DXGI_ERROR_NONEXCLUSIVE :HRESULT: 0x887A0021",
           "condition": "",
           "spec_line": 408,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_NOT_CURRENTLY_AVAILABLE",
-          "signature": "DXGI_ERROR_NOT_CURRENTLY_AVAILABLE :: 0x887A0022",
+          "signature": "DXGI_ERROR_NOT_CURRENTLY_AVAILABLE :HRESULT: 0x887A0022",
           "condition": "",
           "spec_line": 409,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_REMOTE_CLIENT_DISCONNECTED",
-          "signature": "DXGI_ERROR_REMOTE_CLIENT_DISCONNECTED :: 0x887A0023",
+          "signature": "DXGI_ERROR_REMOTE_CLIENT_DISCONNECTED :HRESULT: 0x887A0023",
           "condition": "",
           "spec_line": 410,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_REMOTE_OUTOFMEMORY",
-          "signature": "DXGI_ERROR_REMOTE_OUTOFMEMORY :: 0x887A0024",
+          "signature": "DXGI_ERROR_REMOTE_OUTOFMEMORY :HRESULT: 0x887A0024",
           "condition": "",
           "spec_line": 411,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_ACCESS_LOST",
-          "signature": "DXGI_ERROR_ACCESS_LOST :: 0x887A0026",
+          "signature": "DXGI_ERROR_ACCESS_LOST :HRESULT: 0x887A0026",
           "condition": "",
           "spec_line": 412,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_WAIT_TIMEOUT",
-          "signature": "DXGI_ERROR_WAIT_TIMEOUT :: 0x887A0027",
+          "signature": "DXGI_ERROR_WAIT_TIMEOUT :HRESULT: 0x887A0027",
           "condition": "",
           "spec_line": 413,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_SESSION_DISCONNECTED",
-          "signature": "DXGI_ERROR_SESSION_DISCONNECTED :: 0x887A0028",
+          "signature": "DXGI_ERROR_SESSION_DISCONNECTED :HRESULT: 0x887A0028",
           "condition": "",
           "spec_line": 414,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_RESTRICT_TO_OUTPUT_STALE",
-          "signature": "DXGI_ERROR_RESTRICT_TO_OUTPUT_STALE :: 0x887A0029",
+          "signature": "DXGI_ERROR_RESTRICT_TO_OUTPUT_STALE :HRESULT: 0x887A0029",
           "condition": "",
           "spec_line": 415,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_CANNOT_PROTECT_CONTENT",
-          "signature": "DXGI_ERROR_CANNOT_PROTECT_CONTENT :: 0x887A002A",
+          "signature": "DXGI_ERROR_CANNOT_PROTECT_CONTENT :HRESULT: 0x887A002A",
           "condition": "",
           "spec_line": 416,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_ACCESS_DENIED",
-          "signature": "DXGI_ERROR_ACCESS_DENIED :: 0x887A002B",
+          "signature": "DXGI_ERROR_ACCESS_DENIED :HRESULT: 0x887A002B",
           "condition": "",
           "spec_line": 417,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_NAME_ALREADY_EXISTS",
-          "signature": "DXGI_ERROR_NAME_ALREADY_EXISTS :: 0x887A002C",
+          "signature": "DXGI_ERROR_NAME_ALREADY_EXISTS :HRESULT: 0x887A002C",
           "condition": "",
           "spec_line": 418,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_SDK_COMPONENT_MISSING",
-          "signature": "DXGI_ERROR_SDK_COMPONENT_MISSING :: 0x887A002D",
+          "signature": "DXGI_ERROR_SDK_COMPONENT_MISSING :HRESULT: 0x887A002D",
           "condition": "",
           "spec_line": 419,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_NOT_CURRENT",
-          "signature": "DXGI_ERROR_NOT_CURRENT :: 0x887A002E",
+          "signature": "DXGI_ERROR_NOT_CURRENT :HRESULT: 0x887A002E",
           "condition": "",
           "spec_line": 420,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_HW_PROTECTION_OUTOFMEMORY",
-          "signature": "DXGI_ERROR_HW_PROTECTION_OUTOFMEMORY :: 0x887A0030",
+          "signature": "DXGI_ERROR_HW_PROTECTION_OUTOFMEMORY :HRESULT: 0x887A0030",
           "condition": "",
           "spec_line": 421,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_DYNAMIC_CODE_POLICY_VIOLATION",
-          "signature": "DXGI_ERROR_DYNAMIC_CODE_POLICY_VIOLATION :: 0x887A0031",
+          "signature": "DXGI_ERROR_DYNAMIC_CODE_POLICY_VIOLATION :HRESULT: 0x887A0031",
           "condition": "",
           "spec_line": 422,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_NON_COMPOSITED_UI",
-          "signature": "DXGI_ERROR_NON_COMPOSITED_UI :: 0x887A0032",
+          "signature": "DXGI_ERROR_NON_COMPOSITED_UI :HRESULT: 0x887A0032",
           "condition": "",
           "spec_line": 423,
           "status": "declared"
@@ -42012,7 +42012,7 @@
         },
         {
           "name": "DXGI_ERROR_MODE_CHANGE_IN_PROGRESS",
-          "signature": "DXGI_ERROR_MODE_CHANGE_IN_PROGRESS :: 0x887A0025",
+          "signature": "DXGI_ERROR_MODE_CHANGE_IN_PROGRESS :HRESULT: 0x887A0025",
           "condition": "",
           "spec_line": 426,
           "status": "declared"
@@ -42026,49 +42026,49 @@
         },
         {
           "name": "DXGI_ERROR_CACHE_CORRUPT",
-          "signature": "DXGI_ERROR_CACHE_CORRUPT :: 0x887A0033",
+          "signature": "DXGI_ERROR_CACHE_CORRUPT :HRESULT: 0x887A0033",
           "condition": "",
           "spec_line": 428,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_CACHE_FULL",
-          "signature": "DXGI_ERROR_CACHE_FULL :: 0x887A0034",
+          "signature": "DXGI_ERROR_CACHE_FULL :HRESULT: 0x887A0034",
           "condition": "",
           "spec_line": 429,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_CACHE_HASH_COLLISION",
-          "signature": "DXGI_ERROR_CACHE_HASH_COLLISION :: 0x887A0035",
+          "signature": "DXGI_ERROR_CACHE_HASH_COLLISION :HRESULT: 0x887A0035",
           "condition": "",
           "spec_line": 430,
           "status": "declared"
         },
         {
           "name": "DXGI_ERROR_ALREADY_EXISTS",
-          "signature": "DXGI_ERROR_ALREADY_EXISTS :: 0x887A0036",
+          "signature": "DXGI_ERROR_ALREADY_EXISTS :HRESULT: 0x887A0036",
           "condition": "",
           "spec_line": 431,
           "status": "declared"
         },
         {
           "name": "DXGI_DDI_ERR_WASSTILLDRAWING",
-          "signature": "DXGI_DDI_ERR_WASSTILLDRAWING :: 0x887B0001",
+          "signature": "DXGI_DDI_ERR_WASSTILLDRAWING :HRESULT: 0x887B0001",
           "condition": "",
           "spec_line": 432,
           "status": "declared"
         },
         {
           "name": "DXGI_DDI_ERR_UNSUPPORTED",
-          "signature": "DXGI_DDI_ERR_UNSUPPORTED :: 0x887B0002",
+          "signature": "DXGI_DDI_ERR_UNSUPPORTED :HRESULT: 0x887B0002",
           "condition": "",
           "spec_line": 433,
           "status": "declared"
         },
         {
           "name": "DXGI_DDI_ERR_NONEXCLUSIVE",
-          "signature": "DXGI_DDI_ERR_NONEXCLUSIVE :: 0x887B0003",
+          "signature": "DXGI_DDI_ERR_NONEXCLUSIVE :HRESULT: 0x887B0003",
           "condition": "",
           "spec_line": 434,
           "status": "declared"
