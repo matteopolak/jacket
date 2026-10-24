@@ -210,6 +210,13 @@ fn generated_files_are_skipped_by_unused_rules() {
 }
 
 #[test]
+fn files_generated_with_a_tool_are_skipped_by_enum_member_prefix() {
+    let file = repo().join("tests/lint/enum_member_prefix/generated.jai");
+    let (lints, text) = lint(&file, &[("enum_member_prefix", Level::Warn)]);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
+}
+
+#[test]
 fn fixed_cases_are_clean() {
     // Applying the fixes must leave code the rule no longer fires on (and that compiles).
     let dir = repo().join("tests/lint");
