@@ -23,6 +23,8 @@ Result :: struct {
     // The statement returns rows (it sent a row description), even if there were none or it has
     // no columns: `select` returns one row of zero columns.
     returns_rows: bool;
+    // More rows of the same statement follow (`Script_Hooks.chunk_rows`); `command` is not set yet.
+    partial: bool;
 
     values: [..] Value_Span; // row_count * columns.count of them, row by row
     data: [..] u8;
@@ -176,6 +178,12 @@ Script_Hooks :: struct {
     // `result.*` zeroed). Without this hook rows are not kept at all.
     on_result: (hooks: *Script_Hooks, result: *Result);
 
+    // When positive, rows reach `on_result` in pieces of this many as they arrive, marked
+    // `partial`, so a large result never has to fit in memory. The statement's last call has the
+    // remaining rows (maybe none) and the command tag. A partial result must not be moved out:
+    // its rows are dropped after the call and its columns kept for the next piece.
+    chunk_rows: s64;
+
     // Called when the server starts a COPY, before any data moves.
     on_copy: (hooks: *Script_Hooks, copy: *Copy_Info);
 
@@ -252,6 +260,13 @@ run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
                 if error.kind != .NONE {
                     free_error(*failure);
                     return error;
+                }
+
+                if hooks.chunk_rows > 0 && result.row_count >= hooks.chunk_rows {
+                    result.partial = true;
+                    hooks.on_result(hooks, *result);
+                    result.partial = false;
+                    clear_rows(*result);
                 }
 
             case #char "C";
@@ -376,6 +391,17 @@ raw_value :: (r: *Result, row: s64, column: s64) -> bytes: [] u8, null: bool {
     span := r.values[row * r.columns.count + column];
     if span.length < 0 return .[], true;
     return .{ span.length, r.data.data + span.offset }, false;
+}
+
+// Drops the rows of a result and what was decoded from them, keeping its columns.
+clear_rows :: (r: *Result) {
+    r.row_count = 0;
+    r.values.count = 0;
+    r.data.count = 0;
+
+    for r.allocations free(it,, r.allocator);
+
+    r.allocations.count = 0;
 }
 
 free_result :: (r: *Result) {
