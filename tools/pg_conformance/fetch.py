@@ -29,6 +29,8 @@ VERSIONS = {
     "16": ("16.15", "c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed"),
     "17": ("17.11", "dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979"),
     "18": ("18.6", "555610c24d53e4316da5b7d3fc25c279d96856d5e0e23ee308c328c5fa881d9f"),
+    # The next major's newest pre-release, for the workflow's allowed-to-fail beta job.
+    "19": ("19rc1", "af105fc8e960fc836a09fc2cd7f582b49fd17675d9d36631abe3a565bfd7d701"),
 }
 
 # The parts of the source tree the runners use.
