@@ -98,6 +98,22 @@ Config :: struct {
     min_protocol_version := Protocol_Version.V3_0;
     max_protocol_version := Protocol_Version.V3_0;
 
+    // Named prepared statements, kept per connection for typed queries (`Pg.query`, `execute`, ...):
+    // the first run of a query parses it, later runs only bind. `.OFF` uses unnamed statements
+    // only, for poolers that do not track named ones (PgBouncer before 1.21). The cache holds
+    // `statement_cache_size` statements; the least recently used is closed to make room.
+    statement_cache := Statement_Cache_Mode.ON;
+    statement_cache_size := 256;
+    // The first time a connection prepares a statement, ask the server what it returns and fail
+    // with an error if its columns are not the ones the query was compiled against, instead of
+    // reading the rows wrongly after a migration under a running program. Costs one round trip
+    // per statement and connection.
+    verify_statements := false;
+    // The server's `statement_timeout` for the session, in milliseconds; 0 keeps the server's own.
+    // Sent as a startup parameter, so a pooler that rejects unknown parameters needs
+    // `options=-c statement_timeout=...` or a role setting instead.
+    statement_timeout := 0;
+
     // The whole connect (TCP, TLS, authentication), in milliseconds; negative: no limit.
     connect_timeout := 10_000;
     // After a deadline or cancel ends a query: how long to spend asking the server to stop it and

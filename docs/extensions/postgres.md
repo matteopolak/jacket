@@ -70,6 +70,8 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`), `pipeline.jai` (pipelin
 - `query_dynamic` sends Parse, Bind, Describe, Execute and Sync together: one round trip,
   unnamed statement and portal, text results.
 - `query_binary` is the same with binary results.
+- `query_cached` runs a statement as a named prepared statement kept in the connection's cache,
+  and typed queries (`Pg.query`, `execute`, ...) always do (see Statement cache below).
 - `execute_script` uses the simple protocol: several statements, no parameters, rows dropped.
 - `run_script(db, sql, *hooks)` is the same protocol with every statement's outcome reported to
   `Script_Hooks`: `on_result` gets each statement's `Result` (rows, `command` tag, `returns_rows`)
@@ -312,6 +314,31 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 - The typed queries of phase 3 will take the names `query`, `query_one`, `execute` and so on.
   The runtime calls are therefore named `query_dynamic`, `query_binary` and `execute_script`.
 
+**Statement cache** (`statements.jai`). Each connection keeps up to `statement_cache_size`
+(default 256) prepared statements, named `j` and 16 hex digits (a hash of the SQL and the
+parameter types). The first run of a query sends Parse, Describe, Bind, Execute and Sync in one
+round trip, and remembers the result columns; later runs send Bind, Execute and Sync only. When
+the cache is full the least recently used statement is closed in the same batch as the next
+Parse.
+
+- A hit that fails with `0A000` ("cached plan must not change result type", a table changed
+  under `select *`) or `26000` (the statement is gone: `DEALLOCATE ALL`, a pooler's reset) is
+  dropped and sent again once. Inside a transaction the error aborts it, so it is returned as
+  it is, and the statement is prepared afresh on its next run.
+- `plan = .CUSTOM` on a typed query or `query_cached` uses the unnamed statement instead, planned
+  with the actual values each time. `Config.statement_cache = .OFF` does that for every query,
+  for poolers that do not track named statements (PgBouncer before 1.21).
+- `Config.verify_statements` makes the first Parse per connection a round trip of its own, and
+  compares the statement's columns with the ones the typed query was compiled against (count and
+  names). A mismatch is a `.USAGE` error "statement X was compiled against a different schema",
+  before anything runs. Off by default.
+- `query_dynamic`, `query_binary`, scripts and pipelines do not use the cache. A statement
+  interrupted by a deadline stays in the cache marked as possibly present, and the next run closes
+  it before preparing it again.
+
+`Config.statement_timeout` (ms) is sent as the `statement_timeout` startup parameter. A connection
+string can set it through `options=-c statement_timeout=5000` as well.
+
 ## Configuration
 
 `Config` fields: `host`, `port`, `user` (default `$USER`), `password`, `database` (default the user),
@@ -326,6 +353,8 @@ TLS 1.2 and 1.3 are what is spoken, a minimum below 1.2 is raised to it),
 `channel_binding` (`DISABLE`, `PREFER`, `REQUIRE`), `min_protocol_version` and
 `max_protocol_version` (`.V3_0` (default), `.V3_2`, `.LATEST`), `connect_timeout` (ms, default 10 s), `cancel_timeout` (ms, default 2 s: the time allowed for
 cancel and drain after a deadline or cancel),
+`statement_cache` (`ON`, `OFF`), `statement_cache_size`, `verify_statements` and
+`statement_timeout` (see Statement cache above),
 `max_scram_iterations` (default 1,000,000), `allow_cleartext_password`, `parameters` (extra
 startup parameters such as `TimeZone`; a name the client sends itself, `client_encoding`,
 `DateStyle` or `IntervalStyle`, replaces its value. Text-format dates and intervals only decode
@@ -403,6 +432,8 @@ Tests (`stdlib/Extensions/Postgres/tests`):
   - the pool: limits and waiting, newest first, rollback on release, health checks, lifetime,
     `min_idle`, closing with borrowed connections;
   - transactions: commit, rollback, ignored failures, retries;
+  - the statement cache (one Parse for repeated runs, eviction, off, `.CUSTOM`, a deallocated or
+    reshaped statement) and `statement_timeout`;
   - pipelines (typed statements, errors and aborts, prepared statements, a deadline in the
     middle, `pipeline_abandon`), notifications (waiting, callback, queue, a deadline, `Io.cancel`,
     another fiber sending) and protocol versions (negotiating down to 3.0, `min_protocol_version`

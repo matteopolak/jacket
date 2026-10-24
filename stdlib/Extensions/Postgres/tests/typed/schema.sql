@@ -52,3 +52,7 @@ insert into posts (author_id, title, body) values (1, 'hello', 'first'), (1, 'se
 insert into teams values ('acme', 1, 'red'), ('acme', 2, 'blue'), ('beta', 1, 'green');
 insert into members (org, team_code, name)
 values ('acme', 1, 'ann'), ('beta', 1, 'bob'), ('acme', 1, 'cy'), ('acme', null, 'dee');
+
+-- A table the statement-cache tests alter under a running program.
+create table drift (a int8 not null, b int8 not null);
+insert into drift values (1, 2);

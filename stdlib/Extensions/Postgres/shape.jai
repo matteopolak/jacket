@@ -172,6 +172,20 @@ binary_results :: (sql: string, call: Code, sql_index: s64) -> bool {
     return true;
 }
 
+// The columns the query was compiled against, for `Config.verify_statements`: their count, then
+// each name, one per line.
+expected_columns :: (sql: string, call: Code, sql_index: s64) -> string {
+    prepared := prepare_query(sql, call, sql_index);
+
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    print_to_builder(*builder, "%", prepared.entry.columns.count);
+    for prepared.entry.columns print_to_builder(*builder, "\n%", it.name);
+
+    return builder_to_string(*builder);
+}
+
 // Argument and shape checks for `query`-like (`returns_rows`) and `execute` calls.
 check_statement :: (sql: string, call: Code, sql_index: s64, returns_rows: bool) {
     prepared := prepare_query(sql, call, sql_index);
@@ -184,9 +198,29 @@ check_statement :: (sql: string, call: Code, sql_index: s64, returns_rows: bool)
     check_arguments(prepared, sql_index + 1);
 }
 
+// The arguments from `first` on that fill placeholders: not the named `plan = ` option.
+value_arguments :: (call_node: *Code_Procedure_Call, first: s64) -> [] *Code_Node {
+    nodes: [..] *Code_Node;
+    nodes.allocator = temp;
+
+    for first..call_node.arguments_sorted.count - 1 {
+        node := call_node.arguments_sorted[it];
+        option := false;
+
+        for call_node.arguments_unsorted {
+            if it.name && it.name.name == "plan" && it.expression == node option = true;
+        }
+
+        if !option array_add(*nodes, node);
+    }
+
+    return nodes;
+}
+
 check_arguments :: (prepared: *Prepared, first: s64) {
     call_node := prepared.call_node;
-    count := call_node.arguments_sorted.count - first;
+    values := value_arguments(call_node, first);
+    count := values.count;
 
     if has_spread(call_node, first) return;
 
@@ -198,7 +232,7 @@ check_arguments :: (prepared: *Prepared, first: s64) {
     }
 
     for 0..count - 1 {
-        node := call_node.arguments_sorted[first + it];
+        node := values[it];
         if !node.type continue;
 
         if !parameter_accepts(params[it].base, node.type, node.kind == .LITERAL) {

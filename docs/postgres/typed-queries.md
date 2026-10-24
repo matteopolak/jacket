@@ -16,7 +16,7 @@ Pg.free_rows(*rows);
 2. **Resolve.** `resolve.jai` (`prepare_query`, memoised per call site) looks for `db/queries/<id>.json` under the project root. On a miss it asks the describe service, which uses the URL if there is one and otherwise, with managed mode on (`JACKET_PG_MANAGED=1` or `[postgres] managed = true` in `jacket.toml`), a managed server.
 3. **Describe.** `describe_service.jai` is a `jaic -interp` worker (`Service.serve`) that holds connections per URL, backs off on failure (1 s doubling to 30 s) and memoises connect errors. `describe.jai` does Parse + Describe, resolves type names (domains, arrays, enums), reads `attnotnull`, and runs `EXPLAIN (VERBOSE, FORMAT JSON)` on the generic plan to find columns made nullable by outer joins. Aliases can force nullability or a type: `name!` (non-null), `name?` (nullable), `name: Jai_Type`.
 4. **Shape.** `shape.jai` builds `Row(shape)`, a struct with one doc-commented field per column, and checks arguments against the parameter types (`s64` does not narrow to `integer`). Errors point at the argument or, for server errors, at the offending byte of the string literal.
-5. **Run.** `typed.jai` expands into a call that sends the rewritten statement (binary results when every column is decodable). `for rows` decodes one row at a time.
+5. **Run.** `typed.jai` expands into a call that sends the rewritten statement (binary results when every column is decodable) as a cached named statement: the first run on a connection parses it, later runs only bind. `plan = .CUSTOM` on any of the macros uses the unnamed statement instead. `for rows` decodes one row at a time. See "Statement cache" in [the client reference](../extensions/postgres.md).
 
 `query_one` and `query_scalar` return a `.NOT_FOUND` error when no row matches, and a `.USAGE` error for more than one. `query_as(T, ...)` checks a hand-written struct: columns match fields by name, nullable columns need `Nullable`, and `Json(T)` fields say what a json column holds.
 
@@ -59,6 +59,7 @@ jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare|check [--root D
 - Nullability rules: `describe.jai` (`known_non_null`, `refine_from_body`, plan walk).
 - Cache format: `entry.jai`; bump the entry version when it changes.
 - Schema database naming, build timing and pruning: `schema_databases.jai`. The service (`describe_service.jai`) keeps one connection per database.
+- Statement cache and `plan`/`verify_statements`: `statements.jai`; `expected_columns` (shape.jai) supplies the compiled column names for the check. A named `plan = ` argument is not a placeholder value: `value_arguments` (shape.jai) filters it out of the argument count.
 - Macros: `typed.jai`. They are `#expand` with `@Interpolates("sql")`, so inline `%name` holes work.
 
 Gotchas: `Rows` buffers the whole result (no portal streaming); `fetch_all(rows, allocator = context.allocator)` copies every row, and the strings, arrays and documents it points to, into one block (two passes over the type info: size, then copy), so the copies outlive `free_rows` and `array_free(items)` frees them. `query_one`, `query_opt` and `query_scalar` return values in temporary storage. Alias type overrides resolve in the module's scope, so user types in `Json(T)` overrides need `query_as`. Unreachable databases are silent in the editor (`Service.unknown`) and errors in builds.

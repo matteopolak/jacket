@@ -87,6 +87,16 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
         put_cstring(*c.out, default.value);
     }
 
+    if config.statement_timeout > 0 {
+        replaced := false;
+        for config.parameters if equal_nocase(it.name, "statement_timeout") replaced = true;
+
+        if !replaced {
+            put_cstring(*c.out, "statement_timeout");
+            put_cstring(*c.out, tprint("%", config.statement_timeout));
+        }
+    }
+
     for config.parameters {
         put_cstring(*c.out, it.name);
         put_cstring(*c.out, it.value);
