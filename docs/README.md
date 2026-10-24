@@ -22,7 +22,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Standard library
 
-[Math](specs/stdlib/modules/math.md) (vectors, matrices and scalar helpers), [Extensions](extensions/README.md) (Io, Http, Tls, Json and the rest), [crypto helpers](stdlib/crypto.md), [native layout](stdlib-native-layout.md), [float conversion](stdlib-float-conversion.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md), [benchmarks](tools/stdlib-benchmarks.md). Planned: [Postgres client and compile-time ORM design](postgres/design.md).
+[Math](specs/stdlib/modules/math.md) (vectors, matrices and scalar helpers), [Extensions](extensions/README.md) (Io, Http, Tls, Json, Postgres and the rest), [crypto helpers](stdlib/crypto.md), [native layout](stdlib-native-layout.md), [float conversion](stdlib-float-conversion.md), [third-party native libraries](tools/native-libs.md), [Unicode tables](tools/regex-unicode-tables.md), [benchmarks](tools/stdlib-benchmarks.md). Planned: [Postgres client and compile-time ORM design](postgres/design.md).
 
 ## Building and testing
 

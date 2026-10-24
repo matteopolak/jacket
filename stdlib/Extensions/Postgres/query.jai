@@ -1,0 +1,420 @@
+// Runtime queries: SQL known only at runtime, results read by column. The typed, compile-time
+// checked queries (`query`, `query_one`, `execute`, ...) are built on the same messages.
+
+Column :: struct {
+    name: string;
+    table_oid: u32; // the table the column comes from; 0 for computed columns
+    column_number: s16; // its attribute number in that table; 0 for computed columns
+    type_oid: u32; // see `Oid`
+    type_size: s16; // pg_type.typlen: negative for variable-length types
+    type_modifier: s32; // pg_attribute.atttypmod: varchar(n), numeric(p, s), ...
+    format: Format;
+}
+
+// The rows of one statement. Strings and byte slices that `get` returns point into the result,
+// and arrays and numerics it builds belong to it: all stay valid until `free_result`.
+Result :: struct {
+    columns: [] Column;
+    row_count: s64;
+    // The command tag ("SELECT 3", "INSERT 0 1", "UPDATE 7", "CREATE TABLE") and the row count
+    // in it (0 when it has none).
+    command: string;
+    rows_affected: s64;
+
+    values: [..] Value_Span; // row_count * columns.count of them, row by row
+    data: [..] u8;
+    allocations: [..] *void;
+    allocator: Allocator; // context.allocator when the query ran: it owns everything above
+}
+
+Value_Span :: struct {
+    offset: s64;
+    length: s64; // -1 for NULL
+}
+
+// Runs one statement with parameters `$1`, `$2`, ... taken from `args`, and returns its rows in
+// text format. Arguments may be integers, floats, bools, strings, `[] u8` (bytea), `Uuid`,
+// `Timestamp`, `Local_Timestamp`, `Date`, `Time`, `Interval`, `Numeric`, `Nullable` of any of
+// those, and one-dimensional arrays of them.
+query_dynamic :: (c: *Connection, sql: string, args: ..Any) -> Result, Pg_Error {
+    values := args; // `sql` is not a print format: keep it and `args` out of one call
+    result, error := run_extended(c, sql, values, .TEXT);
+    return result, error;
+}
+
+// `query_dynamic` with binary results: smaller and faster to decode, but every column's type must
+// be one `get` can decode in binary (see `Oid`).
+query_binary :: (c: *Connection, sql: string, args: ..Any) -> Result, Pg_Error {
+    values := args; // `sql` is not a print format: keep it and `args` out of one call
+    result, error := run_extended(c, sql, values, .BINARY);
+    return result, error;
+}
+
+// Runs SQL that may hold several statements, without parameters (the simple query protocol), and
+// discards any rows. For migrations and scripts. Without an explicit BEGIN the whole string runs
+// as one implicit transaction, so the first error stops it and undoes the statements before it.
+execute_script :: (c: *Connection, sql: string) -> Pg_Error {
+    error := begin_request(c, sql);
+    if error.kind != .NONE return error;
+
+    defer c.busy = false;
+    begin_message(c, #char "Q");
+    put_cstring(*c.out, sql);
+    end_message(c);
+    error = send(c);
+    if error.kind != .NONE return error;
+
+    failure: Pg_Error;
+
+    while true {
+        type, body, read_error := read_message(c);
+        if read_error.kind != .NONE {
+            free_error(*failure);
+            return read_error;
+        }
+
+        if handle_async(c, type, body) continue;
+
+        if type == {
+            case #char "T"; #through;
+            case #char "D"; #through;
+            case #char "C"; #through;
+            case #char "I"; #through;
+            case #char "d"; #through;
+            case #char "c";
+            // Rows, command tags, and COPY TO STDOUT data are dropped.
+            case #char "G";
+                begin_message(c, #char "f");
+                put_cstring(*c.out, "COPY FROM STDIN is not supported by execute_script");
+                end_message(c);
+                send_error := send(c);
+                if send_error.kind != .NONE return send_error;
+            case #char "H";
+            case #char "E";
+                if failure.kind == .NONE failure = parse_server_error(body);
+            case #char "Z";
+                c.status = transaction_status(ifx body.count then body[0] else 0);
+                return failure;
+            case;
+                free_error(*failure);
+                return protocol_error(c, tprint("unexpected message % during a simple query", cast(string) u8.[type]));
+        }
+    }
+
+    return .{};
+}
+
+// The value at `row` and `column` as a `T`. NULL is an error unless `T` is a `Nullable`.
+get :: (r: *Result, row: s64, column: s64, $T: Type) -> T, Pg_Error {
+    value: T;
+
+    if row < 0 || row >= r.row_count || column < 0 || column >= r.columns.count {
+        return value, make_error(.USAGE, "no value at row %, column % (the result has % rows and % columns)", row, column, r.row_count, r.columns.count);
+    }
+
+    span := r.values[row * r.columns.count + column];
+    info := *r.columns[column];
+    bytes := [] u8.{ span.length, r.data.data + span.offset };
+
+    #if #run is_nullable(T) {
+        if span.length < 0 {
+            value.null = true;
+            return value, .{};
+        }
+    } else {
+        if span.length < 0 {
+            return value, make_error(.DECODE, "column \"%\" of row % is NULL; read it as Nullable(%)", info.name, row, T);
+        }
+    }
+
+    why: string;
+
+    {
+        // What decoding allocates belongs to the result.
+        push_allocator(.{ result_allocator, r });
+        #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value);
+        else why = decode(bytes, info.format, info.type_oid, *value);
+    }
+
+    if why return value, make_error(.DECODE, "column \"%\" (%) of row %: %", info.name, type_name(info.type_oid), row, why);
+
+    return value, .{};
+}
+
+get :: (r: *Result, row: s64, column_name: string, $T: Type) -> T, Pg_Error {
+    column := column_index(r, column_name);
+    if column < 0 {
+        value: T;
+        return value, make_error(.USAGE, "the result has no column named \"%\"", column_name);
+    }
+
+    value, error := get(r, row, column, T);
+
+    return value, error;
+}
+
+is_null :: (r: *Result, row: s64, column: s64) -> bool {
+    if row < 0 || row >= r.row_count || column < 0 || column >= r.columns.count return false;
+    return r.values[row * r.columns.count + column].length < 0;
+}
+
+// The first column with this name, or -1.
+column_index :: (r: *Result, name: string) -> s64 {
+    for r.columns if it.name == name return it_index;
+    return -1;
+}
+
+// The undecoded bytes of a value, in the column's format; `null` for NULL.
+raw_value :: (r: *Result, row: s64, column: s64) -> bytes: [] u8, null: bool {
+    if row < 0 || row >= r.row_count || column < 0 || column >= r.columns.count return .[], true;
+    span := r.values[row * r.columns.count + column];
+    if span.length < 0 return .[], true;
+    return .{ span.length, r.data.data + span.offset }, false;
+}
+
+free_result :: (r: *Result) {
+    for r.columns free(it.name);
+
+    array_free(r.columns);
+    free(r.command);
+    array_free(r.values);
+    array_free(r.data);
+    for r.allocations free(it,, r.allocator);
+
+    array_free(r.allocations);
+    r.* = .{};
+}
+
+#scope_module
+
+run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Format) -> Result, Pg_Error {
+    error := begin_request(c, sql);
+    if error.kind != .NONE return .{}, error;
+
+    defer c.busy = false;
+    if args.count > 65535 return .{}, make_error(.USAGE, "% parameters; Postgres allows at most 65535", args.count);
+
+    params := NewArray(args.count, Param,, temp);
+
+    for args {
+        why: string;
+        params[it_index], why = encode_param(it);
+        if why return .{}, make_error(.USAGE, "parameter $%: %", it_index + 1, why);
+    }
+
+    // Parse, Bind, Describe, Execute and Sync go out together: one round trip.
+    begin_message(c, #char "P");
+    put_cstring(*c.out, "");
+    put_cstring(*c.out, sql);
+    put_u16(*c.out, cast(u16) params.count);
+    for params put_u32(*c.out, it.oid);
+
+    end_message(c);
+
+    begin_message(c, #char "B");
+    put_cstring(*c.out, "");
+    put_cstring(*c.out, "");
+    put_u16(*c.out, cast(u16) params.count);
+    for params put_u16(*c.out, xx it.format);
+
+    put_u16(*c.out, cast(u16) params.count);
+
+    for params {
+        if it.null {
+            put_u32(*c.out, 0xffff_ffff);
+        } else {
+            put_u32(*c.out, cast(u32) it.data.count);
+            put_bytes(*c.out, it.data);
+        }
+    }
+
+    put_u16(*c.out, 1);
+    put_u16(*c.out, xx result_format);
+    end_message(c);
+
+    begin_message(c, #char "D");
+    put_u8(*c.out, #char "P");
+    put_cstring(*c.out, "");
+    end_message(c);
+
+    begin_message(c, #char "E");
+    put_cstring(*c.out, "");
+    put_u32(*c.out, 0);
+    end_message(c);
+
+    begin_message(c, #char "S");
+    end_message(c);
+
+    error = send(c);
+    if error.kind != .NONE return .{}, error;
+
+    result: Result;
+    result.allocator = context.allocator;
+    failure: Pg_Error;
+
+    while true {
+        type, body, read_error := read_message(c);
+        if read_error.kind != .NONE {
+            free_error(*failure);
+            free_result(*result);
+            return .{}, read_error;
+        }
+
+        if handle_async(c, type, body) continue;
+
+        if type == {
+            case #char "1"; #through;
+            case #char "2"; #through;
+            case #char "n"; #through;
+            case #char "I"; #through;
+            case #char "s";
+
+            case #char "T";
+                error = read_columns(c, *result, body);
+                if error.kind != .NONE {
+                    free_result(*result);
+                    return .{}, error;
+                }
+
+            case #char "D";
+                error = read_row(c, *result, body);
+                if error.kind != .NONE {
+                    free_result(*result);
+                    return .{}, error;
+                }
+
+            case #char "C";
+                r := Cursor.{ data = body };
+                tag := get_cstring(*r);
+
+                free(result.command);
+                result.command = copy_string(tag);
+                result.rows_affected = rows_in_tag(tag);
+
+            case #char "E";
+                if failure.kind == .NONE failure = parse_server_error(body);
+
+            case #char "Z";
+                c.status = transaction_status(ifx body.count then body[0] else 0);
+
+                if failure.kind != .NONE {
+                    free_result(*result);
+                    return .{}, failure;
+                }
+
+                return result, .{};
+
+            case;
+                free_error(*failure);
+                free_result(*result);
+                return .{}, protocol_error(c, tprint("unexpected message % during a query", cast(string) u8.[type]));
+        }
+    }
+
+    return .{}, .{};
+}
+
+begin_request :: (c: *Connection, sql: string) -> Pg_Error {
+    if !c return make_error(.USAGE, "no connection");
+    if c.broken return make_error(.CLOSED, "the connection was broken by an earlier failure");
+    if c.busy return make_error(.USAGE, "the connection is in use by another fiber; borrow one per fiber from a pool");
+    if !Io.in_scheduler() return make_error(.USAGE, "Postgres calls must run on a fiber: call them inside Io.io_run");
+    if contains_zero(sql) return make_error(.USAGE, "the SQL holds a zero byte");
+
+    c.busy = true;
+
+    return .{};
+}
+
+read_columns :: (c: *Connection, result: *Result, body: [] u8) -> Pg_Error {
+    r := Cursor.{ data = body };
+    count := cast(s64) get_u16(*r);
+
+    for result.columns free(it.name);
+
+    array_free(result.columns);
+    result.columns = NewArray(count, Column);
+    for *result.columns {
+        it.name = copy_string(get_cstring(*r));
+        it.table_oid = get_u32(*r);
+        it.column_number = get_s16(*r);
+        it.type_oid = get_u32(*r);
+        it.type_size = get_s16(*r);
+        it.type_modifier = get_s32(*r);
+        it.format = cast(Format) get_u16(*r);
+    }
+
+    if r.bad return protocol_error(c, "a malformed RowDescription");
+
+    return .{};
+}
+
+read_row :: (c: *Connection, result: *Result, body: [] u8) -> Pg_Error {
+    r := Cursor.{ data = body };
+    count := cast(s64) get_u16(*r);
+
+    if count != result.columns.count return protocol_error(c, "a DataRow with the wrong number of columns");
+
+    for 0..count - 1 {
+        length := cast(s64) get_s32(*r);
+        if length < 0 {
+            array_add(*result.values, .{ offset = 0, length = -1 });
+            continue;
+        }
+
+        bytes := get_bytes(*r, length);
+
+        if r.bad break;
+
+        array_add(*result.values, .{ offset = result.data.count, length = length });
+        put_bytes(*result.data, bytes);
+    }
+
+    if r.bad return protocol_error(c, "a malformed DataRow");
+
+    result.row_count += 1;
+
+    return .{};
+}
+
+// "INSERT 0 5" is 5, "UPDATE 3" is 3, "CREATE TABLE" is 0.
+rows_in_tag :: (tag: string) -> s64 {
+    space := find_index_from_right(tag, #char " ");
+    if space < 0 return 0;
+
+    value, valid, rest := string_to_int(advance(tag, space + 1), 10, s64);
+    if !valid || rest return 0;
+
+    return value;
+}
+
+// Allocations made while decoding a value are recorded in the result and freed with it.
+result_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
+    r := cast(*Result) allocator_data;
+
+    if mode == {
+        case .ALLOCATE;
+            memory := alloc(size,, r.allocator);
+
+            array_add(*r.allocations, memory,, r.allocator);
+            return memory;
+        case .RESIZE;
+            memory := realloc(old_memory, size, old_size,, r.allocator);
+
+            if old_memory {
+                for *r.allocations if it.* == old_memory {
+                    it.* = memory;
+                    return memory;
+                }
+            }
+
+            array_add(*r.allocations, memory,, r.allocator);
+
+            return memory;
+        case .FREE;
+            // Freed with the result.
+            return null;
+    }
+
+    return null;
+}

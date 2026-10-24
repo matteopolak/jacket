@@ -25,6 +25,7 @@
 | `Io_Uring` | Linux io_uring bindings and a `Ring` helper | [io-uring](io-uring.md) |
 | `Tls` | TLS 1.2/1.3 on vendored mbedTLS over any `Io.Reader`/`Io.Writer` | [tls](tls.md) |
 | `Service` | compile-time services: long-lived worker programs `#run` code asks (pending answers in the editor) | [service](service.md) |
+| `Postgres` | PostgreSQL client on fibers: TLS, SCRAM(-PLUS)/MD5 auth, extended and simple queries, text and binary codecs | [postgres](postgres.md) |
 | `String_Literal` | the source location of a byte of a string literal's value, for exact compile-time error spans | [string-literal](string-literal.md) |
 | `Wasi_Runtime` | C library entry points and `_start` for `-os wasm`; jaic adds it itself | [wasm target](../native/wasm-target.md) |
 

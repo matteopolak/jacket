@@ -1,0 +1,59 @@
+// Postgres: a PostgreSQL client over Io fibers. A jaic extension, not official Jai: other Jai
+// compilers have no such module, and it may change between jaic releases. See
+// docs/extensions/postgres.md.
+//
+//     Pg :: #import "Extensions/Postgres";
+//
+//     main :: () {
+//         Io.io_run(() {
+//             config, error := Pg.parse_url("postgres://app@localhost/app_dev");
+//             db:, error = Pg.connect(config);
+//             if error.kind != .NONE { print("%\n", Pg.error_text(error)); return; }
+//             defer Pg.close(db);
+//
+//             result:, error = Pg.query_dynamic(db, "SELECT id, name FROM users WHERE id > $1", 10);
+//             defer Pg.free_result(*result);
+//             for row: 0..result.row_count - 1 {
+//                 id := Pg.get(*result, row, 0, s64);
+//                 name := Pg.get(*result, row, 1, string);
+//             }
+//         });
+//     }
+//
+// Every call that talks to the server runs on a fiber inside `Io.io_run` and blocks only that
+// fiber. `Io.with_deadline` bounds any of them.
+//
+// TLS needs Extensions/Tls (mbedTLS). Programs that only connect over Unix sockets or cleartext
+// TCP can leave it out with `#import "Extensions/Postgres"(TLS = false)`.
+#module_parameters(TLS := true);
+
+#assert OS != .WASM "Extensions/Postgres runs on fibers over Io, and WebAssembly has neither";
+
+#load "error.jai";
+#load "config.jai";
+#load "connection.jai";
+#load "query.jai";
+#load "codecs.jai";
+#load "types.jai";
+
+#scope_module
+
+#import "Basic";
+#import "String";
+#import "Math";
+#import "File";
+Io :: #import "Extensions/Io";
+
+#if TLS {
+    Tls :: #import "Extensions/Tls";
+}
+
+Sha :: #import "internal/crypto/sha";
+Hmac :: #import "internal/crypto/hmac";
+Random :: #import "internal/crypto/random";
+Md5 :: #import "md5";
+Base64 :: #import "Base64";
+
+#load "wire.jai";
+#load "startup.jai";
+#load "scram.jai";

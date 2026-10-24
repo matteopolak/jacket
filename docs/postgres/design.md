@@ -739,8 +739,8 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
       3. `for_expansion` body `Code` walking that finds `it.<field>`.
 1. **Spike on the client side:** the temp-view and `pg_depend` dependency trick. Done; it works, and DML works through `BEGIN ATOMIC` functions ([Cache keys](#cache-keys-and-invalidation)).
 2. **Client:**
-   1. Unix sockets in Io; HMAC, PBKDF2 and random in `internal/crypto`.
-   2. Startup with TLS, MD5 and SCRAM (including `-PLUS`), simple and extended protocols, errors, core binary codecs.
+   1. Unix sockets in Io; HMAC, PBKDF2 and random in `internal/crypto`. Done.
+   2. Startup with TLS, MD5 and SCRAM (including `-PLUS`), simple and extended protocols, errors, core binary codecs. Done: [Postgres](../extensions/postgres.md). The runtime calls are `query_dynamic`, `query_binary` and `execute_script`, which leaves `query`/`execute` for the typed macros.
    3. Pool, transactions, cancellation.
    4. The `pg-conformance` workflow.
 

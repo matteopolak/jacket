@@ -1,0 +1,23 @@
+[
+  {
+    "name": "offline",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io fibers"
+    ]
+  },
+  {
+    "name": "server",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io fibers and TLS SDK; a PostgreSQL server from tests/start_server.sh, else skipped"
+    ]
+  }
+]
