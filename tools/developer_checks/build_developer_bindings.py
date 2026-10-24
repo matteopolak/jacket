@@ -29,6 +29,16 @@ def llvm_prefix(prefix=None):
     return sdk
 
 
+def mingw_prefix():
+    """The Homebrew MinGW-w64 x86-64 toolchain: DEVELOPER_TOOLS_MINGW_PREFIX, else the formula's
+    own prefix (which differs between Apple silicon and Intel Homebrew)."""
+    configured = os.environ.get("DEVELOPER_TOOLS_MINGW_PREFIX")
+    if configured:
+        return Path(configured)
+    formula = subprocess.check_output(["brew", "--prefix", "mingw-w64"], text=True).strip()
+    return Path(formula) / "toolchain-x86_64"
+
+
 def shared_flags():
     if platform.system() == "Darwin":
         return ["-dynamiclib"]

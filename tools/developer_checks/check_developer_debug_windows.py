@@ -3,6 +3,7 @@
 import json
 import os
 import build_developer_bindings
+from build_developer_bindings import mingw_prefix
 from pathlib import Path
 import platform
 import re
@@ -21,7 +22,7 @@ run = labeled_runner('Windows Debug build/check', expected=None, timeout=60, std
 def main():
     if platform.system() != "Darwin":
         raise RuntimeError("This cross-build recipe currently validates macOS-hosted MinGW-w64 x64 only")
-    sdk = Path(os.environ.get("DEVELOPER_TOOLS_MINGW_PREFIX", "/opt/homebrew/opt/mingw-w64/toolchain-x86_64"))
+    sdk = mingw_prefix()
     gcc = sdk / "bin/x86_64-w64-mingw32-gcc"
     llvm = build_developer_bindings.llvm_prefix()
     source = ROOT / "stdlib/internal/developer-tools/debug-native/runtime-windows.c"
