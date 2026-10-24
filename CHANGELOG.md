@@ -33,6 +33,7 @@
 - `jailint` has an opt-in lint for procedures with too many `bool` parameters, with the limit set by `max_bools` (`excessive_bools`).
 - `jailint` has an opt-in lint for a `switch` on an enum that leaves members out without `#complete` or a default case (`incomplete_enum_switch`).
 - `jailint` reports comparisons of a masked value that can never hold, such as `(flags & 4) == 1` (`bad_bit_mask`).
+- `jailint` reports a shift by at least the bit width of the shifted integer, such as `x << 40` for an `s32` (`shift_overflow`).
 
 ### Improved
 

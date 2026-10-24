@@ -68,6 +68,7 @@ mod returned_local_address;
 mod reversed_range;
 mod self_assignment;
 mod shadowed_it;
+mod shift_overflow;
 mod single_case_switch;
 mod string_literal_write;
 mod todo_marker;
@@ -457,6 +458,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a value assigned to itself (`x = x;`)",
         check: self_assignment::check,
+    },
+    RuleInfo {
+        name: "shift_overflow",
+        category: Category::Suspicious,
+        summary: "a shift by at least the bit width of its operand (`x << 40` with `x: s32`)",
+        check: shift_overflow::check,
     },
     RuleInfo {
         name: "shadowed_it",

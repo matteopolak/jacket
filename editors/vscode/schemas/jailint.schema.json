@@ -678,6 +678,16 @@
           "default": "warn",
           "markdownDescription": "a value assigned to itself (`x = x;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#self_assignment)"
         },
+        "shift_overflow": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a shift by at least the bit width of its operand (`x << 40` with `x: s32`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#shift_overflow)"
+        },
         "shadowed_it": {
           "type": "string",
           "enum": [

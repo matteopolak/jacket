@@ -147,6 +147,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `reversed_range` | correctness | deny | editor | `for i: 10..0`: a range that never runs |
 | `self_assignment` | suspicious | warn | editor | `x = x;` |
 | `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
+| `shift_overflow` | suspicious | warn | no | `x << 40` with `x: s32`, `small << 8` with `small: u8`: a shift that moves every bit out |
 | `single_case_switch` | style | warn | editor | `if mode == { case .VERBOSE; ...; }`, with at most a default case: an `if` written as a `switch` |
 | `string_literal_write` | correctness | deny | editor | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
 | `todo_marker` | restriction | allow | no | `// TODO: handle the empty list` |
@@ -297,6 +298,8 @@ Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-on
 Not auto-fixed: the slip may be on the other side. After `using info;`, `width = width;` assigns a field to itself; names found only through `using` that also exist as earlier locals are not reported.
 ### shadowed_it
 `row := it;` before the inner loop is the usual idiom and is not reported.
+### shift_overflow
+The result is `0` (or `-1` for `>>` on a negative signed value) whatever the operand holds, and the compiler accepts it. Fires on `<<`, `>>` and `<<=`, `>>=` when the count is an integer literal no less than the bit width of the left operand's integer type. Constant left operands (`1 << 40`, typed by where they are used) and rotates are skipped. The usual cause is an operand narrower than meant: widen it first in parentheses, `(cast(u64) x) << 40` (`cast(u64) x << 40` shifts before it casts). No fix.
 ### single_case_switch
 One case of one value, plus at most a default case. `#complete` switches, `#through` cases, cases listing several values and `#if` switches are skipped. The editor offers `if x == v { ... }` (with the default as the `else`); the bodies keep their text, so `jaifmt` fixes the indentation, and `--fix` leaves it.
 ### string_literal_write
