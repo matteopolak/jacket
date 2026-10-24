@@ -75,6 +75,8 @@ main :: () {
         test_statement_timeout();
         step("test_copy_out");
         test_copy_out();
+        step("test_listener");
+        test_listener();
     });
     print("ok\n");
 }
@@ -1688,6 +1690,84 @@ test_statement_cache :: () {
     }
 
     assert(Pg.statement_cache_count(db) == before + 1);
+}
+
+receive_within :: (listener: *Pg.Listener, milliseconds: s64) -> Pg.Notification, Pg.Pg_Error {
+    n: Pg.Notification;
+    error: Pg.Pg_Error;
+
+    Io.with_deadline(milliseconds, #code {
+        n, error = Pg.receive(listener);
+    });
+
+    return n, error;
+}
+
+// A listener takes a connection out of the pool, delivers notifications in order, listens again on a
+// new connection after the old one is killed, and gives the connection back clean.
+test_listener :: () {
+    pool, pool_error := Pg.create_pool(config_for("postgres"), .{ max_size = 3 });
+
+    assert_ok(pool_error, "create_pool");
+    defer Pg.close_pool(pool);
+
+    sender := connect_ok(config_for("postgres"));
+
+    defer Pg.close(sender);
+
+    listener, error := Pg.listen(pool, "pg_gap_a", "pg_gap_b");
+
+    assert_ok(error, "listen");
+    assert(pool.open == 1 && pool.idle.count == 0, "the listener holds a pooled connection");
+
+    assert_ok(Pg.notify(sender, "pg_gap_a", "one"), "notify");
+    assert_ok(Pg.notify(sender, "pg_gap_b", "two"), "notify");
+    assert_ok(Pg.notify(sender, "pg_gap_c", "unheard"), "notify");
+
+    n, receive_error := receive_within(listener, 2000);
+
+    assert_ok(receive_error, "receive");
+    assert(n.channel == "pg_gap_a" && n.payload == "one");
+    Pg.free_notification(*n);
+
+    n, receive_error = receive_within(listener, 2000);
+    assert_ok(receive_error, "receive");
+    assert(n.channel == "pg_gap_b" && n.payload == "two");
+    Pg.free_notification(*n);
+
+    // Nothing else is waiting.
+    n, receive_error = receive_within(listener, 100);
+    assert(receive_error.kind == .TIMED_OUT, "got %", Pg.error_text(receive_error));
+    Pg.free_error(*receive_error);
+
+    killed := listener.connection.backend_pid;
+
+    assert(scalar(sender, tprint("select pg_terminate_backend(%)", killed), bool));
+
+    waited := 0;
+    while listener.reconnects == 0 && waited < 5000 {
+        Io.sleep(20);
+        waited += 20;
+    }
+
+    assert(listener.reconnects == 1, "the listener did not reconnect");
+    assert(listener.connection.backend_pid != killed);
+
+    assert_ok(Pg.notify(sender, "pg_gap_b", "after"), "notify after the reconnect");
+
+    n, receive_error = receive_within(listener, 2000);
+    assert_ok(receive_error, "receive after the reconnect");
+    assert(n.channel == "pg_gap_b" && n.payload == "after");
+    Pg.free_notification(*n);
+
+    Pg.close_listener(listener);
+    assert(pool.open == 1 && pool.idle.count == 1, "the connection went back to the pool");
+
+    c, acquire_error := Pg.acquire(pool);
+
+    assert_ok(acquire_error, "acquire");
+    assert(scalar(c, "select count(*) from pg_listening_channels()", s64) == 0, "the pooled connection still listens");
+    Pg.release(pool, c);
 }
 
 Copy_Row :: struct {

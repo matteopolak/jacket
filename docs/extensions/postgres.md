@@ -220,8 +220,18 @@ Pg.notify(other, "jobs", "payload");            // pg_notify($1, $2)
 keep a listening connection off the pool. After `TIMED_OUT` or `CANCELED` the connection is as it
 was. A FATAL from the server while waiting (shutdown, idle session timeout) comes back as the
 error and breaks the connection. `unlisten`, `unlisten_all` and `drop_notifications` complete
-the set. Reconnecting does not re-issue `LISTEN`, and notifications sent while disconnected are
-lost, as in Postgres.
+the set. A plain connection does not re-issue `LISTEN` when it is replaced.
+
+**Listener** (`listener.jai`). `listen(pool, "a", "b")` takes a connection out of the pool for good,
+LISTENs on it and returns a `*Listener`. A fiber of the listener reads notifications into a queue
+(256 held, then it waits for the program), and `receive(listener)` takes the oldest, within any
+`Io.with_deadline` or `Io.cancel`. When the connection fails, the fiber returns it to the pool (a
+broken one is dropped), acquires another, LISTENs on every channel again, and counts it in
+`listener.reconnects`, retrying after 100 ms doubling to 5 s. Notifications sent while it is
+disconnected are lost, as in Postgres: re-read your table when `reconnects` changes if that
+matters. `close_listener` stops the fiber, runs `UNLISTEN *` and hands the connection back. The
+channel names are fixed at `listen`; open another listener for more. A listener uses one pool
+slot, so size `max_size` for it.
 
 **Message trace** (`trace.jai`). `set_trace(db, proc, data, regress = true)` calls `proc` with one
 line per protocol message sent (`F`) or received (`B`) from then on, in the text format of libpq's
