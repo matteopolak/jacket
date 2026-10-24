@@ -76,6 +76,7 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`), `pipeline.jai` (pipelin
 - `query_binary` is the same with binary results.
 - `query_cached` runs a statement as a named prepared statement kept in the connection's cache,
   and typed queries (`Pg.query`, `execute`, ...) always do (see Statement cache below).
+- `copy_in` and `copy_out` run COPY ([copy](../postgres/copy.md)); `copy_out` streams pieces to a callback or decodes a binary COPY into structs.
 - `execute_script` uses the simple protocol: several statements, no parameters, rows dropped.
 - `run_script(db, sql, *hooks)` is the same protocol with every statement's outcome reported to
   `Script_Hooks`: `on_result` gets each statement's `Result` (rows, `command` tag, `returns_rows`)
