@@ -148,7 +148,7 @@ describe_value :: (db: *Connection, request: Describe_Request) -> Json_Value {
         return failure_answer(describe_error);
     }
 
-    entry := Query_Entry.{ sql = request.sql, schema_hash = request.schema_hash, search_path = request.search_path };
+    entry := Query_Entry.{ format = ENTRY_FORMAT, sql = request.sql, schema_hash = request.schema_hash, search_path = request.search_path };
     entry.server_major = db.server_version / VERSION_MAJOR;
 
     types, type_error := resolve_types(db, info);

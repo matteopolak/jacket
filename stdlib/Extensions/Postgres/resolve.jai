@@ -232,8 +232,9 @@ read_cache_entry :: (path: string, sql: string) -> Query_Entry, bool {
 
     entry, ok := entry_from_json(*document);
 
-    // The file name holds 64 bits of the hash: the statement itself must match too.
-    if !ok || entry.sql != sql return .{}, false;
+    // The file name holds 64 bits of the hash: the statement itself must match too. An entry of
+    // another format may mean something else by the same words: it is a miss.
+    if !ok || entry.sql != sql || entry.format != ENTRY_FORMAT return .{}, false;
 
     return entry, true;
 }
