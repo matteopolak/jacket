@@ -425,6 +425,16 @@
               "default": "warn",
               "markdownDescription": "`a = a + b` instead of `a += b` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#manual_assign_op)"
             },
+            "manual_clamp": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a value kept between two constant bounds by hand instead of with `clamp` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#manual_clamp)"
+            },
             "manual_index_counter": {
               "type": "string",
               "enum": [

@@ -38,6 +38,7 @@ mod leaked_allocation;
 mod lossy_xx;
 mod magic_number;
 mod manual_assign_op;
+mod manual_clamp;
 mod manual_index_counter;
 mod min_max;
 mod misrefactored_assign_op;
@@ -261,6 +262,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "`a = a + b` instead of `a += b`",
         check: manual_assign_op::check,
+    },
+    RuleInfo {
+        name: "manual_clamp",
+        category: Category::Complexity,
+        summary: "a value kept between two constant bounds by hand instead of with `clamp`",
+        check: manual_clamp::check,
     },
     RuleInfo {
         name: "manual_index_counter",

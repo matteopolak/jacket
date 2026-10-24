@@ -114,6 +114,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `lossy_xx` | pedantic | allow | yes | `xx` that narrows a number to a smaller type |
 | `magic_number` | pedantic | allow | no | `if x > 37`, `y * 1.0472`, `timeout = 8640`: an unexplained number where a named constant would read better |
 | `manual_assign_op` | complexity | warn | yes | `a = a + b` to `a += b` |
+| `manual_clamp` | complexity | warn | editor | `max(0, min(100, x))`, `if x < 0 { x = 0; } else if x > 100 { x = 100; }`, `ifx v < lo then lo else ifx v > hi then hi else v`: a hand-written `clamp` |
 | `manual_index_counter` | complexity | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
 | `min_max` | correctness | deny | editor | `min(0, max(100, x))`: a clamp with swapped bounds |
 | `misrefactored_assign_op` | correctness | deny | editor | `total += total + x;`: a compound assignment whose right side repeats the target and the operator, which was probably `total = total + x;` rewritten halfway |
@@ -212,6 +213,8 @@ magic_number = "warn"
 Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set, since test data is full of expected values. A printable character, tab, newline or carriage-return code compared with a byte of a `string` (`text[i]`, a local set from one, or `it` in `for text`) gets a `--fix` to `#char "a"`. In `<`, `<=`, `>` and `>=` only range ends are rewritten (digits, `a z A Z f F`, space, `~`), so `header[2] > 88` in a binary buffer stays a number. Other bytes may be table entries, so in their `==` and `!=` the help only suggests `#char`. Generated files are skipped. On the standard library outside its tests, the defaults report about 1,400 numbers: mostly character codes, calendar arithmetic and file-format offsets. Fix by naming the number: `RETRY_AFTER :: 8640;`.
 ### manual_assign_op
 Target must be side-effect-free and the operation must keep its type.
+### manual_clamp
+Numbers with constant bounds, the lower not above the upper (a swapped pair is `min_max`'s). Three shapes: nested `@ReturnsLarger`/`@ReturnsSmaller` calls (the library's `max` and `min`), an `if` and `else if` that assign a side-effect-free target its bounds, and a nested `ifx`. The editor offers `clamp(x, lo, hi)`; `--fix` leaves it, since a statement inside an `else if` chain would need braces.
 ### manual_index_counter
 `n := 0` right before a forward `for` (in a block, a `case` body or a `#if` branch), `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
 ### min_max

@@ -89,7 +89,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 }
 
 /// An integer or float literal's value.
-fn literal(e: &Expr) -> Option<f64> {
+pub(super) fn literal(e: &Expr) -> Option<f64> {
     match &e.kind {
         E::Float(v) => Some(*v),
         E::Unary(jaic::ast::UnOp::Neg, inner) => literal(inner).map(|v| -v),
@@ -98,7 +98,7 @@ fn literal(e: &Expr) -> Option<f64> {
 }
 
 /// A call of a `@ReturnsSmaller` or `@ReturnsLarger` procedure: `min` or `max`, and the two arguments.
-fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&'e Expr; 2])> {
+pub(super) fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&'e Expr; 2])> {
     let E::Call {
         callee,
         args,
