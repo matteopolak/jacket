@@ -145,6 +145,16 @@
               "default": "deny",
               "markdownDescription": "`a = b; b = a;`, a swap that sets both to `b` (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#almost_swapped)"
             },
+            "autocast_used": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "`xx`, the automatic cast, outside a call's arguments (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#autocast_used)"
+            },
             "approx_constant": {
               "type": "string",
               "enum": [

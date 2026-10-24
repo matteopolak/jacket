@@ -11,6 +11,7 @@ mod absurd_comparison;
 mod almost_swapped;
 mod approx_constant;
 mod assert_constant;
+mod autocast_used;
 mod bad_bit_mask;
 mod banner_comment;
 mod bitwise_precedence;
@@ -129,6 +130,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "`a = b; b = a;`, a swap that sets both to `b`",
         check: almost_swapped::check,
+    },
+    RuleInfo {
+        name: "autocast_used",
+        category: Category::Restriction,
+        summary: "`xx`, the automatic cast, outside a call's arguments",
+        check: autocast_used::check,
     },
     RuleInfo {
         name: "approx_constant",

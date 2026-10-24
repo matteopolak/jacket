@@ -19,7 +19,7 @@ sum :: (xs: [] int) -> int {
 }
 
 main :: () {
-    // jailint: allow(unused_variable, lossy_xx)
+    // jailint: allow(unused_variable, lossy_xx, autocast_used)
     leftover: u8 = xx sum(.[1, 2]);
     ready := double_value(1, "x") > 1;
 

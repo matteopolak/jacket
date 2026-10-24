@@ -1,0 +1,33 @@
+warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8`)
+  --> tests/lint/autocast_used/bad.jai:4:17
+   |
+ 4 |     small: u8 = xx big;
+   |                 ^^
+   |
+help: write `cast(u8)` to say so
+   |
+ 4 ~     small: u8 = cast(u8) big;
+   |
+
+warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8`)
+  --> tests/lint/autocast_used/bad.jai:7:13
+   |
+ 7 |     other = xx big;
+   |             ^^
+   |
+help: write `cast(u8)` to say so
+   |
+ 7 ~     other = cast(u8) big;
+   |
+
+warning[autocast_used]: `xx` leaves the target type to the context (`s64` to `u8`)
+  --> tests/lint/autocast_used/bad.jai:9:25
+   |
+ 9 |     if small > 3 return xx (big + 1);
+   |                         ^^
+   |
+help: write `cast(u8)` to say so
+   |
+ 9 ~     if small > 3 return cast(u8) (big + 1);
+   |
+
