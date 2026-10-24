@@ -21,10 +21,19 @@ main :: () {
     assert(offset_of(S.SDL_Surface, "pixels") == native_offset(2));
     assert(offset_of(S.SDL_Surface, "clip_rect") == native_offset(3));
     assert(offset_of(S.SDL_RWops, "type") == native_offset(4));
-    // Public prefixes retain the layout. C receives complete storage.
-    assert(size_of(S.SDL_RWops) == 48 && align_of(S.SDL_RWops) == 8);
-    assert(size_of(S.SDL_UserEvent) == 8 && align_of(S.SDL_UserEvent) == 4);
+    // The public records are the complete C records.
+    assert(size_of(S.SDL_RWops) == size_of(Native.RWops) && align_of(S.SDL_RWops) == align_of(Native.RWops));
+    assert(size_of(S.SDL_UserEvent) == size_of(Native.User_Event) && align_of(S.SDL_UserEvent) == align_of(Native.User_Event));
     assert(offset_of(S.SDL_UserEvent, "type") == 0 && offset_of(S.SDL_UserEvent, "timestamp") == 4);
+    assert(size_matches(7, size_of(S.SDL_Keysym)) != 0);
+    assert(size_matches(8, size_of(S.SDL_KeyboardEvent)) != 0);
+    assert(size_matches(9, size_of(S.SDL_SysWMEvent)) != 0);
+    assert(size_matches(10, size_of(S.SDL_TouchFingerEvent)) != 0);
+    assert(size_matches(11, size_of(S.SDL_MultiGestureEvent)) != 0);
+    assert(size_matches(12, size_of(S.SDL_DollarGestureEvent)) != 0);
+    assert(size_matches(13, size_of(S.SDL_AudioCVT)) != 0);
+    assert(offset_of(S.SDL_Keysym, "unused") == 12);
+    assert(offset_of(S.SDL_AudioCVT, "len_ratio") == 36 && offset_of(S.SDL_AudioCVT, "filter_index") == 124);
     assert(size_matches(5, size_of(Native.RWops)) != 0);
     assert(size_matches(6, size_of(Native.User_Event)) != 0);
     assert(align_of(Native.RWops) == native_alignment(0));
@@ -62,6 +71,7 @@ main :: () {
     prefix := cast(*S.SDL_UserEvent) *guarded.event;
 
     assert(prefix.type == .SDL_USEREVENT && prefix.timestamp == guarded.event.timestamp);
+    assert(prefix.windowID == 19 && prefix.code == -42 && prefix.data1 == *first && prefix.data2 == *second);
     for byte: guarded.before assert(byte == 0x3a);
     for byte: guarded.after assert(byte == 0xc7);
 }

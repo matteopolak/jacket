@@ -175709,9 +175709,9 @@
     },
     "SDL": {
       "spec": "docs/specs/stdlib/modules/sdl.md",
-      "spec_sha256": "7fac08e5e678eb75253010f948d41159b21d296cbed36fcb90c2d0bb1519cf41",
+      "spec_sha256": "fa5dcfd08cd40fad0e15874fe054bf64dc5ee99ec3760aa5ce88e9ff67798e42",
       "counts": {
-        "declared": 520,
+        "declared": 523,
         "implemented": 17,
         "implemented_manual": 2
       },
@@ -176548,14 +176548,14 @@
         },
         {
           "name": "SDL_CreateRGBSurfaceFrom",
-          "signature": "SDL_CreateRGBSurfaceFrom :: (pixels: *void, width: int, height: int, depth: int, pitch: int, rmask: u32, gmask: u32, bmask: u32, amask: u32) -> *SDL_Surface #foreign SDL2",
+          "signature": "SDL_CreateRGBSurfaceFrom :: (pixels: *void, width: s32, height: s32, depth: s32, pitch: s32, rmask: u32, gmask: u32, bmask: u32, amask: u32) -> *SDL_Surface #foreign SDL2",
           "condition": "",
           "spec_line": 135,
           "status": "declared"
         },
         {
           "name": "SDL_CreateRGBSurfaceWithFormatFrom",
-          "signature": "SDL_CreateRGBSurfaceWithFormatFrom :: (pixels: *void, width: int, height: int, depth: int, pitch: int, format: u32) -> *SDL_Surface #foreign SDL2",
+          "signature": "SDL_CreateRGBSurfaceWithFormatFrom :: (pixels: *void, width: s32, height: s32, depth: s32, pitch: s32, format: u32) -> *SDL_Surface #foreign SDL2",
           "condition": "",
           "spec_line": 136,
           "status": "declared"
@@ -176569,7 +176569,7 @@
         },
         {
           "name": "SDL_ShowSimpleMessageBox",
-          "signature": "SDL_ShowSimpleMessageBox :: (flags: u32, title: *u8, msg: *u8, parent: *SDL_Window) -> int #foreign SDL2",
+          "signature": "SDL_ShowSimpleMessageBox :: (flags: u32, title: *u8, msg: *u8, parent: *SDL_Window) -> s32 #foreign SDL2",
           "condition": "",
           "spec_line": 138,
           "status": "declared"
@@ -176822,2677 +176822,2698 @@
           "status": "declared"
         },
         {
+          "name": "SDL_TouchID",
+          "signature": "SDL_TouchID :: s64",
+          "condition": "",
+          "spec_line": 174,
+          "status": "declared"
+        },
+        {
+          "name": "SDL_FingerID",
+          "signature": "SDL_FingerID :: s64",
+          "condition": "",
+          "spec_line": 175,
+          "status": "declared"
+        },
+        {
+          "name": "SDL_GestureID",
+          "signature": "SDL_GestureID :: s64",
+          "condition": "",
+          "spec_line": 176,
+          "status": "declared"
+        },
+        {
           "name": "SDL_UserEvent",
           "signature": "SDL_UserEvent :: struct",
           "condition": "",
-          "spec_line": 174,
+          "spec_line": 177,
           "status": "declared"
         },
         {
           "name": "SDL_SysWMEvent",
           "signature": "SDL_SysWMEvent :: struct",
           "condition": "",
-          "spec_line": 175,
+          "spec_line": 178,
           "status": "declared"
         },
         {
           "name": "SDL_TouchFingerEvent",
           "signature": "SDL_TouchFingerEvent :: struct",
           "condition": "",
-          "spec_line": 176,
+          "spec_line": 179,
           "status": "declared"
         },
         {
           "name": "SDL_MultiGestureEvent",
           "signature": "SDL_MultiGestureEvent :: struct",
           "condition": "",
-          "spec_line": 177,
+          "spec_line": 180,
           "status": "declared"
         },
         {
           "name": "SDL_DollarGestureEvent",
           "signature": "SDL_DollarGestureEvent :: struct",
           "condition": "",
-          "spec_line": 178,
+          "spec_line": 181,
           "status": "declared"
         },
         {
           "name": "SDL_DropEvent",
           "signature": "SDL_DropEvent :: struct",
           "condition": "",
-          "spec_line": 179,
+          "spec_line": 182,
           "status": "declared"
         },
         {
           "name": "SDL_Event",
           "signature": "SDL_Event :: union",
           "condition": "",
-          "spec_line": 180,
+          "spec_line": 183,
           "status": "declared"
         },
         {
           "name": "SDL_eventaction",
           "signature": "using SDL_eventaction :: enum u32",
           "condition": "",
-          "spec_line": 181,
+          "spec_line": 184,
           "status": "declared"
         },
         {
           "name": "SDL_PumpEvents",
           "signature": "SDL_PumpEvents :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 182,
+          "spec_line": 185,
           "status": "declared"
         },
         {
           "name": "SDL_PeepEvents",
           "signature": "SDL_PeepEvents :: (events: *SDL_Event, numevents: s32, action: SDL_eventaction, minType: u32, maxType: u32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 183,
+          "spec_line": 186,
           "status": "declared"
         },
         {
           "name": "SDL_HasEvent",
           "signature": "SDL_HasEvent :: (type: u32) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 184,
+          "spec_line": 187,
           "status": "declared"
         },
         {
           "name": "SDL_HasEvents",
           "signature": "SDL_HasEvents :: (minType: u32, maxType: u32) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 185,
+          "spec_line": 188,
           "status": "declared"
         },
         {
           "name": "SDL_FlushEvent",
           "signature": "SDL_FlushEvent :: (type: u32) #foreign SDL2",
           "condition": "",
-          "spec_line": 186,
+          "spec_line": 189,
           "status": "declared"
         },
         {
           "name": "SDL_FlushEvents",
           "signature": "SDL_FlushEvents :: (minType: u32, maxType: u32) #foreign SDL2",
           "condition": "",
-          "spec_line": 187,
+          "spec_line": 190,
           "status": "declared"
         },
         {
           "name": "SDL_PollEvent",
           "signature": "SDL_PollEvent :: (event: *SDL_Event) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 188,
+          "spec_line": 191,
           "status": "declared"
         },
         {
           "name": "SDL_WaitEvent",
           "signature": "SDL_WaitEvent :: (event: *SDL_Event) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 189,
+          "spec_line": 192,
           "status": "declared"
         },
         {
           "name": "SDL_WaitEventTimeout",
           "signature": "SDL_WaitEventTimeout :: (event: *SDL_Event, timeout: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 190,
+          "spec_line": 193,
           "status": "declared"
         },
         {
           "name": "SDL_PushEvent",
           "signature": "SDL_PushEvent :: (event: *SDL_Event) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 191,
+          "spec_line": 194,
           "status": "declared"
         },
         {
           "name": "SDL_SCANCODE_TO_KEYCODE",
           "signature": "SDL_SCANCODE_TO_KEYCODE :: inline (scancode: SDL_Scancode) -> s32",
           "condition": "",
-          "spec_line": 192,
+          "spec_line": 195,
           "status": "implemented"
         },
         {
           "name": "Hack",
           "signature": "Hack :: struct",
           "condition": "",
-          "spec_line": 193,
+          "spec_line": 196,
           "status": "declared"
         },
         {
           "name": "SDL_Keycode",
           "signature": "using SDL_Keycode :: enum s32",
           "condition": "",
-          "spec_line": 194,
+          "spec_line": 197,
           "status": "declared"
         },
         {
           "name": "SDL_Keymod",
           "signature": "using SDL_Keymod :: enum u16",
           "condition": "",
-          "spec_line": 195,
+          "spec_line": 198,
           "status": "declared"
         },
         {
           "name": "SDL_Keysym",
           "signature": "SDL_Keysym :: struct",
           "condition": "",
-          "spec_line": 196,
+          "spec_line": 199,
           "status": "declared"
         },
         {
           "name": "SDL_GetKeyboardFocus",
           "signature": "SDL_GetKeyboardFocus :: () -> *SDL_Window #foreign SDL2",
           "condition": "",
-          "spec_line": 197,
+          "spec_line": 200,
           "status": "declared"
         },
         {
           "name": "SDL_GetKeyboardState",
           "signature": "SDL_GetKeyboardState :: (numkeys: *s32) -> *u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 198,
+          "spec_line": 201,
           "status": "declared"
         },
         {
           "name": "SDL_GetModState",
           "signature": "SDL_GetModState :: () -> SDL_Keymod #foreign SDL2",
           "condition": "",
-          "spec_line": 199,
+          "spec_line": 202,
           "status": "declared"
         },
         {
           "name": "SDL_SetModState",
           "signature": "SDL_SetModState :: (modstate: SDL_Keymod) #foreign SDL2",
           "condition": "",
-          "spec_line": 200,
+          "spec_line": 203,
           "status": "declared"
         },
         {
           "name": "SDL_GetKeyFromScancode",
           "signature": "SDL_GetKeyFromScancode :: (scancode: SDL_Scancode) -> SDL_Keycode #foreign SDL2",
           "condition": "",
-          "spec_line": 201,
+          "spec_line": 204,
           "status": "declared"
         },
         {
           "name": "SDL_GetScancodeFromKey",
           "signature": "SDL_GetScancodeFromKey :: (key: SDL_Keycode) -> SDL_Scancode #foreign SDL2",
           "condition": "",
-          "spec_line": 202,
+          "spec_line": 205,
           "status": "declared"
         },
         {
           "name": "SDL_GetScancodeName",
           "signature": "SDL_GetScancodeName :: (scancode: SDL_Scancode) -> *u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 203,
+          "spec_line": 206,
           "status": "declared"
         },
         {
           "name": "SDL_GetScancodeFromName",
           "signature": "SDL_GetScancodeFromName :: (name: *u8) -> SDL_Scancode #foreign SDL2",
           "condition": "",
-          "spec_line": 204,
+          "spec_line": 207,
           "status": "declared"
         },
         {
           "name": "SDL_GetKeyName",
           "signature": "SDL_GetKeyName :: (key: SDL_Keycode) -> *u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 205,
+          "spec_line": 208,
           "status": "declared"
         },
         {
           "name": "SDL_GetKeyFromName",
           "signature": "SDL_GetKeyFromName :: (name: *u8) -> SDL_Keycode #foreign SDL2",
           "condition": "",
-          "spec_line": 206,
+          "spec_line": 209,
           "status": "declared"
         },
         {
           "name": "SDL_StartTextInput",
           "signature": "SDL_StartTextInput :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 207,
+          "spec_line": 210,
           "status": "declared"
         },
         {
           "name": "SDL_IsTextInputActive",
           "signature": "SDL_IsTextInputActive :: () -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 208,
+          "spec_line": 211,
           "status": "declared"
         },
         {
           "name": "SDL_StopTextInput",
           "signature": "SDL_StopTextInput :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 209,
+          "spec_line": 212,
           "status": "declared"
         },
         {
           "name": "SDL_SetTextInputRect",
           "signature": "SDL_SetTextInputRect :: (rect: *SDL_Rect) #foreign SDL2",
           "condition": "",
-          "spec_line": 210,
+          "spec_line": 213,
           "status": "declared"
         },
         {
           "name": "SDL_HasScreenKeyboardSupport",
           "signature": "SDL_HasScreenKeyboardSupport :: () -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 211,
+          "spec_line": 214,
           "status": "declared"
         },
         {
           "name": "SDL_IsScreenKeyboardShown",
           "signature": "SDL_IsScreenKeyboardShown :: (window: *SDL_Window) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 212,
+          "spec_line": 215,
           "status": "declared"
         },
         {
           "name": "SDL_Scancode",
           "signature": "using SDL_Scancode :: enum s32",
           "condition": "",
-          "spec_line": 213,
+          "spec_line": 216,
           "status": "declared"
         },
         {
           "name": "SDL_Cursor",
           "signature": "SDL_Cursor :: void",
           "condition": "",
-          "spec_line": 214,
+          "spec_line": 217,
           "status": "declared"
         },
         {
           "name": "SDL_SystemCursor",
           "signature": "using SDL_SystemCursor :: enum s32",
           "condition": "",
-          "spec_line": 215,
+          "spec_line": 218,
           "status": "declared"
         },
         {
           "name": "SDL_MouseWheelDirection",
           "signature": "SDL_MouseWheelDirection :: enum s32",
           "condition": "",
-          "spec_line": 216,
+          "spec_line": 219,
           "status": "declared"
         },
         {
           "name": "SDL_GetMouseFocus",
           "signature": "SDL_GetMouseFocus :: () -> *SDL_Window #foreign SDL2",
           "condition": "",
-          "spec_line": 217,
+          "spec_line": 220,
           "status": "declared"
         },
         {
           "name": "SDL_GetMouseState",
           "signature": "SDL_GetMouseState :: (x: *s32, y: *s32) -> u32 #foreign SDL2",
           "condition": "",
-          "spec_line": 218,
+          "spec_line": 221,
           "status": "declared"
         },
         {
           "name": "SDL_GetGlobalMouseState",
           "signature": "SDL_GetGlobalMouseState :: (x: *s32, y: *s32) -> u32 #foreign SDL2",
           "condition": "",
-          "spec_line": 219,
+          "spec_line": 222,
           "status": "declared"
         },
         {
           "name": "SDL_GetRelativeMouseState",
           "signature": "SDL_GetRelativeMouseState :: (x: *s32, y: *s32) -> u32 #foreign SDL2",
           "condition": "",
-          "spec_line": 220,
+          "spec_line": 223,
           "status": "declared"
         },
         {
           "name": "SDL_WarpMouseInWindow",
           "signature": "SDL_WarpMouseInWindow :: (window: *SDL_Window, x: s32, y: s32) #foreign SDL2",
           "condition": "",
-          "spec_line": 221,
+          "spec_line": 224,
           "status": "declared"
         },
         {
           "name": "SDL_WarpMouseGlobal",
           "signature": "SDL_WarpMouseGlobal :: (x: s32, y: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 222,
+          "spec_line": 225,
           "status": "declared"
         },
         {
           "name": "SDL_SetRelativeMouseMode",
           "signature": "SDL_SetRelativeMouseMode :: (enabled: SDL_bool) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 223,
+          "spec_line": 226,
           "status": "declared"
         },
         {
           "name": "SDL_CaptureMouse",
           "signature": "SDL_CaptureMouse :: (enabled: SDL_bool) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 224,
+          "spec_line": 227,
           "status": "declared"
         },
         {
           "name": "SDL_GetRelativeMouseMode",
           "signature": "SDL_GetRelativeMouseMode :: () -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 225,
+          "spec_line": 228,
           "status": "declared"
         },
         {
           "name": "SDL_CreateCursor",
           "signature": "SDL_CreateCursor :: (data: *u8, mask: *u8, w: s32, h: s32, hot_x: s32, hot_y: s32) -> *SDL_Cursor #foreign SDL2",
           "condition": "",
-          "spec_line": 226,
+          "spec_line": 229,
           "status": "declared"
         },
         {
           "name": "SDL_CreateColorCursor",
           "signature": "SDL_CreateColorCursor :: (surface: *SDL_Surface, hot_x: s32, hot_y: s32) -> *SDL_Cursor #foreign SDL2",
           "condition": "",
-          "spec_line": 227,
+          "spec_line": 230,
           "status": "declared"
         },
         {
           "name": "SDL_CreateSystemCursor",
           "signature": "SDL_CreateSystemCursor :: (id: SDL_SystemCursor) -> *SDL_Cursor #foreign SDL2",
           "condition": "",
-          "spec_line": 228,
+          "spec_line": 231,
           "status": "declared"
         },
         {
           "name": "SDL_SetCursor",
           "signature": "SDL_SetCursor :: (cursor: *SDL_Cursor) #foreign SDL2",
           "condition": "",
-          "spec_line": 229,
+          "spec_line": 232,
           "status": "declared"
         },
         {
           "name": "SDL_GetCursor",
           "signature": "SDL_GetCursor :: () -> *SDL_Cursor #foreign SDL2",
           "condition": "",
-          "spec_line": 230,
+          "spec_line": 233,
           "status": "declared"
         },
         {
           "name": "SDL_GetDefaultCursor",
           "signature": "SDL_GetDefaultCursor :: () -> *SDL_Cursor #foreign SDL2",
           "condition": "",
-          "spec_line": 231,
+          "spec_line": 234,
           "status": "declared"
         },
         {
           "name": "SDL_FreeCursor",
           "signature": "SDL_FreeCursor :: (cursor: *SDL_Cursor) #foreign SDL2",
           "condition": "",
-          "spec_line": 232,
+          "spec_line": 235,
           "status": "declared"
         },
         {
           "name": "SDL_ShowCursor",
           "signature": "SDL_ShowCursor :: (toggle: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 233,
+          "spec_line": 236,
           "status": "declared"
         },
         {
           "name": "SDL_BUTTON",
           "signature": "SDL_BUTTON :: (x:int) -> int",
           "condition": "",
-          "spec_line": 234,
+          "spec_line": 237,
           "status": "implemented"
         },
         {
           "name": "SDL_BUTTON_LEFT",
           "signature": "SDL_BUTTON_LEFT :: 1",
           "condition": "",
-          "spec_line": 235,
+          "spec_line": 238,
           "status": "declared"
         },
         {
           "name": "SDL_BUTTON_MIDDLE",
           "signature": "SDL_BUTTON_MIDDLE :: 2",
           "condition": "",
-          "spec_line": 236,
+          "spec_line": 239,
           "status": "declared"
         },
         {
           "name": "SDL_BUTTON_RIGHT",
           "signature": "SDL_BUTTON_RIGHT :: 3",
           "condition": "",
-          "spec_line": 237,
+          "spec_line": 240,
           "status": "declared"
         },
         {
           "name": "SDL_BUTTON_X1",
           "signature": "SDL_BUTTON_X1 :: 4",
           "condition": "",
-          "spec_line": 238,
+          "spec_line": 241,
           "status": "declared"
         },
         {
           "name": "SDL_BUTTON_X2",
           "signature": "SDL_BUTTON_X2 :: 5",
           "condition": "",
-          "spec_line": 239,
+          "spec_line": 242,
           "status": "declared"
         },
         {
           "name": "SDL_Joystick",
           "signature": "SDL_Joystick :: void",
           "condition": "",
-          "spec_line": 240,
+          "spec_line": 243,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGUID",
           "signature": "SDL_JoystickGUID :: struct",
           "condition": "",
-          "spec_line": 241,
+          "spec_line": 244,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickID",
           "signature": "SDL_JoystickID :: s32",
           "condition": "",
-          "spec_line": 242,
+          "spec_line": 245,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickType",
           "signature": "SDL_JoystickType :: enum s32",
           "condition": "",
-          "spec_line": 243,
+          "spec_line": 246,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickPowerLevel",
           "signature": "SDL_JoystickPowerLevel :: enum s32",
           "condition": "",
-          "spec_line": 244,
+          "spec_line": 247,
           "status": "declared"
         },
         {
           "name": "SDL_NumJoysticks",
           "signature": "SDL_NumJoysticks :: () -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 245,
+          "spec_line": 248,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickNameForIndex",
           "signature": "SDL_JoystickNameForIndex :: (device_index: s32) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 246,
+          "spec_line": 249,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetDeviceGUID",
           "signature": "SDL_JoystickGetDeviceGUID :: (device_index: s32) -> SDL_JoystickGUID #foreign SDL2",
           "condition": "",
-          "spec_line": 247,
+          "spec_line": 250,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickOpen",
           "signature": "SDL_JoystickOpen :: (device_index: s32) -> *SDL_Joystick #foreign SDL2",
           "condition": "",
-          "spec_line": 248,
+          "spec_line": 251,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickFromInstanceID",
           "signature": "SDL_JoystickFromInstanceID :: (joyid: SDL_JoystickID) -> *SDL_Joystick #foreign SDL2",
           "condition": "",
-          "spec_line": 249,
+          "spec_line": 252,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickName",
           "signature": "SDL_JoystickName :: (joystick: *SDL_Joystick) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 250,
+          "spec_line": 253,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetGUID",
           "signature": "SDL_JoystickGetGUID :: (joystick: *SDL_Joystick) -> SDL_JoystickGUID #foreign SDL2",
           "condition": "",
-          "spec_line": 251,
+          "spec_line": 254,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetGUIDString",
           "signature": "SDL_JoystickGetGUIDString :: (guid: SDL_JoystickGUID, pszGUID: *s8, cbGUID: s32) #foreign SDL2",
           "condition": "",
-          "spec_line": 252,
+          "spec_line": 255,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetGUIDFromString",
           "signature": "SDL_JoystickGetGUIDFromString :: (pchGUID: *s8) -> SDL_JoystickGUID #foreign SDL2",
           "condition": "",
-          "spec_line": 253,
+          "spec_line": 256,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetAttached",
           "signature": "SDL_JoystickGetAttached :: (joystick: *SDL_Joystick) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 254,
+          "spec_line": 257,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickInstanceID",
           "signature": "SDL_JoystickInstanceID :: (joystick: *SDL_Joystick) -> SDL_JoystickID #foreign SDL2",
           "condition": "",
-          "spec_line": 255,
+          "spec_line": 258,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickNumAxes",
           "signature": "SDL_JoystickNumAxes :: (joystick: *SDL_Joystick) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 256,
+          "spec_line": 259,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickNumBalls",
           "signature": "SDL_JoystickNumBalls :: (joystick: *SDL_Joystick) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 257,
+          "spec_line": 260,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickNumHats",
           "signature": "SDL_JoystickNumHats :: (joystick: *SDL_Joystick) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 258,
+          "spec_line": 261,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickNumButtons",
           "signature": "SDL_JoystickNumButtons :: (joystick: *SDL_Joystick) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 259,
+          "spec_line": 262,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickUpdate",
           "signature": "SDL_JoystickUpdate :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 260,
+          "spec_line": 263,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickEventState",
           "signature": "SDL_JoystickEventState :: (state: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 261,
+          "spec_line": 264,
           "status": "declared"
         },
         {
           "name": "SDL_JOYSTICK_AXIS_MAX",
           "signature": "SDL_JOYSTICK_AXIS_MAX :: 32767",
           "condition": "",
-          "spec_line": 262,
+          "spec_line": 265,
           "status": "declared"
         },
         {
           "name": "SDL_JOYSTICK_AXIS_MIN",
           "signature": "SDL_JOYSTICK_AXIS_MIN :: -32768",
           "condition": "",
-          "spec_line": 263,
+          "spec_line": 266,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetAxis",
           "signature": "SDL_JoystickGetAxis :: (joystick: *SDL_Joystick, axis: s32) -> s16 #foreign SDL2",
           "condition": "",
-          "spec_line": 264,
+          "spec_line": 267,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_CENTERED",
           "signature": "SDL_HAT_CENTERED :: 0x00",
           "condition": "",
-          "spec_line": 265,
+          "spec_line": 268,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_UP",
           "signature": "SDL_HAT_UP :: 0x01",
           "condition": "",
-          "spec_line": 266,
+          "spec_line": 269,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_RIGHT",
           "signature": "SDL_HAT_RIGHT :: 0x02",
           "condition": "",
-          "spec_line": 267,
+          "spec_line": 270,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_DOWN",
           "signature": "SDL_HAT_DOWN :: 0x04",
           "condition": "",
-          "spec_line": 268,
+          "spec_line": 271,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_LEFT",
           "signature": "SDL_HAT_LEFT :: 0x08",
           "condition": "",
-          "spec_line": 269,
+          "spec_line": 272,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_RIGHTUP",
           "signature": "SDL_HAT_RIGHTUP :: (SDL_HAT_RIGHT|SDL_HAT_UP)",
           "condition": "",
-          "spec_line": 270,
+          "spec_line": 273,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_RIGHTDOWN",
           "signature": "SDL_HAT_RIGHTDOWN :: (SDL_HAT_RIGHT|SDL_HAT_DOWN)",
           "condition": "",
-          "spec_line": 271,
+          "spec_line": 274,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_LEFTUP",
           "signature": "SDL_HAT_LEFTUP :: (SDL_HAT_LEFT|SDL_HAT_UP)",
           "condition": "",
-          "spec_line": 272,
+          "spec_line": 275,
           "status": "declared"
         },
         {
           "name": "SDL_HAT_LEFTDOWN",
           "signature": "SDL_HAT_LEFTDOWN :: (SDL_HAT_LEFT|SDL_HAT_DOWN)",
           "condition": "",
-          "spec_line": 273,
+          "spec_line": 276,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetHat",
           "signature": "SDL_JoystickGetHat :: (joystick: *SDL_Joystick, hat: s32) -> u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 274,
+          "spec_line": 277,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetBall",
           "signature": "SDL_JoystickGetBall :: (joystick: *SDL_Joystick, ball: s32, dx: *s32, dy: *s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 275,
+          "spec_line": 278,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickGetButton",
           "signature": "SDL_JoystickGetButton :: (joystick: *SDL_Joystick, button: s32) -> u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 276,
+          "spec_line": 279,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickClose",
           "signature": "SDL_JoystickClose :: (joystick: *SDL_Joystick) #foreign SDL2",
           "condition": "",
-          "spec_line": 277,
+          "spec_line": 280,
           "status": "declared"
         },
         {
           "name": "SDL_JoystickCurrentPowerLevel",
           "signature": "SDL_JoystickCurrentPowerLevel :: (joystick: *SDL_Joystick) -> SDL_JoystickPowerLevel #foreign SDL2",
           "condition": "",
-          "spec_line": 278,
+          "spec_line": 281,
           "status": "declared"
         },
         {
           "name": "SDL_Point",
           "signature": "SDL_Point :: struct",
           "condition": "",
-          "spec_line": 279,
+          "spec_line": 282,
           "status": "declared"
         },
         {
           "name": "SDL_Rect",
           "signature": "SDL_Rect :: struct",
           "condition": "",
-          "spec_line": 280,
+          "spec_line": 283,
           "status": "declared"
         },
         {
           "name": "SDL_PointInRect",
           "signature": "SDL_PointInRect :: (p: *SDL_Point, r: *SDL_Rect) -> SDL_bool",
           "condition": "",
-          "spec_line": 281,
+          "spec_line": 284,
           "status": "implemented"
         },
         {
           "name": "SDL_RectEmpty",
           "signature": "SDL_RectEmpty :: (r: *SDL_Rect) -> SDL_bool",
           "condition": "",
-          "spec_line": 282,
+          "spec_line": 285,
           "status": "implemented"
         },
         {
           "name": "SDL_RectEquals",
           "signature": "SDL_RectEquals :: (a: *SDL_Rect, b: *SDL_Rect) -> SDL_bool",
           "condition": "",
-          "spec_line": 283,
+          "spec_line": 286,
           "status": "implemented"
         },
         {
           "name": "SDL_HasIntersection",
           "signature": "SDL_HasIntersection :: (A: *SDL_Rect, B: *SDL_Rect) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 284,
+          "spec_line": 287,
           "status": "declared"
         },
         {
           "name": "SDL_IntersectRect",
           "signature": "SDL_IntersectRect :: (A: *SDL_Rect, B: *SDL_Rect, result: *SDL_Rect) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 285,
+          "spec_line": 288,
           "status": "declared"
         },
         {
           "name": "SDL_UnionRect",
           "signature": "SDL_UnionRect :: (A: *SDL_Rect, B: *SDL_Rect, result: *SDL_Rect) #foreign SDL2",
           "condition": "",
-          "spec_line": 286,
+          "spec_line": 289,
           "status": "declared"
         },
         {
           "name": "SDL_EnclosePoints",
           "signature": "SDL_EnclosePoints :: (points: *SDL_Point, count: s32, clip: *SDL_Rect, result: *SDL_Rect) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 287,
+          "spec_line": 290,
           "status": "declared"
         },
         {
           "name": "SDL_IntersectRectAndLine",
           "signature": "SDL_IntersectRectAndLine :: (rect: *SDL_Rect, X1: *s32, Y1: *s32, X2: *s32, Y2: *s32) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 288,
+          "spec_line": 291,
           "status": "declared"
         },
         {
           "name": "SDL_GetTicks",
           "signature": "SDL_GetTicks :: () -> u32 #foreign SDL2",
           "condition": "",
-          "spec_line": 289,
+          "spec_line": 292,
           "status": "declared"
         },
         {
           "name": "SDL_GetPerformanceCounter",
           "signature": "SDL_GetPerformanceCounter :: () -> u64 #foreign SDL2",
           "condition": "",
-          "spec_line": 290,
+          "spec_line": 293,
           "status": "declared"
         },
         {
           "name": "SDL_GetPerformanceFrequency",
           "signature": "SDL_GetPerformanceFrequency :: () -> u64 #foreign SDL2",
           "condition": "",
-          "spec_line": 291,
+          "spec_line": 294,
           "status": "declared"
         },
         {
           "name": "SDL_Delay",
           "signature": "SDL_Delay :: (ms: u32) #foreign SDL2",
           "condition": "",
-          "spec_line": 292,
+          "spec_line": 295,
           "status": "declared"
         },
         {
           "name": "SDL_RendererFlags",
           "signature": "SDL_RendererFlags :: enum_flags u32",
           "condition": "",
-          "spec_line": 293,
+          "spec_line": 296,
           "status": "declared"
         },
         {
           "name": "SDL_RendererInfo",
           "signature": "SDL_RendererInfo :: struct",
           "condition": "",
-          "spec_line": 294,
+          "spec_line": 297,
           "status": "declared"
         },
         {
           "name": "SDL_TextureAccess",
           "signature": "SDL_TextureAccess :: enum u32",
           "condition": "",
-          "spec_line": 295,
+          "spec_line": 298,
           "status": "declared"
         },
         {
           "name": "SDL_TextureModulate",
           "signature": "SDL_TextureModulate :: enum u32",
           "condition": "",
-          "spec_line": 296,
+          "spec_line": 299,
           "status": "declared"
         },
         {
           "name": "SDL_RendererFlip",
           "signature": "SDL_RendererFlip :: enum u32",
           "condition": "",
-          "spec_line": 297,
+          "spec_line": 300,
           "status": "declared"
         },
         {
           "name": "SDL_Renderer",
           "signature": "SDL_Renderer :: struct",
           "condition": "",
-          "spec_line": 298,
+          "spec_line": 301,
           "status": "declared"
         },
         {
           "name": "SDL_Texture",
           "signature": "SDL_Texture :: struct",
           "condition": "",
-          "spec_line": 299,
+          "spec_line": 302,
           "status": "declared"
         },
         {
           "name": "SDL_GetNumRenderDrivers",
           "signature": "SDL_GetNumRenderDrivers :: () -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 300,
+          "spec_line": 303,
           "status": "declared"
         },
         {
           "name": "SDL_GetRenderDriverInfo",
           "signature": "SDL_GetRenderDriverInfo :: (index: s32, info: *SDL_RendererInfo) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 301,
+          "spec_line": 304,
           "status": "declared"
         },
         {
           "name": "SDL_CreateWindowAndRenderer",
           "signature": "SDL_CreateWindowAndRenderer :: (width: s32, height: s32, window_flags: u32, window: **SDL_Window, renderer: **SDL_Renderer) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 302,
+          "spec_line": 305,
           "status": "declared"
         },
         {
           "name": "SDL_CreateRenderer",
           "signature": "SDL_CreateRenderer :: (window: *SDL_Window, index: s32, flags: SDL_RendererFlags) -> *SDL_Renderer #foreign SDL2",
           "condition": "",
-          "spec_line": 303,
+          "spec_line": 306,
           "status": "declared"
         },
         {
           "name": "SDL_CreateSoftwareRenderer",
           "signature": "SDL_CreateSoftwareRenderer :: (surface: *SDL_Surface) -> *SDL_Renderer #foreign SDL2",
           "condition": "",
-          "spec_line": 304,
+          "spec_line": 307,
           "status": "declared"
         },
         {
           "name": "SDL_GetRenderer",
           "signature": "SDL_GetRenderer :: (window: *SDL_Window) -> *SDL_Renderer #foreign SDL2",
           "condition": "",
-          "spec_line": 305,
+          "spec_line": 308,
           "status": "declared"
         },
         {
           "name": "SDL_GetRendererInfo",
           "signature": "SDL_GetRendererInfo :: (renderer: *SDL_Renderer, info: *SDL_RendererInfo) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 306,
+          "spec_line": 309,
           "status": "declared"
         },
         {
           "name": "SDL_GetRendererOutputSize",
           "signature": "SDL_GetRendererOutputSize :: (renderer: *SDL_Renderer, w: *s32, h: *s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 307,
+          "spec_line": 310,
           "status": "declared"
         },
         {
           "name": "SDL_CreateTexture",
           "signature": "SDL_CreateTexture :: (renderer: *SDL_Renderer, format: u32, access: s32, w: s32, h: s32) -> *SDL_Texture #foreign SDL2",
           "condition": "",
-          "spec_line": 308,
+          "spec_line": 311,
           "status": "declared"
         },
         {
           "name": "SDL_CreateTextureFromSurface",
           "signature": "SDL_CreateTextureFromSurface :: (renderer: *SDL_Renderer, surface: *SDL_Surface) -> *SDL_Texture #foreign SDL2",
           "condition": "",
-          "spec_line": 309,
+          "spec_line": 312,
           "status": "declared"
         },
         {
           "name": "SDL_QueryTexture",
           "signature": "SDL_QueryTexture :: (texture: *SDL_Texture, format: *u32, access: *s32, w: *s32, h: *s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 310,
+          "spec_line": 313,
           "status": "declared"
         },
         {
           "name": "SDL_SetTextureColorMod",
           "signature": "SDL_SetTextureColorMod :: (texture: *SDL_Texture, r: u8, g: u8, b: u8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 311,
+          "spec_line": 314,
           "status": "declared"
         },
         {
           "name": "SDL_GetTextureColorMod",
           "signature": "SDL_GetTextureColorMod :: (texture: *SDL_Texture, r: *u8, g: *u8, b: *u8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 312,
+          "spec_line": 315,
           "status": "declared"
         },
         {
           "name": "SDL_SetTextureAlphaMod",
           "signature": "SDL_SetTextureAlphaMod :: (texture: *SDL_Texture, alpha: u8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 313,
+          "spec_line": 316,
           "status": "declared"
         },
         {
           "name": "SDL_GetTextureAlphaMod",
           "signature": "SDL_GetTextureAlphaMod :: (texture: *SDL_Texture, alpha: *u8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 314,
+          "spec_line": 317,
           "status": "declared"
         },
         {
           "name": "SDL_SetTextureBlendMode",
           "signature": "SDL_SetTextureBlendMode :: (texture: *SDL_Texture, blendMode: SDL_BlendMode) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 315,
+          "spec_line": 318,
           "status": "declared"
         },
         {
           "name": "SDL_GetTextureBlendMode",
           "signature": "SDL_GetTextureBlendMode :: (texture: *SDL_Texture, blendMode: *SDL_BlendMode) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 316,
+          "spec_line": 319,
           "status": "declared"
         },
         {
           "name": "SDL_UpdateTexture",
           "signature": "SDL_UpdateTexture :: (texture: *SDL_Texture, rect: *SDL_Rect, pixels: *void, pitch: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 317,
+          "spec_line": 320,
           "status": "declared"
         },
         {
           "name": "SDL_UpdateYUVTexture",
           "signature": "SDL_UpdateYUVTexture :: (texture: *SDL_Texture, rect: *SDL_Rect, Yplane: *u8, Ypitch: s32, Uplane: *u8, Upitch: s32, Vplane: *u8, Vpitch: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 318,
+          "spec_line": 321,
           "status": "declared"
         },
         {
           "name": "SDL_LockTexture",
           "signature": "SDL_LockTexture :: (texture: *SDL_Texture, rect: *SDL_Rect, pixels: **void, pitch: *s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 319,
+          "spec_line": 322,
           "status": "declared"
         },
         {
           "name": "SDL_UnlockTexture",
           "signature": "SDL_UnlockTexture :: (texture: *SDL_Texture) #foreign SDL2",
           "condition": "",
-          "spec_line": 320,
+          "spec_line": 323,
           "status": "declared"
         },
         {
           "name": "SDL_RenderTargetSupported",
           "signature": "SDL_RenderTargetSupported :: (renderer: *SDL_Renderer) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 321,
+          "spec_line": 324,
           "status": "declared"
         },
         {
           "name": "SDL_SetRenderTarget",
           "signature": "SDL_SetRenderTarget :: (renderer: *SDL_Renderer, texture: *SDL_Texture) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 322,
+          "spec_line": 325,
           "status": "declared"
         },
         {
           "name": "SDL_GetRenderTarget",
           "signature": "SDL_GetRenderTarget :: (renderer: *SDL_Renderer) -> *SDL_Texture #foreign SDL2",
           "condition": "",
-          "spec_line": 323,
+          "spec_line": 326,
           "status": "declared"
         },
         {
           "name": "SDL_RenderSetLogicalSize",
           "signature": "SDL_RenderSetLogicalSize :: (renderer: *SDL_Renderer, w: s32, h: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 324,
+          "spec_line": 327,
           "status": "declared"
         },
         {
           "name": "SDL_RenderGetLogicalSize",
           "signature": "SDL_RenderGetLogicalSize :: (renderer: *SDL_Renderer, w: *s32, h: *s32) #foreign SDL2",
           "condition": "",
-          "spec_line": 325,
+          "spec_line": 328,
           "status": "declared"
         },
         {
           "name": "SDL_RenderSetIntegerScale",
           "signature": "SDL_RenderSetIntegerScale :: (renderer: *SDL_Renderer, enable: SDL_bool) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 326,
+          "spec_line": 329,
           "status": "declared"
         },
         {
           "name": "SDL_RenderGetIntegerScale",
           "signature": "SDL_RenderGetIntegerScale :: (renderer: *SDL_Renderer) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 327,
+          "spec_line": 330,
           "status": "declared"
         },
         {
           "name": "SDL_RenderSetViewport",
           "signature": "SDL_RenderSetViewport :: (renderer: *SDL_Renderer, rect: *SDL_Rect) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 328,
+          "spec_line": 331,
           "status": "declared"
         },
         {
           "name": "SDL_RenderGetViewport",
           "signature": "SDL_RenderGetViewport :: (renderer: *SDL_Renderer, rect: *SDL_Rect) #foreign SDL2",
           "condition": "",
-          "spec_line": 329,
+          "spec_line": 332,
           "status": "declared"
         },
         {
           "name": "SDL_RenderSetClipRect",
           "signature": "SDL_RenderSetClipRect :: (renderer: *SDL_Renderer, rect: *SDL_Rect) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 330,
+          "spec_line": 333,
           "status": "declared"
         },
         {
           "name": "SDL_RenderGetClipRect",
           "signature": "SDL_RenderGetClipRect :: (renderer: *SDL_Renderer, rect: *SDL_Rect) #foreign SDL2",
           "condition": "",
-          "spec_line": 331,
+          "spec_line": 334,
           "status": "declared"
         },
         {
           "name": "SDL_RenderIsClipEnabled",
           "signature": "SDL_RenderIsClipEnabled :: (renderer: *SDL_Renderer) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 332,
+          "spec_line": 335,
           "status": "declared"
         },
         {
           "name": "SDL_RenderSetScale",
           "signature": "SDL_RenderSetScale :: (renderer: *SDL_Renderer, scaleX: float32, scaleY: float32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 333,
+          "spec_line": 336,
           "status": "declared"
         },
         {
           "name": "SDL_RenderGetScale",
           "signature": "SDL_RenderGetScale :: (renderer: *SDL_Renderer, scaleX: *float32, scaleY: *float32) #foreign SDL2",
           "condition": "",
-          "spec_line": 334,
+          "spec_line": 337,
           "status": "declared"
         },
         {
           "name": "SDL_SetRenderDrawColor",
           "signature": "SDL_SetRenderDrawColor :: (renderer: *SDL_Renderer, r: u8, g: u8, b: u8, a: u8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 335,
+          "spec_line": 338,
           "status": "declared"
         },
         {
           "name": "SDL_GetRenderDrawColor",
           "signature": "SDL_GetRenderDrawColor :: (renderer: *SDL_Renderer, r: *u8, g: *u8, b: *u8, a: *u8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 336,
+          "spec_line": 339,
           "status": "declared"
         },
         {
           "name": "SDL_SetRenderDrawBlendMode",
           "signature": "SDL_SetRenderDrawBlendMode :: (renderer: *SDL_Renderer, blendMode: SDL_BlendMode) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 337,
+          "spec_line": 340,
           "status": "declared"
         },
         {
           "name": "SDL_GetRenderDrawBlendMode",
           "signature": "SDL_GetRenderDrawBlendMode :: (renderer: *SDL_Renderer, blendMode: *SDL_BlendMode) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 338,
+          "spec_line": 341,
           "status": "declared"
         },
         {
           "name": "SDL_RenderClear",
           "signature": "SDL_RenderClear :: (renderer: *SDL_Renderer) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 339,
+          "spec_line": 342,
           "status": "declared"
         },
         {
           "name": "SDL_RenderDrawPoint",
           "signature": "SDL_RenderDrawPoint :: (renderer: *SDL_Renderer, x: s32, y: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 340,
+          "spec_line": 343,
           "status": "declared"
         },
         {
           "name": "SDL_RenderDrawPoints",
           "signature": "SDL_RenderDrawPoints :: (renderer: *SDL_Renderer, points: *SDL_Point, count: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 341,
+          "spec_line": 344,
           "status": "declared"
         },
         {
           "name": "SDL_RenderDrawLine",
           "signature": "SDL_RenderDrawLine :: (renderer: *SDL_Renderer, x1: s32, y1: s32, x2: s32, y2: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 342,
+          "spec_line": 345,
           "status": "declared"
         },
         {
           "name": "SDL_RenderDrawLines",
           "signature": "SDL_RenderDrawLines :: (renderer: *SDL_Renderer, points: *SDL_Point, count: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 343,
+          "spec_line": 346,
           "status": "declared"
         },
         {
           "name": "SDL_RenderDrawRect",
           "signature": "SDL_RenderDrawRect :: (renderer: *SDL_Renderer, rect: *SDL_Rect) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 344,
+          "spec_line": 347,
           "status": "declared"
         },
         {
           "name": "SDL_RenderDrawRects",
           "signature": "SDL_RenderDrawRects :: (renderer: *SDL_Renderer, rects: *SDL_Rect, count: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 345,
+          "spec_line": 348,
           "status": "declared"
         },
         {
           "name": "SDL_RenderFillRect",
           "signature": "SDL_RenderFillRect :: (renderer: *SDL_Renderer, rect: *SDL_Rect) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 346,
+          "spec_line": 349,
           "status": "declared"
         },
         {
           "name": "SDL_RenderFillRects",
           "signature": "SDL_RenderFillRects :: (renderer: *SDL_Renderer, rects: *SDL_Rect, count: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 347,
+          "spec_line": 350,
           "status": "declared"
         },
         {
           "name": "SDL_RenderCopy",
           "signature": "SDL_RenderCopy :: (renderer: *SDL_Renderer, texture: *SDL_Texture, srcrect: *SDL_Rect, dstrect: *SDL_Rect) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 348,
+          "spec_line": 351,
           "status": "declared"
         },
         {
           "name": "SDL_RenderCopyEx",
           "signature": "SDL_RenderCopyEx :: (renderer: *SDL_Renderer, texture: *SDL_Texture, srcrect: *SDL_Rect, dstrect: *SDL_Rect, angle: float64, center: *SDL_Point, flip: SDL_RendererFlip) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 349,
+          "spec_line": 352,
           "status": "declared"
         },
         {
           "name": "SDL_RenderReadPixels",
           "signature": "SDL_RenderReadPixels :: (renderer: *SDL_Renderer, rect: *SDL_Rect, format: u32, pixels: *void, pitch: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 350,
+          "spec_line": 353,
           "status": "declared"
         },
         {
           "name": "SDL_RenderPresent",
           "signature": "SDL_RenderPresent :: (renderer: *SDL_Renderer) #foreign SDL2",
           "condition": "",
-          "spec_line": 351,
+          "spec_line": 354,
           "status": "declared"
         },
         {
           "name": "SDL_DestroyTexture",
           "signature": "SDL_DestroyTexture :: (texture: *SDL_Texture) #foreign SDL2",
           "condition": "",
-          "spec_line": 352,
+          "spec_line": 355,
           "status": "declared"
         },
         {
           "name": "SDL_DestroyRenderer",
           "signature": "SDL_DestroyRenderer :: (renderer: *SDL_Renderer) #foreign SDL2",
           "condition": "",
-          "spec_line": 353,
+          "spec_line": 356,
           "status": "declared"
         },
         {
           "name": "SDL_GL_BindTexture",
           "signature": "SDL_GL_BindTexture :: (texture: *SDL_Texture, texw: *float32, texh: *float32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 354,
+          "spec_line": 357,
           "status": "declared"
         },
         {
           "name": "SDL_GL_UnbindTexture",
           "signature": "SDL_GL_UnbindTexture :: (texture: *SDL_Texture) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 355,
+          "spec_line": 358,
           "status": "declared"
         },
         {
           "name": "SDL_RenderGetMetalLayer",
           "signature": "SDL_RenderGetMetalLayer :: (renderer: *SDL_Renderer) -> *void #foreign SDL2",
           "condition": "OS == .MACOS",
-          "spec_line": 356,
+          "spec_line": 359,
           "status": "declared"
         },
         {
           "name": "SDL_RenderGetMetalCommandEncoder",
           "signature": "SDL_RenderGetMetalCommandEncoder :: (renderer: *SDL_Renderer) -> *void #foreign SDL2",
           "condition": "OS == .MACOS",
-          "spec_line": 357,
+          "spec_line": 360,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_FRAMEBUFFER_ACCELERATION",
           "signature": "SDL_HINT_FRAMEBUFFER_ACCELERATION :: \"SDL_FRAMEBUFFER_ACCELERATION\"",
           "condition": "",
-          "spec_line": 358,
+          "spec_line": 361,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RENDER_DRIVER",
           "signature": "SDL_HINT_RENDER_DRIVER :: \"SDL_RENDER_DRIVER\"",
           "condition": "",
-          "spec_line": 359,
+          "spec_line": 362,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RENDER_OPENGL_SHADERS",
           "signature": "SDL_HINT_RENDER_OPENGL_SHADERS :: \"SDL_RENDER_OPENGL_SHADERS\"",
           "condition": "",
-          "spec_line": 360,
+          "spec_line": 363,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RENDER_DIRECT3D_THREADSAFE",
           "signature": "SDL_HINT_RENDER_DIRECT3D_THREADSAFE :: \"SDL_RENDER_DIRECT3D_THREADSAFE\"",
           "condition": "",
-          "spec_line": 361,
+          "spec_line": 364,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RENDER_DIRECT3D11_DEBUG",
           "signature": "SDL_HINT_RENDER_DIRECT3D11_DEBUG :: \"SDL_RENDER_DIRECT3D11_DEBUG\"",
           "condition": "",
-          "spec_line": 362,
+          "spec_line": 365,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RENDER_LOGICAL_SIZE_MODE",
           "signature": "SDL_HINT_RENDER_LOGICAL_SIZE_MODE :: \"SDL_RENDER_LOGICAL_SIZE_MODE\"",
           "condition": "",
-          "spec_line": 363,
+          "spec_line": 366,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RENDER_SCALE_QUALITY",
           "signature": "SDL_HINT_RENDER_SCALE_QUALITY :: \"SDL_RENDER_SCALE_QUALITY\"",
           "condition": "",
-          "spec_line": 364,
+          "spec_line": 367,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RENDER_VSYNC",
           "signature": "SDL_HINT_RENDER_VSYNC :: \"SDL_RENDER_VSYNC\"",
           "condition": "",
-          "spec_line": 365,
+          "spec_line": 368,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_ALLOW_SCREENSAVER",
           "signature": "SDL_HINT_VIDEO_ALLOW_SCREENSAVER :: \"SDL_VIDEO_ALLOW_SCREENSAVER\"",
           "condition": "",
-          "spec_line": 366,
+          "spec_line": 369,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_X11_XVIDMODE",
           "signature": "SDL_HINT_VIDEO_X11_XVIDMODE :: \"SDL_VIDEO_X11_XVIDMODE\"",
           "condition": "",
-          "spec_line": 367,
+          "spec_line": 370,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_X11_XINERAMA",
           "signature": "SDL_HINT_VIDEO_X11_XINERAMA :: \"SDL_VIDEO_X11_XINERAMA\"",
           "condition": "",
-          "spec_line": 368,
+          "spec_line": 371,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_X11_XRANDR",
           "signature": "SDL_HINT_VIDEO_X11_XRANDR :: \"SDL_VIDEO_X11_XRANDR\"",
           "condition": "",
-          "spec_line": 369,
+          "spec_line": 372,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_X11_NET_WM_PING",
           "signature": "SDL_HINT_VIDEO_X11_NET_WM_PING :: \"SDL_VIDEO_X11_NET_WM_PING\"",
           "condition": "",
-          "spec_line": 370,
+          "spec_line": 373,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR",
           "signature": "SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR :: \"SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR\"",
           "condition": "",
-          "spec_line": 371,
+          "spec_line": 374,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN",
           "signature": "SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN :: \"SDL_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN\"",
           "condition": "",
-          "spec_line": 372,
+          "spec_line": 375,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINDOWS_INTRESOURCE_ICON",
           "signature": "SDL_HINT_WINDOWS_INTRESOURCE_ICON :: \"SDL_WINDOWS_INTRESOURCE_ICON\"",
           "condition": "",
-          "spec_line": 373,
+          "spec_line": 376,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL",
           "signature": "SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL :: \"SDL_WINDOWS_INTRESOURCE_ICON_SMALL\"",
           "condition": "",
-          "spec_line": 374,
+          "spec_line": 377,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP",
           "signature": "SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP :: \"SDL_WINDOWS_ENABLE_MESSAGELOOP\"",
           "condition": "",
-          "spec_line": 375,
+          "spec_line": 378,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_GRAB_KEYBOARD",
           "signature": "SDL_HINT_GRAB_KEYBOARD :: \"SDL_GRAB_KEYBOARD\"",
           "condition": "",
-          "spec_line": 376,
+          "spec_line": 379,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MOUSE_DOUBLE_CLICK_TIME",
           "signature": "SDL_HINT_MOUSE_DOUBLE_CLICK_TIME :: \"SDL_MOUSE_DOUBLE_CLICK_TIME\"",
           "condition": "",
-          "spec_line": 377,
+          "spec_line": 380,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS",
           "signature": "SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS :: \"SDL_MOUSE_DOUBLE_CLICK_RADIUS\"",
           "condition": "",
-          "spec_line": 378,
+          "spec_line": 381,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MOUSE_NORMAL_SPEED_SCALE",
           "signature": "SDL_HINT_MOUSE_NORMAL_SPEED_SCALE :: \"SDL_MOUSE_NORMAL_SPEED_SCALE\"",
           "condition": "",
-          "spec_line": 379,
+          "spec_line": 382,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MOUSE_RELATIVE_SPEED_SCALE",
           "signature": "SDL_HINT_MOUSE_RELATIVE_SPEED_SCALE :: \"SDL_MOUSE_RELATIVE_SPEED_SCALE\"",
           "condition": "",
-          "spec_line": 380,
+          "spec_line": 383,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MOUSE_RELATIVE_MODE_WARP",
           "signature": "SDL_HINT_MOUSE_RELATIVE_MODE_WARP :: \"SDL_MOUSE_RELATIVE_MODE_WARP\"",
           "condition": "",
-          "spec_line": 381,
+          "spec_line": 384,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH",
           "signature": "SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH :: \"SDL_MOUSE_FOCUS_CLICKTHROUGH\"",
           "condition": "",
-          "spec_line": 382,
+          "spec_line": 385,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_TOUCH_MOUSE_EVENTS",
           "signature": "SDL_HINT_TOUCH_MOUSE_EVENTS :: \"SDL_TOUCH_MOUSE_EVENTS\"",
           "condition": "",
-          "spec_line": 383,
+          "spec_line": 386,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS",
           "signature": "SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS :: \"SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS\"",
           "condition": "",
-          "spec_line": 384,
+          "spec_line": 387,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_IDLE_TIMER_DISABLED",
           "signature": "SDL_HINT_IDLE_TIMER_DISABLED :: \"SDL_IOS_IDLE_TIMER_DISABLED\"",
           "condition": "",
-          "spec_line": 385,
+          "spec_line": 388,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ORIENTATIONS",
           "signature": "SDL_HINT_ORIENTATIONS :: \"SDL_IOS_ORIENTATIONS\"",
           "condition": "",
-          "spec_line": 386,
+          "spec_line": 389,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_APPLE_TV_CONTROLLER_UI_EVENTS",
           "signature": "SDL_HINT_APPLE_TV_CONTROLLER_UI_EVENTS :: \"SDL_APPLE_TV_CONTROLLER_UI_EVENTS\"",
           "condition": "",
-          "spec_line": 387,
+          "spec_line": 390,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_APPLE_TV_REMOTE_ALLOW_ROTATION",
           "signature": "SDL_HINT_APPLE_TV_REMOTE_ALLOW_ROTATION :: \"SDL_APPLE_TV_REMOTE_ALLOW_ROTATION\"",
           "condition": "",
-          "spec_line": 388,
+          "spec_line": 391,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_IOS_HIDE_HOME_INDICATOR",
           "signature": "SDL_HINT_IOS_HIDE_HOME_INDICATOR :: \"SDL_IOS_HIDE_HOME_INDICATOR\"",
           "condition": "",
-          "spec_line": 389,
+          "spec_line": 392,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ACCELEROMETER_AS_JOYSTICK",
           "signature": "SDL_HINT_ACCELEROMETER_AS_JOYSTICK :: \"SDL_ACCELEROMETER_AS_JOYSTICK\"",
           "condition": "",
-          "spec_line": 390,
+          "spec_line": 393,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_TV_REMOTE_AS_JOYSTICK",
           "signature": "SDL_HINT_TV_REMOTE_AS_JOYSTICK :: \"SDL_TV_REMOTE_AS_JOYSTICK\"",
           "condition": "",
-          "spec_line": 391,
+          "spec_line": 394,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_XINPUT_ENABLED",
           "signature": "SDL_HINT_XINPUT_ENABLED :: \"SDL_XINPUT_ENABLED\"",
           "condition": "",
-          "spec_line": 392,
+          "spec_line": 395,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_XINPUT_USE_OLD_JOYSTICK_MAPPING",
           "signature": "SDL_HINT_XINPUT_USE_OLD_JOYSTICK_MAPPING :: \"SDL_XINPUT_USE_OLD_JOYSTICK_MAPPING\"",
           "condition": "",
-          "spec_line": 393,
+          "spec_line": 396,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_GAMECONTROLLERCONFIG",
           "signature": "SDL_HINT_GAMECONTROLLERCONFIG :: \"SDL_GAMECONTROLLERCONFIG\"",
           "condition": "",
-          "spec_line": 394,
+          "spec_line": 397,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES",
           "signature": "SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES :: \"SDL_GAMECONTROLLER_IGNORE_DEVICES\"",
           "condition": "",
-          "spec_line": 395,
+          "spec_line": 398,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT",
           "signature": "SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT :: \"SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT\"",
           "condition": "",
-          "spec_line": 396,
+          "spec_line": 399,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS",
           "signature": "SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS :: \"SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS\"",
           "condition": "",
-          "spec_line": 397,
+          "spec_line": 400,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_JOYSTICK_HIDAPI",
           "signature": "SDL_HINT_JOYSTICK_HIDAPI :: \"SDL_JOYSTICK_HIDAPI\"",
           "condition": "",
-          "spec_line": 398,
+          "spec_line": 401,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_JOYSTICK_HIDAPI_PS4",
           "signature": "SDL_HINT_JOYSTICK_HIDAPI_PS4 :: \"SDL_JOYSTICK_HIDAPI_PS4\"",
           "condition": "",
-          "spec_line": 399,
+          "spec_line": 402,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE",
           "signature": "SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE :: \"SDL_JOYSTICK_HIDAPI_PS4_RUMBLE\"",
           "condition": "",
-          "spec_line": 400,
+          "spec_line": 403,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_JOYSTICK_HIDAPI_STEAM",
           "signature": "SDL_HINT_JOYSTICK_HIDAPI_STEAM :: \"SDL_JOYSTICK_HIDAPI_STEAM\"",
           "condition": "",
-          "spec_line": 401,
+          "spec_line": 404,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_JOYSTICK_HIDAPI_SWITCH",
           "signature": "SDL_HINT_JOYSTICK_HIDAPI_SWITCH :: \"SDL_JOYSTICK_HIDAPI_SWITCH\"",
           "condition": "",
-          "spec_line": 402,
+          "spec_line": 405,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_JOYSTICK_HIDAPI_XBOX",
           "signature": "SDL_HINT_JOYSTICK_HIDAPI_XBOX :: \"SDL_JOYSTICK_HIDAPI_XBOX\"",
           "condition": "",
-          "spec_line": 403,
+          "spec_line": 406,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ENABLE_STEAM_CONTROLLERS",
           "signature": "SDL_HINT_ENABLE_STEAM_CONTROLLERS :: \"SDL_ENABLE_STEAM_CONTROLLERS\"",
           "condition": "",
-          "spec_line": 404,
+          "spec_line": 407,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ALLOW_TOPMOST",
           "signature": "SDL_HINT_ALLOW_TOPMOST :: \"SDL_ALLOW_TOPMOST\"",
           "condition": "",
-          "spec_line": 405,
+          "spec_line": 408,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_TIMER_RESOLUTION",
           "signature": "SDL_HINT_TIMER_RESOLUTION :: \"SDL_TIMER_RESOLUTION\"",
           "condition": "",
-          "spec_line": 406,
+          "spec_line": 409,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION",
           "signature": "SDL_HINT_QTWAYLAND_CONTENT_ORIENTATION :: \"SDL_QTWAYLAND_CONTENT_ORIENTATION\"",
           "condition": "",
-          "spec_line": 407,
+          "spec_line": 410,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_QTWAYLAND_WINDOW_FLAGS",
           "signature": "SDL_HINT_QTWAYLAND_WINDOW_FLAGS :: \"SDL_QTWAYLAND_WINDOW_FLAGS\"",
           "condition": "",
-          "spec_line": 408,
+          "spec_line": 411,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_THREAD_STACK_SIZE",
           "signature": "SDL_HINT_THREAD_STACK_SIZE :: \"SDL_THREAD_STACK_SIZE\"",
           "condition": "",
-          "spec_line": 409,
+          "spec_line": 412,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_HIGHDPI_DISABLED",
           "signature": "SDL_HINT_VIDEO_HIGHDPI_DISABLED :: \"SDL_VIDEO_HIGHDPI_DISABLED\"",
           "condition": "",
-          "spec_line": 410,
+          "spec_line": 413,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK",
           "signature": "SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK :: \"SDL_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK\"",
           "condition": "",
-          "spec_line": 411,
+          "spec_line": 414,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_WIN_D3DCOMPILER",
           "signature": "SDL_HINT_VIDEO_WIN_D3DCOMPILER :: \"SDL_VIDEO_WIN_D3DCOMPILER\"",
           "condition": "",
-          "spec_line": 412,
+          "spec_line": 415,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_WINDOW_SHARE_PIXEL_FORMAT",
           "signature": "SDL_HINT_VIDEO_WINDOW_SHARE_PIXEL_FORMAT :: \"SDL_VIDEO_WINDOW_SHARE_PIXEL_FORMAT\"",
           "condition": "",
-          "spec_line": 413,
+          "spec_line": 416,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINRT_PRIVACY_POLICY_URL",
           "signature": "SDL_HINT_WINRT_PRIVACY_POLICY_URL :: \"SDL_WINRT_PRIVACY_POLICY_URL\"",
           "condition": "",
-          "spec_line": 414,
+          "spec_line": 417,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINRT_PRIVACY_POLICY_LABEL",
           "signature": "SDL_HINT_WINRT_PRIVACY_POLICY_LABEL :: \"SDL_WINRT_PRIVACY_POLICY_LABEL\"",
           "condition": "",
-          "spec_line": 415,
+          "spec_line": 418,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINRT_HANDLE_BACK_BUTTON",
           "signature": "SDL_HINT_WINRT_HANDLE_BACK_BUTTON :: \"SDL_WINRT_HANDLE_BACK_BUTTON\"",
           "condition": "",
-          "spec_line": 416,
+          "spec_line": 419,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES",
           "signature": "SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES :: \"SDL_VIDEO_MAC_FULLSCREEN_SPACES\"",
           "condition": "",
-          "spec_line": 417,
+          "spec_line": 420,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_MAC_BACKGROUND_APP",
           "signature": "SDL_HINT_MAC_BACKGROUND_APP :: \"SDL_MAC_BACKGROUND_APP\"",
           "condition": "",
-          "spec_line": 418,
+          "spec_line": 421,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ANDROID_APK_EXPANSION_MAIN_FILE_VERSION",
           "signature": "SDL_HINT_ANDROID_APK_EXPANSION_MAIN_FILE_VERSION :: \"SDL_ANDROID_APK_EXPANSION_MAIN_FILE_VERSION\"",
           "condition": "",
-          "spec_line": 419,
+          "spec_line": 422,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ANDROID_APK_EXPANSION_PATCH_FILE_VERSION",
           "signature": "SDL_HINT_ANDROID_APK_EXPANSION_PATCH_FILE_VERSION :: \"SDL_ANDROID_APK_EXPANSION_PATCH_FILE_VERSION\"",
           "condition": "",
-          "spec_line": 420,
+          "spec_line": 423,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_IME_INTERNAL_EDITING",
           "signature": "SDL_HINT_IME_INTERNAL_EDITING :: \"SDL_IME_INTERNAL_EDITING\"",
           "condition": "",
-          "spec_line": 421,
+          "spec_line": 424,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH",
           "signature": "SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH :: \"SDL_ANDROID_SEPARATE_MOUSE_AND_TOUCH\"",
           "condition": "",
-          "spec_line": 422,
+          "spec_line": 425,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_ANDROID_TRAP_BACK_BUTTON",
           "signature": "SDL_HINT_ANDROID_TRAP_BACK_BUTTON :: \"SDL_ANDROID_TRAP_BACK_BUTTON\"",
           "condition": "",
-          "spec_line": 423,
+          "spec_line": 426,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RETURN_KEY_HIDES_IME",
           "signature": "SDL_HINT_RETURN_KEY_HIDES_IME :: \"SDL_RETURN_KEY_HIDES_IME\"",
           "condition": "",
-          "spec_line": 424,
+          "spec_line": 427,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT",
           "signature": "SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT :: \"SDL_EMSCRIPTEN_KEYBOARD_ELEMENT\"",
           "condition": "",
-          "spec_line": 425,
+          "spec_line": 428,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_NO_SIGNAL_HANDLERS",
           "signature": "SDL_HINT_NO_SIGNAL_HANDLERS :: \"SDL_NO_SIGNAL_HANDLERS\"",
           "condition": "",
-          "spec_line": 426,
+          "spec_line": 429,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINDOWS_NO_CLOSE_ON_ALT_F4",
           "signature": "SDL_HINT_WINDOWS_NO_CLOSE_ON_ALT_F4 :: \"SDL_WINDOWS_NO_CLOSE_ON_ALT_F4\"",
           "condition": "",
-          "spec_line": 427,
+          "spec_line": 430,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_BMP_SAVE_LEGACY_FORMAT",
           "signature": "SDL_HINT_BMP_SAVE_LEGACY_FORMAT :: \"SDL_BMP_SAVE_LEGACY_FORMAT\"",
           "condition": "",
-          "spec_line": 428,
+          "spec_line": 431,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING",
           "signature": "SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING :: \"SDL_WINDOWS_DISABLE_THREAD_NAMING\"",
           "condition": "",
-          "spec_line": 429,
+          "spec_line": 432,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_RPI_VIDEO_LAYER",
           "signature": "SDL_HINT_RPI_VIDEO_LAYER :: \"SDL_RPI_VIDEO_LAYER\"",
           "condition": "",
-          "spec_line": 430,
+          "spec_line": 433,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_VIDEO_DOUBLE_BUFFER",
           "signature": "SDL_HINT_VIDEO_DOUBLE_BUFFER :: \"SDL_VIDEO_DOUBLE_BUFFER\"",
           "condition": "",
-          "spec_line": 431,
+          "spec_line": 434,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_OPENGL_ES_DRIVER",
           "signature": "SDL_HINT_OPENGL_ES_DRIVER :: \"SDL_OPENGL_ES_DRIVER\"",
           "condition": "",
-          "spec_line": 432,
+          "spec_line": 435,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_AUDIO_RESAMPLING_MODE",
           "signature": "SDL_HINT_AUDIO_RESAMPLING_MODE :: \"SDL_AUDIO_RESAMPLING_MODE\"",
           "condition": "",
-          "spec_line": 433,
+          "spec_line": 436,
           "status": "declared"
         },
         {
           "name": "SDL_HINT_AUDIO_CATEGORY",
           "signature": "SDL_HINT_AUDIO_CATEGORY :: \"SDL_AUDIO_CATEGORY\"",
           "condition": "",
-          "spec_line": 434,
+          "spec_line": 437,
           "status": "declared"
         },
         {
           "name": "SDL_HintPriority",
           "signature": "using SDL_HintPriority :: enum u32",
           "condition": "",
-          "spec_line": 435,
+          "spec_line": 438,
           "status": "declared"
         },
         {
           "name": "SDL_SetHintWithPriority",
           "signature": "SDL_SetHintWithPriority :: (name: *u8, value: *u8, priority: SDL_HintPriority) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 436,
+          "spec_line": 439,
           "status": "declared"
         },
         {
           "name": "SDL_SetHint",
           "signature": "SDL_SetHint :: (name: *u8, value: *u8) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 437,
+          "spec_line": 440,
           "status": "declared"
         },
         {
           "name": "SDL_GetHint",
           "signature": "SDL_GetHint :: (name: *u8) -> *u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 438,
+          "spec_line": 441,
           "status": "declared"
         },
         {
           "name": "SDL_GetHintBoolean",
           "signature": "SDL_GetHintBoolean :: (name: *u8, default_value: SDL_bool) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 439,
+          "spec_line": 442,
           "status": "declared"
         },
         {
           "name": "SDL_HintCallback",
           "signature": "SDL_HintCallback :: #type (a0: *void, a1: *u8, a2: *u8, a3: *u8) #c_call",
           "condition": "",
-          "spec_line": 440,
+          "spec_line": 443,
           "status": "declared"
         },
         {
           "name": "SDL_AddHintCallback",
           "signature": "SDL_AddHintCallback :: (name: *u8, callback: SDL_HintCallback, userdata: *void) #foreign SDL2",
           "condition": "",
-          "spec_line": 441,
+          "spec_line": 444,
           "status": "declared"
         },
         {
           "name": "SDL_DelHintCallback",
           "signature": "SDL_DelHintCallback :: (name: *u8, callback: SDL_HintCallback, userdata: *void) #foreign SDL2",
           "condition": "",
-          "spec_line": 442,
+          "spec_line": 445,
           "status": "declared"
         },
         {
           "name": "SDL_ClearHints",
           "signature": "SDL_ClearHints :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 443,
+          "spec_line": 446,
           "status": "declared"
         },
         {
           "name": "SDL_BlendMode",
           "signature": "using SDL_BlendMode :: enum u32",
           "condition": "",
-          "spec_line": 444,
+          "spec_line": 447,
           "status": "declared"
         },
         {
           "name": "SDL_BlendOperation",
           "signature": "using SDL_BlendOperation :: enum u32",
           "condition": "",
-          "spec_line": 445,
+          "spec_line": 448,
           "status": "declared"
         },
         {
           "name": "SDL_BlendFactor",
           "signature": "using SDL_BlendFactor :: enum u32",
           "condition": "",
-          "spec_line": 446,
+          "spec_line": 449,
           "status": "declared"
         },
         {
           "name": "SDL_ComposeCustomBlendMode",
           "signature": "SDL_ComposeCustomBlendMode :: (srcColorFactor: SDL_BlendFactor, dstColorFactor: SDL_BlendFactor, colorOperation: SDL_BlendOperation, srcAlphaFactor: SDL_BlendFactor, dstAlphaFactor: SDL_BlendFactor, alphaOperation: SDL_BlendOperation) -> SDL_BlendMode #foreign SDL2",
           "condition": "",
-          "spec_line": 447,
+          "spec_line": 450,
           "status": "declared"
         },
         {
           "name": "SDL_AudioFormat",
           "signature": "SDL_AudioFormat :: u16",
           "condition": "",
-          "spec_line": 448,
+          "spec_line": 451,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_MASK_BITSIZE",
           "signature": "SDL_AUDIO_MASK_BITSIZE :: (0xFF)",
           "condition": "",
-          "spec_line": 449,
+          "spec_line": 452,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_MASK_DATATYPE",
           "signature": "SDL_AUDIO_MASK_DATATYPE :: (1<<8)",
           "condition": "",
-          "spec_line": 450,
+          "spec_line": 453,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_MASK_ENDIAN",
           "signature": "SDL_AUDIO_MASK_ENDIAN :: (1<<12)",
           "condition": "",
-          "spec_line": 451,
+          "spec_line": 454,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_MASK_SIGNED",
           "signature": "SDL_AUDIO_MASK_SIGNED :: (1<<15)",
           "condition": "",
-          "spec_line": 452,
+          "spec_line": 455,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_BITSIZE",
           "signature": "SDL_AUDIO_BITSIZE :: (x: SDL_AudioFormat) -> u16",
           "condition": "",
-          "spec_line": 453,
+          "spec_line": 456,
           "status": "implemented"
         },
         {
           "name": "SDL_AUDIO_ISFLOAT",
           "signature": "SDL_AUDIO_ISFLOAT :: (x: SDL_AudioFormat) -> bool",
           "condition": "",
-          "spec_line": 454,
+          "spec_line": 457,
           "status": "implemented"
         },
         {
           "name": "SDL_AUDIO_ISBIGENDIAN",
           "signature": "SDL_AUDIO_ISBIGENDIAN :: (x: SDL_AudioFormat) -> bool",
           "condition": "",
-          "spec_line": 455,
+          "spec_line": 458,
           "status": "implemented"
         },
         {
           "name": "SDL_AUDIO_ISSIGNED",
           "signature": "SDL_AUDIO_ISSIGNED :: (x: SDL_AudioFormat) -> bool",
           "condition": "",
-          "spec_line": 456,
+          "spec_line": 459,
           "status": "implemented"
         },
         {
           "name": "SDL_AUDIO_ISINT",
           "signature": "SDL_AUDIO_ISINT :: (x: SDL_AudioFormat) -> bool",
           "condition": "",
-          "spec_line": 457,
+          "spec_line": 460,
           "status": "implemented"
         },
         {
           "name": "SDL_AUDIO_ISLITTLEENDIAN",
           "signature": "SDL_AUDIO_ISLITTLEENDIAN :: (x: SDL_AudioFormat) -> bool",
           "condition": "",
-          "spec_line": 458,
+          "spec_line": 461,
           "status": "implemented"
         },
         {
           "name": "SDL_AUDIO_ISUNSIGNED",
           "signature": "SDL_AUDIO_ISUNSIGNED :: (x: SDL_AudioFormat) -> bool",
           "condition": "",
-          "spec_line": 459,
+          "spec_line": 462,
           "status": "implemented"
         },
         {
           "name": "AUDIO_U8",
           "signature": "AUDIO_U8 :: 0x0008",
           "condition": "",
-          "spec_line": 460,
+          "spec_line": 463,
           "status": "declared"
         },
         {
           "name": "AUDIO_S8",
           "signature": "AUDIO_S8 :: 0x8008",
           "condition": "",
-          "spec_line": 461,
+          "spec_line": 464,
           "status": "declared"
         },
         {
           "name": "AUDIO_U16LSB",
           "signature": "AUDIO_U16LSB :: 0x0010",
           "condition": "",
-          "spec_line": 462,
+          "spec_line": 465,
           "status": "declared"
         },
         {
           "name": "AUDIO_S16LSB",
           "signature": "AUDIO_S16LSB :: 0x8010",
           "condition": "",
-          "spec_line": 463,
+          "spec_line": 466,
           "status": "declared"
         },
         {
           "name": "AUDIO_U16MSB",
           "signature": "AUDIO_U16MSB :: 0x1010",
           "condition": "",
-          "spec_line": 464,
+          "spec_line": 467,
           "status": "declared"
         },
         {
           "name": "AUDIO_S16MSB",
           "signature": "AUDIO_S16MSB :: 0x9010",
           "condition": "",
-          "spec_line": 465,
+          "spec_line": 468,
           "status": "declared"
         },
         {
           "name": "AUDIO_U16",
           "signature": "AUDIO_U16 :: AUDIO_U16LSB",
           "condition": "",
-          "spec_line": 466,
+          "spec_line": 469,
           "status": "declared"
         },
         {
           "name": "AUDIO_S16",
           "signature": "AUDIO_S16 :: AUDIO_S16LSB",
           "condition": "",
-          "spec_line": 467,
+          "spec_line": 470,
           "status": "declared"
         },
         {
           "name": "AUDIO_S32LSB",
           "signature": "AUDIO_S32LSB :: 0x8020",
           "condition": "",
-          "spec_line": 468,
+          "spec_line": 471,
           "status": "declared"
         },
         {
           "name": "AUDIO_S32MSB",
           "signature": "AUDIO_S32MSB :: 0x9020",
           "condition": "",
-          "spec_line": 469,
+          "spec_line": 472,
           "status": "declared"
         },
         {
           "name": "AUDIO_S32",
           "signature": "AUDIO_S32 :: AUDIO_S32LSB",
           "condition": "",
-          "spec_line": 470,
+          "spec_line": 473,
           "status": "declared"
         },
         {
           "name": "AUDIO_F32LSB",
           "signature": "AUDIO_F32LSB :: 0x8120",
           "condition": "",
-          "spec_line": 471,
+          "spec_line": 474,
           "status": "declared"
         },
         {
           "name": "AUDIO_F32MSB",
           "signature": "AUDIO_F32MSB :: 0x9120",
           "condition": "",
-          "spec_line": 472,
+          "spec_line": 475,
           "status": "declared"
         },
         {
           "name": "AUDIO_F32",
           "signature": "AUDIO_F32 :: AUDIO_F32LSB",
           "condition": "",
-          "spec_line": 473,
+          "spec_line": 476,
           "status": "declared"
         },
         {
           "name": "AUDIO_U16SYS",
           "signature": "AUDIO_U16SYS :: AUDIO_U16LSB",
           "condition": "",
-          "spec_line": 474,
+          "spec_line": 477,
           "status": "declared"
         },
         {
           "name": "AUDIO_S16SYS",
           "signature": "AUDIO_S16SYS :: AUDIO_S16LSB",
           "condition": "",
-          "spec_line": 475,
+          "spec_line": 478,
           "status": "declared"
         },
         {
           "name": "AUDIO_S32SYS",
           "signature": "AUDIO_S32SYS :: AUDIO_S32LSB",
           "condition": "",
-          "spec_line": 476,
+          "spec_line": 479,
           "status": "declared"
         },
         {
           "name": "AUDIO_F32SYS",
           "signature": "AUDIO_F32SYS :: AUDIO_F32LSB",
           "condition": "",
-          "spec_line": 477,
+          "spec_line": 480,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_ALLOW_FREQUENCY_CHANGE",
           "signature": "SDL_AUDIO_ALLOW_FREQUENCY_CHANGE :: 0x00000001",
           "condition": "",
-          "spec_line": 478,
+          "spec_line": 481,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_ALLOW_FORMAT_CHANGE",
           "signature": "SDL_AUDIO_ALLOW_FORMAT_CHANGE :: 0x00000002",
           "condition": "",
-          "spec_line": 479,
+          "spec_line": 482,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_ALLOW_CHANNELS_CHANGE",
           "signature": "SDL_AUDIO_ALLOW_CHANNELS_CHANGE :: 0x00000004",
           "condition": "",
-          "spec_line": 480,
+          "spec_line": 483,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_ALLOW_SAMPLES_CHANGE",
           "signature": "SDL_AUDIO_ALLOW_SAMPLES_CHANGE :: 0x00000008",
           "condition": "",
-          "spec_line": 481,
+          "spec_line": 484,
           "status": "declared"
         },
         {
           "name": "SDL_AUDIO_ALLOW_ANY_CHANGE",
           "signature": "SDL_AUDIO_ALLOW_ANY_CHANGE :: (SDL_AUDIO_ALLOW_FREQUENCY_CHANGE|SDL_AUDIO_ALLOW_FORMAT_CHANGE|SDL_AUDIO_ALLOW_CHANNELS_CHANGE|SDL_AUDIO_ALLOW_SAMPLES_CHANGE)",
           "condition": "",
-          "spec_line": 482,
+          "spec_line": 485,
           "status": "declared"
         },
         {
           "name": "SDL_AudioCallback",
           "signature": "SDL_AudioCallback :: #type (a0: *void, a1: *u8, a2: s32) #c_call",
           "condition": "",
-          "spec_line": 483,
+          "spec_line": 486,
           "status": "declared"
         },
         {
           "name": "SDL_AudioSpec",
           "signature": "SDL_AudioSpec :: struct",
           "condition": "",
-          "spec_line": 484,
+          "spec_line": 487,
           "status": "declared"
         },
         {
           "name": "SDL_AudioFilter",
           "signature": "SDL_AudioFilter :: #type (a0: *SDL_AudioCVT, a1: SDL_AudioFormat) #c_call",
           "condition": "",
-          "spec_line": 485,
+          "spec_line": 488,
           "status": "declared"
         },
         {
           "name": "SDL_AudioCVT",
           "signature": "SDL_AudioCVT :: struct",
           "condition": "",
-          "spec_line": 486,
+          "spec_line": 489,
           "status": "declared"
         },
         {
           "name": "SDL_GetNumAudioDrivers",
           "signature": "SDL_GetNumAudioDrivers :: () -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 487,
+          "spec_line": 490,
           "status": "declared"
         },
         {
           "name": "SDL_GetAudioDriver",
           "signature": "SDL_GetAudioDriver :: (index: s32) -> *u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 488,
+          "spec_line": 491,
           "status": "declared"
         },
         {
           "name": "SDL_AudioInit",
           "signature": "SDL_AudioInit :: (driver_name: *u8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 489,
+          "spec_line": 492,
           "status": "declared"
         },
         {
           "name": "SDL_AudioQuit",
           "signature": "SDL_AudioQuit :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 490,
+          "spec_line": 493,
           "status": "declared"
         },
         {
           "name": "SDL_GetCurrentAudioDriver",
           "signature": "SDL_GetCurrentAudioDriver :: () -> *u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 491,
+          "spec_line": 494,
           "status": "declared"
         },
         {
           "name": "SDL_OpenAudio",
           "signature": "SDL_OpenAudio :: (desired: *SDL_AudioSpec, obtained: *SDL_AudioSpec) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 492,
+          "spec_line": 495,
           "status": "declared"
         },
         {
           "name": "SDL_AudioDeviceID",
           "signature": "SDL_AudioDeviceID :: u32",
           "condition": "",
-          "spec_line": 493,
+          "spec_line": 496,
           "status": "declared"
         },
         {
           "name": "SDL_GetNumAudioDevices",
           "signature": "SDL_GetNumAudioDevices :: (iscapture: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 494,
+          "spec_line": 497,
           "status": "declared"
         },
         {
           "name": "SDL_GetAudioDeviceName",
           "signature": "SDL_GetAudioDeviceName :: (index: s32, iscapture: s32) -> *u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 495,
+          "spec_line": 498,
           "status": "declared"
         },
         {
           "name": "SDL_OpenAudioDevice",
           "signature": "SDL_OpenAudioDevice :: (device: *u8, iscapture: s32, desired: *SDL_AudioSpec, obtained: *SDL_AudioSpec, allowed_changes: s32) -> SDL_AudioDeviceID #foreign SDL2",
           "condition": "",
-          "spec_line": 496,
+          "spec_line": 499,
           "status": "declared"
         },
         {
           "name": "SDL_AudioStatus",
           "signature": "using SDL_AudioStatus :: enum u32",
           "condition": "",
-          "spec_line": 497,
+          "spec_line": 500,
           "status": "declared"
         },
         {
           "name": "SDL_GetAudioStatus",
           "signature": "SDL_GetAudioStatus :: () -> SDL_AudioStatus #foreign SDL2",
           "condition": "",
-          "spec_line": 498,
+          "spec_line": 501,
           "status": "declared"
         },
         {
           "name": "SDL_GetAudioDeviceStatus",
           "signature": "SDL_GetAudioDeviceStatus :: (dev: SDL_AudioDeviceID) -> SDL_AudioStatus #foreign SDL2",
           "condition": "",
-          "spec_line": 499,
+          "spec_line": 502,
           "status": "declared"
         },
         {
           "name": "SDL_PauseAudio",
           "signature": "SDL_PauseAudio :: (pause_on: s32) #foreign SDL2",
           "condition": "",
-          "spec_line": 500,
+          "spec_line": 503,
           "status": "declared"
         },
         {
           "name": "SDL_PauseAudioDevice",
           "signature": "SDL_PauseAudioDevice :: (dev: SDL_AudioDeviceID, pause_on: s32) #foreign SDL2",
           "condition": "",
-          "spec_line": 501,
+          "spec_line": 504,
           "status": "declared"
         },
         {
           "name": "SDL_FreeWAV",
           "signature": "SDL_FreeWAV :: (audio_buf: *u8) #foreign SDL2",
           "condition": "",
-          "spec_line": 502,
+          "spec_line": 505,
           "status": "declared"
         },
         {
           "name": "SDL_BuildAudioCVT",
           "signature": "SDL_BuildAudioCVT :: (cvt: *SDL_AudioCVT, src_format: SDL_AudioFormat, src_channels: u8, src_rate: s32, dst_format: SDL_AudioFormat, dst_channels: u8, dst_rate: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 503,
+          "spec_line": 506,
           "status": "declared"
         },
         {
           "name": "SDL_ConvertAudio",
           "signature": "SDL_ConvertAudio :: (cvt: *SDL_AudioCVT) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 504,
+          "spec_line": 507,
           "status": "declared"
         },
         {
           "name": "SDL_AudioStream",
           "signature": "SDL_AudioStream :: struct",
           "condition": "",
-          "spec_line": 505,
+          "spec_line": 508,
           "status": "declared"
         },
         {
           "name": "SDL_NewAudioStream",
           "signature": "SDL_NewAudioStream :: (src_format: SDL_AudioFormat, src_channels: u8, src_rate: s32, dst_format: SDL_AudioFormat, dst_channels: u8, dst_rate: s32) -> *SDL_AudioStream #foreign SDL2",
           "condition": "",
-          "spec_line": 506,
+          "spec_line": 509,
           "status": "declared"
         },
         {
           "name": "SDL_AudioStreamPut",
           "signature": "SDL_AudioStreamPut :: (stream: *SDL_AudioStream, buf: *void, len: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 507,
+          "spec_line": 510,
           "status": "declared"
         },
         {
           "name": "SDL_AudioStreamGet",
           "signature": "SDL_AudioStreamGet :: (stream: *SDL_AudioStream, buf: *void, len: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 508,
+          "spec_line": 511,
           "status": "declared"
         },
         {
           "name": "SDL_AudioStreamAvailable",
           "signature": "SDL_AudioStreamAvailable :: (stream: *SDL_AudioStream) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 509,
+          "spec_line": 512,
           "status": "declared"
         },
         {
           "name": "SDL_AudioStreamFlush",
           "signature": "SDL_AudioStreamFlush :: (stream: *SDL_AudioStream) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 510,
+          "spec_line": 513,
           "status": "declared"
         },
         {
           "name": "SDL_AudioStreamClear",
           "signature": "SDL_AudioStreamClear :: (stream: *SDL_AudioStream) #foreign SDL2",
           "condition": "",
-          "spec_line": 511,
+          "spec_line": 514,
           "status": "declared"
         },
         {
           "name": "SDL_FreeAudioStream",
           "signature": "SDL_FreeAudioStream :: (stream: *SDL_AudioStream) #foreign SDL2",
           "condition": "",
-          "spec_line": 512,
+          "spec_line": 515,
           "status": "declared"
         },
         {
           "name": "SDL_MixAudio",
           "signature": "SDL_MixAudio :: (dst: *u8, src: *u8, len: u32, volume: s32) #foreign SDL2",
           "condition": "",
-          "spec_line": 513,
+          "spec_line": 516,
           "status": "declared"
         },
         {
           "name": "SDL_MixAudioFormat",
           "signature": "SDL_MixAudioFormat :: (dst: *u8, src: *u8, format: SDL_AudioFormat, len: u32, volume: s32) #foreign SDL2",
           "condition": "",
-          "spec_line": 514,
+          "spec_line": 517,
           "status": "declared"
         },
         {
           "name": "SDL_QueueAudio",
           "signature": "SDL_QueueAudio :: (dev: SDL_AudioDeviceID, data: *void, len: u32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 515,
+          "spec_line": 518,
           "status": "declared"
         },
         {
           "name": "SDL_DequeueAudio",
           "signature": "SDL_DequeueAudio :: (dev: SDL_AudioDeviceID, data: *void, len: u32) -> u32 #foreign SDL2",
           "condition": "",
-          "spec_line": 516,
+          "spec_line": 519,
           "status": "declared"
         },
         {
           "name": "SDL_GetQueuedAudioSize",
           "signature": "SDL_GetQueuedAudioSize :: (dev: SDL_AudioDeviceID) -> u32 #foreign SDL2",
           "condition": "",
-          "spec_line": 517,
+          "spec_line": 520,
           "status": "declared"
         },
         {
           "name": "SDL_ClearQueuedAudio",
           "signature": "SDL_ClearQueuedAudio :: (dev: SDL_AudioDeviceID) #foreign SDL2",
           "condition": "",
-          "spec_line": 518,
+          "spec_line": 521,
           "status": "declared"
         },
         {
           "name": "SDL_LockAudio",
           "signature": "SDL_LockAudio :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 519,
+          "spec_line": 522,
           "status": "declared"
         },
         {
           "name": "SDL_LockAudioDevice",
           "signature": "SDL_LockAudioDevice :: (dev: SDL_AudioDeviceID) #foreign SDL2",
           "condition": "",
-          "spec_line": 520,
+          "spec_line": 523,
           "status": "declared"
         },
         {
           "name": "SDL_UnlockAudio",
           "signature": "SDL_UnlockAudio :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 521,
+          "spec_line": 524,
           "status": "declared"
         },
         {
           "name": "SDL_UnlockAudioDevice",
           "signature": "SDL_UnlockAudioDevice :: (dev: SDL_AudioDeviceID) #foreign SDL2",
           "condition": "",
-          "spec_line": 522,
+          "spec_line": 525,
           "status": "declared"
         },
         {
           "name": "SDL_CloseAudio",
           "signature": "SDL_CloseAudio :: () #foreign SDL2",
           "condition": "",
-          "spec_line": 523,
+          "spec_line": 526,
           "status": "declared"
         },
         {
           "name": "SDL_CloseAudioDevice",
           "signature": "SDL_CloseAudioDevice :: (dev: SDL_AudioDeviceID) #foreign SDL2",
           "condition": "",
-          "spec_line": 524,
+          "spec_line": 527,
           "status": "declared"
         },
         {
           "name": "SDL_GameController",
           "signature": "SDL_GameController :: struct",
           "condition": "",
-          "spec_line": 525,
+          "spec_line": 528,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerBindType",
           "signature": "using SDL_GameControllerBindType :: enum u32",
           "condition": "",
-          "spec_line": 526,
+          "spec_line": 529,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerButtonBind",
           "signature": "SDL_GameControllerButtonBind :: struct",
           "condition": "",
-          "spec_line": 527,
+          "spec_line": 530,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerAddMapping",
           "signature": "SDL_GameControllerAddMapping :: (mappingString: *s8) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 528,
+          "spec_line": 531,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerNumMappings",
           "signature": "SDL_GameControllerNumMappings :: () -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 529,
+          "spec_line": 532,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerMappingForIndex",
           "signature": "SDL_GameControllerMappingForIndex :: (mapping_index: s32) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 530,
+          "spec_line": 533,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerMappingForGUID",
           "signature": "SDL_GameControllerMappingForGUID :: (guid: SDL_JoystickGUID) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 531,
+          "spec_line": 534,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerMapping",
           "signature": "SDL_GameControllerMapping :: (gamecontroller: *SDL_GameController) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 532,
+          "spec_line": 535,
           "status": "declared"
         },
         {
           "name": "SDL_IsGameController",
           "signature": "SDL_IsGameController :: (joystick_index: s32) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 533,
+          "spec_line": 536,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerNameForIndex",
           "signature": "SDL_GameControllerNameForIndex :: (joystick_index: s32) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 534,
+          "spec_line": 537,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerOpen",
           "signature": "SDL_GameControllerOpen :: (joystick_index: s32) -> *SDL_GameController #foreign SDL2",
           "condition": "",
-          "spec_line": 535,
+          "spec_line": 538,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerFromInstanceID",
           "signature": "SDL_GameControllerFromInstanceID :: (joyid: SDL_JoystickID) -> *SDL_GameController #foreign SDL2",
           "condition": "",
-          "spec_line": 536,
+          "spec_line": 539,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerName",
           "signature": "SDL_GameControllerName :: (gamecontroller: *SDL_GameController) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 537,
+          "spec_line": 540,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetVendor",
           "signature": "SDL_GameControllerGetVendor :: (gamecontroller: *SDL_GameController) -> u16 #foreign SDL2",
           "condition": "",
-          "spec_line": 538,
+          "spec_line": 541,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetProduct",
           "signature": "SDL_GameControllerGetProduct :: (gamecontroller: *SDL_GameController) -> u16 #foreign SDL2",
           "condition": "",
-          "spec_line": 539,
+          "spec_line": 542,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetProductVersion",
           "signature": "SDL_GameControllerGetProductVersion :: (gamecontroller: *SDL_GameController) -> u16 #foreign SDL2",
           "condition": "",
-          "spec_line": 540,
+          "spec_line": 543,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetAttached",
           "signature": "SDL_GameControllerGetAttached :: (gamecontroller: *SDL_GameController) -> SDL_bool #foreign SDL2",
           "condition": "",
-          "spec_line": 541,
+          "spec_line": 544,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetJoystick",
           "signature": "SDL_GameControllerGetJoystick :: (gamecontroller: *SDL_GameController) -> *SDL_Joystick #foreign SDL2",
           "condition": "",
-          "spec_line": 542,
+          "spec_line": 545,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerEventState",
           "signature": "SDL_GameControllerEventState :: (state: s32) -> s32 #foreign SDL2",
           "condition": "",
-          "spec_line": 543,
+          "spec_line": 546,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerUpdate",
           "signature": "SDL_GameControllerUpdate :: () -> void #foreign SDL2",
           "condition": "",
-          "spec_line": 544,
+          "spec_line": 547,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerAxis",
           "signature": "using SDL_GameControllerAxis :: enum s32",
           "condition": "",
-          "spec_line": 545,
+          "spec_line": 548,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetAxisFromString",
           "signature": "SDL_GameControllerGetAxisFromString :: (pchString: *s8) -> SDL_GameControllerAxis #foreign SDL2",
           "condition": "",
-          "spec_line": 546,
+          "spec_line": 549,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetStringForAxis",
           "signature": "SDL_GameControllerGetStringForAxis :: (axis: SDL_GameControllerAxis) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 547,
+          "spec_line": 550,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetBindForAxis",
           "signature": "SDL_GameControllerGetBindForAxis :: (gamecontroller: *SDL_GameController, axis: SDL_GameControllerAxis) -> SDL_GameControllerButtonBind #foreign SDL2",
           "condition": "",
-          "spec_line": 548,
+          "spec_line": 551,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetAxis",
           "signature": "SDL_GameControllerGetAxis :: (gamecontroller: *SDL_GameController, axis: SDL_GameControllerAxis) -> s16 #foreign SDL2",
           "condition": "",
-          "spec_line": 549,
+          "spec_line": 552,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerButton",
           "signature": "using SDL_GameControllerButton :: enum s32",
           "condition": "",
-          "spec_line": 550,
+          "spec_line": 553,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetButtonFromString",
           "signature": "SDL_GameControllerGetButtonFromString :: (pchString: *s8) -> SDL_GameControllerButton #foreign SDL2",
           "condition": "",
-          "spec_line": 551,
+          "spec_line": 554,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetStringForButton",
           "signature": "SDL_GameControllerGetStringForButton :: (button: SDL_GameControllerButton) -> *s8 #foreign SDL2",
           "condition": "",
-          "spec_line": 552,
+          "spec_line": 555,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetBindForButton",
           "signature": "SDL_GameControllerGetBindForButton :: (gamecontroller: *SDL_GameController, button: SDL_GameControllerButton) -> SDL_GameControllerButtonBind #foreign SDL2",
           "condition": "",
-          "spec_line": 553,
+          "spec_line": 556,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerGetButton",
           "signature": "SDL_GameControllerGetButton :: (gamecontroller: *SDL_GameController, button: SDL_GameControllerButton) -> u8 #foreign SDL2",
           "condition": "",
-          "spec_line": 554,
+          "spec_line": 557,
           "status": "declared"
         },
         {
           "name": "SDL_GameControllerClose",
           "signature": "SDL_GameControllerClose :: (gamecontroller: *SDL_GameController) -> void #foreign SDL2",
           "condition": "",
-          "spec_line": 555,
+          "spec_line": 558,
           "status": "declared"
         }
       ]

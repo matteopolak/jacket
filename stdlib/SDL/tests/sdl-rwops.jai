@@ -20,7 +20,7 @@ main :: () {
     path := to_c_string(arguments[1]);
 
     defer free(path);
-    assert(size_of(S.SDL_RWops) == 48);
+    assert(size_of(S.SDL_RWops) == native_size());
     assert(size_of(RWops) == native_size());
     assert(offset_of(RWops, "hidden") == native_hidden());
     // The file factory retains the native SDK symbol and stream identity.

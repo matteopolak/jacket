@@ -14,6 +14,13 @@ uint64_t binding_sdl_size(unsigned which) {
         case 4: return sizeof(SDL_Event);
         case 5: return sizeof(SDL_RWops);
         case 6: return sizeof(SDL_UserEvent);
+        case 7: return sizeof(SDL_Keysym);
+        case 8: return sizeof(SDL_KeyboardEvent);
+        case 9: return sizeof(SDL_SysWMEvent);
+        case 10: return sizeof(SDL_TouchFingerEvent);
+        case 11: return sizeof(SDL_MultiGestureEvent);
+        case 12: return sizeof(SDL_DollarGestureEvent);
+        case 13: return sizeof(SDL_AudioCVT);
         default: abort();
     }
 }

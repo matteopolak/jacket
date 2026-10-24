@@ -132,10 +132,10 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `SDL_RWFromFile :: (path: *u8, mode: *u8) -> *SDL_RWops #foreign SDL2`
 - `SDL_LoadBMP_RW :: (src: *SDL_RWops, freesrc: int) -> *SDL_Surface #foreign SDL2`
 - `SDL_FreeSurface :: (surface: *SDL_Surface) #foreign SDL2`
-- `SDL_CreateRGBSurfaceFrom :: (pixels: *void, width: int, height: int, depth: int, pitch: int, rmask: u32, gmask: u32, bmask: u32, amask: u32) -> *SDL_Surface #foreign SDL2`
-- `SDL_CreateRGBSurfaceWithFormatFrom :: (pixels: *void, width: int, height: int, depth: int, pitch: int, format: u32) -> *SDL_Surface #foreign SDL2`
+- `SDL_CreateRGBSurfaceFrom :: (pixels: *void, width: s32, height: s32, depth: s32, pitch: s32, rmask: u32, gmask: u32, bmask: u32, amask: u32) -> *SDL_Surface #foreign SDL2`
+- `SDL_CreateRGBSurfaceWithFormatFrom :: (pixels: *void, width: s32, height: s32, depth: s32, pitch: s32, format: u32) -> *SDL_Surface #foreign SDL2`
 - `SDL_LoadBMP :: inline (path: *u8) -> *SDL_Surface`
-- `SDL_ShowSimpleMessageBox :: (flags: u32, title: *u8, msg: *u8, parent: *SDL_Window) -> int #foreign SDL2`
+- `SDL_ShowSimpleMessageBox :: (flags: u32, title: *u8, msg: *u8, parent: *SDL_Window) -> s32 #foreign SDL2`
 - `SDL_Color :: struct`
 - `SDL_Palette :: struct`
 - `SDL_PixelFormat :: struct`
@@ -171,6 +171,9 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `SDL_ControllerDeviceEvent :: struct`
 - `SDL_AudioDeviceEvent :: struct`
 - `SDL_QuitEvent :: struct`
+- `SDL_TouchID :: s64`
+- `SDL_FingerID :: s64`
+- `SDL_GestureID :: s64`
 - `SDL_UserEvent :: struct`
 - `SDL_SysWMEvent :: struct`
 - `SDL_TouchFingerEvent :: struct`
@@ -570,7 +573,7 @@ Hack :: struct {
 ### `SDL_AudioCVT`
 
 ```jai
-SDL_AudioCVT :: struct {
+SDL_AudioCVT :: struct #no_padding {
     needed: s32;
     src_format: SDL_AudioFormat;
     dst_format: SDL_AudioFormat;
@@ -584,13 +587,19 @@ SDL_AudioCVT :: struct {
     filter_index: s32;
 }
 ```
+
+The C record is packed (`SDL_AUDIOCVT_PACKED`), so the fields follow one another without padding and the record is 128 bytes on 64-bit targets.
 ### `SDL_AudioDeviceEvent`
 
 ```jai
 SDL_AudioDeviceEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    which: u32;
+    iscapture: u8;
+    padding1: u8;
+    padding2: u8;
+    padding3: u8;
 }
 ```
 ### `SDL_AudioSpec`
@@ -765,7 +774,12 @@ SDL_DisplayMode :: struct {
 SDL_DollarGestureEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    touchId: SDL_TouchID;
+    gestureId: SDL_GestureID;
+    numFingers: u32;
+    error: float;
+    x: float;
+    y: float;
 }
 ```
 ### `SDL_DropEvent`
@@ -1460,7 +1474,7 @@ SDL_Keysym :: struct {
     scancode: SDL_Scancode;
     sym: SDL_Keycode;
     mod: SDL_Keymod;
-    unused: u16;
+    unused: u32;
 }
 ```
 ### `SDL_MouseButtonEvent`
@@ -1521,7 +1535,13 @@ SDL_MouseWheelEvent :: struct {
 SDL_MultiGestureEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    touchId: SDL_TouchID;
+    dTheta: float;
+    dDist: float;
+    x: float;
+    y: float;
+    numFingers: u16;
+    padding: u16;
 }
 ```
 ### `SDL_Palette`
@@ -1580,30 +1600,27 @@ SDL_QuitEvent :: struct {
 
 ```jai
 SDL_RWops :: struct {
-    size  : (*SDL_RWops) -> s64;
-    seek  : (*SDL_RWops, s64, int) -> s64;
-    read  : (*SDL_RWops, *void, int, int) -> int;
-    write : (*SDL_RWops, *void, int, int) -> int;
-    close : (*SDL_RWops) -> int;
-    type  : u32;
+    size: #type (context: *SDL_RWops) -> s64 #c_call;
+    seek: #type (context: *SDL_RWops, offset: s64, whence: s32) -> s64 #c_call;
+    read: #type (context: *SDL_RWops, ptr: *void, size: u64, maxnum: u64) -> u64 #c_call;
+    write: #type (context: *SDL_RWops, ptr: *void, size: u64, num: u64) -> u64 #c_call;
+    close: #type (context: *SDL_RWops) -> s32 #c_call;
+    type: u32;
+    hidden: union {
+        #if OS == .WINDOWS {
+            bytes: [40] u8;
+            pointers: [5] *void;
+        } else {
+            bytes: [24] u8;
+            pointers: [3] *void;
+        }
+    };
 }
 ```
 
-This is the complete Jai binding shape, not the complete SDL 2.0.1 C
-structure. The C ABI adds a platform-dependent `hidden` union after `type`;
-on 64-bit targets that makes the native object 72 bytes, while this exported
-Jai declaration is 48 bytes. The omitted union is a real binding gap, so this
-type must not be used as a by-value or layout-compatible C `SDL_RWops` object.
-Pointers returned by SDL remain usable with SDL APIs that own and interpret
-the native object.
+This is the complete SDL 2.0.1 structure for desktop targets: the callbacks use the C calling convention, `size_t` is `u64`, and `hidden` is the platform-dependent union that follows `type`. It occupies 72 bytes on 64-bit Linux and macOS and 88 on 64-bit Windows. The `hidden` union is storage that SDL's own back ends interpret (`stdio`, `mem`, `unknown`, and `windowsio` on Windows); read it only through SDL APIs.
 
-The callback members are declared as ordinary Jai procedure types: the binding
-does not mark them `#c_call` or `#no_context`, and it supplies no callback
-trampoline or context-capture contract. Whether a Jai-created value
-can safely be installed as a native SDL callback
-table is therefore not specified. `SDL_RWFromFile` and `SDL_LoadBMP_RW` are foreign SDL entry points and
-accept SDL-owned native RWops pointers; use the returned pointer with SDL APIs
-and do not construct or copy the incomplete Jai record as a native object.
+`SDL_RWFromFile` and `SDL_LoadBMP_RW` are foreign SDL entry points that take and return SDL-owned RWops pointers. A record created in Jai can be passed to SDL when its callbacks are `#c_call` procedures.
 
 `SDL_RWFromFile(path, mode)` returns SDL's RWops pointer (or null on failure).
 `SDL_LoadBMP_RW(src, freesrc)` returns a surface pointer (or null on failure).
@@ -1611,9 +1628,7 @@ SDL's `freesrc` contract is that a nonzero value closes the stream before the
 call returns, including when loading fails; zero leaves the stream open. The
 source helper `SDL_LoadBMP(path)` opens in `"rb"` mode and passes 1, so SDL
 closes that stream. Free a successfully returned surface with
-`SDL_FreeSurface`. The binding does not specify custom callback invocation
-context or any stronger lifetime guarantee for a source passed with
-`freesrc` set to zero. See the [SDL_LoadBMP_RW contract](https://wiki.libsdl.org/SDL2/SDL_LoadBMP_RW).
+`SDL_FreeSurface`. See the [SDL_LoadBMP_RW contract](https://wiki.libsdl.org/SDL2/SDL_LoadBMP_RW).
 ### `SDL_Rect`
 
 ```jai
@@ -1959,9 +1974,11 @@ SDL_Surface :: struct {
 SDL_SysWMEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    msg: *void;
 }
 ```
+
+`msg` is the driver-dependent `SDL_SysWMmsg` pointer; its layout is defined by `SDL_syswm.h` for each window system.
 ### `SDL_SysWMinfo`
 
 ```jai
@@ -2058,7 +2075,13 @@ SDL_TextureModulate :: enum u32 {
 SDL_TouchFingerEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    touchId: SDL_TouchID;
+    fingerId: SDL_FingerID;
+    x: float;
+    y: float;
+    dx: float;
+    dy: float;
+    pressure: float;
 }
 ```
 ### `SDL_UserEvent`
@@ -2067,16 +2090,12 @@ SDL_TouchFingerEvent :: struct {
 SDL_UserEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    windowID: u32;
+    code: s32;
+    data1: *void;
+    data2: *void;
 }
 ```
-
-The Jai binding exposes only `type` and `timestamp` (8 bytes). SDL 2.0.1's
-native event also contains `windowID`, `code`, `data1`, and `data2` (32 bytes
-on 64-bit targets). Those payload members are absent from the Jai
-declaration; this is a binding omission, not an omitted spec detail.
-The enclosing `SDL_Event` remains padded to its declared union size, but that
-does not make `SDL_UserEvent` layout-compatible with the C member.
 ### `SDL_WindowEvent`
 
 ```jai

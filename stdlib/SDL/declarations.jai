@@ -18,7 +18,7 @@ Hack :: struct {
     }
 }
 
-SDL_AudioCVT :: struct {
+SDL_AudioCVT :: struct #no_padding {
     needed: s32;
     src_format: SDL_AudioFormat;
     dst_format: SDL_AudioFormat;
@@ -35,7 +35,11 @@ SDL_AudioCVT :: struct {
 SDL_AudioDeviceEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    which: u32;
+    iscapture: u8;
+    padding1: u8;
+    padding2: u8;
+    padding3: u8;
 }
 
 SDL_AudioSpec :: struct {
@@ -170,7 +174,12 @@ SDL_DisplayMode :: struct {
 SDL_DollarGestureEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    touchId: SDL_TouchID;
+    gestureId: SDL_GestureID;
+    numFingers: u32;
+    error: float;
+    x: float;
+    y: float;
 }
 
 SDL_DropEvent :: struct {
@@ -787,7 +796,7 @@ SDL_Keysym :: struct {
     scancode: SDL_Scancode;
     sym: SDL_Keycode;
     mod: SDL_Keymod;
-    unused: u16;
+    unused: u32;
 }
 
 SDL_MouseButtonEvent :: struct {
@@ -833,7 +842,13 @@ SDL_MouseWheelEvent :: struct {
 SDL_MultiGestureEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    touchId: SDL_TouchID;
+    dTheta: float;
+    dDist: float;
+    x: float;
+    y: float;
+    numFingers: u16;
+    padding: u16;
 }
 
 SDL_Palette :: struct {
@@ -906,12 +921,21 @@ SDL_RendererInfo :: struct {
 }
 
 SDL_RWops :: struct {
-    size: (*SDL_RWops) -> s64;
-    seek: (*SDL_RWops, s64, int) -> s64;
-    read: (*SDL_RWops, *void, int, int) -> int;
-    write: (*SDL_RWops, *void, int, int) -> int;
-    close: (*SDL_RWops) -> int;
+    size: #type (context: *SDL_RWops) -> s64 #c_call;
+    seek: #type (context: *SDL_RWops, offset: s64, whence: s32) -> s64 #c_call;
+    read: #type (context: *SDL_RWops, ptr: *void, size: u64, maxnum: u64) -> u64 #c_call;
+    write: #type (context: *SDL_RWops, ptr: *void, size: u64, num: u64) -> u64 #c_call;
+    close: #type (context: *SDL_RWops) -> s32 #c_call;
     type: u32;
+    hidden: union {
+        #if OS == .WINDOWS {
+            bytes: [40] u8;
+            pointers: [5] *void;
+        } else {
+            bytes: [24] u8;
+            pointers: [3] *void;
+        }
+    };
 }
 
 using SDL_Scancode :: enum s32 {
@@ -1219,7 +1243,7 @@ using SDL_SYSWM_TYPE :: enum s32 {
 SDL_SysWMEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    msg: *void;
 }
 
 SDL_SysWMinfo :: struct {
@@ -1278,13 +1302,22 @@ SDL_TextureModulate :: enum u32 {
 SDL_TouchFingerEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    touchId: SDL_TouchID;
+    fingerId: SDL_FingerID;
+    x: float;
+    y: float;
+    dx: float;
+    dy: float;
+    pressure: float;
 }
 
 SDL_UserEvent :: struct {
     type: SDL_EventType;
     timestamp: u32;
-
+    windowID: u32;
+    code: s32;
+    data1: *void;
+    data2: *void;
 }
 
 SDL_version :: struct {
@@ -1432,6 +1465,10 @@ SDL_BUTTON_X1 :: 4;
 SDL_BUTTON_X2 :: 5;
 
 SDL_Cursor :: void;
+
+SDL_FingerID :: s64;
+
+SDL_GestureID :: s64;
 
 SDL_GLContext :: *void;
 
@@ -1629,6 +1666,8 @@ SDL_TEXTEDITINGEVENT_TEXT_SIZE :: 32;
 
 SDL_TEXTINPUTEVENT_TEXT_SIZE :: 32;
 
+SDL_TouchID :: s64;
+
 SDL_Window :: void;
 
 // Native storage
@@ -1683,9 +1722,9 @@ SDL_CreateCursor :: (data: *u8, mask: *u8, w: s32, h: s32, hot_x: s32, hot_y: s3
 
 SDL_CreateRenderer :: (window: *SDL_Window, index: s32, flags: SDL_RendererFlags) -> *SDL_Renderer #foreign SDL2;
 
-SDL_CreateRGBSurfaceFrom :: (pixels: *void, width: int, height: int, depth: int, pitch: int, rmask: u32, gmask: u32, bmask: u32, amask: u32) -> *SDL_Surface #foreign SDL2;
+SDL_CreateRGBSurfaceFrom :: (pixels: *void, width: s32, height: s32, depth: s32, pitch: s32, rmask: u32, gmask: u32, bmask: u32, amask: u32) -> *SDL_Surface #foreign SDL2;
 
-SDL_CreateRGBSurfaceWithFormatFrom :: (pixels: *void, width: int, height: int, depth: int, pitch: int, format: u32) -> *SDL_Surface #foreign SDL2;
+SDL_CreateRGBSurfaceWithFormatFrom :: (pixels: *void, width: s32, height: s32, depth: s32, pitch: s32, format: u32) -> *SDL_Surface #foreign SDL2;
 
 SDL_CreateSoftwareRenderer :: (surface: *SDL_Surface) -> *SDL_Renderer #foreign SDL2;
 
@@ -2203,7 +2242,7 @@ SDL_SetWindowTitle :: (window: *SDL_Window, title: *u8) #foreign SDL2;
 
 SDL_ShowCursor :: (toggle: s32) -> s32 #foreign SDL2;
 
-SDL_ShowSimpleMessageBox :: (flags: u32, title: *u8, msg: *u8, parent: *SDL_Window) -> int #foreign SDL2;
+SDL_ShowSimpleMessageBox :: (flags: u32, title: *u8, msg: *u8, parent: *SDL_Window) -> s32 #foreign SDL2;
 
 SDL_ShowWindow :: (window: *SDL_Window) #foreign SDL2;
 
