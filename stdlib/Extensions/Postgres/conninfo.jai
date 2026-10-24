@@ -9,6 +9,7 @@ CONNINFO_KEYWORDS :: string.[
     "fallback_application_name", "keepalives", "keepalives_idle", "keepalives_interval",
     "keepalives_count", "tcp_user_timeout", "sslmode", "sslnegotiation", "sslcompression",
     "sslcert", "sslkey", "sslpassword", "sslcertmode", "sslrootcert", "sslcrl", "sslcrldir",
+    "sslkeylogfile",
     "sslsni", "requirepeer", "require_auth", "min_protocol_version", "max_protocol_version",
     "ssl_min_protocol_version",
     "ssl_max_protocol_version", "gssencmode", "krbsrvname", "gsslib", "gssdelegation",

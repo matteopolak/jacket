@@ -214,6 +214,12 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
             c.tls_cert_sent = true;
         }
 
+        if config.ssl_key_log_file {
+            c.key_log_file = copy_string(config.ssl_key_log_file);
+            c.tls_config.key_log_proc = append_key_log;
+            c.tls_config.key_log_data = c;
+        }
+
         tls_error := Tls.tls_config_init(*c.tls_config);
 
         if tls_error.kind != .NONE {
@@ -227,6 +233,45 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
         c.tls_config_ready = true;
 
         return connect_tls(c, *c.tls_config);
+    }
+
+    // Appends a line to the connection's key log file, which only its owner may read. A file that
+    // cannot be opened or written is reported, as libpq does, and the connection goes on.
+    append_key_log :: (line: string, data: *void) {
+        c := cast(*Connection) data;
+        path := c.key_log_file;
+
+        #if OS == .WINDOWS {
+            file, opened := file_open(path, for_writing = true, keep_existing_content = true, log_errors = false);
+            if !opened {
+                print_error_line(tprint("WARNING: could not open SSL key logging file \"%\"", path));
+                return;
+            }
+
+            defer file_close(*file);
+
+            file_seek(file, 0, .END);
+            file_write(*file, tprint("%\n", line));
+        } else {
+            fd := POSIX.open(temp_c_string(path), POSIX.O_WRONLY | POSIX.O_APPEND | POSIX.O_CREAT, cast(POSIX.mode_t) 0x180); // 0600
+            if fd < 0 {
+                _, reason := System.get_error_value_and_string();
+                print_error_line(tprint("WARNING: could not open SSL key logging file \"%\": %", path, reason));
+                return;
+            }
+
+            defer POSIX.close(fd);
+
+            text := tprint("%\n", line);
+            if POSIX.write(fd, text.data, cast(u64) text.count) < 0 {
+                _, reason := System.get_error_value_and_string();
+                print_error_line(tprint("WARNING: could not write to SSL key logging file \"%\": %", path, reason));
+            }
+        }
+    }
+
+    print_error_line :: (text: string) {
+        write_string(tprint("%\n", text), to_standard_error = true);
     }
 
     // The handshake over the connection's reader and writer, the stream becoming theirs.

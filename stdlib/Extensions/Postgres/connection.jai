@@ -63,6 +63,8 @@ Connection :: struct {
     // sent a client certificate.
     tls_name: string;
     tls_sni: string;
+    // sslkeylogfile, for the handshake.
+    key_log_file: string;
     tls_check_name: bool;
     tls_cert_sent: bool;
     port: u16;
@@ -169,6 +171,7 @@ close :: (c: *Connection, now := false) {
     free(c.host);
     free(c.tls_name);
     free(c.tls_sni);
+    free(c.key_log_file);
     free(c);
 }
 

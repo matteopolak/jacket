@@ -13,6 +13,10 @@ Tls_Version :: enum u8 {
 // doing the handshake, after the handshake itself succeeded, and may wait.
 Tls_Verify_Proc :: #type (chain: [][] u8, server_name: string, data: *void) -> string;
 
+// Gets one line of the NSS key log format (no newline), such as
+// `CLIENT_HANDSHAKE_TRAFFIC_SECRET <client random> <secret>`, in hex.
+Tls_Key_Log_Proc :: #type (line: string, data: *void);
+
 // Zero-initialised, a config is a client that verifies servers against the system's roots. Fill in
 // the fields you need, then call `tls_config_init`.
 Tls_Config :: struct {
@@ -67,6 +71,11 @@ Tls_Config :: struct {
     // used for verification). The system verifiers of macOS and Windows are this mechanism too.
     verify_proc: Tls_Verify_Proc;
     verify_data: *void;
+
+    // Client: called with each secret a handshake derives, as a key log line that tools such as
+    // Wireshark read to decrypt a capture. For debugging only: the lines decrypt the connection.
+    key_log_proc: Tls_Key_Log_Proc;
+    key_log_data: *void;
 
     // Set by `tls_config_init` (its type is internal to the module): do not touch it, and do not
     // copy a config after that.

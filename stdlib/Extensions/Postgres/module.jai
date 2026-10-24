@@ -80,6 +80,7 @@ Md5 :: #import "md5";
 }
 
 Base64 :: #import "Base64";
+System :: #import "System";
 #import "Extensions/Environment";
 
 #load "wire.jai";

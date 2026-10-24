@@ -408,7 +408,10 @@ without a key is `certificate present, but not private key file "x"`, and a key 
 can access is refused as libpq does), `sslpassword`, `sslcertmode` (`disable`, `allow`, `require`;
 `require` fails after login unless a certificate was configured to be sent; unlike libpq it does not ask whether the server requested one), `sslcrl` (PEM file; a missing one is
 ignored; default `~/.postgresql/root.crl`) and `sslcrldir` (every PEM file in the directory),
-`sslsni`, `ssl_min_protocol_version` and `ssl_max_protocol_version` (`TLSv1` to `TLSv1.3`).
+`sslsni`, `sslkeylogfile` (`ssl_key_log_file`: appends the session's secrets in the key log
+format Wireshark reads, creating the file readable by its owner only; a file that cannot be
+opened is a warning on stderr, not a failed connection), `ssl_min_protocol_version` and
+`ssl_max_protocol_version` (`TLSv1` to `TLSv1.3`).
 With `use_environment` the keywords not
 given come from `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGPASSFILE`,
 `PGREQUIREAUTH`, `PGSSLMODE` and the other variables libpq reads. Lower level:

@@ -43,6 +43,7 @@ VERSION_TLS_1_3 :: 0x0304;
 
 Bio_Send :: #type (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call;
 Bio_Receive :: #type (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call;
+Export_Keys_Callback :: #type (data: *void, type: s32, secret: *u8, secret_length: u64, client_random: *u8, server_random: *u8, prf: s32) #c_call;
 Sni_Callback :: #type (data: *void, ssl: *void, name: *u8, length: u64) -> s32 #c_call;
 
 jai_tls_init :: () -> s32 #foreign libmbedtls;
@@ -75,6 +76,7 @@ mbedtls_ssl_conf_sni :: (conf: *void, callback: Sni_Callback, data: *void) #fore
 
 mbedtls_ssl_setup :: (ssl: *void, conf: *void) -> s32 #foreign libmbedtls;
 mbedtls_ssl_set_bio :: (ssl: *void, context_data: *void, send: Bio_Send, receive: Bio_Receive, receive_timeout: *void) #foreign libmbedtls;
+mbedtls_ssl_set_export_keys_cb :: (ssl: *void, callback: Export_Keys_Callback, data: *void) #foreign libmbedtls;
 mbedtls_ssl_set_hostname :: (ssl: *void, hostname: *u8) -> s32 #foreign libmbedtls;
 mbedtls_ssl_handshake :: (ssl: *void) -> s32 #foreign libmbedtls;
 mbedtls_ssl_read :: (ssl: *void, buffer: *u8, length: u64) -> s32 #foreign libmbedtls;

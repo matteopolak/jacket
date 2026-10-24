@@ -8,6 +8,10 @@ Pg :: #import "Extensions/Postgres";
 #import "Extensions/Json";
 #import "Extensions/Environment";
 
+#if OS != .WINDOWS {
+    POSIX :: #import "POSIX";
+}
+
 FIXTURES :: #run join(#filepath, "../../Tls/tests/fixtures/");
 
 port: u16;
@@ -218,6 +222,37 @@ test_tls :: () {
         // Servers before 17 do not speak it.
         Pg.free_error(*error);
     }
+
+    // sslkeylogfile: each handshake appends its secrets to a file only the owner can read.
+    config.ssl_direct = false;
+    config.ssl_key_log_file = "pg-key-log-test.txt";
+    file_delete(config.ssl_key_log_file);
+    defer file_delete("pg-key-log-test.txt");
+
+    db = connect_ok(config);
+    Pg.close(db);
+    config.ssl_max_protocol_version = .TLS_1_2;
+    db = connect_ok(config);
+    Pg.close(db);
+    config.ssl_max_protocol_version = .TLS_1_3;
+
+    key_log, logged := read_entire_file(config.ssl_key_log_file);
+
+    assert(logged, "the key log file was not written");
+    assert(contains(key_log, "CLIENT_TRAFFIC_SECRET_0 ") && contains(key_log, "\nCLIENT_RANDOM "), "%", key_log);
+    free(key_log);
+
+    #if OS != .WINDOWS {
+        status: POSIX.stat_t;
+        assert(POSIX.stat(temp_c_string(config.ssl_key_log_file), *status) == 0);
+        assert((status.st_mode & 0x3F) == 0, "the key log file can be read by others");
+    }
+
+    // A file that cannot be opened does not stop the connection.
+    config.ssl_key_log_file = "no-such-directory/key-log.txt";
+    db = connect_ok(config);
+    Pg.close(db);
+    config.ssl_key_log_file = "";
 
     // The role is hostssl only.
     config = config_for("jai_tls_scram", "tls secret");

@@ -107,6 +107,9 @@ Config :: struct {
     ssl_cert_mode := Ssl_Cert_Mode.ALLOW;
     // Send the host name as SNI, unless it is an IP address or a socket directory.
     ssl_sni := true;
+    // Appends the TLS session's secrets to this file, in the key log format Wireshark reads, for
+    // debugging. A file that cannot be opened is reported on stderr; the connection goes on.
+    ssl_key_log_file: string;
     ssl_min_protocol_version := Ssl_Protocol_Version.TLS_1_2;
     ssl_max_protocol_version := Ssl_Protocol_Version.TLS_1_3;
     channel_binding := Channel_Binding.PREFER;
@@ -182,7 +185,7 @@ parse_url :: (url: string) -> Config, Pg_Error {
 // where a value with spaces is quoted, `'a value'`, and `\` escapes the next character
 // (`\'` and `\\` inside quotes). Parameters (keywords): host, hostaddr, port, user, password, passfile, dbname,
 // sslmode, sslnegotiation (`direct`), sslrootcert (a PEM file, or `system`), sslcert, sslkey,
-// sslpassword, sslcertmode, sslcrl, sslcrldir, sslsni, ssl_min_protocol_version,
+// sslpassword, sslcertmode, sslcrl, sslcrldir, sslsni, sslkeylogfile, ssl_min_protocol_version,
 // ssl_max_protocol_version, channel_binding,
 // application_name, fallback_application_name, options, connect_timeout (seconds), client_encoding,
 // replication and require_auth. libpq's other keywords are accepted and ignored. Errors read like
@@ -372,6 +375,8 @@ config_from_conninfo :: (info: Conninfo, use_environment := false) -> Config, Pg
         return failed(*config, "invalid SSL protocol version range");
     }
 
+    config.ssl_key_log_file = copy_string(value("sslkeylogfile"));
+
     sni := value("sslsni");
 
     if sni == {
@@ -456,6 +461,7 @@ copy_config :: (config: Config) -> Config {
     copy.ssl_key = copy_string(config.ssl_key);
     copy.ssl_key_password = copy_string(config.ssl_key_password);
     copy.ssl_key_file = copy_string(config.ssl_key_file);
+    copy.ssl_key_log_file = copy_string(config.ssl_key_log_file);
     copy.parameters = array_copy(config.parameters);
     for *copy.parameters {
         it.name = copy_string(it.name);
@@ -492,6 +498,7 @@ free_config :: (config: *Config) {
     free(config.ssl_key);
     free(config.ssl_key_password);
     free(config.ssl_key_file);
+    free(config.ssl_key_log_file);
 
     for config.parameters {
         free(it.name);
@@ -740,11 +747,13 @@ CONNINFO_ENVIRONMENT :: string.[
     "PGSERVICE", "PGUSER", "PGPASSWORD", "PGPASSFILE", "PGCHANNELBINDING", "PGCONNECT_TIMEOUT",
     "PGDATABASE", "PGHOST", "PGHOSTADDR", "PGPORT", "PGCLIENTENCODING", "PGOPTIONS", "PGAPPNAME",
     "", "", "", "", "", "", "PGSSLMODE", "PGSSLNEGOTIATION", "PGSSLCOMPRESSION", "PGSSLCERT",
-    "PGSSLKEY", "", "PGSSLCERTMODE", "PGSSLROOTCERT", "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI",
+    "PGSSLKEY", "", "PGSSLCERTMODE", "PGSSLROOTCERT", "PGSSLCRL", "PGSSLCRLDIR", "", "PGSSLSNI",
     "PGREQUIREPEER", "PGREQUIREAUTH", "PGMINPROTOCOLVERSION", "PGMAXPROTOCOLVERSION", "PGSSLMINPROTOCOLVERSION", "PGSSLMAXPROTOCOLVERSION",
     "PGGSSENCMODE", "PGKRBSRVNAME", "PGGSSLIB", "PGGSSDELEGATION", "", "PGTARGETSESSIONATTRS",
     "PGLOADBALANCEHOSTS",
 ];
+
+#assert CONNINFO_ENVIRONMENT.count == CONNINFO_KEYWORDS.count;
 
 // "a,b,,c" as four entries; empty text as none.
 split_list :: (text: string) -> [] string {

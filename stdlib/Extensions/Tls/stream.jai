@@ -71,6 +71,10 @@ Tls_Stream :: struct {
     // Calls in progress; the stream is freed after `close` when the last one has left.
     users: s64;
 
+    // The client's key log, from its config.
+    key_log_proc: Tls_Key_Log_Proc;
+    key_log_data: *void;
+
     // The server name a client asked for (SNI), on a server stream.
     peer_name_count: u8;
     peer_name_bytes: [255] u8;
@@ -95,6 +99,12 @@ tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, serve
     stream, error := open_stream(native.client, reader, writer);
 
     if error.kind != .NONE return null, error;
+
+    if config.key_log_proc {
+        stream.key_log_proc = config.key_log_proc;
+        stream.key_log_data = config.key_log_data;
+        mbedtls_ssl_set_export_keys_cb(stream.ssl, log_key, stream);
+    }
 
     if server_name.count > 0 {
         status := mbedtls_ssl_set_hostname(stream.ssl, temp_c_string(server_name));
@@ -699,6 +709,40 @@ bio_send :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
     }
 
     return cast(s32) length;
+}
+
+// The labels of the key log format, by the library's number for each secret.
+KEY_LOG_LABELS :: string.[
+    "CLIENT_RANDOM", "CLIENT_EARLY_TRAFFIC_SECRET", "EARLY_EXPORTER_SECRET",
+    "CLIENT_HANDSHAKE_TRAFFIC_SECRET", "SERVER_HANDSHAKE_TRAFFIC_SECRET",
+    "CLIENT_TRAFFIC_SECRET_0", "SERVER_TRAFFIC_SECRET_0",
+];
+
+log_key :: (data: *void, type: s32, secret: *u8, secret_length: u64, client_random: *u8, server_random: *u8, prf: s32) #c_call {
+    stream := cast(*Tls_Stream) data;
+
+    push_context stream.fiber_context {
+        if type < 0 || type >= KEY_LOG_LABELS.count return;
+
+        builder: String_Builder;
+        builder.allocator = temp;
+        append(*builder, KEY_LOG_LABELS[type]);
+        append(*builder, " ");
+        append_hex(*builder, client_random, 32);
+        append(*builder, " ");
+        append_hex(*builder, secret, cast(s64) secret_length);
+        stream.key_log_proc(builder_to_string(*builder,, temp), stream.key_log_data);
+    }
+}
+
+append_hex :: (builder: *String_Builder, bytes: *u8, count: s64) {
+    DIGITS :: "0123456789abcdef";
+
+    for 0..count - 1 {
+        byte := bytes[it];
+        append(builder, DIGITS[byte >> 4]);
+        append(builder, DIGITS[byte & 15]);
+    }
 }
 
 bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
