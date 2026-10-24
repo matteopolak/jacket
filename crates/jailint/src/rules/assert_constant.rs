@@ -11,15 +11,15 @@
 //! a path must not be reached, and is never reported.
 //!
 //! The call must be to a procedure declared with the note `@AssertsArgument` (the library's
-//! `assert`), whatever it is called where it is used. Macros are left alone. The fix removes the
+//! `assert`), whatever it is called where it is used. Macros and generated files are left alone. The fix removes the
 //! statement when it stands in a block and its other arguments have no side effects.
-use super::{calls_noted, pure, replacing};
+use super::{calls_noted, finding, pure, replacing, walk_code};
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use jaic::ast::{Expr, ExprKind as E, StmtKind as S};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
-    let visit = |n: Node, up: &[Node], out: &mut Vec<Finding>| {
+    walk_code(cx, &mut |n, up| {
         let Some(s) = n.stmt() else {
             return;
         };
@@ -62,22 +62,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 true,
             ));
         } else {
-            out.push(super::finding(s.span, message, Some(help)));
+            out.push(finding(s.span, message, Some(help)));
         }
-    };
-    let mut found = Vec::new();
-    walk(cx.stmts, &mut |n, up| {
-        visit(n, up, &mut found);
-        true
     });
-    for p in &cx.procs {
-        if p.is_macro {
-            continue;
-        }
-        walk(&p.body.stmts, &mut |n, up| {
-            visit(n, up, &mut found);
-            true
-        });
-    }
-    out.extend(found);
 }

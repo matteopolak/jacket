@@ -67,6 +67,7 @@ mod unused_result;
 mod unused_variable;
 mod use_after_free;
 mod wrapping_constant;
+mod zero_ptr;
 
 pub struct RuleInfo {
     pub name: &'static str,
@@ -433,6 +434,12 @@ pub static RULES: &[RuleInfo] = &[
         summary: "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`)",
         check: wrapping_constant::check,
     },
+    RuleInfo {
+        name: "zero_ptr",
+        category: Category::Style,
+        summary: "`cast(*T) 0`, which is `null`",
+        check: zero_ptr::check,
+    },
 ];
 
 /// How an expression that denotes a place is used.
@@ -597,6 +604,25 @@ pub(crate) fn statement_lists<'a>(body: &'a [Stmt], f: &mut dyn FnMut(&'a [Stmt]
         }
         true
     });
+}
+
+/// Visit every statement and expression the file's own code holds: its top-level statements
+/// and the bodies of its procedures, macros and generated files left out. For rules that read
+/// only syntax, which a macro's expansion site or a generator may write differently.
+pub(crate) fn walk_code<'a>(cx: &Cx<'a>, visit: &mut dyn FnMut(Node<'a>, &[Node<'a>])) {
+    if cx.generated() {
+        return;
+    }
+    crate::syntax::walk(cx.stmts, &mut |n, up| {
+        visit(n, up);
+        true
+    });
+    for p in cx.procs.iter().filter(|p| !p.is_macro) {
+        crate::syntax::walk(&p.body.stmts, &mut |n, up| {
+            visit(n, up);
+            true
+        });
+    }
 }
 
 /// A finding without a fix.

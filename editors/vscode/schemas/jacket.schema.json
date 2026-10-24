@@ -704,6 +704,16 @@
               ],
               "default": "deny",
               "markdownDescription": "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#wrapping_constant)"
+            },
+            "zero_ptr": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`cast(*T) 0`, which is `null` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#zero_ptr)"
             }
           }
         },

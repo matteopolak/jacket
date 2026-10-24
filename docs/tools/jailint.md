@@ -143,6 +143,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `unused_variable` | style | warn | yes | a local variable that is never used |
 | `use_after_free` | correctness | deny | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
 | `wrapping_constant` | correctness | deny | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
+| `zero_ptr` | style | warn | editor | `cast(*u8) 0`: a null pointer written as a cast of zero |
 
 ### absurd_comparison
 An unsigned value is never below zero, so counting down an unsigned `i` with `while i >= 0` never stops. Only the bottom of a type is checked: aliases like `c_ulong` change width per platform.
@@ -273,6 +274,8 @@ A local or parameter that is the first argument of a statement-level `@FreesArgu
 ### wrapping_constant
 A constant takes the other operand's type, so the first divides `-41` by `h`. Only `/ % < <= > >=` next to a non-constant integer; `+ - *`, `==`, bitwise operators, named constants and casts are not reported. Suggested fix is computing in `s64`.
 
+### zero_ptr
+Only `cast(*T) 0` (also `0x0`) without cast modifiers. The editor offers `null`; `--fix` leaves it, since in `p := cast(*u8) 0;` the cast also gives `p` its type. Macros and generated files are skipped.
 ### Left out on purpose
 
 `never_loop` (`for t { first = it; break; }` is the first-entry idiom), the style lints `collapsible_if`, `needless_return`, `redundant_else`, `manual_swap`, `len_zero`, `cmp_null`, `nonminimal_bool` (idiomatic or no better in Jai), `cast_possible_truncation`/`cast_sign_loss` (covered by `lossy_xx`), `out_of_bounds_indexing` (the compiler checks constant indices), `suspicious_assignment_formatting` (`jaifmt` normalizes it).
