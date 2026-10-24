@@ -66,6 +66,7 @@ mod string_literal_write;
 mod uninit_read;
 mod unknown_allow;
 mod unpaired_lock;
+mod unreadable_literal;
 pub(crate) mod unused_import;
 mod unused_parameter;
 pub(crate) use unused_parameter::RunState;
@@ -439,6 +440,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a `@Locks` call with a path that returns or ends without a matching `@Unlocks`",
         check: unpaired_lock::check,
+    },
+    RuleInfo {
+        name: "unreadable_literal",
+        category: Category::Pedantic,
+        summary: "a long number without `_` separators (`1000000`, `0xdeadbeef`)",
+        check: unreadable_literal::check,
     },
     RuleInfo {
         name: "unused_import",

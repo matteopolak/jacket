@@ -705,6 +705,16 @@
               "default": "warn",
               "markdownDescription": "a `@Locks` call with a path that returns or ends without a matching `@Unlocks` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unpaired_lock)"
             },
+            "unreadable_literal": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a long number without `_` separators (`1000000`, `0xdeadbeef`) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unreadable_literal)"
+            },
             "unused_import": {
               "type": "string",
               "enum": [
