@@ -56,6 +56,7 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@AssertsArgument` | `assert_constant` | stops the program unless its first argument is true (the library's `assert`) |
 | `@WritesOutput` | `print_in_module` | writes to the program's standard output or error (`print`, `write_string`, `write_strings`, `write_builder`) |
 | `@Exits` | `exit_in_module` | ends the process (`exit`) |
+| `@FormatsToString` | `useless_format` | its first argument is a format string and the rest are the values; it returns the formatted text as a new string (`sprint`, `tprint`) |
 
 ```jai
 shout :: (s: string) -> string {
@@ -168,6 +169,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `unused_result` | suspicious | warn | editor | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
 | `unused_variable` | style | warn | yes | a local variable that is never used |
 | `use_after_free` | correctness | deny | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
+| `useless_format` | complexity | warn | editor | `tprint("%", name)`, `sprint("%", name)` with `name: string`: a copy made through a string builder |
 | `wrapping_constant` | correctness | deny | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
 | `zero_ptr` | style | warn | editor | `cast(*u8) 0`: a null pointer written as a cast of zero |
 
@@ -345,6 +347,8 @@ Procedures declared with `@UseResult` (many in `Basic`/`String`/`Math`), so a pr
 A name that appears anywhere else in its block is never reported (covers `#if`-excluded code and `#asm`). Skipped: backtick declarations, `using`, `_` names, blocks with `#insert`, macros. Fix removes the declaration, drops trailing call results, or renames to `_`.
 ### use_after_free
 A local or parameter that is the first argument of a statement-level `@FreesArgument` call (`free(p);`, not `free(p.data)` or `array_free(*xs)`) and is read by a later statement of the same block before anything gives it a new value. Deliberately narrow: the first mention after the free decides, so `p = null;`, `p == null`, a `return`/`break`/`continue`, a second free (see `double_free`), `#insert`, `using`, a macro call or a taken address all end the check silently. A `defer`red free and a free nested in a branch are not followed. What counts as a read follows the callee's first parameter: for a raw pointer, string, array or handle (`free(p)`, `close(fd)`) any read does; for a pointer to a struct (`deinit(*table)`) only reaching into it (`t.field`, `t.*`) does, since the struct itself may be started over (`t.* = .{}`) or handed to the allocator. So a `@FreesArgument` note must be on a procedure whose *first* argument is what it releases.
+### useless_format
+Fires on a call of a procedure noted `@FormatsToString` (the library's `tprint` and `sprint`) whose format is exactly `"%"` and whose single value is a `string`. The editor offers the string itself for `tprint` and `copy_string(s)` for `sprint`. They are not applied by `--fix`: a `tprint` result lives in temporary storage and a `sprint` result belongs to the caller, so replacing either changes who may free what.
 ### wrapping_constant
 A constant takes the other operand's type, so the first divides `-41` by `h`. Only `/ % < <= > >=` next to a non-constant integer; `+ - *`, `==`, bitwise operators, named constants and casts are not reported. Suggested fix is computing in `s64`.
 

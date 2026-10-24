@@ -90,6 +90,7 @@ pub(crate) use unused_parameter::RunState;
 mod unused_result;
 mod unused_variable;
 mod use_after_free;
+mod useless_format;
 mod wrapping_constant;
 mod zero_ptr;
 
@@ -589,6 +590,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Style,
         summary: "a local variable that is never used",
         check: unused_variable::check,
+    },
+    RuleInfo {
+        name: "useless_format",
+        category: Category::Complexity,
+        summary: "`tprint(\"%\", s)` or `sprint(\"%\", s)` with a string `s`, which only copies it",
+        check: useless_format::check,
     },
     RuleInfo {
         name: "use_after_free",

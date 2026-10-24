@@ -39,6 +39,7 @@
 - `jailint` has an opt-in lint for `!(a < b)` on floats, which differs from `a >= b` for NaN (`neg_cmp_float`).
 - `jailint` reports `p.*.field` where `p.field` means the same, and fixes it (`redundant_deref`).
 - `jailint` reports `cast,force` where the value already has the type or the cast only widens, and fixes it (`unnecessary_force_cast`).
+- `jailint` reports `tprint("%", s)` and `sprint("%", s)` with a string `s`, which only copy it (`useless_format`).
 
 ### Improved
 

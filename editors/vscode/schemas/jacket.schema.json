@@ -925,6 +925,16 @@
               "default": "warn",
               "markdownDescription": "a local variable that is never used (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_variable)"
             },
+            "useless_format": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`tprint(\"%\", s)` or `sprint(\"%\", s)` with a string `s`, which only copies it (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#useless_format)"
+            },
             "use_after_free": {
               "type": "string",
               "enum": [
