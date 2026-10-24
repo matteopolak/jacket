@@ -210,7 +210,9 @@ print "not in PostgreSQL <version>".
 
 - `VERSIONS` in `tools/pg_conformance/fetch.py`: PostgreSQL versions and source tarball digests.
 - The workflow matrix in `.github/workflows/pg-conformance.yml`: the server versions tested
-  (15 to 18).
+  (15 to 18), plus the next major while it is in beta (19, from its release candidate), which is
+  reported but allowed to fail (`beta: true`). When that major is released, pin its release in
+  `VERSIONS`, move it into the main list and drop `beta`.
 - `tests/conformance/regress-skip.txt`: regression files that do not apply yet, with reasons.
 
 ## Dependencies

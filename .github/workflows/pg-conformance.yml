@@ -33,12 +33,18 @@ concurrency:
   cancel-in-progress: true
 jobs:
   conformance:
-    name: PostgreSQL ${{ matrix.postgres }}
+    name: PostgreSQL ${{ matrix.postgres }}${{ matrix.beta && ' (beta)' || '' }}
     strategy:
       fail-fast: false
       matrix:
         postgres: ['15', '16', '17', '18']
+        beta: [false]
+        # The next major while it is in beta or release candidate: reported, allowed to fail.
+        include:
+          - postgres: '19'
+            beta: true
     runs-on: ubuntu-24.04
+    continue-on-error: ${{ matrix.beta }}
     timeout-minutes: 60
     env:
       CARGO_INCREMENTAL: '0'
@@ -63,7 +69,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-common
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          # -v adds the component that carries a major before its release.
+          if [ "${{ matrix.beta }}" = true ]; then
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y -v "${{ matrix.postgres }}"
+          else
+            sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          fi
           sudo apt-get install -y "postgresql-${{ matrix.postgres }}" "postgresql-server-dev-${{ matrix.postgres }}" libipc-run-perl libio-pty-perl
       - name: Build the TLS SDK
         run: python3 tools/native/http_native.py --out "$JAIC_NATIVE_LIBS"
