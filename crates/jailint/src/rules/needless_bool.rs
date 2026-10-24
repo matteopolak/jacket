@@ -52,7 +52,7 @@ fn literal(e: &Expr) -> Option<bool> {
 /// `c` or `!c` as text, parenthesized for a larger expression when `inside`. A negated
 /// comparison of built-in types is written as the opposite comparison (`!(a < b)` is `a >= b`);
 /// floats keep the `!`, since NaN fails both.
-fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
+pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
     let text = cx.whole_src(cond.span).trim();
     if negate
         && let E::Binary(op, a, b) = &cond.kind

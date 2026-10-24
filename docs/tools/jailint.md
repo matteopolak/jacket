@@ -111,6 +111,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `int_plus_one` | complexity | warn | editor | `x >= y + 1`, `x - 1 >= y`, `x + 1 <= y`, `x <= y - 1`: an integer comparison with `1` added or taken off, which is a strict comparison |
 | `integer_division_in_float` | suspicious | warn | editor | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
 | `leaked_allocation` | pedantic | allow | editor | `p := New(T);` that is never freed, returned or handed on |
+| `loop_with_break_condition` | complexity | warn | yes | `while true { if i >= n break; ... }`: a loop that opens by leaving when a test fails, which is the `while` condition |
 | `lossy_xx` | pedantic | allow | yes | `xx` that narrows a number to a smaller type |
 | `magic_number` | pedantic | allow | no | `if x > 37`, `y * 1.0472`, `timeout = 8640`: an unexplained number where a named constant would read better |
 | `manual_assign_op` | complexity | warn | yes | `a = a + b` to `a += b` |
@@ -195,6 +196,8 @@ Integers only, and only the literal `1`. The editor offers the strict comparison
 Operands are typed before the cast, so the integers divide first. A variable divided by a power-of-two literal is taken as deliberate. The editor offers to convert the dividend to a float (`cast(float) done / total`); `--fix` does not, since it changes the value.
 ### leaked_allocation
 Off by default: ownership conventions differ, and a program that allocates once for its whole run may leak on purpose. A local declared from a call of an `@Allocates` procedure (the library's `alloc`, `New`, `NewArray`, `copy_string`, `sprint`, `join`, `array_copy`, `to_upper_copy`, `read_entire_file`, ...; a cast around the call is fine) whose every later mention is harmless: reading or writing a number, bool or enum through it (`p.count`, `p.depth = 1`), comparing it, testing it in an `if`/`while`, or a bare statement. Passing it (or anything reached through it) to any call, freeing it (also by `defer`), returning it, assigning it elsewhere, taking its address, putting it in a literal or reassigning it all count as handling the memory and keep the rule silent. It also stays silent when it cannot tell which allocator is in force: a procedure that uses `push_context`, assigns `context`, calls a macro (`push_allocator` is one) or has `#insert`/`using`, an allocating call with `,, allocator = temp`, or a name mentioned where the walk cannot follow. For a pointer, the editor offers `defer free(x);` on the next line.
+### loop_with_break_condition
+A `while true` (macros aside) whose body starts with an `if` without an `else` that only does an unlabelled `break`, with or without braces. The fix puts the opposite test in the header (`!c` becomes `c`, `a >= b` on numbers becomes `a < b`) and removes the `if`; a comment inside the `if`, or before it in the loop, withholds it.
 ### lossy_xx
 Off by default: narrowing with `xx` is common Jai style. The fix spells out `cast(T)`.
 ### magic_number

@@ -12,6 +12,7 @@
 - `jailint` suggests `x > y` for `x >= y + 1` and the other integer comparisons with `1` added or taken off (`int_plus_one`).
 - `jailint` suggests `-x` for `x * -1` (`neg_multiply`).
 - `jailint` suggests `clamp` for a number kept between two constants with `max` and `min`, `if` and `else if`, or `ifx` (`manual_clamp`).
+- `jailint` suggests moving the test of a `while true` loop that begins with `if c break;` into the `while` (`loop_with_break_condition`).
 
 ### Improved
 

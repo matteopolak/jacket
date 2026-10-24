@@ -35,6 +35,7 @@ mod infinite_loop;
 mod int_plus_one;
 mod integer_division_in_float;
 mod leaked_allocation;
+mod loop_with_break_condition;
 mod lossy_xx;
 mod magic_number;
 mod manual_assign_op;
@@ -244,6 +245,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Pedantic,
         summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
         check: leaked_allocation::check,
+    },
+    RuleInfo {
+        name: "loop_with_break_condition",
+        category: Category::Complexity,
+        summary: "`while true { if !c break; ... }`, a loop whose condition is its first statement",
+        check: loop_with_break_condition::check,
     },
     RuleInfo {
         name: "lossy_xx",

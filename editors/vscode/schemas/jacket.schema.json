@@ -395,6 +395,16 @@
               "default": "allow",
               "markdownDescription": "a local holding memory from an `@Allocates` call that is never freed, returned or handed on (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#leaked_allocation)"
             },
+            "loop_with_break_condition": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`while true { if !c break; ... }`, a loop whose condition is its first statement (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#loop_with_break_condition)"
+            },
             "lossy_xx": {
               "type": "string",
               "enum": [
