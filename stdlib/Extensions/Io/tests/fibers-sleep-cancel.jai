@@ -233,6 +233,61 @@ test_self_cancel :: () {
     assert(!Io.is_canceled(), "this fiber was not canceled");
 }
 
+// with_grace runs cleanup past an expired deadline and a cancel, and a cancel that comes during
+// it waits until it ends.
+grace_results: [6] Io.Io_Error;
+grace_canceled_after: bool;
+
+graceful :: () {
+    Io.with_deadline(1, #code {
+        grace_results[0] = Io.sleep(50);
+        Io.with_grace(1000, #code {
+            grace_results[1] = Io.sleep(1);
+        });
+        grace_results[2] = Io.sleep(1);
+    });
+
+    Io.cancel(Io.current());
+    Io.with_grace(1000, #code {
+        grace_results[3] = Io.sleep(1);
+        Io.with_grace(1, #code {
+            grace_results[4] = Io.sleep(50); // its own limit still holds
+        });
+    });
+    grace_results[5] = Io.sleep(1);
+    grace_canceled_after = Io.is_canceled();
+}
+
+held_result: Io.Io_Error;
+held_done: bool;
+
+held :: () {
+    Io.with_grace(1000, #code {
+        held_result = Io.sleep(20); // canceled meanwhile, and still sleeps its full time
+    });
+    held_done = Io.is_canceled();
+}
+
+test_grace :: () {
+    Io.spawn(graceful);
+    Io.sleep(150);
+    assert(grace_results[0] == .TIMED_OUT);
+    assert(grace_results[1] == .NONE);
+    assert(grace_results[2] == .TIMED_OUT);
+    assert(grace_results[3] == .NONE);
+    assert(grace_results[4] == .TIMED_OUT);
+    assert(grace_results[5] == .CANCELED);
+    assert(grace_canceled_after);
+
+    handle := Io.spawn(held);
+
+    Io.yield();
+    Io.cancel(handle);
+    Io.sleep(100);
+    assert(held_result == .NONE, "a cancel during with_grace waited: %", held_result);
+    assert(held_done, "the held cancel applied when with_grace ended");
+}
+
 // Fibers still running when io_run's first fiber returns are canceled and finish.
 leftovers_finished: int;
 
@@ -247,6 +302,7 @@ root :: () {
     test_sleep_while_busy();
     test_cancel();
     test_self_cancel();
+    test_grace();
 
     for 1..5 Io.spawn(leftover);
 

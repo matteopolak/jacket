@@ -85,6 +85,10 @@ Fiber :: struct {
     job: *Resolve_Waiter;
     // Absolute `now_nanoseconds()` limit for every IO call (0: none), set by `with_deadline`.
     deadline: s64;
+    // How many `with_grace` blocks are running; a cancel that comes meanwhile waits in
+    // `cancel_held` until the outermost one ends.
+    grace_depth: s32;
+    cancel_held: bool;
     // The system's error number behind the last failed IO call.
     platform_code: s32;
     fiber_context: #Context;
@@ -335,6 +339,8 @@ start_fiber :: (scheduler: *Scheduler, block: Spawn_Block) -> Fiber_Handle {
     fiber.op = null;
     fiber.job = null;
     fiber.deadline = 0;
+    fiber.grace_depth = 0;
+    fiber.cancel_held = false;
     fiber.platform_code = 0;
     fiber.entry = block.entry;
     fiber.data = block.data;
@@ -451,6 +457,11 @@ wake :: (fiber: *Fiber, reason := Io_Error.NONE) {
 
 cancel_fiber :: (fiber: *Fiber) {
     if fiber.canceled return;
+
+    if fiber.grace_depth > 0 {
+        fiber.cancel_held = true;
+        return;
+    }
 
     fiber.canceled = true;
     if fiber.state != .BLOCKED return;

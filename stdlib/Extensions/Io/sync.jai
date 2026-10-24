@@ -192,6 +192,57 @@ unlock :: (mutex: *Fiber_Mutex) {
     else mutex.locked = false;
 } @Unlocks
 
+// Fibers waiting until another fiber says that something changed. Unlike channels and locks,
+// `wait` honours `with_deadline`. A condition carries no value and remembers nothing: a notify
+// with nobody waiting is lost, so wait in a loop that checks the state itself.
+//
+//     while !ready {
+//         error := wait(*changed);                 // .TIMED_OUT, .CANCELED
+//         if error != .NONE return error;
+//     }
+Condition :: struct {
+    waiters: Waiter;
+}
+
+// Parks the fiber until a notify, its deadline, or a cancel.
+wait :: (condition: *Condition) -> Io_Error {
+    fiber, scheduler := current_fiber();
+    if fiber.canceled return .CANCELED;
+
+    if fiber.deadline != 0 {
+        if fiber.deadline <= now_nanoseconds() return .TIMED_OUT;
+
+        timer_add(scheduler, fiber, fiber.deadline);
+    }
+
+    waiter: Waiter;
+    error := wait_on(scheduler, fiber, *condition.waiters, *waiter);
+
+    if error != .NONE return error;
+
+    if !waiter.completed {
+        // The deadline's timer woke the fiber (and took it off the list).
+        waiter_unlink(*waiter);
+
+        return .TIMED_OUT;
+    }
+
+    return .NONE;
+}
+
+// Wakes the fiber that has waited longest, if any.
+notify_one :: (condition: *Condition) {
+    waiter := waiter_pop(*condition.waiters);
+    if !waiter return;
+
+    waiter.completed = true;
+    wake(waiter.fiber);
+}
+
+notify_all :: (condition: *Condition) {
+    while !waiters_empty(*condition.waiters) notify_one(condition);
+}
+
 #scope_module
 
 // A fiber waiting on a list, kept on its own stack. A list is a Waiter too: the head of a
