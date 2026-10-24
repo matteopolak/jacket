@@ -64,6 +64,12 @@ pub struct Lint {
     /// The score above which `cognitive_complexity` reports a procedure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_complexity: Option<usize>,
+    /// How many parameters a procedure may take before `too_many_arguments` reports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_arguments: Option<usize>,
+    /// How many `bool` parameters a procedure may take before `excessive_bools` reports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_bools: Option<usize>,
     /// Numbers `magic_number` never reports, besides its built-in ones.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub magic_number_allow: Vec<f64>,
@@ -160,6 +166,8 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "exclude",
             "max_nesting",
             "max_complexity",
+            "max_arguments",
+            "max_bools",
             "magic_number_allow",
             "magic_number_min",
             "magic_number_in_tests",

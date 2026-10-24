@@ -26,6 +26,7 @@ mod duplicate_condition;
 mod element_count_as_bytes;
 mod enum_member_prefix;
 mod erasing_op;
+mod excessive_bools;
 mod excessive_nesting;
 mod exit_in_module;
 mod float_equality;
@@ -68,6 +69,7 @@ mod shadowed_it;
 mod single_case_switch;
 mod string_literal_write;
 mod todo_marker;
+mod too_many_arguments;
 mod unchecked_directive;
 mod uninit_read;
 mod unknown_allow;
@@ -213,6 +215,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "an operation that is always `0` (`x * 0`, `x & 0`)",
         check: erasing_op::check,
+    },
+    RuleInfo {
+        name: "excessive_bools",
+        category: Category::Restriction,
+        summary: "a procedure with more `bool` parameters than `max_bools` (default 3)",
+        check: excessive_bools::check,
     },
     RuleInfo {
         name: "excessive_nesting",
@@ -459,6 +467,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Restriction,
         summary: "a comment with a `TODO`, `FIXME`, `XXX` or `HACK` marker",
         check: todo_marker::check,
+    },
+    RuleInfo {
+        name: "too_many_arguments",
+        category: Category::Restriction,
+        summary: "a procedure with more parameters than `max_arguments` (default 7)",
+        check: too_many_arguments::check,
     },
     RuleInfo {
         name: "unchecked_directive",
@@ -755,6 +769,21 @@ pub(crate) fn calls_in_module(
             out.push(finding(e.span, message.into(), Some(help.into())));
         }
     });
+}
+
+/// Where a finding about a procedure goes, and how its message names it: the declared name,
+/// else the start of the header.
+pub(crate) fn proc_label(p: &crate::syntax::ProcSite) -> (Span, String) {
+    match p.decl.and_then(|d| d.names.first()) {
+        Some(name) => (name.span, format!("`{}`", name.name.as_str())),
+        None => (
+            Span {
+                end: p.header.span.start + 1,
+                ..p.header.span
+            },
+            "this procedure".to_string(),
+        ),
+    }
 }
 
 /// A finding without a fix.

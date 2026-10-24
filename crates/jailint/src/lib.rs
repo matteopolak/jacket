@@ -118,6 +118,10 @@ pub fn lint_files(
         cx.max_complexity = config
             .max_complexity
             .unwrap_or(config::DEFAULT_MAX_COMPLEXITY);
+        cx.max_arguments = config
+            .max_arguments
+            .unwrap_or(config::DEFAULT_MAX_ARGUMENTS);
+        cx.max_bools = config.max_bools.unwrap_or(config::DEFAULT_MAX_BOOLS);
         cx.doc_links = doc_links;
         for (rule, level) in wanted {
             let mut found = Vec::new();

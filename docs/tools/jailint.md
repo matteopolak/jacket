@@ -106,6 +106,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `element_count_as_bytes` | correctness | deny | yes | `memcpy(d, xs.data, xs.count)` with `xs: [] s32`: an element count passed where a `@TakesByteCount` procedure wants bytes |
 | `enum_member_prefix` | style | warn | no | `Color :: enum { COLOR_RED; COLOR_GREEN; }`: members that repeat the enum's name, which `Color.RED` already says |
 | `erasing_op` | suspicious | warn | editor | `x * 0`, `x & 0`, `x % 1`: always `0` |
+| `excessive_bools` | restriction | allow | no | `open :: (path: string, read: bool, write: bool, create: bool, truncate: bool)` |
 | `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
 | `exit_in_module` | restriction | allow | no | `exit(1)` in a file that belongs to a module |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
@@ -147,6 +148,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `single_case_switch` | style | warn | editor | `if mode == { case .VERBOSE; ...; }`, with at most a default case: an `if` written as a `switch` |
 | `string_literal_write` | correctness | deny | editor | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
 | `todo_marker` | restriction | allow | no | `// TODO: handle the empty list` |
+| `too_many_arguments` | restriction | allow | no | `draw :: (x: int, y: int, w: int, h: int, r: u8, g: u8, b: u8, a: u8)` |
 | `unchecked_directive` | restriction | allow | no | `f :: () #no_abc { ... }` or `#asm { ... }` with no `//` comment on the line or the line above |
 | `uninit_read` | correctness | deny | editor | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
 | `unknown_allow` | suspicious | warn | editor | a `// jailint: allow(...)` comment naming a rule that does not exist |
@@ -199,6 +201,8 @@ Only when `xs.data` is another argument of the same call, so the count clearly d
 Two or more members, all beginning with the enum's name once case and `_` are ignored (`Token_Kind` and `TOKEN_KIND_IDENT`) and each with something left after it. Enums that add members with `#insert` or `using`, and generated files, are skipped. No fix: renaming members changes every use of them.
 ### erasing_op
 Left alone inside an index or array literal, where a `0 *` lines up with other rows. When the other operand is side-effect-free the editor offers to write the `0`.
+### excessive_bools
+A parameter counts when its type is written `bool`, or it has no type and defaults to `true` or `false`. A procedure with more than `[lint] max_bools` (default 3) is reported on its name, with its count. At the call `open(path, true, false, true, false)` does not say which flag is which: use an enum, an `enum_flags`, or split the procedure. `#c_call` and foreign procedures and generated files are skipped. No fix. Off by default.
 ### excessive_nesting
 Off by default. A level is a braced block or a `switch`; `else if` chains and `#if` add none. A procedure written inside a block starts counting from that block's depth, so a nested procedure cannot hide the nesting. Reports the first block past the limit on each path, on its `{` (or the `switch` header). The limit is `[lint] max_nesting` in `jacket.toml` or `--max-nesting <n>`, default 6; enable it with `-W excessive_nesting` or `[lint.rules]`. On the standard library, a limit of 6 finds nothing and 5 finds five blocks. Fix by returning or `continue`ing early, or by moving the inner part into a procedure. Generated files are skipped.
 ### exit_in_module
@@ -293,6 +297,8 @@ One case of one value, plus at most a default case. `#complete` switches, `#thro
 Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native). Fires on `s[i] = x`, `s[i] += x`, `s.data[i] = x` and `s.data.* = x` when `s` was declared from a literal (`s := "abc";`, `s: string = "abc";`) in the same statement list and nothing since could have changed it: any assignment to `s`, taking `*s`, or redeclaring the name (in any nested scope) ends the check, so `s = copy_string(s);` silences later writes. Writes in nested blocks and in macros are not reported. The editor offers to wrap the literal in `copy_string(...)` where the variable is declared (the copy is then yours to free).
 ### todo_marker
 A marker is `TODO`, `FIXME`, `XXX` or `HACK` in capitals, standing alone (`TODO:` and `(FIXME)` count; `todo`, `TODOS` and `AUTODOC` do not). Each comment is reported once, for its first marker. Strings are not looked at, and generated files are skipped. No fix. For a tree that must carry no unfinished-work markers, or a project that tracks them elsewhere.
+### too_many_arguments
+Every parameter counts, defaulted, baked (`$T`) and variadic ones included. A procedure with more than `[lint] max_arguments` (default 7) is reported on its name, with its count. Group parameters that belong together in a struct. `#c_call` and foreign procedures, whose signature C fixes, and generated files are skipped. No fix. Off by default.
 ### unchecked_directive
 Each `#no_abc`, `#no_aoc` and `#asm` needs a comment on its own line or the line just above. These take away bounds and overflow checks or leave the language, so the reason belongs next to them. Generated files are skipped. No fix: the reason is the author's to write.
 ### uninit_read
@@ -347,6 +353,8 @@ The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up f
 exclude = ["tests/corpus/negative/**", "generated/**"]   # globs relative to this file
 max_nesting = 6                                          # blocks `excessive_nesting` allows
 max_complexity = 25                                      # score `cognitive_complexity` allows
+max_arguments = 7                                        # parameters `too_many_arguments` allows
+max_bools = 3                                            # `bool` parameters `excessive_bools` allows
 magic_number_allow = [60, 24]                            # numbers `magic_number` accepts
 magic_number_min = 3                                     # whole numbers below this are fine
 
@@ -362,7 +370,7 @@ rules = { float_equality = "allow", magic_number = "allow" }
 
 Both tools match globs the same way: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `glob` in `crates/jailint/src/config.rs` and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
 
-`[[lint.overrides]]` entries set rule or category levels for the files their `paths` globs match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `magic_number_*`) are not per path.
+`[[lint.overrides]]` entries set rule or category levels for the files their `paths` globs match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `max_arguments`, `max_bools`, `magic_number_*`) are not per path.
 
 The formatter is written in Jai and reads the `[format]` table itself; both tables live in one file. The repository's `jacket.toml` excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `jailint -D warnings -j <cores> prelude stdlib examples tools jaifmt tests benchmarks`; deliberate findings in tests carry an `allow` with the reason. It also holds the repository to `magic_number` (time units allowed) and, under `stdlib/`, to `float_equality`; `[[lint.overrides]]` turn `magic_number` off for benchmarks, examples and binary-format, numeric and OS-binding code, and `float_equality` off in stdlib tests.
 

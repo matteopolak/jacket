@@ -29,6 +29,8 @@
 - `jailint` has an opt-in lint for modules that write to the program's output (`print_in_module`).
 - `jailint` has an opt-in lint for modules that end the process (`exit_in_module`).
 - `jailint` has an opt-in lint for `TODO`, `FIXME`, `XXX` and `HACK` comments (`todo_marker`).
+- `jailint` has an opt-in lint for procedures with too many parameters, with the limit set by `max_arguments` (`too_many_arguments`).
+- `jailint` has an opt-in lint for procedures with too many `bool` parameters, with the limit set by `max_bools` (`excessive_bools`).
 
 ### Improved
 

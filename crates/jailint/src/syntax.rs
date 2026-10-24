@@ -33,6 +33,10 @@ pub(crate) struct Cx<'a> {
     pub max_nesting: usize,
     /// The configured complexity limit (`cognitive_complexity`).
     pub max_complexity: usize,
+    /// The configured parameter limit (`too_many_arguments`).
+    pub max_arguments: usize,
+    /// The configured `bool` parameter limit (`excessive_bools`).
+    pub max_bools: usize,
     /// Which numbers `magic_number` lets through.
     pub magic_numbers: crate::config::MagicNumbers,
     /// What rules remember across the files of this run.
@@ -94,6 +98,8 @@ impl<'a> Cx<'a> {
             complete: true,
             max_nesting: crate::config::DEFAULT_MAX_NESTING,
             max_complexity: crate::config::DEFAULT_MAX_COMPLEXITY,
+            max_arguments: crate::config::DEFAULT_MAX_ARGUMENTS,
+            max_bools: crate::config::DEFAULT_MAX_BOOLS,
             magic_numbers: crate::config::MagicNumbers::default(),
             run,
         }

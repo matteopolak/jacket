@@ -315,6 +315,16 @@
               "default": "warn",
               "markdownDescription": "an operation that is always `0` (`x * 0`, `x & 0`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#erasing_op)"
             },
+            "excessive_bools": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a procedure with more `bool` parameters than `max_bools` (default 3) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_bools)"
+            },
             "excessive_nesting": {
               "type": "string",
               "enum": [
@@ -725,6 +735,16 @@
               "default": "allow",
               "markdownDescription": "a comment with a `TODO`, `FIXME`, `XXX` or `HACK` marker (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#todo_marker)"
             },
+            "too_many_arguments": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a procedure with more parameters than `max_arguments` (default 7) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#too_many_arguments)"
+            },
             "unchecked_directive": {
               "type": "string",
               "enum": [
@@ -867,6 +887,18 @@
           "minimum": 0,
           "default": 25,
           "markdownDescription": "The cognitive complexity above which `cognitive_complexity` reports a procedure."
+        },
+        "max_arguments": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 7,
+          "markdownDescription": "The parameter count above which `too_many_arguments` reports a procedure."
+        },
+        "max_bools": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 3,
+          "markdownDescription": "The number of `bool` parameters above which `excessive_bools` reports a procedure."
         },
         "magic_number_allow": {
           "type": "array",

@@ -1,0 +1,16 @@
+warning[excessive_bools]: `open` takes 4 `bool` parameters, past the limit of 3
+  --> tests/lint/excessive_bools/bad.jai:3:1
+   |
+ 3 | open :: (path: string, read: bool, write: bool, create: bool, truncate: bool) -> int {
+   | ^^^^
+   |
+   = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
+
+warning[excessive_bools]: `configure` takes 4 `bool` parameters, past the limit of 3
+  --> tests/lint/excessive_bools/bad.jai:7:1
+   |
+ 7 | configure :: (verbose := false, quiet := false, color := true, strict := false, name := "x") -> int {
+   | ^^^^^^^^^
+   |
+   = help: use an enum or a `#flags` enum so each argument says what it sets, or split the procedure
+

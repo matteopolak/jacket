@@ -126,6 +126,10 @@ pub struct Config {
     pub max_nesting: Option<usize>,
     /// The score above which `cognitive_complexity` fires.
     pub max_complexity: Option<usize>,
+    /// The parameter count above which `too_many_arguments` fires.
+    pub max_arguments: Option<usize>,
+    /// The `bool` parameter count above which `excessive_bools` fires.
+    pub max_bools: Option<usize>,
     /// Numbers `magic_number` lets through, besides its built-in ones.
     pub magic_number_allow: Vec<f64>,
     /// Whole numbers below this magnitude are not magic.
@@ -154,6 +158,12 @@ pub const DEFAULT_MAX_NESTING: usize = 6;
 
 /// The cognitive complexity `cognitive_complexity` allows when nothing sets it.
 pub const DEFAULT_MAX_COMPLEXITY: usize = 25;
+
+/// The parameters `too_many_arguments` allows when nothing sets it.
+pub const DEFAULT_MAX_ARGUMENTS: usize = 7;
+
+/// The `bool` parameters `excessive_bools` allows when nothing sets it.
+pub const DEFAULT_MAX_BOOLS: usize = 3;
 
 /// Whole numbers below this magnitude are not magic when nothing sets `magic_number_min`.
 pub const DEFAULT_MAGIC_NUMBER_MIN: f64 = 3.0;
@@ -253,6 +263,8 @@ impl Config {
             exclude: lint.exclude.clone(),
             max_nesting: lint.max_nesting,
             max_complexity: lint.max_complexity,
+            max_arguments: lint.max_arguments,
+            max_bools: lint.max_bools,
             magic_number_allow: lint.magic_number_allow.clone(),
             magic_number_min: lint.magic_number_min,
             magic_number_in_tests: lint.magic_number_in_tests,

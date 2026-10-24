@@ -15,7 +15,6 @@
 use crate::Finding;
 use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{BinOp, ExprKind as E, Stmt, StmtKind as S};
-use jaic::source::Span;
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
@@ -26,16 +25,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if score <= cx.max_complexity {
             continue;
         }
-        let (span, name) = match p.decl.and_then(|d| d.names.first()) {
-            Some(name) => (name.span, format!("`{}`", name.name.as_str())),
-            None => (
-                Span {
-                    end: p.header.span.start + 1,
-                    ..p.header.span
-                },
-                "this procedure".to_string(),
-            ),
-        };
+        let (span, name) = super::proc_label(p);
         out.push(Finding {
             start: span.start as usize,
             end: span.end as usize,

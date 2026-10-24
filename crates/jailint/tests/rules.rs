@@ -340,3 +340,39 @@ fn cognitive_complexity_limit_comes_from_the_settings() {
     let (lints, _) = lint_with(&file, &levels, config(21));
     assert!(lints.is_empty(), "{lints:?}");
 }
+
+#[test]
+fn parameter_limits_come_from_the_settings() {
+    let args = repo().join("tests/lint/too_many_arguments/good.jai");
+    let levels = [("too_many_arguments", Level::Warn)];
+    let config = |limit| Config {
+        max_arguments: Some(limit),
+        ..Config::default()
+    };
+    // `seven` takes seven parameters and `draw` two.
+    let (lints, _) = lint_with(&args, &levels, config(6));
+    assert_eq!(lints.len(), 1, "{lints:?}");
+    assert!(
+        lints[0]
+            .message
+            .contains("takes 7 parameters, past the limit of 6")
+    );
+    let (lints, _) = lint_with(&args, &levels, config(7));
+    assert!(lints.is_empty(), "{lints:?}");
+
+    let bools = repo().join("tests/lint/excessive_bools/good.jai");
+    let levels = [("excessive_bools", Level::Warn)];
+    let config = |limit| Config {
+        max_bools: Some(limit),
+        ..Config::default()
+    };
+    let (lints, _) = lint_with(&bools, &levels, config(2));
+    assert_eq!(lints.len(), 1, "{lints:?}");
+    assert!(
+        lints[0]
+            .message
+            .contains("takes 3 `bool` parameters, past the limit of 2")
+    );
+    let (lints, _) = lint_with(&bools, &levels, config(3));
+    assert!(lints.is_empty(), "{lints:?}");
+}
