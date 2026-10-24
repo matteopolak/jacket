@@ -11,7 +11,8 @@
 //! a tool whose output is piped, or a game with no console. Return the text or an error and let
 //! the program print it, or log through the logger, which the program can redirect.
 //!
-//! A file is part of a module when it or a directory above it holds a `module.jai`. A call is
+//! A file is part of a module when it or a directory above it holds a `module.jai` and no
+//! `tests` folder lies between them. A call is
 //! reported when the procedure it calls carries the note `@WritesOutput` (the library's `print`,
 //! `write_string`, `write_strings` and `write_builder`), whatever it is called where it is used.
 //! Macros and generated files are left alone. No fix.

@@ -207,14 +207,25 @@ impl<'a> Cx<'a> {
         })
     }
 
-    /// The file is part of a module: it, or a directory above it, holds a `module.jai`. A library
-    /// is used by programs that decide what is printed and when the process ends.
+    /// The file is library code of a module: it, or a directory above it, holds a `module.jai`,
+    /// and no `tests` or `test` folder lies between that directory and the file (those hold
+    /// programs that use the module). A library is used by programs that decide what is printed
+    /// and when the process ends.
     pub fn in_module(&self) -> bool {
         let path = self.compiler.src.sources.get(self.file).path.to_string();
         let path = std::fs::canonicalize(&path).unwrap_or_else(|_| path.into());
-        path.ancestors()
+        let Some(root) = path
+            .ancestors()
             .skip(1)
-            .any(|dir| dir.join("module.jai").is_file())
+            .find(|d| d.join("module.jai").is_file())
+        else {
+            return false;
+        };
+        let below = path.strip_prefix(root).unwrap_or(&path);
+        !below.components().any(|c| {
+            let c = c.as_os_str();
+            c == "tests" || c == "test"
+        })
     }
 
     /// A comment overlaps the bytes `start..end`.

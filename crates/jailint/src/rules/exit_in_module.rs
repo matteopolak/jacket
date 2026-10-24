@@ -10,7 +10,8 @@
 //! A library that calls `exit` takes the decision away from the program that uses it: it skips
 //! the program's cleanup and cannot be tested. Return an error and let the caller decide.
 //!
-//! A file is part of a module when it or a directory above it holds a `module.jai`. A call is
+//! A file is part of a module when it or a directory above it holds a `module.jai` and no
+//! `tests` folder lies between them. A call is
 //! reported when the procedure it calls carries the note `@Exits` (the library's `exit`),
 //! whatever it is called where it is used. Macros and generated files are left alone. No fix.
 use super::calls_in_module;

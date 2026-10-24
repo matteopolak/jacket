@@ -187,6 +187,10 @@ fn programs_may_print_and_exit() {
     ];
     let (lints, text) = lint(&file, &levels);
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
+    // So may the programs in a `tests` folder inside a module's directory.
+    let file = repo().join("tests/lint/print_in_module/tests/program.jai");
+    let (lints, text) = lint(&file, &levels);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
 
 #[test]

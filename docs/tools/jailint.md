@@ -206,7 +206,7 @@ A parameter counts when its type is written `bool`, or it has no type and defaul
 ### excessive_nesting
 Off by default. A level is a braced block or a `switch`; `else if` chains and `#if` add none. A procedure written inside a block starts counting from that block's depth, so a nested procedure cannot hide the nesting. Reports the first block past the limit on each path, on its `{` (or the `switch` header). The limit is `[lint] max_nesting` in `jacket.toml` or `--max-nesting <n>`, default 6; enable it with `-W excessive_nesting` or `[lint.rules]`. On the standard library, a limit of 6 finds nothing and 5 finds five blocks. Fix by returning or `continue`ing early, or by moving the inner part into a procedure. Generated files are skipped.
 ### exit_in_module
-A file belongs to a module when it or a directory above it holds a `module.jai`. A call is reported when the procedure it calls has the `@Exits` note (the library's `exit`). A library that exits skips the program's cleanup and cannot be tested: return an error. Programs, macros and generated files are not checked. No fix.
+A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module). A call is reported when the procedure it calls has the `@Exits` note (the library's `exit`). A library that exits skips the program's cleanup and cannot be tested: return an error. Programs, macros and generated files are not checked. No fix.
 ### float_equality
 Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
 ### identical_branches
@@ -274,7 +274,7 @@ Signed integers and floats only, and only the literals `-1` and `-1.0`. The fix 
 ### no_effect
 An expression statement containing no call. The editor offers the likely intent: `==` becomes `=`, `x + 1;` becomes `x += 1;`, a procedure name gets `()`, and any other statement is removed. `--fix` applies none, since the typo may be in either place.
 ### print_in_module
-A file belongs to a module when it or a directory above it holds a `module.jai`. A call is reported when the procedure it calls has the `@WritesOutput` note (the library's `print`, `write_string`, `write_strings` and `write_builder`). A library does not know where output belongs: return the text or log it, and let the program print. Programs, macros and generated files are not checked. No fix.
+A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module). A call is reported when the procedure it calls has the `@WritesOutput` note (the library's `print`, `write_string`, `write_strings` and `write_builder`). A library does not know where output belongs: return the text or log it, and let the program print. Programs, macros and generated files are not checked. No fix.
 ### range_past_count
 Ranges include their end. Quiet when the body mentions `xs.count` (it may guard the index). The `- 1` fix changes behaviour, so it is editor-only.
 ### redundant_alias
