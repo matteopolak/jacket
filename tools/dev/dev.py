@@ -230,8 +230,9 @@ def cmd_lint(args) -> int:
         jailint = ensure_jailint(args.jobs, args.release)
         # A platform's modules (Windows, X11, Android) cannot compile on another host: each CI
         # host lints what it can, and a finding in what does compile still fails the run.
+        # `platform_leak` compiles every target itself, so a run for one target leaves it out.
         failed |= bool(run([str(jailint), "-D", "warnings", "-j", args.jobs, "--allow-incomplete",
-                            *(["-os", args.os] if args.os else []),
+                            *(["-os", args.os, "-A", "platform_leak"] if args.os else []),
                             *(["--fix"] if args.fix else []), *(jai or JAI_LINT_DIRS)]))
     if wants(args.lang, "rust") and (whole or rust):
         # Clippy works on whole crates; the file list only decides whether it runs at all.

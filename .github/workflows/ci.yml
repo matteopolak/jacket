@@ -298,6 +298,12 @@ jobs:
         run: |
           just lint --lang jai --release --os windows
           just lint --lang jai --release --os macos
+      # Portable code (settings: [lint.portability] in jacket.toml) is compiled once per target
+      # OS, so an import of an OS-only module fails here rather than in a build for that OS.
+      - name: Jai portability lint
+        id: jai-portability
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' && matrix.architecture == 'x86_64' && matrix.part != 'rust' }}
+        run: target/release/jailint -A all -D platform_leak -j "$(nproc)" --allow-incomplete stdlib
       - name: Backend agreement
         id: backends
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part != 'rust' }}
