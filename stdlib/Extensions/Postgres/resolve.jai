@@ -38,7 +38,8 @@ Typed_Settings :: struct {
     offline: bool; // JACKET_PG_OFFLINE: never connect
     recording: bool; // JACKET_PG_CHECK: note every statement compiled
     root: string; // the project folder, which holds db/
-    schema_hash: string; // of db/migrations/*.sql, or empty
+    migrations: string; // the db/migrations folder, or empty when there is none
+    schema_hash: string; // of the migrations, or empty
 }
 
 node_location :: (node: *Code_Node) -> Source_Code_Location {
@@ -117,49 +118,25 @@ typed_settings :: (file: string) -> Typed_Settings {
     settings.offline = offline != "" && offline != "0";
     settings.recording = environment_variable("JACKET_PG_CHECK") != "";
     settings.root = find_project_root(file);
-    settings.schema_hash = migrations_hash(settings.root);
+    settings.migrations, settings.schema_hash = migrations_of(settings.root);
 
     return settings;
 }
 
 #scope_export
 
-// SHA-256 chained over the names and contents of db/migrations/*.sql in name order, or empty when
-// there are none. The hash after the last file is the schema hash.
-migrations_hash :: (root: string) -> string {
+// The project's migrations folder and their schema hash (see `schema_hash`), or empty strings when
+// there are none.
+migrations_of :: (root: string) -> folder: string, hash: string {
     folder := join(root, "/db/migrations",, temp);
     is_dir, ok := Typed_Files.is_directory(folder);
 
-    if !ok || !is_dir return "";
+    if !ok || !is_dir return "", "";
 
-    names: [..] string;
-    names.allocator = temp;
+    migrations, problem := read_migrations(folder,, temp);
+    if problem || !migrations.count return "", "";
 
-    for Typed_Files.file_list(folder) {
-        if ends_with(it, ".sql") array_add(*names, path_filename(it));
-    }
-
-    if !names.count return "";
-
-    for i: 1..names.count - 1 {
-        j := i;
-
-        while j > 0 && key_before(names[j], names[j - 1]) {
-            names[j], names[j - 1] = names[j - 1], names[j];
-            j -= 1;
-        }
-    }
-
-    chained := "";
-
-    for names {
-        text, read := read_entire_file(join(folder, "/", it,, temp));
-        if !read return "";
-
-        chained = statement_digest_hex(tprint("%\n%\n%", chained, it, statement_digest_hex(text)));
-    }
-
-    return chained;
+    return folder, schema_hash(migrations);
 }
 
 #scope_module
@@ -262,7 +239,7 @@ ask_service :: (request: Describe_Request) -> Service.Status, string {
 // Describes the statement from scratch, trusting nothing cached. The answer is an entry, or has
 // reported an error.
 describe_with_service :: (prepared: *Prepared, settings: Typed_Settings, sql: string) -> Query_Entry, ok: bool, unavailable: string {
-    request := Describe_Request.{ op = "describe", url = settings.url, search_path = settings.search_path, sql = prepared.rewrite.sql, schema_hash = settings.schema_hash };
+    request := Describe_Request.{ op = "describe", url = settings.url, search_path = settings.search_path, sql = prepared.rewrite.sql, schema_hash = settings.schema_hash, migrations = settings.migrations };
     status, reply := ask_service(request);
 
     if status == .UNAVAILABLE return .{}, false, reply;
@@ -356,7 +333,7 @@ check_cache_entry :: (prepared: *Prepared, settings: Typed_Settings, entry: Quer
 
     if !entry.deps_complete return .STALE;
 
-    request := Describe_Request.{ op = "fingerprints", url = settings.url, search_path = settings.search_path };
+    request := Describe_Request.{ op = "fingerprints", url = settings.url, search_path = settings.search_path, migrations = settings.migrations };
     keys: [..] string;
     keys.allocator = temp;
     for entry.deps array_add(*keys, it.key);

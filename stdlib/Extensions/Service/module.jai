@@ -58,8 +58,11 @@ unknown :: (message: string) {
 
 // The service side: answers each request with `handler` until the compiler closes the input.
 // Return `.OK` with the reply, `.FAILED` with an error message, or `.UNAVAILABLE` with the
-// reason the service cannot answer here (no database configured, say).
+// reason the service cannot answer here (no database configured, say). Whatever the handler
+// prints or logs goes to stderr: stdout carries the answers.
 serve :: (handler: (request: string) -> (Status, string)) {
+    if !take_stdout() return;
+
     while true {
         length_bytes: [8] u8;
         if !read_exactly(length_bytes.data, 8) return;
@@ -110,8 +113,19 @@ compile_time_unknown :: (message: string) #compiler #no_context {}
         return true;
     }
 
+    kernel32 :: #library,system "kernel32";
+    SetStdHandle :: (handle: s32, value: Windows.HANDLE) -> s32 #foreign kernel32;
+
+    answers: Windows.HANDLE;
+
+    // Keeps stdout for the answers and points the process's stdout at stderr.
+    take_stdout :: () -> bool {
+        answers = Windows.GetStdHandle(Windows.STD_OUTPUT_HANDLE);
+        return SetStdHandle(Windows.STD_OUTPUT_HANDLE, Windows.GetStdHandle(Windows.STD_ERROR_HANDLE)) != 0;
+    }
+
     write_all :: (data: *u8, count: s64) -> bool {
-        output := Windows.GetStdHandle(Windows.STD_OUTPUT_HANDLE);
+        output := answers;
         done := 0;
 
         while done < count {
@@ -127,6 +141,16 @@ compile_time_unknown :: (message: string) #compiler #no_context {}
     libc :: #system_library "libc";
     c_read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "read";
     c_write :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "write";
+    c_dup :: (fd: s32) -> s32 #foreign libc "dup";
+    c_dup2 :: (fd: s32, to: s32) -> s32 #foreign libc "dup2";
+
+    answers: s32 = 1;
+
+    // Keeps stdout for the answers and points file descriptor 1 at stderr.
+    take_stdout :: () -> bool {
+        answers = c_dup(1);
+        return answers >= 0 && c_dup2(2, 1) == 1;
+    }
 
     read_exactly :: (data: *u8, count: s64) -> bool {
         done := 0;
@@ -142,7 +166,7 @@ compile_time_unknown :: (message: string) #compiler #no_context {}
     write_all :: (data: *u8, count: s64) -> bool {
         done := 0;
         while done < count {
-            put := c_write(1, data + done, cast(u64) (count - done));
+            put := c_write(answers, data + done, cast(u64) (count - done));
             if put <= 0 return false;
             done += put;
         }

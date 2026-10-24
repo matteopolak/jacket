@@ -53,16 +53,47 @@ unchanged=$(grep -l '"r:public.posts"' "$JACKET_PG_ROOT"/db/queries/*.json | wc 
 total=$(find "$JACKET_PG_ROOT/db/queries" -name "*.json" | wc -l)
 [ "$unchanged" -lt "$total" ] || fail "every entry depends on posts?"
 
-# 5. The migrations' hash stands in for the database: record it, then work offline against it.
+# 5. With migrations, queries are described in a schema database built from them, and the
+# migrations' hash stands in for the database offline.
+schema_databases() { admin -d postgres -At -c "select datname from pg_database where datname ~ '^jacket_([0-9a-f]{12}|build_.*)$' order by oid"; }
+drop_schema_databases() { for db in $(schema_databases); do admin -d postgres -c "drop database \"$db\"" > /dev/null; done; }
+drop_schema_databases
 mkdir -p "$JACKET_PG_ROOT/db/migrations"
-echo "create table t (a int);" > "$JACKET_PG_ROOT/db/migrations/0001_init.sql"
+grep -v "schema public" "$here/schema.sql" > "$JACKET_PG_ROOT/db/migrations/0001_init.sql"
 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build with migrations"
+[ "$(schema_databases | wc -l)" -eq 1 ] || fail "no schema database was built: $(schema_databases)"
 grep -q '"schema_hash": "[0-9a-f]\{64\}"' "$JACKET_PG_ROOT"/db/queries/*.json || fail "the schema hash was not recorded"
 rm -f "$work/queries"
 JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/queries" || fail "offline build against the schema hash"
 [ "$("$work/queries")" = ok ] || fail "offline queries against the schema hash"
-echo "create table t2 (a int);" > "$JACKET_PG_ROOT/db/migrations/0002_more.sql"
+# A new migration is first applied on top of the existing database, in a rolled-back transaction.
+echo "alter table posts add column pinned boolean not null default false;" > "$JACKET_PG_ROOT/db/migrations/0002_pinned.sql"
 if JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/stale" > "$work/out" 2>&1; then fail "a changed migration did not stale the cache"; fi
+cat > "$work/pinned.jai" <<'EOF'
+#import "Basic";
+Pg :: #import "Extensions/Postgres";
+pinned :: (db: *Pg.Connection) -> bool {
+    row, error := Pg.query_one(db, "select pinned from posts where id = 1");
+    return row.pinned;
+}
+main :: () { print("%", cast(*void) pinned); }
+EOF
+mkdir -p "$work/pinned_root/db" && cp -R "$JACKET_PG_ROOT/db/migrations" "$work/pinned_root/db/"
+JACKET_PG_ROOT="$work/pinned_root" JACKET_PG_BUILD_DELAY_MS=600000 "$jaic" "$work/pinned.jai" -exe "$work/pinned" > /dev/null || fail "a query using the new migration's column"
+[ "$(schema_databases | wc -l)" -eq 1 ] || fail "the new migration built a database early: $(schema_databases)"
+"$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build with a new migration"
+[ "$("$work/queries")" = ok ] || fail "queries with a new migration"
+# One that cannot run in a transaction makes a database for the whole set right away; only the
+# newest three are kept.
+printf -- '-- jacket: no-transaction\ncreate index concurrently posts_title on posts (title);\n' > "$JACKET_PG_ROOT/db/migrations/0003_index.sql"
+"$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build with a no-transaction migration"
+[ "$(schema_databases | wc -l)" -eq 2 ] || fail "the no-transaction migration did not build a database: $(schema_databases)"
+for n in 4 5 6; do
+    printf -- '-- jacket: no-transaction\ncreate table extra_%s (a int);\n' "$n" > "$JACKET_PG_ROOT/db/migrations/000${n}_extra.sql"
+    "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build with migration $n"
+done
+[ "$(schema_databases | wc -l)" -eq 3 ] || fail "old schema databases were not dropped: $(schema_databases)"
+drop_schema_databases
 rm -rf "$JACKET_PG_ROOT/db/migrations"
 
 # 6. The pg tool: prepare, then check is clean; a stray entry and a missing one are found.
