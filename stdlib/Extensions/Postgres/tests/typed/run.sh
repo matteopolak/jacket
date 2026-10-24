@@ -58,11 +58,12 @@ grep -q "JACKET_PG_OFFLINE" "$work/out" || fail "offline error does not name the
 
 # 4. A changed table re-describes only the queries that use it.
 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "rebuild"
-before=$(cat "$JACKET_PG_ROOT"/db/queries/*.json | md5 2>/dev/null || cat "$JACKET_PG_ROOT"/db/queries/*.json | md5sum)
+cache_hash() { if command -v md5sum > /dev/null; then cat "$JACKET_PG_ROOT"/db/queries/*.json | md5sum; else cat "$JACKET_PG_ROOT"/db/queries/*.json | md5; fi; }
+before=$(cache_hash)
 admin -d "$database" -c "alter table posts add column pinned boolean not null default false" > /dev/null
 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build after alter"
 expect_ok "$work/queries" "queries after alter"
-after=$(cat "$JACKET_PG_ROOT"/db/queries/*.json | md5 2>/dev/null || cat "$JACKET_PG_ROOT"/db/queries/*.json | md5sum)
+after=$(cache_hash)
 [ "$before" != "$after" ] || fail "a changed table did not change the cache"
 unchanged=$(grep -l '"r:public.posts"' "$JACKET_PG_ROOT"/db/queries/*.json | wc -l)
 total=$(find "$JACKET_PG_ROOT/db/queries" -name "*.json" | wc -l)

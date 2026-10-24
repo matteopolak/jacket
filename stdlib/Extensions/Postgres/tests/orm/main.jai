@@ -336,6 +336,8 @@ test_copy :: (db: *Pg.Connection) {
     defer Pg.free_result(*text);
     check(error.kind == .NONE && text.row_count == 2, Pg.error_text(error));
 
+    before := failures;
+
     if text.row_count == 2 {
         expected := string.["-12345.0067", "{\"theme\":\"dark\",\"font_size\":14}", "light", "0100ff", "2000-01-02", "{3,-4}", "happy", "2.5", "-7", "tab\there"];
 
@@ -345,6 +347,14 @@ test_copy :: (db: *Pg.Connection) {
         }
 
         check(Pg.get(*text, 1, 0, string) == "0.000" && Pg.is_null(*text, 1, 2) && Pg.is_null(*text, 1, 9), "the second row");
+    }
+
+    if failures != before {
+        for row: 0..text.row_count - 1 {
+            print("copy_kinds row %:", row);
+            for 0..9 print(" [%]", ifx Pg.is_null(*text, row, it) then "null" else Pg.get(*text, row, it, string));
+            print("\n");
+        }
     }
 
     // Enough rows for several chunks.
