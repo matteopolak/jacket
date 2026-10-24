@@ -8,7 +8,8 @@
 //     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- new NAME [--root DIR]
 //     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- diff [--root DIR] [--name NAME]
 //
-// `prepare` describes every entry again against DATABASE_URL (or JACKET_DATABASE_URL) and rewrites
+// `prepare` describes every entry again against DATABASE_URL (or JACKET_DATABASE_URL, or the
+// managed server when managed mode is on and neither is set) and rewrites
 // the ones that changed. `check` does the same without writing, and fails when an entry differs,
 // is unused, or a compiled query has no entry. "Compiled" and "unused" come from
 // `db/queries/used.txt`, which a build writes while JACKET_PG_CHECK is set; `--build COMMAND`
@@ -114,8 +115,16 @@ database_config :: () -> Pg.Config, bool {
     url := environment_variable("JACKET_DATABASE_URL");
     if !url url = environment_variable("DATABASE_URL");
 
+    if !url && managed_allowed() {
+        managed := environment_variable("JACKET_PG_MANAGED");
+        on := managed != "" && managed != "0";
+        if !managed on = Pg.project_managed_settings(options.root) == 1;
+
+        if on return managed_config();
+    }
+
     if !url {
-        problem("set DATABASE_URL (or JACKET_DATABASE_URL) to reach the database");
+        problem("set DATABASE_URL (or JACKET_DATABASE_URL) to reach the database, or turn on managed mode (JACKET_PG_MANAGED=1, or managed = true under [postgres] in jacket.toml)");
         return .{}, false;
     }
 
@@ -128,6 +137,39 @@ database_config :: () -> Pg.Config, bool {
 
     return config, true;
 }
+
+// Commands that only read a schema built from the migrations, so a managed server can stand in
+// for DATABASE_URL. `migrate` and `status` work on a real database and need its URL.
+managed_allowed :: () -> bool {
+    return options.command == "prepare" || options.command == "check" || options.command == "generate" || options.command == "diff";
+}
+
+// The managed server (docs/postgres/managed.md), downloaded and started on first use and left
+// running for the next build, as the describe service does.
+managed_config :: () -> Pg.Config, bool {
+    settings := Pg.managed_settings_for(options.root);
+    why := Pg.prepare_managed(settings);
+
+    if why {
+        problem(tprint("cannot prepare the managed PostgreSQL server: %", why));
+        return .{}, false;
+    }
+
+    server, error := Pg.start_managed(settings);
+
+    if error {
+        problem(tprint("cannot start the managed PostgreSQL server: %", error));
+        return .{}, false;
+    }
+
+    using_managed = true;
+
+    return server.config, true;
+}
+
+// Set when the managed server stands in for DATABASE_URL: it starts empty, so entries are
+// described in the schema database built from the migrations, as the describe service does.
+using_managed: bool;
 
 describe_entries :: () {
     check_only := options.command == "check";
@@ -156,6 +198,29 @@ describe_entries :: () {
     }
 
     defer Pg.close(db);
+
+    setup: string;
+
+    if using_managed {
+        schemas: Pg.Schema_Databases;
+        target, why := Pg.schema_target(*schemas, db, config, migrations_folder());
+
+        if why || !target.database {
+            problem(ifx why then tprint("cannot build the schema database: %", why) else "managed mode needs migrations in db/migrations");
+            return;
+        }
+
+        Pg.close(db);
+        config.database = target.database;
+        db, error = Pg.connect(config);
+
+        if error.kind != .NONE {
+            problem(tprint("cannot connect to the schema database: %", Pg.error_text(error)));
+            return;
+        }
+
+        setup = target.setup;
+    }
 
     have_used := Typed_Files.file_exists(used_path);
     used: [..] string;
@@ -191,7 +256,7 @@ describe_entries :: () {
                 continue;
             }
 
-            if refresh(db, it, id, schema_hash, check_only) changed += 1;
+            if refresh(db, it, id, schema_hash, setup, check_only) changed += 1;
         }
     }
 
@@ -211,7 +276,7 @@ array_contains :: (array: [] string, value: string) -> bool {
 }
 
 // Describes one entry again. True when it differs (and, unless checking, was rewritten).
-refresh :: (db: *Pg.Connection, path: string, id: string, schema_hash: string, check_only: bool) -> bool {
+refresh :: (db: *Pg.Connection, path: string, id: string, schema_hash: string, setup: string, check_only: bool) -> bool {
     text, read := read_entire_file(path);
 
     if !read {
@@ -233,7 +298,7 @@ refresh :: (db: *Pg.Connection, path: string, id: string, schema_hash: string, c
         return false;
     }
 
-    request := Pg.Describe_Request.{ op = "describe", sql = old.sql, search_path = old.search_path, schema_hash = schema_hash };
+    request := Pg.Describe_Request.{ op = "describe", sql = old.sql, search_path = old.search_path, schema_hash = schema_hash, setup = setup };
     answer_text := Pg.describe_answer(db, request);
     answer, answer_error := Json.from_json(Json.Json_Value, answer_text);
 

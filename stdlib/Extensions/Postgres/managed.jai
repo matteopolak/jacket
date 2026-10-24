@@ -35,6 +35,63 @@ Managed_Settings :: struct {
 
 // The settings the compile-time describe service uses: the defaults, with `JACKET_PG_MANAGED_VERSION`
 // (a pinned release such as "16.15.1") and `JACKET_PG_MANAGED_CACHE` (the cache folder) applied.
+// Managed mode as the project's jacket.toml sets it, under `[postgres]`: `managed = true` turns it
+// on (-1 when the file or key is missing) and `managed_version = "16.11.1"` picks a release.
+// JACKET_PG_MANAGED and JACKET_PG_MANAGED_VERSION win over both.
+project_managed_settings :: (root: string) -> managed: s64, version: string {
+    path := join(root, "/jacket.toml",, temp);
+    if !File_Utilities.file_exists(path) return -1, "";
+
+    text, ok := read_entire_file(path,, temp);
+    if !ok return -1, "";
+
+    managed := -1;
+    version := "";
+    in_section := false;
+
+    for line: split(text, "\n",, temp) {
+        trimmed := trim(line);
+        hash := find_index_from_left(trimmed, #char "#");
+
+        if hash >= 0 && !contains(slice(trimmed, 0, hash), "\"") trimmed = trim(slice(trimmed, 0, hash));
+        if !trimmed continue;
+
+        if trimmed[0] == #char "[" {
+            in_section = trimmed == "[postgres]";
+            continue;
+        }
+
+        if !in_section continue;
+
+        equals := find_index_from_left(trimmed, #char "=");
+        if equals < 0 continue;
+
+        key := trim(slice(trimmed, 0, equals));
+        value := trim(advance(trimmed, equals + 1));
+
+        if key == "managed" {
+            if value == "true" managed = 1;
+            else if value == "false" managed = 0;
+        } else if key == "managed_version" && value.count >= 2 && value[0] == #char "\"" && value[value.count - 1] == #char "\"" {
+            version = copy_string(slice(value, 1, value.count - 2),, temp);
+        }
+    }
+
+    return managed, version;
+}
+
+// The settings for the project at `root`: the environment, then its jacket.toml.
+managed_settings_for :: (root: string) -> Managed_Settings {
+    settings := managed_settings_from_environment();
+
+    if !environment_variable("JACKET_PG_MANAGED_VERSION") {
+        _, version := project_managed_settings(root);
+        if version settings.version = version;
+    }
+
+    return settings;
+}
+
 managed_settings_from_environment :: () -> Managed_Settings {
     settings: Managed_Settings;
 

@@ -15,6 +15,8 @@ pub struct Config {
     pub format: Format,
     #[serde(default, skip_serializing_if = "Experimental::is_empty")]
     pub experimental: Experimental,
+    #[serde(default, skip_serializing_if = "Postgres::is_empty")]
+    pub postgres: Postgres,
 }
 
 /// A string or a list of strings (`entry = "main.jai"` is a list of one).
@@ -148,6 +150,18 @@ pub struct Experimental {
     pub codegen_units: Option<usize>,
 }
 
+/// Read by the Postgres module while it compiles typed queries, not by `jacket`; environment
+/// variables (`JACKET_PG_MANAGED`, `JACKET_PG_MANAGED_VERSION`) win over these.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Postgres {
+    /// Describe queries in a managed server when no database URL is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed: Option<bool>,
+    /// The pinned PostgreSQL release the managed server runs, such as `"17.6.0"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed_version: Option<String>,
+}
+
 fn is_empty_strings(s: &Strings) -> bool {
     s.0.is_empty()
 }
@@ -156,13 +170,20 @@ macro_rules! is_empty {
     ($($t:ty),*) => {$(impl $t { pub fn is_empty(&self) -> bool { *self == Self::default() } })*};
 }
 
-is_empty!(Project, Toolchain, Lint, Format, Experimental);
+is_empty!(Project, Toolchain, Lint, Format, Experimental, Postgres);
 
 /// The keys each table accepts, to suggest the near one for a misspelling. A test keeps these in
 /// step with the structs.
 pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
     match table {
-        "" => &["project", "toolchain", "lint", "format", "experimental"],
+        "" => &[
+            "project",
+            "toolchain",
+            "lint",
+            "format",
+            "experimental",
+            "postgres",
+        ],
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],
         "lint" => &[
@@ -195,6 +216,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "ignore",
         ],
         "experimental" => &["parse_threads", "serial_parse", "codegen_units"],
+        "postgres" => &["managed", "managed_version"],
         _ => &[],
     }
 }
@@ -213,14 +235,21 @@ pub(crate) const ALIASES: &[(&str, &str, &str)] = &[
 
 /// Where a top-level key was meant: the section and key, found by exact name or by alias.
 pub(crate) fn misplaced_home(key: &str) -> Option<(&'static str, &'static str)> {
-    let section = ["project", "toolchain", "lint", "format", "experimental"]
-        .into_iter()
-        .find_map(|table| {
-            known_keys(table)
-                .iter()
-                .find(|k| **k == key)
-                .map(|k| (table, *k))
-        });
+    let section = [
+        "project",
+        "toolchain",
+        "lint",
+        "format",
+        "experimental",
+        "postgres",
+    ]
+    .into_iter()
+    .find_map(|table| {
+        known_keys(table)
+            .iter()
+            .find(|k| **k == key)
+            .map(|k| (table, *k))
+    });
     section.or_else(|| {
         ALIASES
             .iter()

@@ -9,6 +9,7 @@ Describe_Request :: struct {
     op: string; // "describe", "fingerprints" or "ping"
     url: string; // the database; empty with `managed`: the service's own managed server
     managed: bool; // no URL: describe in the managed server (needs `migrations`; see managed.jai)
+    managed_version: string; // which release the managed server runs; empty: the default
     search_path: string; // set before describing; empty: the server's own
     sql: string; // the rewritten statement (`$1`, `$2`, ...)
     schema_hash: string; // of the migrations; copied into the entry

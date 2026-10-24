@@ -262,6 +262,9 @@ fn experimental_and_toolchain_parse() {
     assert_eq!(config.experimental.serial_parse, Some(true));
     assert_eq!(config.experimental.codegen_units, Some(8));
     assert!(parse("[project]\nentry = 3\n").is_err());
+    let postgres = parse("[postgres]\nmanaged = true\n").unwrap().postgres;
+    assert_eq!(postgres.managed, Some(true));
+    assert_eq!(postgres.managed_version, None);
     assert_eq!(line_of("a = 1\n[rules]\n  b = 2", "b"), Some(3));
 }
 
@@ -380,6 +383,7 @@ fn known_keys_match_the_structs() {
             "experimental",
             "parse_threads = 1\nserial_parse = true\ncodegen_units = 1\n",
         ),
+        ("postgres", "managed = true\nmanaged_version = \"17.6.0\"\n"),
     ];
     let mut tops: Vec<&str> = Vec::new();
     for (name, body) in sections {
