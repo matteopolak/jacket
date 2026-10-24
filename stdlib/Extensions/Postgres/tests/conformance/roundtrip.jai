@@ -147,7 +147,10 @@ config_from_environment :: (database: string) -> Pg.Config {
     // Text timestamps carry the zone's offset, including the odd offsets of old local mean time.
     zone := ifx environment_variable("ROUNDTRIP_TIMEZONE") then environment_variable("ROUNDTRIP_TIMEZONE") else "Europe/Amsterdam";
 
-    config.parameters = Pg.Startup_Parameter.[.{ "TimeZone", zone }];
+    // On the heap: an array literal would live in this procedure's frame.
+    parameters := NewArray(1, Pg.Startup_Parameter);
+    parameters[0] = .{ "TimeZone", zone };
+    config.parameters = parameters;
 
     return config;
 }
