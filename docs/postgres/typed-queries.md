@@ -86,6 +86,14 @@ jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare|check [--root D
 
 `prepare` builds the project online and fills the cache. `check` rebuilds offline and fails when any entry is missing or stale. The tool also has `generate`, `migrate`, `status` and `new` ([schema](schema.md)).
 
+## Time arithmetic
+
+`Pg.days(n)`, `Pg.hours(n)`, `Pg.minutes(n)` and `Pg.seconds(n)` build a `Pg.Interval`, and `+` / `-` work between a `Pg.Timestamp` and an `Interval` (and between two `Interval`s), so `since := Pg.operator -(Pg.now(), Pg.days(7))` is an argument for a `timestamptz` parameter. The operators are in `types.jai`.
+
+- A day is a calendar day (`days`), not 24 hours; the other spans are exact microseconds. Months come first, on the UTC calendar, and clamp the day to the month's end (January 31 plus a month is the end of February). An infinite timestamp stays infinite.
+- The compiler warns when an operator comes from a namespaced import (`Pg :: #import ...`): write `Pg.operator -(a, b)` as above, or `using Pg;` in the scope, to avoid it.
+- Postgres still does calendar arithmetic in the session's time zone when it is given an interval in SQL (`now() - interval '7 days'`); the client-side operators are UTC.
+
 ## How to change it
 
 - Placeholder syntax: `sql_scan.jai` (keep `rewrite_placeholders` and `source_offset_of` in step).

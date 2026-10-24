@@ -255,6 +255,14 @@ test_json_and_arrays :: (db: *Pg.Connection) {
 
     check(typed_error.kind == .NONE && typed.settings.value.kind == .OBJECT, "Json(T) override");
 
+    // timestamps take spans: rows created in the last week are all of them, none in the next day
+    since := Pg.operator -(Pg.now(), Pg.days(7));
+    later := Pg.operator +(Pg.now(), Pg.days(1));
+
+    recent, recent_error := Pg.query_scalar(db, "select count(*) from users where created_at > % and created_at < %", since, later);
+
+    check(recent_error.kind == .NONE && recent == 2, "timestamp arithmetic as arguments");
+
     // a keyword argument sets the strictness of this query alone, and the error names the column
     lenient, lenient_error := Pg.query_as(Theme_Row, db, "select settings from users where id = 1");
 

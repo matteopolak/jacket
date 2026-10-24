@@ -104,6 +104,9 @@ TIMESTAMP_MINUS_INFINITY :: S64_MIN;
 DATE_INFINITY :: S32_MAX;
 DATE_MINUS_INFINITY :: S32_MIN;
 
+MICROSECONDS_PER_SECOND :: 1_000_000;
+MICROSECONDS_PER_MINUTE :: 60 * MICROSECONDS_PER_SECOND;
+MICROSECONDS_PER_HOUR :: 60 * MICROSECONDS_PER_MINUTE;
 MICROSECONDS_PER_DAY :: 86_400_000_000;
 
 // Microseconds from 1970-01-01 (the Unix epoch) to 2000-01-01.
@@ -135,6 +138,66 @@ civil_from_date :: (date: Date) -> year: s64, month: s64, day: s64 {
 timestamp_from_civil :: (year: s64, month: s64, day: s64, hour := 0, minute := 0, second := 0, microsecond := 0) -> Timestamp {
     days := cast(s64) date_from_civil(year, month, day).days;
     return .{ days * MICROSECONDS_PER_DAY + ((hour * 60 + minute) * 60 + second) * 1_000_000 + microsecond };
+}
+
+// Spans of time as an `Interval`, for arithmetic on timestamps: `Pg.now() - Pg.days(7)`. A day is
+// a calendar day, not 24 hours, as in Postgres; the rest are exact.
+days :: (count: s32) -> Interval {
+    return .{ days = count };
+}
+
+hours :: (count: s64) -> Interval {
+    return .{ microseconds = count * MICROSECONDS_PER_HOUR };
+}
+
+minutes :: (count: s64) -> Interval {
+    return .{ microseconds = count * MICROSECONDS_PER_MINUTE };
+}
+
+seconds :: (count: s64) -> Interval {
+    return .{ microseconds = count * MICROSECONDS_PER_SECOND };
+}
+
+operator - :: (interval: Interval) -> Interval {
+    return .{ -interval.months, -interval.days, -interval.microseconds };
+}
+
+operator + :: (a: Interval, b: Interval) -> Interval {
+    return .{ a.months + b.months, a.days + b.days, a.microseconds + b.microseconds };
+}
+
+operator - :: (a: Interval, b: Interval) -> Interval {
+    return .{ a.months - b.months, a.days - b.days, a.microseconds - b.microseconds };
+}
+
+// The months come first, clamping the day to the end of the month ("Jan 31 + 1 month" is the end of
+// February), then the days and the rest, all on the UTC calendar. An infinite timestamp stays as it is.
+operator + :: (t: Timestamp, interval: Interval) -> Timestamp {
+    if t.microseconds == TIMESTAMP_INFINITY || t.microseconds == TIMESTAMP_MINUS_INFINITY return t;
+
+    microseconds := t.microseconds;
+
+    if interval.months != 0 {
+        whole_days := floor_divide(microseconds, MICROSECONDS_PER_DAY);
+        time_of_day := microseconds - whole_days * MICROSECONDS_PER_DAY;
+        year, month, day := civil_from_date(.{ cast(s32) whole_days });
+        index := year * MONTHS_PER_YEAR + (month - 1) + interval.months;
+
+        year = floor_divide(index, MONTHS_PER_YEAR);
+        month = index - year * MONTHS_PER_YEAR + 1;
+        day = min(day, days_in_month(year, month));
+        microseconds = cast(s64) date_from_civil(year, month, day).days * MICROSECONDS_PER_DAY + time_of_day;
+    }
+
+    return .{ microseconds + interval.days * MICROSECONDS_PER_DAY + interval.microseconds };
+}
+
+operator + :: (interval: Interval, t: Timestamp) -> Timestamp {
+    return t + interval;
+}
+
+operator - :: (t: Timestamp, interval: Interval) -> Timestamp {
+    return t + (-interval);
 }
 
 // `Uuid` from "0f8fad5b-d9cb-469f-a165-70867728950e" (dashes optional, any case).
@@ -218,6 +281,8 @@ DAYS_1970_TO_2000 :: 10_957;
 // March 1 puts the leap day last, so months 0..11 (March..February) have the lengths
 // 31 30 31 30 31 31 30 31 30 31 31 28/29, and month m starts on day (153m + 2) / 5 of that year.
 YEARS_PER_ERA :: 400;
+YEARS_PER_CENTURY :: 100;
+YEARS_PER_LEAP_DAY :: 4;
 DAYS_PER_ERA :: 146_097;
 DAYS_PER_YEAR :: 365;
 DAYS_PER_4_YEARS :: 4 * DAYS_PER_YEAR + 1;
@@ -261,6 +326,14 @@ floor_divide :: (a: s64, b: s64) -> s64 {
     q := a / b;
     if (a % b != 0) && ((a < 0) != (b < 0)) q -= 1;
     return q;
+}
+
+DAYS_IN_MONTH :: s64.[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+days_in_month :: (year: s64, month: s64) -> s64 {
+    leap := year % YEARS_PER_LEAP_DAY == 0 && (year % YEARS_PER_CENTURY != 0 || year % YEARS_PER_ERA == 0);
+
+    return DAYS_IN_MONTH[month - 1] + ifx month == 2 && leap then 1 else 0;
 }
 
 hex_value :: (c: u8) -> s64 {

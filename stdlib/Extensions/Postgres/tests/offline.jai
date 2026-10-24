@@ -410,6 +410,42 @@ test_calendar :: () {
     assert(t.microseconds == -946_684_800_000_000 && Pg.unix_microseconds(t) == 0);
     assert(Pg.timestamp_from_civil(2000, 1, 2, 0, 0, 1).microseconds == 86_401_000_000);
     assert(Pg.now().microseconds > Pg.timestamp_from_civil(2020, 1, 1).microseconds);
+
+    // arithmetic with spans
+    noon := Pg.timestamp_from_civil(2024, 3, 15, 12);
+
+    assert((noon + Pg.days(1)).microseconds == Pg.timestamp_from_civil(2024, 3, 16, 12).microseconds);
+    assert((noon - Pg.days(15)).microseconds == Pg.timestamp_from_civil(2024, 2, 29, 12).microseconds);
+    assert((noon + Pg.hours(13)).microseconds == Pg.timestamp_from_civil(2024, 3, 16, 1).microseconds);
+    assert((noon - Pg.minutes(90)).microseconds == Pg.timestamp_from_civil(2024, 3, 15, 10, 30).microseconds);
+    assert((noon + Pg.seconds(-1)).microseconds == Pg.timestamp_from_civil(2024, 3, 15, 11, 59, 59).microseconds);
+    assert((Pg.days(1) + noon).microseconds == (noon + Pg.days(1)).microseconds);
+    assert((Pg.now() - Pg.days(7)).microseconds < Pg.now().microseconds);
+
+    span := Pg.days(2) + Pg.hours(3) - Pg.minutes(30);
+
+    assert(span.days == 2 && span.microseconds == 9_000_000_000 && (-span).days == -2);
+
+    // months clamp to the end of a shorter month, and negative ones borrow from the year
+    end_of_january := Pg.timestamp_from_civil(2024, 1, 31, 8, 30);
+    step: Pg.Interval;
+    step.months = 1;
+
+    assert((end_of_january + step).microseconds == Pg.timestamp_from_civil(2024, 2, 29, 8, 30).microseconds);
+
+    step.months = -2;
+
+    assert((end_of_january + step).microseconds == Pg.timestamp_from_civil(2023, 11, 30, 8, 30).microseconds);
+
+    step.months = 13;
+
+    assert((Pg.timestamp_from_civil(2023, 1, 31) + step).microseconds == Pg.timestamp_from_civil(2024, 2, 29).microseconds);
+
+    // infinity stays infinity
+    forever: Pg.Timestamp;
+    forever.microseconds = Pg.TIMESTAMP_INFINITY;
+
+    assert((forever - Pg.days(1)).microseconds == Pg.TIMESTAMP_INFINITY);
 }
 
 test_numerics :: () {
