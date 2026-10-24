@@ -25,6 +25,7 @@ main :: () {
         defer Pg.close(db);
 
         test_select(db);
+        test_json_and_sql(db);
         test_writes(db);
     });
 
@@ -91,6 +92,53 @@ test_select :: (db: *Pg.Connection) {
     users, error = Pg.select(db, User, where = #code Pg.if_some(wanted, #code it.id == wanted));
     all = Pg.fetch_all(*users);
     check(error.kind == .NONE && all.count == 1 && all[0].id == 2, Pg.error_text(error));
+    Pg.free_rows(*users);
+}
+
+Theme_Only :: struct {
+    theme: string;
+}
+
+ids_of :: (rows: [] User) -> [..] s64 {
+    ids: [..] s64;
+    ids.allocator = temp;
+
+    for rows array_add(*ids, it.id);
+
+    return ids;
+}
+
+// The jsonb operators, raw fragments and a raw source.
+test_json_and_sql :: (db: *Pg.Connection) {
+    dark := Theme_Only.{ theme = "dark" };
+
+    users, error := Pg.select(db, User, where = #code Pg.contains(it.settings, dark));
+    all := Pg.fetch_all(*users);
+
+    check(error.kind == .NONE && all.count == 1 && all[0].id == 1, Pg.error_text(error));
+    Pg.free_rows(*users);
+
+    users, error = Pg.select(db, User, where = #code Pg.has_key(it.settings, "font_size") || Pg.json_path(it.settings, "$.theme ? (@ == \"light\")"));
+    all = Pg.fetch_all(*users);
+    check(error.kind == .NONE && all.count == 1 && all[0].id == 1, Pg.error_text(error));
+    Pg.free_rows(*users);
+
+    // A fragment with a column, a named parameter and an expression.
+    email := "A@EXAMPLE.COM";
+
+    users, error = Pg.select(db, User, where = #code it.id > 0 && Pg.sql("lower(%(it.email)) = lower(%email) and %(it.settings.font_size) > %(10 + 2)"));
+    all = Pg.fetch_all(*users);
+    check(error.kind == .NONE && all.count == 1 && all[0].id == 1, Pg.error_text(error));
+    Pg.free_rows(*users);
+
+    // A raw source returning the table's columns.
+    first := 2;
+
+    users, error = Pg.select(db, User, from_sql = "select * from users where id >= %first", order_by = #code it.id);
+    all = Pg.fetch_all(*users);
+    ids := ids_of(all);
+
+    check(error.kind == .NONE && ids.count == 1 && ids[0] == 2, Pg.error_text(error));
     Pg.free_rows(*users);
 }
 

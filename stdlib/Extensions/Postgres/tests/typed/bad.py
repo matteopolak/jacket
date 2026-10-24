@@ -66,6 +66,9 @@ CASES = [
     ),
     ("orm no table", 'rows, error := Pg.select(db, User, where = #code it.id == 1);', "it.id == 1", "no @pg_table note", ""),
     ("orm set", 'n, error := Pg.update(db, Orm_User, set = #code it.nope = 1, where = #code it.id == 1);', "it.nope", "set assigns to a field", ""),
+    ("orm json operator", 'rows, error := Pg.select(db, Orm_User, where = #code Pg.has_key(it.email, "a"));', "it.email", "is not a json column", ""),
+    ("orm sql literal", 'clause := "true"; rows, error := Pg.select(db, Orm_User, where = #code Pg.sql(clause));', "clause));", "takes a string literal", ""),
+    ("orm sql field", 'rows, error := Pg.select(db, Orm_User, where = #code Pg.sql("%(it.nope) = 1"));', 'Pg.sql("%(it.nope) = 1")', 'has no field "nope"', ""),
 ]
 
 

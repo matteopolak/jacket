@@ -17,7 +17,7 @@ removed, error := Pg.delete(db, User, where = #code it.id == row.id);
 
 | Call | Returns | Statement |
 | --- | --- | --- |
-| `select(db, T, where?, order_by?, desc?, limit?, offset?)` | `Rows(T), Pg_Error` | `select <every column> from <table> where ... order by ... limit ... offset ...` |
+| `select(db, T, where?, order_by?, desc?, limit?, offset?, from_sql?)` | `Rows(T), Pg_Error` | `select <every column> from <table> where ... order by ... limit ... offset ...` |
 | `insert(db, value)` | `T, Pg_Error` | `insert ... returning <every column>` |
 | `insert_many(db, values)` | `[] T, Pg_Error` | one `insert` per value, stopping at the first error |
 | `update(db, T, set, where)` | `s64, Pg_Error` (rows changed) | `update <table> set ... where ...` |
@@ -31,9 +31,11 @@ Each call is an `#expand` macro whose body is `#insert #run orm_statement_code(.
 2. **Filter walk.** `compiler_get_nodes` on the `where` / `order_by` / `set` code gives the expression tree. `orm_expression` turns it into SQL text with a `%` hole per parameter:
    - `it.field` is `"field"`; `it.json_field.a.b` is `("field"->'a'->>'b')::<type>` with keys from the `@json` names of the column's `Json(T)` type.
    - Number literals stay inline, string literals become quoted SQL literals.
-   - Any other expression that does not mention `it` (`min_score`, `row.id`, `ids`) is a parameter. Its Jai text is printed back with `Program_Print` and evaluated where the filter was written.
+   - Any other expression that does not mention `it` (`min_score`, `row.id`, `ids`) is a parameter. Its Jai text is printed back with `Program_Print` and evaluated where the call was written (through the macro's `call := #caller_code`).
    - `&& || ! == != < <= > >= + - * / %` map to SQL; `== null` / `!= null` become `is null` / `is not null`.
-   - `Pg.like`, `Pg.ilike`, `Pg.in` (`= any($n)`), `Pg.lower`, `Pg.upper` and `Pg.if_some(x, #code cond)` (`(x is null or cond)`, with `x` standing for its value inside `cond`) are the only calls. These procedures do nothing at run time; they only name SQL.
+   - `Pg.like`, `Pg.ilike`, `Pg.in` (`= any($n)`), `Pg.lower`, `Pg.upper` and `Pg.if_some(x, #code cond)` (`(x is null or cond)`, with `x` standing for its value inside `cond`). These procedures do nothing at run time; they only name SQL.
+   - jsonb operators on a column or a document inside one: `Pg.contains(it.settings, value)` is `@> $n::jsonb` (the value is sent as `Json(type_of(value))`), `Pg.has_key(it.settings, "beta")` is `?`, `Pg.json_path(it.settings, "$.tags[*] ? (@ == \"x\")")` is `@? ...::jsonpath`. On a `json` (not `jsonb`) column the server rejects the operator, which shows up as a compile error from the describe step.
+   - `Pg.sql("lower(%(it.email)) = lower(%email)")` is raw SQL: `%(it.field)` (or `%(it.json.key)`) is a column, `%name` and `%(expression)` are parameters, `%%` is a percent sign. The text must be a string literal. `contains` and `sql` have no procedure in the module, because those names are common ones; the walker knows them by name.
    - Anything else (a call to another procedure, `it` passed whole) is a compile error at that node.
 3. **Parameter types.** The macro first emits `Orm_P<i> :: type_of((#insert,scope(where) "<text>"))` for each parameter, so the compiler types it in the caller's scope. Each hole gets a cast from that type (`$1 ::int8`, `$2 ::text`), so Postgres never has to guess.
 4. **Typed query.** The emitted code calls `query_as(T, db, <sql>, <parameters>)` (or `execute` for update/delete). From there it is a typed query: the statement is described against the database or the schema database, the result columns are checked against `T`, and the description is cached in `db/queries`.
@@ -45,6 +47,8 @@ select "id", "email", ... from "public"."users"
 where ((("score" >= $1 ::int8 ) and ("email" like $2 ::text )) and ("display_name" is not null))
 ```
 
+`from_sql` replaces the table with a query of your own that returns the table's columns, with the same holes as `Pg.sql`: `Pg.select(db, User, from_sql = "select * from users_visible_to(%viewer)", where = ...)` becomes `select ... from (select * from users_visible_to($1)) as orm_source where ...`.
+
 `insert` leaves out fields marked `@pg_default` or `@pg_generated`, so the database fills them, and reads the stored row back with `returning`.
 
 ## How to change it
@@ -55,7 +59,7 @@ where ((("score" >= $1 ::int8 ) and ("email" like $2 ::text )) and ("display_nam
   - The filter is walked as written, so a parameter expression is evaluated once per call, in the caller's scope.
   - Inside an `#expand` macro, `return f()` of a two-value call crashes the compiler today. The generated code binds the results to locals first.
   - A `Nullable(T)` zero value is not null (`null` defaults to `false`).
-- **Not yet built** (see the design): column pruning from the loop body, to-one joins and to-many batched loading through `@pg_belongs_to` / `@pg_has_many`, `Pg.sql` fragments and `from_sql`, `Pg.contains` / `has_key` / `json_path`, `Json_Maybe` comparisons, and COPY for large `insert_many`.
+- **Not yet built** (see the design): column pruning from the loop body, to-one joins and to-many batched loading through `@pg_belongs_to` / `@pg_has_many`, `Json_Maybe` comparisons, and COPY for large `insert_many`.
 
 ## Configuration
 
