@@ -35,6 +35,7 @@
 - `jailint` reports comparisons of a masked value that can never hold, such as `(flags & 4) == 1` (`bad_bit_mask`).
 - `jailint` reports a shift by at least the bit width of the shifted integer, such as `x << 40` for an `s32` (`shift_overflow`).
 - `jailint` reports `for i: 0..n-1` with an unsigned `n`, which runs wild when `n` is zero (`unsigned_range_end_minus_one`).
+- `jailint` reports `float32` literals with more digits than a `float32` keeps, such as `31415.92653`, and fixes them (`lossy_float_literal`).
 
 ### Improved
 

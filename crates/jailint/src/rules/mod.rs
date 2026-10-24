@@ -45,6 +45,7 @@ mod int_plus_one;
 mod integer_division_in_float;
 mod leaked_allocation;
 mod loop_with_break_condition;
+mod lossy_float_literal;
 mod lossy_xx;
 mod magic_number;
 mod manual_assign_op;
@@ -321,6 +322,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Pedantic,
         summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
         check: leaked_allocation::check,
+    },
+    RuleInfo {
+        name: "lossy_float_literal",
+        category: Category::Style,
+        summary: "a `float32` literal with more digits than a `float32` keeps (`31415.92653`)",
+        check: lossy_float_literal::check,
     },
     RuleInfo {
         name: "loop_with_break_condition",

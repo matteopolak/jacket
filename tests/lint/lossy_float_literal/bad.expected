@@ -1,0 +1,60 @@
+warning[lossy_float_literal]: `16777.2171234` has 12 significant digits, but a `float32` keeps 8
+  --> tests/lint/lossy_float_literal/bad.jai:3:18
+   |
+ 3 | SCALE: float32 : 16777.2171234;
+   |                  ^^^^^^^^^^^^^
+   |
+help: write `16777.217`, which is the same `float32`
+   |
+ 3 ~ SCALE: float32 : 16777.217;
+   |
+   = note: `lossy_float_literal` is `warn` by default
+
+warning[lossy_float_literal]: `31415.92653` has 10 significant digits, but a `float32` keeps 8
+  --> tests/lint/lossy_float_literal/bad.jai:6:19
+   |
+ 6 |     pi: float32 = 31415.92653;
+   |                   ^^^^^^^^^^^
+   |
+help: write `31415.926`, which is the same `float32`
+   |
+ 6 ~     pi: float32 = 31415.926;
+   |
+   = note: `lossy_float_literal` is `warn` by default
+
+warning[lossy_float_literal]: `1234.5678901` has 11 significant digits, but a `float32` keeps 8
+  --> tests/lint/lossy_float_literal/bad.jai:8:20
+   |
+ 8 |     scaled := pi * 1234.5678901;
+   |                    ^^^^^^^^^^^^
+   |
+help: write `1234.5679`, which is the same `float32`
+   |
+ 8 ~     scaled := pi * 1234.5679;
+   |
+   = note: `lossy_float_literal` is `warn` by default
+
+warning[lossy_float_literal]: `98765.43210987` has 13 significant digits, but a `float32` keeps 7
+  --> tests/lint/lossy_float_literal/bad.jai:10:11
+   |
+10 |     pi = -98765.43210987;
+   |           ^^^^^^^^^^^^^^
+   |
+help: write `98765.43`, which is the same `float32`
+   |
+10 ~     pi = -98765.43;
+   |
+   = note: `lossy_float_literal` is `warn` by default
+
+warning[lossy_float_literal]: `123456.789012` has 12 significant digits, but a `float32` keeps 8
+  --> tests/lint/lossy_float_literal/bad.jai:12:20
+   |
+12 |     big: float32 = 123456.789012;
+   |                    ^^^^^^^^^^^^^
+   |
+help: write `123456.79`, which is the same `float32`
+   |
+12 ~     big: float32 = 123456.79;
+   |
+   = note: `lossy_float_literal` is `warn` by default
+

@@ -448,6 +448,16 @@
           "default": "allow",
           "markdownDescription": "a local holding memory from an `@Allocates` call that is never freed, returned or handed on (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#leaked_allocation)"
         },
+        "lossy_float_literal": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a `float32` literal with more digits than a `float32` keeps (`31415.92653`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#lossy_float_literal)"
+        },
         "loop_with_break_condition": {
           "type": "string",
           "enum": [
