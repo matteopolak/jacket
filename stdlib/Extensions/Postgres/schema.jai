@@ -50,10 +50,10 @@ schema_problem :: (file: string) -> string {
     if !read return tprint("cannot read %", file);
 
     recorded := recorded_schema_hash(text);
-    if !recorded return "db/schema.jai has no schema hash: run the pg tool's generate";
+    if !recorded return tprint("% has no schema hash: run the pg tool's generate", SCHEMA);
 
     _, current := migrations_of(find_project_root(file));
-    if current != recorded return "db/schema.jai is stale: run the pg tool's generate";
+    if current != recorded return tprint("% is stale: run the pg tool's generate", SCHEMA);
 
     return "";
 }
@@ -73,7 +73,7 @@ check_json_columns :: (mappings: [] Json_Column, known: [] string, location := #
     for mapping: mappings {
         if array_find(known, mapping.column) continue;
 
-        problem := tprint("Json_Columns maps \"%\", which is not a json or jsonb column of db/schema.jai (the json columns are: %)", mapping.column, join(..known, separator = ", ",, temp));
+        problem := tprint("Json_Columns maps \"%\", which is not a json or jsonb column of % (the json columns are: %)", mapping.column, SCHEMA, join(..known, separator = ", ",, temp));
 
         if #compile_time Schema_Compiler.compiler_report(problem, location);
         else log_error("%", problem);

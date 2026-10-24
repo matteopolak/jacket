@@ -126,6 +126,29 @@ grep -rqF 'left join lateral (select coalesce(array_agg(orm_m0_rows.' "$work/orm
 # 9. Bad programs: the error is reported at the right place.
 python3 "$here/bad.py" "$jaic" "$work" || fail "bad programs"
 
+# 9b. Module parameters: other paths for the migrations and the cache, and a minimum server version.
+params_root="$work/params_project"
+mkdir -p "$params_root/sql/migrations"
+grep -v "schema public" "$here/schema.sql" > "$params_root/sql/migrations/0001_init.sql"
+cat > "$work/params.jai" <<'EOF'
+#import "Basic";
+Pg :: #import "Extensions/Postgres"(MIGRATIONS = "sql/migrations", SCHEMA = "sql/schema.jai", QUERY_CACHE = "sql/cache", MIN_SERVER_VERSION = 15);
+check :: (db: *Pg.Connection) {
+    row, error := Pg.query_one(db, "select id from users where id = 1");
+}
+main :: () { print("%", cast(*void) check); }
+EOF
+sed 's/MIN_SERVER_VERSION = 15/MIN_SERVER_VERSION = 99/' "$work/params.jai" > "$work/params_new.jai"
+drop_schema_databases
+JACKET_PG_ROOT="$params_root" "$jaic" "$work/params.jai" -exe "$work/params" > /dev/null || fail "build with module parameters"
+[ "$(find "$params_root/sql/cache" -name '*.json' | wc -l)" -eq 1 ] || fail "the cache did not go to QUERY_CACHE"
+[ ! -e "$params_root/db" ] || fail "module parameters left a db folder behind"
+[ "$(schema_databases | wc -l)" -eq 1 ] || fail "the migrations folder from MIGRATIONS was not used"
+rm -rf "$params_root/sql/cache"
+if JACKET_PG_ROOT="$params_root" "$jaic" "$work/params_new.jai" -exe "$work/params_new" > "$work/out" 2>&1; then fail "a server older than MIN_SERVER_VERSION was accepted"; fi
+grep -q "needs at least 99 (MIN_SERVER_VERSION)" "$work/out" || fail "the old server error does not name MIN_SERVER_VERSION"
+drop_schema_databases
+
 # 10. Managed mode: no database URL at all; the describe service starts its own server and builds
 # the schema database from the migrations. Downloads the pinned PostgreSQL release unless
 # JAI_PG_TEST_MANAGED_CACHE names a folder that has it. Gated on JAI_PG_TEST_MANAGED=1.

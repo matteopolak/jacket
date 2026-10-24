@@ -460,7 +460,7 @@ row_table_struct :: (prepared: *Prepared) -> string {
     }
 
     location := node_location(cast(*Code_Node) prepared.call_node);
-    path := join(find_project_root(location.fully_pathed_filename), "/db/schema.jai",, temp);
+    path := schema_path(find_project_root(location.fully_pathed_filename));
     text, ok := read_entire_file(path, log_errors = false,, temp);
 
     if !ok return "";

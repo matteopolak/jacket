@@ -173,7 +173,7 @@ using_managed: bool;
 
 describe_entries :: () {
     check_only := options.command == "check";
-    queries := join(options.root, "/db/queries",, temp);
+    queries := Pg.query_cache_path(options.root);
     used_path := join(queries, "/used.txt",, temp);
 
     if options.build {
@@ -298,7 +298,7 @@ refresh :: (db: *Pg.Connection, path: string, id: string, schema_hash: string, s
         return false;
     }
 
-    request := Pg.Describe_Request.{ op = "describe", sql = old.sql, search_path = old.search_path, schema_hash = schema_hash, setup = setup };
+    request := Pg.Describe_Request.{ op = "describe", sql = old.sql, search_path = old.search_path, schema_hash = schema_hash, setup = setup, min_server_version = Pg.min_server_version() };
     answer_text := Pg.describe_answer(db, request);
     answer, answer_error := Json.from_json(Json.Json_Value, answer_text);
 
@@ -352,7 +352,7 @@ member_text :: (object: *Json.Json_Value, key: string) -> string {
 }
 
 migrations_folder :: () -> string {
-    return join(options.root, "/db/migrations",, temp);
+    return Pg.migrations_path(options.root);
 }
 
 // The project's migrations, or a problem reported.
@@ -393,7 +393,7 @@ generate_schema_file :: () {
     }
 
     path := options.out;
-    if !path path = join(options.root, "/db/schema.jai",, temp);
+    if !path path = Pg.schema_path(options.root);
 
     if !write_entire_file(path, source) {
         problem(tprint("cannot write %", path));
@@ -460,7 +460,7 @@ propose_diff :: () {
     config, config_ok := database_config();
     if !config_ok return;
 
-    proposal, why := Pg.diff_schema(config, migrations_folder(), join(options.root, "/db/schema.jai",, temp));
+    proposal, why := Pg.diff_schema(config, migrations_folder(), Pg.schema_path(options.root));
 
     if why {
         problem(why);

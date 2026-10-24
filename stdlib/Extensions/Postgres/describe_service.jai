@@ -46,7 +46,7 @@ answer :: (request_text: string) -> Service.Status, string {
 
     if !request.url && request.managed {
         // An empty managed server has no schema: only the migrations can give it one.
-        if !request.migrations return .FAILED, "managed mode needs migrations: add SQL files to db/migrations, or set DATABASE_URL";
+        if !request.migrations return .FAILED, "managed mode needs migrations: add SQL files to the migrations folder, or set DATABASE_URL";
 
         url, failure := managed_url(request.managed_version);
         if !url return .UNAVAILABLE, failure;

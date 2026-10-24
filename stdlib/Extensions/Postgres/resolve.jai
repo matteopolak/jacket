@@ -4,7 +4,7 @@
 //
 // The pipeline, per statement (docs/postgres/typed-queries.md):
 //   1. rewrite `%` to `$n`, and hash the result into the statement id;
-//   2. use `db/queries/<id>.json` when it is still good: the migrations' hash matches, or every
+//   2. use `<QUERY_CACHE>/<id>.json` when it is still good: the migrations' hash matches, or every
 //      dependency fingerprint still matches the database;
 //   3. otherwise ask the describe service, and write the answer back to the cache;
 //   4. with no database, a cache hit is all there is: a miss is an error (or "unknown", in the
@@ -42,8 +42,8 @@ Typed_Settings :: struct {
     search_path: string; // JACKET_PG_SEARCH_PATH
     offline: bool; // JACKET_PG_OFFLINE: never connect
     recording: bool; // JACKET_PG_CHECK: note every statement compiled
-    root: string; // the project folder, which holds db/
-    migrations: string; // the db/migrations folder, or empty when there is none
+    root: string; // the project folder, which holds the migrations, schema and query cache
+    migrations: string; // the migrations folder (MIGRATIONS), or empty when there is none
     schema_hash: string; // of the migrations, or empty
 }
 
@@ -83,9 +83,28 @@ call_of :: (call: Code) -> *Code_Procedure_Call {
 
 #scope_export
 
-// The folder that holds `db/`: from the file with the query, the nearest folder up the tree with a
-// `jacket.toml` or a `db` folder; if there is none, that file's own folder. JACKET_PG_ROOT
-// overrides it.
+// The project's migrations folder, schema file and query cache, from the module parameters
+// MIGRATIONS, SCHEMA and QUERY_CACHE (paths relative to the project root).
+migrations_path :: (root: string) -> string {
+    return join(root, "/", MIGRATIONS,, temp);
+}
+
+schema_path :: (root: string) -> string {
+    return join(root, "/", SCHEMA,, temp);
+}
+
+query_cache_path :: (root: string) -> string {
+    return join(root, "/", QUERY_CACHE,, temp);
+}
+
+// MIN_SERVER_VERSION: the oldest server major version the project supports; 0 accepts any.
+min_server_version :: () -> s64 {
+    return MIN_SERVER_VERSION;
+}
+
+// The folder that holds the project's files: from the file with the query, the nearest folder up
+// the tree with a `jacket.toml` or the first folder of MIGRATIONS (`db`, by default); if there is
+// none, that file's own folder. JACKET_PG_ROOT overrides it.
 find_project_root :: (file: string) -> string {
     forced := environment_variable("JACKET_PG_ROOT");
     if forced return forced;
@@ -98,7 +117,7 @@ find_project_root :: (file: string) -> string {
     while dir.count {
         if Typed_Files.file_exists(join(dir, "/jacket.toml",, temp)) return copy_string(dir,, temp);
 
-        is_dir, ok := Typed_Files.is_directory(join(dir, "/db",, temp));
+        is_dir, ok := Typed_Files.is_directory(join(dir, "/", first_folder(MIGRATIONS),, temp));
         if ok && is_dir return copy_string(dir,, temp);
 
         slash := find_index_from_right(dir, #char "/");
@@ -111,6 +130,13 @@ find_project_root :: (file: string) -> string {
 }
 
 #scope_module
+
+// `db` for "db/migrations".
+first_folder :: (path: string) -> string {
+    slash := find_index_from_left(path, #char "/");
+
+    return ifx slash > 0 then slice(path, 0, slash) else path;
+}
 
 typed_settings :: (file: string) -> Typed_Settings {
     settings: Typed_Settings;
@@ -147,7 +173,7 @@ typed_settings :: (file: string) -> Typed_Settings {
 // The project's migrations folder and their schema hash (see `schema_hash`), or empty strings when
 // there are none.
 migrations_of :: (root: string) -> folder: string, hash: string {
-    folder := join(root, "/db/migrations",, temp);
+    folder := migrations_path(root);
     is_dir, ok := Typed_Files.is_directory(folder);
 
     if !ok || !is_dir return "", "";
@@ -183,7 +209,7 @@ statement_id_of_hex :: (text: string) -> u64 {
 }
 
 cache_file :: (root: string, id: u64) -> string {
-    return join(root, "/db/queries/", id_hex(id), ".json",, temp);
+    return join(query_cache_path(root), "/", id_hex(id), ".json",, temp);
 }
 
 read_cache_entry :: (path: string, sql: string) -> Query_Entry, bool {
@@ -204,8 +230,7 @@ read_cache_entry :: (path: string, sql: string) -> Query_Entry, bool {
 }
 
 write_cache_entry :: (root: string, id: u64, entry: Query_Entry) {
-    make_directory_if_it_does_not_exist(join(root, "/db",, temp));
-    make_directory_if_it_does_not_exist(join(root, "/db/queries",, temp));
+    make_cache_folder(root);
 
     document := entry_to_json(entry);
     text := Json_Module.to_json(document, pretty = true,, temp);
@@ -220,9 +245,21 @@ write_cache_entry :: (root: string, id: u64, entry: Query_Entry) {
 
 #scope_module
 
+// The query cache folder and every folder above it that is missing.
+make_cache_folder :: (root: string) {
+    path := root;
+
+    for part: split(QUERY_CACHE, "/",, temp) {
+        if !part continue;
+
+        path = join(path, "/", part,, temp);
+        make_directory_if_it_does_not_exist(path);
+    }
+}
+
 // Remembers that this build compiled the statement (JACKET_PG_CHECK), for the tool's `check`.
 note_used :: (root: string, id: u64) {
-    path := join(root, "/db/queries/used.txt",, temp);
+    path := join(query_cache_path(root), "/used.txt",, temp);
     line := id_hex(id);
     existing, read := read_if_exists(path);
 
@@ -240,8 +277,7 @@ note_used :: (root: string, id: u64) {
         }
     }
 
-    make_directory_if_it_does_not_exist(join(root, "/db",, temp));
-    make_directory_if_it_does_not_exist(join(root, "/db/queries",, temp));
+    make_cache_folder(root);
     write_entire_file(path, tprint("%%\n", ifx read then existing else "", line));
 }
 
@@ -258,7 +294,7 @@ ask_service :: (request: Describe_Request) -> Service.Status, string {
 // Describes the statement from scratch, trusting nothing cached. The answer is an entry, or has
 // reported an error.
 describe_with_service :: (prepared: *Prepared, settings: Typed_Settings, sql: string) -> Query_Entry, ok: bool, unavailable: string {
-    request := Describe_Request.{ op = "describe", url = settings.url, managed = settings.managed, managed_version = settings.managed_version, search_path = settings.search_path, sql = prepared.rewrite.sql, schema_hash = settings.schema_hash, migrations = settings.migrations };
+    request := Describe_Request.{ op = "describe", url = settings.url, managed = settings.managed, managed_version = settings.managed_version, search_path = settings.search_path, sql = prepared.rewrite.sql, schema_hash = settings.schema_hash, migrations = settings.migrations, min_server_version = MIN_SERVER_VERSION };
     status, reply := ask_service(request);
 
     if status == .UNAVAILABLE return .{}, false, reply;
@@ -352,7 +388,7 @@ check_cache_entry :: (prepared: *Prepared, settings: Typed_Settings, entry: Quer
 
     if !entry.deps_complete return .STALE;
 
-    request := Describe_Request.{ op = "fingerprints", url = settings.url, search_path = settings.search_path, migrations = settings.migrations };
+    request := Describe_Request.{ op = "fingerprints", url = settings.url, search_path = settings.search_path, migrations = settings.migrations, min_server_version = MIN_SERVER_VERSION };
     keys: [..] string;
     keys.allocator = temp;
     for entry.deps array_add(*keys, it.key);
@@ -470,7 +506,7 @@ prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
 
     // A managed server starts empty: the schema can only come from the migrations.
     if settings.managed && !settings.migrations {
-        report_at(sql_node, tprint("managed mode is on, but there are no migrations to build the schema from: add SQL files to %/db/migrations, or set DATABASE_URL", settings.root));
+        report_at(sql_node, tprint("managed mode is on, but there are no migrations to build the schema from: add SQL files to %, or set DATABASE_URL", migrations_path(settings.root)));
         return prepared;
     }
 
