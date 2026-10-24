@@ -19,7 +19,7 @@ removed, error := Pg.delete(db, User, where = #code it.id == row.id);
 | --- | --- | --- |
 | `select(db, T, where?, order_by?, desc?, limit?, offset?, from_sql?)` | `Rows(T), Pg_Error` | `select <every column> from <table> where ... order by ... limit ... offset ...` |
 | `select(..., fields = "id, email")` | `Rows(Partial(T, "id, email")), Pg_Error` | `select "id", "email" from ...`; `Partial(T, fields)` is a struct with just those fields of `T`, with their types and notes (`orm_partial_body`) |
-| `for each(db, T, *error, where?, order_by?, ...)` | a loop over `T` | `select <the columns the loop body reads> from <table> ...` (see [Column pruning](#column-pruning)) |
+| `for each(db, T, *error, where?, order_by?, ..., strategy?)` | a loop over `T` | `select <the columns the loop body reads> from <table> ...` (see [Column pruning](#column-pruning)) |
 | `insert(db, value)` | `T, Pg_Error` | `insert ... returning <every column>` |
 | `insert_many(db, values)` | `[] T, Pg_Error` | one `insert` per value, stopping at the first error |
 | `copy_many(db, values)` | `s64, Pg_Error` (rows stored) | one binary `copy ... from stdin` ([copy.md](copy.md)); reads nothing back |
@@ -80,6 +80,17 @@ Two more reads are cut down the same way:
   It decodes into a generated struct with only the read fields, which keep their notes and initial values, so `@json(default)`, renames and `Json_Maybe`'s missing-versus-null behave as on the full struct. A key the document lacks stays missing. A non-null column skips the `case`, so the describe step still sees it as non-null. Any other use of the column (the whole document, `.write`, a deeper value than one field) fetches it whole.
 - **Through a to-one relation.** `it.author.email` in the body (for a `@pg_belongs_to` relation `author`) adds the filter's scalar subquery to the select list as `"orm__author__email"`. `it` is then an `Orm_Item`: a struct that `using`s `T` (as `it.orm_row`) and has one member per relation read, holding the fields read (`it.author.email`). A missing related row leaves them zero. Pass `it.orm_row` where a `T` is wanted. One level only: `it.author.team.name` is not read this way (use `load_one`).
 - **Through a has-many relation.** `for post: it.posts` (or `it.posts.count`) for a `@pg_has_many` relation `posts` selects the relation's key columns, reads every row first, and then loads the related rows for all of them with one more query, as `load_many` does (`orm_load_many_as`). `it.posts` is a `[] Post` member of `Orm_Item`. The related rows are freed with the loop's result.
+
+  `strategy = .LATERAL` reads them in the same statement instead. A lateral join gathers each column of the related rows into an array, and the loop rebuilds `it.posts` from the arrays for each row (freed when the loop moves on):
+
+  ```sql
+  select "id", orm_m0."orm__posts__title" as "orm__posts__title!", ...
+  from "public"."users" left join lateral (
+      select coalesce(array_agg(orm_m0_rows."title"), '{}') as "orm__posts__title", ...
+      from "public"."posts" as orm_m0_rows where orm_m0_rows."author_id" = "public"."users"."id") as orm_m0 on true
+  ```
+
+  The aggregates of one subquery see the rows in the same order, so the arrays line up. One array per column rather than `json_agg`, so every column type decodes as it does in a plain row. The default `.PRELOAD` sends each related row once; `.LATERAL` saves a round trip, which pays off when the server is far away and each parent has few related rows.
 
 The query runs when the loop starts; a failure goes to `error` and the body never runs. The result is freed when the loop ends, so strings read from `it` must be copied to outlive it.
 

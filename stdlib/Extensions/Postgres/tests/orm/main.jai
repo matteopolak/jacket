@@ -426,6 +426,16 @@ test_each :: (db: *Pg.Connection) {
 
     check(error.kind == .NONE && counts.count == 2 && counts[0] == 2 && counts[1] == 0, Pg.error_text(error));
 
+    // The same in one statement, the related columns gathered into arrays by a lateral join.
+    array_reset(*counts);
+
+    for Pg.each(db, User, *error, order_by = #code it.id, strategy = .LATERAL) {
+        array_add(*counts, it.posts.count);
+        for post: it.posts check(post.author_id == it.id && post.title.count > 0, post.title);
+    }
+
+    check(error.kind == .NONE && counts.count == 2 && counts[0] == 2 && counts[1] == 0, Pg.error_text(error));
+
     // A failure lands in `error`, and the body never runs.
     zero := 0;
     ran := false;

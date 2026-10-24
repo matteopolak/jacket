@@ -640,7 +640,7 @@ How it compiles:
   - **To-one** (`it.team.name`) becomes a `join`: `inner` when the foreign-key column is NOT NULL, otherwise `left`, with the relation then `Nullable`.
   - **To-many** (`for p: it.posts`) becomes a second query after the first, `where author_id = any($1)` with the parent keys, stitched in memory. This is Ecto's preload. It avoids the row explosion of joining two one-to-many relations, and costs 2 queries rather than N+1.
 
-    A `strategy = .JSON_AGG` alternative builds one query with a `lateral (select json_agg(...))` subquery, as Drizzle's relational queries do.
+    A `strategy = .LATERAL` alternative builds one query with a lateral subquery, as Drizzle's relational queries do. It gathers one `array_agg` per column rather than a `json_agg` document, so each column decodes with its own binary codec.
 
     Both strategies come from the loop body. The user never writes `include`.
 - **Mixing in raw SQL:**
