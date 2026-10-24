@@ -14,7 +14,9 @@ run = labeled_runner('MSF fixture command', expected=None, env=None, timeout=60,
 
 def main():
     llvm = build_developer_bindings.llvm_prefix() / "bin"
-    linker = os.environ.get("DEVELOPER_TOOLS_LLD_LINK") or shutil.which("lld-link")
+    linker = (os.environ.get("DEVELOPER_TOOLS_LLD_LINK")
+              or shutil.which("lld-link", path=str(llvm))
+              or shutil.which("lld-link"))
     if not linker:
         raise RuntimeError("MSF native fixtures require official lld-link (DEVELOPER_TOOLS_LLD_LINK)")
     page_evidence = {"format": "https://www.llvm.org/docs/PDB/MsfFile.html", "scope": "original native PDB active FPM SDK byte oracles; host public-map operations, not target execution or public parser initialization", "fixtures": []}
