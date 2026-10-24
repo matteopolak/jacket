@@ -32,6 +32,17 @@
     ]
   },
   {
+    "name": "managed",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io fibers; JAI_PG_TEST_MANAGED=1 also downloads PostgreSQL (curl and tar) and starts a server"
+    ]
+  },
+  {
     "name": "conformance/print_test",
     "stdout": "ok\n"
   },

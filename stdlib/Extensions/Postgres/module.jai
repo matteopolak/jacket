@@ -43,6 +43,7 @@
 #load "notify.jai";
 #load "trace.jai";
 #load "migrate.jai";
+#load "managed.jai";
 
 #scope_module
 

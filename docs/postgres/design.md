@@ -805,7 +805,7 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, JSON column overrides, the describe service (schema databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
 4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate` (with `db/json_columns.jai`), the `db/schema.jai` staleness check, row type identity.
 5. **ORM:** `select` with `Code` filters, typed JSON navigation, column pruning, to-one joins, to-many batched loading, insert/update/delete.
-6. **Zero setup:** managed per-platform Postgres for compile-time typing; `diff` migration proposals.
+6. **Zero setup:** managed per-platform Postgres for compile-time typing; `diff` migration proposals. *Managed binaries landed* (`stdlib/Extensions/Postgres/managed.jai`, see [managed.md](managed.md)): download, verify, cache, `initdb` and start. The describe service does not call it yet, and `diff` is not started.
 
 ## Decisions
 
