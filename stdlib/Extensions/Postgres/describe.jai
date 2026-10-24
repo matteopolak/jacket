@@ -16,6 +16,15 @@ Describe_Request :: struct {
     keys: [] string; // "fingerprints": the dependency keys to fingerprint
     migrations: string; // the migrations folder: answer from its schema database
     setup: string; // set by the service: SQL run first inside the describe's transaction
+    min_server_version: s64; // the oldest server major version the project supports; 0: any
+}
+
+// The complaint for a server older than the request allows, or an empty string.
+server_too_old :: (db: *Connection, request: Describe_Request) -> string {
+    major := db.server_version / VERSION_MAJOR;
+    if major >= request.min_server_version return "";
+
+    return tprint("the server is PostgreSQL %, but this project needs at least % (MIN_SERVER_VERSION)", major, request.min_server_version);
 }
 
 describe_request_json :: (request: Describe_Request) -> string {
@@ -37,6 +46,15 @@ describe_answer :: (db: *Connection, request: Describe_Request) -> string {
 // The answer to a `fingerprints` request: {"kind":"ok","server_major":17,"fingerprints":{key: hash}}.
 fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
     answer := json_object();
+    too_old := server_too_old(db, request);
+
+    if too_old {
+        json_set(*answer, "kind", json_string("error"));
+        json_set(*answer, "message", json_string(too_old));
+
+        return Json_Module.to_json(answer);
+    }
+
     error := apply_search_path(db, request.search_path);
 
     if error.kind != .NONE {
@@ -92,6 +110,10 @@ fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
 
 describe_value :: (db: *Connection, request: Describe_Request) -> Json_Value {
     answer := json_object();
+
+    too_old := server_too_old(db, request);
+
+    if too_old return failure_answer(make_error(.USAGE, "%", too_old));
 
     error := apply_search_path(db, request.search_path);
 

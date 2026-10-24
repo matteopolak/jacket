@@ -25,7 +25,14 @@
 //
 // TLS needs Extensions/Tls (mbedTLS). Programs that only connect over Unix sockets or cleartext
 // TCP can leave it out with `#import "Extensions/Postgres"(TLS = false)`.
-#module_parameters(TLS := true);
+//
+// The other parameters say where the compile-time side finds the project's files, relative to the
+// project root (docs/postgres/typed-queries.md, "Module parameters"):
+//
+//     Pg :: #import "Extensions/Postgres"(MIGRATIONS = "sql/migrations", SCHEMA = "sql/schema.jai", QUERY_CACHE = "sql/cache", MIN_SERVER_VERSION = 15);
+//
+// `MIN_SERVER_VERSION` is a major version; a server older than that fails every describe.
+#module_parameters(TLS := true, MIGRATIONS := "db/migrations", SCHEMA := "db/schema.jai", QUERY_CACHE := "db/queries", MIN_SERVER_VERSION := 0);
 
 #assert OS != .WASM "Extensions/Postgres runs on fibers over Io, and WebAssembly has neither";
 

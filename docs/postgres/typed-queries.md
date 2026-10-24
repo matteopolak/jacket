@@ -13,7 +13,7 @@ Pg.free_rows(*rows);
 ## How it works
 
 1. **Rewrite.** `sql_scan.jai` turns each `%` into `$n`, skipping quoted strings, comments and dollar quotes (`%%` is a literal `%`; a Postgres `$n` is rejected). The statement id is a 64-bit hash of the rewritten text.
-2. **Resolve.** `resolve.jai` (`prepare_query`, memoised per call site) looks for `db/queries/<id>.json` under the project root. On a miss it asks the describe service, which uses the URL if there is one and otherwise, with managed mode on (`JACKET_PG_MANAGED=1` or `[postgres] managed = true` in `jacket.toml`), a managed server.
+2. **Resolve.** `resolve.jai` (`prepare_query`, memoised per call site) looks for `<QUERY_CACHE>/<id>.json` (`db/queries` by default) under the project root. On a miss it asks the describe service, which uses the URL if there is one and otherwise, with managed mode on (`JACKET_PG_MANAGED=1` or `[postgres] managed = true` in `jacket.toml`), a managed server.
 3. **Describe.** `describe_service.jai` is a `jaic -interp` worker (`Service.serve`) that holds connections per URL, backs off on failure (1 s doubling to 30 s) and memoises connect errors. `describe.jai` does Parse + Describe, resolves type names (domains, arrays, enums), reads `attnotnull`, and runs `EXPLAIN (VERBOSE, FORMAT JSON)` on the generic plan to find columns made nullable by outer joins. Aliases can force nullability or a type: `name!` (non-null), `name?` (nullable), `name: Jai_Type`.
 4. **Shape.** `shape.jai` builds `Row(shape)`, a struct with one doc-commented field per column, and checks arguments against the parameter types (`s64` does not narrow to `integer`). Errors point at the argument or, for server errors, at the offending byte of the string literal.
 5. **Run.** `typed.jai` expands into a call that sends the rewritten statement (binary results when every column is decodable) as a cached named statement: the first run on a connection parses it, later runs only bind. `plan = .CUSTOM` on any of the macros uses the unnamed statement instead. `for rows` decodes one row at a time. See "Statement cache" in [the client reference](../extensions/postgres.md).
@@ -59,7 +59,7 @@ The dependency fingerprints are read from the same schema database.
 
 ### Project root and cache
 
-The root is the nearest folder upward from the calling file containing `jacket.toml` or `db/`, else the file's own folder. Entries are JSON (`entry.jai`): columns, parameters, JSON types, dependencies and a schema fingerprint. A cached entry is good when its `schema_hash` (from `db/migrations/*.sql`, see `schema_hash` in `migrate.jai`) matches. Otherwise, with a URL and not offline, the fingerprints of its dependencies are re-checked through the service. Offline, a hash mismatch is stale, and anything else is used as is.
+The root is the nearest folder upward from the calling file containing `jacket.toml` or the first folder of `MIGRATIONS` (`db/`), else the file's own folder. Entries are JSON (`entry.jai`): columns, parameters, JSON types, dependencies and a schema fingerprint. A cached entry is good when its `schema_hash` (from `db/migrations/*.sql`, see `schema_hash` in `migrate.jai`) matches. Otherwise, with a URL and not offline, the fingerprints of its dependencies are re-checked through the service. Offline, a hash mismatch is stale, and anything else is used as is.
 
 With `JACKET_PG_CHECK` set, every query used by a build is recorded in `used.txt` so the tool can prune.
 
@@ -83,6 +83,19 @@ jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare|check [--root D
 Gotchas: `Rows` buffers the whole result (no portal streaming); `fetch_all(rows, allocator = context.allocator)` copies every row, and the strings, arrays and documents it points to, into one block (two passes over the type info: size, then copy), so the copies outlive `free_rows` and `array_free(items)` frees them. `query_one`, `query_opt` and `query_scalar` return values in temporary storage. Alias type overrides resolve in the module's scope, so user types in `Json(T)` overrides need `query_as`. Unreachable databases are silent in the editor (`Service.unknown`) and errors in builds.
 
 ## Configuration
+
+### Module parameters
+
+```jai
+Pg :: #import "Extensions/Postgres"(MIGRATIONS = "db/migrations", SCHEMA = "db/schema.jai", QUERY_CACHE = "db/queries", MIN_SERVER_VERSION = 15);
+```
+
+- `MIGRATIONS`, `SCHEMA`, `QUERY_CACHE`: the migrations folder, the generated schema file and the query cache folder, relative to the project root (the defaults are the paths shown). `resolve.jai` turns them into paths with `migrations_path`, `schema_path` and `query_cache_path`; use those, never a literal `db/...`. The root is also found by the first folder of `MIGRATIONS` (see below).
+- `MIN_SERVER_VERSION`: the oldest server major version the project supports (default `0`, any). It travels in the describe request, and the service answers every describe and fingerprint request from an older server with "the server is PostgreSQL 14, but this project needs at least 15". A cache hit does not talk to a server, so it is not checked.
+
+The describe service and the pg tool import the module on their own, so they see the defaults: the service gets paths and the minimum in each request, and the tool resolves its paths through `Pg.migrations_path` and friends of its own import (a project with other paths runs the tool from a wrapper that imports the module with the same parameters).
+
+### Environment
 
 - `JACKET_DATABASE_URL`, then `DATABASE_URL`: the compile-time database.
 - `JACKET_PG_MANAGED=1` (or `managed = true` under `[postgres]` in `jacket.toml`): with no URL, describe in a private PostgreSQL the service downloads and starts itself ([managed.md](managed.md)). It needs `db/migrations`; without them a miss is an error. Ignored when a URL is set or `JACKET_PG_OFFLINE` is. `JACKET_PG_MANAGED_VERSION` and `JACKET_PG_MANAGED_CACHE` pick the release and the cache folder.
