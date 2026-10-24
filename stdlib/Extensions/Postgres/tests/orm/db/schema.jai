@@ -16,7 +16,7 @@ Settings :: struct {
     font_size := 14; @json(default)
 }
 
-User :: struct @pg_table(public.users) {
+User :: struct @pg_table(public.users) @pg_has_many(posts:Post:author_id:id) {
     id: s64; @pg_primary_key @pg_default
     email: string;
     display_name: Pg.Nullable(string);
@@ -27,7 +27,7 @@ User :: struct @pg_table(public.users) {
     tags: [] string; @pg_default
 }
 
-Post :: struct @pg_table(public.posts) {
+Post :: struct @pg_table(public.posts) @pg_belongs_to(author:author_id:User:id) {
     id: s64; @pg_primary_key @pg_default
     author_id: s64;
     title: string;

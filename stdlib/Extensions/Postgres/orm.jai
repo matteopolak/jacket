@@ -17,19 +17,19 @@ NO_ORDER :: #code null;
 // `limit` of them (-1: all) after skipping `offset`. `from_sql` replaces the table with a query of
 // your own that returns its columns, with `%name` / `%(expression)` parameters:
 // `from_sql = "select * from users_visible_to(%viewer)"`.
-select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", call := #caller_code) -> Rows(T), Pg_Error #expand {
+select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $call := #caller_code) -> Rows(T), Pg_Error #expand {
     #insert #run orm_statement_code(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql);
 }
 
 // Sets fields of the rows that pass `where`: `set = #code it.score = score + 1` (or a block of such
 // assignments). Returns the number of rows changed.
-update :: (db: $D, $T: Type, $set: Code, $where: Code, call := #caller_code) -> s64, Pg_Error #expand {
+update :: (db: $D, $T: Type, $set: Code, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
     #insert #run orm_statement_code(T, .UPDATE, where, where, set, false, -1, 0, "");
 }
 
 // Deletes the rows that pass `where` and returns how many there were. `where` is required: pass
 // `#code true` to delete every row.
-delete :: (db: $D, $T: Type, $where: Code, call := #caller_code) -> s64, Pg_Error #expand {
+delete :: (db: $D, $T: Type, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
     #insert #run orm_statement_code(T, .DELETE, where, where, where, false, -1, 0, "");
 }
 
@@ -53,6 +53,49 @@ insert_many :: (db: $D, values: [] $T) -> [] T, Pg_Error {
     }
 
     return rows, .{};
+}
+
+// The rows `parents` have through the has-many relation `relation` (a `@pg_has_many` note of
+// `T`), in one query: `items[i]` belongs to `parents[i]`. Free it with `free_loaded`; the items
+// read from its result.
+//
+//     posts, error := Pg.load_many(db, users, "posts");
+//     for users print("% wrote % posts\n", it.email, posts.items[it_index].count);
+Loaded_Many :: struct(Item: Type) {
+    items: [][] Item;
+    // Every item once; `items` are views into it.
+    rows: [] Item;
+    result: Result;
+}
+
+// The row each of `parents` points to through the to-one relation `relation` (a
+// `@pg_belongs_to` note of `T`), in one query: `items[i]` is null when `parents[i]` points nowhere.
+Loaded_One :: struct(Item: Type) {
+    items: [] Nullable(Item);
+    rows: [] Item;
+    result: Result;
+}
+
+load_many :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_Many(#insert,scope(call) #run orm_relation_target(T, relation, .HAS_MANY)), Pg_Error #expand {
+    #insert #run orm_load_code(T, relation, .HAS_MANY);
+}
+
+load_one :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_One(#insert,scope(call) #run orm_relation_target(T, relation, .BELONGS_TO)), Pg_Error #expand {
+    #insert #run orm_load_code(T, relation, .BELONGS_TO);
+}
+
+free_loaded :: (loaded: *Loaded_Many($Item)) {
+    array_free(loaded.items);
+    array_free(loaded.rows);
+    free_result(*loaded.result);
+    loaded.* = .{};
+}
+
+free_loaded :: (loaded: *Loaded_One($Item)) {
+    array_free(loaded.items);
+    array_free(loaded.rows);
+    free_result(*loaded.result);
+    loaded.* = .{};
 }
 
 // What the filters may call; they only mean something inside `where`, as SQL. Two more have no
@@ -108,6 +151,7 @@ json_path :: (document: $T, path: string) -> bool {
 #scope_module
 
 Orm_Print :: #import "Program_Print";
+Orm_Hash :: #import "Hash_Table"; // jailint: allow(unused_import) the code load_many and load_one generate uses it
 
 Orm_Kind :: enum {
     SELECT;
@@ -193,6 +237,14 @@ Orm_Sql :: struct {
     problem_node: *Code_Node;
     // Inside `if_some`: the Nullable whose value the condition reads.
     some_name: string;
+    // How columns of the statement's own table are qualified inside a relation's subquery.
+    outer: string;
+    // The struct names of the to-one relations the filter reads (first pass), and their types
+    // (second pass), in the same order.
+    relation_names: [..] string;
+    relation_types: [] Type;
+    // Subqueries opened so far, for their aliases.
+    subqueries: s64;
 }
 
 orm_fail :: (sql: *Orm_Sql, node: *Code_Node, message: string) {
@@ -310,6 +362,185 @@ orm_parameter :: (sql: *Orm_Sql, node: *Code_Node, wrap := "") {
     }
 
     orm_hole(sql, builder_to_string(*builder), wrap);
+}
+
+// The struct a relation leads to, as text to insert where the call was written.
+orm_relation_target :: (T: Type, name: string, kind: Orm_Relation_Kind) -> string {
+    relation, problem := orm_relation(T, name);
+
+    if !problem && relation.kind == .NONE problem = tprint("% has no relation \"%\"", T, name);
+
+    if !problem && relation.kind != kind {
+        problem = tprint("%.% is a % relation: load it with Pg.%", T, name, ifx relation.kind == .HAS_MANY then "has-many" else "to-one", ifx relation.kind == .HAS_MANY then "load_many" else "load_one");
+    }
+
+    if !problem && relation.own_columns.count != 1 problem = tprint("%.% joins on several columns, which loading does not handle yet", T, name);
+
+    if problem {
+        compiler_report(problem);
+        return "void";
+    }
+
+    return relation.target;
+}
+
+orm_value_type :: (T: Type) -> Type {
+    info := type_info(T);
+    if is_nullable_info(info) return get_type(nullable_value_type(info));
+
+    return T;
+}
+
+orm_is_nullable :: (T: Type) -> bool {
+    return is_nullable_info(type_info(T));
+}
+
+// `select <every column of Target> from <its table> where "<column>" = any($1)`.
+orm_load_sql :: (Target: Type, column: string, Key: Type) -> string {
+    table, problem := orm_table(Target);
+
+    if problem {
+        compiler_report(problem);
+        return "";
+    }
+
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    append(*builder, "select ");
+
+    for orm_columns(Target) {
+        if it_index append(*builder, ", ");
+        append(*builder, quote_identifier(it.name));
+    }
+
+    cast_to := parameter_cast(Key);
+
+    print_to_builder(*builder, " from % where % = any(\% %)", table, quote_identifier(column), ifx cast_to then tprint("::%[]", cast_to) else "");
+
+    return builder_to_string(*builder);
+}
+
+// The body of `load_many` and `load_one`: collect the keys, run one query, and hand each row to
+// the parents whose key it carries.
+orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind) -> string {
+    relation, problem := orm_relation(T, name);
+    if problem || relation.kind != kind || relation.own_columns.count != 1 return "";
+
+    own := relation.own_columns[0];
+    target := relation.target_columns[0];
+    own_member := member_of(T, own);
+
+    if !own_member {
+        compiler_report(tprint("% has no field \"%\" for its relation \"%\"", T, own, name));
+        return "";
+    }
+
+    own_nullable := is_nullable_info(own_member.type);
+    own_value := ifx own_nullable then tprint("it.%.value", own) else tprint("it.%", own);
+    own_skip := ifx own_nullable then tprint("if it.%.null continue;\n", own) else "";
+
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    loaded_type := ifx kind == .HAS_MANY then "Loaded_Many" else "Loaded_One";
+
+    print_to_builder(*builder, #string DONE
+Orm_Target :: %3;
+Orm_Key :: #run orm_value_type(type_of(parents[0].%1));
+Orm_Target_Nullable :: #run orm_is_nullable(type_of(Orm_Target.{}.%2));
+orm_loaded: %4(Orm_Target);
+orm_keys: [..] Orm_Key;
+orm_keys.allocator = temp;
+for parents {
+    %5array_add(*orm_keys, %6);
+}
+orm_rows, orm_error := query_as(Orm_Target, db, #run orm_load_sql(Orm_Target, "%2", Orm_Key), cast([] Orm_Key) orm_keys);
+if orm_error.kind != .NONE {
+    free_rows(*orm_rows);
+    return orm_loaded, orm_error;
+}
+orm_found := NewArray(orm_rows.result.row_count, Orm_Target);
+for * orm_found {
+    orm_read_error := read_row(*orm_rows, it_index, it);
+    if orm_read_error.kind != .NONE {
+        array_free(orm_found);
+        free_rows(*orm_rows);
+        return orm_loaded, orm_read_error;
+    }
+}
+orm_loaded.rows = orm_found;
+orm_loaded.result = orm_rows.result;
+DONE, own, target, orm_insert_text(relation.target), loaded_type, own_skip, own_value);
+
+    if kind == .HAS_MANY {
+        print_to_builder(*builder, #string DONE
+// Parent key to its first index; parents sharing a key share their items.
+orm_parent: Orm_Hash.Table(Orm_Key, s64);
+orm_parent.allocator = temp;
+for parents {
+    %2if !Orm_Hash.table_contains(*orm_parent, %3) Orm_Hash.table_add(*orm_parent, %3, it_index);
+}
+orm_counts := NewArray(parents.count, s64,, temp);
+orm_child_key :: (row: Orm_Target) -> Orm_Key, bool {
+    #if Orm_Target_Nullable return row.%1.value, !row.%1.null;
+    else return row.%1, true;
+}
+for orm_found {
+    key, has := orm_child_key(it);
+    if !has continue;
+    index := Orm_Hash.table_find_pointer(*orm_parent, key);
+    if index orm_counts[index.*] += 1;
+}
+// Group the rows by parent in place, so each parent's items are one slice of `rows`.
+orm_starts := NewArray(parents.count, s64,, temp);
+orm_next := 0;
+for orm_counts {
+    orm_starts[it_index] = orm_next;
+    orm_next += it;
+}
+orm_grouped := NewArray(orm_next, Orm_Target);
+orm_fill := array_copy(orm_starts,, temp);
+for orm_found {
+    key, has := orm_child_key(it);
+    if !has continue;
+    index := Orm_Hash.table_find_pointer(*orm_parent, key);
+    if !index continue;
+    orm_grouped[orm_fill[index.*]] = it;
+    orm_fill[index.*] += 1;
+}
+array_free(orm_found);
+orm_loaded.rows = orm_grouped;
+orm_loaded.items = NewArray(parents.count, [] Orm_Target);
+for parents {
+    %2index := Orm_Hash.table_find_pointer(*orm_parent, %3);
+    orm_loaded.items[it_index] = array_view(orm_grouped, orm_starts[index.*], orm_counts[index.*]);
+}
+return orm_loaded, .{};
+DONE, target, own_skip, own_value);
+    } else {
+        print_to_builder(*builder, #string DONE
+orm_found_at: Orm_Hash.Table(Orm_Key, s64);
+orm_found_at.allocator = temp;
+for orm_found {
+    #if Orm_Target_Nullable {
+        if it.%1.null continue;
+        Orm_Hash.table_set(*orm_found_at, it.%1.value, it_index);
+    } else {
+        Orm_Hash.table_set(*orm_found_at, it.%1, it_index);
+    }
+}
+orm_loaded.items = NewArray(parents.count, Nullable(Orm_Target));
+for parents {
+    orm_loaded.items[it_index].null = true;
+    %2index := Orm_Hash.table_find_pointer(*orm_found_at, %3);
+    if index orm_loaded.items[it_index] = .{ value = orm_found[index.*] };
+}
+return orm_loaded, .{};
+DONE, target, own_skip, own_value);
+    }
+
+    return builder_to_string(*builder);
 }
 
 // A value sent as a json document (for `contains`).
@@ -464,7 +695,7 @@ orm_column_path :: (sql: *Orm_Sql, node: *Code_Node, path: [] string, as_documen
     member := member_of(sql.T, path[0]);
 
     if !member {
-        orm_fail(sql, node, tprint("% has no field \"%\"", sql.T, path[0]));
+        orm_related_column(sql, node, path, as_document);
         return;
     }
 
@@ -474,6 +705,139 @@ orm_column_path :: (sql: *Orm_Sql, node: *Code_Node, path: [] string, as_documen
     }
 
     orm_json_path(sql, node, member, path, as_document);
+}
+
+// `it.team.name`, through the to-one relation `team` (`@pg_belongs_to`): a subquery on the
+// related table, `(select "name" from "public"."teams" as orm_r0 where orm_r0."id" = <outer>."team_id")`,
+// which is null when there is no related row.
+orm_related_column :: (sql: *Orm_Sql, node: *Code_Node, path: [] string, as_document: bool) {
+    relation, problem := orm_relation(sql.T, path[0]);
+
+    if problem {
+        orm_fail(sql, node, problem);
+        return;
+    }
+
+    if relation.kind == .NONE {
+        orm_fail(sql, node, tprint("% has no field \"%\"", sql.T, path[0]));
+        return;
+    }
+
+    if relation.kind == .HAS_MANY {
+        orm_fail(sql, node, tprint("%.% is a has-many relation, which a filter cannot read; load it with Pg.load_many", sql.T, path[0]));
+        return;
+    }
+
+    if path.count == 1 {
+        orm_fail(sql, node, tprint("%.% is a relation: compare one of its fields", sql.T, path[0]));
+        return;
+    }
+
+    index := array_find_index(sql.relation_names, relation.target);
+
+    if index < 0 {
+        array_add(*sql.relation_names, relation.target);
+        index = sql.relation_names.count - 1;
+    }
+
+    // The first pass does not know the related struct yet; the text it writes is not used.
+    if index >= sql.relation_types.count {
+        append(*sql.builder, "null");
+        return;
+    }
+
+    target := sql.relation_types[index];
+    table, table_problem := orm_table(target);
+
+    if table_problem {
+        orm_fail(sql, node, table_problem);
+        return;
+    }
+
+    alias := tprint("orm_r%", sql.subqueries);
+
+    sql.subqueries += 1;
+
+    saved_type, saved_outer := sql.T, sql.outer;
+
+    sql.T, sql.outer = target, alias;
+
+    append(*sql.builder, "(select ");
+    orm_column_path(sql, node, array_view(path, 1), as_document);
+
+    sql.T, sql.outer = saved_type, saved_outer;
+
+    print_to_builder(*sql.builder, " from % as % where ", table, alias);
+
+    for relation.target_columns {
+        if it_index append(*sql.builder, " and ");
+        print_to_builder(*sql.builder, "%.% = %.%", alias, quote_identifier(it), sql.outer, quote_identifier(relation.own_columns[it_index]));
+    }
+
+    append(*sql.builder, ")");
+}
+
+array_find_index :: (items: [] string, item: string) -> s64 {
+    for items if it == item return it_index;
+    return -1;
+}
+
+Orm_Relation_Kind :: enum u8 {
+    NONE;
+    BELONGS_TO;
+    HAS_MANY;
+}
+
+// A relation note of a db/schema.jai struct: `own_columns` of this table match `target_columns`
+// of the struct named `target`.
+Orm_Relation :: struct {
+    kind: Orm_Relation_Kind;
+    target: string;
+    own_columns: [] string;
+    target_columns: [] string;
+}
+
+// `@pg_belongs_to(name:cols:Target:target cols)` or `@pg_has_many(name:Source:source cols:own cols)`
+// named `name` on `T`; `kind` is NONE when there is none.
+orm_relation :: (T: Type, name: string) -> Orm_Relation, problem: string {
+    info := cast(*Type_Info_Struct) type_info(T);
+    relation: Orm_Relation;
+
+    for info.notes {
+        kind := Orm_Relation_Kind.NONE;
+        arguments, found := note_arguments(it, "pg_belongs_to");
+
+        if found {
+            kind = .BELONGS_TO;
+        } else {
+            arguments, found = note_arguments(it, "pg_has_many");
+            if found kind = .HAS_MANY;
+        }
+
+        if kind == .NONE continue;
+
+        parts := split(arguments, ":",, temp);
+        if parts.count != 4 return relation, tprint("malformed relation note @%", it);
+        if parts[0] != name continue;
+
+        relation.kind = kind;
+
+        if kind == .BELONGS_TO {
+            relation.own_columns = split(parts[1], ",",, temp);
+            relation.target = parts[2];
+            relation.target_columns = split(parts[3], ",",, temp);
+        } else {
+            relation.target = parts[1];
+            relation.target_columns = split(parts[2], ",",, temp);
+            relation.own_columns = split(parts[3], ",",, temp);
+        }
+
+        if relation.own_columns.count != relation.target_columns.count return relation, tprint("malformed relation note @%", it);
+
+        return relation, "";
+    }
+
+    return relation, "";
 }
 
 // `it.settings.theme`: a key of a `Json(T)` column, by `T`'s json names. A string leaf is read as
@@ -857,13 +1221,15 @@ orm_set :: (sql: *Orm_Sql, node: *Code_Node) {
 }
 
 // The SQL of a statement, or a problem reported at the node it is about.
-orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type) -> Orm_Sql {
+orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type, relations: [] Type) -> Orm_Sql {
     sql: Orm_Sql;
     sql.T = T;
     sql.builder.allocator = temp;
     sql.parameters.allocator = temp;
     sql.wraps.allocator = temp;
+    sql.relation_names.allocator = temp;
     sql.parameter_types = types;
+    sql.relation_types = relations;
 
     table, problem := orm_table(T);
 
@@ -871,6 +1237,8 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
         sql.problem = problem;
         return sql;
     }
+
+    sql.outer = ifx from_sql then "orm_source" else table;
 
     if kind == {
         case .SELECT;
@@ -923,7 +1291,7 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
 // The body of `select`, `update` and `delete`: a constant per parameter for its type, then the
 // typed query with the SQL built from those types.
 orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string) -> string {
-    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, .[]);
+    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, .[], .[]);
 
     if sql.problem {
         location := ifx sql.problem_node then node_location(sql.problem_node) else node_location(orm_root(where));
@@ -941,8 +1309,16 @@ orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set
 
     append(*builder, "];\n");
 
+    // The related structs, named where the call was written.
+    for sql.relation_names print_to_builder(*builder, "Orm_R% :: %;\n", it_index, orm_insert_text(it));
+
+    append(*builder, "Orm_Relations :: Type.[");
+    for sql.relation_names print_to_builder(*builder, "%Orm_R%", ifx it_index then ", " else "", it_index);
+
+    append(*builder, "];\n");
+
     kind_text := tprint(".%", kind);
-    sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, %, Orm_Types)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset, jai_string(from_sql));
+    sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, %, Orm_Types, Orm_Relations)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset, jai_string(from_sql));
 
     if kind == .SELECT print_to_builder(*builder, "orm_result, orm_error := query_as(T, db, %", sql_text);
     else print_to_builder(*builder, "orm_result, orm_error := execute(db, %", sql_text);
@@ -967,8 +1343,16 @@ orm_argument :: (sql: *Orm_Sql, index: s64) -> string {
     return ifx wrap then tprint("%(%)", wrap, text) else text;
 }
 
-orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type) -> string {
-    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, types);
+orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type, relations: [] Type) -> string {
+    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, types, relations);
+
+    // Problems only the related structs reveal (an unknown field of `it.team`).
+    if sql.problem {
+        location := ifx sql.problem_node then node_location(sql.problem_node) else node_location(orm_root(where));
+        compiler_report(sql.problem, location);
+        return "";
+    }
+
     return builder_to_string(*sql.builder);
 }
 

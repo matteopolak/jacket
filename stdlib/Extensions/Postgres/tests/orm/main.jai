@@ -26,6 +26,7 @@ main :: () {
 
         test_select(db);
         test_json_and_sql(db);
+        test_relations(db);
         test_writes(db);
     });
 
@@ -139,6 +140,35 @@ test_json_and_sql :: (db: *Pg.Connection) {
     ids := ids_of(all);
 
     check(error.kind == .NONE && ids.count == 1 && ids[0] == 2, Pg.error_text(error));
+    Pg.free_rows(*users);
+}
+
+// Filters through a to-one relation, and loading both directions in one query each.
+test_relations :: (db: *Pg.Connection) {
+    owner := "a@example.com";
+
+    posts, error := Pg.select(db, Post, where = #code it.author.email == owner && it.author.settings.theme == "dark", order_by = #code it.id);
+    all_posts := Pg.fetch_all(*posts);
+
+    check(error.kind == .NONE && all_posts.count == 2 && all_posts[0].title == "hello", Pg.error_text(error));
+
+    authors:, error = Pg.load_one(db, all_posts, "author");
+
+    check(error.kind == .NONE && authors.items.count == 2 && !authors.items[0].null && authors.items[1].value.email == "a@example.com", Pg.error_text(error));
+    Pg.free_loaded(*authors);
+    Pg.free_rows(*posts);
+
+    users:, error = Pg.select(db, User, order_by = #code it.id);
+    all_users := Pg.fetch_all(*users);
+
+    // Alice twice: parents sharing a key share their items.
+    parents := User.[all_users[0], all_users[1], all_users[0]];
+    written:, error = Pg.load_many(db, parents, "posts");
+
+    check(error.kind == .NONE && written.items.count == 3, Pg.error_text(error));
+    check(written.items[0].count == 2 && written.items[1].count == 0 && written.items[2].count == 2, "post counts");
+    check(written.items[0][0].author_id == all_users[0].id && written.items[0][1].title != "", "post rows");
+    Pg.free_loaded(*written);
     Pg.free_rows(*users);
 }
 
