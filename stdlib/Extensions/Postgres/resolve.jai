@@ -31,9 +31,13 @@ Prepared :: struct {
 
 prepared_memo: [..] *Prepared;
 
+// The managed server's binaries and cluster are ready (see `prepare_managed`).
+managed_prepared: bool;
+
 // Where to look, from the environment and the project: see `typed_settings`.
 Typed_Settings :: struct {
     url: string; // JACKET_DATABASE_URL, else DATABASE_URL
+    managed: bool; // JACKET_PG_MANAGED, no URL, not offline: describe in the managed server
     search_path: string; // JACKET_PG_SEARCH_PATH
     offline: bool; // JACKET_PG_OFFLINE: never connect
     recording: bool; // JACKET_PG_CHECK: note every statement compiled
@@ -116,6 +120,10 @@ typed_settings :: (file: string) -> Typed_Settings {
     offline := environment_variable("JACKET_PG_OFFLINE");
 
     settings.offline = offline != "" && offline != "0";
+
+    managed := environment_variable("JACKET_PG_MANAGED");
+
+    settings.managed = !settings.url && !settings.offline && managed != "" && managed != "0";
     settings.recording = environment_variable("JACKET_PG_CHECK") != "";
     settings.root = find_project_root(file);
     settings.migrations, settings.schema_hash = migrations_of(settings.root);
@@ -239,7 +247,7 @@ ask_service :: (request: Describe_Request) -> Service.Status, string {
 // Describes the statement from scratch, trusting nothing cached. The answer is an entry, or has
 // reported an error.
 describe_with_service :: (prepared: *Prepared, settings: Typed_Settings, sql: string) -> Query_Entry, ok: bool, unavailable: string {
-    request := Describe_Request.{ op = "describe", url = settings.url, search_path = settings.search_path, sql = prepared.rewrite.sql, schema_hash = settings.schema_hash, migrations = settings.migrations };
+    request := Describe_Request.{ op = "describe", url = settings.url, managed = settings.managed, search_path = settings.search_path, sql = prepared.rewrite.sql, schema_hash = settings.schema_hash, migrations = settings.migrations };
     status, reply := ask_service(request);
 
     if status == .UNAVAILABLE return .{}, false, reply;
@@ -444,9 +452,28 @@ prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
         return prepared;
     }
 
-    if !settings.url {
-        Service.unknown(tprint("the query at %:%:% has no cached description: set DATABASE_URL (or JACKET_DATABASE_URL), or run the pg tool's prepare", where.fully_pathed_filename, where.line_number, where.character_number));
+    if !settings.url && !settings.managed {
+        Service.unknown(tprint("the query at %:%:% has no cached description: set DATABASE_URL (or JACKET_DATABASE_URL), set JACKET_PG_MANAGED=1 to describe it in a managed server, or run the pg tool's prepare", where.fully_pathed_filename, where.line_number, where.character_number));
         return prepared;
+    }
+
+    // A managed server starts empty: the schema can only come from the migrations.
+    if settings.managed && !settings.migrations {
+        report_at(sql_node, tprint("JACKET_PG_MANAGED is set, but there are no migrations to build the schema from: add SQL files to %/db/migrations, or set DATABASE_URL", settings.root));
+        return prepared;
+    }
+
+    // The first start downloads and unpacks the server, which takes longer than a service request
+    // may (see docs/extensions/service.md): do that here, and leave only the start to the service.
+    if settings.managed && !managed_prepared {
+        problem := prepare_managed(managed_settings_from_environment());
+
+        if problem {
+            Service.unknown(tprint("cannot prepare the managed PostgreSQL server: %", problem));
+            return prepared;
+        }
+
+        managed_prepared = true;
     }
 
     entry, ok, unavailable := describe_with_service(prepared, settings, sql);
