@@ -2,6 +2,7 @@
 // committed cache (`db/queries/<statement id>.json`).
 //
 //     {
+//       "format": 1,                     ENTRY_FORMAT; an entry of another format is not read
 //       "id": "9f2c...",                 full SHA-256 of "sql"; the file name is its first 16 digits
 //       "sql": "select ... where u.id = $1",
 //       "schema_hash": "...",            of the migrations that produced the description
@@ -36,6 +37,12 @@ json_as_bool :: Json_Module.json_as_bool;
 
 #scope_export
 
+// The version of what an entry holds and how its statement is rewritten. Raise it when the
+// description changes shape, or when the placeholder rewrite, the alias syntax or anything else
+// that decides what a statement means does: every entry written before is then a miss, described
+// again when a database is there (or by the pg tool's prepare), and an error offline.
+ENTRY_FORMAT :: 1;
+
 Forced_Nullability :: enum u8 {
     NONE;
     NON_NULL; // the alias said `name!`
@@ -64,6 +71,7 @@ Query_Dep :: struct {
 }
 
 Query_Entry :: struct {
+    format: s64; // ENTRY_FORMAT when written by this compiler; 0 when the file has none
     sql: string;
     schema_hash: string;
     server_major: s64;
@@ -77,6 +85,7 @@ Query_Entry :: struct {
 entry_to_json :: (entry: Query_Entry) -> Json_Value {
     object := json_object();
 
+    json_set(*object, "format", json_int(entry.format));
     json_set(*object, "id", json_string(statement_digest_hex(entry.sql)));
     json_set(*object, "sql", json_string(entry.sql));
     json_set(*object, "schema_hash", json_string(entry.schema_hash));
@@ -124,6 +133,9 @@ entry_to_json :: (entry: Query_Entry) -> Json_Value {
 entry_from_json :: (document: *Json_Value) -> Query_Entry, bool {
     entry: Query_Entry;
     if document.kind != .OBJECT return entry, false;
+
+    format := json_get(document, "format");
+    if format entry.format, _ = json_as_s64(format);
 
     entry.sql = copy_string(string_member(document, "sql"));
     entry.schema_hash = copy_string(string_member(document, "schema_hash"));

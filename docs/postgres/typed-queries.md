@@ -75,7 +75,7 @@ jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare|check [--root D
 
 - Placeholder syntax: `sql_scan.jai` (keep `rewrite_placeholders` and `source_offset_of` in step).
 - Nullability rules: `describe.jai` (`known_non_null`, `refine_from_body`, plan walk).
-- Cache format: `entry.jai`; bump the entry version when it changes.
+- Cache format: `entry.jai`. Every entry records `"format": ENTRY_FORMAT`. `read_cache_entry` treats an entry of any other format (or none) as a miss, so a compiler that changes the description, the `%` rewrite or the alias syntax raises `ENTRY_FORMAT` and old files are described again: online they are rewritten, offline the build fails with the usual "no up-to-date description" error. The pg tool still reads old files (it only needs their SQL), so `prepare` upgrades them and `check` reports them as differing.
 - Schema database naming, build timing and pruning: `schema_databases.jai`. The service (`describe_service.jai`) keeps one connection per database.
 - Statement cache and `plan`/`verify_statements`: `statements.jai`; `expected_columns` (shape.jai) supplies the compiled column names for the check. A named `plan = ` argument is not a placeholder value: `value_arguments` (shape.jai) filters it out of the argument count.
 - Macros: `typed.jai`. They are `#expand` with `@Interpolates("sql")`, so inline `%name` holes work.

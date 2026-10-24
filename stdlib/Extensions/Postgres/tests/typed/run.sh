@@ -38,6 +38,17 @@ rm -f "$work/queries"
 JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/queries" || fail "offline build"
 [ "$("$work/queries")" = ok ] || fail "offline queries"
 
+# 2b. An entry written by another format is a miss: an error offline, described again online.
+grep -q '"format": 1' "$JACKET_PG_ROOT"/db/queries/*.json || fail "entries do not record their format"
+for entry in "$JACKET_PG_ROOT"/db/queries/*.json; do
+    sed 's/"format": 1/"format": 0/' "$entry" > "$entry.tmp" && mv "$entry.tmp" "$entry"
+done
+if JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/old_format" > "$work/out" 2>&1; then fail "entries of another format were used"; fi
+grep -q "JACKET_PG_OFFLINE" "$work/out" || fail "the old format error does not name the setting"
+"$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build over entries of another format"
+[ "$("$work/queries")" = ok ] || fail "queries over entries of another format"
+[ "$(grep -L '"format": 1' "$JACKET_PG_ROOT"/db/queries/*.json | wc -l)" -eq 0 ] || fail "entries of another format were not rewritten"
+
 # 3. Offline with an empty cache is an error naming the query.
 rm -rf "$JACKET_PG_ROOT/db"
 if JACKET_PG_OFFLINE=1 DATABASE_URL='' "$jaic" "$here/queries.jai" -exe "$work/none" > "$work/out" 2>&1; then fail "offline build without a cache succeeded"; fi
