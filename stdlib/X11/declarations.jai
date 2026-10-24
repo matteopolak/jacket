@@ -111,7 +111,7 @@ _XExtData :: struct {
 }
 
 _XGC :: struct {
-    ext_data: XExtData;
+    ext_data: *XExtData;
     gid: GContext;
 }
 
@@ -3169,7 +3169,7 @@ XServerVendor :: (unk0: *Display) -> *u8 #foreign libX11;
 
 XSetAccessControl :: (unk0: *Display, unk1: s32) -> s32 #foreign libX11;
 
-XSetAfterFunction :: (unk0: *Display, unk1: *Display, unk2: #type (a0: *Display) -> s32 #c_call) -> ((a0: *Display) -> s32 #c_call) #foreign libX11;
+XSetAfterFunction :: (unk0: *Display, unk1: #type (a0: *Display) -> s32 #c_call) -> ((a0: *Display) -> s32 #c_call) #foreign libX11;
 
 XSetArcMode :: (unk0: *Display, unk1: GC, unk2: s32) -> s32 #foreign libX11;
 
@@ -3321,7 +3321,7 @@ XSupportsLocale :: () -> s32 #foreign libX11;
 
 XSync :: (unk0: *Display, unk1: s32) -> s32 #foreign libX11;
 
-XSynchronize :: (unk0: *Display, unk1: *Display, unk2: s32) -> ((a0: *Display) -> s32 #c_call) #foreign libX11;
+XSynchronize :: (unk0: *Display, unk1: s32) -> ((a0: *Display) -> s32 #c_call) #foreign libX11;
 
 XTextExtents :: (unk0: *XFontStruct, unk1: *u8, unk2: s32, unk3: *s32, unk4: *s32, unk5: *s32, unk6: *XCharStruct) -> s32 #foreign libX11;
 

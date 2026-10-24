@@ -215084,7 +215084,7 @@
     },
     "X11": {
       "spec": "docs/specs/stdlib/modules/x11.md",
-      "spec_sha256": "17fa086c36bd64dd6e4967eb2ea8a3081681cc30ac808ecdfb1b7cc251265847",
+      "spec_sha256": "9ddc0b91a537e642f2e1db8ff81a6af4ede141d537909a76ab245e11438b9d61",
       "counts": {
         "declared": 1248,
         "implemented_manual": 14,
@@ -220293,14 +220293,14 @@
         },
         {
           "name": "XSynchronize",
-          "signature": "XSynchronize :: (unk0: *Display, unk1: *Display, unk2: s32) -> ((a0: *Display) -> s32 #c_call) #foreign libX11",
+          "signature": "XSynchronize :: (unk0: *Display, unk1: s32) -> ((a0: *Display) -> s32 #c_call) #foreign libX11",
           "condition": "",
           "spec_line": 746,
           "status": "declared"
         },
         {
           "name": "XSetAfterFunction",
-          "signature": "XSetAfterFunction :: (unk0: *Display, unk1: *Display, unk2: #type (a0: *Display) -> s32 #c_call) -> ((a0: *Display) -> s32 #c_call) #foreign libX11",
+          "signature": "XSetAfterFunction :: (unk0: *Display, unk1: #type (a0: *Display) -> s32 #c_call) -> ((a0: *Display) -> s32 #c_call) #foreign libX11",
           "condition": "",
           "spec_line": 747,
           "status": "declared"
