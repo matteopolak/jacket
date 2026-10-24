@@ -4,7 +4,7 @@
 #import "Basic";
 #import "String";
 #import "Extensions/Environment";
-#import "POSIX";
+Proc :: #import "Process";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
 
@@ -53,7 +53,7 @@ test_logic :: () {
 }
 
 test_real :: () {
-    root := tprint("/tmp/jacket-managed-test-%", cast(s64) getpid());
+    root := tprint("%/jacket-managed-test-%", get_working_directory(), to_nanoseconds(current_time_consensus()));
     settings: Pg.Managed_Settings;
     settings.cache_dir = tprint("%/cache", root);
     settings.data_dir = tprint("%/data", root);
@@ -96,7 +96,7 @@ test_real :: () {
 
     assert(bad != "");
 
-    run_command_quiet(tprint("rm -rf %", root));
+    remove_tree(root);
 }
 
 check_server :: (server: Pg.Managed_Server) {
@@ -116,6 +116,12 @@ check_server :: (server: Pg.Managed_Server) {
     assert(Pg.get(*result, 0, 1, string) == "off");
 }
 
-run_command_quiet :: (command: string) {
-    system(temp_c_string(command));
+remove_tree :: (path: string) {
+    #if OS == .WINDOWS {
+        native := copy_string(path,, temp);
+        for 0..native.count - 1 if native[it] == #char "/" native[it] = #char "\\";
+        Proc.run_command("cmd", "/c", "rmdir", "/s", "/q", native);
+    } else {
+        Proc.run_command("rm", "-rf", path);
+    }
 }
