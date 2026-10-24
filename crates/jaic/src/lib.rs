@@ -23,6 +23,7 @@ pub mod fxhash;
 pub mod ide;
 pub mod intern;
 pub mod interp;
+pub mod interpolate;
 pub mod ir;
 pub mod knobs;
 pub mod lexer;

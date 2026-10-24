@@ -60,6 +60,16 @@ pub struct IdeExpansion {
     pub literal: Option<String>,
 }
 
+/// A string literal passed to a parameter of a procedure noted `@Interpolates`: its `%` holes
+/// are code. Recorded even when the literal has none, so an editor knows what a `%` typed there
+/// starts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IdeInterpolation {
+    /// The literal, quotes (or the `#string` header and terminator) included.
+    pub string: Span,
+    pub mode: crate::interpolate::Mode,
+}
+
 #[derive(Clone, Debug)]
 pub struct IdeCall {
     pub span: Span,

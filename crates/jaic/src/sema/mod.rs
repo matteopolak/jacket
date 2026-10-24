@@ -40,6 +40,7 @@ mod host_import;
 mod host_run;
 mod host_twin;
 mod interfaces;
+mod interpolate;
 mod lambda;
 pub(crate) mod lower;
 mod meta_state;

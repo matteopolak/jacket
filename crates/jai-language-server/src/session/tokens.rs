@@ -33,12 +33,35 @@ impl Session {
                 .push(parameter.scope);
             poly_declarations.insert(parameter.declaration);
         }
+        // Holes of `@Interpolates` literals are code: the `%` and parentheses are operators and the
+        // expression's tokens are classified like any others.
+        let sites = self.interpolation_sites(uri);
+        let hole_tokens: Vec<crate::analysis::Token> = sites
+            .iter()
+            .flat_map(|s| s.holes.iter().flat_map(|h| h.tokens.iter().copied()))
+            .collect();
         let format_calls = self.format_calls(uri);
-        let mut specs: Vec<Span> = format_calls
+        let mut cuts: Vec<(Span, SemanticTokenKind)> = format_calls
             .iter()
             .flat_map(|c| c.specs.iter().map(|s| s.span))
+            .filter(|s| {
+                !sites
+                    .iter()
+                    .any(|site| site.string.start <= s.start && s.end <= site.string.end)
+            })
+            .map(|s| (s, SemanticTokenKind::FormatSpecifier))
             .collect();
-        specs.sort_by_key(|s| s.start);
+        for hole in sites.iter().flat_map(|s| &s.holes) {
+            for edge in [
+                Span::new(hole.whole.start, hole.expr.start),
+                Span::new(hole.expr.end, hole.whole.end),
+            ] {
+                if edge.start < edge.end {
+                    cuts.push((edge, SemanticTokenKind::Operator));
+                }
+            }
+        }
+        cuts.sort_by_key(|c| c.0.start);
         // The first row declared at each token (a row per token would be a scan per token).
         let mut declared: HashMap<Span, usize> = HashMap::default();
         declared.reserve(analysis.rows.len());
@@ -47,7 +70,7 @@ impl Session {
         }
         // (span, kind, declaration, readonly, expand)
         let mut pieces: Vec<(Span, SemanticTokenKind, bool, bool, bool)> = Vec::new();
-        for token in &analysis.tokens {
+        for token in analysis.tokens.iter().chain(&hole_tokens) {
             let row = declared.get(&token.span).map(|&at| &analysis.rows[at]);
             let declaration = row.is_some();
             let readonly = row.is_some_and(|row| row.readonly);
@@ -59,11 +82,11 @@ impl Session {
                         .is_some_and(jaic::lexer::names_language) => {}
                 TokenKind::String => {
                     let mut at = token.span.start;
-                    let first = specs.partition_point(|s| s.start < token.span.start);
-                    for spec in specs[first..]
+                    let first = cuts.partition_point(|s| s.0.start < token.span.start);
+                    for &(spec, cut_kind) in cuts[first..]
                         .iter()
-                        .take_while(|s| s.start < token.span.end)
-                        .filter(|s| s.end <= token.span.end)
+                        .take_while(|s| s.0.start < token.span.end)
+                        .filter(|s| s.0.end <= token.span.end)
                     {
                         if spec.start > at {
                             pieces.push((
@@ -74,13 +97,7 @@ impl Session {
                                 false,
                             ));
                         }
-                        pieces.push((
-                            *spec,
-                            SemanticTokenKind::FormatSpecifier,
-                            false,
-                            false,
-                            false,
-                        ));
+                        pieces.push((spec, cut_kind, false, false, false));
                         at = spec.end;
                     }
                     if at < token.span.end {
@@ -152,6 +169,9 @@ impl Session {
                     pieces.push((token.span, kind, declaration, readonly || constant, expand));
                 }
             }
+        }
+        if !hole_tokens.is_empty() {
+            pieces.sort_by_key(|p| p.0.start);
         }
         // Code in the Jai code blocks of comments.
         let fences = Self::fence_tokens(text);

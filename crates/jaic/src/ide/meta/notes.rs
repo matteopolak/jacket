@@ -91,6 +91,23 @@ impl Compiler {
         );
     }
 
+    /// The literal at `string` was read for `@Interpolates` holes in `mode`.
+    pub(crate) fn ide_note_interpolation(&mut self, string: Span, mode: crate::interpolate::Mode) {
+        if !self.ide_wants_file(string.file) {
+            return;
+        }
+        let Some(ide) = self.ed.facts_mut() else {
+            return;
+        };
+        let fact = super::IdeInterpolation {
+            string,
+            mode,
+        };
+        if ide.interpolations.len() < MAX_CALLS && !ide.interpolations.contains(&fact) {
+            ide.interpolations.push(fact);
+        }
+    }
+
     /// A call at `span` resolved to `chosen` among `candidates`.
     pub(crate) fn ide_note_call(
         &mut self,

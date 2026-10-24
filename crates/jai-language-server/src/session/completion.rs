@@ -23,6 +23,10 @@ impl Session {
         byte: usize,
         context: &CursorContext,
     ) -> Option<Completions> {
+        if let Some(hole) = self.hole_cursor(uri, byte) {
+            let chain: Vec<&str> = hole.chain.iter().map(String::as_str).collect();
+            return self.names_at(uri, text, hole.at, &chain, hole.prefix);
+        }
         let (start, member) = if let CursorContext::Member(m) = context {
             (m.word.start as usize, Some(m))
         } else {
@@ -53,11 +57,29 @@ impl Session {
             ),
             None => (start, Vec::new()),
         };
-        // The program as last compiled knows everything before the expression being typed.
-        // Declarations below the cursor are where the compiled text had them; their docs are
-        // read from the document as it is now.
+        if let Some(found) = self.names_at(uri, text, at, &chain, prefix.clone()) {
+            return Some(found);
+        }
+        // Names a lookup from the scope cannot follow: a macro's parameter (checked where the
+        // macro expands), `context`, a member reached through `using`.
+        let m = member?;
+        self.complete_member_at(uri, text, byte, m.dot as usize, prefix, true)
+    }
+
+    /// The names visible at `at` of `text`, or the members of the chain of names that starts
+    /// there: from the program as last compiled, which knows everything before the expression
+    /// being typed. Declarations below the cursor are where the compiled text had them; their
+    /// docs are read from the document as it is now.
+    fn names_at(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        at: usize,
+        chain: &[&str],
+        prefix: String,
+    ) -> Option<Completions> {
         let ask = |a: &mut semantic::Analysis, path: &Path| {
-            let mut names = a.complete(path, at, &chain)?;
+            let mut names = a.complete(path, at, chain)?;
             // A receiver with no members may be a stand-in left by a failed attempt: what the
             // check recorded for the member name has the rest.
             if names.is_empty() && !chain.is_empty() {
@@ -70,13 +92,8 @@ impl Session {
         if let Some((names, files)) = self.with_compiled_before(uri, text, at, ask) {
             return Some((prefix, names, files));
         }
-        if let Some((names, files)) = self.with_semantic(uri, text, ask) {
-            return Some((prefix, names, files));
-        }
-        // Names a lookup from the scope cannot follow: a macro's parameter (checked where the
-        // macro expands), `context`, a member reached through `using`.
-        let m = member?;
-        self.complete_member_at(uri, text, byte, m.dot as usize, prefix, true)
+        let (names, files) = self.with_semantic(uri, text, ask)?;
+        Some((prefix, names, files))
     }
 
     /// Members for `.NAME` typed with `dot` the offset of the `.`: the text asked about holds a
@@ -147,7 +164,12 @@ impl Session {
         let lexed = Lexed::new(FileId(0), &doc.text);
         let context = ide_facts::cursor_context_in(&doc.text, byte as u32, &lexed);
         let mut list = self.completion_items(uri, byte, &context, &lexed)?;
-        let mut parameters = self.named_argument_completions(uri, byte);
+        let in_hole = self.hole_cursor(uri, byte).is_some();
+        let mut parameters = if in_hole {
+            Vec::new()
+        } else {
+            self.named_argument_completions(uri, byte)
+        };
         // In a call's arguments the callee's parameter names come first (see `rank`).
         for item in &mut parameters {
             item.sort_text = Some(format!("!{}", item.label));
@@ -253,7 +275,8 @@ impl Session {
                     .collect(),
             });
         }
-        if let Some(list) = self.path_completion(uri, &doc.text, context, byte) {
+        let in_hole = self.hole_cursor(uri, byte).is_some();
+        if !in_hole && let Some(list) = self.path_completion(uri, &doc.text, context, byte) {
             return Ok(list);
         }
         if let Some((prefix, names, files)) =
@@ -287,7 +310,7 @@ impl Session {
                 .find(|(_, path)| path.as_str() == uri.path())
                 .map(|(id, _)| *id);
             let declaration_start = enclosing_declaration_start(&doc.text, byte);
-            let fitting = if member {
+            let fitting = if member || in_hole {
                 None
             } else {
                 self.fitting_names(uri, &doc.text, byte - prefix.len())
@@ -343,7 +366,9 @@ impl Session {
                     }
                 }
             }
-            if !member {
+            if in_hole {
+                // Names a hole may use are the ones in scope; an import is no hole's business.
+            } else if !member {
                 incomplete |= self.add_auto_imports(uri, &doc.text, &prefix, &mut items);
             } else if self.snippet_support
                 && let CursorContext::Member(m) = context
