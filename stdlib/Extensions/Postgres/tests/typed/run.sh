@@ -119,6 +119,7 @@ grep -rqF 'select \"id\", \"email\" from \"public\".\"users\"' "$work/orm/db/que
 grep -rqF 'jsonb_each(\"settings\"::jsonb) as orm_j' "$work/orm/db/queries" || fail "orm each did not prune the settings document"
 grep -rqF 'as \"orm__author__email\"' "$work/orm/db/queries" || fail "orm each did not read the author in the same statement"
 grep -rqF '"select \"id\" from \"public\".\"users\" order by \"id\""' "$work/orm/db/queries" || fail "orm each read more than the key for a has-many loop"
+grep -rqF 'left join lateral (select coalesce(array_agg(orm_m0_rows.' "$work/orm/db/queries" || fail "orm each with strategy = .LATERAL did not read the posts in the same statement"
 
 # 9. Bad programs: the error is reported at the right place.
 python3 "$here/bad.py" "$jaic" "$work" || fail "bad programs"

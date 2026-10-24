@@ -74,18 +74,24 @@ insert_many :: (db: $D, values: [] $T) -> [] T, Pg_Error {
 //
 //     error: Pg.Pg_Error;
 //     for Pg.each(db, User, *error, where = #code it.score > min) print("%\n", it.email);   // select "id", "email" ...
-each :: (db: $D, $T: Type, error: *Pg_Error, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $call := #caller_code) -> Orm_Each(D, T, where, order_by, desc, limit, offset, from_sql, call) {
+each :: (db: $D, $T: Type, error: *Pg_Error, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $strategy := Orm_Strategy.PRELOAD, $call := #caller_code) -> Orm_Each(D, T, where, order_by, desc, limit, offset, from_sql, strategy, call) {
     if error error.* = .{};
     return .{ db = db, error = error };
 }
 
-Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, call: Code) {
+// How `Pg.each` loads a has-many relation its loop body reads (`for post: it.posts`).
+Orm_Strategy :: enum u8 {
+    PRELOAD; // a second query for every row's related rows, as `load_many` does
+    LATERAL; // one query: each related column comes back as an array from a lateral join
+}
+
+Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, strategy: Orm_Strategy, call: Code) {
     db: D;
     error: *Pg_Error;
 }
 
-for_expansion :: (q: *Orm_Each($D, $T, $where, $order_by, $desc, $limit, $offset, $from_sql, $call), body: Code, flags: For_Flags) #expand {
-    #insert #run orm_each_code(T, where, order_by, desc, limit, offset, from_sql, body);
+for_expansion :: (q: *Orm_Each($D, $T, $where, $order_by, $desc, $limit, $offset, $from_sql, $strategy, $call), body: Code, flags: For_Flags) #expand {
+    #insert #run orm_each_code(T, where, order_by, desc, limit, offset, from_sql, strategy, body);
 }
 
 // Stores `values` with one binary COPY and returns how many rows the server stored. Much faster
@@ -290,6 +296,8 @@ Orm_Sql :: struct {
     relation_types: [] Type;
     // Subqueries opened so far, for their aliases.
     subqueries: s64;
+    // `left join lateral ...` clauses for has-many relations a loop reads in one query.
+    joins: [..] string;
 }
 
 orm_fail :: (sql: *Orm_Sql, node: *Code_Node, message: string) {
@@ -1456,6 +1464,7 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
     sql.parameters.allocator = temp;
     sql.wraps.allocator = temp;
     sql.relation_names.allocator = temp;
+    sql.joins.allocator = temp;
     sql.parameter_types = types;
     sql.relation_types = relations;
 
@@ -1477,7 +1486,7 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
 
                 for split(columns, ",",, temp) {
                     entry := orm_read_entry(it);
-                    if entry.many continue; // loaded after the query
+                    if entry.many && !entry.lateral continue; // loaded after the query
 
                     if written append(*sql.builder, ", ");
 
@@ -1498,6 +1507,8 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
             } else {
                 print_to_builder(*sql.builder, " from %", table);
             }
+
+            for sql.joins print_to_builder(*sql.builder, " %", it);
 
         case .UPDATE;
             print_to_builder(*sql.builder, "update % set ", table);
@@ -1533,6 +1544,11 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
 // One selected column of `each`: a column, a json document cut down to the keys the loop reads
 // (`jsonb_each` keeps a key holding null apart from a missing one), or a related field.
 orm_read_column :: (sql: *Orm_Sql, entry: Orm_Read_Entry) {
+    if entry.lateral {
+        orm_lateral_columns(sql, entry.name);
+        return;
+    }
+
     if entry.relation {
         orm_related_column(sql, null, .[entry.relation, entry.name], false);
         print_to_builder(*sql.builder, " as %", quote_identifier(orm_relation_alias(entry)));
@@ -1722,8 +1738,10 @@ orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code
 // The body of `each`'s loop. `columns` (from `orm_read_columns`) names what the body reads; the
 // rows are read into `Orm_Partial` and copied into `it`, a `T` (or an `Orm_Item` that `using`s one
 // and adds the related structs the body reads).
-orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, body: Code) -> string {
+orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, strategy: Orm_Strategy, body: Code) -> string {
     columns := orm_read_columns(T, body);
+    if strategy == .LATERAL columns = replace(columns, "[]", "[*]",, temp);
+
     sql := orm_build(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql, .[], .[], columns);
 
     if sql.problem {
@@ -1744,6 +1762,8 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
     relations.allocator = temp;
     many: [..] int; // the entries of has-many relations
     many.allocator = temp;
+    preload: [..] int; // those loaded by a second query
+    preload.allocator = temp;
 
     // Declarations first: each pruned document's struct and each related field's type.
     for text, index: entries {
@@ -1753,6 +1773,7 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
             relation := orm_relation(T, entry.name);
             print_to_builder(*builder, "Orm_M% :: %;\n", index, orm_insert_text(relation.target));
             array_add(*many, index);
+            if !entry.lateral array_add(*preload, index);
         } else if entry.relation {
             relation_index := array_find_index(sql.relation_names, orm_relation_target_name(T, entry.relation));
             print_to_builder(*builder, "Orm_F% :: #run orm_member_type(Orm_R%, %);\n", index, relation_index, jai_string(entry.name));
@@ -1776,6 +1797,11 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
 
         for entries {
             entry := orm_read_entry(it);
+
+            if entry.lateral {
+                print_to_builder(*builder, "    #insert #run orm_lateral_fields(Orm_M%1, %2, \"Orm_M%1\");\n", it_index, jai_string(entry.name));
+                continue;
+            }
 
             if entry.many continue;
 
@@ -1813,6 +1839,11 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
     for entries {
         entry := orm_read_entry(it);
         alias := orm_relation_alias(entry);
+
+        if entry.lateral {
+            print_to_builder(*copies, "        #insert #run orm_lateral_copies(Orm_M%1, %2, \"Orm_M%1\");\n", it_index, jai_string(entry.name));
+            continue;
+        }
 
         if entry.many continue;
 
@@ -1865,7 +1896,7 @@ if orm_error.kind != .NONE {
     orm_failed := false;
 JAI);
 
-    if many {
+    if preload {
         // Every row first, so each has-many relation loads in one query for all of them.
         append(*builder, "    orm_items := NewArray(orm_rows.result.row_count, Orm_Item);\n    defer array_free(orm_items);\n");
         append(*builder, "    for it_index: 0..orm_rows.result.row_count - 1 {\n");
@@ -1873,7 +1904,7 @@ JAI);
         append(*builder, "        orm_items[it_index] = it;\n    }\n");
         append(*builder, "    orm_parents := NewArray(orm_items.count, T,, temp);\n    for orm_items orm_parents[it_index] = it.orm_row;\n");
 
-        for many {
+        for preload {
             name := orm_read_entry(entries[it]).name;
             print_to_builder(*builder, "    orm_many_%1: Loaded_Many(Orm_M%2);\n    defer free_loaded(*orm_many_%1);\n", it, it);
             print_to_builder(*builder, "    if !orm_failed {\n        orm_load_error: Pg_Error;\n        orm_many_%1, orm_load_error = orm_load_many_as(q.db, orm_parents, %2, Orm_M%1);\n", it, jai_string(name));
@@ -1881,7 +1912,7 @@ JAI);
         }
 
         append(*builder, "    if !orm_failed for `it_index: 0..orm_items.count - 1 {\n        `it := orm_items[it_index];\n");
-        for many print_to_builder(*builder, "        it.% = orm_many_%.items[it_index];\n", orm_read_entry(entries[it]).name, it);
+        for preload print_to_builder(*builder, "        it.% = orm_many_%.items[it_index];\n", orm_read_entry(entries[it]).name, it);
     } else {
         append(*builder, "    for `it_index: 0..orm_rows.result.row_count - 1 {\n");
         append(*builder, builder_to_string(*read));
@@ -1904,6 +1935,7 @@ Orm_Read_Entry :: struct {
     relation: string;
     pruned: bool;
     many: bool; // `relation[]`: a has-many relation the body reads whole
+    lateral: bool; // `relation[*]`: the same, read in the statement through a lateral join
     fields: [] string;
 }
 
@@ -1915,6 +1947,10 @@ orm_read_entry :: (text: string) -> Orm_Read_Entry {
     if ends_with(text, "[]") {
         entry.name = slice(text, 0, text.count - 2);
         entry.many = true;
+    } else if ends_with(text, "[*]") {
+        entry.name = slice(text, 0, text.count - 3);
+        entry.many = true;
+        entry.lateral = true;
     } else if dot >= 0 {
         entry.relation = slice(text, 0, dot);
         entry.name = advance(text, dot + 1);
@@ -1929,6 +1965,100 @@ orm_read_entry :: (text: string) -> Orm_Read_Entry {
     }
 
     return entry;
+}
+
+// A has-many relation read in the statement: a lateral join gathers each column of the related
+// rows into an array (`array_agg` keeps the columns' orders the same), and the select list reads
+// the arrays as `orm__<relation>__<column>`. No related rows give empty arrays.
+orm_lateral_columns :: (sql: *Orm_Sql, name: string) {
+    relation, problem := orm_relation(sql.T, name);
+
+    if problem || relation.kind != .HAS_MANY {
+        orm_fail(sql, null, ifx problem then problem else tprint("%.% is not a has-many relation", sql.T, name));
+        return;
+    }
+
+    index := array_find_index(sql.relation_names, relation.target);
+
+    if index < 0 {
+        array_add(*sql.relation_names, relation.target);
+        index = sql.relation_names.count - 1;
+    }
+
+    // The first pass does not know the related struct yet; the text it writes is not used.
+    if index >= sql.relation_types.count {
+        append(*sql.builder, "null");
+        return;
+    }
+
+    target := sql.relation_types[index];
+    table, table_problem := orm_table(target);
+
+    if table_problem {
+        orm_fail(sql, null, table_problem);
+        return;
+    }
+
+    alias := tprint("orm_m%", sql.joins.count);
+    join: String_Builder;
+    join.allocator = temp;
+
+    append(*join, "left join lateral (select ");
+
+    for orm_columns(target) {
+        column := quote_identifier(it.name);
+
+        if it_index {
+            append(*sql.builder, ", ");
+            append(*join, ", ");
+        }
+
+        // Named apart from the table's own columns, which the statement reads unqualified. `!`:
+        // the describe step cannot see through the join that coalesce never gives null.
+        joined := quote_identifier(tprint("orm__%__%", name, it.name));
+
+        print_to_builder(*sql.builder, "%.% as %", alias, joined, quote_identifier(tprint("orm__%__%!", name, it.name)));
+        print_to_builder(*join, "coalesce(array_agg(%_rows.%), '{}') as %", alias, column, joined);
+    }
+
+    print_to_builder(*join, " from % as %_rows where ", table, alias);
+
+    for relation.target_columns {
+        if it_index append(*join, " and ");
+        print_to_builder(*join, "%_rows.% = %.%", alias, quote_identifier(it), sql.outer, quote_identifier(relation.own_columns[it_index]));
+    }
+
+    print_to_builder(*join, ") as % on true", alias);
+    array_add(*sql.joins, builder_to_string(*join));
+}
+
+// The fields of `Orm_Partial` holding a lateral has-many relation's arrays, one per column.
+orm_lateral_fields :: ($Target: Type, name: string, type_name: string) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    for orm_columns(Target) print_to_builder(*builder, "orm__%1__%2: [] type_of(%3.%2);\n", name, it.name, type_name);
+
+    return builder_to_string(*builder);
+}
+
+// Rebuilds a lateral has-many relation's rows from its arrays, into `it.<name>`; they are freed
+// when the loop moves on.
+orm_lateral_copies :: ($Target: Type, name: string, type_name: string) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+    columns := orm_columns(Target);
+
+    if !columns.count return "";
+
+    print_to_builder(*builder, "it.%1 = NewArray(orm_partial.orm__%1__%2.count, %3);\n", name, columns[0].name, type_name);
+    print_to_builder(*builder, "defer array_free(it.%);\n", name);
+    print_to_builder(*builder, "for * it.% {\n", name);
+    for columns print_to_builder(*builder, "    it.%2 = orm_partial.orm__%1__%2[it_index];\n", name, it.name);
+
+    append(*builder, "}\n");
+
+    return builder_to_string(*builder);
 }
 
 orm_relation_alias :: (entry: Orm_Read_Entry) -> string {
