@@ -125,7 +125,7 @@ poll_timeout :: (fds: [] P.pollfd, timeout: s64) -> s32 {
         if timeout >= 0 {
             now, ok := clock_milliseconds();
             if !ok return -1;
-            interval = cast(s32) min(max(cast(s64) 0, deadline - now), cast(s64) 0x7fffffff);
+            interval = cast(s32) clamp(deadline - now, cast(s64) 0, cast(s64) 0x7fffffff);
         }
 
         result := P.poll(fds.data, cast(P.nfds_t) fds.count, interval);

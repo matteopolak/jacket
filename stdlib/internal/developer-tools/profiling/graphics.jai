@@ -223,7 +223,7 @@ profile_graph_last_tick: s64;
 profile_graph_size: float;
 
 profile_advance_scale :: (scale: *Graph_Scaling, dt: float64) {
-    target := cast(float) max(cast(s64) 0, min(scale.target, cast(s64) Graph_Scaling.SCALE_MAX));
+    target := cast(float) clamp(scale.target, cast(s64) 0, cast(s64) Graph_Scaling.SCALE_MAX);
     gap := target - scale.current;
 
     if gap == 0 scale.ease = 0;
@@ -243,7 +243,7 @@ profile_advance_scale :: (scale: *Graph_Scaling, dt: float64) {
 }
 
 profile_whiten :: (color: Vector4, amount: float) -> Vector4 {
-    factor := min(cast(float) 1, max(cast(float) 0, amount));
+    factor := clamp(amount, cast(float) 0, cast(float) 1);
     return .{ color.x + (1 - color.x) * factor, color.y + (1 - color.y) * factor, color.z + (1 - color.z) * factor, color.w };
 }
 

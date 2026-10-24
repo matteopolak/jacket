@@ -51,7 +51,7 @@ propagate_to_zone :: (c: *Zone_Profiling_Data) {
     row.self_time += 1000 * profile_history_value(*tracker.self_time);
     row.hier_time += 1000 * profile_history_value(*tracker.hierarchical_time);
     row.calls += profile_history_value(*tracker.entry_count);
-    row.heat = max(row.heat, compute_heat(tracker.self_time.variances[min(max(slot, cast(s64) 0), cast(s64) NUM_SMOOTHING_SLOTS - 1)], get_value(*tracker.self_time)));
+    row.heat = max(row.heat, compute_heat(tracker.self_time.variances[clamp(slot, cast(s64) 0, cast(s64) NUM_SMOOTHING_SLOTS - 1)], get_value(*tracker.self_time)));
 }
 
 propagate_expanded :: (c: *Zone_Profiling_Data) {
@@ -174,7 +174,7 @@ move_cursor :: (num: s64) {
 }
 
 set_frame :: (num: s64) {
-    display_frame = max(cast(s64) 0, min(num, cast(s64) NUM_FRAME_SLOTS - 1));
+    display_frame = clamp(num, cast(s64) 0, cast(s64) NUM_FRAME_SLOTS - 1);
 }
 
 move_frame :: (delta: s64) {

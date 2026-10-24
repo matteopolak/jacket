@@ -87,9 +87,7 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
 
 #if OS == .LINUX || OS == .MACOS {
     pool_lock :: () {
-        while true {
-            if compare_and_swap(*file_pool_lock, cast(s32) 0, cast(s32) 1) break;
-
+        while !compare_and_swap(*file_pool_lock, cast(s32) 0, cast(s32) 1) {
             sleep_milliseconds(0);
         }
     }

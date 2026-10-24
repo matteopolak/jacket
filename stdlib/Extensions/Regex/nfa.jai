@@ -313,9 +313,7 @@ add_thread :: (vm: *Pike, list: *Threads, pc: u32, pos: int, slots_in: [] int) {
 
         at := frame.pc;
 
-        while true {
-            if contains(list, at) break;
-
+        while !contains(list, at) {
             list.sparse[at] = cast(u32) list.count;
             list.dense[list.count] = at;
             list.count += 1;

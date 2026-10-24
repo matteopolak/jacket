@@ -274,9 +274,7 @@
         handles[0] = state.ring_event;
         handles[1] = state.stop_event;
 
-        while true {
-            if win_wait_for_many(2, handles.data, 0, INFINITE) != WAIT_OBJECT_0 break;
-
+        while win_wait_for_many(2, handles.data, 0, INFINITE) == WAIT_OBJECT_0 {
             iocp_post(state.port, KEY_RING);
         }
 

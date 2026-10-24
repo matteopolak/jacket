@@ -311,7 +311,7 @@ extended_to_float64 :: (pointer: *void) -> float64 {
     result := cast(float64) significand;
 
     while scale != 0 {
-        step := max(-1000, min(1000, scale));
+        step := clamp(scale, -1000, 1000);
         factor_bits := cast(u64) (step + 1023) << 52;
 
         result *= (cast(*float64) *factor_bits).*;
