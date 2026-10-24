@@ -389,6 +389,7 @@ Tests (`stdlib/Extensions/Postgres/tests`):
   compares the client's message trace with libpq's `.trace` files, line for line
   ([Conformance](../postgres/conformance.md)).
 - `offline.jai` needs no server: URLs, SQLSTATEs, UUIDs, calendar arithmetic, numerics.
+- `fake_server.jai` needs no server either: a scripted server on a local socket answers one query per connection with a valid reply (every column type decoded and checked), the same with an unsolicited notice, notification and parameter change, the reply cut at every byte, and 400 seeded mutations (flipped bits, edge lengths, cuts, duplicated runs). A broken reply must give an error, never a crash or a hang. Raise `MUTATIONS` and change the seed to search harder.
 - `server.jai` covers:
   - each auth method and its failures;
   - TLS with SCRAM-PLUS, verify-full against the Tls fixtures' CA, and direct TLS;
