@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+from build_developer_bindings import llvm_prefix
 from driven_sources import driven
 from dev_common import JAIFMT, ROOT
 
@@ -27,7 +28,7 @@ def invoke(command, *, code=0, output=None, diagnostic=None):
 def main():
     if platform.system() not in ("Darwin", "Linux"):
         raise RuntimeError("POSIX Debug lifecycle fixture requires a supported native host")
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     invoke([prefix / "bin/clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", *flags,

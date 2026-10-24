@@ -2,15 +2,15 @@
 """Original host effects and official SDK object-format evidence for owned APIs."""
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import subprocess
 import build_generator_platform
+from build_developer_bindings import llvm_prefix
 from dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env
 
 ENV = stdlib_env(TMPDIR=str(ROOT / "target"))
-PREFIX = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+PREFIX = llvm_prefix()
 
 
 def run(command, expected=None, env=None):
