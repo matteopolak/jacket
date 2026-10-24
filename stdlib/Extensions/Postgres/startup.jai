@@ -27,6 +27,12 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
         return make_error(.CONFIG, "startup parameters cannot hold zero bytes");
     }
 
+    for config.parameters {
+        if !it.name || contains_zero(it.name) || contains_zero(it.value) {
+            return make_error(.CONFIG, "startup parameter \"%\" needs a name and no zero bytes", it.name);
+        }
+    }
+
     c.host = copy_string(config.host);
     c.port = config.port;
     c.ssl_direct = config.ssl_direct;
@@ -49,12 +55,25 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
         put_cstring(*c.out, config.application_name);
     }
 
-    put_cstring(*c.out, "client_encoding");
-    put_cstring(*c.out, "UTF8");
-    put_cstring(*c.out, "DateStyle");
-    put_cstring(*c.out, "ISO");
-    put_cstring(*c.out, "IntervalStyle");
-    put_cstring(*c.out, "postgres");
+    DEFAULTS :: Startup_Parameter.[
+        .{ "client_encoding", "UTF8" },
+        .{ "DateStyle", "ISO" },
+        .{ "IntervalStyle", "postgres" },
+    ];
+
+    for default: DEFAULTS {
+        replaced := false;
+        for config.parameters if equal_nocase(it.name, default.name) replaced = true;
+        if replaced continue;
+
+        put_cstring(*c.out, default.name);
+        put_cstring(*c.out, default.value);
+    }
+
+    for config.parameters {
+        put_cstring(*c.out, it.name);
+        put_cstring(*c.out, it.value);
+    }
 
     if config.options {
         put_cstring(*c.out, "options");

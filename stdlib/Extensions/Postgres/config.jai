@@ -23,6 +23,10 @@ Config :: struct {
     database: string; // empty: the user name
     application_name := "jai";
     options: string; // sent as the `options` startup parameter: "-c search_path=app"
+    // More startup parameters, or replacements for the client's own (`client_encoding`,
+    // `DateStyle`, `IntervalStyle`), matched by name without regard to case. Text-format dates,
+    // times and intervals only decode with DateStyle ISO and IntervalStyle postgres.
+    parameters: [] Startup_Parameter;
 
     ssl_mode := Ssl_Mode.PREFER;
     // Start TLS at once, with ALPN `postgresql`, instead of asking first (PostgreSQL 17 and
@@ -42,6 +46,11 @@ Config :: struct {
     allow_cleartext_password := false;
 
     owned: bool; // set by `parse_url`: the strings belong to the config (`free_config`)
+}
+
+Startup_Parameter :: struct {
+    name: string;
+    value: string;
 }
 
 // `postgres://user:password@host:port/database?sslmode=verify-full&application_name=api`.
@@ -260,6 +269,11 @@ copy_config :: (config: Config) -> Config {
     copy.application_name = copy_string(config.application_name);
     copy.options = copy_string(config.options);
     copy.ssl_root_cert_pem = copy_string(config.ssl_root_cert_pem);
+    copy.parameters = array_copy(config.parameters);
+    for *copy.parameters {
+        it.name = copy_string(it.name);
+        it.value = copy_string(it.value);
+    }
 
     return copy;
 }
@@ -274,6 +288,13 @@ free_config :: (config: *Config) {
     free(config.application_name);
     free(config.options);
     free(config.ssl_root_cert_pem);
+
+    for config.parameters {
+        free(it.name);
+        free(it.value);
+    }
+
+    array_free(config.parameters);
     config.* = .{};
 }
 
