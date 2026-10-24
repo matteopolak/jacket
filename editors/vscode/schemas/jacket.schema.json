@@ -195,6 +195,16 @@
               "default": "warn",
               "markdownDescription": "comparing a bool with `true` or `false` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#bool_comparison)"
             },
+            "bool_to_int_with_if": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "`ifx c then 1 else 0`, a `bool` turned into an integer with a branch (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#bool_to_int_with_if)"
+            },
             "broken_doc_link": {
               "type": "string",
               "enum": [

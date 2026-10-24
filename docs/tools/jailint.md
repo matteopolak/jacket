@@ -92,6 +92,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `banner_comment` | style | warn | yes | a comment that is only a line of `-`, `=` or `*` fencing off a section |
 | `bitwise_precedence` | suspicious | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | complexity | warn | yes | `x == true`, `x != false`, `false == x` |
+| `bool_to_int_with_if` | pedantic | allow | editor | `ifx flag then 1 else 0`, `if flag n = 1; else n = 0;`: a `bool` converted to an integer by a branch rather than `cast(int) flag` |
 | `broken_doc_link` | style | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
 | `cognitive_complexity` | pedantic | allow | no | a procedure whose branching, weighted by how deeply it nests, scores above `max_complexity` (default 25) |
 | `constant_condition` | suspicious | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
@@ -162,6 +163,8 @@ A comment of three or more of `-=*#~_` and nothing else, line or block (`// ----
 Jai gives all bitwise and shift operators one level above `*`, grouped left to right, so `1 << n - 1` is `(1 << n) - 1`. The fix adds the parentheses Jai already implies; move them if the C reading was meant.
 ### bool_comparison
 Only when the other side is a non-constant `bool`.
+### bool_to_int_with_if
+Off by default, since many read the `ifx` more easily than the cast. A `bool` condition and an integer result, with the literals `1` and `0` (`0` and `1` gives `cast(int) !flag`); the `if`/`else` form needs both branches to assign the same side-effect-free target. The editor offers the cast; `--fix` leaves it.
 ### broken_doc_link
 Only comments directly above a declaration (or trailing a field or parameter) are read, and links resolve like the language server's. Whether bracketed text counts as a link is decided by `jaic::docs` (see [doc comments](../compiler/doc-comments.md)): `[x]`, `[TODO]`, `a[i]`, plain lowercase words and URL targets are not. A single close misspelling is offered as a quick fix. `// jailint: allow(broken_doc_link)` inside the comment silences it.
 ### cognitive_complexity

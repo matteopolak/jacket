@@ -18,6 +18,7 @@
 - `jailint` has an opt-in `identical_case_bodies` lint for `switch` cases that do the same thing and could list their values together.
 - `jailint` suggests an `if` for a `switch` with a single case (`single_case_switch`).
 - `jailint` reports a `continue` that is the last thing a loop does (`needless_continue`).
+- `jailint` has an opt-in `bool_to_int_with_if` lint for `ifx c then 1 else 0`, which `cast(int) c` writes without a branch.
 
 ### Improved
 

@@ -1,0 +1,62 @@
+warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
+  --> tests/lint/bool_to_int_with_if/bad.jai:12:10
+   |
+12 |     a := ifx ready then 1 else 0;
+   |          ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `cast(s64) ready`
+   |
+12 ~     a := cast(s64) ready;
+   |
+
+warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
+  --> tests/lint/bool_to_int_with_if/bad.jai:13:10
+   |
+13 |     b := ifx count > 3 then 0 else 1;
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `cast(s64) (count <= 3)`
+   |
+13 ~     b := cast(s64) (count <= 3);
+   |
+
+warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
+  --> tests/lint/bool_to_int_with_if/bad.jai:14:17
+   |
+14 |     small: u8 = ifx ready then 1 else 0;
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write `cast(u8) ready`
+   |
+14 ~     small: u8 = cast(u8) ready;
+   |
+
+warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
+  --> tests/lint/bool_to_int_with_if/bad.jai:16:5
+   |
+16 |     if ready n = 1;
+   |     ^^^^^^^^^^^^^^^
+   |
+help: write `cast(s64) ready`
+   |
+16 -     if ready n = 1;
+17 -     else n = 0;
+16 +     n = cast(s64) ready;
+   |
+
+warning[bool_to_int_with_if]: a `bool` is turned into an integer with a branch
+  --> tests/lint/bool_to_int_with_if/bad.jai:19:5
+   |
+19 |     if count > 2 {
+   |     ^^^^^^^^^^^^^^
+   |
+help: write `cast(s64) (count <= 2)`
+   |
+19 -     if count > 2 {
+20 -         c.hits = 0;
+21 -     } else {
+22 -         c.hits = 1;
+23 -     }
+19 +     c.hits = cast(s64) (count <= 2);
+   |
+

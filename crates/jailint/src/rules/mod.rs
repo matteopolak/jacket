@@ -14,6 +14,7 @@ mod assert_constant;
 mod banner_comment;
 mod bitwise_precedence;
 mod bool_comparison;
+mod bool_to_int_with_if;
 pub(crate) mod broken_doc_link;
 mod cognitive_complexity;
 mod constant_condition;
@@ -130,6 +131,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "comparing a bool with `true` or `false`",
         check: bool_comparison::check,
+    },
+    RuleInfo {
+        name: "bool_to_int_with_if",
+        category: Category::Pedantic,
+        summary: "`ifx c then 1 else 0`, a `bool` turned into an integer with a branch",
+        check: bool_to_int_with_if::check,
     },
     RuleInfo {
         name: "broken_doc_link",
