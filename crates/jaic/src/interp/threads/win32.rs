@@ -133,6 +133,55 @@ pub(super) fn native_thread_id(scheduler_id: usize) -> u32 {
 }
 
 #[cfg(windows)]
+#[link(name = "user32")]
+unsafe extern "system" {
+    fn EnumThreadWindows(
+        thread: u32,
+        callback: unsafe extern "system" fn(usize, isize) -> i32,
+        parameter: isize,
+    ) -> i32;
+
+    fn EnumChildWindows(
+        parent: usize,
+        callback: unsafe extern "system" fn(usize, isize) -> i32,
+        parameter: isize,
+    ) -> i32;
+
+    fn SetWindowLongPtrW(window: usize, index: i32, value: isize) -> isize;
+    fn DefWindowProcW(window: usize, message: u32, wparam: usize, lparam: isize) -> isize;
+}
+
+/// Give the windows the calling thread owns to Windows' default handling.
+///
+/// A program that returns from `main` with a window open leaves it to Windows, which sends the
+/// thread's windows their closing messages when the thread ends. Their procedures are
+/// interpreted ones, and by then the interpreter is gone, so the call would fail. The program
+/// is finished and its handlers cannot run any more, so the windows are handed to
+/// `DefWindowProcW` (as when a native program exits without closing them).
+#[cfg(windows)]
+pub(in crate::interp) fn release_own_windows() {
+    const GWLP_WNDPROC: i32 = -4;
+    unsafe extern "system" fn collect(window: usize, windows: isize) -> i32 {
+        // SAFETY: `windows` is the address of the vector `release_own_windows` passes below.
+        unsafe { &mut *(windows as *mut Vec<usize>) }.push(window);
+        1
+    }
+    let mut windows: Vec<usize> = Vec::new();
+    // SAFETY: the callbacks only push onto the vector, which outlives the enumeration.
+    unsafe {
+        EnumThreadWindows(GetCurrentThreadId(), collect, (&raw mut windows) as isize);
+        let tops = windows.clone();
+        for top in tops {
+            EnumChildWindows(top, collect, (&raw mut windows) as isize);
+        }
+    }
+    for window in windows {
+        // SAFETY: a stale handle or a window of another thread only makes the call fail.
+        unsafe { SetWindowLongPtrW(window, GWLP_WNDPROC, DefWindowProcW as *const () as isize) };
+    }
+}
+
+#[cfg(windows)]
 #[link(name = "kernel32")]
 unsafe extern "system" {
     fn CreateEventW(attributes: usize, manual: i32, initial: i32, name: usize) -> usize;

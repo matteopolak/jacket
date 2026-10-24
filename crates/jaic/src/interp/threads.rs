@@ -37,6 +37,8 @@ mod worker;
 pub use self::sched::DEADLOCK_GRACE;
 pub(super) use self::sched::Shared;
 use self::sched::{Block, ETIMEDOUT, GThread, Worker};
+#[cfg(windows)]
+pub(super) use self::win32::release_own_windows;
 use super::{Interp, Program, Res, Trap, TrapKind, Ty};
 
 #[cfg(test)]

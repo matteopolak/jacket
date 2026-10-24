@@ -450,6 +450,8 @@ impl Interp {
         self.flush_profile();
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(shared) = self.shared.take() {
+            #[cfg(windows)]
+            threads::release_own_windows();
             shared.close();
             let gate: std::sync::Arc<dyn native::Gate> = shared;
             native::release_callbacks(&gate);
