@@ -340,6 +340,23 @@ impl<'a> Cx<'a> {
         (start, indent)
     }
 
+    /// `offset`, moved past the `@note` tokens that follow it with only whitespace between.
+    fn past_notes(&self, offset: usize) -> usize {
+        let mut end = offset;
+        let first = self
+            .tokens
+            .partition_point(|t| (t.span.start as usize) < offset);
+        for t in &self.tokens[first..] {
+            if !matches!(t.tok, Tok::Note(_))
+                || !self.text[end..t.span.start as usize].trim().is_empty()
+            {
+                break;
+            }
+            end = t.span.end as usize;
+        }
+        end
+    }
+
     /// The byte range of a whole statement line (with its newline) when the statement is alone
     /// on its lines, else just the statement (and the space before a trailing `//` comment,
     /// which stays).
@@ -352,12 +369,15 @@ impl<'a> Cx<'a> {
         let after = &self.text[end..line_end];
         // A `;` the statement's span stops before.
         let after_trim = after.trim_start();
-        let after = if after_trim.starts_with(';') {
+        if after_trim.starts_with(';') {
             end += after.len() - after_trim.len() + 1;
-            &self.text[end..line_end]
-        } else {
-            after
-        };
+        }
+        // The `@notes` that follow belong to the statement, on this line or the next ones.
+        end = self.past_notes(end);
+        let line_end = self.text[end..]
+            .find('\n')
+            .map_or(self.text.len(), |n| end + n);
+        let after = &self.text[end..line_end];
         if before.trim().is_empty() && after.trim().is_empty() {
             let stop = (line_end + 1).min(self.text.len());
             (line, stop)

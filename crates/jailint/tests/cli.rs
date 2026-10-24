@@ -233,6 +233,21 @@ fn fix_leaves_imports_written_inside_expressions_alone() {
 }
 
 #[test]
+fn fix_removes_the_notes_of_a_removed_statement() {
+    let dir = scratch("fix-notes");
+    // A note belongs to the statement before it; left behind it would start the file.
+    let before = "#import \"File\"; @first\n@second\n#import \"Basic\";\nmain :: () {}\n";
+    let file = dir.join("game.jai");
+    std::fs::write(&file, before).unwrap();
+    let (text, _) = jailint(&dir, &["--fix", "game.jai"]);
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "main :: () {}\n",
+        "{text}"
+    );
+}
+
+#[test]
 fn a_program_that_does_not_compile_fails_the_run_unless_incomplete_is_allowed() {
     let dir = scratch("incomplete");
     std::fs::write(
