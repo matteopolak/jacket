@@ -6,6 +6,11 @@ The Postgres client (`stdlib/Extensions/Postgres`) is checked against PostgreSQL
 suites, not only tests written for it. The suites are fetched at pinned versions and run against
 real servers in the `pg-conformance` workflow. Every failure that applies is a client bug.
 
+The same workflow runs the module's own server-backed suites (typed queries and the ORM, the `pg`
+tool's schema commands, the editor's typed-query diagnostics) against each version's cluster, and a
+`managed` job that runs the managed-server tests, including a typed-query build with no database
+URL, on Linux, macOS and Windows ([managed.md](managed.md)).
+
 ## How it works
 
 PostgreSQL's suites drive the server through two programs: `psql` and, for URI parsing,

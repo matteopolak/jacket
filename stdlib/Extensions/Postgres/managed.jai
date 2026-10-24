@@ -287,7 +287,15 @@ ensure_binaries :: (settings: Managed_Settings) -> bin_dir: string, error: strin
     unpacked := sprint("%/unpacked", work);
     if !make_directory_if_it_does_not_exist(unpacked) return "", sprint("cannot create %", unpacked);
 
-    ok, text = managed_run("tar", "-xzf", archive, "-C", unpacked, "--strip-components=1");
+    // Windows ships bsdtar in System32; Git's GNU tar, often earlier on PATH, reads `C:` as a host.
+    tar := "tar";
+
+    #if OS == .WINDOWS {
+        root := environment_variable("SystemRoot");
+        if root tar = tprint("%\\System32\\tar.exe", root);
+    }
+
+    ok, text = managed_run(tar, "-xzf", archive, "-C", unpacked, "--strip-components=1");
     if !ok return "", sprint("unpacking the archive failed (managed mode needs `tar` on the PATH): %", text);
     if !managed_binaries_ready(sprint("%/bin", unpacked)) return "", sprint("the archive has no bin/pg_ctl: %", url);
 

@@ -6,7 +6,9 @@ name: postgres conformance
 # round trip then fetches the typed data that run leaves behind in text and in binary, and the JSON
 # regression literals, and sends every value back to the server. The TAP suites (connection
 # strings, password authentication, SASLprep, query cancellation) run through the shim psql and
-# libpq_uri_regress the same way.
+# libpq_uri_regress the same way. The typed-query, ORM and schema suites run against the same
+# cluster, and the `managed` job runs the managed-server tests (downloaded PostgreSQL binaries, no
+# installed server) on Linux, macOS and Windows.
 on:
   push:
     branches: [main]
@@ -72,6 +74,12 @@ jobs:
           eval "$(sh stdlib/Extensions/Postgres/tests/start_server.sh "$RUNNER_TEMP/pg" 54329)"
           mkdir -p "$RUNNER_TEMP/server-test"
           (cd "$RUNNER_TEMP/server-test" && "$GITHUB_WORKSPACE/target/debug/jaic" "$GITHUB_WORKSPACE/stdlib/Extensions/Postgres/tests/server.jai" -exe server && ./server)
+          # The suites that need a server and a jaic: typed queries (which also run the ORM test),
+          # the pg tool's schema commands, then the editor's typed-query diagnostics.
+          export JAIC="$GITHUB_WORKSPACE/target/debug/jaic" PSQL="$PG_BIN/psql"
+          sh stdlib/Extensions/Postgres/tests/typed/run.sh
+          sh stdlib/Extensions/Postgres/tests/schema/run.sh
+          JACKET_DATABASE_URL=postgres://postgres@127.0.0.1:54329/jai_typed_test cargo test --locked -p jai-language-server --test postgres_typed_queries -- --nocapture
           "$PG_BIN/pg_ctl" -D "$RUNNER_TEMP/pg" stop
       - name: Regression suite through psql and the shim
         run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config"
@@ -90,5 +98,106 @@ jobs:
             target/pg-conformance/run/${{ matrix.postgres }}/*/regression.*
             target/pg-conformance/run/${{ matrix.postgres }}/tap/*/*/prove.log
             target/pg-conformance/run/${{ matrix.postgres }}/tap/*/*/log
+          retention-days: 7
+          if-no-files-found: ignore
+  managed:
+    name: managed server (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, jaic: target/debug/jaic}
+          - {runner: macos-15, jaic: target/debug/jaic}
+          - {runner: windows-2025, jaic: target/x86_64-pc-windows-msvc/debug/jaic.exe, triple: x86_64-pc-windows-msvc}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      JAIC_NATIVE_LIBS: ${{ github.workspace }}/target/http-native-libs
+      JAI_PG_TEST_MANAGED: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        if: runner.os != 'Windows'
+        with:
+          native-libs: 'false'
+          font: 'false'
+      - uses: ./.github/actions/setup-windows
+        if: runner.os == 'Windows'
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - name: Build the TLS SDK
+        run: python tools/native/http_native.py --out "$JAIC_NATIVE_LIBS"
+      - name: Build jaic
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+          else
+            cargo build --locked -p jaic-cli
+          fi
+      - uses: ./.github/actions/windows-provider
+        if: runner.os == 'Windows'
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - name: Managed server tests (download, start, reuse, restart)
+        run: |
+          jaic="$GITHUB_WORKSPACE/${{ matrix.jaic }}"
+          mkdir -p "$RUNNER_TEMP/managed-test"
+          cd "$RUNNER_TEMP/managed-test"
+          "$jaic" "$GITHUB_WORKSPACE/stdlib/Extensions/Postgres/tests/managed.jai" -exe managed
+          ./managed
+      - name: Typed queries in managed mode, with no database URL
+        run: |
+          jaic="$GITHUB_WORKSPACE/${{ matrix.jaic }}"
+          tests="$GITHUB_WORKSPACE/stdlib/Extensions/Postgres/tests"
+          work="$RUNNER_TEMP/managed-typed"
+          rm -rf "$work"
+          mkdir -p "$work/project/db/migrations"
+          native() { if [ "$RUNNER_OS" = Windows ]; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
+          grep -v "schema public" "$tests/typed/schema.sql" > "$work/project/db/migrations/0001_init.sql"
+          JACKET_PG_ROOT="$(native "$work/project")"
+          JACKET_PG_MANAGED_CACHE="$(native "$work/cache")"
+          export JACKET_PG_ROOT JACKET_PG_MANAGED_CACHE
+          unset DATABASE_URL JACKET_DATABASE_URL
+          stop_server() {
+            for data in "$work"/cache/cluster-*; do
+              [ -f "$data/postmaster.pid" ] || continue
+              for pg_ctl in "$work"/cache/*/bin/pg_ctl*; do "$pg_ctl" stop -D "$data" -m fast > /dev/null 2>&1 || true; done
+            done
+          }
+          trap stop_server EXIT
+          # The project's `jacket.toml` alone turns managed mode on.
+          printf '[postgres]\nmanaged = true\n' > "$work/project/jacket.toml"
+          "$jaic" "$tests/typed/queries.jai" -exe "$work/queries"
+          [ "$("$work/queries")" = ok ]
+          count=$(find "$work/project/db/queries" -type f | wc -l)
+          [ "$count" -gt 10 ]
+          # A second build with an empty cache reuses the running server and writes the same cache.
+          rm -rf "$work/project/db/queries" "$work/queries"*
+          "$jaic" "$tests/typed/queries.jai" -exe "$work/queries"
+          [ "$("$work/queries")" = ok ]
+          [ "$(find "$work/project/db/queries" -type f | wc -l)" -eq "$count" ]
+          # Two builds at once on a stopped server: one starts it under the lock, the other reuses it.
+          stop_server
+          rm -rf "$work/project/db/queries"
+          "$jaic" "$tests/typed/queries.jai" -exe "$work/race_a" > "$work/race_a.log" 2>&1 & a=$!
+          "$jaic" "$tests/typed/queries.jai" -exe "$work/race_b" > "$work/race_b.log" 2>&1 & b=$!
+          wait $a || { cat "$work/race_a.log"; exit 1; }
+          wait $b || { cat "$work/race_b.log"; exit 1; }
+          [ "$("$work/race_a")" = ok ] && [ "$("$work/race_b")" = ok ]
+          [ "$(find "$work/project/db/queries" -type f | wc -l)" -eq "$count" ]
+      - name: Keep the server logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pg-managed-${{ matrix.runner }}
+          path: ${{ runner.temp }}/managed-typed/cache/cluster-*/server.log
           retention-days: 7
           if-no-files-found: ignore
