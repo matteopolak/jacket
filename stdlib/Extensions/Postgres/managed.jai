@@ -425,7 +425,7 @@ start_managed_locked :: (settings: Managed_Settings) -> Managed_Server, error: s
         return .{}, sprint("cannot write %/jacket.conf", data);
     }
 
-    start_ok, text := managed_run(managed_tool(bin, "pg_ctl"), "start", "-D", data, "-l", sprint("%/server.log", data), "-w", "-t", sprint("%", settings.timeout_seconds));
+    start_ok, text := managed_run_start(managed_tool(bin, "pg_ctl"), "start", "-D", data, "-l", sprint("%/server.log", data), "-w", "-t", sprint("%", settings.timeout_seconds));
     if !start_ok return .{}, sprint("pg_ctl start failed: % (see %/server.log)", text, data);
 
     server.started_here = true;
@@ -591,6 +591,19 @@ managed_run :: (args: ..string) -> bool, string {
     }
 
     return true, output;
+}
+
+// Runs `pg_ctl start`. On Windows the server it launches inherits pg_ctl's output handles and
+// keeps them open while it runs, so captured output would never end: the output is not captured
+// there, and the server log says what went wrong.
+managed_run_start :: (args: ..string) -> bool, string {
+    #if OS != .WINDOWS return managed_run(..args);
+
+    result := Proc.run_command(..args);
+    if result.type == .FAILED_TO_LAUNCH return false, sprint("cannot run %", args[0]);
+    if result.type != .EXITED || result.exit_code != 0 return false, sprint("% exited with %", args[0], result.exit_code);
+
+    return true, "";
 }
 
 managed_remove_tree :: (path: string) {

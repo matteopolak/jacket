@@ -171,6 +171,7 @@ jobs:
           cpu: x64
           triple: x86_64-pc-windows-msvc
       - name: Managed server tests (download, start, reuse, restart)
+        timeout-minutes: 15
         run: |
           jaic="$GITHUB_WORKSPACE/${{ matrix.jaic }}"
           mkdir -p "$RUNNER_TEMP/managed-test"
