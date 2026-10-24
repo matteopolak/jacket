@@ -59,7 +59,7 @@ Format :: enum u16 {
 #scope_module
 
 // Decodes one non-null value into `out`. Returns "" on success, otherwise why it failed.
-decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Options = null) -> string {
+decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Layers = null) -> string {
     text := cast(string) bytes;
     binary := format == .BINARY;
 
@@ -153,10 +153,10 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Options
             return "";
         }
 
-        options: Json_Options;
-        if json options = json.*;
+        layers: Json_Layers;
+        if json layers = json.*;
 
-        value, error := Json_Module.from_json(type_of(out.value), document, options);
+        value, error := Json_Module.from_json(type_of(out.value), document, module_json_options(layers, T.OPTIONS));
 
         if error.kind != .NONE {
             why := tprint("at %: %", Json_Module.json_path_text(error), error.message);
@@ -329,7 +329,7 @@ type_name :: (oid: u32) -> string {
     return tprint("type %", oid);
 }
 
-decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Options) -> string {
+decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Layers) -> string {
     r := Cursor.{ data = bytes };
     dimensions := get_s32(*r);
 
@@ -375,7 +375,7 @@ decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Options) ->
     return "";
 }
 
-decode_array_text :: (text: string, oid: u32, out: *[] $Element, json: *Json_Options) -> string {
+decode_array_text :: (text: string, oid: u32, out: *[] $Element, json: *Json_Layers) -> string {
     element := element_oid(oid);
     r := text;
 

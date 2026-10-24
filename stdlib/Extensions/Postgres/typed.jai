@@ -206,23 +206,23 @@ for_expansion :: (rows: *Rows($T), body: Code, flags: For_Flags) #expand {
 // Runs the statement and returns its rows. `Rows(Row(...))` has one field per column; when the
 // columns are exactly one table's, it is `Rows(Table)` with that table's struct from db/schema.jai
 // (row type identity, see `row_type`).
-query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #caller_code) -> Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))), Pg_Error #expand {
+query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
     rows: Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))));
     error: Pg_Error;
-    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, #run expected_columns(sql, call, 1));
+    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
 
     return rows, error;
 } @Interpolates("sql")
 
 // The only row, or a `.NOT_FOUND` error when there is none. More rows are a `.USAGE` error. The row
 // lives in temporary storage (until `reset_temporary_storage`).
-query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), Pg_Error #expand {
+query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
     value: #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)));
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
 
     if error.kind != .NONE return value, error;
 
@@ -243,11 +243,11 @@ query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #ca
 } @Interpolates("sql")
 
 // The first row and whether there was one.
-query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), bool, Pg_Error #expand {
+query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), bool, Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
     value: #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)));
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
 
     if error.kind != .NONE return value, false, error;
 
@@ -264,10 +264,10 @@ query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #ca
 } @Interpolates("sql")
 
 // Runs a statement and returns the number of rows it affected.
-execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #caller_code) -> s64, Pg_Error #expand {
+execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> s64, Pg_Error #expand {
     #run check_statement(sql, call, 1, false);
 
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
     if error.kind != .NONE return 0, error;
 
     count := result.rows_affected;
@@ -291,7 +291,7 @@ queue :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pen
 
     pending: Pending(Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))));
     pending.serial = p.queued;
-    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx #run binary_results(sql, call, 1) then Format.BINARY else .TEXT);
+    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx (#run binary_results(sql, call, 1)).binary then Format.BINARY else .TEXT);
 
     return pending, error;
 } @Interpolates("sql")
@@ -302,17 +302,17 @@ queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code
 
     pending: Pending(s64);
     pending.serial = p.queued;
-    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx #run binary_results(sql, call, 1) then Format.BINARY else .TEXT);
+    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx (#run binary_results(sql, call, 1)).binary then Format.BINARY else .TEXT);
 
     return pending, error;
 } @Interpolates("sql")
 
 // The first column of the only row.
-query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #caller_code) -> type_of(Scalar(#run scalar_type(sql, call, 1)).value), Pg_Error #expand {
+query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> type_of(Scalar(#run scalar_type(sql, call, 1)).value), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
     value: type_of(Scalar(#run scalar_type(sql, call, 1)).value);
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
 
     if error.kind != .NONE return value, error;
 
@@ -334,14 +334,14 @@ query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := 
 // `query` into your own struct. The columns are matched to fields by name, and checked: a column
 // that can be NULL needs a `Nullable` field, the types must be assignable, and a `Json(T)` field
 // says which type a json column holds.
-query_as :: ($T: Type, db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #caller_code) -> Rows(T), Pg_Error #expand {
+query_as :: ($T: Type, db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> Rows(T), Pg_Error #expand {
     #run check_statement_as(T, sql, call, 2);
 
     rows: Rows(T);
     error: Pg_Error;
 
     #insert #run field_map_code(T, sql, call, 2);
-    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 2), #run binary_results(sql, call, 2), args, plan, #run expected_columns(sql, call, 2));
+    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 2), #run binary_results(sql, call, 2), args, plan, json, #run expected_columns(sql, call, 2));
 
     return rows, error;
 } @Interpolates("sql")
@@ -353,17 +353,39 @@ Scalar :: struct($type_text: string) {
 
 #scope_module
 
-run_statement :: (db: *Connection, sql: string, binary: bool, args: [] Any, plan: Plan, expected: string) -> Result, Pg_Error {
-    result, error := run_extended(db, sql, args, ifx binary then Format.BINARY else .TEXT, plan == .AUTO, expected);
+run_statement :: (db: *Connection, sql: string, meta: Statement_Meta, args: [] Any, plan: Plan, json: Json_Options, expected: string) -> Result, Pg_Error {
+    result, error := run_extended(db, sql, args, ifx meta.binary then Format.BINARY else .TEXT, plan == .AUTO, expected);
+
+    apply_statement_meta(*result, meta, json);
 
     return result, error;
 }
 
-run_statement :: (pool: *Pool, sql: string, binary: bool, args: [] Any, plan: Plan, expected: string) -> Result, Pg_Error {
+// What the description knows about a result's columns, for decode errors: where each comes from,
+// and the query's own JSON options.
+apply_statement_meta :: (result: *Result, meta: Statement_Meta, json: Json_Options) {
+    result.json_query = json;
+
+    rest := meta.origins;
+    index := 0;
+
+    while index < result.columns.count {
+        newline := find_index_from_left(rest, #char "\n");
+
+        result.columns[index].origin = ifx newline < 0 then rest else slice(rest, 0, newline);
+        index += 1;
+
+        if newline < 0 break;
+
+        rest = advance(rest, newline + 1);
+    }
+}
+
+run_statement :: (pool: *Pool, sql: string, meta: Statement_Meta, args: [] Any, plan: Plan, json: Json_Options, expected: string) -> Result, Pg_Error {
     c, acquire_error := acquire(pool);
     if acquire_error.kind != .NONE return .{}, acquire_error;
 
-    result, error := run_statement(c, sql, binary, args, plan, expected);
+    result, error := run_statement(c, sql, meta, args, plan, json, expected);
 
     release(pool, c);
 

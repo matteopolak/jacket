@@ -27,7 +27,39 @@ main :: () {
     test_calendar();
     test_numerics();
     test_dotenv();
+    test_json_options();
     print("ok\n");
+}
+
+Theme_Only :: struct {
+    theme: string;
+}
+
+test_json_options :: () {
+    raw := Pg.Json_Raw.{ text = "{\"theme\":\"dark\",\"extra\":1}" };
+
+    value, error := Pg.json_value(raw);
+
+    assert(error.kind == .NONE && value.kind == .OBJECT);
+
+    theme, theme_error := Pg.decode_json(Theme_Only, raw);
+
+    assert(theme_error.kind == .NONE && theme.theme == "dark");
+
+    _, strict_error := Pg.decode_json(Theme_Only, raw, .{ unknown_fields = .DENY });
+
+    assert(strict_error.kind != .NONE);
+
+    _, bad_error := Pg.json_value(.{ text = "{\"a\":" });
+
+    assert(bad_error.kind != .NONE);
+
+    // the packed form a `Json_Columns` entry carries
+    packed := Pg.pack_json_options(.{ unknown_fields = .DENY, missing_fields = .DEFAULT, duplicate_keys = .ERROR });
+    unpacked := Pg.unpack_json_options(packed);
+
+    assert(unpacked.unknown_fields == .DENY && unpacked.missing_fields == .DEFAULT && unpacked.duplicate_keys == .ERROR);
+    assert(Pg.pack_json_options(.{}) == 0);
 }
 
 test_dotenv :: () {

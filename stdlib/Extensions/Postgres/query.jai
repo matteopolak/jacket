@@ -9,6 +9,7 @@ Column :: struct {
     type_size: s16; // pg_type.typlen: negative for variable-length types
     type_modifier: s32; // pg_attribute.atttypmod: varchar(n), numeric(p, s), ...
     format: Format;
+    origin: string; // "table.column" when a typed query knows it (names decode errors); else empty
 }
 
 // The rows of one statement. Strings and byte slices that `get` returns point into the result,
@@ -29,6 +30,7 @@ Result :: struct {
     values: [..] Value_Span; // row_count * columns.count of them, row by row
     data: [..] u8;
     json_options: Json_Options; // for `Json(T)` columns; the connection's to begin with
+    json_query: Json_Options; // the query's own (`json = ...` on a typed query), over `json_options`
     allocations: [..] *void;
     allocator: Allocator; // context.allocator when the query ran: it owns everything above
 }
@@ -355,14 +357,20 @@ get :: (r: *Result, row: s64, column: s64, $T: Type) -> T, Pg_Error {
         // What decoding allocates belongs to the result.
         push_allocator(.{ result_allocator, r });
         // Decoded JSON strings may point into the result, as `string` columns do.
-        options := r.json_options;
-        options.borrow = true;
+        layers := Json_Layers.{ connection = r.json_options, query = r.json_query, borrow = true };
 
-        #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value, *options);
-        else why = decode(bytes, info.format, info.type_oid, *value, *options);
+        #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value, *layers);
+        else why = decode(bytes, info.format, info.type_oid, *value, *layers);
     }
 
-    if why return value, make_error(.DECODE, "column \"%\" (%) of row %: %", info.name, type_name(info.type_oid), row, why);
+    if why {
+        // `column "settings" (users.settings), row 3, at $.theme: ...`; a typed query knows the
+        // table and column, else the type stands in.
+        where := ifx info.origin then info.origin else type_name(info.type_oid);
+        separator := ifx begins_with(why, "at ") then ", " else ": ";
+
+        return value, make_error(.DECODE, "column \"%\" (%), row %%%", info.name, where, row, separator, why);
+    }
 
     return value, .{};
 }

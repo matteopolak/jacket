@@ -55,7 +55,7 @@ grep -q "db/schema.jai is stale: run the pg tool's generate" "$work/out" || fail
 rm "$project/db/migrations/0003_extra.sql"
 
 # a mapping for a column that is not json is an error
-printf 'Json_Columns :: Pg.Json_Column.[ .{ "users.email", Settings } ];\n' > "$project/db/json_columns.jai"
+printf 'Json_Columns :: Pg.Json_Column.[ .{ column = "users.email", type = Settings } ];\n' > "$project/db/json_columns.jai"
 if "$jaic" "$project/main.jai" -exe "$work/bad" > "$work/out" 2>&1; then fail "a bad json mapping compiled"; fi
 grep -q 'maps "users.email"' "$work/out" || fail "the json mapping error does not name the column"
 

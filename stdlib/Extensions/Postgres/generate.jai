@@ -496,7 +496,7 @@ field_type :: (relation: Catalog_Relation, column: Catalog_Column, catalog: Cata
 
         if column.base == "enum[]" text = tprint("[] %", text);
     } else if column.base == "json" || column.base == "jsonb" {
-        text = tprint("Pg.Json(Pg.json_column_type(\"%\"))", json_key(relation, column));
+        text = tprint("Pg.Json(Pg.json_column_type(\"%\"), Pg.json_column_options(\"%\"))", json_key(relation, column), json_key(relation, column));
     } else {
         text = pg_type_text(column.base);
     }

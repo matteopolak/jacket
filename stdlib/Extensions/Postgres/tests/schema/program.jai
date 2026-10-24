@@ -11,7 +11,7 @@ Settings :: struct {
 main :: () {
     user: User;
     user.role = .admin;
-    user.settings = Pg.some(Pg.json(Settings.{ theme = "dark" }));
+    user.settings.value.value.theme = "dark";
     user.payload.value.text = "{}";
 
     team: Team;
@@ -20,7 +20,7 @@ main :: () {
     active: Active_User;
 
     assert(type_info(User).members.count == 8);
-    assert(type_of(user.settings) == Pg.Nullable(Pg.Json(Settings)));
+    assert(type_of(user.settings) == Pg.Nullable(Pg.Json(Settings, Pg.pack_json_options(.{ unknown_fields = .DENY }))));
     assert(type_of(user.payload) == Pg.Json(Pg.Json_Raw));
     assert(user.settings.value.value.theme == "dark");
     assert(type_of(active.id) == Pg.Nullable(s64) && type_of(post.roles) == [] Member_Role && event.id == 0 && team.id == 0);
