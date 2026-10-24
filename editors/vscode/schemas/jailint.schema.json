@@ -518,6 +518,16 @@
           "default": "warn",
           "markdownDescription": "a value kept between two constant bounds by hand instead of with `clamp` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#manual_clamp)"
         },
+        "manual_memcpy": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "`for i: 0..n-1 { dst[i] = src[i]; }`, an element-by-element copy `memcpy` does at once (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#manual_memcpy)"
+        },
         "manual_index_counter": {
           "type": "string",
           "enum": [

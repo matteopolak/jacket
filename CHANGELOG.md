@@ -41,6 +41,7 @@
 - `jailint` reports `cast,force` where the value already has the type or the cast only widens, and fixes it (`unnecessary_force_cast`).
 - `jailint` reports `tprint("%", s)` and `sprint("%", s)` with a string `s`, which only copy it (`useless_format`).
 - `jailint` suggests `print_to_builder` for `append(*builder, tprint(...))` (`format_push_string`).
+- `jailint` suggests `memcpy` for a loop that only copies one array into another (`manual_memcpy`).
 
 ### Improved
 

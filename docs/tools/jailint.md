@@ -133,6 +133,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `manual_assign_op` | complexity | warn | yes | `a = a + b` to `a += b` |
 | `manual_clamp` | complexity | warn | editor | `max(0, min(100, x))`, `if x < 0 { x = 0; } else if x > 100 { x = 100; }`, `ifx v < lo then lo else ifx v > hi then hi else v`: a hand-written `clamp` |
 | `manual_index_counter` | complexity | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
+| `manual_memcpy` | perf | warn | no | `for i: 0..count-1 { dst[i] = src[i]; }` |
 | `min_max` | correctness | deny | editor | `min(0, max(100, x))`: a clamp with swapped bounds |
 | `misrefactored_assign_op` | correctness | deny | editor | `total += total + x;`: a compound assignment whose right side repeats the target and the operator, which was probably `total = total + x;` rewritten halfway |
 | `missing_doc` | restriction | allow | no | `parse :: (text: string) -> Tree { ... }` with no comment above it |
@@ -275,6 +276,8 @@ Target must be side-effect-free and the operation must keep its type.
 Numbers with constant bounds, the lower not above the upper (a swapped pair is `min_max`'s). Three shapes: nested `@ReturnsLarger`/`@ReturnsSmaller` calls (the library's `max` and `min`), an `if` and `else if` that assign a side-effect-free target its bounds, and a nested `ifx`. The editor offers `clamp(x, lo, hi)`; `--fix` leaves it, since a statement inside an `else if` chain would need braces.
 ### manual_index_counter
 `n := 0` right before a forward `for` (in a block, a `case` body or a `#if` branch), `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
+### manual_memcpy
+Fires on a `for` over a range starting at `0` whose only statement is `dst[i] = src[i];` with `i` the loop's variable, `dst` and `src` different names or member paths, both arrays or pointers, and the same element type on both sides. The suggestion is `memcpy(dst.data, src.data, count * size_of(T))`, or assigning a fixed array whole. `memcpy` assumes the ranges do not overlap, which pointers and slices can break, so there is no fix.
 ### min_max
 Literal bounds only, with `@ReturnsSmaller`/`@ReturnsLarger` procedures (the library's `min`/`max`). Use `clamp`. The editor offers `clamp(value, lo, hi)` with the two bounds in order.
 ### misrefactored_assign_op

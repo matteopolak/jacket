@@ -52,6 +52,7 @@ mod magic_number;
 mod manual_assign_op;
 mod manual_clamp;
 mod manual_index_counter;
+mod manual_memcpy;
 mod min_max;
 mod misrefactored_assign_op;
 mod missing_doc;
@@ -369,6 +370,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "a value kept between two constant bounds by hand instead of with `clamp`",
         check: manual_clamp::check,
+    },
+    RuleInfo {
+        name: "manual_memcpy",
+        category: Category::Perf,
+        summary: "`for i: 0..n-1 { dst[i] = src[i]; }`, an element-by-element copy `memcpy` does at once",
+        check: manual_memcpy::check,
     },
     RuleInfo {
         name: "manual_index_counter",
