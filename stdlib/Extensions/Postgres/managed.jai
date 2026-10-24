@@ -291,8 +291,8 @@ ensure_binaries :: (settings: Managed_Settings) -> bin_dir: string, error: strin
     tar := "tar";
 
     #if OS == .WINDOWS {
-        root := environment_variable("SystemRoot");
-        if root tar = tprint("%\\System32\\tar.exe", root);
+        system_root := environment_variable("SystemRoot");
+        if system_root tar = tprint("%\\System32\\tar.exe", system_root);
     }
 
     ok, text = managed_run(tar, "-xzf", archive, "-C", unpacked, "--strip-components=1");
