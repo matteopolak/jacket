@@ -154,10 +154,11 @@ scram_finish :: (c: *Connection, s: *Scram, data: [] u8) -> Pg_Error {
     return .{};
 }
 
-// SASLprep (RFC 4013) would normalize non-ASCII passwords. Like libpq when normalization is not
-// possible, the password's bytes are used as they are; ASCII passwords need nothing.
+// The password as SCRAM uses it: SASLprep (saslprep.jai), or its own bytes when that cannot be
+// done, like libpq.
 prepare_password :: (password: string) -> string {
-    return password;
+    prepared, _ := saslprep(password);
+    return prepared;
 }
 
 #if TLS {
@@ -182,4 +183,33 @@ prepare_password :: (password: string) -> string {
 
         return "";
     }
+}
+
+#scope_export
+
+// The SCRAM-SHA-256 secret the server stores for a password, to put in `ALTER ROLE ... PASSWORD`
+// without the server seeing the password (libpq's PQencryptPasswordConn does the same). The
+// password is prepared with SASLprep. `iterations` is what the server reports as
+// `scram_iterations`, 4096 by default.
+scram_secret :: (password: string, iterations := 4096) -> string {
+    salt: [16] u8;
+
+    Random.random_bytes(salt);
+
+    salted := Hmac.pbkdf2_hmac_sha256(prepare_password(password), string.{ salt.count, salt.data }, iterations);
+    salted_text := string.{ 32, salted.data };
+    client_key := Hmac.hmac_sha256(salted_text, "Client Key");
+    stored_key := Sha.sha256(string.{ 32, client_key.data });
+    server_key := Hmac.hmac_sha256(salted_text, "Server Key");
+
+    return tprint("SCRAM-SHA-256$%:%$%:%", iterations, Base64.base64_encode(string.{ salt.count, salt.data },, temp), Base64.base64_encode(string.{ 32, stored_key.data },, temp), Base64.base64_encode(string.{ 32, server_key.data },, temp));
+}
+
+// The MD5 secret for a password and a role name: `md5` and the hash of the two joined.
+md5_secret :: (password: string, user: string) -> string {
+    hash := Md5.md5(join(password, user,, temp));
+
+    defer free(hash);
+
+    return tprint("md5%", hash);
 }

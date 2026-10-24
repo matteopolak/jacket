@@ -31,6 +31,9 @@
 
 #load "error.jai";
 #load "config.jai";
+#load "conninfo.jai";
+#load "saslprep.jai";
+#load "auth.jai";
 #load "connection.jai";
 #load "query.jai";
 #load "codecs.jai";
@@ -59,6 +62,11 @@ Sha :: #import "internal/crypto/sha";
 Hmac :: #import "internal/crypto/hmac";
 Random :: #import "internal/crypto/random";
 Md5 :: #import "md5";
+
+#if OS != .WINDOWS {
+    POSIX :: #import "POSIX";
+}
+
 Base64 :: #import "Base64";
 
 #load "wire.jai";

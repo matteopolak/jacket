@@ -542,6 +542,32 @@ test_parameters :: () {
 }
 
 test_errors :: () {
+    {
+        // A FATAL error right before the server closes is the error, not the close.
+        doomed := connect_ok(config_for("postgres"));
+
+        defer Pg.close(doomed);
+
+        for sql: string.["select pg_terminate_backend(pg_backend_pid())", "select 1; select pg_terminate_backend(pg_backend_pid())"] {
+            if it_index == 1 doomed = connect_ok(config_for("postgres"));
+
+            error: Pg.Pg_Error;
+
+            if it_index == 0 {
+                result: Pg.Result;
+                result, error = Pg.query_dynamic(doomed, sql);
+                Pg.free_result(*result);
+            } else {
+                error = Pg.execute_script(doomed, sql);
+            }
+
+            assert(error.kind == .SERVER && error.code == .ADMIN_SHUTDOWN && error.severity == "FATAL", "%", Pg.error_text(error));
+            assert(doomed.broken);
+            Pg.free_error(*error);
+            if it_index == 0 Pg.close(doomed);
+        }
+    }
+
     db := connect_ok(config_for("postgres"));
 
     defer Pg.close(db);

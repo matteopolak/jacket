@@ -2,7 +2,9 @@ name: postgres conformance
 # The Postgres client against PostgreSQL's own suites (docs/postgres/conformance.md): the server
 # tests in stdlib/Extensions/Postgres/tests, then the regression suite run once through the real
 # psql and once through the Jai psql shim, on every supported major version. A test that passes
-# with psql and fails with the shim fails the job unless regress-skip.txt lists it.
+# with psql and fails with the shim fails the job unless regress-skip.txt lists it. The TAP suites
+# (connection strings, password authentication, SASLprep, query cancellation) run through the shim
+# psql and libpq_uri_regress the same way.
 on:
   push:
     branches: [main]
@@ -58,7 +60,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install -y "postgresql-${{ matrix.postgres }}" "postgresql-server-dev-${{ matrix.postgres }}"
+          sudo apt-get install -y "postgresql-${{ matrix.postgres }}" "postgresql-server-dev-${{ matrix.postgres }}" libipc-run-perl libio-pty-perl
       - name: Build the TLS SDK
         run: python3 tools/native/http_native.py --out "$JAIC_NATIVE_LIBS"
       - name: Build jaic
@@ -73,11 +75,16 @@ jobs:
         run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config"
       - name: Pipeline message traces against libpq_pipeline's
         run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config" --pipeline-traces
+      - name: TAP suites through psql and the shims
+        run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config" --tap
       - name: Keep the diffs
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pg-conformance-${{ matrix.postgres }}
-          path: target/pg-conformance/run/${{ matrix.postgres }}/*/regression.*
+          path: |
+            target/pg-conformance/run/${{ matrix.postgres }}/*/regression.*
+            target/pg-conformance/run/${{ matrix.postgres }}/tap/*/*/prove.log
+            target/pg-conformance/run/${{ matrix.postgres }}/tap/*/*/log
           retention-days: 7
           if-no-files-found: ignore
