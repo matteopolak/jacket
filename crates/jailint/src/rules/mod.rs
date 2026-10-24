@@ -32,6 +32,7 @@ mod excessive_nesting;
 mod exit_in_module;
 mod field_reassign_with_default;
 mod float_equality;
+mod float_loop_counter;
 mod format_push_string;
 mod frees;
 mod identical_branches;
@@ -254,6 +255,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Pedantic,
         summary: "`x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }` sets the fields at the declaration",
         check: field_reassign_with_default::check,
+    },
+    RuleInfo {
+        name: "float_loop_counter",
+        category: Category::Pedantic,
+        summary: "a `while` loop counted in floats (`while t < 1.0 { t += 0.1; }`)",
+        check: float_loop_counter::check,
     },
     RuleInfo {
         name: "exit_in_module",

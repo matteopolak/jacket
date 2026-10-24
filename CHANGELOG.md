@@ -46,6 +46,7 @@
 - `jailint` suggests a fixed array for a local resizable array that only gets a known number of `array_add` calls (`useless_resizable`).
 - `jailint` has an opt-in lint for large fixed arrays in local variables, with the size limit set by `max_stack_array_bytes` (`large_stack_array`).
 - `jailint` suggests a struct literal for a struct that is declared and then has its fields set one by one (`field_reassign_with_default`).
+- `jailint` has an opt-in lint for `while` loops counted in floats (`float_loop_counter`).
 
 ### Improved
 

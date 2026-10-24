@@ -355,6 +355,16 @@
               "default": "allow",
               "markdownDescription": "`x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }` sets the fields at the declaration (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#field_reassign_with_default)"
             },
+            "float_loop_counter": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a `while` loop counted in floats (`while t < 1.0 { t += 0.1; }`) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#float_loop_counter)"
+            },
             "exit_in_module": {
               "type": "string",
               "enum": [

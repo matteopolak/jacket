@@ -115,6 +115,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `exit_in_module` | restriction | allow | no | `exit(1)` in a file that belongs to a module |
 | `field_reassign_with_default` | pedantic | allow | editor | `config: Config; config.width = 80; config.height = 24;` |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
+| `float_loop_counter` | pedantic | allow | no | `while t < 1.0 { ...; t += 0.1; }`: rounding error decides how many times it runs |
 | `format_push_string` | perf | warn | editor | `append(*builder, tprint("%: %\n", name, value))`: `print_to_builder` writes into the builder directly |
 | `identical_branches` | suspicious | warn | editor | `if c { A } else { A }`, `ifx c then a else a` |
 | `identical_case_bodies` | pedantic | allow | editor | `case .PNG; return "image"; case .JPEG; return "image";`: cases that do the same thing and could be `case .PNG, .JPEG;` |
@@ -231,6 +232,8 @@ A file belongs to a module when it or a directory above it holds a `module.jai`,
 The fields not named in the literal keep their defaults, as in the declaration, and the values are set where the variable is made instead of in statements a later edit can separate from it. Fires on a local `name: T;` of a struct type with no value, directly followed by one or more plain assignments `name.field = value;` to distinct fields, whose values do not mention `name`. Unions, `+=` and nested members are left alone. The editor offers the literal when no comment sits among the statements; `--fix` does not apply it. Off by default: declaring and then assigning is common, readable Jai (over 500 places in this repository).
 ### float_equality
 Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
+### float_loop_counter
+Adding `0.1` ten times does not give `1.0`, so whether the loop runs ten or eleven times depends on rounding error, which grows with the iteration count. Count with an integer and compute the float from it (`for i: 0..9 { t := i * 0.1; }`). `for` loops cannot count in floats (the compiler rejects a float range), so this looks at `while`: the condition compares a float variable with an expression that does not mention it, and the body adds a step to it or takes one from it (`t += dt`, `t = t - dt`) that does not mention it either. Convergence loops and doubling loops are left alone. Off by default: a loop that drains a float budget reads fine this way. No fix.
 ### format_push_string
 Fires on a call of a procedure noted `@AppendsString` (the library's `append` of a string) whose string is a call of one noted `@FormatsToString` (`tprint`, `sprint`). `print_to_builder(*builder, ...)` takes the same format and values and writes into the builder without building a second string first; a `sprint` result is also never freed by this form. The editor offers the rewritten call; `--fix` leaves it alone because a formatting failure leaves the builder with the part that was written instead of nothing.
 ### identical_branches
