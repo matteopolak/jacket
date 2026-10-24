@@ -97,7 +97,7 @@ The describe service and the pg tool import the module on their own, so they see
 
 ### Environment
 
-- `JACKET_DATABASE_URL`, then `DATABASE_URL`: the compile-time database.
+- `JACKET_DATABASE_URL`, then `DATABASE_URL`: the compile-time database. When the environment has neither, the same two names are read from `<root>/.env` (`dotenv.jai`; the environment always wins, and the pg tool does the same). The reader takes `KEY=VALUE` lines with an optional `export ` prefix, `#` comments, double quotes (`\n`, `\"`, `\\`) and single quotes; unquoted values end at the first ` #`. It has no variable substitution or multi-line values, and reads only these two keys, so a `.env` file with other settings is never loaded into the process. To support another key, call `dotenv_value(text, key)`.
 - `JACKET_PG_MANAGED=1` (or `managed = true` under `[postgres]` in `jacket.toml`): with no URL, describe in a private PostgreSQL the service downloads and starts itself ([managed.md](managed.md)). It needs `db/migrations`; without them a miss is an error. Ignored when a URL is set or `JACKET_PG_OFFLINE` is. `JACKET_PG_MANAGED_VERSION` and `JACKET_PG_MANAGED_CACHE` pick the release and the cache folder.
 - `JACKET_PG_OFFLINE=1`: never connect; misses are errors.
 - `JACKET_PG_SEARCH_PATH`: search path for describing.
