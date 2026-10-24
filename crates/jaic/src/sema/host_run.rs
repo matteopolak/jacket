@@ -1,8 +1,7 @@
 //! Isolated host-workspace evaluation and explicit primitive result transfer.
 use super::lower::Operand;
 use super::{
-    Compiler, Diagnostic, FileId, HashMap, Options, Rc, Result, Span, TypeId, Value, ast,
-    compiler_host, err, ir, scope,
+    Compiler, Diagnostic, FileId, HashMap, Rc, Result, Span, TypeId, Value, ast, err, ir, scope,
 };
 use crate::types::TypeKind;
 
@@ -16,8 +15,8 @@ impl Compiler {
         span: Span,
     ) -> Result<Vec<Operand>> {
         let mut options = self.options.clone();
-        (options.os, options.cpu) = compiler_host();
-        options.long_double = Options::host().long_double;
+        let host = options.host;
+        (options.os, options.cpu, options.long_double) = (host.os, host.cpu, host.long_double);
         let mut host = Compiler::new(options.clone(), self.src.fs.clone());
         host.src.sources = self.src.sources.clone();
         let source_count = self.src.sources.len();

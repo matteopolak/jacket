@@ -4,7 +4,7 @@ use super::scope::{Builtin, EntityKind, EntityState, Resolved};
 use super::value::LibraryId;
 use super::{
     Compiler, Diagnostic, EntityId, FileId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
-    compiler_host, err, ir, lambda, procs,
+    err, ir, lambda, procs,
 };
 use crate::types::{DistinctInfo, TypeKind};
 
@@ -153,7 +153,7 @@ impl Compiler {
     }
 
     fn target_constant(&mut self, sym: Sym, span: Span) -> Result<Resolved> {
-        let (host_os, host_cpu) = compiler_host();
+        let (host_os, host_cpu) = (self.options.host.os, self.options.host.cpu);
         let (enum_name, member) = match sym.as_str() {
             "OS" => (
                 "Operating_System_Tag",
@@ -887,7 +887,7 @@ impl Compiler {
             flags,
         } = &expr.kind
             && flags.iter().any(|flag| flag.name.as_str() == "host")
-            && (self.options.os, self.options.cpu) != compiler_host()
+            && self.options.is_cross_build()
         {
             return self.check_isolated_host_run_all(body, expr.span);
         }

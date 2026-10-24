@@ -4,7 +4,7 @@ use super::lower::{FnCtx, Operand};
 use super::value::Aggregate;
 use super::{
     Compiler, Diagnostic, DiagnosticKind, FileId, ModuleId, Rc, Result, ScopeId, SourcePath, Span,
-    Sym, TypeId, Value, ast, compiler_host, err, expr, ir, scope, structs, value,
+    Sym, TypeId, Value, ast, err, expr, ir, scope, structs, value,
 };
 
 use crate::ir::Ty;
@@ -400,9 +400,7 @@ impl Compiler {
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
-        if flags.iter().any(|flag| flag.name.as_str() == "host")
-            && (self.options.os, self.options.cpu) != compiler_host()
-        {
+        if flags.iter().any(|flag| flag.name.as_str() == "host") && self.options.is_cross_build() {
             let results = self.check_isolated_host_run_all(body, span)?;
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }

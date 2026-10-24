@@ -4,7 +4,7 @@ use super::lower::Operand;
 use super::scope::ScopeKind;
 use super::{
     Compiler, Diagnostic, FileInfo, HashSet, ModuleId, Options, ProgramSource, Result, ScopeId,
-    Span, TypeId, ast, compiler_host, ir,
+    Span, TypeId, ast, ir,
 };
 
 /// Where a cross build keeps its twin.
@@ -109,7 +109,7 @@ impl Compiler {
     }
 
     fn is_cross_build(&self) -> bool {
-        (self.options.os, self.options.cpu) != compiler_host()
+        self.options.is_cross_build()
     }
 
     /// Remember a source the program was given, and hand it to the twin if one exists. Only a
@@ -147,11 +147,12 @@ impl Compiler {
     /// Make the twin: bootstrap modules and the program's declarations in a compiler with the
     /// host `OS` and `CPU`. Top-level code is not settled and no body is lowered.
     fn build_twin(&mut self) -> Result<Box<Compiler>> {
-        let (os, cpu) = compiler_host();
+        let host = self.options.host;
+        let (os, cpu) = (host.os, host.cpu);
         let mut options: Options = self.options.clone();
         options.os = os;
         options.cpu = cpu;
-        options.long_double = Options::host().long_double;
+        options.long_double = host.long_double;
         let mut twin = Box::new(Compiler::new(options, self.src.fs.clone()));
         twin.meta.twin = true;
         twin.meta.workspace = self.meta.workspace;

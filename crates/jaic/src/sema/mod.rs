@@ -175,10 +175,38 @@ pub const DEFAULT_TEMPORARY_STORAGE_SIZE: i64 = 32768;
 /// Byte capacity reserved by `Build_Options` for target-specific machine settings.
 pub const MACHINE_OPTIONS_SIZE: usize = 128;
 
+/// The machine compile-time code runs on, as opposed to the platform the program is built for
+/// (`Options::os`, `Options::cpu`, `Options::long_double`). A cross build keeps both: the
+/// target compiler describes the program being built, and the host twin (`host_twin.rs`) is made
+/// from this description, so everything compile-time code sees (`OS`, `CPU`, type layouts, the
+/// libraries it loads) comes from here and never from the target.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HostPlatform {
+    pub os: TargetOs,
+    pub cpu: TargetCpu,
+    /// The host C compiler's `long double` when wider than `float64`; see `long_double_for`.
+    pub long_double: Option<crate::wide_float::WideFloat>,
+}
+
+impl HostPlatform {
+    /// The platform this compiler binary executes on.
+    pub fn native() -> Self {
+        let (os, cpu) = compiler_host();
+        Self {
+            os,
+            cpu,
+            long_double: long_double_for(os, cpu, cfg!(target_env = "gnu")),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Options {
     pub os: TargetOs,
     pub cpu: TargetCpu,
+    /// Where compile-time code runs. Always the native platform outside tests, which replace it
+    /// to exercise a host that differs from the target on a machine that does not.
+    pub host: HostPlatform,
     /// Directories searched by `#import "Name"`, in order.
     pub import_paths: Vec<PathBuf>,
     /// Bootstrap entry loaded into every program (see `crate::PRELUDE_ENTRIES`).
@@ -279,11 +307,18 @@ impl Options {
         self.preload_stdlib = Some(stdlib.to_path_buf());
     }
 
+    /// Does the program run somewhere other than where compile-time code does?
+    pub fn is_cross_build(&self) -> bool {
+        (self.os, self.cpu) != (self.host.os, self.host.cpu)
+    }
+
     pub fn host() -> Self {
-        let (os, cpu) = compiler_host();
+        let host = HostPlatform::native();
+        let (os, cpu) = (host.os, host.cpu);
         Self {
             os,
             cpu,
+            host,
             import_paths: Vec::new(),
             preload: None,
             preload_stdlib: None,
@@ -492,7 +527,7 @@ impl Compiler {
     }
 
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
-        let cross_target = (options.os, options.cpu) != compiler_host();
+        let cross_target = options.is_cross_build();
         let mut c = Compiler {
             pr: ProcState::default(),
             caches: NameCaches::default(),
