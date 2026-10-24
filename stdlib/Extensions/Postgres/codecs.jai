@@ -13,6 +13,7 @@ Oid :: enum u32 {
     TEXT :: 25;
     OID :: 26;
     JSON :: 114;
+    JSON_ARRAY :: 199;
     FLOAT4 :: 700;
     FLOAT8 :: 701;
     UNKNOWN :: 705;
@@ -52,7 +53,7 @@ Format :: enum u16 {
 #scope_module
 
 // Decodes one non-null value into `out`. Returns "" on success, otherwise why it failed.
-decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T) -> string {
+decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Options = null) -> string {
     text := cast(string) bytes;
     binary := format == .BINARY;
 
@@ -125,11 +126,35 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T) -> string {
         out.* = cast(T) value;
 
         return "";
+    } else #if #run is_json(T) {
+        document, why := json_document(bytes, format, oid);
+        if why return why;
+
+        options: Json_Options;
+        if json options = json.*;
+
+        value, error := Json_Module.from_json(type_of(out.value), document, options);
+
+        if error.kind != .NONE {
+            why := tprint("at %: %", Json_Module.json_path_text(error), error.message);
+            Json_Module.free_json(*error);
+            return why;
+        }
+
+        out.value = value;
+
+        return "";
+    } else #if T == Json_Raw {
+        document, why := json_document(bytes, format, oid);
+        out.text = document;
+
+        return why;
     } else #if T == string {
         if binary {
             if oid == xx Oid.JSONB {
-                if !bytes.count || bytes[0] != 1 return "unknown jsonb version";
-                text = advance(text, 1);
+                document, why := json_document(bytes, format, oid);
+                if why return why;
+                text = document;
             } else if !is_text_like(oid) {
                 return tprint("binary % is not text; read it as [] u8, or use text results", type_name(oid));
             }
@@ -216,8 +241,8 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T) -> string {
         out.text = text;
         return "";
     } else #if type_info(T).type == .ARRAY {
-        if binary return decode_array_binary(bytes, out);
-        return decode_array_text(text, oid, out);
+        if binary return decode_array_binary(bytes, out, json);
+        return decode_array_text(text, oid, out, json);
     } else {
         #assert false "Postgres cannot decode into this type";
         return "";
@@ -238,7 +263,7 @@ ARRAY_TYPES :: struct {
 .{ .INT8_ARRAY, .INT8 }, .{ .TEXT_ARRAY, .TEXT }, .{ .VARCHAR_ARRAY, .VARCHAR },
 .{ .FLOAT4_ARRAY, .FLOAT4 }, .{ .FLOAT8_ARRAY, .FLOAT8 }, .{ .TIMESTAMP_ARRAY, .TIMESTAMP },
 .{ .TIMESTAMPTZ_ARRAY, .TIMESTAMPTZ }, .{ .DATE_ARRAY, .DATE }, .{ .NUMERIC_ARRAY, .NUMERIC },
-.{ .UUID_ARRAY, .UUID }, .{ .JSONB_ARRAY, .JSONB },
+.{ .UUID_ARRAY, .UUID }, .{ .JSON_ARRAY, .JSON }, .{ .JSONB_ARRAY, .JSONB },
 ];
 
 element_oid :: (array_oid: u32) -> u32 {
@@ -265,7 +290,7 @@ type_name :: (oid: u32) -> string {
     return tprint("type %", oid);
 }
 
-decode_array_binary :: (bytes: [] u8, out: *[] $Element) -> string {
+decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Options) -> string {
     r := Cursor.{ data = bytes };
     dimensions := get_s32(*r);
 
@@ -301,8 +326,8 @@ decode_array_binary :: (bytes: [] u8, out: *[] $Element) -> string {
 
         if r.bad return "a truncated binary array";
 
-        #if #run is_nullable(Element) why := decode(value, .BINARY, element, *it.value);
-        else why := decode(value, .BINARY, element, it);
+        #if #run is_nullable(Element) why := decode(value, .BINARY, element, *it.value, json);
+        else why := decode(value, .BINARY, element, it, json);
         if why return tprint("element %: %", it_index + 1, why);
     }
 
@@ -311,7 +336,7 @@ decode_array_binary :: (bytes: [] u8, out: *[] $Element) -> string {
     return "";
 }
 
-decode_array_text :: (text: string, oid: u32, out: *[] $Element) -> string {
+decode_array_text :: (text: string, oid: u32, out: *[] $Element, json: *Json_Options) -> string {
     element := element_oid(oid);
     r := text;
 
@@ -372,8 +397,8 @@ decode_array_text :: (text: string, oid: u32, out: *[] $Element) -> string {
                 return tprint("element % is NULL; read the array as [] Nullable(%)", items.count + 1, Element);
             }
         } else {
-            #if #run is_nullable(Element) why := decode(cast([] u8) value, .TEXT, element, *item.value);
-            else why := decode(cast([] u8) value, .TEXT, element, *item);
+            #if #run is_nullable(Element) why := decode(cast([] u8) value, .TEXT, element, *item.value, json);
+            else why := decode(cast([] u8) value, .TEXT, element, *item, json);
             if why return tprint("element %: %", items.count + 1, why);
         }
 
@@ -691,6 +716,12 @@ encode_param :: (value: Any) -> Param, string {
     info := value.type;
     data := value.value_pointer;
 
+    if is_json_info(info) || info == type_info(Json_Raw) {
+        // No type OID: the server reads the text as json or jsonb, whichever the statement wants.
+        text, why := json_parameter_text(value);
+        return .{ data = text }, why;
+    }
+
     if is_nullable_info(info) {
         s := cast(*Type_Info_Struct) info;
         null_member, inner_member: *Type_Info_Struct_Member;
@@ -798,6 +829,13 @@ encode_binary :: (value: Any) -> Param, string {
         put_u64(*out, cast,no_check(u64) interval.microseconds);
         put_u32(*out, cast,no_check(u32) interval.days);
         put_u32(*out, cast,no_check(u32) interval.months);
+    } else if is_json_info(info) || info == type_info(Json_Raw) {
+        text, why := json_parameter_text(value);
+        if why return .{}, why;
+
+        oid = .JSONB;
+        put_u8(*out, 1);
+        put_bytes(*out, text);
     } else if info == type_info(Numeric) {
         // Numerics go as text: the server parses them exactly.
         return .{ oid = xx Oid.NUMERIC, data = (cast(*Numeric) data).text }, "";
@@ -897,6 +935,55 @@ is_nullable :: ($T: Type) -> bool {
 is_nullable_info :: (info: *Type_Info) -> bool {
     if info.type != .STRUCT return false;
     return (cast(*Type_Info_Struct) info).polymorph_source_struct == type_info(Nullable);
+}
+
+is_json :: ($T: Type) -> bool {
+    return is_json_info(type_info(T));
+}
+
+is_json_info :: (info: *Type_Info) -> bool {
+    if info.type != .STRUCT return false;
+    return (cast(*Type_Info_Struct) info).polymorph_source_struct == type_info(Json);
+}
+
+// The document text of a `json` or `jsonb` value (or a text one holding JSON). Binary jsonb
+// starts with a version byte, and 1 is the only version there is.
+json_document :: (bytes: [] u8, format: Format, oid: u32) -> string, string {
+    text := cast(string) bytes;
+
+    if oid == xx Oid.JSONB && format == .BINARY {
+        if !bytes.count return "", "an empty binary jsonb";
+        if bytes[0] != 1 return "", tprint("jsonb version % is not supported", bytes[0]);
+        return advance(text, 1), "";
+    }
+
+    if oid == xx Oid.JSONB || is_text_like(oid) return text, "";
+
+    return "", tprint("% is not json", type_name(oid));
+}
+
+// The text of a `Json(T)` passed as `Any`, written by its `write` member.
+json_parameter_text :: (value: Any) -> string, string {
+    if value.type == type_info(Json_Raw) return (cast(*Json_Raw) value.value_pointer).text, "";
+
+    s := cast(*Type_Info_Struct) value.type;
+    value_offset, write_offset: s64 = -1;
+
+    for s.members {
+        if it.name == "value" value_offset = it.offset_in_bytes;
+        if it.name == "write" write_offset = it.offset_in_bytes;
+    }
+
+    Writer :: #type (value: *void, builder: *String_Builder);
+    write := (cast(*Writer) (value.value_pointer + write_offset)).*;
+
+    if !write return "", "a Json value with no `write`: make it with Pg.json(value) or a declaration, not zeroed memory";
+
+    builder: String_Builder;
+    builder.allocator = temp;
+    write(value.value_pointer + value_offset, *builder);
+
+    return builder_to_string(*builder,, temp), "";
 }
 
 any_array_view :: (value: Any) -> [] u8 {

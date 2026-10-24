@@ -44,6 +44,9 @@
 #import "Math";
 #import "File";
 Io :: #import "Extensions/Io";
+Json_Module :: #import "Extensions/Json";
+
+Json_Options :: Json_Module.Json_Options;
 
 #if TLS {
     Tls :: #import "Extensions/Tls";

@@ -86,6 +86,28 @@ hex-decoded bytea are allocated by an allocator that records them in the result.
 `get` returns therefore stays valid until `free_result`. NULL into a non-`Nullable` type, or a
 value that does not fit (`int2` 300 into `s8`), is a `.DECODE` error, never a silent zero.
 
+**JSON.** A `json` or `jsonb` column decodes into `Json(T)` with the [Json](json.md) module's
+generated decoder for `T`, or into `Json_Raw` (the document's text, undecoded) or a plain
+`string`. Binary `jsonb` must carry version byte 1. Arrays of either (`json[]`, `jsonb[]`) decode
+into `[] Json(T)`.
+
+```jai
+settings := Pg.get(*result, row, "settings", Pg.Json(Settings));    // settings.value.theme
+maybe := Pg.get(*result, row, "extra", Pg.Nullable(Pg.Json(Extra))); // SQL NULL
+```
+
+- `result.json_options` (a `Json_Options`, copied from `Config.json_options`) controls unknown
+  fields, missing fields, duplicate keys and limits. Change it before `get` for one query.
+- Strings in the document that need no unescaping point into the result, like `string` columns.
+- SQL NULL is the column's `Nullable`. JSON `null` and a missing key are told apart by the Json
+  module's `Json_Maybe(T)` (`.NULL`, `.MISSING`, `.SET`).
+- A decode error names the column and the place in the document in jsonpath form:
+  `column "settings" (jsonb) of row 3: at $.tags[2]: ...`.
+- As a parameter, `Pg.json(value)` (a `Json(T)`) and `Json_Raw` go as text with OID 0, so the
+  server reads them as `json` or `jsonb` as the statement needs. In arrays they go as binary
+  `jsonb[]`. `Json(T)` carries its encoder in its `write` field, because parameters arrive as
+  `Any`; a zeroed `Json(T)` has none and is refused.
+
 **Errors.** `Pg_Error.kind` says where the failure came from: `CONFIG`, `IO`, `TIMED_OUT`,
 `CANCELED`, `CLOSED`, `TLS`, `AUTH`, `PROTOCOL`, `SERVER`, `DECODE` or `USAGE`. Server errors carry
 every `ErrorResponse` field (`code`, `detail`, `hint`, `position`, `table`, `column`,
@@ -148,6 +170,10 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 
 ## How to change it
 
+- **JSON.** Decoding is the `is_json(T)` and `Json_Raw` branches of `decode`, with
+  `json_document` stripping the jsonb version byte. Parameters go through
+  `json_parameter_text`. What a document may contain is the Json module's business: change
+  `Json_Options` there.
 - **A new type.** Add its OID to `Oid` and a branch to `decode` in `codecs.jai`, for both
   formats. If it can be a parameter, add a branch to `encode_binary`. For an array, add the
   pair to `ARRAY_TYPES`. Add a row to `tests/server.jai` in `test_values`, which runs in both
@@ -175,7 +201,7 @@ startup parameters such as `TimeZone`; a name the client sends itself, `client_e
 `DateStyle` or `IntervalStyle`, replaces its value. Text-format dates and intervals only decode
 under `DateStyle=ISO` and `IntervalStyle=postgres`), `send_styles` (default true; false sends
 neither style, leaving the server's or role's settings in place, for programs that only show text
-values), `on_notice` and `user_data` (see Notices above).
+values), `on_notice` and `user_data` (see Notices above), `json_options` (see JSON above).
 
 `parse_url` reads `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
 `user`, `password`, `dbname`, `sslmode` (`allow` maps to `prefer`), `sslnegotiation=direct`,

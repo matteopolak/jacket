@@ -36,6 +36,11 @@ Config :: struct {
     on_notice: Notice_Proc;
     user_data: *void;
 
+    // How `json` and `jsonb` columns decode into `Json(T)`: unknown and missing fields, duplicate
+    // keys, depth and size limits. Each result starts with these, and its `json_options` can be
+    // changed before `get`.
+    json_options: Json_Options;
+
     ssl_mode := Ssl_Mode.PREFER;
     // Start TLS at once, with ALPN `postgresql`, instead of asking first (PostgreSQL 17 and
     // later): saves a round trip. Needs `ssl_mode` REQUIRE or stricter.

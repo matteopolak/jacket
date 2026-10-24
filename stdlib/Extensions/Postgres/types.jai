@@ -17,6 +17,32 @@ some :: (value: $T) -> Nullable(T) {
     return .{ value = value };
 }
 
+// A `json` or `jsonb` document holding a `T`. `get` decodes it with the Json module's decoder for
+// `T`, under the result's `json_options`; as a parameter it is encoded with `write_json`.
+// `write` lets a parameter passed as `Any` find its encoder, so leave it as it is.
+Json :: struct(T: Type) {
+    value: T;
+    write: (value: *T, builder: *String_Builder) = (value: *T, builder: *String_Builder) {
+        Json_Module.write_json(builder, value.*);
+    };
+}
+
+// `value` as a `json`/`jsonb` parameter.
+json :: (value: $T) -> Json(T) {
+    return .{ value = value };
+}
+
+// A `json` or `jsonb` document, undecoded: its text, which points into the result like any string.
+// `decode_json` turns it into a `T` later. Also a parameter, sent as it is.
+Json_Raw :: struct {
+    text: string;
+}
+
+decode_json :: ($T: Type, raw: Json_Raw, options := Json_Options.{}) -> T, Json_Module.Json_Error {
+    value, error := Json_Module.from_json(T, raw.text, options);
+    return value, error;
+}
+
 // `uuid`: the 16 bytes in network order.
 Uuid :: struct {
     bytes: [16] u8;

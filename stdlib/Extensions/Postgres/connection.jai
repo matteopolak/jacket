@@ -44,6 +44,7 @@ Connection :: struct {
     cancel_timeout: s64;
     opened_at: s64; // monotonic ms, for a pool's max_lifetime
     cancel_key: [] u8;
+    json_options: Json_Options; // copied to each result
     tcp: Io.Tcp_Stream;
     reader: Io.Reader;
     writer: Io.Writer;
@@ -69,6 +70,7 @@ connect :: (config: Config) -> *Connection, Pg_Error {
     if config.on_notice c.on_notice = config.on_notice;
 
     c.user_data = config.user_data;
+    c.json_options = config.json_options;
     error: Pg_Error;
 
     Io.with_deadline(config.connect_timeout, #code {

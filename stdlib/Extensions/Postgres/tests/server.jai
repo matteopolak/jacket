@@ -5,6 +5,7 @@
 #import "File";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
+#import "Extensions/Json";
 
 FIXTURES :: #run join(#filepath, "../../Tls/tests/fixtures/");
 
@@ -37,6 +38,10 @@ main :: () {
         test_values(.BINARY);
         step("test_arrays");
         test_arrays();
+        step("test_json(.TEXT)");
+        test_json(.TEXT);
+        step("test_json(.BINARY)");
+        test_json(.BINARY);
         step("test_parameters");
         test_parameters();
         step("test_errors");
@@ -231,8 +236,8 @@ test_values :: (format: Pg.Format) {
     defer Pg.free_result(*result);
     assert(result.columns.count == 13 && result.row_count == 1);
     assert(result.columns[2].type_oid == xx Pg.Oid.INT2);
-    assert(get(*result, 0, bool) == true);
-    assert(get(*result, 1, bool) == false);
+    assert(get(*result, 0, bool));
+    assert(!get(*result, 1, bool));
     assert(get(*result, 2, s16) == 32767);
     assert(get(*result, 2, s64) == 32767);
     assert(get(*result, 3, s32) == -2147483648);
@@ -312,6 +317,130 @@ get :: (result: *Pg.Result, column: s64, $T: Type, location := #caller_location)
     value, error := Pg.get(result, 0, column, T);
     assert_ok(error, tprint("column %", column), location);
     return value;
+}
+
+Settings :: struct {
+    theme: string;
+    font_size := 14; @json(default)
+    beta: Json_Maybe(bool);
+    tags: [..] string; @json(default)
+}
+
+test_json :: (format: Pg.Format) {
+    db := connect_ok(config_for("postgres"));
+
+    defer Pg.close(db);
+
+    sql := #string SQL
+        select '{"theme": "dark", "beta": null, "tags": ["a", "b\"c"]}'::jsonb,
+               '{"theme": "light", "font_size": 12}'::json,
+               null::jsonb,
+               array['{"theme": "x"}', '{"theme": "y", "beta": true}']::jsonb[],
+               array['{"theme": "z"}']::json[],
+               '{"b": 1, "a": [true, null]}'::jsonb,
+               'null'::jsonb
+SQL;
+    result := query_in(db, sql, format);
+
+    defer Pg.free_result(*result);
+
+    first := get(*result, 0, Pg.Json(Settings));
+
+    assert(first.value.theme == "dark" && first.value.font_size == 14);
+    assert(first.value.beta.state == .NULL);
+    assert(first.value.tags.count == 2 && first.value.tags[1] == "b\"c");
+
+    // Strings without escapes point into the result.
+    theme := first.value.theme.data;
+
+    assert(theme >= result.data.data && theme < result.data.data + result.data.count);
+
+    second := get(*result, 1, Pg.Json(Settings));
+
+    assert(second.value.theme == "light" && second.value.font_size == 12 && second.value.beta.state == .MISSING);
+
+    // SQL NULL is the column's nullability, not the document's.
+    missing := get(*result, 2, Pg.Nullable(Pg.Json(Settings)));
+
+    assert(missing.null);
+
+    list := get(*result, 3, [] Pg.Json(Settings));
+
+    assert(list.count == 2 && list[0].value.theme == "x" && list[1].value.beta.state == .SET && list[1].value.beta.value);
+
+    texts := get(*result, 4, [] Pg.Json(Settings));
+
+    assert(texts.count == 1 && texts[0].value.theme == "z");
+
+    raw := get(*result, 5, Pg.Json_Raw);
+
+    assert(raw.text == "{\"a\": [true, null], \"b\": 1}", raw.text);
+
+    tree := get(*result, 5, Pg.Json(Json_Value));
+
+    assert(json_count(*tree.value) == 2);
+
+    null_document := get(*result, 6, Pg.Json(Json_Maybe(Settings)));
+
+    assert(null_document.value.state == .NULL);
+
+    // Errors name the column and the path inside the document.
+    _, error := Pg.get(*result, 0, 1, [] Pg.Json(Settings));
+
+    assert(error.kind == .DECODE);
+    Pg.free_error(*error);
+
+    _, error = Pg.get(*result, 0, 5, Pg.Json(Settings));
+    assert(error.kind == .DECODE && contains(error.message, "column \"jsonb\""), error.message);
+    Pg.free_error(*error);
+
+    // Unknown fields are ignored unless the result's options deny them.
+    only := get(*result, 0, Pg.Json(Theme_Only));
+
+    assert(only.value.theme == "dark");
+
+    result.json_options.deny_unknown_fields = true;
+    _, error = Pg.get(*result, 0, 3, [] Pg.Json(Theme_Only));
+    assert(error.kind == .DECODE && contains(error.message, "element 2: at $"), error.message);
+    Pg.free_error(*error);
+    result.json_options = .{};
+
+    // A json value keeps duplicate keys; the last wins unless asked otherwise.
+    duplicate := query_in(db, "select '{\"theme\": \"a\", \"theme\": \"b\"}'::json", format);
+
+    defer Pg.free_result(*duplicate);
+
+    duplicate.json_options.duplicate_keys = .LAST;
+    last := get(*duplicate, 0, Pg.Json(Settings));
+
+    assert(last.value.theme == "b");
+
+    duplicate.json_options.duplicate_keys = .ERROR;
+    _, error = Pg.get(*duplicate, 0, 0, Pg.Json(Settings));
+    assert(error.kind == .DECODE && contains(error.message, "theme"), error.message);
+    Pg.free_error(*error);
+
+    // Parameters: json(value) is sent as text for json or jsonb; arrays go as jsonb[].
+    settings: Settings;
+    settings.theme = "solar";
+    settings.beta.state = .SET;
+    settings.beta.value = true;
+
+    echo, echo_error := Pg.query_dynamic(db, "select $1::jsonb->>'theme', $1::json->'beta', $2::jsonb[], $3::jsonb", Pg.json(settings), .[Pg.json(settings)], Pg.Json_Raw.{ "[1, 2]" });
+
+    assert_ok(echo_error, "json parameters");
+    defer Pg.free_result(*echo);
+    assert(get(*echo, 0, string) == "solar");
+    assert(get(*echo, 1, string) == "true");
+
+    back := get(*echo, 2, [] Pg.Json(Settings));
+
+    assert(back.count == 1 && back[0].value.theme == "solar" && back[0].value.beta.value);
+    assert(get(*echo, 3, string) == "[1, 2]");
+}
+
+Theme_Only :: struct {
+    theme: string;
 }
 
 test_arrays :: () {
