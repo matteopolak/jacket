@@ -158,7 +158,10 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 `VERIFY_CA`, `VERIFY_FULL`), `ssl_direct`, `ssl_root_cert_pem` (default: the system roots),
 `channel_binding` (`DISABLE`, `PREFER`, `REQUIRE`), `connect_timeout` (ms, default 10 s), `cancel_timeout` (ms, default 2 s: the time allowed for
 cancel and drain after a deadline or cancel),
-`max_scram_iterations` (default 1,000,000), `allow_cleartext_password`.
+`max_scram_iterations` (default 1,000,000), `allow_cleartext_password`, `parameters` (extra
+startup parameters such as `TimeZone`; a name the client sends itself, `client_encoding`,
+`DateStyle` or `IntervalStyle`, replaces its value. Text-format dates and intervals only decode
+under `DateStyle=ISO` and `IntervalStyle=postgres`).
 
 `parse_url` reads `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
 `user`, `password`, `dbname`, `sslmode` (`allow` maps to `prefer`), `sslnegotiation=direct`,

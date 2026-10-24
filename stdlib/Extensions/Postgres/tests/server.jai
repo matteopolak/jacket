@@ -43,6 +43,8 @@ main :: () {
         test_errors();
         step("test_scripts_and_status");
         test_scripts_and_status();
+        step("test_startup_parameters");
+        test_startup_parameters();
         step("test_deadline");
         test_deadline();
         step("test_pool");
@@ -476,6 +478,27 @@ test_scripts_and_status :: () {
     assert(error.code == .DIVISION_BY_ZERO);
     Pg.free_error(*error);
     assert(scalar(db, "select count(*) from t", s64) == 2);
+}
+
+test_startup_parameters :: () {
+    config := config_for("postgres");
+    parameters := Pg.Startup_Parameter.[
+        .{ "datestyle", "Postgres, MDY" },
+        .{ "TimeZone", "America/Los_Angeles" },
+        .{ "geqo", "off" },
+    ];
+
+    config.parameters = parameters;
+    db := connect_ok(config);
+
+    defer Pg.close(db);
+    assert(scalar(db, "show datestyle", string) == "Postgres, MDY");
+    assert(scalar(db, "show timezone", string) == "America/Los_Angeles");
+    assert(scalar(db, "show geqo", string) == "off");
+    assert(scalar(db, "show intervalstyle", string) == "postgres");
+
+    config.parameters = Pg.Startup_Parameter.[.{ "", "x" }];
+    connect_fails(config, .CONFIG);
 }
 
 test_deadline :: () {
