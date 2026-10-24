@@ -1,5 +1,5 @@
 // Every finding in this file is silenced in source.
-// jailint: allow-file(float_equality)
+// jailint: allow-file(float_equality, missing_doc)
 #import "Basic";
 #import "Math"; // jailint: allow(unused_import)
 

@@ -48,6 +48,7 @@ mod manual_clamp;
 mod manual_index_counter;
 mod min_max;
 mod misrefactored_assign_op;
+mod missing_doc;
 mod mixed_case_hex_literals;
 mod modified_range_bound;
 mod needless_bool;
@@ -335,6 +336,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "`a += a + b`, an update that applies the operator to `a` twice",
         check: misrefactored_assign_op::check,
+    },
+    RuleInfo {
+        name: "missing_doc",
+        category: Category::Restriction,
+        summary: "an exported procedure, struct or enum with no doc comment",
+        check: missing_doc::check,
     },
     RuleInfo {
         name: "mixed_case_hex_literals",

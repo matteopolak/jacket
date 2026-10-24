@@ -488,6 +488,16 @@
           "default": "deny",
           "markdownDescription": "`a += a + b`, an update that applies the operator to `a` twice (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#misrefactored_assign_op)"
         },
+        "missing_doc": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "an exported procedure, struct or enum with no doc comment (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#missing_doc)"
+        },
         "mixed_case_hex_literals": {
           "type": "string",
           "enum": [
