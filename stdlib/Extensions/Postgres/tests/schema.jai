@@ -308,7 +308,7 @@ test_server :: (port: u16) {
     test_diff_server(config, source);
 
     source, problem = Pg.generate_schema(config, join(#filepath, "migrations_bad",, temp));
-    assert(source == "" && contains(problem, "migration 0001_fails failed"), "%", problem);
+    assert(source == "" && contains(problem, "migration 0001_fails.sql failed at line 2"), "%", problem);
 
     db, error := Pg.connect(config);
 
