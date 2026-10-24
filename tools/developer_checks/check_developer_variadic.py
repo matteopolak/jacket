@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """Real C variadic generation, public type printing and independent ABI effects."""
-import os
-from pathlib import Path
 import platform
 import build_developer_bindings
 from driven_sources import driven
 from dev_common import JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('C variadic workflow')
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     build_developer_bindings.build(prefix)
     jaic = ROOT / "target/debug/jaic"
     emitter = driven("bindings-variadic.jai")

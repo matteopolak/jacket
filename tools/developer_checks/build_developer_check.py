@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Source-build the owned Check demangler adapter against configured official LLVM."""
-import os
 from pathlib import Path
 import platform
 import subprocess
 import developer_native_runtime
 from dev_common import ROOT
+from build_developer_bindings import llvm_prefix
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     directory = ROOT / "stdlib/internal/developer-tools/check-native"
     library_dir = Path(subprocess.check_output([prefix / "bin/llvm-config", "--libdir"], text=True).strip())
     library_names = subprocess.check_output([prefix / "bin/llvm-config", "--libnames", "demangle"], text=True).split()

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Verify production helper/foreign links and discovery through a configured SDK."""
 import json
-import os
 from pathlib import Path
 import platform
 import re
 import shutil
 import build_developer_bindings
 from dev_common import JAIFMT, ROOT, run_checked, sha256_file
+from build_developer_bindings import llvm_prefix
 
 
 def run(command, output=None):
@@ -43,7 +43,7 @@ def main():
     host = platform.system()
     if host not in {"Darwin", "Linux"}:
         raise RuntimeError("Configured SDK execution check currently requires macOS/Linux")
-    primary = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm")).resolve()
+    primary = llvm_prefix().resolve()
     sdk = ROOT / "target/developer-tools-configured-sdk"
     if sdk.is_symlink():
         raise RuntimeError("Configured SDK fixture root must be an owned directory")

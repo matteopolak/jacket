@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """SDK-derived mangled signatures through staged Windows-only Check on the Mac host."""
 import json
-import os
 from pathlib import Path
 import platform
 import re
 import build_developer_check
 from dev_common import JAIFMT, ROOT, run_checked, sha256_file
+from build_developer_bindings import llvm_prefix
 
 
 def run(command, *, code=0, expected=None):
@@ -14,7 +14,7 @@ def run(command, *, code=0, expected=None):
 
 
 def prepare():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     # Stage the actual private engine with its reviewed parameter constants;
     # production public visibility is checked separately under Windows.
     facade = (ROOT / "stdlib/internal/developer-tools/check-engine/module.jai").read_text()
@@ -117,7 +117,7 @@ def main():
     if platform.system() == "Darwin":
         library = ROOT / "stdlib/internal/developer-tools/check-native/libdeveloper_tools_check.dylib"
         dependencies = run(["otool", "-L", library]).stdout
-        prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+        prefix = llvm_prefix()
         sdk_links = [line.strip().split(" (", 1)[0] for line in dependencies.splitlines() if "libLLVM" in line]
         if len(sdk_links) != 1 or not sdk_links[0].startswith("@loader_path/../clang-bindings/"):
             raise RuntimeError("Production Check helper must select its distribution LLVM runtime")

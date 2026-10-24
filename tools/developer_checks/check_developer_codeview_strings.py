@@ -2,18 +2,18 @@
 """Original native C13 strings/checksums with independent official SDK file-ID oracles."""
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import struct
 from dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Original CodeView fixture', expected=None, env=None, timeout=60, stdout=True)
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     source = ROOT / "stdlib/Debug_Info/tests/driven/codeview-strings-native.c"
     header = ROOT / "stdlib/Debug_Info/tests/driven/codeview-strings-native.h"
     allowed_paths = {str(source), str(header)}

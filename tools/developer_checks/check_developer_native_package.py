@@ -2,11 +2,11 @@
 """Actual relocated Mac native package loading, independent of SDK load paths."""
 import os
 import json
-from pathlib import Path
 import platform
 import shutil
 import subprocess
 from dev_common import run_checked, ROOT
+from build_developer_bindings import llvm_prefix
 
 
 def run(command):
@@ -17,7 +17,7 @@ def run(command):
 def main():
     if platform.system() != "Darwin":
         raise RuntimeError("This test requires actual Mac dyld execution")
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     original = ROOT / "target/developer-tools-package-before"
     relocated = ROOT / "target/developer-tools-package-relocated"
     for directory in [original, relocated]:

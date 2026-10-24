@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 from dev_common import ROOT, labeled_runner, sha256_file
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Windows profiling SDK check', expected=None, env=None, timeout=60, stdout=True)
@@ -12,7 +13,7 @@ run = labeled_runner('Windows profiling SDK check', expected=None, env=None, tim
 
 def main():
     sdk = Path(os.environ.get("DEVELOPER_TOOLS_MINGW_PREFIX", "/opt/homebrew/opt/mingw-w64/toolchain-x86_64"))
-    llvm = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    llvm = llvm_prefix()
     fixture = ROOT / "stdlib/Iprof/tests/driven/iprof-windows-clock.c"
     gcc = sdk / "bin/x86_64-w64-mingw32-gcc"
     evidence = {"scope": "original Windows x64 C O0/O2 SDK ABI/executable/import-link checks and arm64 object; no Windows execution or Jai native timing claim", "imports": []}

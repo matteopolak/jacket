@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 import platform
 from dev_common import JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Multiple-input workflow')
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     source = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-multi.jai"
     consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-multi-roundtrip.jai"
     native = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-multi-native.c"
