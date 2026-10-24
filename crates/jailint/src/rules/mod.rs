@@ -43,6 +43,7 @@ mod min_max;
 mod misrefactored_assign_op;
 mod modified_range_bound;
 mod needless_bool;
+mod neg_multiply;
 mod no_effect;
 mod range_past_count;
 mod redundant_alias;
@@ -290,6 +291,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "`ifx c then true else false` and `if c return true; else return false;`",
         check: needless_bool::check,
+    },
+    RuleInfo {
+        name: "neg_multiply",
+        category: Category::Style,
+        summary: "`x * -1`, which is `-x`",
+        check: neg_multiply::check,
     },
     RuleInfo {
         name: "no_effect",

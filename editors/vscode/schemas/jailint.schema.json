@@ -438,6 +438,16 @@
           "default": "warn",
           "markdownDescription": "`ifx c then true else false` and `if c return true; else return false;` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#needless_bool)"
         },
+        "neg_multiply": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "`x * -1`, which is `-x` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#neg_multiply)"
+        },
         "no_effect": {
           "type": "string",
           "enum": [
