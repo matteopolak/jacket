@@ -365,6 +365,16 @@
               "default": "warn",
               "markdownDescription": "a `while` whose condition nothing in the loop changes (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#infinite_loop)"
             },
+            "int_plus_one": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`x >= y + 1`, which is `x > y` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#int_plus_one)"
+            },
             "integer_division_in_float": {
               "type": "string",
               "enum": [

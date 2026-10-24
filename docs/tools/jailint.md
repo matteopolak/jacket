@@ -108,6 +108,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `impossible_comparison` | correctness | deny | editor | `x > 5 && x < 3`, `x != 1 \|\| x != 2`: comparisons of one integer that never pass together, or always pass between them |
 | `index_only_loop` | complexity | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
 | `infinite_loop` | suspicious | warn | no | a `while` whose condition nothing in the loop changes |
+| `int_plus_one` | complexity | warn | editor | `x >= y + 1`, `x - 1 >= y`, `x + 1 <= y`, `x <= y - 1`: an integer comparison with `1` added or taken off, which is a strict comparison |
 | `integer_division_in_float` | suspicious | warn | editor | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
 | `leaked_allocation` | pedantic | allow | editor | `p := New(T);` that is never freed, returned or handed on |
 | `lossy_xx` | pedantic | allow | yes | `xx` that narrows a number to a smaller type |
@@ -186,6 +187,8 @@ Only integer expressions compared with integer literals, within one run of `&&` 
 Becomes `for xs` (or `for *xs` when elements are written), other uses of `i` become `it_index`. Quiet when the loop may change `xs`, walks a grid, indexes other arrays or `xs[i + 1]`, or when `xs` is a constant. When the rewrite would make `it` name an inner loop's element, the fix is withheld and a named iterator is suggested.
 ### infinite_loop
 Condition reads only locals, parameters and literals; skipped for bodies with `break`, `return`, `#insert`, `#asm`, `using`, macro calls or taken addresses.
+### int_plus_one
+Integers only, and only the literal `1`. The editor offers the strict comparison; `--fix` leaves it, since where `y + 1` wraps (the top of the type) the two forms differ.
 ### integer_division_in_float
 Operands are typed before the cast, so the integers divide first. A variable divided by a power-of-two literal is taken as deliberate. The editor offers to convert the dividend to a float (`cast(float) done / total`); `--fix` does not, since it changes the value.
 ### leaked_allocation

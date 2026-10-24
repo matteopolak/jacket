@@ -9,6 +9,7 @@
 - `jailint` warns about a `// jailint: allow(...)` comment that names a rule that does not exist (`unknown_allow`), and suggests the closest rule name.
 - In a cross build (`-os`, `-cpu`), `#run` code runs against the machine doing the compiling: `OS` and `CPU` there name that machine, the standard library takes its host branches, and the results come back to the program as constants.
 - `jailint` reports `total += total + x;`, a compound assignment that applies the operator to its target twice (`misrefactored_assign_op`).
+- `jailint` suggests `x > y` for `x >= y + 1` and the other integer comparisons with `1` added or taken off (`int_plus_one`).
 
 ### Improved
 

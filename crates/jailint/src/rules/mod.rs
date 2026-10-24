@@ -32,6 +32,7 @@ mod identity_op;
 mod impossible_comparison;
 mod index_only_loop;
 mod infinite_loop;
+mod int_plus_one;
 mod integer_division_in_float;
 mod leaked_allocation;
 mod lossy_xx;
@@ -223,6 +224,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a `while` whose condition nothing in the loop changes",
         check: infinite_loop::check,
+    },
+    RuleInfo {
+        name: "int_plus_one",
+        category: Category::Complexity,
+        summary: "`x >= y + 1`, which is `x > y`",
+        check: int_plus_one::check,
     },
     RuleInfo {
         name: "integer_division_in_float",
