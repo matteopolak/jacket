@@ -198,7 +198,7 @@ Conditions must be side-effect-free; a call in between restarts the comparison. 
 ### element_count_as_bytes
 Only when `xs.data` is another argument of the same call, so the count clearly describes that array. Elements of one byte (`u8`, `s8`, `bool`) and strings are left alone. The fix appends `* size_of(Elem)`; it is not applied by `--fix`, since the element type may need its module's name.
 ### enum_member_prefix
-Two or more members, all beginning with the enum's name once case and `_` are ignored (`Token_Kind` and `TOKEN_KIND_IDENT`) and each with something left after it. Enums that add members with `#insert` or `using`, and generated files, are skipped. No fix: renaming members changes every use of them.
+Two or more members, all beginning with the enum's name once case and `_` are ignored (`Token_Kind` and `TOKEN_KIND_IDENT`) and each with something left after it. Enums that add members with `#insert` or `using`, enums declared `using` (their members are used without the enum's name, so the prefix is what tells them apart), and generated files are skipped. No fix: renaming members changes every use of them.
 ### erasing_op
 Left alone inside an index or array literal, where a `0 *` lines up with other rows. When the other operand is side-effect-free the editor offers to write the `0`.
 ### excessive_bools

@@ -29,6 +29,12 @@ Shape :: enum {
     SPHERE;
 }
 
+// `using` puts the members in scope unqualified, where the prefix tells them apart.
+using Channel :: enum {
+    CHANNEL_LEFT;
+    CHANNEL_RIGHT;
+}
+
 main :: () {
     print("% % % % %\n", Color.RED, Token_Kind.NUMBER, Only.ONLY_ONE, Level.LEVEL, Shape.SQUARE);
 }

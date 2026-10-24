@@ -15,7 +15,8 @@
 //! Fires on an enum of two or more members when every member, compared without case and
 //! without `_`, begins with the enum's name (`Token_Kind` and `TOKEN_KIND_IDENT`, or just
 //! `TokenKind` and `TokenKindIdent`) and has something left after it. Enums that insert members
-//! with `#insert` or `using`, and enums in generated files, are skipped. No fix is offered:
+//! with `#insert` or `using`, enums declared `using` (whose members are used without the enum's
+//! name, where the prefix is what tells them apart), and enums in generated files, are skipped. No fix is offered:
 //! renaming members changes every use of them.
 use super::finding;
 use crate::Finding;
@@ -40,7 +41,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let [name] = decl.names.as_slice() else {
             return;
         };
-        if decl.kind != DeclKind::Const {
+        // `using` brings the members into scope unqualified, where the prefix tells them apart.
+        if decl.kind != DeclKind::Const || decl.using {
             return;
         }
         let mut members = Vec::new();
