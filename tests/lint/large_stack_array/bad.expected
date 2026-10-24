@@ -1,0 +1,8 @@
+warning[large_stack_array]: `scratch` is 1 MiB on the stack, past the limit of 64 KiB
+  --> tests/lint/large_stack_array/bad.jai:11:5
+   |
+11 |     scratch: [1 << 20] u8;
+   |     ^^^^^^^
+   |
+   = help: allocate it (`NewArray`, `alloc`), use a resizable array, or keep it in a global
+

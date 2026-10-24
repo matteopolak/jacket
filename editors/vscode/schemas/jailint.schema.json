@@ -438,6 +438,16 @@
           "default": "warn",
           "markdownDescription": "`x >= y + 1`, which is `x > y` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#int_plus_one)"
         },
+        "large_stack_array": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#large_stack_array)"
+        },
         "integer_division_in_float": {
           "type": "string",
           "enum": [

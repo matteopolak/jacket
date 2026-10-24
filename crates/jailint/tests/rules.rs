@@ -380,3 +380,25 @@ fn parameter_limits_come_from_the_settings() {
     let (lints, _) = lint_with(&bools, &levels, config(3));
     assert!(lints.is_empty(), "{lints:?}");
 }
+
+#[test]
+fn stack_array_limit_comes_from_the_settings() {
+    let file = repo().join("tests/lint/large_stack_array/bad.jai");
+    let levels = [("large_stack_array", Level::Warn)];
+    let config = |limit| Config {
+        max_stack_array_bytes: Some(limit),
+        ..Config::default()
+    };
+    // `scratch` takes a MiB and `pixels` 40,000 bytes.
+    let (lints, _) = lint_with(&file, &levels, config(30_000));
+    assert_eq!(lints.len(), 2, "{lints:?}");
+    let (lints, _) = lint_with(&file, &levels, config(65_536));
+    assert_eq!(lints.len(), 1, "{lints:?}");
+    assert!(
+        lints[0]
+            .message
+            .contains("is 1 MiB on the stack, past the limit of 64 KiB")
+    );
+    let (lints, _) = lint_with(&file, &levels, config(1 << 20));
+    assert!(lints.is_empty(), "{lints:?}");
+}

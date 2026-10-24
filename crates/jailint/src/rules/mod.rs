@@ -44,6 +44,7 @@ mod index_only_loop;
 mod infinite_loop;
 mod int_plus_one;
 mod integer_division_in_float;
+mod large_stack_array;
 mod leaked_allocation;
 mod loop_with_break_condition;
 mod lossy_float_literal;
@@ -324,6 +325,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "`x >= y + 1`, which is `x > y`",
         check: int_plus_one::check,
+    },
+    RuleInfo {
+        name: "large_stack_array",
+        category: Category::Pedantic,
+        summary: "a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB)",
+        check: large_stack_array::check,
     },
     RuleInfo {
         name: "integer_division_in_float",

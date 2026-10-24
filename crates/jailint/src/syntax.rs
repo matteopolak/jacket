@@ -37,6 +37,8 @@ pub(crate) struct Cx<'a> {
     pub max_arguments: usize,
     /// The configured `bool` parameter limit (`excessive_bools`).
     pub max_bools: usize,
+    /// The configured size limit for local arrays in bytes (`large_stack_array`).
+    pub max_stack_array_bytes: usize,
     /// Which numbers `magic_number` lets through.
     pub magic_numbers: crate::config::MagicNumbers,
     /// What rules remember across the files of this run.
@@ -100,6 +102,7 @@ impl<'a> Cx<'a> {
             max_complexity: crate::config::DEFAULT_MAX_COMPLEXITY,
             max_arguments: crate::config::DEFAULT_MAX_ARGUMENTS,
             max_bools: crate::config::DEFAULT_MAX_BOOLS,
+            max_stack_array_bytes: crate::config::DEFAULT_MAX_STACK_ARRAY_BYTES,
             magic_numbers: crate::config::MagicNumbers::default(),
             run,
         }

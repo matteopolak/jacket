@@ -70,6 +70,9 @@ pub struct Lint {
     /// How many `bool` parameters a procedure may take before `excessive_bools` reports it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_bools: Option<usize>,
+    /// How many bytes a local fixed array may take before `large_stack_array` reports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_stack_array_bytes: Option<usize>,
     /// Numbers `magic_number` never reports, besides its built-in ones.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub magic_number_allow: Vec<f64>,
@@ -168,6 +171,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "max_complexity",
             "max_arguments",
             "max_bools",
+            "max_stack_array_bytes",
             "magic_number_allow",
             "magic_number_min",
             "magic_number_in_tests",

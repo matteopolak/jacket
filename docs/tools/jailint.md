@@ -126,6 +126,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `infinite_loop` | suspicious | warn | no | a `while` whose condition nothing in the loop changes |
 | `int_plus_one` | complexity | warn | editor | `x >= y + 1`, `x - 1 >= y`, `x + 1 <= y`, `x <= y - 1`: an integer comparison with `1` added or taken off, which is a strict comparison |
 | `integer_division_in_float` | suspicious | warn | editor | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
+| `large_stack_array` | pedantic | allow | no | `scratch: [1 << 20] u8;` as a local: a megabyte of stack |
 | `leaked_allocation` | pedantic | allow | editor | `p := New(T);` that is never freed, returned or handed on |
 | `loop_with_break_condition` | complexity | warn | yes | `while true { if i >= n break; ... }`: a loop that opens by leaving when a test fails, which is the `while` condition |
 | `lossy_float_literal` | style | warn | yes | `pi: float32 = 31415.92653;`: digits a `float32` cannot hold |
@@ -251,6 +252,8 @@ Condition reads only locals, parameters and literals; skipped for bodies with `b
 Integers only, and only the literal `1`. The editor offers the strict comparison; `--fix` leaves it, since where `y + 1` wraps (the top of the type) the two forms differ.
 ### integer_division_in_float
 Operands are typed before the cast, so the integers divide first. A variable divided by a power-of-two literal is taken as deliberate. The editor offers to convert the dividend to a float (`cast(float) done / total`); `--fix` does not, since it changes the value.
+### large_stack_array
+Locals live on the stack, which is small (a thread's is often 1 MiB or less) and shared with deep recursion, so a local of a megabyte can overflow it with no message beyond a crash. Fires on a local variable (not a parameter) whose type is a fixed array larger than `[lint] max_stack_array_bytes` (64 KiB by default); arrays of structs count by total size. Locals of polymorphic procedures and macros, and generated files, are skipped. Allocate large buffers with `NewArray` or `alloc`, use a resizable array, or keep them in a global. No fix. Off by default.
 ### leaked_allocation
 Off by default: ownership conventions differ, and a program that allocates once for its whole run may leak on purpose. A local declared from a call of an `@Allocates` procedure (the library's `alloc`, `New`, `NewArray`, `copy_string`, `sprint`, `join`, `array_copy`, `to_upper_copy`, `read_entire_file`, ...; a cast around the call is fine) whose every later mention is harmless: reading or writing a number, bool or enum through it (`p.count`, `p.depth = 1`), comparing it, testing it in an `if`/`while`, or a bare statement. Passing it (or anything reached through it) to any call, freeing it (also by `defer`), returning it, assigning it elsewhere, taking its address, putting it in a literal or reassigning it all count as handling the memory and keep the rule silent. It also stays silent when it cannot tell which allocator is in force: a procedure that uses `push_context`, assigns `context`, calls a macro (`push_allocator` is one) or has `#insert`/`using`, an allocating call with `,, allocator = temp`, or a name mentioned where the walk cannot follow. For a pointer, the editor offers `defer free(x);` on the next line.
 ### loop_with_break_condition
@@ -397,6 +400,7 @@ max_nesting = 6                                          # blocks `excessive_nes
 max_complexity = 25                                      # score `cognitive_complexity` allows
 max_arguments = 7                                        # parameters `too_many_arguments` allows
 max_bools = 3                                            # `bool` parameters `excessive_bools` allows
+max_stack_array_bytes = 65536                            # bytes a local array may take for `large_stack_array`
 magic_number_allow = [60, 24]                            # numbers `magic_number` accepts
 magic_number_min = 3                                     # whole numbers below this are fine
 
@@ -412,7 +416,7 @@ rules = { float_equality = "allow", magic_number = "allow" }
 
 Both tools match globs the same way: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `glob` in `crates/jailint/src/config.rs` and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
 
-`[[lint.overrides]]` entries set rule or category levels for the files their `paths` globs match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `max_arguments`, `max_bools`, `magic_number_*`) are not per path.
+`[[lint.overrides]]` entries set rule or category levels for the files their `paths` globs match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `max_arguments`, `max_bools`, `max_stack_array_bytes`, `magic_number_*`) are not per path.
 
 The formatter is written in Jai and reads the `[format]` table itself; both tables live in one file. The repository's `jacket.toml` excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `just lint` (`jailint -D warnings -j <cores> --allow-incomplete stdlib examples tools jaifmt tests benchmarks`); deliberate findings in tests carry an `allow` with the reason. It also holds the repository to `magic_number` (time units allowed) and, under `stdlib/`, to `float_equality`; `[[lint.overrides]]` turn `magic_number` off for benchmarks, examples and binary-format, numeric and OS-binding code, and `float_equality` off in stdlib tests.
 

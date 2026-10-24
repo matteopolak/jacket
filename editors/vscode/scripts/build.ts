@@ -247,6 +247,7 @@ const jacket = {
         max_complexity: { type: "integer", minimum: 0, default: 25, markdownDescription: "The cognitive complexity above which `cognitive_complexity` reports a procedure." },
         max_arguments: { type: "integer", minimum: 0, default: 7, markdownDescription: "The parameter count above which `too_many_arguments` reports a procedure." },
         max_bools: { type: "integer", minimum: 0, default: 3, markdownDescription: "The number of `bool` parameters above which `excessive_bools` reports a procedure." },
+        max_stack_array_bytes: { type: "integer", minimum: 0, default: 65536, markdownDescription: "The size in bytes above which `large_stack_array` reports a local fixed array." },
         magic_number_allow: { type: "array", items: { type: "number" }, markdownDescription: "Numbers `magic_number` never reports, besides `10`, `100`, `1000`, powers of two and all-ones masks, such as `[60, 24, 3.14159]`." },
         magic_number_min: { type: "number", minimum: 0, default: 3, markdownDescription: "Whole numbers smaller than this in magnitude are not reported by `magic_number`." },
         magic_number_in_tests: { type: "boolean", default: false, markdownDescription: "`magic_number` also checks files in `tests` and `test` folders." },

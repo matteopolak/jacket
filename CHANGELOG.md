@@ -44,6 +44,7 @@
 - `jailint` suggests `memcpy` for a loop that only copies one array into another (`manual_memcpy`).
 - `jailint` suggests `array_find` for a loop that searches an array and breaks on the first match (`manual_array_find`).
 - `jailint` suggests a fixed array for a local resizable array that only gets a known number of `array_add` calls (`useless_resizable`).
+- `jailint` has an opt-in lint for large fixed arrays in local variables, with the size limit set by `max_stack_array_bytes` (`large_stack_array`).
 
 ### Improved
 
