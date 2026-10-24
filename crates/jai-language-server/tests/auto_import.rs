@@ -810,3 +810,55 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
     std::fs::remove_file(alias).unwrap();
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// A local wins over a module's declaration of the same name, wherever the editor finds the
+/// local: a `#run` block, a `while` binding, a custom `for`'s loop variable, a polymorph.
+#[test]
+fn locals_of_every_block_are_offered_without_an_import() {
+    let cases = [
+        (
+            "run-block",
+            "#import \"Compiler\";\n#run {\n    w := get_current_workspace();\n    options := get_build_options(w);\n    set_optimization(*opt);\n}\n",
+            "*opt",
+            "options",
+        ),
+        (
+            "while-binding",
+            "next_one :: () -> int { return 0; }\nmain :: () {\n    while optional_value := next_one() {\n        opt\n    }\n}\n",
+            "        opt",
+            "optional_value",
+        ),
+        (
+            "for-index",
+            "main :: () {\n    a: [3] int;\n    for optional_value, optional_index: a {\n        opt\n    }\n}\n",
+            "        opt",
+            "optional_index",
+        ),
+        (
+            "for-expansion",
+            "Bag :: struct { items: [2] int; }\nfor_expansion :: (b: *Bag, body: Code, flags: For_Flags) #expand {\n    for i: 0..1 {\n        `it := b.items[i];\n        `it_index := i;\n        #insert body;\n    }\n}\nmain :: () {\n    bag: Bag;\n    for optional_value: bag {\n        opt\n    }\n}\n",
+            "        opt",
+            "optional_value",
+        ),
+        (
+            "polymorph",
+            "f :: (x: $T) {\n    optional_value: T;\n    opt\n}\nmain :: () { f(1); f(2.0); }\n",
+            "    opt",
+            "optional_value",
+        ),
+    ];
+    let mut missing = Vec::new();
+    for (name, text, marker, local) in cases {
+        let mut s = session();
+        let path = PathBuf::from(format!("/auto-import/locals-{name}/main.jai"));
+        let list = complete_at(&mut s, &path, text, marker);
+        let offered = list
+            .items
+            .iter()
+            .any(|i| i.label == local && i.additional_edits.is_empty());
+        if !offered {
+            missing.push(name);
+        }
+    }
+    assert!(missing.is_empty(), "local not offered in {missing:?}");
+}

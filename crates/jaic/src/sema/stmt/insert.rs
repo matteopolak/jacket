@@ -97,7 +97,7 @@ impl Compiler {
                 Some(parent) if self.ns.thunk_scopes.get(&parent) == Some(&code_scope) => parent,
                 _ => code_scope,
             };
-            let inner = self.new_block_scope(code_scope);
+            let inner = self.new_hidden_scope(code_scope);
             let unbraced = string_payload || !matches!(&*body, ast::CodeBody::Block(_));
             if unbraced {
                 self.ns.scopes[inner.0 as usize].inserted_into = Some(scope);
@@ -306,9 +306,11 @@ impl Compiler {
     ) -> Result<()> {
         let frame: MacroFrame = f.macros[frame_index].clone();
         let body = frame.for_body.clone().unwrap();
+        // The names this insertion adds for the body live in a scope of its own: a macro may
+        // insert the body more than once, and the editor reads them after the check.
+        let names = self.new_hidden_scope(body.scope);
         // A for_expansion that forwards its body (`for_expansion(*inner, body, flags)`):
         // the macro inserting it declared `it` / `it_index` in its own caller's scope.
-        let mut borrowed = Vec::new();
         if frame_index + 1 < f.macros.len() {
             let inserter = f.macros.last().unwrap().caller_scope;
             for name in ["it", "it_index"] {
@@ -325,13 +327,12 @@ impl Compiler {
                     .and_then(|ids| ids.last().copied());
                 if missing && let Some(id) = found {
                     let kind = self.entity(id).kind.clone();
-                    borrowed.push((name, self.add_entity(body.scope, name, span, kind, false)));
+                    self.add_entity(names, name, span, kind, false);
                 }
             }
         }
         // Alias custom iterator names to the macro's `it` / `it_index`. The renamed
-        // originals are hidden from the body, so an enclosing `it_index` stays visible. The
-        // aliases go away again afterwards: a macro may insert the body more than once.
+        // originals are hidden from the body, so an enclosing `it_index` stays visible.
         let mut hidden = Vec::new();
         let aliases = [(body.it_name, "it"), (body.index_name, "it_index")];
         for ((alias, original), at) in aliases.into_iter().zip(body.name_spans) {
@@ -339,23 +340,22 @@ impl Compiler {
                 continue;
             }
             let original = Sym::intern(original);
-            let ids = self
-                .scope(body.scope)
-                .names
-                .get(&original)
-                .cloned()
-                .unwrap_or_default();
-            if let Some(&id) = ids.last() {
-                let kind = self.entity(id).kind.clone();
-                let alias_id = self.add_entity(body.scope, alias, at.unwrap_or(span), kind, false);
-                if at.is_some() && self.ed.is_live() {
-                    self.ide_note_entity(alias_id);
-                }
-                borrowed.push((alias, alias_id));
-                if let Some(names) = self.scope_mut(body.scope).names.get_mut(&original) {
-                    names.retain(|&e| e != id);
-                }
-                self.namespace_changed(body.scope);
+            let Some((holder, id)) = [names, body.scope].into_iter().find_map(|holder| {
+                let id = *self.scope(holder).names.get(&original)?.last()?;
+                Some((holder, id))
+            }) else {
+                continue;
+            };
+            let kind = self.entity(id).kind.clone();
+            let alias_id = self.add_entity(names, alias, at.unwrap_or(span), kind, false);
+            if at.is_some() && self.ed.is_live() {
+                self.ide_note_entity(alias_id);
+            }
+            if let Some(ids) = self.scope_mut(holder).names.get_mut(&original) {
+                ids.retain(|&e| e != id);
+            }
+            self.namespace_changed(holder);
+            if holder == body.scope {
                 hidden.push((original, id));
             }
         }
@@ -386,15 +386,9 @@ impl Compiler {
         });
         let saved = f.macros.split_off(frame_index);
         f.insert_replacements.push(replacements);
-        let result = self.check_scoped(f, body.scope, &body.body);
+        let result = self.check_scoped(f, names, &body.body);
         for (original, id) in hidden {
             self.bind_name(body.scope, original, id);
-        }
-        for (name, id) in borrowed {
-            if let Some(names) = self.scope_mut(body.scope).names.get_mut(&name) {
-                names.retain(|&e| e != id);
-            }
-            self.namespace_changed(body.scope);
         }
         f.insert_replacements.pop();
         f.macros.extend(saved);
@@ -434,7 +428,7 @@ impl Compiler {
         // replacements of this and inner inserts.
         let saved_loops = f.loops.split_off(target);
         let saved_reps = f.insert_replacements.split_off(pos);
-        let inner = self.new_block_scope(scope);
+        let inner = self.new_hidden_scope(scope);
         let result = match &code.kind {
             ast::ExprKind::Block(block) => self.check_block_stmts(f, inner, &block.stmts),
             _ => self.check_expr(f, inner, &code, None).map(|_| ()),
