@@ -1,0 +1,36 @@
+warning[pointer_into_resizable]: `first` points into `items`, which `array_add` may have moved by now
+  --> tests/lint/pointer_into_resizable/bad.jai:22:12
+   |
+22 |     return first.value;
+   |            ^^^^^
+   |
+   = help: take the pointer again after the array has grown, or keep the index instead
+   = note: `pointer_into_resizable` is `warn` by default
+
+warning[pointer_into_resizable]: `slot` points into `store.items`, which `array_reserve` may have moved by now
+  --> tests/lint/pointer_into_resizable/bad.jai:29:12
+   |
+29 |     return slot.*;
+   |            ^^^^
+   |
+   = help: take the pointer again after the array has grown, or keep the index instead
+   = note: `pointer_into_resizable` is `warn` by default
+
+warning[pointer_into_resizable]: `last` points into `items`, which `array_add` may have moved by now
+  --> tests/lint/pointer_into_resizable/bad.jai:41:5
+   |
+41 |     last.value = 3;
+   |     ^^^^
+   |
+   = help: take the pointer again after the array has grown, or keep the index instead
+   = note: `pointer_into_resizable` is `warn` by default
+
+warning[pointer_into_resizable]: `it` points into `items`, which `array_add` may have moved by now
+  --> tests/lint/pointer_into_resizable/bad.jai:55:9
+   |
+55 |         it.value += 1;
+   |         ^^
+   |
+   = help: take the pointer again after the array has grown, or keep the index instead
+   = note: `pointer_into_resizable` is `warn` by default
+

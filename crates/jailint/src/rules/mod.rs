@@ -70,6 +70,7 @@ mod needless_continue;
 mod neg_cmp_float;
 mod neg_multiply;
 mod no_effect;
+mod pointer_into_resizable;
 mod print_in_module;
 mod range_past_count;
 mod redundant_alias;
@@ -492,6 +493,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a statement that computes a value and drops it (`x == 5;`)",
         check: no_effect::check,
+    },
+    RuleInfo {
+        name: "pointer_into_resizable",
+        category: Category::Suspicious,
+        summary: "a pointer into a resizable array used after a `@GrowsArray` call may have moved the array (`p := *xs[i]; array_add(*xs, v); use(p);`)",
+        check: pointer_into_resizable::check,
     },
     RuleInfo {
         name: "print_in_module",

@@ -48,6 +48,7 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@ReturnsSmaller` | `min_max` | returns the smaller of its two arguments (the library's `min`) |
 | `@ReturnsLarger` | `min_max` | returns the larger of its two arguments (the library's `max`) |
 | `@RemovesFromArray` | `remove_in_for` | removes elements from the array its first argument points to |
+| `@GrowsArray` | `pointer_into_resizable` | may reallocate the resizable array its first argument points to, moving its elements (`array_add`, `array_insert_at`, `array_reserve`, `array_resize`) |
 | `@AddsToArray` | `useless_resizable` | adds one element to the end of the resizable array its first argument points to (`array_add(*xs, item)`) |
 | `@FreesArgument` | `defer_in_loop`, `use_after_free`, `double_free` | after the call the *first* argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s). Not for a procedure whose first argument is only an allocator, heap or owner |
 | `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it (`alloc`, `New`, `copy_string`, `sprint`, `join`, ...) |
@@ -153,6 +154,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `neg_cmp_float` | pedantic | allow | editor | `!(x < limit)` with floats: not the same as `x >= limit` for NaN |
 | `neg_multiply` | style | warn | yes | `x * -1`, `-1 * x`, `f * -1.0`: a multiplication by minus one, which is a negation |
 | `no_effect` | suspicious | warn | editor | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
+| `pointer_into_resizable` | suspicious | warn | no | `p := *xs[i]; array_add(*xs, v); use(p);`: a pointer into a resizable array used after the array may have moved |
 | `print_in_module` | restriction | allow | no | `print(...)` or `write_string(...)` in a file that belongs to a module |
 | `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
 | `redundant_alias` | complexity | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
@@ -322,6 +324,8 @@ Every comparison with a NaN is false, so `!(a < b)` is true for NaN where `a >= 
 Signed integers and floats only, and only the literals `-1` and `-1.0`. The fix writes `-x`, and `-(a + b)` when the other side is not a single term.
 ### no_effect
 An expression statement containing no call. The editor offers the likely intent: `==` becomes `=`, `x + 1;` becomes `x += 1;`, a procedure name gets `()`, and any other statement is removed. `--fix` applies none, since the typo may be in either place.
+### pointer_into_resizable
+A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles. Fires on a local initialised with the address of an element (`p := *xs[i];`, `*xs[i].field`) or with the pointer a growing call returns (`p := array_add(*xs);`) when a later statement of the same block calls a `@GrowsArray` procedure on the same array and a statement after it mentions `p`; and on the iterator of `for *xs` when a statement of the body grows `xs` and a later one mentions the iterator. Arrays are compared as written. Growing inside a by-value `for xs` is fine (each iteration reads the count and data again), and the rule is quiet when the growing statement can leave the block (`return`, `break`, `continue`, `remove`) or the pointer is assigned a new value. A pointer that is still valid because the array was reserved first is reported too; take it again after growing, or keep the index. No fix.
 ### print_in_module
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module). A call is reported when the procedure it calls has the `@WritesOutput` note (the library's `print`, `write_string`, `write_strings` and `write_builder`). A library does not know where output belongs: return the text or log it, and let the program print. Programs, macros and generated files are not checked. No fix.
 ### range_past_count

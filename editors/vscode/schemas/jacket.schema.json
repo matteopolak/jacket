@@ -745,6 +745,16 @@
               "default": "warn",
               "markdownDescription": "a statement that computes a value and drops it (`x == 5;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#no_effect)"
             },
+            "pointer_into_resizable": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a pointer into a resizable array used after a `@GrowsArray` call may have moved the array (`p := *xs[i]; array_add(*xs, v); use(p);`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#pointer_into_resizable)"
+            },
             "print_in_module": {
               "type": "string",
               "enum": [

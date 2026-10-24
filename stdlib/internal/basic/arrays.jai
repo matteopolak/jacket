@@ -1,7 +1,7 @@
 array_reserve :: inline (array: *[..] $T, desired_items: s64) {
     array_reserve(cast(*Resizable_Array) array, desired_items, size_of(T));
     assert(cast(u64) array.data % align_of(T) == 0, "allocator returned storage with insufficient alignment");
-}
+} @GrowsArray
 
 array_reserve :: inline (array: *Resizable_Array, desired_items: s64, element_size: s64) {
     assert(desired_items >= 0 && element_size > 0);
@@ -14,7 +14,7 @@ array_reserve :: inline (array: *Resizable_Array, desired_items: s64, element_si
     assert(memory != null, "array allocation failed");
     array.data = memory;
     array.allocated = desired_items;
-}
+} @GrowsArray
 
 maybe_grow :: inline (array: *Resizable_Array, element_size: s64) {
     if array.count < array.allocated return;
@@ -30,13 +30,13 @@ array_add :: (array: *[..] $T) -> *T {
     array.count += 1;
 
     return result;
-} @AddsToArray
+} @AddsToArray @GrowsArray
 
 array_add :: (array: *[..] $T, item: T) #no_abc {
     maybe_grow(cast(*Resizable_Array) array, size_of(T));
     array.data[array.count] = item;
     array.count += 1;
-} @AddsToArray
+} @AddsToArray @GrowsArray
 
 array_add :: (array: *[..] $T, to_append: ..T) {
     if to_append.count == 0 return;
@@ -61,7 +61,7 @@ array_add :: (array: *[..] $T, to_append: ..T) {
 
     copy_array_elements(array.data + array.count, source);
     array.count = desired;
-}
+} @GrowsArray
 
 array_find :: (array: [] $T, item: T, $compare: (T, T) -> bool = null) -> bool, s64 {
     // A long array of integers, enums or pointers is searched a vector at a time.
@@ -88,7 +88,7 @@ array_add_if_unique :: (array: *[..] $T, item: T, $compare: (T, T) -> bool = nul
     if found return false, index;
     array_add(array, item);
     return true, array.count - 1;
-}
+} @GrowsArray
 
 array_view :: inline (array: [] $T, index: int) -> [] T {
     return array_view(array, index, array.count - index);
@@ -112,7 +112,7 @@ array_insert_at :: (array: *[..] $T, item: T, index: int) {
 
     array.data[index] = item;
     array.count += 1;
-}
+} @GrowsArray
 
 array_ordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
     assert(index >= 0 && index < array_pointer.count);
@@ -203,7 +203,7 @@ array_resize :: (array: *[..] $T, new_count: s64, $initialize := true) {
     }
 
     array.count = new_count;
-}
+} @GrowsArray
 
 array_resize :: (array: *[] $T, new_count: s64, $initialize := true) {
     assert(new_count >= 0 && new_count <= 0x7fffffffffffffff / max(cast(s64) 1, size_of(T)));
