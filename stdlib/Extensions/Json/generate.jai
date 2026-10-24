@@ -197,6 +197,21 @@ is_json_value :: (info: *Type_Info) -> bool {
     return info == type_info(Json_Value);
 }
 
+// A Json_Maybe(T): the presence and the value (see module.jai).
+is_maybe :: (info: *Type_Info) -> bool {
+    if info.type != .STRUCT return false;
+
+    struct_info := cast(*Type_Info_Struct) info;
+
+    if !begins_with(struct_info.name, "Json_Maybe") || struct_info.members.count != 2 return false;
+
+    return struct_info.members[0].name == "state" && struct_info.members[0].type == type_info(Json_Presence) && struct_info.members[1].name == "value";
+}
+
+maybe_value :: (info: *Type_Info) -> *Type_Info {
+    return (cast(*Type_Info_Struct) info).members[1].type;
+}
+
 is_table :: (info: *Type_Info) -> bool {
     if info.type != .STRUCT return false;
 
@@ -317,6 +332,9 @@ read_leaf :: (plan: *Plan, leaf: *Leaf, member: *Type_Info_Struct_Member, struct
 
     if !renamed leaf.key = apply_rule(member.name, struct_rule);
 
+    // A missing key is a state of a Json_Maybe, not an error.
+    if is_maybe(member.type) leaf.optional = true;
+
     return ok;
 }
 
@@ -376,7 +394,7 @@ collect_leaves :: (plan: *Plan, info: *Type_Info_Struct, path_prefix: string, st
         if flatten {
             if leaf.skip_serializing && leaf.skip_deserializing continue;
 
-            if member.type.type != .STRUCT || is_json_value(member.type) || is_table(member.type) {
+            if member.type.type != .STRUCT || is_json_value(member.type) || is_table(member.type) || is_maybe(member.type) {
                 complain(plan.type_name, member.name, tprint("`flatten` needs a struct field, not %", type_label(member.type)));
                 plan.ok = false;
 
@@ -572,6 +590,10 @@ emit_encode :: (g: *Gen, value: string, info: *Type_Info, style: Enum_Style) {
         case .STRUCT;
             if is_json_value(info) {
                 print(out, "json_write_value(w, %);\n", address_of(value));
+            } else if is_maybe(info) {
+                print(out, "if %.state == .SET {\n", value);
+                emit_encode(g, tprint("%.value", value), maybe_value(info), style);
+                print(out, "} else json_write_null(w);\n");
             } else if is_table(info) {
                 key, element := table_entry(info);
 
@@ -692,7 +714,7 @@ generate_encoder :: (T: Type) -> string {
     g: Gen;
     info := type_info(T);
 
-    if info.type != .STRUCT || is_json_value(info) || is_table(info) {
+    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) {
         g.type_name = tprint("%", T);
         emit_encode(*g, "value.*", info, .{});
 
@@ -727,6 +749,7 @@ generate_encoder :: (T: Type) -> string {
         value := tprint("value.%", leaf.path);
 
         if leaf.skip_if.count print(*g.out, "if !(%) {\n", skip_condition(*g, leaf, value));
+        else if is_maybe(leaf.info) print(*g.out, "if %.state != .MISSING {\n", value);
         else print(*g.out, "{\n");
 
         // The separator, quotes and colon of compact output are one constant each.
@@ -841,6 +864,18 @@ emit_free :: (g: *Gen, out: *String_Builder, target: string, info: *Type_Info, d
         case .STRUCT;
             if is_json_value(info) {
                 print(out, "free_json(%);\n", address_of(target));
+            } else if is_maybe(info) {
+                inner := maybe_value(info);
+
+                if owns_memory(inner) {
+                    if default.count print(out, "if %.state == .SET && (%).state != .SET {\n", target, default);
+                    else print(out, "if %.state == .SET {\n", target);
+
+                    emit_free(g, out, tprint("%.value", target), inner, "");
+                    print(out, "}\n");
+                }
+
+                print(out, "%.state = .MISSING;\n", target);
             } else if is_table(info) {
                 _, element := table_entry(info);
                 id := next_id(g);
@@ -863,7 +898,7 @@ generate_freer :: (T: Type) -> string {
     g: Gen;
     info := type_info(T);
 
-    if info.type != .STRUCT || is_json_value(info) || is_table(info) {
+    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) {
         g.type_name = tprint("%", T);
         emit_free(*g, *g.out, "value.*", info, "defaults.*");
 
@@ -945,6 +980,10 @@ emit_decode :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Style, on
         case .STRUCT;
             if is_json_value(info) {
                 print(out, "if !json_read_value(r, %) { free_json(%); % }\n", address_of(target), address_of(target), on_fail);
+            } else if is_maybe(info) {
+                print(out, "if json_next_is_null(r) {\nif !json_read_null(r) { % }\n%.state = .NULL;\n} else {\n", on_fail, target);
+                emit_decode(g, tprint("%.value", target), maybe_value(info), style, on_fail);
+                print(out, "%.state = .SET;\n}\n", target);
             } else if is_table(info) {
                 emit_decode_table(g, target, info, style, on_fail);
             } else {
@@ -1097,14 +1136,14 @@ emit_decode_table :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Sty
     // A repeated key replaces the earlier value, which is released.
     print(out, "existing_% := table_find_pointer(%, key_%);\nif existing_% {\n", id, address_of(target), id, id);
     emit_free(g, out, tprint("existing_%.*", id), element, "");
-    print(out, "existing_%.* = item_%;\n} else table_add(%, ifx key_%.count then copy_string(key_%) else \"\", item_%);\n}\n}\n", id, id, address_of(target), id, id, id);
+    print(out, "existing_%.* = item_%;\n} else table_add(%, json_keep_key(r, key_%), item_%);\n}\n}\n", id, id, address_of(target), id, id);
 }
 
 generate_decoder :: (T: Type) -> string {
     g: Gen;
     info := type_info(T);
 
-    if info.type != .STRUCT || is_json_value(info) || is_table(info) {
+    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) {
         g.type_name = tprint("%", T);
         emit_decode(*g, "out.*", info, .{}, "return false;");
         print(*g.out, "return true;\n");
@@ -1166,7 +1205,12 @@ generate_decoder :: (T: Type) -> string {
         for alias: leaf.aliases print(out, "|| (%) ", key_match(alias));
 
         print(out, "{\n");
-        print(out, "if seen[%] != 0 { json_duplicate_field(r, key); return false; }\nseen[%] = 1;\n", it_index, it_index);
+        // A repeated key fails, or with duplicate_keys = .LAST releases the earlier value.
+        print(out, "if seen[%] != 0 {\nif !r.duplicate_last { json_duplicate_field(r, key); return false; }\n", it_index);
+
+        if !leaf.with.count && owns_memory(leaf.info) emit_free(*g, out, tprint("out.%", leaf.path), leaf.info, "");
+
+        print(out, "}\nseen[%] = 1;\n", it_index);
 
         emit_leaf_decode(*g, leaf, tprint("{ json_path_key(r, %); return false; }", jai_quote(leaf.key)));
 
@@ -1174,7 +1218,7 @@ generate_decoder :: (T: Type) -> string {
         chain = true;
     }
 
-    unknown := ifx plan.deny_unknown then "{ json_unknown_field(r, key); return false; }" else "if !json_skip_value(r) return false;";
+    unknown := ifx plan.deny_unknown then "{ json_unknown_field(r, key); return false; }" else "if r.deny_unknown { json_unknown_field(r, key); return false; } else if !json_skip_value(r) return false;";
 
     if chain print(out, "else { % }\n", unknown);
     else print(out, "%\n", unknown);
@@ -1184,7 +1228,7 @@ generate_decoder :: (T: Type) -> string {
     for *leaf: plan.leaves {
         if leaf.skip_deserializing || leaf.optional continue;
 
-        print(out, "if seen[%] == 0 { json_missing_field(r, %); return false; }\n", it_index, jai_quote(leaf.key));
+        print(out, "if seen[%] == 0 && !r.missing_default { json_missing_field(r, %); return false; }\n", it_index, jai_quote(leaf.key));
     }
 
     if cleaned.count print(out, "done = true;\n");

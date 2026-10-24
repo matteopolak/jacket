@@ -37,6 +37,9 @@ Pair_Kind :: enum u8 {
 //     Search :: struct @json(default) { q: string; limit := 20; tags: [..] string; }
 //     search, error := from_query(Search, pairs);       // pairs of "?q=jai&tags=a&tags=b"
 from_query :: ($T: Type, pairs: [] Query_Pair, options := Json_Options.{}) -> T, Json_Error {
+    copying := options;
+    copying.borrow = false;
+
     builder: String_Builder;
 
     append(*builder, "{");
@@ -88,7 +91,7 @@ from_query :: ($T: Type, pairs: [] Query_Pair, options := Json_Options.{}) -> T,
 
     text := builder_to_string(*builder,, temp);
 
-    return from_json(T, text, options);
+    return from_json(T, text, copying);
 }
 
 // Decodes a `T` from one piece of text: an integer, float, bool, string or enum. `from_param(int,
@@ -96,13 +99,16 @@ from_query :: ($T: Type, pairs: [] Query_Pair, options := Json_Options.{}) -> T,
 from_param :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Error {
     kind :: #run text_kind(type_info(T));
 
+    copying := options;
+    copying.borrow = false;
+
     builder: String_Builder;
 
     append_pair_value(*builder, kind, text);
 
     literal := builder_to_string(*builder,, temp);
 
-    return from_json(T, literal, options);
+    return from_json(T, literal, copying);
 }
 
 #scope_module

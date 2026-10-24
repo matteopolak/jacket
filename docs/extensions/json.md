@@ -22,10 +22,10 @@ free_json(*user);                               // one overload set: values, Jso
 
 ## How it works
 
-- `from_json($T, text, options)` returns `T, Json_Error` (`kind`, `message`, `offset`, `line`, `column`, `path` such as `tags[2]`). `Json_Options`: `max_depth` 256, `max_size` 1 GiB (`.LIMIT`). `write_json(*builder, value)` encodes into a builder. `Json_Value` is built with `json_null/bool/int/...`, `json_push`, `json_set`, read with `json_get`, `json_at`, `json_count`, `json_as_*`.
+- `from_json($T, text, options)` returns `T, Json_Error` (`kind`, `message`, `offset`, `line`, `column`, `path` such as `tags[2]`). `json_path_text(error)` renders the path as jsonpath (`$.tags[2]`; keys that are not plain identifiers quoted, `$."we ird".a`; `$` for the document). `Json_Options`: `max_depth` 256, `max_size` 1 GiB (`.LIMIT`), plus the strictness and ownership options below. `write_json(*builder, value)` encodes into a builder. `Json_Value` is built with `json_null/bool/int/...`, `json_push`, `json_set`, read with `json_get`, `json_at`, `json_count`, `json_as_*`.
 - **From a stream.** `Json_Source { data, fill }` gives the document in pieces; `from_json(T, source)` gathers it in one buffer then decodes, so any cut gives the same value or error. Json does not import Io; `Io.read_json(reader, T)` and the HTTP client's `read_json` build a source.
 - **Types.** Integers are exact over their range (`.OUT_OF_RANGE` otherwise). Floats print as the shortest round-trip string; NaN/infinity encode as `null`; decoding is correctly rounded (direct conversion for up to 19 digits, Eisel-Lemire, else Basic's conversion; `1e999999` is `.OUT_OF_RANGE`). Supported: strings, bools, enums (by name), arrays, pointers, nested/recursive structs, `Hash_Table` with string keys, `Json_Value`. Not 128-bit integers.
-- **Parsing** is strict RFC 8259 (no BOM, trailing commas, lone surrogates, bad UTF-8). A failed decode frees everything it allocated and returns a default `T`. Unknown fields are ignored unless denied; a missing field without `default` is an error; duplicate keys are an error.
+- **Parsing** is strict RFC 8259 (no BOM, trailing commas, lone surrogates, bad UTF-8). A failed decode frees everything it allocated and returns a default `T`. Unknown fields are ignored unless denied; a missing field without `default` is an error; duplicate keys are an error (see the options below).
 - **Freeing.** `free_json(*value)` calls `free_json_fields(value, defaults)`, generated per type by `generate_freer`. It skips fields still holding their declared default (a string literal would crash `free`) and resets what it frees, so a second call is harmless. Fields with a `with=` handler belong to the handler. Never call it on values that were not decoded.
 
 | `@json(...)` option | Where | Effect |
@@ -38,6 +38,19 @@ free_json(*user);                               // one overload set: values, Jso
 | `with=name` | member | `T.name_encode(w, *field)` / `T.name_decode(r, *field)` declared inside the struct (generated code cannot see file-scope names) |
 | `as_number` | enum member | encode as the number |
 | `deny_unknown_fields`, `transparent` | struct | unknown keys are errors; one-field struct encodes as its field |
+
+Runtime options on `Json_Options`, tested by the generated decoders through the reader (`r.deny_unknown`, `r.missing_default`, `r.duplicate_last`, `r.borrow`):
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `deny_unknown_fields` | `false` | every struct denies unknown keys; a struct's own note still denies when `false` |
+| `missing_fields_default` | `false` | a missing non-optional field keeps its declared initializer instead of `.MISSING_FIELD` |
+| `duplicate_keys` | `.ERROR` | `.LAST`: a repeated key in a struct releases the earlier value and decodes the new one (as Postgres `jsonb` keeps); a `Hash_Table` always replaces |
+| `borrow` | `false` | strings without escapes (and a `Json_Value`'s keys, text and numbers, and table keys) are slices of the input; strings with escapes are allocated |
+
+`borrow` results point into the input, which must outlive them, and must not go through `free_json` (nor may a failed decode free through a heap allocator): decode with `context.allocator` set to an arena or `temp` (`from_json(T, text, .{ borrow = true },, temp)`) and reset that instead. The streaming `from_json` and `from_query`/`from_param` ignore it, since their text does not outlive the call.
+
+`Json_Maybe(T)` (`state: Json_Presence` of `.MISSING`, `.NULL`, `.SET`, and `value: T`) tells a missing key, a `null` and a value apart. As a member a missing key leaves `.MISSING` (never `.MISSING_FIELD`); in the document or an array `null` gives `.NULL`. Encoding omits a `.MISSING` member (a `.MISSING` array element or document writes `null`). `free_json` frees `value` when `.SET`.
 
 Written as a note after the member's `;` (struct-level before `{`). Mistakes are compile errors.
 
@@ -57,6 +70,7 @@ Straight-line code per struct and field, no runtime type switch. Keys match by l
 
 ## How to change it
 
+- **New runtime option:** add the field to `Json_Options`, copy it onto `Json_Reader` in `reader_init`, and test `r.<field>` in the code `generate_decoder` emits (keep it to one branch). **New wrapper type** (like `Json_Maybe`): recognise it with an `is_*` helper and add cases in `emit_encode`, `emit_decode` and `emit_free`, and in the top-level checks of `generate_encoder`/`generate_decoder`/`generate_freer`.
 - **New attribute:** parse in `collect_leaves` (`generate.jai`), carry on `Leaf`, emit in `generate_encoder`/`generate_decoder`. **New type:** cases in `emit_encode` and `emit_decode`; a new owning type also needs `emit_free` or failed decodes leak (`tests/leaks.jai`).
 - `query.jai` field kinds need a `Pair_Kind` and a case in `generate_pair_kinds`. Runtime helpers are in `reader.jai`/`writer.jai`; stage 1 in `index.jai`.
 - Writer pieces (`put`, `builder_reserve`, `copy_bytes`): a reserved window is valid only until the next append; write at most what you reserved, then `builder_commit`. `tests/encode.jai` pins output text exactly.
@@ -65,7 +79,7 @@ Straight-line code per struct and field, no runtime type switch. Keys match by l
 
 ## Configuration
 
-`json_use_simd` (true), `json_index_min_size` (256), `Json_Options.max_depth`/`max_size`, `json_index_stats` (counters).
+`json_use_simd` (true), `json_index_min_size` (256), `Json_Options` (`max_depth`, `max_size`, `deny_unknown_fields`, `missing_fields_default`, `duplicate_keys`, `borrow`), `json_index_stats` (counters).
 
 ## Dependencies
 

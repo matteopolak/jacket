@@ -31,6 +31,10 @@ Json_Reader :: struct {
     index: [] u32; // stage 1's structural index, when `indexed` (see index.jai)
     ip: int; // the first index entry that may lie at or after `pos`
     indexed: bool;
+    deny_unknown: bool; // the options the generated decoders test
+    missing_default: bool;
+    duplicate_last: bool;
+    borrow: bool;
 }
 
 Object_Status :: enum u8 {
@@ -51,6 +55,10 @@ reader_init :: (r: *Json_Reader, text: string, options: Json_Options) {
     r.* = .{};
     r.text = text;
     r.max_depth = options.max_depth;
+    r.deny_unknown = options.deny_unknown_fields;
+    r.missing_default = options.missing_fields_default;
+    r.duplicate_last = options.duplicate_keys == .LAST;
+    r.borrow = options.borrow;
 }
 
 reader_free :: (r: *Json_Reader) {
@@ -589,7 +597,8 @@ unescape_into :: (raw: string, dest: *u8) -> int {
 
 #scope_export
 
-// A string value, copied into new memory from context.allocator.
+// A string value, copied into new memory from context.allocator (with `borrow`, a slice of the
+// input when it has no escapes).
 json_read_string :: (r: *Json_Reader) -> string, bool {
     if json_peek(r) != #char "\"" return "", wrong_type(r, "a string");
 
@@ -597,6 +606,7 @@ json_read_string :: (r: *Json_Reader) -> string, bool {
 
     if !ok return "", false;
     if raw.count == 0 return "", true;
+    if r.borrow && !escaped return raw, true;
 
     memory := alloc_string(raw.count);
 
@@ -625,6 +635,15 @@ json_read_name :: (r: *Json_Reader) -> string, bool {
     r.scratch.count = unescape_into(raw, r.scratch.data);
 
     return string.{ r.scratch.count, r.scratch.data }, true;
+}
+
+// Keeps a key from json_read_name: a slice of the input with `borrow` (unless it had escapes and
+// lives in the scratch space), else a copy.
+json_keep_key :: (r: *Json_Reader, key: string) -> string {
+    if !key.count return "";
+    if r.borrow && key.data >= r.text.data && key.data < r.text.data + r.text.count return key;
+
+    return copy_string(key);
 }
 
 json_read_bool :: (r: *Json_Reader) -> bool, bool {
@@ -1001,7 +1020,7 @@ json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
 
                 member: Json_Member;
                 // Empty decoded strings use static empty storage throughout Json.
-                member.key = ifx key.count then copy_string(key) else "";
+                member.key = json_keep_key(r, key);
                 ok = json_read_value(r, *member.value);
 
                 array_add(*r.members, member);
@@ -1072,7 +1091,7 @@ json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
         if !ok return false;
 
         out.kind = .NUMBER;
-        out.text = copy_string(token);
+        out.text = ifx r.borrow then token else copy_string(token);
 
         return true;
     }
@@ -1081,6 +1100,20 @@ json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
 }
 
 #scope_module
+
+// Keys made of letters, digits, `_` and `-` appear bare in an error path; any other key is quoted
+// as a JSON string, so the path can be read back unambiguously (see json_path_text).
+is_plain_path_key :: (key: string) -> bool {
+    if !key.count return false;
+
+    for key {
+        plain := (it >= #char "a" && it <= #char "z") || (it >= #char "A" && it <= #char "Z") || (it >= #char "0" && it <= #char "9") || it == #char "_" || it == #char "-";
+
+        if !plain return false;
+    }
+
+    return true;
+}
 
 // Fills in the line, column and path of a recorded error.
 finish_error :: (r: *Json_Reader) -> Json_Error {
@@ -1119,7 +1152,8 @@ finish_error :: (r: *Json_Reader) -> Json_Error {
         if segment.is_key {
             if i != r.path.count - 1 append(*builder, #char ".");
 
-            append(*builder, segment.key);
+            if is_plain_path_key(segment.key) append(*builder, segment.key);
+            else append_json_string(*builder, segment.key);
         } else {
             append(*builder, "[");
             print(*builder, "%", segment.index);
