@@ -30,6 +30,7 @@ main :: () {
         test_writes(db);
         test_json_maybe(db);
         test_copy(db);
+        test_each(db);
     });
 
     if failures {
@@ -334,4 +335,39 @@ test_copy :: (db: *Pg.Connection) {
 
     stored, error = Pg.copy_in(db, "copy copy_kinds (i) from stdin (format binary)", wide);
     check(error.kind == .SERVER, "an s64 into int4 should fail");
+}
+
+// Pg.each reads only the columns its loop body uses (run.sh checks the cached statement).
+test_each :: (db: *Pg.Connection) {
+    error: Pg.Pg_Error;
+    emails: [..] string;
+    emails.allocator = temp;
+    min := 0;
+
+    for Pg.each(db, User, *error, where = #code it.score >= min, order_by = #code it.id) {
+        array_add(*emails, copy_string(it.email,, temp));
+        check(it.id == it_index + 1, "ids in order");
+    }
+
+    check(error.kind == .NONE && emails.count == 2 && emails[0] == "a@example.com", Pg.error_text(error));
+
+    // `it` used whole fetches everything.
+    users: [..] User;
+    users.allocator = temp;
+
+    // (Its strings read from the result, which the loop frees, so check them inside.)
+    for Pg.each(db, User, *error, where = #code it.id == 1) {
+        array_add(*users, it);
+        check(users[0].settings.value.value.theme == "dark", "the whole row");
+    }
+
+    check(error.kind == .NONE && users.count == 1 && users[0].mood == .happy, Pg.error_text(error));
+
+    // A failure lands in `error`, and the body never runs.
+    zero := 0;
+    ran := false;
+
+    for Pg.each(db, User, *error, where = #code it.score / zero > 1) ran = it.id > 0;
+
+    check(error.kind == .SERVER && !ran, "a division by zero should fail");
 }

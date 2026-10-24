@@ -18,6 +18,7 @@ removed, error := Pg.delete(db, User, where = #code it.id == row.id);
 | Call | Returns | Statement |
 | --- | --- | --- |
 | `select(db, T, where?, order_by?, desc?, limit?, offset?, from_sql?)` | `Rows(T), Pg_Error` | `select <every column> from <table> where ... order by ... limit ... offset ...` |
+| `for each(db, T, *error, where?, order_by?, ...)` | a loop over `T` | `select <the columns the loop body reads> from <table> ...` (see [Column pruning](#column-pruning)) |
 | `insert(db, value)` | `T, Pg_Error` | `insert ... returning <every column>` |
 | `insert_many(db, values)` | `[] T, Pg_Error` | one `insert` per value, stopping at the first error |
 | `copy_many(db, values)` | `s64, Pg_Error` (rows stored) | one binary `copy ... from stdin` ([copy.md](copy.md)); reads nothing back |
@@ -53,6 +54,20 @@ where ((("score" >= $1 ::int8 ) and ("email" like $2 ::text )) and ("display_nam
 
 `from_sql` replaces the table with a query of your own that returns the table's columns, with the same holes as `Pg.sql`: `Pg.select(db, User, from_sql = "select * from users_visible_to(%viewer)", where = ...)` becomes `select ... from (select * from users_visible_to($1)) as orm_source where ...`.
 
+### Column pruning
+
+`Pg.each` takes the same arguments as `select` plus an error pointer, and is meant for a `for` loop:
+
+```jai
+error: Pg.Pg_Error;
+for Pg.each(db, User, *error, where = #code it.score >= min) print("%\n", it.email);
+// select "id", "email" from "public"."users" where ("score" >= $1 ::int8 )
+```
+
+`each` returns an `Orm_Each(D, T, where, order_by, ..., call)`: the query's constants live in the type, the connection and error pointer in the value. Its `for_expansion` gets the loop body as `Code` and `orm_read_columns` walks it for `it.<field>` reads. The statement selects those fields plus the `@pg_primary_key` ones, read into a generated `Orm_Partial` struct and copied into `it: T`; every other field of `it` stays zero. If the body uses `it` whole (passes it, stores it, takes `*it`), or reads every field, all columns are selected. An inner `for` that uses its own `it` counts as a whole use, so it also selects everything (still correct).
+
+The query runs when the loop starts; a failure goes to `error` and the body never runs. The result is freed when the loop ends, so strings read from `it` must be copied to outlive it.
+
 ### Relations
 
 The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`, `@pg_has_many(posts:Post:author_id:id)`, see [schema.md](schema.md)) give two things:
@@ -72,6 +87,7 @@ The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`
 
 ## How to change it
 
+- **Pruning.** `orm_read_columns` decides the columns, `orm_each_code` writes the loop. Both run once per loop at compile time.
 - **Relations.** `orm_relation` parses the notes; `orm_related_column` writes the subquery; `orm_load_code` writes the body of `load_many` / `load_one`. The note format is shared with `generate.jai` and `diff.jai`.
 - **A new operator or call.** Add a case to `orm_binary` or `orm_call` in `orm.jai`, a stub procedure next to `like` if it is a call, a use in `tests/orm/main.jai`, and an error case in `tests/typed/bad.py` if it can be misused.
 - **A new parameter type.** `parameter_cast` maps a Jai type to the cast written after its hole. A type it does not know gets no cast, and Postgres infers one.
@@ -79,7 +95,7 @@ The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`
   - The filter is walked as written, so a parameter expression is evaluated once per call, in the caller's scope.
   - Inside an `#expand` macro, `return f()` of a two-value call crashes the compiler today. The generated code binds the results to locals first.
   - A `Nullable(T)` zero value is not null (`null` defaults to `false`).
-- **Not yet built** (see the design): column pruning from the loop body (every select reads all columns), relations read inside the loop body without an explicit `load_*` call, relations on several columns in `load_*`, and switching `insert_many` itself to COPY (it returns the stored rows, which COPY cannot).
+- **Not yet built** (see the design): pruning inside documents (`it.settings.theme` fetches the whole `settings`), relations read inside the loop body without an explicit `load_*` call (`it` is a `T`, which has no relation fields), relations on several columns in `load_*`, and switching `insert_many` itself to COPY (it returns the stored rows, which COPY cannot).
 
 ## Configuration
 

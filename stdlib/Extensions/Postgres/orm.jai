@@ -55,6 +55,28 @@ insert_many :: (db: $D, values: [] $T) -> [] T, Pg_Error {
     return rows, .{};
 }
 
+// A select whose columns come from the loop that reads it: only the fields of `T` the body reads,
+// plus the primary key, are fetched; the other fields of `it` stay zero. When `it` is used whole
+// (passed to a procedure, stored, `*it`), every column is fetched. The query runs when the loop
+// starts, and a failure lands in `error` (which is cleared first). Strings in `it` read from the
+// result, which is freed when the loop ends: copy what you keep.
+//
+//     error: Pg.Pg_Error;
+//     for Pg.each(db, User, *error, where = #code it.score > min) print("%\n", it.email);   // select "id", "email" ...
+each :: (db: $D, $T: Type, error: *Pg_Error, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $call := #caller_code) -> Orm_Each(D, T, where, order_by, desc, limit, offset, from_sql, call) {
+    if error error.* = .{};
+    return .{ db = db, error = error };
+}
+
+Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, call: Code) {
+    db: D;
+    error: *Pg_Error;
+}
+
+for_expansion :: (q: *Orm_Each($D, $T, $where, $order_by, $desc, $limit, $offset, $from_sql, $call), body: Code, flags: For_Flags) #expand {
+    #insert #run orm_each_code(T, where, order_by, desc, limit, offset, from_sql, body);
+}
+
 // Stores `values` with one binary COPY and returns how many rows the server stored. Much faster
 // than `insert_many` for many rows, but it reads nothing back: fields marked `@pg_default` or
 // `@pg_generated` are left to the database, as in `insert`, and their values are not returned.
@@ -1333,7 +1355,7 @@ orm_set :: (sql: *Orm_Sql, node: *Code_Node) {
 }
 
 // The SQL of a statement, or a problem reported at the node it is about.
-orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type, relations: [] Type) -> Orm_Sql {
+orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type, relations: [] Type, columns := "") -> Orm_Sql {
     sql: Orm_Sql;
     sql.T = T;
     sql.builder.allocator = temp;
@@ -1356,9 +1378,16 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
         case .SELECT;
             append(*sql.builder, "select ");
 
-            for orm_columns(T) {
-                if it_index append(*sql.builder, ", ");
-                append(*sql.builder, quote_identifier(it.name));
+            if columns {
+                for split(columns, ",",, temp) {
+                    if it_index append(*sql.builder, ", ");
+                    append(*sql.builder, quote_identifier(it));
+                }
+            } else {
+                for orm_columns(T) {
+                    if it_index append(*sql.builder, ", ");
+                    append(*sql.builder, quote_identifier(it.name));
+                }
             }
 
             if from_sql {
@@ -1414,20 +1443,7 @@ orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set
     builder: String_Builder;
     builder.allocator = temp;
 
-    for sql.parameters print_to_builder(*builder, "Orm_P% :: type_of(%);\n", it_index, orm_argument(*sql, it_index));
-
-    append(*builder, "Orm_Types :: Type.[");
-    for sql.parameters print_to_builder(*builder, "%Orm_P%", ifx it_index then ", " else "", it_index);
-
-    append(*builder, "];\n");
-
-    // The related structs, named where the call was written.
-    for sql.relation_names print_to_builder(*builder, "Orm_R% :: %;\n", it_index, orm_insert_text(it));
-
-    append(*builder, "Orm_Relations :: Type.[");
-    for sql.relation_names print_to_builder(*builder, "%Orm_R%", ifx it_index then ", " else "", it_index);
-
-    append(*builder, "];\n");
+    orm_prelude(*builder, *sql);
 
     kind_text := tprint(".%", kind);
     sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, %, Orm_Types, Orm_Relations)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset, jai_string(from_sql));
@@ -1440,6 +1456,24 @@ orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set
     append(*builder, ");\nreturn orm_result, orm_error;\n");
 
     return builder_to_string(*builder);
+}
+
+// Declares each parameter's type (`Orm_P<i>`, typed where the call was written) and each related
+// struct (`Orm_R<i>`), and the arrays of both that the second pass of `orm_sql_text` takes.
+orm_prelude :: (builder: *String_Builder, sql: *Orm_Sql) {
+    for sql.parameters print_to_builder(builder, "Orm_P% :: type_of(%);\n", it_index, orm_argument(sql, it_index));
+
+    append(builder, "Orm_Types :: Type.[");
+    for sql.parameters print_to_builder(builder, "%Orm_P%", ifx it_index then ", " else "", it_index);
+
+    append(builder, "];\n");
+
+    for sql.relation_names print_to_builder(builder, "Orm_R% :: %;\n", it_index, orm_insert_text(it));
+
+    append(builder, "Orm_Relations :: Type.[");
+    for sql.relation_names print_to_builder(builder, "%Orm_R%", ifx it_index then ", " else "", it_index);
+
+    append(builder, "];\n");
 }
 
 // A parameter's Jai text, inserted where the call was written.
@@ -1455,8 +1489,8 @@ orm_argument :: (sql: *Orm_Sql, index: s64) -> string {
     return ifx wrap then tprint("%(%)", wrap, text) else text;
 }
 
-orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type, relations: [] Type) -> string {
-    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, types, relations);
+orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type, relations: [] Type, columns := "") -> string {
+    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, types, relations, columns);
 
     // Problems only the related structs reveal (an unknown field of `it.team`).
     if sql.problem {
@@ -1469,6 +1503,113 @@ orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code
 }
 
 // The body of `insert`.
+orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, body: Code) -> string {
+    columns := orm_read_columns(T, body);
+    sql := orm_build(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql, .[], .[], columns);
+
+    if sql.problem {
+        location := ifx sql.problem_node then node_location(sql.problem_node) else node_location(orm_root(where));
+        compiler_report(sql.problem, location);
+        return "";
+    }
+
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    orm_prelude(*builder, *sql);
+
+    names := ifx columns then split(columns, ",",, temp) else .[];
+    row_type := "T";
+
+    if columns {
+        append(*builder, "Orm_Partial :: struct {\n");
+        for names print_to_builder(*builder, "    %: #run orm_member_type(T, %);\n", it, jai_string(it));
+        append(*builder, "}\n");
+        row_type = "Orm_Partial";
+    }
+
+    print_to_builder(*builder, "orm_rows, orm_error := query_as(%, q.db, #run orm_sql_text(T, .SELECT, where, order_by, where, %, %, %, %, Orm_Types, Orm_Relations, %)", row_type, desc, limit, offset, jai_string(from_sql), jai_string(columns));
+    for sql.parameters print_to_builder(*builder, ", %", orm_argument(*sql, it_index));
+
+    append(*builder, ");\n");
+
+    append(*builder, #string JAI
+if orm_error.kind != .NONE {
+    if q.error q.error.* = orm_error;
+} else {
+    defer free_rows(*orm_rows);
+
+    for `it_index: 0..orm_rows.result.row_count - 1 {
+        `it: T;
+JAI);
+
+    if columns {
+        append(*builder, "        orm_row: Orm_Partial;\n        orm_read := read_row(*orm_rows, it_index, *orm_row);\n");
+        for names print_to_builder(*builder, "        it.% = orm_row.%;\n", it, it);
+    } else {
+        append(*builder, "        orm_read := read_row(*orm_rows, it_index, *it);\n");
+    }
+
+    append(*builder, #string JAI
+        if orm_read.kind != .NONE {
+            if q.error q.error.* = orm_read;
+            break;
+        }
+
+        #insert body;
+    }
+}
+JAI);
+
+    return builder_to_string(*builder);
+}
+
+// The columns a loop body reads through `it.<field>`, plus the primary key, joined with commas in
+// the struct's order. Empty when it reads them all or uses `it` whole.
+orm_read_columns :: (T: Type, body: Code) -> string {
+    _, nodes := compiler_get_nodes(body);
+
+    uses := 0;
+    reads := 0;
+    wanted: [..] string;
+    wanted.allocator = temp;
+
+    for nodes {
+        if is_ident(it, "it") uses += 1;
+        if it.kind != .BINARY_OPERATOR continue;
+
+        binary := cast(*Code_Binary_Operator) it;
+        if binary.operator_type != #char "." || !is_ident(binary.left, "it") || !binary.right || binary.right.kind != .IDENT continue;
+
+        reads += 1;
+        array_add_if_unique(*wanted, (cast(*Code_Ident) binary.right).name);
+    }
+
+    if uses > reads return "";
+
+    builder: String_Builder;
+    builder.allocator = temp;
+    count := 0;
+    columns := orm_columns(T);
+
+    for columns {
+        if !has_note(it, "pg_primary_key") && !array_find(wanted, it.name) continue;
+
+        if count append(*builder, ",");
+        append(*builder, it.name);
+        count += 1;
+    }
+
+    if count == columns.count return "";
+
+    return builder_to_string(*builder);
+}
+
+orm_member_type :: (T: Type, name: string) -> Type {
+    member := member_of(T, name);
+    return get_type(member.type);
+}
+
 orm_copy_code :: (T: Type) -> string {
     table, problem := orm_table(T);
 
