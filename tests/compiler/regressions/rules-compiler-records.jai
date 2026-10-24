@@ -95,7 +95,7 @@ check_nodes :: () -> bool {
 
     // records.16, records.17: #assert / #run statements and #exists.
     directives := cast(*Code_Block) compiler_get_nodes(#code {
-        #assert true;
+        #assert true; // jailint: allow(assert_constant)
         x := #exists(limit);
     });
 

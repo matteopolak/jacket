@@ -88,7 +88,7 @@ main :: () {
     if answer;
 
     reached += 1;
-    ;;
+    ;; // jailint: allow(unnecessary_semicolon)
     if !answer;
     else reached += 1;
 

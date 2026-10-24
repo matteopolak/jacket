@@ -21,7 +21,7 @@ main :: () {
 
     push_context {
         context.assertion_failed = capture;
-        assert(true, "must not dispatch %", 7);
+        assert(true, "must not dispatch %", 7); // jailint: allow(assert_constant)
         successful_calls = calls;
 
         assert(false, "value % / %", 7, "text");

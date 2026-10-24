@@ -117,7 +117,7 @@ main :: () {
     // No matching case and no default: nothing runs.
     touched := false;
 
-    if value == {
+    if value == { // jailint: allow(single_case_switch)
         case 7; touched = true;
     }
 

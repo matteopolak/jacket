@@ -68,6 +68,8 @@ video_decode_block :: (video: *Video, block: s32) {
             else scaled += 1;
         }
 
+        // This module's `clamp` narrows to a byte, so the range is written out.
+        // jailint: allow(manual_clamp)
         if scaled > 2047 scaled = 2047;
         else if scaled < -2048 scaled = -2048;
 

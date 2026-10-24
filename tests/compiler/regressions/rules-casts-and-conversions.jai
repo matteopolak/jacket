@@ -169,7 +169,7 @@ main :: () {
     back := cast(*u64) addr;
 
     assert(back == wp, "integer back to pointer");
-    assert(cast(*u8) 0 == null, "cast(*u8) 0 is null");
+    assert(cast(*u8) 0 == null, "cast(*u8) 0 is null"); // jailint: allow(zero_ptr)
 
     // cast.25: a string literal converts to *u8.
     lit: *u8 = "abc";

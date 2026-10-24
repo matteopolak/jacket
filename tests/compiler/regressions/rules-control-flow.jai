@@ -233,7 +233,7 @@ main :: () {
     n := 7;
     picked := "";
 
-    if n == {
+    if n == { // jailint: allow(single_case_switch)
         case 1; picked = "one";
         case; picked = "default";
     }

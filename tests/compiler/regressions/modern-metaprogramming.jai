@@ -51,7 +51,7 @@ Basket :: struct {
 is_mango :: (basket: Basket) -> bool {
     using basket.tag;
 
-    if basket.tag == {
+    if basket.tag == { // jailint: allow(single_case_switch)
         case MANGO; return true;
     }
 

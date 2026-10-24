@@ -44,6 +44,11 @@ rules = { float_equality = "warn" }
 paths = ["stdlib/**/tests/**"]
 rules = { float_equality = "allow" }
 
+# Corpus fixtures are pinned by hash, so a case that is one `case` and a default stays as written.
+[[lint.overrides]]
+paths = ["tests/corpus/positive/case-selection.jai"]
+rules = { single_case_switch = "allow" }
+
 # Numbers that are the content rather than a choice: binary file formats, float and checksum
 # algorithms, OS bindings, and benchmark or demo workloads.
 [[lint.overrides]]
