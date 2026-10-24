@@ -6,7 +6,6 @@ use super::{
     Compiler, Diagnostic, FileInfo, HashSet, ModuleId, Options, ProgramSource, Result, ScopeId,
     Span, TypeId, ast, compiler_host, ir,
 };
-use crate::source::SourcePath;
 
 /// Where a cross build keeps its twin.
 #[derive(Default)]
@@ -389,21 +388,14 @@ impl Compiler {
             (info.path.clone(), info.module)
         };
         let twin_module = self.map_module_to_twin(twin, module)?;
-        let find = |twin: &Compiler| {
-            twin.src
-                .files
-                .iter()
-                .find(|file: &&FileInfo| file.module == twin_module && file.path == path)
-                .map(|file| file.scope)
-        };
-        if let Some(found) = find(twin) {
-            return Some(found);
-        }
-        let SourcePath::File(file) = &path else {
-            return None;
-        };
-        twin.load_file(file, twin_module, Span::NONE).ok()?;
-        find(twin)
+        // A file the twin did not load itself is one the host program does not have: an OS- or
+        // CPU-specific file the `#if` chain left out. Loading it would hand the twin the target's
+        // libraries and declarations, so the run stays on the target compiler.
+        twin.src
+            .files
+            .iter()
+            .find(|file: &&FileInfo| file.module == twin_module && file.path == path)
+            .map(|file| file.scope)
     }
 
     /// The twin's instance of `module`: the same entry file with the same arguments.

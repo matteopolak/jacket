@@ -237,3 +237,55 @@ fn type_info_flags_set_by_a_run_reach_the_cross_built_program() {
 fn type_descriptors_in_a_run_result_are_the_targets_own() {
     interpret_for_foreign_targets("cross-target-type-info-result.jai");
 }
+
+#[test]
+fn compile_time_file_system_and_cpu_detection_read_the_host_for_every_target() {
+    // The compiler runs with the program's directory as its working directory, so the program is
+    // copied next to the directories it makes.
+    let original = host_run_fixture("cross-target-compile-time-files.jai");
+    let directory = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("cross-target-files");
+    let source = directory.join("files.jai");
+    for (os, cpu) in foreign_targets() {
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::copy(&original, &source).unwrap();
+        success(
+            Command::new(env!("CARGO_BIN_EXE_jaic"))
+                .arg(&source)
+                .args(["-check", "-os", os, "-cpu", cpu])
+                .current_dir(&directory),
+        );
+        assert!(directory.join("cross-target-files/a/b").is_dir());
+    }
+}
+
+#[test]
+fn compile_time_code_in_a_target_only_file_loads_no_target_libraries() {
+    // The fixture loads a file per OS; each declares a library no machine has and runs code
+    // that allocates. The file of the target OS is not part of the host program, so its run stays
+    // on the target compiler, which loads no native libraries of its own.
+    for (os, cpu) in foreign_targets() {
+        success(
+            Command::new(env!("CARGO_BIN_EXE_jaic"))
+                .arg(host_run_fixture("cross-target-only-files/main.jai"))
+                .args(["-check", "-os", os, "-cpu", cpu]),
+        );
+    }
+}
+
+#[test]
+fn a_target_only_foreign_procedure_is_unavailable_at_compile_time() {
+    for (os, cpu) in foreign_targets() {
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(host_run_fixture("cross-target-only-files/call.jai"))
+            .args(["-check", "-os", os, "-cpu", cpu])
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{os} {cpu}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("foreign procedure `target_only_call` is not available here"),
+            "{os} {cpu}: {stderr}"
+        );
+    }
+}
