@@ -301,7 +301,7 @@ print("%\n", row.settings.value.theme);
     ];
     ```
 
-    The generator emits `settings: Pg.Json(Pg.json_column_type("users.settings"));`. That is a compile-time lookup in `Json_Columns`, falling back to `Json_Raw`, so changing a mapping does not regenerate the schema. A mapping naming a column that is not JSON is a compile error.
+    The generator emits `settings: Pg.Json(Pg.json_column_type("users.settings"));`. That is a compile-time lookup in `Json_Columns`, falling back to `Json_Raw` (the field is then `Json(Json_Raw)`, whose `.value.text` is the document), so changing a mapping does not regenerate the schema. A mapping naming a column that is not JSON is a compile error.
 - **Strictness.** `Pg.Json_Options` is a `Json_Options` with Postgres defaults, set per query (`json = .{ unknown_fields = .DENY }`), per `Json_Columns` entry, or per connection in `Config`:
   - `unknown_fields`: `.IGNORE` (the default) or `.DENY`;
   - `missing_fields`: `.ERROR` (the default) or `.DEFAULT`, which keeps each field's initializer;
@@ -803,7 +803,7 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 
    The typed query layer (phase 3) will pipeline Parse with Bind and Execute through the same queue.
 3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, JSON column overrides, the describe service (schema databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes. *Landed* ([typed-queries.md](typed-queries.md)): everything above except pipelined execution of typed queries, portal streaming (`Rows` buffers the whole result), and user-defined types in `query` alias overrides (use `query_as`). The editor test is written but unrun.
-4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate` (with `db/json_columns.jai`), the `db/schema.jai` staleness check, row type identity.
+4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate` (with `db/json_columns.jai`), the `db/schema.jai` staleness check, row type identity. *Landed* ([migrations.md](migrations.md), [schema.md](schema.md)): the runner, embedded migrations, the pg tool's `migrate`, `status`, `new` and `generate` (from the migrations' schema database, `db/json_columns.jai` through `Pg.json_column_type`), the `db/schema.jai` staleness check, Jai enums for Postgres enums, and the relation notes the ORM reads. The schema-database cache landed with typed queries ([typed-queries.md](typed-queries.md#schema-databases)). Row type identity is not part of it.
 5. **ORM:** `select` with `Code` filters, typed JSON navigation, column pruning, to-one joins, to-many batched loading, insert/update/delete.
 6. **Zero setup:** managed per-platform Postgres for compile-time typing; `diff` migration proposals. *Managed binaries landed* (`stdlib/Extensions/Postgres/managed.jai`, see [managed.md](managed.md)): download, verify, cache, `initdb` and start. The describe service does not call it yet, and `diff` is not started.
 

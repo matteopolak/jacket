@@ -74,6 +74,18 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Options
         }
 
         return "";
+    } else #if type_info(T).type == .ENUM {
+        // A Postgres enum is its label in both formats; a generated enum spells it with
+        // `enum_member_name`.
+        member := enum_member_name(text);
+        info := cast(*Type_Info_Enum) type_info(T);
+
+        for info.names if it == member {
+            out.* = cast,no_check(T) info.values[it_index];
+            return "";
+        }
+
+        return tprint("\"%\" is not a label of %", text, T);
     } else #if type_info(T).type == .INTEGER {
         value: s64;
 
@@ -135,6 +147,11 @@ decode :: (bytes: [] u8, format: Format, oid: u32, out: *$T, json: *Json_Options
     } else #if #run is_json(T) {
         document, why := json_document(bytes, format, oid);
         if why return why;
+
+        #if type_of(out.value) == Json_Raw {
+            out.value.text = document;
+            return "";
+        }
 
         options: Json_Options;
         if json options = json.*;
@@ -848,6 +865,8 @@ encode_param :: (value: Any) -> Param, string {
             return .{ oid = xx Oid.BYTEA, format = .BINARY, data = cast(string) any_array_view(value) }, "";
         }
 
+        if array.element_type.type == .ENUM return encode_enum_array(value);
+
         return encode_array(value);
     }
 
@@ -860,7 +879,16 @@ encode_param :: (value: Any) -> Param, string {
     if info.type == .INTEGER && info.runtime_size == 8 && !(cast(*Type_Info_Integer) info).signed {
         return .{ data = tprint("%", (cast(*u64) data).*) }, "";
     }
-    if info.type == .INTEGER || info.type == .ENUM {
+
+    if info.type == .ENUM {
+        // Sent as text with no type, so the server reads it as the enum the statement wants.
+        label, found := enum_value_label(value);
+        if !found return .{}, tprint("% holds a value that is none of its members", type_to_string(info,, temp));
+
+        return .{ data = label }, "";
+    }
+
+    if info.type == .INTEGER {
         return .{ data = tprint("%", any_integer(value)) }, "";
     }
     if info.type == .BOOL {
@@ -883,7 +911,7 @@ encode_binary :: (value: Any) -> Param, string {
     if info.type == .BOOL {
         oid = .BOOL;
         put_u8(*out, xx (cast(*bool) data).*);
-    } else if info.type == .INTEGER || info.type == .ENUM {
+    } else if info.type == .INTEGER {
         v := any_integer(value);
 
         if info.runtime_size <= 1 {
@@ -1109,6 +1137,48 @@ any_array_view :: (value: Any) -> [] u8 {
     view := cast(*[] u8) value.value_pointer;
 
     return .{ view.count * element, view.data };
+}
+
+// An array of Jai enums as an array literal in text form, with no type, so the server reads it as
+// the enum array the statement wants (binary arrays need the enum's OID, which only it knows).
+encode_enum_array :: (value: Any) -> Param, string {
+    array := cast(*Type_Info_Array) value.type;
+    view := any_array_view(value);
+    size := array.element_type.runtime_size;
+
+    builder: String_Builder;
+    builder.allocator = temp;
+    append(*builder, "{");
+
+    for 0..view.count / size - 1 {
+        label, found := enum_value_label(Any.{ array.element_type, view.data + it * size });
+        if !found return .{}, tprint("element % holds a value that is none of its enum's members", it + 1);
+
+        if it append(*builder, ",");
+
+        append(*builder, "\"");
+
+        for label {
+            if it == #char "\"" || it == #char "\\" append(*builder, "\\");
+            print_to_builder(*builder, "%", slice(label, it_index, 1));
+        }
+
+        append(*builder, "\"");
+    }
+
+    append(*builder, "}");
+
+    return .{ data = builder_to_string(*builder) }, "";
+}
+
+// The label of a Jai enum value, as a Postgres enum spells it.
+enum_value_label :: (value: Any) -> string, bool {
+    info := cast(*Type_Info_Enum) value.type;
+    number := any_integer(value);
+
+    for info.values if it == number return enum_label(info.names[it_index]), true;
+
+    return "", false;
 }
 
 any_integer :: (value: Any) -> s64 {

@@ -194,7 +194,8 @@ parameter_accepts :: (base: string, info: *Type_Info, literal: bool) -> bool {
         return false;
     }
 
-    if info.type == .ENUM return base == "int2" || base == "int4" || base == "int8";
+    // Sent as its label, so only a Postgres enum takes it.
+    if info.type == .ENUM return base == "enum";
 
     if info.type == .FLOAT {
         if info.runtime_size == 4 || literal return base == "float4" || base == "float8" || (literal && base == "numeric");
@@ -255,6 +256,7 @@ value_fits :: (base: string, info: *Type_Info) -> bool {
     }
 
     if info.type == .STRING return jai_type_of(base) == "string" || base == "json" || base == "jsonb";
+    if info.type == .ENUM return base == "enum";
     if info.type == .BOOL return base == "bool";
 
     if info.type == .INTEGER {

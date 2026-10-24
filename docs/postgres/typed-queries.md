@@ -43,7 +43,7 @@ With `JACKET_PG_CHECK` set, every query used by a build is recorded in `used.txt
 jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare|check [--root DIR] [--build CMD] [--prune]
 ```
 
-`prepare` builds the project online and fills the cache. `check` rebuilds offline and fails when any entry is missing or stale.
+`prepare` builds the project online and fills the cache. `check` rebuilds offline and fails when any entry is missing or stale. The tool also has `generate`, `migrate`, `status` and `new` ([schema](schema.md)).
 
 ## How to change it
 
