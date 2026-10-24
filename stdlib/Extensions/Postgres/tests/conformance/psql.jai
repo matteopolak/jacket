@@ -161,130 +161,166 @@ Startup_Action :: struct {
     text: string; // a -c command, or a -f file name
 }
 
-run :: (args: [] string) -> s64 {
+// Long options and the short option each one stands for.
+Long_Option :: struct {
+    name: string;
+    flag: u8;
+}
+
+LONG_OPTIONS :: Long_Option.[
+    .{ "command", #char "c" }, .{ "dbname", #char "d" }, .{ "file", #char "f" },
+    .{ "host", #char "h" }, .{ "port", #char "p" }, .{ "username", #char "U" },
+    .{ "set", #char "v" }, .{ "variable", #char "v" }, .{ "pset", #char "P" },
+    .{ "field-separator", #char "F" }, .{ "record-separator", #char "R" },
+    .{ "no-align", #char "A" }, .{ "tuples-only", #char "t" }, .{ "expanded", #char "x" },
+    .{ "quiet", #char "q" }, .{ "echo-all", #char "a" }, .{ "echo-queries", #char "e" },
+    .{ "echo-errors", #char "b" }, .{ "single-transaction", #char "1" },
+    .{ "no-psqlrc", #char "X" }, .{ "no-password", #char "w" }, .{ "password", #char "W" },
+    .{ "no-readline", #char "n" },
+];
+
+takes_value :: (flag: u8) -> bool {
+    for cast([] u8) "cdfhpUvPFR" if it == flag return true;
+    return false;
+}
+
+// What the command line asked for.
+Startup :: struct {
     actions: [..] Startup_Action;
-    dbname := environment_variable("PGDATABASE");
-    user := environment_variable("PGUSER");
-    host := environment_variable("PGHOST");
-    port := environment_variable("PGPORT");
-    positional := 0;
+    dbname: string;
+    user: string;
+    host: string;
+    port: string;
     pending_vars: [..] string;
+}
 
-    init_variables();
-
-    i := 1;
-
-    next_value :: () -> string #expand {
-        i += 1;
-
-        return args[i];
+// Applies one option, long ones as the short option they stand for.
+apply_option :: (startup: *Startup, flag: u8, value: string) -> bool {
+    if flag == {
+        case #char "X";
+        case #char "1"; psql.single_transaction = true;
+        case #char "a"; set_variable("ECHO", "all");
+        case #char "e"; set_variable("ECHO", "queries");
+        case #char "b"; set_variable("ECHO", "errors");
+        case #char "q"; set_variable("QUIET", "on");
+        case #char "A"; psql.popt.format = .UNALIGNED;
+        case #char "t"; psql.popt.tuples_only = true;
+        case #char "x"; psql.popt.expanded = .ON;
+        case #char "w";
+        case #char "W";
+        case #char "n";
+        case #char "c"; array_add(*startup.actions, .{ text = value });
+        case #char "f"; array_add(*startup.actions, .{ is_file = true, text = value });
+        case #char "d"; startup.dbname = value;
+        case #char "h"; startup.host = value;
+        case #char "p"; startup.port = value;
+        case #char "U"; startup.user = value;
+        case #char "v"; array_add(*startup.pending_vars, value);
+        case #char "P"; apply_pset_option(value);
+        case #char "F"; psql.popt.field_separator = value;
+        case #char "R"; psql.popt.record_separator = value;
+        case;
+            print_error(tprint("invalid option -- '%'", cast(string) u8.[flag]));
+            return false;
     }
+
+    return true;
+}
+
+// Reads the options into `startup`. Returns an exit code when psql is done (--help, an error),
+// or -1 to go on.
+parse_arguments :: (args: [] string, startup: *Startup) -> s64 {
+    positional := 0;
+    i := 1;
 
     while i < args.count {
         arg := args[i];
 
         if begins_with(arg, "--") {
-            takes_value := arg == "--set" || arg == "--variable" || arg == "--dbname" || arg == "--host" || arg == "--port" || arg == "--username" || arg == "--command" || arg == "--file";
+            has_value, name, inline_value := split_from_left(advance(arg, 2), #char "=");
+            if !has_value name = advance(arg, 2);
 
-            if takes_value && i + 1 >= args.count {
-                print_error(tprint("option requires an argument -- '%'", arg));
+            if name == "help" return print_help(ifx has_value then inline_value else "options");
+            if name == "version" return print_version();
+
+            flag: u8;
+            for LONG_OPTIONS if it.name == name flag = it.flag;
+
+            if name == "csv" {
+                psql.popt.format = .CSV;
+            } else if !flag {
+                print_error(tprint("unrecognized option '%'", arg));
                 return EXIT_FAILURE;
-            }
-
-            if arg == {
-                case "--no-psqlrc";
-                case "--help"; return print_help("options");
-                case "--version"; return print_version();
-                case "--single-transaction"; psql.single_transaction = true;
-                case "--quiet"; set_variable("QUIET", "on");
-                case "--echo-all"; set_variable("ECHO", "all");
-                case "--echo-queries"; set_variable("ECHO", "queries");
-                case "--no-align"; psql.popt.format = .UNALIGNED;
-                case "--tuples-only"; psql.popt.tuples_only = true;
-                case "--no-password";
-                case "--csv"; psql.popt.format = .CSV;
-                // An option with a required argument takes it from the next word as well.
-                case "--set"; #through;
-                case "--variable"; array_add(*pending_vars, next_value());
-                case "--dbname"; dbname = next_value();
-                case "--host"; host = next_value();
-                case "--port"; port = next_value();
-                case "--username"; user = next_value();
-                case "--command"; array_add(*actions, .{ text = next_value() });
-                case "--file"; array_add(*actions, .{ is_file = true, text = next_value() });
-                case;
-                    if begins_with(arg, "--help=") return print_help(advance(arg, 7));
-                    else if begins_with(arg, "--set=") array_add(*pending_vars, advance(arg, 6));
-                    else if begins_with(arg, "--variable=") array_add(*pending_vars, advance(arg, 11));
-                    else if begins_with(arg, "--dbname=") dbname = advance(arg, 9);
-                    else if begins_with(arg, "--host=") host = advance(arg, 7);
-                    else if begins_with(arg, "--port=") port = advance(arg, 7);
-                    else if begins_with(arg, "--username=") user = advance(arg, 11);
-                    else if begins_with(arg, "--command=") array_add(*actions, .{ text = advance(arg, 10) });
-                    else if begins_with(arg, "--file=") array_add(*actions, .{ is_file = true, text = advance(arg, 7) });
-                    else {
-                        print_error(tprint("unrecognized option '%'", arg));
-                        return EXIT_FAILURE;
-                    }
+            } else if takes_value(flag) == has_value {
+                if !apply_option(startup, flag, inline_value) return EXIT_FAILURE;
+            } else if has_value {
+                print_error(tprint("option '--%' doesn't allow an argument", name));
+                return EXIT_FAILURE;
+            } else if i + 1 >= args.count {
+                print_error(tprint("option '--%' requires an argument", name));
+                return EXIT_FAILURE;
+            } else {
+                i += 1;
+                if !apply_option(startup, flag, args[i]) return EXIT_FAILURE;
             }
         } else if arg == "-V" {
             return print_version();
         } else if arg == "-?" {
             return print_help("options");
         } else if begins_with(arg, "-") && arg.count > 1 {
-            // Short options may be bundled: -XAtq.
-            j := 1;
-            while j < arg.count {
+            // Short options may be bundled: -XAtq. One that takes a value takes the rest of the
+            // word, or the next word.
+            for j: 1..arg.count - 1 {
                 flag := arg[j];
-
-                j += 1;
-                rest := advance(arg, j);
-                takes_value := false;
                 value: string;
 
-                if flag == #char "c" || flag == #char "d" || flag == #char "f" || flag == #char "h" || flag == #char "p" || flag == #char "U" || flag == #char "v" || flag == #char "P" || flag == #char "F" || flag == #char "R" {
-                    takes_value = true;
-                    if rest value = rest;
-                    else value = next_value();
-                    j = arg.count;
+                if takes_value(flag) {
+                    value = advance(arg, j + 1);
+
+                    if !value && i + 1 >= args.count {
+                        print_error(tprint("option requires an argument -- '%'", cast(string) u8.[flag]));
+                        return EXIT_FAILURE;
+                    }
+
+                    if !value {
+                        i += 1;
+                        value = args[i];
+                    }
                 }
 
-                if flag == {
-                    case #char "X";
-                    case #char "1"; psql.single_transaction = true;
-                    case #char "a"; set_variable("ECHO", "all");
-                    case #char "e"; set_variable("ECHO", "queries");
-                    case #char "b"; set_variable("ECHO", "errors");
-                    case #char "q"; set_variable("QUIET", "on");
-                    case #char "A"; psql.popt.format = .UNALIGNED;
-                    case #char "t"; psql.popt.tuples_only = true;
-                    case #char "x"; psql.popt.expanded = .ON;
-                    case #char "w";
-                    case #char "W";
-                    case #char "n";
-                    case #char "c"; array_add(*actions, .{ text = value });
-                    case #char "f"; array_add(*actions, .{ is_file = true, text = value });
-                    case #char "d"; dbname = value;
-                    case #char "h"; host = value;
-                    case #char "p"; port = value;
-                    case #char "U"; user = value;
-                    case #char "v"; array_add(*pending_vars, value);
-                    case #char "P"; apply_pset_option(value);
-                    case #char "F"; psql.popt.field_separator = value;
-                    case #char "R"; psql.popt.record_separator = value;
-                    case;
-                        print_error(tprint("invalid option -- '%'", cast(string) u8.[flag]));
-                        return EXIT_FAILURE;
-                }
+                if !apply_option(startup, flag, value) return EXIT_FAILURE;
+                if takes_value(flag) break;
             }
         } else {
-            if positional == 0 dbname = arg;
-            else if positional == 1 user = arg;
+            if positional == 0 startup.dbname = arg;
+            else if positional == 1 startup.user = arg;
             positional += 1;
         }
 
         i += 1;
     }
+
+    return -1;
+}
+
+run :: (args: [] string) -> s64 {
+    startup: Startup;
+    startup.dbname = environment_variable("PGDATABASE");
+    startup.user = environment_variable("PGUSER");
+    startup.host = environment_variable("PGHOST");
+    startup.port = environment_variable("PGPORT");
+
+    init_variables();
+
+    done := parse_arguments(args, *startup);
+    if done >= 0 return done;
+
+    actions := startup.actions;
+    dbname := startup.dbname;
+    user := startup.user;
+    host := startup.host;
+    port := startup.port;
+    pending_vars := startup.pending_vars;
 
     for pending_vars {
         found, name, value := split_from_left(it, #char "=");
