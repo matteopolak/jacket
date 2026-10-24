@@ -340,10 +340,9 @@ copy_decode :: (out: *$T, bytes: [] u8, oid: u32, result: *Result) -> string {
     {
         push_allocator(.{ result_allocator, result });
 
-        options := result.json_options;
-        options.borrow = true;
+        layers := Json_Layers.{ connection = result.json_options, borrow = true };
 
-        why = decode(bytes, .BINARY, oid, out, *options);
+        why = decode(bytes, .BINARY, oid, out, *layers);
     }
 
     return why;
