@@ -173,6 +173,25 @@ test_relations :: (db: *Pg.Connection) {
     check(written.items[0][0].author_id == all_users[0].id && written.items[0][1].title != "", "post rows");
     Pg.free_loaded(*written);
     Pg.free_rows(*users);
+
+    // A key on two columns: (org, team_code) to (org, code); a null part matches nothing.
+    members:, error = Pg.select(db, Member, order_by = #code it.id);
+    all_members := Pg.fetch_all(*members);
+    teams:, error = Pg.load_one(db, all_members, "team");
+
+    check(error.kind == .NONE && teams.items.count == 4, Pg.error_text(error));
+    check(teams.items[0].value.name == "red" && teams.items[1].value.name == "green" && teams.items[2].value.name == "red" && teams.items[3].null, "teams by two columns");
+    Pg.free_loaded(*teams);
+
+    team_rows:, error = Pg.select(db, Team, order_by = #code it.name);
+    all_teams := Pg.fetch_all(*team_rows); // blue, green, red
+    on_team:, error = Pg.load_many(db, all_teams, "members");
+
+    check(error.kind == .NONE && on_team.items.count == 3, Pg.error_text(error));
+    check(on_team.items[0].count == 0 && on_team.items[1].count == 1 && on_team.items[1][0].name == "bob" && on_team.items[2].count == 2, "members by two columns");
+    Pg.free_loaded(*on_team);
+    Pg.free_rows(*team_rows);
+    Pg.free_rows(*members);
 }
 
 test_writes :: (db: *Pg.Connection) {

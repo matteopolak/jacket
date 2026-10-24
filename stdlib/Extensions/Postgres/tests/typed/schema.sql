@@ -23,6 +23,22 @@ create table posts (
     created_at timestamptz not null default now()
 );
 
+-- A key on two columns, for loading relations that join on both.
+create table teams (
+    org text not null,
+    code int4 not null,
+    name text not null,
+    primary key (org, code)
+);
+
+create table members (
+    id bigserial primary key,
+    org text not null,
+    team_code int4,
+    name text not null,
+    foreign key (org, team_code) references teams (org, code)
+);
+
 create view user_posts as
     select u.id as user_id, u.email, p.id as post_id
     from users u join posts p on p.author_id = u.id;
@@ -32,3 +48,7 @@ values ('a@example.com', 'Alice', '{"theme": "dark", "font_size": 16}', '{x,y}',
        ('b@example.com', null, null, default, default);
 
 insert into posts (author_id, title, body) values (1, 'hello', 'first'), (1, 'second', null);
+
+insert into teams values ('acme', 1, 'red'), ('acme', 2, 'blue'), ('beta', 1, 'green');
+insert into members (org, team_code, name)
+values ('acme', 1, 'ann'), ('beta', 1, 'bob'), ('acme', 1, 'cy'), ('acme', null, 'dee');

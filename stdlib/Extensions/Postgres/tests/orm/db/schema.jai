@@ -36,3 +36,16 @@ Post :: struct @pg_table(public.posts) @pg_belongs_to(author:author_id:User:id) 
     body: Pg.Nullable(string);
     created_at: Pg.Timestamp; @pg_default
 }
+
+Team :: struct @pg_table(public.teams) @pg_has_many(members:Member:org,team_code:org,code) {
+    org: string; @pg_primary_key
+    code: s32; @pg_primary_key
+    name: string;
+}
+
+Member :: struct @pg_table(public.members) @pg_belongs_to(team:org,team_code:Team:org,code) {
+    id: s64; @pg_primary_key @pg_default
+    org: string;
+    team_code: Pg.Nullable(s32);
+    name: string;
+}

@@ -96,6 +96,8 @@ The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`
 
   The parents' keys go in as one array parameter, the rows come back once, and a hash table from key to parent hands them out. `items` are views into `rows`, which read from `result`, so everything lives until `free_loaded`. Parents sharing a key share their items. A null foreign key gives an empty list or a null item.
 
+  A relation on several columns (`@pg_belongs_to(team:org,team_code:Team:org,code)`) sends one array per column and matches the pairs with `where ("org", "code") in (select * from unnest($1::text[], $2::int4[]))`. Its hash key is a string of the length-prefixed parts (`orm_key_part`); a key with any null part matches nothing.
+
 `insert` leaves out fields marked `@pg_default` or `@pg_generated`, so the database fills them, and reads the stored row back with `returning`.
 
 ## How to change it
@@ -108,7 +110,7 @@ The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`
   - The filter is walked as written, so a parameter expression is evaluated once per call, in the caller's scope.
   - Inside an `#expand` macro, `return f()` of a two-value call crashes the compiler today. The generated code binds the results to locals first.
   - A `Nullable(T)` zero value is not null (`null` defaults to `false`).
-- **Not yet built** (see the design): relations on several columns in `load_*`, and switching `insert_many` itself to COPY (it returns the stored rows, which COPY cannot).
+- **Not yet built** (see the design): switching `insert_many` itself to COPY (it returns the stored rows, which COPY cannot).
 
 ## Configuration
 
