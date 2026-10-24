@@ -405,7 +405,7 @@ orm_relation_target :: (T: Type, name: string, kind: Orm_Relation_Kind) -> strin
         problem = tprint("%.% is a % relation: load it with Pg.%", T, name, ifx relation.kind == .HAS_MANY then "has-many" else "to-one", ifx relation.kind == .HAS_MANY then "load_many" else "load_one");
     }
 
-    if !problem && relation.own_columns.count != 1 problem = tprint("%.% joins on several columns, which loading does not handle yet", T, name);
+    if !problem && relation.own_columns.count != relation.target_columns.count problem = tprint("%.%: the relation note pairs % columns with %", T, name, relation.own_columns.count, relation.target_columns.count);
 
     if problem {
         compiler_report(problem);
@@ -426,8 +426,9 @@ orm_is_nullable :: (T: Type) -> bool {
     return is_nullable_info(type_info(T));
 }
 
-// `select <every column of Target> from <its table> where "<column>" = any($1)`.
-orm_load_sql :: (Target: Type, column: string, Key: Type) -> string {
+// `select <every column of Target> from <its table> where "<column>" = any($1)`, or for a key on
+// several columns `where ("a", "b") in (select * from unnest($1, $2))`, one array per column.
+orm_load_sql :: (Target: Type, columns: string, keys: [] Type) -> string {
     table, problem := orm_table(Target);
 
     if problem {
@@ -445,48 +446,128 @@ orm_load_sql :: (Target: Type, column: string, Key: Type) -> string {
         append(*builder, quote_identifier(it.name));
     }
 
-    cast_to := parameter_cast(Key);
+    print_to_builder(*builder, " from % where ", table);
 
-    print_to_builder(*builder, " from % where % = any(\% %)", table, quote_identifier(column), ifx cast_to then tprint("::%[]", cast_to) else "");
+    names := split(columns, ",",, temp);
+
+    if names.count == 1 {
+        print_to_builder(*builder, "% = any(\%%)", quote_identifier(names[0]), orm_array_cast(keys[0]));
+        return builder_to_string(*builder);
+    }
+
+    append(*builder, "(");
+
+    for names {
+        if it_index append(*builder, ", ");
+        append(*builder, quote_identifier(it));
+    }
+
+    append(*builder, ") in (select * from unnest(");
+
+    for keys {
+        if it_index append(*builder, ", ");
+        print_to_builder(*builder, "\%%", orm_array_cast(it));
+    }
+
+    append(*builder, "))");
 
     return builder_to_string(*builder);
 }
 
+orm_array_cast :: (Key: Type) -> string {
+    cast_to := parameter_cast(Key);
+    return ifx cast_to then tprint(" ::%[]", cast_to) else "";
+}
+
+// One part of a key on several columns, length-prefixed so parts cannot run together.
+orm_key_part :: (builder: *String_Builder, value: $V) {
+    text := tprint("%", value);
+    print_to_builder(builder, "%:%;", text.count, text);
+}
+
 // The body of `load_many` and `load_one`: collect the keys, run one query, and hand each row to
-// the parents whose key it carries.
+// the parents whose key it carries. A key on one column is that column's value; on several, a
+// string made of the parts. A parent or row with a null part has no key and matches nothing.
 orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind) -> string {
     relation, problem := orm_relation(T, name);
-    if problem || relation.kind != kind || relation.own_columns.count != 1 return "";
+    if problem || relation.kind != kind || relation.own_columns.count != relation.target_columns.count return "";
 
-    own := relation.own_columns[0];
-    target := relation.target_columns[0];
-    own_member := member_of(T, own);
+    own_nullable: [..] bool;
+    own_nullable.allocator = temp;
 
-    if !own_member {
-        compiler_report(tprint("% has no field \"%\" for its relation \"%\"", T, own, name));
-        return "";
+    for relation.own_columns {
+        member := member_of(T, it);
+
+        if !member {
+            compiler_report(tprint("% has no field \"%\" for its relation \"%\"", T, it, name));
+            return "";
+        }
+
+        array_add(*own_nullable, is_nullable_info(member.type));
     }
 
-    own_nullable := is_nullable_info(own_member.type);
-    own_value := ifx own_nullable then tprint("it.%.value", own) else tprint("it.%", own);
-    own_skip := ifx own_nullable then tprint("if it.%.null continue;\n", own) else "";
-
+    single := relation.own_columns.count == 1;
     builder: String_Builder;
     builder.allocator = temp;
 
-    loaded_type := ifx kind == .HAS_MANY then "Loaded_Many" else "Loaded_One";
+    print_to_builder(*builder, "Orm_Target :: %;\n", orm_insert_text(relation.target));
 
-    print_to_builder(*builder, #string DONE
-Orm_Target :: %3;
-Orm_Key :: #run orm_value_type(type_of(parents[0].%1));
-Orm_Target_Nullable :: #run orm_is_nullable(type_of(Orm_Target.{}.%2));
-orm_loaded: %4(Orm_Target);
-orm_keys: [..] Orm_Key;
-orm_keys.allocator = temp;
-for parents {
-    %5array_add(*orm_keys, %6);
-}
-orm_rows, orm_error := query_as(Orm_Target, db, #run orm_load_sql(Orm_Target, "%2", Orm_Key), cast([] Orm_Key) orm_keys);
+    for relation.own_columns print_to_builder(*builder, "Orm_K% :: #run orm_value_type(type_of(parents[0].%));\n", it_index, it);
+
+    append(*builder, "Orm_Key_Types :: Type.[");
+    for relation.own_columns print_to_builder(*builder, "%Orm_K%", ifx it_index then ", " else "", it_index);
+
+    append(*builder, "];\n");
+
+    print_to_builder(*builder, "Orm_Key :: %;\n", ifx single then "Orm_K0" else "string");
+
+    // The parent's key, and false when a part of it is null.
+    append(*builder, "orm_parent_key :: (it: T) -> Orm_Key, bool {\n    key: Orm_Key;\n");
+
+    for relation.own_columns if own_nullable[it_index] print_to_builder(*builder, "    if it.%.null return key, false;\n", it);
+
+    if single {
+        print_to_builder(*builder, "    return it.%1%2, true;\n", relation.own_columns[0], ifx own_nullable[0] then ".value" else "");
+    } else {
+        append(*builder, "    builder: String_Builder;\n    builder.allocator = temp;\n");
+        for relation.own_columns print_to_builder(*builder, "    orm_key_part(*builder, it.%1%2);\n", it, ifx own_nullable[it_index] then ".value" else "");
+        append(*builder, "    return builder_to_string(*builder), true;\n");
+    }
+
+    append(*builder, "}\n");
+
+    // The same for a fetched row, through the related struct's columns (nullable or not).
+    append(*builder, "orm_child_key :: (row: Orm_Target) -> Orm_Key, bool {\n    key: Orm_Key;\n");
+
+    for relation.target_columns print_to_builder(*builder, "    #if orm_is_nullable(type_of(row.%1)) if row.%1.null return key, false;\n", it);
+
+    if single {
+        print_to_builder(*builder, "    #if orm_is_nullable(type_of(row.%1)) return row.%1.value, true; else return row.%1, true;\n", relation.target_columns[0]);
+    } else {
+        append(*builder, "    builder: String_Builder;\n    builder.allocator = temp;\n");
+        for relation.target_columns print_to_builder(*builder, "    #if orm_is_nullable(type_of(row.%1)) orm_key_part(*builder, row.%1.value); else orm_key_part(*builder, row.%1);\n", it);
+        append(*builder, "    return builder_to_string(*builder), true;\n");
+    }
+
+    append(*builder, "}\n");
+
+    print_to_builder(*builder, "orm_loaded: %(Orm_Target);\n", ifx kind == .HAS_MANY then "Loaded_Many" else "Loaded_One");
+
+    for relation.own_columns print_to_builder(*builder, "orm_keys_%1: [..] Orm_K%1;\norm_keys_%1.allocator = temp;\n", it_index);
+
+    // One array per key column, each parent with a whole key adding its parts.
+    append(*builder, "for parents {\n");
+    for relation.own_columns if own_nullable[it_index] print_to_builder(*builder, "    if it.%.null continue;\n", it);
+    for relation.own_columns print_to_builder(*builder, "    array_add(*orm_keys_%1, it.%2%3);\n", it_index, it, ifx own_nullable[it_index] then ".value" else "");
+
+    append(*builder, "}\n");
+
+    print_to_builder(*builder, "orm_rows, orm_error := query_as(Orm_Target, db, #run orm_load_sql(Orm_Target, %, Orm_Key_Types)", jai_string(join(..relation.target_columns, ",",, temp)));
+    for relation.own_columns print_to_builder(*builder, ", cast([] Orm_K%1) orm_keys_%1", it_index);
+
+    append(*builder, ");\n");
+
+    append(*builder, #string DONE
 if orm_error.kind != .NONE {
     free_rows(*orm_rows);
     return orm_loaded, orm_error;
@@ -502,21 +583,18 @@ for * orm_found {
 }
 orm_loaded.rows = orm_found;
 orm_loaded.result = orm_rows.result;
-DONE, own, target, orm_insert_text(relation.target), loaded_type, own_skip, own_value);
+DONE);
 
     if kind == .HAS_MANY {
-        print_to_builder(*builder, #string DONE
+        append(*builder, #string DONE
 // Parent key to its first index; parents sharing a key share their items.
 orm_parent: Orm_Hash.Table(Orm_Key, s64);
 orm_parent.allocator = temp;
 for parents {
-    %2if !Orm_Hash.table_contains(*orm_parent, %3) Orm_Hash.table_add(*orm_parent, %3, it_index);
+    key, has := orm_parent_key(it);
+    if has && !Orm_Hash.table_contains(*orm_parent, key) Orm_Hash.table_add(*orm_parent, key, it_index);
 }
 orm_counts := NewArray(parents.count, s64,, temp);
-orm_child_key :: (row: Orm_Target) -> Orm_Key, bool {
-    #if Orm_Target_Nullable return row.%1.value, !row.%1.null;
-    else return row.%1, true;
-}
 for orm_found {
     key, has := orm_child_key(it);
     if !has continue;
@@ -544,31 +622,31 @@ array_free(orm_found);
 orm_loaded.rows = orm_grouped;
 orm_loaded.items = NewArray(parents.count, [] Orm_Target);
 for parents {
-    %2index := Orm_Hash.table_find_pointer(*orm_parent, %3);
+    key, has := orm_parent_key(it);
+    if !has continue;
+    index := Orm_Hash.table_find_pointer(*orm_parent, key);
     orm_loaded.items[it_index] = array_view(orm_grouped, orm_starts[index.*], orm_counts[index.*]);
 }
 return orm_loaded, .{};
-DONE, target, own_skip, own_value);
+DONE);
     } else {
-        print_to_builder(*builder, #string DONE
+        append(*builder, #string DONE
 orm_found_at: Orm_Hash.Table(Orm_Key, s64);
 orm_found_at.allocator = temp;
 for orm_found {
-    #if Orm_Target_Nullable {
-        if it.%1.null continue;
-        Orm_Hash.table_set(*orm_found_at, it.%1.value, it_index);
-    } else {
-        Orm_Hash.table_set(*orm_found_at, it.%1, it_index);
-    }
+    key, has := orm_child_key(it);
+    if has Orm_Hash.table_set(*orm_found_at, key, it_index);
 }
 orm_loaded.items = NewArray(parents.count, Nullable(Orm_Target));
 for parents {
     orm_loaded.items[it_index].null = true;
-    %2index := Orm_Hash.table_find_pointer(*orm_found_at, %3);
+    key, has := orm_parent_key(it);
+    if !has continue;
+    index := Orm_Hash.table_find_pointer(*orm_found_at, key);
     if index orm_loaded.items[it_index] = .{ value = orm_found[index.*] };
 }
 return orm_loaded, .{};
-DONE, target, own_skip, own_value);
+DONE);
     }
 
     return builder_to_string(*builder);
