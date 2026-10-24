@@ -30,10 +30,15 @@ Rows :: struct(T: Type) {
     error: Pg_Error;
 }
 
-// Every row decoded at once: the array (from context.allocator) is freed by `free_rows`, like the
-// rows themselves. Check `rows.error` afterwards.
-fetch_all :: (rows: *Rows($T)) -> [] T {
-    items: [..] T;
+// Every row decoded and copied, with the strings, arrays and documents it points to, into one
+// block from `allocator`. The rows stay valid after `free_rows`; `array_free(items)` frees all of
+// it (with `temp`, nothing needs freeing). Check `rows.error` afterwards.
+//
+//     users := Pg.fetch_all(*rows);   // or Pg.fetch_all(*rows, temp)
+//     Pg.free_rows(*rows);
+fetch_all :: (rows: *Rows($T), allocator := context.allocator) -> [] T {
+    decoded: [..] T;
+    decoded.allocator = temp;
 
     for 0..rows.result.row_count - 1 {
         item: T;
@@ -44,11 +49,139 @@ fetch_all :: (rows: *Rows($T)) -> [] T {
             break;
         }
 
-        array_add(*items, item);
+        array_add(*decoded, item);
     }
+
+    items: [] T;
+    if !decoded.count return items;
+
+    head := align_copy_size(decoded.count * size_of(T));
+    size := head;
+
+    for *decoded size += copy_size(it, type_info(T));
+
+    block := cast(*u8) alloc(size,, allocator);
+
+    memcpy(block, decoded.data, decoded.count * size_of(T));
+
+    items.data = cast(*T) block;
+    items.count = decoded.count;
+
+    cursor := block + head;
+    for *items copy_into(it, type_info(T), *cursor);
 
     return items;
 }
+
+#scope_module
+
+align_copy_size :: (size: s64) -> s64 {
+    return (size + 7) & ~7;
+}
+
+// The bytes `value` points to (not counting its own), each piece rounded up to 8.
+copy_size :: (value: *void, info: *Type_Info) -> s64 {
+    if info.type == {
+        case .STRING;
+            return align_copy_size((cast(*string) value).count);
+
+        case .STRUCT;
+            total := 0;
+
+            for (cast(*Type_Info_Struct) info).members {
+                if it.flags & .CONSTANT continue;
+                total += copy_size((cast(*u8) value) + it.offset_in_bytes, it.type);
+            }
+
+            return total;
+
+        case .ARRAY;
+            array := cast(*Type_Info_Array) info;
+            element := array.element_type;
+            count, data := array_parts(value, array);
+            total := ifx array.array_type == .FIXED then 0 else align_copy_size(count * element.runtime_size);
+
+            for 0..count - 1 total += copy_size(data + it * element.runtime_size, element);
+
+            return total;
+
+        case .POINTER;
+            target := (cast(*Type_Info_Pointer) info).pointer_to;
+            pointer := (cast(**u8) value).*;
+
+            if !pointer || !target || target.runtime_size <= 0 return 0;
+
+            return align_copy_size(target.runtime_size) + copy_size(pointer, target);
+    }
+
+    return 0;
+}
+
+// Moves what `value` points to into the block at `cursor`, and points `value` there.
+copy_into :: (value: *void, info: *Type_Info, cursor: **u8) {
+    if info.type == {
+        case .STRING;
+            text := cast(*string) value;
+            if !text.count return;
+
+            memcpy(cursor.*, text.data, text.count);
+            text.data = cursor.*;
+            cursor.* += align_copy_size(text.count);
+
+        case .STRUCT;
+            for (cast(*Type_Info_Struct) info).members {
+                if it.flags & .CONSTANT continue;
+                copy_into((cast(*u8) value) + it.offset_in_bytes, it.type, cursor);
+            }
+
+        case .ARRAY;
+            array := cast(*Type_Info_Array) info;
+            element := array.element_type;
+            count, data := array_parts(value, array);
+
+            if array.array_type != .FIXED {
+                if !count return;
+
+                memcpy(cursor.*, data, count * element.runtime_size);
+                data = cursor.*;
+                cursor.* += align_copy_size(count * element.runtime_size);
+
+                // A copied [..] array is a view into the block: it must not grow in place.
+                view := cast(*Array_View_64) value;
+                view.data = data;
+
+                if array.array_type == .RESIZABLE {
+                    resizable := cast(*Resizable_Array) value;
+                    resizable.allocated = count;
+                    resizable.allocator = .{};
+                }
+            }
+
+            for 0..count - 1 copy_into(data + it * element.runtime_size, element, cursor);
+
+        case .POINTER;
+            target := (cast(*Type_Info_Pointer) info).pointer_to;
+            pointer := cast(**u8) value;
+
+            if !pointer.* || !target || target.runtime_size <= 0 return;
+
+            memcpy(cursor.*, pointer.*, target.runtime_size);
+            pointer.* = cursor.*;
+            cursor.* += align_copy_size(target.runtime_size);
+
+            copy_into(pointer.*, target, cursor);
+    }
+}
+
+array_parts :: (value: *void, array: *Type_Info_Array) -> count: s64, data: *u8 {
+    if array.array_type == .FIXED return array.array_count, cast(*u8) value;
+
+    view := cast(*Array_View_64) value;
+
+    return view.count, view.data;
+}
+
+#scope_export
 
 free_rows :: (rows: *Rows($T)) {
     free_result(*rows.result);

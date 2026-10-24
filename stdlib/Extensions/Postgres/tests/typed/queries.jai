@@ -83,6 +83,22 @@ test_query :: (db: *Pg.Connection) {
 
     defer array_free(items);
     check(items.count == 2 && items[1].email == "b@example.com", "fetch_all");
+
+    // The copies outlive the rows: strings, arrays and json documents included.
+    kept, kept_error := Pg.query(db, "select email, tags, settings from users order by id");
+
+    check(kept_error.kind == .NONE, Pg.error_text(kept_error));
+
+    copied := Pg.fetch_all(*kept);
+
+    Pg.free_rows(*kept);
+
+    defer array_free(copied);
+    check(copied.count == 2 && copied[0].email == "a@example.com" && copied[0].tags.count == 2 && copied[0].tags[1] == "y", "fetch_all copies");
+
+    copied_temp := Pg.fetch_all(*all, temp);
+
+    check(copied_temp.count == 2 && copied_temp[0].email == "a@example.com", "fetch_all into temp");
 }
 
 test_one_and_opt :: (db: *Pg.Connection) {
