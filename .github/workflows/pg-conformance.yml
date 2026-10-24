@@ -1,0 +1,81 @@
+name: postgres conformance
+# The Postgres client against PostgreSQL's own suites (docs/postgres/conformance.md): the server
+# tests in stdlib/Extensions/Postgres/tests, then the regression suite run once through the real
+# psql and once through the Jai psql shim, on every supported major version. A test that passes
+# with psql and fails with the shim fails the job unless regress-skip.txt lists it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - stdlib/Extensions/Postgres/**
+      - stdlib/Extensions/Io/**
+      - stdlib/Extensions/Tls/**
+      - tools/pg_conformance/**
+      - .github/workflows/pg-conformance.yml
+  pull_request:
+    paths:
+      - stdlib/Extensions/Postgres/**
+      - stdlib/Extensions/Io/**
+      - stdlib/Extensions/Tls/**
+      - tools/pg_conformance/**
+      - .github/workflows/pg-conformance.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  conformance:
+    name: PostgreSQL ${{ matrix.postgres }}
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['15', '16', '17', '18']
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      JAIC_NATIVE_LIBS: ${{ github.workspace }}/target/http-native-libs
+      PG_BIN: /usr/lib/postgresql/${{ matrix.postgres }}/bin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: bash tools/ci/install_rust_toolchain.sh
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install LLVM 23
+        timeout-minutes: 15
+        run: |
+          bash tools/ci/install_ci_llvm_linux.sh
+          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+      - name: Install PostgreSQL ${{ matrix.postgres }} from the PGDG repository
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y "postgresql-${{ matrix.postgres }}" "postgresql-server-dev-${{ matrix.postgres }}"
+      - name: Build the TLS SDK
+        run: python3 tools/native/http_native.py --out "$JAIC_NATIVE_LIBS"
+      - name: Build jaic
+        run: cargo build --locked -p jaic-cli
+      - name: Client tests against a throwaway cluster
+        run: |
+          eval "$(sh stdlib/Extensions/Postgres/tests/start_server.sh "$RUNNER_TEMP/pg" 54329)"
+          mkdir -p "$RUNNER_TEMP/server-test"
+          (cd "$RUNNER_TEMP/server-test" && "$GITHUB_WORKSPACE/target/debug/jaic" "$GITHUB_WORKSPACE/stdlib/Extensions/Postgres/tests/server.jai" -exe server && ./server)
+          "$PG_BIN/pg_ctl" -D "$RUNNER_TEMP/pg" stop
+      - name: Regression suite through psql and the shim
+        run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config"
+      - name: Keep the diffs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pg-conformance-${{ matrix.postgres }}
+          path: target/pg-conformance/run/${{ matrix.postgres }}/*/regression.*
+          retention-days: 7
+          if-no-files-found: ignore

@@ -19,5 +19,13 @@
     "required_capabilities": [
       "native Io fibers and TLS SDK; a PostgreSQL server from tests/start_server.sh, else skipped"
     ]
+  },
+  {
+    "name": "conformance/print_test",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "conformance/scan_test",
+    "stdout": "ok\n"
   }
 ]
