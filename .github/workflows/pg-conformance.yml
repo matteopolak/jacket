@@ -66,15 +66,28 @@ jobs:
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - name: Install PostgreSQL ${{ matrix.postgres }} from the PGDG repository
+        timeout-minutes: 20
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           # The LLVM step points apt at jai-ci-sources.list.d (tools/ci/apt_lib.sh), so the
           # repository goes there. The per-major component carries a major before its release.
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main ${{ matrix.postgres }}" | sudo tee /etc/apt/jai-ci-sources.list.d/pgdg.list
-          sudo apt-get update
+          # A stalled mirror download is cut off and tried again rather than hanging the job.
+          apt_options="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          for attempt in 1 2 3; do
+            timeout 300 sudo -E apt-get $apt_options update && break
+            echo "apt-get update attempt $attempt failed or stalled"
+          done
           apt-cache policy "postgresql-${{ matrix.postgres }}"
-          sudo apt-get install -y "postgresql-${{ matrix.postgres }}" "postgresql-server-dev-${{ matrix.postgres }}" libipc-run-perl libio-pty-perl
+          for attempt in 1 2 3; do
+            timeout 300 sudo -E apt-get $apt_options install -y "postgresql-${{ matrix.postgres }}" "postgresql-server-dev-${{ matrix.postgres }}" libipc-run-perl libio-pty-perl && break
+            [ "$attempt" = 3 ] && exit 1
+            echo "apt-get install attempt $attempt failed or stalled"
+            sudo dpkg --configure -a || true
+          done
       - name: Build the TLS SDK
         run: python3 tools/native/http_native.py --out "$JAIC_NATIVE_LIBS"
       - name: Build jaic
