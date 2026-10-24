@@ -16,9 +16,18 @@ NO_ORDER :: #code null;
 // The rows of `T`'s table that pass `where`, in `order_by` order (`desc` for descending), at most
 // `limit` of them (-1: all) after skipping `offset`. `from_sql` replaces the table with a query of
 // your own that returns its columns, with `%name` / `%(expression)` parameters:
-// `from_sql = "select * from users_visible_to(%viewer)"`.
-select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $call := #caller_code) -> Rows(T), Pg_Error #expand {
-    #insert #run orm_statement_code(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql);
+// `from_sql = "select * from users_visible_to(%viewer)"`. `fields = "id, email"` selects only
+// those columns, and the rows are then `Partial(T, "id, email")`.
+select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $fields := "", $call := #caller_code) -> Rows(#insert #run orm_select_row(fields)), Pg_Error #expand {
+    #insert #run orm_statement_code(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql, fields, call);
+}
+
+// Some fields of a table struct, with their types and notes: the rows of `select(..., fields = ...)`.
+// `fields` is a comma-separated list of `T`'s field names.
+//
+//     Contact :: Pg.Partial(User, "id, email");
+Partial :: struct(T: Type, fields: string) {
+    #insert #run orm_partial_body(T, fields);
 }
 
 // Sets fields of the rows that pass `where`: `set = #code it.score = score + 1` (or a block of such
@@ -1570,10 +1579,65 @@ orm_sql_string :: (text: string) -> string {
     return builder_to_string(*builder);
 }
 
+// The row type of a `select`: `T`, or `Partial(T, fields)`.
+orm_select_row :: (fields: string) -> string {
+    return ifx fields then "Partial(T, fields)" else "T";
+}
+
+// `fields` as `orm_read_columns` writes column lists: names split on commas, trimmed, joined by ",".
+orm_field_list :: (T: Type, fields: string, call: Code = NO_ORDER) -> string, ok: bool {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    for split(fields, ",",, temp) {
+        name := trim(it);
+
+        if !name || !member_of(T, name) || (member_of(T, name).flags & .CONSTANT) {
+            message := tprint("% has no column \"%\" to select", T, name);
+            root := orm_root(call);
+
+            if root compiler_report(message, node_location(root));
+            else compiler_report(message);
+
+            return "", false;
+        }
+
+        if it_index append(*builder, ",");
+
+        append(*builder, name);
+    }
+
+    return builder_to_string(*builder), true;
+}
+
+orm_partial_body :: (T: Type, fields: string) -> string {
+    list, ok := orm_field_list(T, fields);
+    if !ok return "";
+
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    for name: split(list, ",",, temp) {
+        print_to_builder(*builder, "%: #run orm_member_type(T, %);", name, jai_string(name));
+        for member_of(T, name).notes print_to_builder(*builder, " @%", it);
+        append(*builder, "\n");
+    }
+
+    return builder_to_string(*builder);
+}
+
 // The body of `select`, `update` and `delete`: a constant per parameter for its type, then the
 // typed query with the SQL built from those types.
-orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string) -> string {
-    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, .[], .[]);
+orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, fields := "", call: Code = NO_ORDER) -> string {
+    columns: string;
+
+    if fields {
+        ok: bool;
+        columns, ok = orm_field_list(T, fields, call);
+        if !ok return "";
+    }
+
+    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, from_sql, .[], .[], columns);
 
     if sql.problem {
         location := ifx sql.problem_node then node_location(sql.problem_node) else node_location(orm_root(where));
@@ -1587,9 +1651,9 @@ orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set
     orm_prelude(*builder, *sql);
 
     kind_text := tprint(".%", kind);
-    sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, %, Orm_Types, Orm_Relations)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset, jai_string(from_sql));
+    sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, %, Orm_Types, Orm_Relations, %)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset, jai_string(from_sql), jai_string(columns));
 
-    if kind == .SELECT print_to_builder(*builder, "orm_result, orm_error := query_as(T, db, %", sql_text);
+    if kind == .SELECT print_to_builder(*builder, "orm_result, orm_error := query_as(%, db, %", orm_select_row(fields), sql_text);
     else print_to_builder(*builder, "orm_result, orm_error := execute(db, %", sql_text);
 
     for sql.parameters print_to_builder(*builder, ", %", orm_argument(*sql, it_index));

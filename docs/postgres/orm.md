@@ -18,6 +18,7 @@ removed, error := Pg.delete(db, User, where = #code it.id == row.id);
 | Call | Returns | Statement |
 | --- | --- | --- |
 | `select(db, T, where?, order_by?, desc?, limit?, offset?, from_sql?)` | `Rows(T), Pg_Error` | `select <every column> from <table> where ... order by ... limit ... offset ...` |
+| `select(..., fields = "id, email")` | `Rows(Partial(T, "id, email")), Pg_Error` | `select "id", "email" from ...`; `Partial(T, fields)` is a struct with just those fields of `T`, with their types and notes (`orm_partial_body`) |
 | `for each(db, T, *error, where?, order_by?, ...)` | a loop over `T` | `select <the columns the loop body reads> from <table> ...` (see [Column pruning](#column-pruning)) |
 | `insert(db, value)` | `T, Pg_Error` | `insert ... returning <every column>` |
 | `insert_many(db, values)` | `[] T, Pg_Error` | one `insert` per value, stopping at the first error |

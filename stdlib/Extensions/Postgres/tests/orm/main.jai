@@ -64,6 +64,15 @@ test_select :: (db: *Pg.Connection) {
     check(error.kind == .NONE && count == 1, Pg.error_text(error));
     Pg.free_rows(*users);
 
+    // Chosen columns: the rows are Partial(User, "id, email"), which has only those fields.
+    contacts, contacts_error := Pg.select(db, User, order_by = #code it.id, fields = "id, email");
+    picked := Pg.fetch_all(*contacts);
+
+    #assert type_of(picked[0]) == Pg.Partial(User, "id, email");
+    #assert type_info(type_of(picked[0])).members.count == 2;
+    check(contacts_error.kind == .NONE && picked.count == 2 && picked[1].email == "b@example.com" && picked[0].id == 1, Pg.error_text(contacts_error));
+    Pg.free_rows(*contacts);
+
     // Descending, limit and offset.
     users, error = Pg.select(db, User, order_by = #code it.id, desc = true, limit = 1);
     all = Pg.fetch_all(*users);
