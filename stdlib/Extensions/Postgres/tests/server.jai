@@ -69,6 +69,10 @@ main :: () {
         test_notifications();
         step("test_protocol_versions");
         test_protocol_versions();
+        step("test_statement_cache");
+        test_statement_cache();
+        step("test_statement_timeout");
+        test_statement_timeout();
     });
     print("ok\n");
 }
@@ -1488,4 +1492,223 @@ test_protocol_versions :: () {
     error := connect_fails(config, .CONFIG);
 
     Pg.free_error(*error);
+}
+
+parses_sent: s64;
+
+count_parses :: (c: *Pg.Connection, line: string) {
+    if contains(line, "Parse\t") parses_sent += 1;
+}
+
+prepared_names :: (db: *Pg.Connection) -> [] string {
+    result, error := Pg.query_dynamic(db, "select name from pg_prepared_statements where name like 'j%' order by name");
+
+    assert_ok(error, "pg_prepared_statements");
+
+    names: [..] string;
+    names.allocator = temp;
+
+    for 0..result.row_count - 1 {
+        name, _ := Pg.get(*result, it, 0, string);
+        array_add(*names, copy_string(name,, temp));
+    }
+
+    Pg.free_result(*result);
+
+    return names;
+}
+
+cached_scalar :: (db: *Pg.Connection, sql: string, arg: s64, plan := Pg.Plan.AUTO) -> s64 {
+    result, error := Pg.query_cached(db, sql, arg, plan = plan);
+
+    defer Pg.free_result(*result);
+    assert_ok(error, sql);
+
+    value, decode_error := Pg.get(*result, 0, 0, s64);
+
+    assert_ok(decode_error, sql);
+
+    return value;
+}
+
+// Statements are parsed once per connection and bound afterwards; the cache is bounded, can be
+// turned off, and recovers from a statement that went stale or was deallocated.
+test_statement_cache :: () {
+    db := connect_ok(config_for("postgres"));
+
+    defer Pg.close(db);
+
+    sql := "select $1::int8 + 1";
+    types := u32.[0];
+
+    Pg.set_trace(db, count_parses);
+    defer Pg.set_trace(db, null);
+
+    parses_sent = 0;
+    assert(cached_scalar(db, sql, 41) == 42);
+    assert(cached_scalar(db, sql, 1) == 2);
+    assert(cached_scalar(db, sql, 2) == 3);
+    assert(parses_sent == 1, "% Parse messages for three runs", parses_sent);
+    assert(Pg.statement_cache_count(db) == 1);
+
+    names := prepared_names(db);
+
+    assert(names.count == 1 && names[0] == Pg.statement_name(sql, types), "prepared %", names);
+
+    // A custom plan uses the unnamed statement: nothing is cached for it.
+    parses_sent = 0;
+    assert(cached_scalar(db, "select $1::int8 * 2", 4, .CUSTOM) == 8);
+    assert(cached_scalar(db, "select $1::int8 * 2", 5, .CUSTOM) == 10);
+    assert(parses_sent == 2 && Pg.statement_cache_count(db) == 1 && prepared_names(db).count == 1);
+
+    // A parse error caches nothing and leaves the connection usable.
+    result, error := Pg.query_cached(db, "selec 1");
+
+    assert(error.kind == .SERVER && error.code == .SYNTAX_ERROR);
+    Pg.free_error(*error);
+    Pg.free_result(*result);
+    assert(Pg.statement_cache_count(db) == 1);
+    assert(cached_scalar(db, sql, 9) == 10);
+
+    // Statements without rows, and rows without columns, keep their shape on later runs.
+    assert_ok(Pg.execute_script(db, "create temp table cached_t (a int8)"), "create");
+
+    for 0..1 {
+        insert, insert_error := Pg.query_cached(db, "insert into cached_t values ($1::int8)", 7 + it);
+        assert_ok(insert_error, "insert");
+        assert(insert.rows_affected == 1 && !insert.returns_rows);
+        Pg.free_result(*insert);
+    }
+
+    for 0..1 {
+        empty, empty_error := Pg.query_cached(db, "select");
+        assert_ok(empty_error, "select");
+        assert(empty.returns_rows && empty.columns.count == 0 && empty.row_count == 1);
+        Pg.free_result(*empty);
+    }
+
+    // Binary results from a cached statement.
+    for 0..1 {
+        binary, binary_error := Pg.query_cached(db, "select a, a * 2 as twice from cached_t where a = $1::int8", 8, binary = true);
+
+        assert_ok(binary_error, "binary");
+        assert(binary.columns.count == 2 && binary.columns[0].format == .BINARY && binary.columns[1].name == "twice");
+
+        twice, _ := Pg.get(*binary, 0, 1, s64);
+
+        assert(twice == 16);
+        Pg.free_result(*binary);
+    }
+
+    // The server forgets the statements (DEALLOCATE ALL, a pooler's reset): the next run prepares it again.
+    assert_ok(Pg.execute_script(db, "deallocate all"), "deallocate");
+    parses_sent = 0;
+    assert(cached_scalar(db, sql, 99) == 100);
+    assert(parses_sent == 1, "% Parse messages after deallocate", parses_sent);
+
+    // A table that changed shape under `select *`: the server refuses the old plan, and the client prepares it again.
+    assert_ok(Pg.execute_script(db, "create temp table shaped (a int8); insert into shaped values (1)"), "create shaped");
+    first, first_error := Pg.query_cached(db, "select * from shaped");
+
+    assert_ok(first_error, "shaped");
+    assert(first.columns.count == 1);
+    Pg.free_result(*first);
+    assert_ok(Pg.execute_script(db, "alter table shaped add column b int8 default 5"), "alter");
+    second, second_error := Pg.query_cached(db, "select * from shaped");
+
+    assert_ok(second_error, "shaped after alter");
+    assert(second.columns.count == 2 && second.columns[1].name == "b");
+    Pg.free_result(*second);
+
+    // Inside a transaction the same error aborts it: it is reported, and the next transaction is fine.
+    assert_ok(Pg.execute_script(db, "begin"), "begin");
+    assert_ok(Pg.execute_script(db, "deallocate all"), "deallocate in a transaction");
+    result, error = Pg.query_cached(db, "select * from shaped");
+    assert(error.kind == .SERVER && error.code == .INVALID_SQL_STATEMENT_NAME, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+    Pg.free_result(*result);
+    assert_ok(Pg.execute_script(db, "rollback"), "rollback");
+    third, third_error := Pg.query_cached(db, "select * from shaped");
+
+    assert_ok(third_error, "shaped after rollback");
+    Pg.free_result(*third);
+
+    // Bounded: the least recently used statement is closed on the server.
+    small := config_for("postgres");
+    small.statement_cache_size = 2;
+
+    limited := connect_ok(small);
+
+    defer Pg.close(limited);
+
+    one := "select $1::int8 + 1";
+    two := "select $1::int8 + 2";
+    three := "select $1::int8 + 3";
+
+    assert(cached_scalar(limited, one, 1) == 2);
+    assert(cached_scalar(limited, two, 1) == 3);
+    assert(cached_scalar(limited, one, 2) == 3);
+    assert(cached_scalar(limited, three, 1) == 4);
+    assert(Pg.statement_cache_count(limited) == 2);
+
+    held := prepared_names(limited);
+
+    assert(held.count == 2);
+    assert(held[0] == Pg.statement_name(one, types) || held[1] == Pg.statement_name(one, types));
+    assert(held[0] != Pg.statement_name(two, types) && held[1] != Pg.statement_name(two, types), "the least recently used statement stayed: %", held);
+
+    // Off: unnamed statements only.
+    off := config_for("postgres");
+    off.statement_cache = .OFF;
+
+    plain := connect_ok(off);
+
+    defer Pg.close(plain);
+
+    assert(cached_scalar(plain, sql, 1) == 2);
+    assert(cached_scalar(plain, sql, 2) == 3);
+    assert(Pg.statement_cache_count(plain) == 0 && prepared_names(plain).count == 0);
+
+    // The same text with another parameter type is another statement.
+    before := Pg.statement_cache_count(db);
+
+    for 0..1 {
+        typed, typed_error := Pg.query_cached(db, "select $1 || 'x'", "a");
+        assert_ok(typed_error, "text parameter");
+        Pg.free_result(*typed);
+    }
+
+    assert(Pg.statement_cache_count(db) == before + 1);
+}
+
+// `statement_timeout` is a startup parameter, and `options` carries it through a connection string.
+test_statement_timeout :: () {
+    config := config_for("postgres");
+    config.statement_timeout = 250;
+
+    db := connect_ok(config);
+
+    defer Pg.close(db);
+
+    assert(scalar(db, "show statement_timeout", string) == "250ms");
+
+    result, error := Pg.query_dynamic(db, "select pg_sleep(2)");
+
+    assert(error.kind == .SERVER && error.code == .QUERY_CANCELED, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+    Pg.free_result(*result);
+    assert(scalar(db, "select 1", s64) == 1);
+
+    url := tprint("postgres://postgres@127.0.0.1:%/postgres?sslmode=disable&options=-c\%20statement_timeout\%3D300", port);
+    parsed, url_error := Pg.parse_url(url);
+
+    assert_ok(url_error, "parse_url");
+
+    defer Pg.free_config(*parsed);
+
+    via_options := connect_ok(parsed);
+
+    defer Pg.close(via_options);
+
+    assert(scalar(via_options, "show statement_timeout", string) == "300ms");
 }

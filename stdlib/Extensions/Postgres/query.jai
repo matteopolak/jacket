@@ -424,7 +424,7 @@ free_result :: (r: *Result) {
 
 #scope_module
 
-run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Format) -> Result, Pg_Error {
+run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Format, cache := false, expected := "") -> Result, Pg_Error {
     error := begin_request(c, sql);
     if error.kind != .NONE return .{}, error;
 
@@ -439,55 +439,104 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
         if why return .{}, make_error(.USAGE, "parameter $%: %", it_index + 1, why);
     }
 
-    // Parse, Bind, Describe, Execute and Sync go out together: one round trip.
     types := NewArray(params.count, u32,, temp);
     for params types[it_index] = it.oid;
 
-    put_parse(c, "", sql, types);
-    put_bind(c, "", "", params, result_format);
-    put_describe(c, #char "P", "");
-    put_execute(c, "", 0);
+    use_cache := cache && statements_enabled(c);
+    retried := false;
+
+    while true {
+        result, failure, again := exchange(c, sql, params, types, result_format, use_cache, expected, !retried);
+
+        if again {
+            retried = true;
+            continue;
+        }
+
+        return result, failure;
+    }
+
+    return .{}, .{};
+}
+
+#scope_file
+
+// One trip to the server for a statement. `again` asks the caller to repeat it: the statement it
+// used from the cache had gone stale.
+exchange :: (c: *Connection, sql: string, params: [] Param, types: [] u32, result_format: Format, cache: bool, expected: string, may_retry: bool) -> Result, Pg_Error, again: bool {
+    use: Statement_Use;
+
+    if cache {
+        error := begin_cached(c, sql, types, params, result_format, expected, *use);
+        if error.kind != .NONE return .{}, error, false;
+    }
+
+    if !use.active {
+        // Parse, Bind, Describe, Execute and Sync go out together: one round trip.
+        put_parse(c, "", sql, types);
+        put_bind(c, "", "", params, result_format);
+        put_describe(c, #char "P", "");
+        put_execute(c, "", 0);
+    }
+
     put_sync(c);
 
-    error = send(c);
-    if error.kind != .NONE return .{}, error;
+    error := send(c);
+    if error.kind != .NONE return .{}, error, false;
 
     result: Result;
     result.allocator = context.allocator;
     result.json_options = c.json_options;
     failure: Pg_Error;
 
+    if use.hit {
+        result.columns = cached_columns(use.entry, result_format);
+        result.returns_rows = use.entry.returns_rows;
+    }
+
     while true {
         type, body, read_error := read_message(c);
         if read_error.kind != .NONE {
             free_result(*result);
             recover_interrupted(c, read_error);
-            return .{}, error_before_close(*failure, read_error);
+            return .{}, error_before_close(*failure, read_error), false;
         }
 
         if handle_async(c, type, body) continue;
 
         if type == {
-            case #char "1"; #through;
+            case #char "1";
+                use.parsed = true;
+
             case #char "2"; #through;
-            case #char "n"; #through;
+            case #char "3"; #through;
+            case #char "t"; #through;
             case #char "I"; #through;
             case #char "s";
+
+            case #char "n";
+                use.described = true;
 
             case #char "T";
                 error = read_columns(c, *result, body);
                 if error.kind != .NONE {
                     free_result(*result);
-                    return .{}, error;
+                    return .{}, error, false;
                 }
 
                 result.returns_rows = true;
+                use.described = true;
+
+                // A statement described before it was bound reports text for every column.
+                if use.active && !use.hit {
+                    for *result.columns it.format = result_format;
+                }
 
             case #char "D";
                 error = read_row(c, *result, body);
                 if error.kind != .NONE {
                     free_result(*result);
-                    return .{}, error;
+                    return .{}, error, false;
                 }
 
             case #char "C";
@@ -504,22 +553,33 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
             case #char "Z";
                 c.status = transaction_status(ifx body.count then body[0] else 0);
 
+                again := false;
+                if use.active again = finish_cached(c, *use, *result, failure, may_retry);
+
                 if failure.kind != .NONE {
                     free_result(*result);
-                    return .{}, failure;
+
+                    if again {
+                        free_error(*failure);
+                        return .{}, .{}, true;
+                    }
+
+                    return .{}, failure, false;
                 }
 
-                return result, .{};
+                return result, .{}, false;
 
             case;
                 free_error(*failure);
                 free_result(*result);
-                return .{}, protocol_error(c, tprint("unexpected message % during a query", cast(string) u8.[type]));
+                return .{}, protocol_error(c, tprint("unexpected message % during a query", cast(string) u8.[type])), false;
         }
     }
 
-    return .{}, .{};
+    return .{}, .{}, false;
 }
+
+#scope_module
 
 // A deadline or cancel ended the wait for an answer, with the request already sent. Asks the
 // server to stop it and reads the rest of its answer, up to ReadyForQuery, so the connection stays

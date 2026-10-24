@@ -36,6 +36,7 @@
 #load "auth.jai";
 #load "connection.jai";
 #load "query.jai";
+#load "statements.jai";
 #load "copy.jai";
 #load "codecs.jai";
 #load "types.jai";

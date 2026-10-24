@@ -46,6 +46,7 @@ main :: () {
         test_arguments(db);
         test_query_as(db);
         test_json_and_arrays(db);
+        test_statement_cache(db, config);
     });
 
     if failures {
@@ -244,4 +245,82 @@ test_json_and_arrays :: (db: *Pg.Connection) {
     typed, typed_error := Pg.query_one(db, "select settings as \"settings!: Json(Json_Value)\" from users where id = 1");
 
     check(typed_error.kind == .NONE && typed.settings.value.kind == .OBJECT, "Json(T) override");
+}
+
+parses_sent := 0;
+
+count_parses :: (c: *Pg.Connection, line: string) {
+    if contains(line, "Parse\t") parses_sent += 1;
+}
+
+// Typed queries prepare once per connection and bind afterwards; `plan = .CUSTOM` opts out, and
+// `verify_statements` notices a table that changed under the program.
+test_statement_cache :: (db: *Pg.Connection, config: Pg.Config) {
+    Pg.set_trace(db, count_parses);
+    defer Pg.set_trace(db, null);
+
+    parses_sent = 0;
+
+    for 1..3 {
+        row, error := Pg.query_one(db, "select email from users where id = % and display_name is not distinct from display_name", 1);
+
+        check(error.kind == .NONE, "cached query");
+        check(row.email == "a@example.com", "cached query row");
+    }
+
+    check(parses_sent == 1, "three runs of one query parse once");
+
+    before := parses_sent;
+
+    for 1..2 {
+        count, error := Pg.query_scalar(db, "select count(*) from users where id > %", 0, plan = .CUSTOM);
+        check(error.kind == .NONE && count == 2, "custom plan");
+    }
+
+    check(parses_sent == before + 2, "a custom plan parses every time");
+
+    verifying := config;
+    verifying.verify_statements = true;
+
+    checked, connect_error := Pg.connect(verifying);
+
+    check(connect_error.kind == .NONE, "connect with verify_statements");
+    if connect_error.kind != .NONE return;
+
+    defer Pg.close(checked);
+
+    for 1..2 {
+        row, error := Pg.query_one(checked, "select a, b from drift");
+        check(error.kind == .NONE && row.a == 1 && row.b == 2, "verified query");
+    }
+
+    // The table gains a column that the compiled query does not know of.
+    _, alter_error := Pg.execute(db, "alter table drift add column c int8");
+
+    check(alter_error.kind == .NONE, "alter drift");
+
+    fresh, fresh_error := Pg.connect(verifying);
+
+    check(fresh_error.kind == .NONE, "connect again");
+    if fresh_error.kind != .NONE return;
+
+    defer Pg.close(fresh);
+
+    _, mismatch := Pg.query_one(fresh, "select * from drift");
+
+    check(mismatch.kind == .USAGE && contains(mismatch.message, "different schema"), "a changed table is reported");
+
+    plain, plain_error := Pg.connect(config);
+
+    check(plain_error.kind == .NONE, "connect without verify");
+
+    if plain_error.kind == .NONE {
+        _, unchecked := Pg.query_one(plain, "select * from drift");
+        check(unchecked.kind == .NONE, "no check without verify_statements");
+        Pg.close(plain);
+    }
+
+    _, restore_error := Pg.execute(db, "alter table drift drop column c");
+
+    check(restore_error.kind == .NONE, "restore drift");
 }

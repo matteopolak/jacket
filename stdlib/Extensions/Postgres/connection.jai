@@ -80,6 +80,7 @@ Connection :: struct {
     message_type: u8; // of the message being written; 0 for the startup messages
     trace_regress: bool;
     pipeline: Pipeline; // pipeline mode, when `pipeline.active`
+    statements: Statement_Cache; // prepared statements, by query (statements.jai)
     input: [..] u8;
     input_start: s64;
     #if TLS {
@@ -101,6 +102,9 @@ connect :: (config: Config) -> *Connection, Pg_Error {
 
     c.user_data = config.user_data;
     c.json_options = config.json_options;
+    c.statements.mode = config.statement_cache;
+    c.statements.capacity = config.statement_cache_size;
+    c.statements.verify = config.verify_statements;
     error: Pg_Error;
 
     Io.with_deadline(config.connect_timeout, #code {
@@ -135,6 +139,7 @@ close :: (c: *Connection, now := false) {
     }
 
     free_pipeline(*c.pipeline);
+    free_statement_cache(*c.statements);
     for *c.notifications free_notification(it);
 
     array_free(c.notifications);

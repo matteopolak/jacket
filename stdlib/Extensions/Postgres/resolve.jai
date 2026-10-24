@@ -412,7 +412,7 @@ prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
         return prepared;
     }
 
-    arguments := call_node.arguments_sorted.count - (sql_index + 1);
+    arguments := value_arguments(call_node, sql_index + 1).count;
 
     if arguments != prepared.rewrite.holes && !has_spread(call_node, sql_index + 1) {
         got := ifx arguments == 1 then "1 argument was" else tprint("% arguments were", arguments);
