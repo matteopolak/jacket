@@ -65,6 +65,7 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
         replaced := false;
         for config.parameters if equal_nocase(it.name, default.name) replaced = true;
         if replaced continue;
+        if !config.send_styles && default.name != "client_encoding" continue;
 
         put_cstring(*c.out, default.name);
         put_cstring(*c.out, default.value);

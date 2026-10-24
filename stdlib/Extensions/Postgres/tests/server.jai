@@ -47,6 +47,8 @@ main :: () {
         test_run_script();
         step("test_startup_parameters");
         test_startup_parameters();
+        step("test_notices_and_describe");
+        test_notices_and_describe();
         step("test_deadline");
         test_deadline();
         step("test_pool");
@@ -490,6 +492,11 @@ Script_Log :: struct {
     copied: String_Builder;
 }
 
+log_copy :: (hooks: *Pg.Script_Hooks, copy: *Pg.Copy_Info) {
+    log := cast(*Script_Log) hooks;
+    array_add(*log.lines, tprint("copy % %", ifx copy.incoming then "in" else "out", copy.format));
+}
+
 log_result :: (hooks: *Pg.Script_Hooks, result: *Pg.Result) {
     log := cast(*Script_Log) hooks;
     line := tprint("% returns_rows=% columns=% rows=%", result.command, result.returns_rows, result.columns.count, result.row_count);
@@ -527,6 +534,7 @@ test_run_script :: () {
 
     log: Script_Log;
     log.on_result = log_result;
+    log.on_copy = log_copy;
     log.copy_in = feed_copy;
     log.copy_out = collect_copy;
     log.copy_rows = .["1\tone\n2\t", "two\n", "3\t\\N\n"];
@@ -546,7 +554,9 @@ SQL;
         "CREATE TABLE returns_rows=false columns=0 rows=0",
         "SELECT 2 returns_rows=true columns=2 rows=2 1 NULL 2 b",
         "SELECT 1 returns_rows=true columns=0 rows=1",
+        "copy in TEXT",
         "COPY 3 returns_rows=false columns=0 rows=0",
+        "copy out TEXT",
         "COPY 3 returns_rows=false columns=0 rows=0",
         "SELECT 1 returns_rows=true columns=1 rows=1 3",
     ];
@@ -611,6 +621,70 @@ test_startup_parameters :: () {
 
     config.parameters = Pg.Startup_Parameter.[.{ "", "x" }];
     connect_fails(config, .CONFIG);
+
+    // The client's DateStyle and IntervalStyle win over the server's unless send_styles is off.
+    config.parameters = Pg.Startup_Parameter.[.{ "options", "-c intervalstyle=sql_standard -c datestyle=SQL,DMY" }];
+    db = connect_ok(config);
+    assert(scalar(db, "show intervalstyle", string) == "postgres");
+    assert(scalar(db, "show datestyle", string) == "ISO, DMY");
+    Pg.close(db);
+
+    config.send_styles = false;
+    db = connect_ok(config);
+    assert(scalar(db, "show intervalstyle", string) == "sql_standard");
+    assert(scalar(db, "show datestyle", string) == "SQL, DMY");
+    Pg.close(db);
+}
+
+Notice_Log :: struct {
+    messages: [..] string;
+}
+
+record_notice :: (connection: *Pg.Connection, notice: *Pg.Pg_Error) {
+    log := cast(*Notice_Log) connection.user_data;
+    array_add(*log.messages, copy_string(notice.message,, temp));
+}
+
+test_notices_and_describe :: () {
+    log: Notice_Log;
+    log.messages.allocator = temp;
+
+    config := config_for("postgres");
+    config.on_notice = record_notice;
+    config.user_data = *log;
+    db := connect_ok(config);
+
+    defer Pg.close(db);
+    assert_ok(Pg.execute_script(db, "do $$ begin raise notice 'hello %', 7; end $$"), "notice");
+    assert(log.messages.count == 1 && log.messages[0] == "hello 7");
+
+    // A query that matches no rows still says it returns rows.
+    result, error := Pg.query_dynamic(db, "select 1 where false");
+
+    assert_ok(error, "empty select");
+    assert(result.returns_rows && result.row_count == 0);
+    Pg.free_result(*result);
+
+    info: Pg.Statement_Info;
+    info, error = Pg.describe_statement(db, "select $1::int4 as a, 'x'::varchar(5) as b");
+    assert_ok(error, "describe");
+    assert(info.parameter_types.count == 1 && info.parameter_types[0] == 23);
+    assert(info.columns.count == 2);
+    assert(info.columns[0].name == "a" && info.columns[0].type_oid == 23);
+    assert(info.columns[1].name == "b" && info.columns[1].type_oid == 1043 && info.columns[1].type_modifier == 9);
+    Pg.free_statement_info(*info);
+
+    info, error = Pg.describe_statement(db, "create temp table d (x int)");
+    assert_ok(error, "describe utility");
+    assert(info.parameter_types.count == 0 && info.columns.count == 0);
+    Pg.free_statement_info(*info);
+
+    // Describing runs nothing, and a bad statement leaves the connection usable.
+    info, error = Pg.describe_statement(db, "select * from no_such_table");
+    assert(error.code == .UNDEFINED_TABLE, Pg.error_text(error));
+    Pg.free_error(*error);
+    assert(db.status == .IDLE);
+    assert(scalar(db, "select count(*) from pg_class where relname = 'd' and relpersistence = 't'", s64) == 0);
 }
 
 test_deadline :: () {
