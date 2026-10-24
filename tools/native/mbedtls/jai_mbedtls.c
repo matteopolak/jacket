@@ -2,8 +2,11 @@
  * allocates the library's opaque objects (the Jai side never needs their sizes), starts the library
  * once, reads the system's root certificates and reads fields of structures that are private to
  * the library. Everything else in the module calls mbedTLS directly. */
+/* The alert a peer sent is in a private field of the connection. */
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
 #include "mbedtls/ssl.h"
 #include "mbedtls/x509_crt.h"
+#include "mbedtls/x509_crl.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/psa_util.h"
 #include "mbedtls/threading.h"
@@ -114,20 +117,32 @@ void jai_tls_ssl_free(void *ssl) {
     free(ssl);
 }
 
+/* A configuration is the library's structure followed by what the verification callback needs
+ * (see `jai_tls_conf_verify`). The library's structure is first, so a pointer to one is a pointer
+ * to the other. */
+typedef struct {
+    mbedtls_ssl_config conf;
+    int ignore_name;
+    int anchored;
+    const mbedtls_x509_crt *roots;
+    const mbedtls_x509_crl *crl;
+} jai_conf;
+
 /* A configuration for a client or a server with the library's defaults, the shared random
  * generator and the protocol versions (0x0303 is TLS 1.2, 0x0304 TLS 1.3). */
 void *jai_tls_conf_new(int is_client, int min_version, int max_version, int *status) {
-    mbedtls_ssl_config *conf = calloc(1, sizeof *conf);
-    if (!conf) {
+    jai_conf *wrapper = calloc(1, sizeof *wrapper);
+    if (!wrapper) {
         *status = MBEDTLS_ERR_SSL_ALLOC_FAILED;
         return NULL;
     }
+    mbedtls_ssl_config *conf = &wrapper->conf;
     mbedtls_ssl_config_init(conf);
     *status = mbedtls_ssl_config_defaults(conf, is_client ? MBEDTLS_SSL_IS_CLIENT : MBEDTLS_SSL_IS_SERVER,
                                           MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT);
     if (*status != 0) {
         mbedtls_ssl_config_free(conf);
-        free(conf);
+        free(wrapper);
         return NULL;
     }
     mbedtls_ssl_conf_rng(conf, jai_tls_random, NULL);
@@ -140,6 +155,97 @@ void jai_tls_conf_free(void *conf) {
     if (!conf) return;
     mbedtls_ssl_config_free(conf);
     free(conf);
+}
+
+static int same_name(const mbedtls_x509_buf *a, const mbedtls_x509_buf *b) {
+    return a->len == b->len && memcmp(a->p, b->p, a->len) == 0;
+}
+
+/* Called by the library for every certificate of a chain it checks, the trusted one at the top
+ * first. It adjusts what the library concluded as the connection asked: the name need not match,
+ * the top must be a self-signed root, the leaf's issuer must have a CRL. */
+static int verify_callback(void *data, mbedtls_x509_crt *crt, int depth, uint32_t *flags) {
+    const jai_conf *wrapper = data;
+
+    if (depth == 0 && wrapper->ignore_name) *flags &= ~(uint32_t) MBEDTLS_X509_BADCERT_CN_MISMATCH;
+
+    if (wrapper->anchored && wrapper->roots) {
+        int trusted = 0;
+        for (const mbedtls_x509_crt *c = wrapper->roots; c; c = c->next) {
+            if (c == crt) trusted = 1;
+        }
+        /* The library stops at the first certificate in the list; OpenSSL goes on to a root. */
+        if (trusted && !same_name(&crt->issuer_raw, &crt->subject_raw)) {
+            uint32_t found = 0;
+            if (mbedtls_x509_crt_verify(crt, (mbedtls_x509_crt *) wrapper->roots, NULL, NULL, &found, NULL, NULL) != 0) {
+                *flags |= MBEDTLS_X509_BADCERT_NOT_TRUSTED;
+            }
+        }
+    }
+
+    if (depth == 0 && wrapper->crl) {
+        int listed = 0;
+        for (const mbedtls_x509_crl *l = wrapper->crl; l; l = l->next) {
+            if (l->version != 0 && same_name(&l->issuer_raw, &crt->issuer_raw)) listed = 1;
+        }
+        if (!listed) *flags |= MBEDTLS_X509_BADCRL_NOT_TRUSTED;
+    }
+
+    return 0;
+}
+
+/* A client's trust: `roots` and `crl` (either may be NULL) are checked as the library does, and
+ * `ignore_name` drops its host name check (the name is still sent as SNI), `anchored` demands that
+ * the chain ends in a self-signed certificate of `roots`. If `crl` is given, the leaf's issuer must
+ * have a list in it. */
+void jai_tls_conf_verify(void *conf, const void *roots, const void *crl, int ignore_name, int anchored) {
+    jai_conf *wrapper = conf;
+    wrapper->roots = roots;
+    wrapper->crl = crl;
+    wrapper->ignore_name = ignore_name;
+    wrapper->anchored = anchored;
+    mbedtls_ssl_conf_verify(&wrapper->conf, verify_callback, wrapper);
+}
+
+/* The alert description (RFC 8446, 6) the peer's fatal alert carried. */
+int jai_tls_ssl_alert(void *ssl) {
+    mbedtls_ssl_context *context = ssl;
+    if (!context->in_msg) return -1;
+    return context->in_msg[1];
+}
+
+/* Whether `data` holds PEM text rather than DER: the library wants PEM to end in a counted NUL and
+ * DER to be exactly as long as it is. */
+static int looks_like_pem(const unsigned char *data, size_t length) {
+    static const char marker[] = "-----BEGIN";
+    for (size_t i = 0; i + sizeof marker - 1 <= length; i++) {
+        if (memcmp(data + i, marker, sizeof marker - 1) == 0) return 1;
+    }
+    return 0;
+}
+
+void *jai_tls_crl_new(void) {
+    mbedtls_x509_crl *crl = calloc(1, sizeof *crl);
+    if (crl) mbedtls_x509_crl_init(crl);
+    return crl;
+}
+
+void jai_tls_crl_free(void *crl) {
+    if (!crl) return;
+    mbedtls_x509_crl_free(crl);
+    free(crl);
+}
+
+/* Adds the lists in `data` (PEM, any number, or one DER) to `crl`: 0, or the library's error. */
+int jai_tls_crl_parse(void *crl, const unsigned char *data, size_t length) {
+    unsigned char *copy = malloc(length + 1);
+    if (!copy) return MBEDTLS_ERR_X509_ALLOC_FAILED;
+    memcpy(copy, data, length);
+    copy[length] = 0;
+    int pem = looks_like_pem(copy, length);
+    int status = mbedtls_x509_crl_parse(crl, copy, pem ? length + 1 : length);
+    free(copy);
+    return status;
 }
 
 void *jai_tls_crt_new(void) {
@@ -179,12 +285,14 @@ int jai_tls_crt_parse(void *crt, const unsigned char *data, size_t length) {
     return status;
 }
 
-int jai_tls_pk_parse(void *pk, const unsigned char *data, size_t length) {
+/* A private key in PEM or DER, with the password it is encrypted with (NULL for none). */
+int jai_tls_pk_parse(void *pk, const unsigned char *data, size_t length, const unsigned char *password, size_t password_length) {
     unsigned char *copy = malloc(length + 1);
     if (!copy) return MBEDTLS_ERR_PK_ALLOC_FAILED;
     memcpy(copy, data, length);
     copy[length] = 0;
-    int status = mbedtls_pk_parse_key(pk, copy, length + 1, NULL, 0, jai_tls_random, NULL);
+    int pem = looks_like_pem(copy, length);
+    int status = mbedtls_pk_parse_key(pk, copy, pem ? length + 1 : length, password, password_length, jai_tls_random, NULL);
     mbedtls_platform_zeroize(copy, length + 1);
     free(copy);
     return status;

@@ -226,6 +226,15 @@ fill :: (c: *Connection, count: s64) -> Pg_Error {
             // A deadline or cancel loses no bytes, so the stream is still in step: the request
             // decides whether to recover it (`recover_interrupted`).
             if io != .TIMED_OUT && io != .CANCELED c.broken = true;
+
+            // A fatal alert from the server (a client certificate it refused, say) is the reason.
+            #if TLS {
+                if c.tls && io == .CONNECTION_ABORTED {
+                    failure := Tls.last_error(c.tls);
+                    if failure.kind == .PROTOCOL && failure.alert > 0 return make_error(.TLS, tls_failure_text(failure));
+                }
+            }
+
             return io_failure(io, "could not read from the server");
         }
 

@@ -57,6 +57,11 @@ TAP_PASSWORD_SKIPS = {
     "forbidden, fails with SCRAM auth": "libpq before 18 words a forbidden SCRAM as SASL authentication",
 }
 
+# Tests of ssl/t/002_scram.pl that need what the TLS library behind the client cannot do.
+TAP_SSL_SKIPS = {
+    "rsassaPss": "mbedTLS reads no certificate whose public key is of the RSASSA-PSS type, and does not offer the rsa_pss_pss signature schemes the server needs for one",
+}
+
 TAP_SUITES = (
     {"file": "src/interfaces/libpq/t/001_uri.pl", "real": False},
     {"file": "src/test/authentication/t/001_password.pl", "skip_tests": TAP_PASSWORD_SKIPS},
@@ -66,6 +71,9 @@ TAP_SUITES = (
     {"file": "src/test/authentication/t/006_login_trigger.pl"},
     {"file": "src/bin/psql/t/001_basic.pl", "skip_tests": TAP_BASIC_SKIPS},
     {"file": "src/bin/psql/t/020_cancel.pl"},
+    # The SSL suites read their certificates relative to their own folder.
+    {"file": "src/test/ssl/t/001_ssltests.pl", "cwd": "src/test/ssl"},
+    {"file": "src/test/ssl/t/002_scram.pl", "cwd": "src/test/ssl", "skip_tests": TAP_SSL_SKIPS},
 )
 
 # TAP files that do not apply, with the reason (docs/postgres/conformance.md).
@@ -268,6 +276,11 @@ def run_tap_file(args, suite: dict, source: Path, bindir: Path, mode: str, out: 
     env["top_builddir"] = str(work)
     # The suites run from the source tree's layout; IPC::Run joins PostgreSQL's own modules.
     env["PERL5LIB"] = os.pathsep.join([*perl_path, env.get("PERL5LIB", "")]).rstrip(os.pathsep)
+    # The SSL suites run only when asked for, against a server built with OpenSSL.
+    env["PG_TEST_EXTRA"] = " ".join([env.get("PG_TEST_EXTRA", ""), "ssl"]).strip()
+    env["with_ssl"] = "openssl"
+    # Where the suites read a certificate's serial number from (they only fall back to a pattern without it).
+    env.setdefault("OPENSSL", shutil.which("openssl") or "")
     # The test library drops LC_ALL; a macOS postmaster still needs a valid locale from the rest.
     if not env.pop("LC_ALL", ""):
         for name in ("LANG", "LC_CTYPE", "LC_COLLATE"):
@@ -276,7 +289,8 @@ def run_tap_file(args, suite: dict, source: Path, bindir: Path, mode: str, out: 
     command = ["prove", "--verbose", str(file)]
     print(f"== {mode} {suite['file']}", flush=True)
     # A group of its own, so that a test that hangs takes the servers it started down with it.
-    process = subprocess.Popen(command, cwd=work, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
+    cwd = source / suite["cwd"] if "cwd" in suite else work
+    process = subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
     try:
         output, _ = process.communicate(timeout=TAP_TIMEOUT)
     except subprocess.TimeoutExpired:

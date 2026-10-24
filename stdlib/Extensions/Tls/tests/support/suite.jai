@@ -1007,6 +1007,274 @@ test_client_certificates :: () {
     Tls.tls_config_free(*wrong_ca);
 }
 
+// A config whose certificate chain is `files` (in order) and whose key is that of `key`.
+make_chain_config :: (files: [] string, key: string, roots := "ca") -> Tls.Tls_Config {
+    config := make_config("", roots);
+    chain: String_Builder;
+
+    for files {
+        append(*chain, load(tprint("%.pem", it)));
+        append(*chain, "\n");
+    }
+
+    config.certificate_chain_pem = builder_to_string(*chain);
+    config.private_key_pem = load(tprint("%.key", key));
+
+    return config;
+}
+
+test_certificate_names :: () {
+    server_config := make_config("server", "");
+    client_config := make_config("", "ca");
+
+    init(*server_config);
+    init(*client_config);
+
+    pair := connect_pair(*server_config, *client_config);
+
+    expect_connected(pair);
+
+    names: Tls.Certificate_Names;
+
+    assert(Tls.certificate_names(Tls.peer_certificate_der(pair.client.stream), *names));
+    assert(names.dns.count == 2 && names.dns[0] == "localhost" && names.dns[1] == "server.test", "dns names");
+    assert(names.addresses.count == 2 && names.addresses[0].count == 4 && names.addresses[1].count == 16, "addresses");
+    assert(names.addresses[0][0] == 127 && names.addresses[0][3] == 1);
+    assert(names.has_common_name && names.common_name == "server.test" && !names.common_name_unreadable, "common name '%'", names.common_name);
+
+    Tls.free_certificate_names(*names);
+
+    // Bytes that are no certificate.
+    assert(!Tls.certificate_names(.[1, 2, 3], *names));
+
+    close_pair(*pair);
+
+    Tls.tls_config_free(*server_config);
+    Tls.tls_config_free(*client_config);
+}
+
+test_name_check_off :: () {
+    wrong := make_config("wrong_name", "");
+    unknown := make_config("unknown", "");
+    client_config := make_config("", "ca");
+
+    client_config.verify_name = false;
+
+    init(*wrong);
+    init(*unknown);
+    init(*client_config);
+
+    // The chain is still checked, the name is not.
+    pair := connect_pair(*wrong, *client_config);
+
+    expect_connected(pair);
+    pass(pair.client.stream, pair.server.stream, "any name will do");
+
+    close_pair(*pair);
+
+    pair = connect_pair(*wrong, *client_config, "");
+
+    expect_connected(pair);
+
+    close_pair(*pair);
+
+    pair = connect_pair(*unknown, *client_config, "other.test");
+
+    assert(pair.client.error.kind == .VERIFY, "unknown CA: %", Tls.error_text(pair.client.error));
+
+    Tls.tls_config_free(*wrong);
+    Tls.tls_config_free(*unknown);
+    Tls.tls_config_free(*client_config);
+}
+
+test_root_must_be_self_signed :: () {
+    // The leaf is signed by the intermediate, which is signed by the root; the server sends the
+    // leaf and the intermediate.
+    server_config := make_chain_config(string.["deep", "inter"], "deep", "");
+
+    init(*server_config);
+
+    // By default any certificate in the roots is a trust anchor, the intermediate too.
+    inter_only := make_config("", "inter");
+
+    init(*inter_only);
+
+    pair := connect_pair(*server_config, *inter_only);
+
+    expect_connected(pair);
+
+    close_pair(*pair);
+
+    strict := make_config("", "inter");
+
+    strict.root_must_be_self_signed = true;
+
+    init(*strict);
+
+    pair = connect_pair(*server_config, *strict);
+
+    assert(pair.client.error.kind == .VERIFY, "intermediate as the only root: %", Tls.error_text(pair.client.error));
+
+    // The root next to it makes the chain whole.
+    both := make_config("", "");
+
+    both.roots_pem = join(load("inter.pem"), "\n", load("ca.pem"));
+    both.root_must_be_self_signed = true;
+
+    init(*both);
+
+    pair = connect_pair(*server_config, *both);
+
+    expect_connected(pair);
+
+    close_pair(*pair);
+
+    root_only := make_config("", "ca");
+
+    root_only.root_must_be_self_signed = true;
+
+    init(*root_only);
+
+    pair = connect_pair(*server_config, *root_only);
+
+    expect_connected(pair);
+
+    close_pair(*pair);
+
+    Tls.tls_config_free(*server_config);
+    Tls.tls_config_free(*inter_only);
+    Tls.tls_config_free(*strict);
+    Tls.tls_config_free(*both);
+    Tls.tls_config_free(*root_only);
+}
+
+test_revocation_lists :: () {
+    revoked := make_config("revoked", "");
+    good := make_config("server", "");
+
+    init(*revoked);
+    init(*good);
+
+    // Without a list nothing is revoked.
+    plain := make_config("", "ca");
+
+    init(*plain);
+
+    pair := connect_pair(*revoked, *plain);
+
+    expect_connected(pair);
+
+    close_pair(*pair);
+
+    listed := make_config("", "ca");
+
+    listed.crl_pem = load("ca.crl");
+
+    init(*listed);
+
+    pair = connect_pair(*revoked, *listed);
+
+    assert(pair.client.error.kind == .VERIFY, "revoked: %", Tls.error_text(pair.client.error));
+    assert(has(Tls.detail(*pair.client.error), "revoked"), "message: %", Tls.detail(*pair.client.error));
+
+    // A certificate the list does not name is fine.
+    pair = connect_pair(*good, *listed);
+
+    expect_connected(pair);
+
+    close_pair(*pair);
+
+    // A list of some other CA says nothing about this one's certificates: that is refused too.
+    foreign := make_config("", "ca");
+
+    foreign.crl_pem = load("other_ca.crl");
+
+    init(*foreign);
+
+    pair = connect_pair(*good, *foreign);
+
+    assert(pair.client.error.kind == .VERIFY, "no list for the issuer: %", Tls.error_text(pair.client.error));
+
+    // Text that is no list.
+    broken := make_config("", "ca");
+
+    broken.crl_pem = load("ca.pem");
+
+    error := Tls.tls_config_init(*broken);
+
+    assert(error.kind == .CONFIG, "a certificate is no list");
+
+    Tls.tls_config_free(*revoked);
+    Tls.tls_config_free(*good);
+    Tls.tls_config_free(*plain);
+    Tls.tls_config_free(*listed);
+    Tls.tls_config_free(*foreign);
+}
+
+test_encrypted_key :: () {
+    server_config := make_config("server", "ca");
+
+    server_config.client_auth = true;
+
+    init(*server_config);
+
+    client_config := make_config("client", "ca");
+
+    client_config.private_key_pem = load("client_encrypted.key");
+    client_config.private_key_password = "secret";
+
+    init(*client_config);
+
+    pair := connect_pair(*server_config, *client_config);
+
+    expect_connected(pair);
+
+    assert(Tls.peer_certificate_der(pair.server.stream).count > 0, "the server saw no client certificate");
+
+    close_pair(*pair);
+
+    wrong := make_config("client", "ca");
+
+    wrong.private_key_pem = load("client_encrypted.key");
+    wrong.private_key_password = "not it";
+
+    error := Tls.tls_config_init(*wrong);
+
+    assert(error.kind == .CONFIG && error.wrong_key_password, "wrong password: %", Tls.error_text(error));
+
+    missing := make_config("client", "ca");
+
+    missing.private_key_pem = load("client_encrypted.key");
+
+    error = Tls.tls_config_init(*missing);
+
+    assert(error.kind == .CONFIG && error.wrong_key_password, "no password: %", Tls.error_text(error));
+
+    Tls.tls_config_free(*server_config);
+    Tls.tls_config_free(*client_config);
+}
+
+test_alerts :: () {
+    // A client that does not trust the server's certificate says so with an alert, which the
+    // server's handshake reports.
+    // (TLS 1.2: mbedTLS' own early alerts in 1.3 are sealed with keys its peer does not use yet.)
+    unknown := make_config("unknown", "", max = .TLS_1_2);
+    client_config := make_config("", "ca", max = .TLS_1_2);
+
+    init(*unknown);
+    init(*client_config);
+
+    pair := connect_pair(*unknown, *client_config);
+
+    assert(pair.client.error.kind == .VERIFY, "client: %", Tls.error_text(pair.client.error));
+    assert(pair.server.error.alert == 48 && Tls.alert_name(pair.server.error.alert) == "unknown_ca", "server: alert % %", pair.server.error.alert, Tls.error_text(pair.server.error));
+
+    assert(Tls.alert_name(44) == "certificate_revoked" && Tls.alert_name(200) == "");
+
+    Tls.tls_config_free(*unknown);
+    Tls.tls_config_free(*client_config);
+}
+
 Seen :: struct {
     calls: int;
     certificates: int;
@@ -1601,6 +1869,18 @@ run_all :: () {
     test_verification_off();
     progress("test_client_certificates");
     test_client_certificates();
+    progress("test_certificate_names");
+    test_certificate_names();
+    progress("test_name_check_off");
+    test_name_check_off();
+    progress("test_root_must_be_self_signed");
+    test_root_must_be_self_signed();
+    progress("test_revocation_lists");
+    test_revocation_lists();
+    progress("test_encrypted_key");
+    test_encrypted_key();
+    progress("test_alerts");
+    test_alerts();
     progress("test_verify_proc");
     test_verify_proc();
     progress("test_wait_readable");

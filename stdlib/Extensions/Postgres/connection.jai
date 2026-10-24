@@ -58,6 +58,13 @@ Connection :: struct {
 
     // Below: the client's own state.
     host: string;
+    // The name the server's certificate is for (the host, not the address connected to), the name
+    // sent as SNI ("" for none), whether verify-full checks the name, and whether the handshake
+    // sent a client certificate.
+    tls_name: string;
+    tls_sni: string;
+    tls_check_name: bool;
+    tls_cert_sent: bool;
     port: u16;
     unix_socket: bool;
     ssl_direct: bool;
@@ -137,6 +144,8 @@ close :: (c: *Connection, now := false) {
     array_free(c.input);
     free(c.cancel_key.data);
     free(c.host);
+    free(c.tls_name);
+    free(c.tls_sni);
     free(c);
 }
 

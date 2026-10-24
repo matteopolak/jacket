@@ -22,6 +22,12 @@ Tls_Error :: struct {
     code: s32;
     // For VERIFY with mbedTLS's own verification: its result bits (`X509_BADCERT_*`), else 0.
     verify_flags: u32;
+    // For a fatal alert the peer sent: its description number (RFC 8446, section 6; `alert_name`
+    // spells it), else 0.
+    alert: u8;
+    // For CONFIG: the private key was not read because the password does not decrypt it (or was
+    // needed and not given).
+    wrong_key_password: bool;
     detail_count: u8;
     detail_bytes: [191] u8;
 }
@@ -33,6 +39,48 @@ detail :: (error: *Tls_Error) -> string {
     if error.detail_count == 0 return "";
 
     return copy_temporary_string(string.{ error.detail_count, error.detail_bytes.data });
+}
+
+// The name of an alert description ("unknown_ca"), or "" for a number the module does not know.
+alert_name :: (alert: u8) -> string {
+    if alert == {
+        case 0; return "close_notify";
+        case 10; return "unexpected_message";
+        case 20; return "bad_record_mac";
+        case 21; return "decryption_failed";
+        case 22; return "record_overflow";
+        case 30; return "decompression_failure";
+        case 40; return "handshake_failure";
+        case 41; return "no_certificate";
+        case 42; return "bad_certificate";
+        case 43; return "unsupported_certificate";
+        case 44; return "certificate_revoked";
+        case 45; return "certificate_expired";
+        case 46; return "certificate_unknown";
+        case 47; return "illegal_parameter";
+        case 48; return "unknown_ca";
+        case 49; return "access_denied";
+        case 50; return "decode_error";
+        case 51; return "decrypt_error";
+        case 60; return "export_restriction";
+        case 70; return "protocol_version";
+        case 71; return "insufficient_security";
+        case 80; return "internal_error";
+        case 86; return "inappropriate_fallback";
+        case 90; return "user_canceled";
+        case 100; return "no_renegotiation";
+        case 109; return "missing_extension";
+        case 110; return "unsupported_extension";
+        case 111; return "certificate_unobtainable";
+        case 112; return "unrecognized_name";
+        case 113; return "bad_certificate_status_response";
+        case 114; return "bad_certificate_hash_value";
+        case 115; return "unknown_psk_identity";
+        case 116; return "certificate_required";
+        case 120; return "no_application_protocol";
+    }
+
+    return "";
 }
 
 // One line for logs and messages: "certificate verification failed: the certificate has expired".
@@ -99,6 +147,25 @@ library_message :: (code: s32) -> string {
 
 from_library :: (kind: Tls_Error_Kind, code: s32) -> Tls_Error {
     return make_error(kind, library_message(code), code);
+}
+
+// `from_library` for a failure of a connection's call: a fatal alert from the peer says which.
+from_stream :: (stream: *Tls_Stream, kind: Tls_Error_Kind, code: s32) -> Tls_Error {
+    error := from_library(kind, code);
+
+    if code == ERR_SSL_FATAL_ALERT_MESSAGE {
+        alert := jai_tls_ssl_alert(stream.ssl);
+
+        if alert > 0 {
+            error.alert = cast(u8) alert;
+
+            name := alert_name(error.alert);
+
+            set_detail(*error, ifx name.count then tprint("the peer sent the fatal alert % (%)", name, alert) else tprint("the peer sent the fatal alert %", alert));
+        }
+    }
+
+    return error;
 }
 
 io_error :: (io: Io.Io_Error) -> Tls_Error {
