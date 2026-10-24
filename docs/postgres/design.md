@@ -125,8 +125,9 @@ Typed queries know every column's OID at compile time. They therefore request **
 | `timestamptz`, `timestamp` | binary (int64 µs since 2000-01-01; integer datetimes are always on in supported servers) | `Pg.Timestamp`, `Pg.Local_Timestamp` |
 | `date`, `time`, `interval` | binary | `Pg.Date` (days), `Pg.Time` (µs), `Pg.Interval` (months, days, µs) |
 | `numeric` | binary (base-10000 digits, weight, sign, dscale) | `Pg.Numeric`: exact decimal, with conversions to string, `s64` and `float64` |
-| `json` | text | `string`, or [Json](../extensions/json.md) value |
+| `json` | text | `Pg.Json(T)`, or `Pg.Json_Raw` when no `T` is mapping ([JSON and jsonb](#json-and-jsonb)) |
 | `jsonb` | binary (version byte `1`, then text) | as `json` |
+| `json[]`, `jsonb[]` | binary array of the above | `[] Pg.Json(T)` |
 | arrays of the above | binary (ndim, has-null, element OID, dims, elements) | `[] T`, or `[] Nullable(T)` when elements may be null |
 | enums | text | generated Jai `enum` from `pg_enum` |
 | composites, ranges, `inet`, `money`, ... | text at first | `string`, plus later codecs |
@@ -271,6 +272,52 @@ Nullable values are `Nullable(T) :: struct { value: T; null: bool; }`, with `or_
 - `Pg.fetch_all(rows)` copies into `context.allocator`, with one block per result so `free_rows` is one call.
 - `Pg.fetch_all(rows, temp)` puts them in temporary storage.
 - `Execute` with a row limit (`Pg.query(db, sql, ..; batch = 1000)`) uses a portal, so a huge result never sits in memory.
+
+#### JSON and jsonb
+
+A JSON column is typed by the Jai type its documents hold, and decoded with the [Json](../extensions/json.md) module's generated decoders.
+
+```jai
+Settings :: struct @json(rename_all=camelCase) {
+    theme: string;
+    font_size := 14;            @json(default)
+    beta: Json_Maybe(bool);     // missing, null, or a value
+}
+
+row := Pg.query_one(db, "select id, settings as \"settings: Json(Settings)\" from users where id = %id");
+print("%\n", row.settings.value.theme);
+```
+
+- **`Pg.Json(T) :: struct { value: T; }`.** It marks a value as a JSON document. As a parameter, it encodes with `to_json`: `json` gets text, and `jsonb` gets binary (version byte `1`, then the same text). As a column, it decodes with `from_json(T)`. A `jsonb` value whose version byte is not `1` is a decode error naming the version.
+- **`Pg.Json_Raw :: struct { text: string; }`.** This is the untyped fallback, and the type of any JSON column without a mapping. It is zero copy: a slice of the receive buffer, valid for one iteration like any other string. `Pg.decode_json(T, raw)` decodes it later, and `Pg.json_value(raw)` gives a `Json_Value` tree. A plain `string` argument still binds to `json`/`jsonb` as raw text.
+- **Which `T` a column holds:**
+  - **Per query:** the column alias override, `as "settings: Json(Settings)"`, the same mechanism as the other [overrides](#nullability). It applies to `json[]` too: `as "events: [] Json(Event)"`. `Pg.query_as(Row, ...)` reads it from the struct field instead: a `Json(T)` field means that column holds `T`.
+  - **In the ORM:** `db/schema.jai` is generated, so the mapping lives in a hand-written `db/json_columns.jai` that it imports:
+
+    ```jai
+    Json_Columns :: Pg.Json_Column.[
+        .{ "users.settings", Settings },
+        .{ "events.payload", Event_Payload },
+    ];
+    ```
+
+    The generator emits `settings: Pg.Json(Pg.json_column_type("users.settings"));`. That is a compile-time lookup in `Json_Columns`, falling back to `Json_Raw`, so changing a mapping does not regenerate the schema. A mapping naming a column that is not JSON is a compile error.
+- **Strictness.** `Pg.Json_Options` is a `Json_Options` with Postgres defaults, set per query (`json = .{ unknown_fields = .DENY }`), per `Json_Columns` entry, or per connection in `Config`:
+  - `unknown_fields`: `.IGNORE` (the default) or `.DENY`;
+  - `missing_fields`: `.ERROR` (the default) or `.DEFAULT`, which keeps each field's initializer;
+  - `duplicate_keys`: `.LAST` (the default; what `jsonb` keeps, and what `json` text may contain) or `.ERROR`.
+
+  A struct's own `@json(deny_unknown_fields)` and `@json(default)` notes still win.
+- **Errors name the column and the path.** A failed decode is a `Pg_Error` of kind `.DECODE`, whose message reads `column "settings" (users.settings), row 3, at $.theme.colors[2]: expected string, found number`. The path uses jsonpath syntax, so it can be pasted into `jsonb_path_query`. The Json error's offset and line are kept as fields.
+- **Null, missing and SQL NULL are three different things:**
+  - SQL NULL is the column's nullability: `Nullable(Json(T))`, like any other column.
+  - A JSON `null` document, or a field holding `null`, decodes into `Json_Maybe(T)` as `.NULL`.
+  - A missing key decodes into `Json_Maybe(T)` as `.MISSING`.
+
+  `Json_Maybe(T) :: struct { state: enum u8 { MISSING; NULL; SET; }; value: T; }` belongs to the Json module, not Postgres, since HTTP bodies need the same thing. Encoding omits a `.MISSING` field and writes `null` for `.NULL`, so a decoded document re-encodes to the same keys. A plain `T` field that receives `null` is an error unless it is a pointer or a `Json_Value`.
+- **Zero copy.** In a `for rows` loop, decoded strings without escapes point into the receive buffer, like the row's other strings. Strings with escapes are unescaped into `temp`. This uses a borrowing mode, `Json_Options.borrow`, which the Json module gains for this purpose. `Pg.fetch_all` deep-copies through `free_json`'s generated walker, which gains a matching `clone_json`.
+- **Numbers.** `jsonb` numbers are `numeric`: arbitrary precision. A `Pg.Numeric` field decodes from the number's exact text, and `s64`/`float64` fields use the Json module's range checks. A `Json_Value` keeps the original number text next to its `float64`, so the round trip is exact.
+- **Typed operators** in the ORM: see [Layer 4](#layer-4-the-orm).
 
 ### How types are learned at compile time
 
@@ -604,6 +651,13 @@ How it compiles:
   - `Pg.insert(db, user)` and `Pg.insert_many(db, users)` use `insert ... returning *`, or COPY above a threshold.
   - `Pg.update(db, User, set = #code it.display_name = name, where = #code it.id == id)` and `Pg.delete(...)` are compiled the same way as `select`.
   - No dirty tracking or unit of work, and no lazy loading.
+- **JSON fields.** A `Pg.Json(T)` column can be navigated inside filters and loop bodies, with keys taken from `T`'s `@json` names and renames:
+  - `it.settings.theme == "dark"` becomes `settings->>'theme' = $1`. A non-string leaf is cast from its text: `(settings->>'font_size')::int8`. Comparisons are typed against the field: `it.settings.font_size > "x"` is a compile error.
+  - Nested objects and arrays chain `->`: `it.settings.layout.columns[0]` becomes `settings->'layout'->'columns'->>0`.
+  - `Pg.contains(it.settings, value)` becomes `@> $1::jsonb`, `Pg.has_key(it.settings, "beta")` becomes `?`, and `Pg.json_path(it.settings, "$.tags[*] ? (@ == \"x\")")` becomes `@?`. They are `jsonb`-only, and a compile error on `json`.
+  - `Json_Maybe` fields compare with `.MISSING` and `.NULL`: `it.settings.beta.state == .MISSING` becomes `not (settings ? 'beta')`, and `== .NULL` becomes `settings->'beta' = 'null'::jsonb`.
+  - Column pruning extends into documents: a loop that reads only `it.settings.theme` selects `settings->'theme'`, not the whole document.
+  - `Json_Raw` columns have no typed navigation; use `Pg.sql` fragments for them.
 - **Dynamic filters.** Everything above is static SQL, which is what makes it typed and cacheable. Optional filters use `Pg.if_some(x, #code it.team_id == x)`, which compiles to `($n::int8 is null or team_id = $n)`. That is one statement, but it may get a generic plan. Large dynamic search screens should use several static queries or a raw query. A runtime builder is deliberately left out of v1 (see [Open questions](#open-questions)).
 
 #### Statement and plan caching
@@ -654,14 +708,15 @@ What "up to spec" means here: the [protocol chapter](https://www.postgresql.org/
 | **Recorded traces**: capture real client↔server byte streams once, commit them, and replay them against a scripted fake server. go-pgvcr does TCP-level record and replay; pgproto3 has a trace test. libpq_pipeline's `traces/` files are reference message sequences for pipelines. | the protocol state machine, deterministically, on every OS without Postgres, including fault injection (truncation, errors mid-pipeline, unsolicited notices and notifications, a cancel racing completion) | **secondary**: fast and runs on Windows/macOS on every push |
 | **Fuzzing** the server-to-client decoder with `Extensions/Fuzz` (seed corpus: pgproto3's `testdata/fuzz`) | that hostile or garbled input never crashes or over-reads | **secondary**, in the nightly fuzz job |
 | pgproto3 (Go) / rust-postgres / node-postgres test suites | written for their own APIs; not runnable against ours | mine their value lists (edge values per type) and scenario lists as checklists, nothing more |
-| `pg_regress` | server behaviour (SQL), not a client | not useful |
+| PostgreSQL's own suites: `pg_regress` through a Jai psql, the auth/SSL/libpq/psql TAP tests, `libpq_pipeline` traces | every built-in type's text I/O, error and notice layout, COPY, auth, TLS, URI parsing, pipeline message sequences | **primary**: fetched at pinned versions, run unchanged against the shims ([Conformance](conformance.md)) |
 | `pgbench` | drives libpq itself; cannot drive our client | not useful for conformance; a Jai port of its TPC-B script is the **benchmark** against libpq/pgx |
-| `src/test/modules/libpq_pipeline` | libpq's own pipeline cases | port its scenarios (errors mid-pipeline, sync handling) as test cases |
 | RFC 4231 / 7914 / 7677 vectors | HMAC, PBKDF2, SCRAM | unit tests |
 
 No reusable cross-language protocol conformance suite exists. Drivers test against real servers: pgx runs PostgreSQL 14-18 with md5, SCRAM, Unix-socket and client-certificate users (and OAuth on 18); node-postgres runs 13-18.
 
-**Pick:** real servers plus libpq differential as the conformance suite, recorded traces and fuzzing as the fast and robustness layers. A new `pg_conformance.py` harness, next to `http_conformance.py` in tools/stdlib, runs them from a path-filtered workflow, `pg-conformance.yml` on the same model as `http-conformance.yml`.
+**Pick:** PostgreSQL's own suites on real servers plus libpq differential as the conformance suite, recorded traces and fuzzing as the fast and robustness layers.
+
+**JSON** is checked from the `json`, `jsonb`, `jsonpath`, `jsonb_jsonpath`, `json_encoding` and `sqljson*` regression files. Their text output already runs through the shim. On top of that, every `json`/`jsonb` literal they use is decoded into `Json_Value`, re-encoded as a parameter (text for `json`, binary for `jsonb`), and compared with the original on the server (`=` for `jsonb`, `::text` for `json`). Typed decoding is covered by fixtures that hold their expected values and error paths. A new `pg_conformance.py` harness, next to `http_conformance.py` in tools/stdlib, runs them from a path-filtered workflow, `pg-conformance.yml` on the same model as `http-conformance.yml`.
 
 - **Linux (every relevant push):** GitHub `services:` containers, one job per major (`postgres:15` … `postgres:18`, plus the newest beta as allowed-to-fail). The job writes `pg_hba.conf` and `postgresql.conf` and restarts the server, to enable md5 and scram users, TLS with the Tls test CA from `stdlib/Extensions/Tls/tests/data`, client-certificate auth and `sslnegotiation=direct`. `psql` from the same image is the libpq oracle.
 - **macOS and Windows (manual dispatch and nightly):** no service containers. `ikalnytskyi/action-setup-postgres` (Linux, macOS, Windows; 15-18) installs a server, as pgx's Windows job does. Once managed mode exists, also run it from the downloaded binaries (`theseus-rs/postgresql-binaries`: x64 and arm64 for Linux, macOS and Windows, with Windows arm64 from PostgreSQL 16), so that path is tested too. Unix sockets are covered on macOS/Linux; Windows uses TCP.
@@ -741,12 +796,13 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
    1. Unix sockets in Io; HMAC, PBKDF2 and random in `internal/crypto`. Done.
    2. Startup with TLS, MD5 and SCRAM (including `-PLUS`), simple and extended protocols, errors, core binary codecs. Done: [Postgres](../extensions/postgres.md). The runtime calls are `query_dynamic`, `query_binary` and `execute_script`, which leaves `query`/`execute` for the typed macros.
    3. Pool, transactions, cancellation. Done. Io gained `with_grace` (cleanup past a deadline or cancel) and `Condition` (a wait that honours deadlines) for it.
-   4. The `pg-conformance` workflow.
+   4. The `pg-conformance` workflow, with PostgreSQL's regression suite through a Jai psql. Done; the TAP, URI, trace and driver-vector suites follow ([Conformance](conformance.md)).
+   5. JSON: `Json(T)`, `Json_Raw`, `Json_Maybe`, binary `jsonb`, `json[]`, strictness options, error paths, borrowing decode.
 
    Then pipelining, COPY, LISTEN/NOTIFY and protocol 3.2.
-3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, the describe service (schema databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
-4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate`, the `db/schema.jai` staleness check, row type identity.
-5. **ORM:** `select` with `Code` filters, column pruning, to-one joins, to-many batched loading, insert/update/delete.
+3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, JSON column overrides, the describe service (schema databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
+4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate` (with `db/json_columns.jai`), the `db/schema.jai` staleness check, row type identity.
+5. **ORM:** `select` with `Code` filters, typed JSON navigation, column pruning, to-one joins, to-many batched loading, insert/update/delete.
 6. **Zero setup:** managed per-platform Postgres for compile-time typing; `diff` migration proposals.
 
 ## Decisions
@@ -764,6 +820,8 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 11. **Editor feedback through compile-time services** (option C in [Editor feedback](#editor-feedback-phase-0)), not networking inside the sandbox. C gives instant feedback in trusted workspaces without letting every trusted metaprogram reach the network on every keystroke. It keeps one protocol implementation, and isolates crashes in a separate process. The mechanism is generic, with no Postgres knowledge in `jaic` or `jailsp`.
 
 12. **Live migration edits:** unsaved migration buffers are used. The changed suffix is applied in a rolled-back transaction on the database for the unchanged prefix, about 1 ms for the newest migration ([benchmark](#how-types-are-learned-at-compile-time)). No clones.
+
+13. **JSON:** columns are typed by the document's Jai type (`Json(T)`), mapped per query by alias override and per column in `db/json_columns.jai`, with `Json_Raw` as the untyped fallback. JSON null, a missing key and SQL NULL stay distinct (`Json_Maybe`, `Nullable`).
 
 ## Open questions
 
