@@ -109,6 +109,35 @@ done
 drop_schema_databases
 rm -rf "$JACKET_PG_ROOT/db/migrations"
 
+# 5b. A migration that fails: the error is reported at its line in the migration file, and the
+# queries are still checked against the schema before it (never cached as the project's).
+drop_schema_databases
+mkdir -p "$JACKET_PG_ROOT/db/migrations"
+grep -v "schema public" "$here/schema.sql" > "$JACKET_PG_ROOT/db/migrations/0001_init.sql"
+printf -- '-- adds a flag\nalter table posts add column flagged boolean;\nalter table nope_table add column x int;\n' > "$JACKET_PG_ROOT/db/migrations/0002_broken.sql"
+mv "$JACKET_PG_ROOT/db/queries" "$work/saved_queries"
+broken_build() {
+    if "$jaic" "$here/queries.jai" -exe "$work/broken" > "$work/out" 2>&1; then fail "a failing migration did not stop the build"; fi
+    grep -q '0002_broken.sql:3:1: error: migration 0002_broken.sql failed at line 3: relation "nope_table" does not exist' "$work/out" || fail "the failed migration is not reported at its line"
+    grep -q 'checked against the schema before the failed migration 0002_broken.sql' "$work/out" || fail "no note about the schema before the failed migration"
+    [ "$(grep -c ': error:' "$work/out")" -eq 1 ] || fail "a failed migration also failed the queries"
+    [ "$(find "$JACKET_PG_ROOT/db/queries" -name '*.json' 2>/dev/null | wc -l)" -eq 0 ] || fail "descriptions of the schema before a failed migration were cached"
+}
+# Nothing is built yet: the database for the migrations before it is kept.
+broken_build
+[ "$(schema_databases | wc -l)" -eq 1 ] || fail "the schema before the failed migration was not kept: $(schema_databases)"
+# That database exists now: the failed migration runs in the describe's transaction instead.
+JACKET_PG_BUILD_DELAY_MS=600000 broken_build
+[ "$(schema_databases | wc -l)" -eq 1 ] || fail "a failed migration built a database"
+# One that cannot run in a transaction leaves no schema to trust: the queries cannot be checked.
+rm "$JACKET_PG_ROOT/db/migrations/0002_broken.sql"
+printf -- '-- jacket: no-transaction\nselect 1;\nselect * from missing_t;\n' > "$JACKET_PG_ROOT/db/migrations/0002_unsafe.sql"
+if "$jaic" "$here/queries.jai" -exe "$work/broken" > "$work/out" 2>&1; then fail "a failing no-transaction migration did not stop the build"; fi
+grep -q '0002_unsafe.sql:3:15: error: migration 0002_unsafe.sql failed at line 3: relation "missing_t" does not exist' "$work/out" || fail "the failed no-transaction migration is not reported at its line"
+drop_schema_databases
+rm -rf "$JACKET_PG_ROOT/db/migrations" "$JACKET_PG_ROOT/db/queries"
+mv "$work/saved_queries" "$JACKET_PG_ROOT/db/queries"
+
 # 6. The pg tool: prepare, then check is clean; a stray entry and a missing one are found.
 tool="$here/../../Tool/main.jai"
 "$jaic" "$tool" -interp -- prepare --root "$JACKET_PG_ROOT" > /dev/null || fail "tool prepare"

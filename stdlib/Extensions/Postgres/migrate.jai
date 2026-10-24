@@ -22,6 +22,16 @@ Migrate_Options :: struct {
     allow_out_of_order := false;
 }
 
+// Where a migration stopped, for tools that point at the file.
+Migration_Failure :: struct {
+    name: string; // the file name without `.sql`
+    file: string; // its path, when the caller knows the folder
+    index: s64; // in the list, from 0
+    line: s64; // 1-based line of the file the server pointed at, or 0 when it gave no position
+    column: s64;
+    message: string; // the server's message
+}
+
 NO_TRANSACTION_MARKER :: "-- jacket: no-transaction";
 MIGRATIONS_TABLE :: "jacket_migrations";
 
@@ -124,6 +134,13 @@ Migration_Status :: struct {
 // nothing) when an applied migration changed or disappeared, or a pending one is numbered below
 // the newest applied one, unless `options` allows it.
 migrate :: (c: *Connection, migrations: [] Migration, options := Migrate_Options.{}) -> applied: s64, Pg_Error {
+    failure: Migration_Failure;
+
+    return migrate_reporting(c, migrations, *failure, options);
+}
+
+// `migrate`, and when a migration fails, `failure` says which one and where in its file.
+migrate_reporting :: (c: *Connection, migrations: [] Migration, failure: *Migration_Failure, options := Migrate_Options.{}) -> applied: s64, Pg_Error {
     error := execute_script(c, "select pg_advisory_lock(hashtext('jacket_migrations'))");
     if error.kind != .NONE return 0, error;
 
@@ -145,7 +162,7 @@ migrate :: (c: *Connection, migrations: [] Migration, options := Migrate_Options
         state := status[it_index].state;
         if state != .PENDING && state != .OUT_OF_ORDER continue;
 
-        error = apply_migration(c, migration);
+        error = apply_migration(c, migration, it_index, failure);
         if error.kind != .NONE return applied, error;
 
         applied += 1;
@@ -234,6 +251,115 @@ split_statements :: (sql: string) -> [] string {
     return statements;
 }
 
+// The line and column of a 1-based character position in `text`, or 0 and 0 for no position.
+line_column_of_position :: (text: string, position: s64) -> line: s64, column: s64 {
+    if position <= 0 return 0, 0;
+
+    stop := byte_of_character(text, position);
+    line := 1;
+    line_start := 0;
+
+    for 0..stop - 1 {
+        if text[it] == #char "\n" {
+            line += 1;
+            line_start = it + 1;
+        }
+    }
+
+    return line, byte_to_character_count(text, line_start, stop) + 1;
+}
+
+// Characters between two byte offsets of `text`.
+byte_to_character_count :: (text: string, from: s64, to: s64) -> s64 {
+    count := 0;
+    for from..to - 1 if (text[it] & 0xc0) != 0x80 count += 1;
+
+    return count;
+}
+
+// Where `error` stopped in the file `whole` of migration `name`. `statement` is the text the
+// server was sent: the whole file, or one statement inside it (a slice of `whole`) for a migration
+// without a transaction.
+migration_failure :: (name: string, index: s64, whole: string, statement: string, error: Pg_Error) -> Migration_Failure {
+    failure := Migration_Failure.{ name = name, index = index, message = copy_string(error.message) };
+    if error.kind != .SERVER || error.position <= 0 return failure;
+
+    inside := cast(s64) (statement.data - whole.data);
+    if inside < 0 || inside > whole.count inside = 0;
+
+    prefix := slice(whole, 0, inside);
+    line, column := line_column_of_position(statement, error.position);
+
+    failure.line = line + count_lines(prefix);
+    failure.column = column;
+
+    // A statement that does not start its line: the column counts from the statement's start.
+    if line == 1 && inside > 0 {
+        last_newline := find_index_from_right(prefix, #char "\n");
+        failure.column += byte_to_character_count(prefix, last_newline + 1, prefix.count);
+    }
+
+    return failure;
+}
+
+// For an error that came without a position: the first statement of the migration `whole` that
+// fails the same way, as the failure's line. Runs inside the caller's open transaction, in the
+// state the migration started from, and leaves it in that state (a savepoint is rolled back to).
+// Gives `failure` back unchanged when no single statement reproduces the error, which happens when
+// the file's `;` splitting is not how the server saw it.
+locate_failing_statement :: (c: *Connection, name: string, index: s64, whole: string, message: string, failure: Migration_Failure) -> Migration_Failure {
+    marked := execute_script(c, "savepoint locate_failing_statement");
+
+    if marked.kind != .NONE {
+        free_error(*marked);
+        return failure;
+    }
+
+    located := failure;
+
+    for statement: split_statements(whole) {
+        attempt := execute_script(c, statement);
+        if attempt.kind == .NONE continue;
+
+        if attempt.kind == .SERVER && attempt.message == message {
+            located = migration_failure(name, index, whole, statement, attempt);
+
+            // No position inside the statement either: the statement's first line.
+            if located.line == 0 {
+                inside := cast(s64) (statement.data - whole.data);
+
+                if inside >= 0 && inside <= whole.count {
+                    located.line = count_lines(slice(whole, 0, inside)) + 1;
+                    located.column = 1;
+                }
+            }
+        }
+
+        free_error(*attempt);
+        break;
+    }
+
+    undone := execute_script(c, "rollback to savepoint locate_failing_statement");
+
+    free_error(*undone);
+
+    return located;
+}
+
+count_lines :: (text: string) -> s64 {
+    lines := 0;
+    for text if it == #char "\n" lines += 1;
+
+    return lines;
+}
+
+// "migration 0007_add_teams.sql failed at line 3: relation ... does not exist".
+describe_failure :: (failure: Migration_Failure) -> string {
+    if failure.line > 0 return tprint("migration %.sql failed at line %: %", failure.name, failure.line, failure.message);
+
+    return tprint("migration %.sql failed: %", failure.name, failure.message);
+}
+
 #scope_file
 
 File_Utilities :: #import "File_Utilities";
@@ -286,7 +412,7 @@ check_status :: (status: [] Migration_Status, options: Migrate_Options) -> Pg_Er
     return .{};
 }
 
-apply_migration :: (c: *Connection, migration: Migration) -> Pg_Error {
+apply_migration :: (c: *Connection, migration: Migration, index: s64, failure: *Migration_Failure) -> Pg_Error {
     started := current_time_monotonic();
 
     if migration.transaction {
@@ -299,7 +425,22 @@ apply_migration :: (c: *Connection, migration: Migration) -> Pg_Error {
 
         if error.kind != .NONE {
             rollback := execute_script(c, "rollback");
+
             free_error(*rollback);
+            failure.* = migration_failure(migration.name, index, migration.sql, migration.sql, error);
+
+            // Most errors in a utility statement (`alter table nope ...`) carry no position: run
+            // the statements one by one in a transaction that is rolled back, to see which one.
+            if failure.line == 0 {
+                begun := execute_script(c, "begin");
+                if begun.kind == .NONE failure.* = locate_failing_statement(c, migration.name, index, migration.sql, error.message, failure.*);
+
+                free_error(*begun);
+
+                rollback = execute_script(c, "rollback");
+                free_error(*rollback);
+            }
+
             return failed_migration(migration, error);
         }
 
@@ -308,7 +449,11 @@ apply_migration :: (c: *Connection, migration: Migration) -> Pg_Error {
 
     for split_statements(migration.sql) {
         error := execute_script(c, it);
-        if error.kind != .NONE return failed_migration(migration, error);
+
+        if error.kind != .NONE {
+            failure.* = migration_failure(migration.name, index, migration.sql, it, error);
+            return failed_migration(migration, error);
+        }
     }
 
     return record_migration(c, migration, started);

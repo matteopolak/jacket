@@ -204,6 +204,11 @@ describe_entries :: () {
         schemas: Pg.Schema_Databases;
         target, why := Pg.schema_target(*schemas, db, config, migrations_folder());
 
+        if target.failed {
+            problem(Pg.describe_failure(target.failure));
+            return;
+        }
+
         if why || !target.database {
             problem(ifx why then tprint("cannot build the schema database: %", why) else "managed mode needs migrations in db/migrations");
             return;
