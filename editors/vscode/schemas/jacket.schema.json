@@ -615,6 +615,16 @@
               "default": "warn",
               "markdownDescription": "`ifx c then true else false` and `if c return true; else return false;` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#needless_bool)"
             },
+            "neg_cmp_float": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "`!(a < b)` on floats, which differs from `a >= b` when a value is NaN (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#neg_cmp_float)"
+            },
             "needless_continue": {
               "type": "string",
               "enum": [

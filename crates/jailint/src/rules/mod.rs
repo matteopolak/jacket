@@ -58,6 +58,7 @@ mod mixed_case_hex_literals;
 mod modified_range_bound;
 mod needless_bool;
 mod needless_continue;
+mod neg_cmp_float;
 mod neg_multiply;
 mod no_effect;
 mod print_in_module;
@@ -400,6 +401,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "`ifx c then true else false` and `if c return true; else return false;`",
         check: needless_bool::check,
+    },
+    RuleInfo {
+        name: "neg_cmp_float",
+        category: Category::Pedantic,
+        summary: "`!(a < b)` on floats, which differs from `a >= b` when a value is NaN",
+        check: neg_cmp_float::check,
     },
     RuleInfo {
         name: "needless_continue",

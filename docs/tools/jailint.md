@@ -137,6 +137,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `modified_range_bound` | suspicious | warn | no | `for 0..n-1 { ...; n -= 1; }`: the range was fixed before the first iteration, so the change does not reach the loop |
 | `needless_bool` | complexity | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
 | `needless_continue` | style | warn | yes | `for xs { work(it); continue; }`, `if c { work(); continue; }` ending a loop: a `continue` the loop would have done anyway |
+| `neg_cmp_float` | pedantic | allow | editor | `!(x < limit)` with floats: not the same as `x >= limit` for NaN |
 | `neg_multiply` | style | warn | yes | `x * -1`, `-1 * x`, `f * -1.0`: a multiplication by minus one, which is a negation |
 | `no_effect` | suspicious | warn | editor | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
 | `print_in_module` | restriction | allow | no | `print(...)` or `write_string(...)` in a file that belongs to a module |
@@ -280,6 +281,8 @@ Only locals named directly in a range end (`n` in `0..n-1`); `xs.count` bounds a
 A trailing `if c return true; return false;` is left alone when an earlier guard in the block also returns a literal. Comments inside the `if` withhold the fix.
 ### needless_continue
 An unlabelled `continue` that ends a `for` or `while` body, or ends a branch of an `if` that is the body's last statement. The fix removes the statement when other statements share its block; an `if c continue;` that closes the loop does nothing at all, so it is reported without a fix.
+### neg_cmp_float
+Every comparison with a NaN is false, so `!(a < b)` is true for NaN where `a >= b` is false. Fires on a negated `<`, `<=`, `>` or `>=` with a float operand; `!(a == b)` is exactly `a != b` and is left alone. The editor offers the inverted comparison, which changes the result for NaN, so `--fix` does not apply it. Off by default: `!(x < limit)` is often written to stay on the safe side of NaN on purpose.
 ### neg_multiply
 Signed integers and floats only, and only the literals `-1` and `-1.0`. The fix writes `-x`, and `-(a + b)` when the other side is not a single term.
 ### no_effect
