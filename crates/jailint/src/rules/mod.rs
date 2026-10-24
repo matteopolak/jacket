@@ -49,6 +49,7 @@ mod loop_with_break_condition;
 mod lossy_float_literal;
 mod lossy_xx;
 mod magic_number;
+mod manual_array_find;
 mod manual_assign_op;
 mod manual_clamp;
 mod manual_index_counter;
@@ -352,6 +353,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Pedantic,
         summary: "`xx` that narrows a number to a smaller type",
         check: lossy_xx::check,
+    },
+    RuleInfo {
+        name: "manual_array_find",
+        category: Category::Complexity,
+        summary: "a loop that searches an array and breaks with a found flag or index, which `array_find` does",
+        check: manual_array_find::check,
     },
     RuleInfo {
         name: "magic_number",

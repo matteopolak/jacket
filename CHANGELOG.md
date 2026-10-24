@@ -42,6 +42,7 @@
 - `jailint` reports `tprint("%", s)` and `sprint("%", s)` with a string `s`, which only copy it (`useless_format`).
 - `jailint` suggests `print_to_builder` for `append(*builder, tprint(...))` (`format_push_string`).
 - `jailint` suggests `memcpy` for a loop that only copies one array into another (`manual_memcpy`).
+- `jailint` suggests `array_find` for a loop that searches an array and breaks on the first match (`manual_array_find`).
 
 ### Improved
 

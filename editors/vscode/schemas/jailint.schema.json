@@ -488,6 +488,16 @@
           "default": "allow",
           "markdownDescription": "`xx` that narrows a number to a smaller type (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#lossy_xx)"
         },
+        "manual_array_find": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a loop that searches an array and breaks with a found flag or index, which `array_find` does (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#manual_array_find)"
+        },
         "magic_number": {
           "type": "string",
           "enum": [
