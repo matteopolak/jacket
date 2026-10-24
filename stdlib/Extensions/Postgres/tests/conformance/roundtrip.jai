@@ -194,7 +194,7 @@ text_of :: (result: *Pg.Result, row: s64, column: s64) -> string {
 }
 
 quote_identifier :: (name: string) -> string {
-    return tprint("\"%\"", replace(name, "\"", "\"\""));
+    return tprint("\"%\"", replace(name, "\"", "\"\"",, temp));
 }
 
 check_column :: (db: *Pg.Connection, schema: string, table: string, column: string) {

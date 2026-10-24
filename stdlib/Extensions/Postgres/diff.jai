@@ -201,7 +201,7 @@ propose_migration :: (catalog: Catalog, description: Schema_Description) -> Migr
     append(*builder, "-- Proposed by the pg tool's `diff` from the structs in db/schema.jai. It is a starting point:\n-- review it, edit it, and resolve every TODO before running `migrate`.\n");
 
     for string.[builder_to_string(*sections.schemas,, temp), builder_to_string(*sections.enums,, temp), builder_to_string(*sections.creates,, temp), builder_to_string(*sections.alters,, temp), builder_to_string(*sections.notes,, temp)] {
-        if it append(*builder, tprint("\n%\n", trim(it)));
+        if it print_to_builder(*builder, "\n%\n", trim(it));
     }
 
     proposal.sql = builder_to_string(*builder);
