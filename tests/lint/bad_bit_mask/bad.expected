@@ -1,0 +1,48 @@
+error[bad_bit_mask]: `(flags & 4) == 1` is always `false`: `& 4` leaves only the bits of 4, and 1 has others
+  --> tests/lint/bad_bit_mask/bad.jai:6:9
+   |
+ 6 |     if (flags & 4) == 1 count += 1;
+   |         ^^^^^^^^^^^^^^^
+   |
+help: compare with the mask itself (`(x & m) == m`) or test for non-zero
+   |
+ 6 ~     if false count += 1;
+   |
+   = note: `bad_bit_mask` is `deny` by default
+
+error[bad_bit_mask]: `(flags | 2) == 0` is always `false`: `| 2` always sets the bits of 2, and 0 lacks some of them
+  --> tests/lint/bad_bit_mask/bad.jai:8:9
+   |
+ 8 |     if (flags | 2) == 0 count += 1;
+   |         ^^^^^^^^^^^^^^^
+   |
+help: compare with the mask itself (`(x & m) == m`) or test for non-zero
+   |
+ 8 ~     if false count += 1;
+   |
+   = note: `bad_bit_mask` is `deny` by default
+
+error[bad_bit_mask]: `8 != (flags & 3)` is always `true`: `& 3` leaves only the bits of 3, and 8 has others
+  --> tests/lint/bad_bit_mask/bad.jai:10:8
+   |
+10 |     if 8 != (flags & 3) count += 1;
+   |        ^^^^^^^^^^^^^^^
+   |
+help: compare with the mask itself (`(x & m) == m`) or test for non-zero
+   |
+10 ~     if true count += 1;
+   |
+   = note: `bad_bit_mask` is `deny` by default
+
+error[bad_bit_mask]: `(n | 1) != 0x10` is always `true`: `| 1` always sets the bits of 1, and 16 lacks some of them
+  --> tests/lint/bad_bit_mask/bad.jai:12:9
+   |
+12 |     if (n | 1) != 0x10 count += 1;
+   |         ^^^^^^^^^^^^^^
+   |
+help: compare with the mask itself (`(x & m) == m`) or test for non-zero
+   |
+12 ~     if true count += 1;
+   |
+   = note: `bad_bit_mask` is `deny` by default
+

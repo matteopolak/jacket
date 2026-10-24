@@ -11,6 +11,7 @@ mod absurd_comparison;
 mod almost_swapped;
 mod approx_constant;
 mod assert_constant;
+mod bad_bit_mask;
 mod banner_comment;
 mod bitwise_precedence;
 mod bool_comparison;
@@ -120,6 +121,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Style,
         summary: "a hand-typed `3.14159` or `1.4142` where `Math` has the constant",
         check: approx_constant::check,
+    },
+    RuleInfo {
+        name: "bad_bit_mask",
+        category: Category::Correctness,
+        summary: "a mask test that can never match (`(x & 4) == 1`, `(x | 2) == 0`)",
+        check: bad_bit_mask::check,
     },
     RuleInfo {
         name: "assert_constant",

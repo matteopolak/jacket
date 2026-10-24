@@ -91,6 +91,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `almost_swapped` | correctness | deny | editor | `a = b; b = a;`, a swap that sets both to `b` |
 | `approx_constant` | style | warn | editor | `3.14159`, `6.2832`, `1.4142`: a hand-typed approximation of a constant `Math` has (`PI`, `TAU`, `SQRT2`, ...) |
 | `assert_constant` | style | warn | yes | `assert(true, "...")`, `#assert true;`: an assertion whose condition is the literal `true`. `assert(false, ...)` is a deliberate failure and is not reported |
+| `bad_bit_mask` | correctness | deny | editor | `(x & 4) == 1`, `(x | 2) == 0`: a comparison of a masked value with a constant the mask makes unreachable |
 | `banner_comment` | style | warn | yes | a comment that is only a line of `-`, `=` or `*` fencing off a section |
 | `bitwise_precedence` | suspicious | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | complexity | warn | yes | `x == true`, `x != false`, `false == x` |
@@ -172,6 +173,8 @@ Two consecutive statements with side-effect-free sides of the same type. A real 
 Needs at least four significant digits (`3.14` is a rough value on purpose) and a match where the literal stops, rounded or cut off. Knows π, 2π, π/2, π/4, √2 and √½. Constant declarations are left alone. A test that checks a value on purpose takes `// jailint: allow(approx_constant)`. The editor offers the replacement (`PI64` family for a `float64` literal, a quotient in parentheses); the `Math` import is yours to add.
 ### assert_constant
 The call must be to a procedure with the `@AssertsArgument` note (the library's `assert`). Macros are skipped. The fix removes the statement when it stands in a block and its other arguments have no side effects.
+### bad_bit_mask
+`x & m` has only bits of `m`, so a constant with a bit outside `m` is never equal to it; `x | m` always has the bits of `m`, so a constant missing one never equals it. `!=` is then always true. Needs an integer literal on each side of the comparison and of the mask, non-negative, and a non-constant `x`. Usually the constant is wrong (`== 4` or `!= 0` was meant). The editor offers to write `false` or `true`.
 ### banner_comment
 A comment of three or more of `-=*#~_` and nothing else, line or block (`// ------`). Name the section in one plain `// Names` line instead, or split the file. Rust and Python files are held to the same rule by `tools/ci/check_source_style.py`. Generated files are skipped. `--fix` removes the line; a section name on a line of its own stays.
 ### bitwise_precedence
