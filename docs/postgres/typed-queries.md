@@ -20,6 +20,23 @@ Pg.free_rows(*rows);
 
 `query_one` and `query_scalar` return a `.NOT_FOUND` error when no row matches, and a `.USAGE` error for more than one. `query_as(T, ...)` checks a hand-written struct: columns match fields by name, nullable columns need `Nullable`, and `Json(T)` fields say what a json column holds.
 
+### Streaming
+
+`Pg.stream(c, *error, sql, ..; batch = 1000)` is `query` for results too big to hold. It sends the statement at once and returns a value to `for` over; the rows arrive `batch` at a time (pipeline chunked rows mode), so at most one batch is in memory.
+
+```jai
+error: Pg.Pg_Error;
+for Pg.stream(c, *error, "select id, body from events where day = %", day, batch = 5000) {
+    total += it.body.count;
+}
+if error.kind != .NONE ...
+```
+
+- It takes a `*Connection` (not a pool) and holds it in pipeline mode until the loop ends.
+- `break` cancels the statement on the server (`pipeline_abandon`) and leaves the connection usable.
+- A server error part way through stops the loop after the rows before it and lands in `error`.
+- Strings in `it` point into the current batch: copy what outlives the iteration.
+
 ### Pipelines
 
 `queue(p, sql, ..)` and `queue_execute(p, sql, ..)` are `query` and `execute` on a `*Pipeline` (`pipeline_enter`): the statement is checked at compile time as usual, queued unsent, and returns a `Pending(R)`. `take(p, pending)` returns the `Rows(...)` or the changed-row count.

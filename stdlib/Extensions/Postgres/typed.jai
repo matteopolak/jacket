@@ -307,6 +307,86 @@ queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code
     return pending, error;
 } @Interpolates("sql")
 
+// `query` for results too big to hold: the rows arrive `batch` at a time and `for` decodes them
+// one by one, so at most one batch is in memory. The statement is sent here, and the connection is
+// busy until the loop ends; leaving the loop early cancels the rest. A failure, before or during the
+// loop, lands in `error` (cleared first). Strings in `it` live until the next batch: copy what you
+// keep.
+//
+//     error: Pg.Pg_Error;
+//     for Pg.stream(c, *error, "select id, body from events where day = %", day, batch = 5000) {
+//         total += it.body.count;
+//     }
+//     if error.kind != .NONE ...
+stream :: (c: *Connection, error: *Pg_Error, $sql: string, args: ..Any, batch := 1000, $call := #caller_code) -> Row_Stream(#run row_type(sql, call, 2, #insert,scope(call) #run row_table_type(sql, call, 2, #insert,scope(call) #run row_table_exists(sql, call, 2)), Row(#run row_shape(sql, call, 2)))) #expand {
+    #run check_statement(sql, call, 2, true);
+
+    meta :: #run binary_results(sql, call, 2);
+    out: Row_Stream(#run row_type(sql, call, 2, #insert,scope(call) #run row_table_type(sql, call, 2, #insert,scope(call) #run row_table_exists(sql, call, 2)), Row(#run row_shape(sql, call, 2))));
+
+    error.* = .{};
+    out.error = error;
+    out.meta = meta;
+    error.* = start_stream(c, *out.pipeline, #run rewritten_sql(sql, call, 2), args, ifx meta.binary then Format.BINARY else .TEXT, batch);
+
+    return out;
+} @Interpolates("sql")
+
+Row_Stream :: struct(T: Type) {
+    pipeline: *Pipeline; // null once the statement is over
+    error: *Pg_Error;
+    meta: Statement_Meta;
+}
+
+for_expansion :: (stream: *Row_Stream($T), body: Code, flags: For_Flags) #expand {
+    rows: Rows(T);
+    row := 0;
+    finished := false;
+
+    `it_index := -1;
+
+    defer {
+        free_result(*rows.result);
+        end_stream(stream.pipeline, stream.error);
+    }
+
+    while stream.pipeline {
+        if row >= rows.result.row_count {
+            free_result(*rows.result);
+            rows.result = .{};
+            row = 0;
+
+            if finished break;
+
+            more, failure := next_batch(stream.pipeline, *rows.result);
+
+            apply_statement_meta(*rows.result, stream.meta, .{});
+
+            if failure.kind != .NONE {
+                stream.error.* = failure;
+                break;
+            }
+
+            finished = !more;
+
+            continue;
+        }
+
+        `it: T;
+        failure := read_row(*rows, row, *`it);
+
+        if failure.kind != .NONE {
+            stream.error.* = failure;
+            break;
+        }
+
+        row += 1;
+        `it_index += 1;
+
+        #insert body;
+    }
+}
+
 // The first column of the only row.
 query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> type_of(Scalar(#run scalar_type(sql, call, 1)).value), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
@@ -390,6 +470,70 @@ run_statement :: (pool: *Pool, sql: string, meta: Statement_Meta, args: [] Any, 
     release(pool, c);
 
     return result, error;
+}
+
+// Enters pipeline mode, queues the statement and its sync point, and asks for its rows in batches.
+start_stream :: (c: *Connection, pipeline: **Pipeline, sql: string, args: [] Any, result_format: Format, batch: s64) -> Pg_Error {
+    if batch < 1 return make_error(.USAGE, "batch must be at least 1, not %", batch);
+    if c && c.pipeline.active return make_error(.USAGE, "the connection is already in pipeline mode");
+
+    p, error := pipeline_enter(c);
+    if error.kind != .NONE return error;
+
+    error = queue_typed(p, sql, "", args, result_format);
+    if error.kind == .NONE error = pipeline_sync(p);
+    if error.kind == .NONE && !pipeline_chunked_rows(p, batch) error = make_error(.USAGE, "the statement's rows could not be asked for in batches");
+
+    if error.kind != .NONE {
+        pipeline_abandon(p);
+        return error;
+    }
+
+    pipeline.* = p;
+
+    return .{};
+}
+
+// The next rows of a stream into `out`; false once the statement is over (`out` may still hold its
+// last rows).
+next_batch :: (p: *Pipeline, out: *Result) -> bool, Pg_Error {
+    item, error := pipeline_next_result(p);
+    if error.kind != .NONE return false, error;
+
+    if item.kind == .ROWS || item.kind == .RESULT {
+        out.* = item.result;
+        array_free(item.parameter_types);
+
+        return item.kind == .ROWS, .{};
+    }
+
+    if item.kind == .ERROR {
+        failure := item.error;
+        item.error = .{};
+        free_pipeline_result(*item);
+
+        return false, failure;
+    }
+
+    free_pipeline_result(*item);
+
+    return false, make_error(.PROTOCOL, "the stream's statement ended without a result");
+}
+
+// After the loop: reads the sync point and leaves pipeline mode, or, when the loop stopped early,
+// cancels what is left.
+end_stream :: (p: *Pipeline, error: *Pg_Error) {
+    if !p return;
+
+    if p.head < p.steps.count && p.steps[p.head] == .SYNC && !p.chunk_rows {
+        item, failure := pipeline_next_result(p);
+        free_pipeline_result(*item);
+
+        if failure.kind == .NONE && pipeline_exit(p).kind == .NONE return;
+        if error.kind == .NONE error.* = failure;
+    }
+
+    pipeline_abandon(p);
 }
 
 // A result moved into temporary storage, so a value read from it outlives the result's owner.

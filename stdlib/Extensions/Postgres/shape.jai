@@ -217,8 +217,8 @@ check_statement :: (sql: string, call: Code, sql_index: s64, returns_rows: bool)
     check_arguments(prepared, sql_index + 1);
 }
 
-// The arguments from `first` on that fill placeholders: not the named `plan = ` and `json = `
-// options.
+// The arguments from `first` on that fill placeholders: not the named `plan = `, `json = ` and
+// `batch = ` options.
 value_arguments :: (call_node: *Code_Procedure_Call, first: s64) -> [] *Code_Node {
     nodes: [..] *Code_Node;
     nodes.allocator = temp;
@@ -228,7 +228,7 @@ value_arguments :: (call_node: *Code_Procedure_Call, first: s64) -> [] *Code_Nod
         option := false;
 
         for call_node.arguments_unsorted {
-            if it.name && (it.name.name == "plan" || it.name.name == "json") && it.expression == node option = true;
+            if it.name && (it.name.name == "plan" || it.name.name == "json" || it.name.name == "batch") && it.expression == node option = true;
         }
 
         if !option array_add(*nodes, node);
