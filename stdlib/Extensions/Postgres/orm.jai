@@ -56,7 +56,9 @@ insert_many :: (db: $D, values: [] $T) -> [] T, Pg_Error {
 }
 
 // A select whose columns come from the loop that reads it: only the fields of `T` the body reads,
-// plus the primary key, are fetched; the other fields of `it` stay zero. When `it` is used whole
+// plus the primary key, are fetched; the other fields of `it` stay zero. A json document read only
+// for some top-level fields comes back with just those keys, and `it.author.email` (a to-one
+// relation) is fetched in the same statement, making `it` an `Orm_Item` that `using`s a `T`. When `it` is used whole
 // (passed to a procedure, stored, `*it`), every column is fetched. The query runs when the loop
 // starts, and a failure lands in `error` (which is cleared first). Strings in `it` read from the
 // result, which is freed when the loop ends: copy what you keep.
@@ -1381,7 +1383,7 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
             if columns {
                 for split(columns, ",",, temp) {
                     if it_index append(*sql.builder, ", ");
-                    append(*sql.builder, quote_identifier(it));
+                    orm_read_column(*sql, orm_read_entry(it));
                 }
             } else {
                 for orm_columns(T) {
@@ -1427,6 +1429,67 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
     }
 
     return sql;
+}
+
+// One selected column of `each`: a column, a json document cut down to the keys the loop reads
+// (`jsonb_each` keeps a key holding null apart from a missing one), or a related field.
+orm_read_column :: (sql: *Orm_Sql, entry: Orm_Read_Entry) {
+    if entry.relation {
+        orm_related_column(sql, null, .[entry.relation, entry.name], false);
+        print_to_builder(*sql.builder, " as %", quote_identifier(orm_relation_alias(entry)));
+        return;
+    }
+
+    column := quote_identifier(entry.name);
+
+    if !entry.pruned {
+        append(*sql.builder, column);
+        return;
+    }
+
+    // A column that cannot be NULL gets an expression the describe step also knows is never NULL.
+    nullable := orm_is_nullable(orm_member_type(sql.T, entry.name));
+
+    if !entry.fields.count {
+        if nullable print_to_builder(*sql.builder, "case when % is null then null else '{}'::jsonb end as %", column, column);
+        else print_to_builder(*sql.builder, "'{}'::jsonb as %", column);
+
+        return;
+    }
+
+    document := cast(*Type_Info_Struct) type_info(orm_json_document_type(sql.T, entry.name));
+
+    if nullable print_to_builder(*sql.builder, "case when % is null then null else ", column);
+
+    print_to_builder(*sql.builder, "coalesce((select jsonb_object_agg(orm_k, orm_v) from jsonb_each(%::jsonb) as orm_j(orm_k, orm_v) where orm_k in (", column);
+
+    for field: entry.fields {
+        if it_index append(*sql.builder, ", ");
+
+        for *document.members if it.name == field append(*sql.builder, orm_sql_string(json_key_of(it)));
+    }
+
+    append(*sql.builder, ")), '{}'::jsonb)");
+    if nullable append(*sql.builder, " end");
+
+    print_to_builder(*sql.builder, " as %", column);
+}
+
+// `text` as a SQL string literal.
+orm_sql_string :: (text: string) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    append(*builder, "'");
+
+    for text {
+        if it == #char "'" append(*builder, "''");
+        else append(*builder, it);
+    }
+
+    append(*builder, "'");
+
+    return builder_to_string(*builder);
 }
 
 // The body of `select`, `update` and `delete`: a constant per parameter for its type, then the
@@ -1502,7 +1565,9 @@ orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code
     return builder_to_string(*sql.builder);
 }
 
-// The body of `insert`.
+// The body of `each`'s loop. `columns` (from `orm_read_columns`) names what the body reads; the
+// rows are read into `Orm_Partial` and copied into `it`, a `T` (or an `Orm_Item` that `using`s one
+// and adds the related structs the body reads).
 orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, body: Code) -> string {
     columns := orm_read_columns(T, body);
     sql := orm_build(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql, .[], .[], columns);
@@ -1518,15 +1583,91 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
 
     orm_prelude(*builder, *sql);
 
-    names := ifx columns then split(columns, ",",, temp) else .[];
-    row_type := "T";
+    entries := ifx columns then split(columns, ",",, temp) else .[];
+    copies: String_Builder;
+    copies.allocator = temp;
+    relations: [..] string;
+    relations.allocator = temp;
+
+    // Declarations first: each pruned document's struct and each related field's type.
+    for text, index: entries {
+        entry := orm_read_entry(text);
+
+        if entry.relation {
+            relation_index := array_find_index(sql.relation_names, orm_relation_target_name(T, entry.relation));
+            print_to_builder(*builder, "Orm_F% :: #run orm_member_type(Orm_R%, %);\n", index, relation_index, jai_string(entry.name));
+            array_add_if_unique(*relations, entry.relation);
+        } else if entry.pruned {
+            print_to_builder(*builder, "Orm_D% :: #run orm_json_document_type(T, %);\n", index, jai_string(entry.name));
+            print_to_builder(*builder, "Orm_Doc% :: struct {\n", index);
+
+            for entry.fields {
+                print_to_builder(*builder, "    %1: type_of(Orm_D%2.%1) = #run orm_initial_value(Orm_D%2, %3, type_of(Orm_D%2.%1));", it, index, jai_string(it));
+                for orm_json_document_notes(T, entry.name, it) print_to_builder(*builder, " @%", it);
+                append(*builder, "\n");
+            }
+
+            append(*builder, "}\n");
+        }
+    }
 
     if columns {
         append(*builder, "Orm_Partial :: struct {\n");
-        for names print_to_builder(*builder, "    %: #run orm_member_type(T, %);\n", it, jai_string(it));
+
+        for entries {
+            entry := orm_read_entry(it);
+
+            if entry.relation {
+                print_to_builder(*builder, "    #if orm_is_nullable(Orm_F%) %: Orm_F%; else %: Nullable(Orm_F%);\n", it_index, orm_relation_alias(entry), it_index, orm_relation_alias(entry), it_index);
+            } else if entry.pruned {
+                nullable := orm_is_nullable(orm_member_type(T, entry.name));
+                print_to_builder(*builder, "    %: %Json(Orm_Doc%)%;\n", entry.name, ifx nullable then "Nullable(" else "", it_index, ifx nullable then ")" else "");
+            } else {
+                print_to_builder(*builder, "    %: #run orm_member_type(T, %);\n", entry.name, jai_string(entry.name));
+            }
+        }
+
         append(*builder, "}\n");
-        row_type = "Orm_Partial";
     }
+
+    for relation: relations {
+        print_to_builder(*builder, "Orm_Related_% :: struct {\n", relation);
+
+        for entries {
+            entry := orm_read_entry(it);
+            if entry.relation == relation print_to_builder(*builder, "    %: Orm_F%;\n", entry.name, it_index);
+        }
+
+        append(*builder, "}\n");
+    }
+
+    if relations {
+        append(*builder, "Orm_Item :: struct {\n    using orm_row: T;\n");
+        for relations print_to_builder(*builder, "    %: Orm_Related_%;\n", it, it);
+        append(*builder, "}\n");
+    }
+
+    for entries {
+        entry := orm_read_entry(it);
+        alias := orm_relation_alias(entry);
+
+        if entry.relation {
+            print_to_builder(*copies, "        #if orm_is_nullable(Orm_F%) it.%.% = orm_partial.%; else it.%.% = orm_partial.%.value;\n", it_index, entry.relation, entry.name, alias, entry.relation, entry.name, alias);
+        } else if entry.pruned {
+            document := entry.name;
+
+            if orm_is_nullable(orm_member_type(T, entry.name)) {
+                print_to_builder(*copies, "        it.%.null = orm_partial.%.null;\n", entry.name, entry.name);
+                document = tprint("%.value", entry.name);
+            }
+
+            for entry.fields print_to_builder(*copies, "        it.%.value.% = orm_partial.%.value.%;\n", document, it, document, it);
+        } else {
+            print_to_builder(*copies, "        it.% = orm_partial.%;\n", entry.name, entry.name);
+        }
+    }
+
+    row_type := ifx columns then "Orm_Partial" else "T";
 
     print_to_builder(*builder, "orm_rows, orm_error := query_as(%, q.db, #run orm_sql_text(T, .SELECT, where, order_by, where, %, %, %, %, Orm_Types, Orm_Relations, %)", row_type, desc, limit, offset, jai_string(from_sql), jai_string(columns));
     for sql.parameters print_to_builder(*builder, ", %", orm_argument(*sql, it_index));
@@ -1540,12 +1681,13 @@ if orm_error.kind != .NONE {
     defer free_rows(*orm_rows);
 
     for `it_index: 0..orm_rows.result.row_count - 1 {
-        `it: T;
 JAI);
 
+    print_to_builder(*builder, "        `it: %;\n", ifx relations then "Orm_Item" else "T");
+
     if columns {
-        append(*builder, "        orm_row: Orm_Partial;\n        orm_read := read_row(*orm_rows, it_index, *orm_row);\n");
-        for names print_to_builder(*builder, "        it.% = orm_row.%;\n", it, it);
+        append(*builder, "        orm_partial: Orm_Partial;\n        orm_read := read_row(*orm_rows, it_index, *orm_partial);\n");
+        append(*builder, builder_to_string(*copies));
     } else {
         append(*builder, "        orm_read := read_row(*orm_rows, it_index, *it);\n");
     }
@@ -1564,50 +1706,230 @@ JAI);
     return builder_to_string(*builder);
 }
 
-// The columns a loop body reads through `it.<field>`, plus the primary key, joined with commas in
-// the struct's order. Empty when it reads them all or uses `it` whole.
+// One entry of `orm_read_columns`' list: `column`, `column:field|field` (a json column of which
+// only those top-level fields are read) or `relation.field` (a field of a to-one relation).
+Orm_Read_Entry :: struct {
+    name: string; // the column, or the related struct's field
+    relation: string;
+    pruned: bool;
+    fields: [] string;
+}
+
+orm_read_entry :: (text: string) -> Orm_Read_Entry {
+    entry: Orm_Read_Entry;
+    dot := find_index_from_left(text, #char ".");
+    colon := find_index_from_left(text, #char ":");
+
+    if dot >= 0 {
+        entry.relation = slice(text, 0, dot);
+        entry.name = advance(text, dot + 1);
+    } else if colon >= 0 {
+        entry.name = slice(text, 0, colon);
+        entry.pruned = true;
+
+        rest := advance(text, colon + 1);
+        if rest entry.fields = split(rest, "|",, temp);
+    } else {
+        entry.name = text;
+    }
+
+    return entry;
+}
+
+orm_relation_alias :: (entry: Orm_Read_Entry) -> string {
+    return tprint("orm__%__%", entry.relation, entry.name);
+}
+
+orm_relation_target_name :: (T: Type, name: string) -> string {
+    relation := orm_relation(T, name);
+    return relation.target;
+}
+
+// What a loop body reads through `it`, as a comma-separated list of `Orm_Read_Entry` texts: the
+// columns (always the primary key) in the struct's order, then the related fields. A json column
+// whose document the body only reads top-level fields of (`it.settings.value.value.theme`) keeps
+// just those keys. Every column is listed when the body uses `it` whole; the list is empty when
+// that leaves nothing to prune or join.
 orm_read_columns :: (T: Type, body: Code) -> string {
     _, nodes := compiler_get_nodes(body);
 
-    uses := 0;
-    reads := 0;
-    wanted: [..] string;
-    wanted.allocator = temp;
+    // A chain `it.a.b.c` is nested `.` operators; the outermost one is not the left side of another.
+    inner: [..] *Code_Node;
+    inner.allocator = temp;
 
     for nodes {
-        if is_ident(it, "it") uses += 1;
         if it.kind != .BINARY_OPERATOR continue;
 
         binary := cast(*Code_Binary_Operator) it;
-        if binary.operator_type != #char "." || !is_ident(binary.left, "it") || !binary.right || binary.right.kind != .IDENT continue;
-
-        reads += 1;
-        array_add_if_unique(*wanted, (cast(*Code_Ident) binary.right).name);
+        if binary.operator_type == #char "." array_add(*inner, binary.left);
     }
 
-    if uses > reads return "";
+    Column_Read :: struct {
+        name: string;
+        whole: bool;
+        fields: [..] string;
+    }
+
+    uses := 0;
+    chains := 0;
+    reads: [..] Column_Read;
+    reads.allocator = temp;
+    related: [..] string;
+    related.allocator = temp;
+
+    for nodes {
+        if is_ident(it, "it") uses += 1;
+        if array_find(inner, it) continue;
+
+        path := orm_it_path(it);
+        if !path.count continue;
+
+        chains += 1;
+
+        member := member_of(T, path[0]);
+
+        if !member {
+            relation, problem := orm_relation(T, path[0]);
+            if !problem && relation.kind == .BELONGS_TO && path.count >= 2 {
+                array_add_if_unique(*related, tprint("%.%", path[0], path[1]));
+            }
+
+            continue;
+        }
+
+        read: *Column_Read;
+        for *reads if it.name == path[0] read = it;
+
+        if !read {
+            read = array_add(*reads);
+            read.name = path[0];
+            read.fields.allocator = temp;
+        }
+
+        field := orm_document_field(member, path);
+
+        if field == "" read.whole = true;
+        else if field != "null" array_add_if_unique(*read.fields, field);
+    }
+
+    whole := uses > chains;
 
     builder: String_Builder;
     builder.allocator = temp;
     count := 0;
+    pruned := false;
     columns := orm_columns(T);
 
-    for columns {
-        if !has_note(it, "pg_primary_key") && !array_find(wanted, it.name) continue;
+    for column: columns {
+        found: *Column_Read;
+        for *reads if it.name == column.name found = it;
+
+        if !whole && !found && !has_note(column, "pg_primary_key") continue;
 
         if count append(*builder, ",");
-        append(*builder, it.name);
+
+        append(*builder, column.name);
         count += 1;
+
+        if whole || !found || found.whole continue;
+
+        // Read only for its nullness or some fields of its document.
+        pruned = true;
+        append(*builder, ":");
+        for found.fields print_to_builder(*builder, "%1%2", ifx it_index then "|" else "", it);
     }
 
-    if count == columns.count return "";
+    if !pruned && !related.count && count == columns.count return "";
+
+    for related print_to_builder(*builder, ",%", it);
 
     return builder_to_string(*builder);
 }
 
+// `["a", "b", "c"]` for `it.a.b.c`; empty when `node` is not such a chain.
+orm_it_path :: (node: *Code_Node) -> [] string {
+    names: [..] string;
+    names.allocator = temp;
+
+    while node && node.kind == .BINARY_OPERATOR {
+        binary := cast(*Code_Binary_Operator) node;
+        if binary.operator_type != #char "." || !binary.right || binary.right.kind != .IDENT return .[];
+
+        array_insert_at(*names, (cast(*Code_Ident) binary.right).name, 0);
+        node = binary.left;
+    }
+
+    if !is_ident(node, "it") return .[];
+
+    return names;
+}
+
+// For a read `it.<column>...` of a json column holding a struct: the document's top-level field
+// it reads, "null" when it only reads the column's nullness, or "" when it needs the whole value.
+orm_document_field :: (member: *Type_Info_Struct_Member, path: [] string) -> string {
+    info := member.type;
+    at := 1;
+
+    if is_nullable_info(info) {
+        if path.count == at return "";
+        if path[at] == "null" return "null";
+        if path[at] != "value" return "";
+
+        info = nullable_value_type(info);
+        at += 1;
+    }
+
+    if !is_json_info(info) || path.count <= at || path[at] != "value" return "";
+
+    document := nullable_value_type(info);
+
+    at += 1;
+
+    if document.type != .STRUCT || path.count <= at return "";
+
+    for (cast(*Type_Info_Struct) document).members if it.name == path[at] && !(it.flags & .CONSTANT) return it.name;
+
+    return "";
+}
+
 orm_member_type :: (T: Type, name: string) -> Type {
     member := member_of(T, name);
+
+    if !member {
+        compiler_report(tprint("% has no field \"%\"", T, name));
+        return void;
+    }
+
     return get_type(member.type);
+}
+
+// The struct a json column holds: `Settings` for `Nullable(Json(Settings))`.
+orm_json_document_type :: (T: Type, column: string) -> Type {
+    info := member_of(T, column).type;
+    if is_nullable_info(info) info = nullable_value_type(info);
+
+    return get_type(nullable_value_type(info));
+}
+
+// The notes of a document field, so the pruned struct decodes it the same way.
+orm_json_document_notes :: (T: Type, column: string, field: string) -> [] string {
+    document := cast(*Type_Info_Struct) type_info(orm_json_document_type(T, column));
+
+    for document.members if it.name == field return it.notes;
+
+    return .[];
+}
+
+// A field's initial value in a fresh `Document`, for a field `@json(default)` leaves unset.
+orm_initial_value :: ($Document: Type, field: string, $Field: Type) -> Field {
+    document: Document;
+    value: Field;
+
+    for (cast(*Type_Info_Struct) type_info(Document)).members {
+        if it.name == field value = (cast(*Field) ((cast(*u8) *document) + it.offset_in_bytes)).*;
+    }
+
+    return value;
 }
 
 orm_copy_code :: (T: Type) -> string {

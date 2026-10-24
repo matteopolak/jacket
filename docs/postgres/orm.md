@@ -66,6 +66,19 @@ for Pg.each(db, User, *error, where = #code it.score >= min) print("%\n", it.ema
 
 `each` returns an `Orm_Each(D, T, where, order_by, ..., call)`: the query's constants live in the type, the connection and error pointer in the value. Its `for_expansion` gets the loop body as `Code` and `orm_read_columns` walks it for `it.<field>` reads. The statement selects those fields plus the `@pg_primary_key` ones, read into a generated `Orm_Partial` struct and copied into `it: T`; every other field of `it` stays zero. If the body uses `it` whole (passes it, stores it, takes `*it`), or reads every field, all columns are selected. An inner `for` that uses its own `it` counts as a whole use, so it also selects everything (still correct).
 
+Two more reads are cut down the same way:
+
+- **Inside a json document.** When the body reads only top-level fields of a `Json(S)` column's document (`it.settings.value.value.theme`, or `it.settings.null` alone), the column comes back as a smaller document holding just those keys:
+
+  ```sql
+  case when "settings" is null then null
+  else coalesce((select jsonb_object_agg(orm_k, orm_v) from jsonb_each("settings"::jsonb) as orm_j(orm_k, orm_v)
+                 where orm_k in ('theme')), '{}'::jsonb) end as "settings"
+  ```
+
+  It decodes into a generated struct with only the read fields, which keep their notes and initial values, so `@json(default)`, renames and `Json_Maybe`'s missing-versus-null behave as on the full struct. A key the document lacks stays missing. A non-null column skips the `case`, so the describe step still sees it as non-null. Any other use of the column (the whole document, `.write`, a deeper value than one field) fetches it whole.
+- **Through a to-one relation.** `it.author.email` in the body (for a `@pg_belongs_to` relation `author`) adds the filter's scalar subquery to the select list as `"orm__author__email"`. `it` is then an `Orm_Item`: a struct that `using`s `T` (as `it.orm_row`) and has one member per relation read, holding the fields read (`it.author.email`). A missing related row leaves them zero. Pass `it.orm_row` where a `T` is wanted. One level only: `it.author.team.name` is not read this way (use `load_one`).
+
 The query runs when the loop starts; a failure goes to `error` and the body never runs. The result is freed when the loop ends, so strings read from `it` must be copied to outlive it.
 
 ### Relations
@@ -95,7 +108,7 @@ The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`
   - The filter is walked as written, so a parameter expression is evaluated once per call, in the caller's scope.
   - Inside an `#expand` macro, `return f()` of a two-value call crashes the compiler today. The generated code binds the results to locals first.
   - A `Nullable(T)` zero value is not null (`null` defaults to `false`).
-- **Not yet built** (see the design): pruning inside documents (`it.settings.theme` fetches the whole `settings`), relations read inside the loop body without an explicit `load_*` call (`it` is a `T`, which has no relation fields), relations on several columns in `load_*`, and switching `insert_many` itself to COPY (it returns the stored rows, which COPY cannot).
+- **Not yet built** (see the design): relations on several columns in `load_*`, and switching `insert_many` itself to COPY (it returns the stored rows, which COPY cannot).
 
 ## Configuration
 
